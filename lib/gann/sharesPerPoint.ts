@@ -29,6 +29,7 @@
 import type { Bar } from "@/lib/types";
 import { buildCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { etDateKey } from "@/lib/market/session";
 
 export const TOP_WARNING_RATIO = 1.7;
 export const NEAR_HIGH_PCT = 3;
@@ -50,7 +51,20 @@ function perPoint(bars: Bar[], from: number, to: number): number | null {
   return vol / points;
 }
 
-export function readSharesPerPoint(daily: Bar[], campaign?: CampaignLedger | null): SharesPerPointReading | null {
+/**
+ * With `asOf`, completed sessions only: the session still trading has part of
+ * its volume and an intraday price, and the replay never holds it (item 8
+ * review M3). Only the last bar or two can be today's, so they are dropped
+ * from the end.
+ */
+export function readSharesPerPoint(all: Bar[], campaign?: CampaignLedger | null, asOf?: Date): SharesPerPointReading | null {
+  let end = all.length;
+  if (asOf) {
+    const today = etDateKey(asOf);
+    while (end > 0 && etDateKey(new Date(all[end - 1].t)) >= today) end--;
+  }
+  const daily = end === all.length ? all : all.slice(0, end);
+  if (daily.length === 0) return null;
   const ledger = campaign === undefined ? buildCampaignLedger(daily) : campaign;
   if (!ledger || ledger.trend !== "bullish") return null;
   // Sections of the weekly chart (item 8 map FV11): Gann compares moves of

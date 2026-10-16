@@ -389,6 +389,8 @@ describe("a retracement reached at its angle's time (C-TIME-39, W031) and half t
       }
     }
     expect(hit / n).toBeLessThan(DEFAULT_SATURATION_BOUNDS.maxPassRate);
+    // Measured at about 0.8 (item 8 review L3); a regression toward the bound fails here first.
+    expect(hit / n).toBeLessThan(0.85);
   });
 
   it("counts a turn due against the trade and records it on the card", () => {

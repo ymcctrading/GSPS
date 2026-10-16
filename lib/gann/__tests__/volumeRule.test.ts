@@ -261,6 +261,40 @@ describe("secondary moves on smaller volume, not only retests (FV1, FV3)", () =>
     }
   });
 
+  it("does not count the low's own week as the advance into the top", () => {
+    // A selling climax: the week of the low at 80 is the heaviest since the first top.
+    const b = lowerSecondaryTop(700, [800, 800, 800, 800, 800]).map((x, k) => (k >= 40 && k < 45 ? { ...x, v: 6000 } : x));
+    const high = computeVolumeClimax(b).find((r) => r.anchorKind === "high")!;
+    expect(high.heavyAdvance).toBe(false);
+  });
+
+  it("keeps the heaviest week before a top rare on random walks", () => {
+    // Pre-registered bound: read against every weekly top instead of the last
+    // major one, this passed about 80% of random-walk tops; it reads about 30%.
+    let hits = 0;
+    let reads = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      let s = seed >>> 0;
+      const rand = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0), s / 2 ** 32);
+      let p = 100;
+      const t0 = Date.UTC(2020, 0, 6, 5);
+      const all: Bar[] = [];
+      for (let i = 0; i < 600; i++) {
+        p *= 1 + (rand() - 0.5) * 0.05;
+        const v = 1e6 * (rand() < 0.03 ? 6 : 1) * Math.exp((rand() - 0.5) * 0.6);
+        all.push({ t: new Date(t0 + (Math.floor(i / 5) * 7 + (i % 5)) * 86_400_000).toISOString(), o: p, h: p * 1.01, l: p * 0.99, c: p, v });
+      }
+      for (let end = 300; end <= 600; end += 20) {
+        const high = computeVolumeClimax(all.slice(0, end)).find((r) => r.anchorKind === "high");
+        if (!high) continue;
+        reads++;
+        if (high.heavyAdvance) hits++;
+      }
+    }
+    expect(reads).toBeGreaterThan(100);
+    expect(hits / reads).toBeLessThan(0.5);
+  });
+
   it("does not when the heaviest week does not stand out", () => {
     const high = computeVolumeClimax(lowerSecondaryTop(700, [1500, 1500, 1500, 1500, 900])).find((r) => r.anchorKind === "high")!;
     expect(high.heavyAdvance).toBe(false);
@@ -345,31 +379,71 @@ describe("the smallest monthly volume in years (A-VOLUME-09)", () => {
     Array.from({ length: n }, (_, i) => ({ t: new Date(Date.UTC(2021, 1 + i, 1, 5)).toISOString(), o: 100, h: 101, l: 99, c: 100, v: vol(i) }));
   // 61 months, February 2021 to February 2026; February 2026 is in progress on the 20th.
   const asOf = new Date("2026-02-20T15:00:00Z");
-  const quietLow = declineThenRally({ volume: 1000, range: 2 });
+  /** A half-year decline from 200 to a low of 100 on `lowDay`, then eight sessions of rally, one bar a calendar day. */
+  const bottomOn = (lowDay: string, from = 200): Bar[] => {
+    const t0 = Date.parse(`${lowDay}T05:00:00Z`) - 160 * 86_400_000;
+    const closes = [...Array.from({ length: 160 }, (_, i) => from - ((from - 100) * i) / 160), 100, ...Array.from({ length: 8 }, (_, i) => 101 + i)];
+    return closes.map((c, i) => ({ t: new Date(t0 + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 }));
+  };
+  const quietLow = bottomOn("2026-01-10");
+  const quietJanuary = months(61, (i) => (i === 59 ? 1e5 : i === 60 ? 1e3 : 1e6));
+  const lowOf = (b: Bar[], monthly = quietJanuary) => computeVolumeClimax(b, 20, { monthly, asOf }).find((r) => r.anchorKind === "low")!;
 
-  it("confirms a low when the last completed month traded the least of five years", () => {
-    const monthly = months(61, (i) => (i === 59 ? 1e5 : i === 60 ? 1e3 : 1e6));
-    const low = computeVolumeClimax(quietLow, 20, { monthly, asOf }).find((r) => r.anchorKind === "low")!;
+  it("confirms a bottom printed in the last completed month, which traded the least of five years", () => {
+    const low = lowOf(quietLow);
+    expect(low.anchorPrice).toBe(99);
     expect(low.dryingUp || low.climax || low.retestOnLowerVolume).toBe(false);
     expect(low.volumeExtremeLow).toBe(true);
     expect(low.confirms).toBe(true);
   });
 
   it("does not count the month in progress, however small", () => {
-    const monthly = months(61, (i) => (i === 60 ? 1e3 : 1e6 + i));
-    expect(computeVolumeClimax(quietLow, 20, { monthly, asOf }).find((r) => r.anchorKind === "low")!.volumeExtremeLow).toBe(false);
+    expect(lowOf(quietLow, months(61, (i) => (i === 60 ? 1e3 : 1e6 + i))).volumeExtremeLow).toBe(false);
   });
 
   it("needs three years of months, and reads only the last five", () => {
-    expect(computeVolumeClimax(quietLow, 20, { monthly: months(61, (i) => (i === 59 ? 1e5 : 1e6)).slice(-35), asOf }).find((r) => r.anchorKind === "low")!.volumeExtremeLow).toBe(false);
+    expect(lowOf(quietLow, quietJanuary.slice(-35)).volumeExtremeLow).toBe(false);
     // An even smaller month six years back does not count against it.
-    const monthly = [{ ...months(1, () => 1)[0], t: new Date(Date.UTC(2020, 0, 1, 5)).toISOString() }, ...months(61, (i) => (i === 59 ? 1e5 : 1e6))];
-    expect(computeVolumeClimax(quietLow, 20, { monthly, asOf }).find((r) => r.anchorKind === "low")!.volumeExtremeLow).toBe(true);
+    const monthly = [{ ...months(1, () => 1)[0], t: new Date(Date.UTC(2020, 0, 1, 5)).toISOString() }, ...quietJanuary];
+    expect(lowOf(quietLow, monthly).volumeExtremeLow).toBe(true);
+  });
+
+  it("reads the five years as sixty months, not fewer", () => {
+    // A smaller month 59 months before the quiet one is inside the five years.
+    const monthly = months(61, (i) => (i === 59 ? 1e5 : i === 0 ? 1e4 : 1e6));
+    expect(lowOf(quietLow, monthly).volumeExtremeLow).toBe(false);
+    expect(lowOf(quietLow, months(61, (i) => (i === 59 ? 1e5 : i === 0 ? 1e5 : 1e6))).volumeExtremeLow).toBe(false);
+  });
+
+  it("ties the quiet month to the low: up to two months after it, or the month before the low's own month", () => {
+    expect(lowOf(bottomOn("2025-11-12")).volumeExtremeLow).toBe(true);
+    expect(lowOf(bottomOn("2025-10-20")).volumeExtremeLow).toBe(false);
+    expect(lowOf(bottomOn("2026-02-04")).volumeExtremeLow).toBe(true);
+  });
+
+  it("does not read a quiet month as a bottom where the low is not one (item 8 review H1)", () => {
+    // A rising market whose share volume falls as the price rises: the last
+    // low is a higher low near the high, with lower lows in the half year before it.
+    const up: Bar[] = [];
+    const t0 = Date.parse("2025-07-01T05:00:00Z");
+    for (let i = 0; i < 200; i++) {
+      const c = 100 + i * 0.5 + 6 * Math.sin((2 * Math.PI * i) / 20);
+      up.push({ t: new Date(t0 + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: Math.round(1e7 / c) });
+    }
+    const low = lowOf(up.filter((b) => b.t < "2026-01-20"));
+    expect(Date.parse(up[0].t) + 126 * 86_400_000).toBeLessThan(Date.parse("2026-01-01"));
+    expect(low.volumeExtremeLow).toBe(false);
+  });
+
+  it("reads a bottom as the lowest of the half year before it", () => {
+    // A lower low 120 sessions before: not a bottom; 130 sessions before: outside the half year.
+    const at = (k: number) => quietLow.map((b, i) => (i === k ? { ...b, l: 90 } : b));
+    expect(lowOf(at(160 - 120)).volumeExtremeLow).toBe(false);
+    expect(lowOf(at(160 - 130)).volumeExtremeLow).toBe(true);
   });
 
   it("never reads a high as a volume-extreme bottom", () => {
-    const monthly = months(61, (i) => (i === 59 ? 1e5 : 1e6));
-    const high = computeVolumeClimax(rallyThenDecline({ volume: 1000, range: 2 }), 20, { monthly, asOf }).find((r) => r.anchorKind === "high")!;
+    const high = computeVolumeClimax(rallyThenDecline({ volume: 1000, range: 2 }), 20, { monthly: quietJanuary, asOf }).find((r) => r.anchorKind === "high")!;
     expect(high.volumeExtremeLow).toBe(false);
   });
 });

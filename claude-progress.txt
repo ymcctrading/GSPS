@@ -616,3 +616,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Fixtures: crossings out of a range now carry heavier volume (rule-induced); the replay-reaction short fixture is the falling market mirrored (a trend, so its in-session crossing still fills); the usePlanLevels test moved to the old-bottom buy; new tests for the hold. Lesson line in Academy 4's entry lesson.
 - Mutations R1, R2, G1, G2, C1, C2 killed. Full suite 2882 pass. STRATEGY_VERSION 2026-10-16-gann-breakaway-volume. Replay owed (after run 48).
 - Fresh item 8 review back (scratchpad item8_review.md): H1 A-VOLUME-09 not tied to the low; M1 wiring untested; M2 FV4 saturation guard untested and >= vs >; M3 sharesPerPoint reads the forming session live. Next.
+
+## 2026-10-16 Item 8 review fixes (docs/gann-feature-map/item8_review.md)
+- H1 (A-VOLUME-09): the smallest month in five years now confirms only a bottom (no lower low in the 126 sessions before it, half a year; both of Gann's cases qualify) printed in the quiet month, up to two months before it (Sep 1934 after July's low), or in the month since. Tests on a real half-year decline, the reviewer's uptrend-with-falling-share-volume case as a negative, the lead window and the 60-month span. Mutations H1a-f and V11 killed.
+- M2 (FV4): heaviest > low (the low's own week is not the advance); a selling-climax fixture; a random-walk base-rate pin (< 0.5, reads ~0.3) that fails without majorPivots. V13, V16 killed. Header labels heavyAdvance confirming any strength-4 high.
+- M3 (A-VOLUME-11): readSharesPerPoint drops the session still trading when given asOf; disclosedRules passes it. Part-session test.
+- M1: lib/scan/__tests__/volumeClimaxWiring.test.ts: replay and live scan at runtime, the coarse pass, confluence card, context ratio and shares-per-point by source. W01-W06, M3a killed.
+- L2: bear-low guard (a low older than the year read is not a bear low) and the unread clauses labelled; L3: C-TIME-23 pinned under 0.85; L4: staleness and crypto notes in the header.
+- passes flipped on the reviewer's PASS: A-VOLUME-12, A-TIME-21, A-TIME-06, C-TIME-09, C-TIME-23. A-VOLUME-05/-06/-07/-13 wait on the replay; -09 and -11 on a re-review; -03 and -10 on FV7 and step 4's replay.
+- STRATEGY_VERSION 2026-10-16-gann-volume-review. Full suite 2892 pass.

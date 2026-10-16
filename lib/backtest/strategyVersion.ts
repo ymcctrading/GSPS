@@ -194,4 +194,8 @@
 // completed session closed past the crossing line on more than the range's
 // mean volume (A-VOLUME-10), at confirmation live (readEntryConfirmationNow)
 // and in the replay's reaction rule; buys resting at a level are exempt.
-export const STRATEGY_VERSION = "2026-10-16-gann-breakaway-volume";
+// Item 8 review, same day: the smallest month in five years confirms only a
+// bottom (the lowest of the half year before it) printed in or up to two months
+// before that month, or in the month since (H1); the heaviest week before a top
+// must come after the low's week, not in it (M2).
+export const STRATEGY_VERSION = "2026-10-16-gann-volume-review";

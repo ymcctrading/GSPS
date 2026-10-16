@@ -57,10 +57,26 @@
  *   tops and was dropped.
  * - A low also confirms when the last completed month traded the least of the
  *   last five years (FV5; W006 pp.43-44 and Master Course Ch.12: the smallest
- *   volume in years, "a sure sign of bottom"). Needs the monthly bars; the
- *   live coarse pre-filter has none, so only the full scan reads it.
+ *   volume in years, "a sure sign of bottom"), the low is a bottom (the lowest
+ *   of the half year before it) and it was printed in that month, up to two
+ *   months before it, or in the month since. Both conditions tie the quiet
+ *   month to a bottom: without them an uptrend whose share volume falls as
+ *   the price rises read "a sign of bottom" near its high (item 8 review H1).
+ *   Needs the monthly bars; the live coarse pre-filter has none, so only the
+ *   full scan reads it.
  * - Completed sessions only, when `asOf` is given: a session still trading
  *   has part of its volume. The live scan and the replay pass it.
+ * Not read, labelled: Rule 1/7's "sharp" decline (only "heavy" is read);
+ * Rule 4's advance after the higher low is read on its volume alone, not on
+ * price advancing; A-VOLUME-06's rally "on fair volume" between the panic low
+ * and the secondary low. The heaviest week before a top confirms any
+ * strength-4 high it precedes, not only a final top: Gann's "often comes
+ * before the final top" can't be told from "before a top" until later.
+ * After the close, and on a weekend, the trims read through the last session
+ * before the day being read, one session (or week) stale but the same on the
+ * scan and the replay. Crypto daily bars are not read by the scored rule's
+ * week comparisons as a separate case; a 7-day week can put two pivots in one
+ * week, which then compare at exactly 1 (never smaller).
  * Engineering choices, labelled: "heavy" decline = its mean volume above the
  * `lookback` sessions before the first top; the bear low = the lowest of the
  * last `BEAR_LOW_SESSIONS` sessions read; "much less" = `PANIC_SECONDARY_RATIO`;
@@ -168,7 +184,7 @@ export interface VolumeClimaxReading {
   panicSecondary?: boolean;
   /** A high: the heaviest week since the last major top came in the advance into this one, and stood out (FV4 b). See `heaviestWeekBeforeTop`. */
   heavyAdvance?: boolean;
-  /** A low: the last completed month traded the least of the last five years (A-VOLUME-09). */
+  /** A bottom printed near the last completed month, which traded the least of the last five years (A-VOLUME-09). */
   volumeExtremeLow?: boolean;
   /** Gann's volume rule for this kind of turn holds (see the module header). */
   confirms: boolean;
@@ -181,6 +197,10 @@ export const BEAR_LOW_SESSIONS = 252;
 /** "In years": the completed months read for the smallest monthly volume, and the fewest that will do. */
 export const EXTREME_LOW_MONTHS = 60;
 export const EXTREME_LOW_MIN_MONTHS = 36;
+/** The quiet month may come up to this many months after the low it confirms (Sep 1934 after July's bottom). */
+export const EXTREME_LOW_LEAD_MONTHS = 2;
+/** A bottom: the lowest low of this many sessions before it, half a year. */
+export const BOTTOM_SESSIONS = 126;
 /**
  * Weeks read for the heaviest week before a top: 48, inside the live scan's
  * year of daily bars (fetched 365 days back, so its first week may be a part
@@ -229,8 +249,15 @@ function meanVolume(bars: Bar[], from: number, to: number): number {
   return mean(bars.slice(Math.max(0, from), to + 1).map((b) => b.v));
 }
 
-/** The last completed month traded the least of the last `EXTREME_LOW_MONTHS` completed months. */
-export function smallestMonthInYears(monthly: Bar[] | null | undefined, asOf: Date | undefined): boolean {
+/**
+ * The last completed month traded the least of the last `EXTREME_LOW_MONTHS`
+ * completed months, and the low being read was printed near it: in that
+ * month, in the `EXTREME_LOW_LEAD_MONTHS` months before it, or in the month
+ * since (`lowMonth`, "YYYY-MM"). Gann's cases are a low printed on the quiet
+ * month (Feb 1933) and a quiet month just after a bottom (Sep 1934, after
+ * July's low); a quiet month far from the low says nothing about it.
+ */
+export function smallestMonthInYears(monthly: Bar[] | null | undefined, asOf: Date | undefined, lowMonth?: string): boolean {
   // Without the session being read, the month in progress can't be told apart, so nothing is read.
   if (!monthly || !asOf) return false;
   const current = etDateKey(asOf).slice(0, 7);
@@ -240,7 +267,27 @@ export function smallestMonthInYears(monthly: Bar[] | null | undefined, asOf: Da
   const done = monthly.filter((m) => m.t.slice(0, 7) < current).slice(-EXTREME_LOW_MONTHS);
   if (done.length < EXTREME_LOW_MIN_MONTHS) return false;
   const last = done[done.length - 1].v;
-  return last > 0 && done.slice(0, -1).every((m) => m.v > last);
+  if (!(last > 0 && done.slice(0, -1).every((m) => m.v > last))) return false;
+  if (lowMonth === undefined) return true;
+  const quiet = done[done.length - 1].t.slice(0, 7);
+  const gap = monthIndex(quiet) - monthIndex(lowMonth);
+  return gap >= -1 && gap <= EXTREME_LOW_LEAD_MONTHS;
+}
+
+/** Months since year 0, from a "YYYY-MM" key. */
+function monthIndex(key: string): number {
+  return Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+}
+
+/**
+ * A bottom: no lower low in the `BOTTOM_SESSIONS` sessions before it (half a
+ * year, Gann's 26 weeks; both of his cases qualify, Feb 1933's low the lowest
+ * since July 1932 and July 1934's since October 1933). An engineering choice,
+ * labelled: Gann names the market "at a low", not a lookback.
+ */
+function isBottom(bars: Bar[], index: number, price: number): boolean {
+  if (index < BOTTOM_SESSIONS) return false;
+  return bars.slice(index - BOTTOM_SESSIONS, index).every((b) => b.l > price);
 }
 
 /**
@@ -281,7 +328,7 @@ export function heaviestWeekBeforeTop(bars: Bar[], index: number): boolean {
   if (since.length < 2) return false;
   const low = since.reduce((m, w, i) => (w.l < since[m].l ? i : m), 0);
   const heaviest = since.reduce((m, w, i) => (w.v > since[m].v ? i : m), 0);
-  return heaviest >= low && since[heaviest].v > VOLUME_CLIMAX_THRESHOLD * mean(since.map((w) => w.v));
+  return heaviest > low && since[heaviest].v > VOLUME_CLIMAX_THRESHOLD * mean(since.map((w) => w.v));
 }
 
 export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeClimaxOptions = {}): VolumeClimaxReading[] {
@@ -343,7 +390,9 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
           // low on less volume than that advance, then a heavier advance.
           // The year is the last `BEAR_LOW_SESSIONS` sessions read, so a year of
           // history and six give the same answer.
-          const bearLow = bars.slice(Math.max(0, bars.length - BEAR_LOW_SESSIONS), previous.index).every((b) => b.l > previous.price);
+          const start = Math.max(0, bars.length - BEAR_LOW_SESSIONS);
+          // A low older than the year read has no year before it to be the lowest of.
+          const bearLow = previous.index >= start && bars.slice(start, previous.index).every((b) => b.l > previous.price);
           const advance = meanVolume(bars, previous.index + 1, mid);
           const reaction = meanVolume(bars, mid + 1, anchor.index);
           const after = meanVolume(bars, anchor.index + 1, bars.length - 1);
@@ -357,7 +406,10 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
       }
     }
     if (kind === "high") heavyAdvance = heaviestWeekBeforeTop(bars, anchor.index);
-    const volumeExtremeLow = kind === "low" && smallestMonthInYears(opts.monthly, opts.asOf);
+    const volumeExtremeLow =
+      kind === "low" &&
+      isBottom(bars, anchor.index, anchor.price) &&
+      smallestMonthInYears(opts.monthly, opts.asOf, etDateKey(new Date(bars[anchor.index].t)).slice(0, 7));
     const confirms =
       kind === "low"
         ? dryingUp || retestOnLowerVolume || climax || secondaryOnLowerVolume || panicSecondary || volumeExtremeLow

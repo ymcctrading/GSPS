@@ -114,6 +114,17 @@ describe("shares per point: the top warning", () => {
     expect(r.topWarning).toBe(true);
   });
 
+  it("does not read the session still trading (item 8 review M3)", () => {
+    const done = bars(steppingCampaign(8));
+    const day = new Date(Date.parse(done[done.length - 1].t) + 86_400_000).toISOString().slice(0, 10);
+    const last = done[done.length - 1];
+    // Today's part session: heavy so far, and a point higher.
+    const today: Bar = { ...last, t: `${day}T05:00:00Z`, c: last.c + 1, h: last.c + 1.5, v: 5e7 };
+    const asOf = new Date(`${day}T15:00:00Z`);
+    expect(readSharesPerPoint([...done, today], undefined, asOf)).toEqual(readSharesPerPoint(done, undefined, asOf));
+    expect(readSharesPerPoint([...done, today])!.ratio).not.toBeCloseTo(readSharesPerPoint(done)!.ratio, 3);
+  });
+
   it("does not warn when volume per point is unchanged", () => {
     const r = readSharesPerPoint(bars(steppingCampaign(8)))!;
     expect(r).not.toBeNull();

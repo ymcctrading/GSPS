@@ -159,7 +159,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/bearDuration.test.ts — a projector anchored on a major top flags months 30-36 and 40-43 after it as bottom windows.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-07",
@@ -294,7 +294,7 @@
     "class": "A",
     "gsps_location": "lib/gann/angleMonthCounts.ts:monthsElapsed — differs: the helper exists but nothing lists month counts from every prior pivot",
     "test": "TO WRITE: lib/gann/__tests__/angleMonthCounts.test.ts — given the five coffee pivots and 19 Mar 1954, a month-count list returns 9, 2, 6 and 5 months from the respective pivots.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-22",
@@ -897,7 +897,7 @@
     "class": "A",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/capitalStock.test.ts — a week whose volume is the largest since the last major top is flagged as a top warning.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-VOLUME-13",
@@ -1860,7 +1860,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timeConvergence.ts:readTiming (square144: months on a multiple of 12); lib/gann/squareOf52.ts:squareOf52Windows (26 weeks) — differs: no explicit 6-, 12- and 144-month count",
     "test": "TO WRITE: lib/gann/__tests__/extremeTiming.test.ts — readTiming lists 'months' in square144.units when 144 months have elapsed since the extreme.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-10",
@@ -2040,7 +2040,7 @@
     "class": "C",
     "gsps_location": "none",
     "test": "TO WRITE: lib/gann/__tests__/timePriceSquare.test.ts — a reading flags price at rangeMidpoint within a pre-registered tolerance of the swing's time midpoint.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-SWING-03",
