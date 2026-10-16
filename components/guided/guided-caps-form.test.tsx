@@ -25,7 +25,7 @@ describe("GuidedCapsForm", () => {
   it("shows the capital rules as fixed, with no trade-count, deployed or budget fields", async () => {
     render(<GuidedCapsForm />);
     await waitFor(() => expect(screen.getByText("Capital rules")).toBeInTheDocument());
-    expect(screen.getByText(/At most 3 markets/)).toBeInTheDocument();
+    expect(screen.getByText(/At most 5 stocks/)).toBeInTheDocument();
     expect(screen.queryByText(/dollar budget/)).not.toBeInTheDocument();
     expect(screen.queryByText(/per day/)).not.toBeInTheDocument();
     expect(screen.getAllByRole("spinbutton")).toHaveLength(1);

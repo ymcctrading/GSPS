@@ -1,10 +1,12 @@
 /**
  * Which of Gann's buying points priced a plan, as every surface that places,
  * confirms, stores or exits it reads the kind (PLAN.md item 5):
- * - `crossing`: a close 3 points past the old top arms it; the order rests
- *   1 point past the level for the reaction (W006 pp.20, 46-47).
- * - `oldLevel`: the order rests at the old bottom itself, the double or
- *   triple bottom (pp.11, 20, 46).
+ * - `crossing`: a close 3 points past the old top arms it; the buy is on the
+ *   reaction to 1 point past the level (W006 pp.20, 46-47).
+ * - `oldLevel`: the buy is at the old bottom itself, the double or triple
+ *   bottom (pp.11, 20, 46).
+ * Each is bought at the market once a closed bar has traded into its zone
+ * (never-failing rule 9, `gannBuyZone`), not with a resting limit.
  * - `hold`: a bottom that has held, bought at the last close (pp.20, 24,
  *   46-47; step 4).
  * Shorts mirror each where Gann states the mirror. Kept free of imports so

@@ -62,8 +62,9 @@
  * a close at 53 crosses it, buy the reaction at 51, stop at 47 (W006 pp.20,
  * 46-47). The plan's entry is the level plus 1 point and its stop the level
  * less 3, so the crossing line is recovered from the two (`gannBreakLine`).
- * The entry is ready on the closing break; the order then rests as a limit at
- * the entry and the reaction fills it. The four-stage sequence above remains
+ * The plan arms on the closing break; placement then waits for a closed bar
+ * to react into the buying zone and buys at the market (never-failing rule
+ * 9, `lib/lifecycle/confirmNow.ts`). The four-stage sequence above remains
  * for the replay's `"confirmed"` rule, so the two can be measured side by side.
  */
 
@@ -93,8 +94,8 @@ export interface EntryConfirmationRule {
    * item 4, W006 pp.20, 46-47) rather than the retest-and-hold sequence:
    * `entryTrigger` is the level plus 1 point, this stop the level less 3,
    * and the entry is ready once a closed bar closes at or past the level plus
-   * 3 points (`gannBreakLine`). The order then rests as a limit at
-   * `entryTrigger` and fills on the reaction. Every production path passes
+   * 3 points (`gannBreakLine`). Placement then buys at the market once a
+   * closed bar reacts into the zone from `entryTrigger` (rule 9). Every production path passes
    * it; the replay's `"confirmed"` rule and the intraday replay don't, so
    * the older sequence can still be measured.
    */
@@ -144,7 +145,8 @@ export function advanceEntryConfirmation(
   if (rule.stopPrice != null) {
     // Gann's crossing: the touch and the closing break may be the same bar,
     // since "a close at 53 crosses 50" is one event. Once broken, the entry
-    // is ready: the reaction is bought with a resting limit, not here.
+    // is ready: the reaction into the zone is bought at the market at
+    // placement (rule 9, `confirmationFromBars`), not here.
     const line = gannBreakLine(trigger, rule.stopPrice);
     if (next.touchedAt == null && (up ? bar.h >= line : bar.l <= line)) {
       next = { ...next, touchedAt: bar.t, touchedPrice: up ? bar.h : bar.l };
@@ -220,8 +222,8 @@ export function advanceEntryConfirmation(
  * `plan.state`, which this function doesn't have), does.
  */
 export function entryReady(evidence: EntryConfirmationEvidence): boolean {
-  // Gann's reaction rule confirms on the break alone (its limit order waits
-  // for the reaction); the retest-and-hold rule needs all four stages. Each
+  // Gann's reaction rule confirms on the break alone (placement waits for the
+  // reaction into the zone); the retest-and-hold rule needs all four stages. Each
   // rule sets `entryConfirmedAt` only when its own sequence is complete.
   return (
     evidence.touchedAt != null &&

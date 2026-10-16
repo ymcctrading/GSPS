@@ -34,8 +34,10 @@ export function guidedOrder(input: {
     assetClass: "equity",
     side: input.side,
     qty: input.qty,
-    // At the protocol's entry price, exactly as the "Protocol Recommended" path
-    // does from the ticket, never a market order at whatever is on the screen.
+    // The protocol's entry, exactly as the "Protocol Recommended" path does
+    // from the ticket. Placement confirms a closed bar has traded into its
+    // buying zone, then buys at the market (never-failing rule 9), never on
+    // whatever is on the screen before that.
     entryMode: "advised",
     limitPrice: levels.entry,
     // The protocol's own pair: the confirmation reads its line from these.

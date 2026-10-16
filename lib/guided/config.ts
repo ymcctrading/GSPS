@@ -29,8 +29,8 @@ export const MAX_RISK_PCT = 2;
  * Guided Mode's trade-count, deployed-percent and per-trade budget caps were
  * retired on 2026-10-16 (owner, "Switch all nine", Q12) for Gann's own capital
  * rules, the same ones every order path checks (`lib/risk/gannCapital.ts`):
- * 30 points of capital behind every share held (A-RISK-01), at most three
- * markets open at once (A-RISK-08), and the three-loss pause
+ * 30 points of capital behind every share held (A-RISK-01), at most five
+ * stocks open at once (A-RISK-08), and the three-loss pause
  * (`lib/risk/lossSeries.ts`). Gann sets no daily trade count (Q8: his capital
  * ceilings plus the loss pause, no daily cap).
  */

@@ -30,6 +30,7 @@ import {
   logPlainClose,
   quoteOptionPrice,
   quotePrice,
+  STARTING_CASH,
 } from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -44,7 +45,8 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
-import { capitalRuleRefusal } from "@/lib/risk/gannCapital";
+import { capitalRuleRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
@@ -182,12 +184,21 @@ async function lossSeriesRefusal(
  *
  * The confirmation is Gann's own since PLAN.md item 4 (2026-10-15, owner:
  * "GSPS should be a 1 for 1 implementation of Gann's methodology"): a close 3
- * points past the old level crosses it, and the order then rests as a limit
- * at the level plus 1 point, filling on the reaction, with the stop 3 points
- * the other side (W006 pp.20, 46-47). It replaces the retest-and-hold
+ * points past the old level crosses it, and the buy is on the reaction into
+ * the zone from the level plus 1 point down to 1 point short of the stop, 3
+ * points the other side (W006 pp.20, 46-47). It replaces the retest-and-hold
  * sequence measured on 2026-09-26 (+0.190R vs −0.155R for the resting
- * stop-entry). See `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null
- * to proceed.
+ * stop-entry). See `lib/lifecycle/confirmNow.ts`.
+ *
+ * Never-failing rule 9 (2026-10-16): "Never limit your orders or fix a buying
+ * or selling price. Trade at the market" (*Commodities* rule 9, pp.43-45, and
+ * p.19; W021 PDF p.124). The confirmation is ready only once a closed bar has
+ * traded into that zone, and the order then goes at the market (`atMarket`),
+ * not as a limit at a fixed figure. This holds for the protocol's entry: a
+ * plan (other than a stop-and-reverse plan, which keeps the retest-and-hold
+ * sequence) or an advised order sent with the protocol's `entryStop`. A limit
+ * the person priced themselves, with no protocol stop sent, stays a limit:
+ * it is their order, not the platform's entry.
  */
 /**
  * Gann's risk cap: never risk more than 5 points on a trade (W006 pp.20,
@@ -216,18 +227,34 @@ export function riskCapRefusal(
   };
 }
 
+type ConfirmationInput = Pick<
+  OrderInput,
+  "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "entryTarget" | "referencePrice"
+>;
+
+/** Returns a refusal, or null to proceed. */
 export async function entryConfirmationRefusal(
   supabase: SupabaseClient,
   userId: string,
-  input: Pick<
-    OrderInput,
-    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "entryTarget" | "referencePrice"
-  >,
+  input: ConfirmationInput,
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
-  if (input.assetClass === "option") return null;
+  return (await confirmEntry(supabase, userId, input)).refusal;
+}
+
+/**
+ * The confirmation, and whether the confirmed entry goes at the market
+ * (never-failing rule 9). `atMarket` is false whenever `refusal` is set.
+ */
+export async function confirmEntry(
+  supabase: SupabaseClient,
+  userId: string,
+  input: ConfirmationInput,
+): Promise<{ refusal: { status: number; body: Record<string, unknown> } | null; atMarket: boolean }> {
+  const pass = { refusal: null, atMarket: false };
+  if (input.assetClass === "option") return pass;
   const overCap = riskCapRefusal(input);
-  if (overCap) return overCap;
-  if (!input.attachLevels && input.entryStop == null) return null;
+  if (overCap) return { refusal: overCap, atMarket: false };
+  if (!input.attachLevels && input.entryStop == null) return pass;
 
   let target: {
     direction: "bullish" | "bearish";
@@ -240,7 +267,7 @@ export async function entryConfirmationRefusal(
   if (input.sourcePlanId) {
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
     if (!plan) {
-      return { status: 409, body: { error: "The plan behind this order couldn't be read, so its entry can't be confirmed. Nothing was placed.", code: "confirmation_unavailable" } };
+      return { refusal: { status: 409, body: { error: "The plan behind this order couldn't be read, so its entry can't be confirmed. Nothing was placed.", code: "confirmation_unavailable" } }, atMarket: false };
     }
     target = {
       direction: plan.direction,
@@ -268,26 +295,54 @@ export async function entryConfirmationRefusal(
       };
     }
   }
-  if (!target) return null;
+  if (!target) return pass;
 
   const confirmation = await readEntryConfirmationNow({ symbol: input.symbol, assetClass: "us_equity", ...target }).catch(
     () => null,
   );
   if (!confirmation) {
     return {
-      status: 503,
-      body: { error: "Couldn't read the latest bars to confirm the entry. Nothing was placed; try again shortly.", code: "confirmation_unavailable" },
+      refusal: {
+        status: 503,
+        body: { error: "Couldn't read the latest bars to confirm the entry. Nothing was placed; try again shortly.", code: "confirmation_unavailable" },
+      },
+      atMarket: false,
     };
   }
-  if (confirmation.ready) return null;
+  if (confirmation.ready) {
+    // The protocol's entry under the reaction rule: a plan's own stop, or the
+    // protocol stop the ticket sends. A stop only the person typed is theirs.
+    const protocolEntry = input.sourcePlanId ? target.stopPrice != null : input.entryStop != null;
+    return { refusal: null, atMarket: protocolEntry };
+  }
   return {
-    status: 409,
-    body: {
-      error: `Waiting for the entry to confirm. ${confirmation.note} Nothing was placed.`,
-      code: "awaiting_confirmation",
-      stage: confirmation.stage,
+    refusal: {
+      status: 409,
+      body: {
+        error: `Waiting for the entry to confirm. ${confirmation.note} Nothing was placed.`,
+        code: "awaiting_confirmation",
+        stage: confirmation.stage,
+      },
     },
+    atMarket: false,
   };
+}
+
+/**
+ * Never-failing rule 1 on a new equity entry (`riskTenthRefusal`): the risk is
+ * the quantity times the planned entry-to-stop distance. Skipped when the
+ * order carries no stop or no known entry price.
+ */
+function tenthRefusal(
+  capital: number,
+  symbol: string,
+  entry: number | null,
+  input: Pick<OrderInput, "qty" | "attachLevels">,
+): { status: number; body: Record<string, unknown> } | null {
+  const stop = input.attachLevels?.stopLoss;
+  if (stop == null || entry == null || !(entry > 0)) return null;
+  const refusal = riskTenthRefusal({ capital, symbol, entry, stop, qty: input.qty });
+  return refusal ? { status: 409, body: { error: refusal.error, code: refusal.code } } : null;
 }
 
 export async function placeSimulatedOrder(
@@ -400,10 +455,11 @@ export async function placeSimulatedOrder(
   }
 
   if (!isProtective) {
-    const [account, openPositions, entitlements] = await Promise.all([
+    const [account, openPositions, entitlements, run] = await Promise.all([
       getOrCreateAccount(supabase, userId),
       listOpenPositions(supabase, userId),
       getUserEntitlementPolicy(supabase, userId),
+      readWinningRun(supabase, userId),
     ]);
     const deployedUsd = openPositions.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
     const openRiskUsd = openPositions.reduce(
@@ -439,7 +495,7 @@ export async function placeSimulatedOrder(
         };
       }
     }
-    // Gann's capital rules (Q4, Q6): at most three markets, and 30 points of
+    // Gann's capital rules (Q4, Q6): at most five stocks or three crypto pairs, and 30 points of
     // capital behind every share held (lib/risk/gannCapital.ts). Shares only:
     // an option contract is not a share.
     if (input.assetClass === "equity") {
@@ -453,18 +509,30 @@ export async function placeSimulatedOrder(
           .map((p) => ({ symbol: p.symbol, qty: p.qty, price: p.avg_entry_price })),
       });
       if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
+      // Never-failing rule 1: at most a tenth of the trading unit at risk on
+      // this trade (lib/risk/gannCapital.ts). The unit is the capital the risk
+      // rate reads (A-RISK-04); with no win history readable, the starting
+      // capital or the equity, whichever is less, as Guided reads it.
+      const unit = run
+        ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: STARTING_CASH, ...run }).capital
+        : Math.min(Math.max(equity, 0), STARTING_CASH);
+      const tenth = tenthRefusal(unit, candidateSymbol, referencePrice, input);
+      if (tenth) return tenth;
     }
   }
 
   const isOption = input.assetClass === "option";
-  // Equity advised entries route as limits at the protocol price. Options carry
-  // no advised limit (the ticket doesn't price the premium), so they go market
-  // unless the user supplied an explicit limit.
+  // Equity advised entries carry the protocol price. Once confirmed, the
+  // protocol's own entry goes at the market (never-failing rule 9,
+  // `confirmEntry`); a limit the person priced themselves stays a limit.
+  // Options carry no advised limit (the ticket doesn't price the premium), so
+  // they go market unless the user supplied an explicit limit.
   if (!isOption && input.entryMode === "advised" && !input.limitPrice) {
     return { status: 400, body: { error: "Advised-price orders need a limitPrice" } };
   }
-  const unconfirmed = isProtective ? null : await entryConfirmationRefusal(supabase, userId, input);
-  if (unconfirmed) return unconfirmed;
+  const confirmed = isProtective ? { refusal: null, atMarket: false } : await confirmEntry(supabase, userId, input);
+  if (confirmed.refusal) return confirmed.refusal;
+  const atMarket = confirmed.atMarket;
 
   // ---- Price-increment validation -----------------------------------------
   // A price between two valid increments is refused by the broker with
@@ -473,11 +541,11 @@ export async function placeSimulatedOrder(
   // price to the instrument's increment here, and refuse to submit at all when
   // it can't be made valid. `priceCheck` rides back on the response so the
   // ticket can show what was corrected and why.
-  let submittedLimitPrice = input.limitPrice;
+  let submittedLimitPrice = atMarket ? undefined : input.limitPrice;
   let priceCheck: ReturnType<typeof validateLimitPrice> | null = null;
-  if (input.limitPrice != null) {
+  if (submittedLimitPrice != null) {
     priceCheck = validateLimitPrice({
-      price: input.limitPrice,
+      price: submittedLimitPrice,
       side: input.side,
       instrument: { assetType: isOption ? "OPTION" : "EQUITY" },
       mode: input.rounding as RoundingMode | undefined,
@@ -542,7 +610,9 @@ export async function placeSimulatedOrder(
   // that price can produce legs on the wrong side — catch it here with wording
   // that says what to do about it.
   if (useBracket) {
-    const basePrice = submittedLimitPrice ?? input.referencePrice ?? 0;
+    // A market entry is checked against the plan's price here, and against
+    // the real fill below.
+    const basePrice = submittedLimitPrice ?? (atMarket ? input.limitPrice : undefined) ?? input.referencePrice ?? 0;
     const check = checkBracket({
       side: input.side,
       basePrice,
@@ -566,11 +636,12 @@ export async function placeSimulatedOrder(
     symbol: input.symbol.toUpperCase(),
     asset_class: isOption ? "option" : "us_equity",
     side: input.side,
-    order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" ? "limit" : orderType,
+    order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" && !atMarket ? "limit" : orderType,
     qty: input.qty,
     intraday_sourced: input.intradaySourced,
     source_plan_id: input.sourcePlanId ?? null,
     limit_price: submittedLimitPrice ?? null,
+    // For a market entry, the plan's price, kept to measure the fill against.
     requested_limit_price: input.limitPrice ?? null,
     tick_size: priceCheck?.tick?.size ?? null,
     tick_source: priceCheck?.tick?.source ?? null,
@@ -630,12 +701,12 @@ export async function placeSimulatedOrder(
     } else {
       const market = await quotePrice(input.symbol, fillAssetClass);
       if (market != null && isTriggered(input.side, submittedLimitPrice!, market)) {
-        // "At advised price" is Gann's reaction buy since PLAN.md item 4: a
-        // limit at the crossed level plus 1 point, filled once the market
-        // reacts back to it (a buy at or below the price, a sell at or
-        // above). Filled at `market`, at or better than the limit. A market
-        // already through the stop fills here and is then refused by the
-        // bracket check below (`fill_outran_bracket`).
+        // A limit the person priced themselves (the protocol's own entry
+        // goes at the market since never-failing rule 9), or one resting from
+        // before it: filled once the market reaches it (a buy at or below the
+        // price, a sell at or above), at `market`, at or better than the
+        // limit. A market already through the stop fills here and is then
+        // refused by the bracket check below (`fill_outran_bracket`).
         fillPrice = market;
         filled = true;
       }
@@ -995,19 +1066,29 @@ async function placeLiveOrder(
       open: brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
     });
     if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
+    // Never-failing rule 1, as on paper. No starting capital is on record for
+    // a live account, so the unit is its equity, held during a long run of
+    // wins (rule 24), as the portfolio manager reads it.
+    const run = await readWinningRun(supabase, userId);
+    const unit = run ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: 0, ...run }).capital : Math.max(equity, 0);
+    const tenth = tenthRefusal(unit, input.symbol, referencePrice, input);
+    if (tenth) return tenth;
   }
 
   if (input.entryMode === "advised" && !input.limitPrice) {
     return { status: 400, body: { error: "Advised-price orders need a limitPrice" } };
   }
-  const unconfirmed = isProtective ? null : await entryConfirmationRefusal(supabase, userId, input);
-  if (unconfirmed) return unconfirmed;
+  // Never-failing rule 9, as on paper: the protocol's confirmed entry goes to
+  // the broker at the market.
+  const confirmed = isProtective ? { refusal: null, atMarket: false } : await confirmEntry(supabase, userId, input);
+  if (confirmed.refusal) return confirmed.refusal;
+  const atMarket = confirmed.atMarket;
 
-  let submittedLimitPrice = input.limitPrice;
+  let submittedLimitPrice = atMarket ? undefined : input.limitPrice;
   let priceCheck: ReturnType<typeof validateLimitPrice> | null = null;
-  if (input.limitPrice != null) {
+  if (submittedLimitPrice != null) {
     priceCheck = validateLimitPrice({
-      price: input.limitPrice,
+      price: submittedLimitPrice,
       side: input.side,
       instrument: { assetType: "EQUITY" },
       mode: input.rounding as RoundingMode | undefined,
@@ -1047,7 +1128,7 @@ async function placeLiveOrder(
     }
     stopLoss = stop.price;
 
-    const basePrice = submittedLimitPrice ?? input.referencePrice ?? 0;
+    const basePrice = submittedLimitPrice ?? (atMarket ? input.limitPrice : undefined) ?? input.referencePrice ?? 0;
     const check = checkBracket({
       side: input.side,
       basePrice,

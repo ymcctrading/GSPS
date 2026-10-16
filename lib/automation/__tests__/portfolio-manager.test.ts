@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesDirectionalBias, matchesVolatilityTrigger } from "@/lib/automation/portfolio-manager";
+import { allocatedDollarRiskFor, matchesDirectionalBias, matchesVolatilityTrigger } from "@/lib/automation/portfolio-manager";
 
 describe("matchesDirectionalBias", () => {
   it("BOTH allows either direction", () => {
@@ -36,5 +36,18 @@ describe("matchesVolatilityTrigger", () => {
 
   it("never divides by zero on a degenerate entry price", () => {
     expect(matchesVolatilityTrigger({ entry_trigger: 0, invalidation: -1 }, "PERCENTAGE", 1)).toBe(false);
+  });
+});
+
+describe("allocatedDollarRiskFor: never more than a tenth of the capital (never-failing rule 1)", () => {
+  it("sizes from the dial's percent of the trading capital", () => {
+    expect(allocatedDollarRiskFor(100_000, "MODERATE")).toBe(1_000);
+  });
+  it("holds the minimum allocation under a tenth of a small account", () => {
+    // The $25 floor would risk an eighth of $200; a tenth is $20.
+    expect(allocatedDollarRiskFor(200, "PASSIVE")).toBeCloseTo(20, 9);
+  });
+  it("allocates nothing with no capital", () => {
+    expect(allocatedDollarRiskFor(0, "AGGRESSIVE")).toBe(0);
   });
 });

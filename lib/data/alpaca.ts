@@ -122,11 +122,7 @@ export function normalizeCryptoSymbol(symbol: string): string {
   return `${s}/USD`;
 }
 
-export function isCryptoSymbol(symbol: string): boolean {
-  const knownCrypto = ["BTC", "ETH", "SOL", "DOGE", "LTC", "AVAX", "LINK", "XRP", "BCH", "UNI"];
-  const base = symbol.toUpperCase().replace(/[-/]?USD[TC]?$/, "");
-  return symbol.includes("/") || knownCrypto.includes(base);
-}
+export { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 
 /**
  * App timeframe → Alpaca bar timeframe. Alpaca accepts [1-59]Min, [1-23]Hour,

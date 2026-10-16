@@ -171,7 +171,9 @@ export interface GannEntryTrigger {
   /**
    * Gann's buy on the reaction after the crossing: 1 point past the level
    * (W006 pp.20, 46-47: "old top 50, advance to 53, buy 51 down to 48, stop
-   * 47"). Price-scaled: one third of the 3 points at the level.
+   * 47"). Price-scaled: one third of the 3 points at the level. The near edge
+   * of the buying zone (`gannBuyZone`), not a fixed price: the buy is at the
+   * market once a closed bar trades into the zone (never-failing rule 9).
    */
   reactionEntry: number;
   /** Gann's stop for the reaction buy: 3 points the other side of the level. */
@@ -349,8 +351,10 @@ export function computeGannEntryTrigger(
  * formed since a low last went more than 3 points under it, the margin by
  * which Gann says a bottom still holds (A-LEVELS-06).
  *
- * Engineering choices, labelled as such: the order is a limit at the level
- * (Gann says "buy at" the bottom and names no order type); the 3-point band
+ * The order type is Gann's own: never-failing rule 9 says trade at the
+ * market and never fix a price (*Commodities* rule 9, pp.43-45, and p.19), so
+ * once a closed bar has come down to the level the buy is a market order
+ * (`gannBuyZone`). Engineering choices, labelled as such: the 3-point band
  * applies on both sides of the level; and the bottoms need no minimum time
  * apart. Gann describes them as "weeks, months or a year or more apart"
  * (A-ENTRY-02) without a floor, so any two completed swings of the 3-Day
@@ -470,9 +474,12 @@ function withinRiskCap(entry: number, stop: number): boolean {
  *   The short side's days form is Rule 4's bear-rally sell (`bearRallySell`,
  *   step 4b), offered when no held top is.
  *
- * Engineering choices, labelled as such: Gann says "buy" and names no price,
- * so the order is a limit at the last completed session's close, the same
- * limit every other buying point uses. A reaction must reach 3 points, the
+ * The order type is Gann's own: never-failing rule 9 says trade at the
+ * market and never fix a price (*Commodities* rule 9, pp.43-45, and p.19), so
+ * the buy is a market order once a closed bar has traded at or under the last
+ * completed session's close, the plan's entry (`gannBuyZone`), as every other
+ * buying point is bought. Engineering choices, labelled as such: the entry
+ * the zone is read from is that close. A reaction must reach 3 points, the
  * allowance under which Gann treats a move as noise. "Holds a level" is read
  * as no lower low (a lower one starts the count again). The buy is offered only
  * within Gann's 5-point risk cap, since Gann buys "near" the bottom (p.20);
@@ -1029,3 +1036,44 @@ export function gannCrossedLevel(entry: number, stop: number): number {
   return (3 * entry + stop) / 4;
 }
 
+
+/**
+ * Never-failing rule 9: "Never limit your orders or fix a buying or selling
+ * price. Trade at the market" (*Commodities* rule 9 of the 28, pp.43-45, and
+ * "Popular Trading Prices", p.19: an order at 75 is filled at 74¾ or 74⅞, so
+ * a fixed figure misses the market; WSSS Ch. II rule 9; read in W021 PDF
+ * p.124 and Appendix A). Read with the reaction buy (W006 pp.20, 46-47: old
+ * top 50, a close at 53 crosses it, "buy 51 down to 48", stop 47), it keeps
+ * the zone and drops the fixed price. The zone runs from the plan's entry
+ * (`near`: the level plus 1 point after a crossing, the old level itself for a
+ * double or triple bottom, the last close over a bottom that held) to 1 point
+ * short of the stop (`far`). Once a closed bar has traded into it, and no
+ * close has gone through the stop, the entry is a market order: placement
+ * (`lib/trade/place-order.ts`), confirmation (`lib/lifecycle/confirmNow.ts`)
+ * and the replay (`lib/backtest/replay.ts`, filled at the next bar's open)
+ * all read it here. The point for `far` is taken at the stop's price, an
+ * engineering choice; the market order can fill anywhere, so `far` only
+ * describes the zone.
+ *
+ * Three-question basis:
+ * 1. Gann: as cited, Tier A (W001/W004 primary; W021 secondary).
+ * 2. Cycles: no periodicity claim; Dewey does not apply.
+ * 3. Hermetic: Mentalism (a price fixed in the trader's mind is the fault
+ *    the rule names) and Polarity (the short reads the zone above its entry).
+ */
+export interface GannBuyZone {
+  /** The plan's entry: a bar reaching it has traded into the zone. */
+  near: number;
+  /** One point short of the stop. */
+  far: number;
+}
+
+export function gannBuyZone(direction: TriggerDirection, entry: number, stop: number): GannBuyZone {
+  const sign = direction === "bullish" ? 1 : -1;
+  return { near: entry, far: stop + (sign * gannThreePoints(stop)) / 3 };
+}
+
+/** A long's low at or under the entry, a short's high at or over it. */
+export function tradedIntoBuyZone(bar: Pick<Bar, "h" | "l">, direction: TriggerDirection, entry: number): boolean {
+  return direction === "bullish" ? bar.l <= entry : bar.h >= entry;
+}

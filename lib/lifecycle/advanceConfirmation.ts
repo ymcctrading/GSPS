@@ -21,7 +21,8 @@
  *
  * Since PLAN.md item 4 the plan's rule is Gann's reaction buy: a pass whose
  * price is at or past the level plus 3 points arms the plan, and the order
- * rests as a limit at the plan's entry. Placement (`lib/trade/place-order.ts`)
+ * goes at the market once a closed bar reacts into the buying zone
+ * (never-failing rule 9). Placement (`lib/trade/place-order.ts`)
  * re-reads the real closed bars, so a live price here never places an order
  * on its own.
  */

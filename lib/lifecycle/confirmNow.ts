@@ -17,15 +17,23 @@
  * (`replayEntryConfirmation`) over closed execution-timeframe bars (today's
  * session, or since the plan was generated for a plan-sourced order). Since
  * PLAN.md item 4 that is Gann's crossing rule: a close 3 points past the old
- * level makes the entry ready, and the order rests as a limit at the plan's
- * entry for the reaction. A later close through the stop calls it off. The
- * replay's reaction rule counts bars from the session the trigger is armed
- * on, so the two read the same window.
+ * level crosses it, and since never-failing rule 9 (2026-10-16) the entry is
+ * ready once a later closed bar has reacted into the buying zone (the plan's
+ * entry down to 1 point short of the stop, `gannBuyZone`). Placement then
+ * sends it at the market; no limit rests at a fixed price ("Never limit your
+ * orders or fix a buying or selling price. Trade at the market", Commodities
+ * rule 9, pp.43-45, and p.19). A double or triple bottom is ready once a
+ * closed bar has come back to the old level, and a bottom that held once one
+ * has traded at its last close. A later close through the stop calls any of
+ * them off. The replay's reaction rule counts bars from the session the
+ * trigger is armed on, and fills at the next bar's open, so the two read the
+ * same window.
  *
  * Three-question basis:
  * 1. Gann: a close 3 points past an old top crosses it, and the buy is on
  *    the reaction 1 point above it with the stop 3 points below (W006 pp.20,
- *    46-47; *New Stock Trend Detector*, A5).
+ *    46-47; *New Stock Trend Detector*, A5), at the market (never-failing
+ *    rule 9, Commodities pp.43-45 and p.19).
  * 2. Cycles: no periodicity claim, so Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect. The order is the effect; the observed
  *    confirmation is the cause it has to wait for.
@@ -36,7 +44,7 @@ import { failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
-import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine, tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { breakawayVolumeMet } from "@/lib/gann/breakaway";
 import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { etDateKey } from "@/lib/market/session";
@@ -87,38 +95,45 @@ export function closedSessionBars(bars: Bar[], now: Date, intervalMs: number, si
   return closed.filter((b) => b.t.slice(0, 10) === day);
 }
 
-/** The same stages read under Gann's reaction rule (PLAN.md item 4). */
+/** The same stages read under Gann's reaction rule (PLAN.md item 4) and rule 9. */
+const AWAITING_REACTION_NOTE =
+  "Price closed 3 points past the old level, so the entry waits for a bar to react back into the buying zone, then goes at the market.";
 const GANN_NOTES: Record<ConfirmationStage, string> = {
   not_touched: "Price hasn't crossed the old level by 3 points yet.",
   touched: "Price reached 3 points past the old level but hasn't closed there yet.",
-  broken: "Price closed 3 points past the old level.",
-  retested: "Price closed 3 points past the old level.",
-  confirmed: "Price closed 3 points past the old level, so the entry rests as a limit for the reaction.",
+  broken: AWAITING_REACTION_NOTE,
+  retested: AWAITING_REACTION_NOTE,
+  confirmed: "Price closed 3 points past the old level and a later bar reacted into the buying zone, so the entry goes at the market.",
   dead: "Price closed through the stop after the crossing, so this entry is off until a new setup forms.",
 };
 
 const OLD_LEVEL_NOTES = {
-  confirmed: "The entry rests at the old level, where a second or third test makes the double or triple bottom (top, for a short).",
+  waiting: "The entry waits for price to come back to the old level, where a second or third test makes the double or triple bottom (top, for a short), then goes at the market.",
+  confirmed: "Price came back to the old level, where a second or third test makes the double or triple bottom (top, for a short), so the entry goes at the market.",
   dead: "Price closed through the stop under the old level, so this entry is off until a new setup forms.",
 } as const;
 
 // A short at the close is a top that held or a rally sold at the end of its
 // week, so its notes name the high the stop is over, not a low (step 4b R4).
 const HOLD_NOTES = {
-  confirmed: "The low has held, so the entry rests at the last close with the stop 3 points under the low.",
+  waiting: "The low has held, and the entry waits for price to trade back to the last close, then goes at the market.",
+  confirmed: "The low has held and price traded at the last close, so the entry goes at the market with the stop 3 points under the low.",
   dead: "Price closed through the stop under the low that held, so this entry is off until a new setup forms.",
 } as const;
 
 const HOLD_SHORT_NOTES = {
-  confirmed: "The sell rests at the last close, with the stop 3 points over the high.",
+  waiting: "The sell waits for price to trade back up to the last close, then goes at the market, with the stop 3 points over the high.",
+  confirmed: "Price traded at the last close, so the sell goes at the market, with the stop 3 points over the high.",
   dead: "Price closed through the stop over the high, so this entry is off until a new setup forms.",
 } as const;
 
 /**
  * With `stopPrice`, Gann's reaction rule: ready once a closed bar has closed
- * 3 points past the old level, and off ("dead") once a later close goes
- * through the stop (W006 p.20: the stop is 3 points the other side of the
- * level). Without it, the retest-and-hold sequence.
+ * 3 points past the old level and a later closed bar has traded into the
+ * buying zone (never-failing rule 9: the entry then goes at the market), and
+ * off ("dead") once a later close goes through the stop (W006 p.20: the stop
+ * is 3 points the other side of the level). Without it, the retest-and-hold
+ * sequence.
  */
 export function confirmationFromBars(
   bars: Bar[],
@@ -131,17 +146,24 @@ export function confirmationFromBars(
     // Gann's double or triple bottom (PLAN.md item 5, step 2), or a bottom
     // that has held (step 4): the order rests with nothing to cross first.
     // Off once a close has gone through the stop.
+    // Off once a close has gone through the stop; ready (at the market) once
+    // a closed bar has come back to the entry (rule 9).
     const up = direction === "bullish";
     const dead = bars.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice));
     const notes = entryKind !== "hold" ? OLD_LEVEL_NOTES : up ? HOLD_NOTES : HOLD_SHORT_NOTES;
-    return dead ? { ready: false, stage: "dead", note: notes.dead } : { ready: true, stage: "confirmed", note: notes.confirmed };
+    if (dead) return { ready: false, stage: "dead", note: notes.dead };
+    return bars.some((b) => tradedIntoBuyZone(b, direction, entryTrigger))
+      ? { ready: true, stage: "confirmed", note: notes.confirmed }
+      : { ready: false, stage: "not_touched", note: notes.waiting };
   }
   const evidence = replayEntryConfirmation({ direction, entryTrigger, stopPrice }, bars);
   let stage = stageOf(evidence);
   if (stopPrice != null && stage === "confirmed" && evidence.breakOrSweepAt) {
     const up = direction === "bullish";
+    // Only bars after the crossing close: the crossing bar's own low came first.
     const after = bars.filter((b) => b.t > evidence.breakOrSweepAt!);
     if (after.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice))) stage = "dead";
+    else if (!after.some((b) => tradedIntoBuyZone(b, direction, entryTrigger))) stage = "broken";
   }
   const notes = stopPrice != null ? GANN_NOTES : NOTES;
   return { ready: stage === "confirmed", stage, note: notes[stage] };
@@ -225,6 +247,8 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
       : closedSessionBars(bars, now, intervalMs, input.since);
   const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind);
   if (input.stopPrice == null || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
+  // Crossed in the window and waiting for the reaction into the zone.
+  if (read.stage === "broken") return read;
   const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
   const provider = getMarketDataProvider();
   if (read.ready) {
@@ -247,6 +271,11 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
     provider.fetchBars(input.symbol, "1Month", monthlyChartFrom(year), null, input.assetClass),
   ]);
   if (!heldOnDailyChart(daily, now, input.direction, input.entryTrigger, monthly)) return read;
+  // The crossing is older than the window, so every bar in it came after: the
+  // entry goes at the market once one of them has reacted into the zone.
+  if (!window.some((b) => tradedIntoBuyZone(b, input.direction, input.entryTrigger))) {
+    return { ready: false, stage: "broken", note: GANN_NOTES.broken };
+  }
   return onVolume(daily, now, input.direction, input.entryTrigger, stop) ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed } : AWAITING_VOLUME;
 }
 

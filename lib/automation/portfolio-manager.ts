@@ -58,8 +58,9 @@ import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
+import { maxRiskForTrade } from "@/lib/risk/gannCapital";
 
-type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
+export type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
 type TriggerType = "PERCENTAGE" | "DOLLAR_AMOUNT";
 
@@ -118,6 +119,19 @@ const RISK_PCT: Record<RiskProfile, number> = {
 
 /** Below this, a sized position would round to zero shares on most tickers — not worth activating. */
 const MIN_ALLOCATED_DOLLAR_RISK = 25;
+
+/**
+ * The dollars one activation may risk: the dial's percent of the trading
+ * capital, raised to the minimum allocation, and never more than a tenth of
+ * that capital (never-failing rule 1, W006 p.46; Commodities pp.29-30,
+ * `lib/risk/gannCapital.ts`). The tenth is applied last, so the minimum can't
+ * lift a small account past it. Placement checks the same tenth again
+ * (`lib/trade/place-order.ts`).
+ */
+export function allocatedDollarRiskFor(capital: number, riskProfile: RiskProfile): number {
+  const dial = Math.max(MIN_ALLOCATED_DOLLAR_RISK, Math.round(capital * RISK_PCT[riskProfile]));
+  return Math.min(dial, maxRiskForTrade(capital));
+}
 
 export interface PortfolioManagerRunResult {
   profilesEnabled: number;
@@ -284,10 +298,14 @@ async function runForProfile(
     ? gannRiskCapital({ equity: equityBasis, startingCapital: executionMode === "live" ? 0 : STARTING_CASH, ...run }).capital
     : Math.min(equityBasis, executionMode === "live" ? equityBasis : STARTING_CASH);
 
-  const allocatedDollarRisk = Math.max(
-    MIN_ALLOCATED_DOLLAR_RISK,
-    Math.round(equityBasis * RISK_PCT[profile.risk_profile]),
-  );
+  const allocatedDollarRisk = allocatedDollarRiskFor(equityBasis, profile.risk_profile);
+  if (!(allocatedDollarRisk > 0)) {
+    result.plansSkipped += candidates.length;
+    if (candidates.length > 0) {
+      result.errors.push({ userId: profile.user_id, reason: "No trading capital to size against — skipping this run." });
+    }
+    return;
+  }
 
   // "Take the top three setups" — MAX_NEW_POSITIONS_PER_DAY (lib/risk/config.ts,
   // = 3) is the platform's existing per-day new-position ceiling, enforced for

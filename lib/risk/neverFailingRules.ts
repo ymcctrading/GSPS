@@ -32,15 +32,15 @@ export interface NeverFailingRule {
 }
 
 export const NEVER_FAILING_RULES: NeverFailingRule[] = [
-  { n: 1, rule: "Divide capital into 10 parts; never risk more than one part on a trade.", status: "differs", where: "lib/risk/gannCapital.ts", note: "GSPS sizes on the Commodities rule of 30 points of capital a share; the 1/10 risk ceiling is the account's own risk policy." },
+  { n: 1, rule: "Divide capital into 10 parts; never risk more than one part on a trade.", status: "enforced", where: "lib/risk/gannCapital.ts", note: "A trade risks at most a tenth of the trading unit (riskTenthRefusal), on top of 30 points of capital a share (NSTD p.46, Rule 1; Commodities pp.29-30). Checked at placement, paper and live, and in Guided and portfolio-manager sizing; never on a protective order. The replay measures R per unit and sizes no position." },
   { n: 2, rule: "Use stop-loss orders 3 to 5 points away.", status: "enforced", where: "lib/gann/pointScale.ts", note: "The price-scaled 3 points behind every stop." },
   { n: 3, rule: "Never overtrade.", status: "enforced", where: "lib/risk/position-limits.ts", note: "Exposure ceilings, with the capital rule's market limit." },
   { n: 4, rule: "Once 3 points ahead, move the stop to break-even.", status: "enforced", where: "lib/gann/exitRules.ts", note: "M-E6, the price-scaled 3 points." },
   { n: 5, rule: "Never buck the trend.", status: "enforced", where: "lib/scan/entrySelection.ts", note: "Entries take the direction of the swing-chart trend." },
   { n: 6, rule: "When in doubt, get out, and don't get in when in doubt.", status: "person" },
   { n: 7, rule: "Trade only in active stocks.", status: "enforced", where: "lib/scan/liquidity.ts", note: "The platform-wide liquidity floor every scan applies." },
-  { n: 8, rule: "Spread risk over 4 or 5 stocks.", status: "differs", where: "lib/risk/gannCapital.ts", note: "GSPS holds at most 3 markets (the Commodities rule), not 4-5 stocks." },
-  { n: 9, rule: "Never limit orders; buy and sell at the market.", status: "differs", where: "lib/gann/entryTrigger.ts", note: "The reaction entry (W006 pp.20, 46-47) rests as a limit 1 point past the level. The two sources disagree; held for the owner." },
+  { n: 8, rule: "Spread risk over 4 or 5 stocks.", status: "enforced", where: "lib/risk/gannCapital.ts", note: "At most 5 stocks open at once (owner, 2026-10-16); crypto keeps Tunnel Thru the Air pp.203-204's two or three markets." },
+  { n: 9, rule: "Never limit orders; buy and sell at the market.", status: "enforced", where: "lib/gann/entryTrigger.ts", note: "The reaction entry keeps its zone (W006 pp.20, 46-47) and drops the fixed price: once a closed bar trades into the zone the entry is a market order (gannBuyZone; Commodities rule 9 pp.43-45 and p.19). Placement, confirmation and the replay (next bar's open) read it. A limit a person prices themselves stays theirs." },
   { n: 10, rule: "Don't close a trade without a good reason; follow with a stop.", status: "enforced", where: "lib/gann/exitRules.ts", note: "Positions exit on stops and exit signals, not a fixed target." },
   { n: 11, rule: "Accumulate a surplus.", status: "person" },
   { n: 12, rule: "Never buy just to get a dividend.", status: "person" },

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchWithTimeout } from "@/lib/utils";
 import { DEFAULT_GUIDED_CAPS, MAX_RISK_PCT, MIN_RISK_PCT, type GuidedCaps } from "@/lib/guided/config";
-import { CAPITAL_POINTS_PER_SHARE, MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
+import { CAPITAL_POINTS_PER_SHARE, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 
 type Draft = Record<keyof GuidedCaps, string>;
 
@@ -32,7 +32,7 @@ const FIELDS: {
  * The Guided Mode caps, editable.
  *
  * The per-trade risk percent is the one limit a user sets. The capital rules
- * (30 points of capital a share, at most three markets) are shown, not edited:
+ * (30 points of capital a share, at most five stocks) are shown, not edited:
  * they are the method's, the same on every order path (Q12, 2026-10-16). The
  * risk bounds are refused by the API too, not only by this form.
  */
@@ -129,7 +129,7 @@ export function GuidedCapsForm() {
               <span className="font-medium">Capital rules</span>
               <span className="text-xs text-muted">
                 Every share held needs capital behind it: {CAPITAL_POINTS_PER_SHARE} points a share, scaled to
-                the stock&apos;s price. At most {MAX_OPEN_SYMBOLS} markets are open at once, and three losses in a
+                the stock&apos;s price. At most {MAX_OPEN_STOCKS} stocks are open at once, and three losses in a
                 row pause new entries for that day and the next. These are the method&apos;s rules, the same on
                 every order, so they are not settings.
               </span>

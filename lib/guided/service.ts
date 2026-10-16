@@ -26,7 +26,7 @@ import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
-import { capitalPerShare, MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
+import { capitalPerShare, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/lib/guided/copy";
 import { pickNearestMiss, type NearMiss } from "@/lib/guided/near-miss";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -254,7 +254,7 @@ export async function buildRecommendations(params: {
   caps: GuidedCaps;
   /** Capital Gann's rule holds behind the open shares (`readCapUsage`). */
   capitalHeldUsd: number;
-  /** Markets open now (`readCapUsage`); at most three may be open at once. */
+  /** Stocks open now (`readCapUsage`); at most five may be open at once. */
   openMarkets: string[];
   now?: Date;
   /** `getUniversePolicy()`-resolved thresholds, resolved once by the caller. Defaults to the code constants. */
@@ -380,8 +380,8 @@ function collectBatch(params: {
       continue;
     }
 
-    if (!markets.has(result.symbol.toUpperCase()) && markets.size >= MAX_OPEN_SYMBOLS) {
-      skipped.push({ symbol: result.symbol, reasons: [`GSPS trades at most ${MAX_OPEN_SYMBOLS} markets at once.`] });
+    if (!markets.has(result.symbol.toUpperCase()) && markets.size >= MAX_OPEN_STOCKS) {
+      skipped.push({ symbol: result.symbol, reasons: [`GSPS trades at most ${MAX_OPEN_STOCKS} stocks at once.`] });
       continue;
     }
 

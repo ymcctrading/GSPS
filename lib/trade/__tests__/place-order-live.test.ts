@@ -338,13 +338,13 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(result.status).toBe(200);
   });
 
-  it("refuses a fourth market: at most three symbols open (A-RISK-08, Q6)", async () => {
+  it("refuses a sixth stock: at most five open (A-RISK-08, never-failing rule 8)", async () => {
     limits.bypass = true;
     readLiveAlpacaConnection.mockResolvedValue(connection);
     getAccount.mockResolvedValue({ equity: "100000" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
     getPositions.mockResolvedValue(
-      ["MSFT", "NVDA", "XOM"].map((symbol) => ({ symbol, qty: "1", avg_entry_price: "100", market_value: "100" })),
+      ["MSFT", "NVDA", "XOM", "JPM", "KO"].map((symbol) => ({ symbol, qty: "1", avg_entry_price: "100", market_value: "100" })),
     );
     const input = { ...baseInput, entryMode: "advised" as const, limitPrice: 100, referencePrice: 100 };
 
@@ -376,5 +376,44 @@ describe("placeSimulatedOrder — live branch", () => {
     expect((result.body as { code: string }).code).toBe("capital_per_share");
     expect((result.body as { error: string }).error).toContain("at most 200 more");
     expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuses a live entry risking more than a tenth of the capital (never-failing rule 1)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    // $8 of risk a share: 150 shares risk $1,200, over a tenth of $10,000.
+    const input = { ...baseInput, qty: 150, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 92, takeProfit: 110 } };
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", input);
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("risk_one_tenth");
+    expect(placeOrder).not.toHaveBeenCalled();
+
+    placeOrder.mockResolvedValue({ id: "alpaca-order-tenth", status: "accepted" });
+    const within = await placeSimulatedOrder(stubSupabase(), "u1", { ...input, qty: 125 });
+    expect((within.body as { code?: string }).code).not.toBe("risk_one_tenth");
+    expect(placeOrder).toHaveBeenCalled();
+  });
+
+  it("sends the protocol's confirmed entry to the broker at the market, not as a limit (never-failing rule 9)", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "100000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    placeOrder.mockResolvedValue({ id: "alpaca-order-market", status: "accepted" });
+
+    await placeSimulatedOrder(stubSupabase(), "u1", {
+      ...baseInput,
+      entryMode: "advised",
+      limitPrice: 100,
+      referencePrice: 100,
+      entryStop: 95,
+      attachLevels: { stopLoss: 95, takeProfit: 110 },
+    });
+
+    expect(placeOrder).toHaveBeenCalledWith(
+      connection.creds,
+      expect.objectContaining({ type: "market", limitPrice: undefined, bracket: { stopLoss: 95 } }),
+    );
   });
 });

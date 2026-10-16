@@ -389,4 +389,13 @@
 // 500 million shares, an engineering cutoff). The live add suggestion and the
 // replay's `pyramid: true` read the same rule. Verdicts do not move; pyramided
 // trades do.
-export const STRATEGY_VERSION = "2026-10-16-gann-pyramid-capital";
+// 2026-10-16-gann-never-failing-1-9: never-failing rules 1 and 9. Rule 9
+// ("never limit your orders ... trade at the market", Commodities rule 9
+// pp.43-45 and p.19): the reaction entry keeps its zone and goes at the market
+// once a closed bar trades into it, so the replay fills at the next bar's open
+// instead of a limit at the level plus 1 point, and a close through the stop
+// before then calls the entry off. Fills move; R is still read on the plan's
+// risk. Rule 1 (a tenth of the trading capital at most, NSTD p.46,
+// Commodities pp.29-30) refuses or shrinks orders; the replay sizes no
+// position, so it does not move the replay.
+export const STRATEGY_VERSION = "2026-10-16-gann-never-failing-1-9";
