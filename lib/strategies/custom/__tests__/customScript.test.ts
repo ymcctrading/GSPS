@@ -94,6 +94,29 @@ describe("compileCustomScript — parity with a built-in mode", () => {
   });
 });
 
+describe("compileCustomScript — signal-only rules", () => {
+  it("fires with its direction and no levels of its own", () => {
+    const compiled = compileCustomScript(
+      `rule bullish when crossesAbove(ema(9), sma(20)) { }
+       rule bearish when crossesBelow(ema(9), sma(20)) { }`,
+      IDENTITY,
+    );
+    expect(compiled.ok).toBe(true);
+    const bars = trendReversalBars();
+    const levels = compiled.evaluator!(bars);
+    const full = compileCustomScript(MA_CROSSOVER_SOURCE, IDENTITY);
+    const fullLevels = full.evaluator!(bars);
+    // Fires exactly when the full rule does, in the same direction.
+    expect(levels?.direction).toBe(fullLevels?.direction);
+    expect(levels).not.toBeNull();
+    expect(levels?.entry).toBeNull();
+    expect(levels?.stopLoss).toBeNull();
+    expect(levels?.takeProfit1).toBeNull();
+    expect(levels?.masterTarget).toBeNull();
+    expect(levels?.scriptName).toBe(IDENTITY.scriptName);
+  });
+});
+
 describe("compileCustomScript — invalid setups rejected, not silently accepted", () => {
   it("rejects a stop on the wrong side of entry", () => {
     const source = `
@@ -161,8 +184,19 @@ describe("parser — grammar and whitelist enforcement", () => {
     expect(() => parseScript("")).toThrow(ParseError);
   });
 
-  it("rejects a script with no entry statement", () => {
+  it("rejects a stop without an entry, and an entry without a stop", () => {
     expect(() => parseScript(`rule bullish when close[0] > 0 { stop = low[0] }`)).toThrow(ParseError);
+    expect(() => parseScript(`rule bullish when close[0] > 0 { entry = close[0] }`)).toThrow(ParseError);
+  });
+
+  it("rejects tp1r/mtpr without entry and stop", () => {
+    expect(() => parseScript(`rule bullish when close[0] > 0 { tp1r = 2 }`)).toThrow(ParseError);
+  });
+
+  it("accepts a signal-only rule with no level lines (owner decision 2026-10-16)", () => {
+    const ast = parseScript(`rule bullish when close[0] > 0 { }`);
+    expect(ast.bullish?.entry).toBeNull();
+    expect(ast.bullish?.stopLoss).toBeNull();
   });
 
   it("rejects mtpr <= tp1r", () => {

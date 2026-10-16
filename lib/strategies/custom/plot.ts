@@ -91,8 +91,8 @@ function collectBoolNodes(node: BoolExpr, out: Map<string, NumExpr>): void {
 
 function collectRuleNodes(rule: CustomScriptRule, out: Map<string, NumExpr>): void {
   collectBoolNodes(rule.condition, out);
-  collectNumNodes(rule.entry, out);
-  collectNumNodes(rule.stopLoss, out);
+  if (rule.entry) collectNumNodes(rule.entry, out);
+  if (rule.stopLoss) collectNumNodes(rule.stopLoss, out);
 }
 
 /** Every distinct indicator/extreme reference across both rule blocks,
