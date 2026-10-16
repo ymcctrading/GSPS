@@ -89,6 +89,40 @@ describe("readGannTrend", () => {
     expect(t.confirmed).toBe(false);
   });
 
+  // C-TREND-03 (Commodities p.312, "exceeds in price OR time"): either
+  // over-balance alone changes the trend. Each case below fires only one of
+  // the two, so reading them with "and" fails here.
+  function readsOverbalance(bars: Bar[]) {
+    const price = bars[bars.length - 1].c;
+    const ctx = readDisclosedRules(bars, price, null, new Date(Date.parse(bars[bars.length - 1].t) + 86_400_000));
+    return { t: readGannTrend(bars), ctx, price };
+  }
+
+  it("stops confirming when a pullback outlasts the campaign's earlier ones without outsizing them", () => {
+    // Earlier pullbacks run 3 days and about 3%; this one runs 8 days for about 1.5%.
+    const bars = uptrend(118);
+    for (let k = 0; k < 8; k++) bars.push(bar(bars[bars.length - 1].c - 0.05));
+    const { t, ctx, price } = readsOverbalance(bars);
+    expect(ctx.campaign?.timeOverbalanced).toBe(true);
+    expect(ctx.campaign?.spaceOverbalanced).toBe(false);
+    expect(t.changing).toBe(true);
+    expect(t.confirmed).toBe(false);
+    expect(contextFactorsFor(ctx, "bearish", price).overbalancedAgainstCampaign).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", price).overbalancedAgainstCampaign).toBe(false);
+  });
+
+  it("stops confirming when a pullback outsizes the campaign's earlier ones without outlasting them", () => {
+    // Three days, like the earlier pullbacks, but about 4% deep against their 3%.
+    const bars = uptrend(118);
+    for (let k = 0; k < 3; k++) bars.push(bar(bars[bars.length - 1].c - 1.5));
+    const { t, ctx, price } = readsOverbalance(bars);
+    expect(ctx.campaign?.spaceOverbalanced).toBe(true);
+    expect(ctx.campaign?.timeOverbalanced).toBe(false);
+    expect(t.changing).toBe(true);
+    expect(t.confirmed).toBe(false);
+    expect(contextFactorsFor(ctx, "bearish", price).overbalancedAgainstCampaign).toBe(true);
+  });
+
   it("mirrors for a downtrend", () => {
     const down = uptrend(120)
       .map((b) => bar(200 - b.c));
