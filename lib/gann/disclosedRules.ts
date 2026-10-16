@@ -72,6 +72,7 @@
 
 import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfwayRetest";
 import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
+import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
@@ -443,6 +444,8 @@ export interface DisclosedRulesContext {
   halfwayRetest?: HalfwayRetestReading | null;
   /** A narrow 3-4 day range breaking (class C, context only). See `narrowRange.ts`. */
   narrowRangeBreak?: NarrowRangeBreakReading | null;
+  /** A narrow week, then a sharp move on heavy volume (A-ENTRY-19, context only). See `narrowWeek.ts`. */
+  narrowWeekBreak?: NarrowWeekBreakReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -532,6 +535,7 @@ export function readDisclosedRules(
     multipleTops: readMultipleTops(dailyBars),
     halfwayRetest: readHalfwayRetest(dailyBars),
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
+    narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -576,6 +580,14 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.weakStock?.firstRallyNotExceeded) {
     const w = ctx.weakStock.firstRallyNotExceeded;
     lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since.`);
+  }
+  if (ctx.narrowWeekBreak) {
+    const n = ctx.narrowWeekBreak;
+    lines.push(
+      n.direction === "bearish"
+        ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. This turns the trend down, even while the market rises.`
+        : `A narrow week, then a sharp rise on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points over that week's high (${n.narrowHigh.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume.`,
+    );
   }
   if (ctx.evenFigures.overhead) lines.push(ctx.evenFigures.overhead.note);
   if (ctx.evenFigures.underneath) lines.push(ctx.evenFigures.underneath.note);

@@ -77,6 +77,7 @@ export function contextFactorsFor(
   // Class C entry readings (W003), measured, never gating (item 5 step 4b).
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
   if (ctx.narrowRangeBreak) f.narrowRangeBreakAgrees = ctx.narrowRangeBreak.direction === direction;
+  if (ctx.narrowWeekBreak) f.narrowWeekBreakAgrees = ctx.narrowWeekBreak.direction === direction;
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;
   if (rs) f.reverseSignalAgrees = rs === (bull ? "bottom" : "top");

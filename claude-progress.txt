@@ -386,3 +386,16 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Wired: scanTicker reads SPY monthly once a day (marketBenchmark.getMarketMonthlyBars) and passes the stock's and market's monthly bars in the instrument facts; the replay gets marketMonthlyBars from run.ts and each session reads only months before its own. Card lines "Weak in this bull market: ..."; measured context factor weakStockLong (buys only). Gann's action on a weak stock (A-SELECTION-04) is item 11, not built here.
 - Tests: lib/gann/__tests__/weakStock.test.ts (12). Mutations 9 of 9 caught (bull trend required, bull-start low, both 24-month spans, never-exceeded tests, the 3-month cap, month in progress, either reading, slicing from the bull start).
 - Context only, no gate: no STRATEGY_VERSION bump.
+== 2026-10-16 replay run 40 (6aca033, STRATEGY_VERSION 2026-10-16-gann-regained-bottom, run 34's cells) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels, reaction entry. 1460 trades (run 39: 1256).
+- Runner: all +0.013R [-0.024, +0.052], halves +0.097 / -0.071; Execute +0.095R on 53 [-0.106, +0.312] (run 39: +0.070 on 37); Watch -0.008R on 903.
+- Bracket: all +0.003R [-0.035, +0.042]; Execute +0.147R on 53 [-0.070, +0.357].
+- Entry kinds (runner): crossing 534 at -0.013R (run 39: 316 at -0.047), so the ~218 regained crossings run about +0.03R, near the population; oldLevel 258 at +0.039R, hold 668 at +0.024R. The report has no regained/plain split; add one if the next run needs it.
+- Hold basis (runner): weeks 499 at +0.083R, days 23 at -0.151R, rally 145 at -0.151R (still the weakest group).
+- Continuation 38 at +0.245R. Every interval includes zero; the second half is negative again.
+- Files: scratchpad/run40.wrapped.json, run40.json.
+2026-10-16 Item 6 step 10 (A-ENTRY-19, F7a): a narrow week, then a sharp drop on large volume, turns the trend down (W006 p.27, Corn Products 1935). Context only.
+- lib/gann/narrowWeek.ts readNarrowWeekBreak(toWeeklyBars(daily)), pre-registered: narrow = smallest range of the 4 weeks ending with it; sharp = the next week closes 3 price-scaled points under its low; large = volume above the 13 weeks before (the drop not counted). Held for the drop week and the week after. Mirror (sharp rise) read as up, labelled an inference.
+- readDisclosedRules field narrowWeekBreak (live scan and replay through the same call), card line, measured factor narrowWeekBreakAgrees.
+- Tests: lib/gann/__tests__/narrowWeek.test.ts (9). Mutations 9 of 9 caught (narrowest-of-4, volume test, its window, 3 points, mirror, the week after, the narrow week's position, the factor's direction).
+- Context only: no STRATEGY_VERSION bump. Fork F7 (b)/(c) (feed the trend change, or a short inside the 5-point cap) waits on the measurement.
