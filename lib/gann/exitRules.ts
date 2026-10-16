@@ -42,6 +42,12 @@
  *   and its bottom rule is volume drying up (D1), not a turnover count, so no
  *   mirror is invented for shorts. Needs the stored share count; without it
  *   the rule is silent. See `capitalStock.ts`.
+ * - **A-VOLUME-03 breakdown after a lower top** (added 2026-10-16, fork FV7 b).
+ *   After a second, lower top, a narrow spell broken down on increased volume
+ *   signals a further decline (W006 pp.39-40, volume Rule 2). A long leaves
+ *   when such a breakdown, printed since the fill, still stands
+ *   (`distribution.ts`). Longs only: shorts take the breakaway down as their
+ *   own entry. Reported as "distribution", the same reason as D2.
  *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
@@ -64,6 +70,7 @@
  */
 
 import type { Bar } from "@/lib/types";
+import { readDistributionStanding } from "@/lib/gann/distribution";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
@@ -239,6 +246,19 @@ export function readGannExit(
       exit = {
         reason: "distribution",
         note: `${(cs.peakRecentWeekTurnover * 100).toFixed(0)}% of the capital stock changed hands in the week of ${cs.peakRecentWeek}, at a top: distribution.`,
+      };
+    }
+  }
+
+  // A-VOLUME-03 (fork FV7 b): after a lower top, a narrow spell broken down on
+  // increased volume signals a further decline, so an open long exits once
+  // such a breakdown, printed on a session since the fill, still stands.
+  if (!exit && long) {
+    const standing = readDistributionStanding(daily, new Date(Date.parse(last.t) + 36 * 3_600_000));
+    if (standing && standing.breakDate >= pos.entryDate) {
+      exit = {
+        reason: "distribution",
+        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}): a sign of a further decline.`,
       };
     }
   }

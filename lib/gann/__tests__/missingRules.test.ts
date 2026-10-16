@@ -4,7 +4,10 @@ import { readSeasonalCount } from "@/lib/gann/seasonalCounts";
 import { readAccumulation } from "@/lib/gann/accumulation";
 import { readLeadership } from "@/lib/gann/leadership";
 import { readSharesPerPoint } from "@/lib/gann/sharesPerPoint";
-import { readDistributionBreakdown } from "@/lib/gann/distribution";
+import { readDistributionBreakdown, readDistributionStanding, STANDING_SESSIONS } from "@/lib/gann/distribution";
+import { applyDistributionBreakdownHold } from "@/lib/scoring/score";
+import { readGannExit } from "@/lib/gann/exitRules";
+import type { ScanDecision } from "@/lib/types";
 
 function bars(closes: number[], vol: (i: number) => number = () => 1e6, start = "2025-01-01"): Bar[] {
   const t0 = Date.parse(`${start}T00:00:00Z`);
@@ -222,7 +225,7 @@ describe("distribution: a narrow spell after a lower top, broken down on volume 
     const b = bars(closes, heavyBreak(closes.length));
     const ctx = readDisclosedRules(b, 74, null, asOfAfter(b));
     expect(ctx.distribution?.distributionBreakdown).toBe(true);
-    expect(describeDisclosedRules(ctx)).toContain("After a lower top, the narrow range broke down on 2.0× its average volume: a sign of a further decline. Shown for context; it does not change the setup.");
+    expect(describeDisclosedRules(ctx)).toContain("After a lower top, the narrow range broke down on 2.0× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range.");
     expect(contextFactorsFor(ctx, "bullish", 74)).toMatchObject({ distributionBreakdownAgainst: true, distributionBreakdownWith: false });
     expect(contextFactorsFor(ctx, "bearish", 74)).toMatchObject({ distributionBreakdownAgainst: false, distributionBreakdownWith: true });
     const quiet = readDisclosedRules(bars(closes, () => 1e6), 74, null, asOfAfter(b));
@@ -239,6 +242,87 @@ describe("distribution: a narrow spell after a lower top, broken down on volume 
     // Same last day on both: shift the shorter series onto the longer one's dates.
     const shifted = a.map((x, i) => ({ ...x, t: l[l.length - a.length + i].t }));
     expect(readDistributionBreakdown(shifted, asOfAfter(l))).toEqual(readDistributionBreakdown(l, asOfAfter(l)));
+  });
+
+  describe("acting on longs while the breakdown stands (FV7 b)", () => {
+    const closes = lowerTopThenSpell(95, 74);
+    /** The breakdown, then `after` closes, every session after the break on the spell's volume. */
+    const withAfter = (after: number[]) => {
+      const all = [...closes, ...after];
+      return bars(all, (i) => (i === closes.length - 1 ? 2.5e6 : i % 2 ? 1.5e6 : 1e6));
+    };
+    const breakDate = (b: Bar[]) => b[closes.length - 1].t.slice(0, 10);
+
+    it("stands after the session that printed it while price stays under the range", () => {
+      const b = withAfter([75, 73, 76]);
+      const r = readDistributionStanding(b, asOfAfter(b))!;
+      expect(r.breakDate).toBe(breakDate(b));
+      expect(r.rangeLow).toBeCloseTo(81, 6);
+      expect(r.breakoutVolumeRatio).toBeCloseTo(2, 6);
+    });
+
+    it("ends once a close comes back into the spell", () => {
+      expect(readDistributionStanding(withAfter([75, 80.9]), asOfAfter(withAfter([75, 80.9])))).not.toBeNull();
+      const b = withAfter([75, 81]);
+      expect(readDistributionStanding(b, asOfAfter(b))).toBeNull();
+    });
+
+    it("is looked for over the spell's length of sessions only", () => {
+      const inside = withAfter(Array.from({ length: STANDING_SESSIONS - 1 }, () => 76));
+      expect(readDistributionStanding(inside, asOfAfter(inside))).not.toBeNull();
+      const older = withAfter(Array.from({ length: STANDING_SESSIONS }, () => 76));
+      expect(readDistributionStanding(older, asOfAfter(older))).toBeNull();
+    });
+
+    it("needs the breakdown itself: no standing on a quiet break or without the lower top", () => {
+      const quiet = bars([...closes, 75], (i) => (i === closes.length - 1 ? 1.2e6 : i % 2 ? 1.5e6 : 1e6));
+      expect(readDistributionStanding(quiet, asOfAfter(quiet))).toBeNull();
+      const higher = lowerTopThenSpell(105, 74);
+      const h = bars([...higher, 75], (i) => (i === higher.length - 1 ? 2.5e6 : i % 2 ? 1.5e6 : 1e6));
+      expect(readDistributionStanding(h, asOfAfter(h))).toBeNull();
+    });
+
+    it("does not read the break while its session is still trading", () => {
+      const b = withAfter([]);
+      expect(readDistributionStanding(b, new Date(Date.parse(b[b.length - 1].t) + 15 * 3_600_000))).toBeNull();
+    });
+
+    it("reads a breakdown 19 sessions old the same on the live scan's year of sessions or six years", () => {
+      const tail = [...closes, ...Array.from({ length: STANDING_SESSIONS - 1 }, () => 76)];
+      const yearOf = [...Array.from({ length: 260 }, (_, i) => 60 + 5 * Math.sin(i / 9)), ...tail];
+      const longer = [...Array.from({ length: 1900 }, (_, i) => 40 + 15 * Math.sin(i / 23)), ...yearOf];
+      const vol = (n: number) => (i: number) => (i === n - STANDING_SESSIONS ? 2.5e6 : i % 2 ? 1.5e6 : 1e6);
+      const l = bars(longer, vol(longer.length));
+      const a = bars(yearOf.slice(-250), vol(250)).map((x, i) => ({ ...x, t: l[l.length - 250 + i].t }));
+      const r = readDistributionStanding(l, asOfAfter(l));
+      expect(r).not.toBeNull();
+      expect(readDistributionStanding(a, asOfAfter(l))).toEqual(r);
+    });
+
+    const execute = (): ScanDecision => ({ outputState: "Execute", breakdown: [] } as unknown as ScanDecision);
+
+    it("holds a long Execute to Watch, and leaves a short and a Watch alone", () => {
+      const b = withAfter([75]);
+      const standing = readDistributionStanding(b, asOfAfter(b));
+      const held = applyDistributionBreakdownHold(execute(), standing, "bullish");
+      expect(held.outputState).toBe("Watch");
+      expect(held.breakdown.at(-1)).toMatchObject({ key: "distributionBreakdown", passed: false });
+      expect(applyDistributionBreakdownHold(execute(), standing, "bearish").outputState).toBe("Execute");
+      expect(applyDistributionBreakdownHold(execute(), null, "bullish").outputState).toBe("Execute");
+      const watch = { ...execute(), outputState: "Watch" } as ScanDecision;
+      expect(applyDistributionBreakdownHold(watch, standing, "bullish")).toBe(watch);
+    });
+
+    it("exits a long bought before the breakdown, and not one bought after it or a short", () => {
+      const b = withAfter([75]);
+      const entered = (k: number) => b[k].t.slice(0, 10);
+      const pos = (entryDate: string, side: "long" | "short") => ({ side, entry: 82, initialStop: side === "long" ? 70 : 95, entryDate, crossedLevel: null });
+      // Bought inside the spell, two sessions before the break.
+      expect(readGannExit(pos(entered(closes.length - 3), "long"), b, null).exit).toMatchObject({ reason: "distribution" });
+      // Bought on the session after the break: the breakdown was printed before the fill.
+      expect(readGannExit(pos(entered(closes.length), "long"), b, null).exit?.reason).not.toBe("distribution");
+      expect(readGannExit(pos(entered(closes.length - 3), "short"), b, null).exit?.reason).not.toBe("distribution");
+    });
   });
 
   it("never reads the session still trading", () => {

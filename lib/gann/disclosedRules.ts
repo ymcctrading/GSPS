@@ -92,7 +92,7 @@ import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRu
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
-import { readDistributionBreakdown, type DistributionReading } from "@/lib/gann/distribution";
+import { readDistributionBreakdown, readDistributionStanding, type DistributionReading, type DistributionStanding } from "@/lib/gann/distribution";
 import { readBreakawayVolume, type BreakawayVolumeReading } from "@/lib/gann/breakaway";
 import { describeTopVolumeWarning, readTopVolumeWarning, type TopVolumeWarningReading } from "@/lib/gann/topVolume";
 import { readMonthCounts, readSwingMonthCounts, type PivotMonthCount } from "@/lib/gann/angleMonthCounts";
@@ -459,8 +459,10 @@ export interface DisclosedRulesContext {
   topVolume?: TopVolumeWarningReading | null;
   /** A second top at the first's level: its week's volume over the first top's week (A-VOLUME-13, context only). See `volumeClimax.ts`. */
   secondTopVolumeRatio?: number | null;
-  /** After a lower weekly top, a narrow range broken down on volume (A-VOLUME-03, context only). See `distribution.ts`. */
+  /** After a lower weekly top, a narrow range broken down on volume, on the last completed session (A-VOLUME-03). See `distribution.ts`. */
   distribution?: DistributionReading | null;
+  /** The breakdown, while it stands: it holds a new long to Watch and exits an open one (FV7 b). */
+  distributionStanding?: DistributionStanding | null;
   /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
@@ -569,6 +571,7 @@ export function readDisclosedRules(
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
     distribution: readDistributionBreakdown(dailyBars, asOf),
+    distributionStanding: readDistributionStanding(dailyBars, asOf),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
@@ -603,8 +606,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     const b = ctx.breakawayVolume;
     lines.push(`The last session ${b.direction === "bullish" ? "crossed the top" : "broke the bottom"} of a narrow range on ${b.ratio.toFixed(1)}× the range's average volume${b.ratio > 1 ? "" : ": a breakout without volume"}. Shown for context; it does not change the setup.`);
   }
-  if (ctx.distribution?.distributionBreakdown) {
-    lines.push(`After a lower top, the narrow range broke down on ${ctx.distribution.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. Shown for context; it does not change the setup.`);
+  if (ctx.distributionStanding) {
+    lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range.`);
   }
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {

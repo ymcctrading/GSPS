@@ -625,3 +625,10 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - L2: bear-low guard (a low older than the year read is not a bear low) and the unread clauses labelled; L3: C-TIME-23 pinned under 0.85; L4: staleness and crypto notes in the header.
 - passes flipped on the reviewer's PASS: A-VOLUME-12, A-TIME-21, A-TIME-06, C-TIME-09, C-TIME-23. A-VOLUME-05/-06/-07/-13 wait on the replay; -09 and -11 on a re-review; -03 and -10 on FV7 and step 4's replay.
 - STRATEGY_VERSION 2026-10-16-gann-volume-review. Full suite 2892 pass.
+
+## 2026-10-16 Item 8 step 5: A-VOLUME-03 acts on longs (FV7 b)
+- readDistributionStanding (distribution.ts): the latest breakdown after a lower top in the last 20 completed sessions (the spell's length), standing while no later close is back at or over the spell's low. Engineering choices labelled (look-back; back into the spell ends it).
+- applyDistributionBreakdownHold (score.ts, hold key distributionBreakdown, registry entry): a long Execute is held to Watch while it stands; live (scanTicker, readDistributionStanding on the scan's daily) and replay (context.disclosedRules.distributionStanding).
+- readGannExit: a long exits ("distribution") when a standing breakdown was printed on or after the fill; live exit manager and replay both read it.
+- Card line and Academy volume lesson say what it does now. The distribution read window 240 -> 220 sessions so a breakdown 20 sessions old reads over the same sessions in the live year and the replay (parity test).
+- Mutations P2, P3, P5-P9 killed; P1 (220 -> 240) survives on the parity fixture (the walk gives the same tops either way), P4 (the breakout prefilter) is equivalent. Full suite 2901 pass. STRATEGY_VERSION 2026-10-16-gann-distribution-hold.

@@ -875,6 +875,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "distributionBreakdown",
+    family: "scoreHold",
+    source: "lib/gann/distribution.ts",
+    label: "No breakdown after a lower top",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "PLAN.md item 8 step 5 (2026-10-16, fork FV7 b): after a lower top, a narrow spell broken down on " +
+      "increased volume signals a further decline (W006 pp.39-40, volume Rule 2). Appended only when it holds " +
+      "a long Execute while that breakdown stands, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "stopBreach",
     family: "scoreHold",
     source: "lib/gann/stopBreach.ts",

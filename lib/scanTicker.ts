@@ -36,12 +36,14 @@ import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { readDistributionStanding } from "@/lib/gann/distribution";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
 import { computeTradeLevels, gannEntrySource, type EntrySource } from "@/lib/strat/levels";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
+  applyDistributionBreakdownHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyReversionConfirmation,
@@ -391,6 +393,9 @@ export async function scanTicker(
     // Gann's monthly break warns against a new trade with the trend (PLAN.md
     // item 6, step 3): the same daily chart, the same reading as the replay.
     const monthlyWarning = readMonthlyBreakWarning(entryDaily);
+    // Gann's volume Rule 2 (A-VOLUME-03, fork FV7 b): a breakdown after a lower
+    // top holds a new long to Watch while it stands, as the replay reads it.
+    const distributionStanding = readDistributionStanding(daily, new Date(scannedAt));
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or
@@ -410,7 +415,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
+      applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -444,7 +449,7 @@ export async function scanTicker(
         pattern,
         momentumElevated,
         nearSupportResistance,
-      ), breakaway), monthlyWarning, scoreDirection),
+      ), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection),
       dataLag,
     ), stopBreach);
 

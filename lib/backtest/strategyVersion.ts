@@ -198,4 +198,7 @@
 // bottom (the lowest of the half year before it) printed in or up to two months
 // before that month, or in the month since (H1); the heaviest week before a top
 // must come after the low's week, not in it (M2).
-export const STRATEGY_VERSION = "2026-10-16-gann-volume-review";
+// Item 8 step 5 (fork FV7 b): after a lower top, a narrow spell broken down on
+// volume holds a new long to Watch and exits an open one while it stands
+// (A-VOLUME-03), on the live scan, the live exit manager and the replay.
+export const STRATEGY_VERSION = "2026-10-16-gann-distribution-hold";

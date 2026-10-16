@@ -70,4 +70,14 @@ describe("the scored volume rule's inputs", () => {
     // The shares-per-point reading too (item 8 review M3).
     expect(src("gann/disclosedRules.ts")).toMatch(/readSharesPerPoint\(dailyBars, campaign, asOf\)/);
   });
+
+  it("holds a long on a standing breakdown after a lower top on the live scan and in the replay (A-VOLUME-03)", () => {
+    const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
+    expect(src("scanTicker.ts")).toMatch(/const distributionStanding = readDistributionStanding\(daily, new Date\(scannedAt\)\)/);
+    expect(src("scanTicker.ts")).toMatch(/applyDistributionBreakdownHold\(applyMonthlyBreakHold\(/);
+    expect(src("scanTicker.ts")).toMatch(/monthlyWarning, scoreDirection\), distributionStanding, scoreDirection\)/);
+    expect(src("backtest/replay.ts")).toMatch(/applyDistributionBreakdownHold\(applyMonthlyBreakHold\(/);
+    expect(src("backtest/replay.ts")).toMatch(/context\.disclosedRules\.distributionStanding \?\? null, gannTrigger\.direction\)/);
+    expect(src("gann/disclosedRules.ts")).toMatch(/distributionStanding: readDistributionStanding\(dailyBars, asOf\)/);
+  });
 });

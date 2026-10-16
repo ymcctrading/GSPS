@@ -72,7 +72,7 @@ import {
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { applyBreakawayHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
@@ -1352,7 +1352,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
+  const decision = applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1381,7 +1381,7 @@ function scoreSetup(input: {
     pattern,
     context.momentumElevated,
     context.nearSupportResistance,
-  ), breakaway), monthlyWarning, gannTrigger.direction);
+  ), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction);
   return { decision, levels };
 }
 

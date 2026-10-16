@@ -35,8 +35,13 @@ import { etDateKey } from "@/lib/market/session";
 import { readAccumulation, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
-/** Completed sessions read: inside the live scan's year of daily bars (about 250), and a bound on the walk's cost. */
-export const SESSIONS_READ = 240;
+/**
+ * Completed sessions read: inside the live scan's year of daily bars (about
+ * 250) with room for the standing look-back (`STANDING_SESSIONS`), so a
+ * breakdown 20 sessions old is read over the same 220 sessions live and in the
+ * replay; also a bound on the walk's cost.
+ */
+export const SESSIONS_READ = 220;
 
 export interface DistributionReading {
   /** The last two completed weekly-chart tops, the later one lower. */
@@ -73,4 +78,41 @@ export function readDistributionBreakdown(daily: Bar[], asOf: Date): Distributio
     breakoutVolumeRatio,
     distributionBreakdown: afterLowerTop && brokeDown && breakoutVolumeRatio > 1,
   };
+}
+
+/** Sessions back a breakdown is looked for: the spell's own length, `RANGE_LOOKBACK` (an engineering bound). */
+export const STANDING_SESSIONS = RANGE_LOOKBACK;
+
+export interface DistributionStanding {
+  /** The session that broke down, "YYYY-MM-DD" in New York. */
+  breakDate: string;
+  rangeLow: number;
+  breakoutVolumeRatio: number;
+}
+
+/**
+ * Gann's breakdown "signals a further decline", so it stands after the session
+ * that printed it: the latest breakdown in the last `STANDING_SESSIONS`
+ * completed sessions, while no later close has come back up into the spell
+ * (at or over its low). Engineering choices, labelled: the look-back, and
+ * "back into the spell" as the end of the signal (Gann gives no expiry).
+ */
+export function readDistributionStanding(daily: Bar[], asOf: Date): DistributionStanding | null {
+  const today = etDateKey(asOf);
+  let end = daily.length;
+  while (end > 0 && etDateKey(new Date(daily[end - 1].t)) >= today) end--;
+  const done = daily.slice(Math.max(0, end - SESSIONS_READ - STANDING_SESSIONS), end);
+  for (let k = done.length - 1; k >= Math.max(0, done.length - STANDING_SESSIONS); k--) {
+    const upTo = done.slice(0, k + 1);
+    const acc = readAccumulation(upTo.slice(-SESSIONS_READ));
+    // The full reading only where the session broke down at all.
+    if (acc?.breakout !== "down") continue;
+    const breakDate = etDateKey(new Date(done[k].t));
+    const r = readDistributionBreakdown(upTo, new Date(Date.parse(done[k].t) + 86_400_000 + 12 * 3_600_000));
+    if (!r?.distributionBreakdown) continue;
+    // Back into the spell: the breakdown no longer stands.
+    if (done.slice(k + 1).some((b) => b.c >= acc.rangeLow)) return null;
+    return { breakDate, rangeLow: acc.rangeLow, breakoutVolumeRatio: r.breakoutVolumeRatio };
+  }
+  return null;
 }

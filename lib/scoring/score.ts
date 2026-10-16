@@ -11,6 +11,7 @@
 
 import type { BreakawayReading } from "@/lib/gann/breakaway";
 import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import type { DistributionStanding } from "@/lib/gann/distribution";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import type {
   AssetClass,
@@ -726,6 +727,34 @@ export function applyMonthlyBreakHold(
         criterion: "No break of the prior month's " + side,
         passed: false,
         note: `This month has broken the prior month's ${side}${warning.first ? ", the first such break of the move" : ""}, a warning that the trend may be turning. Held from Execute to Watch while it stands.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's volume Rule 2 (A-VOLUME-03, W006 pp.39-40; fork FV7 b, item 8 step
+ * 5): after a lower top, a narrow spell broken down on increased volume
+ * signals a further decline. While that breakdown stands
+ * (`readDistributionStanding`), a new long is held from Execute to Watch.
+ * Shorts are untouched: the breakaway down is their own entry.
+ */
+export function applyDistributionBreakdownHold(
+  decision: ScanDecision,
+  standing: DistributionStanding | null,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!standing || direction !== "bullish" || decision.outputState !== "Execute") return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "distributionBreakdown",
+        criterion: "No breakdown after a lower top",
+        passed: false,
+        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}), a sign of a further decline. Held from Execute to Watch while price stays under the range.`,
       },
     ],
   };
