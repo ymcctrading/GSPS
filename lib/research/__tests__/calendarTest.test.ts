@@ -50,3 +50,29 @@ describe("holm", () => {
   });
 });
 
+
+describe("CYC-35: pooling across phases can hide a rhythm", () => {
+  it("scores each phase of a longer cycle on its own, so a window that works every other year shows", async () => {
+    const { scoreCellByPhase } = await import("@/lib/research/calendarTest");
+    const t0 = Date.UTC(2010, 0, 1);
+    const sessions = Array.from({ length: 365 * 12 }, (_, i) => t0 + i * DAY);
+    const at = new Map(sessions.map((t, i) => [t, i]));
+    const pivots: number[] = [];
+    for (let y = 2011; y <= 2020; y++) {
+      if (y % 2) continue;
+      for (const [from] of windowInstances(W1, 1929, y, "calendar")) {
+        const day = Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth(), new Date(from).getUTCDate());
+        const i = at.get(day);
+        if (i !== undefined) pivots.push(i);
+      }
+    }
+    const pooled = scoreCell("T", { sessions, pivots }, "W1", "calendar", [2011, 2020]);
+    const byPhase = scoreCellByPhase("T", { sessions, pivots }, "W1", "calendar", 2, [2011, 2020]);
+    expect(byPhase.map((r) => r.phase)).toEqual([0, 1]);
+    // 2011 starts phase 0, so the even years are phase 1.
+    expect(byPhase[1].hitRate).toBe(1);
+    expect(byPhase[0].hitRate).toBe(0);
+    expect(pooled.hitRate).toBeCloseTo(0.5, 1);
+    expect(byPhase[1].instances + byPhase[0].instances).toBe(pooled.instances);
+  });
+});

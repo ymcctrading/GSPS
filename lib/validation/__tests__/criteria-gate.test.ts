@@ -255,3 +255,51 @@ describe("no divergence times a turn (C-TIME-02)", () => {
   });
 });
 
+
+/**
+ * CYC-41 (Dewey, C06): a period match across series or domains is a hint,
+ * not proof. The research tools that find such matches (`lib/research/*`,
+ * among them `crossSeries.ts`) and `spectralCycle.ts#validateCycle` stay off
+ * the verdict path: no criterion, gate, plan, entry or order reads them.
+ */
+describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
+  const verdictFiles = () => {
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name !== "__tests__") walk(p);
+        } else if (/\.tsx?$/.test(p)) files.push(p);
+      }
+    };
+    for (const d of ["lib/scoring", "lib/signals", "lib/gann", "lib/scan", "lib/lifecycle", "lib/analysis", "lib/strat", "lib/trade", "lib/risk", "lib/automation", "lib/backtest", "app", "components"]) {
+      walk(path.join(ROOT, d));
+    }
+    files.push(...["lib/scanTicker.ts", "lib/marketScan.ts"].map((f) => path.join(ROOT, f)));
+    return files;
+  };
+
+  it("has no scored criterion named for a cross-series or cross-domain match", () => {
+    for (const key of CRITERION_KEYS) expect(key).not.toMatch(/crossSeries|samePeriod|periodPrior|waveShape|beat/i);
+  });
+
+  it("keeps lib/research off the verdict path", () => {
+    const offenders = verdictFiles().filter((f) =>
+      [...readFileSync(f, "utf8").matchAll(/from "([^"]+)"/g)].some(([, spec]) => {
+        const target = spec.startsWith("@/")
+          ? spec.slice(2)
+          : spec.startsWith(".")
+            ? path.relative(ROOT, path.resolve(path.dirname(f), spec))
+            : null;
+        return target !== null && /^lib\/research(\/|$)/.test(target);
+      }),
+    );
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+
+  it("never calls validateCycle outside its own module", () => {
+    const callers = verdictFiles().filter((f) => path.relative(ROOT, f) !== "lib/gann/spectralCycle.ts" && /\bvalidateCycle\b/.test(readFileSync(f, "utf8")));
+    expect(callers.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+});
