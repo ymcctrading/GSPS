@@ -114,6 +114,11 @@ export function contextFactorsFor(
   if (ctx.accumulation) {
     f.longAccumulationBreakoutWithTrade = ctx.accumulation.long && ctx.accumulation.breakout === (bull ? "up" : "down");
   }
+  // A-VOLUME-12: the heaviest week since the last top warns of a top.
+  if (ctx.topVolume) {
+    f.topVolumeWarningAgainst = bull && ctx.topVolume.warning;
+    f.topVolumeWarningWith = !bull && ctx.topVolume.warning;
+  }
   // G7: a top warning counts against a long and with a short.
   if (ctx.sharesPerPoint) {
     f.sharesPerPointTopAgainst = bull && ctx.sharesPerPoint.topWarning;

@@ -52,15 +52,21 @@ describe("shares per point", () => {
   });
 });
 
-/** 6 bars up 1.0, 3 bars down 0.5, repeated, then a final 6-bar up leg. */
+/**
+ * Weekly-chart sections (item 8 map FV11): a 10-day decline, then 12 days up
+ * 1.0 and 9 days down 0.5, repeated, then a final 12-day up section. (These
+ * were 6-up/3-down legs while the reading compared 3-day legs.)
+ */
+const SECTION = 12;
 function steppingCampaign(cycles: number): number[] {
   const out: number[] = [];
-  let p = 100;
+  let p = 110;
+  for (let i = 0; i < 10; i++) out.push((p -= 1));
   for (let k = 0; k < cycles; k++) {
-    for (let i = 0; i < 6; i++) out.push((p += 1));
-    for (let i = 0; i < 3; i++) out.push((p -= 0.5));
+    for (let i = 0; i < SECTION; i++) out.push((p += 1));
+    for (let i = 0; i < 9; i++) out.push((p -= 0.5));
   }
-  for (let i = 0; i < 6; i++) out.push((p += 1));
+  for (let i = 0; i < SECTION; i++) out.push((p += 1));
   return out;
 }
 
@@ -70,7 +76,7 @@ function steppingCampaign(cycles: number): number[] {
 describe("shares per point: the top warning", () => {
   it("warns when the current up leg takes far more volume per point near the high", () => {
     const closes = steppingCampaign(8);
-    const heavyFrom = closes.length - 6;
+    const heavyFrom = closes.length - SECTION;
     const r = readSharesPerPoint(bars(closes, (i) => (i >= heavyFrom ? 5e6 : 1e6)))!;
     expect(r).not.toBeNull();
     expect(r.ratio).toBeGreaterThanOrEqual(1.8);
@@ -80,10 +86,30 @@ describe("shares per point: the top warning", () => {
 
   it("warns on the 1937 figures: 151,197 shares a point against 88,860, 1.70 times (item 8 map FV11)", () => {
     const closes = steppingCampaign(8);
-    const heavyFrom = closes.length - 6;
+    const heavyFrom = closes.length - SECTION;
     const r = readSharesPerPoint(bars(closes, (i) => (i >= heavyFrom ? 1.7016e6 : 1e6)))!;
     expect(r.ratio).toBeCloseTo(151_197 / 88_860, 2);
     expect(r.nearHigh).toBe(true);
+    expect(r.topWarning).toBe(true);
+  });
+
+  it("compares the weekly chart's up sections, not the 3-day legs inside them (item 8 map FV11)", () => {
+    // A 20-day section up on light volume, a 10-day reaction, then a section
+    // up in three legs (two 3-day dips) on twice the volume throughout.
+    const closes: number[] = [];
+    let p = 100;
+    for (let i = 0; i < 15; i++) closes.push((p -= 1));
+    for (let i = 0; i < 20; i++) closes.push((p += 1));
+    for (let i = 0; i < 10; i++) closes.push((p -= 1));
+    const heavyFrom = closes.length;
+    for (let k = 0; k < 3; k++) {
+      for (let i = 0; i < 8; i++) closes.push((p += 1));
+      if (k < 2) for (let i = 0; i < 3; i++) closes.push((p -= 0.5));
+    }
+    const r = readSharesPerPoint(bars(closes, (i) => (i >= heavyFrom ? 2e6 : 1e6)))!;
+    expect(r).not.toBeNull();
+    // Section against section: 2e6 a session over 21 points against 1e6 over 20.
+    expect(r.ratio).toBeGreaterThan(2.5);
     expect(r.topWarning).toBe(true);
   });
 
