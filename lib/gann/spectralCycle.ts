@@ -159,7 +159,7 @@ export function minRepetitions(periodBars: number): number {
 const HOLDOUT_NULL_PERIODS = 39;
 const HOLDOUT_NULL_ALPHA = 0.05;
 
-function linearDetrend(values: number[]): number[] {
+export function linearDetrend(values: number[]): number[] {
   const n = values.length;
   const meanX = (n - 1) / 2;
   const meanY = values.reduce((a, b) => a + b, 0) / n;
@@ -174,7 +174,7 @@ function linearDetrend(values: number[]): number[] {
   return values.map((v, i) => v - (slope * i + intercept));
 }
 
-function periodPower(values: number[], period: number): number {
+export function periodPower(values: number[], period: number): number {
   const n = values.length;
   const omega = (2 * Math.PI) / period;
   let sumCos = 0;
