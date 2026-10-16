@@ -10,8 +10,9 @@
  *
  * All functions here take closed `Bar[]` (oldest first) and return arrays
  * aligned to the input by index, or a plain number/point for the latest
- * value. Nothing here is a scored criterion or a display series — it exists
- * solely to compute entry/stop/target levels for `lib/strategies/*`.
+ * value. Nothing here is a scored criterion or a display series. It computes
+ * each mode's own arming for `lib/strategies/*` and, since 2026-10-16, the
+ * explain-only readings of GSPS's plan in `lib/strategies/explain/`.
  */
 
 import type { Bar } from "@/lib/types";

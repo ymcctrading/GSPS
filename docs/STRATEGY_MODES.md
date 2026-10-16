@@ -28,6 +28,19 @@ that copies them into the manual stop and target. See AGENTS.md's Strategy
 Modes section for the owner's wording. Everything below that describes a mode
 supplying levels a human acts on is superseded by this.
 
+**How the reading works (`lib/strategies/explain/`).** Each mode has an
+explainer that takes the closed bars and GSPS's plan (direction, entry, stop,
+TP1, MTP) and returns a `PlanReading`: whether the technique leans the plan's
+way, a one-sentence state, and one line per plan level. Line indicators
+(PSAR, Supertrend, EMA 9/SMA 20, Bollinger bands, VWAP, Donchian) compare each
+level with the line's latest value, in % and ATRs. Oscillators (RSI, MACD,
+stochastic) append one hypothetical bar closing at the level and report the
+value they would read there. The bar-pattern mode compares the levels with the
+armed pattern's trigger and stop. A custom script is read through every
+indicator it names (`collectPlotNodes`), and its lean is whichever of its rules
+fires on the latest bar. The script editor's check still shows the script's own
+lines, labelled as a test of the rule, never an order's levels.
+
 ## Hard rules (do not relax without new project-owner direction)
 
 1. **Gann is always the default.** Every scan, the scorecard, `SignalGates`,

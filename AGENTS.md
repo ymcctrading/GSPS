@@ -1311,6 +1311,19 @@ They bound how the decision is built, not whether.
 > chart overlays, script authoring and backtest stay as they were. Where this
 > section below says a mode may "generate" or supply levels a human acts on,
 > read it as this narrower rule.
+>
+> **Built the same day:** `lib/strategies/explain/` gives each of the nine
+> modes, and any custom script, a reader that takes GSPS's plan and returns
+> words only (`PlanReading`: a lean, a summary, one line per plan level). It
+> has no output that can become a level, score, gate or order. The order
+> ticket sends the plan to `/api/strategy-levels` and
+> `/api/strategy-plugins/[id]/evaluate`, which return `reading`, and shows it
+> in both protocol and manual mode, read on `EXECUTION_TIMEFRAME`. Owner
+> decisions for the rest of the rollout: the setup card shows a one-line
+> reading for the saved default technique, the chart switches the chosen
+> technique's overlay on automatically, scripts keep `entry`/`stop`/`tp1r`/
+> `mtpr` as optional lines, and every surface that shows a plan's levels gets
+> the reading where it fits (cross-platform rule above).
 
 The "Gann-grounded platform" section above states a boundary "that must not
 move": no non-Gann indicator (PSAR, Supertrend, RSI, MACD, Bollinger, the

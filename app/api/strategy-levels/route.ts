@@ -28,6 +28,7 @@ import { evaluateStrategyMode, isNonGannStrategyMode } from "@/lib/strategies/re
 import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
 import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/types";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { explainPlan, parsePlanParams } from "@/lib/strategies/explain";
 
 // Same reasoning as /api/bars and /api/indicators: a symbol fetch can queue
 // behind the shared per-provider rate limiter, and 3 retries with backoff on
@@ -86,12 +87,18 @@ export async function GET(req: NextRequest) {
     }
 
     const levels = evaluateStrategyMode(mode, bars);
+    // Explain-only (AGENTS.md "Strategy Modes", 2026-10-16): when the caller
+    // passes GSPS's plan, the mode reads that plan's levels. `levels` stays
+    // for callers that show the mode's own arming, never as an order's levels.
+    const plan = parsePlanParams(searchParams);
+    const reading = plan ? explainPlan(mode, bars, plan) : null;
     return NextResponse.json({
       symbol: symbol.toUpperCase(),
       timeframe,
       mode: mode as StrategyModeId,
       label: STRATEGY_MODE_LABELS[mode as StrategyModeId],
       levels, // null when nothing is currently armed under this mode
+      reading, // null without a plan, or when the mode has too few bars to read
     });
   } catch (err) {
     return NextResponse.json(
