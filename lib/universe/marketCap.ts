@@ -57,14 +57,14 @@ export function isCoreMarketCap(
  *
  * GSPS has no live market-cap feed wired into the scan pipeline (see
  * `lib/strat/large-cap.ts`'s identical disclosure for the same gap). What it
- * does have is `lib/scan/large-cap-universe.ts`'s committed list — a
- * `stockanalysis.com` "$10B-$200B" cap screen capture, ranks 1-500 of 893,
- * documented there as spanning roughly $22.5B-$197.9B at capture time.
- * Membership is therefore a real, sourced signal that a symbol's cap is
- * (or very recently was) above the absolute floor — not a guess and not a
- * fabricated number. Non-membership is **not** evidence of being below the
- * floor (the list's coverage stops at rank 500 of 893, and caps drift), so
- * it still fails closed via `marketCapPass(null)` rather than assuming small.
+ * does have is `lib/scan/large-cap-universe.ts`'s committed list: every
+ * company at or above $10B, with no ceiling (owner, 2026-10-16; before that
+ * the list stopped at $200B, so AAPL, MSFT, NVDA and every other name above it
+ * failed this check). Membership is therefore a real signal that a symbol's
+ * cap is (or very recently was) above the absolute floor — not a guess and not
+ * a fabricated number. Non-membership is **not** evidence of being below the
+ * floor (the list is a dated capture, and caps drift), so it still fails
+ * closed via `marketCapPass(null)` rather than assuming small.
  */
 export function marketCapPassFromLargeCapCoverage(inLargeCapUniverse: boolean): UniverseFilterResult {
   if (inLargeCapUniverse) {

@@ -908,6 +908,11 @@ for the project owner** — do not fix it silently, and re-verify it first:
   comes last behind the tracked symbols, the rotation chunk (drawn from
   `LARGE_CAP_UNIVERSE` only) and the most-actives, inside a 250-slot cap.
   Check coverage in coarse telemetry, not list membership.
+  **No market-cap ceiling (owner, 2026-10-16):** "a min on the megacap, but
+  never a limit." `LARGE_CAP_UNIVERSE` had stopped at $200B, so every larger
+  name failed `novice_eligible`'s market-cap check and Guided Mode could never
+  show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
+  the Alpaca validation pass). The $10B floor is the only cap rule.
 - Lesser items: the weight-promotion path can still promote non-uniform
   weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
