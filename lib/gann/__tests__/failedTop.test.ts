@@ -388,3 +388,22 @@ describe("A-LEVELS-04: a failed top passes only 3 points over its highest test (
     expect(failedTestAgainst(readMultipleTops(bars([...unevenBottom, bottomLine - 0.5])), "bearish")).toBeNull();
   });
 });
+
+describe("C-LEVELS-06: a double top is crossed only by a close 3 points over it (review 22)", () => {
+  const testing = [...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 106, 5)];
+  const mirror = (xs: number[]) => xs.map((x) => 200 - x);
+
+  it("does not read crossed on a close about 2 points over the tops", () => {
+    const r = readMultipleTops(bars([...testing, 108, 112.5])).top;
+    expect(r).toMatchObject({ tests: 2, state: "testing" });
+    expect(readMultipleTops(bars(mirror([...testing, 108, 112.5]))).bottom).toMatchObject({ tests: 2, state: "testing" });
+  });
+
+  it("reads crossed past the 3-point line, and not once price is back under the top", () => {
+    const line = beyondByThreePoints(110.5, 1);
+    expect(readMultipleTops(bars([...testing, 108, line + 0.5])).top).toMatchObject({ state: "crossed" });
+    expect(readMultipleTops(bars([...testing, 108, line + 0.5, 109])).top?.state).not.toBe("crossed");
+    expect(readMultipleTops(bars(mirror([...testing, 108, line + 0.5]))).bottom).toMatchObject({ state: "crossed" });
+    expect(readMultipleTops(bars(mirror([...testing, 108, line + 0.5, 109]))).bottom?.state).not.toBe("crossed");
+  });
+});

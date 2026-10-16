@@ -84,4 +84,21 @@ describe("F3 cycle checks: cosinor, artifact guards, hold-out", () => {
     const r = detectSpectralCycle(bars(Array.from({ length: 200 }, (_, i) => 50 + 0.002 * i * i)));
     expect(r.active).toBe(false);
   });
+
+  // Schuster's test (review 22, CYC-51): n candidate frequencies make a peak n
+  // times likelier by chance, so p = min(1, independent × e^(−dominance)),
+  // with independent = round(n/5 − n/maxPeriod), 46 at 240 bars.
+  it("scales Schuster's p by the number of independent frequencies, capped at 1", () => {
+    const noise = (s0: number) => {
+      let seed = s0;
+      const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+      return makeBars(Array.from({ length: 240 }, () => 100 + 2 * (rnd() - 0.5)));
+    };
+    const r = detectSpectralCycle(noise(7));
+    const expected = 46 * Math.exp(-(r.dominancePower ?? 0));
+    expect(expected).toBeGreaterThan(0.01);
+    expect(expected).toBeLessThan(1);
+    expect(Math.abs((r.schusterP ?? -1) - expected)).toBeLessThanOrEqual(expected * 0.006 + 0.0006);
+    expect(detectSpectralCycle(noise(11)).schusterP).toBe(1);
+  });
 });

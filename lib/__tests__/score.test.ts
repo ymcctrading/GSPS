@@ -368,3 +368,45 @@ describe("computeScore entryTriggerArmed note", () => {
     expect(note({ ...crossing, source: "swing" })).not.toMatch(/new record/);
   });
 });
+
+// M-R3 (review 22): the scored point reads the call's own side, on the daily
+// chart or, failing that, the weekly or monthly.
+describe("computeScore ruleOfThree", () => {
+  const trend = (direction: TrendReading["direction"]): TrendReading => ({ timeframe: "1Day", direction, support: [], resistance: [] });
+  const r3 = (bullishSignal: boolean, bearishSignal: boolean) => ({
+    consecutiveHigherCloses: bullishSignal ? 3 : 0,
+    consecutiveLowerCloses: bearishSignal ? 3 : 0,
+    bullishSignal,
+    bearishSignal,
+  });
+  const item = (direction: "bullish" | "bearish", extra: Partial<ScoreInputs>) =>
+    computeScore({
+      direction,
+      macroTrends: [trend("sideways"), trend("sideways"), trend("sideways")],
+      hourlyTrend: trend("sideways"),
+      gann: EMPTY_GANN,
+      nearSupportResistance: false,
+      pattern: null,
+      momentumElevated: false,
+      stopAtrMultiple: 0.8,
+      levels: null,
+      ...extra,
+    }).breakdown.find((b) => b.key === "ruleOfThree")!;
+
+  it("reads three higher closes for a long and three lower closes for a short", () => {
+    expect(item("bullish", { ruleOfThree: r3(true, false) }).passed).toBe(true);
+    expect(item("bullish", { ruleOfThree: r3(false, true) }).passed).toBe(false);
+    expect(item("bearish", { ruleOfThree: r3(false, true) }).passed).toBe(true);
+    expect(item("bearish", { ruleOfThree: r3(true, false) }).passed).toBe(false);
+  });
+
+  it("passes on the weekly or monthly chart when the daily does not fire, and names it", () => {
+    const weekly = item("bearish", { ruleOfThree: r3(false, false), ruleOfThreeWeekly: r3(false, true) });
+    expect(weekly.passed).toBe(true);
+    expect(weekly.note).toMatch(/weekly chart/);
+    const monthly = item("bullish", { ruleOfThree: r3(false, false), ruleOfThreeWeekly: r3(false, false), ruleOfThreeMonthly: r3(true, false) });
+    expect(monthly.passed).toBe(true);
+    expect(monthly.note).toMatch(/monthly chart/);
+    expect(item("bullish", { ruleOfThree: r3(false, false), ruleOfThreeWeekly: r3(false, true) }).passed).toBe(false);
+  });
+});

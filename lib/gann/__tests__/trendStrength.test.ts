@@ -141,6 +141,27 @@ describe("readSuccessiveSwings (C-ENTRY-03, Master Course Ch.8)", () => {
     expect(contextFactorsFor(ctx, "bearish", price).secondOrThirdSwingWithTrade).toBe(false);
   });
 
+  // Review 22: W003 p.17 and the Master Course p.248 say fast moves start
+  // from the third or fourth higher bottom, so a fourth is counted and named.
+  it("counts a fourth higher bottom as 4, names it, and flags the third or fourth", () => {
+    const daily = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121, 112, 124])];
+    expect(readSuccessiveSwings(daily).higherBottoms).toBe(4);
+    const price = daily[daily.length - 1].c;
+    const ctx = readDisclosedRules(daily, price, null, new Date(Date.parse(daily[daily.length - 1].t) + 86_400_000));
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("Standing on the fourth higher bottom"))).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", price).thirdOrFourthSwingWithTrade).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", price).secondOrThirdSwingWithTrade).toBe(false);
+    const third = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121])];
+    const c3 = readDisclosedRules(third, third[third.length - 1].c, null, new Date(Date.parse(third[third.length - 1].t) + 86_400_000));
+    expect(contextFactorsFor(c3, "bullish", third[third.length - 1].c).thirdOrFourthSwingWithTrade).toBe(true);
+    const second = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118])];
+    const c2 = readDisclosedRules(second, second[second.length - 1].c, null, new Date(Date.parse(second[second.length - 1].t) + 86_400_000));
+    expect(c2.successiveSwings?.higherBottoms).toBe(2);
+    expect(contextFactorsFor(c2, "bullish", second[second.length - 1].c).thirdOrFourthSwingWithTrade).toBe(false);
+    const down = [bar(100), ...zig([100, 120, 108, 117, 105, 114, 102, 111, 99, 108, 96])];
+    expect(readSuccessiveSwings(down).lowerTops).toBe(4);
+  });
+
   it("mirrors for lower tops", () => {
     const r = readSuccessiveSwings([bar(100), ...zig([100, 120, 108, 117, 105, 114, 102, 111, 99])]);
     expect(r.lowerTops).toBe(3);

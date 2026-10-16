@@ -55,6 +55,19 @@ describe("the crossed level persists through the reaction", () => {
   });
 });
 
+describe("the distribution spell is read before the break, however long the reaction (review 22, A-ENTRY-15)", () => {
+  it("still sells a held broken bottom when the reaction outlasts the 91-day look-back", () => {
+    const top = Array.from({ length: 10 }, (_, i) => 40 + (i % 2 ? 0.1 : -0.1));
+    // A reaction of 100 sessions between 52 and 55, under the sell and over the break line.
+    const slow = Array.from({ length: 100 }, (_, i) => 52 + 3 * Math.abs(Math.sin((Math.PI * i) / 12)));
+    const xs = [...top, ...BASE, ...leg(56, 52, 4), ...slow].map((x) => 100 - x);
+    const t = computeGannEntryTrigger(bars(xs), "bearish")!;
+    expect(t).not.toBeNull();
+    expect(t.held).toBe(true);
+    expect(t.level).toBeCloseTo(computeGannEntryTrigger(bars([...top, ...BASE].map((x) => 100 - x)), "bearish")!.level, 8);
+  });
+});
+
 describe("which crossed level is held, and when it ends", () => {
   it("keeps the held level's trade when the swing low since the crossing sits above it", () => {
     // Cross 50 on the way to 62, react only to 58 (its bottom is far above the

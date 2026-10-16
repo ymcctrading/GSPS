@@ -90,6 +90,8 @@ export function contextFactorsFor(
   if (ctx.successiveSwings) {
     const n = bull ? ctx.successiveSwings.higherBottoms : ctx.successiveSwings.lowerTops;
     f.secondOrThirdSwingWithTrade = n === 2 || n === 3;
+    // Fast moves start from the third or fourth (W003 p.17; Master Course p.248).
+    f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;

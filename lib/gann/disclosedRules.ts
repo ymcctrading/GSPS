@@ -833,16 +833,23 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     const b = ctx.falseBreakout;
     lines.push(
       b.direction === "bearish"
-        ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, less than 3 points over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
-        : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, less than 3 points under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
+        ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
+        : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
     );
   }
   const ss = ctx.successiveSwings;
-  const nth = (n: number) => (n === 2 ? "second" : "third");
-  if (ss && (ss.higherBottoms === 2 || ss.higherBottoms === 3)) {
-    lines.push(`Standing on the ${nth(ss.higherBottoms)} higher bottom of the 3-Day Chart: the rule reads the advance as strongest after the second or third.`);
+  const nth = (n: number) => (n === 2 ? "second" : n === 3 ? "third" : "fourth");
+  // Master Course p.248 names both: the advance is strongest after the second
+  // or third higher bottom, and fast moves start from the third or fourth
+  // (also W003 p.17).
+  if (ss && ss.higherBottoms >= 2 && ss.higherBottoms <= 4) {
+    lines.push(
+      ss.higherBottoms === 4
+        ? "Standing on the fourth higher bottom of the 3-Day Chart: the rule says fast moves start from the third or fourth."
+        : `Standing on the ${nth(ss.higherBottoms)} higher bottom of the 3-Day Chart: the rule reads the advance as strongest after the second or third${ss.higherBottoms === 3 ? ", and fast moves start from the third or fourth" : ""}.`,
+    );
   }
-  if (ss && (ss.lowerTops === 2 || ss.lowerTops === 3)) {
+  if (ss && ss.lowerTops >= 2 && ss.lowerTops <= 4) {
     lines.push(`Under the ${nth(ss.lowerTops)} lower top of the 3-Day Chart, a top the rule says to watch.`);
   }
   if (ctx.overnight) lines.push(...describeOvernightChart(ctx.overnight));

@@ -38,6 +38,30 @@ describe("readFalseBreakout (C-STOP-01)", () => {
     expect(readFalseBreakout(d, after(d))).toMatchObject({ direction: "bullish", level: 90 });
   });
 
+  // Review 22: the mirror's two negative cases, and the range's full 13 weeks.
+  it("is not false under the bottom when the break went more than 3 points past it", () => {
+    const d = weeks([...RANGE, [90 - gannThreePoints(90) - 0.2, 95, 91], [91, 97, 94]]);
+    expect(readFalseBreakout(d, after(d))).toBeNull();
+  });
+
+  it("is not false under the bottom while the next week holds outside the range", () => {
+    const d = weeks([...RANGE, [90 - gannThreePoints(90) + 0.2, 95, 91], [86, 91, 88]]);
+    expect(readFalseBreakout(d, after(d))).toBeNull();
+  });
+
+  it("reads the top from all 13 weeks, the oldest included", () => {
+    const range = RANGE.map((w, i) => (i === 0 ? ([90, 101, 96] as [number, number, number]) : w));
+    const d = weeks([...range, [95, 100.5, 99], [93, 99, 96]]);
+    expect(readFalseBreakout(d, after(d))).toBeNull();
+  });
+
+  it("counts a break of exactly 3 points as false, and says so on the card", () => {
+    const d = weeks([...RANGE, [95, 100 + P, 99], [93, 99, 96]]);
+    const ctx = readDisclosedRules(d, 96, null, after(d));
+    expect(ctx.falseBreakout?.direction).toBe("bearish");
+    expect(describeDisclosedRules(ctx).some((l) => l.includes("no more than 3 points over the 13-week top"))).toBe(true);
+  });
+
   it("does not read the week still trading", () => {
     const d = weeks([...RANGE, [95, 100 + P - 0.2, 99], [93, 99, 96]]);
     // Asked on the last Friday, the failing week is not complete yet.
