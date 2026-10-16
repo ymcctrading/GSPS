@@ -29,11 +29,9 @@
  *   period of 45 days is ⅛ of a year", and "the end of 90-98 days and 120-135
  *   days". A second cited list beside *45 Years* Rule 8's `DAY_COUNT_BANDS`.
  * - The Rule 8 calendar dates (M-T5): *45 Years in Wall Street* (1949) Ch. II
- *   Rule 8 (pp. 6-14) gives turn dates for every month. The reading notes
- *   give only January (7-10, 19-24), September (3-10 and 21-28, "the most
- *   important") and December (3-10, 15-24); **February to August, October
- *   and November are missing from the notes** and are not read until the
- *   page is transcribed. This is a different list from the 1930 permanent
+ *   Rule 8 "Time Periods" (pp. 10-11) gives seasonal dates for every month,
+ *   transcribed from the book into `RULE_8_MONTHLY_DATES`, with September
+ *   the one he calls most important. This is a different list from the 1930 permanent
  *   cycle (`FIXED_CALENDAR_WINDOWS`), so it is kept apart.
  * - The Winter-quarter seasonal dates (C-TIME-05): Master Course Ch.5 PDF
  *   161; see `seasonalCounts.ts`'s `WINTER_QUARTER_POINTS`.
@@ -167,15 +165,38 @@ export const COMMODITIES_DAY_BANDS: readonly [number, number][] = [
 ];
 
 /**
- * M-T5: the Rule 8 turn dates the reading notes give (45 Years Ch. II). Month
- * 1-12, days inclusive. Months not listed are missing from the notes, not
- * absent from the book.
+ * M-T5: Rule 8's seasonal dates for a change in trend (*45 Years in Wall
+ * Street*, 1949, Ch. II, Rule 8 "Time Periods", pp. 10-11: January to July on
+ * p. 10, August to December on p. 11). Month 1-12, days inclusive. Gann gives
+ * two windows for every month except March, which has one (20 to 27).
+ * `mostImportant` marks September only, which he calls the most important of
+ * any in the year. His other rankings are relative, not a single mark: January
+ * is the most important at the beginning of the year, February next to it, May
+ * as great as January and February, July next to January, and November very
+ * important.
  */
 export const RULE_8_MONTHLY_DATES: readonly { month: number; startDay: number; endDay: number; mostImportant: boolean }[] = [
   { month: 1, startDay: 7, endDay: 10, mostImportant: false },
   { month: 1, startDay: 19, endDay: 24, mostImportant: false },
+  { month: 2, startDay: 3, endDay: 10, mostImportant: false },
+  { month: 2, startDay: 20, endDay: 25, mostImportant: false },
+  { month: 3, startDay: 20, endDay: 27, mostImportant: false },
+  { month: 4, startDay: 7, endDay: 12, mostImportant: false },
+  { month: 4, startDay: 20, endDay: 25, mostImportant: false },
+  { month: 5, startDay: 3, endDay: 10, mostImportant: false },
+  { month: 5, startDay: 21, endDay: 28, mostImportant: false },
+  { month: 6, startDay: 10, endDay: 15, mostImportant: false },
+  { month: 6, startDay: 21, endDay: 27, mostImportant: false },
+  { month: 7, startDay: 7, endDay: 10, mostImportant: false },
+  { month: 7, startDay: 21, endDay: 27, mostImportant: false },
+  { month: 8, startDay: 5, endDay: 8, mostImportant: false },
+  { month: 8, startDay: 14, endDay: 20, mostImportant: false },
   { month: 9, startDay: 3, endDay: 10, mostImportant: true },
   { month: 9, startDay: 21, endDay: 28, mostImportant: true },
+  { month: 10, startDay: 7, endDay: 14, mostImportant: false },
+  { month: 10, startDay: 21, endDay: 30, mostImportant: false },
+  { month: 11, startDay: 5, endDay: 10, mostImportant: false },
+  { month: 11, startDay: 20, endDay: 30, mostImportant: false },
   { month: 12, startDay: 3, endDay: 10, mostImportant: false },
   { month: 12, startDay: 15, endDay: 24, mostImportant: false },
 ];

@@ -152,9 +152,11 @@ describe("the Commodities p.57 day bands (M-T7)", () => {
 });
 
 describe("the 45 Years Rule 8 calendar dates (M-T5)", () => {
-  it("carries only the dates the reading notes give", () => {
+  it("carries every month's dates from the book, September marked most important", () => {
     expect(RULE_8_MONTHLY_DATES.map((w) => `${w.month}/${w.startDay}-${w.endDay}${w.mostImportant ? "*" : ""}`)).toEqual([
-      "1/7-10", "1/19-24", "9/3-10*", "9/21-28*", "12/3-10", "12/15-24",
+      "1/7-10", "1/19-24", "2/3-10", "2/20-25", "3/20-27", "4/7-12", "4/20-25",
+      "5/3-10", "5/21-28", "6/10-15", "6/21-27", "7/7-10", "7/21-27", "8/5-8", "8/14-20",
+      "9/3-10*", "9/21-28*", "10/7-14", "10/21-30", "11/5-10", "11/20-30", "12/3-10", "12/15-24",
     ]);
   });
 
@@ -163,8 +165,10 @@ describe("the 45 Years Rule 8 calendar dates (M-T5)", () => {
     expect(readRule8Date(new Date(Date.UTC(2026, 8, 25)))).toMatchObject({ month: 9, startDay: 21, mostImportant: true });
     expect(readRule8Date(new Date(Date.UTC(2026, 0, 11)))).toBeNull();
     expect(readRule8Date(new Date(Date.UTC(2026, 8, 15)))).toBeNull();
-    // A month the notes do not give is not read.
-    expect(readRule8Date(new Date(Date.UTC(2026, 3, 8)))).toBeNull();
+    // February 22 falls in the 20-25 window; March has one window only.
+    expect(readRule8Date(new Date(Date.UTC(2026, 1, 22)))).toMatchObject({ month: 2, startDay: 20, endDay: 25, mostImportant: false });
+    expect(readRule8Date(new Date(Date.UTC(2026, 2, 10)))).toBeNull();
+    expect(readRule8Date(new Date(Date.UTC(2026, 10, 30)))).toMatchObject({ month: 11, startDay: 20, endDay: 30 });
   });
 
   it("is a measured factor, and a card line", () => {
@@ -173,7 +177,7 @@ describe("the 45 Years Rule 8 calendar dates (M-T5)", () => {
     expect(f.rule8DateActive).toBe(true);
     expect(f.rule8DateMostImportant).toBe(true);
     expect(describeDisclosedRules(ctx).some((l) => l.startsWith("September 3-10: one of the month's turn dates"))).toBe(true);
-    expect(contextFactorsFor(readDisclosedRules(withPivotLow(20), 115, null, new Date(Date.UTC(2026, 3, 8))), "bullish", 115).rule8DateActive).toBe(false);
+    expect(contextFactorsFor(readDisclosedRules(withPivotLow(20), 115, null, new Date(Date.UTC(2026, 3, 15))), "bullish", 115).rule8DateActive).toBe(false);
   });
 });
 
