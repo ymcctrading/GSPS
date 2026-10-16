@@ -91,6 +91,7 @@ import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { describeTopVolumeWarning, readTopVolumeWarning, type TopVolumeWarningReading } from "@/lib/gann/topVolume";
 import { readMonthCounts, readSwingMonthCounts, type PivotMonthCount } from "@/lib/gann/angleMonthCounts";
 import { describeBearDuration, readBearDuration, type BearDurationReading } from "@/lib/gann/bearDuration";
@@ -454,6 +455,8 @@ export interface DisclosedRulesContext {
   narrowWeekBreak?: NarrowWeekBreakReading | null;
   /** The heaviest completed week since the last major top (A-VOLUME-12, context only). See `topVolume.ts`. */
   topVolume?: TopVolumeWarningReading | null;
+  /** A second top at the first's level: its week's volume over the first top's week (A-VOLUME-13, context only). See `volumeClimax.ts`. */
+  secondTopVolumeRatio?: number | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
   secondaryTime?: SecondaryTimeReading | null;
   /** Months from the monthly chart's major tops and bottoms (A-TIME-05, context only). See `angleMonthCounts.ts`. */
@@ -559,6 +562,7 @@ export function readDisclosedRules(
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
+    secondTopVolumeRatio: computeVolumeClimax(dailyBars).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
     monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
     swingMonthCounts: readSwingMonthCounts(dailyBars, asOf),
@@ -584,6 +588,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   if (ctx.bearDuration) lines.push(describeBearDuration(ctx.bearDuration));
   if (ctx.topVolume?.warning) lines.push(describeTopVolumeWarning(ctx.topVolume));
+  if (ctx.secondTopVolumeRatio != null && ctx.secondTopVolumeRatio <= 2 / 3) {
+    lines.push(`A second top at the first top's level on ${Math.round(ctx.secondTopVolumeRatio * 100)}% of its week's volume. Shown for context; it does not change the setup.`);
+  }
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {
     const a = ctx.accumulation;

@@ -561,3 +561,8 @@ is unchecked here (collection-synthesis.md §1.6, §6).
   - A-VOLUME-12: lib/gann/topVolume.ts readTopVolumeWarning. The last completed week's volume is the largest of any week since the last major weekly top (majorPivots(findPivots(weekly, 3)) over the last 52 completed weeks, so the live year and the replay's longer history pick the same top). The week in progress is never counted. Card line ("Watch for a top", context) and factors topVolumeWarningAgainst (long) / topVolumeWarningWith (short). Top rule only; no bottom mirror invented. Tests: topVolume.test.ts (6). W1, W2, W4-W6 caught; W3 (> vs >=) survives as a tie case.
   - A-VOLUME-11 (FV11 at its recommendation): readSharesPerPoint compares the weekly swing chart's up sections (prior bottom to top against the current bottom to now), not the 3-day legs inside them. New test: two 3-day dips inside the heavy section no longer hide it (failed at 1.0 before). The steppingCampaign fixture moved from 6-up/3-down legs to 12-up/9-down weekly sections, rule-induced (a 3-day dip is not a weekly-chart section); the asserted warnings are unchanged. P1, P2 caught; P3 equivalent (the pivot-kind check already returns null in a reaction).
   - Context only, no version bump. vitest 2836 pass; tsc, check:terms, eslint clean.
+
+2026-10-16 item 8 step 2 (A-VOLUME-13): computeVolumeClimax gains retestWeekVolumeRatio
+(second top's calendar-week volume over the first top's, only when the second reaches the
+first). Card line at <=2/3; factors secondTopTwoThirds/ThirdVolume Against/With. Context only,
+nothing confirms on it (FV2 awaiting owner). Mutations M1-M8 killed. Full suite 2838 pass.

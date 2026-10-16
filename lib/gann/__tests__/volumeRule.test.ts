@@ -95,6 +95,61 @@ describe("the volume rule at a high (W006 pp.39-40, 48)", () => {
     for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
     const high = computeVolumeClimax(bars(rows)).find((r) => r.anchorKind === "high")!;
     expect(high.retestOnLowerVolume).toBe(false);
+    expect(high.retestWeekVolumeRatio!).toBeGreaterThan(1);
+  });
+
+  it("measures a double top's volume as the second top's week over the first's (A-VOLUME-13)", () => {
+    // Weekday bars, Monday 2026-01-05 on: the first top's week trades 9,000, the second's 6,000 (two-thirds).
+    const t0 = Date.UTC(2026, 0, 5);
+    const day = (k: number) => t0 + (Math.floor(k / 5) * 7 + (k % 5)) * 86_400_000;
+    const closes: number[] = [];
+    for (let i = 0; i < 30; i++) closes.push(70 + i);
+    closes.push(100, 99, 98, 97, 96);
+    for (let i = 0; i < 5; i++) closes.push(95 - i);
+    for (let i = 0; i < 4; i++) closes.push(92 + 2 * i);
+    closes.push(100.2);
+    for (let i = 0; i < 10; i++) closes.push(99 - i);
+    const rows = closes.map((c, k) => {
+      // Uneven inside each week, so the top days' own volumes (1,000 and 1,800) give a different ratio.
+      const v = k >= 30 && k < 35 ? [1000, 3000, 1800, 1800, 1400][k - 30] : k >= 40 && k < 45 ? [600, 1200, 1200, 1200, 1800][k - 40] : 1000;
+      return { t: new Date(day(k)).toISOString(), o: c, h: c + 1, l: c - 1, c, v };
+    });
+    const high = computeVolumeClimax(rows).find((r) => r.anchorKind === "high")!;
+    expect(high.anchorPrice).toBeCloseTo(101.2, 6);
+    expect(high.retestWeekVolumeRatio).toBeCloseTo(2 / 3, 6);
+    // A second top that stops short of the first is not a double top: no ratio.
+    const short = rows.map((r, k) => (k >= 40 ? { ...r, o: r.o - 8, h: r.h - 8, l: r.l - 8, c: r.c - 8 } : r));
+    expect(computeVolumeClimax(short).find((r) => r.anchorKind === "high")!.retestWeekVolumeRatio).toBeNull();
+  });
+
+  it("puts the second top's volume on the setup and measures two-thirds and a third", async () => {
+    const { describeDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
+    const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const t0 = Date.UTC(2026, 0, 5);
+    const day = (k: number) => t0 + (Math.floor(k / 5) * 7 + (k % 5)) * 86_400_000;
+    const closes: number[] = [];
+    for (let i = 0; i < 30; i++) closes.push(70 + i);
+    closes.push(100, 99, 98, 97, 96);
+    for (let i = 0; i < 5; i++) closes.push(95 - i);
+    for (let i = 0; i < 4; i++) closes.push(92 + 2 * i);
+    closes.push(100.2);
+    for (let i = 0; i < 10; i++) closes.push(99 - i);
+    const rows = closes.map((c, k) => {
+      const v = k >= 30 && k < 35 ? 3600 : k >= 40 && k < 45 ? 1200 : 1000;
+      return { t: new Date(day(k)).toISOString(), o: c, h: c + 1, l: c - 1, c, v };
+    });
+    const ctx = readDisclosedRules(rows, 90, null, new Date(rows[rows.length - 1].t));
+    expect(ctx.secondTopVolumeRatio).toBeCloseTo(6000 / 18000, 6);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("A second top at the first top's level on 33% of its week's volume."))).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", 90)).toMatchObject({ secondTopTwoThirdsVolumeAgainst: true, secondTopThirdVolumeAgainst: true });
+    expect(contextFactorsFor(ctx, "bearish", 90)).toMatchObject({ secondTopTwoThirdsVolumeWith: true, secondTopThirdVolumeWith: true, secondTopThirdVolumeAgainst: false });
+    expect(contextFactorsFor({ ...ctx, secondTopVolumeRatio: 0.5 }, "bullish", 90)).toMatchObject({ secondTopTwoThirdsVolumeAgainst: true, secondTopThirdVolumeAgainst: false });
+    expect(contextFactorsFor(ctx, "bearish", 90)).toMatchObject({ secondTopTwoThirdsVolumeAgainst: false });
+    expect(contextFactorsFor(ctx, "bullish", 90)).toMatchObject({ secondTopTwoThirdsVolumeWith: false });
+    const heavier = { ...ctx, secondTopVolumeRatio: 0.8 };
+    expect(contextFactorsFor(heavier, "bullish", 90)).toMatchObject({ secondTopTwoThirdsVolumeAgainst: false });
+    expect(describeDisclosedRules(heavier).some((l) => l.startsWith("A second top"))).toBe(false);
   });
 
   it("reads the same pivots the same way on one year or six years of history ending on the same day", () => {

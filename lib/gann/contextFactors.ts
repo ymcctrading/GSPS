@@ -119,6 +119,15 @@ export function contextFactorsFor(
     f.topVolumeWarningAgainst = bull && ctx.topVolume.warning;
     f.topVolumeWarningWith = !bull && ctx.topVolume.warning;
   }
+  // A-VOLUME-13: a second top on two-thirds, or a third, of the first top's volume.
+  if (ctx.secondTopVolumeRatio != null) {
+    const twoThirds = ctx.secondTopVolumeRatio <= 2 / 3;
+    const third = ctx.secondTopVolumeRatio <= 1 / 3;
+    f.secondTopTwoThirdsVolumeAgainst = bull && twoThirds;
+    f.secondTopTwoThirdsVolumeWith = !bull && twoThirds;
+    f.secondTopThirdVolumeAgainst = bull && third;
+    f.secondTopThirdVolumeWith = !bull && third;
+  }
   // G7: a top warning counts against a long and with a short.
   if (ctx.sharesPerPoint) {
     f.sharesPerPointTopAgainst = bull && ctx.sharesPerPoint.topWarning;

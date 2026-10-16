@@ -119,6 +119,13 @@ export interface VolumeClimaxReading {
   dryingUp: boolean;
   /** The anchor retested the previous pivot of its kind (equal or beyond) on smaller volume. */
   retestOnLowerVolume: boolean;
+  /**
+   * When the anchor reached the previous pivot of its kind: the volume of the
+   * anchor's week over the previous pivot's week (A-VOLUME-13, W006 pp.43-44:
+   * a double top "on two-thirds the volume"; Master Course Ch.12: a third or
+   * less). Context only, measured; nothing reads it to confirm (fork FV2).
+   */
+  retestWeekVolumeRatio?: number | null;
   /** Gann's volume rule for this kind of turn holds (see the module header). */
   confirms: boolean;
 }
@@ -133,6 +140,21 @@ function driedUp(bars: Bar[], index: number, lookback: number): boolean {
   const vol = mean(recent.map((b) => b.v)) < mean(before.map((b) => b.v));
   const range = mean(recent.map((b) => b.h - b.l)) < mean(before.map((b) => b.h - b.l));
   return vol && range;
+}
+
+/** Monday (UTC midnight, ms) of the calendar week holding `t`. */
+function weekOf(t: string): number {
+  const d = new Date(t);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - ((d.getUTCDay() + 6) % 7) * 86_400_000;
+}
+
+/** Total volume of the calendar week holding bar `index`. */
+function weekVolume(bars: Bar[], index: number): number {
+  const w = weekOf(bars[index].t);
+  let v = 0;
+  for (let i = index; i >= 0 && weekOf(bars[i].t) === w; i--) v += bars[i].v;
+  for (let i = index + 1; i < bars.length && weekOf(bars[i].t) === w; i++) v += bars[i].v;
+  return v;
 }
 
 export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxReading[] {
@@ -157,11 +179,14 @@ export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxRea
     const dryingUp = driedUp(bars, anchor.index, lookback);
     const previous = recent[1];
     let retestOnLowerVolume = false;
+    let retestWeekVolumeRatio: number | null = null;
     if (previous) {
       const prevRvol = relativeVolume(bars.slice(0, previous.index + 1), lookback);
       const tol = (previous.price * RETEST_TOLERANCE_PCT) / 100;
       const reached = kind === "low" ? anchor.price <= previous.price + tol : anchor.price >= previous.price - tol;
       retestOnLowerVolume = reached && prevRvol !== null && anchorRvol < prevRvol;
+      const prevWeek = weekVolume(bars, previous.index);
+      if (reached && prevWeek > 0) retestWeekVolumeRatio = weekVolume(bars, anchor.index) / prevWeek;
     }
     const confirms = kind === "low" ? dryingUp || retestOnLowerVolume || climax : climax || retestOnLowerVolume;
 
@@ -174,6 +199,7 @@ export function computeVolumeClimax(bars: Bar[], lookback = 20): VolumeClimaxRea
       climax,
       dryingUp,
       retestOnLowerVolume,
+      retestWeekVolumeRatio,
       confirms,
     });
   }
