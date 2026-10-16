@@ -306,7 +306,12 @@ export async function placeSimulatedOrder(
   // order here is paper, so nothing requires this yet — it's ahead of live
   // trading, on the reasoning that will apply once real capital is at risk.
   const existingPosition = await getOpenPosition(supabase, userId, input.symbol);
-  const isProtective = isProtectiveOrder(existingPosition?.side ?? null, input.side);
+  const isProtective = isProtectiveOrder(
+    existingPosition?.side ?? null,
+    input.side,
+    input.qty,
+    existingPosition?.qty ?? 0,
+  );
   const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 

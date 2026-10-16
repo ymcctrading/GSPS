@@ -5,7 +5,7 @@
  * bars elapsed since its pivot matches the price move since that pivot,
  * counted the same unit for unit ("one point, one day"). That is a different
  * question from `lib/gann/normalizedSlope.ts`'s 1x1 angle, which asks
- * whether the ATR-normalized rate of change sits on a fixed grid of angle
+ * whether the rate of change in Gann points sits on a fixed grid of angle
  * ratios — this checks a literal count-for-count match between elapsed time
  * and the price move.
  *
@@ -25,7 +25,7 @@ import type { Bar } from "@/lib/types";
 import { angleUnit } from "@/lib/gann/fans";
 
 /**
- * How close the bar count and the ATR-normalized price move have to land to
+ * How close the bar count and the price move in Gann points have to land to
  * call the square holding.
  *
  * `4` bars, widened from 2 as part of the since-closed Execute-collapse

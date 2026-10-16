@@ -49,16 +49,21 @@ export interface KillSwitchRefusal {
  * eventually require: exits, reductions, and profit-taking should stay
  * available regardless of what halted new entries. An order with no existing
  * position behind it, or one on the same side as the position it would grow,
- * is not protective and stays subject to the halt.
+ * is not protective and stays subject to the halt. Nor is one larger than the
+ * position it closes: the excess opens a new position the other way, which
+ * needs its own stop (A-STOP-01, review 24).
  */
 export function isProtectiveOrder(
   existingPositionSide: "long" | "short" | null,
   orderSide: "buy" | "sell",
+  orderQty?: number,
+  existingQty?: number,
 ): boolean {
-  return (
+  const against =
     (existingPositionSide === "long" && orderSide === "sell") ||
-    (existingPositionSide === "short" && orderSide === "buy")
-  );
+    (existingPositionSide === "short" && orderSide === "buy");
+  if (!against) return false;
+  return orderQty == null || existingQty == null || orderQty <= existingQty;
 }
 
 /**

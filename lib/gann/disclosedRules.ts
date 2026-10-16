@@ -719,10 +719,10 @@ export function readDisclosedRules(
       ? {
           from: campaignBottoms.bottoms[0].price,
           fromMonth: campaignBottoms.bottoms[0].month,
-          price: monthlyAngle(campaignBottoms.bottoms[0].price, campaignBottoms.bottoms[0].month, STOCK_POINTS_PER_MONTH, etDateKey(asOf).slice(0, 7)),
+          price: monthlyAngle(campaignBottoms.bottoms[0].price, campaignBottoms.bottoms[0].month, STOCK_POINTS_PER_MONTH * unit, etDateKey(asOf).slice(0, 7)),
         }
       : null,
-    monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH),
+    monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH * unit),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),

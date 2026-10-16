@@ -120,9 +120,13 @@ describe("the price readings reach the card and the factors, and nothing else", 
     expect(ctx.firstFall?.inFirstFall).toBe(true);
     expect(ctx.annualRange?.years).toBe(3);
     expect(ctx.integerSquares).toEqual([225, 240.5, 256]);
-    expect(ctx.monthlyAngle).toEqual({ from: 90, fromMonth: "2025-04", price: 104 });
+    // 14 months at 1 point a month, the point scaled to the symbol's price like every other angle.
+    const { gannPointForBars } = await import("@/lib/gann/pointScale");
+    const angleAt = 90 + 14 * gannPointForBars(bars);
+    expect(angleAt).not.toBeCloseTo(104, 1);
+    expect(ctx.monthlyAngle).toEqual({ from: 90, fromMonth: "2025-04", price: angleAt });
     const lines = describeDisclosedRules(ctx);
-    for (const s of ["Price zone over 200", "first 100 points down", "usual yearly range", "225, 240.5 (halfway) and 256", "at 1 point a month stands at 104.00"]) {
+    for (const s of ["Price zone over 200", "first 100 points down", "usual yearly range", "225, 240.5 (halfway) and 256", `at 1 point a month stands at ${angleAt.toFixed(2)}`]) {
       expect(lines.some((l) => l.includes(s))).toBe(true);
     }
     expect(contextFactorsFor(ctx, "bullish", 239).firstFallFromHighAgreesWithTrade).toBe(false);
