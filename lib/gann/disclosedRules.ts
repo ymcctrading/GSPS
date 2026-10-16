@@ -109,6 +109,7 @@ import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReadi
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
+import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@/lib/gann/priceAsTime";
 import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
@@ -648,6 +649,8 @@ export interface DisclosedRulesContext {
   ascension?: AscensionReading | null;
   /** Odd/even squares, the 9 and 12 grid, and the range against 144 (C-NUMEROLOGY-01, C-TIME-15/-16, context only). See `priceGrids.ts`. */
   priceGrids?: PriceGridReading | null;
+  /** Price read as time and the long counts (M-P9, C-TIME-04/-07/-14/-17/-20/-22, M-T18; context only). See `priceAsTime.ts`. */
+  priceAsTime?: PriceAsTimeReading | null;
   /** Angles from zero, from a double or triple bottom's tests, and in the square of the range; the 1x1's rank (C-LEVELS-04/-05/-09, context only). See `angleCrossings.ts`. */
   angleCrossings?: AngleCrossingsReading | null;
   /** The session this was read for (YYYY-MM-DD). */
@@ -815,6 +818,7 @@ export function readDisclosedRules(
     astro: readAstroRules(dailyBars, asOf, unit),
     ascension: readAscension(dailyBars),
     priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
+    priceAsTime: readPriceAsTime(dailyBars, currentPrice, unit, inception, asOf),
     angleCrossings: readAngleCrossings(dailyBars, currentPrice),
     asOf: asOf.toISOString().slice(0, 10),
   };
@@ -1024,6 +1028,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
   }
   if (ctx.priceGrids) lines.push(...describePriceGrids(ctx.priceGrids));
+  if (ctx.priceAsTime) lines.push(...describePriceAsTime(ctx.priceAsTime));
   if (ctx.masterCalculator) lines.push(...describeMasterCalculator(ctx.masterCalculator));
   if (ctx.circle) lines.push(...describeCircle(ctx.circle));
   if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));
