@@ -53,6 +53,7 @@ export function OrderTicket({
   livePrice,
   intradaySourced = false,
   forceSide,
+  onExplainChange,
 }: {
   result: ScanResult;
   livePrice?: number | null;
@@ -65,6 +66,14 @@ export function OrderTicket({
   intradaySourced?: boolean;
   /** Preselects the side from the alert's direction; the user can still change it. */
   forceSide?: Side;
+  /**
+   * Tells the page which technique or script is explaining the plan, so the
+   * chart can switch its lines on (owner decision 2026-10-16: automatic).
+   */
+  onExplainChange?: (choice: {
+    mode: StrategyModeId;
+    scriptId: string | null;
+  }) => void;
 }) {
   const { levels, pattern, symbol } = result;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
@@ -135,6 +144,9 @@ export function OrderTicket({
   const [scriptStatus, setScriptStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [scriptError, setScriptError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    onExplainChange?.({ mode: strategyMode, scriptId: selectedScriptId || null });
+  }, [strategyMode, selectedScriptId, onExplainChange]);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string; code?: string } | null>(null);
   /**
    * Null means "use the conservative default for this side" — a buy rounds

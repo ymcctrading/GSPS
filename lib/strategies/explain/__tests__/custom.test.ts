@@ -107,6 +107,11 @@ describe("parsePlanParams", () => {
     expect(parsePlanParams(new URLSearchParams(planQuery(plan)))).toEqual(plan);
   });
 
+  it("accepts a plan with no targets, as an intraday alert can be", () => {
+    const bare = { ...plan, takeProfit1: null, masterTarget: null };
+    expect(parsePlanParams(new URLSearchParams(planQuery(bare)))).toEqual(bare);
+  });
+
   it("rejects a plan whose levels sit on the wrong sides or are missing", () => {
     expect(
       parsePlanParams(

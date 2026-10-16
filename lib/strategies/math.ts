@@ -266,6 +266,21 @@ export function recentHigh(bars: Bar[], i: number, lookback: number): number {
  * calendar day itself, matching the convention every other Strategy Modes
  * function uses of taking exactly the bars the caller wants evaluated.
  */
+/**
+ * The latest session's bars: those on the same UTC date as the last bar.
+ * That is the anchor `vwap()` expects. The chart's VWAP line
+ * (lib/indicators.ts#vwap) restarts on the same boundary, so the mode, its
+ * explain reading and the plotted line all read one VWAP (2026-10-16; before
+ * that the caller passed the whole fetched window and the line had no match).
+ */
+export function latestSession(bars: Bar[]): Bar[] {
+  if (bars.length === 0) return bars;
+  const day = bars[bars.length - 1].t.slice(0, 10);
+  let i = bars.length - 1;
+  while (i > 0 && bars[i - 1].t.slice(0, 10) === day) i--;
+  return bars.slice(i);
+}
+
 export function vwap(bars: Bar[]): (number | null)[] {
   const out: (number | null)[] = new Array(bars.length).fill(null);
   let cumPV = 0;

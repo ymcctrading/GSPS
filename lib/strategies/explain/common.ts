@@ -103,13 +103,16 @@ export function readEachLevel(
   plan: PlanInput,
   describe: (price: number, key: PlanLevelKey) => string,
 ): PlanLevelReading[] {
-  return PLAN_LEVEL_KEYS.map((key) => {
+  return PLAN_LEVEL_KEYS.flatMap((key) => {
     const price = plan[key];
-    return {
-      level: key,
-      price: roundCents(price),
-      text: `${PLAN_LEVEL_NAMES[key]} ${money(price)}: ${describe(price, key)}`,
-    };
+    if (price == null) return [];
+    return [
+      {
+        level: key,
+        price: roundCents(price),
+        text: `${PLAN_LEVEL_NAMES[key]} ${money(price)}: ${describe(price, key)}`,
+      },
+    ];
   });
 }
 

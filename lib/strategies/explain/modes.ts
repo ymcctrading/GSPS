@@ -16,6 +16,7 @@ import {
   stochastic,
   supertrend,
   vwap,
+  latestSession,
 } from "../math";
 import { evaluateSaraStrat } from "../saraStrat";
 import { STRATEGY_MODE_LABELS, type StrategyDirection } from "../types";
@@ -198,7 +199,7 @@ export const explainMacdMomentum: PlanExplainer = (bars, plan) => {
 };
 
 export const explainVwap: PlanExplainer = (bars, plan) => {
-  const v = last(vwap(bars));
+  const v = last(vwap(latestSession(bars)));
   if (v == null) return null;
   const close = bars[bars.length - 1].c;
   const a = latestAtr(bars);

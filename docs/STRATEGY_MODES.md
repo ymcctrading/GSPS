@@ -41,6 +41,15 @@ indicator it names (`collectPlotNodes`), and its lean is whichever of its rules
 fires on the latest bar. The script editor's check still shows the script's own
 lines, labelled as a test of the rule, never an order's levels.
 
+**Where the reading shows.** The order ticket (any technique, on request), and
+a one-line reading in the person's saved default technique
+(`components/strategies/plan-reading-line.tsx`) on the setup card, the ticker
+page's plan card, Guided Mode and plan-scoped Automation. Choosing a technique
+in the ticket also switches its chart overlay on. Not shown on open positions,
+scan history, the Novice home summary or notifications, for the reasons in
+AGENTS.md's Strategy Modes note. VWAP is session-anchored
+(`math.ts#latestSession`) in the mode, the reading and the chart line.
+
 ## Hard rules (do not relax without new project-owner direction)
 
 1. **Gann is always the default.** Every scan, the scorecard, `SignalGates`,

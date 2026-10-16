@@ -8,10 +8,20 @@ import {
 import { PLAN_EXPLAINERS } from "@/lib/strategies/explain";
 import type { PlanInput } from "@/lib/strategies/explain";
 
-async function fixture(symbol: string): Promise<Bar[]> {
+async function fixture(
+  symbol: string,
+  timeframe: "1Day" | "15Min" = "1Day",
+): Promise<Bar[]> {
   const end = new Date("2026-09-30T00:00:00Z");
-  const start = new Date(end.getTime() - 420 * 864e5);
-  return syntheticProvider.fetchBars(symbol, "1Day", start, end, "us_equity");
+  const days = timeframe === "1Day" ? 420 : 12;
+  const start = new Date(end.getTime() - days * 864e5);
+  return syntheticProvider.fetchBars(
+    symbol,
+    timeframe,
+    start,
+    end,
+    "us_equity",
+  );
 }
 
 function planAt(bars: Bar[], direction: "bullish" | "bearish"): PlanInput {
@@ -49,13 +59,24 @@ describe("plan explainers", () => {
         "masterTarget",
       ]);
       for (const l of r.levels) {
-        expect(l.price).toBe(Math.round(plan[l.level] * 100) / 100);
+        expect(l.price).toBe(Math.round(plan[l.level]! * 100) / 100);
         expect(l.text.length).toBeGreaterThan(10);
       }
       expect(r.levels[2].text).toContain(
-        `$${(Math.round(plan.takeProfit1 * 100) / 100).toFixed(2)}`,
+        `$${(Math.round(plan.takeProfit1! * 100) / 100).toFixed(2)}`,
       );
     }
+  });
+
+  it("skips a target the plan doesn't fix", async () => {
+    const bars = await fixture("SPY");
+    const plan = {
+      ...planAt(bars, "bullish"),
+      takeProfit1: null,
+      masterTarget: null,
+    };
+    const r = PLAN_EXPLAINERS.maCrossover(bars, plan)!;
+    expect(r.levels.map((l) => l.level)).toEqual(["entry", "stopLoss"]);
   });
 
   it("returns nothing it could place: no level fields beyond the plan's prices", async () => {
@@ -108,7 +129,8 @@ describe("plan explainers", () => {
     async (mode) => {
       let checked = 0;
       for (const symbol of ["AAPL", "SPY", "MSFT", "NVDA", "TSLA", "AMZN"]) {
-        const bars = await fixture(symbol);
+        // VWAP is session-anchored, so it only arms on intraday bars.
+        const bars = await fixture(symbol, mode === "vwap" ? "15Min" : "1Day");
         for (let i = 40; i < bars.length; i++) {
           const window = bars.slice(0, i + 1);
           const armed = NON_GANN_STRATEGY_EVALUATORS[mode](window);

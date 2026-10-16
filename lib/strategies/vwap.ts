@@ -36,9 +36,11 @@
 import type { Bar } from "@/lib/types";
 import type { StrategyLevels } from "./types";
 import { buildLevels } from "./targets";
-import { vwap } from "./math";
+import { latestSession, vwap } from "./math";
 
-export function evaluateVwap(bars: Bar[]): StrategyLevels | null {
+export function evaluateVwap(allBars: Bar[]): StrategyLevels | null {
+  // Session VWAP: anchored at the latest session's first bar (math.ts#latestSession).
+  const bars = latestSession(allBars);
   const n = bars.length;
   if (n < 2) return null;
   const series = vwap(bars);
