@@ -254,7 +254,7 @@ describe("computeScore gannRetracementConfluence", () => {
     expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(false);
   });
 
-  it("does not pass on the retracement match alone without digital-root confluence", () => {
+  it("passes on the retracement match alone: the digital root is context, never a gate (FL5 a)", () => {
     const decision = computeScore({
       ...baseInputs("bullish"),
       gann: {
@@ -263,10 +263,10 @@ describe("computeScore gannRetracementConfluence", () => {
         digitalRootConfluences: [{ anchorKind: "low", priceRoot: 2, timeRoot: 5, type: "NO_CONFLUENCE" }],
       },
     });
-    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(false);
+    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(true);
   });
 
-  it("passes when the role-matched retracement zone and digital-root confluence agree", () => {
+  it("passes when the role-matched retracement zone holds, with a digital-root reading on the card", () => {
     const decision = computeScore({
       ...baseInputs("bullish"),
       gann: {

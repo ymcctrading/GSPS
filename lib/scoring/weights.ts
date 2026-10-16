@@ -97,7 +97,7 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   entryTriggerArmed: "Entry trigger armed (old-level crossing)",
   stopRoom: "Stop room (>= 1.5x ATR)",
   timePriceSquare: "Price and time squared",
-  gannRetracementConfluence: "Retracement + signal-flow confluence",
+  gannRetracementConfluence: "Retracement zone",
   ruleOfThree: "Rule of Three (consecutive closes confirm direction)",
 };
 

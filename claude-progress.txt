@@ -731,3 +731,7 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - readTrend (lib/analysis/trend.ts) and readLevelTests (disclosedRules.ts): an old top cleared by a later close beyond beyondByThreePoints is support; an old bottom broken by one is resistance. Before: bottoms only support, tops only resistance.
 - Flows to stops/targets/coarse filter/historicalSR via the trend level lists, live and replay (same code). Curriculum lesson adds the mirror (old low broken becomes a ceiling).
 - Mutants R1-R5, T1-T4 killed (incl. "later close" only). Full suite 2973 passing. STRATEGY_VERSION 2026-10-16-gann-old-tops-support. Replay after run 51: report historicalSR pass rate vs saturation bounds, stop-from-structure share.
+
+## Item 9 step 6, FL5 a (C-NUMEROLOGY-04), 2026-10-16
+- gannRetracementConfluence passes on the role-matched retracement zone alone; the digital-root AND is gone (score.ts). The reading stays in the card note as context. Label "Retracement zone" (weights.ts, registry); key unchanged so committed runs validate. Registry note rewritten; scanTicker/digitalRoot comments updated.
+- Mutants D1 (restore AND), D2 (always pass) killed. STRATEGY_VERSION 2026-10-16-gann-retracement-alone. Replay pending.

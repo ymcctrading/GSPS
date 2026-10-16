@@ -220,4 +220,7 @@
 // Gann's 3 points is support and an old bottom broken by them is resistance
 // (A-LEVELS-01, -05), in the trends' level lists (stops, targets, the coarse
 // filter, historicalSR) and the level-test reading, live and in the replay.
-export const STRATEGY_VERSION = "2026-10-16-gann-old-tops-support";
+// Item 9 step 6 (fork FL5 a), same day: the retracement point scores on Gann's
+// retracement zone alone; the digital-root reading no longer gates it and
+// stays on the card as context (C-NUMEROLOGY-04, class C never gates).
+export const STRATEGY_VERSION = "2026-10-16-gann-retracement-alone";

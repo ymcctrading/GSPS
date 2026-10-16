@@ -432,13 +432,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // (now retired) fan-line criterion used.
   const retracementMatch =
     gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= fanBandPct) ?? null;
-  // Digital-root/vortex confluence off the same direction-matched anchor —
-  // never the sole basis for this criterion, only ANDed with the structural
-  // retracement match above. See lib/gann/digitalRoot.ts's priceTimeConfluence
-  // and its blueprint-7.4 confluence-only rule.
+  // Digital-root/vortex reading off the same direction-matched anchor: card
+  // context only. Until 2026-10-16 it was ANDed into this point; fork FL5 a
+  // removed that, since a class C reading (W011, arithmetic mod 9) may never
+  // gate, and Gann's retracement levels (50% first; 45 Years in Wall Street,
+  // How to Make Profits in Commodities) score on their own. See
+  // lib/gann/digitalRoot.ts's priceTimeConfluence.
   const drReading = gann.digitalRootConfluences.find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const drConfluenceHolds = drReading !== null && drReading.type !== "NO_CONFLUENCE";
-  const gannConfluenceStackPassed = retracementMatch !== null && drConfluenceHolds;
+  const gannConfluenceStackPassed = retracementMatch !== null;
   // srMatch carries the role of the matched level; older callers that only
   // pass the boolean (no srMatch) keep the pre-fix behavior for this
   // criterion rather than being silently failed by a check they can't answer.
@@ -578,13 +580,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "gannRetracementConfluence",
-      criterion: "Retracement zone + signal-flow confluence",
+      criterion: "Retracement zone",
       pillar: "riskReward",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
-        ? (drConfluenceHolds
-            ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
-            : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`) +
+        ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).` +
+          (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
           (retracementMatch.importance != null
             ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
             : " Not one of the explicitly ranked fractions.")

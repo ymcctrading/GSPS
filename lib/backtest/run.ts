@@ -91,9 +91,9 @@ export interface BacktestRequest {
   attributeWithin?: AttributionScope;
   /**
    * Attribute factors within a score band instead of a verdict bucket —
-   * `[5, 6]` for "one point short of Execute", say. Takes precedence over
+   * `[5, 5]` for "one point short of Execute", say. Takes precedence over
    * `attributeWithin` when set, because a verdict bucket cannot express a
-   * band narrower than itself (Watch is 4–6 in one bucket).
+   * band narrower than itself (Watch is 3.5 up to 6 in one bucket).
    */
   attributeScoreRange?: [number, number];
   /** Criterion weights to score with. Defaults to one point each. */

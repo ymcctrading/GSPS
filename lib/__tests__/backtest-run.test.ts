@@ -108,13 +108,15 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     const nearMiss = await runBacktest({
       symbols: ["SPY", "AAPL"],
       timeframe: "15Min",
-      attributeScoreRange: [5, 6],
+      attributeScoreRange: [4, 5],
     });
 
-    expect(nearMiss.attributeWithin).toBe("score 5–6");
-    expect(nearMiss.attributeScoreRange).toEqual([5, 6]);
+    expect(nearMiss.attributeWithin).toBe("score 4–5");
+    expect(nearMiss.attributeScoreRange).toEqual([4, 5]);
 
-    // The 5–6 band is a subset of Watch (4–6), never a superset of it.
+    // The 4–5 band is a subset of Watch (3.5 up to, not including, 6), never a
+    // superset of it. A 6 is Execute unless a hold drops it, so a 5–6 band can
+    // hold trades from outside Watch.
     const watchBucket = withinWatch.buckets.find((b) => b.bucket === "Watch")!;
     const nearMissObserved = nearMiss.factors.reduce((n, f) => Math.max(n, f.observed), 0);
     expect(nearMissObserved).toBeLessThanOrEqual(watchBucket.trades);

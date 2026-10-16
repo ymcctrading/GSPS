@@ -200,9 +200,9 @@ export async function scanTicker(
     const boilingPoint = computeBoilingPoint(daily, volumeClimax);
     const retracementLevels = computeRetracementLevels(charts.daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
-    // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
-    // criterion ANDs this with the retracement match above rather than gating on
-    // it alone. See lib/gann/digitalRoot.ts's priceTimeConfluence.
+    // confluence/context only (blueprint 7.4): score.ts's gannRetracementConfluence
+    // shows it on the card and no longer ANDs it in (fork FL5 a, 2026-10-16).
+    // See lib/gann/digitalRoot.ts's priceTimeConfluence.
     const digitalRootConfluences = angleSlopes
       .map((r) => {
         const confluence = priceTimeConfluence(currentPrice, r.anchorPrice, r.barsSinceAnchor);

@@ -529,18 +529,18 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "gannRetracementConfluence",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Retracement + signal-flow confluence",
+    label: "Retracement zone",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
-      "Replaces `masterStructural` (retired 2026-09-10; see RETIRED). A composite: passes only when a " +
-      "percentage-retracement zone (lib/gann/retracement.ts, the genuinely new structural mechanism this " +
-      "codebase was missing) matches in the trade's role AND the price-time signal-flow confluence off " +
-      "the same anchor (lib/gann/digitalRoot.ts's priceTimeConfluence) is not NO_CONFLUENCE. The AND is " +
-      "deliberate, not incidental: blueprint 7.4's safety rule forbids that signal-flow reading from " +
-      "ever gating a verdict by itself, so it is wired in only as a confirming second factor on top of " +
-      "an independent structural check, never as the sole basis for the point. Never scored before; " +
-      "needs a fresh committed replay before any sign claim.",
+      "Replaces `masterStructural` (retired 2026-09-10; see RETIRED). Passes when a percentage-retracement " +
+      "zone (lib/gann/retracement.ts) matches in the trade's role. Until 2026-10-16 it also required the " +
+      "price-time signal-flow confluence off the same anchor (lib/gann/digitalRoot.ts), ANDed in as a " +
+      "confirming second factor; fork FL5 a removed that AND, since a class C reading (W011, arithmetic " +
+      "mod 9) may never gate a scored point, and the retracement levels score on their own. The " +
+      "digital-root reading stays on the card as context. The key keeps its old name so committed runs " +
+      "still validate, but their numbers describe the AND. Unmeasured on the new rule; needs a fresh " +
+      "committed replay before any sign claim.",
   },
   {
     id: "ruleOfThree",
