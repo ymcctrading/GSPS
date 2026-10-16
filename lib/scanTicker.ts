@@ -53,6 +53,7 @@ import {
   applyTimeWindowHold,
   applyRuleFollowingHold,
   applyWeakStockHold,
+  applyFigureCrossingHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
@@ -61,6 +62,7 @@ import {
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { buildCampaignLedger, readMonthlyBreakWarning, secondaryTurnLevels } from "@/lib/gann/campaignLedger";
 import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
+import { figureCrossingOf } from "@/lib/gann/evenFigures";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
@@ -448,7 +450,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -487,6 +489,8 @@ export async function scanTicker(
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
       ), weakStock, scoreDirection),
+        // A-LEVELS-08: the first and second times through a round number hold.
+        figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,
     ), stopBreach);
 

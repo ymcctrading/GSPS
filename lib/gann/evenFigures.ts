@@ -24,6 +24,9 @@
  * - The autonomous portfolio manager can be told not to auto-order into one
  *   unless the Gann plan itself supports the move (`roundNumberEntryBlocked`).
  * - A round number alone never makes a setup.
+ * - The third time through (A-LEVELS-08, 2026-10-16): the first and second
+ *   times an entry crosses a major figure, the buy is held to Watch
+ *   (`readFigureCrossing`, `applyFigureCrossingHold` in `lib/scoring/score.ts`).
  *
  * Engineering choices, labelled as such (Gann gives the rule, not these
  * magnitudes for modern equities across $5–$1,000):
@@ -51,6 +54,8 @@
  */
 
 import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import type { Bar } from "@/lib/types";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 
 /** ⅜ of a point: the middle of Gann's ¼ to ½ point inside an even figure. */
 export const ORDER_OFFSET_POINTS = 0.375;
@@ -217,4 +222,86 @@ export function roundNumberEntryBlocked(input: {
     blocked: true,
     note: `Not placed: the entry is just ${input.direction === "bullish" ? "under" : "over"} the round number $${reading.figure.price}, and the plan's breakout level isn't that number. Auto-ordering at round numbers is off in your settings.`,
   };
+}
+
+/**
+ * Which time through a major figure an entry's crossing is (A-LEVELS-08).
+ *
+ * What Gann says (Tier A): "good selling always appears around the even
+ * figures, like 100, 200 and 300" (*Wall Street Stock Selector* Ch. I). Above
+ * 200, expect 202 to 203 and a 7 to 10 point break back, then buy the third
+ * time through, for 210 or 225 (Ch. V). *Tunnel Thru the Air* (PDF 151, 166)
+ * acts on it: Major Motors went above 200, was sold short near 203, and
+ * "would not advance above 205½". So a crossing of an even figure the first
+ * or second time is expected to fail just over it, and the third is bought.
+ *
+ * How GSPS reads it:
+ * - The figure is a major one (`figuresAround`'s "major", the multiples of the
+ *   price's power of ten: 100, 200 and 300 at Gann's prices, 40 or 50 at $45).
+ * - The crossing goes through it when the figure lies between the crossed
+ *   level, less one point, and the crossing line (the level plus 3 points):
+ *   an old top at or just under 200 crossed by 3 points is a crossing of 200.
+ *   Gann's 202 to 203 is one price-scaled point over 200 (`gannPoint(200)` is
+ *   2.5), so a level within one point under the figure counts as at it.
+ *   Engineering choice, labelled as such.
+ * - A time through is a run of closes over the figure that began from a close
+ *   under it. Each such run that has ended with a close back under is one
+ *   time; the crossing being read is the next. Closes, not intraday highs, so
+ *   a poke at the figure is not a time through. Engineering choice: Gann
+ *   counts the times without saying how the chart marks one.
+ * - The mirror, a short breaking a figure the third time, is the same rule
+ *   turned over (Polarity; Gann gives the advance only, and "stops are run
+ *   just under 100", Ch. V). Engineering symmetry, labelled as such.
+ *
+ * The bars are the daily chart the caller passes: the 52-week level chart on
+ * both the live scan and the replay.
+ */
+export interface FigureCrossingReading {
+  figure: number;
+  direction: "bullish" | "bearish";
+  /** 1 for the first time through, 2 for the second, 3 and up for the third and later. */
+  time: number;
+}
+
+export const FIGURE_BUY_TIME = 3;
+
+export function readFigureCrossing(
+  daily: Pick<Bar, "c">[],
+  crossing: { direction: "bullish" | "bearish"; level: number; triggerPrice: number },
+): FigureCrossingReading | null {
+  const { direction, level, triggerPrice } = crossing;
+  if (!(level > 0) || !(triggerPrice > 0)) return null;
+  const long = direction === "bullish";
+  const point = gannPoint(level);
+  const lo = long ? level - point : triggerPrice;
+  const hi = long ? triggerPrice : level + point;
+  const nudge = level * 1e-9;
+  const figures = figuresBetween(lo - nudge, hi + nudge).filter((f) => f.kind === "major");
+  if (figures.length === 0) return null;
+  const figure = figures.reduce((a, b) => (Math.abs(b.price - level) < Math.abs(a.price - level) ? b : a)).price;
+  const past = (c: number) => (long ? c > figure : c < figure);
+  const short = (c: number) => (long ? c < figure : c > figure);
+  let through = false;
+  let completed = 0;
+  for (let i = 1; i < daily.length; i++) {
+    if (!through && short(daily[i - 1].c) && past(daily[i].c)) through = true;
+    else if (through && short(daily[i].c)) {
+      completed++;
+      through = false;
+    }
+  }
+  return { figure, direction, time: completed + 1 };
+}
+
+/**
+ * `readFigureCrossing` for a plan's entry trigger, on the live scan and the
+ * replay alike. An entry that rests at an old level (a double bottom, a
+ * bottom that held) crosses nothing, so it reads null.
+ */
+export function figureCrossingOf(
+  daily: Pick<Bar, "c">[],
+  trigger: { kind: string; direction: "bullish" | "bearish"; level: number; triggerPrice: number } | null | undefined,
+): FigureCrossingReading | null {
+  if (!trigger || restsWithoutCrossing(trigger.kind)) return null;
+  return readFigureCrossing(daily, trigger);
 }

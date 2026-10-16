@@ -949,6 +949,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "figureCrossing",
+    family: "scoreHold",
+    source: "lib/gann/evenFigures.ts",
+    label: "Third time through a round number",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "A-LEVELS-08 (2026-10-16): above 200 expect 202-203 and a break back; buy the third time through " +
+      "(Stock Selector Ch. I, V; Tunnel PDF 151, 166). Appended only when it holds an Execute whose crossing is " +
+      "the first or second time through a major figure, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "timeWindowTurn",
     family: "scoreHold",
     source: "lib/gann/timeWindow.ts",

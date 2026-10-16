@@ -75,7 +75,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
@@ -91,7 +91,7 @@ import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
 const PYRAMID_SHARE_SCALE = 1024;
-import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { figureCrossingOf, roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import { selectionStrength } from "@/lib/gann/leadership";
 import {
   atrPercentOfPrice,
@@ -550,6 +550,8 @@ export function rollUp(bars: Bar[], key: (bar: Bar) => string): Bar[] {
  * shipped system.
  */
 export interface MacroContext {
+  /** The 52-week level chart's daily bars, for readings the holds take straight off the chart. */
+  dailyChart: Bar[];
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
   /** How many 3-day swing-chart legs since the weekly chart's last trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
@@ -664,6 +666,7 @@ export function buildMacroContext(
   const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {
+    dailyChart: charts.daily,
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
     campaignLeg,
@@ -1657,7 +1660,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1685,7 +1688,9 @@ function scoreSetup(input: {
     }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
     context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),
     // A-SELECTION-04: a buy in a weak stock holds to Watch, as on the live scan.
-    context.disclosedRules.weakStock, gannTrigger.direction);
+    context.disclosedRules.weakStock, gannTrigger.direction),
+    // A-LEVELS-08: the first and second times through a round number hold, as live.
+    figureCrossingOf(context.dailyChart, gannTrigger));
   return { decision, levels };
 }
 

@@ -17,6 +17,7 @@ import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import type { WeakStockReading } from "@/lib/gann/leadership";
+import { FIGURE_BUY_TIME, type FigureCrossingReading } from "@/lib/gann/evenFigures";
 import type {
   AssetClass,
   GannLevels,
@@ -764,6 +765,31 @@ export function applyRuleFollowingHold(decision: ScanDecision, reading: RuleFoll
         criterion: "Stock follows the rules",
         passed: false,
         note: `Of this stock's last ${reading.resolved} buying and selling points over the year, ${reading.failed} failed back through their stop and ${reading.followed} carried on. A stock that does not follow the rules is left alone, so this is held from Execute to Watch until its signals work again.`,
+      },
+    ],
+  };
+}
+
+/**
+ * The third time through a round number (A-LEVELS-08; `readFigureCrossing`):
+ * the first and second times an entry crosses a major figure, Gann expects it
+ * to carry only a point or so over and break back, so the Execute is held to
+ * Watch. The third time through is bought.
+ */
+export function applyFigureCrossingHold(decision: ScanDecision, crossing: FigureCrossingReading | null | undefined): ScanDecision {
+  if (!crossing || crossing.time >= FIGURE_BUY_TIME || decision.outputState !== "Execute") return decision;
+  const long = crossing.direction === "bullish";
+  const fmt = crossing.figure.toFixed(crossing.figure < 10 ? 2 : 0);
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "figureCrossing",
+        criterion: "Third time through a round number",
+        passed: false,
+        note: `This ${long ? "buy crosses" : "short breaks"} the round number ${fmt} for the ${crossing.time === 1 ? "first" : "second"} time. Orders gather at round numbers, so the first and second times through usually carry only a point or so ${long ? "over" : "under"} and then break back. Held from Execute to Watch; the third time through is taken.`,
       },
     ],
   };
