@@ -74,6 +74,40 @@ describe("readEntryConfirmationNow under the 3-point crossing rule", () => {
   });
 });
 
+describe("readEntryConfirmationNow: leaving a range on volume (A-VOLUME-10)", () => {
+  // Entry 101, stop 97: the crossing line is 103. Thirty completed sessions
+  // swing between 96 and 102, a market with no confirmed trend.
+  const now = new Date("2026-10-15T15:00:00Z");
+  const yesterday = bar("2026-10-14T19:45:00Z", 103, 103.4, 102.5, 103.2);
+  const today = bar("2026-10-15T14:30:00Z", 103, 102.4, 100.9, 101.2);
+  const end = Date.parse("2026-10-13T04:00:00Z");
+  const range: Bar[] = Array.from({ length: 30 }, (_, i) => {
+    const phase = i % 8;
+    const c = 96 + (phase < 4 ? phase : 7 - phase) * 2;
+    return { t: new Date(end - (29 - i) * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 };
+  });
+  const crossDay = (v: number): Bar => ({ t: "2026-10-14T04:00:00Z", o: 102, h: 103.6, l: 101.8, c: 103.2, v });
+  const byTimeframe = (day: Bar[]) => fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : [yesterday, today]));
+  const read = () => readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 101, stopPrice: 97, now });
+
+  it("is ready when the session that left the range closed past the line on more than its volume", async () => {
+    byTimeframe([...range, crossDay(2e6)]);
+    expect((await read()).ready).toBe(true);
+  });
+
+  it("waits when that session closed past the line on no more than the range's volume", async () => {
+    byTimeframe([...range, crossDay(1e6)]);
+    const r = await read();
+    expect(r).toMatchObject({ ready: false, stage: "broken" });
+    expect(r.note).toMatch(/volume/);
+  });
+
+  it("waits when no completed session has closed past the line yet", async () => {
+    byTimeframe(range);
+    expect((await read()).ready).toBe(false);
+  });
+});
+
 describe("readEntryConfirmationNow: the window under the 3-point crossing rule", () => {
   const now = new Date("2026-10-15T15:00:00Z");
   const today = bar("2026-10-15T14:30:00Z", 103, 102.4, 100.9, 101.2);
@@ -99,7 +133,8 @@ describe("the completed daily chart, for a reaction longer than the window", () 
   // to 52 that has not reached the buy near 51.2. Dated to end yesterday.
   const closes = [...leg(40, 50, 6), ...leg(50, 44, 4), ...leg(44, 56, 8), ...leg(56, 52, 4)];
   const end = Date.parse("2026-10-14T04:00:00Z");
-  const daily: Bar[] = closes.map((c, i) => ({ t: new Date(end - (closes.length - 1 - i) * 86_400_000).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: 1e6 }));
+  // The advance out of the range runs on heavier volume, as a breakaway must.
+  const daily: Bar[] = closes.map((c, i) => ({ t: new Date(end - (closes.length - 1 - i) * 86_400_000).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: i >= 10 && i < 18 ? 2e6 : 1e6 }));
   const now = new Date("2026-10-15T15:00:00Z");
   const t = computeGannEntryTrigger(daily, "bullish")!;
 
@@ -109,6 +144,17 @@ describe("the completed daily chart, for a reaction longer than the window", () 
     fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? daily : [bar("2026-10-15T14:30:00Z", 52, 52.3, 51.8, 52)]));
     const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: t.reactionEntry, stopPrice: t.reactionStop, now });
     expect(r.ready).toBe(true);
+  });
+
+  it("waits when the session that left the range closed on no more than the range's volume", async () => {
+    const flat = daily.map((b) => ({ ...b, v: 1e6 }));
+    const ft = computeGannEntryTrigger(flat, "bullish")!;
+    expect(heldOnDailyChart(flat, now, "bullish", Math.round(ft.reactionEntry * 100) / 100)).toBe(true);
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? flat : [bar("2026-10-15T14:30:00Z", 52, 52.3, 51.8, 52)]));
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: ft.reactionEntry, stopPrice: ft.reactionStop, now });
+    expect(r.ready).toBe(false);
+    expect(r.stage).toBe("broken");
+    expect(r.note).toMatch(/volume/);
   });
 
   it("is off when a close today went through the stop, though the daily chart still holds", async () => {

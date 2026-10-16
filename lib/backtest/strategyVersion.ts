@@ -190,4 +190,8 @@
 // secondary tops, higher secondary lows out of a bear, a panic's quiet
 // secondary low, the heaviest week before a top and the smallest month in
 // five years also confirm (FV1, FV4, FV5); completed sessions only.
-export const STRATEGY_VERSION = "2026-10-16-gann-volume-rules";
+// Same day (item 8 step 4, FV6 b): a reaction buy out of a range waits until a
+// completed session closed past the crossing line on more than the range's
+// mean volume (A-VOLUME-10), at confirmation live (readEntryConfirmationNow)
+// and in the replay's reaction rule; buys resting at a level are exempt.
+export const STRATEGY_VERSION = "2026-10-16-gann-breakaway-volume";

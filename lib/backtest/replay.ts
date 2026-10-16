@@ -73,7 +73,7 @@ import {
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { applyBreakawayHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
-import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
+import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
@@ -92,7 +92,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, sameGannLevel, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
@@ -657,6 +657,13 @@ interface SessionTrigger {
   breakaway: BreakawayReading;
   /** The monthly break as a warning, from the same chart (PLAN.md item 6, step 3). */
   monthlyWarning: MonthlyBreakWarning | null;
+  /**
+   * Leaving a narrow range, the crossing session closed past the line on more
+   * than the range's mean volume (A-VOLUME-10), read from completed sessions
+   * as `readEntryConfirmationNow` reads it. A buy resting at a level, with
+   * nothing to cross, is exempt there and here.
+   */
+  breakawayVolume: boolean;
   /** When the trigger's level formed: names it across sessions, as the window it is read from moves. */
   pivotAt: string;
 }
@@ -773,6 +780,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         trigger,
         breakaway: readBreakaway(entryDaily, trigger),
         monthlyWarning,
+        breakawayVolume:
+          restsWithoutCrossing(trigger.kind) ||
+          breakawayVolumeMet(entryDaily, trigger.direction, gannBreakLine(trigger.reactionEntry, trigger.reactionStop)),
         pivotAt: trigger.formedAt,
       });
       // The reversion against the trend, and the buying point with it on the
@@ -801,7 +811,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const arm = sessionArm(date, lastClose);
     if (!arm) continue;
 
-    for (const { setupKind, trigger, breakaway, monthlyWarning, pivotAt } of arm.triggers) {
+    for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
       // A crossing held for its reaction is one crossing of its level: a
       // level crossed again after a break is a new buy, as it is live (step 4
@@ -881,7 +891,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           state.crossed = true;
         }
         crossing.set(pivotKey, state);
-        fired = state.crossed && (long ? live.l <= trigger.reactionEntry : live.h >= trigger.reactionEntry);
+        fired = state.crossed && breakawayVolume && (long ? live.l <= trigger.reactionEntry : live.h >= trigger.reactionEntry);
       } else if (entryRule === "confirmed") {
         // Advance the confirmation state machine on the last closed bar, if
         // it belongs to a session this pivot was armed on. Once the sequence
@@ -896,6 +906,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           );
         }
         confirmation.set(pivotKey, state);
+        // Read without a stop, as `readEntryConfirmationNow` reads an entry
+        // with none, so the breakaway volume rule (which reads the line from
+        // the entry and its stop) is not applied here either.
         fired = entryReady(state.evidence);
       } else {
         // The trigger is a stop order: it fills only if this candle reaches it.

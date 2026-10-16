@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { readBreakaway, readBreakawayVolume } from "../breakaway";
+import { breakawayVolumeMet, readBreakaway, readBreakawayVolume } from "../breakaway";
 import { computeGannEntryTrigger } from "../entryTrigger";
 import { applyBreakawayHold } from "@/lib/scoring/score";
 import type { ScanDecision } from "@/lib/types";
@@ -183,5 +183,47 @@ describe("the breakaway's volume (A-VOLUME-10)", () => {
     const short = long.slice(-252);
     expect(readBreakawayVolume(short, after(long))).toEqual(readBreakawayVolume(long, after(long)));
     expect(readBreakawayVolume(long, after(long))?.direction).toBe("bullish");
+  });
+});
+
+// W006 p.20 at the entry (fork FV6 b): in a narrow range, wait for a completed
+// session to close past the line on volume.
+describe("the breakaway waits for a session that closes past the range on volume (A-VOLUME-10)", () => {
+  // The range tops near 105.5; the crossing line for a long is 110.
+  const range = () => daily(sideways(6)).map((b, i) => ({ ...b, v: i % 2 ? 1500 : 500 }));
+  const session = (prev: Bar[], c: number, v: number): Bar[] => [...prev, { ...prev[prev.length - 1], t: new Date(Date.parse(prev[prev.length - 1].t) + 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v }];
+
+  it("is ready once a session closed past the line on more than the range's average volume", () => {
+    expect(breakawayVolumeMet(session(range(), 111, 3000), "bullish", 110)).toBe(true);
+  });
+
+  it("waits when that session came on less than the range's average", () => {
+    expect(breakawayVolumeMet(session(range(), 111, 600), "bullish", 110)).toBe(false);
+  });
+
+  it("waits while no completed session has closed past the line", () => {
+    expect(breakawayVolumeMet(range(), "bullish", 110)).toBe(false);
+    expect(breakawayVolumeMet(session(range(), 108, 3000), "bullish", 110)).toBe(false);
+  });
+
+  it("judges the breakout session, not the sessions that follow it", () => {
+    expect(breakawayVolumeMet(session(session(range(), 111, 3000), 112, 400), "bullish", 110)).toBe(true);
+    expect(breakawayVolumeMet(session(session(range(), 111, 400), 112, 3000), "bullish", 110)).toBe(false);
+  });
+
+  it("still reads the breakout during the reaction back under the line", () => {
+    const reacting = session(session(session(range(), 111, 3000), 109, 800), 108.5, 800);
+    expect(breakawayVolumeMet(reacting, "bullish", 110)).toBe(true);
+  });
+
+  it("works the same way down", () => {
+    expect(breakawayVolumeMet(session(range(), 89, 3000), "bearish", 90)).toBe(true);
+    expect(breakawayVolumeMet(session(range(), 89, 600), "bearish", 90)).toBe(false);
+  });
+
+  it("asks nothing of a market that is not in a range", () => {
+    const trend = daily(steppingAdvance(10));
+    expect(breakawayVolumeMet(trend, "bullish", 500)).toBe(true);
+    expect(breakawayVolumeMet([], "bullish", 110)).toBe(true);
   });
 });

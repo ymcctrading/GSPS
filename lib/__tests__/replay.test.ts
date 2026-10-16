@@ -46,6 +46,22 @@ function dailyHistory(count: number, before: string): Bar[] {
 
 const DAILY = dailyHistory(300, DAY);
 
+function risingDaily(count: number, before: string, widen = true): Bar[] {
+  const out: Bar[] = [];
+  const end = new Date(`${before}T00:00:00Z`).getTime();
+  for (let i = count; i >= 1; i--) {
+    const k = count - i;
+    const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
+    const phase = k % 8;
+    const step = phase < 5 ? phase : 8 - phase;
+    const late = widen && k >= count - 20;
+    const c = 50 + k * 0.3 + 10 * Math.sin((2 * Math.PI * k) / 60) + step * (late ? 3 : 1);
+    const w = late ? 3 : 1;
+    out.push(dayBar(d, c, c + w, c - w, c));
+  }
+  return out;
+}
+
 /**
  * The trigger the live scan would arm for DAY. It is computed here with the
  * rule `lib/scanTicker.ts` arms by (`reversionEntry`), so every assertion below checks
@@ -542,21 +558,6 @@ describe("replay continuation setups", () => {
    * is short and the continuation arm is long, the way the market scan's
    * continuation pass would call scanTicker for this symbol.
    */
-  function risingDaily(count: number, before: string, widen = true): Bar[] {
-    const out: Bar[] = [];
-    const end = new Date(`${before}T00:00:00Z`).getTime();
-    for (let i = count; i >= 1; i--) {
-      const k = count - i;
-      const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
-      const phase = k % 8;
-      const step = phase < 5 ? phase : 8 - phase;
-      const late = widen && k >= count - 20;
-      const c = 50 + k * 0.3 + 10 * Math.sin((2 * Math.PI * k) / 60) + step * (late ? 3 : 1);
-      const w = late ? 3 : 1;
-      out.push(dayBar(d, c, c + w, c - w, c));
-    }
-    return out;
-  }
 
   const rising = risingDaily(300, DAY);
   const ctx = buildMacroContext(rising, rising[rising.length - 1].c);
@@ -678,26 +679,36 @@ describe("replay exitRule: gann", () => {
 
 describe("replay usePlanLevels (the production plan's bracket)", () => {
   it("trades the plan's own stop and first target, not an R-multiple bracket", () => {
-    const beyond = past(3 * RISK);
-    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
-    // The plan is Gann's reaction buy (PLAN.md item 4), so it is traded on
-    // the reaction rule: the quiet candle reacts back to the entry.
-    const plan = replay("TEST", session([crossing, quiet, run]), {
+    // A buy resting at an old bottom, with nothing to cross, so the breakaway
+    // volume rule does not hold it (A-VOLUME-10). The quiet candle reacts back
+    // to the entry, then the run goes on.
+    const later = risingDaily(303, DAY);
+    const L = selectGannEntry(entryChartBars(later, DAY), "bullish")!.level;
+    const hold = Array.from({ length: 44 }, (_, i) => {
+      const c = L + 2 + [0, 0.2, 0.4, 0.2][i % 4];
+      return { o: c, h: c + 0.3, l: c - 0.3, c };
+    });
+    const test = { o: L + 1, h: L + 1.2, l: L - 0.1, c: L + 0.5 };
+    const plan = replay("TEST", intraday([...hold, test, { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 }]), {
       targetR: 2,
-      dailyBars: DAILY,
+      dailyBars: later,
       usePlanLevels: true,
       entryRule: "reaction",
     });
-    const legacy = replay("TEST", session([crossing, run, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, useProductionStop: true });
     expect(plan.trades.length).toBeGreaterThan(0);
     for (const t of plan.trades) {
       const risk = Math.abs(t.entry - t.stop);
       // The plan's TP1 comes from levels, so it is not tied to 2R of risk.
       expect(Math.abs(Math.abs(t.target - t.entry) - 2 * risk)).toBeGreaterThan(1e-6);
     }
-    if (plan.trades.length > 0 && legacy.trades.length > 0) {
-      expect(plan.trades[0].stop).not.toBeCloseTo(legacy.trades[0].stop, 6);
-    }
+  });
+
+  it("does not enter a reaction buy out of a range until a completed session left it on volume", () => {
+    // The oscillating history is range-bound and no completed session has
+    // closed past the line, so a crossing during the session waits (A-VOLUME-10).
+    const run = { o: past(0.4), h: SIDE > 0 ? past(3 * RISK) : past(0.3), l: SIDE > 0 ? past(0.3) : past(3 * RISK), c: past(0.5) };
+    const r = replay("TEST", session([crossing, quiet, run]), { targetR: 2, dailyBars: DAILY, usePlanLevels: true, entryRule: "reaction" });
+    expect(r.trades.filter((t) => t.setupKind === "reversion")).toHaveLength(0);
   });
 });
 

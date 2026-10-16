@@ -48,7 +48,8 @@ const zig = (lo: number, hi: number, times: number) => Array.from({ length: time
 
 // 2025's top is 100; 2026 crosses it by 3 points and reacts above the buy.
 const M = monthly("2016-01", 125, (month) => (month === "2025-06" ? [100, 92] : month < "2025-01" ? [80, 70] : [95, 88]));
-const D = daily([...zig(90, 96, 8), ...leg(90, 107, 10), ...leg(107, 103.5, 3)], "2026-01-05");
+// The advance out of the 90-96 range runs on heavier volume, as a breakaway must.
+const D = daily([...zig(90, 96, 8), ...leg(90, 107, 10), ...leg(107, 103.5, 3)], "2026-01-05").map((b, i) => (i >= 80 && i < 90 ? { ...b, v: 2e6 } : b));
 const ASOF = "2026-06-01";
 const chart = entryChart(D, M, ASOF);
 const T = selectGannEntry(chart.bars, "bullish", chart.older)!;

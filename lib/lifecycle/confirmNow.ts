@@ -34,10 +34,11 @@
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
+import { breakawayVolumeMet } from "@/lib/gann/breakaway";
 import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { etDateKey } from "@/lib/market/session";
-import { entryChart, monthlyChartFrom } from "@/lib/scan/entrySelection";
+import { entryChart, entryChartBars, monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
@@ -178,7 +179,13 @@ export async function readEntryConfirmationNow(input: {
       ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since);
   const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind);
-  if (input.stopPrice == null || restsWithoutCrossing(input.entryKind) || read.ready || read.stage === "dead") return read;
+  if (input.stopPrice == null || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
+  const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  const provider = getMarketDataProvider();
+  if (read.ready) {
+    const daily = await provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass);
+    return onVolume(daily, now, input.direction, input.entryTrigger, input.stopPrice) ? read : AWAITING_VOLUME;
+  }
   // The daily chart below leaves out the day still forming, so a close
   // through the stop in the bars above (today's included) ends it here.
   const stop = input.stopPrice;
@@ -190,16 +197,29 @@ export async function readEntryConfirmationNow(input: {
   // found the level: if it still holds there (crossed, not broken, not yet
   // bought) and it is the level this order buys, the entry is ready.
   // The monthly chart holds the older levels the scan also reads (step 3).
-  const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
-  const provider = getMarketDataProvider();
   const [daily, monthly] = await Promise.all([
     provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass),
     provider.fetchBars(input.symbol, "1Month", monthlyChartFrom(year), null, input.assetClass),
   ]);
-  return heldOnDailyChart(daily, now, input.direction, input.entryTrigger, monthly)
-    ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed }
-    : read;
+  if (!heldOnDailyChart(daily, now, input.direction, input.entryTrigger, monthly)) return read;
+  return onVolume(daily, now, input.direction, input.entryTrigger, stop) ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed } : AWAITING_VOLUME;
 }
+
+/**
+ * In a narrow range the crossing has to come on volume (A-VOLUME-10, fork
+ * FV6 b): a completed session closed past the crossing line on more than the
+ * range's average volume (`breakawayVolumeMet`). Read on the entry chart, the
+ * completed sessions the scan and the replay read.
+ */
+function onVolume(daily: Bar[], now: Date, direction: "bullish" | "bearish", entry: number, stop: number): boolean {
+  return breakawayVolumeMet(entryChartBars(daily, etDateKey(now)), direction, gannBreakLine(entry, stop));
+}
+
+const AWAITING_VOLUME: ConfirmationNow = {
+  ready: false,
+  stage: "broken",
+  note: "The stock is leaving a narrow range, so the entry waits for a completed session to close past the line on more than the range's average volume.",
+};
 
 /**
  * Whether the completed daily bars hold a crossed level whose reaction buy is

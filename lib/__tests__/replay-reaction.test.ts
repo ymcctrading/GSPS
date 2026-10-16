@@ -83,12 +83,28 @@ function withBottomTested(daily: Bar[]): Bar[] {
   return [...daily, { t, o: last.c, h: last.c * 1.001, l: lastBottom.level * 0.999, c: last.c, v: 1000 }];
 }
 
+/** The same market upside down: a rising trend, where the reversion pass arms a short. */
+function mirrored(daily: Bar[]): Bar[] {
+  const k = 300 * 300;
+  return daily.map((b) => ({ ...b, o: k / b.o, h: k / b.l, l: k / b.h, c: k / b.c }));
+}
+
+/** The short's mirror of `withBottomTested`: the latest completed top has had its test. */
+function withTopTested(daily: Bar[]): Bar[] {
+  const lastTop = computeGannOldLevelEntry(daily, "bearish");
+  if (!lastTop) return daily;
+  const last = daily[daily.length - 1];
+  const t = new Date(Date.parse(last.t) + 86_400_000).toISOString();
+  return [...daily, { t, o: last.c, h: lastTop.level * 1.001, l: last.c * 0.999, c: last.c, v: 1000 }];
+}
+
+// The crossing in these fixtures comes during the session, so neither market
+// may be a sideways range: there a crossing waits for a completed session on
+// volume (A-VOLUME-10), covered in replay.test.ts.
 const FIXTURES = [
   {
     name: "a short below an old bottom",
-    // No trend, so the nearer side arms (item 6 step 11, fork F4 a): 304
-    // sessions end the oscillation at its low, where the short is nearer.
-    daily: dailyHistory(304, DAY),
+    daily: withTopTested(mirrored(fallingHistory(299, "2026-06-14"))),
     expect: "bearish",
   },
   {
@@ -243,9 +259,12 @@ describe("replay entryRule: reaction on a level the daily chart already crossed"
   const L = first.level;
   const P = gannThreePoints(L);
   const lastT = Date.parse(base[base.length - 1].t);
-  const extra = [L - (P + 1), L - (P + 0.5), L - (P / 3 + 1.5)].map((c, i) =>
-    dayBar(new Date(lastT + (i + 1) * 86_400_000).toISOString().slice(0, 10), c),
-  );
+  // The break out of the range comes on heavier volume, as Gann's breakaway
+  // must (A-VOLUME-10).
+  const extra = [L - (P + 1), L - (P + 0.5), L - (P / 3 + 1.5)].map((c, i) => ({
+    ...dayBar(new Date(lastT + (i + 1) * 86_400_000).toISOString().slice(0, 10), c),
+    v: i === 0 ? 2000 : 1000,
+  }));
   const DAILY = [...base, ...extra];
   const T = computeGannEntryTrigger(DAILY, "bearish")!;
 

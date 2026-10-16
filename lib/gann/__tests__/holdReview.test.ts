@@ -202,7 +202,8 @@ describe("the replay buys a level crossed again after a break (S1)", () => {
   const D = daily(
     [...zig(88, 94, 4), ...leg(94, 98, 3), ...leg(98, 106, 6), ...leg(106, 90, 12), ...zig(90, 96, 6), ...leg(90, 107, 10), ...leg(107, 103.5, 3), 103.4, 101.2, 103, 104, 104],
     "2026-01-05",
-  );
+    // Both advances that cross 100 run on heavier volume, as a breakaway must (A-VOLUME-10).
+  ).map((b, i) => ((i >= 43 && i < 49) || (i >= 121 && i < 131) ? { ...b, v: 2e6 } : b));
 
   it("is offered live on the second crossing", () => {
     const asOf = D[D.length - 4].t.slice(0, 10);

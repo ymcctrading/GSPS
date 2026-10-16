@@ -152,3 +152,49 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
   if (!(mean > 0)) return null;
   return { direction, ratio: last.v / mean };
 }
+
+/**
+ * Gann: avoid stocks in long, narrow ranges until they break out on volume
+ * (A-VOLUME-10; W006 p.20; Master Course: volume rises as a stock starts from
+ * dullness). Fork FV6 (b): the test acts at entry confirmation, because the
+ * plan is priced before the break and the break's volume exists only once a
+ * session has closed past the line.
+ *
+ * `chart` is completed daily sessions only (the entry chart, so the live scan
+ * and the replay read the same ones); `line` is the crossing line, the level
+ * plus the 3-point allowance. The breakout session is the latest completed
+ * session that closed past the line after one that did not, within the last
+ * `BREAKAWAY_RANGE_DAYS`. When the sessions before it (or every session, when
+ * none has closed past yet) are range-bound (`isGannRangeBound`, the same
+ * reading `readBreakaway` holds a range-bound Execute on), the entry is
+ * ready only once that session has closed past the line on more than the
+ * mean volume of the 91 days before it. A market that is not range-bound has
+ * no volume condition. Engineering choices, labelled: "on volume" is above the
+ * range sessions' mean; the search window is the 91-day range bound.
+ */
+/** Fewer completed sessions than this before the crossing are not read as a range. */
+export const MIN_RANGE_SESSIONS = 10;
+
+export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish", line: number): boolean {
+  const up = direction === "bullish";
+  const beyond = (b: Bar) => (up ? b.c >= line : b.c <= line);
+  const end = chart.length;
+  if (end === 0) return true;
+  const cutoff = Date.parse(chart[end - 1].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  let k = -1;
+  for (let i = end - 1; i >= 1 && Date.parse(chart[i].t) >= cutoff; i--) {
+    if (beyond(chart[i]) && !beyond(chart[i - 1])) {
+      k = i;
+      break;
+    }
+  }
+  const prior = k === -1 ? chart : chart.slice(0, k);
+  // Gann's shortest range is about two weeks, so fewer sessions than that are
+  // not read as a range (an engineering floor, labelled).
+  if (prior.length < MIN_RANGE_SESSIONS || !isGannRangeBound(prior)) return true;
+  if (k === -1) return false;
+  const from = Date.parse(chart[k].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  const range = prior.filter((b) => Date.parse(b.t) >= from);
+  const mean = range.reduce((s, b) => s + b.v, 0) / range.length;
+  return mean > 0 && chart[k].v > mean;
+}

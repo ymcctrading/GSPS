@@ -222,7 +222,8 @@ describe("one level read twice (R2, R11)", () => {
     const [S, S1, S2] = ["2026-01-19", "2026-01-20", "2026-01-21"];
     const dailyBars: Bar[] = [
       ...D0,
-      { t: `${S}T05:00:00Z`, o: 104, h: 105.6, l: 101.4, c: 105.3, v: 1e6 },
+      // The session that crosses the line does so on heavier volume, as a breakaway must (A-VOLUME-10).
+      { t: `${S}T05:00:00Z`, o: 104, h: 105.6, l: 101.4, c: 105.3, v: 2e6 },
       { t: `${S1}T05:00:00Z`, o: 105.3, h: 105.6, l: 101.4, c: 104, v: 1e6 },
       { t: `${S2}T05:00:00Z`, o: 104, h: 104.5, l: 103.5, c: 104, v: 1e6 },
     ];
