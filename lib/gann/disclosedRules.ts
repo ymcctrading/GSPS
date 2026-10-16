@@ -74,6 +74,7 @@ import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfway
 import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
 import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
 import { readSuccessiveSwings, type SuccessiveSwings } from "@/lib/gann/trendStrength";
+import { readFalseBreakout, type FalseBreakoutReading } from "@/lib/gann/falseBreakout";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
 import { etDateKey } from "@/lib/market/session";
 import { computeMidpointFan, readMonthlySquareFromHigh, type MonthlySquareReading, type MidpointFan } from "@/lib/gann/midpointFan";
@@ -517,6 +518,8 @@ export interface DisclosedRulesContext {
   narrowWeekBreak?: NarrowWeekBreakReading | null;
   /** Which higher bottom or lower top the market stands on (C-ENTRY-03, context only). See `readSuccessiveSwings`. */
   successiveSwings?: SuccessiveSwings | null;
+  /** A move out of the 13-week range by under 3 points that failed the next week (C-STOP-01, context only). See `falseBreakout.ts`. */
+  falseBreakout?: FalseBreakoutReading | null;
   /** The heaviest completed week since the last major top (A-VOLUME-12, context only). See `topVolume.ts`. */
   topVolume?: TopVolumeWarningReading | null;
   /** A second top at the first's level: its week's volume over the first top's week (A-VOLUME-13, context only). See `volumeClimax.ts`. */
@@ -685,6 +688,7 @@ export function readDisclosedRules(
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     successiveSwings: readSuccessiveSwings(dailyBars),
+    falseBreakout: readFalseBreakout(dailyBars, asOf),
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
     distribution: readDistributionBreakdown(dailyBars, asOf),
     distributionStanding: readDistributionStanding(dailyBars, asOf),
@@ -823,6 +827,14 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       n.direction === "bearish"
         ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. The rule reads this as a sign the trend is turning down, even while the market rises. A sell rests 1 point under the narrow week's low for the bounce, with the stop 3 points over it; it does not change the trend read here.`
         : `A narrow week, then a sharp rise on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points over that week's high (${n.narrowHigh.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume.`,
+    );
+  }
+  if (ctx.falseBreakout) {
+    const b = ctx.falseBreakout;
+    lines.push(
+      b.direction === "bearish"
+        ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, less than 3 points over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
+        : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, less than 3 points under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
     );
   }
   const ss = ctx.successiveSwings;

@@ -84,6 +84,8 @@ export function contextFactorsFor(
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
   if (ctx.narrowRangeBreak) f.narrowRangeBreakAgrees = ctx.narrowRangeBreak.direction === direction;
   if (ctx.narrowWeekBreak) f.narrowWeekBreakAgrees = ctx.narrowWeekBreak.direction === direction;
+  // C-STOP-01 (W003 p.17): a failed push out of the range, in the trade's direction.
+  if (ctx.falseBreakout) f.falseBreakoutAgrees = ctx.falseBreakout.direction === direction;
   // C-ENTRY-03 (Master Course Ch.8): the 2nd or 3rd higher bottom (lower top for a short).
   if (ctx.successiveSwings) {
     const n = bull ? ctx.successiveSwings.higherBottoms : ctx.successiveSwings.lowerTops;
