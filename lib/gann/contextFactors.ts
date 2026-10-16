@@ -483,5 +483,22 @@ export function contextFactorsFor(
       f.hexagonMonthFromInception = pt.hexagonInception !== null;
     }
   }
+  // Angles from zero, from a double or triple bottom (top), and in the square
+  // of the range (C-LEVELS-04/-05/-09, `angleCrossings.ts`). No direction in
+  // Gann's text for these; recorded as they stand.
+  const ac = ctx.angleCrossings;
+  if (ac) {
+    f.onZeroAngle = ac.fromZero.onLine;
+    f.atZeroAngleBalance = ac.fromZero.atBalance;
+    if (ac.multipleTests) {
+      f.onMultipleTestAngle = ac.multipleTests.onAngle;
+      f.atMultipleTestCrossing = ac.multipleTests.atCrossing;
+    }
+    if (ac.square) {
+      f.onSquareOfRangeAngle = ac.square.onAngle;
+      f.atSquareOfRangeCrossing = ac.square.atCrossing || ac.square.atEnd;
+    }
+    f.nearestAngleIsOneByOne = ac.nearestAngleRank === 1;
+  }
   return f;
 }

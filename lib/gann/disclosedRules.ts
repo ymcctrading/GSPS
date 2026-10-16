@@ -110,6 +110,7 @@ import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
 import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@/lib/gann/priceAsTime";
+import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
@@ -650,6 +651,8 @@ export interface DisclosedRulesContext {
   priceGrids?: PriceGridReading | null;
   /** Price read as time and the long counts (M-P9, C-TIME-04/-07/-14/-17/-20/-22, M-T18; context only). See `priceAsTime.ts`. */
   priceAsTime?: PriceAsTimeReading | null;
+  /** Angles from zero, from a double or triple bottom's tests, and in the square of the range; the 1x1's rank (C-LEVELS-04/-05/-09, context only). See `angleCrossings.ts`. */
+  angleCrossings?: AngleCrossingsReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -816,6 +819,7 @@ export function readDisclosedRules(
     ascension: readAscension(dailyBars),
     priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
     priceAsTime: readPriceAsTime(dailyBars, currentPrice, unit, inception, asOf),
+    angleCrossings: readAngleCrossings(dailyBars, currentPrice),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1034,6 +1038,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.masterChartTime) lines.push(...describeMasterChartTime(ctx.masterChartTime));
   if (ctx.patternAngles) lines.push(...describePatternAngles(ctx.patternAngles));
   if (ctx.dayCircle) lines.push(describeDayCircle(ctx.dayCircle));
+  if (ctx.angleCrossings) lines.push(...describeAngleCrossings(ctx.angleCrossings));
   if (t.projection) {
     lines.push(
       `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,
