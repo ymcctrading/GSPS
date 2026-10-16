@@ -86,3 +86,12 @@ describe("runMarketScan's main trend", () => {
     expect(out.coarseTelemetry.find((r) => r.symbol === "AAPL")?.direction).toBe("bearish");
   });
 });
+
+describe("the continuation pass's budget (item 6 review R4)", () => {
+  it("scans at most 12 with-the-trend candidates a run, whatever the pool holds", async () => {
+    Object.assign(dirs, { "1Month": "bullish", "1Week": "bullish", "1Day": "bullish" });
+    const symbols = Array.from({ length: 20 }, (_, i) => `S${i}`);
+    await runMarketScan(20, 15, undefined, symbols);
+    expect(continuationSides()).toHaveLength(12);
+  });
+});

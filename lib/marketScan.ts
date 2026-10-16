@@ -760,8 +760,18 @@ export async function takeShortable(ranked: ScanResult[], n: number): Promise<Sc
   return kept.slice(0, n);
 }
 
-/** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
-const MAX_TOPUP_SCANS = 24;
+/**
+ * Ceiling on the continuation pass's full scans a run, split across the sides
+ * (item 6 review R4). Since item 6 step 11 the trend alone admits a candidate,
+ * so the pool is rarely short of names and the pass spends its whole budget
+ * every run, where it used to spend nothing (production's continuation gate
+ * admitted no symbol from 2026-09-23 to 2026-10-16). 12 is the scans a run
+ * typically made when the top-up did fire. Estimated, not measured by stage
+ * (Hobby keeps runtime logs an hour): fast production runs finish the whole
+ * scan, 13-24 full scans included, in 7-13 s, so about 0.3-0.5 s a scan, or
+ * 4-6 s for 12. The "continuation pass scoring done" mark logs the real figure.
+ */
+const MAX_TOPUP_SCANS = 12;
 
 /** Full-pass shortlist size, as a multiple of `perSide`. */
 const SHORTLIST_MULTIPLE = 4;
