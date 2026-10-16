@@ -52,7 +52,7 @@
  * *same-day most-active* symbols (`resolveUniverse` in lib/marketScan.ts) --
  * a stock outside today's volume leaders is structurally never scanned by
  * the automated pipeline, however good its setup, because the curated
- * large-cap universe (`LARGE_CAP_UNIVERSE`, ~766 symbols) only ever backs
+ * large-cap universe (`LARGE_CAP_UNIVERSE`, ~830 symbols) only ever backs
  * fills the pool when the actives screener comes up short. Chunking that
  * full universe and rotating one chunk into the scan per cron tick (instead
  * of only ever scanning the same actives-biased 250) means every symbol
