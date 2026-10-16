@@ -82,7 +82,8 @@
 import type { Bar } from "@/lib/types";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type SwingPivot } from "@/lib/gann/swingChart";
-import { readCounterMove } from "@/lib/gann/disclosedRules";
+import { readCounterMove, toWeeklyBars } from "@/lib/gann/disclosedRules";
+import { readNarrowWeekBreak } from "@/lib/gann/narrowWeek";
 import { type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 
 export type TriggerDirection = "bullish" | "bearish";
@@ -539,7 +540,9 @@ function holdEntryOn(
 
   const swing = swingHold();
   if (swing || direction === "bullish") return swing;
-  return bearMarket ? bearRallySell(bars, entry, swingDays) : null;
+  // The narrow-week sale needs no bear market: "short even while the averages
+  // rise" (W006 p.27).
+  return (bearMarket ? bearRallySell(bars, entry, swingDays) : null) ?? narrowWeekSell(bars, entry, swingDays);
 
   function swingHold(): { trigger: GannEntryTrigger; since: number } | null {
     // The reaction: from the latest top that stands 3 points over the low since it.
@@ -661,6 +664,48 @@ function bearRallySell(bars: Bar[], entry: number, swingDays: number): { trigger
       held: false, crossedAt: null, swingDays, source: "swing", formedAt: bars[low].t, holdBasis: "rally",
     },
     since: low + 1,
+  };
+}
+
+/**
+ * The narrow-week sale (W006 p.27, A-ENTRY-19): "a narrow week followed by a
+ * sharp drop on large volume turns the trend down; short even while the
+ * averages are rising" (Corn Products, week ended 20 July 1935). The reading
+ * is `readNarrowWeekBreak` on completed weeks (a week whose last session is
+ * not a Friday is still forming and is left out), in the drop week or the
+ * week after it. The narrow week's low is the level broken, so the sale is
+ * Gann's own for a broken bottom (pp.20, 46-47, as the crossing reads it): a
+ * resting sell 1 point under that low for the bounce, the stop 3 points over
+ * it. Engineering choices, labelled: the narrow week's low as the level (Gann
+ * gives no entry or stop for this case), and the week after the drop as the
+ * last week it is offered. Short only: Gann states the rule for a drop. One
+ * break is sold once.
+ */
+function narrowWeekSell(bars: Bar[], entry: number, swingDays: number): { trigger: GannEntryTrigger; since: number } | null {
+  const last = bars[bars.length - 1];
+  const weekly = toWeeklyBars(bars);
+  const friday = new Date(Date.parse(`${last.t.slice(0, 10)}T00:00:00Z`)).getUTCDay() === 5;
+  const done = friday ? weekly : weekly.slice(0, -1);
+  const r = readNarrowWeekBreak(done);
+  if (!r || r.direction !== "bearish") return null;
+  const points = gannThreePoints(r.narrowLow);
+  const sell = r.narrowLow - points / 3;
+  const stop = r.narrowLow + points;
+  if (!(entry < stop) || !withinRiskCap(sell, stop)) return null;
+  // The first session after the narrow week: the drop week begins there.
+  const n = Date.parse(`${r.narrowWeek.slice(0, 10)}T00:00:00Z`);
+  const narrowEnd = n - ((new Date(n).getUTCDay() + 6) % 7) * DAY_MS + 7 * DAY_MS;
+  let since = bars.length - 1;
+  while (since > 0 && Date.parse(bars[since - 1].t) >= narrowEnd) since--;
+  let low = since;
+  for (let i = since; i < bars.length; i++) if (bars[i].l < bars[low].l) low = i;
+  return {
+    trigger: {
+      kind: "hold", direction: "bearish", triggerPrice: sell, stopPrice: stop, pivot: { index: since - 1, price: r.narrowLow, kind: "bottom" },
+      level: r.narrowLow, reactionEntry: sell, reactionStop: stop, protectivePivot: { index: low, price: bars[low].l, kind: "bottom" },
+      held: false, crossedAt: null, swingDays, source: "swing", formedAt: r.narrowWeek, holdBasis: "narrowWeek",
+    },
+    since,
   };
 }
 

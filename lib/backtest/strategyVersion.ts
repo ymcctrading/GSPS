@@ -310,4 +310,9 @@
 // alone (A-ENTRY-08, read as the rally sale's bear market is), and the
 // breakaway's volume condition applies to narrow ranges only (A-VOLUME-10,
 // NARROW_RANGE_ALLOWANCES in lib/gann/breakaway.ts).
-export const STRATEGY_VERSION = "2026-10-16-gann-batch-review-fixes";
+//
+// 2026-10-16-gann-narrow-week-sale: a narrow week followed by a sharp drop on
+// large volume is a sale (A-ENTRY-19, W006 p.27), resting 1 point under the
+// narrow week's low with the stop 3 points over it (narrowWeekSell in
+// lib/gann/entryTrigger.ts), with no bear market needed.
+export const STRATEGY_VERSION = "2026-10-16-gann-narrow-week-sale";

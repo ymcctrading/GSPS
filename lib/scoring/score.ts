@@ -154,7 +154,7 @@ export interface ScoreInputs {
     level?: number;
     tests?: number;
     /** `hold` only: which of Gann's hold rules found the bottom. */
-    holdBasis?: "weeks" | "days" | "record" | "rally";
+    holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
     source?: "swing" | "priorYear" | "allTime";
     regained?: true;
     /** A previous year's level: its year. */
@@ -268,6 +268,9 @@ export function volumeNote(r: VolumeClimaxReading): string {
 function heldNote(t: NonNullable<ScoreInputs["gannTrigger"]>): string {
   const up = t.direction === "bullish";
   const at = (t.level ?? t.triggerPrice).toFixed(2);
+  if (t.holdBasis === "narrowWeek") {
+    return `Trigger armed bearish: a narrow week was followed by a sharp drop on large volume, which turns the trend down, so a sell rests 1 point under that week's low at ${at}, for the bounce, with the stop 3 points over it.`;
+  }
   if (t.holdBasis === "rally") {
     return `Trigger armed bearish: a rally in a falling market has run to the end of its second or third week, so the entry rests at the last close with the stop 3 points over that week's high at ${at}.`;
   }

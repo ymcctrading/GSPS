@@ -508,7 +508,7 @@ export interface EntrySource {
   /** A crossing that regained an old level after a break (`TradeLevels.entryRegained`). */
   entryRegained?: true;
   /** A held bottom's rule (`TradeLevels.holdBasis`). */
-  holdBasis?: "weeks" | "days" | "record" | "rally";
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
   /**
    * True when this source is Gann's reaction buy after a crossing (PLAN.md
    * item 4; W006 pp.20, 46-47): `triggerPrice` is the level plus 1 point and
@@ -540,6 +540,8 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
           ? "record low that held"
           : trigger.holdBasis === "rally"
             ? "bear-market rally"
+            : trigger.holdBasis === "narrowWeek"
+              ? "narrow week broken down"
             : `single ${long ? "bottom" : "top"}`
         : trigger.kind === "oldLevel"
           ? `${multiple} ${long ? "bottom" : "top"}`

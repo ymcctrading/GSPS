@@ -114,7 +114,7 @@ export interface ScenarioKey {
    */
   entryKind?: "oldLevel" | "hold";
   /** For `hold`: which rule found the bottom that held, so the explanation names it. */
-  holdBasis?: "weeks" | "days" | "record" | "rally";
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
   /**
    * For a crossing of the previous year's top or bottom, or the record from
    * before the last 52 weeks (PLAN.md item 5, step 3), so the explanation
@@ -434,8 +434,11 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
     const oldSide = longKey ? "bottom" : "top";
     const extreme = longKey ? "low" : "high";
     const rally = k.holdBasis === "rally";
+    const narrowWeek = k.holdBasis === "narrowWeek";
     const heldWhat =
-      rally
+      k.holdBasis === "narrowWeek"
+        ? "a narrow week had been followed by a sharp drop on large volume"
+        : rally
         ? "a rally in a falling market had run into the end of its second or third week"
         : k.holdBasis === "record"
         ? "the record low had held for weeks without breaking by 3 points"
@@ -447,7 +450,9 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
       a.decision === k.decision,
       k.decision === "trade"
         ? hold
-          ? `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close${rally ? "" : ` near that ${oldSide}`}.`
+          ? narrowWeek
+            ? `${heldWhat[0].toUpperCase()}${heldWhat.slice(1)}: a trade, sold on the bounce to 1 point under that week's low.`
+            : `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close${rally ? "" : ` near that ${oldSide}`}.`
           : old
           ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
           : k.crossed

@@ -1,9 +1,10 @@
 /**
  * A narrow week followed by a sharp drop on large volume turns the trend down
  * (A-ENTRY-19, W006 p.27: Corn Products, week ended 20 July 1935, short even
- * while the averages rose). PLAN.md item 6 step 10, fork F7 (a): context
- * only, measured (`contextFactors.ts`, `narrowWeekBreakAgrees`), never a gate
- * or an order until the replay says how it reads.
+ * while the averages rose). PLAN.md item 6 step 10, fork F7 (a), measured
+ * (`contextFactors.ts`, `narrowWeekBreakAgrees`). Since 2026-10-16 ("every
+ * Gann method acts") the drop is also a sale: `narrowWeekSell` in
+ * `entryTrigger.ts`, on completed weeks. The rise mirror stays context.
  *
  * Gann names the pattern and leaves "narrow", "sharp" and "large" undefined.
  * The readings, engineering choices fixed before any measurement:

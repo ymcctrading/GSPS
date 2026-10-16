@@ -153,7 +153,7 @@ export interface TradeLevels {
    * its second week, held two days after a bull-market reaction, or the record
    * low held). Display only.
    */
-  holdBasis?: "weeks" | "days" | "record" | "rally";
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
   /**
    * For a crossing, when the level crossed is not the last swing: the
    * previous year's top or bottom, or the record from before the 52 weeks

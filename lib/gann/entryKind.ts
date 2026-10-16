@@ -15,10 +15,11 @@ export type GannEntryKind = "crossing" | "oldLevel" | "hold";
 /**
  * Which of Gann's rules found a buy (sell) at the last close (`hold` only):
  * a bottom that held for weeks, for days after a bull-market reaction, or a
- * record low that held; or `rally`, the sell at the end of a bear-market
- * rally's second or third week (W006 p.47, Rule 4).
+ * record low that held; `rally`, the sell at the end of a bear-market
+ * rally's second or third week (W006 p.47, Rule 4); or `narrowWeek`, the sell
+ * after a narrow week and a sharp drop on large volume (W006 p.27, A-ENTRY-19).
  */
-export type GannHoldBasis = "weeks" | "days" | "record" | "rally";
+export type GannHoldBasis = "weeks" | "days" | "record" | "rally" | "narrowWeek";
 
 /**
  * True for a buying point whose order rests from the start with nothing to

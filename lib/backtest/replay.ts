@@ -1167,7 +1167,7 @@ export function byEntryKind(result: ReplayResult): Record<GannEntryKind, ReplayR
 /** The held entries split by the form of the hold that priced them. */
 export function byHoldBasis(result: ReplayResult): Record<GannHoldBasis, ReplayResult> {
   const of = (basis: GannHoldBasis) => summarise(result.trades.filter((t) => t.entryKind === "hold" && t.holdBasis === basis));
-  return { weeks: of("weeks"), days: of("days"), record: of("record"), rally: of("rally") };
+  return { weeks: of("weeks"), days: of("days"), record: of("record"), rally: of("rally"), narrowWeek: of("narrowWeek") };
 }
 
 /**

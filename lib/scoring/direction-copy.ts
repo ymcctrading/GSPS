@@ -61,12 +61,16 @@ export function structuralTriggerHeadline(
   direction: "bullish" | "bearish",
   entryKind?: "crossing" | "oldLevel" | "hold",
   entrySource?: "priorYear" | "allTime",
-  holdBasis?: "weeks" | "days" | "record" | "rally",
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek",
   /** A previous year's level: its year (step 3 review R9). */
   levelYear?: number,
   /** A level regained after a break (A-TREND-10). */
   regained?: boolean,
 ): string {
+  if (entryKind === "hold" && holdBasis === "narrowWeek") {
+    // The sell after a narrow week and a sharp drop on large volume (A-ENTRY-19).
+    return "A sell 1 point under a narrow week's low, for the bounce after a sharp drop on large volume, with the stop 3 points over that low.";
+  }
   if (entryKind === "hold" && holdBasis === "rally") {
     // The sell at the end of a bear-market rally (item 5, step 4b).
     return "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop 3 points over that week's high.";
