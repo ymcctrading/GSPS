@@ -398,4 +398,8 @@
 // risk. Rule 1 (a tenth of the trading capital at most, NSTD p.46,
 // Commodities pp.29-30) refuses or shrinks orders; the replay sizes no
 // position, so it does not move the replay.
-export const STRATEGY_VERSION = "2026-10-16-gann-never-failing-1-9";
+// 2026-10-16-gann-rule-of-three-closed: the live score's daily Rule of Three
+// reads completed sessions only, as the replay already did (review 25, R3-3).
+// Live verdicts move on days the forming session would have tipped the
+// count; the replay does not move.
+export const STRATEGY_VERSION = "2026-10-16-gann-rule-of-three-closed";
