@@ -49,7 +49,7 @@ Either way:
 2. `401` means the header didn't match: the caller's `CRON_SECRET` differs
    from the one the deployment checks against.
 3. If nothing fired at all from Vercel, confirm production is running the
-   deployment you expect. `vercel.json` sets `git.deploymentEnabled: true`,
+   deployment you expect. `vercel.json` deploys `main`,
    so production tracks `main` within minutes of a merge — a missing cron
    usually means the last production build failed, not that deploys are off.
    If nothing fired at all from GitHub Actions, confirm the workflow is
@@ -177,19 +177,21 @@ dashboard; there's no code-side workaround.
 
 ## A deploy needs to go out
 
-Deploys are automatic (`vercel.json` sets `git.deploymentEnabled: true`), so
+Deploys are automatic for `main` only (`vercel.json` sets `git.deploymentEnabled`
+to `{"main": true, "*": false}`), so
 there is nothing to request — **merging the PR to `main` ships it**, live
 within a couple of minutes. What that means in practice:
 
-1. Verify *before* merging, against the PR's preview URL. After the merge
+1. Verify *before* merging, with the repo's checks (and a manual preview
+   deployment when the change needs a live check). After the merge
    there is no gate left to catch anything.
 2. Merge only when you mean to release. A merge you intended as bookkeeping
    is still a release.
 3. After the merge, spot-check `/api/market-scan` (cron auth), one
    market-data route, and the dashboard load before considering it done.
 
-To get a build without shipping it, push the branch and use its preview —
-that is what previews are for.
+Branches no longer build on push. To get a build without shipping it, make
+a manual preview deployment of the branch.
 
 ## Rollback
 

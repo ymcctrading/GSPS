@@ -3,7 +3,10 @@
   "framework": "nextjs",
   "env": {},
   "git": {
-    "deploymentEnabled": true
+    "deploymentEnabled": {
+      "main": true,
+      "*": false
+    }
   },
   "crons": [
     {
