@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
+  isThroughInvalidation,
   DEFAULT_CONFIG,
   cooldownUntil,
   gannFirstTarget,
@@ -812,5 +813,18 @@ describe("Gann's hourly chart (Master Course Ch. 13)", () => {
       const f = a.confidenceFactors.find((x) => x.label === "The hourly chart agrees");
       expect(f?.passed).toBe(a.direction === "up");
     }
+  });
+});
+
+describe("isThroughInvalidation", () => {
+  const move = (current: number) => ({ basis: "prevClose", reference: 100, current, absolute: 0, percent: 0, direction: "up" }) as never;
+  it("retires an up alert at or under its exit, and a down alert at or over it", () => {
+    expect(isThroughInvalidation({ direction: "up", invalidation: 101, move: move(100.5) })).toBe(true);
+    expect(isThroughInvalidation({ direction: "up", invalidation: 101, move: move(102) })).toBe(false);
+    expect(isThroughInvalidation({ direction: "down", invalidation: 101, move: move(101) })).toBe(true);
+    expect(isThroughInvalidation({ direction: "down", invalidation: 101, move: move(100) })).toBe(false);
+  });
+  it("keeps an alert with no exit defined", () => {
+    expect(isThroughInvalidation({ direction: "up", invalidation: null, move: move(50) })).toBe(false);
   });
 });
