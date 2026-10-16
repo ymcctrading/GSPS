@@ -795,6 +795,19 @@ for the project owner** — do not fix it silently, and re-verify it first:
   cites this finding. `isFeatureAuthorized("autonomous_live_trading")` is
   now false. Re-record it with `scripts/record-autonomous-live-signoff.mjs`
   only once a real compliance/legal review exists.
+  **Proving period, 2026-10-16 (owner: "remove the live broker connection,
+  environment kill switch (enable), remove human compliance sign-off (it will
+  go back on AFTER we have proven that the portfolio manager actually
+  works)").** `AUTONOMOUS_PROVING_PERIOD` in
+  `lib/automation/autonomous-live-gate.ts` runs every manager profile on paper,
+  so neither the broker, the kill switch nor the sign-off is consulted, and no
+  order it places can reach a real account. Setting it to `false` restores the
+  live gates. The same day's diagnosis: no `trade_plans` row had ever armed
+  (all 165 expired), because equity plan windows ran out overnight on the wall
+  clock and confirmation advanced only one scan price per pass. Fixed by
+  counting session bars (`sessionBarsDeadline`, interim until #309 drops the
+  clock) and arming from real closed bars in the manager's own run
+  (`lib/lifecycle/armFromBars.ts`), which also skips any plan whose stop broke.
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.
