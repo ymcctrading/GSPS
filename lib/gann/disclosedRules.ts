@@ -153,6 +153,7 @@ import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading }
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
 import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
+import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/lib/gann/firstRally";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -680,6 +681,8 @@ export interface DisclosedRulesContext {
   oneByOneBreak?: OneByOneBreak[];
   /** Where lines of 90, 45 and 22½ from a double or triple bottom (top) converge (C-LEVELS-24, class C, context only). See `jensen.ts`. */
   jensenConvergence?: JensenConvergence | null;
+  /** The advance out of a bear market's low: a first rally or a bull campaign (A-TIME-03, context only). See `firstRally.ts`. */
+  firstRally?: FirstRallyReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -856,6 +859,7 @@ export function readDisclosedRules(
     outbreakCounts: readOutbreakCounts(longMonthly, asOf),
     oneByOneBreak: readOneByOneBreak(dailyBars),
     jensenConvergence: jensenBottomConvergence(dailyBars, unit),
+    firstRally: readFirstRally(instrument?.monthly ? monthlyWithCurrent(instrument.monthly, dailyBars) : toMonthlyBars(dailyBars)),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1088,5 +1092,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
   for (const b of ctx.oneByOneBreak ?? []) lines.push(describeOneByOneBreak(b));
   if (ctx.jensenConvergence) lines.push(describeJensenConvergence(ctx.jensenConvergence));
+  const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
+  if (fr) lines.push(fr);
   return lines;
 }
