@@ -190,6 +190,16 @@ zero-amplitude test, artifact guards and a 70/30 hold-out in `spectralCycle.ts`
 built (D2/D3 landed via #300). F4, the deferred cycles research, was done
 2026-09-28 (`docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md`): its
 pre-registered calendar test is designed, not run, pending the owner.
+**Astrology and Jensen, built 2026-10-16 (owner: "infuse the astrology
+connected to Gann, Jensen, and anything from the cycles of observation folder
+that aligns"):** `lib/gann/astroRules.ts` on top of PR #306's planetary
+averages. Active angles, closes through a planet, Sun travel, the Mars
+half-return, the wheel of the year's extreme, the natural angle, seasonal
+points, new moon and lunar return, and Jensen's square of 90 in price and
+time. Trace lines are labelled research context and every reading is a
+measured factor (`astro*`, `jensen*`); none gates, per the astrology policy.
+About 0.7 ms per symbol (38 ms on the first call).
+
 **Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5
 Gann plans identified to be missing"):** the Overnight Chart and its
 stop-and-reverse method (`lib/gann/overnightChart.ts`), Rule 8's three closes

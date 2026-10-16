@@ -242,5 +242,22 @@ export function contextFactorsFor(
     f.entryOnDayCircleMajor = r.majorDegree !== null;
     if (unit) f.entryPriceOnDayTimeAngle = r.priceOnTimeAngle;
   }
+  // Gann's planetary rules and Jensen's square of 90 (`astroRules.ts`):
+  // research context, measured here and never gating. Only the close through a
+  // planet's longitude has a direction in Gann's text.
+  const astro = ctx.astro;
+  if (astro) {
+    f.astroOnActiveAngle = astro.activeAngles.length > 0;
+    if (astro.closedThroughBody) f.astroClosedThroughPlanetWithTrade = astro.closedThroughBody.direction === (bull ? "up" : "down");
+    if (astro.sunTravel) f.astroOnSunTravelLevel = astro.sunTravel.on;
+    if (astro.marsHalfReturn) f.astroMarsHalfReturn = astro.marsHalfReturn.today;
+    f.astroOnWheelOfExtreme = astro.wheel !== null;
+    f.astroNaturalAngleNear = astro.naturalAngle.near;
+    f.astroSolarSeasonalPoint = astro.solarPoint !== null;
+    f.astroNewMoon = astro.newMoon !== null;
+    f.astroLunarReturnFromPivot = astro.lunarReturn !== null;
+    f.jensenSquareOf90Price = astro.jensen.price !== null;
+    f.jensenSquareOf90Time = astro.jensen.time !== null;
+  }
   return f;
 }

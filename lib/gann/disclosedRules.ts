@@ -88,6 +88,7 @@ import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRu
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeOvernightChart, readOvernightChart, type OvernightReading } from "@/lib/gann/overnightChart";
 import { describeCloseCluster, readCloseCluster, type CloseClusterReading } from "@/lib/gann/closeCluster";
+import { describeAstroRules, readAstroRules, type AstroReading } from "@/lib/gann/astroRules";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { describeMasterCalculator, readMasterCalculator, type MasterCalculatorReading } from "@/lib/gann/masterCalculator";
@@ -466,6 +467,8 @@ export interface DisclosedRulesContext {
   squareOfNineTime?: SquareOfNineTimeHit[];
   /** Gann's day clock at the time of the read (live scan only). See `dayCircle.ts`. */
   dayCircle?: DayCircleReading | null;
+  /** Gann's planetary rules beyond the averages, and Jensen's square of 90: research context. See `astroRules.ts`. */
+  astro?: AstroReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -514,6 +517,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   planetary: null,
   squareOfNineTime: [],
   dayCircle: null,
+  astro: null,
   asOf: "",
 };
 
@@ -572,6 +576,7 @@ export function readDisclosedRules(
     planetary: readPlanetaryAverages(asOf, currentPrice, unit),
     squareOfNineTime: readSquareOfNineTime(dailyBars),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
+    astro: readAstroRules(dailyBars, asOf, unit),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -610,6 +615,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
   }
   if (ctx.overnight) lines.push(...describeOvernightChart(ctx.overnight));
+  if (ctx.astro) lines.push(...describeAstroRules(ctx.astro));
   for (const c of [ctx.closeClusters.daily, ctx.closeClusters.weekly, ctx.closeClusters.monthly]) {
     if (c) lines.push(describeCloseCluster(c));
   }
