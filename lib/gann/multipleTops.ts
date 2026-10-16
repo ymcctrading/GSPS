@@ -9,15 +9,21 @@
  * and a double or triple top crossed is a strong breakout. Bottoms mirror.
  *
  * The reading takes the 3-Day Chart's completed tops (bottoms), clusters them
- * within `LEVEL_TEST_TOLERANCE_PCT`, and reports, for the nearest cluster of
- * two or more tests: still testing, crossed, or failed on its third test.
+ * within Gann's 3 points, and reports, for the nearest cluster of two or more
+ * tests: still testing, crossed, or failed.
  *
- * Engineering choices, labelled as such: the band is the existing
- * level-test tolerance (1%); "crossed" is a close beyond the level by the
- * 3-point allowance within the last `RECENT_SESSIONS`; "failed" is a
- * third (or later) test, the latest swing of its kind, followed by a close
- * back below the band's floor; a level still being tested counts only within
- * `NEAR_PCT` of price.
+ * The band is Gann's own: a low "not 3 points under the old lows" is a test of
+ * them, not a break (W006 p.11, 64 against 66; p.24, 40½ against 43;
+ * A-LEVELS-06), price-scaled by `pointScale.ts` (until 2026-10-16 it was 1%).
+ * "Failed" is a double or triple top (bottom) that price could not pass: the
+ * latest swing of its kind, followed by a close back the other side by the 3
+ * points (W006 pp.14-15, the 1934 double top; p.44, the third test;
+ * A-LEVELS-04). Until 2026-10-16 only a third test could fail.
+ *
+ * Engineering choices, labelled as such: "crossed" is a close beyond the level
+ * by the 3-point allowance within the last `RECENT_SESSIONS`; a level still
+ * being tested counts only within `NEAR_PCT` of price; a cluster's band is the
+ * allowance at its running mean.
  *
  * Three-question basis:
  * 1. Gann: as cited, Tier A.
@@ -28,10 +34,9 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { beyondByThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
-export const TEST_TOLERANCE_PCT = 1.0;
 export const RECENT_SESSIONS = 5;
 export const NEAR_PCT = 3;
 
@@ -50,7 +55,7 @@ export interface MultipleTopsReading {
 function cluster(prices: number[]): { level: number; tests: number; lastIndexInList: number }[] {
   const out: { level: number; tests: number; lastIndexInList: number }[] = [];
   prices.forEach((p, i) => {
-    const hit = out.find((c) => (Math.abs(p - c.level) / c.level) * 100 <= TEST_TOLERANCE_PCT);
+    const hit = out.find((c) => (Math.abs(p - c.level) / c.level) * 100 <= gannThreePointsPct(c.level));
     if (hit) {
       hit.level = (hit.level * hit.tests + p) / (hit.tests + 1);
       hit.tests++;
@@ -71,15 +76,13 @@ export function readMultipleTops(daily: Bar[]): MultipleTopsReading {
     const groups = cluster(prices).filter((c) => c.tests >= 2);
     if (groups.length === 0) continue;
     const nearest = groups.reduce((x, y) => (Math.abs(y.level - price) < Math.abs(x.level - price) ? y : x));
-    const band = nearest.level * (TEST_TOLERANCE_PCT / 100);
     let state: MultipleTestReading["state"] = "testing";
     const crossed = kind === "top" ? recent.some((b) => b.c > beyondByThreePoints(nearest.level, 1)) && price > nearest.level : recent.some((b) => b.c < beyondByThreePoints(nearest.level, -1)) && price < nearest.level;
     if (crossed) state = "crossed";
     else if (
-      nearest.tests >= 3 &&
       // The failed test must be the latest swing of its kind, not an old one.
       nearest.lastIndexInList === prices.length - 1 &&
-      (kind === "top" ? price < nearest.level - band : price > nearest.level + band)
+      (kind === "top" ? price < beyondByThreePoints(nearest.level, -1) : price > beyondByThreePoints(nearest.level, 1))
     ) {
       state = "failed";
     }

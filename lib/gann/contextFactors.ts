@@ -157,7 +157,8 @@ export function contextFactorsFor(
     f.reactionAbnormalLength = ctx.timeRules.reactionAbnormal;
   }
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
-  // failed third test standing against it.
+  // failed test standing against it (the second or third since 2026-10-16,
+  // A-LEVELS-04; the factor keeps its name so earlier runs still compare).
   if (ctx.multipleTops) {
     // The level in the trade's path: a top for a long, a bottom for a short.
     const inPath = bull ? ctx.multipleTops.top : ctx.multipleTops.bottom;

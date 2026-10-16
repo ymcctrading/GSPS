@@ -74,6 +74,7 @@ import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfway
 import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
 import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
+import { gannThreePointsPct } from "@/lib/gann/pointScale";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
@@ -325,7 +326,11 @@ export function readCounterMove(bars: Bar[]): CounterMoveReading | null {
 // ---------------------------------------------------------------------------
 // 5. Tests of a level
 
-export const LEVEL_TEST_TOLERANCE_PCT = 1.0;
+/**
+ * Swing extremes within Gann's 3 points of each other test the same level
+ * (A-LEVELS-06, W006 pp.11, 24), price-scaled by `pointScale.ts`; 1% until
+ * 2026-10-16.
+ */
 
 export interface LevelTestReading {
   level: number;
@@ -342,7 +347,7 @@ function nearestTestedLevel(prices: number[], currentPrice: number, side: "below
   const candidates = prices.filter((p) => (side === "below" ? p < currentPrice : p > currentPrice));
   if (candidates.length === 0) return null;
   const nearest = candidates.reduce((a, b) => (Math.abs(b - currentPrice) < Math.abs(a - currentPrice) ? b : a));
-  const cluster = prices.filter((p) => (Math.abs(p - nearest) / nearest) * 100 <= LEVEL_TEST_TOLERANCE_PCT);
+  const cluster = prices.filter((p) => (Math.abs(p - nearest) / nearest) * 100 <= gannThreePointsPct(nearest));
   const level = cluster.reduce((s, p) => s + p, 0) / cluster.length;
   return { level, tests: cluster.length };
 }
@@ -627,7 +632,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   for (const m of [ctx.multipleTops?.top, ctx.multipleTops?.bottom]) {
     if (!m) continue;
     const name = m.tests >= 3 ? `Triple ${m.kind}` : `Double ${m.kind}`;
-    lines.push(`${name} at ${m.level.toFixed(2)}: ${m.state === "crossed" ? "crossed, a strong breakout" : m.state === "failed" ? "failed on its third test" : "being tested"}.`);
+    lines.push(`${name} at ${m.level.toFixed(2)}: ${m.state === "crossed" ? "crossed, a strong breakout" : m.state === "failed" ? `failed on its ${m.tests >= 3 ? "third" : "second"} test, a ${m.kind}` : "being tested"}.`);
   }
   if (ctx.leadership) {
     const l = ctx.leadership;
