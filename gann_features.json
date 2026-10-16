@@ -150,7 +150,7 @@
     "class": "A",
     "gsps_location": "lib/gann/angleMonthCounts.ts:angleMonthCounts; lib/gann/angleMonthCounts.ts:monthsElapsed; lib/gann/timeCycles.ts:yearCycleConvergence — differs: projects fixed angle month-counts (card only) and whole-year cycles, not a list of raw month counts from every pivot",
     "test": "lib/gann/__tests__/angleMonthCounts.test.ts > monthsElapsed — the 1896-1935 DJIA case study arithmetic > August 1896 bottom to November 1907 low is exactly 135 months",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-06",
@@ -213,7 +213,7 @@
     "class": "A",
     "gsps_location": "lib/gann/exitRules.ts:readGannExit (three_adverse_closes); lib/trade/gann-exit-live.ts; lib/backtest/replay.ts (exitRule gann/gann-runner) — differs: tested on the first three sessions from the fill only",
     "test": "lib/gann/__tests__/exitRules.test.ts > readGannExit > exits when each of the first three sessions from entry closes against the trade",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-TIME-13",
@@ -1950,7 +1950,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timeCycles.ts:DAY_COUNT_BANDS ([18,21], [42,49]); lib/gann/squareOf52.ts:SQUARE_OF_52_FRACTIONS (1/16 = 3.25 weeks, disclosed:false) — differs: 23 days is not a window and 49 is only the top of the 42–49 band",
     "test": "TO WRITE: lib/gann/__tests__/disclosedRules.test.ts — readDayCountBands flags day 23 and day 49 from a major pivot.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-TIME-20",
@@ -2301,7 +2301,7 @@
     "class": "C",
     "gsps_location": "lib/gann/timePriceSquare.ts:computeTimePriceSquare — differs: squares elapsed bars with the ATR-normalized move, not a retracement fraction with its paired angle",
     "test": "TO WRITE: lib/gann/__tests__/timePriceSquare.test.ts — a 50% retracement reached on the date the 1x1 projects is flagged, and the same level reached on another date is not.",
-    "passes": false
+    "passes": true
   },
   {
     "id": "C-LEVELS-19",
