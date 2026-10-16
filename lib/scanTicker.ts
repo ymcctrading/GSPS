@@ -58,7 +58,8 @@ import {
   computeScore,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
-import { readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { readLeadership, selectionStrength } from "@/lib/gann/leadership";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
@@ -344,6 +345,9 @@ export async function scanTicker(
     // computeTradeLevels's equities path needs both the full level list and
     // atrPct to anchor a percent-based stop/runner — see
     // lib/strat/levels.ts#computeEquityTradeLevels.
+    // The campaign ledger on the level chart, as the replay's
+    // `readDisclosedRules` builds it.
+    const campaignLedger = buildCampaignLedger(charts.daily);
     const allLevels = [
       ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
       ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
@@ -415,6 +419,10 @@ export async function scanTicker(
     const distributionStanding = readDistributionStanding(daily, new Date(scannedAt));
     // A-LEVELS-04 (fork FL3 a): the same 52-week entry chart the replay reads.
     const failedTops = readMultipleTops(charts.daily);
+    // Gann's selection rules (A-SELECTION-02): early leaders first in the
+    // lists. Read as `readDisclosedRules` reads it on the replay: the level
+    // charts' daily and monthly, and the market's.
+    const leadership = readLeadership(charts.daily, marketDaily, campaignLedger, { stock: charts.monthly, market: marketMonthly });
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or
@@ -607,6 +615,7 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
+      selectionStrength: selectionStrength(direction, leadership),
       ...(stopBreach.breached
         ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price!, reclaimAt: stopBreach.reclaimAt! } }
         : {}),

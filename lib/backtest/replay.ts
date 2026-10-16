@@ -92,6 +92,7 @@ import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
 const PYRAMID_SHARE_SCALE = 1024;
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { selectionStrength } from "@/lib/gann/leadership";
 import {
   atrPercentOfPrice,
   nearestLevelMatch,
@@ -464,6 +465,12 @@ export interface ReplayTrade {
    * market scan's yearly-cycle re-rank picks better trades.
    */
   yearCycleHits?: number;
+  /**
+   * The selection strength the live lists order by (`selectionStrength`,
+   * early leaders first; A-SELECTION-02). The replay has no list to order, so
+   * it records the value per trade for the run to split on.
+   */
+  selectionStrength?: number;
 }
 
 export interface ReplayResult {
@@ -1137,6 +1144,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
           barsHeld: walked.barsHeld,
           outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
           exitReason: walked.reason,
@@ -1198,6 +1206,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+        selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
       };
 
       if (outcome === "timeout") {

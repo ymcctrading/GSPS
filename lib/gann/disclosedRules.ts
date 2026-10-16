@@ -797,7 +797,10 @@ export function readDisclosedRules(
     seasonal: readSeasonalCount(asOf),
     accumulation: readAccumulation(dailyBars),
     sharesPerPoint: readSharesPerPoint(dailyBars, campaign, asOf),
-    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
+    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign, {
+      stock: instrument?.monthly ?? null,
+      market: instrument?.marketMonthly ?? null,
+    }),
     weakStock:
       instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
     timeRules: readTimeRules(dailyBars, counterMove),
