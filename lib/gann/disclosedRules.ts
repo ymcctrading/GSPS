@@ -111,6 +111,8 @@ import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures"
 import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
 import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@/lib/gann/priceAsTime";
 import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
+import { describeYearRanges, readYearRanges, type YearRangesReading } from "@/lib/gann/yearRanges";
+import { describeDecadeAnalogue, readDecadeAnalogue, type DecadeAnalogueReading } from "@/lib/gann/decadeAnalogue";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
@@ -653,6 +655,10 @@ export interface DisclosedRulesContext {
   priceAsTime?: PriceAsTimeReading | null;
   /** Angles from zero, from a double or triple bottom's tests, and in the square of the range; the 1x1's rank (C-LEVELS-04/-05/-09, context only). See `angleCrossings.ts`. */
   angleCrossings?: AngleCrossingsReading | null;
+  /** The Jan 2-7 / Jan 15-21 (and July) ranges that set the year's trend (A-TIME-20, context only). See `yearRanges.ts`. */
+  yearRanges?: YearRangesReading | null;
+  /** The month ahead in the years 10, 20, 30 and 60 back (A-TIME-14, context only). See `decadeAnalogue.ts`. */
+  decadeAnalogue?: DecadeAnalogueReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -820,6 +826,8 @@ export function readDisclosedRules(
     priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
     priceAsTime: readPriceAsTime(dailyBars, currentPrice, unit, inception, asOf),
     angleCrossings: readAngleCrossings(dailyBars, currentPrice),
+    yearRanges: readYearRanges(dailyBars, asOf),
+    decadeAnalogue: readDecadeAnalogue(longMonthly, asOf),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1039,6 +1047,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.patternAngles) lines.push(...describePatternAngles(ctx.patternAngles));
   if (ctx.dayCircle) lines.push(describeDayCircle(ctx.dayCircle));
   if (ctx.angleCrossings) lines.push(...describeAngleCrossings(ctx.angleCrossings));
+  if (ctx.yearRanges) lines.push(...describeYearRanges(ctx.yearRanges));
+  if (ctx.decadeAnalogue) lines.push(...describeDecadeAnalogue(ctx.decadeAnalogue));
   if (t.projection) {
     lines.push(
       `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,

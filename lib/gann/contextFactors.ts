@@ -500,5 +500,11 @@ export function contextFactorsFor(
     }
     f.nearestAngleIsOneByOne = ac.nearestAngleRank === 1;
   }
+  // The year's trend from its opening ranges (A-TIME-20) and the decade
+  // analogues' month ahead (A-TIME-14), each against the trade's direction.
+  const yr = ctx.yearRanges;
+  if (yr && yr.yearTrend !== "inside") f.yearRangeTrendWithTrade = yr.yearTrend === (bull ? "up" : "down");
+  const da = ctx.decadeAnalogue;
+  if (da?.agreed) f.decadeAnalogueWithTrade = da.agreed === (bull ? "up" : "down");
   return f;
 }
