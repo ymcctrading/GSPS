@@ -566,3 +566,6 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 (second top's calendar-week volume over the first top's, only when the second reaches the
 first). Card line at <=2/3; factors secondTopTwoThirds/ThirdVolume Against/With. Context only,
 nothing confirms on it (FV2 awaiting owner). Mutations M1-M8 killed. Full suite 2838 pass.
+
+## 2026-10-16 Run 46 (section exits)
+- Run 46 (b7b2900, version 2026-10-16-gann-section-exits, 766 symbols, 15Min, 2026-08-17 to 2026-10-15): gann-runner Execute n=139 +0.134R [+0.003, +0.266], halves +0.095/+0.172; Watch n=1886 -0.023R; all n=3141 -0.011R (total -33.55R vs -33.61R on run 45). Bracket unchanged from run 45 (Execute +0.122R [-0.008, +0.249], all -0.044R). The section-exit fix moves a handful of runner exits a bar or two earlier (avg bars held 130.03 -> 129.92) and nothing else; no entry or verdict changed, as expected. Run 46 lacked long/market monthly series in the runner (fixed in 991e468), which affects context factors only. Time-window base-rate run dispatched at c83e590.
