@@ -162,3 +162,23 @@ Read 2026-10-16. The text was read in full on 2026-09-27 (source note A02/A04). 
   The cover page (PDF 445) says Curve No. 1 was **"sent out on November 3, 1928"**. A later page (PDF 473) is dated November 23rd, 1928. **Correction:** source note A02/A04 gave the forecast's date as November 23, so both dates are now recorded there.
 - **What it was based on.** Gann's stated basis is his Master Time Factor and the return of cycles. That is the undisclosed method recorded in A13. The plate shows the method's output, not the method, so **nothing in it can be built**. It is the kind of dated projection AGENTS.md's "Forward-looking claims" rule covers.
 - **For GSPS:** no new rule. The "new stock" break in the U.S. Steel swings is the share-count change that `splitAdjustedSharesAsOf` exists for. Bars are split-adjusted, so Gann's unadjusted chart prices before 1927 don't compare directly with today's data.
+
+## Secondary: Jensen's chart pages (B16) and Mikula Vol. 2's chart pages (B05) — 2026-10-16
+
+**Jensen, *Astro-Cycles and Speculative Markets*.** All 29 low-text pages of the DjVu were rendered and viewed, and each wheel's centre caption was read at 2400 px. They are section titles, a world map and a U.S. map with geodetic meridians, two blank wheels, Plate 4 (Dow Industrials, January 1 to September 29, 1933) and nine base charts:
+- the Great Mutation, the Jupiter–Saturn conjunction of January 26, 1842, 0:19:53 a.m., Washington ("bears rule of economic conditions to 2082 A.D.")
+- the Jupiter–Saturn conjunction of September 9, 1921, 11:07 p.m., Washington (its supplement)
+- the Declaration of Independence, July 4, 1776, 0:20 p.m., Philadelphia (the United States chart)
+- **the New York Stock Exchange, May 17, 1792, 8:52 a.m. local time, "according to Parker's Ephemeris"**: the same origin date as Gann's NYSE Permanent Chart (Square of 20)
+- the Liverpool Grain Exchange, August 28, 1201 (Old Style, as printed)
+- the Bank of England, April 25, 1694 (Old Style)
+- the Chicago Board of Trade, February 18, 1859, 11:10 a.m.
+- **United States Steel Corporation, February 25, 1901, 10:30 a.m., Trenton**: consistent with Gann's U.S. Steel time count from March 1901 (A2.1)
+
+These are natal charts for Jensen's astrology. GSPS reads no natal chart. Any use of them would be a new Jensen placement for the owner to name (AGENTS.md, 2026-10-01 decision 3). Nothing is built from them here.
+
+**Mikula, *Gann's Scientific Methods Unveiled* Vol. 2.** All 49 low-text pages were viewed. Most are Mikula's own intraday and hourly charts (moon, earth-rotation and planet "price and longitude angles", 1982–95), his Circle Chart wheels and his aspect table. Two touch Gann directly, and B05 already covers both in its text:
+- **Figs. 4-7 to 4-12:** replicas of Gann's egg horoscopes, with the planets Gann listed for the January 14, 1921 high, the January 30, 1931 low, the May 28, 1932 low and the October 5, 1950 low. On one, Gann wrote "1931 ♄□♆", which Mikula reads as the 135° Saturn–Neptune aspect that occurred three times in 1931.
+- **Fig. 7-8, the "Hexagon Chart" (PDF p. 171, read at 400 dpi):** triangular cells with the ring completions 6, 18, 36, 60, 90, 126, 168, 216 along one axis and a ×5 price row above each number. **This is the unsigned typeset construction (Master Course p. 423, the one B12 and B15 copy), not Gann's hand-drawn plate (p. 422)**, where 7, 19, 37, 61 … sit on the 0°/360° line and 2, 9, 22, 41, 66 on 60°. B05's "replica from a Gann original" is qualified accordingly.
+
+*Ingram's paper* is Elliott Wave, not Gann, and stays out of scope.
