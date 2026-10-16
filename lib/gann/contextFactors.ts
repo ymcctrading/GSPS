@@ -79,6 +79,16 @@ export function contextFactorsFor(
     // Class C trend readings (W003 p.17), measured, never gating (item 6).
     f.reactionsContractingWithTrade = !against && c.contracting;
     f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
+    // C-TREND-03/-06 (Commodities p.312 "price or time"; Master Course Ch.8
+    // PDF 249 "by 1+ point"): over-balance with Gann's 1-point margin.
+    f.overbalancedByPointAgainstCampaign = against && (c.spaceOverbalancedByPoint || c.timeOverbalanced);
+    // C-TIME-27 (Master Course Ch.2 PDF 51, Ch.7 PDF 220): a campaign with
+    // the trade in a culmination month, or past 3 years.
+    f.campaignCulminationMonthWithTrade = !against && (c.age.culmination1931 || c.age.culmination1935);
+    f.campaignPastCeilingWithTrade = !against && c.age.pastThreeYears;
+    // C-PRICE-01 (Master Course Ch.6 PDF 197): price within 1% of the
+    // prior-range projection, the levelTests tolerance.
+    if (c.rangeProjection) f.nearRangeProjection = (Math.abs(c.rangeProjection.price - price) / price) * 100 <= 1;
   }
   // Class C entry readings (W003), measured, never gating (item 5 step 4b).
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
@@ -93,6 +103,23 @@ export function contextFactorsFor(
     // Fast moves start from the third or fourth (W003 p.17; Master Course p.248).
     f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
+  // Price grids (priceGrids.ts; Master Course Ch.6 PDF 186, 209-210; Ch.13
+  // PDF 375, 378): price within 1% of a level, the levelTests tolerance.
+  if (ctx.priceGrids) {
+    const g = ctx.priceGrids;
+    const near = (...xs: (number | null)[]) => xs.some((x) => x !== null && (Math.abs(x - price) / price) * 100 <= 1);
+    f.nearParitySquare = near(g.paritySquares.squareBelow, g.paritySquares.squareAbove);
+    f.nearSquareHalfway = near(g.paritySquares.halfwayBelow, g.paritySquares.halfwayAbove);
+    f.nearNineTwelveLevel = near(g.nineTwelve.nineBelow, g.nineTwelve.nineAbove, g.nineTwelve.twelveBelow, g.nineTwelve.twelveAbove);
+    f.rangeApproachingMultipleOf144 = g.range144.approaching;
+  }
+  // C-TREND-08 (Master Course Ch.7 PDF 223): the 5th unit of a run on days,
+  // weeks or months, in the trade's direction or against it.
+  if (ctx.ascension) {
+    const units = [ctx.ascension.daily, ctx.ascension.weekly, ctx.ascension.monthly].filter((a) => a?.fifth);
+    f.ascensionUnitWithTrade = units.some((a) => a!.direction === (bull ? "up" : "down"));
+    f.ascensionUnitAgainstTrade = units.some((a) => a!.direction === (bull ? "down" : "up"));
+  }
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;
   if (rs) f.reverseSignalAgrees = rs === (bull ? "bottom" : "top");
@@ -103,7 +130,11 @@ export function contextFactorsFor(
   const gapsNew = ctx.extremes.gaps.gapsInNewTerritory;
   // Three or more gaps in new territory in the trade's own direction: that
   // move is near its culmination, a risk to this trade.
-  if (gapsNew) f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+  if (gapsNew) {
+    f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+    // M-E12 (Commodities p.321): 6 or more, an extended run, measured on its own.
+    f.extendedGapsInTradeDirection = gapsNew.extended && gapsNew.direction === (bull ? "up" : "down");
+  }
   if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
   if (ctx.timing.square144) f.square144Convergence = ctx.timing.square144.units.length >= 2;
   if (ctx.timing.projection) f.tightTimeProjection = ctx.timing.projection.spreadDays <= 5;

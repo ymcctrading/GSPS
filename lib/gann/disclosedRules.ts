@@ -100,6 +100,7 @@ import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/share
 import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
+import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
@@ -477,6 +478,54 @@ export function readRuleOfThreeTimeframes(daily: Bar[]): RuleOfThreeTimeframes {
 }
 
 // ---------------------------------------------------------------------------
+// The 5th unit of a run: Ascension (C-TREND-08)
+//
+// "The 5th is the day, week, month, or year of Ascension and always marks
+// fast moves" (Master Course Ch. 7, PDF 223); "the 5th week is also very
+// important" (*Commodities* p. 59). Read here as the 5th consecutive close in
+// one direction on daily, weekly and monthly bars, an engineering reading of
+// what the 5th unit counts from (Gann does not say), mirrored for lower
+// closes (an engineering symmetry). The "4th consecutive higher week" rule is
+// not in Gann's text and is not built. Context only, never gating.
+
+export interface AscensionCount {
+  direction: "up" | "down";
+  /** Consecutive closes in that direction, ending at the last bar. */
+  count: number;
+  /** The last bar is the 5th: the unit of Ascension. */
+  fifth: boolean;
+}
+
+export interface AscensionReading {
+  daily: AscensionCount | null;
+  weekly: AscensionCount | null;
+  monthly: AscensionCount | null;
+}
+
+export const ASCENSION_UNIT = 5;
+
+export function readAscensionCount(bars: Bar[]): AscensionCount | null {
+  const n = bars.length;
+  if (n < 2 || bars[n - 1].c === bars[n - 2].c) return null;
+  const direction = bars[n - 1].c > bars[n - 2].c ? "up" : "down";
+  let count = 0;
+  for (let i = n - 1; i >= 1; i--) {
+    const d = bars[i].c - bars[i - 1].c;
+    if (direction === "up" ? d > 0 : d < 0) count++;
+    else break;
+  }
+  return { direction, count, fifth: count === ASCENSION_UNIT };
+}
+
+export function readAscension(daily: Bar[]): AscensionReading {
+  return {
+    daily: readAscensionCount(daily),
+    weekly: readAscensionCount(toWeeklyBars(daily)),
+    monthly: readAscensionCount(toMonthlyBars(daily)),
+  };
+}
+
+// ---------------------------------------------------------------------------
 
 export interface DisclosedRulesContext {
   barMidpoint: BarMidpointReading | null;
@@ -584,6 +633,10 @@ export interface DisclosedRulesContext {
   dayCircle?: DayCircleReading | null;
   /** Gann's planetary rules beyond the averages, and Jensen's square of 90: research context. See `astroRules.ts`. */
   astro?: AstroReading | null;
+  /** The 5th consecutive close in one direction on days, weeks and months (C-TREND-08, context only). */
+  ascension?: AscensionReading | null;
+  /** Odd/even squares, the 9 and 12 grid, and the range against 144 (C-NUMEROLOGY-01, C-TIME-15/-16, context only). See `priceGrids.ts`. */
+  priceGrids?: PriceGridReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -746,6 +799,8 @@ export function readDisclosedRules(
     patternAngles: readPatternAngles(dailyBars, currentPrice, unit),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
     astro: readAstroRules(dailyBars, asOf, unit),
+    ascension: readAscension(dailyBars),
+    priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -928,6 +983,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (r?.bearishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveLowerCloses} lower closes in a row.`);
     else if (r?.bullishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveHigherCloses} higher closes in a row.`);
   }
+  for (const [unitName, a] of [["day", ctx.ascension?.daily], ["week", ctx.ascension?.weekly], ["month", ctx.ascension?.monthly]] as const) {
+    if (a?.fifth) lines.push(`The 5th ${a.direction === "up" ? "higher" : "lower"} close in a row on the ${unitName}: the 5th ${unitName} marks fast moves.`);
+  }
   const rs = ctx.extremes.reverseSignal;
   if (rs.signal) {
     lines.push(
@@ -937,9 +995,11 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     );
   }
   const g = ctx.extremes.gaps;
-  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme, filled the next day.`);
+  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme with a reverse signal day.`);
   if (g.gapsInNewTerritory && g.gapsInNewTerritory.count >= 3) {
-    lines.push(`${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: a culmination is near.`);
+    lines.push(
+      `${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: ${g.gapsInNewTerritory.extended ? "an extended run past the usual 3-4, which in extreme cases reaches 10 before a culmination" : "a culmination is near"}.`,
+    );
   }
   if (g.filledGapReversal) lines.push(`A recent gap has been filled: the minor trend turns ${g.filledGapReversal}.`);
   const t = ctx.timing;
@@ -947,6 +1007,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (t.square144 && t.square144.units.length >= 2) {
     lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
   }
+  if (ctx.priceGrids) lines.push(...describePriceGrids(ctx.priceGrids));
   if (ctx.masterCalculator) lines.push(...describeMasterCalculator(ctx.masterCalculator));
   if (ctx.circle) lines.push(...describeCircle(ctx.circle));
   if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));

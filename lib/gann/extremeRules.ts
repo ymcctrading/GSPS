@@ -8,9 +8,16 @@
  * - **7-to-10 Day Rule.** After 7 to 10 days (up to 14) in which no day broke
  *   the prior day's low, the first day that does, and closes near its low, is
  *   a signal of a top. Mirror at a bottom.
- * - **Gaps.** An exhaust gap is a one-day gap at an extreme that is filled the
- *   next day. Three or four consecutive gaps in new territory mean a
- *   culmination is near. A filled gap reverses the minor trend only.
+ * - **Gaps.** An exhaust gap is a final one-day gap after a prolonged move
+ *   together with a reverse signal day (p. 319; mirrored on the downside,
+ *   p. 320). Three or four consecutive gaps in new territory mean a reverse
+ *   move is near, but often there are 6 to 7 before a culmination and in
+ *   extreme cases 10 (p. 321), so 6 or more is flagged as extended. A filled
+ *   gap reverses the minor trend only.
+ *
+ *   Corrected 2026-10-16 (M-E12): the exhaust gap used to mean a gap filled
+ *   the next day, which is not in Gann's text; it now needs the reverse
+ *   signal day he names. Context only, as before.
  *
  * Gann says to apply these together in very active markets and to confirm
  * them with over-balanced price and time. So they are context and measured
@@ -21,7 +28,10 @@
  * close sits in the bottom quarter of the day's range (`NEAR_EXTREME`); "new
  * territory" means a new high (low) of the last `NEW_TERRITORY_BARS` bars;
  * gaps are counted since the last completed 3-Day Chart pivot on the other
- * side. Limit days are commodity-exchange rules with no equity counterpart and
+ * side; the reverse signal day may be the gap day itself or the day after it
+ * (Gann pairs them without saying which day), and only his reverse day counts,
+ * not the 7-10 Day Rule; "prolonged" is read as the gap reaching a new
+ * extreme of `NEW_TERRITORY_BARS` bars. Limit days are commodity-exchange rules with no equity counterpart and
  * are not built.
  *
  * Three-question basis:
@@ -40,6 +50,8 @@ export const NEAR_EXTREME = 0.25;
 export const NEW_TERRITORY_BARS = 20;
 export const SEVEN_TO_TEN_MIN_DAYS = 7;
 export const SEVEN_TO_TEN_MAX_DAYS = 14;
+/** "As many as 6 to 7 GAPS before a culmination and in extreme cases as many as 10" (Commodities p.321). */
+export const EXTENDED_GAP_COUNT = 6;
 
 export type ExtremeSignal = "top" | "bottom";
 
@@ -51,10 +63,13 @@ export interface ReverseSignalReading {
 }
 
 export interface GapReading {
-  /** The last bar filled a one-day gap made at an extreme the bar before. */
+  /** A one-day gap to a new extreme on one of the last two bars, with a reverse signal day on it or the bar after (Commodities p.319). */
   exhaustGap: ExtremeSignal | null;
-  /** Gaps in the current swing's direction, each at a new extreme, since the last opposite pivot. */
-  gapsInNewTerritory: { direction: "up" | "down"; count: number } | null;
+  /**
+   * Gaps in the current swing's direction, each at a new extreme, since the
+   * last opposite pivot. `extended`: 6 or more, past the usual 3-4 (Commodities p.321).
+   */
+  gapsInNewTerritory: { direction: "up" | "down"; count: number; extended: boolean } | null;
   /** A gap from the last 10 bars that has since been filled: the minor trend reverses against it. */
   filledGapReversal: "bullish" | "bearish" | null;
 }
@@ -108,10 +123,20 @@ export function readGaps(bars: Bar[]): GapReading {
   const n = bars.length;
   if (n < 3) return out;
 
-  // Exhaust gap: bar n-2 gapped to a new extreme, bar n-1 filled it.
-  const [g0, g1, g2] = [bars[n - 3], bars[n - 2], bars[n - 1]];
-  if (g1.l > g0.h && isNewHigh(bars, n - 2) && g2.l <= g0.h) out.exhaustGap = "top";
-  else if (g1.h < g0.l && isNewLow(bars, n - 2) && g2.h >= g0.l) out.exhaustGap = "bottom";
+  // Exhaust gap (p.319): a gap to a new extreme on bar g (one of the last
+  // two), and a reverse signal day on g or the bar after it.
+  const reverseDayAt = (i: number) => {
+    const r = readReverseSignal(bars.slice(0, i + 1));
+    return r.rule === "reverseDay" ? r.signal : null;
+  };
+  for (const g of [n - 1, n - 2]) {
+    if (out.exhaustGap || g < 1) continue;
+    const up = bars[g].l > bars[g - 1].h && isNewHigh(bars, g);
+    const down = bars[g].h < bars[g - 1].l && isNewLow(bars, g);
+    if (!up && !down) continue;
+    const want: ExtremeSignal = up ? "top" : "bottom";
+    for (let r = g; r <= Math.min(g + 1, n - 1); r++) if (reverseDayAt(r) === want) out.exhaustGap = want;
+  }
 
   // Gaps in new territory since the last opposite 3-Day Chart pivot.
   const pivots = walkSwingChart(bars, THREE_DAY_CHART).pivots;
@@ -121,7 +146,10 @@ export function readGaps(bars: Bar[]): GapReading {
   let down = 0;
   for (let i = Math.max(1, lastBottom + 1); i < n; i++) if (bars[i].l > bars[i - 1].h && isNewHigh(bars, i)) up++;
   for (let i = Math.max(1, lastTop + 1); i < n; i++) if (bars[i].h < bars[i - 1].l && isNewLow(bars, i)) down++;
-  if (up > 0 || down > 0) out.gapsInNewTerritory = up >= down ? { direction: "up", count: up } : { direction: "down", count: down };
+  if (up > 0 || down > 0) {
+    const [direction, count] = up >= down ? (["up", up] as const) : (["down", down] as const);
+    out.gapsInNewTerritory = { direction, count, extended: count >= EXTENDED_GAP_COUNT };
+  }
 
   // A filled gap from the last 10 bars reverses the minor trend against it.
   for (let i = n - 2; i >= Math.max(1, n - 10); i--) {
