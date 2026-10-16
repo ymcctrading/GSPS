@@ -1051,7 +1051,7 @@ const ACADEMY_6: Academy = {
           estimatedMinutes: 13,
           instruction: [
             "Adding to a position is earned, never hoped for. The last lot must already show a profit at least as large as the risk the trade started with, and the market must prove the trend again by crossing a new swing top (a new swing bottom, for a short) made since that last lot. Adding to a losing trade to improve the average price is the one thing this rule exists to prevent.",
-            "Each addition is smaller than the one before, about half. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. After four lots, stop adding: the move is getting old.",
+            "Each addition is smaller than the one before, about half. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. Adding ends when the next half would be less than one share, because by then the move is getting old.",
             "With every addition, the stop on the whole position moves up to at least the combined break-even, so that a reversal can cost profit but not capital. A full stop-out of everything together should never cost more than a tenth of the account.",
             "GSPS shows an add on the Portfolio when a position has earned one. It is a suggestion: you place it through the order ticket, and nothing is added automatically.",
           ],

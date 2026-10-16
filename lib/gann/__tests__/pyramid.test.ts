@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { MAX_LOTS, readPyramidAdd } from "@/lib/gann/pyramid";
+import { readPyramidAdd } from "@/lib/gann/pyramid";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
 function days(closes: number[], start = "2026-06-01"): Bar[] {
@@ -46,9 +46,19 @@ describe("readPyramidAdd", () => {
     }
   });
 
-  it("stops adding after the fourth lot", () => {
-    const lots = Array.from({ length: MAX_LOTS }, (_, i) => ({ qty: 100 >> i, price: 102, date: "2026-06-03" }));
-    expect(readPyramidAdd({ ...base, lots, price: 111 }).add).toBeNull();
+  // Q9 (owner: W022 and the Master Course): the largest lot first, each add
+  // half the last, with no fixed count; the pyramid ends when the next lot
+  // would be under one share.
+  it("keeps adding smaller lots past the fourth", () => {
+    const lots = Array.from({ length: 4 }, (_, i) => ({ qty: 100 >> i, price: 101.8, date: "2026-06-03" }));
+    expect(readPyramidAdd({ ...base, lots, price: 111 }).add?.qty).toBe(6);
+  });
+
+  it("stops adding once the next lot would be under one share", () => {
+    const lots = Array.from({ length: 7 }, (_, i) => ({ qty: 100 >> i, price: 101.8, date: "2026-06-03" }));
+    const r = readPyramidAdd({ ...base, lots, price: 111 });
+    expect(r.add).toBeNull();
+    expect(r.reason).toMatch(/less than one share/);
   });
 });
 

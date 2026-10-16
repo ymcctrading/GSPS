@@ -11,8 +11,11 @@
  *   bottom, for shorts) (*How to Make Profits in Commodities*; *45 Years in
  *   Wall Street*: "pyramid only after resistance is crossed").
  * - **Each lot smaller than the last:** "buy the largest amount first and then
- *   gradually decrease" (*Tunnel Thru the Air*); the 3rd lot half the 2nd, the
- *   4th half the 3rd (Master Course Rule 5). After the 4th or 5th lot, reduce.
+ *   gradually decrease" (*Tunnel Thru the Air*, W022 p.198); the 3rd lot half
+ *   the 2nd, the 4th half the 3rd (Master Course Rule 5). The owner chose this
+ *   reading over *New Stock Trend Detector*'s equal lots halved after the 4th
+ *   or 5th (Q9, 2026-10-16), so there is no fixed lot count: the pyramid ends
+ *   when the next half-lot would be under one share.
  * - **Move the stop so the combined position can't lose** (*New Stock Trend
  *   Detector* Rule 5), with a full stop-out losing no more than 10% of capital
  *   (Master Course).
@@ -35,7 +38,6 @@
  * - The add trigger is a completed 3-Day Chart top (bottom) made after the last
  *   lot, crossed by the 3-point allowance: the same Buying Point the entry
  *   uses (`entryTrigger.ts`).
- * - `MAX_LOTS` = 4, the low end of Gann's "after the 4th or 5th lot".
  *
  * Three-question basis:
  * 1. Gann: as cited, Tier A.
@@ -51,8 +53,6 @@ import type { Bar } from "@/lib/types";
 import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readHoldTime } from "@/lib/gann/exitRules";
-
-export const MAX_LOTS = 4;
 
 export interface PyramidLot {
   qty: number;
@@ -95,7 +95,6 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   const { side, lots, daily, price } = input;
   const long = side === "long";
   if (lots.length === 0) return { add: null, reason: "No position." };
-  if (lots.length >= MAX_LOTS) return { add: null, reason: `Already ${lots.length} lots: time to stop adding.` };
 
   const first = lots[0];
   const last = lots[lots.length - 1];
