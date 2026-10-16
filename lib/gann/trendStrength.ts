@@ -125,16 +125,19 @@ export interface GannTrendRead {
    * Gann's change-of-trend signals against the weekly trend (added
    * 2026-09-27, parity roadmap B2): the current counter-move is larger or
    * longer than the campaign's greatest (over-balance of space or time).
-   * When either fires, the trend is changing and is no longer confirmed. See
-   * `lib/gann/campaignLedger.ts` for the sources.
+   * When either fires, the trend is changing and is no longer confirmed. So is
+   * a monthly break whose reaction has gone under the previous section's top
+   * (item 6 review R2, W006 p.14). See `lib/gann/campaignLedger.ts` for the
+   * sources.
    */
   changing: boolean;
   /**
    * The month so far has broken the prior month's low (high in a downtrend).
-   * A warning, not the end of the trend (PLAN.md item 6, step 3): until
-   * 2026-10-16 it also unconfirmed the trend, but Gann's own 1933 reaction
-   * broke monthly lows while he read the trend as still up (W006 p.14). It
-   * holds a new Execute with the trend to Watch (`applyMonthlyBreakHold`).
+   * A warning, not the end of the trend, while the reaction holds above the
+   * previous section's top (PLAN.md item 6, step 3): until 2026-10-16 it also
+   * unconfirmed the trend, but Gann's own 1933 reaction broke monthly lows
+   * while he read the trend as still up (W006 p.14). It holds a new Execute
+   * with the trend to Watch (`applyMonthlyBreakHold`).
    */
   monthlyWarning: boolean;
 }
@@ -163,7 +166,11 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
   const structureAgrees =
     (weekly === "bullish" && rising) || (weekly === "bearish" && falling);
   const ledger = buildCampaignLedger(bars);
-  const changing = ledger !== null && (ledger.spaceOverbalanced || ledger.timeOverbalanced);
+  // A monthly break only warns while the reaction holds above the previous
+  // section's top (W006 p.14, A-TREND-06); under it, the trend is changing.
+  const changing =
+    ledger !== null &&
+    (ledger.spaceOverbalanced || ledger.timeOverbalanced || (ledger.monthlyBreak && ledger.reactionBelowPriorSection));
   const monthlyWarning = ledger !== null && ledger.monthlyBreak;
   const confirmed = weekly !== null && structureAgrees && !changing;
 

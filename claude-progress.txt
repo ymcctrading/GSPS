@@ -423,3 +423,14 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Mutations R1-R6 caught (R5/R6 after the wiring spy was added).
 - Checks: vitest 270 files / 2712 tests pass; tsc clean; check:terms clean; eslint 0 errors.
 - Open: the replay reads monthly/weekly trends from rolled daily bars (about 6 years) while the live scan uses long monthly/weekly histories. Possible cross-platform difference, not fixed here.
+
+## 2026-10-16 Item 6 fresh review (scratchpad item6_review.md): fixes
+- R1 (high): the coarse pass now reads the trend with the full scan's 30/7/1 weighting (gannMacroDirection), the monthly bars first when their batch fetch has landed (not waited on; a new mark logs whether it was in), the weekly rolled from the year of daily, then the daily. A trendless symbol is no longer dropped from the reversion pool: both sides are scored and the better kept, the full scan still picks the side. Tests: market-scan-coarse-trend (5 new), new market-scan-main-trend (2, runMarketScan wiring). Mutations M1-M6 caught.
+- R2 (med): a monthly break whose reaction has gone under the previous section's top (bottom in a bear campaign) now ends the trend (CampaignLedger.reactionBelowPriorSection; readGannTrend `changing`), the owner's chosen option that the code had not applied. Tests: monthlyWarning (5 new, incl. bear mirror, three sections, months no longer breaking). Mutations P1-P6 caught (P2/P3 after two tests were added).
+- R3 (med): dashboard copy and the market-scan route header no longer describe the removed momentum top-up ("N with the trend").
+- R5 (low): the sell list is kept whole until takeShortable cuts it to perSide after the broker check, so an unborrowable short can't push a shortable one off. New market-scan-shortable test (2). Mutations S1-S4 caught (S4 after the test was widened to three symbols).
+- R6 (low): the narrow-week card now says it is context and does not change the trend read; test asserts it.
+- R7 (low), record correction: step 12 was not display only. Dropping the benchmark item raises alignment scores about 10 points, so tiers move and the portfolio manager's tier sort (portfolio-manager.ts:213) can pick different plans. Recorded here; covered by the version bump below.
+- R8 (low): curriculum (coarse pass reads as the full scan; first monthly break "the one to mark"; the section-top condition), timeframeWeight comment, publish/scanTicker comments.
+- R4 (med): measuring the continuation pass's time from production logs before deciding the budget; open.
+- STRATEGY_VERSION 2026-10-16-gann-trend-review. Checks: vitest 272 files / 2726 tests pass; tsc clean; check:terms clean; eslint clean on changed files.

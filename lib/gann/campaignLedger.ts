@@ -91,6 +91,15 @@ export interface CampaignLedger {
   /** It is the campaign's first: no earlier month in the campaign broke the one before it. */
   monthlyBreakFirst: boolean;
   /**
+   * The latest reaction has gone under the top of the section before the last
+   * one (over its bottom in a bear campaign). Gann's 1933 reaction broke
+   * monthly lows and he still read the trend as up because it held above the
+   * first section's top (W006 p.14, A-TREND-06); a monthly break with this
+   * set ends the trend (PLAN.md item 6 step 3, item 6 review R2). False when
+   * the campaign has no earlier section to measure against.
+   */
+  reactionBelowPriorSection: boolean;
+  /**
    * The campaign's last three completed counter-moves each smaller than the
    * one before (C-TREND-04, W003 p.17, class C: late in a trend reactions get
    * smaller until a sharp reversal). Context only, never gating.
@@ -230,6 +239,19 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   for (let k = 1; k < campaignMonths.length - 1; k++) if (breaks(campaignMonths[k - 1], campaignMonths[k])) earlierBreak = true;
   const monthlyBreakFirst = monthlyBreak && !earlierBreak;
 
+  // The previous section's top (bottom): the trend-side swing point before the
+  // last one. The reaction is everything since the last one.
+  const trendKind = bull ? "top" : "bottom";
+  const trendPoints = points.filter((p) => p.kind === trendKind);
+  let reactionBelowPriorSection = false;
+  if (trendPoints.length >= 2) {
+    const priorTop = trendPoints[trendPoints.length - 2].price;
+    const lastTop = trendPoints[trendPoints.length - 1].index;
+    for (let i = lastTop + 1; i < bars.length; i++) {
+      if (bull ? bars[i].l < priorTop : bars[i].h > priorTop) reactionBelowPriorSection = true;
+    }
+  }
+
   // Time balancing: the open leg measured against the last completed leg in
   // the same direction.
   const timeBalanceDates: string[] = [];
@@ -259,6 +281,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     timeOverbalanced,
     monthlyBreak,
     monthlyBreakFirst,
+    reactionBelowPriorSection,
     contracting,
     trendDays,
     counterDays,
@@ -276,9 +299,10 @@ export interface MonthlyBreakWarning {
 
 /**
  * The monthly break as a warning against new trades with the campaign's trend
- * (PLAN.md item 6, step 3). It does not end the trend: Gann's 1933 reaction
- * broke monthly lows and he still read the trend as up, because the low held
- * above the first section's top (W006 p.14).
+ * (PLAN.md item 6, step 3). On its own it does not end the trend: Gann's 1933
+ * reaction broke monthly lows and he still read the trend as up, because the
+ * low held above the first section's top (W006 p.14). When the reaction has
+ * gone under that top as well, `readGannTrend` ends the trend instead.
  */
 export function readMonthlyBreakWarning(bars: Bar[]): MonthlyBreakWarning | null {
   const l = buildCampaignLedger(bars);

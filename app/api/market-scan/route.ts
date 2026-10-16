@@ -1,11 +1,10 @@
 /**
  * GSPS — /api/market-scan
- * Runs the daily market-wide scan (up to `perSide` bullish + `perSide` bearish
- * reversions, plus a small guaranteed allotment of momentum continuations
- * scouted on every run — see lib/marketScan.ts) and persists results to
- * Supabase. Invoked by Vercel Cron (Authorization: Bearer CRON_SECRET) or
- * manually with the same header. A side short of `perSide` is topped up with
- * continuations rather than padded.
+ * Runs the daily market-wide scan (up to `perSide` setups a side: reversions
+ * and setups taken with the trend, ranked together by score — see
+ * lib/marketScan.ts) and persists results to Supabase. Invoked by Vercel Cron
+ * (Authorization: Bearer CRON_SECRET) or manually with the same header. A
+ * short side stays short rather than padded.
  */
 
 import { NextRequest, NextResponse } from "next/server";

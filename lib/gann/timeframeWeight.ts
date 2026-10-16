@@ -26,15 +26,12 @@
  * monthly/weekly/daily trend direction. This module is what that site was
  * refactored to use; see its own call site for the applied context.
  *
- * `lib/marketScan.ts`'s `isMomentumContinuation` does a structurally
- * similar flat "2 of 3" vote and was considered for the same refactor —
- * reverted: that gate needs a genuine *breadth* requirement (at least 2 of
- * 3 timeframes actually confirming), which a pure weighted score can't
- * provide (one heavily-weighted timeframe alone would then satisfy it),
- * confirmed by a real test this codebase already had
- * (`lib/__tests__/trade-plan.test.ts`'s "does not count the hourly trend
- * toward macro confirmation"). Left as a flat vote intentionally, not an
- * oversight — see that call site's own comment.
+ * `lib/marketScan.ts`'s former `isMomentumContinuation` did a structurally
+ * similar flat "2 of 3" vote and was once kept out of this refactor for a
+ * *breadth* requirement (at least 2 of 3 timeframes confirming). Item 6 step
+ * 11 (2026-10-16) removed that gate: a with-the-trend setup now runs on this
+ * weighting alone (`isWithGannTrend`, A-TREND-09), and the hourly trend is
+ * still left out of it.
  *
  * This governs *pattern-selection preference* only — which of several
  * simultaneously-armed setups the live scan prioritizes showing — never a

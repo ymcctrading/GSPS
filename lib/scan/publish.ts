@@ -96,8 +96,8 @@ export function buildScanRows(
       // pre-open cron reads the previous session's closed bars, and the date
       // alone cannot show that — see pricedBeforeSession in scan/freshness.
       scannedAt: r.scannedAt,
-      // Which bet the row is: a reversion against an extended move, or a
-      // momentum continuation that topped up a short side. The lists render
+      // Which bet the row is: a reversion against the trend, or a setup
+      // taken with it. The lists render
       // them together, so the distinction has to survive the round trip.
       setupKind: r.setupKind,
       momentumElevated: r.momentumElevated,

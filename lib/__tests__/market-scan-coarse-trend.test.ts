@@ -1,7 +1,7 @@
 /**
- * The coarse pass reads the weekly trend first (PLAN.md item 6 step 7,
- * A-TREND-01, W006 p.19): monthly for the main trend, the weekly next, the
- * daily only for fast, active stocks. The trend reads are pinned per
+ * The coarse pass reads the trend as the full scan does (PLAN.md item 6 step 7
+ * and review R1, A-TREND-01, W006 p.19): monthly for the main trend when its
+ * bars are in, the weekly next, the daily only for fast, active stocks. The trend reads are pinned per
  * timeframe here so the wiring, not the swing charts, is under test.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,6 +72,44 @@ describe("the coarse pass's trend", () => {
     Object.assign(dirs, { "1Week": "bullish", "1Day": "bearish" });
     const { daily, bars4h } = expandingAdvance();
     expect(coarseContinuation("X", daily, bars4h)?.direction).toBe("bullish");
+  });
+});
+
+/** Two years of monthly bars; the trend read on them is pinned through `dirs`. */
+function monthlyBars(): Bar[] {
+  return Array.from({ length: 24 }, (_, i) => {
+    const c = 100 + i;
+    return { t: new Date(Date.UTC(2024, i, 1)).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1e6 };
+  });
+}
+
+describe("the coarse pass's main trend (item 6 review R1, A-TREND-01)", () => {
+  it("is the monthly chart's when the monthly bars are in, over a weekly and daily against it", () => {
+    Object.assign(dirs, { "1Month": "bearish", "1Week": "bullish", "1Day": "bullish" });
+    expect(coarseTrendDirection(extendedDowntrend(), monthlyBars())).toBe("bearish");
+  });
+
+  it("is the monthly chart's when the weekly is sideways and the daily is against it", () => {
+    Object.assign(dirs, { "1Month": "bullish", "1Week": "sideways", "1Day": "bearish" });
+    expect(coarseTrendDirection(extendedDowntrend(), monthlyBars())).toBe("bullish");
+  });
+
+  it("reads the weekly first, as before, when no monthly bars are in", () => {
+    Object.assign(dirs, { "1Month": "bullish", "1Week": "bearish", "1Day": "bearish" });
+    expect(coarseTrendDirection(extendedDowntrend(), undefined)).toBe("bearish");
+  });
+
+  it("asks a continuation for the monthly chart's side", () => {
+    Object.assign(dirs, { "1Month": "bullish", "1Week": "bearish", "1Day": "bearish" });
+    const { daily, bars4h } = expandingAdvance();
+    const read = coarseTrendDirection(daily, monthlyBars());
+    expect(coarseContinuation("X", daily, bars4h, undefined, read)?.direction).toBe("bullish");
+  });
+
+  it("admits a symbol with no trend to the reversion pool on its better side, as the full scan arms it", () => {
+    Object.assign(dirs, { "1Month": "sideways", "1Week": "sideways", "1Day": "sideways" });
+    // Heavy volume at the last swing low: the buy side scores, the sell side does not.
+    expect(coarseReversion("X", extendedDowntrend(), undefined, "sideways")?.direction).toBe("bullish");
   });
 });
 

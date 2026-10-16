@@ -50,7 +50,7 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { isWithGannTrend } from "@/lib/scan/entrySelection";
+import { gannMacroDirection, isWithGannTrend } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -371,19 +371,24 @@ function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | 
 }
 
 /**
- * The trend the coarse pass reads (PLAN.md item 6 step 7, A-TREND-01): Gann
- * reads the main trend from the monthly chart, the weekly next, and the daily
- * only for fast, active stocks (W006 p.19; the weekly is "the best chart for
- * trading purposes", p.46). The coarse pass has a year of daily bars, too few
- * months for a monthly read, so it reads the weekly chart rolled from them,
- * the same way the full scan reads its weekly bars, and falls back to the
- * daily only when the weekly shows no trend (the full scan's 30/7/1 weighting
- * lets the daily decide only then too).
+ * The trend the coarse pass reads (PLAN.md item 6 step 7 and the item 6 review,
+ * A-TREND-01): Gann reads the main trend from the monthly chart, the weekly
+ * next, and the daily only for fast, active stocks (W006 p.19; the weekly is
+ * "the best chart for trading purposes", p.46). It is the full scan's own
+ * 30/7/1 weighting (`gannMacroDirection`) over the monthly bars when the
+ * monthly fetch has landed, the weekly chart rolled from the year of daily
+ * bars, and the daily. Without monthly bars the same weighting reads the
+ * weekly first and the daily only when the weekly shows no trend. The full
+ * scan reads its weekly chart from five years of weekly bars, so the two can
+ * still differ where a year of history doesn't show the weekly trend.
  */
-export function coarseTrendDirection(daily: Bar[]): "bullish" | "bearish" | "sideways" {
-  const weekly = readTrend(toWeeklyBars(daily), "1Week").direction;
-  if (weekly !== "sideways") return weekly;
-  return readTrend(daily, "1Day").direction;
+export function coarseTrendDirection(daily: Bar[], monthly?: Bar[]): "bullish" | "bearish" | "sideways" {
+  const trends = [
+    ...(monthly && monthly.length > 0 ? [readTrend(monthly, "1Month")] : []),
+    readTrend(toWeeklyBars(daily), "1Week"),
+    readTrend(daily, "1Day"),
+  ];
+  return gannMacroDirection(trends) ?? "sideways";
 }
 
 export function coarseReversion(
@@ -398,12 +403,24 @@ export function coarseReversion(
   const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
   const trendDirection = trendRead ?? coarseTrendDirection(daily);
-  if (trendDirection === "sideways") return null;
+  // A reversion candidate moves opposite its trend. With no trend the full
+  // scan arms the nearer side (`reversionEntry`), so both sides are scored and
+  // the better one is kept; the full scan still picks the side it arms.
+  const sides: ("bullish" | "bearish")[] =
+    trendDirection === "sideways" ? ["bullish", "bearish"] : [trendDirection === "bearish" ? "bullish" : "bearish"];
+  let best: CoarseCandidate | null = null;
+  for (const direction of sides) {
+    const score = reversionScore(daily, price, direction, cycles);
+    if (score >= 3 && (best === null || score > best.coarseScore)) {
+      best = { symbol, direction, kind: "reversion", coarseScore: score };
+    }
+  }
+  return best;
+}
+
+function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bearish", cycles?: TimeCycleResult): number {
   // Support and resistance still come from the daily chart's tops and bottoms.
   const trend = readTrend(daily, "1Day");
-
-  // A reversion candidate moves opposite its current trend.
-  const direction = trendDirection === "bearish" ? "bullish" : "bearish";
 
   let score = 0;
 
@@ -437,9 +454,7 @@ export function coarseReversion(
   if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 
   score += cycleBonus(direction, cycles);
-
-  if (score < 3) return null;
-  return { symbol, direction, kind: "reversion", coarseScore: score };
+  return score;
 }
 
 /**
@@ -730,6 +745,21 @@ export async function filterShortable(results: ScanResult[]): Promise<ScanResult
   return checked.filter((r): r is ScanResult => r !== null);
 }
 
+/**
+ * The best `n` rows the broker reports as shortable, in their ranked order.
+ * The list is cut only after the check (item 6 review R5), so a short that
+ * can't be borrowed never pushes a shortable one off the list. Checks a chunk
+ * of `n` at a time, so a list that is all shortable costs no more lookups than
+ * `filterShortable` on the cut list did.
+ */
+export async function takeShortable(ranked: ScanResult[], n: number): Promise<ScanResult[]> {
+  const kept: ScanResult[] = [];
+  for (let i = 0; i < ranked.length && kept.length < n; i += n) {
+    kept.push(...(await filterShortable(ranked.slice(i, i + n))));
+  }
+  return kept.slice(0, n);
+}
+
 /** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
 const MAX_TOPUP_SCANS = 24;
 
@@ -900,6 +930,12 @@ export async function runMarketScan(
   ]);
   mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"} 4h=${bars4hBatch?.size ?? "n/a"}`);
 
+  // The monthly bars, when their fetch has landed by now (it normally has: it
+  // is under half the daily fetch's rows and starts with it), give the coarse
+  // trend read its main trend. Not waited on: without them the read falls back
+  // to the weekly and daily charts.
+  const monthlyAtCoarse = monthlyBatch as Map<string, Bar[]> | null | undefined;
+  mark("monthly bars at the coarse pass", monthlyAtCoarse ? `${monthlyAtCoarse.size} symbols` : "not in");
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
       const [daily, bars4h] =
@@ -916,7 +952,8 @@ export async function runMarketScan(
       // claim.
       const cycles = timeCycles(daily);
       // One trend read per symbol, shared by both gates and the telemetry.
-      const trendRead = daily.length >= 60 ? coarseTrendDirection(daily) : "sideways";
+      const monthly = monthlyAtCoarse?.get(symbol.toUpperCase());
+      const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
       return {
         reversion: coarseReversion(symbol, daily, cycles, trendRead),
         continuation: coarseContinuation(symbol, daily, bars4h, cycles, trendRead),
@@ -971,11 +1008,12 @@ export async function runMarketScan(
   const rank = (dir: "bullish" | "bearish") =>
     valid
       .filter((r) => r.direction === dir && hasTradePlan(r))
-      .sort((a, b) => b.decision.score - a.decision.score)
-      .slice(0, perSide);
+      .sort((a, b) => b.decision.score - a.decision.score);
 
+  // The sell side is kept whole until the shortable check below cuts it.
+  const sideLimit = { bullish: perSide, bearish: Infinity };
   const lists: Record<"bullish" | "bearish", ScanResult[]> = {
-    bullish: rank("bullish"),
+    bullish: rank("bullish").slice(0, perSide),
     bearish: rank("bearish"),
   };
   const continuationFills = { bullish: 0, bearish: 0 };
@@ -1036,13 +1074,15 @@ export async function runMarketScan(
     mark("continuation pass scoring done", `scanned=${scans.length}`);
 
     for (const dir of ["bullish", "bearish"] as const) {
-      const merged = mergeContinuations(lists[dir], scans, dir, perSide);
+      const merged = mergeContinuations(lists[dir], scans, dir, sideLimit[dir]);
       lists[dir] = merged.list;
       continuationFills[dir] = merged.added;
     }
   }
 
-  lists.bearish = await filterShortable(lists.bearish);
+  lists.bearish = await takeShortable(lists.bearish, perSide);
+  const continuationScans = new Set(continuationScanResults);
+  continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
   const shortlistedSymbols = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
   const fullScanResults = new Map(

@@ -155,4 +155,10 @@
 // weighted trend is down (A-ENTRY-18, the bear market is the main trend;
 // gannEntryOf), not on the weekly chart alone. Runs 39-40 measured the rally
 // sale at -0.15R on 145 trades, armed almost all against the weighted trend.
-export const STRATEGY_VERSION = "2026-10-16-gann-rally-bear-market";
+// Item 6 review, 2026-10-16: a monthly break whose reaction has gone under the
+// previous section's top ends the trend (W006 p.14, A-TREND-06; the owner's
+// option, which the code had not yet applied), live and in the replay. Live
+// only: the coarse pass reads the monthly chart first when its bars are in,
+// keeps trendless symbols for the reversion pass, and the sell list is cut
+// after the shortable check.
+export const STRATEGY_VERSION = "2026-10-16-gann-trend-review";

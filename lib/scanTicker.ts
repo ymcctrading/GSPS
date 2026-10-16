@@ -83,7 +83,7 @@ import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
  * What the caller is looking for. Left unset, a scan hunts reversions and
  * prefers the armed pattern that trades against the macro move — the protocol's
  * default. The market scan sets it when it is deliberately looking for a
- * momentum continuation instead, so the pattern chosen, the trade plan priced
+ * setup with the trend instead, so the pattern chosen, the trade plan priced
  * from it, and the macro criterion it is scored on all describe the same trade.
  */
 export interface ScanPreference {

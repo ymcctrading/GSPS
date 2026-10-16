@@ -249,7 +249,7 @@ function ReversionPreview({
               {qualifying.length > 0
                 ? `${qualifying.length} setup${qualifying.length === 1 ? "" : "s"} near a ${side} point` +
                   (continuations > 0
-                    ? `, including ${continuations} momentum continuation${continuations === 1 ? "" : "s"}.`
+                    ? `, including ${continuations} with the trend.`
                     : ".") +
                   (rows.length > qualifying.length
                     ? ` (${rows.length - qualifying.length} more scanned but below the qualifying score.)`
