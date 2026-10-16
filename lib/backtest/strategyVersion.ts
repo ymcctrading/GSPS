@@ -425,4 +425,14 @@
 // its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`), and any
 // reversal opened at the stop is covered there (`rebuyAfterStop`, default on).
 // New re-entry trades appear and some reversals leave earlier; verdicts do not move.
-export const STRATEGY_VERSION = "2026-10-17-gann-rebuy-after-stop";
+// 2026-10-16-gann-selection-levels (feature-map batch V3): the lists and the
+// full-scan shortlist put Gann's early leaders first (bottomed or crossed last
+// year's top first for buys, topped or broke last year's bottom first for
+// shorts; A-SELECTION-02/-03), weak stocks last among buys and first among
+// shorts, and a buy in a weak stock holds to Watch (A-SELECTION-04). The
+// first and second times through a major round number hold to Watch
+// (A-LEVELS-08). The campaign's secondary rally top joins the S/R pool
+// (A-LEVELS-02), so stops, targets and the S/R match move. Range divisions are
+// ranked by Master Course Ch. 6's tiers (M-P1). The calendar-day 1x1
+// (C-LEVELS-20) is context only. Verdicts, levels and list order move.
+export const STRATEGY_VERSION = "2026-10-16-gann-selection-levels";

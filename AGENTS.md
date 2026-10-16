@@ -1359,7 +1359,7 @@ They bound how the decision is built, not whether.
 (16x1 to 1x16) on the Gann point, from the major pivots, with the 45°, 2x1 and
 4x1 copied to the preceding opposite pivot (GA-12 to GA-16), joins the S/R list (`lib/gann/patternAngles.ts`, via
 `masterLevels.ts`, live and replay). `STRATEGY_VERSION` is
-`2026-10-16-gann-pattern-angles`. The Hexagon Chart's time counts, read from
+`2026-10-16-gann-pattern-angles`. **Batch V3, same day:** early leaders first and weak stocks held as buys (A-SELECTION-02/-04), the third time through a round number (A-LEVELS-08), the secondary rally top in the S/R pool (A-LEVELS-02) and Ch. 6's division tiers (M-P1); `STRATEGY_VERSION` is `2026-10-16-gann-selection-levels`. The Hexagon Chart's time counts, read from
 Gann's own plate (`hexagonTime.ts`), and the Master Chart of 360°'s 48ths and
 sevenths (`masterChartTime.ts`) are trace and measured factors until the
 shared time-window mechanism exists. The plate is not lost (Master Course
