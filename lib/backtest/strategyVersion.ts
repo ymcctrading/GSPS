@@ -118,4 +118,8 @@
 // Step 4b, 2026-10-16: the bear-market rally sell (W006 p.47, Rule 4). In a
 // bear market, a rally that has run two to three weeks is sold at the close
 // of the week's last session, with the stop 3 points over that week's high.
-export const STRATEGY_VERSION = "2026-10-16-gann-bear-rally";
+// Step 4b review, 2026-10-16: a counter-move is timed from its extreme since
+// the weekly chart last turned, so a 3-day pullback inside a rally (or a bounce
+// inside a bull-market reaction) no longer restarts its clock; one rally is
+// sold once; a rally is over once the weekly chart turns down from its top.
+export const STRATEGY_VERSION = "2026-10-16-gann-rally-review";

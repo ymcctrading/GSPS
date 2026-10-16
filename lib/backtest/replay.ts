@@ -95,7 +95,7 @@ import {
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, sameGannLevel, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
+import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { readTrend } from "@/lib/analysis/trend";
@@ -337,6 +337,8 @@ export interface ReplayTrade {
    * the field existed.
    */
   entryKind?: GannEntryKind;
+  /** For a held entry, which form of the hold priced it (the rally sell apart from the bottoms). */
+  holdBasis?: GannHoldBasis;
   direction: "bullish" | "bearish";
   entry: number;
   stop: number;
@@ -1000,7 +1002,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
-          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, direction: trigger.direction,
+          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
           entry, stop, target,
           atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
           score: decision.score,
@@ -1032,7 +1034,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       const base = {
-        symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, direction: trigger.direction,
+        symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
         entry, stop, target,
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         score: decision.score,
@@ -1087,6 +1089,12 @@ export function bySetupKind(result: ReplayResult): { reversion: ReplayResult; co
 export function byEntryKind(result: ReplayResult): Record<GannEntryKind, ReplayResult> {
   const of = (kind: GannEntryKind) => summarise(result.trades.filter((t) => (t.entryKind ?? "crossing") === kind));
   return { crossing: of("crossing"), oldLevel: of("oldLevel"), hold: of("hold") };
+}
+
+/** The held entries split by the form of the hold that priced them. */
+export function byHoldBasis(result: ReplayResult): Record<GannHoldBasis, ReplayResult> {
+  const of = (basis: GannHoldBasis) => summarise(result.trades.filter((t) => t.entryKind === "hold" && t.holdBasis === basis));
+  return { weeks: of("weeks"), days: of("days"), record: of("record"), rally: of("rally") };
 }
 
 /**

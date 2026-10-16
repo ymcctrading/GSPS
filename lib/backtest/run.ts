@@ -34,6 +34,7 @@ import {
   byScoreRange,
   bySetupKind,
   byEntryKind,
+  byHoldBasis,
   combine,
   replay,
   summarise as summariseTrades,
@@ -252,6 +253,8 @@ export interface BacktestReport {
    * over a bottom that held.
    */
   entryKindSplit: { crossing: RunSummary; oldLevel: RunSummary; hold: RunSummary };
+  /** The held entries by the form of the hold: weeks, days, record, or the bear-market rally sell. */
+  holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
    * reason that was binding, a Gann exit signal, or the timeout), so each of
@@ -565,6 +568,7 @@ export function buildReport(
   const cycleSplit = byYearCycle(run.overall);
   const kindSplit = bySetupKind(run.overall);
   const entrySplit = byEntryKind(run.overall);
+  const holdSplit = byHoldBasis(run.overall);
 
   return {
     source: run.source,
@@ -599,6 +603,12 @@ export function buildReport(
       crossing: summarise(entrySplit.crossing),
       oldLevel: summarise(entrySplit.oldLevel),
       hold: summarise(entrySplit.hold),
+    },
+    holdBasisSplit: {
+      weeks: summarise(holdSplit.weeks),
+      days: summarise(holdSplit.days),
+      record: summarise(holdSplit.record),
+      rally: summarise(holdSplit.rally),
     },
     exitReasonSplit: Object.fromEntries(
       [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [

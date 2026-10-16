@@ -57,6 +57,11 @@ const EPS = 1e-9;
  * 5 (PLAN.md item 5, step 2); built on the recommended option until answered.
  * A single bottom that held (step 4) is read the same way, under the same
  * decision: it is a bottom of the range with its own stop 3 points under it.
+ * The bear-market rally sell (step 4b) is exempt too, on a different reading,
+ * labelled as such (step 4b review R3): it is offered only while the weekly
+ * chart is down, so for Gann it is a sale with the trend, not a guess inside a
+ * sideways market, and the daily chart reads "range-bound" during it only
+ * because the rally itself has stopped confirming the decline.
  */
 export const OLD_LEVEL_BUYS_IN_RANGE = true;
 

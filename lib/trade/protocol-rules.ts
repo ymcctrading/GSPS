@@ -65,7 +65,7 @@ export const MASTER_RULE_DETAIL =
  * at an old bottom that held, the stop 3 points under it. Points are
  * price-scaled (`lib/gann/pointScale.ts`).
  */
-export const STOP_RULE_LABEL = "3 points beyond the old top or bottom the entry crossed or rests at, or the low that held, scaled to the price";
+export const STOP_RULE_LABEL = "3 points beyond the old top or bottom the entry crossed or rests at, the low that held, or the week's high a rally is sold under, scaled to the price";
 
 export const STOP_RULE_DETAIL =
   "Once price closes 3 points past an old top, the buy rests 1 point above that top and fills when price pulls back to it; the stop goes 3 points below the top. " +

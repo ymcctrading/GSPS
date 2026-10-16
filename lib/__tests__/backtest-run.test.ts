@@ -152,6 +152,8 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     const { crossing, oldLevel, hold } = report.entryKindSplit;
     expect(report.overall.trades).toBeGreaterThan(0);
     expect(crossing.trades + oldLevel.trades + hold.trades).toBe(report.overall.trades);
+    const { weeks, days, record, rally } = report.holdBasisSplit;
+    expect(weeks.trades + days.trades + record.trades + rally.trades).toBe(hold.trades);
   });
 
   it("echoes useProductionStop, and both stop models still partition the same trade count", async () => {

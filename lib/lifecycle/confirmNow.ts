@@ -99,9 +99,16 @@ const OLD_LEVEL_NOTES = {
   dead: "Price closed through the stop under the old level, so this entry is off until a new setup forms.",
 } as const;
 
+// A short at the close is a top that held or a rally sold at the end of its
+// week, so its notes name the high the stop is over, not a low (step 4b R4).
 const HOLD_NOTES = {
-  confirmed: "The low has held, so the entry rests at the last close with the stop 3 points under the low (over the high, for a short).",
+  confirmed: "The low has held, so the entry rests at the last close with the stop 3 points under the low.",
   dead: "Price closed through the stop under the low that held, so this entry is off until a new setup forms.",
+} as const;
+
+const HOLD_SHORT_NOTES = {
+  confirmed: "The sell rests at the last close, with the stop 3 points over the high.",
+  dead: "Price closed through the stop over the high, so this entry is off until a new setup forms.",
 } as const;
 
 /**
@@ -123,7 +130,7 @@ export function confirmationFromBars(
     // Off once a close has gone through the stop.
     const up = direction === "bullish";
     const dead = bars.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice));
-    const notes = entryKind === "hold" ? HOLD_NOTES : OLD_LEVEL_NOTES;
+    const notes = entryKind !== "hold" ? OLD_LEVEL_NOTES : up ? HOLD_NOTES : HOLD_SHORT_NOTES;
     return dead ? { ready: false, stage: "dead", note: notes.dead } : { ready: true, stage: "confirmed", note: notes.confirmed };
   }
   const evidence = replayEntryConfirmation({ direction, entryTrigger, stopPrice }, bars);

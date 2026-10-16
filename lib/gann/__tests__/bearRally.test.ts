@@ -43,7 +43,12 @@ describe("the sell at the end of a bear-market rally's second or third week", ()
   });
 
   it("sells at the end of the third week as well", () => {
-    expect(computeGannHoldEntry(rally(20), "bearish")?.holdBasis).toBe("rally");
+    // Too little height to sell at the end of the second week, so the third is
+    // the rally's one sale (one rally is sold once, step 4b review R6).
+    const bars = daily([...BEAR, ...leg(90, 92, 13), ...leg(92, 97, 7)]);
+    expect(new Date(bars.at(-1)!.t).getUTCDay()).toBe(5);
+    expect(computeGannHoldEntry(bars.slice(0, -7), "bearish")?.holdBasis).not.toBe("rally");
+    expect(computeGannHoldEntry(bars, "bearish")?.holdBasis).toBe("rally");
   });
 
   it("waits for the end of a week", () => {

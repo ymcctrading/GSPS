@@ -316,3 +316,14 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - A-ENTRY-19: deferred to item 6 (trend); as a sell it conflicts with the 5-point cap.
 - A-ENTRY-20: covered by the oldLevel short.
 - Source note for item 3 (from the literature thread, not yet checked here): lost motion 1 7/8 in Master Course Ch. 9 (1939) PDF p.268, and How to Make Profits Trading in Commodities p.38 (another scan reads 1 1/2 cents).
+2026-10-16 Item 5 step 4b review (fresh reviewer; findings relayed in-session, no file), fixed failing-test-first in lib/gann/__tests__/rallyReview.test.ts (14) and lib/backtest/__tests__/holdBasisSplit.test.ts:
+- R1: counterMoveSince (entryTrigger.ts) times a counter-move from the trend's extreme since the weekly chart last turned, so a 3-day pullback inside a rally, or a bounce inside a bull reaction (days form), no longer restarts the clock. Once the weekly chart turns down from the rally's top the rally is over.
+- R6: one rally is sold once (formedAt = the rally's low, since = low+1, so the bought-once loop spans the rally). bearRally.test's third-week fixture now has too little height to sell in week 2, since a week-2 sale now spends week 3.
+- R3: rally exempt from the breakaway hold, labelled in breakaway.ts (offered only while the weekly chart is down: a with-trend sale).
+- R4: lifecycle notes for a short hold say "the sell rests at the last close, with the stop 3 points over the high", not "the low has held" (confirmNow.ts, advanceConfirmation.ts). STOP_RULE_LABEL names the rally's week high.
+- R5: the calendar-day window's Friday consequence documented on bearRallySell.
+- R7: ReplayTrade.holdBasis, byHoldBasis, report.holdBasisSplit.
+- R2 (reach): in a real bear market the scan asks for the bearish side mostly through the continuation pass; deferred to item 6 (A-TREND-09 with-trend pass). Count rally trades via holdBasisSplit before reading any result for the rule.
+- Tests T1-T3 pinned; mutations 14 of 14 caught (week start, previous-week high, 8/21 bounds both ways, held-top precedence, rally identity, since, days-form clock, weekly turn, height).
+- caad438 scan cost: both readings together take about 16 ms over 766 symbols of 260 bars (0.02 ms a symbol), off any user wait beyond that.
+- STRATEGY_VERSION 2026-10-16-gann-rally-review. 2634 passed; tsc, eslint (44 pre-existing warnings), terms clean.

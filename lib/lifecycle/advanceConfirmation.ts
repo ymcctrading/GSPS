@@ -101,7 +101,9 @@ export async function advanceEntryConfirmationForSymbol(
             plan.coordinates.entryKind === "oldLevel"
               ? "The entry rests at the old level for its second or third test."
               : plan.coordinates.entryKind === "hold"
-                ? "The low has held; the entry rests at the last close."
+                ? plan.direction === "bullish"
+                  ? "The low has held; the entry rests at the last close."
+                  : "The sell rests at the last close, with the stop 3 points over the high."
                 : "Price crossed the old level by 3 points; the entry waits for the reaction.",
         });
       }
