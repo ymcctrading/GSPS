@@ -383,4 +383,10 @@
 // verdicts, stops and levels: break-even once 3 points ahead (M-E6), orders ¼
 // to ½ point inside an even figure (M-P10), and no Execute whose first target
 // is no farther than its risk (M-K5).
-export const STRATEGY_VERSION = "2026-10-16-gann-book-rules";
+// 2026-10-16-gann-pyramid-capital: never-failing rule 21 (WSSS Ch. II): a
+// pyramid add goes to a long only in a stock with a small capital stock and
+// to a short only in one with a large capital stock (lib/gann/pyramid.ts,
+// 500 million shares, an engineering cutoff). The live add suggestion and the
+// replay's `pyramid: true` read the same rule. Verdicts do not move; pyramided
+// trades do.
+export const STRATEGY_VERSION = "2026-10-16-gann-pyramid-capital";

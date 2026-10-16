@@ -23,6 +23,17 @@
  *   the first close that is still there after three days (A-TIME-12, W006
  *   p.23; `readHoldTime`). Before that, the first lot has not shown which
  *   side of the trend it is on.
+ * - **Pyramid longs in stocks with small capital and shorts in stocks with
+ *   large capital** (never-failing rule 21, *Wall Street Stock Selector*,
+ *   1930, Ch. II pp. 18-28; W005 reading notes). The reason is in *Truth of
+ *   the Stock Tape* (1923) Ch. III pp. 5-7: the same buying moves a stock with
+ *   a small supply of shares 5-10 points (Baldwin, 200,000 shares) and hardly
+ *   moves one with a large supply (General Motors, 50 million). So a long adds
+ *   where demand can lift price fastest, and a short adds where the weight of
+ *   supply keeps a decline going. Added 2026-10-16 (owner: Gann's method
+ *   supersedes GSPS's). `capitalStock` carries the share count (migration
+ *   0083); a stock whose count isn't known gets no add, since the rule can't
+ *   be checked. It covers stocks only: crypto omits the field.
  *
  * How GSPS applies it: `readPyramidAdd` says whether the position has earned
  * an add now, how large, at what trigger, and where the whole position's stop
@@ -35,6 +46,13 @@
  * - Gann's "full interval of profit" (3–5 or 10 points by price level) is
  *   price-scaled here as one risk unit (the break-even rule used the same
  *   scaling until 2026-10-16; it now reads 3 points, `exitRules.ts`).
+ * - Rule 21's small/large cutoff: the text gives no figure. Its examples are
+ *   relative (200,000 shares small, 5 and 50 million large, in 1923), and a
+ *   1920s share count doesn't port to today's issues. `LARGE_CAPITAL_MIN_SHARES`
+ *   is 500 million shares outstanding, a round figure near the middle of the
+ *   large-cap universe GSPS scans, so roughly half of it reads each way. It is
+ *   unmeasured; re-derive it from the stored counts' median if the split
+ *   proves lopsided.
  * - The add trigger is a completed 3-Day Chart top (bottom) made after the last
  *   lot, crossed by the 3-point allowance: the same Buying Point the entry
  *   uses (`entryTrigger.ts`).
@@ -72,6 +90,12 @@ export interface PyramidInput {
   daily: Bar[];
   /** The current price. */
   price: number;
+  /**
+   * Shares outstanding for a stock (rule 21), as of the session read. Null:
+   * a stock whose count isn't known, which gets no add. Omitted: a market the
+   * rule doesn't cover (crypto).
+   */
+  capitalStock?: number | null;
 }
 
 export interface PyramidAdd {
@@ -91,10 +115,36 @@ export interface PyramidReading {
   holdWarning?: string | null;
 }
 
+/**
+ * Engineering choice (see the header): the share count at or above which a
+ * stock reads as having a large capital stock under rule 21.
+ */
+export const LARGE_CAPITAL_MIN_SHARES = 500_000_000;
+
+export function capitalSize(shares: number | null | undefined): "small" | "large" | null {
+  if (shares == null || !(shares > 0)) return null;
+  return shares >= LARGE_CAPITAL_MIN_SHARES ? "large" : "small";
+}
+
 export function readPyramidAdd(input: PyramidInput): PyramidReading {
   const { side, lots, daily, price } = input;
   const long = side === "long";
   if (lots.length === 0) return { add: null, reason: "No position." };
+
+  // Rule 21: longs are added to in stocks with a small capital stock, shorts
+  // in stocks with a large one.
+  if (input.capitalStock !== undefined) {
+    const size = capitalSize(input.capitalStock);
+    if (size === null) {
+      return { add: null, reason: "The company's share count isn't known, so its capital stock can't be read for an add." };
+    }
+    if (long && size === "large") {
+      return { add: null, reason: "Longs are added to only in stocks with a small capital stock, and this one has a large one." };
+    }
+    if (!long && size === "small") {
+      return { add: null, reason: "Shorts are added to only in stocks with a large capital stock, and this one has a small one." };
+    }
+  }
 
   const first = lots[0];
   const last = lots[lots.length - 1];
