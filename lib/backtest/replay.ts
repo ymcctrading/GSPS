@@ -94,7 +94,7 @@ import {
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, sameGannLevel, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
@@ -683,6 +683,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // stable across sessions because each session's daily history is a prefix
   // of the next.
   const consumedPivots = new Set<string>();
+  // A crossed level bought once is not bought again under another reading of
+  // it (step 3 review R2): a previous year's top that is also a swing top is
+  // dated by the daily chart before its crossing and by the monthly chart
+  // after. Matched by price (`sameGannLevel`), unless its top formed after the
+  // fill, which is a newer top the live scan would offer too.
+  const boughtLevels: Array<{ prefix: string; level: number; at: string }> = [];
   // A breached stop retires the plan (owner decision, 2026-09-30;
   // lib/gann/stopBreach.ts). The plan's stop is read once per plan per session
   // (`sessionPlanStops`, keyed by date and pivot). Once price has traded through
@@ -770,8 +776,15 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     if (!arm) continue;
 
     for (const { setupKind, trigger, breakaway, pivotAt } of arm.triggers) {
-      const pivotKey = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}:${pivotAt}`;
+      const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
+      const pivotKey = `${levelPrefix}:${pivotAt}`;
       if (consumedPivots.has(pivotKey)) continue;
+      if (
+        trigger.kind === "crossing" &&
+        boughtLevels.some((b) => b.prefix === levelPrefix && sameGannLevel(b.level, trigger.level) && trigger.formedAt <= b.at)
+      ) {
+        continue;
+      }
       const planKey = `${date}|${pivotKey}`;
       armedKeys.add(planKey);
 
@@ -866,6 +879,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         })[0] ?? null;
 
       consumedPivots.add(pivotKey);
+      if (trigger.kind === "crossing") boughtLevels.push({ prefix: levelPrefix, level: trigger.level, at: live.t });
       triggered++;
 
       // A stop entry fills at the trigger, or at the open when a candle opens

@@ -237,3 +237,42 @@
 - STRATEGY_VERSION 2026-10-15-gann-held-bottoms. No run was committed on gann-older-levels.
 - Full suite 2544 passed, tsc clean, eslint 0 errors (44 warnings, pre-existing), terms clean.
   Not pushed: the step 3 review findings come first.
+
+== 2026-10-16 item 5 step 3 review fixes (R1-R11) ==
+- R9 + R1: olderGannLevels gives every previous calendar year's top and bottom in the span (Gann:
+  "a previous year"), each with `year`, crossable from the next 1 January and still a level after
+  the following New Year. The record is listed first, so a year's top that is also the record reads
+  as the record. Triggers carry levelYear.
+- R10: OLDER_LEVELS_YEARS = 10 calendar years before the day, read inside olderGannLevels, so every
+  surface agrees. monthlyChartFrom(asOf) is the fetch start for the replay (before its first daily
+  session), confirmation, the live exit and the exam. The live scan already fetches 30 years.
+- Found while fixing R9: a level was dated by its first crossing only, and a level the price already
+  stood above when the window began counted as crossed on its second bar. With every year's levels
+  both would mis-price plans. Now a crossing needs the previous close short of the line, and a level
+  broken and crossed again is dated by the later crossing. A level only bought is not re-dated, so
+  step 1's "not offered again until a newer top" holds.
+- R3: once the latest crossing is spent, the last top is offered only if no close has crossed it
+  since it formed (a newer top, or an older one still uncrossed). The reviewer's "formed after the
+  crossing" form was rejected: it drops an uncrossed top formed before the crossing.
+- R2: the replay also consumes a crossing by level (sameGannLevel) for a top formed before the fill.
+- R11: sameGannLevel, a cent or 0.1%, for two readings of one level.
+- R4 + R5: A-ENTRY-09's own test text ranks by nearness and uses age only between equally near
+  levels, so the code was right (one close through two tops buys over the higher, nearer one) and
+  the Academy 6 sentence was wrong; it now says "the one nearer the price". The unreachable
+  crossing-vs-crossing tie in nearerBuyingPoint was removed; A-ENTRY-09 is tested through
+  selectGannEntry and the score note in lib/__tests__/score.test.ts, where the feature entry asks.
+- R6: the exam's view is the scan's 52 weeks (was the last 120 bars), and draws the older levels
+  nearest the price (two above, two below) as labelled lines on every chart. A key resting on an
+  older level the chart would not draw is not set.
+- R7: Academy 4 names a previous year's top and the record; the exam's decision says an older level
+  was already crossed, or that the last swing top was still to cross.
+- R8: the -05/-06/-17 geometry is labelled an inference in GannLevelSource's doc, and the -17 short
+  waits for the bounce.
+- Copy names the year: "the 2024 top" (headline, score note, setup label, exam); "the previous
+  year's" remains only where the year is unknown.
+- Two step 3 tests that pinned what the review changed were updated, not deleted to pass: the
+  "no bars for a year" case now checks that year alone, and the A-ENTRY-09 nearerBuyingPoint test
+  keeps its nearness assertion and moves the tie to the production path.
+- Mutations 14 of 14 caught (two needed new tests: the visible crossing, and the exam skip).
+- STRATEGY_VERSION 2026-10-16-gann-every-year. Full suite 2577 passed, tsc clean, eslint 0 errors
+  (44 warnings, pre-existing), terms clean.

@@ -37,7 +37,7 @@ import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 import { etDateKey } from "@/lib/market/session";
-import { entryChart } from "@/lib/scan/entrySelection";
+import { entryChart, monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
@@ -184,11 +184,10 @@ export async function readEntryConfirmationNow(input: {
   // bought) and it is the level this order buys, the entry is ready.
   // The monthly chart holds the older levels the scan also reads (step 3).
   const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
-  const decade = new Date(now.getTime() - 10 * 365.25 * 24 * 3600 * 1000);
   const provider = getMarketDataProvider();
   const [daily, monthly] = await Promise.all([
     provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass),
-    provider.fetchBars(input.symbol, "1Month", decade, null, input.assetClass),
+    provider.fetchBars(input.symbol, "1Month", monthlyChartFrom(year), null, input.assetClass),
   ]);
   return heldOnDailyChart(daily, now, input.direction, input.entryTrigger, monthly)
     ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed }

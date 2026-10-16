@@ -18,10 +18,13 @@ import { Badge } from "@/components/ui/badge";
 type Trend = "up" | "down" | "sideways";
 type Decision = "trade" | "wait";
 interface Choice { id: string; price: number }
+interface Level { price: number; label: string }
 interface ScenarioView {
   symbol: string;
   asOf: string;
   bars: { t: string; o: number; h: number; l: number; c: number }[];
+  /** Older levels near the price: previous years' tops and bottoms, the record. */
+  levels?: Level[];
   entryChoices: Choice[];
   stopChoices: Choice[];
 }
@@ -41,11 +44,17 @@ const TITLE: Record<string, string> = {
   pro_to_expert: "Pro graduation exam",
 };
 
-function Chart({ bars }: { bars: ScenarioView["bars"] }) {
+/**
+ * The exam's chart: the daily bars, and the older levels the platform reads
+ * from the monthly chart drawn as labelled lines, so every level a grade can
+ * rest on is on the chart.
+ */
+export function ExamChart({ bars, levels = [] }: { bars: ScenarioView["bars"]; levels?: Level[] }) {
   const w = 600;
   const h = 200;
-  const lo = Math.min(...bars.map((b) => b.l));
-  const hi = Math.max(...bars.map((b) => b.h));
+  const prices = [...bars.flatMap((b) => [b.l, b.h]), ...levels.map((l) => l.price)];
+  const lo = Math.min(...prices);
+  const hi = Math.max(...prices);
   const y = (p: number) => h - ((p - lo) / (hi - lo || 1)) * (h - 10) - 5;
   const step = w / bars.length;
   return (
@@ -60,6 +69,12 @@ function Chart({ bars }: { bars: ScenarioView["bars"] }) {
           </g>
         );
       })}
+      {levels.map((l) => (
+        <g key={`${l.label}-${l.price}`} className="text-muted">
+          <line data-level x1={0} x2={w} y1={y(l.price)} y2={y(l.price)} stroke="currentColor" strokeWidth={1} strokeDasharray="4 3" />
+          <text x={w - 4} y={y(l.price) - 3} textAnchor="end" className="fill-current" fontSize={10}>{l.label}</text>
+        </g>
+      ))}
       <text x={4} y={12} className="fill-current text-muted" fontSize={10}>{hi.toFixed(2)}</text>
       <text x={4} y={h - 4} className="fill-current text-muted" fontSize={10}>{lo.toFixed(2)}</text>
     </svg>
@@ -164,10 +179,10 @@ export function GraduationExam({ transition }: { transition: string }) {
               <Card key={`${s.symbol}-${s.asOf}`}>
                 <CardHeader>
                   <CardTitle>Chart {i + 1}: {s.symbol}</CardTitle>
-                  <CardDescription>Daily bars up to {s.asOf}. Nothing after that date is shown.</CardDescription>
+                  <CardDescription>Daily bars for the year up to {s.asOf}. Nothing after that date is shown.{s.levels?.length ? " Dashed lines mark earlier years' tops and bottoms and the record." : ""}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3 text-sm">
-                  <Chart bars={s.bars} />
+                  <ExamChart bars={s.bars} levels={s.levels} />
                   <div><p className="mb-1 font-medium">Which way is the trend?</p>
                     <Options value={a.trend} onChange={(v) => set(i, { trend: v })} options={[{ v: "up", label: "Up" }, { v: "down", label: "Down" }, { v: "sideways", label: "Sideways" }]} /></div>
                   <div><p className="mb-1 font-medium">Is there a trade, or do you wait?</p>

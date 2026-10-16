@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { monthlyChartFrom } from "@/lib/scan/entrySelection";
 import {
   buildScenario,
   gradeExam,
@@ -94,7 +95,7 @@ export async function startAttempt(service: SupabaseClient, userId: string, tran
           "us_equity",
         ),
         // The monthly chart up to the scenario's day, for its older levels.
-        provider.fetchBars(c.symbol, "1Month", new Date(asOf.getTime() - 10 * 365.25 * 86_400_000), asOf, "us_equity"),
+        provider.fetchBars(c.symbol, "1Month", monthlyChartFrom(asOf), asOf, "us_equity"),
       ]);
       const s = buildScenario(c.symbol, c.asOf, bars, seed + i, monthly);
       if (s) scenarios.push(s);

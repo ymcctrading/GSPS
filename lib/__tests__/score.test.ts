@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { GannLevels, ScanDecision, StratPattern, TrendReading } from "@/lib/types";
 import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { selectGannEntry } from "@/lib/gann/entryTrigger";
+import { entryChart } from "@/lib/scan/entrySelection";
 
 function pattern(name: StratPattern["name"]): StratPattern {
   return {
@@ -353,7 +355,7 @@ describe("computeScore entryTriggerArmed note", () => {
   const trend = (direction: TrendReading["direction"]): TrendReading => ({ timeframe: "1Day", direction, support: [], resistance: [] });
   const note = (gannTrigger: ScoreInputs["gannTrigger"]) =>
     computeScore({
-      direction: "bullish",
+      direction: gannTrigger?.direction ?? "bullish",
       macroTrends: [trend("sideways"), trend("sideways"), trend("sideways")],
       hourlyTrend: trend("sideways"),
       gann: EMPTY_GANN,
@@ -370,6 +372,34 @@ describe("computeScore entryTriggerArmed note", () => {
     expect(note({ ...crossing, source: "swing" })).toMatch(/crosses the last completed swing level by 3 points/);
     expect(note({ ...crossing, source: "priorYear" })).toMatch(/crosses the previous year's top by 3 points/);
     expect(note({ ...crossing, source: "allTime" })).toMatch(/crosses the record high before the last 52 weeks by 3 points/);
+  });
+
+  it("names a previous year's level by its year", () => {
+    expect(note({ ...crossing, source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 top by 3 points/);
+    expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 bottom by 3 points/);
+  });
+
+  it("ranks a crossed level formed years earlier above an equally near level formed weeks earlier (A-ENTRY-09)", () => {
+    // 2021's top is 100, and a swing top a cent above it formed weeks before
+    // the close that crossed both. They are one level, equally near the
+    // price; the older reading names it.
+    const DAY = 86_400_000;
+    const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+    const t0 = Date.parse("2026-01-05T04:00:00Z");
+    const closes = [...leg(90, 99.71, 10), ...leg(99.71, 92, 20), ...leg(92, 106, 20), ...leg(106, 103.5, 3)];
+    const d = closes.map((c, i) => ({ t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: 1e6 }));
+    const m = Array.from({ length: 120 }, (_, i) => {
+      const y = 2016 + Math.floor(i / 12);
+      const month = `${y}-${String((i % 12) + 1).padStart(2, "0")}`;
+      // The record is 2018's 150, so 2021's top is a year's top and nothing more.
+      const [h, l] = month === "2021-04" ? [100, 90] : month === "2018-02" ? [150, 120] : [80, 70];
+      return { t: `${month}-01T05:00:00Z`, o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1e8 };
+    });
+    const chart = entryChart(d, m, "2026-06-01");
+    const t = selectGannEntry(chart.bars, "bullish", chart.older)!;
+    expect(t).toMatchObject({ kind: "crossing", held: true, source: "priorYear", levelYear: 2021, formedAt: "2021-04-01T05:00:00Z" });
+    expect(Math.abs(t.level - 100)).toBeLessThanOrEqual(0.01);
+    expect(note({ ...t, triggerPrice: t.reactionEntry, stopPrice: t.reactionStop })).toMatch(/crosses the 2021 top by 3 points/);
   });
 
   it("says when the crossing close was a new record, and only then", () => {

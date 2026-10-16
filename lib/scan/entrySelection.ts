@@ -32,7 +32,7 @@
 import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
-import { olderGannLevels, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { OLDER_LEVELS_YEARS, olderGannLevels, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -79,8 +79,18 @@ export function entryChartFrom(asOf: string): string {
 }
 
 /**
+ * Where a surface's monthly fetch starts so its older levels on `asOf` see
+ * the whole span `olderGannLevels` reads: 1 January, `OLDER_LEVELS_YEARS`
+ * before `asOf`'s year (step 3 review R10). A surface that reads several days
+ * passes the earliest.
+ */
+export function monthlyChartFrom(asOf: Date): Date {
+  return new Date(Date.UTC(asOf.getUTCFullYear() - OLDER_LEVELS_YEARS, 0, 1));
+}
+
+/**
  * What a buying point is read from on `asOf`: the 52 weeks of completed daily
- * sessions, and the older levels the monthly chart holds, the previous year's
+ * sessions, and the older levels the monthly chart holds, each previous year's
  * top and bottom and the record before the 52 weeks (PLAN.md item 5, step 3).
  * Every surface that prices, confirms or recovers a buying point reads it
  * through here.

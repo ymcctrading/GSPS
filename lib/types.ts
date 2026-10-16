@@ -160,6 +160,8 @@ export interface TradeLevels {
    * (PLAN.md item 5, step 3). Display only; the geometry is the same.
    */
   entrySource?: "priorYear" | "allTime";
+  /** With `entrySource` "priorYear": the year whose top or bottom was crossed (step 3 review R9). */
+  entryLevelYear?: number;
   entry: number;
   stopLoss: number;
   takeProfit1: number;

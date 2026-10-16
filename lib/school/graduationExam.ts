@@ -35,7 +35,8 @@
 
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { gannBreakLine, selectGannEntry } from "@/lib/gann/entryTrigger";
+import { gannBreakLine, sameGannLevel, selectGannEntry, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { priorYearLevelName } from "@/lib/scoring/direction-copy";
 import { entryChart } from "@/lib/scan/entrySelection";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
@@ -46,7 +47,6 @@ export const PASS_MARK = 0.8;
 export const RETAKE_HOURS = 24;
 export const ACCOUNT_USD = 10_000;
 export const RISK_PCT = 1;
-export const CHART_BARS = 120;
 export const PLAYBACK_BARS = 30;
 
 export const SCENARIO_SYMBOLS = [
@@ -62,11 +62,26 @@ export interface ExamChoice {
   price: number;
 }
 
+/** A level drawn on the exam's chart. */
+export interface ExamLevel {
+  price: number;
+  label: string;
+}
+
 /** What the student sees. */
 export interface ScenarioView {
   symbol: string;
   asOf: string;
+  /** The 52 weeks of sessions before the day, the window the scan reads (step 3 review R6). */
   bars: { t: string; o: number; h: number; l: number; c: number }[];
+  /**
+   * The older levels nearest the price, drawn as lines: up to two above and
+   * two below, each previous year's top or bottom by its year and the record
+   * before the 52 weeks (step 3 review R6). Drawn on every chart, whatever
+   * the answer, so their presence reveals nothing. Absent on scenarios stored
+   * before it was added.
+   */
+  levels?: ExamLevel[];
   /** Always offered, whatever the answer, so their presence reveals nothing. */
   entryChoices: ExamChoice[];
   stopChoices: ExamChoice[];
@@ -105,6 +120,8 @@ export interface ScenarioKey {
    * names it. Absent is the last swing.
    */
   source?: "priorYear" | "allTime";
+  /** With `source` "priorYear": the year whose top or bottom was crossed (step 3 review R9). */
+  levelYear?: number;
 }
 
 export interface StoredScenario {
@@ -271,11 +288,18 @@ export function buildScenario(
     stopChoices = relabel(shuffle([{ id: "", price: round2(c * 0.95) }, { id: "", price: round2(c * 0.995) }, { id: "", price: round2(c * 0.8) }], rand), "s");
   }
 
+  // The older levels near the price, drawn on every chart. A key resting on
+  // an older level the chart would not show is not set (step 3 review R6).
+  const levels = examLevels(chart.older, last.c);
+  const keyedOlder = decision === "trade" && trigger?.kind === "crossing" && trigger.source !== "swing";
+  if (keyedOlder && !levels.some((l) => sameGannLevel(l.price, trigger.level))) return null;
+
   return {
     view: {
       symbol,
       asOf,
-      bars: before.slice(-CHART_BARS).map((b) => ({ t: b.t.slice(0, 10), o: b.o, h: b.h, l: b.l, c: b.c })),
+      bars: chart.bars.map((b) => ({ t: b.t.slice(0, 10), o: b.o, h: b.h, l: b.l, c: b.c })),
+      levels,
       entryChoices,
       stopChoices,
     },
@@ -285,9 +309,32 @@ export function buildScenario(
       ...(decision === "trade" && trigger?.kind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
       ...(decision === "trade" && trigger?.kind === "hold" ? { entryKind: "hold" as const, holdBasis: trigger.holdBasis } : {}),
       ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source !== "swing" ? { source: trigger.source } : {}),
+      ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source === "priorYear" && trigger.levelYear !== undefined
+        ? { levelYear: trigger.levelYear }
+        : {}),
     },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
+}
+
+/**
+ * The older levels drawn on the exam's chart: of each previous year's top and
+ * bottom and the record, one per price (the record's name first), the two
+ * nearest above `price` and the two nearest below.
+ */
+function examLevels(older: OlderGannLevel[], price: number): ExamLevel[] {
+  const named: ExamLevel[] = [];
+  for (const l of older) {
+    if (named.some((n) => sameGannLevel(n.price, l.price))) continue;
+    const label =
+      l.source === "allTime"
+        ? l.kind === "top" ? "Record high" : "Record low"
+        : `${l.year} ${l.kind}`;
+    named.push({ price: l.price, label });
+  }
+  const above = named.filter((l) => l.price > price).sort((a, b) => a.price - b.price).slice(0, 2);
+  const below = named.filter((l) => l.price <= price).sort((a, b) => b.price - a.price).slice(0, 2);
+  return [...above.reverse(), ...below];
 }
 
 function playedOut(s: StoredScenario): string {
@@ -334,7 +381,7 @@ const TREND_WORD: Record<Trend, string> = { up: "up", down: "down", sideways: "s
 /** The old level a crossing key crossed, in the explanation's words. */
 function crossedName(k: ScenarioKey): string {
   const up = k.direction !== "bearish";
-  if (k.source === "priorYear") return up ? "the previous year's top" : "the previous year's bottom";
+  if (k.source === "priorYear") return priorYearLevelName(up, k.levelYear);
   if (k.source === "allTime") return up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks";
   return `the last swing ${up ? "top" : "bottom"}`;
 }
@@ -380,7 +427,9 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
           ? `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close near that ${oldSide}.`
           : old
           ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
-          : "The trend was clear and there was an old swing level still to cross: a trade, entered only once price closes 3 points past it and pulls back."
+          : k.crossed
+            ? `The trend was clear and price had already closed 3 points past ${crossedName(k)}, without coming back to the ${longKey ? "buy" : "sell"}: a trade, ${longKey ? "bought on the pullback" : "sold on the bounce"} to 1 point past it.`
+            : `The trend was clear and ${crossedName(k)} was still to cross: a trade, entered only once price closes 3 points past it and ${longKey ? "pulls back" : "bounces"}.`
         : "With no clear trend, or no level left to cross, the rule is to wait.",
     );
     if (k.decision === "trade") {

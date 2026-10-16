@@ -43,6 +43,7 @@ import {
   type CriterionWeights,
 } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
+import { priorYearLevelName } from "@/lib/scoring/direction-copy";
 
 export interface ScoreInputs {
   direction: "bullish" | "bearish";
@@ -152,6 +153,8 @@ export interface ScoreInputs {
     /** `hold` only: which of Gann's hold rules found the bottom. */
     holdBasis?: "weeks" | "days" | "record";
     source?: "swing" | "priorYear" | "allTime";
+    /** A previous year's level: its year. */
+    levelYear?: number;
     newRecord?: boolean;
   } | null;
   /**
@@ -264,9 +267,9 @@ function heldNote(t: NonNullable<ScoreInputs["gannTrigger"]>): string {
   return `Trigger armed ${t.direction}: ${what}, so the entry rests at the last close with the stop 3 points ${up ? "under" : "over"} it.`;
 }
 
-function crossedLevelName(source: "swing" | "priorYear" | "allTime" | undefined, direction: "bullish" | "bearish"): string {
+function crossedLevelName(source: "swing" | "priorYear" | "allTime" | undefined, direction: "bullish" | "bearish", levelYear?: number): string {
   const up = direction === "bullish";
-  if (source === "priorYear") return up ? "the previous year's top" : "the previous year's bottom";
+  if (source === "priorYear") return priorYearLevelName(up, levelYear);
   if (source === "allTime") return up ? "the record high before the last 52 weeks" : "the record low before the last 52 weeks";
   return "the last completed swing level";
 }
@@ -521,7 +524,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
           ? heldNote(gannTrigger!)
           : gannTrigger!.kind === "oldLevel"
             ? `Trigger armed ${gannTrigger!.direction}: the entry rests at the old ${gannTrigger!.direction === "bullish" ? "bottom" : "top"} at ${(gannTrigger!.level ?? gannTrigger!.triggerPrice).toFixed(2)}, where a ${(gannTrigger!.tests ?? 1) >= 2 ? "third" : "second"} test makes the ${(gannTrigger!.tests ?? 1) >= 2 ? "triple" : "double"} ${gannTrigger!.direction === "bullish" ? "bottom" : "top"}, with the stop 3 points beyond it.`
-            : `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} crosses ${crossedLevelName(gannTrigger!.source, gannTrigger!.direction)} by 3 points, and the entry then waits for the pullback toward that level.${gannTrigger!.newRecord ? ` That close was a new record ${gannTrigger!.direction === "bullish" ? "high" : "low"} on the chart.` : ""}`
+            : `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} crosses ${crossedLevelName(gannTrigger!.source, gannTrigger!.direction, gannTrigger!.levelYear)} by 3 points, and the entry then waits for the pullback toward that level.${gannTrigger!.newRecord ? ` That close was a new record ${gannTrigger!.direction === "bullish" ? "high" : "low"} on the chart.` : ""}`
         : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {

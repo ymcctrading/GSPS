@@ -44,6 +44,7 @@ import { computeRequiredMetrics, type RequiredMetrics } from "./metrics";
 import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
+import { monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { replayIntraday } from "./replayIntraday";
 
 /** Verdict buckets, plus the trades the score could not reach. */
@@ -343,12 +344,13 @@ export async function fetchSeries(
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();
   const window = (tf: Timeframe) => new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
-  const tenYearsAgo = new Date(now - 10 * 365.25 * 86_400_000);
+  // The older levels on the first daily session read the span before it (step 3 review R10).
+  const monthlyFrom = monthlyChartFrom(window("1Day"));
 
   const [bars, daily, monthly] = await Promise.all([
     provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
     provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
-    includeMonthly ? provider.fetchBars(symbol, "1Month", tenYearsAgo, null, assetClass) : Promise.resolve(undefined),
+    includeMonthly ? provider.fetchBars(symbol, "1Month", monthlyFrom, null, assetClass) : Promise.resolve(undefined),
   ]);
   return { bars, daily, ...(monthly ? { monthly } : {}) };
 }

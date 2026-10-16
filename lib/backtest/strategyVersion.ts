@@ -97,4 +97,14 @@
 // low that has held for weeks without a 3-point break. Shorts mirror the
 // first. It is offered only where its risk stays inside the 5-point limit,
 // and it rests like a double bottom, with no crossing to confirm first.
-export const STRATEGY_VERSION = "2026-10-15-gann-held-bottoms";
+// No run was committed on "2026-10-15-gann-held-bottoms".
+// Step 3 review, 2026-10-16: every previous year's top and bottom in the ten
+// calendar years before the day is a level, not only last year's, and each
+// stays a level after the next New Year (W006 pp.20, 22, 24, 47: "a previous
+// year"). Every surface reads the same ten years, and the replay fetches them
+// before its first session. A level is crossed only by a close the chart
+// shows going through it; a broken level crossed again is dated by the later
+// crossing. Once a level is bought, a top the rally already crossed is not
+// offered; an uncrossed one still is. Two readings of one level within a cent
+// or 0.1% are one level, and the replay buys it once.
+export const STRATEGY_VERSION = "2026-10-16-gann-every-year";

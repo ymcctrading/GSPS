@@ -36,11 +36,23 @@ export function tradeSideWord(direction: Exclude<Direction, "none">): "buy" | "s
  * and `holdBasis` which rule found a bottom that held (step 4). Kept free
  * of internal-methodology vocabulary per `scripts/check-banned-terms.mjs`.
  */
+/**
+ * A previous year's top (bottom for a short), by its year when known: every
+ * previous year counts (PLAN.md item 5, step 3 review R9). Without the year,
+ * as on plans built before it was carried, "the previous year's".
+ */
+export function priorYearLevelName(up: boolean, year?: number): string {
+  const side = up ? "top" : "bottom";
+  return year !== undefined ? `the ${year} ${side}` : `the previous year's ${side}`;
+}
+
 export function structuralTriggerHeadline(
   direction: "bullish" | "bearish",
   entryKind?: "crossing" | "oldLevel" | "hold",
   entrySource?: "priorYear" | "allTime",
   holdBasis?: "weeks" | "days" | "record",
+  /** A previous year's level: its year (step 3 review R9). */
+  levelYear?: number,
 ): string {
   if (entryKind === "hold") {
     // A bottom (top) that held, bought at the last close (item 5, step 4).
@@ -60,12 +72,12 @@ export function structuralTriggerHeadline(
       ? "A buy resting at the last confirmed swing low, where a second or third test makes a double or triple bottom, with the stop 3 points under it."
       : "A sell resting at the last confirmed swing high, where a second or third test makes a double or triple top, with the stop 3 points over it.";
   }
-  // Since step 3 the level crossed can also be the previous year's top or
+  // Since step 3 the level crossed can also be a previous year's top or
   // bottom, or the record from before the last 52 weeks.
   const up = direction === "bullish";
   const level =
     entrySource === "priorYear"
-      ? up ? "the previous year's top" : "the previous year's bottom"
+      ? priorYearLevelName(up, levelYear)
       : entrySource === "allTime"
         ? up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks"
         : up ? "the prior confirmed swing high" : "the prior confirmed swing low";

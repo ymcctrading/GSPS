@@ -67,7 +67,11 @@ describe("olderGannLevels", () => {
   it("leaves out the month still forming and gives nothing for a year with no bars", () => {
     const withForming = [...M_TOP, ...monthly("2026-06", 1, () => [500, 1])];
     expect(olderGannLevels(withForming, ASOF, "2025-06-02")).toEqual(olderGannLevels(M_TOP, ASOF, "2025-06-02"));
-    expect(olderGannLevels(M_TOP.filter((b) => b.t < "2025"), ASOF, "2025-06-02").some((l) => l.source === "priorYear")).toBe(false);
+    // Every previous year counts since the step 3 review (R9): a year with no
+    // bars gives no level, and the years before it still do.
+    const no2025 = olderGannLevels(M_TOP.filter((b) => b.t < "2025"), ASOF, "2025-06-02");
+    expect(no2025.some((l) => l.year === 2025)).toBe(false);
+    expect(no2025.some((l) => l.year === 2024)).toBe(true);
   });
 });
 
@@ -189,10 +193,11 @@ describe("the older level first (A-ENTRY-09)", () => {
     ...base, kind, held: true, reactionEntry, formedAt,
   });
 
-  it("takes the nearer buying point, and the older one when they are as near", () => {
+  // Two crossings never compete in `nearerBuyingPoint` (step 3 review R5): the
+  // older of two readings of one level is chosen where the crossing is found,
+  // tested through the scan's path in lib/__tests__/score.test.ts.
+  it("takes the nearer buying point", () => {
     expect(nearerBuyingPoint(at("2026-03-01", 101), at("2021-03-01", 98), 100).formedAt).toBe("2026-03-01");
-    expect(nearerBuyingPoint(at("2026-03-01", 101), at("2021-03-01", 99), 100).formedAt).toBe("2021-03-01");
-    expect(nearerBuyingPoint(at("2021-03-01", 99), at("2026-03-01", 101), 100).formedAt).toBe("2021-03-01");
   });
 
   it("then the crossing over the old level", () => {

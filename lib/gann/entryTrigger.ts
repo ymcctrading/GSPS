@@ -113,14 +113,25 @@ export type { GannEntryKind } from "@/lib/gann/entryKind";
 /**
  * Where the level came from (PLAN.md item 5, step 3):
  * - `swing`: a completed top or bottom on the 3-Day Chart.
- * - `priorYear`: the previous calendar year's top or bottom (W006 pp.20, 22,
- *   47: cross the top of a previous year by 3 points and buy any small
- *   reaction; break the bottom of a previous year by 3 points and it is a
- *   short).
+ * - `priorYear`: a previous calendar year's top or bottom, every year in the
+ *   span (W006 pp.20, 22, 47: cross the top of a previous year by 3 points and
+ *   buy any small reaction; break the bottom of a previous year by 3 points
+ *   and it is a short). `levelYear` says which year.
  * - `allTime`: the highest top (lowest bottom) on record before the 52 weeks
  *   the 3-Day Chart is read from: an old top like any other, and the oldest
- *   the chart holds (p.24). The record is the monthly history the feed
- *   reaches, about ten years, not the stock's whole life.
+ *   the chart holds (p.24). The record is the `OLDER_LEVELS_YEARS` calendar
+ *   years before the day, or as much of them as the feed holds, not the
+ *   stock's whole life.
+ *
+ * The geometry of these crossings is an inference, labelled as one (PLAN.md
+ * pass rule 1). Gann gives the crossing of a previous year's top (A-ENTRY-05),
+ * a new record (A-ENTRY-06) and the break of a previous year's bottom
+ * (A-ENTRY-17) without their own entry and stop, so the old-top rule's
+ * geometry is applied to them (A-ENTRY-04: cross by 3 points, buy 1 point
+ * past the level, stop 3 points the other side). For A-ENTRY-17 that means
+ * the short waits for the bounce to 1 point under the broken bottom; Gann's
+ * sentence does not say to wait, and a straight break with no bounce is not
+ * sold here.
  */
 export type GannLevelSource = "swing" | "priorYear" | "allTime";
 
@@ -129,6 +140,8 @@ export interface OlderGannLevel {
   price: number;
   kind: "top" | "bottom";
   source: Exclude<GannLevelSource, "swing">;
+  /** `priorYear` only: the calendar year whose top or bottom it is. */
+  year?: number;
   /** The monthly bar it was made in. */
   formedAt: string;
   /** Closes on or after this day (YYYY-MM-DD) can cross it. */
@@ -194,6 +207,8 @@ export interface GannEntryTrigger {
    * weight, so it only decides between buying points that are otherwise even.
    */
   formedAt: string;
+  /** A `priorYear` crossing: the calendar year whose top or bottom was crossed. */
+  levelYear?: number;
   /**
    * `hold` only: which of Gann's rules found the bottom that held. `weeks`:
    * the reaction's low stood into its second week (A-ENTRY-01). `days`: in a
@@ -249,10 +264,11 @@ export function computeGannEntryTrigger(
   const crossed = holdCrossedLevel ? latestCrossedLevel(bars, pivots, direction, bufferPct, older) : null;
   const held = crossed && !crossed.spent ? crossed : null;
   const pivot = held?.pivot ?? (direction === "bullish" ? lastTop : lastBottom);
-  // A level already bought (or broken) is not offered again: until a newer
-  // top forms there is no buying point (PLAN.md item 5). A previous year's
-  // top can be the last swing top too, at the same price.
-  if (crossed?.spent && (crossed.pivot.index === pivot.index || crossed.pivot.price === pivot.price)) return null;
+  // A level already bought (or broken) is not offered again, and neither is a
+  // top the rally crossed on the way: until a newer top forms, or an older
+  // one still stands uncrossed, there is no buying point (PLAN.md item 5;
+  // step 3 review R3). A previous year's top can be the last swing top too.
+  if (crossed?.spent && closedThrough(bars, pivot.index + 1, buffered(pivot.price, sign, bufferPct), sign)) return null;
   const protectivePivot = direction === "bullish" ? lastBottom : lastTop;
 
   const triggerPrice = buffered(pivot.price, sign, bufferPct);
@@ -270,6 +286,7 @@ export function computeGannEntryTrigger(
       kind: "crossing", direction, triggerPrice, stopPrice: reactionStop, pivot, level: pivot.price,
       reactionEntry, reactionStop, protectivePivot, held: true, crossedAt: bars[held.crossedAt].t, swingDays,
       source: held.source, formedAt: held.formedAt,
+      ...(held.levelYear !== undefined ? { levelYear: held.levelYear } : {}),
       ...(record ? { newRecord: isNewRecord(bars, held.crossedAt, record.price, sign) } : {}),
     };
   }
@@ -506,15 +523,15 @@ function entryOf(t: GannEntryTrigger): number {
 
 /**
  * Of two buying points, the one nearer `price`: a set of resting orders is
- * filled by whichever price reaches first. When they are as near, the older
- * of two crossings (W006 p.24: the further back an old top, the more
- * important its crossing), and the crossing over the old level.
+ * filled by whichever price reaches first. When they are as near, the
+ * crossing over the old level or the hold. Only one crossing ever competes
+ * here; the older of two readings of one level is chosen where the crossing
+ * is found (`latestCrossedLevel`, W006 p.24).
  */
 export function nearerBuyingPoint(a: GannEntryTrigger, b: GannEntryTrigger, price: number): GannEntryTrigger {
   const da = Math.abs(entryOf(a) - price);
   const db = Math.abs(entryOf(b) - price);
   if (da !== db) return da < db ? a : b;
-  if (a.kind === "crossing" && b.kind === "crossing") return b.formedAt < a.formedAt ? b : a;
   return b.kind === "crossing" && a.kind !== "crossing" ? b : a;
 }
 
@@ -554,9 +571,18 @@ export function selectGannEntry(
  * top and the reaction buy Gann describes would never be placed.
  *
  * The level is chosen by when it was crossed, not when its top formed: the
- * latest crossing is the live one (on the same close, the higher top for a
- * long). Once that level is bought or broken, older ones are not revived.
+ * latest crossing is the live one. On the same close, the higher top for a
+ * long, the nearer the price, and of two readings of one level (a previous
+ * year's top that is also a swing top, `sameGannLevel`), the older (W006
+ * p.24). Once that level is bought or broken, older ones are not revived.
  * The bar that crosses is not the reaction; the buy needs a later bar.
+ *
+ * A crossing is a close the chart shows going through the line, from a close
+ * on the near side of it: a level the price already stood beyond when the 52
+ * weeks began was crossed at a time the chart does not show, so it is not
+ * bought on (step 3 review). A level broken after its crossing is crossed
+ * again by the next close through its line, and that later crossing is the
+ * one dated; a level only bought is not, so it is not offered twice.
  */
 function latestCrossedLevel(
   bars: Bar[],
@@ -564,41 +590,42 @@ function latestCrossedLevel(
   direction: TriggerDirection,
   bufferPct?: number,
   older: OlderGannLevel[] = [],
-): { pivot: SwingPivot; crossedAt: number; spent: boolean; source: GannLevelSource; formedAt: string } | null {
+): { pivot: SwingPivot; crossedAt: number; spent: boolean; source: GannLevelSource; formedAt: string; levelYear?: number } | null {
   const kind = direction === "bullish" ? "top" : "bottom";
   const sign = direction === "bullish" ? 1 : -1;
-  type Candidate = { pivot: SwingPivot; from: number; source: GannLevelSource; formedAt: string };
+  type Candidate = { pivot: SwingPivot; from: number; source: GannLevelSource; formedAt: string; levelYear?: number };
   const candidates: Candidate[] = pivots
     .filter((p) => p.kind === kind)
     .map((p) => ({ pivot: p, from: p.index + 1, source: "swing" as const, formedAt: bars[p.index].t }));
   for (const l of older) {
     if (l.kind !== kind) continue;
     const from = bars.findIndex((b) => b.t.slice(0, 10) >= l.crossFrom);
-    if (from >= 0) candidates.push({ pivot: { index: -1, price: l.price, kind }, from, source: l.source, formedAt: l.formedAt });
+    if (from >= 0) {
+      candidates.push({
+        pivot: { index: -1, price: l.price, kind }, from, source: l.source, formedAt: l.formedAt,
+        ...(l.year !== undefined ? { levelYear: l.year } : {}),
+      });
+    }
   }
   let best: (Candidate & { crossedAt: number }) | null = null;
   for (const c of candidates) {
-    const line = buffered(c.pivot.price, sign, bufferPct);
-    for (let i = c.from; i < bars.length; i++) {
-      if (sign * (bars[i].c - line) >= 0) {
-        const better =
-          !best ||
-          i > best.crossedAt ||
-          (i === best.crossedAt &&
-            (sign * (c.pivot.price - best.pivot.price) > 0 ||
-              // The same level twice (a previous year's top that is also a
-              // swing top): the older reading names it (W006 p.24).
-              (c.pivot.price === best.pivot.price && c.formedAt < best.formedAt)));
-        if (better) best = { ...c, crossedAt: i };
-        break;
-      }
-    }
+    const at = crossingOf(bars, c.from, c.pivot.price, sign, bufferPct);
+    if (at < 0) continue;
+    const same = best !== null && sameGannLevel(c.pivot.price, best.pivot.price);
+    const better =
+      !best ||
+      at > best.crossedAt ||
+      (at === best.crossedAt && (same ? c.formedAt < best.formedAt : sign * (c.pivot.price - best.pivot.price) > 0));
+    if (better) best = { ...c, crossedAt: at };
   }
   if (!best) return null;
   const level = best.pivot.price;
   const points = Math.abs(buffered(level, sign, bufferPct) - level);
   const buy = level + (sign * points) / 3;
-  const found = { pivot: best.pivot, crossedAt: best.crossedAt, source: best.source, formedAt: best.formedAt };
+  const found = {
+    pivot: best.pivot, crossedAt: best.crossedAt, source: best.source, formedAt: best.formedAt,
+    ...(best.levelYear !== undefined ? { levelYear: best.levelYear } : {}),
+  };
   // Bought once a later bar trades to the buy. A close 3 points back through
   // the level (broken) always trades through the buy first, so this one test
   // covers both ends.
@@ -607,6 +634,48 @@ function latestCrossedLevel(
     if (sign * ((sign === 1 ? b.l : b.h) - buy) <= 0) return { ...found, spent: true };
   }
   return { ...found, spent: false };
+}
+
+/**
+ * The bar whose close crossed `level` by 3 points, from a close short of the
+ * line, at or after `from`: the first such close, or the first after the
+ * level was last broken (a close 3 points back through it). -1 when none.
+ */
+function crossingOf(bars: Bar[], from: number, level: number, sign: 1 | -1, bufferPct?: number): number {
+  const line = buffered(level, sign, bufferPct);
+  const broken = buffered(level, sign === 1 ? -1 : 1, bufferPct);
+  let at = -1;
+  // Looking for a crossing until one is found, then for the break that makes
+  // the next crossing a new one. A level broken and not crossed again keeps
+  // its last crossing, which is then spent.
+  let looking = true;
+  for (let i = Math.max(from, 1); i < bars.length; i++) {
+    const c = bars[i].c;
+    if (!looking) {
+      if (sign * (c - broken) <= 0) looking = true;
+      continue;
+    }
+    if (sign * (c - line) >= 0 && sign * (bars[i - 1].c - line) < 0) {
+      at = i;
+      looking = false;
+    }
+  }
+  return at;
+}
+
+/** Whether any close from `from` on is at or beyond `line` (in the direction of `sign`). */
+function closedThrough(bars: Bar[], from: number, line: number, sign: 1 | -1): boolean {
+  for (let i = Math.max(from, 0); i < bars.length; i++) if (sign * (bars[i].c - line) >= 0) return true;
+  return false;
+}
+
+/**
+ * Two readings of one level: prices within a cent, or 0.1% on a large price
+ * (step 3 review R11). The monthly chart's high and the daily chart's swing
+ * high of one top can differ by a cent of feed aggregation or split rounding.
+ */
+export function sameGannLevel(a: number, b: number): boolean {
+  return Math.abs(a - b) <= Math.max(0.01, 0.001 * Math.max(Math.abs(a), Math.abs(b)));
 }
 
 /** Whether the close at `at` is beyond every earlier high (low for a short) and the record. */
@@ -618,31 +687,49 @@ function isNewRecord(bars: Bar[], at: number, record: number, sign: 1 | -1): boo
 }
 
 /**
- * The previous calendar year's top and bottom, and the record top and bottom
- * before the 52 weeks the 3-Day Chart is read from, from monthly bars
- * (PLAN.md item 5, step 3; W006 pp.20, 22, 24, 47). Only the year before
- * `asOf` (YYYY-MM-DD) and the months before the 52 weeks are read, so neither
- * the month still forming nor any later month a replay holds can count. A
- * previous year's level can be crossed by
- * closes from 1 January of `asOf`'s year; the record, by closes from
- * `windowFrom`, the first day of the 52 weeks. The days of the month holding
- * `windowFrom` that fall before it are read by neither: an engineering limit
- * of joining a monthly chart to a daily one, documented rather than hidden.
+ * How many calendar years of the monthly chart the older levels are read from,
+ * before `asOf`'s year, on every surface (step 3 review R10). Gann reads old
+ * tops years back (W006 p.24); the span is an engineering choice, so the live
+ * scan, the replay, confirmation, the live exit and the exam all agree on the
+ * record whatever each fetched. The free feed may hold less.
+ */
+export const OLDER_LEVELS_YEARS = 10;
+
+/**
+ * Every previous calendar year's top and bottom, and the record top and
+ * bottom before the 52 weeks the 3-Day Chart is read from, from monthly bars
+ * (PLAN.md item 5, step 3; W006 pp.20, 22, 24, 47). Gann's rule is "a
+ * previous year", so each year in the span counts, not only the last (step 3
+ * review R9), each crossable by closes from the first day after its year
+ * ends, and still a level after the next New Year (R1). The record first,
+ * then the years, most recent first. Only years before `asOf`'s (YYYY-MM-DD) and months
+ * before the 52 weeks are read, so neither the month still forming nor any
+ * later month a replay holds can count. The record is crossable by closes
+ * from `windowFrom`, the first day of the 52 weeks. The days of the month
+ * holding `windowFrom` that fall before it are read by neither: an
+ * engineering limit of joining a monthly chart to a daily one, documented
+ * rather than hidden.
  */
 export function olderGannLevels(monthly: Bar[], asOf: string, windowFrom: string): OlderGannLevel[] {
   const year = Number(asOf.slice(0, 4));
+  const first = `${year - OLDER_LEVELS_YEARS}-01`;
+  const span = monthly.filter((b) => b.t.slice(0, 7) >= first);
   const out: OlderGannLevel[] = [];
-  const extremes = (months: Bar[], source: OlderGannLevel["source"], crossFrom: string) => {
+  const extremes = (months: Bar[], source: OlderGannLevel["source"], crossFrom: string, y?: number) => {
     if (months.length === 0) return;
     const top = months.reduce((a, b) => (b.h > a.h ? b : a));
     const bottom = months.reduce((a, b) => (b.l < a.l ? b : a));
+    const tag = y !== undefined ? { year: y } : {};
     out.push(
-      { price: top.h, kind: "top", source, formedAt: top.t, crossFrom },
-      { price: bottom.l, kind: "bottom", source, formedAt: bottom.t, crossFrom },
+      { price: top.h, kind: "top", source, ...tag, formedAt: top.t, crossFrom },
+      { price: bottom.l, kind: "bottom", source, ...tag, formedAt: bottom.t, crossFrom },
     );
   };
-  extremes(monthly.filter((b) => b.t.slice(0, 4) === String(year - 1)), "priorYear", `${year}-01-01`);
-  extremes(monthly.filter((b) => b.t.slice(0, 7) < windowFrom.slice(0, 7)), "allTime", windowFrom);
+  // The record first: a year's top that is also the record reads as the record.
+  extremes(span.filter((b) => b.t.slice(0, 7) < windowFrom.slice(0, 7)), "allTime", windowFrom);
+  for (let y = year - 1; y >= year - OLDER_LEVELS_YEARS; y--) {
+    extremes(span.filter((b) => b.t.slice(0, 4) === String(y)), "priorYear", `${y + 1}-01-01`, y);
+  }
   return out;
 }
 

@@ -30,7 +30,7 @@ import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
-import { entryChart } from "@/lib/scan/entrySelection";
+import { entryChart, monthlyChartFrom } from "@/lib/scan/entrySelection";
 
 /** About two years of sessions: enough for the weekly swing chart and the campaign ledger. */
 const DAILY_LOOKBACK_DAYS = 730;
@@ -48,11 +48,10 @@ async function completedDailyBars(symbol: string, now: Date): Promise<{ bars: Ba
   if (hit && hit.day === today) return hit;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const start = new Date(now.getTime() - DAILY_LOOKBACK_DAYS * 86_400_000);
-  const decade = new Date(now.getTime() - 10 * 365.25 * 86_400_000);
   const provider = getMarketDataProvider();
   const [bars, monthly] = await Promise.all([
     provider.fetchBars(symbol, "1Day", start, null, assetClass),
-    provider.fetchBars(symbol, "1Month", decade, null, assetClass),
+    provider.fetchBars(symbol, "1Month", monthlyChartFrom(start), null, assetClass),
   ]);
   const entry = { day: today, bars: bars.filter((b) => b.t.slice(0, 10) < today), monthly };
   cache.set(symbol, entry);
