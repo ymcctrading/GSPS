@@ -822,3 +822,9 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - M1 fixed: LEVEL_EPSILON (relative 1e-9) on the crossed-level comparison; three tests at 42.70 average to 42.70000000000001 and held a crossing of the triple top itself on scan and replay. Tests for the top and a drifting bottom (0.35); E0, E3, bottom-side mutants killed. 3026 tests pass.
 - L2 fixed: failedTopBeyondFirstTarget comment says crossing-exempt entries read false.
 - L1 carried: placement excuses crossings up to half a cent short that the scan holds (plan prices are cent-rounded); up to 5.8% of price under $1.
+
+2026-10-16 Run 55 (item 9 step 5, 4d05920, STRATEGY_VERSION 2026-10-16-gann-old-tops-support; run 54 failed at checkout on a short ref)
+- gann-runner: all n2746 -0.005R [-0.031,+0.021]; Execute n182 +0.098R [-0.014,+0.211], halves +0.083/+0.112; Watch n1826 -0.034R.
+- plan-reaction: Execute n182 +0.082R [-0.031,+0.195]; Watch -0.069R.
+- vs run 53 (05ad97e): Execute +10 trades, gann-runner E -0.046R, CI now spans zero; population unchanged (bucket moves only).
+- Execute factors (gann-runner): historicalSR 44.0% dR +0.158; stopRoom 96.2% (past the 95% saturation ceiling) dR +0.200; volumeClimax 91.8% dR -0.208.
