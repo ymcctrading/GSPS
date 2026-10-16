@@ -155,6 +155,9 @@ export function failedTestAgainst(
  * a lower level, the lower second top included, arms short of the pass and is
  * held (review 14 H).
  */
+/** Relative float tolerance on the crossed-level comparison. */
+export const LEVEL_EPSILON = 1e-9;
+
 export function failedTestInPath(
   reading: MultipleTopsReading | null | undefined,
   direction: "bullish" | "bearish" | "none",
@@ -165,7 +168,12 @@ export function failedTestInPath(
   const failed = failedTestAgainst(reading, direction);
   if (!failed || entry == null || takeProfit1 == null) return null;
   if (crossedLevel != null) {
-    const passesIt = direction === "bullish" ? crossedLevel >= failed.level : crossedLevel <= failed.level;
+    // Relative to the level, so float drift in the cluster's running mean
+    // (three tests at 42.70 average to 42.70000000000001) does not hold a
+    // crossing of the level itself (review 17 M1). Far below a cent at any price.
+    const passesIt = direction === "bullish"
+      ? crossedLevel >= failed.level * (1 - LEVEL_EPSILON)
+      : crossedLevel <= failed.level * (1 + LEVEL_EPSILON);
     if (passesIt) return null;
   }
   const inPath =

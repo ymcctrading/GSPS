@@ -371,6 +371,14 @@ describe("crossed level read back from cent prices (review 15 M1)", () => {
     const down = protocolCrossedLevel(9.66, 11.26, undefined)!;
     expect(failedTestInPath(atBottom(10.05), "bearish", 9.66, 1, down)).not.toBeNull();
   });
+  it("lets through a crossing of three equal tests whose running mean drifts by a float step", () => {
+    const level = (42.7 * 2 + 42.7) / 3; // the cluster's running mean of three tests at 42.70
+    expect(level).not.toBe(42.7);
+    expect(failedTestInPath(at(level), "bullish", 43, 60, 42.7)).toBeNull();
+    const low = (0.35 * 2 + 0.35) / 3; // drifts below for a bottom
+    expect(low).toBeLessThan(0.35);
+    expect(failedTestInPath(atBottom(low), "bearish", 0.34, 0.1, 0.35)).toBeNull();
+  });
   it("compares an exact crossed level exactly, at any price", () => {
     // The scan and the replay pass the level itself: no tolerance, so a
     // lower second top on a 16-cent coin is still held.

@@ -267,4 +267,8 @@
 // excused a lower second top). Only placement, which rebuilds the level from
 // cent prices, reads it half a cent in the trade's direction. Verdicts match
 // failed-tops-crossing.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-exact";
+//
+// 2026-10-16-gann-failed-tops-epsilon: review 17. The crossed-level
+// comparison allows a relative 1e-9, so a crossing of three equal tests whose
+// running mean drifted a float step past the price is no longer held.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-epsilon";

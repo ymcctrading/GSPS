@@ -188,8 +188,9 @@ export function contextFactorsFor(
     f.multipleTopCrossedWithTrade = inPath?.state === "crossed";
     f.thirdTestFailedAgainstTrade = inPath?.state === "failed";
     // The failed tops the hold excuses (review 12 M3): failed, but not one the
-    // trade must pass to reach TP1. Trades with one in the path are not
-    // entered, so this is the half of the rule a replay can still measure.
+    // trade must pass to reach TP1. Read without the crossed level, so a
+    // crossing entered because it crosses the failed top itself reads false
+    // here (review 17 L2); other trades with one in the path are not entered.
     if (takeProfit1 != null && inPath?.state === "failed") {
       f.failedTopBeyondFirstTarget = failedTestInPath(ctx.multipleTops, direction, price, takeProfit1) === null;
     }

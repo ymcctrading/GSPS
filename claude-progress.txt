@@ -817,3 +817,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - N-M1 fixed: the flat one-cent tolerance came off failedTestInPath (scan and replay pass exact levels; on DOGE it excused a lower second top). protocolCrossedLevel (placement only) now reads the rebuilt level half a cent (CENT_ROUNDING) in the trade's direction.
 - N-L1 fixed: bottom-side sweep and a cent-short hold for both sides; exact sub-dollar comparisons pinned. Mutants C0, C1, sign, top tolerance, bottom tolerance all killed. 3025 tests pass.
 - Note: plan levels are rounded to cents for every symbol (levels.ts round), so a sub-dollar coin's plan is coarse at placement; pre-existing, outside this rule.
+
+2026-10-16 A-LEVELS-04 review 17 (FAIL narrowly). STRATEGY_VERSION 2026-10-16-gann-failed-tops-epsilon
+- M1 fixed: LEVEL_EPSILON (relative 1e-9) on the crossed-level comparison; three tests at 42.70 average to 42.70000000000001 and held a crossing of the triple top itself on scan and replay. Tests for the top and a drifting bottom (0.35); E0, E3, bottom-side mutants killed. 3026 tests pass.
+- L2 fixed: failedTopBeyondFirstTarget comment says crossing-exempt entries read false.
+- L1 carried: placement excuses crossings up to half a cent short that the scan holds (plan prices are cent-rounded); up to 5.8% of price under $1.
