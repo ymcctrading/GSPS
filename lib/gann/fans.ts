@@ -7,7 +7,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { findPivots, atr } from "@/lib/analysis/pivots";
+import { findPivots, atr, type Pivot } from "@/lib/analysis/pivots";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 export interface FanLine {
@@ -42,34 +42,44 @@ export const ANGLES: { label: string; ratio: number }[] = [
   { label: "4x1", ratio: 4 },
 ];
 
-export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
-  if (bars.length < 20) return [];
-
-  const unit = atr(bars, 14); // price per bar for the 1x1
-  if (unit <= 0) return [];
-
+/**
+ * The fans' two anchors (the latest pivot high and low) and each one's base
+ * time interval for B10's time-projection rule: the calendar duration of the
+ * swing that produced the anchor, measured from the immediately preceding
+ * opposite-kind pivot (null without one). Shared with the class C time ratios
+ * in `secondaryTime.ts` so both project from the same anchors.
+ */
+export function fanAnchors(bars: Bar[]): { anchor: Pivot; preceding: Pivot | null; baseIntervalMs: number | null }[] {
   const pivots = findPivots(bars, 4);
   // Anchor from the two most significant recent pivots (one high, one low)
   const lastHigh = [...pivots].reverse().find((p) => p.kind === "high");
   const lastLow = [...pivots].reverse().find((p) => p.kind === "low");
-
-  const lines: FanLine[] = [];
-  const lastIndex = bars.length - 1;
-
+  const out: { anchor: Pivot; preceding: Pivot | null; baseIntervalMs: number | null }[] = [];
   for (const anchor of [lastHigh, lastLow]) {
     if (!anchor) continue;
-    const elapsed = lastIndex - anchor.index;
-    if (elapsed <= 0) continue;
-
-    // Base time interval for B10's time-projection rule: the calendar
-    // duration of the swing that produced this anchor, measured from the
-    // immediately preceding opposite-kind pivot.
     const precedingOpposite = [...pivots]
       .reverse()
       .find((p) => p.kind !== anchor.kind && p.index < anchor.index);
     const baseIntervalMs = precedingOpposite
       ? new Date(anchor.bar.t).getTime() - new Date(precedingOpposite.bar.t).getTime()
       : null;
+    out.push({ anchor, preceding: precedingOpposite ?? null, baseIntervalMs });
+  }
+  return out;
+}
+
+export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
+  if (bars.length < 20) return [];
+
+  const unit = atr(bars, 14); // price per bar for the 1x1
+  if (unit <= 0) return [];
+
+  const lines: FanLine[] = [];
+  const lastIndex = bars.length - 1;
+
+  for (const { anchor, baseIntervalMs } of fanAnchors(bars)) {
+    const elapsed = lastIndex - anchor.index;
+    if (elapsed <= 0) continue;
     const anchorMs = new Date(anchor.bar.t).getTime();
 
     for (const { label, ratio } of ANGLES) {

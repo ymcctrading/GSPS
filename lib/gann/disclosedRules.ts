@@ -289,6 +289,8 @@ export interface CounterMoveReading {
   inCounterMove: boolean;
   /** Calendar days since the swing extreme the counter-move started from (0 when not in one). */
   days: number;
+  /** Trading days (bars) since that extreme (0 when not in one). */
+  tradingDays?: number;
   phase: CounterMovePhase | null;
 }
 
@@ -309,9 +311,9 @@ export function readCounterMove(bars: Bar[]): CounterMoveReading | null {
   const resumed =
     start !== undefined &&
     bars.slice(start.index + 1).some((b) => (weekly.trend === "bullish" ? b.h > start.price : b.l < start.price));
-  if (!against || !start || resumed) return { trend: weekly.trend, inCounterMove: false, days: 0, phase: null };
+  if (!against || !start || resumed) return { trend: weekly.trend, inCounterMove: false, days: 0, tradingDays: 0, phase: null };
   const days = daysBetween(bars[start.index].t, bars[bars.length - 1].t);
-  return { trend: weekly.trend, inCounterMove: true, days, phase: counterMovePhase(days) };
+  return { trend: weekly.trend, inCounterMove: true, days, tradingDays: bars.length - 1 - start.index, phase: counterMovePhase(days) };
 }
 
 // ---------------------------------------------------------------------------
@@ -539,7 +541,7 @@ export function readDisclosedRules(
     halfwayRetest: readHalfwayRetest(dailyBars),
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
-    secondaryTime: readSecondaryTime(dailyBars, instrument?.monthly ?? null, asOf),
+    secondaryTime: readSecondaryTime(dailyBars, instrument?.monthly ?? null, asOf, counterMove),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }

@@ -175,6 +175,18 @@ export function contextFactorsFor(
     if (st.monthCounts) f.secondaryMonthCountWithTrade = withTrade(st.monthCounts);
     if (st.cycleFractions) f.cycleFractionWithTrade = withTrade(st.cycleFractions);
     f.seasonalFineStepActive = st.seasonalFineStep !== null;
+    // A counter-move against the trade's own trend, by its length.
+    if (st.shortCounterMove && st.shortCounterMove.trend === direction) {
+      f.counterMovePastFourthDay = st.shortCounterMove.phase === "pastFourthDay";
+      f.counterMoveSevenToTen = st.shortCounterMove.phase === "sevenToTen";
+    }
+    // A top due counts against a long, a bottom due against a short.
+    if (st.timeBalanceSpans) f.timeBalanceTurnAgainstTrade = st.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
+    if (st.fanTimeRatios) f.fanTimeRatioActive = st.fanTimeRatios.length > 0;
+    // A rise from a low meeting its level on time argues for a turn down,
+    // against a long; a fall from a high, the mirror.
+    if (st.retracementTiming) f.retracementTurnAgainstTrade = st.retracementTiming.some((h) => (h.anchorKind === "low") === bull);
+    if (st.halfPriceHalfTime !== undefined) f.halfPriceHalfTimeRecent = st.halfPriceHalfTime !== null;
   }
 
   // D2: Gann's capital-stock readings are top warnings, so they count against

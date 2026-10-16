@@ -477,3 +477,13 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Where the entry's written test names a class A function (readDayCountBands, squareOf52Windows, timeCycles, readSeasonalCount, readTiming), the reading is a separate function instead, per the map's rule that class C counts never join the measured class A lists; the test asserts the rule against that reader and, for C-TIME-19 and -44, also that the class A reading is untouched. The reviewer judges whether that meets the entry. C-TIME-09's written test (readTiming's square144 at 144 months) cannot be met: readTiming counts from the year's extreme, so 144 months never arises there; the 144-month count is read from monthly pivots.
 - Tests: lib/gann/__tests__/secondaryTime.test.ts (15). Mutations V1-V14 caught.
 - Checks: vitest 275 files / 2760 tests pass; tsc clean; check:terms clean; eslint clean.
+
+## 2026-10-16 Item 7 steps 2b/2c: more class C time readings as context (C-TIME-25, -42, -40, -39, -23)
+- C-TIME-25: readCounterMove now also counts trading days; shortCounterMovePhase: up to day 4 normal, 5-6 past the 4th day (consolidation or reversal), 7-10 the next counter-move's length, then longer. Factors counterMovePastFourthDay / counterMoveSevenToTen (counter-move against the trade's own trend).
+- C-TIME-42: readTimeBalanceSpans on the weekly swing chart: the open span since the last top (bottom) within 1 week of the last top-to-top (bottom-to-bottom) span, only while the swing runs toward that kind. Factor timeBalanceTurnAgainstTrade. The matching-leg balance stays the campaign ledger's timeBalanceDates.
+- C-TIME-40: FAN_TIME_RATIOS (1x8 ... 8x1), a separate list; readFanTimeRatios from the fans' own anchors. fans.ts gained fanAnchors(), which computeFanLines now uses (behaviour unchanged, fan tests pass). ANGLES untouched and pinned.
+- C-TIME-39: RETRACEMENT_ANGLE_PAIRS (W031's table); a level counts when a bar spans it within ±1/16 of the anchor swing's duration of f/r of that duration. Factor retracementTurnAgainstTrade (a rise from a low meeting its level on time argues for a turn down).
+- C-TIME-23: the 1/2-on-1x1 meeting, kept 90 days (the three-month fast move). Factor halfPriceHalfTimeRecent.
+- Each has a card line ending "Shown for context; it does not change the setup." Context only, no version bump.
+- Tests: secondaryTime.test.ts now 28. Mutations W1-W13 and X1-X10 caught (W7, W12 and X3 after a test was added for each).
+- Checks: vitest 275 files / 2773 tests pass; tsc clean; check:terms clean; eslint clean.

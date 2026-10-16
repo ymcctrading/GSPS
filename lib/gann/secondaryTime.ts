@@ -22,6 +22,34 @@
  * - C-TIME-37 / -38 (W023; W035 p.3; W050 images 5 and 7): the seasonal
  *   circle in 22.5° and 15° steps from March 21, on the days the class A
  *   eighths and thirds leave out.
+ * - C-TIME-25 (W003 p.22; W034 p.5): a counter-trend move normally lasts 3-5
+ *   trading days on a stock; one past its 4th day signals consolidation or a
+ *   reversal, and the next counter-move runs 7-10 days.
+ * - C-TIME-42 (W032 pp.1-5): time balance from top to top and bottom to
+ *   bottom. The open span since the last top (or bottom) within a week of the
+ *   last completed top-to-top (or bottom-to-bottom) span points to the next
+ *   top (or bottom). The matching-leg balance (high to low, low to high) is
+ *   the campaign ledger's `timeBalanceDates` already. W032 adds that a
+ *   balance needs a price event to act on (C-STOP-03); here it only records.
+ * - C-TIME-40 (W033 pp.1-3): the fan as a time calculator, every ratio from
+ *   1x8 (12.5%) to 8x1 (800%) of the anchor swing's own duration, from the
+ *   fans' own anchors. `ANGLES` (which feeds a quarantined score) is not
+ *   touched; this is its own list.
+ * - C-TIME-39 (W031 pp.2-3): a retracement level reached at the time its
+ *   paired angle gives, from the fans' anchor, makes a turn likelier. W031's
+ *   pairs: 1/8-1x8, 1/4-1x4, 1/3-1x3, 3/8-1x2, 1/2-1x1, 5/8-2x1, 2/3-3x1,
+ *   3/4-4x1, 7/8-8x1. The anchor swing's price range and its duration are
+ *   the two sides of the square (the fans' own time convention), so an angle
+ *   of ratio r reaches the fraction f of the range f / r of the way through
+ *   the swing's duration: 50% on the 1x1 comes due at half the time.
+ * - C-TIME-23 (W003 pp.20-21): that same 50%-at-half-the-time meeting, after
+ *   which a three-month fast move may follow; it is recorded for 90 days.
+ *
+ * Engineering choices for those two, labelled as such and fixed before any
+ * measurement: a level counts as reached when a bar's range spans it, and the
+ * time window is ±1/16 of the swing's duration (at least a day). W031 never
+ * states the chart's price scale, so the swing's own range and duration
+ * stand in for the square; that is our reading, not the source's.
  *
  * Engineering choices, labelled as such: the anchors and windows follow the
  * class A reader each list sits beside (major daily pivots, exact day for the
@@ -47,6 +75,9 @@
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { MAJOR_CYCLE_YEARS } from "@/lib/gann/timeCycles";
+import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { fanAnchors } from "@/lib/gann/fans";
+import type { CounterMoveReading } from "@/lib/gann/disclosedRules";
 
 const DAY_MS = 86_400_000;
 
@@ -103,6 +134,66 @@ export const SEASONAL_FINE_DEGREES: readonly number[] = (() => {
 
 export const SEASONAL_FINE_TOLERANCE_DAYS = 1;
 
+/** C-TIME-25: where a counter-move's length in trading days sits. */
+export type ShortCounterMovePhase =
+  /** Up to the 4th day: a normal counter-move. */
+  | "normal"
+  /** Days 5-6: past the 4th day, consolidation or a reversal. */
+  | "pastFourthDay"
+  /** Days 7-10: the length of the next counter-move. */
+  | "sevenToTen"
+  /** Past the 10th day. */
+  | "longer";
+
+export function shortCounterMovePhase(tradingDays: number): ShortCounterMovePhase {
+  if (tradingDays <= 4) return "normal";
+  if (tradingDays <= 6) return "pastFourthDay";
+  if (tradingDays <= 10) return "sevenToTen";
+  return "longer";
+}
+
+/** C-TIME-42: the tolerance, in weeks, for two spans to balance. */
+export const TIME_BALANCE_TOLERANCE_WEEKS = 1;
+
+/** C-TIME-40: the fan's time ratios, as a fraction of the anchor swing's duration. */
+export const FAN_TIME_RATIOS: readonly { label: string; ratio: number }[] = [
+  { label: "1x8", ratio: 1 / 8 },
+  { label: "1x4", ratio: 1 / 4 },
+  { label: "1x3", ratio: 1 / 3 },
+  { label: "1x2", ratio: 1 / 2 },
+  { label: "1x1", ratio: 1 },
+  { label: "2x1", ratio: 2 },
+  { label: "3x1", ratio: 3 },
+  { label: "4x1", ratio: 4 },
+  { label: "8x1", ratio: 8 },
+];
+
+/** C-TIME-39: W031's pairs of a retracement fraction and its angle. */
+export const RETRACEMENT_ANGLE_PAIRS: readonly { fraction: number; label: string; angle: string; ratio: number }[] = [
+  { fraction: 1 / 8, label: "1/8", angle: "1x8", ratio: 1 / 8 },
+  { fraction: 1 / 4, label: "1/4", angle: "1x4", ratio: 1 / 4 },
+  { fraction: 1 / 3, label: "1/3", angle: "1x3", ratio: 1 / 3 },
+  { fraction: 3 / 8, label: "3/8", angle: "1x2", ratio: 1 / 2 },
+  { fraction: 1 / 2, label: "1/2", angle: "1x1", ratio: 1 },
+  { fraction: 5 / 8, label: "5/8", angle: "2x1", ratio: 2 },
+  { fraction: 2 / 3, label: "2/3", angle: "3x1", ratio: 3 },
+  { fraction: 3 / 4, label: "3/4", angle: "4x1", ratio: 4 },
+  { fraction: 7 / 8, label: "7/8", angle: "8x1", ratio: 8 },
+];
+
+/** C-TIME-23: how long the half-price-at-half-time meeting is recorded for (the three months it sets up). */
+export const HALF_PRICE_HALF_TIME_DAYS = 90;
+
+export interface RetracementTimingHit {
+  /** The retracement fraction and its paired angle. */
+  label: string;
+  angle: string;
+  anchorKind: "high" | "low";
+  level: number;
+  /** The day price reached the level inside the angle's time window. */
+  date: string;
+}
+
 export interface PivotCountHit {
   pivotDate: string;
   pivotKind: "high" | "low";
@@ -121,6 +212,16 @@ export interface SecondaryTimeReading {
   cycleFractions: PivotCountHit[] | null;
   /** The fine seasonal step today sits on, in degrees from March 21, or null. */
   seasonalFineStep: { degrees: number; date: string; offsetDays: number } | null;
+  /** The open counter-move's length against the weekly trend, or null when not in one. */
+  shortCounterMove?: { trend: "bullish" | "bearish"; tradingDays: number; phase: ShortCounterMovePhase } | null;
+  /** Top-to-top and bottom-to-bottom balances due now. */
+  timeBalanceSpans?: { kind: "top" | "bottom"; priorWeeks: number; openWeeks: number }[];
+  /** Fan time ratios due within two days of today. */
+  fanTimeRatios?: { label: string; anchorKind: "high" | "low"; date: string }[];
+  /** Retracement levels reached at their angle's time, with the window still open today (C-TIME-39). */
+  retracementTiming?: RetracementTimingHit[];
+  /** 50% of the range reached at half the time within the last 90 days (C-TIME-23), or null. */
+  halfPriceHalfTime?: RetracementTimingHit | null;
 }
 
 function utcDay(t: string | Date): number {
@@ -217,8 +318,107 @@ export function readSeasonalFineStep(asOf: Date): SecondaryTimeReading["seasonal
   return best;
 }
 
-export function readSecondaryTime(daily: Bar[], monthly: Bar[] | null | undefined, asOf: Date): SecondaryTimeReading {
+/** Top-to-top and bottom-to-bottom balances on the weekly swing chart (C-TIME-42). */
+export function readTimeBalanceSpans(bars: Bar[]): NonNullable<SecondaryTimeReading["timeBalanceSpans"]> {
+  if (bars.length === 0) return [];
+  const pivots = walkSwingChart(bars, WEEKLY_SWING_CHART).pivots;
+  const lastPivot = pivots[pivots.length - 1];
+  if (!lastPivot) return [];
+  const weeks = (a: number, b: number) => (Date.parse(bars[b].t) - Date.parse(bars[a].t)) / (7 * DAY_MS);
+  const out: NonNullable<SecondaryTimeReading["timeBalanceSpans"]> = [];
+  for (const kind of ["top", "bottom"] as const) {
+    // A top is next only while the swing runs up from a bottom, and the mirror.
+    if (lastPivot.kind === kind) continue;
+    const same = pivots.filter((p) => p.kind === kind);
+    if (same.length < 2) continue;
+    const priorWeeks = weeks(same[same.length - 2].index, same[same.length - 1].index);
+    const openWeeks = weeks(same[same.length - 1].index, bars.length - 1);
+    if (Math.abs(openWeeks - priorWeeks) <= TIME_BALANCE_TOLERANCE_WEEKS) {
+      out.push({ kind, priorWeeks: Math.round(priorWeeks * 10) / 10, openWeeks: Math.round(openWeeks * 10) / 10 });
+    }
+  }
+  return out;
+}
+
+/** Fan time ratios (C-TIME-40) due within ±`windowDays` of `asOf`. */
+export function readFanTimeRatios(bars: Bar[], asOf: Date, windowDays = 2): NonNullable<SecondaryTimeReading["fanTimeRatios"]> {
+  if (bars.length < 20) return [];
+  const out: NonNullable<SecondaryTimeReading["fanTimeRatios"]> = [];
+  for (const { anchor, baseIntervalMs } of fanAnchors(bars)) {
+    if (baseIntervalMs === null || baseIntervalMs <= 0) continue;
+    for (const { label, ratio } of FAN_TIME_RATIOS) {
+      const at = Date.parse(anchor.bar.t) + ratio * baseIntervalMs;
+      if (Math.abs(at - asOf.getTime()) <= windowDays * DAY_MS) {
+        out.push({ label, anchorKind: anchor.kind, date: new Date(at).toISOString().slice(0, 10) });
+      }
+    }
+  }
+  return out;
+}
+
+function retracementTiming(daily: Bar[]): Pick<SecondaryTimeReading, "retracementTiming" | "halfPriceHalfTime"> {
+  const hits = readRetracementTimingHits(daily);
+  const last = daily.length > 0 ? Date.parse(daily[daily.length - 1].t) : 0;
+  const strip = (h: RetracementTimingHit & { windowEnd: number }): RetracementTimingHit => ({
+    label: h.label,
+    angle: h.angle,
+    anchorKind: h.anchorKind,
+    level: h.level,
+    date: h.date,
+  });
+  const half = hits
+    .filter((h) => h.label === "1/2" && last - Date.parse(`${h.date}T00:00:00Z`) <= HALF_PRICE_HALF_TIME_DAYS * DAY_MS)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
   return {
+    // Still inside the angle's time window on the last bar: the turn it argues for is now.
+    retracementTiming: hits.filter((h) => h.windowEnd >= last).map(strip),
+    halfPriceHalfTime: half ? strip(half) : null,
+  };
+}
+
+/** Every retracement level reached inside its paired angle's time window, from the fans' anchors. */
+export function readRetracementTimingHits(bars: Bar[]): (RetracementTimingHit & { windowEnd: number })[] {
+  if (bars.length < 20) return [];
+  const out: (RetracementTimingHit & { windowEnd: number })[] = [];
+  for (const { anchor, preceding, baseIntervalMs } of fanAnchors(bars)) {
+    if (!preceding || baseIntervalMs === null || baseIntervalMs <= 0) continue;
+    const range = Math.abs(anchor.price - preceding.price);
+    if (range <= 0) continue;
+    const t0 = Date.parse(anchor.bar.t);
+    const tol = Math.max(DAY_MS, baseIntervalMs / 16);
+    // From a low the counter-move rises back into the fall; from a high it falls.
+    const sign = anchor.kind === "low" ? 1 : -1;
+    for (const p of RETRACEMENT_ANGLE_PAIRS) {
+      const level = anchor.price + sign * p.fraction * range;
+      const due = t0 + (p.fraction / p.ratio) * baseIntervalMs;
+      for (let i = anchor.index + 1; i < bars.length; i++) {
+        const t = Date.parse(bars[i].t);
+        if (t < due - tol) continue;
+        if (t > due + tol) break;
+        if (bars[i].l <= level && bars[i].h >= level) {
+          out.push({ label: p.label, angle: p.angle, anchorKind: anchor.kind, level, date: bars[i].t.slice(0, 10), windowEnd: due + tol });
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+export function readSecondaryTime(
+  daily: Bar[],
+  monthly: Bar[] | null | undefined,
+  asOf: Date,
+  counterMove: CounterMoveReading | null = null,
+): SecondaryTimeReading {
+  return {
+    shortCounterMove:
+      counterMove?.inCounterMove && counterMove.tradingDays !== undefined
+        ? { trend: counterMove.trend, tradingDays: counterMove.tradingDays, phase: shortCounterMovePhase(counterMove.tradingDays) }
+        : null,
+    timeBalanceSpans: readTimeBalanceSpans(daily),
+    fanTimeRatios: readFanTimeRatios(daily, asOf),
+    ...retracementTiming(daily),
     dayCounts: readSecondaryDayCounts(daily),
     weekCounts: readSecondaryWeekCounts(daily, asOf),
     circleDivisions: readCircleDivisions(daily, asOf),
@@ -243,5 +443,19 @@ export function describeSecondaryTime(r: SecondaryTimeReading): string[] {
   if (r.seasonalFineStep) {
     lines.push(`${r.seasonalFineStep.degrees}° of the seasonal circle from March 21 (${r.seasonalFineStep.date}): a finer seasonal step. Shown for context; it does not change the setup.`);
   }
+  const scm = r.shortCounterMove;
+  if (scm && scm.phase !== "normal") {
+    const note = { pastFourthDay: "past its 4th day, a sign of consolidation or a reversal", sevenToTen: "in the 7-10 day length of a second counter-move", longer: "longer than 10 days" }[scm.phase];
+    lines.push(`Counter-move against the ${scm.trend} trend: ${scm.tradingDays} trading days, ${note}. Shown for context; it does not change the setup.`);
+  }
+  for (const b of r.timeBalanceSpans ?? []) {
+    lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due. Shown for context; it does not change the setup.`);
+  }
+  const rt = r.retracementTiming?.[0];
+  if (rt) lines.push(`The ${rt.label} retracement (${rt.level.toFixed(2)}) was reached ${rt.date}, at the time the ${rt.angle} angle from the ${rt.anchorKind} gives: a turn is likelier. Shown for context; it does not change the setup.`);
+  const hp = r.halfPriceHalfTime;
+  if (hp) lines.push(`Half the range was retraced at half the time on ${hp.date}; a fast move of up to three months can follow. Shown for context; it does not change the setup.`);
+  const fan = r.fanTimeRatios?.[0];
+  if (fan) lines.push(`The ${fan.label} time ratio from the last ${fan.anchorKind} comes due ${fan.date}. Shown for context; it does not change the setup.`);
   return lines;
 }

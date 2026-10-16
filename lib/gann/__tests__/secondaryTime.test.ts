@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
+  FAN_TIME_RATIOS,
   cycleFractions,
+  describeSecondaryTime,
+  readSecondaryTime,
+  readFanTimeRatios,
+  readRetracementTimingHits,
+  readTimeBalanceSpans,
+  shortCounterMovePhase,
   readCircleDivisions,
   readCycleFractions,
   readSeasonalFineStep,
@@ -160,5 +167,129 @@ describe("the class C time counts stay context", () => {
     const ctx = readDisclosedRules(withPivotLow(20), 115, null, after(165));
     expect(contextFactorsFor(ctx, "bullish", 115).circleDivisionWithTrade).toBe(true);
     expect(contextFactorsFor(ctx, "bearish", 115).circleDivisionWithTrade).toBe(false);
+  });
+});
+
+/** Daily bars from 2026-01-01 built from (days, step) legs. */
+function legs(spec: [number, number][], start = 100): Bar[] {
+  const closes: number[] = [start];
+  let c = start;
+  for (const [n, step] of spec) for (let i = 0; i < n; i++) closes.push((c += step));
+  return closes.map((x, i) => ({ t: new Date(Date.UTC(2026, 0, 1) + i * DAY).toISOString(), o: x, h: x + 0.5, l: x - 0.5, c: x, v: 1000 }));
+}
+
+describe("short counter-moves (C-TIME-25, W003 p.22)", () => {
+  it("reads a 5-day counter-move as past its 4th day and a 7-10-day one as the next counter-move's length", () => {
+    expect([1, 3, 4].map(shortCounterMovePhase)).toEqual(["normal", "normal", "normal"]);
+    expect([5, 6].map(shortCounterMovePhase)).toEqual(["pastFourthDay", "pastFourthDay"]);
+    expect([7, 10].map(shortCounterMovePhase)).toEqual(["sevenToTen", "sevenToTen"]);
+    expect(shortCounterMovePhase(11)).toBe("longer");
+  });
+
+  it("counts the open counter-move in trading days, on the live scan and the replay's shared reader", () => {
+    const ctx = readDisclosedRules(legs([[40, 1], [5, -1]]), 135, null, new Date(Date.UTC(2026, 1, 15)));
+    expect(ctx.secondaryTime?.shortCounterMove).toEqual({ trend: "bullish", tradingDays: 5, phase: "pastFourthDay" });
+    expect(contextFactorsFor(ctx, "bullish", 135)).toMatchObject({ counterMovePastFourthDay: true, counterMoveSevenToTen: false });
+    // A short's trend is not the one this counter-move runs against.
+    expect(contextFactorsFor(ctx, "bearish", 135).counterMovePastFourthDay).toBeUndefined();
+    expect(describeDisclosedRules(ctx).some((l) => l.includes("5 trading days, past its 4th day"))).toBe(true);
+    expect(readDisclosedRules(legs([[40, 1], [3, -1]]), 137).secondaryTime?.shortCounterMove?.phase).toBe("normal");
+  });
+});
+
+describe("time balance from top to top and bottom to bottom (C-TIME-42, W032)", () => {
+  // Tops at days 30 and 80 (50 days, about 7.1 weeks apart); the last bottom at day 100.
+  const swing = (n: number) => legs([[30, 1], [20, -1], [30, 1], [20, -1], [n, 1]]);
+
+  it("points to a top when the open span since the last top balances the last top-to-top span within a week", () => {
+    for (const n of [23, 30, 37]) expect(readTimeBalanceSpans(swing(n)).map((b) => b.kind)).toEqual(["top"]);
+    for (const n of [15, 40]) expect(readTimeBalanceSpans(swing(n))).toEqual([]);
+  });
+
+  it("measures against the last top-to-top span, not an earlier one", () => {
+    // Tops at days 30, 70 and 110: each span is 40 days, first to last 80.
+    const three = (n: number) => legs([[30, 1], [20, -1], [20, 1], [10, -1], [30, 1], [20, -1], [n, 1]]);
+    expect(readTimeBalanceSpans(three(20)).map((b) => b.kind)).toEqual(["top"]);
+    expect(readTimeBalanceSpans(three(60))).toEqual([]);
+  });
+
+  it("does not look for a bottom while the swing runs up from one", () => {
+    // Day 100 + 50 would balance bottom to bottom, but the last turn is a bottom.
+    expect(readTimeBalanceSpans(swing(50)).some((b) => b.kind === "bottom")).toBe(false);
+  });
+
+  it("counts a top due against a long and not against a short", () => {
+    const b = swing(30);
+    const ctx = readDisclosedRules(b, b[b.length - 1].c, null, new Date(b[b.length - 1].t));
+    expect(contextFactorsFor(ctx, "bullish", 150).timeBalanceTurnAgainstTrade).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 150).timeBalanceTurnAgainstTrade).toBe(false);
+  });
+});
+
+describe("the fan as a time calculator (C-TIME-40, W033 pp.1-3)", () => {
+  // The fans' low anchor is day 50, after a 20-day fall from the day-30 high.
+  const b = legs([[30, 1], [20, -1], [10, 1]]);
+  const lowMs = Date.UTC(2026, 0, 1) + 50 * DAY;
+
+  it("projects every ratio from 1x8 to 8x1 of the anchor swing's duration", () => {
+    expect(FAN_TIME_RATIOS.map((r) => r.ratio)).toEqual([1 / 8, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3, 4, 8]);
+    const due = (days: number) => readFanTimeRatios(b, new Date(lowMs + days * DAY)).map((h) => h.label);
+    expect(due(2.5)).toContain("1x8");
+    expect(due(20 / 3)).toContain("1x3");
+    expect(due(60)).toEqual(["3x1"]);
+    expect(due(160)).toEqual(["8x1"]);
+    expect(due(100)).toEqual([]);
+    const lines = describeSecondaryTime(readSecondaryTime(b, null, new Date(lowMs + 60 * DAY)));
+    expect(lines.some((l) => l.startsWith("The 3x1 time ratio from the last low comes due"))).toBe(true);
+  });
+
+  it("leaves the scored fan angles' own list alone", () => {
+    expect(ANGLES.map((a) => a.label)).toEqual(["1x4", "1x2", "1x1", "2x1", "4x1"]);
+  });
+});
+
+describe("a retracement reached at its angle's time (C-TIME-39, W031) and half the range at half the time (C-TIME-23, W003)", () => {
+  // A high at day 10, a 20-day fall to a low at day 30 (range 21), then a rise of `step` a day for `n` days.
+  const swing = (step: number, n: number) => legs([[10, 1], [20, -1], [n, step]]);
+
+  it("flags the 50% level reached on the date the 1x1 gives", () => {
+    const hits = readRetracementTimingHits(swing(1, 10));
+    expect(hits.map((h) => `${h.label} ${h.angle} ${h.date}`)).toEqual(["1/2 1x1 2026-02-10"]);
+  });
+
+  it("does not flag the 50% level reached on another date, and pairs 3/8 with the 1x2", () => {
+    // At half the speed, 50% comes at day 20 of the rise, outside the 1x1's window;
+    // 3/8 then comes at day 15, which is the 1x2's own time.
+    const hits = readRetracementTimingHits(swing(0.5, 25));
+    expect(hits.some((h) => h.label === "1/2")).toBe(false);
+    expect(hits.map((h) => `${h.label} ${h.angle}`)).toEqual(["3/8 1x2"]);
+    expect(readRetracementTimingHits(swing(1, 25)).some((h) => h.label === "3/8")).toBe(false);
+  });
+
+  it("allows a sixteenth of the swing's time either side, not more", () => {
+    // Two slow days first: 50% is reached two days after the 1x1's date, outside ±1.25 days.
+    const late = legs([[10, 1], [20, -1], [2, 0.1], [15, 1]]);
+    expect(readRetracementTimingHits(late).some((h) => h.label === "1/2")).toBe(false);
+  });
+
+  it("is current only while the angle's window is open, while the half-and-half meeting is kept for 90 days", () => {
+    const now = readSecondaryTime(swing(1, 10), null, new Date(Date.UTC(2026, 1, 10)));
+    expect(now.retracementTiming?.map((h) => h.label)).toEqual(["1/2"]);
+    expect(now.halfPriceHalfTime?.date).toBe("2026-02-10");
+    const later = readSecondaryTime(swing(1, 30), null, new Date(Date.UTC(2026, 2, 2)));
+    expect(later.retracementTiming).toEqual([]);
+    expect(later.halfPriceHalfTime?.date).toBe("2026-02-10");
+    const b = legs([[10, 1], [20, -1], [10, 1], [100, 0.01]]);
+    expect(readSecondaryTime(b, null, new Date(b[b.length - 1].t)).halfPriceHalfTime).toBeNull();
+  });
+
+  it("counts a turn due against the trade and records it on the card", () => {
+    const b = swing(1, 10);
+    const ctx = readDisclosedRules(b, 100, null, new Date(b[b.length - 1].t));
+    expect(contextFactorsFor(ctx, "bullish", 100)).toMatchObject({ retracementTurnAgainstTrade: true, halfPriceHalfTimeRecent: true });
+    expect(contextFactorsFor(ctx, "bearish", 100).retracementTurnAgainstTrade).toBe(false);
+    const lines = describeDisclosedRules(ctx);
+    expect(lines.some((l) => l.startsWith("The 1/2 retracement (100.00) was reached 2026-02-10, at the time the 1x1 angle"))).toBe(true);
+    expect(lines.some((l) => l.startsWith("Half the range was retraced at half the time on 2026-02-10"))).toBe(true);
   });
 });
