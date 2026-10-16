@@ -467,8 +467,10 @@ export function isTriggered(side: "buy" | "sell", limitPrice: number, market: nu
  * keep that reading until they fill or are cancelled. Read as limits they
  * would fill on the first poll, below the trigger they were placed at. Three
  * such rows were resting in production on 2026-10-15, all from 2026-08-29.
+ * The cutover is the merge to production (2026-10-16): no paper entry was
+ * placed between the first cutover and the merge (checked read-only).
  */
-export const REACTION_LIMIT_CUTOVER = "2026-10-15T19:00:00Z";
+export const REACTION_LIMIT_CUTOVER = "2026-10-16T20:30:00Z";
 
 /** `isTriggered` for a resting row, honouring `REACTION_LIMIT_CUTOVER`. */
 export function isRestingOrderTriggered(
