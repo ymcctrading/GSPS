@@ -36,10 +36,41 @@ export interface FanLine {
    * a Tier B source, not Gann's own book/course voice.
    */
   timeProjectionDate: string | null;
+  /** The angle's rank (`angleRank`): 1 for the 1x1, then the 2x1s. */
+  rank: number;
 }
 
 /** Exported for `lib/gann/normalizedSlope.ts`, which classifies an already-realized slope against this same ratio set. */
 export const ANGLES: { label: string; ratio: number }[] = PATTERN_ANGLES;
+
+/**
+ * C-LEVELS-09: the order Gann ranks his angles in. The 1x1 is "first and
+ * always most important" (Master Course Ch.4 PDF 125); "draw the 45° first,
+ * then the 2x1s, then 4x1 and 8x1" (PDF 55). Each angle ranks with its
+ * mirror. The 3x1 ranks with the 4x1 ("I strongly advise using it at all
+ * times", PDF 127-129) and the 16x1 last (1929-type markets, PDF 125-127); placing
+ * those two is an engineering reading of the order. Context only: the rank
+ * moves no level, score or gate.
+ */
+export function angleRank(label: string): number {
+  switch (label) {
+    case "1x1":
+      return 1;
+    case "2x1":
+    case "1x2":
+      return 2;
+    case "4x1":
+    case "1x4":
+    case "3x1":
+    case "1x3":
+      return 3;
+    case "8x1":
+    case "1x8":
+      return 4;
+    default:
+      return 5;
+  }
+}
 
 /** One Gann point per bar: the price unit every angle here is drawn in. */
 export function angleUnit(bars: Bar[]): number {
@@ -102,6 +133,7 @@ export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
         anchor: { price: anchor.price, index: anchor.index, kind: anchor.kind },
         role: levelRole(currentPrice, price),
         timeProjectionDate,
+        rank: angleRank(label),
       });
     }
   }
