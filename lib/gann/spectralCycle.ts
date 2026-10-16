@@ -29,6 +29,8 @@
  * those seven honestly and numerically (dominance, repetition count, and
  * constancy of period via a split-half re-estimate) and reports the other
  * four as explicitly not computed, rather than implying full validation.
+ * The scan's reading stays that way; `validateCycle` (below) tests regularity
+ * of timing and phase resumption, among others, for research only.
  *
  * Method: for a range of candidate periods, project the (linearly
  * detrended) closing-price series onto a sine/cosine pair at that period's
@@ -328,4 +330,297 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
         ? `The strongest peak (~${result.period} bars) sits at the longest period scanned: leftover trend, not a cycle. ${NOT_COMPUTED_NOTE}`
         : `No candidate cycle cleared the dominance threshold (best: ~${result.period} bars at ${dominance.toFixed(2)}x mean power, threshold ${DOMINANCE_THRESHOLD}x). ${NOT_COMPUTED_NOTE}`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Dewey-standard validation tools (CYC-06, -10, -22, -25, -26, -34, -37, -45,
+// -46). Research and validation only: `validateCycle` is never called on the
+// scan path (so it adds no time to a scan) and nothing it returns can reach a
+// criterion, a gate, a plan or an order (`criteria-gate.test.ts`).
+//
+// Sources: Dewey, *The Case for Cycles* (1967), and Dewey & Dakin, *Cycles:
+// The Science of Prediction* (1947), as summarised in
+// `docs/memory-bank/sources/C06_dewey_case_for_cycles.md`: check homogeneity
+// first; every estimate carries its uncertainty; persistence after discovery;
+// phase resumption after a distortion (crests back within about ±9% of the
+// period); forced cycles both persist and resume phase, free ones don't;
+// crest spacing tested against chance, and its regularity; beats between
+// near-equal periods.
+//
+// Three-question basis:
+// 1. Gann: the module's own source (Tunnel Ch. VII-VIII, harmonic analysis);
+//    these tools test whether a cycle that method finds is real.
+// 2. Cycles: this is Dewey's checklist itself, items noted inline.
+// 3. Hermetic: Rhythm, tested rather than assumed, and Cause and Effect
+//    (a forced cycle has a cause that resets its phase; a free one doesn't).
+//
+// Engineering choices, labelled as such (Dewey gives the tests, not these
+// numbers): the homogeneity ratio of 2, the half-power width as the period's
+// interval, the 40-60% interior block, 39 null periods and 99 surrogates,
+// the 5x-median one-bar shock, the half-of-crests resumption rule, the ±20%
+// regularity band and the 25% beat band.
+
+export interface CycleValidation {
+  /** Dominant period of the detrended log series, in bars. */
+  period: number | null;
+  /** CYC-46: ratio of the halves' squared median absolute returns; homogeneous at 2 or under. */
+  homogeneity: { varianceRatio: number; homogeneous: boolean };
+  /** CYC-34: the peak's half-power width, read as the period's interval (Rayleigh resolution, not a bootstrap). */
+  periodCi: [number, number] | null;
+  /** CYC-45: |best period on the last 30% − period fitted on the first 70%| / the fitted period. */
+  holdoutPeriodError: number | null;
+  /** CYC-10: the 40-60% block withheld, predicted from the fit around it, against 39 other periods. */
+  interiorHoldout: { correlation: number; nullP: number } | null;
+  /** CYC-06: crests after the largest one-bar shock against the pre-shock cycle's own period and phase, within ±9% of it. */
+  phaseResumption: { shockStart: number; shockEnd: number; crestsTested: number; crestsWithin: number; resumed: boolean } | null;
+  /** CYC-22: forced when the period survives a trimmed window and the phase resumes; free when either fails. */
+  forcedOrFree: "forced" | "free" | null;
+  /** CYC-25: coefficient of variation of crest intervals, against shuffled-return surrogates (small p = not random). */
+  intervalRandomness: { intervals: number; cv: number; p: number } | null;
+  /** CYC-26: share of crest intervals within ±20% of the period, 0-100. */
+  regularityPct: number | null;
+  /** CYC-37: two near-equal spectral peaks and the beat period between them. */
+  beats: { periods: [number, number]; beatPeriod: number } | null;
+  hypothesisOnly: true;
+}
+
+const PHASE_TOLERANCE = 0.09;
+const HOMOGENEITY_MAX_RATIO = 2;
+const NULL_PERIODS = 39;
+const SURROGATES = 99;
+
+function seeded(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/** Power, line and harmonic fit over chosen bar indices (for a series with a withheld block). */
+function detrendAt(values: number[], idx: number[]): number[] {
+  const mx = idx.reduce((s, i) => s + i, 0) / idx.length;
+  const my = idx.reduce((s, i) => s + values[i], 0) / idx.length;
+  let num = 0;
+  let den = 0;
+  for (const i of idx) {
+    num += (i - mx) * (values[i] - my);
+    den += (i - mx) ** 2;
+  }
+  const slope = den ? num / den : 0;
+  return values.map((v, i) => v - (my + slope * (i - mx)));
+}
+function fitAt(values: number[], idx: number[], period: number): { a: number; b: number; power: number } {
+  const w = (2 * Math.PI) / period;
+  let a = 0;
+  let b = 0;
+  for (const i of idx) {
+    a += values[i] * Math.cos(w * i);
+    b += values[i] * Math.sin(w * i);
+  }
+  return { a: (2 * a) / idx.length, b: (2 * b) / idx.length, power: (a * a + b * b) / idx.length };
+}
+
+/** Crests: bars that are the highest within half a period either side. */
+function crests(values: number[], period: number): number[] {
+  const h = Math.max(1, Math.floor(period / 2));
+  const out: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    let top = true;
+    for (let j = Math.max(0, i - h); j <= Math.min(values.length - 1, i + h) && top; j++) if (values[j] > values[i]) top = false;
+    if (top && (out.length === 0 || i - out[out.length - 1] > h)) out.push(i);
+  }
+  return out;
+}
+const intervalsOf = (cs: number[]) => cs.slice(1).map((c, k) => c - cs[k]);
+const cvOf = (xs: number[]) => {
+  const m = xs.reduce((s, v) => s + v, 0) / xs.length;
+  const sd = Math.sqrt(xs.reduce((s, v) => s + (v - m) ** 2, 0) / xs.length);
+  return m > 0 ? sd / m : 0;
+};
+
+export function validateCycle(dailyBars: Bar[], seed = 1): CycleValidation {
+  const empty = (homogeneity: CycleValidation["homogeneity"], period: number | null = null): CycleValidation => ({
+    period,
+    homogeneity,
+    periodCi: null,
+    holdoutPeriodError: null,
+    interiorHoldout: null,
+    phaseResumption: null,
+    forcedOrFree: null,
+    intervalRandomness: null,
+    regularityPct: null,
+    beats: null,
+    hypothesisOnly: true,
+  });
+  const n = dailyBars.length;
+  const logs = dailyBars.map((b) => Math.log(Math.max(b.c, 1e-9)));
+  const returns = logs.slice(1).map((v, i) => v - logs[i]);
+  if (n < MIN_BARS) return empty({ varianceRatio: 1, homogeneous: false });
+
+  // CYC-46: homogeneity first. Squared median absolute return per half, so a
+  // single jump (the shock CYC-06 looks for) doesn't count as a change of scale.
+  const half = Math.floor(returns.length / 2);
+  const scale = (xs: number[]) => median(xs.map(Math.abs)) ** 2;
+  const s1 = scale(returns.slice(0, half));
+  const s2 = scale(returns.slice(half));
+  const varianceRatio = Math.min(s1, s2) > 0 ? Math.max(s1, s2) / Math.min(s1, s2) : s1 === s2 ? 1 : Infinity;
+  const homogeneity = { varianceRatio: Math.round(varianceRatio * 100) / 100, homogeneous: varianceRatio <= HOMOGENEITY_MAX_RATIO };
+  if (!homogeneity.homogeneous) return empty(homogeneity);
+
+  const detrended = linearDetrend(logs);
+  const maxPeriod = Math.floor(n * MAX_PERIOD_FRACTION);
+  const peak = dominantPeriod(detrended, maxPeriod);
+  if (!peak || peak.power <= 0) return empty(homogeneity);
+  const P = peak.period;
+  const out = empty(homogeneity, P);
+
+  // CYC-34: half-power width of the peak, on a fine grid.
+  const fine = (p: number) => periodPower(detrended, p);
+  const top = Math.max(...[-0.5, -0.25, 0, 0.25, 0.5].map((d) => fine(P + d)));
+  let lo = P;
+  let hi = P;
+  while (lo > MIN_PERIOD_BARS && fine(lo - 0.05) >= top / 2) lo -= 0.05;
+  while (hi < maxPeriod && fine(hi + 0.05) >= top / 2) hi += 0.05;
+  out.periodCi = [Math.round(lo * 100) / 100, Math.round(hi * 100) / 100];
+
+  // CYC-45: the period's error on the 70/30 hold-out.
+  const cut = Math.floor(n * 0.7);
+  const train = linearDetrend(logs.slice(0, cut));
+  const trainPeak = dominantPeriod(train, Math.floor(cut * MAX_PERIOD_FRACTION));
+  if (trainPeak && n - cut >= 10) {
+    const test = linearDetrend(logs.slice(cut));
+    let best = trainPeak.period;
+    let bestR = -Infinity;
+    for (let p = trainPeak.period * 0.7; p <= trainPeak.period * 1.3; p += 0.1) {
+      const { a, b } = harmonicFit(train, p);
+      const w = (2 * Math.PI) / p;
+      const r = correlation(test.map((_, k) => a * Math.cos(w * (cut + k)) + b * Math.sin(w * (cut + k))), test);
+      if (r > bestR) {
+        bestR = r;
+        best = p;
+      }
+    }
+    out.holdoutPeriodError = Math.round((Math.abs(best - trainPeak.period) / trainPeak.period) * 1000) / 1000;
+  }
+
+  // CYC-10: withhold the 40-60% block; fit on both sides; predict the block.
+  const b0 = Math.floor(n * 0.4);
+  const b1 = Math.floor(n * 0.6);
+  const rest = Array.from({ length: n }, (_, i) => i).filter((i) => i < b0 || i >= b1);
+  const block = Array.from({ length: b1 - b0 }, (_, k) => b0 + k);
+  const dRest = detrendAt(logs, rest);
+  let restP = MIN_PERIOD_BARS;
+  let restPow = -Infinity;
+  for (let p = MIN_PERIOD_BARS; p <= maxPeriod; p++) {
+    const pw = fitAt(dRest, rest, p).power;
+    if (pw > restPow) {
+      restPow = pw;
+      restP = p;
+    }
+  }
+  const blockCorr = (p: number) => {
+    const { a, b } = fitAt(dRest, rest, p);
+    const w = (2 * Math.PI) / p;
+    return correlation(block.map((i) => a * Math.cos(w * i) + b * Math.sin(w * i)), block.map((i) => dRest[i]));
+  };
+  const observed = blockCorr(restP);
+  let beaten = 0;
+  for (let k = 0; k < NULL_PERIODS; k++) {
+    let p = MIN_PERIOD_BARS * Math.pow(maxPeriod / MIN_PERIOD_BARS, (k + 0.5) / NULL_PERIODS);
+    if (Math.abs(p - restP) / restP < 0.1) p = restP * (p < restP ? 0.85 : 1.15);
+    if (blockCorr(p) >= observed) beaten++;
+  }
+  out.interiorHoldout = { correlation: Math.round(observed * 100) / 100, nullP: Math.round(((1 + beaten) / (1 + NULL_PERIODS)) * 1000) / 1000 };
+
+  // CYC-06: the largest one-bar move, if it stands out (5x the median move),
+  // is the shock. The cycle established before it (its own period and phase)
+  // is projected past it, and each crest after it is tested within ±9% of
+  // that period.
+  const absR = returns.map(Math.abs);
+  const medR = median(absR);
+  let s = 0;
+  absR.forEach((v, i) => {
+    if (v > absR[s]) s = i;
+  });
+  const shockStart = s + 1;
+  const shockEnd = shockStart + 1;
+  const preIdx = Array.from({ length: shockStart }, (_, i) => i);
+  const prePeak = shockStart >= MIN_BARS ? dominantPeriod(detrendAt(logs, preIdx).slice(0, shockStart), Math.floor(shockStart * MAX_PERIOD_FRACTION)) : null;
+  if (medR > 0 && absR[s] >= 5 * medR && prePeak && n - shockEnd >= 2 * prePeak.period) {
+    const Pp = prePeak.period;
+    const { a, b } = fitAt(detrendAt(logs, preIdx), preIdx, Pp);
+    const phi = Math.atan2(b, a);
+    const postIdx = Array.from({ length: n - shockEnd }, (_, k) => shockEnd + k);
+    const dPost = detrendAt(logs, postIdx);
+    let tested = 0;
+    let within = 0;
+    const base = (phi / (2 * Math.PI)) * Pp;
+    for (let c = Math.ceil((shockEnd - base) / Pp); ; c++) {
+      const proj = base + c * Pp;
+      const from = Math.round(proj - Pp / 2);
+      const to = Math.round(proj + Pp / 2);
+      if (from < shockEnd) continue;
+      if (to >= n) break;
+      let arg = from;
+      for (let i = from; i <= to; i++) if (dPost[i] > dPost[arg]) arg = i;
+      tested++;
+      if (Math.abs(arg - proj) <= PHASE_TOLERANCE * Pp) within++;
+    }
+    if (tested > 0) out.phaseResumption = { shockStart, shockEnd, crestsTested: tested, crestsWithin: within, resumed: within / tested >= 0.5 };
+  }
+
+  // CYC-22: forced = persists (the period survives a trimmed window) and resumes phase.
+  if (out.phaseResumption) {
+    const trimmed = logs.slice(Math.floor(n * 0.1));
+    const tp = dominantPeriod(linearDetrend(trimmed), Math.floor(trimmed.length * MAX_PERIOD_FRACTION));
+    const persists = !!tp && Math.abs(tp.period - P) / P <= PERIOD_CONSISTENCY_TOLERANCE;
+    out.forcedOrFree = persists && out.phaseResumption.resumed ? "forced" : "free";
+  }
+
+  // CYC-25 / CYC-26: crest spacing against shuffled-return surrogates, and its regularity.
+  const iv = intervalsOf(crests(detrended, P));
+  if (iv.length >= 3) {
+    const cv = cvOf(iv);
+    const rnd = seeded(seed);
+    let asRegular = 0;
+    for (let k = 0; k < SURROGATES; k++) {
+      const sh = [...returns];
+      for (let i = sh.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [sh[i], sh[j]] = [sh[j], sh[i]];
+      }
+      let x = logs[0];
+      const series = [x, ...sh.map((r) => (x += r))];
+      const siv = intervalsOf(crests(linearDetrend(series), P));
+      if (siv.length >= 2 && cvOf(siv) <= cv) asRegular++;
+    }
+    out.intervalRandomness = { intervals: iv.length, cv: Math.round(cv * 1000) / 1000, p: Math.round(((1 + asRegular) / (1 + SURROGATES)) * 1000) / 1000 };
+    out.regularityPct = Math.round((iv.filter((d) => Math.abs(d - P) <= 0.2 * P).length / iv.length) * 100);
+  }
+
+  // CYC-37: two spectral peaks within 25% of each other, with a dip between.
+  const grid: { p: number; pw: number }[] = [];
+  for (let p = MIN_PERIOD_BARS; p <= maxPeriod; p += 0.25) grid.push({ p, pw: periodPower(detrended, p) });
+  const peaks = grid.filter((g, i) => i > 0 && i < grid.length - 1 && g.pw > grid[i - 1].pw && g.pw >= grid[i + 1].pw).sort((x, y) => y.pw - x.pw);
+  if (peaks.length >= 2) {
+    const [p1, p2] = peaks;
+    const [a, b] = p1.p < p2.p ? [p1, p2] : [p2, p1];
+    const between = grid.filter((g) => g.p > a.p && g.p < b.p);
+    const dip = between.length ? Math.min(...between.map((g) => g.pw)) : Infinity;
+    if (p2.pw >= 0.5 * p1.pw && (b.p - a.p) / a.p <= 0.25 && dip < 0.5 * Math.min(a.pw, b.pw)) {
+      out.beats = { periods: [a.p, b.p], beatPeriod: Math.round(1 / Math.abs(1 / a.p - 1 / b.p)) };
+    }
+  }
+
+  return out;
 }
