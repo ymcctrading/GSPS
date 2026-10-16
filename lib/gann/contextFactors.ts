@@ -242,9 +242,10 @@ export function contextFactorsFor(
     f.entryOnDayCircleMajor = r.majorDegree !== null;
     if (unit) f.entryPriceOnDayTimeAngle = r.priceOnTimeAngle;
   }
-  // Gann's planetary rules and Jensen's square of 90 (`astroRules.ts`):
-  // research context, measured here and never gating. Only the close through a
-  // planet's longitude has a direction in Gann's text.
+  // Gann's planetary rules and Jensen's method (`astroRules.ts`, `jensen.ts`):
+  // measured here. The levels act through the S/R list and the dated readings
+  // through the shared time-window mechanism once it exists. Only the close
+  // through a planet's longitude has a direction in Gann's text.
   const astro = ctx.astro;
   if (astro) {
     f.astroOnActiveAngle = astro.activeAngles.length > 0;
@@ -258,6 +259,14 @@ export function contextFactorsFor(
     f.astroLunarReturnFromPivot = astro.lunarReturn !== null;
     f.jensenSquareOf90Price = astro.jensen.price !== null;
     f.jensenSquareOf90Time = astro.jensen.time !== null;
+    // Jensen's slow-planet aspects: the square family bearish, the trine
+    // family bullish (`jensen.ts`). Read only when one family outnumbers the other.
+    const bias = astro.jensen.aspects.bias;
+    if (bias === "bullish" || bias === "bearish") f.jensenAspectsWithTrade = bias === (bull ? "bullish" : "bearish");
+    f.jensenAspectTriggered = astro.jensen.aspects.triggered;
+    // Jensen's projection: price has reached the estimated exhaustion of the move, within his one point.
+    const proj = astro.jensen.projection;
+    if (proj) f.jensenAtProjectedExhaustion = proj.direction === "up" ? price >= proj.price - astro.unit : price <= proj.price + astro.unit;
   }
   return f;
 }

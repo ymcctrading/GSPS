@@ -59,4 +59,8 @@
 // lib/gann/astroRules.ts#activeAngleLevels and masterLevels.ts; and the nearest
 // point of Jensen's square of 90 above and below price (jensenLevels), on the
 // placement recommended to the owner, who places Jensen item by item.
-export const STRATEGY_VERSION = "2026-10-16-active-angle-jensen-levels";
+// Same day (owner: "Determine the best way to use Jensen work", delegating the
+// placement): Jensen's square of 90 is laid at the high as well as the low,
+// repeats past 90 points, and includes the 7½ and 15 trine points
+// (lib/gann/jensen.ts), so the Jensen levels move again.
+export const STRATEGY_VERSION = "2026-10-16-jensen-square-high-and-low";

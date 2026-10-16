@@ -22,8 +22,9 @@
  * - each of Jupiter, Saturn and Uranus contributes only its nearest active
  *   angle above and below price (`astroRules.ts#activeAngleLevels`; added
  *   2026-10-16 under the owner's "every Gann method acts");
- * - Jensen's square of 90 contributes its nearest point above and below price
- *   from the low of the daily bars (`astroRules.ts#jensenLevels`, 2026-10-16).
+ * - Jensen's square of 90 contributes its nearest point above and below price,
+ *   counted up from the daily bars' low and down from their high, across
+ *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16).
  *
  * The Gann point is fixed from the daily bars' extremes, and the extremes
  * are the longest history supplied (monthly plus daily), which Gann ranks
@@ -38,7 +39,8 @@ import type { Bar } from "@/lib/types";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { squareBoundaryLevels } from "@/lib/gann/masterCalculator";
 import { planetaryLevels } from "@/lib/gann/planetaryAverages";
-import { activeAngleLevels, jensenLevels } from "@/lib/gann/astroRules";
+import { activeAngleLevels } from "@/lib/gann/astroRules";
+import { jensenLevels } from "@/lib/gann/jensen";
 
 export interface MasterLevel {
   price: number;

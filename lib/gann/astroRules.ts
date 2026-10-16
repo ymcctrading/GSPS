@@ -16,10 +16,10 @@
  * targets. The time readings (Mars half-returns, the Sun's points, the Moon)
  * mark windows for a turn; they act once GSPS has one shared place where a
  * time window acts on the verdict (the parity plan's item 7), and until then
- * they are shown in the trace and measured as factors. Jensen's readings act
- * where the owner places them, item by item (AGENTS.md): his square of 90's
- * price points join the S/R list (`jensenLevels`) on the placement
- * recommended to him on 2026-10-16, and his time counts stay context. No source in the collection measures a planetary timing rule
+ * they are shown in the trace and measured as factors. Jensen's method is
+ * `jensen.ts`, with its placement decided there (2026-10-16): his square of
+ * 90's price points act as levels, and his time counts, slow-planet aspects
+ * and projection go to the same time-window mechanism. No source in the collection measures a planetary timing rule
  * against chance, so each one starts at zero evidence, and an inversion in
  * the replay is presumed a translation defect first.
  *
@@ -43,17 +43,15 @@
  *   replay compares the two.
  * - ASTRO-18, the Moon (A, Master Course Ch. 5): a New Moon, and the Moon
  *   returning to its place at the last swing pivot.
- * - J-2, Jensen's square of 90 (J, *Astro-Cycles and Speculative Markets*
- *   pp. 107-110): 5⅝, 11¼, 22½, 30, 45, 60, 67½, 75 and 90 points above the
- *   major low, and the same counts in days, weeks and months from the major
- *   high and low. Jensen's one-point penetration (J-5) is the tolerance.
+ * - Jensen (J-2, Section II, Section IV): read here from `jensen.ts` so the
+ *   trace and the factors see it; see that module for what is built.
  *
  * **Not built, and why:** ASTRO-2 (five scales, no rule to choose one; the
  * multiple-scale search AGENTS.md bars); ASTRO-7 (midpoints with no stated
  * use); ASTRO-9 (the "very important" month has no threshold); ASTRO-11
  * (one forecast is one sample); ASTRO-12/13 (displays with no rule); ASTRO-14
  * (no price scale); ASTRO-19 (a 29½-year return needs more history than the
- * scan reads); J-6 to J-10 (the notes record headings, not rules); the
+ * scan reads); the
  * cycles folder (nothing in it validates a planetary rule: Dewey's planetary
  * item is a coincidence of period, and Tomes separates physical periods from
  * aspect astrology). Withheld items (Section 4 of the spec) are not
@@ -86,6 +84,17 @@ import type { Bar } from "@/lib/types";
 import { ephemerisInstant, planetLongitudes, type Frame } from "@/lib/gann/planetaryAverages";
 import { CIRCLE_TOLERANCE } from "@/lib/gann/circleOf360";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import {
+  JENSEN_TIME_POINTS,
+  jensenPriceHit,
+  jensenProjection,
+  readJensenAspects,
+  type JensenAspectReading,
+  type JensenProjection,
+} from "@/lib/gann/jensen";
+
+// Jensen's rules live in `jensen.ts`; re-exported for existing callers.
+export { JENSEN_POINTS, JENSEN_SQUARE_POINTS, JENSEN_TOLERANCE, jensenLevels } from "@/lib/gann/jensen";
 
 const DAY_MS = 86_400_000;
 const SUN_DEG_PER_DAY = 360 / 365.2422;
@@ -95,10 +104,6 @@ const SYNODIC_DEG_PER_DAY = 360 / 29.5306;
 export const ACTIVE_BODIES = ["Jupiter", "Saturn", "Uranus"] as const;
 export const ACTIVE_ASPECTS = [0, 60, 90, 120, 135, 180] as const;
 export const WHEEL_ANGLES = [0, 90, 120, 180] as const;
-export const JENSEN_POINTS = [5.625, 11.25, 22.5, 30, 45, 60, 67.5, 75, 90] as const;
-/** 90 and 45 are "doubly strong"; the square points resist, the trine points consolidate. */
-export const JENSEN_SQUARE_POINTS = new Set([5.625, 11.25, 22.5, 45, 67.5, 90]);
-export const JENSEN_TOLERANCE = 1;
 export const NATURAL_ANGLE_DAYS = 7;
 export const MARS_DAYS = 2;
 const MARS_LOOKBACK_DAYS = 240;
@@ -195,10 +200,12 @@ export interface AstroReading {
   newMoon: { offsetDays: number } | null;
   /** ASTRO-18: the Moon back at its place at the last swing pivot, within a day. */
   lunarReturn: { pivotDate: string; offsetDays: number } | null;
-  /** J-2: Jensen's square of 90 from the major low, in price and time. */
+  /** Jensen (`jensen.ts`): the square of 90 in price and time, the slow-planet aspects, the projection. */
   jensen: {
-    price: { points: number; level: number; square: boolean } | null;
+    price: { points: number; from: "high" | "low"; level: number; square: boolean } | null;
     time: { from: "high" | "low"; unit: "days" | "weeks" | "months"; count: number; points: number } | null;
+    aspects: JensenAspectReading;
+    projection: JensenProjection | null;
   };
 }
 
@@ -255,35 +262,6 @@ export function activeAngleLevels(asOf: Date, price: number, unit: number): { pr
     if (below) out.push({ price: below.pts * unit, label: below.label });
     if (above) out.push({ price: above.pts * unit, label: above.label });
   }
-  return out;
-}
-
-/**
- * Jensen's square of 90 as price levels (J-2). Placed by the owner's 2026-10-01
- * decision that Jensen's astrology acts where he places it; the recommended
- * placement (price points as levels, time counts as context) was posted to him
- * on 2026-10-16 and is followed until he answers. Jensen calls the square
- * points resistance and the trine points consolidation, so both join the
- * support and resistance list. The low is the same one `readAstroRules`
- * measures from (the lowest low of the bars supplied). Engineering choice,
- * labelled as such: only the nearest point above and below price, so the list
- * stays sparse.
- */
-export function jensenLevels(bars: Bar[], price: number, unit: number): { price: number; label: string }[] {
-  if (bars.length === 0 || !(price > 0) || !(unit > 0)) return [];
-  const lowPts = bars[extremes(bars).lo].l / unit;
-  const pts = price / unit;
-  let above: number | null = null;
-  let below: number | null = null;
-  for (const p of JENSEN_POINTS) {
-    const level = lowPts + p;
-    if (level <= pts && (below === null || level > lowPts + below)) below = p;
-    if (level > pts && (above === null || level < lowPts + above)) above = p;
-  }
-  const label = (p: number) => `Jensen's square of 90: ${p} points above the low (${JENSEN_SQUARE_POINTS.has(p) ? "square point" : "trine point"})`;
-  const out: { price: number; label: string }[] = [];
-  if (below !== null) out.push({ price: (lowPts + below) * unit, label: label(below) });
-  if (above !== null) out.push({ price: (lowPts + above) * unit, label: label(above) });
   return out;
 }
 
@@ -391,21 +369,18 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroRead
     if (Math.abs(off) <= 1 && today - pt.getTime() > 20 * DAY_MS) lunarReturn = { pivotDate: iso(pt.getTime()), offsetDays: off };
   }
 
-  // J-2: Jensen's square of 90.
-  let jensenPrice: AstroReading["jensen"]["price"] = null;
-  for (const p of JENSEN_POINTS) {
-    const level = lowPts + p;
-    if (Math.abs(pts - level) <= JENSEN_TOLERANCE && (!jensenPrice || Math.abs(pts - level) < Math.abs(pts - jensenPrice.level / unit))) {
-      jensenPrice = { points: p, level: level * unit, square: JENSEN_SQUARE_POINTS.has(p) };
-    }
-  }
+  // J-2: Jensen's square of 90, up from the low and down from the high.
+  const hitPrice = jensenPriceHit(bars, last.c, unit);
+  const jensenPrice: AstroReading["jensen"]["price"] = hitPrice
+    ? { points: hitPrice.points, from: hitPrice.from, level: hitPrice.level, square: hitPrice.square }
+    : null;
   let jensenTime: AstroReading["jensen"]["time"] = null;
   for (const [from, t0] of [["low", lowT], ["high", highT]] as const) {
     const elapsed = (today - t0) / DAY_MS;
     if (elapsed <= 0) continue;
     for (const [u, per] of [["days", 1], ["weeks", 7], ["months", 30.4375]] as const) {
       const n = elapsed / per;
-      for (const p of JENSEN_POINTS) if (!jensenTime && Math.abs(n - p) <= 1 * (u === "days" ? 1 : 0.5)) jensenTime = { from, unit: u, count: Math.round(n), points: p };
+      for (const p of JENSEN_TIME_POINTS) if (!jensenTime && Math.abs(n - p) <= 1 * (u === "days" ? 1 : 0.5)) jensenTime = { from, unit: u, count: Math.round(n), points: p };
     }
   }
 
@@ -421,7 +396,7 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroRead
     solarPoint,
     newMoon,
     lunarReturn,
-    jensen: { price: jensenPrice, time: jensenTime },
+    jensen: { price: jensenPrice, time: jensenTime, aspects: readJensenAspects(asOf), projection: jensenProjection(bars, unit) },
   };
 }
 
@@ -444,7 +419,15 @@ export function describeAstroRules(r: AstroReading): string[] {
   if (r.newMoon) lines.push(`${tag}: New Moon within a day.`);
   if (r.lunarReturn) lines.push(`${tag}: the Moon is back at its place at the ${r.lunarReturn.pivotDate} swing pivot.`);
   const j = r.jensen;
-  if (j.price) lines.push(`Jensen's square of 90: price is ${j.price.points} points above the year's low (${j.price.level.toFixed(2)}), a ${j.price.square ? "square point, resistance" : "trine point, consolidation"}.`);
-  if (j.time) lines.push(`Jensen's square of 90: ${j.time.count} ${j.time.unit} from the year's ${j.time.from}, on the ${j.time.points} count.`);
+  if (j.price) lines.push(`Jensen's square of 90: price is ${j.price.points} points ${j.price.from === "low" ? "above the year's low" : "below the year's high"} (${j.price.level.toFixed(2)}), a ${j.price.square ? "square point, resistance" : "trine point, consolidation"}.`);
+  if (j.time) lines.push(`Jensen's square of 90: ${j.time.count} ${j.time.unit} from the year's ${j.time.from}, on the ${j.time.points} count, a window for a turn.`);
+  for (const h of j.aspects.hits) {
+    const read = h.aspect.family === "square" ? "bearish" : h.aspect.family === "trine" ? "bullish" : h.aspect.family === "quintile" ? "a reversal trigger" : "takes the planets' nature";
+    lines.push(
+      `Jensen: ${h.pair[0]} and ${h.pair[1]} are ${h.separation.toFixed(1)}° apart, his ${h.aspect.angle}° ${h.aspect.family === "conjunction" ? "conjunction" : `${h.aspect.family}-family aspect`} (${read}), ${h.applying ? "applying" : "separating"}${h.trigger ? `; ${h.trigger} triggers it today` : ""}.`,
+    );
+  }
+  const p = j.projection;
+  if (p?.ahead) lines.push(`Jensen's projection: the ${p.direction === "up" ? "advance" : "decline"} from the ${p.fromDate} close is estimated to exhaust near ${p.price.toFixed(2)}.`);
   return lines;
 }
