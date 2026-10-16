@@ -349,6 +349,14 @@ export function OrderTicket({
   const latchedBreachPrice = breachLatch?.scannedAt === result.scannedAt ? breachLatch.price : null;
   const breachPrice = liveBreach ? currentPrice : (latchedBreachPrice ?? result.stopBreach?.price ?? null);
   const protocolInvalidated = useProtocolLevels && !!levels && breachPrice != null;
+  // The same retirement, read in either mode, for the technique panels: a
+  // retired plan has no levels left for a technique to explain.
+  const planRetired =
+    !!levels &&
+    (breachPrice != null ||
+      (currentPrice != null &&
+        isInvalidatedByStop({ side: signalSide, stop_price: levels.stopLoss }, currentPrice)));
+  const explainable = planRetired ? null : explainPlan;
 
   // The price Alpaca measures the bracket legs against: the limit on an advised
   // entry, the live quote on a market entry. Choosing "buy now" below the
@@ -790,7 +798,14 @@ export function OrderTicket({
                 worth learning to read first.
               </p>
             )}
-            {explainPlan && allowedStrategyModes && allowedStrategyModes.length > 0 && (
+            {planRetired && explainPlan &&
+              ((allowedStrategyModes?.length ?? 0) > 0 || (customScripts?.length ?? 0) > 0) && (
+              <p className="rounded-lg border border-border p-3 text-xs text-muted">
+                This plan is retired, so there are no levels for a technique to explain. A new
+                scan will either confirm it or replace it with a new plan.
+              </p>
+            )}
+            {explainable && allowedStrategyModes && allowedStrategyModes.length > 0 && (
             <div className="rounded-lg border border-border p-3 text-xs">
               <label className="flex flex-col gap-1 text-muted">
                 Explain with (optional) — see how another technique reads this setup. GSPS&apos;s
@@ -860,7 +875,7 @@ export function OrderTicket({
             {/* Empty list means either no saved scripts or a tier that
                 can't author them — server-resolved either way, no
                 client-side tier guess. */}
-            {explainPlan && customScripts && customScripts.length > 0 && (
+            {explainable && customScripts && customScripts.length > 0 && (
             <div className="rounded-lg border border-border p-3 text-xs">
               <label className="flex flex-col gap-1 text-muted">
                 Explain with your script (optional) — see how one of your saved scripts reads

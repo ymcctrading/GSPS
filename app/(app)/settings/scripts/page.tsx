@@ -14,8 +14,8 @@ export default function CustomScriptsPage() {
         </Link>
         <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Custom scripts</h1>
         <p className="text-sm text-muted">
-          Author your own entry/stop/target rules — a parallel, clearly-labeled system that never
-          touches GSPS&apos;s own structural trade plan or scored verdict.
+          Write your own technique to explain GSPS&apos;s plan in its terms. A script reads the
+          plan&apos;s levels and says whether it agrees; it never sets an entry, stop or target.
         </p>
       </div>
 
