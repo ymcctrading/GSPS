@@ -10,7 +10,7 @@
  * neither means anything.
  */
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { UNCONDITIONED_ATTRIBUTION, isAttributionScope, runBacktest } from "@/lib/backtest/run";
 import { getMarketDataProvider } from "@/lib/data/provider";
 
@@ -177,6 +177,17 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
  */
 describe("runBacktest with a pinned start", { timeout: REPLAY_TIMEOUT_MS }, () => {
   const full = () => runBacktest({ symbols: ["SPY"], timeframe: "15Min" });
+  // Each test compares two runs, and the mock bars end at the last 15-minute
+  // slot before now: a run either side of a slot boundary reads one bar more.
+  // Hold the clock mid-slot so both runs see the same bars.
+  beforeAll(() => {
+    const slot = 15 * 60_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / slot) * slot + slot / 2);
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
 
   it("starts the window no earlier than the requested instant", async () => {
     const baseline = await full();
