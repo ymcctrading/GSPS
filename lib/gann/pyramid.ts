@@ -42,10 +42,17 @@
  * track one entry per plan, and an add changes the position they manage. That
  * is recorded in the parity roadmap as the remaining step.
  *
+ * - **Add at fixed steps** (A-PYRAMID-01, W006 p.47 Rule 5: every 5 points
+ *   for stocks at $20-50, every 10 at $80-200; A-PYRAMID-06, W022 pp.196-199:
+ *   10-point steps). Read as `PYRAMID_STEP_POINTS` Gann points past the last
+ *   lot, price-scaled by `gannPoint`, which makes his 5 at $42.50 and about
+ *   10 at $150-200 one figure. Until 2026-10-16 the step was one risk unit.
+ * - **Raise the whole line's stop to 10 points under as it grows** (A-STOP-06,
+ *   W022 p.198: at 253 the stop on the whole line goes to 243). Read as the
+ *   tighter of combined break-even and `PYRAMID_STEP_POINTS` Gann points
+ *   beyond the add (`wholeLineStop`).
+ *
  * Engineering choices, labelled as such:
- * - Gann's "full interval of profit" (3–5 or 10 points by price level) is
- *   price-scaled here as one risk unit (the break-even rule used the same
- *   scaling until 2026-10-16; it now reads 3 points, `exitRules.ts`).
  * - Rule 21's small/large cutoff: the text gives no figure. Its examples are
  *   relative (200,000 shares small, 5 and 50 million large, in 1923), and a
  *   1920s share count doesn't port to today's issues. `LARGE_CAPITAL_MIN_SHARES`
@@ -68,7 +75,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { beyondByThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
@@ -121,6 +128,19 @@ export interface PyramidReading {
  */
 export const LARGE_CAPITAL_MIN_SHARES = 500_000_000;
 
+/** Gann points of profit between lots, and between an add and the whole line's stop. */
+export const PYRAMID_STEP_POINTS = 5;
+
+/**
+ * The whole position's stop after an add: the tighter of combined break-even
+ * and `PYRAMID_STEP_POINTS` Gann points beyond the add (A-STOP-06), and never
+ * looser than the stop already in place.
+ */
+export function wholeLineStop(side: "long" | "short", avg: number, trigger: number, current: number): number {
+  const step = PYRAMID_STEP_POINTS * gannPoint(trigger);
+  return side === "long" ? Math.max(current, avg, trigger - step) : Math.min(current, avg, trigger + step);
+}
+
 export function capitalSize(shares: number | null | undefined): "small" | "large" | null {
   if (shares == null || !(shares > 0)) return null;
   return shares >= LARGE_CAPITAL_MIN_SHARES ? "large" : "small";
@@ -168,9 +188,12 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
     };
   }
 
-  // Only add to a winner: the last lot must show a full risk unit of profit.
+  // Only add to a winner, at fixed steps: the last lot must show
+  // PYRAMID_STEP_POINTS Gann points of profit (A-PYRAMID-01, A-PYRAMID-06).
   const lastProfit = long ? price - last.price : last.price - price;
-  if (lastProfit < risk) return { add: null, reason: "The last lot hasn't yet gained as much as the trade risked." };
+  if (lastProfit < PYRAMID_STEP_POINTS * gannPoint(last.price)) {
+    return { add: null, reason: "The last lot hasn't yet gained a full step of profit." };
+  }
 
   // Where the trend proves itself: an old top (bottom) made since the last lot.
   const swings = walkSwingChart(daily, THREE_DAY_CHART);
@@ -187,7 +210,7 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   // The whole position's stop: never where the combined position could lose.
   const totalQty = lots.reduce((n, l) => n + l.qty, 0) + qty;
   const avg = (lots.reduce((n, l) => n + l.qty * l.price, 0) + qty * trigger) / totalQty;
-  const newStop = long ? Math.max(input.stop, avg) : Math.min(input.stop, avg);
+  const newStop = wholeLineStop(side, avg, trigger, input.stop);
   // A stop that would already be through the market can't be placed.
   if (long ? newStop >= price : newStop <= price) {
     return { add: null, reason: "Price is too close to break-even for the combined position to be protected." };

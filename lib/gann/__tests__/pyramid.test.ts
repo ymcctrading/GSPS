@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { capitalSize, LARGE_CAPITAL_MIN_SHARES, readPyramidAdd } from "@/lib/gann/pyramid";
+import { capitalSize, LARGE_CAPITAL_MIN_SHARES, PYRAMID_STEP_POINTS, readPyramidAdd, wholeLineStop } from "@/lib/gann/pyramid";
+import { gannPoint } from "@/lib/gann/pointScale";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
 function days(closes: number[], start = "2026-06-01"): Bar[] {
@@ -32,7 +33,7 @@ describe("readPyramidAdd", () => {
     expect(r.add!.newStop).toBeGreaterThan(102);
   });
 
-  it("never adds to a position that hasn't earned a full risk unit", () => {
+  it("never adds to a position that hasn't gained a step", () => {
     expect(readPyramidAdd({ ...base, price: 105 }).add).toBeNull();
   });
 
@@ -42,7 +43,7 @@ describe("readPyramidAdd", () => {
       const r = readPyramidAdd({ ...base, price });
       expect(r.add).toBeNull();
       // Refused by the profit guard itself, not by a later check.
-      expect(r.reason).toMatch(/hasn't yet gained/);
+      expect(r.reason).toMatch(/hasn.t yet gained/);
     }
   });
 
@@ -140,5 +141,31 @@ describe("pyramid side by capital stock (never-failing rule 21)", () => {
     expect(capitalSize(LARGE_CAPITAL_MIN_SHARES)).toBe("large");
     expect(capitalSize(null)).toBeNull();
     expect(capitalSize(0)).toBeNull();
+  });
+});
+
+describe("fixed steps and the whole-line stop (A-PYRAMID-01, A-PYRAMID-06, A-STOP-06)", () => {
+  const base = {
+    side: "long" as const,
+    lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }],
+    // A wide stop: one risk unit (21.8) is far beyond the 5-point step.
+    stop: 80,
+    initialStop: 80,
+    daily,
+  };
+  const step = PYRAMID_STEP_POINTS * gannPoint(101.8);
+
+  it("adds every 5 points of profit, however wide the first stop", () => {
+    expect(PYRAMID_STEP_POINTS).toBe(5);
+    expect(readPyramidAdd({ ...base, price: 111 }).add).not.toBeNull();
+    expect(readPyramidAdd({ ...base, price: 101.8 + step - 0.05 }).add).toBeNull();
+  });
+
+  it("raises the whole line's stop to 5 points under the add when that is above break-even", () => {
+    expect(wholeLineStop("long", 100, 130, 90)).toBeCloseTo(130 - 5 * gannPoint(130), 8);
+    expect(wholeLineStop("long", 128, 130, 90)).toBe(128);
+    expect(wholeLineStop("short", 100, 70, 110)).toBeCloseTo(70 + 5 * gannPoint(70), 8);
+    // Never loosens a stop that is already tighter.
+    expect(wholeLineStop("long", 100, 130, 129)).toBe(129);
   });
 });

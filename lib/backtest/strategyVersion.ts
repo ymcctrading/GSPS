@@ -402,4 +402,11 @@
 // reads completed sessions only, as the replay already did (review 25, R3-3).
 // Live verdicts move on days the forming session would have tipped the
 // count; the replay does not move.
-export const STRATEGY_VERSION = "2026-10-16-gann-rule-of-three-closed";
+// 2026-10-16-gann-stops-and-steps: W006 Rules 2, 4 and 5 and Tunnel p.198.
+// Shorts trail 1 point over the prior week's high (Rule 4; was 3). In the
+// final stage the stop trails 5 points under the last day's high, mirrored
+// for shorts (A-STOP-04). Pyramid adds come every 5 Gann points of profit
+// instead of one risk unit (A-PYRAMID-01/06), and the whole line's stop goes
+// to the tighter of break-even and 5 points under the add (A-STOP-06). Exits
+// and pyramided trades move; verdicts do not.
+export const STRATEGY_VERSION = "2026-10-16-gann-stops-and-steps";
