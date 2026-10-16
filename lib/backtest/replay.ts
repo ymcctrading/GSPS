@@ -79,7 +79,7 @@ import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold,
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
-import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { readMonthlyBreakWarning, secondaryTurnLevels, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
@@ -632,6 +632,8 @@ export function buildMacroContext(
     })
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
+  // Read before the levels: its campaign ledger supplies the secondary turn.
+  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
     ...dailyTrend.resistance.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -643,6 +645,8 @@ export function buildMacroContext(
     ...majorPricePercentageLevels([...monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
     // Mirrors lib/scanTicker.ts: the old campaign bottoms (A-LEVELS-03).
     ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, asOf), price).map((p) => ({ price: p, timeframe: "1Month" as const })),
+    // Mirrors lib/scanTicker.ts: the campaign's secondary turn (A-LEVELS-02).
+    ...secondaryTurnLevels(disclosedRules.campaign).map((p) => ({ price: p, timeframe: "1Week" as const })),
     // Mirrors lib/scanTicker.ts: the Square of 144 squares and the planetary averages.
     ...gannMasterLevels([...monthly, ...charts.daily], charts.daily, price, asOf).map((l) => ({
       price: l.price,
@@ -699,7 +703,7 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
-    disclosedRules: readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf),
+    disclosedRules,
     windowTurn: (direction) => {
       if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;

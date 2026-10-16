@@ -59,7 +59,7 @@ import {
   computeScore,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
-import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, readMonthlyBreakWarning, secondaryTurnLevels } from "@/lib/gann/campaignLedger";
 import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
@@ -361,6 +361,8 @@ export async function scanTicker(
       ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
       // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
       ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, new Date(scannedAt)), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
+      // The campaign's secondary rally top (reaction bottom), A-LEVELS-02.
+      ...secondaryTurnLevels(campaignLedger).map((price) => ({ price, timeframe: "1Week" as const })),
       // Gann's Square of 144 squares and his planetary averages (COE, MOF,
       // the six), as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
       ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, new Date(scannedAt)).map((l) => ({
