@@ -229,7 +229,7 @@ function BudgetLine({ budget }: { budget: IntradayRefreshBudget }) {
  * -----------------------------------------------------------------------------
  * `evaluateSymbol` (lib/scanner/intraday.ts) can return several `Alert`s for
  * the same symbol from a single poll cycle -- an old top crossed, trend
- * continuation, and unusual volume can all legitimately fire together on
+ * continuation, and an Overnight Chart turn can all legitimately fire together on
  * the same pass, since each tests a different condition. Rendering one card
  * per alert meant a stock that qualified three ways showed up three times,
  * which read as three separate opportunities rather than one setup with

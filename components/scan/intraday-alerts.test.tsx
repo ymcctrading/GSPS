@@ -189,7 +189,7 @@ describe("IntradayAlerts", () => {
   it("consolidates multiple alerts for the same symbol into one card, highest confidence first", async () => {
     const secondSpySignal: Alert = {
       ...spyAlert,
-      type: "unusual_volume",
+      type: "overnight_turn",
       confidence: 40, // lower than spyAlert's 75
     };
     mockScan({ alerts: [spyAlert, secondSpySignal] });
@@ -199,10 +199,10 @@ describe("IntradayAlerts", () => {
     expect(await screen.findAllByRole("button", { name: "SPY" })).toHaveLength(1);
     // The higher-confidence signal (Old top or bottom crossed) is the card's own badge...
     expect(screen.getByText("Old top or bottom crossed ↑")).toBeInTheDocument();
-    // ...and the lower-confidence one (Unusual volume) is folded in as a
+    // ...and the lower-confidence one (Overnight Chart turned) is folded in as a
     // confirming signal, not dropped and not given its own card.
     expect(screen.getByText(/Also qualified this pass:/)).toBeInTheDocument();
-    expect(screen.getByText(/Unusual volume/)).toBeInTheDocument();
+    expect(screen.getByText(/Overnight Chart turned/)).toBeInTheDocument();
   });
 
   it("labels asset classes so an ETF is not shown as a stock", async () => {

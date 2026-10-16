@@ -15,7 +15,7 @@ import {
   type ScannerConfig,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
-import { intradayPoint } from "@/lib/gann/pointScale";
+import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
 
 /**
  * The session these tests replay is 2026-08-07, the day the scanner was
@@ -513,6 +513,8 @@ describe("scanIntraday — audit trail", () => {
           kind: "equity",
           bars: flat,
           quote: { price: 500, at: flat[flat.length - 1].t },
+          // Yesterday's low (499) is under today's flat session, which would turn the Overnight Chart up.
+          priorDailyBars: undefined,
         }),
       ],
       DEFAULT_CONFIG,
@@ -573,17 +575,26 @@ describe("scoreConfidence", () => {
   });
 });
 
-describe("configuration", () => {
-  it("scales detection with a caller-supplied config rather than hard-coded numbers", () => {
-    const strict: ScannerConfig = { ...DEFAULT_CONFIG, unusualVolumeThreshold: 99 };
-    const loose: ScannerConfig = { ...DEFAULT_CONFIG, unusualVolumeThreshold: 0.5 };
+describe("the Overnight and hourly charts replace the volume-only alert (Q29)", () => {
+  it("raises no alert on volume alone, however loose the threshold", () => {
+    const loose: ScannerConfig = { ...DEFAULT_CONFIG, relativeVolumeThreshold: 0.1 };
+    expect(scanIntraday([input()], loose, AT_1133).alerts.map((a) => a.type as string)).not.toContain("unusual_volume");
+  });
 
-    expect(scanIntraday([input()], strict, AT_1133).alerts.map((a) => a.type)).not.toContain(
-      "unusual_volume",
-    );
-    expect(scanIntraday([input()], loose, AT_1133).alerts.map((a) => a.type)).toContain(
-      "unusual_volume",
-    );
+  it("alerts when the Overnight Chart turns on today's session, its stop 1 point under the last bottom", () => {
+    // Yesterday was the second day of a reaction (low 499); today's low holds above it: a higher bottom.
+    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    expect(alert?.direction).toBe("up");
+    expect(alert?.invalidation).toBeCloseTo(499 - gannPoint(499), 2);
+  });
+
+  it("does not alert on the Overnight Chart when today makes no new bottom or top against the line", () => {
+    const daily = campaignDaily();
+    // Yesterday already made a higher bottom, so the line was up before today.
+    daily[daily.length - 2] = { ...daily[daily.length - 2], l: 498 };
+    daily[daily.length - 1] = { ...daily[daily.length - 1], l: 499, h: 501.5 };
+    const types = scanIntraday([input({ priorDailyBars: daily })], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    expect(types).not.toContain("overnight_turn");
   });
 });
 
@@ -812,6 +823,25 @@ describe("Gann's hourly chart (Master Course Ch. 13)", () => {
     expect(sessionMetrics(input(), DEFAULT_CONFIG)!.hourly).toBeNull();
     const without = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.flatMap((a) => a.confidenceFactors.map((f) => f.label));
     expect(without).not.toContain("The hourly chart agrees");
+  });
+
+  it("alerts on the hourly chart's first change in trend (Ch. 13)", () => {
+    // Three falling sessions (from 479, the only completed hourly top), then
+    // today's hours: 477, 476, and 482, which crosses that top on the latest hour.
+    const recent = recentFiveMinute(-1);
+    const open = Date.parse("2026-08-07T13:30:00Z");
+    const hourPrice = [477, 476, 482];
+    for (let m = 0; m < 105; m += 5) {
+      const price = hourPrice[Math.min(2, Math.floor((m + 30) / 60))];
+      recent.push({ t: new Date(open + m * 60_000).toISOString(), o: price, h: price + 0.2, l: price - 0.2, c: price, v: 10_000 });
+    }
+    const m = sessionMetrics(input({ recentBars: recent }), DEFAULT_CONFIG)!;
+    const alerts = scanIntraday([input({ recentBars: recent })], DEFAULT_CONFIG, AT_1133).alerts;
+    const turn = alerts.find((a) => a.type === "hourly_turn");
+    expect(m.hourly?.turned).toBe(true);
+    expect(turn?.direction).toBe(m.hourly?.trend);
+    // No turn on the latest hour, no alert.
+    expect(scanIntraday([input({ recentBars: recentFiveMinute() })], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type)).not.toContain("hourly_turn");
   });
 
   it("adds the hourly factor to an alert when the history is there", () => {

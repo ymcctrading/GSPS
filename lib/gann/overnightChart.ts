@@ -37,13 +37,13 @@
  * test, ½ ⅔ ¾ levels) are read by `multipleTops.ts`, `disclosedRules.ts` and
  * `retracement.ts`.
  *
- * **Where it runs.** Context only on the live scan and the replay
- * (`disclosedRules.ts`, measured through `contextFactors.ts`). Gann's
- * stop-and-reverse system is measured on its own by
- * `lib/backtest/replayOvernight.ts`. Nothing here places, gates or reverses
- * an order: GSPS's own plans retire on a broken stop (`stopBreach.ts`) and
- * do not open the opposite trade. Making the reversal act on orders is a
- * production change for the owner, once the measurement exists.
+ * **Where it runs.** Context on the live scan and the replay
+ * (`disclosedRules.ts`, measured through `contextFactors.ts`), and since
+ * 2026-10-16 (Q29) the intraday alerts' `overnight_turn` signal
+ * (`lib/scanner/intraday.ts`), with its 1-point stop. Gann's stop-and-reverse
+ * system is measured on its own by `lib/backtest/replayOvernight.ts`. Rule 4's
+ * reversal acts on GSPS's own trades through `lib/gann/reverse.ts` (Q15), at
+ * the daily method's geometry.
  *
  * Engineering choices, labelled as such: Gann's "1 point" is a third of his
  * price-scaled 3 points (`pointScale.ts`), and "¼ point" a quarter of that;
