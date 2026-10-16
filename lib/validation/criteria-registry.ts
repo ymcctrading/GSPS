@@ -936,6 +936,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "weakStock",
+    family: "scoreHold",
+    source: "lib/gann/leadership.ts",
+    label: "Stock in a strong position",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "A-SELECTION-04 (2026-10-16): buy the strong and leave the weak alone (W006 pp.32-34, 37-38). Appended " +
+      "only when it holds a long Execute in a stock that reads weak in a bull market (readWeakStock), so it is " +
+      "failed by construction whenever present. Measured as weakStockLong.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "timeWindowTurn",
     family: "scoreHold",
     source: "lib/gann/timeWindow.ts",

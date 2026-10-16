@@ -52,6 +52,7 @@ import {
   applyFailedTopHold,
   applyTimeWindowHold,
   applyRuleFollowingHold,
+  applyWeakStockHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
@@ -59,7 +60,7 @@ import {
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
-import { readLeadership, selectionStrength } from "@/lib/gann/leadership";
+import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
@@ -423,6 +424,9 @@ export async function scanTicker(
     // lists. Read as `readDisclosedRules` reads it on the replay: the level
     // charts' daily and monthly, and the market's.
     const leadership = readLeadership(charts.daily, marketDaily, campaignLedger, { stock: charts.monthly, market: marketMonthly });
+    // A-SELECTION-04: a weak stock in a bull market ranks last as a buy, first
+    // as a short, and a buy in it holds to Watch.
+    const weakStock = readWeakStockFrom(charts.monthly, charts.daily, marketMonthly, marketDaily);
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or
@@ -442,7 +446,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -480,7 +484,7 @@ export async function scanTicker(
       ),
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
-      ),
+      ), weakStock, scoreDirection),
       dataLag,
     ), stopBreach);
 
@@ -615,7 +619,7 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
-      selectionStrength: selectionStrength(direction, leadership),
+      selectionStrength: selectionStrength(direction, leadership, weakStock),
       ...(stopBreach.breached
         ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price!, reclaimAt: stopBreach.reclaimAt! } }
         : {}),

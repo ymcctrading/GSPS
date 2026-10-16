@@ -16,6 +16,7 @@ import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleT
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
+import type { WeakStockReading } from "@/lib/gann/leadership";
 import type {
   AssetClass,
   GannLevels,
@@ -763,6 +764,39 @@ export function applyRuleFollowingHold(decision: ScanDecision, reading: RuleFoll
         criterion: "Stock follows the rules",
         passed: false,
         note: `Of this stock's last ${reading.resolved} buying and selling points over the year, ${reading.failed} failed back through their stop and ${reading.followed} carried on. A stock that does not follow the rules is left alone, so this is held from Execute to Watch until its signals work again.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Buy the strong and leave the weak alone (A-SELECTION-04, W006 p.33: "Always
+ * buy the stocks in strong position and leave those in weak position alone").
+ * A buy in a stock that reads weak in a bull market (`readWeakStock`: its
+ * early top not exceeded in two years, or its first short rally never
+ * exceeded) is held from Execute to Watch. A short in it is untouched: Gann
+ * sells the weakest short (pp.37-38), and the sell list ranks it first
+ * (`selectionStrength`).
+ */
+export function applyWeakStockHold(
+  decision: ScanDecision,
+  weak: WeakStockReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!weak?.weak || direction !== "bullish" || decision.outputState !== "Execute") return decision;
+  const why = weak.earlyTopFailed
+    ? `its top of ${weak.earlyTopFailed.top.toFixed(2)} (${weak.earlyTopFailed.month}), made early in the market's advance, has not been exceeded in two years`
+    : `its first rally of the market's advance, to ${weak.firstRallyNotExceeded!.top.toFixed(2)} (${weak.firstRallyNotExceeded!.month}), lasted ${weak.firstRallyNotExceeded!.months} months and has never been exceeded`;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "weakStock",
+        criterion: "Stock in a strong position",
+        passed: false,
+        note: `This stock is weak while the market advances: ${why}. Buy the strong and leave the weak alone, so this buy is held from Execute to Watch while the reading stands.`,
       },
     ],
   };

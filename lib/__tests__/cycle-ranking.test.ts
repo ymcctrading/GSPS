@@ -7,7 +7,10 @@ import {
   rankShortlist,
   type CoarseCandidate,
 } from "@/lib/marketScan";
-import type { Bar } from "@/lib/types";
+import type { Bar, ScanDecision, ScanResult } from "@/lib/types";
+import { compareForList } from "@/lib/marketScan";
+import { selectionStrength } from "@/lib/gann/leadership";
+import { applyWeakStockHold } from "@/lib/scoring/score";
 import { buildMacroContext } from "@/lib/backtest/replay";
 
 /** Monthly bars from Jan 2020, a single V (or inverted V) turning at `turnIndex`. */
@@ -174,5 +177,30 @@ describe("buildMacroContext time-cycle date (replay)", () => {
     expect(
       buildMacroContext(bars, price, new Date(Date.UTC(2026, 8, 25))).gann.timeCycleBullishActive,
     ).toBe(false);
+  });
+});
+
+// A-SELECTION-04 (W006 pp.32-34, 37-38): buy the strong, leave the weak
+// alone, and sell the weakest short (long Chrysler, short United Fruit, 1935).
+describe("strongest first on the buy list, weakest first on the sell list", () => {
+  const plain = { bottomedFirst: false, bottomedLate: false, toppedFirst: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
+  const weak = { bullStart: "2024-01", earlyTopFailed: { top: 50, month: "2024-06" }, firstRallyNotExceeded: null, weak: true };
+  const row = (symbol: string, strength: number) =>
+    ({ symbol, decision: { score: 6, outputState: "Execute", breakdown: [] }, selectionStrength: strength }) as unknown as ScanResult;
+
+  it("orders the same stocks oppositely on the two lists by the same readings", () => {
+    const strongLong = selectionStrength("bullish", { ...plain, bottomedFirst: true }, null);
+    const weakLong = selectionStrength("bullish", plain, weak);
+    const strongShort = selectionStrength("bearish", plain, null);
+    const weakShort = selectionStrength("bearish", plain, weak);
+    expect([row("WEAK", weakLong), row("PLAIN", 0), row("STRONG", strongLong)].sort(compareForList).map((r) => r.symbol)).toEqual(["STRONG", "PLAIN", "WEAK"]);
+    expect([row("STRONG", strongShort), row("WEAK", weakShort)].sort(compareForList).map((r) => r.symbol)).toEqual(["WEAK", "STRONG"]);
+  });
+
+  it("holds a buy in a weak stock to Watch and leaves a short in it alone", () => {
+    const execute: ScanDecision = { score: 7, outputState: "Execute", breakdown: [] };
+    expect(applyWeakStockHold(execute, weak, "bullish").outputState).toBe("Watch");
+    expect(applyWeakStockHold(execute, weak, "bearish").outputState).toBe("Execute");
+    expect(applyWeakStockHold(execute, { ...weak, weak: false, earlyTopFailed: null }, "bullish").outputState).toBe("Execute");
   });
 });

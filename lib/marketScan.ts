@@ -67,7 +67,7 @@ import {
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import { isStopBreached } from "@/lib/gann/stopBreach";
 import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBenchmark";
-import { readLeadership, selectionStrength, type LeadershipReading } from "@/lib/gann/leadership";
+import { readLeadership, readWeakStockFrom, selectionStrength, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -991,21 +991,25 @@ export async function runMarketScan(
       const leadership: LeadershipReading | null = reversion
         ? readLeadership(daily, marketDaily, null, { stock: monthly, market: marketMonthly })
         : null;
+      // And Gann's weak stocks (A-SELECTION-04), on the monthly bars when
+      // they are in.
+      const weak: WeakStockReading | null = reversion ? readWeakStockFrom(monthly, daily, marketMonthly, marketDaily) : null;
       return {
         leadership,
+        weak,
         reversion,
         continuation: coarseContinuation(symbol, daily, cycles, trendRead),
         diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {
-      return { leadership: null, reversion: null, continuation: null, diagnostics: null };
+      return { leadership: null, weak: null, reversion: null, continuation: null, diagnostics: null };
     }
   });
   mark("coarse scoring done");
   const selection = new Map(
     coarse
       .filter((c) => c.reversion !== null)
-      .map((c) => [c.reversion!.symbol.toUpperCase(), (dir: "bullish" | "bearish") => selectionStrength(dir, c.leadership)] as const),
+      .map((c) => [c.reversion!.symbol.toUpperCase(), (dir: "bullish" | "bearish") => selectionStrength(dir, c.leadership, c.weak)] as const),
   );
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;

@@ -105,7 +105,7 @@ import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } f
 import { describeTimeCounts, readTimeCounts, type TimeCountsReading } from "@/lib/gann/timeCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
-import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
+import { monthlyWithCurrent, readLeadership, readWeakStockFrom, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
@@ -578,7 +578,7 @@ export interface DisclosedRulesContext {
   sharesPerPoint: SharesPerPointReading | null;
   /** Early and late leaders, and the first-year high. See `leadership.ts`. */
   leadership: LeadershipReading | null;
-  /** Gann's weak stocks in a bull market (A-TREND-07/-08, context only). See `readWeakStock`. */
+  /** Gann's weak stocks in a bull market (A-TREND-07/-08). A buy in one is held to Watch (A-SELECTION-04). See `readWeakStock`. */
   weakStock?: WeakStockReading | null;
   /** The 2–3-day halt and the reaction-week rules. See `timeRules.ts`. */
   timeRules: TimeRulesReading | null;
@@ -801,8 +801,7 @@ export function readDisclosedRules(
       stock: instrument?.monthly ?? null,
       market: instrument?.marketMonthly ?? null,
     }),
-    weakStock:
-      instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
+    weakStock: readWeakStockFrom(instrument?.monthly, dailyBars, instrument?.marketMonthly, instrument?.marketDaily),
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
     ruleFollowing: readRuleFollowing(dailyBars),
@@ -961,15 +960,17 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       lines.push("Topped after the market and now declining: late tops make late bottoms, so its low may come after the market's. Shown for context; it does not change the setup.");
     if (l.earlyBottomExpected)
       lines.push("Topped before the market and now declining: early tops make early bottoms, so its low may come before the market's. Shown for context; it does not change the setup.");
+    if (l.crossedTopsFirst) lines.push("Crossed last year's top before the market: an early leader, listed first among buys.");
+    if (l.brokeBottomsFirst) lines.push("Broke last year's bottom before the market: an early leader down, listed first among shorts.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
   }
   if (ctx.weakStock?.earlyTopFailed) {
     const w = ctx.weakStock.earlyTopFailed;
-    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years.`);
+    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years. A buy is held to Watch; a short is listed first.`);
   }
   if (ctx.weakStock?.firstRallyNotExceeded) {
     const w = ctx.weakStock.firstRallyNotExceeded;
-    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since.`);
+    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since. A buy is held to Watch; a short is listed first.`);
   }
   if (ctx.narrowWeekBreak) {
     const n = ctx.narrowWeekBreak;

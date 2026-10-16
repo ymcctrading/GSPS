@@ -163,6 +163,11 @@ export function readLeadership(
  * - A-SELECTION-03: sell short the early leaders of a bear market, the
  *   stocks that top first or break previous years' bottoms first (Chrysler
  *   topped 11 months before the averages, W006 pp.24-25).
+ * - A-SELECTION-04: "always buy the stocks in strong position and leave those
+ *   in weak position alone" (W006 p.33), and be long the strongest while short
+ *   the weakest (Chrysler long, United Fruit short, 1935, pp.37-38). A weak
+ *   stock in a bull market (`readWeakStock`) ranks last on the buy side and
+ *   first on the sell side; `applyWeakStockHold` keeps it off Execute as a buy.
  *
  * It orders setups and never scores them: the 9-point score is unchanged.
  * Engineering choice, labelled as such: each reading counts one step, since
@@ -171,12 +176,11 @@ export function readLeadership(
 export function selectionStrength(
   direction: "bullish" | "bearish" | "none",
   leadership: LeadershipReading | null | undefined,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _weak?: WeakStockReading | null,
+  weak?: WeakStockReading | null,
 ): number {
-  if (!leadership) return 0;
-  if (direction === "bullish") return leadership.bottomedFirst || leadership.crossedTopsFirst ? 1 : 0;
-  if (direction === "bearish") return leadership.toppedFirst || leadership.brokeBottomsFirst ? 1 : 0;
+  const isWeak = weak?.weak === true ? 1 : 0;
+  if (direction === "bullish") return (leadership?.bottomedFirst || leadership?.crossedTopsFirst ? 1 : 0) - isWeak;
+  if (direction === "bearish") return (leadership?.toppedFirst || leadership?.brokeBottomsFirst ? 1 : 0) + isWeak;
   return 0;
 }
 
@@ -266,11 +270,29 @@ export function marketBearStart(marketMonthly: Bar[]): string | null {
 }
 
 /**
+ * `readWeakStock` on the stock's and the market's months, each with the month
+ * in progress from its daily bars (the market's cut at the stock's last
+ * session), as `readDisclosedRules` reads it. Shared by the live scan, the
+ * market scan's shortlist and the replay. Null without both monthly charts.
+ */
+export function readWeakStockFrom(
+  stockMonthly: Bar[] | null | undefined,
+  stockDaily: Bar[],
+  marketMonthly: Bar[] | null | undefined,
+  marketDaily: Bar[] | null | undefined,
+): WeakStockReading | null {
+  if (!stockMonthly || !marketMonthly || stockDaily.length === 0) return null;
+  const end = stockDaily[stockDaily.length - 1].t;
+  const market = monthlyWithCurrent(marketMonthly, (marketDaily ?? []).filter((b) => b.t <= end));
+  return readWeakStock(monthlyWithCurrent(stockMonthly, stockDaily), market);
+}
+
+/**
  * Gann's two weak-stock readings in a bull market (A-TREND-07, W006 pp.25,
  * 27; A-TREND-08, p.35), on the stock's and the market's monthly bars from
- * the market's bull start. Context only: Gann's action on a weak stock
- * (leave it alone on the buy side, sell the weakest short) is A-SELECTION-04,
- * PLAN.md item 11, and is not built here.
+ * the market's bull start. Gann's action on a weak stock (leave it alone on
+ * the buy side, sell the weakest short) is A-SELECTION-04: `selectionStrength`
+ * and `applyWeakStockHold` (2026-10-16).
  */
 export function readWeakStock(stockMonthly: Bar[], marketMonthly: Bar[]): WeakStockReading | null {
   const bullStart = marketBullStart(marketMonthly);
