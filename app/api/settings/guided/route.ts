@@ -1,23 +1,22 @@
 /**
  * GSPS — /api/settings/guided
  *
- * The Guided Decision Mode caps: read them, and change them.
+ * The Guided Decision Mode risk percent: read it, and change it.
  *
- * Stored under `settings.prefs.guided` rather than in dedicated columns because
- * they are per-feature preferences, not protocol constants — the engine has no
- * opinion about how many trades a day a user should take. The bounds enforced
- * here are the same ones `resolveGuidedCaps` falls back on when it reads a value
- * it does not like, so a cap can never be widened past what the mode is willing
- * to honour by writing directly to the row either.
+ * Stored under `settings.prefs.guided`. Since 2026-10-16 (owner, Q12) the
+ * per-trade risk percent is the one Guided limit a user sets; the trade-count,
+ * deployed-percent and budget caps were retired for Gann's capital rules
+ * (`lib/risk/gannCapital.ts`), which are not a preference. Stored keys from
+ * before are ignored. The bounds enforced here are the same ones
+ * `resolveGuidedCaps` falls back on, so the cap can never be widened past
+ * what the mode honours by writing directly to the row either.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
-  MAX_GUIDED_BUDGET_USD,
   MAX_RISK_PCT,
-  MIN_GUIDED_BUDGET_USD,
   MIN_RISK_PCT,
   resolveGuidedCaps,
   type GuidedCaps,
@@ -25,10 +24,6 @@ import {
 
 const CapsSchema = z.object({
   riskPct: z.number().min(MIN_RISK_PCT).max(MAX_RISK_PCT),
-  maxTradesPerDay: z.number().int().min(1).max(20),
-  maxTradesPerWeek: z.number().int().min(1).max(50),
-  maxDeployedPct: z.number().min(5).max(100),
-  budgetUsd: z.number().min(MIN_GUIDED_BUDGET_USD).max(MAX_GUIDED_BUDGET_USD).nullable(),
 });
 
 export async function GET() {
@@ -48,7 +43,6 @@ export async function GET() {
     caps: resolveGuidedCaps((data as { prefs?: unknown } | null)?.prefs ?? null),
     bounds: {
       riskPct: [MIN_RISK_PCT, MAX_RISK_PCT],
-      budgetUsd: [MIN_GUIDED_BUDGET_USD, MAX_GUIDED_BUDGET_USD],
     },
   });
 }
@@ -63,7 +57,7 @@ export async function PUT(req: NextRequest) {
   const parsed = CapsSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Those limits are outside what Guided Mode allows." },
+      { error: parsed.error.issues[0]?.message ?? "That risk percent is outside what Guided Mode allows." },
       { status: 400 },
     );
   }

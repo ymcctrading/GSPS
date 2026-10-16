@@ -90,10 +90,9 @@ export function GuidedCard({
             <span className="text-muted">({formatUsd(rec.notionalUsd, 0)})</span>
           </p>
           <p className="mt-1.5 text-sm leading-relaxed">{rec.riskRewardSentence}</p>
-          {rec.boundBy === "budget" && (
+          {rec.boundBy === "capital" && (
             <p className="mt-1.5 text-xs text-muted">
-              Capped to your per-trade dollar budget, not just the risk math — adjustable in
-              Settings → Guided Mode limits.
+              Capped by the capital rule, not just the risk math: every share held needs capital behind it.
             </p>
           )}
         </div>

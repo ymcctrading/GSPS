@@ -1,7 +1,6 @@
 /**
- * The Settings UI for Guided Mode's caps, including the per-trade dollar
- * budget field — the novice-facing control for the fix in
- * docs/GUIDED_DECISION_MODE.md ("Position sizing", ceiling 4).
+ * The Settings UI for Guided Mode's limits. Since 2026-10-16 (owner, Q12) the
+ * risk percent is the only setting; Gann's capital rules are shown, not edited.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -11,10 +10,7 @@ import { GuidedCapsForm } from "./guided-caps-form";
 import { DEFAULT_GUIDED_CAPS } from "@/lib/guided/config";
 
 function mockFetchOnce(caps = DEFAULT_GUIDED_CAPS) {
-  return vi.fn().mockResolvedValue({
-    ok: true,
-    json: () => Promise.resolve({ caps }),
-  });
+  return vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ caps }) });
 }
 
 beforeEach(() => {
@@ -25,77 +21,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("GuidedCapsForm — per-trade budget", () => {
-  it("loads checked and pre-filled with the shipped default ($250)", async () => {
+describe("GuidedCapsForm", () => {
+  it("shows the capital rules as fixed, with no trade-count, deployed or budget fields", async () => {
     render(<GuidedCapsForm />);
-    await waitFor(() => expect(screen.getByText("Cap each trade to a dollar budget")).toBeInTheDocument());
-
-    const checkbox = screen.getByRole("checkbox", { name: /Cap each trade to a dollar budget/ });
-    expect(checkbox).toBeChecked();
-    expect(screen.getByDisplayValue("250")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Capital rules")).toBeInTheDocument());
+    expect(screen.getByText(/At most 3 markets/)).toBeInTheDocument();
+    expect(screen.queryByText(/dollar budget/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/per day/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("spinbutton")).toHaveLength(1);
   });
 
-  it("hides the dollar input and saves null when the cap is switched off", async () => {
+  it("saves the risk percent alone", async () => {
     const user = userEvent.setup();
     const fetchMock = mockFetchOnce();
     vi.stubGlobal("fetch", fetchMock);
-
     render(<GuidedCapsForm />);
-    await waitFor(() => expect(screen.getByDisplayValue("250")).toBeInTheDocument());
-
-    await user.click(screen.getByRole("checkbox", { name: /Cap each trade to a dollar budget/ }));
-    expect(screen.queryByDisplayValue("250")).not.toBeInTheDocument();
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ caps: { ...DEFAULT_GUIDED_CAPS, budgetUsd: null } }),
-    });
+    const input = await screen.findByDisplayValue(String(DEFAULT_GUIDED_CAPS.riskPct));
+    await user.clear(input);
+    await user.type(input, "0.5");
+    fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ caps: { riskPct: 0.5 } }) });
     await user.click(screen.getByRole("button", { name: /Save limits/ }));
-
     await waitFor(() => {
       const putCall = fetchMock.mock.calls.find(([, opts]) => opts?.method === "PUT");
-      expect(putCall).toBeDefined();
-      const body = JSON.parse(putCall![1].body as string);
-      expect(body.budgetUsd).toBeNull();
+      expect(JSON.parse(putCall![1].body as string)).toEqual({ riskPct: 0.5 });
     });
-  });
-
-  it("saves a novice-range value the user types in", async () => {
-    const user = userEvent.setup();
-    const fetchMock = mockFetchOnce();
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<GuidedCapsForm />);
-    await waitFor(() => expect(screen.getByDisplayValue("250")).toBeInTheDocument());
-
-    const input = screen.getByDisplayValue("250");
-    await user.clear(input);
-    await user.type(input, "75");
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ caps: { ...DEFAULT_GUIDED_CAPS, budgetUsd: 75 } }),
-    });
-    await user.click(screen.getByRole("button", { name: /Save limits/ }));
-
-    await waitFor(() => {
-      const putCall = fetchMock.mock.calls.find(([, opts]) => opts?.method === "PUT");
-      const body = JSON.parse(putCall![1].body as string);
-      expect(body.budgetUsd).toBe(75);
-    });
-  });
-
-  it("resets the budget field back to the default alongside every other cap", async () => {
-    const user = userEvent.setup();
-    render(<GuidedCapsForm />);
-    await waitFor(() => expect(screen.getByDisplayValue("250")).toBeInTheDocument());
-
-    const input = screen.getByDisplayValue("250");
-    await user.clear(input);
-    await user.type(input, "50");
-    expect(screen.getByDisplayValue("50")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /Reset to defaults/ }));
-    expect(screen.getByDisplayValue("250")).toBeInTheDocument();
   });
 });

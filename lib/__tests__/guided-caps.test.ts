@@ -1,100 +1,41 @@
 /**
- * The caps that stop a novice one-tapping through a whole watchlist. They are
- * counted from the recommendation ledger rather than from the orders table, so
- * these pin both the counting and the day boundary it counts against.
+ * Guided Mode's room under Gann's capital rules (Q12, owner 2026-10-16): at
+ * most three markets open (A-RISK-08) and 30 points of capital behind every
+ * share held (A-RISK-01). The retired trade-count and deployed-percent caps
+ * are pinned as gone.
  */
 
 import { describe, expect, it } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import fs from "node:fs";
 import { readCapUsage } from "@/lib/guided/caps";
-import { DEFAULT_GUIDED_CAPS } from "@/lib/guided/config";
-
-interface Row {
-  symbol: string;
-  qty: number;
-  agreed_entry: number;
-  resolved_at: string | null;
-}
-
-/** The four chained filters `readCapUsage` uses, answered from a fixed list. */
-function stubSupabase(rows: Row[]): SupabaseClient {
-  const builder = {
-    select: () => builder,
-    eq: () => builder,
-    gte: () => builder,
-    order: () => Promise.resolve({ data: rows, error: null }),
-  };
-  return { from: () => builder } as unknown as SupabaseClient;
-}
-
-/** 14:00 ET on 2026-08-17 (18:00 UTC) — mid-session, well inside one trading day. */
-const NOW = new Date("2026-08-17T18:00:00Z");
+import { capitalPerShare } from "@/lib/risk/gannCapital";
 
 describe("readCapUsage", () => {
-  it("reports no usage and no block on an empty ledger", async () => {
-    const usage = await readCapUsage(stubSupabase([]), "u1", DEFAULT_GUIDED_CAPS, 100_000, new Map(), NOW);
-    expect(usage).toMatchObject({
-      tradesToday: 0,
-      tradesThisWeek: 0,
-      deployedUsd: 0,
-      blockedReason: null,
-    });
+  it("reports nothing held and no block on an empty account", () => {
+    expect(readCapUsage(new Map())).toEqual({ openMarkets: [], capitalHeldUsd: 0, blockedReason: null });
   });
 
-  it("blocks once the daily cap is reached", async () => {
-    const rows: Row[] = Array.from({ length: DEFAULT_GUIDED_CAPS.maxTradesPerDay }, (_, i) => ({
-      symbol: `SYM${i}`,
-      qty: 1,
-      agreed_entry: 10,
-      resolved_at: "2026-08-17T14:00:00Z",
-    }));
-    const usage = await readCapUsage(stubSupabase(rows), "u1", DEFAULT_GUIDED_CAPS, 100_000, new Map(), NOW);
-    expect(usage.tradesToday).toBe(DEFAULT_GUIDED_CAPS.maxTradesPerDay);
-    expect(usage.blockedReason).toContain("daily cap");
+  it("holds the rule's capital behind every open share, at the price it was opened at", () => {
+    const usage = readCapUsage(new Map([["AAPL", { qty: 10, avgEntry: 200 }], ["XOM", { qty: 5, avgEntry: 100 }]]));
+    expect(usage.capitalHeldUsd).toBeCloseTo(10 * capitalPerShare(200) + 5 * capitalPerShare(100), 6);
+    expect(usage.blockedReason).toBeNull();
   });
 
-  it("counts by Eastern trading day, not by UTC date", async () => {
-    // 20:30 ET on the 16th is 00:30 UTC on the 17th. It belongs to the previous
-    // session, so it must not count against today's cap.
-    const usage = await readCapUsage(
-      stubSupabase([{ symbol: "AAPL", qty: 1, agreed_entry: 10, resolved_at: "2026-08-17T00:30:00Z" }]),
-      "u1",
-      DEFAULT_GUIDED_CAPS,
-      100_000,
-      new Map(),
-      NOW,
-    );
-    expect(usage.tradesToday).toBe(0);
-    expect(usage.tradesThisWeek).toBe(1);
+  it("blocks a new market once three are open", () => {
+    const open = new Map(["AAPL", "MSFT", "XOM"].map((s) => [s, { qty: 1, avgEntry: 50 }] as const));
+    const usage = readCapUsage(open);
+    expect(usage.openMarkets).toEqual(["AAPL", "MSFT", "XOM"]);
+    expect(usage.blockedReason).toContain("at most 3");
   });
 
-  it("counts deployed capital only for guided positions still open, at their entry price", async () => {
-    const rows: Row[] = [
-      { symbol: "AAPL", qty: 10, agreed_entry: 200, resolved_at: "2026-08-17T14:00:00Z" },
-      // Executed, but the position has since been closed — nothing is tied up.
-      { symbol: "MSFT", qty: 10, agreed_entry: 400, resolved_at: "2026-08-14T14:00:00Z" },
-    ];
-    const open = new Map([["AAPL", { qty: 10, avgEntry: 205 }]]);
-    const usage = await readCapUsage(stubSupabase(rows), "u1", DEFAULT_GUIDED_CAPS, 100_000, open, NOW);
-    expect(usage.deployedUsd).toBeCloseTo(2050, 6);
-    expect(usage.deployedPct).toBeCloseTo(2.05, 6);
+  it("leaves option legs out, as the order path does", () => {
+    const open = new Map([["AAPL", { qty: 1, avgEntry: 50 }], ["AAPL250117C00150000", { qty: 1, avgEntry: 5 }]]);
+    expect(readCapUsage(open).openMarkets).toEqual(["AAPL"]);
   });
 
-  it("counts a symbol once even when it was recommended more than once", async () => {
-    const rows: Row[] = [
-      { symbol: "AAPL", qty: 10, agreed_entry: 200, resolved_at: "2026-08-17T14:00:00Z" },
-      { symbol: "AAPL", qty: 10, agreed_entry: 200, resolved_at: "2026-08-15T14:00:00Z" },
-    ];
-    const open = new Map([["AAPL", { qty: 20, avgEntry: 200 }]]);
-    const usage = await readCapUsage(stubSupabase(rows), "u1", DEFAULT_GUIDED_CAPS, 1_000_000, open, NOW);
-    expect(usage.deployedUsd).toBeCloseTo(4000, 6);
-  });
-
-  it("blocks when the deployed-capital cap is reached", async () => {
-    const rows: Row[] = [{ symbol: "AAPL", qty: 100, agreed_entry: 300, resolved_at: "2026-08-12T14:00:00Z" }];
-    const open = new Map([["AAPL", { qty: 100, avgEntry: 300 }]]);
-    const usage = await readCapUsage(stubSupabase(rows), "u1", DEFAULT_GUIDED_CAPS, 100_000, open, NOW);
-    expect(usage.deployedPct).toBeCloseTo(30, 6);
-    expect(usage.blockedReason).toContain("cap");
+  it("counts no trades a day or a week any more (Q8, Q12)", () => {
+    for (const f of ["lib/guided/caps.ts", "lib/guided/config.ts", "lib/demo/auto-trade.ts"]) {
+      expect(fs.readFileSync(f, "utf8")).not.toMatch(/maxTradesPerDay|tradesToday|maxDeployedPct|budgetUsd/);
+    }
   });
 });

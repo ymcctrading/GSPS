@@ -26,46 +26,14 @@ export const MIN_RISK_PCT = 0.25;
 export const MAX_RISK_PCT = 2;
 
 /**
- * New guided positions per day and per rolling week. The failure mode Guided
- * Mode invites is a novice tapping through a whole watchlist in one sitting;
- * three a day is enough for the setups that actually clear the Execute bar and
- * few enough that the fourth requires a deliberate decision made elsewhere.
+ * Guided Mode's trade-count, deployed-percent and per-trade budget caps were
+ * retired on 2026-10-16 (owner, "Switch all nine", Q12) for Gann's own capital
+ * rules, the same ones every order path checks (`lib/risk/gannCapital.ts`):
+ * 30 points of capital behind every share held (A-RISK-01), at most three
+ * markets open at once (A-RISK-08), and the three-loss pause
+ * (`lib/risk/lossSeries.ts`). Gann sets no daily trade count (Q8: his capital
+ * ceilings plus the loss pause, no daily cap).
  */
-export const DEFAULT_MAX_TRADES_PER_DAY = 3;
-export const DEFAULT_MAX_TRADES_PER_WEEK = 10;
-
-/**
- * Ceiling on capital deployed through Guided Mode at once, as a share of paper
- * equity. Position sizing caps what any single trade can lose; this caps what
- * the whole mode can tie up, which the per-trade cap alone does not — ten
- * correctly-sized trades in correlated names are one bet, not ten.
- */
-export const DEFAULT_MAX_DEPLOYED_PCT = 25;
-
-/**
- * Per-trade dollar ceiling, on top of the risk/portfolio/cash ceilings above.
- *
- * The other three ceilings are all percentages of paper equity, which defaults
- * to $100,000 (`STARTING_CASH` in lib/brokers/simulator.ts) — a number nobody
- * trading with real money in the low hundreds recognises. A 1% risk cap against
- * that account can still price a recommendation at tens of thousands of dollars
- * of notional, which is arithmetically correct and useless to a novice sizing
- * real trades: they cannot act on a number that has nothing to do with what
- * they actually have to spend.
- *
- * This is a fifth ceiling, not a replacement for the risk-based ones — the
- * structural entry/stop/target levels and the staged-exit reward figure are
- * untouched. It only caps the dollar amount any one recommendation may ask the
- * user to commit, so the headline numbers on a card look like what a trader
- * with a few hundred real dollars would actually risk. Ships on by default at
- * the top of the range, because the account most likely to hit this ceiling —
- * a fresh $100k paper account with no other caps yet dialed in — is exactly the
- * one this exists for; Settings can turn it off for anyone sizing against their
- * paper equity on purpose.
- */
-export const MIN_GUIDED_BUDGET_USD = 50;
-export const MAX_GUIDED_BUDGET_USD = 250;
-export const DEFAULT_GUIDED_BUDGET_USD = 250;
 
 /**
  * Minimum shares a guided order may be placed for.
@@ -147,19 +115,10 @@ export const LIVE_BROKERAGE_BLOCK =
 
 export interface GuidedCaps {
   riskPct: number;
-  maxTradesPerDay: number;
-  maxTradesPerWeek: number;
-  maxDeployedPct: number;
-  /** Per-trade dollar ceiling. `null` means off — sized on the percentage ceilings alone. */
-  budgetUsd: number | null;
 }
 
 export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
   riskPct: DEFAULT_RISK_PCT,
-  maxTradesPerDay: DEFAULT_MAX_TRADES_PER_DAY,
-  maxTradesPerWeek: DEFAULT_MAX_TRADES_PER_WEEK,
-  maxDeployedPct: DEFAULT_MAX_DEPLOYED_PCT,
-  budgetUsd: DEFAULT_GUIDED_BUDGET_USD,
 };
 
 /**
@@ -167,19 +126,13 @@ export const DEFAULT_GUIDED_CAPS: GuidedCaps = {
  * so a caller can pass one `getGuidedPolicy()` result through instead of a
  * dozen separate parameters — see lib/guided/policy.ts. Distinct from
  * `GuidedCaps`: these are the *platform* ceilings/defaults an operator tunes,
- * not a user's own per-account risk/trade-count preferences (which still
+ * not a user's own per-account risk preference (which still
  * live in `settings.prefs.guided`, clamped against these bounds).
  */
 export interface GuidedPolicy {
   defaultRiskPct: number;
   minRiskPct: number;
   maxRiskPct: number;
-  defaultMaxTradesPerDay: number;
-  defaultMaxTradesPerWeek: number;
-  defaultMaxDeployedPct: number;
-  minGuidedBudgetUsd: number;
-  maxGuidedBudgetUsd: number;
-  defaultGuidedBudgetUsd: number;
   minGuidedQty: number;
   recommendationTtlMinutes: number;
   maxCandidatesScanned: number;
@@ -191,12 +144,6 @@ export const DEFAULT_GUIDED_POLICY: GuidedPolicy = {
   defaultRiskPct: DEFAULT_RISK_PCT,
   minRiskPct: MIN_RISK_PCT,
   maxRiskPct: MAX_RISK_PCT,
-  defaultMaxTradesPerDay: DEFAULT_MAX_TRADES_PER_DAY,
-  defaultMaxTradesPerWeek: DEFAULT_MAX_TRADES_PER_WEEK,
-  defaultMaxDeployedPct: DEFAULT_MAX_DEPLOYED_PCT,
-  minGuidedBudgetUsd: MIN_GUIDED_BUDGET_USD,
-  maxGuidedBudgetUsd: MAX_GUIDED_BUDGET_USD,
-  defaultGuidedBudgetUsd: DEFAULT_GUIDED_BUDGET_USD,
   minGuidedQty: MIN_GUIDED_QTY,
   recommendationTtlMinutes: RECOMMENDATION_TTL_MINUTES,
   maxCandidatesScanned: MAX_CANDIDATES_SCANNED,
@@ -219,25 +166,5 @@ export function resolveGuidedCaps(prefs: unknown, policy: GuidedPolicy = DEFAULT
   };
   return {
     riskPct: num("riskPct", policy.defaultRiskPct, policy.minRiskPct, policy.maxRiskPct),
-    maxTradesPerDay: num("maxTradesPerDay", policy.defaultMaxTradesPerDay, 1, 20),
-    maxTradesPerWeek: num("maxTradesPerWeek", policy.defaultMaxTradesPerWeek, 1, 50),
-    maxDeployedPct: num("maxDeployedPct", policy.defaultMaxDeployedPct, 5, 100),
-    budgetUsd: budget(stored, policy),
   };
-}
-
-/**
- * `budgetUsd` is the one cap with a meaningful "off" state, so it cannot share
- * `num`'s helper: a stored `null` is a deliberate choice to size on the
- * percentage ceilings alone, and has to survive round-tripping through this
- * function rather than being coerced to the default like any other invalid
- * value. Anything else non-numeric, unset, or outside the permitted range falls
- * back to the conservative default — on, at the top of the novice range.
- */
-function budget(stored: Record<string, unknown>, policy: GuidedPolicy): number | null {
-  if (stored.budgetUsd === null) return null;
-  const v = Number(stored.budgetUsd);
-  return Number.isFinite(v) && v >= policy.minGuidedBudgetUsd && v <= policy.maxGuidedBudgetUsd
-    ? v
-    : policy.defaultGuidedBudgetUsd;
 }

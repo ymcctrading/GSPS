@@ -10,6 +10,7 @@ import { GuidedCard } from "@/components/guided/guided-card";
 import { NearMissCard } from "@/components/guided/near-miss-card";
 import type { NearMiss } from "@/lib/guided/near-miss";
 import { formatUsd } from "@/lib/utils";
+import { MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
 
@@ -25,8 +26,8 @@ interface GuidedResponse {
    */
   nearMiss?: NearMiss | null;
   standAside?: boolean;
-  caps?: { riskPct: number; maxTradesPerDay: number; maxDeployedPct: number; budgetUsd: number | null };
-  usage?: { tradesToday: number; deployedPct: number };
+  caps?: { riskPct: number };
+  usage?: { openMarkets: string[] };
   error?: string;
 }
 
@@ -169,10 +170,8 @@ export function GuidedMode() {
 
       {data?.caps && data.usage && (
         <p className="text-sm text-muted">
-          Risking {data.caps.riskPct}% of your paper equity per trade
-          {data.caps.budgetUsd != null && <> · never more than {formatUsd(data.caps.budgetUsd, 0)} in one trade</>}{" "}
-          · {data.usage.tradesToday} of {data.caps.maxTradesPerDay} guided trades today ·{" "}
-          {data.usage.deployedPct.toFixed(0)}% of {data.caps.maxDeployedPct}% deployed.
+          Risking {data.caps.riskPct}% of your paper equity per trade · {data.usage.openMarkets.length} of{" "}
+          {MAX_OPEN_SYMBOLS} markets open.
         </p>
       )}
 

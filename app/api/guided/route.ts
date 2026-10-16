@@ -94,7 +94,7 @@ export async function GET() {
     const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null, guidedPolicy);
 
     const account = await readGuidedAccount(supabase, user.id);
-    const usage = await readCapUsage(supabase, user.id, caps, account.equity, account.openSymbols);
+    const usage = readCapUsage(account.openSymbols);
     if (usage.blockedReason) {
       return NextResponse.json({
         enabled: false,
@@ -108,8 +108,7 @@ export async function GET() {
     }
 
     // Phase 3C: guided_scan quota, metered from here -- after the structural
-    // blocks above (live brokerage, kill switch, Guided Mode's own risk/trade
-    // caps) so a request that never reaches the actual scan doesn't cost the
+    // blocks above (live brokerage, kill switch, Gann's capital rules) so a request that never reaches the actual scan doesn't cost the
     // user a daily unit for it.
     const policy = await getUserEntitlementPolicy(service, user.id);
     const reservation = await reserveUsageSlot(service, {
@@ -148,7 +147,8 @@ export async function GET() {
         symbols: orderedCandidates(published, guidedPolicy.maxCandidatesScanned),
         account,
         caps,
-        deployedUsd: usage.deployedUsd,
+        capitalHeldUsd: usage.capitalHeldUsd,
+        openMarkets: usage.openMarkets,
         universeThresholds,
         guidedPolicy,
       });

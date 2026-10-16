@@ -132,7 +132,7 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
   const caps = resolveGuidedCaps((settingsRow as { prefs?: unknown } | null)?.prefs ?? null);
 
   const account = await readGuidedAccount(supabase, demoUserId);
-  const usage = await readCapUsage(supabase, demoUserId, caps, account.equity, account.openSymbols, now);
+  const usage = readCapUsage(account.openSymbols);
 
   if (usage.blockedReason) {
     return { ran: true, demoUserId, blockedReason: usage.blockedReason, placed: [], skipped: [] };
@@ -155,15 +155,14 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
     symbols: rawCandidates,
     account,
     caps,
-    deployedUsd: usage.deployedUsd,
+    capitalHeldUsd: usage.capitalHeldUsd,
+    openMarkets: usage.openMarkets,
     now,
   });
 
-  // The daily cap is enforced here, not inside buildRecommendations (which
-  // caps a single call at MAX_RECOMMENDATIONS regardless of the day's
-  // running total) — room is whatever's left of today's cap.
-  const room = Math.max(0, caps.maxTradesPerDay - usage.tradesToday);
-  const toPlace = built.recommendations.slice(0, room);
+  // No daily trade count (Q8, Q12): Gann's capital rules, applied inside
+  // buildRecommendations and again at the order, bound what is placed.
+  const toPlace = built.recommendations;
 
   const placed: DemoAutoTradeResult["placed"] = [];
   for (const rec of toPlace) {

@@ -145,8 +145,8 @@ export async function POST(req: NextRequest) {
   const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null, guidedPolicy);
 
   const account = await readGuidedAccount(supabase, user.id);
-  const usage = await readCapUsage(supabase, user.id, caps, account.equity, account.openSymbols);
-  if (usage.blockedReason) {
+  const usage = readCapUsage(account.openSymbols);
+  if (usage.blockedReason && !usage.openMarkets.includes(rec.symbol.toUpperCase())) {
     return NextResponse.json({ error: usage.blockedReason, code: "cap_reached" }, { status: 429 });
   }
 
@@ -160,9 +160,7 @@ export async function POST(req: NextRequest) {
     masterProfit: agreed.masterProfit,
     riskPct: caps.riskPct,
     riskCapital: account.riskCapital,
-    maxDeployedPct: caps.maxDeployedPct,
-    deployedUsd: usage.deployedUsd,
-    maxNotionalUsd: caps.budgetUsd,
+    capitalHeldUsd: usage.capitalHeldUsd,
     minGuidedQty: guidedPolicy.minGuidedQty,
   });
   if (sized.blockedReason || !sizeIsTradeable(sized.qty, guidedPolicy.minGuidedQty)) {

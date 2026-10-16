@@ -44,6 +44,7 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
+import { capitalRuleRefusal } from "@/lib/risk/gannCapital";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
@@ -431,6 +432,21 @@ export async function placeSimulatedOrder(
           body: { error: verdict.violations.join(" "), code: "position_limit", violations: verdict.violations },
         };
       }
+    }
+    // Gann's capital rules (Q4, Q6): at most three markets, and 30 points of
+    // capital behind every share held (lib/risk/gannCapital.ts). Shares only:
+    // an option contract is not a share.
+    if (input.assetClass === "equity") {
+      const refusal = capitalRuleRefusal({
+        capital: equity > 0 ? equity : 0,
+        symbol: candidateSymbol,
+        price: referencePrice ?? 0,
+        qty: referencePrice == null ? 0 : input.qty,
+        open: openPositions
+          .filter((p) => p.asset_class !== "option")
+          .map((p) => ({ symbol: p.symbol, qty: p.qty, price: p.avg_entry_price })),
+      });
+      if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
     }
   }
 
@@ -963,6 +979,15 @@ async function placeLiveOrder(
         };
       }
     }
+    // Gann's capital rules (Q4, Q6), the same check as the paper path.
+    const refusal = capitalRuleRefusal({
+      capital: equity > 0 ? equity : 0,
+      symbol: input.symbol,
+      price: referencePrice ?? 0,
+      qty: referencePrice == null ? 0 : input.qty,
+      open: brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
+    });
+    if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
   }
 
   if (input.entryMode === "advised" && !input.limitPrice) {

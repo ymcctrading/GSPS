@@ -121,13 +121,13 @@ describe("GuidedCard", () => {
     expect(screen.getAllByText(/Sell short/).length).toBeGreaterThan(1);
   });
 
-  it("explains a budget-capped size, and stays quiet when the risk math decided it", () => {
+  it("explains a size the capital rule capped, and stays quiet when the risk math decided it", () => {
     const { rerender } = render(
-      <GuidedCard rec={{ ...rec, boundBy: "budget" }} onConfirm={noop} onDismiss={noop} busy={false} />,
+      <GuidedCard rec={{ ...rec, boundBy: "capital" }} onConfirm={noop} onDismiss={noop} busy={false} />,
     );
-    expect(screen.getByText(/Capped to your per-trade dollar budget/)).toBeInTheDocument();
+    expect(screen.getByText(/Capped by the capital rule/)).toBeInTheDocument();
 
     rerender(<GuidedCard rec={rec} onConfirm={noop} onDismiss={noop} busy={false} />);
-    expect(screen.queryByText(/Capped to your per-trade dollar budget/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Capped by the capital rule/)).not.toBeInTheDocument();
   });
 });

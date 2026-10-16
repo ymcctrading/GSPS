@@ -194,9 +194,9 @@ export const TOUR_STEPS: TourStep[] = [
     anchor: "guided-card",
     body: [
       "Choosing how many shares to buy is where beginners lose money, so GSPS makes that call for you.",
-      "Three safety limits are checked every time. The risk limit caps one trade at 1% of the account, which would permit 2,222 shares here. The exposure limit caps total holdings at a quarter of the account, which permits 1,008. The budget limit caps any single trade at $250, which permits only 10.",
-      "When limits disagree, the strictest number wins. Hence 10 shares, not thousands of dollars — an amount that fits an account trading real money in the low hundreds.",
-      "GSPS then translates the position into money: roughly $5 at risk, roughly $9 if both profit targets are reached. Dollars, not percentages.",
+      "Three limits are checked every time. The risk limit caps one trade's loss at 1% of the account, which permits 2,222 shares here. The capital rule holds capital behind every share, which permits 4,584. Cash permits 4,032.",
+      "When limits disagree, the strictest number wins. Hence 2,222 shares: if the stop is hit, the account loses 1%, never more.",
+      "GSPS then translates the position into money: roughly $1,000 at risk, roughly $1,955 if both profit targets are reached. Dollars, not percentages.",
     ],
   },
   {
