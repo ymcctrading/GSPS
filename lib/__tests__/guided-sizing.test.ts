@@ -166,3 +166,16 @@ describe("sizeGuidedTrade on Gann's trading unit", () => {
     expect(readFileSync("lib/guided/service.ts", "utf8")).toMatch(/gannRiskCapital\(/);
   });
 });
+
+describe("sizeGuidedTrade: never more than a tenth of the capital at risk (never-failing rule 1)", () => {
+  it("caps a risk percent over 10% at a tenth of the trading capital", () => {
+    // 25% of a $10,000 unit would risk $2,500; a tenth is $1,000, so $10 a share carries 100.
+    const sized = sizeGuidedTrade({ ...base, riskPct: 25, riskCapital: 10_000 });
+    expect(sized.qty).toBe(100);
+    expect(sized.riskUsd).toBeLessThanOrEqual(1_000 + 1e-6);
+    expect(sized.boundBy).toBe("risk");
+  });
+  it("leaves a risk percent under a tenth alone", () => {
+    expect(sizeGuidedTrade({ ...base, riskPct: 2, riskCapital: 10_000 }).qty).toBe(20);
+  });
+});

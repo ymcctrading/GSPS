@@ -115,7 +115,8 @@ describe("readEntryConfirmationNow: leaving a range on volume (A-VOLUME-10)", ()
   });
 
   it("asks no volume of a resting buy at an old bottom inside the range (review M5, BV12)", async () => {
-    byTimeframe(range);
+    // A closed bar today comes back to the old bottom, so the buy goes at the market.
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? range : [bar("2026-10-15T14:30:00Z", 97, 97.2, 95.9, 96.5)]));
     const r = await readEntryConfirmationNow({
       symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 96, stopPrice: 92, takeProfit1: 101, entryKind: "oldLevel", now,
     });
@@ -154,19 +155,29 @@ describe("the completed daily chart, for a reaction longer than the window", () 
   const now = new Date("2026-10-15T15:00:00Z");
   const t = computeGannEntryTrigger(daily, "bullish")!;
 
-  it("is ready when the level still holds there and is the one this order buys", async () => {
+  // Today's closed bar reacts into the buying zone (never-failing rule 9).
+  const reacted = () => bar("2026-10-15T14:30:00Z", 46, 46.3, t.reactionEntry - 0.1, 46);
+
+  it("is ready when the level still holds there, is the one this order buys, and a bar today reacted into the zone", async () => {
     expect(t.held).toBe(true);
     expect(heldOnDailyChart(daily, now, "bullish", Math.round(t.reactionEntry * 100) / 100)).toBe(true);
-    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? daily : [bar("2026-10-15T14:30:00Z", 52, 52.3, 51.8, 52)]));
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? daily : [reacted()]));
     const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: t.reactionEntry, stopPrice: t.reactionStop, now });
     expect(r.ready).toBe(true);
+  });
+
+  it("waits for the reaction into the zone when no bar today has reached it", async () => {
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? daily : [bar("2026-10-15T14:30:00Z", 52, 52.3, 51.8, 52)]));
+    const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: t.reactionEntry, stopPrice: t.reactionStop, now });
+    expect(r).toMatchObject({ ready: false, stage: "broken" });
+    expect(r.note).toMatch(/at the market/);
   });
 
   it("waits when the session that left the range closed on no more than the range's volume", async () => {
     const flat = daily.map((b) => ({ ...b, v: 1e6 }));
     const ft = computeGannEntryTrigger(flat, "bullish")!;
     expect(heldOnDailyChart(flat, now, "bullish", Math.round(ft.reactionEntry * 100) / 100)).toBe(true);
-    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? flat : [bar("2026-10-15T14:30:00Z", 52, 52.3, 51.8, 52)]));
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? flat : [bar("2026-10-15T14:30:00Z", 46, 46.3, ft.reactionEntry - 0.1, 46)]));
     const r = await readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: ft.reactionEntry, stopPrice: ft.reactionStop, now });
     expect(r.ready).toBe(false);
     expect(r.stage).toBe("broken");

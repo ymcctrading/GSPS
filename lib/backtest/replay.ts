@@ -96,7 +96,7 @@ import {
   levelBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, tradedIntoBuyZone, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
@@ -239,14 +239,20 @@ export interface ReplayOptions {
    *
    * - `"reaction"` (default; 2026-10-15, PLAN.md item 4): Gann's own crossing rule
    *   (W006 pp.20, 46-47). A close 3 points beyond the old level crosses it;
-   *   the buy is a limit on the reaction, 1 point past the level
-   *   (`reactionEntry`), filled at that price or at the open when a candle
-   *   opens through it; the stop is 3 points the other side of the level
-   *   (`reactionStop`), so the trade risks 4 points, inside his 5-point cap.
-   *   Price can't reach the stop line without trading through the buy, so a
-   *   failed crossing is a fill that is stopped, or a gap through the stop
-   *   that production refuses (`fill_outran_bracket`); the plan-stop breach
-   *   test doesn't apply. R is measured from the reaction buy to its stop.
+   *   the buy is on the reaction into the zone from 1 point past the level
+   *   (`reactionEntry`) down to 1 point short of the stop; the stop is 3
+   *   points the other side of the level (`reactionStop`), so the plan risks
+   *   4 points, inside his 5-point cap. Since never-failing rule 9
+   *   (2026-10-16; "trade at the market", Commodities rule 9 pp.43-45 and
+   *   p.19) no limit rests at `reactionEntry`: once a closed candle after the
+   *   crossing has traded into the zone, the buy is a market order, filled at
+   *   the next candle's open, as production places it (`confirmEntry`). A
+   *   closed candle through the stop before then calls the entry off; an open
+   *   through it is refused (`fill_outran_bracket`). R is measured on the
+   *   plan's 4 points; a fill away from `reactionEntry` moves the P&L, not
+   *   the bracket. A double or triple bottom, or a bottom that held, has
+   *   nothing to cross and is bought the same way once a closed candle has
+   *   come back to its entry.
    */
   entryRule?: "stop" | "confirmed" | "reaction";
   /**
@@ -756,8 +762,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // on, so no bar from before that session can count toward its confirmation.
   const confirmation = new Map<string, { since: string; evidence: EntryConfirmationEvidence }>();
   // Gann's crossing, per pivot, when `entryRule === "reaction"`: whether a
-  // close has crossed the level by 3 points since the pivot first armed.
-  const crossing = new Map<string, { since: string; crossed: boolean }>();
+  // close has crossed the level by 3 points since the pivot first armed, the
+  // time of that close (empty when nothing had to be crossed), and whether a
+  // closed candle after it has traded into the buying zone (rule 9).
+  const crossing = new Map<string, { since: string; crossed: boolean; crossedAt: string; reacted: boolean }>();
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
@@ -943,16 +951,28 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       if (entryRule === "reaction") {
         // A held trigger was already crossed on the completed daily chart
         // (PLAN.md item 5), the same reading the live scan prices from.
-        const state = crossing.get(pivotKey) ?? { since: date, crossed: false };
-        // An old-level buy rests at the level, and a held bottom's buy at the
+        const state = crossing.get(pivotKey) ?? { since: date, crossed: false, crossedAt: "", reacted: false };
+        // An old-level buy is at the level, and a held bottom's buy at the
         // last close, with nothing to cross.
         if (trigger.held || restsWithoutCrossing(trigger.kind)) state.crossed = true;
         const closed = history[history.length - 1];
-        if (closed.t.slice(0, 10) >= state.since && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
+        const inSession = closed.t.slice(0, 10) >= state.since;
+        if (state.crossed && inSession && closed.t > state.crossedAt) {
+          // After the crossing close: a close through the stop calls the
+          // entry off, as `confirmationFromBars` reads it; a candle into the
+          // zone makes it a market order.
+          if (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop) {
+            consumedPivots.add(pivotKey);
+            crossing.delete(pivotKey);
+            continue;
+          }
+          if (tradedIntoBuyZone(closed, trigger.direction, trigger.reactionEntry)) state.reacted = true;
+        } else if (!state.crossed && inSession && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
           state.crossed = true;
+          state.crossedAt = closed.t;
         }
         crossing.set(pivotKey, state);
-        fired = state.crossed && breakawayVolume && (long ? live.l <= trigger.reactionEntry : live.h >= trigger.reactionEntry);
+        fired = state.crossed && state.reacted && breakawayVolume;
       } else if (entryRule === "confirmed") {
         // Advance the confirmation state machine on the last closed bar, if
         // it belongs to a session this pivot was armed on. Once the sequence
@@ -992,14 +1012,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       triggered++;
 
       // A stop entry fills at the trigger, or at the open when a candle opens
-      // beyond it. A confirmed entry is a market order after the hold, filled
-      // at this candle's open.
+      // beyond it. A confirmed entry is a market order after the hold, and a
+      // reaction entry a market order after a closed candle into the zone
+      // (never-failing rule 9), both filled at this candle's open.
       const entry =
-        entryRule === "reaction"
-          ? long
-            ? Math.min(trigger.reactionEntry, live.o)
-            : Math.max(trigger.reactionEntry, live.o)
-          : entryRule === "confirmed"
+        entryRule === "reaction" || entryRule === "confirmed"
           ? live.o
           : long
             ? Math.max(trigger.triggerPrice, live.o)

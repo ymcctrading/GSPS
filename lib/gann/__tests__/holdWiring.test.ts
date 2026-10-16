@@ -55,11 +55,13 @@ describe("the kind rests with nothing to cross", () => {
     expect(restsWithoutCrossing(undefined)).toBe(false);
   });
 
-  it("is ready with bars above the stop, off once a close goes through it, and mirrored", () => {
-    expect(confirmationFromBars([], "bullish", 101, 95, "hold").ready).toBe(true);
-    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 102)], "bullish", 101, 95, "hold").ready).toBe(true);
+  it("is ready once a bar trades at the last close, off once a close goes through the stop, and mirrored", () => {
+    expect(confirmationFromBars([], "bullish", 101, 95, "hold").ready).toBe(false);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 102)], "bullish", 101, 95, "hold").ready).toBe(false);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 101)], "bullish", 101, 95, "hold").ready).toBe(true);
     expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 94.9)], "bullish", 101, 95, "hold")).toMatchObject({ ready: false, stage: "dead" });
-    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 98)], "bearish", 99, 105, "hold").ready).toBe(true);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 98)], "bearish", 99, 105, "hold").ready).toBe(false);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 98.9)], "bearish", 99, 105, "hold").ready).toBe(true);
     expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 105.1)], "bearish", 99, 105, "hold").stage).toBe("dead");
   });
 
@@ -208,10 +210,11 @@ describe("the replay buys a held bottom at the last close", () => {
     expect(H.reactionStop).toBeCloseTo(H.level - gannThreePoints(H.level), 8);
   });
 
-  it("buys when price trades at the last close, with the stop 3 points under the low", () => {
-    const r = replay("TEST", session([candle(H.reactionEntry + 0.03), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
+  it("buys at the next open once a closed candle trades at the last close, with the stop 3 points under the low", () => {
+    const r = replay("TEST", session([candle(H.reactionEntry + 0.03), candle(H.reactionEntry * 1.004), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
-    expect(r.trades[0].entry).toBeCloseTo(H.reactionEntry, 6);
+    // At the market (never-failing rule 9): the open after the closed candle.
+    expect(r.trades[0].entry).toBeCloseTo(H.reactionEntry * 1.004, 6);
     expect(r.trades[0].stop).toBeCloseTo(H.reactionStop, 6);
     expect(r.trades[0].entryKind).toBe("hold");
   });

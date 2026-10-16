@@ -455,7 +455,11 @@ export async function closePositionSim(
  * protocol entry is Gann's reaction buy: after a close 3 points past the old
  * level, the order rests at the level plus 1 point and fills when price
  * reacts back to it (W006 pp.20, 46-47), the way a real limit order does and
- * the way the live broker (`lib/brokers/alpaca.ts`) already rests it.
+ * the way the live broker (`lib/brokers/alpaca.ts`) already rests it. Since
+ * never-failing rule 9 (2026-10-16) the protocol's own entry goes at the
+ * market once a closed bar reacts into the zone (`confirmEntry` in
+ * `lib/trade/place-order.ts`), so this reads a limit the person priced
+ * themselves, and protocol limits resting from before the change.
  */
 export function isTriggered(side: "buy" | "sell", limitPrice: number, market: number): boolean {
   return side === "buy" ? market <= limitPrice : market >= limitPrice;

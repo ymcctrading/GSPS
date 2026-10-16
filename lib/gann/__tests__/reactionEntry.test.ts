@@ -64,7 +64,8 @@ describe("the reaction buy on the live plan", () => {
 
   it("calls the entry off when a later close goes through the stop before it is placed", () => {
     const crossed = bar("2026-01-02T00:00:00Z", 53.4, 50.5, 53);
-    expect(confirmationFromBars([crossed], "bullish", 51, 47).ready).toBe(true);
+    expect(confirmationFromBars([crossed], "bullish", 51, 47).stage).toBe("broken");
+    expect(confirmationFromBars([crossed, bar("2026-01-02T12:00:00Z", 52, 50.9, 51.5)], "bullish", 51, 47).ready).toBe(true);
     const dead = confirmationFromBars([crossed, bar("2026-01-03T00:00:00Z", 50, 46.5, 46.8)], "bullish", 51, 47);
     expect(dead.ready).toBe(false);
     expect(dead.stage).toBe("dead");

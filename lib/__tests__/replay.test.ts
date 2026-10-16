@@ -642,11 +642,13 @@ describe("replay continuation setups", () => {
       return { o: c, h: c + 0.3, l: c - 0.3, c };
     });
     const test = { o: L + 1, h: L + 1.2, l: L - 0.1, c: L + 0.5 };
-    const r = replay("TEST", intraday([...hold, test, { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 }]), { targetR: 2, dailyBars: later });
+    const next = { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 };
+    const r = replay("TEST", intraday([...hold, test, next, next]), { targetR: 2, dailyBars: later });
     const cont = r.trades.filter((t) => t.setupKind === "continuation");
     expect(cont).toHaveLength(1);
     expect(cont[0].direction).toBe("bullish");
-    expect(cont[0].entry).toBeCloseTo(L, 8);
+    // At the market once the test candle closed (never-failing rule 9): the next open.
+    expect(cont[0].entry).toBeCloseTo(L + 1, 8);
   });
 
   it("splits a run by setup kind without losing a trade", () => {
@@ -692,7 +694,8 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
       return { o: c, h: c + 0.3, l: c - 0.3, c };
     });
     const test = { o: L + 1, h: L + 1.2, l: L - 0.1, c: L + 0.5 };
-    const plan = replay("TEST", intraday([...hold, test, { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 }]), {
+    const next = { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 };
+    const plan = replay("TEST", intraday([...hold, test, next, next]), {
       targetR: 2,
       dailyBars: later,
       usePlanLevels: true,

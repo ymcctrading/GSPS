@@ -11,6 +11,19 @@
  * - A-RISK-08 (W022 pp.203-204, class A): specialise in two or three markets
  *   and do not diversify. At most `MAX_OPEN_SYMBOLS` symbols open at once; an
  *   order in a symbol already held is not a new market.
+ * - Never-failing rule 1 (W006 p.46, Rule 1: "never risk more than 10% of
+ *   capital on one trade"; *Commodities* p.29 "Capital Required" and p.30
+ *   "never risk more than one-tenth of your capital on any one trade", and
+ *   rule 1 of the 28, pp.43-45; WSSS Ch. II rule 1; 45 Years pp.15-16): a
+ *   trade risks at most `MAX_RISK_FRACTION` of the capital, qty times the
+ *   entry-to-stop distance. Gann stacks it on the 30 points of capital in the
+ *   same rule (NSTD p.46) and on facing pages (Commodities pp.29-30). The two
+ *   meet at his 3-point stop (30 points × 1/10 = 3 points a share), so the
+ *   tenth binds only on a wider stop, up to his 5-point cap. "Capital" is
+ *   the trading unit (`gannRiskCapital`, A-RISK-04), the capital the per-trade
+ *   risk rate already reads; that reading is the engineering choice. It is a
+ *   per-trade ceiling, "on any one trade", not a limit on all open risk. The
+ *   account's own risk bands (`lib/risk/config.ts`) sit under it.
  *
  * Checked on every new entry by `lib/trade/place-order.ts` (paper and live),
  * and used to size Guided and the portfolio manager. Protective orders are
@@ -29,6 +42,8 @@ import { gannPoint } from "@/lib/gann/pointScale";
 export const CAPITAL_POINTS_PER_SHARE = 30;
 /** "Two or three markets": the upper end, so a third is allowed. */
 export const MAX_OPEN_SYMBOLS = 3;
+/** "Never risk more than one-tenth of your capital on any one trade." */
+export const MAX_RISK_FRACTION = 1 / 10;
 
 export function capitalPerShare(price: number): number {
   return CAPITAL_POINTS_PER_SHARE * gannPoint(price);
@@ -49,7 +64,7 @@ export interface CapitalRuleInput {
 }
 
 export interface CapitalRuleRefusal {
-  code: "capital_per_share" | "max_open_symbols";
+  code: "capital_per_share" | "max_open_symbols" | "risk_one_tenth";
   error: string;
 }
 
@@ -76,4 +91,40 @@ export function capitalRuleRefusal(input: CapitalRuleInput): CapitalRuleRefusal 
     };
   }
   return null;
+}
+
+/** The most a single trade may risk: a tenth of the capital, never below zero. */
+export function maxRiskForTrade(capital: number): number {
+  return capital > 0 ? capital * MAX_RISK_FRACTION : 0;
+}
+
+/** The shares a tenth of the capital carries at `riskPerShare` (entry to stop). */
+export function maxSharesForRisk(capital: number, riskPerShare: number): number {
+  const risk = Math.abs(riskPerShare);
+  return risk > 0 && capital > 0 ? Math.floor(maxRiskForTrade(capital) / risk + 1e-9) : 0;
+}
+
+export interface RiskTenthInput {
+  /** The trading unit (`gannRiskCapital`). */
+  capital: number;
+  symbol: string;
+  entry: number;
+  stop: number;
+  qty: number;
+}
+
+/**
+ * Refuses an entry that risks more than a tenth of the capital. Never called
+ * for a protective order: closing or reducing a position risks nothing new.
+ */
+export function riskTenthRefusal(input: RiskTenthInput): CapitalRuleRefusal | null {
+  const perShare = Math.abs(input.entry - input.stop);
+  const risk = Math.abs(input.qty) * perShare;
+  // A cent of slack for rounding to the tick.
+  if (risk <= maxRiskForTrade(input.capital) + 0.01) return null;
+  const room = maxSharesForRisk(input.capital, perShare);
+  return {
+    code: "risk_one_tenth",
+    error: `That trade risks ${risk.toFixed(2)}, more than a tenth of this account's trading capital (${maxRiskForTrade(input.capital).toFixed(2)}). At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
+  };
 }

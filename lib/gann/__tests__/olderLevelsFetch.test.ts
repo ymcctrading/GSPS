@@ -66,7 +66,10 @@ describe("fetching the monthly chart", () => {
     expect(T).toMatchObject({ source: "priorYear", held: true, level: 100 });
   });
 
-  it("confirmation: an order at the scan's reaction buy is ready on the held level", async () => {
+  it("confirmation: an order at the scan's reaction buy is ready on the held level once a bar reacts into the zone", async () => {
+    // A closed bar this morning trades down to the buy (never-failing rule 9).
+    const e = T.reactionEntry;
+    fixtures.execution = [{ t: `${ASOF}T14:30:00Z`, o: e + 0.5, h: e + 0.6, l: e - 0.1, c: e + 0.2, v: 1000 }];
     const r = await readEntryConfirmationNow({
       symbol: "TEST", assetClass: "us_equity", direction: "bullish",
       entryTrigger: T.reactionEntry, stopPrice: T.reactionStop, now: new Date(`${ASOF}T15:00:00Z`),
