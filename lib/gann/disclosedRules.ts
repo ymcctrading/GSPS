@@ -95,6 +95,7 @@ import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleT
 import { readRuleFollowing, type RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
+import { describeTimeCounts, readTimeCounts, type TimeCountsReading } from "@/lib/gann/timeCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
 import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
@@ -603,6 +604,8 @@ export interface DisclosedRulesContext {
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
   secondaryTime?: SecondaryTimeReading | null;
+  /** The class A time counts read as context only (2026-10-16). See `timeCounts.ts`. */
+  timeCounts?: TimeCountsReading | null;
   /** Months from the monthly chart's major tops and bottoms (A-TIME-05, context only). See `angleMonthCounts.ts`. */
   monthCounts?: PivotMonthCount[] | null;
   /** Months from the weekly swing chart's tops and bottoms, dated to the day, to the month in hand (A-TIME-21, W046 p.2). Context only. */
@@ -779,6 +782,7 @@ export function readDisclosedRules(
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
+    timeCounts: readTimeCounts(dailyBars, longMonthly, asOf),
     monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
     swingMonthCounts: readSwingMonthCounts(dailyBars, asOf),
     bearDuration: marketMonthly ? readBearDuration(marketMonthly, asOf) : null,
@@ -812,6 +816,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
   if (ctx.secondaryTime) lines.push(...describeSecondaryTime(ctx.secondaryTime));
+  if (ctx.timeCounts) lines.push(...describeTimeCounts(ctx.timeCounts));
   if (ctx.monthCounts && ctx.monthCounts.length > 0) {
     const list = ctx.monthCounts.map((c) => `${c.months}${c.watched ? " (a watched count)" : ""} from the ${c.pivotMonth} ${c.kind === "high" ? "top" : "bottom"}`);
     lines.push(`Months from the major tops and bottoms: ${list.join(", ")}. Shown for context; it does not change the setup.`);

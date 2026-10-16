@@ -301,6 +301,14 @@ export function contextFactorsFor(
     if (st.halfPriceHalfTime !== undefined) f.halfPriceHalfTimeRecent = st.halfPriceHalfTime !== null;
   }
 
+  // Class A time counts read as context (2026-10-16, `timeCounts.ts`):
+  // measured, never gating. Directions follow each count's class A
+  // counterpart: from an anchor, a low argues up.
+  const tc = ctx.timeCounts;
+  if (tc) {
+    if (tc.lessonCycles) f.lessonCycleWithTrade = tc.lessonCycles.some((h) => (h.kind === "low") === bull);
+  }
+
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
   // pivot, its direction from the anchor (a low argues up). Measured, never gating.
   if (ctx.monthCounts) f.watchedMonthCountWithTrade = ctx.monthCounts.some((c) => c.watched && (c.kind === "low") === bull);
