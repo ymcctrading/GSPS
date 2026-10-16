@@ -692,3 +692,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 ## 2026-10-16 item 9 step 3d: secondary rally top (A-LEVELS-02, context)
 - campaignLedger.secondaryTurn: the first weekly-chart top after a bear campaign's start (the bull mirror: first weekly bottom, labelled engineering symmetry). Card line; factor belowSecondaryRallyTop. No "crossed" flag: crossing it crosses the campaign's last weekly top too, which turns the weekly chart (dead state, removed after mutant S3 survived).
 - Joining the S/R pool waits for FL1's replay, as the map says. Mutants S1-S5 killed.
+
+## 2026-10-16 item 9 step 3e: midpoint fan and square from a high (C-LEVELS-10, C-LEVELS-08)
+- lib/gann/midpointFan.ts: computeMidpointFan (the fans' latest pivot high and low halved; origin in time the bar where the close last crossed it, labelled engineering; ATR unit like fans.ts until FL4's replay); squareFromHigh(high, rate, units), research-only, no consumer.
+- Card line only (midpointFan); a source pin keeps both out of score.ts, levels.ts, scanTicker.ts, replay.ts and fans.ts. Mutants M1-M3, M5 killed.
+- C-PRICE-02 (FL8) waits on a page check of 45 Years Ch. IV; C-LEVELS-12/-15 research modules next.

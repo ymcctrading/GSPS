@@ -75,6 +75,7 @@ import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/n
 import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
 import { etDateKey } from "@/lib/market/session";
+import { computeMidpointFan, type MidpointFan } from "@/lib/gann/midpointFan";
 import { readCampaignBottoms, type CampaignBottomLadder } from "@/lib/gann/campaignBottoms";
 import {
   annualRange,
@@ -483,6 +484,8 @@ export interface DisclosedRulesContext {
   distributionStanding?: DistributionStanding | null;
   /** Old campaign bottoms, newest first, and the one to look to next (A-LEVELS-03, context only). See `campaignBottoms.ts`. */
   campaignBottoms?: CampaignBottomLadder | null;
+  /** Angles from the 50% point of the latest pivot high and low (C-LEVELS-10, card only). See `midpointFan.ts`. */
+  midpointFan?: MidpointFan | null;
   /** Gann's price zone in his literal dollars (A-PRICE-01, context only). See `priceZone.ts`. */
   priceZone?: PriceZone | null;
   /** The fall from the 52-week high, and whether it is in the first 100 points (A-PRICE-01, context only). */
@@ -604,6 +607,7 @@ export function readDisclosedRules(
     distribution: readDistributionBreakdown(dailyBars, asOf),
     distributionStanding: readDistributionStanding(dailyBars, asOf),
     campaignBottoms,
+    midpointFan: computeMidpointFan(dailyBars),
     priceZone: priceZone(currentPrice),
     firstFall: readFirstFallFromHigh(dailyBars, asOf),
     annualRange: longMonthly ? annualRange(longMonthly, asOf) : null,
@@ -659,6 +663,12 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   if (ctx.annualRange) {
     lines.push(`Its usual yearly range is ${ctx.annualRange.medianPoints.toFixed(2)} points (the median of ${ctx.annualRange.years} completed year${ctx.annualRange.years === 1 ? "" : "s"}). Watch the dates more than the points. Shown for context.`);
+  }
+  if (ctx.midpointFan) {
+    const at = (d: "up" | "down") => ctx.midpointFan!.lines.find((l) => l.angle === "1x1" && l.direction === d)?.price;
+    const up = at("up");
+    const down = at("down");
+    lines.push(`From the 50% point (${ctx.midpointFan.midpoint.toFixed(2)}), the 1x1 angles stand at ${up?.toFixed(2) ?? "n/a"} up and ${down?.toFixed(2) ?? "n/a"} down. Not a level to trade on alone.`);
   }
   if (ctx.integerSquares) {
     const [lo, mid, hi] = ctx.integerSquares;
