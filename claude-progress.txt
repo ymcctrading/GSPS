@@ -806,3 +806,9 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - M (card masking), documented, not changed: while the latest cluster reads failed, a nearer crossed cluster is not reported on the card or in multipleTopCrossedWithTrade. thirdTestFailedAgainstTrade's meaning moved three times today; compare runs on one STRATEGY_VERSION only.
 - Open for the owner: a pass that falls back reads failed again (design choice); the rule's reach (failed top stands in 47% of readings, 13.7% of 10-session longs exit on it) needs a replay.
 - Mutants M1-M6 (loose exemption, strict exemption, newest cluster, attached stop, null advised, resting kind) all killed. 3020 tests pass, tsc, check:terms clean.
+
+2026-10-16 A-LEVELS-04 review 15 (FAIL narrowly, no H). STRATEGY_VERSION 2026-10-16-gann-failed-tops-cent
+- M1 fixed: CROSSED_LEVEL_TOLERANCE (one cent) on the crossing exemption; placement rebuilds the crossed level from cent-rounded entry/stop. Tests: reviewer's 10.05/10.45/8.84 case and a sweep of rounded reaction pairs $10-$500; tolerance 0 and 0.03 mutants killed.
+- L2 fixed: lesson now says the hold applies to a move that must clear the top by 3 points to reach TP1.
+- L1 left: scan/replay verdict wiring of crossingLevelOf is pinned by source regex; the hold and the replay entry skip are behavioural.
+- M2 to owner: the exemption counts a 15-minute close past the break line as the pass, while the daily reading lifts a failure only on a daily close past L+3pts, so after such a fill the card can still read the top as failed and no failed-top exit fires until a new test.

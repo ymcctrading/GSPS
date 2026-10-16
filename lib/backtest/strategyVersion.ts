@@ -257,4 +257,8 @@
 // from a failed top only when the level it crosses is at or past that top;
 // a crossing of a lower level is held. Confirmation and placement read the
 // crossed level from the protocol's own stop, never an attached one.
-export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-crossing";
+//
+// 2026-10-16-gann-failed-tops-cent: review 15. The crossing exemption allows
+// a cent, so placement, which rebuilds the crossed level from cent prices,
+// agrees with the scan and the replay at an equal-tops double top.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-cent";
