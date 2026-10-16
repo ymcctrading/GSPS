@@ -117,6 +117,21 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
     expect(failedTestInPath(passed, "bullish", L + 1, 120)).toBeNull();
   });
 
+  it("is not lifted by a session that trades past the line and closes back under it (review 19 M1)", () => {
+    // Master Course rules 4-5: an intraday poke often reverses by the close.
+    const poke = (close: number, extreme: number, kind: "top" | "bottom"): Bar[] => {
+      const b = bars(kind === "top" ? [...doubleTop, ...leg(103, 108, 3)] : [...doubleBottom, ...leg(97, 92, 3)]);
+      const last = b[b.length - 1];
+      const t = new Date(Date.parse(last.t) + 86_400_000).toISOString();
+      return [...b, kind === "top" ? { t, o: close, h: extreme, l: close - 0.5, c: close, v: 1e6 } : { t, o: close, h: close + 0.5, l: extreme, c: close, v: 1e6 }];
+    };
+    const topLine = beyondByThreePoints(L, 1);
+    expect(failedTestAgainst(readMultipleTops(poke(108, topLine + 2, "top")), "bullish")).toMatchObject({ state: "failed" });
+    const B = readMultipleTops(bars(doubleBottom)).bottom!.level;
+    const bottomLine = beyondByThreePoints(B, -1);
+    expect(failedTestAgainst(readMultipleTops(poke(92, bottomLine - 2, "bottom")), "bearish")).toMatchObject({ state: "failed" });
+  });
+
   it("leaves a TP1 at the top, or within the 3 points of it: that sells at the top (review 12 M2)", () => {
     expect(failedTestInPath(tops, "bullish", 104, L)).toBeNull();
     expect(failedTestInPath(tops, "bullish", 104, pass)).toBeNull();

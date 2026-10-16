@@ -193,7 +193,7 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
     return {
       ready: false,
       stage: "broken",
-      note: `The market failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it before the first target, which marks a ${failed.kind}, so the ${top ? "buy" : "sell"} waits until a close passes that level by the allowance, or a new swing forms.`,
+      note: `The market failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it before the first target, which marks a ${failed.kind}, so the ${top ? "buy" : "sell"} waits until a daily close passes that level by the allowance, or a new swing forms.`,
     };
   }
   return read;
