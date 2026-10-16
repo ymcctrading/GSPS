@@ -529,5 +529,7 @@ export function contextFactorsFor(
   if (!bull && ctx.capitalStock?.smallFloat !== undefined) f.smallFloatShort = ctx.capitalStock.smallFloat;
   // C-STOP-02: a break of the 1x1 points down from a low and up from a high.
   if (ctx.oneByOneBreak && ctx.oneByOneBreak.length > 0) f.oneByOneBreakWithTrade = ctx.oneByOneBreak.some((b) => b.direction === (bull ? "up" : "down"));
+  // C-LEVELS-24: the session is on the convergence of lines from a double or triple bottom (top), within a bar. No direction in the text.
+  if (ctx.jensenConvergence) f.jensenConvergenceNow = Math.abs(ctx.jensenConvergence.point.barsFromNow) <= 1;
   return f;
 }

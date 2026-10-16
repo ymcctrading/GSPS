@@ -152,6 +152,7 @@ import { describeCampaignLength, readCampaignLength, type CampaignLengthReading 
 import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
+import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -677,6 +678,8 @@ export interface DisclosedRulesContext {
   outbreakCounts?: OutbreakCountHit[];
   /** A close through the 1x1 from a fan anchor, and the 1x2 it points to (C-STOP-02, class C, context only). See `fans.ts`. */
   oneByOneBreak?: OneByOneBreak[];
+  /** Where lines of 90, 45 and 22½ from a double or triple bottom (top) converge (C-LEVELS-24, class C, context only). See `jensen.ts`. */
+  jensenConvergence?: JensenConvergence | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -852,6 +855,7 @@ export function readDisclosedRules(
     foundingCounts: readFoundingCounts(inception, asOf),
     outbreakCounts: readOutbreakCounts(longMonthly, asOf),
     oneByOneBreak: readOneByOneBreak(dailyBars),
+    jensenConvergence: jensenBottomConvergence(dailyBars, unit),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1083,5 +1087,6 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.foundingCounts) lines.push(...describeFoundingCounts(ctx.foundingCounts));
   if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
   for (const b of ctx.oneByOneBreak ?? []) lines.push(describeOneByOneBreak(b));
+  if (ctx.jensenConvergence) lines.push(describeJensenConvergence(ctx.jensenConvergence));
   return lines;
 }
