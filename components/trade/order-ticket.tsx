@@ -76,7 +76,12 @@ export function OrderTicket({
   // point the opposite way from a Gann-armed setup — it must never decide
   // whether a protocol signal exists (that's `levels`/`result.direction`
   // alone) or, when a direction is actually armed, which side it's on.
-  const hasProtocolSignal = !!(levels && result.direction !== "none");
+  // A recommended trade is an Execute verdict (owner report, 2026-10-16: a
+  // low-scoring SPY plan read "Protocol Recommended"). A Watch or Reject plan
+  // keeps its levels for reference, and an order on it is a Manual Override.
+  const verdict = result.decision?.outputState;
+  const hasProtocolSignal = !!(levels && result.direction !== "none" && verdict === "Execute");
+  const belowExecute = !!(levels && result.direction !== "none" && verdict !== "Execute");
   // Reading `signalSide` off `pattern.direction` let the ticket highlight
   // "Buy/Long" for levels that were actually priced short (stop above entry,
   // targets below) -- internally contradictory, and read as invalidated
@@ -571,6 +576,12 @@ export function OrderTicket({
             Manual Override
           </button>
         </div>
+        {belowExecute && (
+          <p className="mt-2 text-xs text-muted">
+            The protocol rates this setup {verdict ?? "unrated"}, not Execute, so it is not a recommended trade. Its
+            levels are shown for reference; an order here is a Manual Override.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Caught before submit — price has already traded through the setup's

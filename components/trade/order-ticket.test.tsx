@@ -444,3 +444,16 @@ describe("OrderTicket with no bar-sequence pattern", () => {
     expect(screen.getByText(/armed structural entry trigger is bearish/)).toBeInTheDocument();
   });
 });
+
+// A plan the protocol rates below Execute is not a recommended trade (owner
+// report 2026-10-16: SPY's low-scoring plan read "Protocol Recommended").
+describe("the order ticket's protocol mode follows the verdict", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("offers Protocol Recommended only on an Execute verdict", async () => {
+    mockFetch();
+    const watch = { ...scanWithEntry(49.75), decision: { score: 4, outputState: "Watch" as const, breakdown: [] } };
+    render(<OrderTicket result={watch} />);
+    expect(await screen.findByRole("button", { name: "Protocol Recommended" })).toBeDisabled();
+    expect(screen.getByText(/rates this setup Watch/)).toBeInTheDocument();
+  });
+});
