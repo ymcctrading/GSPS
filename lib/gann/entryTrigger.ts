@@ -443,7 +443,8 @@ function withinRiskCap(entry: number, stop: number): boolean {
  *   days (`readCounterMove`, read at the low), and its low has stood 2
  *   sessions. "Active markets" is read as A-ENTRY-08's own condition, a
  *   bull-market reaction: a rule reading, not Gann's words (review S5).
- *   The short side's days form is Rule 4's bear-rally sell, a rule of its own.
+ *   The short side's days form is Rule 4's bear-rally sell (`bearRallySell`,
+ *   step 4b), offered when no held top is.
  *
  * Engineering choices, labelled as such: Gann says "buy" and names no price,
  * so the order is a limit at the last completed session's close, the same
@@ -522,40 +523,98 @@ function holdEntryOn(
     }
   }
 
-  // The reaction: from the latest top that stands 3 points over the low since it.
-  const tops = pivots.filter((p) => p.kind !== bottom);
-  for (let k = tops.length - 1; k >= 0; k--) {
-    const top = tops[k];
-    let low = -1;
-    for (let i = top.index + 1; i < bars.length; i++) {
-      if (low < 0 || sign * (extremeOf(bars[i]) - extremeOf(bars[low])) < 0) low = i;
-    }
-    if (low < 0) continue;
-    const level = extremeOf(bars[low]);
-    if (sign * (top.price - level) < gannThreePoints(level)) continue;
-    const stop = beyondByThreePoints(level, sign === 1 ? -1 : 1);
-    if (!withinRiskCap(entry, stop)) return null;
-    let holdBasis: "weeks" | "days" | null = null;
-    if (calendarDays(bars[low].t, last.t) >= HOLD_WEEKS_MIN_DAYS) holdBasis = "weeks";
-    else if (direction === "bullish" && bars.length - 1 - low >= HOLD_DAYS_MIN_SESSIONS) {
-      // The reaction is read as it stood at its low, so a third day up that
-      // turns the 3-Day Chart still holds (step 4 review S5, probe P7).
-      const cm = readCounterMove(bars.slice(0, low + 1));
-      if (cm?.trend === "bullish" && cm.inCounterMove && cm.days >= BULL_REACTION_DAYS[0] && cm.days <= BULL_REACTION_DAYS[1]) {
-        holdBasis = "days";
+  const swing = swingHold();
+  if (swing || direction === "bullish") return swing;
+  return bearRallySell(bars, entry, swingDays);
+
+  function swingHold(): { trigger: GannEntryTrigger; since: number } | null {
+    // The reaction: from the latest top that stands 3 points over the low since it.
+    const tops = pivots.filter((p) => p.kind !== bottom);
+    for (let k = tops.length - 1; k >= 0; k--) {
+      const top = tops[k];
+      let low = -1;
+      for (let i = top.index + 1; i < bars.length; i++) {
+        if (low < 0 || sign * (extremeOf(bars[i]) - extremeOf(bars[low])) < 0) low = i;
       }
+      if (low < 0) continue;
+      const level = extremeOf(bars[low]);
+      if (sign * (top.price - level) < gannThreePoints(level)) continue;
+      const stop = beyondByThreePoints(level, sign === 1 ? -1 : 1);
+      if (!withinRiskCap(entry, stop)) return null;
+      let holdBasis: "weeks" | "days" | null = null;
+      if (calendarDays(bars[low].t, last.t) >= HOLD_WEEKS_MIN_DAYS) holdBasis = "weeks";
+      else if (direction === "bullish" && bars.length - 1 - low >= HOLD_DAYS_MIN_SESSIONS) {
+        // The reaction is read as it stood at its low, so a third day up that
+        // turns the 3-Day Chart still holds (step 4 review S5, probe P7).
+        const cm = readCounterMove(bars.slice(0, low + 1));
+        if (cm?.trend === "bullish" && cm.inCounterMove && cm.days >= BULL_REACTION_DAYS[0] && cm.days <= BULL_REACTION_DAYS[1]) {
+          holdBasis = "days";
+        }
+      }
+      if (!holdBasis) return null;
+      return {
+        trigger: {
+          kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot: { index: low, price: level, kind: bottom },
+          level, reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
+          swingDays, source: "swing", formedAt: bars[low].t, holdBasis,
+        },
+        since: low + 1,
+      };
     }
-    if (!holdBasis) return null;
-    return {
-      trigger: {
-        kind: "hold", direction, triggerPrice: entry, stopPrice: stop, pivot: { index: low, price: level, kind: bottom },
-        level, reactionEntry: entry, reactionStop: stop, protectivePivot: top, held: false, crossedAt: null,
-        swingDays, source: "swing", formedAt: bars[low].t, holdBasis,
-      },
-      since: low + 1,
-    };
+    return null;
   }
-  return null;
+}
+
+/**
+ * The bear-market rally sell (W006 p.47, Rule 4, A-ENTRY-18): "bear-market
+ * rallies last 2-3 weeks; sell at the end of the second or third week with a
+ * stop 3 points above the previous week's high". The weekly chart is bearish,
+ * the 3-Day Chart is rallying against it, and the rally has run 8-21 days
+ * (`readCounterMove`; "2-3 weeks" read as in `timeRules.ts`). The sell is at
+ * the close of the week's last session, with the stop 3 points over that
+ * week's high.
+ *
+ * Engineering choices, labelled as such: the end of a week is a Friday
+ * session (a week whose Friday is a holiday is not sold on this rule). "The
+ * previous week" is read as the week just ended, since the order goes in
+ * after it. The rally must reach 3 points, Gann's noise allowance, and the
+ * stop stays within his 5-point risk cap.
+ *
+ * Three-question basis: 1. Gann, Rule 4, Tier A. 2. A duration Gann gives
+ * from observation, not a periodic cycle; Dewey's checklist does not apply
+ * and the replay's factor table is the test. 3. Rhythm (a counter-move runs
+ * its normal two or three weeks and ends) and Polarity: the mirror of the
+ * days form, which Gann states for bull-market reactions.
+ */
+function bearRallySell(bars: Bar[], entry: number, swingDays: number): { trigger: GannEntryTrigger; since: number } | null {
+  const last = bars[bars.length - 1];
+  const day = (b: Bar) => Date.parse(`${b.t.slice(0, 10)}T00:00:00Z`);
+  if (new Date(day(last)).getUTCDay() !== 5) return null;
+  const cm = readCounterMove(bars);
+  if (!cm || cm.trend !== "bearish" || !cm.inCounterMove) return null;
+  if (cm.days < BULL_REACTION_DAYS[0] || cm.days > BULL_REACTION_DAYS[1]) return null;
+  // The week: its sessions from Monday on.
+  const monday = day(last) - 4 * DAY_MS;
+  let first = bars.length - 1;
+  while (first > 0 && day(bars[first - 1]) >= monday) first--;
+  let top = first;
+  for (let i = first; i < bars.length; i++) if (bars[i].h > bars[top].h) top = i;
+  // The rally's start: its lowest low over the days it has run.
+  const start = day(last) - cm.days * DAY_MS;
+  let low = bars.length - 1;
+  for (let i = bars.length - 1; i >= 0 && day(bars[i]) >= start; i--) if (bars[i].l < bars[low].l) low = i;
+  const level = bars[top].h;
+  if (level - bars[low].l < gannThreePoints(bars[low].l)) return null;
+  const stop = beyondByThreePoints(level, 1);
+  if (!withinRiskCap(entry, stop)) return null;
+  return {
+    trigger: {
+      kind: "hold", direction: "bearish", triggerPrice: entry, stopPrice: stop, pivot: { index: top, price: level, kind: "top" },
+      level, reactionEntry: entry, reactionStop: stop, protectivePivot: { index: low, price: bars[low].l, kind: "bottom" },
+      held: false, crossedAt: null, swingDays, source: "swing", formedAt: bars[top].t, holdBasis: "rally",
+    },
+    since: first,
+  };
 }
 
 /** The price a buying point fills at: the reaction buy, or the old level. */

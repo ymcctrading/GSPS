@@ -113,7 +113,7 @@ export interface ScenarioKey {
    */
   entryKind?: "oldLevel" | "hold";
   /** For `hold`: which rule found the bottom that held, so the explanation names it. */
-  holdBasis?: "weeks" | "days" | "record";
+  holdBasis?: "weeks" | "days" | "record" | "rally";
   /**
    * For a crossing of the previous year's top or bottom, or the record from
    * before the last 52 weeks (PLAN.md item 5, step 3), so the explanation
@@ -424,8 +424,11 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
     const longKey = k.direction !== "bearish";
     const oldSide = longKey ? "bottom" : "top";
     const extreme = longKey ? "low" : "high";
+    const rally = k.holdBasis === "rally";
     const heldWhat =
-      k.holdBasis === "record"
+      rally
+        ? "a rally in a falling market had run into the end of its second or third week"
+        : k.holdBasis === "record"
         ? "the record low had held for weeks without breaking by 3 points"
         : k.holdBasis === "days"
           ? `the ${extreme} had held two days after a two-to-three-week reaction in a rising market`
@@ -435,7 +438,7 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
       a.decision === k.decision,
       k.decision === "trade"
         ? hold
-          ? `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close near that ${oldSide}.`
+          ? `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close${rally ? "" : ` near that ${oldSide}`}.`
           : old
           ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
           : k.crossed
@@ -449,7 +452,9 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
           "entry",
           a.entryChoiceId === k.entryChoiceId,
           hold
-            ? `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the ${longKey ? "buy" : "sell"} is made now, near the ${oldSide}, rather than chased later.`
+            ? rally
+            ? `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, the length such rallies run, so the sell is made at the week's end.`
+            : `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the ${longKey ? "buy" : "sell"} is made now, near the ${oldSide}, rather than chased later.`
             : old
             ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
             : `The entry is 1 point past ${crossedName(k)}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
@@ -459,7 +464,9 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         "stop",
         a.stopChoiceId === k.stopChoiceId,
         hold
-          ? `The stop goes 3 points ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
+          ? rally
+            ? `The stop goes 3 points over that week's high, at ${k.stop?.toFixed(2)}: a rally that runs past it is more than a rally in a falling market.`
+            : `The stop goes 3 points ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
           : old
           ? `The stop goes 3 points ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`
           : `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`,

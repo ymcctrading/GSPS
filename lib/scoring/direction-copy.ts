@@ -50,10 +50,14 @@ export function structuralTriggerHeadline(
   direction: "bullish" | "bearish",
   entryKind?: "crossing" | "oldLevel" | "hold",
   entrySource?: "priorYear" | "allTime",
-  holdBasis?: "weeks" | "days" | "record",
+  holdBasis?: "weeks" | "days" | "record" | "rally",
   /** A previous year's level: its year (step 3 review R9). */
   levelYear?: number,
 ): string {
+  if (entryKind === "hold" && holdBasis === "rally") {
+    // The sell at the end of a bear-market rally (item 5, step 4b).
+    return "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop 3 points over that week's high.";
+  }
   if (entryKind === "hold") {
     // A bottom (top) that held, bought at the last close (item 5, step 4).
     const up = direction === "bullish";

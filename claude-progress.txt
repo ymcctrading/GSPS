@@ -302,3 +302,10 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - S7: examKeyedOlderLevel covers a record-low hold. S8: test title renamed; the range card already covers held bottoms. S9: A-ENTRY-09 names only; tell Chuck before passes flips.
 - Step 4 fixtures shortened so each hold is first offered on its last bar (bought-once rule). Mutations: 13 of 13 caught.
 - STRATEGY_VERSION 2026-10-16-gann-held-once. 2595 passed; tsc, eslint, terms clean.
+== 2026-10-16 replay run 36 (d7f6443, STRATEGY_VERSION 2026-10-16-gann-every-year) ==
+- Dispatched without the cells input, so it ran the workflow's default "baseline" cell (fixed 2R bracket, production stop, plan levels OFF, reaction entry): not comparable with run 34.
+- 766 symbols, 2026-08-17 to 2026-10-15. 1201 trades, +0.058R [+0.007, +0.110], halves +0.134 / -0.017. Execute +0.163R on 34; Watch +0.054R on 665; Reject +0.057R on 502.
+- entryKindSplit: crossing 310 at +0.020R (win 12.9%); oldLevel 231 at +0.078R (win 20.3%); hold 660 at +0.069R (win 2.1%, median 260 bars = the 10-session limit, so mostly timeouts).
+- Files: scratchpad/run36.json, run36_reports.json.
+- Run 37 (fe0b1eb, no cells) cancelled. Run 38 dispatched on fe0b1eb with run 34's cells (plan-reaction-gannrunner, plan-reaction). ALWAYS pass the cells input and the full SHA.
+2026-10-16 Item 5 step 4b, A-ENTRY-18 (W006 p.47 Rule 4): the bear-market rally sell. Kind "hold", holdBasis "rally" (reuses the resting-at-close wiring; no migration change, entry_kind stays "hold"). Weekly trend bearish, 3-Day Chart rallying against it for 8-21 days, at least 3 points, sold at the Friday close with the stop 3 points over the week's high (Monday on); within the 5-point cap; offered only when no held top is. Readings labelled in code: Friday = end of week (holiday Fridays missed), "previous week" = the week just ended. Copy: setup label, headline, score note, exam decision/entry/stop, Pro and Expert lessons. Tests lib/gann/__tests__/bearRally.test.ts (13) + score note. Mutations 12/12 caught after three isolating fixtures. STRATEGY_VERSION 2026-10-16-gann-bear-rally. 2608 passed; tsc, eslint, terms clean.

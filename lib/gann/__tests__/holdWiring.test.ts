@@ -250,6 +250,11 @@ describe("the score's note", () => {
     expect(note(held)).not.toMatch(/double|triple|crosses/);
     expect(note({ ...held, holdBasis: "record" })).toMatch(/record low/);
     expect(note({ ...held, direction: "bearish", stopPrice: 104.7, level: 100.3 })).toMatch(/high at 100\.30 has held/);
+    // The bear-market rally sell (step 4b) names the rally and the week's high.
+    const rally = note({ ...held, direction: "bearish", stopPrice: 104.7, level: 100.3, holdBasis: "rally" });
+    expect(rally).toMatch(/rally in a falling market has run to the end of its second or third week/);
+    expect(rally).toMatch(/3 points over that week's high at 100\.30/);
+    expect(rally).not.toMatch(/has held/);
   });
 });
 

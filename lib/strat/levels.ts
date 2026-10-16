@@ -506,7 +506,7 @@ export interface EntrySource {
   /** A previous year's level: its year (`TradeLevels.entryLevelYear`). */
   entryLevelYear?: number;
   /** A held bottom's rule (`TradeLevels.holdBasis`). */
-  holdBasis?: "weeks" | "days" | "record";
+  holdBasis?: "weeks" | "days" | "record" | "rally";
   /**
    * True when this source is Gann's reaction buy after a crossing (PLAN.md
    * item 4; W006 pp.20, 46-47): `triggerPrice` is the level plus 1 point and
@@ -536,7 +536,9 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
       trigger.kind === "hold"
         ? trigger.holdBasis === "record"
           ? "record low that held"
-          : `single ${long ? "bottom" : "top"}`
+          : trigger.holdBasis === "rally"
+            ? "bear-market rally"
+            : `single ${long ? "bottom" : "top"}`
         : trigger.kind === "oldLevel"
           ? `${multiple} ${long ? "bottom" : "top"}`
           : trigger.source === "priorYear"
