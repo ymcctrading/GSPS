@@ -78,6 +78,8 @@ export function contextFactorsFor(
     f.lateSection = c.sections >= 3;
     // Class C trend readings (W003 p.17), measured, never gating (item 6).
     f.reactionsContractingWithTrade = !against && c.contracting;
+    // C-SWING-01 (W003 p.16, class C): nearly equal corrections, uptrend only.
+    f.equalCorrectionsWithTrade = !against && c.equalCorrections;
     f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
     // C-TREND-03/-06 (Commodities p.312 "price or time"; Master Course Ch.8
     // PDF 249 "by 1+ point"): over-balance with Gann's 1-point margin.
