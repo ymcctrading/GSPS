@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
@@ -719,6 +720,12 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
 });
 
 describe("replay exitRule: gann-runner (the live rule)", () => {
+  it("reads rule 21's share count for a stock's pyramid add, as live does", () => {
+    const src = fs.readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(src).toMatch(/\.\.\.\(isStock \? \{ capitalStock: sharesOn\?\.\(date\) \?\? null \} : \{\}\)/);
+    expect(src).toMatch(/isStock: assetClass === "us_equity"/);
+  });
+
   it("records lots under pyramiding and never adds to a trade that stopped out", () => {
     const through = TRIGGER.stopPrice - SIDE * 0.5;
     const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };

@@ -58,6 +58,13 @@ describe("capitalRuleRefusal", () => {
     expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "ETHUSD", open: pairs })).toBeNull();
     // Three pairs open do not use up the stock slots.
     expect(capitalRuleRefusal({ ...base, capital: 1e6, open: pairs })).toBeNull();
+    // Mixed books: each class is counted on its own (review, Rule 8).
+    const stocks = ["MSFT", "NVDA"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: [...pairs, ...stocks] })).toBeNull();
+    const threeStocks = ["MSFT", "NVDA", "XOM"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "DOGE/USD", open: threeStocks })).toBeNull();
+    const fiveStocks = [...threeStocks, ...["JPM", "KO"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }))];
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "DOGE/USD", open: fiveStocks })).toBeNull();
   });
 });
 
