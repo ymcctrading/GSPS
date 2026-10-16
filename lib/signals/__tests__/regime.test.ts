@@ -82,12 +82,33 @@ describe("the report-day turn date on every surface", () => {
     expect(readFileSync("lib/backtest/replaySignals.ts", "utf8")).toMatch(/classifyRegime\(\{ bars: window, scheduledReportDay: isScheduledReportDay\(/);
   });
 
-  it("finds a generated report date on its own day only", async () => {
+  // A-TIME-36: the rule is about actual report dates. The calendar's dates are
+  // generated from a reporting cadence, so they are estimates and never a turn date.
+  it("marks every generated report date unconfirmed", async () => {
+    const { generateEarningsForMonth } = await import("@/lib/macro/earnings");
+    const events = generateEarningsForMonth(new Date("2026-10-01T00:00:00Z"));
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((e) => e.confirmed === false)).toBe(true);
+  });
+
+  it("never sets a turn date from a generated report date", async () => {
+    const { generateEarningsForMonth, isScheduledReportDay } = await import("@/lib/macro/earnings");
+    for (const e of generateEarningsForMonth(new Date("2026-10-01T00:00:00Z"))) {
+      const day = new Date(`${e.date}T15:00:00Z`);
+      expect(isScheduledReportDay(e.symbol, day), `${e.symbol} ${e.date}`).toBe(false);
+      const read = classifyRegime({ bars: uptrendBars(120), scheduledReportDay: isScheduledReportDay(e.symbol, day) });
+      expect(read.turnDate).toBe(false);
+      expect(read.reasons.some((r) => r.startsWith("Scheduled report date"))).toBe(false);
+    }
+  });
+
+  it("reads a confirmed report date as a turn date on its own day only", async () => {
     const { generateEarningsForMonth, isScheduledReportDay } = await import("@/lib/macro/earnings");
     const e = generateEarningsForMonth(new Date("2026-10-01T00:00:00Z"))[0];
-    expect(isScheduledReportDay(e.symbol, new Date(`${e.date}T15:00:00Z`))).toBe(true);
-    const next = new Date(Date.parse(`${e.date}T15:00:00Z`) + 86_400_000);
-    const sameNext = generateEarningsForMonth(next).some((x) => x.symbol === e.symbol && x.date === next.toISOString().slice(0, 10));
-    if (!sameNext) expect(isScheduledReportDay(e.symbol, next)).toBe(false);
+    const confirmed = [{ ...e, confirmed: true }];
+    const day = new Date(`${e.date}T15:00:00Z`);
+    expect(isScheduledReportDay(e.symbol, day, confirmed)).toBe(true);
+    expect(isScheduledReportDay(e.symbol, day, [{ ...e, confirmed: false }])).toBe(false);
+    expect(isScheduledReportDay(e.symbol, new Date(day.getTime() + 86_400_000), confirmed)).toBe(false);
   });
 });

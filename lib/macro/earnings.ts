@@ -26,6 +26,12 @@ export interface EarningsEvent {
   sector: string;
   date: string; // YYYY-MM-DD
   timing: EarningsTiming;
+  /**
+   * True only for a date a vendor calendar has confirmed. Every date this
+   * module generates is an estimate from the reporting cadence, so false
+   * (A-TIME-36). Only a confirmed date can be read as a turn date.
+   */
+  confirmed: boolean;
 }
 
 /** Deterministic 0..1 float from a string — stable placement within a week. */
@@ -90,6 +96,7 @@ export function generateEarningsForMonth(monthAnchor: Date): EarningsEvent[] {
           sector: company.sector,
           date: toDateInput(reportDate),
           timing: timingFor(company),
+          confirmed: false,
         });
       }
     }
@@ -156,10 +163,20 @@ export function nextKnownEarningsEvent(symbol: string, asOf: Date): EarningsEven
 }
 
 /**
- * Whether a (generated, not vendor-confirmed) report date for `symbol` falls
- * on `asOf`'s calendar day. Gann reads a scheduled report date as a turn date
- * (A-TIME-36, W022 pp.195-197, 217); the regime records it as context only.
+ * Whether a confirmed report date for `symbol` falls on `asOf`'s calendar day.
+ * Gann reads an actual scheduled report date as a turn date (A-TIME-36, W022
+ * pp.195-197, 217); the regime records it as context only.
+ *
+ * Changed 2026-10-16 (review A-TIME-36): the generated dates are estimates,
+ * often days off the real report, so an unconfirmed date is never a turn
+ * date. With no vendor feed wired in, this is false on every live and replay
+ * read until one is. `events` defaults to the calendar for `asOf`'s month.
  */
-export function isScheduledReportDay(symbol: string, asOf: Date): boolean {
-  return isBinaryEventInHoldPeriod(symbol, asOf, 0) === true;
+export function isScheduledReportDay(
+  symbol: string,
+  asOf: Date,
+  events: EarningsEvent[] = MEGA_CAP_SYMBOLS.has(symbol) ? generateEarningsForMonth(asOf) : [],
+): boolean {
+  const day = toDateInput(asOf);
+  return events.some((e) => e.confirmed && e.symbol === symbol && e.date === day);
 }
