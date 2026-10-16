@@ -23,6 +23,7 @@ import type { RulesAlignmentScore, SignalVerdict } from "@/lib/signals/types";
 import type { ScanResult } from "@/lib/types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
+import { sessionBarsDeadline } from "./expiry";
 
 /**
  * The execution timeframe every scan prices its plan against — re-exported
@@ -94,9 +95,7 @@ export function buildNewTradePlanFromScanResult(
     market: result.assetClass,
     timeframe: PLAN_TIMEFRAME,
     generatedAt: opts.generatedAt,
-    expiresAt: new Date(
-      new Date(opts.generatedAt).getTime() + expiresAfterBars * TF_INTERVAL_MS[PLAN_TIMEFRAME],
-    ).toISOString(),
+    expiresAt: sessionBarsDeadline(opts.generatedAt, expiresAfterBars, TF_INTERVAL_MS[PLAN_TIMEFRAME], result.assetClass),
     direction: result.direction,
     signalFingerprint: opts.signalFingerprint ?? opts.signalId,
     entryConfirmation: freshEntryConfirmation(),

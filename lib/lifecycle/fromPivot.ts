@@ -41,6 +41,7 @@ import type { RulesAlignmentScore } from "@/lib/signals/types";
 import type { TradePlan } from "./types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
+import { sessionBarsDeadline } from "./expiry";
 
 /** Same fallback used when no fresh scan verdict exists to carry a real expiry from — see fromScanResult.ts. */
 const DEFAULT_EXPIRES_AFTER_BARS = 20;
@@ -90,9 +91,7 @@ export function buildPivotTradePlanFromStoppedPlan(
     market: stopped.market,
     timeframe: stopped.timeframe,
     generatedAt: opts.generatedAt,
-    expiresAt: new Date(
-      new Date(opts.generatedAt).getTime() + DEFAULT_EXPIRES_AFTER_BARS * TF_INTERVAL_MS[timeframe],
-    ).toISOString(),
+    expiresAt: sessionBarsDeadline(opts.generatedAt, DEFAULT_EXPIRES_AFTER_BARS, TF_INTERVAL_MS[timeframe], stopped.market),
     direction,
     // Idempotency key: one pivot plan per stop-out. A retried/duplicated
     // stop-out handling call for the same event lands on the same row
