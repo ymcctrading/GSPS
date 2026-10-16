@@ -523,5 +523,7 @@ export function contextFactorsFor(
     f.foundingCountYear = fc.years.length > 0;
     f.foundingCount42Months = fc.months42;
   }
+  // A-TIME-33: a 490, 1,290 or 1,335-day count from a major monthly turn. No direction in the text.
+  if (ctx.outbreakCounts) f.outbreakDayCount = ctx.outbreakCounts.length > 0;
   return f;
 }

@@ -150,6 +150,7 @@ import { describeHexagonTime, readHexagonTime, type HexagonTimeHit } from "@/lib
 import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } from "@/lib/gann/masterChartTime";
 import { describeCampaignLength, readCampaignLength, type CampaignLengthReading } from "@/lib/gann/campaignLength";
 import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
+import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -671,6 +672,8 @@ export interface DisclosedRulesContext {
   campaignLength?: CampaignLengthReading | null;
   /** Fixed year and month counts from the founding date (A-TIME-32, context only). See `incorporationCycle.ts`. */
   foundingCounts?: FoundingCountReading | null;
+  /** 490, 1,290 and 1,335 days from the long monthly chart's major turns (A-TIME-33, context only). See `outbreakCounts.ts`. */
+  outbreakCounts?: OutbreakCountHit[];
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -844,6 +847,7 @@ export function readDisclosedRules(
     decadeCycle: computeDecadeCycle(asOf),
     campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
     foundingCounts: readFoundingCounts(inception, asOf),
+    outbreakCounts: readOutbreakCounts(longMonthly, asOf),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1073,5 +1077,6 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   const cl = ctx.campaignLength ? describeCampaignLength(ctx.campaignLength) : null;
   if (cl) lines.push(cl);
   if (ctx.foundingCounts) lines.push(...describeFoundingCounts(ctx.foundingCounts));
+  if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
   return lines;
 }
