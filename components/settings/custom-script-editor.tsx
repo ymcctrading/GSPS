@@ -500,8 +500,8 @@ export function CustomScriptEditor() {
                   <div className="rounded-md bg-surface-alt p-2 text-xs">
                     <p className="text-muted">
                       Evidence only, not a performance claim — no fill or stop/target-touch
-                      simulation. This shows how often, in which direction, and at what prices the
-                      script would have armed; it says nothing about what would have happened next.
+                      simulation. This shows how often and in which direction the script would have
+                      fired; it says nothing about what would have happened next.
                     </p>
                     <p className="mt-1">
                       {backtestResult.barsEvaluated} bars evaluated · armed {backtestResult.armedCount}{" "}
