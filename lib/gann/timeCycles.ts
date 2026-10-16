@@ -58,6 +58,7 @@
 
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
+import { MIN_REPETITIONS } from "@/lib/gann/spectralCycle";
 
 /**
  * Fractions of the 360-day year counted from a pivot (Master Course Ch. 13-14:
@@ -112,6 +113,18 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * this one export rather than letting a second copy drift.
  */
 export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
+
+/**
+ * CYC-04 (Dewey's repetitions criterion; Tomes declines a 30-36-year cycle on
+ * the same ground): the cycles in `MAJOR_CYCLE_YEARS` that repeat fewer than
+ * `MIN_REPETITIONS` times in a US equity record, taken as the Dow's, from
+ * 1896 (about 130 years). A label only: `timeCycles()` still projects every
+ * cycle on the 1935 list, as the lesson gives it.
+ */
+export const US_EQUITY_RECORD_YEARS = 130;
+export const FEW_REPETITION_CYCLE_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.filter(
+  (y) => US_EQUITY_RECORD_YEARS / y < MIN_REPETITIONS,
+);
 
 /*
  * **Which lesson `MAJOR_CYCLE_YEARS` is (labelled 2026-10-16, M-T3).** It is

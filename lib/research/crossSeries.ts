@@ -1,5 +1,5 @@
 /**
- * Cycles across series (CYC-14, CYC-16, CYC-17): research and validation
+ * Cycles across series (CYC-14, CYC-15, CYC-16, CYC-17, CYC-49): research and validation
  * only. Nothing on the verdict path imports this module, and a period match
  * between series or domains is a hint, never proof (CYC-41; guarded in
  * `lib/validation/__tests__/criteria-gate.test.ts`).
@@ -13,7 +13,9 @@
  * 1. Gann: none directly; these test the cycles `spectralCycle.ts` finds
  *    (Gann's harmonic analysis, Tunnel Ch. VII-VIII).
  * 2. Cycles: Dewey's cross-series clustering (CYC-14), prior from a related
- *    series (CYC-16) and wave-shape identity (CYC-17).
+ *    series (CYC-16), wave-shape identity (CYC-17), synchrony within a lag
+ *    window (CYC-15; W039 pp.21-22) and the chance baseline for a family of
+ *    doubled and tripled periods (CYC-49; W039 p.31, Tomes W042/W044).
  * 3. Hermetic: Correspondence ("as above, so below": the same rhythm in
  *    related series is what it predicts), held to a chance rate so it is
  *    tested, not assumed.
@@ -22,7 +24,9 @@
  * reference period; the null spreads periods log-uniformly over the scanned
  * band; the reference is the series with the most matches, so the p-value is
  * multiplied by the number of series (Bonferroni); priors combine by Fisher's
- * method; wave shapes fold into 12 phase bins on the shared dates.
+ * method; wave shapes fold into 12 phase bins on the shared dates; a crest
+ * is the highest bar within half a period either side; the family grid runs
+ * to four doubling/tripling steps, as Dewey's Fig. 19 does.
  */
 import type { Bar } from "@/lib/types";
 
@@ -158,4 +162,108 @@ export function waveShapeCorrelation(a: Bar[], b: Bar[], period: number, bins = 
     return sum.map((s, i) => (cnt[i] ? s / cnt[i] : 0));
   };
   return { correlation: Math.round(corr(profile(da), profile(db)) * 1000) / 1000, cycles: Math.floor(shared.length / period) };
+}
+
+/** Crests: bars that are the highest within half a period either side. */
+function crestIndices(values: number[], period: number): number[] {
+  const h = Math.max(1, Math.floor(period / 2));
+  const out: number[] = [];
+  for (let i = h; i < values.length - h; i++) {
+    let top = true;
+    for (let j = i - h; j <= i + h && top; j++) if (values[j] > values[i]) top = false;
+    if (top && (out.length === 0 || i - out[out.length - 1] > h)) out.push(i);
+  }
+  return out;
+}
+
+/**
+ * CYC-15: Dewey's synchrony. Same-period cycles in different series crest at
+ * about the same time, and a common cause can stagger the responses, so a
+ * test that demands the very same bar is invalid. On the shared dates, each
+ * crest of `a` is matched to the nearest crest of `b`; the shares at the same
+ * bar and within ±`lagBars` are reported, with the mean signed lag (b after
+ * a is positive). The lag window is the caller's, stated before the test.
+ * Null under three crests in `a`.
+ */
+export function crestSynchrony(
+  a: Bar[],
+  b: Bar[],
+  period: number,
+  lagBars: number,
+): { crests: number; sameBarShare: number; withinLagShare: number; meanLag: number } | null {
+  const bByDay = new Map(b.map((x) => [day(x.t), x.c]));
+  const shared = a.filter((x) => bByDay.has(day(x.t)));
+  if (!(period > 1) || shared.length < 3 * period) return null;
+  const ca = crestIndices(detrendLog(shared.map((x) => x.c)), period);
+  const cb = crestIndices(detrendLog(shared.map((x) => bByDay.get(day(x.t))!)), period);
+  if (ca.length < 3 || cb.length === 0) return null;
+  let same = 0;
+  let within = 0;
+  let lagSum = 0;
+  let lagCount = 0;
+  for (const i of ca) {
+    let lag = cb[0] - i;
+    for (const j of cb) if (Math.abs(j - i) < Math.abs(lag)) lag = j - i;
+    if (lag === 0) same++;
+    if (Math.abs(lag) <= lagBars) {
+      within++;
+      lagSum += lag;
+      lagCount++;
+    }
+  }
+  return {
+    crests: ca.length,
+    sameBarShare: Math.round((same / ca.length) * 1000) / 1000,
+    withinLagShare: Math.round((within / ca.length) * 1000) / 1000,
+    meanLag: lagCount ? Math.round((lagSum / lagCount) * 100) / 100 : 0,
+  };
+}
+
+/**
+ * CYC-49: on a doubling-and-tripling grid (Dewey's family of cycles: a base
+ * period times 2^i·3^j, multiples with i, j ≥ 0 and fractions with i, j ≤ 0,
+ * up to `maxOrder` steps) almost any period lies near a predicted one. So a
+ * family match is reported with its chance baseline: the share of the
+ * log-uniform band within ±`tolerance` of a grid period. `hits` and `misses`
+ * count the observed periods that do and do not fit, and `p` is the chance of
+ * that many hits or more at the baseline rate (Tomes' claim, Dewey's
+ * objection that the reported periods which don't fit must be counted).
+ */
+export function gridMatchBaseline(
+  base: number,
+  observed: number[],
+  opts: { minPeriod: number; maxPeriod: number; tolerance?: number; maxOrder?: number },
+): { grid: number[]; baseline: number; hits: number; misses: number; p: number } {
+  const tol = opts.tolerance ?? MATCH_TOLERANCE;
+  const maxOrder = opts.maxOrder ?? 4;
+  const grid = new Set<number>();
+  for (let i = 0; i <= maxOrder; i++) {
+    for (let j = 0; i + j <= maxOrder; j++) {
+      grid.add(base * 2 ** i * 3 ** j);
+      grid.add(base / (2 ** i * 3 ** j));
+    }
+  }
+  const lo = Math.log(opts.minPeriod);
+  const hi = Math.log(opts.maxPeriod);
+  const points = [...grid].filter((g) => g * (1 + tol) >= opts.minPeriod && g * (1 - tol) <= opts.maxPeriod).sort((x, y) => x - y);
+  // Union of the ±tolerance intervals in log space, clipped to the band.
+  let covered = 0;
+  let end = -Infinity;
+  for (const g of points) {
+    const a0 = Math.max(lo, Math.log(g * (1 - tol)));
+    const a1 = Math.min(hi, Math.log(g * (1 + tol)));
+    if (a1 <= a0) continue;
+    const from = Math.max(a0, end);
+    if (a1 > from) covered += a1 - from;
+    end = Math.max(end, a1);
+  }
+  const baseline = hi > lo ? covered / (hi - lo) : 0;
+  const hits = observed.filter((o) => points.some((g) => matches(o, g, tol))).length;
+  return {
+    grid: points,
+    baseline: Math.round(baseline * 10000) / 10000,
+    hits,
+    misses: observed.length - hits,
+    p: Math.round(binomialTail(observed.length, hits, baseline) * 10000) / 10000,
+  };
 }
