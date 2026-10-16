@@ -66,7 +66,7 @@ function steppingCampaign(cycles: number): number[] {
 
 // W006 Volume Rule (campaign comparison, A-VOLUME-11): much more volume for
 // fewer points near the high warns of a top. GSPS compares the current up
-// leg with the prior one (sharesPerPoint.ts, TOP_WARNING_RATIO 1.8).
+// leg with the prior one (sharesPerPoint.ts, TOP_WARNING_RATIO 1.7).
 describe("shares per point: the top warning", () => {
   it("warns when the current up leg takes far more volume per point near the high", () => {
     const closes = steppingCampaign(8);
@@ -74,6 +74,15 @@ describe("shares per point: the top warning", () => {
     const r = readSharesPerPoint(bars(closes, (i) => (i >= heavyFrom ? 5e6 : 1e6)))!;
     expect(r).not.toBeNull();
     expect(r.ratio).toBeGreaterThanOrEqual(1.8);
+    expect(r.nearHigh).toBe(true);
+    expect(r.topWarning).toBe(true);
+  });
+
+  it("warns on the 1937 figures: 151,197 shares a point against 88,860, 1.70 times (item 8 map FV11)", () => {
+    const closes = steppingCampaign(8);
+    const heavyFrom = closes.length - 6;
+    const r = readSharesPerPoint(bars(closes, (i) => (i >= heavyFrom ? 1.7016e6 : 1e6)))!;
+    expect(r.ratio).toBeCloseTo(151_197 / 88_860, 2);
     expect(r.nearHigh).toBe(true);
     expect(r.topWarning).toBe(true);
   });

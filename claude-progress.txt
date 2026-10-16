@@ -552,3 +552,8 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - M3 (A-TIME-21): readSwingMonthCounts counts months from the weekly swing chart's tops and bottoms, dated to the day, to the month in hand; on the setup as swingMonthCounts with its own card line. The coffee swings give 9, 2, 6 and 5 as the letter does. The weekly chart is the engineering choice (the letter names no chart). readMonthCounts stays for A-TIME-05. A1-A3 caught.
 - L1: exactly-three-closes test (T4 caught). L4: the 1/8-1x8 and 1/4-1x4 note. L5 (F3, 43 vs 53 vs 34m5d bear lengths) goes to the owner.
 - Checks: vitest 2826 pass; tsc, check:terms, eslint clean.
+
+## 2026-10-16 Item 8 map and step 1 (volume pins)
+- Map: docs/gann-feature-map/item8_volume_map.md (read-only subagent). A-VOLUME-04 already passes; FV1-FV11 forks with recommendations; build order pins, context fields, the scored rule, the breakaway on volume, the distribution-breakdown action.
+- Step 1 pins: shares per point on the Master Course's 1937 figures (151,197/88,860 = 1.70x) failed under the 1.8x cutoff, a real bug against the module's own cited case; TOP_WARNING_RATIO is now 1.70, the lower of Gann's two worked cases (1.70 and W006's 1.93), labelled. Context only, no version bump. Also pinned: a second top on heavier volume is not a retest (A-VOLUME-13 negative), and computeVolumeClimax reads the same on one year or six years of history ending the same day. V1/V2 caught.
+- Checks: vitest 2829 pass; tsc, check:terms clean.

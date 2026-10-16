@@ -84,4 +84,25 @@ describe("the volume rule at a high (W006 pp.39-40, 48)", () => {
     expect(high.retestOnLowerVolume).toBe(true);
     expect(high.confirms).toBe(true);
   });
+
+  it("does not read a second top on heavier volume than the first as a retest (A-VOLUME-13)", () => {
+    const rows: Array<[number, number, number]> = [];
+    for (let i = 0; i < 30; i++) rows.push([70 + i, 1000, 2]);
+    rows.push([100, 1500, 2]); // first top
+    for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
+    for (let i = 1; i <= 6; i++) rows.push([94 + i, 1000, 2]);
+    rows.push([100.2, 2500, 2]); // second top at the same level, on heavier volume
+    for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
+    const high = computeVolumeClimax(bars(rows)).find((r) => r.anchorKind === "high")!;
+    expect(high.retestOnLowerVolume).toBe(false);
+  });
+
+  it("reads the same pivots the same way on one year or six years of history ending on the same day", () => {
+    const rows: Array<[number, number, number]> = [];
+    for (let i = 0; i < 2000; i++) rows.push([100 + 10 * Math.sin(i / 9) + 3 * Math.sin(i / 2.3), 1000 + 400 * Math.sin(i / 5), 2]);
+    const all = bars(rows);
+    const tail = all.slice(-260);
+    const key = (rs: ReturnType<typeof computeVolumeClimax>) => rs.map((r) => [r.anchorKind, r.anchorPrice, r.climax, r.dryingUp, r.retestOnLowerVolume, r.confirms]);
+    expect(key(computeVolumeClimax(tail))).toEqual(key(computeVolumeClimax(all)));
+  });
 });

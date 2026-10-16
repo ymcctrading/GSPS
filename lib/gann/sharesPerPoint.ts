@@ -12,7 +12,10 @@
  * weekly campaign against the prior completed up leg. A ratio at or above
  * `TOP_WARNING_RATIO` near the campaign high is the warning.
  *
- * Engineering choices, labelled as such: "nearly double" is 1.8×; "near the
+ * Engineering choices, labelled as such: "nearly double" is 1.70×, the lower
+ * of Gann's two worked cases (Master Course Ch.12: 151,197 shares a point
+ * against 88,860 into 1937, 1.70×; W006 pp.43-45: 1933 against 1929, 1.93×).
+ * It was 1.8×, which missed his own 1937 case (item 8 map FV11); "near the
  * high" is within 3% of the highest high since the campaign began; the current
  * leg is measured from its start to the latest session.
  *
@@ -26,7 +29,7 @@
 import type { Bar } from "@/lib/types";
 import { buildCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
 
-export const TOP_WARNING_RATIO = 1.8;
+export const TOP_WARNING_RATIO = 1.7;
 export const NEAR_HIGH_PCT = 3;
 
 export interface SharesPerPointReading {
