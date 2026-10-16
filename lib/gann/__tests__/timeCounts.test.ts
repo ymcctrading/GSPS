@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { CYCLE_YEARS_1955, MAJOR_CYCLE_YEARS, MINOR_CYCLE_YEARS_1931, lessonCycleHits } from "../timeCycles";
+import { CYCLE_YEARS_1955, MAJOR_CYCLE_YEARS, MINOR_CYCLE_YEARS_1931, WHEEL_COUNTS, lessonCycleHits, timeCycles } from "../timeCycles";
+import { CIRCLE_FINE_DIVISIONS, readCircleDivisions } from "../secondaryTime";
+import { WHEEL_COUNTS_CH5, readTimeBalanceSpans, readWheelCountsCh5 } from "../timeCounts";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
 import { contextFactorsFor } from "../contextFactors";
 
@@ -59,5 +61,53 @@ describe("the cycle lists by lesson (M-T3, C-TIME-20, C-TIME-26)", () => {
     expect(describeDisclosedRules(ctx).some((l) => l.startsWith("6 years from the") && l.includes("does not change the setup"))).toBe(true);
     // Without monthly bars the reading is absent, not false.
     expect(contextFactorsFor(readDisclosedRules(withPivotLow(20), 120, null, after(19)), "bullish", 120).lessonCycleWithTrade).toBeUndefined();
+  });
+});
+
+const fromLow = <T extends { pivotDate: string }>(hs: T[]) => hs.filter((h) => h.pivotDate === LOW_DATE);
+
+describe("the Ch.5 wheel counts (C-TIME-06, Master Course Ch.5 PDF 162)", () => {
+  it("carries 30, 60, 150, 210, 300 and 330 days beside the live wheel, which is unchanged", () => {
+    expect([...WHEEL_COUNTS_CH5]).toEqual([30, 60, 150, 210, 300, 330]);
+    expect([...WHEEL_COUNTS]).toEqual([45, 90, 120, 135, 180, 225, 240, 270, 315, 360]);
+    // 150 days left the class C finer divisions for the class A list.
+    expect(CIRCLE_FINE_DIVISIONS).not.toContain(150);
+    expect(fromLow(readCircleDivisions(withPivotLow(20), after(150)))).toEqual([]);
+  });
+
+  it("is active within two days of each count from a major low, with the anchor's direction", () => {
+    for (const d of [30, 60, 150, 210, 300, 330]) {
+      expect(fromLow(readWheelCountsCh5(withPivotLow(20), after(d))).map((h) => h.label)).toEqual([`${d} days`]);
+    }
+    expect(fromLow(readWheelCountsCh5(withPivotLow(20), after(212)))).toHaveLength(1);
+    expect(fromLow(readWheelCountsCh5(withPivotLow(20), after(213)))).toEqual([]);
+    expect(fromLow(readWheelCountsCh5(withPivotLow(20), after(250)))).toEqual([]);
+    const ctx = readDisclosedRules(withPivotLow(20), 115, null, after(210));
+    expect(contextFactorsFor(ctx, "bullish", 115).wheelCountCh5WithTrade).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 115).wheelCountCh5WithTrade).toBe(false);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("210 days from the low of 2026-01-31"))).toBe(true);
+  });
+
+  it("never opens the live turn window", () => {
+    expect(timeCycles(withPivotLow(20), after(210)).bullishActive).toBe(false);
+  });
+});
+
+describe("time balance from top to top and bottom to bottom is class A (M-T11, Commodities p.311)", () => {
+  // Tops at days 30 and 80 (50 days apart); the last bottom at day 100.
+  const swing = (n: number) => {
+    const closes: number[] = [100];
+    let c = 100;
+    for (const [k, step] of [[30, 1], [20, -1], [30, 1], [20, -1], [n, 1]] as const) for (let i = 0; i < k; i++) closes.push((c += step));
+    return closes.map((x, i) => ({ t: new Date(Date.UTC(2026, 0, 1) + i * DAY).toISOString(), o: x, h: x + 0.5, l: x - 0.5, c: x, v: 1000 }));
+  };
+
+  it("is read with the class A counts, and keeps its factors", () => {
+    const b = swing(30);
+    const ctx = readDisclosedRules(b, b[b.length - 1].c, null, new Date(b[b.length - 1].t));
+    expect(ctx.timeCounts?.timeBalanceSpans.map((x) => x.kind)).toEqual(["top"]);
+    expect(readTimeBalanceSpans(b).map((x) => x.kind)).toEqual(["top"]);
+    expect(contextFactorsFor(ctx, "bullish", 150).timeBalanceTurnAgainstTrade).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.includes("time balances, so a top may be due"))).toBe(true);
   });
 });

@@ -290,10 +290,6 @@ export function contextFactorsFor(
       f.counterMovePastFourthDay = st.shortCounterMove.phase === "pastFourthDay";
       f.counterMoveSevenToTen = st.shortCounterMove.phase === "sevenToTen";
     }
-    // A top due counts against a long, a bottom due against a short.
-    if (st.timeBalanceSpans) f.timeBalanceTurnAgainstTrade = st.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
-    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
-    if (st.timeBalanceSpans) f.timeBalanceFalseBreakWithTrade = st.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
     if (st.fanTimeRatios) f.fanTimeRatioActive = st.fanTimeRatios.length > 0;
     // A rise from a low meeting its level on time argues for a turn down,
     // against a long; a fall from a high, the mirror.
@@ -307,6 +303,13 @@ export function contextFactorsFor(
   const tc = ctx.timeCounts;
   if (tc) {
     if (tc.lessonCycles) f.lessonCycleWithTrade = tc.lessonCycles.some((h) => (h.kind === "low") === bull);
+    f.wheelCountCh5WithTrade = tc.wheelCountsCh5.some((h) => (h.pivotKind === "low") === bull);
+    // Time balance (M-T11, class A since 2026-10-16; the factor names are kept
+    // so earlier runs still compare). A top due counts against a long, a
+    // bottom due against a short.
+    f.timeBalanceTurnAgainstTrade = tc.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
+    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
+    f.timeBalanceFalseBreakWithTrade = tc.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
   }
 
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major

@@ -108,8 +108,8 @@ describe("secondary week counts (C-TIME-21, W003 p.20)", () => {
 });
 
 describe("finer divisions of the circle (C-TIME-44, W035 p.1)", () => {
-  it("is active 112, 150, 157, 165, 202, 247, 292 and 337 days after a major low", () => {
-    for (const d of [112, 150, 157, 165, 202, 247, 292, 337]) {
+  it("is active 112, 157, 165, 202, 247, 292 and 337 days after a major low", () => {
+    for (const d of [112, 157, 165, 202, 247, 292, 337]) {
       expect(fromLow(readCircleDivisions(withPivotLow(20), after(d))).length).toBeGreaterThan(0);
     }
   });
