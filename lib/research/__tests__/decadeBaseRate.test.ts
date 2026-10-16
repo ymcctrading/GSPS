@@ -19,7 +19,7 @@ describe("the decade digit against shuffled digits (CYC-52)", () => {
     expect(r.p).toBeLessThan(0.01);
     expect(r.digits.map((d) => d.digit)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     const scored = r.digits.filter((d) => d.bias !== "mixed");
-    expect(scored.every((d) => d.years === 12 && d.hitRate === 1 && d.baseMean < 1)).toBe(true);
+    expect(scored.every((d) => d.years === 12 && d.hitRate === 1 && (d.baseMean ?? 1) < 1)).toBe(true);
     expect(r.digits.filter((d) => d.bias === "mixed").every((d) => d.hits === 0 && d.hitRate === null)).toBe(true);
   });
 
