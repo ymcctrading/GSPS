@@ -106,6 +106,19 @@ describe("readEntryConfirmationNow: leaving a range on volume (A-VOLUME-10)", ()
     byTimeframe(range);
     expect((await read()).ready).toBe(false);
   });
+  it("does not count the session still trading, however heavy its volume so far (review M5, BV9)", async () => {
+    const forming: Bar = { t: "2026-10-15T04:00:00Z", o: 102, h: 103.6, l: 101.8, c: 103.2, v: 9e6 };
+    byTimeframe([...range, forming]);
+    expect((await read()).ready).toBe(false);
+  });
+
+  it("asks no volume of a resting buy at an old bottom inside the range (review M5, BV12)", async () => {
+    byTimeframe(range);
+    const r = await readEntryConfirmationNow({
+      symbol: "AAPL", assetClass: "us_equity", direction: "bullish", entryTrigger: 96, stopPrice: 92, entryKind: "oldLevel", now,
+    });
+    expect(r.ready).toBe(true);
+  });
 });
 
 describe("readEntryConfirmationNow: the window under the 3-point crossing rule", () => {
@@ -177,5 +190,43 @@ describe("the completed daily chart, for a reaction longer than the window", () 
     const forming: Bar = { ...daily[16], t: "2026-10-15T04:00:00Z" };
     expect(computeGannEntryTrigger([...before, forming], "bullish")?.held).toBe(true);
     expect(heldOnDailyChart([...before, forming], now, "bullish", t.reactionEntry)).toBe(false);
+  });
+});
+
+describe("readEntryConfirmationNow: a long waits while a distribution breakdown stands (A-VOLUME-03)", () => {
+  // Top 100, lower top 95, a dull narrow spell near 82, broken to 74 on heavy
+  // volume, then one session at 75: the breakdown stands on 2026-10-15.
+  const closes: number[] = [];
+  for (let i = 0; i <= 20; i++) closes.push(70 + 1.5 * i);
+  for (let i = 1; i <= 15; i++) closes.push(100 - i);
+  for (let i = 1; i <= 12; i++) closes.push(85 + ((95 - 85) * i) / 12);
+  for (let i = 1; i <= 15; i++) closes.push(95 - ((95 - 82) * i) / 15);
+  const spellStart = closes.length;
+  for (let i = 0; i < 30; i++) closes.push(82 + (i % 2 ? 0.5 : -0.5));
+  const breakAt = closes.length;
+  closes.push(74, 75);
+  const daily = (breakVolume: number): Bar[] =>
+    closes.map((c, i) => ({
+      t: new Date(Date.parse("2026-10-14T04:00:00Z") - (closes.length - 1 - i) * 86_400_000).toISOString(),
+      o: c, h: c + 0.5, l: c - 0.5, c,
+      v: i === breakAt ? breakVolume : i < spellStart ? 2e6 : i % 2 ? 1.5e6 : 1e6,
+    }));
+  const now = new Date("2026-10-15T15:00:00Z");
+  const execution = [bar("2026-10-15T14:30:00Z", 75.5, 76, 75, 75.5)];
+  const read = (day: Bar[], direction: "bullish" | "bearish" = "bullish") => {
+    fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : execution));
+    return readEntryConfirmationNow({
+      symbol: "AAPL", assetClass: "us_equity", direction, entryTrigger: 75, stopPrice: direction === "bullish" ? 70 : 80, entryKind: "oldLevel", now,
+    });
+  };
+
+  it("waits on a long that would otherwise be ready", async () => {
+    const r = await read(daily(2.5e6));
+    expect(r).toMatchObject({ ready: false, stage: "broken" });
+    expect(r.note).toMatch(/broke down on volume/);
+  });
+
+  it("is ready on the same long when the break came on light volume", async () => {
+    expect((await read(daily(1.2e6))).ready).toBe(true);
   });
 });

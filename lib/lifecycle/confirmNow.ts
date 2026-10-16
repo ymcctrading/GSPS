@@ -31,6 +31,7 @@
  *    confirmation is the cause it has to wait for.
  */
 
+import { readDistributionStanding } from "@/lib/gann/distribution";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
@@ -145,7 +146,7 @@ export function confirmationFromBars(
   return { ready: stage === "confirmed", stage, note: notes[stage] };
 }
 
-export async function readEntryConfirmationNow(input: {
+type ConfirmationInput = {
   symbol: string;
   assetClass: AssetClass;
   direction: "bullish" | "bearish";
@@ -160,7 +161,30 @@ export async function readEntryConfirmationNow(input: {
    */
   since?: string;
   now?: Date;
-}): Promise<ConfirmationNow> {
+};
+
+/**
+ * Whether the entry has confirmed now. A long carrying the protocol's stop
+ * also waits while a distribution breakdown stands (A-VOLUME-03, review M2,
+ * 2026-10-16): the breakdown holds a new long to Watch on the scan and exits an
+ * open one, so a plan armed before it is not placed into it either.
+ */
+export async function readEntryConfirmationNow(input: ConfirmationInput): Promise<ConfirmationNow> {
+  const read = await readEntryConfirmationCore(input);
+  if (!read.ready || input.direction !== "bullish" || input.stopPrice == null) return read;
+  const now = input.now ?? new Date();
+  const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  const daily = await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass);
+  return readDistributionStanding(daily ?? [], now) ? DISTRIBUTION_STANDS : read;
+}
+
+const DISTRIBUTION_STANDS: ConfirmationNow = {
+  ready: false,
+  stage: "broken",
+  note: "After a lower top, the stock's narrow range broke down on volume, a sign of a further decline, so a buy waits while price stays under the range, for up to 20 sessions after the break.",
+};
+
+async function readEntryConfirmationCore(input: ConfirmationInput): Promise<ConfirmationNow> {
   const now = input.now ?? new Date();
   const intervalMs = TF_INTERVAL_MS[EXECUTION_TIMEFRAME];
   const fourDays = now.getTime() - 4 * 24 * 3600 * 1000;
@@ -218,7 +242,7 @@ function onVolume(daily: Bar[], now: Date, direction: "bullish" | "bearish", ent
 const AWAITING_VOLUME: ConfirmationNow = {
   ready: false,
   stage: "broken",
-  note: "The stock is leaving a narrow range, so the entry waits for a completed session to close past the line on more than the range's average volume.",
+  note: "The stock is leaving a narrow range, so the entry waits for a completed session to close past the line, from short of it, on more than the range's average volume. A quiet crossing does not count, however heavy the sessions after it.",
 };
 
 /**

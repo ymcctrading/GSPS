@@ -109,6 +109,7 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
 /**
  * Held at the `lib/signals/regime.ts`-matched 1.5x since 2026-09-14, when a
@@ -370,7 +371,13 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
     let retestOfHeavyTop = false;
     if (previous) {
       const tol = (previous.price * RETEST_TOLERANCE_PCT) / 100;
-      const reached = kind === "low" ? anchor.price <= previous.price + tol : anchor.price >= previous.price - tol;
+      // A retest reaches the old turn but does not cross it by Gann's 3 points
+      // (W006 p.20): beyond them it is a crossing, not a second test (review
+      // M3, 2026-10-16; until then a top any distance over the old one counted).
+      const reached =
+        kind === "low"
+          ? anchor.price <= previous.price + tol && anchor.price >= beyondByThreePoints(previous.price, -1)
+          : anchor.price >= previous.price - tol && anchor.price <= beyondByThreePoints(previous.price, 1);
       // FV3 b: the two turns' own weeks, second over first (W006 p.46: the weekly chart).
       const prevWeek = weekVolume(bars, previous.index);
       const ratio = prevWeek > 0 ? weekVolume(bars, anchor.index) / prevWeek : null;

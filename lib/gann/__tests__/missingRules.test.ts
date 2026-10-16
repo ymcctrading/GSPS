@@ -175,9 +175,20 @@ describe("distribution: a narrow spell after a lower top, broken down on volume 
     c.push(breakClose);
     return c;
   }
-  /** Daily bars stamped at midnight New York time, as the data feed stamps them. */
-  const bars = (closes: number[], vol: (i: number) => number) =>
-    barsUtc(closes, vol).map((x) => ({ ...x, t: new Date(Date.parse(x.t) + 5 * 3_600_000).toISOString() }));
+  /**
+   * Daily bars stamped at midnight New York time, as the data feed stamps them.
+   * The sessions before the spell (the last run of 81.5/82.5 closes) trade at
+   * least 2 million, so the spell is dull against them.
+   */
+  const bars = (closes: number[], vol: (i: number) => number) => {
+    let start = closes.length - 1;
+    while (start >= 0 && !(closes[start] === 81.5 || closes[start] === 82.5)) start--;
+    while (start > 0 && (closes[start - 1] === 81.5 || closes[start - 1] === 82.5)) start--;
+    return barsUtc(closes, (i) => (i < start ? Math.max(vol(i), 2e6) : vol(i))).map((x) => ({
+      ...x,
+      t: new Date(Date.parse(x.t) + 5 * 3_600_000).toISOString(),
+    }));
+  };
   const asOfAfter = (b: Bar[]) => new Date(Date.parse(b[b.length - 1].t) + 1.6 * 86_400_000);
   // The spell trades 1.0 and 1.5 million on alternate days (mean 1.25 million); the break trades 2.5 million.
   const heavyBreak = (n: number) => (i: number) => (i === n - 1 ? 2.5e6 : i % 2 ? 1.5e6 : 1e6);
@@ -225,7 +236,7 @@ describe("distribution: a narrow spell after a lower top, broken down on volume 
     const b = bars(closes, heavyBreak(closes.length));
     const ctx = readDisclosedRules(b, 74, null, asOfAfter(b));
     expect(ctx.distribution?.distributionBreakdown).toBe(true);
-    expect(describeDisclosedRules(ctx)).toContain("After a lower top, the narrow range broke down on 2.0× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range.");
+    expect(describeDisclosedRules(ctx)).toContain("After a lower top, the narrow range broke down on 2.0× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.");
     expect(contextFactorsFor(ctx, "bullish", 74)).toMatchObject({ distributionBreakdownAgainst: true, distributionBreakdownWith: false });
     expect(contextFactorsFor(ctx, "bearish", 74)).toMatchObject({ distributionBreakdownAgainst: false, distributionBreakdownWith: true });
     const quiet = readDisclosedRules(bars(closes, () => 1e6), 74, null, asOfAfter(b));
@@ -313,16 +324,30 @@ describe("distribution: a narrow spell after a lower top, broken down on volume 
       expect(applyDistributionBreakdownHold(watch, standing, "bullish")).toBe(watch);
     });
 
-    it("exits a long bought before the breakdown, and not one bought after it or a short", () => {
+    it("exits a long while the breakdown stands, bought before it or after, and not a short", () => {
       const b = withAfter([75]);
       const entered = (k: number) => b[k].t.slice(0, 10);
       const pos = (entryDate: string, side: "long" | "short") => ({ side, entry: 82, initialStop: side === "long" ? 70 : 95, entryDate, crossedLevel: null });
       // Bought inside the spell, two sessions before the break.
       expect(readGannExit(pos(entered(closes.length - 3), "long"), b, null).exit).toMatchObject({ reason: "distribution" });
-      // Bought on the session after the break: the breakdown was printed before the fill.
-      expect(readGannExit(pos(entered(closes.length), "long"), b, null).exit?.reason).not.toBe("distribution");
+      // Bought on the session after the break: the breakdown still stands, so it exits too.
+      expect(readGannExit(pos(entered(closes.length), "long"), b, null).exit).toMatchObject({ reason: "distribution" });
       expect(readGannExit(pos(entered(closes.length - 3), "short"), b, null).exit?.reason).not.toBe("distribution");
     });
+  });
+
+  it("does not out of a wide spell, or one no quieter than the sessions before it", () => {
+    const closes = lowerTopThenSpell(95, 74);
+    // The same spell, but swinging 76 to 88 (wider than twice the 3 points at
+    // its low), broken to 66, past the wider range's own allowance.
+    const wide = closes.map((c, i) => (i === closes.length - 1 ? 66 : i >= closes.length - 31 ? (i % 2 ? 88 : 76) : c));
+    const w = barsUtc(wide, (i) => (i < closes.length - 31 ? 2e6 : heavyBreak(closes.length)(i))).map((x) => ({ ...x, t: new Date(Date.parse(x.t) + 5 * 3_600_000).toISOString() }));
+    const rw = readDistributionBreakdown(w, asOfAfter(w))!;
+    expect(rw).toMatchObject({ afterLowerTop: true, brokeDown: true, narrow: false, distributionBreakdown: false });
+    // The narrow spell, on the same volume as the sessions before it.
+    const loud = barsUtc(closes, heavyBreak(closes.length)).map((x) => ({ ...x, t: new Date(Date.parse(x.t) + 5 * 3_600_000).toISOString() }));
+    const rl = readDistributionBreakdown(loud, asOfAfter(loud))!;
+    expect(rl).toMatchObject({ narrow: true, dull: false, distributionBreakdown: false });
   });
 
   it("never reads the session still trading", () => {

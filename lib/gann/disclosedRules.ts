@@ -620,7 +620,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     lines.push(`The last campaign bottom (${ctx.campaignBottoms.bottoms[0].price.toFixed(2)}, ${ctx.campaignBottoms.bottoms[0].month}) is broken by 3 points: ${next ? `the next older campaign bottom, ${next.price.toFixed(2)} (${next.month}), is the support to watch` : "no older campaign bottom below it is in the record"}.`);
   }
   if (ctx.distributionStanding) {
-    lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range.`);
+    lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);
   }
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {

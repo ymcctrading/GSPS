@@ -201,4 +201,9 @@
 // Item 8 step 5 (fork FV7 b): after a lower top, a narrow spell broken down on
 // volume holds a new long to Watch and exits an open one while it stands
 // (A-VOLUME-03), on the live scan, the live exit manager and the replay.
-export const STRATEGY_VERSION = "2026-10-16-gann-distribution-hold";
+// Item 8 second review, same day: the breakdown needs Gann's "dull, narrow"
+// spell (no wider than twice the 3 points, quieter than the sessions before;
+// M1); a long is neither placed nor entered in the replay while one stands, and
+// an open long exits whenever it was bought (M2); a retest of a top or bottom
+// must not cross it by the 3 points, which moves the volume criterion (M3).
+export const STRATEGY_VERSION = "2026-10-16-gann-volume-review2";

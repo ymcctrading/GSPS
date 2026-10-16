@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { computeVolumeClimax } from "../volumeClimax";
+import { computeVolumeClimax, heaviestWeekBeforeTop } from "../volumeClimax";
 import { computeGannOldLevelEntry } from "@/lib/gann/entryTrigger";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 
@@ -505,11 +505,64 @@ describe("a double top whose earlier high came on heavy volume (A-ENTRY-20, W006
   it("says so in the volume point's note", async () => {
     const { volumeNote } = await import("@/lib/scoring/score");
     const high = computeVolumeClimax(doubleTop(4000)).find((r) => r.anchorKind === "high")!;
-    expect(volumeNote(high)).toBe("The high at 101.00 is a second test of a top that came on heavy volume: a sell, with the stop 3 points over the old top.");
+    expect(volumeNote(high)).toBe("The high at 101.00 is a second test of a top that came on heavy volume: a sign to sell.");
+  });
+
+  it("does not name a top that crossed the old one by the 3 points a second test (review M3)", () => {
+    const inside = computeVolumeClimax(doubleTop(4000, 104)).find((r) => r.anchorKind === "high")!;
+    expect(inside.anchorPrice).toBeCloseTo(105, 6);
+    expect(105 <= 101 + gannThreePoints(101)).toBe(true);
+    expect(inside.retestOfHeavyTop).toBe(true);
+    for (const secondTop of [110, 120]) {
+      const over = computeVolumeClimax(doubleTop(4000, secondTop)).find((r) => r.anchorKind === "high")!;
+      expect(over.retestOfHeavyTop).toBe(false);
+      expect(over.retestWeekVolumeRatio).toBeNull();
+    }
   });
 
   it("does not name it when the earlier top came on ordinary volume", () => {
     const high = computeVolumeClimax(doubleTop(1100)).find((r) => r.anchorKind === "high")!;
     expect(high.retestOfHeavyTop).toBe(false);
+  });
+});
+
+describe("a retest of a low reaches it without breaking it by the 3 points (review M3, the mirror)", () => {
+  /** A decline to 100 on heavy volume, a rally to 112, a second low at `secondLow` on light volume, then a rally. */
+  function doubleBottom(secondLow: number): Bar[] {
+    const rows: Array<[number, number]> = [];
+    for (let i = 0; i < 30; i++) rows.push([130 - i, 1000]);
+    rows.push([100, 3000]);
+    for (let i = 1; i <= 6; i++) rows.push([100 + i * 2, 1000]); // to 112
+    for (let i = 1; i <= 6; i++) rows.push([112 - ((112 - secondLow) * i) / 6, 500]); // back to the second low
+    for (let i = 1; i <= 6; i++) rows.push([secondLow + 1 + i, 1000]);
+    return weekdays(rows);
+  }
+
+  it("reads a second low at the old one as a retest, and one far under it as a break", () => {
+    const at = computeVolumeClimax(doubleBottom(100)).find((r) => r.anchorKind === "low")!;
+    expect(at.retestWeekVolumeRatio).not.toBeNull();
+    const under = computeVolumeClimax(doubleBottom(88)).find((r) => r.anchorKind === "low")!;
+    expect(under.anchorPrice).toBeCloseTo(87, 6);
+    expect(under.retestWeekVolumeRatio).toBeNull();
+    expect(under.retestOnLowerVolume).toBe(false);
+  });
+});
+
+describe("the heaviest week before a top is measured from the last major top, not a minor high (review M4)", () => {
+  it("reads past a minor weekly high in the advance back to the major top", () => {
+    // Weekly closes: up to a major top at 150, down to 100, an advance with a
+    // heavy week, a small bump (a minor weekly high), then on to the new top.
+    const weeksClose = [
+      ...Array.from({ length: 10 }, (_, k) => 110 + 4 * k), 150,
+      ...Array.from({ length: 10 }, (_, k) => 145 - 5 * k),
+      104, 108, 112, 116, 120, 124, 128, 131, 127, 125, 126, 133, 137, 141, 145,
+    ];
+    const heavyWeek = 25; // the week closing at 120, before the bump
+    const rows: Array<[number, number]> = [];
+    weeksClose.forEach((c, w) => {
+      for (let d = 0; d < 5; d++) rows.push([c, w === heavyWeek ? 10_000 : 1000]);
+    });
+    const b = weekdays(rows);
+    expect(heaviestWeekBeforeTop(b, b.length - 1)).toBe(true);
   });
 });

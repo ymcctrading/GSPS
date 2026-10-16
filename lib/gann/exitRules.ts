@@ -251,11 +251,13 @@ export function readGannExit(
   }
 
   // A-VOLUME-03 (fork FV7 b): after a lower top, a narrow spell broken down on
-  // increased volume signals a further decline, so an open long exits once
-  // such a breakdown, printed on a session since the fill, still stands.
+  // increased volume signals a further decline, so an open long exits while
+  // such a breakdown stands, whenever it was bought (review M2, 2026-10-16:
+  // Gann's signal does not depend on the fill date; placement also refuses a
+  // long while one stands, `entryConfirmationRefusal`).
   if (!exit && long) {
     const standing = readDistributionStanding(daily, new Date(Date.parse(last.t) + 36 * 3_600_000));
-    if (standing && standing.breakDate >= pos.entryDate) {
+    if (standing) {
       exit = {
         reason: "distribution",
         note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}): a sign of a further decline.`,

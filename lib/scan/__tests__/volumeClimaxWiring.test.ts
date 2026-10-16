@@ -79,5 +79,11 @@ describe("the scored volume rule's inputs", () => {
     expect(src("backtest/replay.ts")).toMatch(/applyDistributionBreakdownHold\(applyMonthlyBreakHold\(/);
     expect(src("backtest/replay.ts")).toMatch(/context\.disclosedRules\.distributionStanding \?\? null, gannTrigger\.direction\)/);
     expect(src("gann/disclosedRules.ts")).toMatch(/distributionStanding: readDistributionStanding\(dailyBars, asOf\)/);
+    // Review M5 (BV14): the replay's volume test reads the scan's 52-week entry
+    // chart of sessions before the day, never the whole series (no lookahead).
+    expect(src("backtest/replay.ts")).toMatch(/const entryDaily = chart\.bars;/);
+    expect(src("backtest/replay.ts")).toMatch(/breakawayVolumeMet\(entryDaily, trigger\.direction, gannBreakLine\(trigger\.reactionEntry, trigger\.reactionStop\)\)/);
+    // Review M2: the replay enters no long while one stands, as placement refuses it.
+    expect(src("backtest/replay.ts")).toMatch(/if \(trigger\.direction === "bullish" && arm\.context\.disclosedRules\.distributionStanding\) continue;/);
   });
 });

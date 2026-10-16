@@ -875,6 +875,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         confirmation.delete(pivotKey);
         continue;
       }
+      // A-VOLUME-03: no long is entered while a distribution breakdown stands,
+      // as production refuses the placement (`entryConfirmationRefusal`).
+      if (trigger.direction === "bullish" && arm.context.disclosedRules.distributionStanding) continue;
 
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;

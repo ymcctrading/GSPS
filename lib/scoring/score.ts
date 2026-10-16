@@ -254,7 +254,7 @@ export function volumeNote(r: VolumeClimaxReading): string {
     if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: a selling climax, the panic-bottom exception.`;
     return `${at} came on neither shrinking volume nor a selling climax (${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best).`;
   }
-  if (r.retestOfHeavyTop) return `${at} is a second test of a top that came on heavy volume: a sell, with the stop 3 points over the old top.`;
+  if (r.retestOfHeavyTop) return `${at} is a second test of a top that came on heavy volume: a sign to sell.`;
   if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: tops come on heavy sales.`;
   if (r.retestOnLowerVolume) return `${at} is a secondary top on smaller volume than the one before: the advance is tiring.`;
   if (r.secondaryOnLowerVolume) return `${at} is a lower secondary rally on smaller volume, after a decline on heavy volume: the final top may be in.`;
@@ -755,7 +755,7 @@ export function applyDistributionBreakdownHold(
         key: "distributionBreakdown",
         criterion: "No breakdown after a lower top",
         passed: false,
-        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}), a sign of a further decline. Held from Execute to Watch while price stays under the range.`,
+        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}), a sign of a further decline. Held from Execute to Watch while price stays under the range, for up to 20 sessions after the break.`,
       },
     ],
   };

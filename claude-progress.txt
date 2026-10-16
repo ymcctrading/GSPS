@@ -666,3 +666,13 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - lib/gann/campaignBottoms.ts: monthly strength-3 pivot lows over OLDER_LEVELS_YEARS calendar years (completed months; completed sessions this month for a break), newest first; broken = a later close under by Gann's 3 points; nextSupport = first unbroken. Not majorPivots (its prominence quantile dropped the newest, smaller campaign in tests). Card line + factor campaignBottomBrokenAgreesWithTrade. Context only, no version bump; joins plan levels later (FL7/FL6 step).
 - Tests: campaignBottoms.test.ts (holds, broken, inside 3 points, older-higher bottom, 10-year span parity, forming session ignored, card and factors). Mutants C1-C3 killed; the old "older bottom above a broken one" guard was redundant (equivalent) and removed.
 - Fresh review of item 8 steps 4-5 in docs/gann-feature-map/item8b_review.md: A-VOLUME-11 PASS; A-VOLUME-09/-10 PASS pending run 49 and M5 pins; A-VOLUME-03 and A-ENTRY-20 FAIL on small fixes (M1-M3). Fixing next.
+
+## 2026-10-16 item 8 second-review fixes (docs/gann-feature-map/item8b_review.md)
+- M1: readDistributionBreakdown now reads Gann's "dull, narrow": spell span <= 2 x the 3-point allowance at its low (NARROW_SPELL_ALLOWANCES) and spell mean volume below the 40 sessions before it (DULL_BASELINE_SESSIONS). Both labelled engineering. Wide-spell and not-dull negatives pinned (N1, N2 killed).
+- M2: an open long exits while a breakdown stands whenever it was bought; readEntryConfirmationNow makes a long with the protocol's stop wait while one stands (one extra 1-year daily fetch on a ready long; not on the scan path); the replay enters no long while one stands. Pinned in missingRules, confirmNow and volumeClimaxWiring tests.
+- M3: a retest of a top (bottom) must not cross it by the 3 points (both bounds, R1/R2 killed); the A-ENTRY-20 note drops the stop clause ("a sign to sell"). Moves volumeClimax's retest branch, so it is a verdict change.
+- M4: heaviestWeekBeforeTop's majorPivots guard pinned with a minor weekly high in the advance (M2b killed). Correction to the 6239863 note: the random-walk pin never caught that mutant.
+- M5: BV9 (forming session), BV12 (resting buy exempt), BV14 (replay reads entryDaily, source pin) pinned and killed.
+- Copy: the volume waiting note says only a new crossing on volume counts; "while price stays under the range" now says "for up to 20 sessions after the break" everywhere; Academy 4 (Pro) gained both rules.
+- STRATEGY_VERSION 2026-10-16-gann-volume-review2. Run 50 to follow run 49.
+- Not done (LOW, recorded): BV5, D9, D12, H5, L2a pins; the duplicate breakdown read on the live scan with confluence on (~32 ms per 250 symbols).
