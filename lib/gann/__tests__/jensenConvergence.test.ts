@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { jensenBottomConvergence, jensenPointAngle } from "@/lib/gann/jensen";
+import { describeJensenConvergence, jensenBottomConvergence, jensenPointAngle } from "@/lib/gann/jensen";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
@@ -60,5 +60,32 @@ describe("lines from a double bottom converge (C-LEVELS-24)", () => {
     expect(Math.abs(ctx.jensenConvergence!.point.barsFromNow)).toBeLessThanOrEqual(1);
     expect(describeDisclosedRules(ctx).some((l) => /double bottom/.test(l) && /converge/.test(l) && /Shown for context/.test(l))).toBe(true);
     expect(contextFactorsFor(ctx, "bullish", 46).jensenConvergenceNow).toBe(true);
+  });
+
+  it("does not read a convergence two or more sessions away as now", () => {
+    const early = series(closes.slice(0, closes.length - 3));
+    const ctx = readDisclosedRules(early, early[early.length - 1].c, null, new Date(early[early.length - 1].t));
+    expect(ctx.jensenConvergence!.point.barsFromNow).toBeGreaterThanOrEqual(2);
+    expect(contextFactorsFor(ctx, "bullish", early[early.length - 1].c).jensenConvergenceNow).toBe(false);
+  });
+});
+
+describe("lines from a triple bottom converge (C-LEVELS-24)", () => {
+  // Bottoms at bars 10, 26 and 34; the third is a little higher, so the third
+  // line passes the crossing of the other two within one point, not exactly.
+  const tri = [60, ...leg(60, 40, 10), ...leg(40, 48, 8), ...leg(48, 40, 8), ...leg(40, 44, 4), ...leg(44, 40.3, 4), ...leg(40.3, 46, 10)];
+  const bars = series(tri);
+  const unit = gannPointForBars(bars);
+
+  it("finds the point three lines pass, one from each test", () => {
+    const r = jensenBottomConvergence(bars, unit)!;
+    expect(r.tests.map((t) => t.index)).toEqual([10, 26, 34]);
+    expect(r.point.index).toBe(41);
+    expect(r.point.lines.map((l) => [l.testIndex, l.points])).toEqual([
+      [10, 22.5],
+      [26, 45],
+      [34, 90],
+    ]);
+    expect(describeJensenConvergence(r)).toMatch(/triple bottom/);
   });
 });
