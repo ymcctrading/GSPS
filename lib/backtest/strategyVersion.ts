@@ -365,4 +365,8 @@
 // swing extreme came on a dated window: Gann's pivot windows, his time counts,
 // Jensen's dates or the planetary time readings (lib/gann/timeWindow.ts).
 // Verdicts move.
-export const STRATEGY_VERSION = "2026-10-16-gann-time-window-turn";
+// 2026-10-16-gann-queer-acting: leave queer-acting stocks alone (owner, Q24,
+// "Both"; A-SELECTION-01): an Execute holds to Watch when under a third of
+// the stock's last four or more buying and selling points carried on
+// (lib/gann/ruleFollowing.ts). The universe floors stay. Verdicts move.
+export const STRATEGY_VERSION = "2026-10-16-gann-queer-acting";

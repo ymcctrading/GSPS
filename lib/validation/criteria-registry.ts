@@ -923,6 +923,19 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "queerActing",
+    family: "scoreHold",
+    source: "lib/gann/ruleFollowing.ts",
+    label: "Stock follows the rules",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Q24 (owner, 2026-10-16, \"Both\"): leave queer-acting stocks alone (A-SELECTION-01, W006 pp.20, 34-35). " +
+      "Appended only when it holds an Execute because under a third of the stock's last four or more buying and " +
+      "selling points carried on, so it is failed by construction whenever present. Measured as followsRules.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "timeWindowTurn",
     family: "scoreHold",
     source: "lib/gann/timeWindow.ts",

@@ -202,6 +202,8 @@ export function contextFactorsFor(
   // though its meaning moved with the rule on 2026-10-16: second or third
   // test, then the latest cluster, then failed until passed. Compare runs on
   // the same STRATEGY_VERSION only).
+  // A-SELECTION-01 (Q24): the stock's own signals work; the hold reads `queer`.
+  if (ctx.ruleFollowing && ctx.ruleFollowing.resolved > 0) f.followsRules = !ctx.ruleFollowing.queer;
   if (ctx.multipleTops) {
     // The level in the trade's path: a top for a long, a bottom for a short.
     const inPath = bull ? ctx.multipleTops.top : ctx.multipleTops.bottom;

@@ -92,6 +92,7 @@ import {
 } from "@/lib/gann/priceZone";
 import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
+import { readRuleFollowing, type RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
@@ -513,6 +514,8 @@ export interface DisclosedRulesContext {
   timeRules: TimeRulesReading | null;
   /** Double and triple tops and bottoms. See `multipleTops.ts`. */
   multipleTops: MultipleTopsReading | null;
+  /** Whether the stock's own buying and selling points worked (A-SELECTION-01, Q24). See `ruleFollowing.ts`. */
+  ruleFollowing?: RuleFollowingReading | null;
   /** The first return to a broken 50% point (class C, context only). See `halfwayRetest.ts`. */
   halfwayRetest?: HalfwayRetestReading | null;
   /** A narrow 3-4 day range breaking (class C, context only). See `narrowRange.ts`. */
@@ -630,6 +633,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   leadership: null,
   timeRules: null,
   multipleTops: null,
+  ruleFollowing: null,
   overnight: null,
   closeClusters: { daily: null, weekly: null, monthly: null },
   masterCalculator: null,
@@ -696,6 +700,7 @@ export function readDisclosedRules(
       instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
+    ruleFollowing: readRuleFollowing(dailyBars),
     halfwayRetest: readHalfwayRetest(dailyBars),
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
@@ -820,6 +825,10 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (!m) continue;
     const name = m.tests >= 3 ? `Triple ${m.kind}` : `Double ${m.kind}`;
     lines.push(`${name} at ${m.level.toFixed(2)}: ${m.state === "crossed" ? "crossed, a strong breakout" : m.state === "failed" ? `failed on its ${m.tests >= 3 ? "third" : "second"} test, a ${m.kind}` : "being tested"}.`);
+  }
+  if (ctx.ruleFollowing && ctx.ruleFollowing.resolved > 0) {
+    const r = ctx.ruleFollowing;
+    lines.push(`Over the year, ${r.followed} of this stock's ${r.resolved} buying and selling points carried on and ${r.failed} failed${r.queer ? ": it is not following the rules, so it is left alone" : ""}.`);
   }
   if (ctx.leadership) {
     const l = ctx.leadership;

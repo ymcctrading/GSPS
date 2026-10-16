@@ -15,6 +15,7 @@ import type { DistributionStanding } from "@/lib/gann/distribution";
 import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
+import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import type {
   AssetClass,
   GannLevels,
@@ -731,6 +732,29 @@ export function applyFailedTopHold(
         criterion: top ? "No failed double top overhead" : "No failed double bottom underneath",
         passed: false,
         note: `The market failed at a ${name} near ${failed.level.toFixed(2)}, which stands before the first target, and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until a daily close passes the level by the usual allowance or a new swing replaces it.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Leave queer-acting stocks alone (A-SELECTION-01, W006 pp.20, 34-35; owner,
+ * Q24 "Both"; `lib/gann/ruleFollowing.ts`): a stock whose own recent buying
+ * and selling points mostly failed is not traded on them. Execute is held to
+ * Watch while the reading stands.
+ */
+export function applyRuleFollowingHold(decision: ScanDecision, reading: RuleFollowingReading | null | undefined): ScanDecision {
+  if (!reading?.queer || decision.outputState !== "Execute") return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "queerActing",
+        criterion: "Stock follows the rules",
+        passed: false,
+        note: `Of this stock's last ${reading.resolved} buying and selling points over the year, ${reading.failed} failed back through their stop and ${reading.followed} carried on. A stock that does not follow the rules is left alone, so this is held from Execute to Watch until its signals work again.`,
       },
     ],
   };

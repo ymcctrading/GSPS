@@ -35,6 +35,7 @@ import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { readWindowTurn } from "@/lib/gann/timeWindow";
+import { readRuleFollowing } from "@/lib/gann/ruleFollowing";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
@@ -50,6 +51,7 @@ import {
   applyDistributionBreakdownHold,
   applyFailedTopHold,
   applyTimeWindowHold,
+  applyRuleFollowingHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
@@ -430,7 +432,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -465,6 +467,9 @@ export async function scanTicker(
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
         setupKind,
         () => readWindowTurn(charts.daily, scoreDirection),
+      ),
+        // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
+        readRuleFollowing(charts.daily),
       ),
       dataLag,
     ), stopBreach);
