@@ -517,5 +517,11 @@ export function contextFactorsFor(
   // A-TIME-07: the market's bull campaign at the prior one's length. No direction in the text.
   const cl = ctx.campaignLength;
   if (cl?.current && cl.prior) f.bullCampaignAtPriorLength = cl.atPriorLength;
+  // A-TIME-32: a fixed count from the founding date. No direction in the text.
+  const fc = ctx.foundingCounts;
+  if (fc) {
+    f.foundingCountYear = fc.years.length > 0;
+    f.foundingCount42Months = fc.months42;
+  }
   return f;
 }

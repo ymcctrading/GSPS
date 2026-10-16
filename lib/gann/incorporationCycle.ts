@@ -178,3 +178,62 @@ export function describeIncorporationCycle(r: IncorporationCycleReading): string
   }
   return lines;
 }
+
+/**
+ * A-TIME-32: fixed counts from a founding date, research and context only.
+ *
+ * Source (class A as fiction, *The Tunnel Thru the Air*, 1927, printed pp.
+ * 371-374, PDF 376-379, the hero's Bible time calculations): 7, 14 and 42
+ * months, 49, 343 and 490 years, the score (20), 70 and 140 years, each added
+ * to a founding or event date to find the troubled years. His own sums:
+ * 1776 + 140 = 1916, 1914 + 14 (twice seven) = 1928 and 42 months (half a
+ * seven) as the war's length, Roanoke 1585 + 343 (7 x 49) = 1928, the 1783
+ * evacuation + 3 x 49 = 1930, New York 1614 + 6 x 49 = 1908. On the page the
+ * 7 and 14 are years (1914 + 14 = 1928) and the 42 is months, so they are
+ * read that way here; the feature row's "7/14 months" does not match the page.
+ *
+ * Pre-registered before any measurement, no search: the list is the page's,
+ * plus every multiple of 49 (the page's own 3 x 49 and 6 x 49). The 24½ the
+ * page adds once (1908 + 24½ = 1932) is not used. The only anchor is the
+ * stored inception date; the page's historical event dates are not
+ * company dates and are not anchors here.
+ *
+ * Three-question basis. Source: as above, a novel, so it corroborates and is
+ * never a rule on its own. Cycles: a recurrence claim with no base rate; no
+ * Dewey item is cleared, so it is a measured context factor and never gates.
+ * Hermetic: Rhythm (the jubilee of sevens), and Correspondence, the same
+ * counts read on a company's life as on a nation's.
+ */
+export const FOUNDING_COUNT_YEARS = [7, 14, 20, 49, 70, 140, 343, 490] as const;
+export const FOUNDING_JUBILEE_YEARS = 49;
+export const FOUNDING_COUNT_MONTHS = 42;
+
+export interface FoundingCountReading {
+  inception: string;
+  /** The counts, in years, that the current calendar year completes. */
+  years: number[];
+  /** Exactly 42 months from the founding month (month or day precision only). */
+  months42: boolean;
+}
+
+export function readFoundingCounts(inception: Inception | null | undefined, asOf: Date): FoundingCountReading | null {
+  if (!inception) return null;
+  const birth = new Date(`${inception.date}T00:00:00Z`);
+  if (Number.isNaN(birth.getTime()) || birth.getTime() > asOf.getTime()) return null;
+  const elapsed = asOf.getUTCFullYear() - birth.getUTCFullYear();
+  const years =
+    elapsed > 0 && ((FOUNDING_COUNT_YEARS as readonly number[]).includes(elapsed) || elapsed % FOUNDING_JUBILEE_YEARS === 0) ? [elapsed] : [];
+  const months = elapsed * 12 + asOf.getUTCMonth() - birth.getUTCMonth();
+  return {
+    inception: inception.date.slice(0, inception.precision === "year" ? 4 : inception.precision === "month" ? 7 : 10),
+    years,
+    months42: inception.precision !== "year" && months === FOUNDING_COUNT_MONTHS,
+  };
+}
+
+export function describeFoundingCounts(r: FoundingCountReading): string[] {
+  const lines: string[] = [];
+  if (r.years.length > 0) lines.push(`This year is ${r.years[0]} years from the company's founding (${r.inception}), one of the fixed counts watched for a troubled year. Shown for context; it does not change the setup.`);
+  if (r.months42) lines.push(`This month is 42 months from the company's founding (${r.inception}). Shown for context; it does not change the setup.`);
+  return lines;
+}

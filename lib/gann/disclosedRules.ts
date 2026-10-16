@@ -149,6 +149,7 @@ import { describeSquareOfNineTime, readSquareOfNineTime, type SquareOfNineTimeHi
 import { describeHexagonTime, readHexagonTime, type HexagonTimeHit } from "@/lib/gann/hexagonTime";
 import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } from "@/lib/gann/masterChartTime";
 import { describeCampaignLength, readCampaignLength, type CampaignLengthReading } from "@/lib/gann/campaignLength";
+import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -668,6 +669,8 @@ export interface DisclosedRulesContext {
   decadeCycle?: DecadeCycleReading | null;
   /** The prior bull campaign's length projected on the current one (A-TIME-07, context only). See `campaignLength.ts`. */
   campaignLength?: CampaignLengthReading | null;
+  /** Fixed year and month counts from the founding date (A-TIME-32, context only). See `incorporationCycle.ts`. */
+  foundingCounts?: FoundingCountReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -840,6 +843,7 @@ export function readDisclosedRules(
     squareOf52: squareOf52Windows(dailyBars, asOf),
     decadeCycle: computeDecadeCycle(asOf),
     campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
+    foundingCounts: readFoundingCounts(inception, asOf),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1068,5 +1072,6 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   const cl = ctx.campaignLength ? describeCampaignLength(ctx.campaignLength) : null;
   if (cl) lines.push(cl);
+  if (ctx.foundingCounts) lines.push(...describeFoundingCounts(ctx.foundingCounts));
   return lines;
 }
