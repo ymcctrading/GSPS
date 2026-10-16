@@ -579,3 +579,4 @@ today's bar). First version formatted the ET date of every bar and walked the fu
 backtest-run test went 27s -> 156s; fixed by dropping only trailing bars and reading 252 sessions
 (~120 ms per 250 symbols on six years of bars). Mutations D1-D11 killed except two removed as
 equivalent. Full suite 2845 pass.
+- Checked undisclosed-search/findings.md conflict 1 against gann_features.json: A-ASTRO-10 (CE average, MOF formula) stays UNDISCLOSED, passes false. The definitions found are Tier B (Walker 2004, Ganntrader), not Gann's own text; the letter names them without defining them. Only `passes` may change in that file anyway, and astrology is research-only. Conflicts 2-4 don't touch gann_features.json.
