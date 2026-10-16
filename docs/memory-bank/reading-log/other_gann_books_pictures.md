@@ -121,3 +121,44 @@ None has market content. A10 stands as read.
   - crop records: wheat, corn, oats, barley, rye, buckwheat, potatoes, hay, soy beans, hogs, the pig crop, world cotton, cottonseed
 
   The only prose is the crop commentary already in A08: record crops, and short crops followed by high prices, on Gann's "crop periods and time cycles". These are data tables and add no rule.
+
+## *Truth of the Stock Tape* (1923) and *Wall Street Stock Selector* (1930) — Drive id `15p9_KM5WbCGIbGE8ITKvXu6sSNcTPnel`, 488 pp., no text layer
+
+Read 2026-10-16. The text was read in full on 2026-09-27 (source note A02/A04). This pass covers the pictures.
+- **Method.** All 488 pages were OCR'd. Every page under 120 words was viewed as an image (56 pages): every chart plate, the covers, the portrait, the title pages, blanks and chapter ends. The scan stores each page at 3022×4871. The 1929 forecast, its cover letter, the U.S. Steel swings and the Dow/bonds/call-money plate were read at that resolution.
+- **An earlier attempt failed.** The first OCR run (2026-10-01) left empty files: four tesseract processes, each multi-threaded, stalled on a 4-core container. This run used one thread per process. Pages logged as "0 words" before this date were OCR failures, not blank pages.
+- **TOST plates** (the 17 charts in its contents list):
+  - Dow-Jones yearly averages 1896–1922
+  - Studebaker weekly
+  - U.S. Rubber, Continental Can, U.S. Industrial Alcohol, American Smelting, Corn Products and Republic Steel, all monthly
+  - the New York Central swing chart 1896–1922
+  - U.S. Steel 3-point moves 1916–17
+  - the Dow-Jones 20 Rails and 20 Industrials, monthly
+  - October Cotton weekly
+  - May Wheat monthly, swing, weekly and daily
+
+  These are price records. The labels inside them are dates and prices at the turns. The May Wheat monthly carries a note on the war period (May 1917 to July 1920), and nothing else is printed inside any plate.
+- **Selector plates (Charts 1–19):**
+  - Gann's own Railroad Averages 1856–96
+  - U.S. Cast Iron Pipe, yearly, monthly, weekly and daily on one sheet
+  - U.S. Steel swings 1901–30: dates at every swing, and a "new stock" break in 1927
+  - Houston Oil swings, beside NYSE yearly volume of sales 1875–1930
+  - Crucible Steel and Kelvinator
+  - Dow 30 Industrials, 40 Bonds and call money
+  - New York Central, Atchison and AT&T swings
+  - Radio Corp and Peoples Gas
+  - Westinghouse weekly
+  - Sears and General Motors
+  - U.S. Steel and New York Air Brake
+  - Wright Aeroplane
+  - United Aircraft
+
+  Same finding: price and swing records, dated at the turns, with no rule text.
+- **The 1929 Annual Stock Forecast plate** (Selector p. 12, PDF 446) is read at full resolution. It has three curves:
+  - **Industrial Curve No. 1:** tops in early August, a last top on **September 3**, a decline through October and a low on **November 23–24**.
+  - **Industrial Curve No. 2** (stocks in strong position): its own dated turns, ending on a low on December 18–20.
+  - **Railroad Curve:** dated turns through the year.
+
+  The cover page (PDF 445) says Curve No. 1 was **"sent out on November 3, 1928"**. A later page (PDF 473) is dated November 23rd, 1928. **Correction:** source note A02/A04 gave the forecast's date as November 23, so both dates are now recorded there.
+- **What it was based on.** Gann's stated basis is his Master Time Factor and the return of cycles. That is the undisclosed method recorded in A13. The plate shows the method's output, not the method, so **nothing in it can be built**. It is the kind of dated projection AGENTS.md's "Forward-looking claims" rule covers.
+- **For GSPS:** no new rule. The "new stock" break in the U.S. Steel swings is the share-count change that `splitAdjustedSharesAsOf` exists for. Bars are split-adjusted, so Gann's unadjusted chart prices before 1927 don't compare directly with today's data.

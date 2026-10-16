@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Tier | **A** (Gann's own published books). TOST dated January 1923; the Stock Selector's text is dated March–April 1930, and its back matter reprints Gann's **1929 Annual Stock Forecast** (dated November 23, 1928). |
+| Tier | **A** (Gann's own published books). TOST dated January 1923; the Stock Selector's text is dated March–April 1930, and its back matter reprints Gann's **1929 Annual Stock Forecast** (Curve No. 1 "sent out on November 3, 1928", PDF 445; a later page is dated November 23rd, 1928, PDF 473; corrected 2026-10-16). Every chart plate was viewed on 2026-10-16: they are price and swing records with no rule text (reading log `other_gann_books_pictures.md`). |
 | Copyright | Treated as in copyright. Synthesis only, no book text stored. The scan stays in the scratchpad. |
 | Source file | One combined, image-only Drive scan (488 PDF pages, no text layer). OCR'd page by page on 2026-09-27 with tesseract at 200 dpi. TOST book page ≈ PDF − 21. The Stock Selector begins at PDF 205, and its p. 1 = PDF 213. |
 | Read status | **Both books read in full (2026-09-27).** TOST pp. 1–185. Stock Selector Chs. I–IX, the Afterword, the monthly high/low appendix (read as data tables, not transcribed) and the whole back matter: Answers to Inquiries, "What fits a man to write as an authority", **the 1929 Annual Stock Forecast (full)**, "Time Factor and Forecasting Method", "How I forecast", and the service and price pages. Not captured: the chart plates (images; OCR returns noise) and a handful of blank or cover pages (PDF 1–10, 15, 47, 204, 208, 210, 418, 482–487). |
