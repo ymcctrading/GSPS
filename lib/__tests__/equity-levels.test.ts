@@ -263,3 +263,33 @@ describe("FL6 a: the target pool is the Square of Nine, not the ATR fans", () =>
     expect(gannTargetPool({ fanLines: [{ price: 1 }, { price: 2 }], squareOf9: [{ price: 3 }, { price: 4 }] })).toEqual([3, 4]);
   });
 });
+
+// Q23 (owner, 2026-10-16): Gann places the stop 3 points beyond an old top or
+// bottom (W006 pp.20-24, 46-47), so the scored point asks whether an old level
+// stands at least 3 points in front of the stop, between it and the entry.
+describe("an old level 3 points behind the stop", () => {
+  it("finds the level a long's stop sits 3 points under, and none 2 points under", async () => {
+    const { oldLevelBehindStop } = await import("@/lib/strat/levels");
+    const L = 95;
+    expect(oldLevelBehindStop("bullish", 100, L - gannThreePoints(L), [L, 130])).toBe(L);
+    expect(oldLevelBehindStop("bullish", 100, L - (2 / 3) * gannThreePoints(L), [L])).toBeNull();
+    // A level beyond the entry does not stand behind the stop.
+    expect(oldLevelBehindStop("bullish", 100, 90, [101])).toBeNull();
+  });
+
+  it("mirrors for a short", async () => {
+    const { oldLevelBehindStop } = await import("@/lib/strat/levels");
+    const L = 105;
+    expect(oldLevelBehindStop("bearish", 100, L + gannThreePoints(L), [L])).toBe(L);
+    expect(oldLevelBehindStop("bearish", 100, L + 0.5 * gannThreePoints(L), [L])).toBeNull();
+  });
+
+  it("marks a structural stop and a stop fixed by the crossing rule, and not a fallback stop", () => {
+    const structural = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [95], evenFigures: false });
+    expect(structural.stopBehindOldLevel).toBe(true);
+    const fallback = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [60], evenFigures: false });
+    expect(fallback.stopBehindOldLevel).toBe(false);
+    const crossing = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [], stopLoss: 92, evenFigures: false });
+    expect(crossing.stopBehindOldLevel).toBe(true);
+  });
+});

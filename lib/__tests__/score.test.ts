@@ -236,59 +236,39 @@ describe("computeScore gannRetracementConfluence", () => {
   });
 });
 
-// 2026-09-11: us_equity's stopRoom asks "did this stop come from a real
-// structural level, not the fallback" instead of "is the stop >= 1.5x ATR" —
-// see hasStopRoom's own comment in lib/scoring/score.ts for why the R/ATR
-// question stopped meaning anything once equities moved to the percent model.
-describe("computeScore stopRoom (equities)", () => {
-  function baseInputs(direction: "bullish" | "bearish", stopFromStructure: boolean | undefined): ScoreInputs {
+// Q23 (owner, 2026-10-16): the scored stop point is Gann's rule, an old level
+// 3 points in front of the stop (W006 pp.20-24, 46-47), on every asset class.
+// It replaced `stopRoom` (an ATR multiple, or "anchored to S/R" for stocks).
+describe("computeScore stopBehindOldLevel", () => {
+  function baseInputs(stopBehindOldLevel: boolean | undefined, assetClass: "us_equity" | "crypto" = "us_equity"): ScoreInputs {
     return {
-      direction,
+      direction: "bullish",
       macroTrends: [],
       hourlyTrend: { timeframe: "1Day", direction: "sideways", support: [], resistance: [] },
       gann: EMPTY_GANN,
       nearSupportResistance: false,
       pattern: null,
       momentumElevated: false,
-      assetClass: "us_equity",
-      levels:
-        stopFromStructure === undefined
-          ? null
-          : ({ stopFromStructure } as unknown as ScoreInputs["levels"]),
+      assetClass,
+      levels: stopBehindOldLevel === undefined ? null : ({ stopBehindOldLevel } as unknown as ScoreInputs["levels"]),
     };
   }
+  const item = (i: ScoreInputs) => computeScore(i).breakdown.find((b) => b.key === "stopBehindOldLevel");
 
-  it("passes when the equity stop is anchored to real structure", () => {
-    const decision = computeScore(baseInputs("bullish", true));
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(true);
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.criterion).toBe("Stop backed by real structure");
+  it("passes when an old level stands 3 points in front of the stop, on stocks and crypto alike", () => {
+    expect(item(baseInputs(true))?.passed).toBe(true);
+    expect(item(baseInputs(true, "crypto"))?.passed).toBe(true);
+    expect(item(baseInputs(true))?.criterion).toBe("Stop 3 points behind an old level");
   });
 
-  it("fails when the equity stop fell back to the fixed percentage", () => {
-    const decision = computeScore(baseInputs("bullish", false));
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(false);
+  it("fails without such a level, or without a plan", () => {
+    expect(item(baseInputs(false))?.passed).toBe(false);
+    expect(item(baseInputs(undefined))?.passed).toBe(false);
   });
 
-  it("fails when no equity trade plan was priced at all", () => {
-    const decision = computeScore(baseInputs("bullish", undefined));
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(false);
-  });
-
-  it("ignores stopAtrMultiple entirely for equities, even when supplied", () => {
-    // A caller that still computes stopAtrMultiple (both real call sites do,
-    // for every asset class) must not let it leak into the equity verdict.
-    const decision = computeScore({ ...baseInputs("bullish", false), stopAtrMultiple: 5 });
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(false);
-  });
-
-  it("keeps the ATR-multiple question for non-equity asset classes", () => {
-    const decision = computeScore({
-      ...baseInputs("bullish", false),
-      assetClass: "crypto",
-      stopAtrMultiple: 2,
-    });
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.passed).toBe(true);
-    expect(decision.breakdown.find((b) => b.key === "stopRoom")?.criterion).toMatch(/ATR/);
+  it("reads no ATR multiple", () => {
+    expect(item({ ...baseInputs(false, "crypto"), stopAtrMultiple: 5 })?.passed).toBe(false);
+    expect(computeScore(baseInputs(true)).breakdown.some((b) => (b.key as string) === "stopRoom")).toBe(false);
   });
 });
 

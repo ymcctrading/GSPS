@@ -311,6 +311,7 @@ describe("computeScore", () => {
       levels: {
         entry: 100.5,
         stopLoss: 86,
+        stopBehindOldLevel: true,
         takeProfit1: 129.5,
         takeProfit2: 144,
         masterProfit: 144,
@@ -378,6 +379,7 @@ describe("computeScore", () => {
       levels: {
         entry: 100.5,
         stopLoss: 86,
+        stopBehindOldLevel: true,
         takeProfit1: 129.5,
         takeProfit2: 144,
         masterProfit: 144,

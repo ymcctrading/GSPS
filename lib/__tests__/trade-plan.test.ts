@@ -80,6 +80,7 @@ const gannTrigger = { direction: "bullish" as const, triggerPrice: 100, stopPric
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 99,
+  stopBehindOldLevel: true,
   takeProfit1: 102,
   takeProfit2: 103,
   masterProfit: 103,
@@ -130,10 +131,11 @@ describe("computeScore output state", () => {
     expect(decision.outputState).toBe("Execute");
   });
 
-  it("holds at Watch when the context scores 7+ but no trigger is armed", () => {
+  it("holds at Watch when the context scores 6+ but no trigger is armed", () => {
     // `gannTrigger` is what arms the trade now; `pattern` no longer does.
+    // With no plan there is no stop either, so the stop point fails too (Q23).
     const decision = computeScore(inputs({ pattern: null, gannTrigger: null, levels: null }));
-    expect(decision.score).toBe(7);
+    expect(decision.score).toBe(6);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });

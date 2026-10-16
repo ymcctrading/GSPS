@@ -67,6 +67,7 @@ const gann: GannLevels = {
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 85,
+  stopBehindOldLevel: true,
   takeProfit1: 130,
   takeProfit2: 145,
   masterProfit: 145,

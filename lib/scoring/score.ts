@@ -161,28 +161,22 @@ export interface ScoreInputs {
   } | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
-   * criterion on 2026-09-08 (see the `stopRoom` swap in
+   * criterion on 2026-09-08 (see the `stopRoom` swap, itself replaced by
+   * `stopBehindOldLevel` on 2026-10-16, in
    * `lib/scoring/weights.ts`), and the bare-2-2 hold it fed was removed on
    * 2026-10-16 (N#1). Nothing on the verdict path reads it; the field stays
    * so the callers' inputs objects keep one shape.
    */
   momentumElevated: boolean;
   /**
-   * The setup's stop distance as a multiple of the execution ATR
-   * (`riskPerShare / executionAtr`). Null when no plan priced, which scores as
-   * a fail — a setup with no stop has no room to be measured. Read for every
-   * asset class except `us_equity`, whose `stopRoom` criterion asks a
-   * different question — see `hasStopRoom` below.
+   * The setup's stop distance as a multiple of the execution ATR. Accepted
+   * but no longer read: the stop point is Gann's old level 3 points in front
+   * of the stop since 2026-10-16 (Q23). The field stays so callers keep one
+   * shape.
    */
   stopAtrMultiple?: number | null;
   levels: TradeLevels | null;
-  /**
-   * Which `stopRoom` question to ask. `us_equity` reads `levels.stopFromStructure`
-   * instead of `stopAtrMultiple` — see `hasStopRoom` below and
-   * lib/strat/levels.ts's `computeEquityTradeLevels`. Every other asset class
-   * (including undefined, for backward compatibility) keeps the ATR-multiple
-   * check.
-   */
+  /** The instrument's asset class. The stop point reads the same rule on every class (Q23). */
   assetClass?: AssetClass;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
@@ -201,44 +195,6 @@ export interface ScoreInputs {
    */
   weights?: CriterionWeights;
 }
-
-/**
- * Stop distance, in multiples of the execution ATR, at or above which a setup
- * has room to work. Replaces the `momentum` criterion, which measured nothing.
- *
- * Set from the first unconditioned replay (1,005 live-data reversion trades,
- * `docs/replay-runs/2026-09-08-15Min-since0615-all.json`), which is the only
- * population that can answer this without the score's own selection confounding
- * it. Expectancy by stop width there is monotonic across the boundary:
- *
- *   0.5–1.0x  n=442  win 32.6%  E[R] −0.038
- *   1.0–1.5x  n=398  win 30.2%  E[R] −0.110
- *   1.5–2.0x  n=100  win 38.0%  E[R] +0.151
- *   2.0–2.5x  n= 38  win 42.1%  E[R] +0.312
- *   2.5x+     n= 27  win 44.4%  E[R] +0.328
- *
- * Split at 1.5x: +0.217R against −0.072R, a +0.289R difference at t=2.40 — a
- * larger effect than any of the nine criteria this replaces one of, and the
- * only band boundary where the sign changes. Corroborated on a fresher, larger
- * unconditioned run (1,029 trades, `docs/replay-runs/2026-09-10-15Min-2R-
- * within-all.json`): the same side of the 33.3% break-even line flips the same
- * way (854 trades below 1.5x at 31.2% win rate; 175 at/above at 38.3%) — see
- * lib/validation/criteria-registry.ts's `stopRoom` entry for the caveat that
- * that table only carries per-band aggregates, not a second per-trade t-stat.
- *
- * **This is a selection rule, not an instruction to widen stops.** The bands
- * compare setups whose *structure* implied a wide stop against ones that did
- * not. They say nothing about what happens if you take a tight-stop setup and
- * move its stop out — that is a different trade, with a different R and a
- * different 2R target, and it is unmeasured. Read as a reason to prefer setups
- * with room, never as a reason to manufacture room.
- *
- * Two caveats travel with the number: the replay walked the raw pattern stop
- * (`useProductionStop: false`), not the leeway-widened stop production places,
- * and the sample is one window of six large caps on 15Min. `?productionStop=1`
- * confirmed nothing new — see the registry entry for why.
- */
-export const MIN_STOP_ROOM_ATR = 1.5;
 
 /** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
 export function volumeNote(r: VolumeClimaxReading): string {
@@ -297,7 +253,7 @@ function regainedNote(t: { direction: "bullish" | "bearish"; source?: "swing" | 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
-    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
+    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels,
     setupKind = "reversion",
     weights = DEFAULT_CRITERION_WEIGHTS,
   } = inputs;
@@ -337,21 +293,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // and the alternative — treating "unknown" as a pass — would hand a free
   // point to exactly the setups that are least ready to trade.
   //
-  // us_equity asks a different question, resolved 2026-09-11 alongside the
-  // percent-of-price model replacing R:R for equities (lib/strat/levels.ts):
-  // the stop is no longer an ATR-relative distance, it's anchored to a real
-  // structural level or a fixed fallback percentage, so "is there room" no
-  // longer means anything measurable here — the question that translates is
-  // "did this trade get a real structural stop, or the arbitrary fallback."
-  // `stopFromStructure` already answers exactly that (`computeTradeLevels`'s
-  // equities branch), so this reads it directly rather than re-deriving
-  // anything from `stopAtrMultiple`, which for equities now measures the
-  // percent-based stop against intraday ATR — a number, but not the one this
-  // criterion has ever asked about.
-  const hasStopRoom =
-    assetClass === "us_equity"
-      ? levels?.stopFromStructure === true
-      : stopAtrMultiple != null && stopAtrMultiple >= MIN_STOP_ROOM_ATR;
+  // Gann's stop rule (owner, Q23, 2026-10-16): the stop sits 3 points beyond
+  // an old top or bottom (W006 pp.20-24, 46-47), so the point asks whether an
+  // old level stands 3 points in front of it, on every asset class. It
+  // replaced `stopRoom` (a 1.5x ATR multiple, or "anchored to S/R" for
+  // stocks), which had no source.
+  const stopBehindOldLevel = levels?.stopBehindOldLevel === true;
 
 
   // A structural level only confirms a trade when it's on the *right side* of
@@ -545,23 +492,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {
-      key: "stopRoom",
-      criterion:
-        assetClass === "us_equity" ? "Stop backed by real structure" : `Stop room (>= ${MIN_STOP_ROOM_ATR}x ATR)`,
+      key: "stopBehindOldLevel",
+      criterion: "Stop 3 points behind an old level",
       pillar: "setup",
-      passed: hasStopRoom,
+      passed: stopBehindOldLevel,
       note:
-        assetClass === "us_equity"
-          ? levels == null
-            ? "No trade plan priced, so the setup has no stop to check."
-            : hasStopRoom
-              ? "Stop is anchored to a real nearby support/resistance level, not the fixed fallback percentage."
-              : "No structural level sat close enough to anchor the stop, so it fell back to a fixed percentage of price."
-          : stopAtrMultiple == null
-            ? "No trade plan priced, so the setup has no stop distance to measure."
-            : hasStopRoom
-              ? `Stop sits ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry — far enough that ordinary noise should not reach it before the setup resolves.`
-              : `Stop sits only ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry; setups this tight are inside the range ordinary noise covers.`,
+        levels == null
+          ? "No trade plan priced, so the setup has no stop to check."
+          : stopBehindOldLevel
+            ? `An old ${direction === "bullish" ? "bottom" : "top"} stands 3 points in front of the stop, so the market has to break it by the full allowance before the stop is hit.`
+            : `No old ${direction === "bullish" ? "bottom" : "top"} stands 3 points in front of the stop.`,
     },
     {
       key: "timePriceSquare",

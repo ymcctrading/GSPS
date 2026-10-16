@@ -13,7 +13,7 @@
 
 import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
-import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -195,6 +195,8 @@ export interface EquityTradeLevels {
   takeProfit1: number;
   takeProfit2: number;
   stopFromStructure: boolean;
+  /** An old level stands 3 points in front of the stop (`oldLevelBehindStop`; Q23). */
+  stopBehindOldLevel: boolean;
   /** TP1 sits on a Gann or S/R level (parity C4) rather than the ATR fallback. */
   tp1FromStructure: boolean;
   masterFromStructure: boolean;
@@ -281,6 +283,31 @@ function clampPct(pct: number, minPct: number, maxPct: number): number {
  * independently from price and structure), so branching mid-function would
  * only tangle two unrelated derivations together.
  */
+/**
+ * The old top or bottom that stands in front of the stop by at least Gann's 3
+ * points: between the stop and the entry, with the stop 3 points or more
+ * beyond it (W006 pp.20-24, 46-47: buy, and place the stop 3 points under the
+ * old bottom; the mirror for a short). Nearest such level to the stop, or
+ * null. One cent of slack absorbs the rounding of a stop priced exactly 3
+ * points beyond its level (engineering choice). Owner, Q23, 2026-10-16: the
+ * scored `stopBehindOldLevel` point, which replaced `stopRoom`.
+ */
+export function oldLevelBehindStop(
+  direction: "bullish" | "bearish",
+  entry: number,
+  stop: number,
+  levels: readonly number[],
+): number | null {
+  const dir = direction === "bullish" ? 1 : -1;
+  let best: number | null = null;
+  for (const L of levels) {
+    if (!(dir * (entry - L) > 0)) continue;
+    if (!(dir * (L - stop) >= gannThreePoints(L) - 0.01)) continue;
+    if (best === null || dir * (L - best) < 0) best = L;
+  }
+  return best;
+}
+
 export function computeEquityTradeLevels(params: {
   direction: "bullish" | "bearish";
   entry: number;
@@ -405,6 +432,9 @@ export function computeEquityTradeLevels(params: {
     takeProfit1: round(takeProfit1),
     takeProfit2: round(takeProfit2),
     stopFromStructure,
+    // A stop fixed by Gann's crossing rule is the crossed level less 3 points
+    // by construction; any other stop is checked against the S/R list.
+    stopBehindOldLevel: params.stopLoss != null || oldLevelBehindStop(direction, entry, stopLoss, structuralLevels) !== null,
     tp1FromStructure,
     masterFromStructure,
   };
@@ -635,6 +665,7 @@ export function computeTradeLevels(
       rewardToRiskMaster: equityRisk > 0 ? Math.abs(equity.takeProfit2 - entry) / equityRisk : 0,
       masterFromStructure: equity.masterFromStructure,
       stopFromStructure: equity.stopFromStructure,
+      stopBehindOldLevel: equity.stopBehindOldLevel,
       stopPctOfPrice: (Math.abs(entry - equity.stopLoss) / entry) * 100,
       stopBandWarning: null,
       pivotPlan: buildPivotPlan(pattern, equity.stopLoss, round(entry)),
@@ -769,6 +800,8 @@ export function computeTradeLevels(
     // model here has no notion of "structural vs. fallback" stop, so this is
     // always false rather than a claim about this stop's own quality.
     stopFromStructure: false,
+    // Gann's reaction stop is its level less 3 points by construction.
+    stopBehindOldLevel: Boolean(pattern.gannReaction) || oldLevelBehindStop(pattern.direction, entry, stopLoss, structuralLevels) !== null,
     stopPctOfPrice,
     stopBandWarning,
     pivotPlan: buildPivotPlan(pattern, round(stopLoss), round(entry)),

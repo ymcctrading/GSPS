@@ -351,4 +351,8 @@
 // angle set (16x1 to 1x16), the unit and set the S/R angles use, not one ATR a
 // bar on five angles (owner, Q27, "default to Gann's method"). The fan gate,
 // gannAngleSlope and timePriceSquare move, so verdicts move.
-export const STRATEGY_VERSION = "2026-10-16-gann-angle-points";
+// 2026-10-16-gann-stop-old-level: the scored stop point is Gann's old level 3
+// points in front of the stop (W006 pp.20-24, 46-47; owner, Q23), on every
+// asset class, replacing stopRoom (a 1.5x ATR multiple, or "anchored to S/R"
+// for stocks). Verdicts move.
+export const STRATEGY_VERSION = "2026-10-16-gann-stop-old-level";

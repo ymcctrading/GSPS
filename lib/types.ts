@@ -203,6 +203,13 @@ export interface TradeLevels {
    */
   stopFromStructure?: boolean;
   /**
+   * An old top or bottom stands at least Gann's 3 points in front of the stop,
+   * between it and the entry (`lib/strat/levels.ts#oldLevelBehindStop`), every
+   * asset class. The scored `stopBehindOldLevel` point (owner, Q23,
+   * 2026-10-16). Optional for hand-built fixtures; a real scan always sets it.
+   */
+  stopBehindOldLevel?: boolean;
+  /**
    * The counter-scenario: what invalidates this thesis and what a trade in
    * the opposite direction would need before it's worth considering.
    * Optional because fixtures built by hand (tests, mocks) do not need to
