@@ -26,7 +26,6 @@
 
 import type { Bar, Direction } from "@/lib/types";
 import { atr, clusterLevels, findPivots } from "@/lib/analysis/pivots";
-import { rangeMidpoint } from "@/lib/gann/retracement";
 import { relativeVolume } from "../indicators";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
@@ -59,13 +58,6 @@ const DEFAULT_EXHAUSTION_WINDOW_BARS = 20;
 const DEFAULT_EXPIRY_BARS = 4;
 /** How far beyond the broken swing point a close must land, in ATR multiples, to count as decisive. */
 const BREAK_MARGIN_ATR = 0.15;
-/**
- * Minimum extension of the exhaustion extreme beyond the window's 50% point,
- * in ATR multiples: the "meaningful" bar. The 50% point is Gann's balance
- * point (`rangeMidpoint`). It replaced a 20-bar SMA on 2026-09-26 (alignment
- * audit F2.5).
- */
-const MIN_EXTENSION_ATR = 2.0;
 /** Reversal-thrust volume vs. the exhaustion window's own average, required to call it confirmed. */
 const REVERSAL_VOLUME_MULTIPLE = 1.3;
 
@@ -132,8 +124,6 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
       : Math.min(...window.slice(0, Math.max(extremeIndex, 1)).map((b) => b.l));
 
   const atrValue = atr(window, Math.min(14, window.length));
-  const balancePoint = rangeMidpoint(window);
-  const extensionAtr = atrValue > 0 && balancePoint !== null ? Math.abs(extremePrice - balancePoint) / atrValue : 0;
 
   const nearestClusterDistanceAtr = (() => {
     const pivots = findPivots(htfBars, 3).map((p) => p.price);
@@ -142,10 +132,13 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
     return Math.min(...clusters.map((c) => Math.abs(c - extremePrice))) / atrValue;
   })();
 
-  // "Meaningful location" per the regime table: either a genuine overextension
-  // (a stretched move, the classic exhaustion read) or a clustered structural
-  // level — either is a location worth reversing from, not just any swing point.
-  const meaningfulLocation = extensionAtr >= MIN_EXTENSION_ATR || nearestClusterDistanceAtr <= 0.5;
+  // "Meaningful location": the extreme sits at an old top or bottom (a
+  // clustered structural level), where Gann looks for a turn (W006 p.20). A
+  // stretch from the 50% point alone used to qualify too; it was removed on
+  // 2026-10-16 (PLAN.md item 6 step 6, A-TREND-09): a stock is never too low
+  // to sell while its trend is down, or too high to buy while it is up
+  // (W006 pp.22, 38-39), so height is no reason to call a turn.
+  const meaningfulLocation = nearestClusterDistanceAtr <= 0.5;
 
   const margin = atrValue * BREAK_MARGIN_ATR;
   const structuralBreak =
@@ -188,8 +181,8 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
       applicable: true,
       passed: meaningfulLocation,
       note: meaningfulLocation
-        ? `Extreme sits ${extensionAtr.toFixed(1)}x ATR from the range's 50% point or within a clustered structural level.`
-        : "Extreme isn't stretched far enough from the range's 50% point, and isn't at a clustered structural level.",
+        ? "Extreme sits at an old top or bottom (a clustered structural level)."
+        : "Extreme isn't at an old top or bottom, and how far price has run is no reason on its own to call a turn.",
     },
     {
       key: "structuralBreak",
@@ -238,11 +231,11 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
       label: "Benchmark/sector alignment",
       points: 10,
       maxPoints: 10,
-      applicable: true,
-      passed: gates.benchmarkSectorAlignment,
-      note: gates.benchmarkSectorAlignment
-        ? "Correlation/market context aligned."
-        : "Benchmark/sector context does not align.",
+      // Each stock is traded on its own trend, not the averages (A-TREND-04,
+      // W006 pp.16-18), so no index or sector check scores here.
+      applicable: false,
+      passed: false,
+      note: "Not used: each stock is traded on its own trend, not the market averages.",
     },
     {
       key: "volumeConfirmation",
@@ -257,18 +250,7 @@ export function evaluateConfirmedReversal(inputs: ConfirmedReversalInputs): Sign
           : `Relative volume ${rvol!.toFixed(2)}x is below the ${REVERSAL_VOLUME_MULTIPLE}x floor — not yet confirmed.`
         : "No reliable volume data — a reversal without volume confirmation is not scored as confirmed.",
     },
-    {
-      key: "noBinaryEventConflict",
-      label: "No binary event conflict",
-      points: 5,
-      maxPoints: 5,
-      applicable: true,
-      passed: gates.binaryEventInHoldPeriod === false,
-      note:
-        gates.binaryEventInHoldPeriod === false
-          ? "No binary event inside the hold period."
-          : "Binary event unknown or present inside the hold period.",
-    },
+    // No report-date criterion: no source of the method gates on one (Q25, 2026-10-16).
     {
       key: "targetStopFeasibility",
       label: "Target and stop feasibility",

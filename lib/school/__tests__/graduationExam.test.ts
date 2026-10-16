@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
+import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { buildScenario, gradeExam, pickScenarioSeeds, PASS_MARK, type StoredScenario } from "@/lib/school/graduationExam";
 
 function daily(n: number, f: (i: number) => number, start = "2024-01-01"): Bar[] {
@@ -35,5 +36,34 @@ describe("graduation exam", () => {
     const wrong = gradeExam("pro_to_expert", [s], [{ trend: k.trend === "up" ? "down" : "up", decision: k.decision === "trade" ? "wait" : "trade" }]);
     expect(wrong.score).toBeLessThan(PASS_MARK);
     expect(perfect.scenarios[0].playedOut.length).toBeGreaterThan(0);
+  });
+
+  it("answers trade at a resting buy: a crossed level that holds, or an old bottom", () => {
+    // Seven days up 2, three days down 1: each rally crosses the last top by
+    // 3 points and each reaction stops short of the buy 1 point above it.
+    const bars = daily(200, (i) => 100 + Math.floor(i / 10) * 11 + (i % 10 < 7 ? (i % 10) * 2 : 12 - (i % 10 - 6)));
+    let held = 0;
+    let oldLevel = 0;
+    for (let k = 80; k < 190; k++) {
+      const asOf = bars[k].t.slice(0, 10);
+      const s = buildScenario("TEST", asOf, bars, 7);
+      if (!s || s.key.direction !== "bullish") continue;
+      const t = selectGannEntry(bars.slice(0, k), "bullish");
+      if (!t || (t.kind === "crossing" && !t.held)) continue;
+      if (t.kind === "crossing") held++;
+      else oldLevel++;
+      expect(s.key.decision).toBe("trade");
+      expect(s.key.entry).toBeCloseTo(t.reactionEntry, 2);
+      expect(s.key.stop).toBeCloseTo(t.reactionStop, 2);
+      expect(s.key.crossed).toBe(true);
+      // The explanations follow the kind of buying point.
+      expect(s.key.entryKind).toBe(t.kind === "oldLevel" ? "oldLevel" : undefined);
+      // A reaction straight to the buy fills; no fresh crossing is needed.
+      const dip = { t: "2099-01-01", h: s.key.entry! + 1, l: s.key.entry! - 0.05, c: s.key.entry! + 0.5 };
+      const graded = gradeExam("pro_to_expert", [{ ...s, playback: [dip] }], [{ trend: s.key.trend, decision: "trade" }]);
+      expect(graded.scenarios[0].playedOut).toMatch(/^The entry filled/);
+    }
+    expect(held).toBeGreaterThan(0);
+    expect(oldLevel).toBeGreaterThan(0);
   });
 });

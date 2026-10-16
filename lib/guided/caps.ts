@@ -1,109 +1,43 @@
 /**
- * Guided Decision Mode — what the caps currently allow, read from the ledger.
+ * Guided Decision Mode — what Gann's capital rules leave room for.
  *
- * Three limits, all evaluated against the recommendation ledger rather than
- * against the orders table, because Guided Mode's caps are about *this mode*:
- * a user who places trades from the ticker page has looked at the numbers, and
- * capping those would be the app overriding a decision it did not make.
+ * Since 2026-10-16 (owner, "Switch all nine", Q12) Guided's own caps (trades a
+ * day and a week, a deployed-percent ceiling, a per-trade budget) are retired
+ * for the rules every order path checks (`lib/risk/gannCapital.ts`): 30 points
+ * of capital behind every share held (A-RISK-01) and at most three markets
+ * open at once (A-RISK-08). The three-loss pause (`lib/risk/lossSeries.ts`) is
+ * checked where the order is placed. Gann sets no daily trade count (Q8).
  *
- * The counts are read immediately before a recommendation is rendered and again
- * immediately before an order is submitted. Doing it once would leave the gap
- * between the two open — two tabs, or a card left on screen while the day's
- * third trade was placed elsewhere, would both slip a fourth trade through.
+ * Read from every open paper position, not only Guided's: Gann's capital is
+ * the whole account's. Option legs are left out, as on the order path.
+ *
+ * Read immediately before a recommendation is rendered and again before an
+ * order is submitted, so two tabs cannot both open a fourth market.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { etDateKey } from "@/lib/market/session";
-import type { GuidedCaps } from "@/lib/guided/config";
+import { capitalHeld, MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
+import { parseOccSymbol } from "@/lib/portfolio/occ";
 
 export interface CapUsage {
-  tradesToday: number;
-  tradesThisWeek: number;
-  /** Capital tied up in open positions opened through Guided Mode, in dollars. */
-  deployedUsd: number;
-  deployedPct: number;
-  /** Null when nothing is blocking a new trade; otherwise the sentence to show. */
+  /** Markets (symbols) open now. */
+  openMarkets: string[];
+  /** Capital Gann's rule holds behind the open shares, in dollars. */
+  capitalHeldUsd: number;
+  /** Null when a new market may be opened; otherwise the sentence to show. */
   blockedReason: string | null;
 }
 
-/** Executed guided recommendations still holding an open position. */
-interface ExecutedRow {
-  symbol: string;
-  qty: number;
-  agreed_entry: number;
-  resolved_at: string | null;
-}
-
-/**
- * `now` is injectable so the day/week boundaries can be tested without moving
- * the system clock. Days are Eastern trading days — the same key the daily scan
- * files itself under — so "three a day" means three in one session, not three
- * per UTC midnight, which would split the US afternoon in half.
- */
-export async function readCapUsage(
-  supabase: SupabaseClient,
-  userId: string,
-  caps: GuidedCaps,
-  equity: number,
-  openSymbols: Map<string, { qty: number; avgEntry: number }>,
-  now: Date = new Date(),
-): Promise<CapUsage> {
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString();
-
-  const { data } = await supabase
-    .from("guided_recommendations")
-    .select("symbol, qty, agreed_entry, resolved_at")
-    .eq("user_id", userId)
-    .eq("status", "executed")
-    .gte("resolved_at", weekAgo)
-    .order("resolved_at", { ascending: false });
-
-  const executed = (data ?? []) as ExecutedRow[];
-  const today = etDateKey(now);
-  const tradesToday = executed.filter(
-    (r) => r.resolved_at != null && etDateKey(new Date(r.resolved_at)) === today,
-  ).length;
-  const tradesThisWeek = executed.length;
-
-  // Deployed capital is measured against positions that are still open, at the
-  // price they were opened at. A guided trade that has already been closed is
-  // not tying anything up, and marking the deployed figure to market would make
-  // the cap tighten as trades went well — which is not what a cap on how much
-  // the mode may commit is for.
-  let deployedUsd = 0;
-  const counted = new Set<string>();
-  for (const row of executed) {
-    const key = row.symbol.toUpperCase();
-    if (counted.has(key)) continue;
-    const open = openSymbols.get(key);
-    if (!open) continue;
-    counted.add(key);
-    deployedUsd += open.qty * open.avgEntry;
-  }
-
-  const deployedPct = equity > 0 ? (deployedUsd / equity) * 100 : 0;
-
+export function readCapUsage(openSymbols: Map<string, { qty: number; avgEntry: number }>): CapUsage {
+  const open = [...openSymbols]
+    .filter(([symbol]) => !parseOccSymbol(symbol))
+    .map(([symbol, p]) => ({ symbol, qty: p.qty, price: p.avgEntry }));
+  const openMarkets = open.map((p) => p.symbol);
   return {
-    tradesToday,
-    tradesThisWeek,
-    deployedUsd,
-    deployedPct,
-    blockedReason: blockingReason({ tradesToday, tradesThisWeek, deployedPct }, caps),
+    openMarkets,
+    capitalHeldUsd: capitalHeld(open),
+    blockedReason:
+      openMarkets.length >= MAX_OPEN_SYMBOLS
+        ? `You hold ${openMarkets.length} markets, and GSPS trades at most ${MAX_OPEN_SYMBOLS} at once. Close one to open another; the scanner and the ticker pages are unaffected.`
+        : null,
   };
-}
-
-function blockingReason(
-  usage: { tradesToday: number; tradesThisWeek: number; deployedPct: number },
-  caps: GuidedCaps,
-): string | null {
-  if (usage.tradesToday >= caps.maxTradesPerDay) {
-    return `You've opened ${usage.tradesToday} guided position${usage.tradesToday === 1 ? "" : "s"} today, which is the daily cap. Guided Mode is done for the day — the scanner and the ticker pages are unaffected.`;
-  }
-  if (usage.tradesThisWeek >= caps.maxTradesPerWeek) {
-    return `You've opened ${usage.tradesThisWeek} guided positions in the past seven days, which is the weekly cap.`;
-  }
-  if (usage.deployedPct >= caps.maxDeployedPct) {
-    return `Guided Mode is holding ${usage.deployedPct.toFixed(0)}% of your paper equity in open positions, which is its cap. Close one to free up room.`;
-  }
-  return null;
 }

@@ -18,16 +18,6 @@ export function evaluateDisqualifiers(gates: SignalGates): SignalDisqualifier[] 
   if (gates.staleData) {
     disqualifiers.push({ key: "staleData", reason: "Market data is stale." });
   }
-  if (gates.binaryEventInHoldPeriod !== false) {
-    // null (unknown) and true both block, per "unknown event data defaults to caution/block".
-    disqualifiers.push({
-      key: "binaryEvent",
-      reason:
-        gates.binaryEventInHoldPeriod === null
-          ? "Binary-event status is unknown for the expected hold period — defaults to block."
-          : "Earnings or another defined binary event falls inside the expected Novice hold period.",
-    });
-  }
   if (!gates.targetRoomAvailable) {
     disqualifiers.push({
       key: "targetBlocked",
@@ -78,14 +68,12 @@ export function evaluateDisqualifiers(gates: SignalGates): SignalDisqualifier[] 
 export function allSafetyGatesPass(gates: SignalGates): boolean {
   return (
     gates.liquiditySpreadPass &&
-    gates.benchmarkSectorAlignment &&
     gates.targetRoomAvailable &&
     gates.stopWithinNovicePolicy &&
     gates.positionSizeAvailable &&
     gates.correlationConcentrationPass &&
     gates.cooldownPass &&
     gates.totalOpenRiskPass &&
-    gates.dataQualityOk &&
-    gates.binaryEventInHoldPeriod === false
+    gates.dataQualityOk
   );
 }

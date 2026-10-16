@@ -21,20 +21,16 @@
  *
  * This is illustrative data, not engine output. It was authored to be
  * internally consistent with the rules the engine actually applies — the
- * position size below is what the five Guided ceilings in
- * `lib/guided/config.ts` produce for this account size, this stop distance and
+ * position size below is what Guided's sizing (`lib/guided/sizing.ts`) and
+ * Gann's capital rules (`lib/risk/gannCapital.ts`) produce for this account size, this stop distance and
  * this price — but no claim is made that the scanner would have scored this
  * exact bar series this exact way. Nothing here is ever priced, traded, or
  * compared against a live quote. It exists to be looked at.
  *
- * The symbol is deliberately not SPY. Guided Mode's per-trade budget cap ships
- * on by default at $250 (`DEFAULT_GUIDED_BUDGET_USD`), and a symbol priced in
- * the hundreds of dollars a share cannot clear the protocol's two-share
- * minimum on that budget — the exact "$54,000 to make $400" experience a
- * novice reported that this cap exists to prevent. A single lower-priced stock
- * is a worse pattern-recognition example than an index (its price can move on
- * company news, not only the market), a trade-off accepted so the worked
- * example is one Guided would actually produce for the account it describes.
+ * The symbol is a lower-priced stock rather than SPY. It was chosen when a
+ * $250 per-trade budget sized Guided's trades; that cap was retired on
+ * 2026-10-16 (owner, Q12) for Gann's capital rules, and the example was
+ * re-sized on them. The bars and the plan are unchanged.
  *
  * Every surface that renders it must label it. `SNAPSHOT_NOTICE` is that label,
  * and `lib/__tests__` holds a test asserting no figure component ships without
@@ -144,31 +140,22 @@ export const SNAPSHOT_EQUITY = 100_000;
 /**
  * The size, and the reason it is what it is.
  *
- * Three ceilings apply, and which one binds is the interesting part. The
- * per-trade risk cap (1% of equity, so $1,000) would allow 2,222 shares. The
- * deployed-capital ceiling (25% of equity, so $25,000 of stock at once) would
- * allow 1,008. The per-trade dollar budget — $250 by default, on for every new
- * account — allows only 10. The smallest number wins, which means this trade
- * risks about $5 rather than the $1,000 the risk cap alone would have
- * permitted, or the $25,000 of stock the deployed-capital cap alone would.
- *
- * The tour states that out loud instead of just showing "10 shares", because
- * "the app kept this small on purpose" is the single most reassuring thing a
- * nervous first-time user — trading with real money in the low hundreds — can
- * learn about it.
+ * Three ceilings apply and the smallest wins. The per-trade risk cap (1% of
+ * equity, so $1,000) allows 2,222 shares. Gann's capital rule (30 points of
+ * capital a share, about $21.81 at this price) allows 4,584. Cash allows
+ * 4,032. So the risk cap sizes it: the most this trade can lose is 1% of the
+ * account, whatever the stock costs.
  */
 export const SNAPSHOT_GUIDED = {
   action: "buy" as const,
-  qty: 10,
-  notionalUsd: 248.00,
-  riskUsd: 4.50,
-  rewardUsd: 8.80,
+  qty: 2222,
+  notionalUsd: 55_105.60,
+  riskUsd: 999.90,
+  rewardUsd: 2_555.30,
   /** Which cap produced the size. */
-  bindingCap: "budget" as const,
+  bindingCap: "risk" as const,
   qtyAllowedByRiskCap: 2222,
-  qtyAllowedByDeployedCap: 1008,
-  /** The per-trade dollar ceiling that actually bound this example. */
-  budgetUsd: 250,
+  qtyAllowedByCapitalRule: 4584,
   /**
    * The three sentences the real card would carry, phrased as `lib/guided/copy.ts`
    * phrases them rather than paraphrased. The figure's whole purpose is to look
@@ -181,11 +168,11 @@ export const SNAPSHOT_GUIDED = {
   reason:
     "F has sold off into a price area that has stopped declines before, and is turning back up through $24.80. The daily range is ordinary, so this is happening at a level rather than during a burst of activity.",
   riskRewardSentence:
-    "You could lose about $5 if this doesn't work, or make about $9 if it reaches the target.",
+    "You could lose about $1,000 if this doesn't work, or make about $2,555 if it reaches the target.",
   sizeSentence:
-    "10 shares — not a number you typed, but the most a $250 per-trade budget will stretch to at this price.",
+    "2222 shares — not a number you typed, but what 1% of the account at risk buys with this stop.",
   exitSentence:
-    "If it works, 6 of the 10 shares are sold at the first target and the other 4 run on until the trend changes, with the stop moved up behind each higher bottom. If it doesn't, the whole position is sold at the stop.",
+    "If it works, all 2222 shares run on until the trend changes, with the stop moved up behind each higher bottom. No profit target is fixed. If it doesn't, the whole position is sold at the stop.",
   scoreOutOf9: 8,
   verdict: "Execute" as const,
   trend: "Weekly and daily both pointing up.",
@@ -193,21 +180,17 @@ export const SNAPSHOT_GUIDED = {
 
 /**
  * The staged exit, as share counts rather than percentages — a beginner can
- * check "6 + 4 = 10" and cannot check "60% of the position".
+ * check a share count and cannot check "60% of the position". Since Q14
+ * (2026-10-16) nothing sells at a fixed target, so the whole position is one
+ * stage.
  */
 export const SNAPSHOT_EXIT_LADDER = [
   {
-    stage: "First target",
-    price: SNAPSHOT_PLAN.takeProfit1,
-    shares: 6,
-    plain: "Most of the position is sold here, which locks in a profit early.",
-  },
-  {
     stage: "Runner",
     price: null,
-    shares: 4,
+    shares: 2222,
     plain:
-      "The rest keep going while the trend holds, with the stop raised under each higher bottom and never lowered. They're sold when the trend changes.",
+      "All of them keep going while the trend holds, with the stop raised under each higher bottom and never lowered. They're sold when the trend changes. No profit target is fixed.",
   },
 ] as const;
 
@@ -218,12 +201,12 @@ export const SNAPSHOT_EXIT_LADDER = [
  */
 export const SNAPSHOT_POSITION = {
   symbol: SNAPSHOT_SYMBOL,
-  qty: 10,
+  qty: 2222,
   side: "long" as const,
   avgEntry: 24.80,
   lastPrice: 24.89,
-  marketValue: 248.90,
-  unrealizedUsd: 0.90,
+  marketValue: 55_305.58,
+  unrealizedUsd: 199.98,
   unrealizedPct: 0.36,
   openedAtLabel: "Opened earlier in this example",
 } as const;
@@ -243,13 +226,13 @@ export const SNAPSHOT_POSITION = {
 export const SNAPSHOT_ACCOUNT = {
   startingCash: SNAPSHOT_EQUITY,
   /** Uninvested money. Starting balance less the cost of the open position. */
-  cash: 99_752.00,
+  cash: 44_894.40,
   /** What the open position would fetch at the current price. */
-  holdingsValue: 248.90,
+  holdingsValue: 55_305.58,
   /** Cash plus holdings — the number a beginner means by "how much do I have". */
-  equity: 100_000.90,
+  equity: 100_199.98,
   /** Change since the account opened. */
-  dayPnlUsd: 0.90,
+  dayPnlUsd: 199.98,
 } as const;
 
 /**
@@ -267,19 +250,14 @@ export const SNAPSHOT_BACKTEST = {
     "Out of 148 past setups, 58 out of every 100 made money, and the average trade earned about a fifth of what it risked. That is what a working edge looks like — small and steady, not spectacular.",
 } as const;
 
-/** The shipped Guided caps, restated for the Settings step of the tour. */
+/** Guided's limits, restated for the Settings step of the tour. */
 export const SNAPSHOT_CAPS = [
   { label: "Risk per trade", value: "1% of the account", plain: "How much one trade is allowed to lose." },
   {
-    label: "Money in any one trade",
-    value: "$250",
-    plain: "However the risk math works out, no single trade commits more practice dollars than this.",
+    label: "Capital behind each share",
+    value: "30 points a share",
+    plain: "Every share held needs capital behind it, scaled to the stock's price.",
   },
-  { label: "Trades per day", value: "3", plain: "Stops a bad afternoon from becoming a bad week." },
-  { label: "Trades per week", value: "10", plain: "The same idea over a longer stretch." },
-  {
-    label: "Money in the market at once",
-    value: "25% of the account",
-    plain: "Three-quarters of the account stays in cash no matter how good things look.",
-  },
+  { label: "Markets at once", value: "3", plain: "Watch a few markets closely rather than many loosely." },
+  { label: "Losses in a row", value: "3", plain: "Three losses in a row pause new trades for that day and the next." },
 ] as const;

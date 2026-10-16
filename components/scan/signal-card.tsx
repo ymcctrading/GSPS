@@ -9,31 +9,10 @@ import { PatternEducation } from "@/components/scan/pattern-education";
 import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SCORE_PILLAR_DESCRIPTIONS, SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import { formatScore } from "@/lib/scoring/display";
-import { tradeSideLabel } from "@/lib/scoring/direction-copy";
+import { structuralTriggerHeadline, tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
 import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
-
-/**
- * The Protocol signal's own rationale, in the structural-trigger's own terms —
- * not the STRAT bar-sequence pattern's. Since 2026-09-17 (see AGENTS.md,
- * "Entry pricing moved off STRAT onto Gann's own rule") the trade plan is
- * armed and priced by crossing the prior completed swing's top/bottom plus a
- * "lost motion" overshoot allowance (`lib/gann/entryTrigger.ts`), not by a
- * bar-sequence pattern's penny-above-the-high trigger. This headline used to
- * render `pattern.description`, which is the bar-sequence pattern's own
- * language and can name a different bar — even a different direction — than
- * the one that actually armed and priced this trade plan. `result.direction`
- * is the direction the trade plan itself was computed against
- * (`lib/scanTicker.ts`'s `scoreDirection`), so that is what this card's
- * headline describes. Kept free of internal-methodology vocabulary per
- * `scripts/check-banned-terms.mjs` — see `docs/GSPS_BRAND_GUIDE.md`.
- */
-function structuralTriggerHeadline(direction: "bullish" | "bearish"): string {
-  return direction === "bullish"
-    ? "Crossing the prior confirmed swing high, past the key level's lost-motion allowance."
-    : "Breaking the prior confirmed swing low, past the key level's lost-motion allowance.";
-}
 
 /**
  * ScanResult -> the shape SaveSetupButton already knows how to save. Before
@@ -110,7 +89,7 @@ export function SignalCard({
             <span className={result.direction === "bullish" ? "text-bull" : "text-bear"}>
               {tradeSideLabel(result.direction)}
             </span>{" "}
-            — {structuralTriggerHeadline(result.direction)}
+            — {structuralTriggerHeadline(result.direction, result.levels?.entryKind, result.levels?.entrySource, result.levels?.holdBasis, result.levels?.entryLevelYear, result.levels?.entryRegained)}
           </CardDescription>
         ) : (
           <CardDescription>No structural entry trigger is currently armed on the execution timeframe.</CardDescription>

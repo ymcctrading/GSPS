@@ -12,13 +12,13 @@
  *   4. The caps still allow it, re-counted at this moment rather than trusted
  *      from the render.
  *   5. The size is re-derived from current equity, and refused if it no longer
- *      clears the minimum the staged exit needs.
+ *      clears the minimum size.
  *
  * Only then does it submit, through the same `placeSimulatedOrder` path the
  * manual ticket uses — a real bracket, with stop, TP1 and master attached.
  * That path places an advised entry only once it has confirmed on today's
- * closed bars: a close through the trigger by the 3-point-rule buffer, a
- * retest, and a close that held (owner decision 4, 2026-09-27; see
+ * closed bars: a close 3 points past the old level, after which the order
+ * rests as a limit at the plan's entry for the reaction (PLAN.md item 4; see
  * `lib/lifecycle/confirmNow.ts`). An unconfirmed entry is refused with
  * `awaiting_confirmation`, and the failure path below puts the
  * recommendation back to open so the person can tap again.
@@ -37,6 +37,7 @@ import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { LIVE_BROKERAGE_BLOCK, resolveGuidedCaps } from "@/lib/guided/config";
 import { getGuidedPolicy } from "@/lib/guided/policy";
 import { hasLiveBrokerage, readGuidedAccount, resolveShortable } from "@/lib/guided/service";
+import { guidedOrder } from "@/lib/guided/order";
 
 // Unset falls back to Vercel Hobby's 10s default (see app/api/scan/route.ts's
 // comment) -- shorter than a single scanTicker call plus a broker round trip
@@ -144,8 +145,8 @@ export async function POST(req: NextRequest) {
   const caps = resolveGuidedCaps((settings as { prefs?: unknown } | null)?.prefs ?? null, guidedPolicy);
 
   const account = await readGuidedAccount(supabase, user.id);
-  const usage = await readCapUsage(supabase, user.id, caps, account.equity, account.openSymbols);
-  if (usage.blockedReason) {
+  const usage = readCapUsage(account.openSymbols);
+  if (usage.blockedReason && !usage.openMarkets.includes(rec.symbol.toUpperCase())) {
     return NextResponse.json({ error: usage.blockedReason, code: "cap_reached" }, { status: 429 });
   }
 
@@ -158,14 +159,13 @@ export async function POST(req: NextRequest) {
     takeProfit1: agreed.takeProfit1,
     masterProfit: agreed.masterProfit,
     riskPct: caps.riskPct,
-    maxDeployedPct: caps.maxDeployedPct,
-    deployedUsd: usage.deployedUsd,
-    maxNotionalUsd: caps.budgetUsd,
+    riskCapital: account.riskCapital,
+    capitalHeldUsd: usage.capitalHeldUsd,
     minGuidedQty: guidedPolicy.minGuidedQty,
   });
   if (sized.blockedReason || !sizeIsTradeable(sized.qty, guidedPolicy.minGuidedQty)) {
     return NextResponse.json(
-      { error: sized.blockedReason ?? "This trade is too small to place under the protocol's staged exit.", code: "unsizeable" },
+      { error: sized.blockedReason ?? "This trade is too small to place.", code: "unsizeable" },
       { status: 422 },
     );
   }
@@ -214,26 +214,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const placed = await placeSimulatedOrder(supabase, user.id, {
-    symbol: rec.symbol,
-    assetClass: "equity",
-    side,
-    qty: rec.qty,
-    // At the protocol's entry price, exactly as the "Protocol Recommended" path
-    // does from the ticket — never a market order at whatever is on the screen.
-    entryMode: "advised",
-    limitPrice: agreed.entry,
-    referencePrice: fresh.currentPrice,
-    // Guided Decision Mode, never the intraday alerts panel — this is not
-    // subject to the intraday-promotion gates.
-    intradaySourced: false,
-    attachLevels: {
-      stopLoss: agreed.stopLoss,
-      takeProfit: agreed.takeProfit1,
-      masterProfit: agreed.masterProfit,
-    },
-    mode: "paper",
-  });
+  // The agreed levels, with the kind of buying point the fresh scan priced
+  // them from (it matched those levels to the cent above).
+  const placed = await placeSimulatedOrder(
+    supabase,
+    user.id,
+    guidedOrder({
+      symbol: rec.symbol,
+      side,
+      qty: rec.qty,
+      referencePrice: fresh.currentPrice,
+      levels: { ...agreed, entryKind: fresh.levels?.entryKind },
+    }),
+  );
 
   if (placed.status >= 400) {
     // The claim was optimistic and no order exists, so it is released back to

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { MAX_LOTS, readPyramidAdd } from "@/lib/gann/pyramid";
+import { readPyramidAdd } from "@/lib/gann/pyramid";
+import { readHoldTime } from "@/lib/gann/exitRules";
 
 function days(closes: number[], start = "2026-06-01"): Bar[] {
   const t0 = Date.parse(`${start}T00:00:00Z`);
@@ -12,11 +13,14 @@ const closes = [100, 101, 102, 104, 106, 108, 110, 109, 107, 105, 104, 106, 108,
 const daily = days(closes);
 
 describe("readPyramidAdd", () => {
+  // Filled at 101.8 on day 3, so the first close (102) and the third (106) are
+  // in profit: the time-to-hold rule (A-TIME-12) lets the trade be added to.
+  // The risk unit is 3.5, as it was when the lot sat at 102 over a 98 stop.
   const base = {
     side: "long" as const,
-    lots: [{ qty: 100, price: 102, date: "2026-06-03" }],
-    stop: 98,
-    initialStop: 98,
+    lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }],
+    stop: 98.3,
+    initialStop: 98.3,
     daily,
   };
 
@@ -42,8 +46,52 @@ describe("readPyramidAdd", () => {
     }
   });
 
-  it("stops adding after the fourth lot", () => {
-    const lots = Array.from({ length: MAX_LOTS }, (_, i) => ({ qty: 100 >> i, price: 102, date: "2026-06-03" }));
-    expect(readPyramidAdd({ ...base, lots, price: 111 }).add).toBeNull();
+  // Q9 (owner: W022 and the Master Course): the largest lot first, each add
+  // half the last, with no fixed count; the pyramid ends when the next lot
+  // would be under one share.
+  it("keeps adding smaller lots past the fourth", () => {
+    const lots = Array.from({ length: 4 }, (_, i) => ({ qty: 100 >> i, price: 101.8, date: "2026-06-03" }));
+    expect(readPyramidAdd({ ...base, lots, price: 111 }).add?.qty).toBe(6);
+  });
+
+  it("stops adding once the next lot would be under one share", () => {
+    const lots = Array.from({ length: 7 }, (_, i) => ({ qty: 100 >> i, price: 101.8, date: "2026-06-03" }));
+    const r = readPyramidAdd({ ...base, lots, price: 111 });
+    expect(r.add).toBeNull();
+    expect(r.reason).toMatch(/less than one share/);
+  });
+});
+
+describe("time to hold (A-TIME-12, W006 p.23)", () => {
+  it("warns when the first close is against the trade, long and short", () => {
+    expect(readHoldTime("long", 102.5, "2026-06-03", daily)).toEqual({ firstCloseAgainst: true, withTrendAfter3: false });
+    expect(readHoldTime("short", 101.5, "2026-06-03", daily)?.firstCloseAgainst).toBe(true);
+    expect(readHoldTime("long", 101.8, "2026-06-03", daily)?.firstCloseAgainst).toBe(false);
+    // A first close exactly at the entry is not against the trade (nor yet in profit).
+    expect(readHoldTime("long", 102, "2026-06-03", daily)).toEqual({ firstCloseAgainst: false, withTrendAfter3: false });
+    expect(readHoldTime("short", 102, "2026-06-03", daily)?.firstCloseAgainst).toBe(false);
+  });
+
+  it("reads a profit at the first close that is still there on the third as with the trend", () => {
+    expect(readHoldTime("long", 101.8, "2026-06-03", daily)?.withTrendAfter3).toBe(true);
+    // In profit at the first close, under the entry again by the third (closes 108, 110, 109... from day 6).
+    expect(readHoldTime("long", 108.5, "2026-06-07", daily)).toEqual({ firstCloseAgainst: false, withTrendAfter3: false });
+    // Only two sessions closed: not yet known.
+    expect(readHoldTime("long", 101.8, "2026-06-03", daily.slice(0, 4))?.withTrendAfter3).toBeNull();
+    // Exactly three sessions closed: known (item 7e review L1).
+    expect(readHoldTime("long", 101.8, "2026-06-03", daily.slice(0, 5))?.withTrendAfter3).toBe(true);
+    expect(readHoldTime("short", 112, "2026-06-07", daily)?.withTrendAfter3).toBe(true);
+  });
+
+  it("refuses a pyramid add until the trade has shown it is with the trend, and passes the warning on", () => {
+    const base = { side: "long" as const, lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }], stop: 98.3, initialStop: 98.3, daily };
+    const early = readPyramidAdd({ ...base, daily: daily.slice(0, 4), price: 111 });
+    expect(early.add).toBeNull();
+    expect(early.reason).toMatch(/Three days haven't closed/);
+    // Filled at 102.2: the first close (102) is against it, so no add even at 111.
+    const against = readPyramidAdd({ ...base, lots: [{ qty: 100, price: 102.2, date: "2026-06-03" }], stop: 98.7, initialStop: 98.7, price: 111 });
+    expect(against.add).toBeNull();
+    expect(against.reason).toMatch(/did not show a profit at its first close/);
+    expect(against.holdWarning).toMatch(/first day closed against the trade/);
   });
 });

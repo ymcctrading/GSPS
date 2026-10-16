@@ -15,6 +15,8 @@
 
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
+import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 import { readUserLossSeries } from "@/lib/risk/lossSeries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -42,6 +44,7 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
+import { capitalRuleRefusal } from "@/lib/risk/gannCapital";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
@@ -61,6 +64,28 @@ export const OrderSchema = z.object({
       masterProfit: z.number().positive().optional(),
     })
     .optional(),
+  /**
+   * The protocol stop behind an advised entry, sent by the ticket whenever it
+   * offers the protocol's entry, even when no levels are attached or the
+   * person typed their own stop (Manual Override). Gann's crossing line is
+   * read from the protocol's entry and this stop (`gannBreakLine`), so the
+   * reaction buy never rests before the crossing (PLAN.md item 4).
+   */
+  entryStop: z.number().positive().optional(),
+  /**
+   * Which of Gann's buying points the protocol's entry is (PLAN.md item 5,
+   * steps 2 and 4). `oldLevel` rests at the old bottom (top) and `hold` at the
+   * last close over a bottom that held, neither with a crossing to wait for;
+   * absent is the crossing. Sent with `entryStop`.
+   */
+  entryKind: z.enum(["crossing", "oldLevel", "hold"]).optional(),
+  /**
+   * The protocol's first target behind an advised entry, sent with
+   * `entryStop`, so a target typed in Manual Override can't move it past a
+   * failed double top (A-LEVELS-04, review 12 M1). Absent, placement treats
+   * the target as unknown and holds the entry under any failed test beyond it.
+   */
+  entryTarget: z.number().positive().optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -149,31 +174,99 @@ async function lossSeriesRefusal(
  * Owner decision 4 (2026-09-27), and the owner's follow-up that automation
  * adheres to the same rules as everything else: every entry that carries the
  * protocol's levels is placed only once it has confirmed on closed
- * execution-timeframe bars (a close through the trigger by the 3-point-rule
- * buffer, a retest, a close that held). That is the manual ticket's advised
- * entry, Guided Mode, the demo account, and plan-scoped automation, which the
- * autonomous portfolio manager runs through. A plan-sourced order is judged
- * on its plan's own trigger and direction, over the bars since the plan was
- * generated. Measured reason: the confirmed entry beat the resting
- * stop-entry on the full universe (+0.190R vs −0.155R). See
- * `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null to proceed.
+ * execution-timeframe bars. That is the manual ticket's advised entry, Guided
+ * Mode, the demo account, and plan-scoped automation, which the autonomous
+ * portfolio manager runs through. A plan-sourced order is judged on its
+ * plan's own entry, stop and direction, over the bars since the plan was
+ * generated.
+ *
+ * The confirmation is Gann's own since PLAN.md item 4 (2026-10-15, owner:
+ * "GSPS should be a 1 for 1 implementation of Gann's methodology"): a close 3
+ * points past the old level crosses it, and the order then rests as a limit
+ * at the level plus 1 point, filling on the reaction, with the stop 3 points
+ * the other side (W006 pp.20, 46-47). It replaces the retest-and-hold
+ * sequence measured on 2026-09-26 (+0.190R vs −0.155R for the resting
+ * stop-entry). See `lib/lifecycle/confirmNow.ts`. Returns a refusal, or null
+ * to proceed.
  */
-async function entryConfirmationRefusal(
+/**
+ * Gann's risk cap: never risk more than 5 points on a trade (W006 pp.20,
+ * 46-47; points price-scaled by `lib/gann/pointScale.ts`). Checked on every
+ * entry that carries a stop and a known entry price, the person's own
+ * Manual Override stop included. A protocol crossing risks 4 points (entry 1
+ * point past the level, stop 3 points the other side), and a buy over a low
+ * that held is offered only within the cap (`computeGannHoldEntry`), so a
+ * protocol plan always passes.
+ */
+export function riskCapRefusal(
+  input: Pick<OrderInput, "entryMode" | "limitPrice" | "attachLevels" | "referencePrice">,
+): { status: number; body: Record<string, unknown> } | null {
+  const stop = input.attachLevels?.stopLoss;
+  const entry = input.entryMode === "now" ? input.referencePrice : (input.limitPrice ?? input.referencePrice);
+  if (stop == null || entry == null || !(entry > 0)) return null;
+  const cap = (5 / 3) * gannThreePoints(entry);
+  // A cent of slack for rounding to the tick.
+  if (Math.abs(entry - stop) <= cap + 0.01) return null;
+  return {
+    status: 422,
+    body: {
+      error: `The stop is more than 5 points from the entry (${Math.abs(entry - stop).toFixed(2)} against a limit of ${cap.toFixed(2)}). Move it closer. Nothing was placed.`,
+      code: "risk_over_five_points",
+    },
+  };
+}
+
+export async function entryConfirmationRefusal(
   supabase: SupabaseClient,
   userId: string,
-  input: Pick<OrderInput, "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId">,
+  input: Pick<
+    OrderInput,
+    "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "entryTarget" | "referencePrice"
+  >,
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
-  if (!input.attachLevels || input.assetClass === "option") return null;
+  if (input.assetClass === "option") return null;
+  const overCap = riskCapRefusal(input);
+  if (overCap) return overCap;
+  if (!input.attachLevels && input.entryStop == null) return null;
 
-  let target: { direction: "bullish" | "bearish"; entryTrigger: number; since?: string } | null = null;
+  let target: {
+    direction: "bullish" | "bearish";
+    entryTrigger: number;
+    stopPrice?: number;
+    entryKind?: "crossing" | "oldLevel" | "hold";
+    takeProfit1?: number;
+    since?: string;
+  } | null = null;
   if (input.sourcePlanId) {
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
     if (!plan) {
       return { status: 409, body: { error: "The plan behind this order couldn't be read, so its entry can't be confirmed. Nothing was placed.", code: "confirmation_unavailable" } };
     }
-    target = { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger, since: plan.generatedAt };
+    target = {
+      direction: plan.direction,
+      entryTrigger: plan.coordinates.entryTrigger,
+      // A stop-and-reverse plan's entry and stop are not Gann's reaction pair,
+      // so it keeps the retest-and-hold confirmation.
+      stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
+      entryKind: plan.coordinates.entryKind,
+      takeProfit1: plan.coordinates.takeProfit1,
+      since: plan.generatedAt,
+    };
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
-    target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice };
+    // No plan row: the crossing line is read from the protocol's entry and
+    // stop (`gannBreakLine`). The ticket sends that stop as `entryStop`, so a
+    // stop the person typed in Manual Override doesn't move the line; an
+    // order without it falls back to the stop it attaches.
+    const stopPrice = input.entryStop ?? input.attachLevels?.stopLoss;
+    if (stopPrice != null) {
+      target = {
+        direction: input.side === "sell" ? "bearish" : "bullish",
+        entryTrigger: input.limitPrice,
+        stopPrice,
+        entryKind: input.entryKind,
+        takeProfit1: input.entryTarget,
+      };
+    }
   }
   if (!target) return null;
 
@@ -214,9 +307,28 @@ export async function placeSimulatedOrder(
   // order here is paper, so nothing requires this yet — it's ahead of live
   // trading, on the reasoning that will apply once real capital is at risk.
   const existingPosition = await getOpenPosition(supabase, userId, input.symbol);
-  const isProtective = isProtectiveOrder(existingPosition?.side ?? null, input.side);
+  const isProtective = isProtectiveOrder(
+    existingPosition?.side ?? null,
+    input.side,
+    input.qty,
+    existingPosition?.qty ?? 0,
+  );
   const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
+
+  // A stop on every trade (A-STOP-01; owner, 2026-10-16, Q1): a new equity
+  // position is refused without one, the manual ticket's own orders included.
+  // An order that reduces or closes a position needs none. Options carry no
+  // staged exit here, which is the recorded broker exception (Q31).
+  if (!isProtective && input.assetClass !== "option" && input.attachLevels?.stopLoss == null) {
+    return {
+      status: 400,
+      body: {
+        error: "Every new position needs a stop. Add the protocol's levels or your own stop, then place the order again. Nothing was placed.",
+        code: "stop_required",
+      },
+    };
+  }
 
   if (input.mode === "live") {
     return placeLiveOrder(supabase, userId, input, isProtective);
@@ -326,6 +438,21 @@ export async function placeSimulatedOrder(
           body: { error: verdict.violations.join(" "), code: "position_limit", violations: verdict.violations },
         };
       }
+    }
+    // Gann's capital rules (Q4, Q6): at most three markets, and 30 points of
+    // capital behind every share held (lib/risk/gannCapital.ts). Shares only:
+    // an option contract is not a share.
+    if (input.assetClass === "equity") {
+      const refusal = capitalRuleRefusal({
+        capital: equity > 0 ? equity : 0,
+        symbol: candidateSymbol,
+        price: referencePrice ?? 0,
+        qty: referencePrice == null ? 0 : input.qty,
+        open: openPositions
+          .filter((p) => p.asset_class !== "option")
+          .map((p) => ({ symbol: p.symbol, qty: p.qty, price: p.avg_entry_price })),
+      });
+      if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
     }
   }
 
@@ -503,13 +630,12 @@ export async function placeSimulatedOrder(
     } else {
       const market = await quotePrice(input.symbol, fillAssetClass);
       if (market != null && isTriggered(input.side, submittedLimitPrice!, market)) {
-        // "At advised price" is a breakout/reversal trigger (a buy-stop above
-        // the current bar, a sell-stop below it — see lib/strat/patterns.ts),
-        // not a discount limit: a buy only fills once the market rises to or
-        // through it, a sell only once it falls to or through it. Filling at
-        // `market` rather than the stale `submittedLimitPrice` mirrors what a
-        // real stop-entry reports back, especially after a gap carries price
-        // well past the trigger between polls.
+        // "At advised price" is Gann's reaction buy since PLAN.md item 4: a
+        // limit at the crossed level plus 1 point, filled once the market
+        // reacts back to it (a buy at or below the price, a sell at or
+        // above). Filled at `market`, at or better than the limit. A market
+        // already through the stop fills here and is then refused by the
+        // bracket check below (`fill_outran_bracket`).
         fillPrice = market;
         filled = true;
       }
@@ -860,6 +986,15 @@ async function placeLiveOrder(
         };
       }
     }
+    // Gann's capital rules (Q4, Q6), the same check as the paper path.
+    const refusal = capitalRuleRefusal({
+      capital: equity > 0 ? equity : 0,
+      symbol: input.symbol,
+      price: referencePrice ?? 0,
+      qty: referencePrice == null ? 0 : input.qty,
+      open: brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
+    });
+    if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
   }
 
   if (input.entryMode === "advised" && !input.limitPrice) {

@@ -29,8 +29,21 @@ describe("getUniversePolicy", () => {
   });
 
   it("overlays the small-account staged-exit floor", async () => {
-    const policy = await getUniversePolicy(makeSupabase([{ key: "minWholeUnitsForStagedExit", value: 2 }]));
-    expect(policy.smallAccount.minWholeUnitsForStagedExit).toBe(2);
+    const policy = await getUniversePolicy(makeSupabase([{ key: "minWholeUnitsForStagedExit", value: 6 }]));
+    expect(policy.smallAccount.minWholeUnitsForStagedExit).toBe(6);
+  });
+
+  // Q13: a row may narrow the universe, never widen it.
+  it("ignores a row that would widen the universe", async () => {
+    const policy = await getUniversePolicy(
+      makeSupabase([
+        { key: "minWholeUnitsForStagedExit", value: 2 },
+        { key: "marketCapFloorUsd", value: 1 },
+        { key: "maxSpreadPctOfPrice", value: 99 },
+      ]),
+    );
+    expect(policy.smallAccount).toEqual(DEFAULT_SMALL_ACCOUNT_THRESHOLDS);
+    expect(policy.universe).toEqual(DEFAULT_UNIVERSE_THRESHOLDS);
   });
 
   it("default policy values match the pure-function defaults 1:1", () => {

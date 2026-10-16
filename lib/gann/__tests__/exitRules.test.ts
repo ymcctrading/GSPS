@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { readGannExit, type GannExitPosition } from "../exitRules";
+import { gannThreePoints } from "../pointScale";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
 function daily(closes: number[], start = Date.UTC(2026, 0, 1)): Bar[] {
@@ -133,5 +134,111 @@ describe("readGannExit: the distribution week (parity D2)", () => {
     const { bars, entryIndex } = advanceWithHeavyWeek(20_000);
     const short = position(bars, entryIndex, { side: "short", initialStop: bars[entryIndex].c + 5 });
     expect(readGannExit(short, bars, null, 100_000).exit?.reason).not.toBe("distribution");
+  });
+});
+
+describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
+  // W006 p.46: trail the stop 1, 2, 3 or 5 points under each week's bottom
+  // (above each week's top when short). GSPS takes 3 points, the stop Gann
+  // calls safest (p.46), price-scaled.
+  const weekOf = (t: string) => {
+    const d = new Date(t);
+    return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+  };
+  const priorWeek = (bars: ReturnType<typeof daily>) => {
+    const current = weekOf(bars[bars.length - 1].t);
+    const before = bars.filter((b) => weekOf(b.t) < current);
+    const wk = weekOf(before[before.length - 1].t);
+    return before.filter((b) => weekOf(b.t) === wk);
+  };
+
+  it("moves a long's stop 3 points under the last completed week's bottom", () => {
+    // A straight advance in January: no reaction, no new month.
+    const bars = daily(Array.from({ length: 30 }, (_, i) => 101 + i));
+    const pos = position(bars, 5, { initialStop: bars[5].c - 20 });
+    const low = Math.min(...priorWeek(bars).map((b) => b.l));
+    const r = readGannExit(pos, bars, bars[bars.length - 1].h);
+    expect(r.stop).toBeCloseTo(low - gannThreePoints(low), 8);
+    expect(r.stopReason).toBe("prior_week");
+  });
+
+  it("moves a short's stop 3 points over the last completed week's top", () => {
+    const bars = daily(Array.from({ length: 30 }, (_, i) => 200 - i));
+    const pos = position(bars, 5, { side: "short", initialStop: bars[5].c + 20 });
+    const high = Math.max(...priorWeek(bars).map((b) => b.h));
+    const r = readGannExit(pos, bars, bars[bars.length - 1].l);
+    expect(r.stop).toBeCloseTo(high + gannThreePoints(high), 8);
+    expect(r.stopReason).toBe("prior_week");
+  });
+
+  it("leaves the stop alone while the trade is still in its entry week", () => {
+    const bars = daily(Array.from({ length: 13 }, (_, i) => 101 + i));
+    // 2026-01-13 is a Tuesday; entered on the Monday of that week.
+    const pos = position(bars, 11, { initialStop: bars[11].c - 20 });
+    expect(readGannExit(pos, bars, bars[12].h).stopReason).not.toBe("prior_week");
+  });
+});
+
+describe("a change of trend from the campaign ledger after entry (item 7 review L1)", () => {
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  const CAMPAIGN = [...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 60, 80), ...leg(60, 120, 120)];
+  // From the 120 top: down to 108 by day 50, a 4-day bounce (the entry), then new lows to day 70.
+  const closes = [...CAMPAIGN, ...leg(120, 108, 50), ...leg(108, 110, 4), ...leg(110, 106, 16)];
+  const entryIndex = CAMPAIGN.length + 49;
+
+  it("exits a long when the reaction makes new lows in its third month after the fill", () => {
+    const bars = daily(closes);
+    const exit = readGannExit(position(bars, entryIndex, { initialStop: 90 }), bars, 110).exit;
+    expect(exit?.reason).toBe("trend_change");
+    expect(exit?.note).toContain("third month");
+  });
+
+  it("a change of trend on a long also yields a short at the close, its stop 3 points over the top (A-EXIT-02)", () => {
+    const bars = daily(closes);
+    const r = readGannExit(position(bars, entryIndex, { initialStop: 90 }), bars, 110);
+    expect(r.exit?.reason).toBe("trend_change");
+    const last = bars[bars.length - 1];
+    expect(r.reverse).toEqual({ side: "short", entry: last.c, stop: 110 + gannThreePoints(110) });
+  });
+
+  it("does not exit when the reaction made its low in the second month and held", () => {
+    const held = daily([...CAMPAIGN, ...leg(120, 108, 50), ...leg(108, 110, 4), ...Array.from({ length: 16 }, () => 109)]);
+    expect(readGannExit(position(held, entryIndex, { initialStop: 90 }), held, 110).exit).toBeNull();
+  });
+
+  it("does not exit on a call that already stood at entry", () => {
+    // The same reaction, entered on day 66, already in its third month and making new lows.
+    const bars = daily([...CAMPAIGN, ...leg(120, 106, 65), ...leg(106, 108, 4)]);
+    const exit = readGannExit(position(bars, CAMPAIGN.length + 65, { initialStop: 90 }), bars, 108).exit;
+    expect(exit?.reason).not.toBe("trend_change");
+  });
+
+  it("exits when a month breaks and the reaction goes under the previous section's top after the fill (A-TREND-06)", () => {
+    // Sections topping at 100 and 120 (the reaction between them 50%, so this one over-balances nothing).
+    const campaign = [...leg(30, 40, 20), ...leg(40, 100, 60), ...leg(100, 50, 60), ...leg(50, 120, 100)];
+    // From 120: down to 105, a bounce (the entry), then under 100 inside two months.
+    const bars = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 95, 26)]);
+    const r = readGannExit(position(bars, campaign.length + 10, { initialStop: 70 }), bars, 108);
+    expect(r.exit?.reason).toBe("trend_change");
+    expect(r.exit?.note).toContain("previous section's top");
+    // Before the reaction went under 100, no exit.
+    const before = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 101, 10)]);
+    expect(readGannExit(position(before, campaign.length + 10, { initialStop: 70 }), before, 108).exit).toBeNull();
+  });
+
+  it("does not exit on the reaction under the previous section's top while no month has broken the one before", () => {
+    // A fast climb from 50 to 120 through June, then a reaction under 100 inside July:
+    // July's low stays above June's, so no month broke.
+    const campaign = [...leg(30, 40, 20), ...leg(40, 100, 60), ...leg(100, 50, 60), ...leg(50, 120, 40)];
+    const bars = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 95, 16)]);
+    expect(bars[bars.length - 1].t.slice(0, 7)).toBe("2026-07");
+    expect(readGannExit(position(bars, campaign.length + 10, { initialStop: 70 }), bars, 108).exit?.reason).not.toBe("trend_change");
+  });
+
+  it("exits on a new section's own call after the fill, even when the last section's call stood at entry (item 7 second review L-c)", () => {
+    // Entered with the third-month call standing, then a new record top at 130 and a reaction from it into its third month.
+    const bars = daily([...CAMPAIGN, ...leg(120, 106, 65), ...leg(106, 108, 4), ...leg(108, 130, 30), ...leg(130, 118, 70)]);
+    const exit = readGannExit(position(bars, CAMPAIGN.length + 65, { initialStop: 90 }), bars, 130).exit;
+    expect(exit?.reason).toBe("trend_change");
   });
 });

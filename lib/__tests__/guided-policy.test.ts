@@ -39,4 +39,15 @@ describe("getGuidedPolicy", () => {
     const policy = await getGuidedPolicy(errClient);
     expect(policy).toEqual(DEFAULT_GUIDED_POLICY);
   });
+
+  // Q13: a row may tighten a guided bound, never loosen it.
+  it("ignores a row that would loosen a guided bound", async () => {
+    const policy = await getGuidedPolicy(
+      makeSupabase([
+        { key: "maxRiskPct", value: DEFAULT_GUIDED_POLICY.maxRiskPct * 10 },
+        { key: "minGuidedQty", value: 0 },
+      ]),
+    );
+    expect(policy).toEqual(DEFAULT_GUIDED_POLICY);
+  });
 });

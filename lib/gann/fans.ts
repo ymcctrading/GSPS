@@ -1,13 +1,18 @@
 /**
  * Gann Fan angles from major swing pivots.
  *
- * The 1x1 line rises one "unit of price" per unit of time. The price unit is
- * scaled from the ATR of the anchor timeframe so fans stay meaningful across
- * assets with wildly different prices (a $5 stock vs BTC).
+ * The 1x1 line rises one Gann point per daily bar. Since 2026-10-16 (owner,
+ * Q27, "default to Gann's method") the unit is the Gann point
+ * (`pointScale.ts#gannPointForBars`), fixed from the chart's own range, and the
+ * angles are Gann's full set (`patternAngles.ts#PATTERN_ANGLES`), the unit and
+ * set the S/R angles already use. It was one 14-bar ATR per bar on five
+ * angles, an engineering scale with no Gann source.
  */
 
 import type { Bar } from "@/lib/types";
-import { findPivots, atr } from "@/lib/analysis/pivots";
+import { findPivots, type Pivot } from "@/lib/analysis/pivots";
+import { gannPointForBars } from "@/lib/gann/pointScale";
+import { PATTERN_ANGLES } from "@/lib/gann/patternAngles";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 export interface FanLine {
@@ -34,42 +39,51 @@ export interface FanLine {
 }
 
 /** Exported for `lib/gann/normalizedSlope.ts`, which classifies an already-realized slope against this same ratio set. */
-export const ANGLES: { label: string; ratio: number }[] = [
-  { label: "1x4", ratio: 0.25 },
-  { label: "1x2", ratio: 0.5 },
-  { label: "1x1", ratio: 1 },
-  { label: "2x1", ratio: 2 },
-  { label: "4x1", ratio: 4 },
-];
+export const ANGLES: { label: string; ratio: number }[] = PATTERN_ANGLES;
 
-export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
-  if (bars.length < 20) return [];
+/** One Gann point per bar: the price unit every angle here is drawn in. */
+export function angleUnit(bars: Bar[]): number {
+  return gannPointForBars(bars);
+}
 
-  const unit = atr(bars, 14); // price per bar for the 1x1
-  if (unit <= 0) return [];
-
+/**
+ * The fans' two anchors (the latest pivot high and low) and each one's base
+ * time interval for B10's time-projection rule: the calendar duration of the
+ * swing that produced the anchor, measured from the immediately preceding
+ * opposite-kind pivot (null without one). Shared with the class C time ratios
+ * in `secondaryTime.ts` so both project from the same anchors.
+ */
+export function fanAnchors(bars: Bar[]): { anchor: Pivot; preceding: Pivot | null; baseIntervalMs: number | null }[] {
   const pivots = findPivots(bars, 4);
   // Anchor from the two most significant recent pivots (one high, one low)
   const lastHigh = [...pivots].reverse().find((p) => p.kind === "high");
   const lastLow = [...pivots].reverse().find((p) => p.kind === "low");
-
-  const lines: FanLine[] = [];
-  const lastIndex = bars.length - 1;
-
+  const out: { anchor: Pivot; preceding: Pivot | null; baseIntervalMs: number | null }[] = [];
   for (const anchor of [lastHigh, lastLow]) {
     if (!anchor) continue;
-    const elapsed = lastIndex - anchor.index;
-    if (elapsed <= 0) continue;
-
-    // Base time interval for B10's time-projection rule: the calendar
-    // duration of the swing that produced this anchor, measured from the
-    // immediately preceding opposite-kind pivot.
     const precedingOpposite = [...pivots]
       .reverse()
       .find((p) => p.kind !== anchor.kind && p.index < anchor.index);
     const baseIntervalMs = precedingOpposite
       ? new Date(anchor.bar.t).getTime() - new Date(precedingOpposite.bar.t).getTime()
       : null;
+    out.push({ anchor, preceding: precedingOpposite ?? null, baseIntervalMs });
+  }
+  return out;
+}
+
+export function computeFanLines(bars: Bar[], currentPrice: number): FanLine[] {
+  if (bars.length < 20) return [];
+
+  const unit = angleUnit(bars); // price per bar for the 1x1
+  if (unit <= 0) return [];
+
+  const lines: FanLine[] = [];
+  const lastIndex = bars.length - 1;
+
+  for (const { anchor, baseIntervalMs } of fanAnchors(bars)) {
+    const elapsed = lastIndex - anchor.index;
+    if (elapsed <= 0) continue;
     const anchorMs = new Date(anchor.bar.t).getTime();
 
     for (const { label, ratio } of ANGLES) {

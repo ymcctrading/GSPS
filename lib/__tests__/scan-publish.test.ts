@@ -55,7 +55,7 @@ describe("buildScanRows", () => {
     const rows = buildScanRows("2026-08-05", "bullish", [
       result({ symbol: "AAPL" }),
       result({ symbol: "HYG", pattern: null, levels: null }),
-      result({ symbol: "NVDA", levels: levels(300) }),
+      result({ symbol: "NVDA", levels: levels(300), currentPrice: 300 }),
     ]);
 
     expect(rows.map((r) => [r.symbol, r.rank])).toEqual([

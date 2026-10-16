@@ -22,8 +22,9 @@
  *
  * Three-question basis:
  * 1. Gann: the rules graded are his (trend from swing charts and the
- *    structure of tops and bottoms; entry past the old top by the allowance;
- *    the stop beyond the last bottom; risk a small, fixed part of capital),
+ *    structure of tops and bottoms; after a close 3 points past the old top,
+ *    buy the reaction 1 point above it with the stop 3 points below it (PLAN.md
+ *    item 4); risk a small, fixed part of capital),
  *    Tier A, as implemented in `lib/gann/`.
  * 2. Cycles: no periodicity claim; Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect (the grade follows the decision's cause, the
@@ -33,8 +34,11 @@
  */
 
 import type { Bar } from "@/lib/types";
+import { monthlyWithCurrent } from "@/lib/gann/leadership";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { gannBreakLine, sameGannLevel, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
+import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
+import { entryChart, gannEntryOf, trendsFromBars } from "@/lib/scan/entrySelection";
 
 export type ExamTransition = "novice_to_pro" | "pro_to_expert";
 export const EXAM_TRANSITIONS: readonly ExamTransition[] = ["novice_to_pro", "pro_to_expert"];
@@ -44,7 +48,6 @@ export const PASS_MARK = 0.8;
 export const RETAKE_HOURS = 24;
 export const ACCOUNT_USD = 10_000;
 export const RISK_PCT = 1;
-export const CHART_BARS = 120;
 export const PLAYBACK_BARS = 30;
 
 export const SCENARIO_SYMBOLS = [
@@ -60,11 +63,26 @@ export interface ExamChoice {
   price: number;
 }
 
+/** A level drawn on the exam's chart. */
+export interface ExamLevel {
+  price: number;
+  label: string;
+}
+
 /** What the student sees. */
 export interface ScenarioView {
   symbol: string;
   asOf: string;
+  /** The 52 weeks of sessions before the day, the window the scan reads (step 3 review R6). */
   bars: { t: string; o: number; h: number; l: number; c: number }[];
+  /**
+   * The older levels nearest the price, drawn as lines: up to two above and
+   * two below, each previous year's top or bottom by its year and the record
+   * before the 52 weeks (step 3 review R6). Drawn on every chart, whatever
+   * the answer, so their presence reveals nothing. Absent on scenarios stored
+   * before it was added.
+   */
+  levels?: ExamLevel[];
   /** Always offered, whatever the answer, so their presence reveals nothing. */
   entryChoices: ExamChoice[];
   stopChoices: ExamChoice[];
@@ -81,6 +99,32 @@ export interface ScenarioKey {
   stop: number | null;
   /** Correct share count for the sizing question. */
   shares: number | null;
+  /**
+   * The old level was already crossed before the date and still holds, so
+   * the order rests for the reaction from the first session (PLAN.md item 5).
+   * Absent on scenarios stored before it was added.
+   */
+  crossed?: boolean;
+  /**
+   * `oldLevel` when the buy rests at an old bottom (top) that held, a double
+   * or triple bottom (PLAN.md item 5, step 2), so the explanations describe
+   * that entry. `hold` when the buy is at the last close over a bottom (top)
+   * that held (step 4). Absent is the crossing, and on scenarios stored
+   * before it.
+   */
+  entryKind?: "oldLevel" | "hold";
+  /** For `hold`: which rule found the bottom that held, so the explanation names it. */
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
+  /**
+   * For a crossing of the previous year's top or bottom, or the record from
+   * before the last 52 weeks (PLAN.md item 5, step 3), so the explanation
+   * names it. Absent is the last swing.
+   */
+  source?: "priorYear" | "allTime";
+  /** With `source` "priorYear": the year whose top or bottom was crossed (step 3 review R9). */
+  levelYear?: number;
+  /** The crossing regained an old bottom (lost an old top, for a short) after a 3-point break (A-TREND-10). */
+  regained?: true;
 }
 
 export interface StoredScenario {
@@ -161,10 +205,28 @@ function shuffle<T>(xs: T[], rand: () => number): T[] {
 }
 
 /**
+ * The older level an exam key rests on, which the chart has to draw: the
+ * previous year's level or the record crossed, or the record low that held,
+ * whose stop is 3 points under it (step 3 review R6, step 4 review S7).
+ */
+export function examKeyedOlderLevel(trigger: GannEntryTrigger): number | null {
+  if (trigger.kind === "crossing" && trigger.source !== "swing") return trigger.level;
+  if (trigger.kind === "hold" && trigger.holdBasis === "record") return trigger.level;
+  return null;
+}
+
+/**
  * Build one scenario from daily bars around `asOf`. Only bars dated before
  * `asOf` feed the chart and the key; bars from `asOf` on are the play-forward.
  */
-export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: number): StoredScenario | null {
+export function buildScenario(
+  symbol: string,
+  asOf: string,
+  daily: Bar[],
+  seed: number,
+  /** The monthly chart up to `asOf`: the previous year's and the record levels (PLAN.md item 5, step 3). */
+  monthly: Bar[] = [],
+): StoredScenario | null {
   const before = daily.filter((b) => b.t.slice(0, 10) < asOf);
   const after = daily.filter((b) => b.t.slice(0, 10) >= asOf).slice(0, PLAYBACK_BARS);
   if (before.length < 60 || after.length < 5) return null;
@@ -173,9 +235,28 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   const read = readGannTrend(before);
   const direction = read.direction;
   const trend: Trend = direction === "bullish" ? "up" : direction === "bearish" ? "down" : "sideways";
-  const trigger = direction ? computeGannEntryTrigger(before, direction) : null;
+  // The buying point production prices from (PLAN.md item 5, step 2).
+  // Read from the scan's own window, the 52 weeks of sessions before the day,
+  // with the monthly chart's older levels.
+  const chart = entryChart(daily, monthly, asOf);
+  // Priced as the scan prices it, the rally sale only in a bear market (A-ENTRY-18).
+  // Closed months before the day's month plus that month so far from the
+  // sessions shown: the month's own bar would include sessions after the day.
+  const trends = trendsFromBars(before, monthly.length > 0 ? monthlyWithCurrent(monthly, before) : []);
+  const trigger = direction ? gannEntryOf(chart.bars, chart.older, trends)(direction) : null;
   const last = before[before.length - 1];
-  const decision: Decision = trigger && (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c) ? "trade" : "wait";
+  // A trade when the old level is still to be crossed, or when it has been
+  // crossed and holds, so the buy rests for the reaction (PLAN.md item 5).
+  const decision: Decision =
+    trigger &&
+    (trigger.held ||
+      // A double or triple bottom rests at the old level, below the price.
+      trigger.kind === "oldLevel" ||
+      // A bottom that held is bought at the last close (step 4).
+      trigger.kind === "hold" ||
+      (direction === "bullish" ? trigger.triggerPrice > last.c : trigger.triggerPrice < last.c))
+      ? "trade"
+      : "wait";
 
   let entryChoices: ExamChoice[] = [];
   let stopChoices: ExamChoice[] = [];
@@ -186,13 +267,21 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
   let shares: number | null = null;
   if (decision === "trade" && trigger) {
     const long = direction === "bullish";
-    entry = round2(trigger.triggerPrice);
-    stop = round2(trigger.stopPrice);
+    // The reaction buy after the crossing (PLAN.md item 4): 1 point past the
+    // old level, stop 3 points the other side. Or the old bottom itself, stop
+    // 3 points under it (a double or triple bottom, item 5 step 2). Or the
+    // last close over a bottom that held, stop 3 points under the low (step 4).
+    entry = round2(trigger.reactionEntry);
+    stop = round2(trigger.reactionStop);
     const e = [
       { id: "e1", price: entry },
-      // Buying at today's close, before the old top has been crossed.
-      { id: "e2", price: round2(last.c) },
-      // Short of the level: an order that fills before the market proves itself.
+      trigger.kind === "hold"
+        ? // Chasing 3% past the close, away from the low that held.
+          { id: "e2", price: round2(long ? last.c * 1.03 : last.c * 0.97) }
+        : // Buying at today's close instead of waiting for the reaction to the level.
+          { id: "e2", price: round2(last.c) },
+      // 3% the wrong side of the level: before a crossing proves itself, or
+      // after an old bottom has already given way.
       { id: "e3", price: round2(long ? trigger.pivot.price * 0.97 : trigger.pivot.price * 1.03) },
     ];
     const s = [
@@ -217,17 +306,54 @@ export function buildScenario(symbol: string, asOf: string, daily: Bar[], seed: 
     stopChoices = relabel(shuffle([{ id: "", price: round2(c * 0.95) }, { id: "", price: round2(c * 0.995) }, { id: "", price: round2(c * 0.8) }], rand), "s");
   }
 
+  // The older levels near the price, drawn on every chart. A key resting on
+  // an older level the chart would not show is not set (step 3 review R6).
+  const levels = examLevels(chart.older, last.c);
+  const keyedOlder = decision === "trade" && trigger ? examKeyedOlderLevel(trigger) : null;
+  if (keyedOlder !== null && !levels.some((l) => sameGannLevel(l.price, keyedOlder))) return null;
+
   return {
     view: {
       symbol,
       asOf,
-      bars: before.slice(-CHART_BARS).map((b) => ({ t: b.t.slice(0, 10), o: b.o, h: b.h, l: b.l, c: b.c })),
+      bars: chart.bars.map((b) => ({ t: b.t.slice(0, 10), o: b.o, h: b.h, l: b.l, c: b.c })),
+      levels,
       entryChoices,
       stopChoices,
     },
-    key: { trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares },
+    key: {
+      trend, decision, direction, entryChoiceId, stopChoiceId, entry, stop, shares,
+      crossed: decision === "trade" && (trigger?.held === true || trigger?.kind === "oldLevel" || trigger?.kind === "hold"),
+      ...(decision === "trade" && trigger?.kind === "oldLevel" ? { entryKind: "oldLevel" as const } : {}),
+      ...(decision === "trade" && trigger?.kind === "hold" ? { entryKind: "hold" as const, holdBasis: trigger.holdBasis } : {}),
+      ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source !== "swing" ? { source: trigger.source } : {}),
+      ...(decision === "trade" && trigger?.kind === "crossing" && trigger.source === "priorYear" && trigger.levelYear !== undefined
+        ? { levelYear: trigger.levelYear }
+        : {}),
+      ...(decision === "trade" && trigger?.kind === "crossing" && trigger.regained ? { regained: true as const } : {}),
+    },
     playback: after.map((b) => ({ t: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })),
   };
+}
+
+/**
+ * The older levels drawn on the exam's chart: of each previous year's top and
+ * bottom and the record, one per price (the record's name first), the two
+ * nearest above `price` and the two nearest below.
+ */
+function examLevels(older: OlderGannLevel[], price: number): ExamLevel[] {
+  const named: ExamLevel[] = [];
+  for (const l of older) {
+    if (named.some((n) => sameGannLevel(n.price, l.price))) continue;
+    const label =
+      l.source === "allTime"
+        ? l.kind === "top" ? "Record high" : "Record low"
+        : `${l.year} ${l.kind}`;
+    named.push({ price: l.price, label });
+  }
+  const above = named.filter((l) => l.price > price).sort((a, b) => a.price - b.price).slice(0, 2);
+  const below = named.filter((l) => l.price <= price).sort((a, b) => b.price - a.price).slice(0, 2);
+  return [...above.reverse(), ...below];
 }
 
 function playedOut(s: StoredScenario): string {
@@ -242,21 +368,43 @@ function playedOut(s: StoredScenario): string {
   const long = key.direction === "bullish";
   const risk = Math.abs(key.entry - key.stop);
   const target = long ? key.entry + 2 * risk : key.entry - 2 * risk;
+  // The order is placed once a close crosses the old level by 3 points, and
+  // fills when price reacts back to the entry.
+  const line = gannBreakLine(key.entry, key.stop);
+  let crossed = key.crossed === true;
   let filled = false;
   for (const b of playback) {
     if (!filled) {
-      if (long ? b.h >= key.entry : b.l <= key.entry) filled = true;
-      else continue;
+      if (crossed && (long ? b.l <= key.entry : b.h >= key.entry)) filled = true;
+      else {
+        if (long ? b.c >= line : b.c <= line) crossed = true;
+        continue;
+      }
     }
     if (long ? b.l <= key.stop : b.h >= key.stop) return "The entry filled and the stop was hit: a loss that the stop kept small. Following the rules can still lose.";
     if (long ? b.h >= target : b.l <= target) return "The entry filled and price reached twice the risk before the stop.";
   }
   return filled
     ? `The entry filled; neither the stop nor twice the risk was reached within ${playback.length} sessions.`
-    : `Price never reached the entry within ${playback.length} sessions, so no trade was taken. Waiting for the level is part of the rule.`;
+    : key.entryKind === "hold"
+      ? `Price moved away from the ${key.direction === "bearish" ? "high" : "low"} and never traded back ${key.direction === "bearish" ? "up" : "down"} to the entry within ${playback.length} sessions, so no trade was taken. The buy is made near the ${key.direction === "bearish" ? "top" : "bottom"}, not chased.`
+      : key.entryKind === "oldLevel"
+      ? `Price never came back ${key.direction === "bearish" ? "up to the old top" : "down to the old bottom"} within ${playback.length} sessions, so no trade was taken. Waiting for the test of the level is part of the rule.`
+      : crossed
+      ? `Price crossed the old level but never pulled back to the entry within ${playback.length} sessions, so no trade was taken. Waiting for the reaction is part of the rule.`
+      : `Price never closed past the old level within ${playback.length} sessions, so no trade was taken. Waiting for the level is part of the rule.`;
 }
 
 const TREND_WORD: Record<Trend, string> = { up: "up", down: "down", sideways: "sideways" };
+
+/** The old level a crossing key crossed, in the explanation's words. */
+function crossedName(k: ScenarioKey): string {
+  const up = k.direction !== "bearish";
+  if (k.regained) return `${regainedLevelName(up, k.source, k.levelYear)} it had broken`;
+  if (k.source === "priorYear") return priorYearLevelName(up, k.levelYear);
+  if (k.source === "allTime") return up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks";
+  return `the last swing ${up ? "top" : "bottom"}`;
+}
 
 export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[], answers: ScenarioAnswer[]): ExamGrade {
   const pro = transition === "pro_to_expert";
@@ -278,18 +426,65 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         ? "The tops and bottoms weren't stepping one way, so the trend was sideways."
         : `The swings and the tops and bottoms were stepping ${TREND_WORD[k.trend]}, so the trend was ${TREND_WORD[k.trend]}.`,
     );
+    // An entry at an old bottom (top) that held: a double or triple bottom.
+    const old = k.entryKind === "oldLevel";
+    // A buy at the close over a bottom (top) that held (step 4).
+    const hold = k.entryKind === "hold";
+    const longKey = k.direction !== "bearish";
+    const oldSide = longKey ? "bottom" : "top";
+    const extreme = longKey ? "low" : "high";
+    const rally = k.holdBasis === "rally";
+    const narrowWeek = k.holdBasis === "narrowWeek";
+    const heldWhat =
+      k.holdBasis === "narrowWeek"
+        ? "a narrow week had been followed by a sharp drop on large volume"
+        : rally
+        ? "a rally in a falling market had run into the end of its second or third week"
+        : k.holdBasis === "record"
+        ? "the record low had held for weeks without breaking by 3 points"
+        : k.holdBasis === "days"
+          ? `the ${extreme} had held two days after a two-to-three-week reaction in a rising market`
+          : `the ${extreme} had held into its second week`;
     add(
       "decision",
       a.decision === k.decision,
       k.decision === "trade"
-        ? "The trend was clear and there was an old swing level still to cross: a trade, entered only if price crosses it."
+        ? hold
+          ? narrowWeek
+            ? `${heldWhat[0].toUpperCase()}${heldWhat.slice(1)}: a trade, sold on the bounce to 1 point under that week's low.`
+            : `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close${rally ? "" : ` near that ${oldSide}`}.`
+          : old
+          ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
+          : k.crossed
+            ? `The trend was clear and price had already closed 3 points past ${crossedName(k)}, without coming back to the ${longKey ? "buy" : "sell"}: a trade, ${longKey ? "bought on the pullback" : "sold on the bounce"} to 1 point past it.`
+            : `The trend was clear and ${crossedName(k)} was still to cross: a trade, entered only once price closes 3 points past it and ${longKey ? "pulls back" : "bounces"}.`
         : "With no clear trend, or no level left to cross, the rule is to wait.",
     );
     if (k.decision === "trade") {
       if (pro) {
-        add("entry", a.entryChoiceId === k.entryChoiceId, `The entry is just past the last swing ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.entry?.toFixed(2)}, so the market has to prove itself first.`);
+        add(
+          "entry",
+          a.entryChoiceId === k.entryChoiceId,
+          hold
+            ? rally
+            ? `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, the length such rallies run, so the sell is made at the week's end.`
+            : `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the ${longKey ? "buy" : "sell"} is made now, near the ${oldSide}, rather than chased later.`
+            : old
+            ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
+            : `The entry is 1 point past ${crossedName(k)}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
+        );
       }
-      add("stop", a.stopChoiceId === k.stopChoiceId, `The stop goes just beyond the last swing ${k.direction === "bullish" ? "bottom" : "top"}, at ${k.stop?.toFixed(2)}: the price that proves the idea wrong.`);
+      add(
+        "stop",
+        a.stopChoiceId === k.stopChoiceId,
+        hold
+          ? rally
+            ? `The stop goes 3 points over that week's high, at ${k.stop?.toFixed(2)}: a rally that runs past it is more than a rally in a falling market.`
+            : `The stop goes 3 points ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
+          : old
+          ? `The stop goes 3 points ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`
+          : `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`,
+      );
       const sharesOk = k.shares !== null && typeof a.shares === "number" && Math.abs(a.shares - k.shares) <= Math.max(1, k.shares * 0.05);
       add("size", sharesOk, `Risking 1% of $${ACCOUNT_USD.toLocaleString("en-US")} is $${(ACCOUNT_USD * RISK_PCT) / 100}; divided by the risk per share (${k.entry !== null && k.stop !== null ? Math.abs(k.entry - k.stop).toFixed(2) : "?"}) that is ${k.shares} shares.`);
     }

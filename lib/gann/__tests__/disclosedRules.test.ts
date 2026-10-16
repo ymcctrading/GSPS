@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import {
   counterMovePhase,
   pricePercentageLevels,
+  majorPricePercentageLevels,
   readBarMidpoint,
   readCounterMove,
   readDayCountBands,
@@ -38,6 +39,11 @@ describe("close vs bar midpoint (Master Course Ch. 13)", () => {
 });
 
 describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
+  it("C-PRICE-03: doubles a major low, 1184 giving 2368", () => {
+    const levels = pricePercentageLevels(1184, 2500);
+    expect(levels.find((l) => l.label === "100% above the low")?.price).toBe(2368);
+  });
+
   it("builds eighths of the low above it and eighths and thirds of the high", () => {
     const levels = pricePercentageLevels(100, 200);
     const labels = levels.map((l) => l.label);
@@ -48,6 +54,26 @@ describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
     expect(levels.find((l) => l.label === "50% above the low")?.price).toBe(150);
     expect(levels.find((l) => l.label === "100% above the low")?.importance).toBe(1);
     expect(levels.find((l) => l.label === "4/8 of the high")?.importance).toBe(1);
+  });
+
+  it("C-PRICE-02: adds the multiples of the low, projected to 12 times it and past the high (45 Years Ch. IV; rye to 700%)", () => {
+    const levels = pricePercentageLevels(10, 45);
+    const multiples = levels.filter((l) => l.multiple !== undefined).map((l) => l.price);
+    // 3, 4, 7, 9 and 12 times the low, past the record's high of 45.
+    for (const p of [30, 40, 70, 90, 120]) expect(multiples).toContain(p);
+    expect(Math.max(...multiples)).toBe(120);
+    expect(pricePercentageLevels(10, 120).filter((l) => l.multiple !== undefined).map((l) => l.price)).toEqual([30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
+    // A high past 12 times the low still has the first multiple over it.
+    expect(Math.max(...pricePercentageLevels(10, 135).map((l) => l.price))).toBe(140);
+    expect(levels.find((l) => l.price === 30)).toMatchObject({ label: "200% above the low", importance: 1 });
+    // The 1929 top: 500% above 64 is 384.
+    expect(pricePercentageLevels(64, 390).find((l) => l.label === "500% above the low")?.price).toBe(384);
+  });
+
+  it("keeps the multiples on the card until their replay, out of the scan's level pool", () => {
+    const b = [bar("2026-01-01T00:00:00Z", 10, 10, 10), bar("2026-01-02T00:00:00Z", 45, 45, 45)];
+    expect(majorPricePercentageLevels(b)).toEqual([20, 22.5, 15].sort((x, y) => x - y));
+    expect(readPricePercentages(b, 39.5)?.nearestAbove).toMatchObject({ price: 40, label: "300% above the low" });
   });
 
   it("finds the nearest level on each side of price", () => {
@@ -109,6 +135,37 @@ describe("tests of a level (Commodities p. 43)", () => {
     const r = readLevelTests(daily(closes), 115);
     expect(r.support?.tests).toBe(3);
     expect(r.support?.level).toBeCloseTo(100, 0);
+  });
+
+  it("counts an old top crossed by the 3 points as support (A-LEVELS-01)", () => {
+    // A top near 100, a reaction, then a run well over it: the old top is now support.
+    const closes = [80, 85, 90, 95, 100, 97, 94, 91, 88, 92, 96, 100, 104, 108, 112, 116, 120, 118, 117, 119];
+    const r = readLevelTests(daily(closes), 115);
+    expect(Math.abs(r.support!.level - 100)).toBeLessThan(2);
+  });
+
+  it("does not count a top only just crossed, inside the 3 points, as support", () => {
+    const closes = [80, 85, 90, 95, 100, 97, 94, 91, 88, 92, 96, 99, 101, 103, 102, 101, 103];
+    const r = readLevelTests(daily(closes), 103);
+    expect(r.support?.level ?? 0).not.toBeCloseTo(100, 0);
+  });
+
+  it("needs the crossing after the top: closes over it before it printed do not count", () => {
+    const closes = [130, 125, 120, 115, 110, 105, 100, 95, 90, 85, 88, 91, 94, 97, 100, 97, 94, 92, 95, 98, 101, 102];
+    const r = readLevelTests(daily(closes), 102);
+    expect(r.support && Math.abs(r.support.level - 100) < 2).toBeFalsy();
+  });
+
+  it("counts an old bottom broken by the 3 points as resistance", () => {
+    const closes = [120, 115, 110, 105, 100, 103, 106, 109, 112, 108, 104, 100, 96, 92, 88, 84, 80, 82, 83, 81];
+    const r = readLevelTests(daily(closes), 90);
+    expect(Math.abs(r.resistance!.level - 100)).toBeLessThan(2);
+  });
+
+  it("does not count a bottom only just broken, inside the 3 points, as resistance", () => {
+    const closes = [120, 115, 110, 105, 100, 103, 106, 109, 112, 108, 104, 101, 99, 97, 98, 97];
+    const r = readLevelTests(daily(closes), 97);
+    expect(r.resistance && Math.abs(r.resistance.level - 100) < 2).toBeFalsy();
   });
 });
 

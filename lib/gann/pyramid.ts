@@ -11,11 +11,18 @@
  *   bottom, for shorts) (*How to Make Profits in Commodities*; *45 Years in
  *   Wall Street*: "pyramid only after resistance is crossed").
  * - **Each lot smaller than the last:** "buy the largest amount first and then
- *   gradually decrease" (*Tunnel Thru the Air*); the 3rd lot half the 2nd, the
- *   4th half the 3rd (Master Course Rule 5). After the 4th or 5th lot, reduce.
+ *   gradually decrease" (*Tunnel Thru the Air*, W022 p.198); the 3rd lot half
+ *   the 2nd, the 4th half the 3rd (Master Course Rule 5). The owner chose this
+ *   reading over *New Stock Trend Detector*'s equal lots halved after the 4th
+ *   or 5th (Q9, 2026-10-16), so there is no fixed lot count: the pyramid ends
+ *   when the next half-lot would be under one share.
  * - **Move the stop so the combined position can't lose** (*New Stock Trend
  *   Detector* Rule 5), with a full stop-out losing no more than 10% of capital
  *   (Master Course).
+ * - **Add only once the trade has shown it is with the trend:** a profit at
+ *   the first close that is still there after three days (A-TIME-12, W006
+ *   p.23; `readHoldTime`). Before that, the first lot has not shown which
+ *   side of the trend it is on.
  *
  * How GSPS applies it: `readPyramidAdd` says whether the position has earned
  * an add now, how large, at what trigger, and where the whole position's stop
@@ -29,9 +36,8 @@
  *   price-scaled here as one risk unit, the same scaling the break-even rule
  *   uses (`exitRules.ts`).
  * - The add trigger is a completed 3-Day Chart top (bottom) made after the last
- *   lot, crossed by the lost-motion allowance: the same Buying Point the entry
+ *   lot, crossed by the 3-point allowance: the same Buying Point the entry
  *   uses (`entryTrigger.ts`).
- * - `MAX_LOTS` = 4, the low end of Gann's "after the 4th or 5th lot".
  *
  * Three-question basis:
  * 1. Gann: as cited, Tier A.
@@ -44,10 +50,9 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-
-export const MAX_LOTS = 4;
+import { readHoldTime } from "@/lib/gann/exitRules";
 
 export interface PyramidLot {
   qty: number;
@@ -82,18 +87,36 @@ export interface PyramidReading {
   add: PyramidAdd | null;
   /** Why no add is due, in plain words. Null when one is. */
   reason: string | null;
+  /** The first lot closed against the trade on its first day (A-TIME-12): a warning that the trade may be wrong. */
+  holdWarning?: string | null;
 }
 
 export function readPyramidAdd(input: PyramidInput): PyramidReading {
   const { side, lots, daily, price } = input;
   const long = side === "long";
   if (lots.length === 0) return { add: null, reason: "No position." };
-  if (lots.length >= MAX_LOTS) return { add: null, reason: `Already ${lots.length} lots: time to stop adding.` };
 
   const first = lots[0];
   const last = lots[lots.length - 1];
   const risk = Math.abs(first.price - input.initialStop);
   if (!(risk > 0)) return { add: null, reason: "No risk unit to measure profit against." };
+
+  // Time to hold (A-TIME-12): with the trend only once the first lot showed a
+  // profit at its first close and still after three days.
+  const hold = readHoldTime(side, first.price, first.date, daily);
+  const holdWarning = hold?.firstCloseAgainst
+    ? "The first day closed against the trade, a sign it may be wrong."
+    : null;
+  if (hold?.withTrendAfter3 !== true) {
+    return {
+      add: null,
+      reason:
+        hold?.withTrendAfter3 === false
+          ? "The trade did not show a profit at its first close and three days on, so it hasn't shown it is with the trend."
+          : "Three days haven't closed since the first lot, so the trade hasn't shown it is with the trend yet.",
+      holdWarning,
+    };
+  }
 
   // Only add to a winner: the last lot must show a full risk unit of profit.
   const lastProfit = long ? price - last.price : last.price - price;
@@ -106,8 +129,7 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
     .reverse()
     .find((p) => p.kind === (long ? "top" : "bottom") && lastIdx !== -1 && p.index >= lastIdx);
   if (!pivot) return { add: null, reason: "No swing top has formed since the last lot to cross." };
-  const a = LOST_MOTION_BUFFER_PCT / 100;
-  const trigger = long ? pivot.price * (1 + a) : pivot.price * (1 - a);
+  const trigger = beyondByThreePoints(pivot.price, long ? 1 : -1);
 
   const qty = Math.floor(last.qty / 2);
   if (qty < 1) return { add: null, reason: "The next lot would be less than one share." };

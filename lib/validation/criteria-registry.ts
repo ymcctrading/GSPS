@@ -214,12 +214,14 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "rather than live.",
     note:
       "Replaces `fanProximity` (retired 2026-09-10; see RETIRED). Wraps lib/gann/normalizedSlope.ts's " +
-      "realized ATR-per-bar slope since the direction-matched swing anchor, judged against a fixed " +
+      "realized slope since the direction-matched swing anchor, judged against a fixed " +
       "structural angle ratio — a literal angle-of-ascent/descent check, unlike the generic " +
       "fan-line-distance proximity it replaces. Loosened 2026-09-11 from requiring 1x1-or-steeper to " +
       "1x2-or-steeper; see " +
       "quarantineReason for the 2026-09-10 saturation findings that drove the change and why the " +
-      "criterion stays quarantined pending a fresh reading of the new threshold.",
+      "criterion stays quarantined pending a fresh reading of the new threshold. Since 2026-10-16 " +
+      "(owner, Q27) the slope is in price-scaled points per bar on the full angle set, not ATR, so " +
+      "its earlier readings describe a different unit.",
   },
   {
     id: "volumeClimax",
@@ -233,6 +235,12 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     // retest, or a climax (the panic exception); a high on heavy volume or a
     // lower-volume secondary top. The measurements below describe the
     // climax-only construction and do not transfer; treat it as unmeasured.
+    // 2026-10-16 (PLAN.md item 8 step 3, FV1-FV5 at their recommendations):
+    // retests compare the two turns' weeks, not each bar's relative volume; a
+    // lower secondary top after a heavy decline, the heaviest week in the
+    // advance into a top, a higher secondary low out of a bear, a panic's
+    // quiet secondary low and the smallest month in five years also pass.
+    // Completed sessions only. Still unmeasured on this construction.
     note:
       "Replaces `harmonicProximity` (retired 2026-09-10; see RETIRED) — its key-price-level-proximity " +
       "approach measured negligible even after fixing its stale-anchor defect twice. This is a " +
@@ -325,7 +333,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "this scorecard. The criterion was never the problem — 'is there an armed trigger to enter " +
       "on?' is a real question — but its implementation read a bar-sequence reversal pattern " +
       "taxonomy with no source in this platform's methodology. It now reads " +
-      "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the 'lost motion' " +
+      "lib/gann/entryTrigger.ts: crossing an old swing top or bottom plus the price-scaled 3-point " +
       "allowance, both disclosed in docs/GANN_HISTORICAL_SOURCES.md A8 (the nine Buying Points " +
       "and nine Selling Points, and the Resistance Level method). Renamed rather than retired, so " +
       "CRITERION_KEYS.length and both cutoffs are unchanged.\n\n" +
@@ -340,108 +348,19 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
-    id: "stopRoom",
+    id: "stopBehindOldLevel",
     family: "scanScore",
-    source: "lib/scoring/score.ts",
-    label: "Stop room (>= 1.5x ATR) / Stop backed by real structure (us_equity)",
+    source: "lib/scoring/score.ts, lib/strat/levels.ts#oldLevelBehindStop",
+    label: "Stop 3 points behind an old level",
     expectedSign: "positive",
-    evidence: "quarantined",
-    quarantineReason:
-      "us_equity branch only (assetClass === \"us_equity\" reads `levels.stopFromStructure` instead of " +
-      "the ATR-multiple check below — see hasStopRoom in lib/scoring/score.ts). First real measurement " +
-      "of the percent-of-purchase-price model (PR #217, 2026-09-11): 6 unconditioned (`within=all`) " +
-      "live runs captured 2026-09-15 (docs/replay-runs/2026-09-15-{15Min,1Hour}-within-all-productionStop" +
-      "{,-since90d,-since30d}.json — 15Min/1Hour x full-history/90d/30d, default universe SPY/AAPL/AMD/" +
-      "TSLA/MSFT/NVDA, all large-cap, `productionStop=1`). Pass rate on every single one of the 6: " +
-      "985 trades 98.2%, 438 trades 98.6%, 10,480 observed 99.5%, 367 trades 99.2%, 100 trades 98.0% " +
-      "(the 90d-15Min run duplicates the full-history one — 15Min's ~60-day natural lookback is already " +
-      "under the 90-day cutoff, so it trims nothing; treat it as the same reading, not a 6th independent " +
-      "one). Every reading clears MIN_OBSERVATIONS_FOR_SATURATION (30) and sits well past " +
-      "DEFAULT_SATURATION_BOUNDS.maxPassRate (0.95) in lib/validation/health.ts — this is not a borderline " +
-      "call, it fires on all 6/6.\n" +
-      "\n" +
-      "Mechanism, traced to computeEquityTradeLevels's nearestStructuralStop (lib/strat/levels.ts): it " +
-      "searches `[...gannTargets, ...structuralLevels]` — the projected key-price-level targets " +
-      "(lib/gann/fans.ts, lib/gann/squareOf9.ts) pooled together with clustered S/R, not S/R alone — " +
-      "for any favorable-side level inside [EQUITY_STOP_MIN_PCT 3%, EQUITY_LARGE_CAP_STOP_MAX_PCT 20%] " +
-      "of entry (the default universe is entirely large-cap, so the wider band always applies). Those " +
-      "projected levels are dense enough across a 17-point-wide band that one is almost always found, " +
-      "so the EQUITY_FALLBACK_STOP_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT branch essentially never " +
-      "fires (18/985, 6/438, 53/10,480, 3/367, 2/100 across the 6 runs) even though lib/strat/levels.ts's " +
-      "own comment on EQUITY_FALLBACK_STOP_PCT cites historicalSR — the S/R-only criterion reading the " +
-      "same underlying level data — passing only ~18-19% of the time. Pooling the projected targets into " +
-      "the search turns 'is there real structure near this stop' into 'is there almost always real " +
-      "structure', which is not the question the criterion is named for. The point is a near-automatic " +
-      "freebie the same way patternArmed is, except here that was never the intent.\n" +
-      "\n" +
-      "Sign, on the two runs large enough to read (985 and 10,480 trades — the other four have failed " +
-      "arms of 6, 3, and 2, under MIN_SAMPLES_PER_ARM=10, so attributeFactors correctly marks them " +
-      "`insufficient`): correlation is negative but negligible — r=-0.016 (t=-0.51) and r=-0.005 " +
-      "(t=-0.55), both far short of |t|>=1.96. Not inverted, just uninformative, which is exactly what a " +
-      "criterion this saturated would produce either way.\n" +
-      "\n" +
-      "**Fix applied 2026-09-15, confirmed by user.** nearestStructuralStop's input split in two: " +
-      "`structuralLevels` (S/R only, feeds the stop) and a new `extensionLevels` param (defaults to " +
-      "`structuralLevels`; the production call site passes the old combined S/R+projected-level pool " +
-      "here instead) that feeds only the runner extension, which was never measured saturated — only the " +
-      "stop was. See computeEquityTradeLevels's own doc comments in lib/strat/levels.ts. " +
-      "**Quarantine stays in place** — a code fix is not a measurement. Exit condition unchanged: " +
-      "lifts once a re-measured unconditioned equity run (post-fix, live data) lands the pass rate " +
-      "back inside [0.05, 0.95]. That run has not happened yet.",
+    evidence: "unmeasured",
     note:
-      "Below documents the pre-equity-model history: the ATR-multiple branch (`stopAtrMultiple >= " +
-      "MIN_STOP_ROOM_ATR`), which every non-us_equity asset class still uses and which us_equity used " +
-      "too before PR #217. See quarantineReason above for the us_equity structural-stop branch that " +
-      "replaced it.\n\n" +
-      "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
-      "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
-      "of a correlation, a point contributed for no information. It survives as an input to " +
-      "applyReversionConfirmation's bare-2-2 gate, which is a different job; it is simply no longer " +
-      "scored. Corroborated on the fresher, larger 2026-09-10 unconditioned run (1,029 trades): still " +
-      "r≈0.00 (100/1029 passing, Δ=+0.002R) — dead on a second, independent population too.\n" +
-      "\n" +
-      "Stop room is the strongest effect in that same 2026-09-08 run and the reason for the swap: split " +
-      "at 1.5x ATR it is +0.217R against −0.072R, Δ=+0.289R at t=2.40, with a 40.0% win rate against a " +
-      "33.3% break-even. Larger than historicalSR, the best of the nine it joins. Expectancy is " +
-      "monotonic across the boundary and 1.5x is the only point where the sign flips.\n" +
-      "\n" +
-      "The same split direction and shape reproduces on the fresher 2026-09-10 run (1,029 trades, " +
-      "docs/replay-runs/2026-09-10-15Min-2R-within-all.json's atrBands): below 1.5x ATR, 854 trades at " +
-      "31.2% win rate; at/above 1.5x, 175 trades at 38.3% — the same side of the 33.3% break-even line " +
-      "flips the same way. That table only carries per-band win rate and mean expectancy, not per-trade " +
-      "values, so no independent t-statistic is reported for it — the t=2.40 above is the one on record, " +
-      "from real per-trade data.\n" +
-      "\n" +
-      "Stays hypothesis. The `?productionStop=1` run was captured 2026-09-09 and confirmed nothing, " +
-      "because it turned out not to be a different measurement: every ATR band came back with " +
-      "identical trade counts and identical win rates, four of five with a literally zero expectancy " +
-      "difference, and the overall expectancy moved by 2e-6. computeStopWithLeeway takes whichever " +
-      "stop is FURTHER from entry (levels.ts `Math.min(structuralStop, leewayCandidate)`), the " +
-      "large-cap leeway is 0.25x ATR, and this sample has zero trades under 0.5x ATR — so the " +
-      "leeway cannot bind on any trade, and only the 3.5x cap moved a handful in the 2.5x+ band.\n" +
-      "\n" +
-      "So the stop-width effect is measured on two overlapping-universe samples (same six large caps, " +
-      "different windows), not yet a genuinely independent one. What it needs is a different WINDOW or " +
-      "universe.\n" +
-      "\n" +
-      "A third same-universe reading landed 2026-09-11 (docs/replay-runs/2026-09-11-15Min-2R-within-" +
-      "all.json, 1061 trades, one day's rolling window forward from the 2026-09-10 capture): 184/1061 " +
-      "passed, Δ+0.252R, r=+0.068, t≈2.21 — significant this time, same direction, same rough " +
-      "magnitude as the two before it. Reproduces cleanly a third time, but per the standard this entry " +
-      "already set for itself, a one-day-later window on the identical six symbols is not the " +
-      "genuinely independent sample the exit condition asks for — it's essentially the same population " +
-      "plus a handful of new trades, not a different regime or universe. Reversion-only, 15Min. See " +
-      "MIN_STOP_ROOM_ATR for why this is a selection rule and never an instruction to widen a stop.\n" +
-      "\n" +
-      "**2026-09-11 onward: the above describes an evidentiary record for a branch this criterion no " +
-      "longer walks for equities.** The same day as the last reading above, `us_equity` moved to the " +
-      "percent-of-purchase-price stop model (lib/strat/levels.ts's `computeEquityTradeLevels`) and this " +
-      "criterion's equity question changed from 'stop width >= 1.5x ATR' to 'stop anchored to real " +
-      "structure' (score.ts's `hasStopRoom`). Every reading above measured the ATR-multiple question, " +
-      "which every non-equity asset class still asks — that history stays valid for them, but describes " +
-      "nothing about the equity branch, which went unmeasured for three days until the 2026-09-14 runs " +
-      "found it 98-99% saturated. See `quarantineReason` for that finding, its root cause, and the " +
-      "candidate fixes.",
+      "Replaces `stopRoom` (retired 2026-10-16; see RETIRED), owner Q23. The method places the stop 3 points " +
+      "beyond an old top or bottom (W006 pp.20-24, 46-47), so the point passes when an old level from the " +
+      "S/R list stands at least the price-scaled 3 points in front of the stop, between it and the " +
+      "entry, or the stop was fixed by the crossing or reaction rule (the crossed level less 3 points). " +
+      "Same rule on every asset class. Unmeasured: no committed run reads it yet.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
     id: "timePriceSquare",
@@ -523,18 +442,18 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     id: "gannRetracementConfluence",
     family: "scanScore",
     source: "lib/scoring/score.ts",
-    label: "Retracement + signal-flow confluence",
+    label: "Retracement zone",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
-      "Replaces `masterStructural` (retired 2026-09-10; see RETIRED). A composite: passes only when a " +
-      "percentage-retracement zone (lib/gann/retracement.ts, the genuinely new structural mechanism this " +
-      "codebase was missing) matches in the trade's role AND the price-time signal-flow confluence off " +
-      "the same anchor (lib/gann/digitalRoot.ts's priceTimeConfluence) is not NO_CONFLUENCE. The AND is " +
-      "deliberate, not incidental: blueprint 7.4's safety rule forbids that signal-flow reading from " +
-      "ever gating a verdict by itself, so it is wired in only as a confirming second factor on top of " +
-      "an independent structural check, never as the sole basis for the point. Never scored before; " +
-      "needs a fresh committed replay before any sign claim.",
+      "Replaces `masterStructural` (retired 2026-09-10; see RETIRED). Passes when a percentage-retracement " +
+      "zone (lib/gann/retracement.ts) matches in the trade's role. Until 2026-10-16 it also required the " +
+      "price-time signal-flow confluence off the same anchor (lib/gann/digitalRoot.ts), ANDed in as a " +
+      "confirming second factor; fork FL5 a removed that AND, since a class C reading (W011, arithmetic " +
+      "mod 9) may never gate a scored point, and the retracement levels score on their own. The " +
+      "digital-root reading stays on the card as context. The key keeps its old name so committed runs " +
+      "still validate, but their numbers describe the AND. Unmeasured on the new rule; needs a fresh " +
+      "committed replay before any sign claim.",
   },
   {
     id: "ruleOfThree",
@@ -551,9 +470,9 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "for this rule') into the live scorer immediately, overriding this codebase's normal unmeasured " +
       "-> attribution -> in/out-of-sample discipline (PROPOSAL_NEW_GANN_CRITERIA.md) rather than " +
       "quarantining it as a hypothesis first. No replay has ever measured it — this entry exists so " +
-      "that gap is visible, not hidden. The literal book rule is directional and asymmetric (an uptrend " +
-      "needs 3 consecutive lower closes to signal reversal; a downtrend needs only 2 consecutive higher " +
-      "closes) and is about a REVERSAL forming, not a trade's own direction generically — " +
+      "that gap is visible, not hidden. The literal book rule is directional (an uptrend needs 3 " +
+      "consecutive lower closes to signal reversal, and a downtrend the third higher close; until " +
+      "2026-10-16 the bullish count was 2, M-R3) and is about a REVERSAL forming, not a trade's own direction generically — " +
       "lib/gann/ruleOfThree.ts's docblock states exactly how this criterion generalizes that to 'the " +
       "immediate closes support this trade's own direction' for both reversion and continuation setups, " +
       "which is a broader reading than the source's literal text. Needs a fresh committed replay before any " +
@@ -564,6 +483,113 @@ const SCAN_SCORE: RegisteredCriterion[] = [
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
 const RETIRED: RegisteredCriterion[] = [
+  {
+    id: "stopRoom",
+    family: "scanScore",
+    source: "lib/scoring/score.ts (scored until 2026-10-16)",
+    label: "Stop room (>= 1.5x ATR) / Stop backed by real structure (us_equity)",
+    expectedSign: "positive",
+    evidence: "retired",
+    quarantineReason:
+      "us_equity branch only (assetClass === \"us_equity\" reads `levels.stopFromStructure` instead of " +
+      "the ATR-multiple check below — see hasStopRoom in lib/scoring/score.ts). First real measurement " +
+      "of the percent-of-purchase-price model (PR #217, 2026-09-11): 6 unconditioned (`within=all`) " +
+      "live runs captured 2026-09-15 (docs/replay-runs/2026-09-15-{15Min,1Hour}-within-all-productionStop" +
+      "{,-since90d,-since30d}.json — 15Min/1Hour x full-history/90d/30d, default universe SPY/AAPL/AMD/" +
+      "TSLA/MSFT/NVDA, all large-cap, `productionStop=1`). Pass rate on every single one of the 6: " +
+      "985 trades 98.2%, 438 trades 98.6%, 10,480 observed 99.5%, 367 trades 99.2%, 100 trades 98.0% " +
+      "(the 90d-15Min run duplicates the full-history one — 15Min's ~60-day natural lookback is already " +
+      "under the 90-day cutoff, so it trims nothing; treat it as the same reading, not a 6th independent " +
+      "one). Every reading clears MIN_OBSERVATIONS_FOR_SATURATION (30) and sits well past " +
+      "DEFAULT_SATURATION_BOUNDS.maxPassRate (0.95) in lib/validation/health.ts — this is not a borderline " +
+      "call, it fires on all 6/6.\n" +
+      "\n" +
+      "Mechanism, traced to computeEquityTradeLevels's nearestStructuralStop (lib/strat/levels.ts): it " +
+      "searches `[...gannTargets, ...structuralLevels]` — the projected key-price-level targets " +
+      "(lib/gann/fans.ts, lib/gann/squareOf9.ts) pooled together with clustered S/R, not S/R alone — " +
+      "for any favorable-side level inside [EQUITY_STOP_MIN_PCT 3%, EQUITY_LARGE_CAP_STOP_MAX_PCT 20%] " +
+      "of entry (the default universe is entirely large-cap, so the wider band always applies). Those " +
+      "projected levels are dense enough across a 17-point-wide band that one is almost always found, " +
+      "so the EQUITY_FALLBACK_STOP_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT branch essentially never " +
+      "fires (18/985, 6/438, 53/10,480, 3/367, 2/100 across the 6 runs) even though lib/strat/levels.ts's " +
+      "own comment on EQUITY_FALLBACK_STOP_PCT cites historicalSR — the S/R-only criterion reading the " +
+      "same underlying level data — passing only ~18-19% of the time. Pooling the projected targets into " +
+      "the search turns 'is there real structure near this stop' into 'is there almost always real " +
+      "structure', which is not the question the criterion is named for. The point is a near-automatic " +
+      "freebie the same way patternArmed is, except here that was never the intent.\n" +
+      "\n" +
+      "Sign, on the two runs large enough to read (985 and 10,480 trades — the other four have failed " +
+      "arms of 6, 3, and 2, under MIN_SAMPLES_PER_ARM=10, so attributeFactors correctly marks them " +
+      "`insufficient`): correlation is negative but negligible — r=-0.016 (t=-0.51) and r=-0.005 " +
+      "(t=-0.55), both far short of |t|>=1.96. Not inverted, just uninformative, which is exactly what a " +
+      "criterion this saturated would produce either way.\n" +
+      "\n" +
+      "**Fix applied 2026-09-15, confirmed by user.** nearestStructuralStop's input split in two: " +
+      "`structuralLevels` (S/R only, feeds the stop) and a new `extensionLevels` param (defaults to " +
+      "`structuralLevels`; the production call site passes the old combined S/R+projected-level pool " +
+      "here instead) that feeds only the runner extension, which was never measured saturated — only the " +
+      "stop was. See computeEquityTradeLevels's own doc comments in lib/strat/levels.ts. " +
+      "**Quarantine stays in place** — a code fix is not a measurement. Exit condition unchanged: " +
+      "lifts once a re-measured unconditioned equity run (post-fix, live data) lands the pass rate " +
+      "back inside [0.05, 0.95]. That run has not happened yet.",
+    note:
+      "Retired 2026-10-16 (owner, Q23): replaced by `stopBehindOldLevel`, the old level 3 points in " +
+      "front of the stop. The ATR multiple and the 'anchored to S/R' reading had no source. Kept so " +
+      "committed runs still validate; their numbers describe the old rule.\n" +
+      "Below documents the pre-equity-model history: the ATR-multiple branch (`stopAtrMultiple >= " +
+      "MIN_STOP_ROOM_ATR`), which every non-us_equity asset class still uses and which us_equity used " +
+      "too before PR #217. See quarantineReason above for the us_equity structural-stop branch that " +
+      "replaced it.\n\n" +
+      "Replaced `momentum` on 2026-09-08. Momentum was the deadest criterion in the app: on 1,005 " +
+      "unconditioned live trades it measured r=−0.0003, t=−0.01, Δ=−0.002R — three ten-thousandths " +
+      "of a correlation, a point contributed for no information. It survives as an input to " +
+      "applyReversionConfirmation's bare-2-2 gate, which is a different job; it is simply no longer " +
+      "scored. Corroborated on the fresher, larger 2026-09-10 unconditioned run (1,029 trades): still " +
+      "r≈0.00 (100/1029 passing, Δ=+0.002R) — dead on a second, independent population too.\n" +
+      "\n" +
+      "Stop room is the strongest effect in that same 2026-09-08 run and the reason for the swap: split " +
+      "at 1.5x ATR it is +0.217R against −0.072R, Δ=+0.289R at t=2.40, with a 40.0% win rate against a " +
+      "33.3% break-even. Larger than historicalSR, the best of the nine it joins. Expectancy is " +
+      "monotonic across the boundary and 1.5x is the only point where the sign flips.\n" +
+      "\n" +
+      "The same split direction and shape reproduces on the fresher 2026-09-10 run (1,029 trades, " +
+      "docs/replay-runs/2026-09-10-15Min-2R-within-all.json's atrBands): below 1.5x ATR, 854 trades at " +
+      "31.2% win rate; at/above 1.5x, 175 trades at 38.3% — the same side of the 33.3% break-even line " +
+      "flips the same way. That table only carries per-band win rate and mean expectancy, not per-trade " +
+      "values, so no independent t-statistic is reported for it — the t=2.40 above is the one on record, " +
+      "from real per-trade data.\n" +
+      "\n" +
+      "Stays hypothesis. The `?productionStop=1` run was captured 2026-09-09 and confirmed nothing, " +
+      "because it turned out not to be a different measurement: every ATR band came back with " +
+      "identical trade counts and identical win rates, four of five with a literally zero expectancy " +
+      "difference, and the overall expectancy moved by 2e-6. computeStopWithLeeway takes whichever " +
+      "stop is FURTHER from entry (levels.ts `Math.min(structuralStop, leewayCandidate)`), the " +
+      "large-cap leeway is 0.25x ATR, and this sample has zero trades under 0.5x ATR — so the " +
+      "leeway cannot bind on any trade, and only the 3.5x cap moved a handful in the 2.5x+ band.\n" +
+      "\n" +
+      "So the stop-width effect is measured on two overlapping-universe samples (same six large caps, " +
+      "different windows), not yet a genuinely independent one. What it needs is a different WINDOW or " +
+      "universe.\n" +
+      "\n" +
+      "A third same-universe reading landed 2026-09-11 (docs/replay-runs/2026-09-11-15Min-2R-within-" +
+      "all.json, 1061 trades, one day's rolling window forward from the 2026-09-10 capture): 184/1061 " +
+      "passed, Δ+0.252R, r=+0.068, t≈2.21 — significant this time, same direction, same rough " +
+      "magnitude as the two before it. Reproduces cleanly a third time, but per the standard this entry " +
+      "already set for itself, a one-day-later window on the identical six symbols is not the " +
+      "genuinely independent sample the exit condition asks for — it's essentially the same population " +
+      "plus a handful of new trades, not a different regime or universe. Reversion-only, 15Min. See " +
+      "MIN_STOP_ROOM_ATR for why this is a selection rule and never an instruction to widen a stop.\n" +
+      "\n" +
+      "**2026-09-11 onward: the above describes an evidentiary record for a branch this criterion no " +
+      "longer walks for equities.** The same day as the last reading above, `us_equity` moved to the " +
+      "percent-of-purchase-price stop model (lib/strat/levels.ts's `computeEquityTradeLevels`) and this " +
+      "criterion's equity question changed from 'stop width >= 1.5x ATR' to 'stop anchored to real " +
+      "structure' (score.ts's `hasStopRoom`). Every reading above measured the ATR-multiple question, " +
+      "which every non-equity asset class still asks — that history stays valid for them, but describes " +
+      "nothing about the equity branch, which went unmeasured for three days until the 2026-09-14 runs " +
+      "found it 98-99% saturated. See `quarantineReason` for that finding, its root cause, and the " +
+      "candidate fixes.",
+  },
   {
     id: "patternArmed",
     family: "scanScore",
@@ -660,8 +686,8 @@ const RETIRED: RegisteredCriterion[] = [
       "Replaced by `stopRoom`. On 1,005 unconditioned live trades it measured r=−0.0003, t=−0.01, " +
       "Δ=−0.002R: three ten-thousandths of a correlation, contributing a point of the nine for no " +
       "information at all. Every payload committed before 2026-09-08 measured it, which is why the " +
-      "entry stays. `momentumElevated` itself is still computed and still gates the bare-2-2 check " +
-      "in applyReversionConfirmation — that job was never the scored point.",
+      "entry stays. `momentumElevated` itself is still computed; the bare-2-2 hold it gated was " +
+      "removed on 2026-10-16 (N#1) — that job was never the scored point.",
   },
   {
     id: "fanProximity",
@@ -826,11 +852,13 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
   {
     id: "reversionConfirmation",
     family: "scoreHold",
-    source: "lib/scoring/score.ts",
+    source: "lib/scoring/score.ts (until 2026-10-16)",
     label: "Bare reversal confirmation",
     expectedSign: "unknown",
-    evidence: "unmeasured",
+    evidence: "retired",
     note:
+      "Retired 2026-10-16 (N#1): it was the last bar-sequence pattern holding an Execute verdict, and " +
+      "no bar-sequence pattern may gate a verdict (AGENTS.md). Kept so committed runs still validate. Before that: " +
       "Failed by construction whenever it appears at all: `applyReversionConfirmation` only appends " +
       "this breakdown item on the early-return path taken when `confirmed` is false (a bare 2-2 pattern " +
       "on an Execute verdict that didn't get momentum+S/R confirmation) — there is no code path that " +
@@ -852,6 +880,72 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
       "Owner decision 5 (2026-09-27): the method stays out of a sideways market until it breaks away " +
       "(Commodities pp. 51-52). Appended only when it holds a range-bound Execute whose entry sits inside " +
       "the 13-week range, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "monthlyBreak",
+    family: "scoreHold",
+    source: "lib/gann/campaignLedger.ts",
+    label: "No break of the prior month's low (high)",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "PLAN.md item 6, step 3 (2026-10-16): a monthly break warns against new trades with the trend " +
+      "(W006 pp.40-43) without ending the trend (W006 p.14). Appended only when it holds an Execute with " +
+      "the campaign's trend while the month so far has broken the prior month's low (high), so it is " +
+      "failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "distributionBreakdown",
+    family: "scoreHold",
+    source: "lib/gann/distribution.ts",
+    label: "No breakdown after a lower top",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "PLAN.md item 8 step 5 (2026-10-16, fork FV7 b): after a lower top, a narrow spell broken down on " +
+      "increased volume signals a further decline (W006 pp.39-40, volume Rule 2). Appended only when it holds " +
+      "a long Execute while that breakdown stands, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "failedTop",
+    family: "scoreHold",
+    source: "lib/gann/multipleTops.ts",
+    label: "No failed double top overhead",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "PLAN.md item 9 step 7 (2026-10-16, fork FL3 a): failing to pass an old top is a top (A-LEVELS-04, " +
+      "W006 pp.14-15, 44). Appended only when it holds an Execute while a failed double or triple top stands " +
+      "above a long (bottom below a short), so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "queerActing",
+    family: "scoreHold",
+    source: "lib/gann/ruleFollowing.ts",
+    label: "Stock follows the rules",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Q24 (owner, 2026-10-16, \"Both\"): leave queer-acting stocks alone (A-SELECTION-01, W006 pp.20, 34-35). " +
+      "Appended only when it holds an Execute because under a third of the stock's last four or more buying and " +
+      "selling points carried on, so it is failed by construction whenever present. Measured as followsRules.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "timeWindowTurn",
+    family: "scoreHold",
+    source: "lib/gann/timeWindow.ts",
+    label: "Turn came at a time window",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Q19 (owner, 2026-10-16, \"Window\"): a counter-trend Execute holds to Watch unless its swing extreme came " +
+      "on a dated window (A-TIME-15, W036 p.22; C-STOP-03; HTMPC p.56). Appended to every counter-trend Execute, " +
+      "passed when the turn came on a window and failed when it holds the verdict.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
@@ -894,7 +988,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "volumeResumption",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
   trendBreakout: [
@@ -905,7 +998,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "volumeExpansion",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
   confirmedReversal: [
@@ -916,7 +1008,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "volumeConfirmation",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
   rangeReversion: [
@@ -927,7 +1018,6 @@ const ALIGNMENT_STATES: Record<string, string[]> = {
     "liquiditySpread",
     "benchmarkSector",
     "noBreakoutVolumeSpike",
-    "noBinaryEventConflict",
     "targetStopFeasibility",
   ],
 };
@@ -969,7 +1059,6 @@ const RULES_ALIGNMENT: RegisteredCriterion[] = Object.entries(ALIGNMENT_STATES).
 const DISQUALIFIERS: RegisteredCriterion[] = [
   "unclosedCandle",
   "staleData",
-  "binaryEvent",
   "targetBlocked",
   "stopPolicy",
   "positionSize",

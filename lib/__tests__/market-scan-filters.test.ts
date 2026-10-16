@@ -5,8 +5,8 @@ import type { Bar, ScanResult } from "@/lib/types";
 /**
  * A synthetic 80-day series that reads as an extended downtrend against a
  * bullish reversion candidate — every criterion coarseReversion scores is a
- * ratio of price (distance from the range's 50% point, pivot direction, level proximity as a % of
- * price), so scaling every bar by the same factor reproduces the identical
+ * ratio of price (distance from the range's 50% point, pivot direction), apart from level
+ * proximity, which is Gann's price-scaled 3 points (N#27), so scaling every bar by the same factor reproduces the identical
  * read at a different absolute price. That isolates the $5 price floor as
  * the only thing that can tell the two apart.
  */
@@ -28,7 +28,11 @@ function extendedDowntrend(scale: number): Bar[] {
     const tail = i >= 110 ? (i - 109) * 4 : 0;
     const c = (trend + wiggle - tail) * scale;
     const t = new Date(Date.UTC(2025, 0, 1 + i)).toISOString();
-    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });
+    // Heavy volume at the last swing low (bar 105): Gann's volume rule at the
+    // turn, so the fixture clears the coarse floor on his criteria (fan line
+    // and volume). Its distance from the 50% point stopped scoring on
+    // 2026-10-16 (item 6 step 6: never too high to buy, W006 p.22).
+    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: i === 105 ? 4_000_000 : 1_000_000 });
   }
   return bars;
 }
@@ -46,13 +50,28 @@ describe("coarseReversion price floor", () => {
     // to two different prices — both comfortably above the floor — has to
     // produce the same read. Only crossing the floor itself should change
     // the outcome.
-    const at1000 = coarseReversion("A", extendedDowntrend(10));
-    const at2000 = coarseReversion("B", extendedDowntrend(20));
+    // Since Q27 (2026-10-16) the fans rise a Gann point a bar, a larger share
+    // of a cheap stock's price, so this shape sits on a fan line at $47 and
+    // $475 but not at $7 or $12.
+    const atSeven = coarseReversion("A", extendedDowntrend(1));
+    const atTwelve = coarseReversion("B", extendedDowntrend(10));
     // Guard against a vacuous pass: this fixture previously read as sideways,
     // so both calls returned null and null matched null.
-    expect(at1000).not.toBeNull();
-    expect(at1000?.coarseScore).toEqual(at2000?.coarseScore);
-    expect(at1000?.direction).toEqual(at2000?.direction);
+    expect(atSeven).not.toBeNull();
+    expect(atTwelve).not.toBeNull();
+    expect(atSeven?.direction).toEqual(atTwelve?.direction);
+    // The score itself may differ: since 2026-10-16 "at a level" is Gann's
+    // 3-point allowance (N#27), which is a smaller share of a higher price,
+    // so the same shape need not score its level points at both prices.
+  });
+});
+
+describe("coarseReversion and how far price has run (A-TREND-09)", () => {
+  it("scores nothing for distance from the 50% point: never too low to sell while the trend is down", () => {
+    // Without the volume at the last low, only the fan line scores (2 points),
+    // under the floor of 3, though price is far below its 50% point.
+    const bars = extendedDowntrend(10).map((b) => ({ ...b, v: 1_000_000 }));
+    expect(coarseReversion("X", bars)).toBeNull();
   });
 });
 

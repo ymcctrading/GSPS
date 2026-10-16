@@ -124,12 +124,23 @@ export interface GannTrendRead {
   /**
    * Gann's change-of-trend signals against the weekly trend (added
    * 2026-09-27, parity roadmap B2): the current counter-move is larger or
-   * longer than the campaign's greatest (over-balance of space or time), or
-   * price has broken the prior month's low (high in a downtrend). When any
-   * of these fire, the trend is changing and is no longer confirmed. See
-   * `lib/gann/campaignLedger.ts` for the sources.
+   * longer than the campaign's greatest (over-balance of space or time).
+   * When either fires, the trend is changing and is no longer confirmed. So is
+   * a monthly break whose reaction has gone under the previous section's top
+   * (item 6 review R2, W006 p.14), and a counter-move still making new
+   * extremes in its third month (item 7 step 3, A-TIME-01/-02, W006 p.38). See `lib/gann/campaignLedger.ts` for the
+   * sources.
    */
   changing: boolean;
+  /**
+   * The month so far has broken the prior month's low (high in a downtrend).
+   * A warning, not the end of the trend, while the reaction holds above the
+   * previous section's top (PLAN.md item 6, step 3): until 2026-10-16 it also
+   * unconfirmed the trend, but Gann's own 1933 reaction broke monthly lows
+   * while he read the trend as still up (W006 p.14). It holds a new Execute
+   * with the trend to Watch (`applyMonthlyBreakHold`).
+   */
+  monthlyWarning: boolean;
 }
 
 export function readGannTrend(bars: Bar[]): GannTrendRead {
@@ -156,11 +167,19 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
   const structureAgrees =
     (weekly === "bullish" && rising) || (weekly === "bearish" && falling);
   const ledger = buildCampaignLedger(bars);
+  // A monthly break only warns while the reaction holds above the previous
+  // section's top (W006 p.14, A-TREND-06); under it, the trend is changing.
   const changing =
-    ledger !== null && (ledger.spaceOverbalanced || ledger.timeOverbalanced || ledger.monthlyBreak);
+    ledger !== null &&
+    (ledger.spaceOverbalanced ||
+      ledger.timeOverbalanced ||
+      // A reaction still making new extremes in its third month (A-TIME-01/-02, W006 p.38).
+      ledger.counterMoveThirdMonth ||
+      (ledger.monthlyBreakInReaction && ledger.reactionBelowPriorSection));
+  const monthlyWarning = ledger !== null && ledger.monthlyBreak;
   const confirmed = weekly !== null && structureAgrees && !changing;
 
-  return { direction: confirmed ? weekly : null, confirmed, threeDay, weekly, structureAgrees, changing };
+  return { direction: confirmed ? weekly : null, confirmed, threeDay, weekly, structureAgrees, changing, monthlyWarning };
 }
 
 /**
@@ -175,4 +194,33 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
  */
 export function isGannRangeBound(bars: Bar[]): boolean {
   return !readGannTrend(bars).confirmed;
+}
+
+export interface SuccessiveSwings {
+  /** Higher bottoms in a row on the 3-Day Chart, ending at the latest bottom (0 when it is not higher). */
+  higherBottoms: number;
+  /** Lower tops in a row, ending at the latest top. */
+  lowerTops: number;
+}
+
+/**
+ * Which higher bottom (or lower top) the market stands on (C-ENTRY-03). Gann:
+ * the move is "strongest after the 2nd-3rd higher bottom" (Master Course
+ * Ch.8, PDF pp.251-252), and "watch the first, second and third lower tops"
+ * (Commodities p.46); W003 p.17 restates it as the 3rd or 4th. Context only.
+ * Engineering choices, labelled: bottoms and tops are the 3-Day Chart's
+ * (`STRUCTURE_SWING_CHART`), compared strictly, and the count restarts at the
+ * last bottom that was not higher.
+ */
+export function readSuccessiveSwings(bars: Bar[]): SuccessiveSwings {
+  const pivots = swingPivots(bars, STRUCTURE_SWING_CHART);
+  const run = (prices: number[], sign: 1 | -1): number => {
+    let n = 0;
+    for (let i = prices.length - 1; i > 0 && sign * (prices[i] - prices[i - 1]) > 0; i--) n++;
+    return n;
+  };
+  return {
+    higherBottoms: run(pivots.filter((p) => p.kind === "bottom").map((p) => p.price), 1),
+    lowerTops: run(pivots.filter((p) => p.kind === "top").map((p) => p.price), -1),
+  };
 }

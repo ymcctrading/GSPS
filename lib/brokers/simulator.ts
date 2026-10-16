@@ -447,35 +447,57 @@ export async function closePositionSim(
 }
 
 /**
- * Whether a protocol "advised price" entry has triggered against `market`.
+ * Whether a resting limit entry is marketable against `market`: a buy fills
+ * once the market is at or below its price, a sell once it is at or above.
  *
- * Every advised entry submitted through the ticket is a breakout/reversal
- * trigger from `lib/strat/patterns.ts` (a buy-stop one penny above a bar's
- * high, or a sell-stop one penny below its low) — not a discount limit. The
- * setup is only confirmed once price moves *into* that level, so a buy
- * triggers when the market rises to or through it, and a sell triggers when
- * the market falls to or through it. Filling these as ordinary limit orders
- * (a buy fillable once the market is at or *below* its price) filled advised
- * orders the instant they were armed, since price hasn't crossed the trigger
- * yet by definition.
+ * Until 2026-10-15 an advised entry was a breakout trigger (a buy-stop above
+ * the market), so this read the other way round. Since PLAN.md item 4 every
+ * protocol entry is Gann's reaction buy: after a close 3 points past the old
+ * level, the order rests at the level plus 1 point and fills when price
+ * reacts back to it (W006 pp.20, 46-47), the way a real limit order does and
+ * the way the live broker (`lib/brokers/alpaca.ts`) already rests it.
  */
-export function isTriggered(side: "buy" | "sell", triggerPrice: number, market: number): boolean {
-  return side === "buy" ? market >= triggerPrice : market <= triggerPrice;
+export function isTriggered(side: "buy" | "sell", limitPrice: number, market: number): boolean {
+  return side === "buy" ? market <= limitPrice : market >= limitPrice;
 }
 
 /**
- * Fill every resting simulated advised-entry order whose trigger the market
- * has now reached. Filled at the live market price, not the order's own
- * trigger — by the time a resting entry has triggered, the market has
- * already moved through the level (a buy's market is >= it, a sell's is <=),
- * and that's the price a real stop-entry would report back, especially after
- * a gap carries price well past the trigger between polls. Options are
- * skipped: without a live per-contract quote there's nothing to test
- * against, so an option order only ever fills (or doesn't) at placement time
- * — see the option branch in `POST /api/orders`. Covers both plain advised
- * entries (`order_type: "limit"`) and advised entries with protocol stop/
- * target legs attached (`order_type: "bracket"`) — both rest the same way
- * and trigger on the same breakout level.
+ * Resting paper entries placed before the reaction rule went in were
+ * breakout triggers (a buy-stop above the market, a sell-stop below), so they
+ * keep that reading until they fill or are cancelled. Read as limits they
+ * would fill on the first poll, below the trigger they were placed at. Three
+ * such rows were resting in production on 2026-10-15, all from 2026-08-29.
+ * The cutover is the merge to production (2026-10-16): no paper entry was
+ * placed between the first cutover and the merge (checked read-only).
+ */
+export const REACTION_LIMIT_CUTOVER = "2026-10-16T20:30:00Z";
+
+/** `isTriggered` for a resting row, honouring `REACTION_LIMIT_CUTOVER`. */
+export function isRestingOrderTriggered(
+  side: "buy" | "sell",
+  limitPrice: number,
+  market: number,
+  createdAt: string | null | undefined,
+): boolean {
+  const created = createdAt ? Date.parse(createdAt) : NaN;
+  if (Number.isFinite(created) && created < Date.parse(REACTION_LIMIT_CUTOVER)) {
+    return side === "buy" ? market >= limitPrice : market <= limitPrice;
+  }
+  return isTriggered(side, limitPrice, market);
+}
+
+/**
+ * Fill every resting simulated limit entry the market has now reached, at the
+ * live market price (at or better than the limit, which is what a real limit
+ * reports when price trades through it between polls). Before that, an order
+ * whose planned stop the market has reached is cancelled instead: with a
+ * limit entry the market can be at the stop and below the limit at once, and
+ * a fill there is not the trade that was planned. Options are skipped:
+ * without a live per-contract quote there's nothing to test against, so an
+ * option order only ever fills (or doesn't) at placement time — see the
+ * option branch in `POST /api/orders`. Covers both plain advised entries
+ * (`order_type: "limit"`) and advised entries with protocol stop/target legs
+ * attached (`order_type: "bracket"`).
  */
 export async function evaluateRestingOrders(
   supabase: Supabase,
@@ -484,7 +506,7 @@ export async function evaluateRestingOrders(
 ): Promise<{ filled: number; invalidated: number; error: string | null }> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, symbol, side, qty, limit_price, stop_price, asset_class")
+    .select("id, symbol, side, qty, limit_price, stop_price, asset_class, created_at")
     .eq("user_id", userId)
     .eq("mode", "paper")
     .eq("status", "new")
@@ -503,7 +525,43 @@ export async function evaluateRestingOrders(
     const market = await quotePrice(symbol, assetClassOf(symbol));
     if (market == null) continue;
 
-    if (isTriggered(side, limitPrice, market)) {
+    // The market has hit the planned stop before the entry filled —
+    // the setup is broken. Cancel rather than leave it resting indefinitely;
+    // see lib/trade/invalidate-pending.ts.
+    const stopPrice = Number(row.stop_price);
+    const invalidatable: InvalidatableOrder = {
+      side,
+      limit_price: limitPrice,
+      stop_price: Number.isFinite(stopPrice) ? stopPrice : null,
+    };
+    if (isInvalidatedByStop(invalidatable, market)) {
+      const reason = invalidationReason(invalidatable, market);
+      const { data: claimed } = await supabase
+        .from("orders")
+        .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .eq("status", "new")
+        .select("id")
+        .maybeSingle();
+      if (!claimed) continue;
+      invalidated++;
+
+      if (userEmail) {
+        await sendOrderInvalidatedEmail({
+          userEmail,
+          symbol,
+          side,
+          qty: Number(row.qty),
+          limitPrice,
+          stopPrice: invalidatable.stop_price,
+          reason,
+        }).catch((err) => console.error(`invalidation email failed for ${symbol}:`, err));
+      }
+      continue;
+    }
+
+    if (isRestingOrderTriggered(side, limitPrice, market, row.created_at as string | null)) {
       // Claim before executing, same reasoning as the exit manager's tranche
       // claim: a concurrent poll must not fill this same resting order twice.
       const { data: claimed } = await supabase
@@ -527,42 +585,6 @@ export async function evaluateRestingOrders(
         await logPlainClose(supabase, userId, symbol, assetClassOf(symbol), side, executed.closed);
       }
       filled++;
-      continue;
-    }
-
-    // Never reached the entry, but the market has now hit the planned stop —
-    // the setup is broken. Cancel rather than leave it resting indefinitely;
-    // see lib/trade/invalidate-pending.ts.
-    const stopPrice = Number(row.stop_price);
-    const invalidatable: InvalidatableOrder = {
-      side,
-      limit_price: limitPrice,
-      stop_price: Number.isFinite(stopPrice) ? stopPrice : null,
-    };
-    if (!isInvalidatedByStop(invalidatable, market)) continue;
-
-    const reason = invalidationReason(invalidatable, market);
-    const { data: claimed } = await supabase
-      .from("orders")
-      .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
-      .eq("id", row.id)
-      .eq("user_id", userId)
-      .eq("status", "new")
-      .select("id")
-      .maybeSingle();
-    if (!claimed) continue;
-    invalidated++;
-
-    if (userEmail) {
-      await sendOrderInvalidatedEmail({
-        userEmail,
-        symbol,
-        side,
-        qty: Number(row.qty),
-        limitPrice,
-        stopPrice: invalidatable.stop_price,
-        reason,
-      }).catch((err) => console.error(`invalidation email failed for ${symbol}:`, err));
     }
   }
   return { filled, invalidated, error: null };

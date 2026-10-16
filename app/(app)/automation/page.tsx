@@ -237,12 +237,13 @@ interface WatchingSetup {
 }
 
 /**
- * The four stages `lib/lifecycle/entryConfirmation.ts` populates in order on
+ * The stages `lib/lifecycle/entryConfirmation.ts` populates on
  * `trade_plans.entry_confirmation` before `entryReady()` allows a plan to
- * arm. Counting how many are non-null gives an honest 0-4 "how close is this
- * to executing" readout without inventing a separate progress heuristic.
+ * arm. Since PLAN.md item 4 that is the crossing rule's two: price reaches 3
+ * points past the old level, then closes there. The order then rests for the
+ * reaction. Counting how many are non-null gives an honest 0-2 readout.
  */
-const ENTRY_CONFIRMATION_STAGES = ["touchedAt", "breakOrSweepAt", "retestAt", "confirmationMoveAt"] as const;
+const ENTRY_CONFIRMATION_STAGES = ["touchedAt", "breakOrSweepAt"] as const;
 const MAX_WATCHING = 9;
 
 function countChecklistSteps(entryConfirmation: unknown): number {
@@ -253,7 +254,8 @@ function countChecklistSteps(entryConfirmation: unknown): number {
 
 /**
  * Setups the engine has already flagged tradeable (EXECUTE) and is now
- * tracking through the mandatory break/retest/confirmation-move sequence
+ * tracking until price closes 3 points past the old level (or, for a
+ * double or triple bottom, until it rests at the old level)
  * before it will arm and place a trade — this is the "not idle, here's what
  * it's watching" surface for the Automated Portfolio Manager. Only plans in
  * `awaiting_entry_confirmation` are shown: `watchlist`/`qualified` are
@@ -353,7 +355,7 @@ async function AutomationHub({
                           />
                         ))}
                       </span>
-                      <span>{w.checklistSteps}/4 checklist</span>
+                      <span>{w.checklistSteps}/{ENTRY_CONFIRMATION_STAGES.length} checklist</span>
                     </span>
                   </li>
                 ))}

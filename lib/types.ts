@@ -141,6 +141,33 @@ export interface GannLevels {
 }
 
 export interface TradeLevels {
+  /**
+   * Which of Gann's buying points priced the plan (PLAN.md item 5): the
+   * reaction after a crossing, a resting order at the old bottom (top), or a
+   * bottom (top) that has held, bought at the last close (step 4). Absent
+   * means the crossing, the only kind before step 2.
+   */
+  entryKind?: "crossing" | "oldLevel" | "hold";
+  /**
+   * For a held bottom: which of Gann's hold rules found it (the low stood into
+   * its second week, held two days after a bull-market reaction, or the record
+   * low held). Display only.
+   */
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
+  /**
+   * For a crossing, when the level crossed is not the last swing: the
+   * previous year's top or bottom, or the record from before the 52 weeks
+   * (PLAN.md item 5, step 3). Display only; the geometry is the same.
+   */
+  entrySource?: "priorYear" | "allTime";
+  /** With `entrySource` "priorYear": the year whose top or bottom was crossed (step 3 review R9). */
+  entryLevelYear?: number;
+  /**
+   * For a crossing: the level is an old bottom regained from below (an old
+   * top lost from above, for a short) after a 3-point break (A-TREND-10).
+   * Display only; the geometry is the same.
+   */
+  entryRegained?: true;
   entry: number;
   stopLoss: number;
   takeProfit1: number;
@@ -175,6 +202,13 @@ export interface TradeLevels {
    * sets it for a real scan.
    */
   stopFromStructure?: boolean;
+  /**
+   * An old top or bottom stands at least Gann's 3 points in front of the stop,
+   * between it and the entry (`lib/strat/levels.ts#oldLevelBehindStop`), every
+   * asset class. The scored `stopBehindOldLevel` point (owner, Q23,
+   * 2026-10-16). Optional for hand-built fixtures; a real scan always sets it.
+   */
+  stopBehindOldLevel?: boolean;
   /**
    * The counter-scenario: what invalidates this thesis and what a trade in
    * the opposite direction would need before it's worth considering.

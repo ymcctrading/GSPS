@@ -208,8 +208,8 @@ describe("stillMatches", () => {
 });
 
 describe("sizeIsTradeable", () => {
-  it("rejects a single share, which cannot follow the staged exit", () => {
-    expect(sizeIsTradeable(1)).toBe(false);
-    expect(sizeIsTradeable(2)).toBe(true);
+  it("takes a single share, now that nothing is split at a target (Q14), and refuses none", () => {
+    expect(sizeIsTradeable(0)).toBe(false);
+    expect(sizeIsTradeable(1)).toBe(true);
   });
 });

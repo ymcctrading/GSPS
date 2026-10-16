@@ -119,7 +119,7 @@ export function SetupCardPanel({
           </span>
         )}
         {model.continuation && (
-          <span className="text-xs text-muted">Momentum continuation — trades with the trend</span>
+          <span className="text-xs text-muted">With the trend: taken on the trend, however far it has run</span>
         )}
       </div>
 

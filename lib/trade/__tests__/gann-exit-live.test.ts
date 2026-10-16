@@ -22,8 +22,10 @@ describe("readGannExitFromBars", () => {
 
   it("skips the hold test when the entry never crossed the old top", () => {
     // An entry below the last swing top crossed nothing, so it can't fail to hold it.
+    // Opened during Monday's session, so the trade is still in its entry week
+    // and the weekly trail (A-STOP-05) has nothing to move yet.
     const r = readGannExitFromBars(
-      { symbol: "TEST", side: "long", entryPrice: 95, initialStop: 89, openedAt: entryDay, best: 96 },
+      { symbol: "TEST", side: "long", entryPrice: 95, initialStop: 89, openedAt: "2026-06-15T15:00:00Z", best: 96 },
       bars.slice(0, 16),
       null,
     );

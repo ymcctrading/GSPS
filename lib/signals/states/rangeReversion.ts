@@ -229,11 +229,11 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
       label: "Benchmark/sector alignment",
       points: 10,
       maxPoints: 10,
-      applicable: true,
-      passed: gates.benchmarkSectorAlignment,
-      note: gates.benchmarkSectorAlignment
-        ? "Correlation/market context aligned."
-        : "Benchmark/sector context does not align.",
+      // Each stock is traded on its own trend, not the averages (A-TREND-04,
+      // W006 pp.16-18), so no index or sector check scores here.
+      applicable: false,
+      passed: false,
+      note: "Not used: each stock is traded on its own trend, not the market averages.",
     },
     {
       key: "noBreakoutVolumeSpike",
@@ -248,18 +248,7 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
           : `Relative volume ${recentRvol!.toFixed(2)}x is breakout-sized — rotational conditions aren't confirmed.`
         : "No reliable volume data — excluded from scoring.",
     },
-    {
-      key: "noBinaryEventConflict",
-      label: "No binary event conflict",
-      points: 5,
-      maxPoints: 5,
-      applicable: true,
-      passed: gates.binaryEventInHoldPeriod === false,
-      note:
-        gates.binaryEventInHoldPeriod === false
-          ? "No binary event inside the hold period."
-          : "Binary event unknown or present inside the hold period.",
-    },
+    // No report-date criterion: no source of the method gates on one (Q25, 2026-10-16).
     {
       key: "targetStopFeasibility",
       label: "Target and stop feasibility",

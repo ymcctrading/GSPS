@@ -38,7 +38,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
-import { getOrCreateAccount } from "@/lib/brokers/simulator";
+import { getOrCreateAccount, STARTING_CASH } from "@/lib/brokers/simulator";
+import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { activateAutomationProfile } from "@/lib/automation/service";
 import {
@@ -52,7 +53,10 @@ import { armConfirmedPlansFromBars, planStopBroken } from "@/lib/lifecycle/armFr
 import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
+import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
+import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
 
 type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
@@ -71,6 +75,10 @@ interface AutonomousProfileRow {
 
 interface CandidatePlanRow {
   plan_id: string;
+  /** `pivot:`-prefixed for a stop-and-reverse plan (`lib/lifecycle/fromPivot.ts`). */
+  signal_id: string | null;
+  /** Migration 0086; null for a crossing. */
+  entry_kind?: string | null;
   instrument: string;
   direction: "bullish" | "bearish";
   market: string;
@@ -193,7 +201,9 @@ async function runForProfile(
 
   const { data: plans, error: plansError } = await supabase
     .from("trade_plans")
-    .select("plan_id, instrument, direction, market, entry_trigger, invalidation, generated_at, alignment")
+    // Every column, so `entry_kind` (migration 0086) is read where it exists
+    // without failing the query where it doesn't yet.
+    .select("*")
     .eq("user_id", profile.user_id)
     .eq("market", "us_equity")
     .eq("state", "armed");
@@ -265,6 +275,14 @@ async function runForProfile(
   } else {
     equityBasis = (await getOrCreateAccount(supabase, profile.user_id)).cash;
   }
+  // Gann's trading unit (A-RISK-04, rule 24; owner, 2026-10-16, Q7): the
+  // paper account steps up only once profits equal its starting capital, and
+  // neither account steps up on a long run of wins. No starting capital is on
+  // record for a live account, so only the rule-24 hold applies there.
+  const run = await readWinningRun(supabase, profile.user_id);
+  equityBasis = run
+    ? gannRiskCapital({ equity: equityBasis, startingCapital: executionMode === "live" ? 0 : STARTING_CASH, ...run }).capital
+    : Math.min(equityBasis, executionMode === "live" ? equityBasis : STARTING_CASH);
 
   const allocatedDollarRisk = Math.max(
     MIN_ALLOCATED_DOLLAR_RISK,
@@ -330,11 +348,19 @@ async function runForProfile(
       continue;
     }
     if (!gannPrefs.autoOrderRoundNumbers) {
-      // The trigger is the crossed swing level plus the lost-motion allowance.
-      const b = LOST_MOTION_BUFFER_PCT / 100;
-      const trigger = Number(plan.entry_trigger);
-      const crossedLevel = plan.direction === "bullish" ? trigger / (1 + b) : trigger / (1 - b);
-      const rn = roundNumberEntryBlocked({ entry: trigger, direction: plan.direction, crossedLevel });
+      // The plan's entry is Gann's reaction buy, the crossed level plus 1
+      // point, with its stop 3 points the other side (PLAN.md item 4); the
+      // level is recovered from the two. A stop-and-reverse plan's entry and
+      // stop are not that pair, so its level is read back from the entry alone.
+      const entry = Number(plan.entry_trigger);
+      // An old-level plan (a double or triple bottom) rests at the level
+      // itself, and a held bottom's at the last close: neither crossed one.
+      const crossedLevel = isPivotSignal(plan.signal_id)
+        ? levelBeforeThreePoints(entry, plan.direction)
+        : restsWithoutCrossing(plan.entry_kind)
+          ? entry
+          : gannCrossedLevel(entry, Number(plan.invalidation));
+      const rn = roundNumberEntryBlocked({ entry, direction: plan.direction, crossedLevel });
       if (rn.blocked) {
         result.plansSkipped++;
         result.errors.push({ userId: profile.user_id, planId: plan.plan_id, reason: rn.note ?? "Held at a round number." });

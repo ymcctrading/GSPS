@@ -12,7 +12,7 @@
  *
  * The reading: how long price has spent inside the range it is leaving (or
  * sitting in), counted back from the latest session while closes stay within
- * the range's high and low by the lost-motion allowance, and whether the
+ * the range's high and low by the 3-point allowance, and whether the
  * latest close has broken out of it and which way.
  *
  * Engineering choices, labelled as such: the range is the high and low of the
@@ -28,7 +28,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { LOST_MOTION_BUFFER_PCT } from "@/lib/gann/entryTrigger";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
 export const RANGE_LOOKBACK = 20;
 export const LONG_WEEKS = 10;
@@ -49,12 +49,13 @@ export function readAccumulation(daily: Bar[]): AccumulationReading | null {
   const window = daily.slice(-RANGE_LOOKBACK - 1, -1);
   const rangeHigh = Math.max(...window.map((b) => b.h));
   const rangeLow = Math.min(...window.map((b) => b.l));
-  const a = LOST_MOTION_BUFFER_PCT / 100;
-  const inside = (b: Bar) => b.c <= rangeHigh * (1 + a) && b.c >= rangeLow * (1 - a);
+  const upper = beyondByThreePoints(rangeHigh, 1);
+  const lower = beyondByThreePoints(rangeLow, -1);
+  const inside = (b: Bar) => b.c <= upper && b.c >= lower;
   let firstInside = daily.length - 2;
   while (firstInside > 0 && inside(daily[firstInside - 1])) firstInside--;
   const days = (Date.parse(daily[daily.length - 2].t) - Date.parse(daily[firstInside].t)) / 86_400_000;
   const weeks = Math.max(0, days / 7);
-  const breakout = last.c > rangeHigh * (1 + a) ? "up" : last.c < rangeLow * (1 - a) ? "down" : null;
+  const breakout = last.c > upper ? "up" : last.c < lower ? "down" : null;
   return { rangeHigh, rangeLow, weeks, breakout, long: weeks >= LONG_WEEKS };
 }

@@ -33,3 +33,813 @@
 - Found, not fixed (needs its own item): CYC-29 — a pure linear trend still reads dominance 5.04 after
   detrending; only the band-edge guard stops it being called a cycle.
 - Total passing: 11 of 342.
+
+== 2026-10-15 item 3: Gann's full 3 points on the entry side ==
+- Owner: "Use Gann's full 3 points now". Worktree ../gsps-item3, commits c28e7a4, 55a6d9a.
+- Tests first: lib/gann/__tests__/threePoints.test.ts (10 failed before the change, 16 tests now).
+- Changed: entryTrigger (trigger and stop 3 pts beyond), entryConfirmation (break buffer 0, counted once),
+  timeRules, multipleTops, accumulation, pyramid, evenFigures (levelOnFigure), levels.ts (stop 3 pts beyond
+  its level, once), breakaway (3 pts past the range), portfolio-manager (levelBeforeThreePoints), lesson copy.
+- STRATEGY_VERSION 2026-10-15-gann-three-points-entry. Full suite 2351/2351, tsc clean, terms clean.
+- Fresh review (docs/gann-feature-map/item3_review.md): all 7 entries FAIL on structure (no buy-the-reaction
+  entry, stop not 3 pts under the crossed top, context-only tops/bottoms, no distribution precondition).
+  Its fixable gaps were fixed in 55a6d9a. Structure moves to items 4 and 5. passes unchanged: 11 of 342.
+- Replay: 766 symbols, 15Min, before (main) and after (55a6d9a) queued on Actions.
+
+== 2026-10-15 item 4: Gann's buy-the-reaction entry, stop 3 points under the level ==
+- W006 pp.20, 46-47: a close 3 pts past an old top crosses it; buy the reaction at the level + 1 pt, stop at
+  the level - 3 pts (4 pts at risk, never more than 5). Shorts are the mirror.
+- 4a cf168d2: replay entryRule "reaction". 4b f468a3d: live switch (scan plans, confirmation reads the
+  crossing line from entry and stop, limit-semantics paper fills, automation rests a limit).
+  4c 0288d3e: Gann's exits trail under each week's bottom (A-STOP-05).
+- STRATEGY_VERSION 2026-10-15-gann-reaction-entry.
+- Fresh review (docs/gann-feature-map/item4_review.md): all 5 entries FAIL, mainly because the live wiring
+  wasn't pinned by tests (3 surviving mutations) plus partial-carry gaps.
+- Fixes b031543: ticket sends the protocol stop (entryStop); stop-and-reverse plans keep retest-and-hold;
+  5-point cap enforced at placement; no-plan crossing window is four days; pre-cutover resting orders keep
+  breakout semantics. reactionWiring.test.ts: all 10 new mutations caught.
+- Left open: replay default entryRule is still "stop" (workflow cells set "reaction" explicitly);
+  entryTrigger still drops a setup whose old swing stop is on the wrong side; live broker limit has no
+  gap-through-stop guard (latent: no live connection). The crossed level is replaced by a new 3-Day top
+  after a slow reaction (item 5, per docs/gann-feature-map item5 map).
+- Full suite 2382/2382, tsc clean, eslint 0 errors, terms clean. passes unchanged pending a second review.
+- Second review (docs/gann-feature-map/item4_review2.md, 26 mutations): A-ENTRY-16, A-STOP-02, A-STOP-03 PASS;
+  A-ENTRY-04 FAIL only on the replay's untested long branch; A-STOP-01 FAIL on "a stop on every trade"
+  (a person's own order may carry none) plus the "1-3 points away" reading, both held for the owner.
+- Follow-up: replay-reaction tests now run a long and a short fixture (reviewer's W16/W16b/W16c caught);
+  the ticket leaves the protocol stop off an order placed against the plan's side.
+- passes -> true (3): A-ENTRY-16, A-STOP-02, A-STOP-03. Total passing: 14 of 342. A-ENTRY-04 awaits re-check.
+- Before merge: REACTION_LIMIT_CUTOVER must not fall before any resting paper buy-stop placed on the old code;
+  re-query `orders` (paper, status new, limit/bracket) and move the constant to the merge time.
+- Re-check of A-ENTRY-04 at 36a2bb6 (long-side replay mutations W16/W16b/W16c caught): PASS.
+  passes -> true: A-ENTRY-04. Total passing: 15 of 342.
+- A-STOP-01 ("a stop on every trade") held for the owner's card; a server + ticket draft is stashed
+  (stash "stop-required"): it refuses entries without a stop and disables the ticket button, and needs
+  the put-shortcut and Manual Override ticket tests reworked.
+
+== 2026-10-15 item 5 step 1: the crossed level holds through the reaction ==
+- Map: docs/gann-feature-map/item5_map.md (defects 1-4 in the shared crossing pipeline).
+- Defect 1: computeGannEntryTrigger keeps the newest crossed, unbroken level as the buying point
+  (crossedLevelStillHeld) instead of moving to the top a 3-day reaction completes. The intraday replay
+  profile keeps the breakout read (holdCrossedLevel=false; not yet moved to the reaction entry).
+- Defect 2: plan confirmations read the last four days or from the plan's generation, whichever is earlier.
+- Defect 3: replay and backtest default entryRule is "reaction"; replay.test.ts pins "stop" explicitly.
+- Defect 4 (stored geometry) deferred until a buying point with another shape is built; it needs a migration.
+- Tests first: crossedLevel.test.ts (4), confirmNow (1). Mutations: hold off, never broken, crossing at the
+  level, window since-only: all caught. STRATEGY_VERSION 2026-10-15-gann-crossed-level-held.
+- Full suite 2395 passed, tsc clean, terms clean.
+
+== 2026-10-15 item 5 step 1: review fixes (scratchpad item5a_review.md) ==
+- HIGH: a held level no longer returns a null trigger. Its stop is the level less 3 points (the
+  reaction buy's own stop); the protective swing does not price or void it.
+- The held level is the one crossed most recently (the higher top on a tie), not the newest top.
+- "Until bought": the level ends once a bar after the crossing trades to the buy 1 point past it. A
+  close 3 points back through the level always trades through the buy first, so that test covers both.
+- The trigger carries `held` and `crossedAt`. breakaway.ts reads the range up to the crossing, and a
+  trigger on the range's own top counts as the breakaway (>= with float tolerance).
+- graduationExam: a held level answers "trade" at the reaction buy.
+- confirmNow: when the execution-bar window shows no crossing, the completed daily chart is read; a
+  held level whose buy is this order's entry makes it ready. The forming day is left out.
+- 18 new tests. Mutations: 17 of 19 caught; 2 are equivalent (break check, pre-pivot closes: both are
+  covered by the bought test) and the redundant break check was removed.
+- STRATEGY_VERSION 2026-10-15-gann-crossed-level-bought. Run 32 (old version) cancelled.
+- Full suite 2414 passed, tsc clean, eslint clean, terms clean.
+- Second review (scratchpad item5b_review.md), fixed:
+  - HIGH F1: confirmNow's daily fallback could call an entry ready after today's close through the
+    stop (the daily read leaves the forming day out). A close through the stop in the execution-bar
+    window now ends it first.
+  - F2: a level bought by a short reaction (no new top) was re-offered as the latest top. The trigger
+    is now null until a newer top forms.
+  - F3: the crossing search starting before the pivot was not equivalent; a test now catches it.
+  - F4: the replay treats `trigger.held` as already crossed, as live does.
+  - F5: the exam key carries `crossed`, so the played-out text shows a fill on a straight reaction.
+  - F6 documented: a trigger on a range's own extreme now counts as the breakaway on every setup.
+  - Tests for the newer-higher tie-break and the short breakaway. Mutations: 7 of 8 caught; the
+    dead-stage skip is equivalent (the stop check right after returns the same).
+  - Open, LOW: the live scan's daily bars still include the forming day (F7).
+
+== 2026-10-15 item 5 step 2: double and triple bottoms (W006 pp.11, 20, 46; tops pp.22, 47) ==
+- New `oldLevel` buying point (computeGannOldLevelEntry): a limit resting at the last completed
+  bottom L, stop L less 3 points, risk 3 points (mirror for tops). Void once a later bar trades to L.
+  `tests` counts same-kind pivots within 3 points of L (display only).
+- selectGannEntry offers the nearer of the crossing entry and the old level; a tie goes to the
+  crossing. Used by the live scan, the replay's reaction rule and the graduation exam.
+- An oldLevel order rests at the level: confirmNow, advanceConfirmation and entryConfirmation arm it
+  at once and kill it only on a close through its stop. The entry kind travels on the plan
+  (trade_plans.entry_kind, migration 0086) and the order (OrderSchema.entryKind) from every placing
+  path: ticket, Guided Mode, demo, plan automation, portfolio manager.
+- breakaway: an oldLevel buy inside a range counts as a breakaway (OLD_LEVEL_BUYS_IN_RANGE, on the
+  recommended option of the owner card; held for the owner).
+- STRATEGY_VERSION 2026-10-15-gann-double-bottoms.
+- Mutations: 19 of 20 caught. O9 (replay marks an oldLevel as crossed) is equivalent: the oldLevel
+  path never reads the crossed flag before the fill.
+- Migration 0086 must be applied to production by the owner before this merges.
+- Full suite 2442 passed, tsc clean, eslint 0 errors, terms clean.
+
+== 2026-10-15 replay run 33 (step 1, cfc2dff, STRATEGY_VERSION 2026-10-15-gann-crossed-level-bought) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels. Trades 223 (run 31: 112).
+- plan-reaction: all +0.037R [-0.066, +0.138]; Execute +0.145R on 17 [-0.223, +0.503];
+  Watch +0.044R on 158. Halves +0.173 / -0.098. Run 31: all +0.123R, Execute -0.232R on 7.
+- plan-reaction-gannrunner: all +0.018R [-0.079, +0.116]; Execute -0.032R on 17.
+- Continuation +0.420R on 23; reversion -0.007R on 200. No interval clears zero.
+
+== 2026-10-15 item 5: one window for a buying point on every surface ==
+- Found while designing step 3: the replay read the entry from all six years of daily bars it holds,
+  the live scan from a year that includes the session still forming. Since step 1 a crossed level
+  is held until bought, so the replay could hold a level the scan never sees.
+- entryChartBars (lib/scan/entrySelection.ts): the 52 weeks of completed sessions before the day.
+  Read by the live scan (entry and breakaway), the replay (entry and breakaway; levels keyed by
+  their date, since the window moves), confirmNow's daily check, the graduation exam and the live
+  Gann exit's crossed-level recovery (now `entryCrossedLevel`).
+- Tests first: entryChartBars.test.ts (behaviour) and entryChartWiring.test.ts (each surface passes
+  its own day and prices from what the window returns). Mutations 10 of 10 caught.
+- Same STRATEGY_VERSION (no run on it yet). Full suite 2449 passed, tsc clean, eslint 0 errors,
+  terms clean.
+- Open: other daily readers in the live scan (daily trend, S/R) still include the forming day.
+
+== 2026-10-15 item 5 step 2: review fixes (fresh-context reviewer, 3 medium and 6 low findings) ==
+- F1 (medium): fourth and later tests were bought and called "triple bottom". Now only the second
+  and third test are bought (A-ENTRY-02/-03 cover double and triple bottoms), and bottoms count only
+  since a low last went more than 3 points under the level (A-LEVELS-06). The 3-point band on both
+  sides and "no minimum time apart" (F3) are labelled engineering choices in the header.
+- F2 (medium): the signal card headline, the graduation exam's explanations and played-out line,
+  the Pro and Expert lessons and the Settings stop rule now describe the buy at an old bottom. The
+  lesson's sideways-range sentence follows OLD_LEVEL_BUYS_IN_RANGE, so it stays true whichever way
+  the owner decides.
+- F9 (medium, test gap): Guided Mode and the demo now place one shared order (lib/guided/order.ts);
+  tests cover the order builder, the order form's schema, the Guided card, the demo, crypto levels
+  and the portfolio manager (end to end, with a fake that returns only the selected columns). The
+  Guided route's own line is not unit tested (no route tests in this codebase).
+- F4: an old-level plan whose stop closes through before it arms never arms (stopClosedAt in the
+  confirmation evidence, a JSON field, no migration). Short mirror tested.
+- F5: the replay's first-candle fill on the arming session is now tested (O9 was not equivalent).
+  The continuation pass's old-level buy is tested too.
+- F6: closed by the window fix (both surfaces read completed sessions). F7: the merge gate on
+  migration 0086 stays. F8: OLD_LEVEL_BUYS_IN_RANGE stays on the recommended option while the
+  owner card is open, per protocol; nothing merges before his answer.
+- N1: the live exit reads the scan's own buying point (selectGannEntry) and an old-level position
+  has no crossed level, as in the replay.
+- Mutations: the reviewer's surviving gaps MA14, MA17, MA19, MA20, MA22, MA23, MA25, MA26, MA29 are
+  now caught; MA24 (Guided route line) is not. New fixes: 13 of 13 caught.
+- Same STRATEGY_VERSION (no run on it yet).
+
+== 2026-10-15 item 5 step 3: old tops and bottoms beyond the swings (A-ENTRY-05, -06, -09, -17) ==
+- olderGannLevels (lib/gann/entryTrigger.ts): the previous calendar year's top and bottom, and the
+  record top and bottom before the 52-week window, from monthly bars. A previous year's level is
+  crossable from 1 January; the record from the window's first day. Same geometry as a swing
+  crossing (arm at L+3pts, buy at L+1pt, stop L-3pts), labelled an inference for -05/-06.
+- latestCrossedLevel reads swing and older levels together. Ties: the higher level on the same
+  bar, then the older reading of one price (A-ENTRY-09, W006 p.24). selectGannEntry: the nearer
+  buying point; two crossings equally near, the older; a crossing beats the old-level buy.
+- newRecord (A-ENTRY-06): the crossing close beats the record and every earlier high in the window.
+  Display only (score note and setup label); Gann's "usually safe" is not weighted.
+- entryChart(daily, monthly, asOf) feeds every surface: live scan, replay, confirmNow (fetches 1Month
+  when it has no bars), live Gann exit, graduation exam (examService fetches monthly).
+- Tests first: olderLevels.test.ts (19), olderLevelsFetch.test.ts (4), the wiring test, and the
+  score note test. Mutations 24 of 24 caught.
+- STRATEGY_VERSION 2026-10-15-gann-older-levels. A-ENTRY-10 (an all-time low held for weeks) moves to
+  step 4 with A-ENTRY-01.
+- Full suite 2474 passed, tsc clean, eslint 0 errors, terms clean. Not pushed: it rebases onto the
+  step 2 review fixes first.
+
+== 2026-10-15 item 5 step 3: name the older level in what a person reads ==
+- The plan's levels carry entrySource ("priorYear" | "allTime") for a crossing of an older level
+  (TradeLevels, EntrySource, both computeTradeLevels returns). Display only; geometry unchanged.
+- The signal card's headline, the graduation exam's entry explanation (ScenarioKey.source) and the
+  Academy 6 lesson name the previous year's top or bottom, or the record from before the 52 weeks,
+  instead of always "the last swing".
+- Tests first: olderLevelsCopy.test.ts (5) and a signal card test. Mutations 13 of 13 caught.
+- Rebased onto the step 2 review fixes (fc343d9): entryCrossedLevel reads entryChart with the
+  monthly chart and returns null for an old-level buy.
+- Full suite 2498 passed, tsc clean, eslint 0 errors (44 warnings, pre-existing), terms clean.
+
+== 2026-10-15 item 5 step 4: the bottom that held (A-ENTRY-01, -08, -10) ==
+- computeGannHoldEntry (lib/gann/entryTrigger.ts): a buy at the last close with the stop 3 points
+  under the low, after a reaction of 3 points or more from the latest 3-Day top (W006 pp.20, 24,
+  46-47). Three forms, recorded as holdBasis:
+  weeks: the low has stood 8 calendar days or more, into its second week (A-ENTRY-01, Rule 3).
+  days: long only, in a weekly uptrend, a counter-move of 8-21 days (readCounterMove) and the low
+  held 2 sessions (A-ENTRY-01's active-market form, A-ENTRY-08).
+  record: long only, the record bottom from before the 52 weeks, not broken by 3 points in the
+  window, first approached 8 days or more ago (A-ENTRY-10).
+  Shorts mirror the weeks form only; the bear-market rally (A-ENTRY-18) and A-ENTRY-07 are step 4b.
+- Offered only where entry to stop stays inside the 5-point cap. selectGannEntry reduces over the
+  crossing, the old level and the hold; a tie goes to the crossing.
+- The kind "hold" rests like "oldLevel" (restsWithoutCrossing in lib/gann/entryKind.ts): plans,
+  migration 0086's check, confirmation (ready until a close goes through the stop), placement, the
+  portfolio manager, the breakaway hold, the live Gann exit (no crossed level) and the replay.
+- Copy: the score note, the setup label ("single bottom", "record low that held"), the signal card
+  headline, the Settings stop rule (up to 5 points), Academy 4 and 6, and the graduation exam.
+- Tests first: holdEntry.test.ts (18), holdWiring.test.ts (16), holdCopy.test.ts (6), plus hold
+  cases in store, fromScanResult, guided order, order ticket and the portfolio manager e2e.
+  Mutations 5 of 5 caught (no hold candidate, 1-day weeks, 0-session days, hold not resting,
+  no risk cap).
+- STRATEGY_VERSION 2026-10-15-gann-held-bottoms. No run was committed on gann-older-levels.
+- Full suite 2544 passed, tsc clean, eslint 0 errors (44 warnings, pre-existing), terms clean.
+  Not pushed: the step 3 review findings come first.
+
+== 2026-10-16 item 5 step 3 review fixes (R1-R11) ==
+- R9 + R1: olderGannLevels gives every previous calendar year's top and bottom in the span (Gann:
+  "a previous year"), each with `year`, crossable from the next 1 January and still a level after
+  the following New Year. The record is listed first, so a year's top that is also the record reads
+  as the record. Triggers carry levelYear.
+- R10: OLDER_LEVELS_YEARS = 10 calendar years before the day, read inside olderGannLevels, so every
+  surface agrees. monthlyChartFrom(asOf) is the fetch start for the replay (before its first daily
+  session), confirmation, the live exit and the exam. The live scan already fetches 30 years.
+- Found while fixing R9: a level was dated by its first crossing only, and a level the price already
+  stood above when the window began counted as crossed on its second bar. With every year's levels
+  both would mis-price plans. Now a crossing needs the previous close short of the line, and a level
+  broken and crossed again is dated by the later crossing. A level only bought is not re-dated, so
+  step 1's "not offered again until a newer top" holds.
+- R3: once the latest crossing is spent, the last top is offered only if no close has crossed it
+  since it formed (a newer top, or an older one still uncrossed). The reviewer's "formed after the
+  crossing" form was rejected: it drops an uncrossed top formed before the crossing.
+- R2: the replay also consumes a crossing by level (sameGannLevel) for a top formed before the fill.
+- R11: sameGannLevel, a cent or 0.1%, for two readings of one level.
+- R4 + R5: A-ENTRY-09's own test text ranks by nearness and uses age only between equally near
+  levels, so the code was right (one close through two tops buys over the higher, nearer one) and
+  the Academy 6 sentence was wrong; it now says "the one nearer the price". The unreachable
+  crossing-vs-crossing tie in nearerBuyingPoint was removed; A-ENTRY-09 is tested through
+  selectGannEntry and the score note in lib/__tests__/score.test.ts, where the feature entry asks.
+- R6: the exam's view is the scan's 52 weeks (was the last 120 bars), and draws the older levels
+  nearest the price (two above, two below) as labelled lines on every chart. A key resting on an
+  older level the chart would not draw is not set.
+- R7: Academy 4 names a previous year's top and the record; the exam's decision says an older level
+  was already crossed, or that the last swing top was still to cross.
+- R8: the -05/-06/-17 geometry is labelled an inference in GannLevelSource's doc, and the -17 short
+  waits for the bounce.
+- Copy names the year: "the 2024 top" (headline, score note, setup label, exam); "the previous
+  year's" remains only where the year is unknown.
+- Two step 3 tests that pinned what the review changed were updated, not deleted to pass: the
+  "no bars for a year" case now checks that year alone, and the A-ENTRY-09 nearerBuyingPoint test
+  keeps its nearness assertion and moves the tie to the production path.
+- Mutations 14 of 14 caught (two needed new tests: the visible crossing, and the exam skip).
+- STRATEGY_VERSION 2026-10-16-gann-every-year. Full suite 2577 passed, tsc clean, eslint 0 errors
+  (44 warnings, pre-existing), terms clean.
+
+== 2026-10-16 replay run 34 (step 2, fc343d9, STRATEGY_VERSION 2026-10-15-gann-double-bottoms) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels, reaction entry. Trades 514 (run 33: 223).
+- Bracket: all +0.029R [-0.044, +0.102], Execute +0.114R on 23, Watch +0.039R on 297. Halves
+  +0.127 / -0.068. Gann runner: all +0.027R, Execute +0.088R on 23; its gain rests on 196 trades
+  still open at the timeout (+0.538R each). Every interval includes zero; second half negative.
+- Continuation 24 trades +0.472R (bracket); reversion 490 +0.008R. Large-cap 44 trades -0.179R.
+- The report has no split by entry kind (crossing / old level); worth adding before step 4's run.
+- Superseded by 2026-10-16-gann-every-year (run dispatched on 67ac1c3).
+
+Note for item 3 (lost motion): the literature thread reports "lost motion 1 7/8 cents" sits in How to
+Make Profits Trading in Commodities p.38 (1951), not the Master Course the roadmap cites; that page
+is unchecked here (collection-synthesis.md §1.6, §6).
+2026-10-16 Replay report: entryKindSplit (crossing / oldLevel / hold) and each trade's entryKind, so the next run reads each buying point on its own. Measurement only, no version bump. Tests: holdWiring entryKind, backtest-run split sums to overall. 2578 passed; tsc, eslint (44 pre-existing warnings), terms clean.
+2026-10-16 Run 35 (67ac1c3) failed at checkout: the workflow cannot fetch a short SHA. Re-dispatched as run 36 on the full SHA d7f644333c834a090de930617705eeacff90d1b6 (includes the entry-kind split). Always pass the full SHA.
+2026-10-16 Lost-motion source, corrected by the literature thread: 1⅞ appears in Master Course Ch. 9 (1939) PDF p.268 as "1⅞ points" (the roadmap's citation stands) and in How to Make Profits Trading in Commodities p.38 as "1⅞¢" (pdfcoffee 1951 copy; another scan of the same book reads 1½¢). Neither page has been checked in this project yet. Use this for item 3's lost-motion work.
+2026-10-16 Item 5 step 4 review (scratchpad/item5_step4_review.md), fixed failing-test-first (lib/gann/__tests__/holdReview.test.ts, plus holdWiring open-under-close):
+- S1: replay keys a held crossing by its crossing date, so a level crossed again after a break is bought again, as live.
+- S2: record low (A-ENTRY-10) needs 4 weeks (HOLD_RECORD_MIN_DAYS=28, the feature test's reading of "weeks or months") within 3 points, counted from the day price came back, not the first visit in the 52 weeks.
+- S3: a hold is bought once: a session that offered it and a later one that traded to its buy spend it; the next needs a new low (matches the replay's key).
+- S4: crossingOf: a level price already stood over when the count starts re-arms only after a break.
+- S5 (P7): the days form reads its reaction at the low, so day 3 up still holds. The "active markets = bull-market reaction" reading goes to Chuck.
+- S6: tests for M2, M4, M5, M13, M21 added. M9 is now equivalent (a decline is never against a bearish weekly trend when read at the low); M22 equivalent (crossedLevel at the low fails only below the stop).
+- S7: examKeyedOlderLevel covers a record-low hold. S8: test title renamed; the range card already covers held bottoms. S9: A-ENTRY-09 names only; tell Chuck before passes flips.
+- Step 4 fixtures shortened so each hold is first offered on its last bar (bought-once rule). Mutations: 13 of 13 caught.
+- STRATEGY_VERSION 2026-10-16-gann-held-once. 2595 passed; tsc, eslint, terms clean.
+== 2026-10-16 replay run 36 (d7f6443, STRATEGY_VERSION 2026-10-16-gann-every-year) ==
+- Dispatched without the cells input, so it ran the workflow's default "baseline" cell (fixed 2R bracket, production stop, plan levels OFF, reaction entry): not comparable with run 34.
+- 766 symbols, 2026-08-17 to 2026-10-15. 1201 trades, +0.058R [+0.007, +0.110], halves +0.134 / -0.017. Execute +0.163R on 34; Watch +0.054R on 665; Reject +0.057R on 502.
+- entryKindSplit: crossing 310 at +0.020R (win 12.9%); oldLevel 231 at +0.078R (win 20.3%); hold 660 at +0.069R (win 2.1%, median 260 bars = the 10-session limit, so mostly timeouts).
+- Files: scratchpad/run36.json, run36_reports.json.
+- Run 37 (fe0b1eb, no cells) cancelled. Run 38 dispatched on fe0b1eb with run 34's cells (plan-reaction-gannrunner, plan-reaction). ALWAYS pass the cells input and the full SHA.
+2026-10-16 Item 5 step 4b, A-ENTRY-18 (W006 p.47 Rule 4): the bear-market rally sell. Kind "hold", holdBasis "rally" (reuses the resting-at-close wiring; no migration change, entry_kind stays "hold"). Weekly trend bearish, 3-Day Chart rallying against it for 8-21 days, at least 3 points, sold at the Friday close with the stop 3 points over the week's high (Monday on); within the 5-point cap; offered only when no held top is. Readings labelled in code: Friday = end of week (holiday Fridays missed), "previous week" = the week just ended. Copy: setup label, headline, score note, exam decision/entry/stop, Pro and Expert lessons. Tests lib/gann/__tests__/bearRally.test.ts (13) + score note. Mutations 12/12 caught after three isolating fixtures. STRATEGY_VERSION 2026-10-16-gann-bear-rally. 2608 passed; tsc, eslint, terms clean.
+2026-10-16 Item 5, the remaining entry rules:
+- C-ENTRY-04 (W003 pp.20-21, first return to the 50% point after a break) and C-ENTRY-02 (W003 p.17, narrow 3-4 day range breaking into a sharp move) built as context only, class C: lib/gann/halfwayRetest.ts, lib/gann/narrowRange.ts, read in readDisclosedRules, measured as contextFactors halfwayReturnAgrees / narrowRangeBreakAgrees. Never gate, no STRATEGY_VERSION bump. "Narrow" pre-registered as a 4-day span no wider than 1 average day (14-session true range before it). Tests lib/gann/__tests__/compilerEntries.test.ts (12). Mutations: 16 of 17 caught; H1 (skip same-kind pivot pair) equivalent since 3-Day pivots alternate by construction.
+- C-ENTRY-01, C-ENTRY-03: UNVERIFIABLE, held.
+- A-ENTRY-07: covered by the existing stops; its structural band only feeds stopRoom (note for item 9).
+- A-ENTRY-19: deferred to item 6 (trend); as a sell it conflicts with the 5-point cap.
+- A-ENTRY-20: covered by the oldLevel short.
+- Source note for item 3 (from the literature thread, not yet checked here): lost motion 1 7/8 in Master Course Ch. 9 (1939) PDF p.268, and How to Make Profits Trading in Commodities p.38 (another scan reads 1 1/2 cents).
+2026-10-16 Item 5 step 4b review (fresh reviewer; findings relayed in-session, no file), fixed failing-test-first in lib/gann/__tests__/rallyReview.test.ts (14) and lib/backtest/__tests__/holdBasisSplit.test.ts:
+- R1: counterMoveSince (entryTrigger.ts) times a counter-move from the trend's extreme since the weekly chart last turned, so a 3-day pullback inside a rally, or a bounce inside a bull reaction (days form), no longer restarts the clock. Once the weekly chart turns down from the rally's top the rally is over.
+- R6: one rally is sold once (formedAt = the rally's low, since = low+1, so the bought-once loop spans the rally). bearRally.test's third-week fixture now has too little height to sell in week 2, since a week-2 sale now spends week 3.
+- R3: rally exempt from the breakaway hold, labelled in breakaway.ts (offered only while the weekly chart is down: a with-trend sale).
+- R4: lifecycle notes for a short hold say "the sell rests at the last close, with the stop 3 points over the high", not "the low has held" (confirmNow.ts, advanceConfirmation.ts). STOP_RULE_LABEL names the rally's week high.
+- R5: the calendar-day window's Friday consequence documented on bearRallySell.
+- R7: ReplayTrade.holdBasis, byHoldBasis, report.holdBasisSplit.
+- R2 (reach): in a real bear market the scan asks for the bearish side mostly through the continuation pass; deferred to item 6 (A-TREND-09 with-trend pass). Count rally trades via holdBasisSplit before reading any result for the rule.
+- Tests T1-T3 pinned; mutations 14 of 14 caught (week start, previous-week high, 8/21 bounds both ways, held-top precedence, rally identity, since, days-form clock, weekly turn, height).
+- caad438 scan cost: both readings together take about 16 ms over 766 symbols of 260 bars (0.02 ms a symbol), off any user wait beyond that.
+- STRATEGY_VERSION 2026-10-16-gann-rally-review. 2634 passed; tsc, eslint (44 pre-existing warnings), terms clean.
+== 2026-10-16 replay run 38 (fe0b1eb, STRATEGY_VERSION 2026-10-16-gann-held-once, run 34's cells) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels, reaction entry. 1132 trades (run 34: 514).
+- Bracket (plan-reaction): all +0.025R [-0.018, +0.069], halves +0.100 / -0.050; Execute +0.076R on 34 [-0.164, +0.318]; Watch +0.008R on 645.
+- Gann runner: all +0.030R [-0.010, +0.073], halves +0.094 / -0.033; Execute +0.078R on 34; 541 timeouts at +0.412R carry it, initial stops 190 at -0.845R.
+- Entry kinds (runner): crossing 321 at -0.051R, oldLevel 267 at +0.053R, hold 544 at +0.067R (win 5.7%).
+- Setup kinds (runner): reversion 1095 at +0.023R, continuation 37 at +0.247R.
+- Every interval includes zero; the second half is negative again. Pre-rally version: superseded by 2026-10-16-gann-rally-review (dispatched on ad9f351 with the same cells).
+- Files: scratchpad/run38.json, run38_reports.json. parse_run.py needs the log wrapped as {"content": ...} (the raw log has a BOM).
+2026-10-16 Item 6 (trend), steps 1-2. Map: docs/gann-feature-map/item6_trend_map.md (read-only subagent, 20 entries + A-ENTRY-19).
+- Choices taken where the map offered forks (owner card only for the one where two of Gann's texts disagree): F1 (b) staged, with-trend pass on Gann's trend alone (PLAN's item 6 row already names it, Gann precedence); F2 (a) keep W004's 30/7/1, coarse pass on the weekly read; F4 subsumed by F1(b); F5 (a) regained bottom as a crossing; F6 (a) the market's bull market; F7 (a) A-ENTRY-19 context first; F8 (a) drop the always-false benchmark gate; F9 (a) over-balance still wins.
+- Owner card posted: a monthly-low break ends the trend (today) or only warns while the reaction holds above the previous section's top (A-TREND-11 vs A-TREND-06, W006 pp.14, 41). Recommended warn-only. A-TREND-06's pin fails under today's reading (the 1933 shape breaks monthly lows), so it is held for that answer.
+- Step 1: A-TREND-05 pin (lib/gann/__tests__/trendPins.test.ts) passes as is. A-TREND-04 needs no pin: no index series reaches entry selection (map §1).
+- Step 2: C-TREND-04 contracting and C-TREND-07 trendDays/counterDays/timeRatioInverted in campaignLedger.ts, card lines, contextFactors reactionsContractingWithTrade / timeRatioInvertedAgainstTrade. Context only, no version bump. Tests lib/gann/__tests__/trendClassC.test.ts (8); mutations 10 of 10 caught.
+- C-TREND-02 (blow-offs up to 20% a day) skipped: it reports a ceiling seen at climaxes, not a rule a reading can act on or be tested against.
+- 2642 passed; tsc, eslint (44 pre-existing warnings), terms clean.
+2026-10-16 Item 6 step 3 (A-TREND-11/-12, A-TREND-06), built on the owner card's recommended option "Warn only" pending Chuck's answer (revert to "end the trend" if he picks it):
+- campaignLedger.ts: monthRanges(bars, from) reads each month so far; monthlyBreak compares this month with the last; monthlyBreakFirst = no earlier campaign month broke its predecessor (months before the campaign's start don't count). readMonthlyBreakWarning.
+- trendStrength.ts: the monthly break no longer ends confirmation (only a space or time over-balance does); it is carried as monthlyWarning. The A-TREND-06 1933 shape now reads bullish with the warning (monthlyWarning.test.ts).
+- score.ts applyMonthlyBreakHold: Execute held to Watch while the month stands broken against the trade's direction. Wired in scanTicker.ts and replay.ts scoreSetup (same function), HoldKey and criteria-registry scoreHold "monthlyBreak". Curriculum trend lesson updated.
+- Tests: monthlyBreak.test.ts (8), monthlyWarning.test.ts. Mutations caught: month-to-date low/high, null guards, direction, first-break loop bound, campaign start.
+- Scan cost: about 119 ms over 766 symbols of 300 bars (0.16 ms a symbol), off any user wait in practice.
+- STRATEGY_VERSION 2026-10-16-gann-monthly-warning.
+2026-10-16 Item 6 step 4 (A-TREND-02 i): one definition of swing structure.
+- regime.ts: HH/HL is gannTrend.structureAgrees in the weekly chart's direction (the 3-Day Chart swings readGannTrend steps through). The fractal test (last of four findPivots highs/lows vs the first) is gone; the fractal pivots still supply the horizontal levels and the transition break.
+- Found while testing: the range reason said "3-day and weekly swing charts do not agree (bullish vs bullish)" when both agreed and the swings weren't stepping. It now names the actual cause: no weekly direction, swings not stepping, or an over-balance (trend changing).
+- Tests: lib/signals/__tests__/regimeStructure.test.ts (4): a clean trend under a spike four swings back, its mirror, both range reasons. Mutations: direction and reason order caught; dropping structureAgrees from HH/HL, or its direction, is equivalent (the trend branch also needs confirmed and the weekly direction).
+- STRATEGY_VERSION 2026-10-16-gann-one-structure (regime labels feed the pullback/breakout states and plan expiry).
+2026-10-16 Item 6 step 6 (A-TREND-09 step a, F1): never too high to buy while the trend is up (W006 pp.22, 38-39).
+- marketScan.ts coarseReversion: the +1/+1 distance-from-50%-point tiers are gone, with EXTENSION_ATR_TIER1/2 and their fallbacks (no other consumer). A reversion now needs 3 points from fan line, volume at the turn, an old level and the time window. Telemetry keeps extension_pct as a diagnostic. Live only: the replay has no coarse pass.
+- confirmedReversal.ts: meaningfulLocation is an old top or bottom (clustered level) only; the 2-ATR stretch branch and MIN_EXTENSION_ATR are gone; the card note says so.
+- Academy (swing-chart lesson): one sentence for the rule.
+- Tests: market-scan-filters (a fixture far under its 50% point with only the fan line no longer passes), confirmedReversal (a stretched low at no old level is not meaningful). Both fail on the old code. Fixture changes, intent kept: the coarse fixtures got heavy volume at their last swing low (bar 105) so they still clear the floor on the remaining criteria; the tradeable reversal fixture got an older swing to the same low (withOldBottom).
+- STRATEGY_VERSION 2026-10-16-gann-never-too-high. 2659 passed; tsc, eslint (44 pre-existing), terms clean.
+2026-10-16 Item 6 step 7 (A-TREND-01, F2a): the coarse pass reads the weekly trend first.
+- marketScan.ts coarseTrendDirection(daily): readTrend(toWeeklyBars(daily), "1Week"), the daily only when the weekly is sideways (W006 p.19; the full scan's 30/7/1 weighting is unchanged and is W004's own ratio). Read once per symbol and shared by coarseReversion, coarseContinuation and the telemetry row; reversion still takes S/R from the daily chart.
+- Note for item 6 step 11 and the monthly question in map §A-TREND-01 "Differs 3": on rolled weekly bars the 3-Day Chart needs reactions of three or more weekly bars to make pivots, so the weekly read is sideways for trends whose reactions last two to three weeks. Same function the full scan uses on its weekly bars; not changed here.
+- Tests: lib/__tests__/market-scan-coarse-trend.test.ts (4; trend reads pinned per timeframe with vi.mock, so the wiring is under test). The first coarseContinuation test in the repo. Mutations caught: reversion and continuation on the daily, weekly ignored, no fallback.
+- Cost: the weekly read takes about 0.28 ms a symbol (rollup plus read; 212 ms over 766 warmed), replacing two daily reads (0.13 ms each), so about +0.02 to +0.15 ms a symbol: under 40 ms for a 250-symbol coarse pass.
+- Academy: one sentence on the monthly, weekly, daily order.
+- STRATEGY_VERSION 2026-10-16-gann-weekly-coarse (live only).
+2026-10-16 Item 6 step 8 (A-TREND-10, F5a): a regained old bottom is a buying point (W006 p.30, AT&T 88 / 70 1/4 / 91).
+- entryTrigger.ts latestCrossedLevel: old bottoms (swing and older monthly-chart levels) that a close broke by 3 points are crossed from below like a top, counted from the break; the mirror for shorts (an old top lost after a 3-point break over it, A-ENTRY-16's side). Trigger flag `regained`. Same reaction buy (1 point over, stop 3 under: 4/3 of the 3 points, inside the 5-point cap). Labelled an inference (fork F5 a).
+- Copy everywhere a crossing is named: score note, setup label ("regained old bottom" / "lost old top"), TradeLevels.entryRegained and the signal-card headline, the exam key and its explanations, both Academy crossing paragraphs. The exit note now says "the old level it crossed" (it read "top").
+- Tests: lib/gann/__tests__/regainedBottom.test.ts (7), score.test.ts and olderLevelsExam.test.ts additions. Mutations 7 of 7 caught (break needs 3 points, break side, swing and older candidates, flag, mirror, break after forming).
+- STRATEGY_VERSION 2026-10-16-gann-regained-bottom.
+== 2026-10-16 replay run 39 (ad9f351, STRATEGY_VERSION 2026-10-16-gann-rally-review, run 34's cells) ==
+- 766 symbols, 15Min, 2026-08-18 to 2026-10-15, plan levels, reaction entry. 1256 trades (run 38: 1132).
+- Runner: all +0.013R [-0.026, +0.052], halves +0.092 / -0.065; Execute +0.070R on 37 [-0.169, +0.325]; Watch -0.019R on 733.
+- Bracket: all +0.006R [-0.035, +0.047], halves +0.093 / -0.082; Execute +0.064R on 37.
+- Entry kinds (runner): crossing 316 at -0.047R, oldLevel 265 at +0.052R, hold 675 at +0.026R.
+- Hold basis (runner): weeks 519 at +0.079R, days 21 at -0.185R, record 1, rally 134 at -0.142R (bracket -0.156R). The rally sell is the new rule and it is negative on 134 trades in a rising two-month window; presumed a translation question before a verdict on the rule (AGENTS "Gann-derived AND measured"). Next check: the rally trades' symbols' weekly trend and market direction, and whether the 8-21 day window or the week-high stop is what loses.
+- Continuation 38 at +0.239R (runner). Every interval includes zero; the second half is negative again.
+- Superseded by 2026-10-16-gann-regained-bottom (6aca033), dispatched with the same cells.
+- Files: scratchpad/run39.wrapped.json, run39.json.
+2026-10-16 Item 6 step 9 (A-TREND-07/-08, F6a): weak stocks in a bull market, context only (W006 pp.25, 27, 35).
+- leadership.ts readWeakStock(stockMonthly, marketMonthly): the bull market dates from the market's (SPY) monthly chart, the lowest month before its 2-bar swing chart turned up (marketBullStart; the 2-month reaction is an engineering choice citing W006 p.38). A-TREND-07: the stock's highest month in the first 24 months from that start, then 24 months with none above it. A-TREND-08: the first top on the stock's 2-bar monthly chart from the start, reached in 3 months or less from the low before it, never exceeded since. monthlyWithCurrent builds the month in progress from daily bars so live and replay read the same chart.
+- Wired: scanTicker reads SPY monthly once a day (marketBenchmark.getMarketMonthlyBars) and passes the stock's and market's monthly bars in the instrument facts; the replay gets marketMonthlyBars from run.ts and each session reads only months before its own. Card lines "Weak in this bull market: ..."; measured context factor weakStockLong (buys only). Gann's action on a weak stock (A-SELECTION-04) is item 11, not built here.
+- Tests: lib/gann/__tests__/weakStock.test.ts (12). Mutations 9 of 9 caught (bull trend required, bull-start low, both 24-month spans, never-exceeded tests, the 3-month cap, month in progress, either reading, slicing from the bull start).
+- Context only, no gate: no STRATEGY_VERSION bump.
+== 2026-10-16 replay run 40 (6aca033, STRATEGY_VERSION 2026-10-16-gann-regained-bottom, run 34's cells) ==
+- 766 symbols, 15Min, 2026-08-17 to 2026-10-15, plan levels, reaction entry. 1460 trades (run 39: 1256).
+- Runner: all +0.013R [-0.024, +0.052], halves +0.097 / -0.071; Execute +0.095R on 53 [-0.106, +0.312] (run 39: +0.070 on 37); Watch -0.008R on 903.
+- Bracket: all +0.003R [-0.035, +0.042]; Execute +0.147R on 53 [-0.070, +0.357].
+- Entry kinds (runner): crossing 534 at -0.013R (run 39: 316 at -0.047), so the ~218 regained crossings run about +0.03R, near the population; oldLevel 258 at +0.039R, hold 668 at +0.024R. The report has no regained/plain split; add one if the next run needs it.
+- Hold basis (runner): weeks 499 at +0.083R, days 23 at -0.151R, rally 145 at -0.151R (still the weakest group).
+- Continuation 38 at +0.245R. Every interval includes zero; the second half is negative again.
+- Files: scratchpad/run40.wrapped.json, run40.json.
+2026-10-16 Item 6 step 10 (A-ENTRY-19, F7a): a narrow week, then a sharp drop on large volume, turns the trend down (W006 p.27, Corn Products 1935). Context only.
+- lib/gann/narrowWeek.ts readNarrowWeekBreak(toWeeklyBars(daily)), pre-registered: narrow = smallest range of the 4 weeks ending with it; sharp = the next week closes 3 price-scaled points under its low; large = volume above the 13 weeks before (the drop not counted). Held for the drop week and the week after. Mirror (sharp rise) read as up, labelled an inference.
+- readDisclosedRules field narrowWeekBreak (live scan and replay through the same call), card line, measured factor narrowWeekBreakAgrees.
+- Tests: lib/gann/__tests__/narrowWeek.test.ts (9). Mutations 9 of 9 caught (narrowest-of-4, volume test, its window, 3 points, mirror, the week after, the narrow week's position, the factor's direction).
+- Context only: no STRATEGY_VERSION bump. Fork F7 (b)/(c) (feed the trend change, or a short inside the 5-point cap) waits on the measurement.
+2026-10-16 Item 6 step 12 (A-TREND-04, F8a): no benchmark or sector gate in the Signal & Regime Engine (W006 pp.16-18: trade each stock's own trend, not the averages).
+- SignalGates.benchmarkSectorAlignment removed. It was always false on the live scan (scanGates.ts) and always true in the signal replay (replaySignals.ts), so the two surfaces disagreed as well. allSafetyGatesPass no longer reads it; the four states' "Benchmark/sector alignment" item is not applicable (excluded from the score) with a note saying why.
+- Display only: the regime tiers and "Tradeable" label move; plans take their expiry from the first evaluated verdict, not the tradeable one, so no STRATEGY_VERSION bump.
+- Tests: scanGates.test (the always-false pin replaced by the rule: a clean scan passes every safety gate), one test per state. Mutations 5 of 5 caught.
+2026-10-16 Item 6 step 11 (A-TREND-09 step b, F1b, with F4a): never too high to buy while the trend is up, live and replay.
+- entrySelection.ts: gannMacroDirection (Gann's weighted M/W/D trend, the hourly never counts, null when no chart reads one); isWithGannTrend; reversionEntry (against the trend; with no trend, the nearer of both sides' buying points, fork F4 a); armSessionEntries (reversion plus, when there is a trend, the buying point with it). macroBreadthAgrees and isGannContinuation removed (no consumer left).
+- scanTicker: with no direction asked, arms reversionEntry; the trendless default short is gone where a buying point exists.
+- replay sessionArm: armSessionEntries, so a continuation arms on the trend alone (no momentumElevated, breadth or daily-only test).
+- marketScan: coarseContinuation admits on the trend alone (60 sessions, the trend read's own minimum); the 4-hour spike, expansion tiers and the 20-bar balance-point test only rank. Admission isWithTrendContinuation (priced plan, direction, weighted trend); qualifiesAsContinuationFill has no Execute bar. The pass scans up to the existing top-up ceiling (12 a side, 24 in all) every run and mergeContinuations ranks them with the reversions for the perSide slots; the two-slot quota is gone. Telemetry ignores failed continuation scans (was a latent crash once the pool held symbols with errored scans).
+- Time: no new ceiling (MAX_TOPUP_SCANS 24 and the 42 s deadline are unchanged), but the pool is no longer near-empty, so a typical run now reaches the 24-scan ceiling. Not measured here; the new "continuation pass scoring done" mark() breadcrumb measures it on the first production run.
+- Setup card label: "With the trend: taken on the trend, however far it has run" (was "Momentum continuation").
+- Tests changed with the rule (recorded so they are not read as edited to pass): trade-plan.test's isMomentumContinuation/qualifiesAsContinuationFill blocks pinned the momentum, daily-only, breadth and Execute-bar gates; replaced by isWithTrendContinuation and mergeContinuations tests (the hourly-only case kept, with the daily made sideways so it still isolates the hourly). replay.test liveTrigger and replay-reaction's T now use reversionEntry, the scan's rule; replay-reaction's short fixture runs 304 sessions so the short is the nearer side, and its reversion-only intent is kept by filtering armSessionEntries; holdReview/olderLevelsReview mock the new helpers for the same one-side intent.
+- New tests: lib/scan/__tests__/withTrend.test.ts (6), replay continuation on the trend alone with momentum off, coarse pool (3), mergeContinuations (3), scanTicker arms the side reversionEntry arms on 8 synthetic symbols (both sides seen). Mutations 12 of 12 caught.
+- Docs for item 14: AGENTS.md's "STRAT gated publication" paragraph still names isGannContinuation.
+- STRATEGY_VERSION 2026-10-16-gann-with-trend.
+
+## 2026-10-16 Item 6 follow-up (A-ENTRY-18): a rally is sold only in a bear market
+- Diagnosis: runs 39-40 show the rally sale at -0.151R on 145 trades (win rate 9%). It read "bear market" off the weekly chart alone; nearly all its shorts came from the reversion pass, i.e. shorts inside a weighted (monthly-led) uptrend. Gann's bear market is the main trend (A-TREND-01).
+- Change: selectGannEntry/computeGannHoldEntry take `bearMarket`; the rally sale arms only when it is true. `gannEntryOf(bars, older, trends)` (lib/scan/entrySelection.ts) sets it from gannMacroDirection === "bearish", and both the live scan (lib/scanTicker.ts) and the replay (lib/backtest/replay.ts) price entries through it. Expert lesson says the main trend must be down.
+- STRATEGY_VERSION 2026-10-16-gann-rally-bear-market.
+- Tests: lib/gann/__tests__/rallyMainTrend.test.ts (4), entryChartWiring spies on gannEntryOf and asserts the bear-market flag reaches selectGannEntry live and in the replay.
+- Mutations R1-R6 caught (R5/R6 after the wiring spy was added).
+- Checks: vitest 270 files / 2712 tests pass; tsc clean; check:terms clean; eslint 0 errors.
+- Open: the replay reads monthly/weekly trends from rolled daily bars (about 6 years) while the live scan uses long monthly/weekly histories. Possible cross-platform difference, not fixed here.
+
+## 2026-10-16 Item 6 fresh review (scratchpad item6_review.md): fixes
+- R1 (high): the coarse pass now reads the trend with the full scan's 30/7/1 weighting (gannMacroDirection), the monthly bars first when their batch fetch has landed (not waited on; a new mark logs whether it was in), the weekly rolled from the year of daily, then the daily. A trendless symbol is no longer dropped from the reversion pool: both sides are scored and the better kept, the full scan still picks the side. Tests: market-scan-coarse-trend (5 new), new market-scan-main-trend (2, runMarketScan wiring). Mutations M1-M6 caught.
+- R2 (med): a monthly break whose reaction has gone under the previous section's top (bottom in a bear campaign) now ends the trend (CampaignLedger.reactionBelowPriorSection; readGannTrend `changing`), the owner's chosen option that the code had not applied. Tests: monthlyWarning (5 new, incl. bear mirror, three sections, months no longer breaking). Mutations P1-P6 caught (P2/P3 after two tests were added).
+- R3 (med): dashboard copy and the market-scan route header no longer describe the removed momentum top-up ("N with the trend").
+- R5 (low): the sell list is kept whole until takeShortable cuts it to perSide after the broker check, so an unborrowable short can't push a shortable one off. New market-scan-shortable test (2). Mutations S1-S4 caught (S4 after the test was widened to three symbols).
+- R6 (low): the narrow-week card now says it is context and does not change the trend read; test asserts it.
+- R7 (low), record correction: step 12 was not display only. Dropping the benchmark item raises alignment scores about 10 points, so tiers move and the portfolio manager's tier sort (portfolio-manager.ts:213) can pick different plans. Recorded here; covered by the version bump below.
+- R8 (low): curriculum (coarse pass reads as the full scan; first monthly break "the one to mark"; the section-top condition), timeframeWeight comment, publish/scanTicker comments.
+- R4 (med): measuring the continuation pass's time from production logs before deciding the budget; open.
+- STRATEGY_VERSION 2026-10-16-gann-trend-review. Checks: vitest 272 files / 2726 tests pass; tsc clean; check:terms clean; eslint clean on changed files.
+- R4 (med), closed: production stage times can't be read (Vercel Hobby keeps runtime logs one hour). From 43 scheduled runs (GitHub Actions vs scan_executions, read only): whole scan median 16.5 s, fast runs 7-13 s for 13-24 full scans, so about 0.3-0.5 s a scan (inferred). Production's continuation gate admitted no symbol 09-23 to 10-16, so the pass cost ~0 there; after step 11 it spends its whole budget every run. MAX_TOPUP_SCANS lowered 24 -> 12 (the typical top-up), estimated +4-6 s; test in market-scan-main-trend. Live only, no version bump.
+- Found, not this item's: 26 of those 43 runs returned 504 at ~61 s, in 25 after the scan and save had finished; the profile fan-out ran past FAN_OUT_DEADLINE_MS (45 s). Lists were published; the per-profile fan-out was cut. Reported to Chuck, not fixed here. Details: scratchpad scan_timing.md.
+
+## 2026-10-16 Item 7 (Time), step 1: test-only pins
+- Map: docs/gann-feature-map/item7_time_map.md (read-only subagent, 35 A-TIME + 42 C-TIME entries, forks F0-F6, build order).
+- New tests, no product change:
+  - A-TIME-04 (W006 pp.14, 44): timeCycles opens a buy-side window 1, 2 and 3 years after a low and a sell-side one after a top, within two days only (gann.test.ts). Mutations T1-T3 caught.
+  - A-TIME-08 (W006 pp.31, 35-37): each stock projects from its own turn (gann.test.ts).
+  - C-TIME-18 (W003 p.19): readTiming marks days 7, 14 and 21 from the last swing, a day either side, nothing between (extremeTiming.test.ts). Mutations A1-A3 caught.
+  - C-TIME-02 (W003 p.16): no scored criterion reads an oscillator, and nothing on the verdict path imports the oscillator modules (criteria-gate.test.ts); an injected import fails it.
+  - A-TIME-02's bear-side clock test already existed (disclosedRules.test.ts "times a rally against a bearish trend").
+- Noted for later items: applyReversionConfirmation (lib/scoring/score.ts ~764) holds Execute on a STRAT 2-2 pattern, which AGENTS.md forbids for the verdict (item 11); curriculum.ts:961 claims the third-month rule changes the trend (step 3 builds it).
+
+## 2026-10-16 Item 7 step 3 (A-TIME-01/-02): a reaction into its third month changes the trend
+- Fork F2 default taken (map §5): it marks the trend as changing, like the over-balances, rather than a separate Execute hold.
+- CampaignLedger.counterMoveThirdMonth: the open counter-move made its latest extreme more than 60 days after it began (SECOND_MONTH_END_DAYS, shared with counterMovePhase). readGannTrend sets `changing`, so the trend read is unconfirmed on every timeframe, live and in the replay (both read trends through readTrend). One that made its low in month 2 and held is not flagged. Card line added. curriculum.ts:961 already teaches it.
+- Tests: new thirdMonth.test.ts (5, incl. bear mirror, day 60 vs 61, a low held flat into month 3). Mutations Q1-Q5 caught.
+- STRATEGY_VERSION 2026-10-16-gann-third-month. Checks: 273 files / 2739 tests; tsc, check:terms, eslint clean.
+- The clock starts at the ledger's last 3-day swing point; the second item 6 review (F1) shows that point is a minor top in a two-leg reaction. Fixed next, with F1.
+
+## 2026-10-16 Item 6 second review (scratchpad item6b_review.md): fixes
+- F1 (high): section tops now come from the weekly swing chart's trend-side turning points, not every 3-Day swing; until price passes the last weekly top the reaction is still the one from it, after that a new section runs. Used by reactionBelowPriorSection and (item 7 step 3) the third-month clock, which now starts at the section's top. A short bounce inside a reaction, or a dip inside a section, under the weekly chart's week, no longer moves them. Note: a bounce of a week or more is a weekly swing, and breaking its low turns the weekly trend (Gann's own chart rule), so the reviewer's shapes were tested with sub-week bounces. The two probe shapes also read unconfirmed through the separate 3-day structure rule (a lower top / lower bottom); the tests assert `changing` false and the warning set, not the direction.
+- F4 (low), decided: a reaction that broke a month (monthlyBreakInReaction, counted from the day after the section top) and went under the previous section's top keeps the trend changed until a new section top; a later month that holds does not undo it. The old test that asserted the opposite was replaced with this decision and a resumed case.
+- F2/F3 (med): the graduation exam and the live exit manager's entryCrossedLevel price entries through gannEntryOf with trendsFromBars (monthly, weekly rolled from daily, daily; bars before the day), so the rally sale is read off the main trend there too. New guard test: no product file but entrySelection.ts calls selectGannEntry. coarseTrendDirection now uses trendsFromBars.
+- F5 (low): listedSymbols counts only the top perSide sell rows. Test added.
+- F6 (low): the continuation pass's time is still an estimate (stage logs aren't retained); the reviewer measured the coarse-pass change at under 0.1 s. The fan-out 504s were reported to Chuck.
+- Mutations U1-U4 caught; U5 (counting months before the section top) survives because a reaction under the previous section's top always breaks a month after the top, so the two are equivalent in practice.
+- STRATEGY_VERSION 2026-10-16-gann-weekly-sections.
+
+## 2026-10-16 Replays 41 and 43 (766 symbols, 15Min, 2026-08-17 to 10-15; parsed in scratchpad run41.json / run43.json)
+- Run 41 (90df737, item 6 step 11, with-the-trend): gann-runner Execute n=142 +0.128R [-0.005, +0.260], halves +0.084/+0.171; Watch n=1974 -0.036R; all n=3267 -0.018R [-0.042, +0.007]. Bracket (plan-reaction) Execute +0.118R [-0.008, +0.241]; all -0.048R.
+- Run 42 (6ca51b1, rally sale only in a bear market) was cancelled by the workflow's concurrency when run 43 was dispatched; no result.
+- Run 43 (984a7da, first item 6 review fixes, includes the rally fix): gann-runner Execute n=140 +0.129R [+0.001, +0.262], halves +0.087/+0.170; Watch n=1882 -0.028R; all n=3138 -0.012R [-0.038, +0.013]. Bracket Execute +0.118R [-0.006, +0.247]; all -0.042R.
+- Against run 40 (before step 11: Execute n=53 +0.095R): the Execute bucket nearly triples and holds its expectancy; on the live rule its interval now sits just above zero. Execute beats Watch on both exit rules in both runs. Two months only (one phase), so not regime evidence.
+- Run 44 (67f2724, weekly-chart sections) dispatched.
+
+## 2026-10-16 Item 7 step 2a: class C time counts as context (C-TIME-09, -12, -19, -21, -37, -38, -44)
+- New lib/gann/secondaryTime.ts, its own lists, never the class A ones: day counts 23, 45-46, 49 (C-TIME-19); weeks 17 and 35 (C-TIME-21; 39 is already the Square of 52's 3/4); the circle's finer divisions in days 112.5, 150, 157.5, 165, 202.5, 247.5, 292.5, 337.5 (C-TIME-44); months 6, 12, 144 from a major monthly pivot (C-TIME-09); eighths and thirds of the 5-60-year cycles (C-TIME-12, cycleFractions); the 15 and 22.5 degree seasonal steps from March 21 that the class A eighths and thirds leave out (C-TIME-37/-38).
+- Read once in readDisclosedRules (live through the confluence layer, and the replay), shown on the card ("Shown for context; it does not change the setup"), and recorded as factors: secondaryDayCountActive, secondaryWeekCountActive, circleDivisionWithTrade, secondaryMonthCountWithTrade, cycleFractionWithTrade, seasonalFineStepActive. No gate, no score, no version bump.
+- WHEEL_COUNTS exported so the guard test can pin it; guard test pins WHEEL_COUNTS, DAY_COUNT_BANDS, MAJOR_CYCLE_YEARS, ANGLES, SEASONAL_POINTS and the disclosed Square of 52 weeks.
+- Where the entry's written test names a class A function (readDayCountBands, squareOf52Windows, timeCycles, readSeasonalCount, readTiming), the reading is a separate function instead, per the map's rule that class C counts never join the measured class A lists; the test asserts the rule against that reader and, for C-TIME-19 and -44, also that the class A reading is untouched. The reviewer judges whether that meets the entry. C-TIME-09's written test (readTiming's square144 at 144 months) cannot be met: readTiming counts from the year's extreme, so 144 months never arises there; the 144-month count is read from monthly pivots.
+- Tests: lib/gann/__tests__/secondaryTime.test.ts (15). Mutations V1-V14 caught.
+- Checks: vitest 275 files / 2760 tests pass; tsc clean; check:terms clean; eslint clean.
+
+## 2026-10-16 Item 7 steps 2b/2c: more class C time readings as context (C-TIME-25, -42, -40, -39, -23)
+- C-TIME-25: readCounterMove now also counts trading days; shortCounterMovePhase: up to day 4 normal, 5-6 past the 4th day (consolidation or reversal), 7-10 the next counter-move's length, then longer. Factors counterMovePastFourthDay / counterMoveSevenToTen (counter-move against the trade's own trend).
+- C-TIME-42: readTimeBalanceSpans on the weekly swing chart: the open span since the last top (bottom) within 1 week of the last top-to-top (bottom-to-bottom) span, only while the swing runs toward that kind. Factor timeBalanceTurnAgainstTrade. The matching-leg balance stays the campaign ledger's timeBalanceDates.
+- C-TIME-40: FAN_TIME_RATIOS (1x8 ... 8x1), a separate list; readFanTimeRatios from the fans' own anchors. fans.ts gained fanAnchors(), which computeFanLines now uses (behaviour unchanged, fan tests pass). ANGLES untouched and pinned.
+- C-TIME-39: RETRACEMENT_ANGLE_PAIRS (W031's table); a level counts when a bar spans it within ±1/16 of the anchor swing's duration of f/r of that duration. Factor retracementTurnAgainstTrade (a rise from a low meeting its level on time argues for a turn down).
+- C-TIME-23: the 1/2-on-1x1 meeting, kept 90 days (the three-month fast move). Factor halfPriceHalfTimeRecent.
+- Each has a card line ending "Shown for context; it does not change the setup." Context only, no version bump.
+- Tests: secondaryTime.test.ts now 28. Mutations W1-W13 and X1-X10 caught (W7, W12 and X3 after a test was added for each).
+- Checks: vitest 275 files / 2773 tests pass; tsc clean; check:terms clean; eslint clean.
+
+## 2026-10-16 Item 7 fresh review (docs/gann-feature-map/item7c_review.md): fixes
+- Verdicts: A-TIME-04 and C-TIME-02 PASS; A-TIME-01/-02 FAIL on H1/M1 (fixed below, need re-review); A-TIME-08 partial ("late tops make late bottoms" not built); C-TIME-18 partial ("watch the 3rd-4th day", "14 most significant" absent).
+- H1 (high): a lower weekly top inside a reaction (a bounce of a week or more) was taken as a new section top, so the section rule and the third-month clock misfired. Only a record weekly top (record bottom in a bear campaign) starts a section now (campaignLedger.ts). Tests: thirdMonth (lower top, resumed, new lows turn the weekly chart down first; bear mirror), monthlyWarning three-section bear mirror. Mutations H1a/H1b caught (H1b after the bear three-section test was added).
+- M1 (med): the card's counter-move line said "3rd month: trend change" from the 3-Day clock while the trend read did not. The line and the card tile now say "past two months" unless the ledger's counterMoveThirdMonth holds; a tile shows the ledger's call. Curriculum (lesson text and quiz) now says "still making new lows in its third month, counted from the top it started from". Test in thirdMonth; mutation M1a caught.
+- M2 (med): the live exit check and the exam read the provider's bar for the entry month, which includes later sessions. Both now use months before the entry's month plus that month rolled from the sessions before the day (monthlyWithCurrent). Tests in bearMarketCallers; M2a/M2b caught.
+- M3 (med/low): a short past perSide could be rescanned and listed twice, and a symbol could reach both lists. continuationExclusions (the sell pass skips every sell row), mergeContinuations dedupes by symbol, dropSellsAlsoBought before the shortable cut. Unit tests in market-scan-shortable; M3a-c caught. Not covered: a composed runMarketScan duplicate case (the harness has no reversion rows).
+- L1 (low): Gann's change-of-trend exit now also fires on the ledger's third-month and section calls when they arise after the fill (not when already standing at entry). Tests in exitRules (3); L1a/L1b caught.
+- L2 (low): A-TIME-04's window pinned at ±2 (±3 closed); the oscillator guard now covers lib/analysis, lib/strat, lib/trade and resolves relative imports (an injected relative import fails it); trendsFromBars pins the weekly roll-up.
+- L3: replay on the new version is next.
+- STRATEGY_VERSION 2026-10-16-gann-record-sections. Checks: vitest 2783 pass; tsc, check:terms, eslint clean.
+- 2026-10-16: passes flipped for A-TIME-04 and C-TIME-02 on the item 7 fresh review's PASS verdicts (item7c_review.md); only the passes field changed. 17 of 342 rules pass.
+
+## 2026-10-16 Item 7 step 4: time to hold (A-TIME-12, W006 p.23)
+- The three-adverse-closes exit was already built (readGannExit, the entry's written test). Built now: the other two halves. readHoldTime (exitRules.ts) reads the first close from the fill (a close against the entry is a warning) and whether the trade is in profit at the first close and three sessions on ("with the trend").
+- Where it acts: readPyramidAdd refuses an add until withTrendAfter3 is true (and says why), and passes holdWarning on; the live pyramid hint shows the warning. Same function in the replay's pyramid and the live /api/positions/pyramid route (the live lot date is the protocol_exits row's created_at, written when the position is open).
+- Tests: pyramid.test.ts "time to hold" (4 cases incl. a flat first close). They sit in pyramid.test.ts, not the entry's written test (exitRules.test.ts), which covers the exit half and is unchanged.
+- Rule-induced fixture changes: pyramid.test.ts base lot 102 -> 101.8 with stop 98.3 (risk still 3.5), threePoints.test.ts pyramid lots 102 -> 101.8 and 108 -> 108.2. Each lot had filled exactly at the first close, so under the new rule the trade never showed a profit; the asserted triggers are unchanged.
+- Mutations T1-T7 caught (T4, first close at entry read as against, after the flat-close case was added).
+- STRATEGY_VERSION 2026-10-16-gann-hold-time. Checks: vitest 2786 pass; tsc, check:terms, eslint clean.
+- Run 44 (67f2724, item 6 second review: weekly-chart section tops, entries priced like the scan; 2026-10-16-gann-record-sections is later): gann-runner Execute n=139 +0.130R [-0.003, +0.263], halves +0.088/+0.170; Watch n=1888 -0.027R [-0.060, +0.005]; all n=3143 -0.013R [-0.038, +0.013]. Bracket Execute +0.122R [-0.008, +0.249]; all -0.044R [-0.070, -0.017]. Essentially run 43 again; the Execute interval now just touches zero. Two months of 15-minute data only. Run 45 (5b27268, record sections) is running; its two cells don't use the pyramid, so the hold-time commit doesn't change what it measures.
+
+## 2026-10-16 Item 7 step 5: month counts (A-TIME-05/-21) and bear-market duration (A-TIME-06), as context
+- monthCountsToTurn / readMonthCounts (angleMonthCounts.ts): calendar months from each major monthly pivot (majorPivots(findPivots(monthly, 3)), the anchors secondaryTime's month counts use) to the month in hand, most recent first; counts of 18-48 in sixes are marked watched (HTMPC p.58 per the item 7 map; W006 p.15's 36/42/48 among them). The coffee case (W046 p.2) returns 9, 2, 6 and 5.
+- marketBearStart (leadership.ts, the mirror of marketBullStart) and readBearDuration (bearDuration.ts): months from the market's (SPY) bear top, inBottomWindow (30-36, 40-43), nearCulmination (27, 30, 34, 36-43), beforeShortest (<12), pastLongest (>43). The bear is known only once the two-bar monthly chart turns down. Map forks taken at their recommendation: F3 (W006's windows, no ceiling gate; the 53-month bear and Ch.10B's 34m5d recorded as conflicts in the header), F4 (the market's bear).
+- Both in readDisclosedRules (live through confluence/gann.ts, replay through sessionArm's facts, the market's months rolled with the month so far exactly as the weak-stock reading had it, now computed once), a card line each ending "Shown for context; it does not change the setup.", and factors watchedMonthCountWithTrade (direction from the anchor), marketBearBottomWindow and marketBearYoung (longs only). Context only, no STRATEGY_VERSION bump.
+- Tests: bearDuration.test.ts (new, 7), angleMonthCounts.test.ts (+4: coffee, watched steps, monthly chart, setup path). The written test for A-TIME-21 (the coffee case) and A-TIME-06 (bearDuration.test.ts) now exist; A-TIME-05's written test (monthsElapsed DJIA) is unchanged.
+- Mutations B1-B6, C1-C6 caught (C4 after a direction test was added). C7 (raw monthly vs monthly rolled with the month so far) survives: the two differ only in the open month, which can't be a strength-3 pivot.
+- Checks: vitest 2797 pass; tsc, check:terms, eslint clean.
+
+## 2026-10-16 Item 7 second fresh review (docs/gann-feature-map/item7d_review.md)
+- Passes flipped on its PASS verdicts: A-TIME-01, A-TIME-02, C-TIME-12, -21, -25, -37, -38, -40, -42, -44. Only the passes field changed. 27 of 342 rules pass. A-TIME-01/-02 carry the reviewer's caveat that the 766-symbol replay on the record-sections version (run 45, running) is owed before merge.
+- FAIL, being fixed next: C-TIME-39 (M-a, angle timing read the wrong way round), C-TIME-09 (M-b, 144 months unreachable on the live scan's 10 years of monthly bars), C-TIME-19 (M/L-c, exact day counts miss on weekday-only bars), C-TIME-23 (M/L-d, the 90-day record is lost to newer micro-swings). Also L-a (seasonal degree days), L-b/L-c (L1 exit branch untested; at-entry guard compares booleans), L-d (test strength).
+
+## 2026-10-16 Item 7 second review fixes (item7d_review.md)
+- M-a (C-TIME-39): the retracement-at-angle time divided the fraction by the angle's time multiple, reading the angle labels the other way from W033 and FAN_TIME_RATIOS. Now due = fraction x multiple x the swing's duration (3/8 on the 1x2 at 3/16, 2/3 on the 3x1 at twice it; 1/2 on the 1x1 unchanged). The old 3/8-1x2 test pinned the inverted reading and was rewritten to the corrected one (a rule fix, recorded here); new cases for 1/8-1x8, 3/8-1x2 and 2/3-3x1. Mutation D2 caught.
+- M/L-d (C-TIME-23): the 90-day half-and-half record is read from every swing of the window (everyAnchor: each strength-4 pivot with its preceding opposite pivot), not only the fans' current anchors, so a newer small swing no longer erases it. Test: a dip after the meeting; D1/D3 caught.
+- M/L-c (C-TIME-19): day counts are read on the first session on or after the calendar day, once, so weekend and holiday days are no longer missed. Test on weekday-only bars with a Thursday pivot; E1-E3 caught.
+- M-b (C-TIME-09/-12): LONG_MONTHLY_YEARS = 13. The live fetch (single and batched) reaches 13 years and returns monthly sliced to the ten years every other reading used before, plus monthlyLong, which scanTicker passes as instrument.monthlyLong to the class C long counts and the A-TIME-05/-21 month counts only. The replay fetches the same extra span (fetchSeries' monthlyLong; monthly unchanged) and caps each session at 13 years before it (longMonthlyWindow), months before the session's own. Tests: longMonthly.test.ts (fetch spans, 144 reachable only from the long series, the cap), longMonthlyWiring.test.ts (scanTicker passes both, with and without a stored reference), replay.test.ts (long series read, 13-year cap, no future months). F1-F10 caught. Speed (inferred, not measured): the batched monthly request grows by about 30% in bars, still fewer than the daily and weekly batches it runs alongside, so it should not lengthen the fetch.
+- L-a: the fine seasonal steps sit between the class A seasonal dates around them (SEASONAL_FRAME), not on a uniform 365.2422/360; 195 deg is Oct 7, 337.5 deg Feb 26, April 5/12 unchanged. G1-G3 caught.
+- L-b/L-c: tests for the monthly-break/section exit (fires after the fill; not without a month breaking) and the at-entry guard now compares the section top's date (CampaignLedger.sectionTopDate), so a new section's own call after the fill exits. H1-H4 caught.
+- L-d: tests for the seasonal +-1 day, the fan's +-2 days, the 90-day hold, the month-count and fraction directions, and the fraction rounding; the reviewer's surviving mutants L1-L6 are now caught. DIVIDED_CYCLE_YEARS comment corrected.
+- M1 leftover: with no campaign read, the third-month line says only "past two months".
+- STRATEGY_VERSION 2026-10-16-gann-section-exits (the exit change moves Gann's exits). Checks: vitest 2812 pass; tsc, check:terms, eslint clean.
+
+## 2026-10-16 Run 45 and item 7 step 6: time-window base rates (CYC-24, CYC-51)
+- Run 45 (5b27268 per the dispatch; head 35bd646 on the workflow, version 2026-10-16-gann-record-sections, 766 symbols, 15Min, 2026-08-17 to 2026-10-15): gann-runner Execute n=139 +0.134R [+0.003, +0.266], halves +0.095/+0.172; Watch n=1886 -0.023R [-0.057, +0.010]; all n=3141 -0.011R [-0.035, +0.014]. Bracket Execute +0.122R [-0.008, +0.249]; all -0.044R [-0.069, -0.018]. Execute's interval on Gann's exits is now just above zero. Two months of 15-minute data only. This is the record-sections run A-TIME-01/-02's review asked for. Run 46 (b7b2900, section exits) dispatched.
+- Owner, same day, on the dimensional-framework handoff: its suggestions came from old GSPS information; Gann's rules replace them. So MACD/RSI stay out, any reward/risk gate is Gann's (M-K5, held UNVERIFIABLE), stops/targets stay on his levels. Repo Reality Report: https://claude.ai/code/artifact/61f453d8-4f57-41d7-b372-61c901e6a347
+- lib/research/timeWindowBaseRate.ts (research only, nothing gates): the class A windows timeCycles opens from a symbol's major pivots (1/2/3-year anniversaries, the wheel's counts, the day-count bands) scored against completed weekly swing chart turns, a ±2-day window, base rate from moving every window 1-364 days, p = (ties or better + 1)/365, Holm across the five families, and the share of sessions each family covers (what a gate on "a window is active" would select). Rules fixed in the module header before any data is read, including the universe (LARGE_CAP_UNIVERSE, daily bars from 2000, >= 750 sessions).
+- calendarTest.holm is now generic over any {p, holmSignificant} result.
+- scripts/time-window-base-rates.mjs, handed off from backtest-universe.mjs with universe "time-window-base-rates" (the calendar-test pattern), paced at 30 symbols a minute. Dry run on synthetic bars prints the report.
+- Tests: timeWindowBaseRate.test.ts (7): planted windows p = 3/365 (shifts of 1-2 days tie inside a ±2-day window), random windows p > 0.05, shifted windows past the record dropped (exact base mean), 0.02 significant alone but not as the best of five, coverage, beatsRandom needs both Holm and an edge, windows opened from the major pivots and inside the record. Mutations M1-M5 caught; M6 (dropping the above-the-mean condition) survives as equivalent: a Holm-significant shift p means the observed rate beats nearly every shift.
+- Checks: vitest 2819 pass; tsc, check:terms, eslint clean.
+- Owner answers on the framework (07:19Z): MACD/RSI kept out; X_Base/X_Cusp were old-spec definitions, disregarded; Gann's method for any gate; no primary timeframe (the method runs on every timeframe; Gann's 7/30 power ratio stays as the tie-break); scope is the whole universe, and the framework waits until the Gann parity work is done.
+
+## 2026-10-16 Item 7 third fresh review (docs/gann-feature-map/item7e_review.md)
+- Passes flipped on its PASS verdicts: A-TIME-12, A-TIME-05, C-TIME-39, C-TIME-19. Only the passes field changed. 31 of 342 rules pass.
+- FAIL, being fixed next: A-TIME-21 (M3: monthly major pivots can't produce the coffee counts), A-TIME-06 and C-TIME-09 (M1: the 766-symbol runner never passes the long monthly or the market's monthly series), C-TIME-23 (M2: every micro-swing counts as the range, so the record shows on 98% of sessions). Also L1 (A-TIME-12 test gaps), L2/L3 (test strength), L4 (header note), L5 (F3 shown to the owner).
+
+## 2026-10-16 Item 7 third review fixes (item7e_review.md)
+- M1 (A-TIME-06, C-TIME-09): run.ts replaySeriesOptions hands every replay the symbol's daily, monthly and long monthly bars and the market's daily and monthly; collectRun and the 766-symbol runner (scripts/backtest-universe.mjs) both use it, so the runner now passes longMonthlyBars and marketMonthlyBars. seriesOptions.test.ts pins the helper and the runner's call; R1/R2 caught. Context only, so no version bump; run 46 (dispatched before this) still lacks both, which affects only context factors.
+- M2 (C-TIME-23): the 90-day half-and-half record is read as each session of the last 90 days read it, from the fans' anchors as of that session (halfMeetingsAsRead), instead of from every strength-4 swing. Base-rate test on 20 seeded random walks: 79% of sessions (was 98%), under the 95% saturation bound (DEFAULT_SATURATION_BOUNDS). The major-pivot alternative (58% in the review's probe) broke on short series, where the top-quartile cut keeps a single pivot. The dip case still passes. Labelled weak context in the code. Cost, measured: +117 ms CPU per 250 symbols (0.5 ms a symbol), off no user's wait beyond the scan itself.
+- M3 (A-TIME-21): readSwingMonthCounts counts months from the weekly swing chart's tops and bottoms, dated to the day, to the month in hand; on the setup as swingMonthCounts with its own card line. The coffee swings give 9, 2, 6 and 5 as the letter does. The weekly chart is the engineering choice (the letter names no chart). readMonthCounts stays for A-TIME-05. A1-A3 caught.
+- L1: exactly-three-closes test (T4 caught). L4: the 1/8-1x8 and 1/4-1x4 note. L5 (F3, 43 vs 53 vs 34m5d bear lengths) goes to the owner.
+- Checks: vitest 2826 pass; tsc, check:terms, eslint clean.
+
+## 2026-10-16 Item 8 map and step 1 (volume pins)
+- Map: docs/gann-feature-map/item8_volume_map.md (read-only subagent). A-VOLUME-04 already passes; FV1-FV11 forks with recommendations; build order pins, context fields, the scored rule, the breakaway on volume, the distribution-breakdown action.
+- Step 1 pins: shares per point on the Master Course's 1937 figures (151,197/88,860 = 1.70x) failed under the 1.8x cutoff, a real bug against the module's own cited case; TOP_WARNING_RATIO is now 1.70, the lower of Gann's two worked cases (1.70 and W006's 1.93), labelled. Context only, no version bump. Also pinned: a second top on heavier volume is not a retest (A-VOLUME-13 negative), and computeVolumeClimax reads the same on one year or six years of history ending the same day. V1/V2 caught.
+- Checks: vitest 2829 pass; tsc, check:terms clean.
+- Step 2 (context fields), part 1:
+  - A-VOLUME-12: lib/gann/topVolume.ts readTopVolumeWarning. The last completed week's volume is the largest of any week since the last major weekly top (majorPivots(findPivots(weekly, 3)) over the last 52 completed weeks, so the live year and the replay's longer history pick the same top). The week in progress is never counted. Card line ("Watch for a top", context) and factors topVolumeWarningAgainst (long) / topVolumeWarningWith (short). Top rule only; no bottom mirror invented. Tests: topVolume.test.ts (6). W1, W2, W4-W6 caught; W3 (> vs >=) survives as a tie case.
+  - A-VOLUME-11 (FV11 at its recommendation): readSharesPerPoint compares the weekly swing chart's up sections (prior bottom to top against the current bottom to now), not the 3-day legs inside them. New test: two 3-day dips inside the heavy section no longer hide it (failed at 1.0 before). The steppingCampaign fixture moved from 6-up/3-down legs to 12-up/9-down weekly sections, rule-induced (a 3-day dip is not a weekly-chart section); the asserted warnings are unchanged. P1, P2 caught; P3 equivalent (the pivot-kind check already returns null in a reaction).
+  - Context only, no version bump. vitest 2836 pass; tsc, check:terms, eslint clean.
+
+2026-10-16 item 8 step 2 (A-VOLUME-13): computeVolumeClimax gains retestWeekVolumeRatio
+(second top's calendar-week volume over the first top's, only when the second reaches the
+first). Card line at <=2/3; factors secondTopTwoThirds/ThirdVolume Against/With. Context only,
+nothing confirms on it (FV2 awaiting owner). Mutations M1-M8 killed. Full suite 2838 pass.
+
+## 2026-10-16 Run 46 (section exits)
+- Run 46 (b7b2900, version 2026-10-16-gann-section-exits, 766 symbols, 15Min, 2026-08-17 to 2026-10-15): gann-runner Execute n=139 +0.134R [+0.003, +0.266], halves +0.095/+0.172; Watch n=1886 -0.023R; all n=3141 -0.011R (total -33.55R vs -33.61R on run 45). Bracket unchanged from run 45 (Execute +0.122R [-0.008, +0.249], all -0.044R). The section-exit fix moves a handful of runner exits a bar or two earlier (avg bars held 130.03 -> 129.92) and nothing else; no entry or verdict changed, as expected. Run 46 lacked long/market monthly series in the runner (fixed in 991e468), which affects context factors only. Time-window base-rate run dispatched at c83e590.
+
+2026-10-16 item 8 step 2 (A-VOLUME-03): new lib/gann/distribution.ts readDistributionBreakdown
+(completed sessions only, last 252): the weekly chart's last two tops, the later lower; the
+accumulation range broken down by the 3-point allowance; the break's volume over the range's
+mean, above 1. Context field `distribution`, card line, factors distributionBreakdownAgainst/With.
+Live and replay read the same sessions (the replay already passes completed sessions; live drops
+today's bar). First version formatted the ET date of every bar and walked the full history: the
+backtest-run test went 27s -> 156s; fixed by dropping only trailing bars and reading 252 sessions
+(~120 ms per 250 symbols on six years of bars). Mutations D1-D11 killed except two removed as
+equivalent. Full suite 2845 pass.
+- Checked undisclosed-search/findings.md conflict 1 against gann_features.json: A-ASTRO-10 (CE average, MOF formula) stays UNDISCLOSED, passes false. The definitions found are Tier B (Walker 2004, Ganntrader), not Gann's own text; the letter names them without defining them. Only `passes` may change in that file anyway, and astrology is research-only. Conflicts 2-4 don't touch gann_features.json.
+
+2026-10-16 item 8 step 2 (A-VOLUME-10 context): readBreakawayVolume in breakaway.ts. On completed
+sessions (last 252): when the sessions before the last were range-bound (readBreakaway, null
+trigger) and the last closed beyond the range's top or bottom by the 3-point allowance, its
+volume over the mean of the range's 91-day sessions. Context field `breakawayVolume`, card line
+(says "a breakout without volume" at <=1x), factors breakawayOnVolumeWith / WithoutVolumeWith /
+OnVolumeAgainst. Mutations B2/B4/B5/B6/B8/B9 killed; B1 (the 252 slice) and B7 (the range read
+including the break) survive as equivalent on one session; B3 removed as redundant. Full suite
+2851 pass. Step 2's five context fields are done; step 3 (the scored rule) is next.
+
+## 2026-10-16 Item 8 step 3: Gann's volume rules in the scored volumeClimax (A-VOLUME-05/-06/-07/-09/-13; FV1-FV5 at their recommendations)
+- FV3: retests compare the two turns' calendar weeks (raw volume), not each bar's relative volume.
+- FV1: a lower secondary top after a decline on heavy volume, on a smaller week (Rules 1/7); a higher secondary low out of a bear (the earlier low the lowest of the last 252 sessions read) on less volume than the first advance, with the advance after it heavier (Rule 4); a panic's secondary low at or above the climax low on <= half the climax week (A-VOLUME-06).
+- FV4: a high also confirms when the heaviest week since the last major weekly top (majorPivots, the last 48 weeks of the bars read) came in the advance into it and was >1.5x the mean week since. A first version (heaviest week since the previous local top) passed 80% of random-walk tops and was dropped.
+- FV5: a low also confirms when the last completed month traded the least of the last 60 completed months (>= 36 needed); live 10-year monthly, replay priorMonthly. Not in the live coarse pre-filter (it has no monthly bars), recorded there.
+- FV2 (a): any smaller volume, the ratio stays context.
+- Completed sessions only (asOf) on the scan, replay, confluence, card and coarse pass. topVolume WEEKS_READ 52 -> 48 and the distribution/breakaway reads 252 -> 240 sessions, inside the live scan's 365-day daily fetch.
+- Random walks (1880 reads): high confirms 0.559 -> 0.661, low 0.665 -> 0.662; under the 0.95 saturation bound.
+- Cost: computeVolumeClimax 12 ms -> 54 ms per 250 symbols per call (it runs in four places live, ~170 ms). Getting there: etDateKey now reuses one Intl formatter (building one per call made a first version 3.3 s per 250), month keys from the bar's own date, weekOf without Date objects.
+- Notes (score.ts), lessons (Academy 4 and 6), registry note, module header updated. STRATEGY_VERSION 2026-10-16-gann-volume-rules.
+- Tests fail on the old module (11 of 22 at the time). Mutations V1-V19, H1-H5 killed; H4 (the top's own week filter) removed as unreachable. Full suite 2870 pass. Replay owed.
+
+## 2026-10-16 Time-window base rates (item 7 step 6, CYC-24/-51), run 47
+- Run 47 (c83e590, research only): 736 symbols with enough history (30 skipped, too few sessions), daily bars 2017-08-29 to 2026-10-15 (the feed reaches 2017, not the 2000 the header asked for). Turns: weekly swing pivots; windows ±2 days from major daily pivots; base = the same windows shifted 1..364 days; Holm across the five families.
+- anniversary1 hit 0.2325 vs shifted 0.2097, p 0.025, not Holm-significant; anniversary2 0.202 vs 0.214 (p 0.75); anniversary3 0.198 vs 0.212 (p 0.76); wheel 0.2096 vs 0.2096 (p 0.51, covers 49% of days); dayBands 0.303 vs 0.301 (p 0.42, 59%). All five windows together cover 71% of sessions. No family beats random placement, the same answer as the F4 calendar test.
+- Under the pre-registered rule, no window set earns a gate: item 7 F1 (b)'s "time not run out" hold has no measured window to stand on. F1 goes back to the owner with this result. Saved as docs/replay-runs/2026-10-16-time-window-base-rates-736sym.json.
+- The workflow's print step failed after the run finished (it reads out/summary.json, which the research handoffs never wrote). Both handoffs now write a placeholder summary.json.
+- Run 48 (c6f9db0, item 8 step 3, version 2026-10-16-gann-volume-rules) dispatched.
+
+## 2026-10-16 Item 8 step 4: A-VOLUME-10 at confirmation (FV6 b)
+- breakawayVolumeMet (breakaway.ts): on completed sessions, the last session within 13 weeks that closed past the crossing line from short of it; when the sessions before it are range-bound (isGannRangeBound, as decision 5 reads a range) it must carry more than the mean volume of the range's 91-day sessions. No crossing yet in a range: not met. Fewer than 10 sessions before the crossing are not read as a range (Gann's shortest range is about two weeks; engineering floor, labelled).
+- Live: readEntryConfirmationNow, for an entry with a stop that crosses (resting buys exempt), on both the ready path and the held-daily path; unmet returns stage "broken" with a note that the entry waits for volume. Every placement path goes through it (place-order).
+- Replay: SessionTrigger.breakawayVolume, read at arm time from the session's entry chart with the line from reactionEntry/reactionStop; the reaction rule needs it. The "confirmed" research rule has no stop, like live's no-stop confirmation, so it is not applied there (recorded inline).
+- Fixtures: crossings out of a range now carry heavier volume (rule-induced); the replay-reaction short fixture is the falling market mirrored (a trend, so its in-session crossing still fills); the usePlanLevels test moved to the old-bottom buy; new tests for the hold. Lesson line in Academy 4's entry lesson.
+- Mutations R1, R2, G1, G2, C1, C2 killed. Full suite 2882 pass. STRATEGY_VERSION 2026-10-16-gann-breakaway-volume. Replay owed (after run 48).
+- Fresh item 8 review back (scratchpad item8_review.md): H1 A-VOLUME-09 not tied to the low; M1 wiring untested; M2 FV4 saturation guard untested and >= vs >; M3 sharesPerPoint reads the forming session live. Next.
+
+## 2026-10-16 Item 8 review fixes (docs/gann-feature-map/item8_review.md)
+- H1 (A-VOLUME-09): the smallest month in five years now confirms only a bottom (no lower low in the 126 sessions before it, half a year; both of Gann's cases qualify) printed in the quiet month, up to two months before it (Sep 1934 after July's low), or in the month since. Tests on a real half-year decline, the reviewer's uptrend-with-falling-share-volume case as a negative, the lead window and the 60-month span. Mutations H1a-f and V11 killed.
+- M2 (FV4): heaviest > low (the low's own week is not the advance); a selling-climax fixture; a random-walk base-rate pin (< 0.5, reads ~0.3) that fails without majorPivots. V13, V16 killed. Header labels heavyAdvance confirming any strength-4 high.
+- M3 (A-VOLUME-11): readSharesPerPoint drops the session still trading when given asOf; disclosedRules passes it. Part-session test.
+- M1: lib/scan/__tests__/volumeClimaxWiring.test.ts: replay and live scan at runtime, the coarse pass, confluence card, context ratio and shares-per-point by source. W01-W06, M3a killed.
+- L2: bear-low guard (a low older than the year read is not a bear low) and the unread clauses labelled; L3: C-TIME-23 pinned under 0.85; L4: staleness and crypto notes in the header.
+- passes flipped on the reviewer's PASS: A-VOLUME-12, A-TIME-21, A-TIME-06, C-TIME-09, C-TIME-23. A-VOLUME-05/-06/-07/-13 wait on the replay; -09 and -11 on a re-review; -03 and -10 on FV7 and step 4's replay.
+- STRATEGY_VERSION 2026-10-16-gann-volume-review. Full suite 2892 pass.
+
+## 2026-10-16 Item 8 step 5: A-VOLUME-03 acts on longs (FV7 b)
+- readDistributionStanding (distribution.ts): the latest breakdown after a lower top in the last 20 completed sessions (the spell's length), standing while no later close is back at or over the spell's low. Engineering choices labelled (look-back; back into the spell ends it).
+- applyDistributionBreakdownHold (score.ts, hold key distributionBreakdown, registry entry): a long Execute is held to Watch while it stands; live (scanTicker, readDistributionStanding on the scan's daily) and replay (context.disclosedRules.distributionStanding).
+- readGannExit: a long exits ("distribution") when a standing breakdown was printed on or after the fill; live exit manager and replay both read it.
+- Card line and Academy volume lesson say what it does now. The distribution read window 240 -> 220 sessions so a breakdown 20 sessions old reads over the same sessions in the live year and the replay (parity test).
+- Mutations P2, P3, P5-P9 killed; P1 (220 -> 240) survives on the parity fixture (the walk gives the same tops either way), P4 (the breakout prefilter) is equivalent. Full suite 2901 pass. STRATEGY_VERSION 2026-10-16-gann-distribution-hold.
+
+## 2026-10-16 Run 48 (item 8 step 3, version 2026-10-16-gann-volume-rules)
+- Run 48 (c6f9db0, 766 symbols, 15Min, 2026-08-17 to 2026-10-15, 34.0 min vs 25.6): the same 3141 trades and exits as run 46; only the verdict split moved (Execute +17, Watch +52, Reject -69). gann-runner Execute n=156 +0.125R [-0.007, +0.249] (run 46: 139, +0.134 [+0.003, +0.266]), halves +0.120/+0.130; Watch n=1938 -0.024R; all -0.011R. Bracket Execute +0.102R [-0.024, +0.222]; all -0.044R.
+- volumeClimax within Execute: 143/156 pass (91.7%), delta -0.668R (run 46: 88.5%, -0.315). Still inverted, more strongly; only 13 Execute trades fail it. Under "Gann-derived AND measured" this is presumed a translation defect, not evidence against the rule; A-VOLUME-05/-06/-07/-13 stay passes:false. Next: the population-level factor row and which confirming branch (retest by week, heavyAdvance, secondary) carries the passes, before any change. Held for the owner.
+- New context factors: secondTopTwoThirdsVolumeAgainst 12/96 informative (delta -0.23/-0.43), weakStockLong 26/73 (+0.05/+0.07); the rest too few trades.
+- Run 49 (0b6f9b1, version 2026-10-16-gann-distribution-hold: steps 4, 5 and the review fixes) dispatched.
+
+## 2026-10-16 A-ENTRY-20 (W006 p.28), double top after a heavy earlier top
+- The sell is the existing old-level short (rest at the old top, stop 3 points over). The heavy earlier top already counts in volumeClimax's climax (best of the recent pivots); retestOfHeavyTop names the case (high reached within tolerance, earlier top's relative volume over 1.5, labelled) and the volume note says it. No verdict change, no version bump. Tests in volumeRule.test.ts; E1-E3 killed.
+
+## 2026-10-16 item 6 follow-up: last non-Gann ranking points out of the coarse continuation pool
+- Chuck's "fix all non Gann gaps" (relayed from the intraday-methods thread): lib/marketScan.ts's continuation pool no longer ranks on the 4-hour spike or ATR range expansion; hasExceptional4hMomentum, MOMENTUM_EXPANSION, EXCEPTIONAL_4H_* and the 4-hour batch fetch are deleted (one less fetch per scan, nothing waits longer).
+- Remaining points: the 20-bar 50% point, volume increasing behind the trend, travel from the 50-bar 50% point, the time-cycle bonus.
+- Tests: market-scan-coarse-trend.test.ts (widening range ranks equal; rising volume ranks ahead); market-scan-continuation.test.ts deleted with the function. Mutants M1 (volume point off), M2 (a range point back in) killed.
+- Coarse pool only: no verdict, risk or order change, and the replay does not model the coarse pool, so STRATEGY_VERSION stays.
+- Still open for item 11: applyReversionConfirmation (STRAT 2-2 plus ATR momentumElevated holds Execute) and guided/copy.ts's ATR-expansion sentence.
+
+## 2026-10-16 item 9 (price and levels) steps 1-2
+- Map: docs/gann-feature-map/item9_levels_map.md (48 entries; forks FL1-FL12; build order in its §4).
+- Step 1 pins (test-only, all pass on current code): C-NUMEROLOGY-04 (digitalRoot.test.ts), C-LEVELS-16 (hexagonChart.test.ts, 1,519 starts ring 23), C-PRICE-03 (disclosedRules.test.ts, 1184 -> 2368), C-LEVELS-14 (gann.test.ts, convention recorded: GSPS +2 per turn matches the Master Course diagonals; W009 is GSPS's 22.5 degrees), C-LEVELS-18 (gann.test.ts, RETRACEMENT_ANGLE_PAIRS), A-PRICE-07 (stopBreach.test.ts, trigger arms, stop retires unchanged), A-LEVELS-05 second half (levelRole.test.ts). Mutants S9, RP, L5 killed.
+- C-LEVELS-19 pin deferred to FL6: fan prices still sit in the TP1 pool, so "no target reads the next fan line" is not yet true.
+- Step 2 copy fixes: squareOf9/masterTwelve "multiplies" -> "adds 2"; masterTwelve marked a reconstruction of the Master 12 grid; score.ts timePriceSquare doc says ATR units; normalizedSlope's atrAtAnchor renamed atrUnit (the card passes the anchor's ATR, computeAngleSlopes the current one).
+- Full suite 2912 passing, tsc clean, terms clean.
+
+## 2026-10-16 item 9 step 3a: double tops and level tests on Gann's 3 points (A-LEVELS-04/-06, FL2 a)
+- multipleTops clusters 3-Day tops/bottoms within gannThreePointsPct (was 1%); "failed" now fires on a double as well as a triple top once a close is back the other side by the 3 points (was third test only, 1% band). readLevelTests clusters on the same 3 points. Card line names the second or third test. clusterLevels/combineNearbyLevels stay at 1% (the separate "near same levels" rule).
+- Context only (card, contextFactors), so no STRATEGY_VERSION bump. thirdTestFailedAgainstTrade keeps its name.
+- Tests: timeRulesAndTops.test.ts (failed double top; inside the 3 points still testing; 64 under 66 is a second test; 61 under 66 is a new level). Mutants T1-T4 killed.
+- Random-walk saturation (200 walks x 11 cut points, both sides): a reading present 40% -> 69%, "failed" 6% -> 22%. Worth weighing before FL3 makes "failed" hold a long.
+
+## 2026-10-16 item 9 step 3b: ladder of old campaign bottoms (A-LEVELS-03, context)
+- lib/gann/campaignBottoms.ts: monthly strength-3 pivot lows over OLDER_LEVELS_YEARS calendar years (completed months; completed sessions this month for a break), newest first; broken = a later close under by Gann's 3 points; nextSupport = first unbroken. Not majorPivots (its prominence quantile dropped the newest, smaller campaign in tests). Card line + factor campaignBottomBrokenAgreesWithTrade. Context only, no version bump; joins plan levels later (FL7/FL6 step).
+- Tests: campaignBottoms.test.ts (holds, broken, inside 3 points, older-higher bottom, 10-year span parity, forming session ignored, card and factors). Mutants C1-C3 killed; the old "older bottom above a broken one" guard was redundant (equivalent) and removed.
+- Fresh review of item 8 steps 4-5 in docs/gann-feature-map/item8b_review.md: A-VOLUME-11 PASS; A-VOLUME-09/-10 PASS pending run 49 and M5 pins; A-VOLUME-03 and A-ENTRY-20 FAIL on small fixes (M1-M3). Fixing next.
+
+## 2026-10-16 item 8 second-review fixes (docs/gann-feature-map/item8b_review.md)
+- M1: readDistributionBreakdown now reads Gann's "dull, narrow": spell span <= 2 x the 3-point allowance at its low (NARROW_SPELL_ALLOWANCES) and spell mean volume below the 40 sessions before it (DULL_BASELINE_SESSIONS). Both labelled engineering. Wide-spell and not-dull negatives pinned (N1, N2 killed).
+- M2: an open long exits while a breakdown stands whenever it was bought; readEntryConfirmationNow makes a long with the protocol's stop wait while one stands (one extra 1-year daily fetch on a ready long; not on the scan path); the replay enters no long while one stands. Pinned in missingRules, confirmNow and volumeClimaxWiring tests.
+- M3: a retest of a top (bottom) must not cross it by the 3 points (both bounds, R1/R2 killed); the A-ENTRY-20 note drops the stop clause ("a sign to sell"). Moves volumeClimax's retest branch, so it is a verdict change.
+- M4: heaviestWeekBeforeTop's majorPivots guard pinned with a minor weekly high in the advance (M2b killed). Correction to the 6239863 note: the random-walk pin never caught that mutant.
+- M5: BV9 (forming session), BV12 (resting buy exempt), BV14 (replay reads entryDaily, source pin) pinned and killed.
+- Copy: the volume waiting note says only a new crossing on volume counts; "while price stays under the range" now says "for up to 20 sessions after the break" everywhere; Academy 4 (Pro) gained both rules.
+- STRATEGY_VERSION 2026-10-16-gann-volume-review2. Run 50 to follow run 49.
+- Not done (LOW, recorded): BV5, D9, D12, H5, L2a pins; the duplicate breakdown read on the live scan with confluence on (~32 ms per 250 symbols).
+
+## 2026-10-16 run 49 (0b6f9b1, 2026-10-16-gann-distribution-hold; 766 sym, 15Min, 2026-08-17..10-15)
+- gann-runner: all n 2746 -0.005R [-0.031,+0.020]; Execute n 134 +0.148R [+0.011,+0.292], both halves positive (+0.140/+0.156); Watch -0.024. Run 48: Execute 156 +0.125 [-0.007,+0.249].
+- bracket: all -0.039 [-0.067,-0.011]; Execute +0.086 [-0.047,+0.215].
+- 2 exits on "distribution"; 395 fewer trades overall, 22 fewer in Execute (inferred from the hold, not a reported count).
+- volumeClimax inside Execute still inverted: 120/134 pass, dR -0.557 (run 48 -0.668). Open.
+
+## 2026-10-16 item 9 step 3c: price readings as context (A-PRICE-01/-02/-05/-06, C-LEVELS-01)
+- lib/gann/priceZone.ts: priceZone (Gann's literal 50/100/150/200 dollars, edges to the zone above); readFirstFallFromHigh (52-week entry window, completed sessions; in the first fall once under the high by more than the 3 points and no more than 100); annualRange (median calendar-year range of the completed years in OLDER_LEVELS_YEARS); integerSquareLevels (n^2, midpoint, (n+1)^2; card only); monthlyAngle (low + points per calendar month; card uses 1 a month from the last campaign bottom).
+- computeAngleSlopes readings gain pointsPerDay (raw points per calendar day since the anchor).
+- Card lines; factors firstFallFromHighAgreesWithTrade, overMonthlyAngleAgreesWithTrade. A source pin keeps them out of score.ts, levels.ts, scanTicker.ts and replay.ts. No STRATEGY_VERSION bump.
+- priceZone restates the 364-day window (an import cycle via disclosedRules); a test pins it to ENTRY_CHART_DAYS. Mutants P1-P8, P5b, P5c killed.
+
+## 2026-10-16 item 9 step 3d: secondary rally top (A-LEVELS-02, context)
+- campaignLedger.secondaryTurn: the first weekly-chart top after a bear campaign's start (the bull mirror: first weekly bottom, labelled engineering symmetry). Card line; factor belowSecondaryRallyTop. No "crossed" flag: crossing it crosses the campaign's last weekly top too, which turns the weekly chart (dead state, removed after mutant S3 survived).
+- Joining the S/R pool waits for FL1's replay, as the map says. Mutants S1-S5 killed.
+
+## 2026-10-16 item 9 step 3e: midpoint fan and square from a high (C-LEVELS-10, C-LEVELS-08)
+- lib/gann/midpointFan.ts: computeMidpointFan (the fans' latest pivot high and low halved; origin in time the bar where the close last crossed it, labelled engineering; ATR unit like fans.ts until FL4's replay); squareFromHigh(high, rate, units), research-only, no consumer.
+- Card line only (midpointFan); a source pin keeps both out of score.ts, levels.ts, scanTicker.ts, replay.ts and fans.ts. Mutants M1-M3, M5 killed.
+- C-PRICE-02 (FL8) waits on a page check of 45 Years Ch. IV; C-LEVELS-12/-15 research modules next.
+
+## 2026-10-16 item 9 step 3f: multiples of the low (C-PRICE-02 under FL8 a)
+- Page check: 45 Years Ch. IV p.30 (checkpoint W009 notes) ranks "100% of the low and multiples" second after 50%, with the 1929 proof 500% of 64 = 384; Commodities pp.161-162 (W001) runs rye to 700%. Class A.
+- pricePercentageLevels adds 200%, 300% ... above the low up to the record's high, importance 1, tagged `multiple`. Card and the nearMajorPercentLevel factor read them; majorPricePercentageLevels excludes them, so the scan and replay pools are unchanged until FL8's replay (step 5). W003's 7/9/12 list stays out. Mutants Q1-Q4 killed.
+
+## 2026-10-16 item 9 step 3g: the Even Square (C-LEVELS-12) and C-LEVELS-15 held
+- lib/gann/evenSquare.ts: 16x16, 30 points a cell, even-side rings outward (each ring starts in its right column one row above its end and runs up, left, down, right, up), squares 4..256 in the row under the centre. Research only, no consumer (pinned). All 44 clearly read cells of W007 p.65 match.
+- Unread digits it predicts: row 1 "65?0" = 6570, 6540; row 2 "4?20" = 4920; centre "3?" = 30, "?0" = 90, "1?0" = 120, "4?0" = 480; row 4 "23??/23?0/22?0" = 2340/2310/2280; row 12 "1?20" = 1620. One conflict: row 3 col 3 read "3?30", the grid gives 3510 (forced by its read neighbours 3480 and 3540), so the reading likely mis-saw the third digit.
+- C-LEVELS-15 (Hayashi 33x33 sheet) not built: Hayashi's own spreadsheet, not Gann; CF and Step are user inputs, not disclosed constants (W023 summary); the Square of Nine itself is already squareOf9.ts. Held like FL9.
+
+## 2026-10-16 item 10 review (docs/gann-feature-map/item10_review.md) and its fixes
+- Verdicts: PASS A-PRICE-07, C-PRICE-03, C-LEVELS-14, C-LEVELS-18; PASS pending replay A-VOLUME-03/-09/-10; FAIL A-ENTRY-20 (H1, M3), A-LEVELS-04 (FL3 not built), -06 (parity), -03 (by plan, step 8), -05 (FL1), C-LEVELS-16 (owner exception), C-NUMEROLOGY-04 (FL5).
+- H1 fixed: secondary rally (Rule 1/7) needs a top under the old one by more than the band, Rule 4 a low above it; a 3-point crossing is neither. Pinned at 110/120 and 90/80.
+- M3 fixed: the near-side retest band is gannThreePoints (was 1%). Pinned (a top 4 under 100 is a retest).
+- M1 pinned: the forming month closing under a campaign bottom is no break (C5 killed).
+- M2 (live 1y vs replay 6y for multipleTops/levelTests) goes into step 4's level parity.
+- A-VOLUME-11's gsps_location still says "differs" (only `passes` may change in the feature list); its pass rests on the review in item8b_review.md.
+- STRATEGY_VERSION 2026-10-16-gann-retest-bands. Replay waits for step 4 so one run measures both.
+
+## 2026-10-16 item 9 step 4: level parity (lib/scan/levelCharts.ts)
+- One window on both surfaces: daily = entryChartBars (52 weeks, completed); weekly = Monday weeks within 5 years, the week in progress from completed sessions (replay rolls them from daily; the old "weeks since 1 Jan" buckets are gone); monthly = from 1 Jan OLDER_LEVELS_YEARS before the year (live now reads monthlyLong, was a rolling 10 years), the month in progress from completed sessions.
+- Feeds: readTrend x3 (support/resistance and macro direction), ruleOfThree weekly/monthly, fans, Square of 9, retracements, majorPricePercentageLevels, readDisclosedRules (live via the confluence layer's dailyBars and instrument.monthly). Live drops today's forming bar from all of these. Covers review M2 (multipleTops/levelTests now read the same sessions).
+- Not changed (noted for later): the swing chart, campaign leg, rule of three daily, angle slopes, time-price square, volume climax and cycles still read the raw daily on each surface (live 1y with today, replay up to 6y).
+- Cost: levelCharts 0.09 ms per symbol live (~25 ms per 250-symbol scan), 0.72 ms per replay call (memoised Mondays).
+- Equality test: a live-shaped feed and a replay-shaped one give identical charts. Mutants L1-L6 killed. STRATEGY_VERSION 2026-10-16-gann-level-parity. Run 51 next (after run 50).
+
+## Run 50 (2026-10-16, 85b22af, gann-volume-review2, 766 sym 15Min)
+- gann-runner Execute n134 +0.148R [+0.011,+0.292], halves +0.140/+0.156; all trades -0.005. Bracket Execute +0.086. Unchanged from run 49.
+- volumeClimax inside Execute still inverted: dR -0.438 (run 49 -0.557). Distribution exits 2 -> 0; 18 Watch trades fell to Reject.
+
+## Item 9 step 5, FL1 a (A-LEVELS-01/-05), 2026-10-16
+- readTrend (lib/analysis/trend.ts) and readLevelTests (disclosedRules.ts): an old top cleared by a later close beyond beyondByThreePoints is support; an old bottom broken by one is resistance. Before: bottoms only support, tops only resistance.
+- Flows to stops/targets/coarse filter/historicalSR via the trend level lists, live and replay (same code). Curriculum lesson adds the mirror (old low broken becomes a ceiling).
+- Mutants R1-R5, T1-T4 killed (incl. "later close" only). Full suite 2973 passing. STRATEGY_VERSION 2026-10-16-gann-old-tops-support. Replay after run 51: report historicalSR pass rate vs saturation bounds, stop-from-structure share.
+
+## Item 9 step 6, FL5 a (C-NUMEROLOGY-04), 2026-10-16
+- gannRetracementConfluence passes on the role-matched retracement zone alone; the digital-root AND is gone (score.ts). The reading stays in the card note as context. Label "Retracement zone" (weights.ts, registry); key unchanged so committed runs validate. Registry note rewritten; scanTicker/digitalRoot comments updated.
+- Mutants D1 (restore AND), D2 (always pass) killed. STRATEGY_VERSION 2026-10-16-gann-retracement-alone. Replay pending.
+
+## Item 9 step 7, FL3 a (A-LEVELS-04), 2026-10-16
+- multipleTops.ts: lastTestIndex on each reading; failedTestAgainst(reading, direction) is the one helper.
+- applyFailedTopHold (score.ts, hold key failedTop, registry entry): long Execute -> Watch under a failed double/triple top; short mirror at bottoms. Wired outermost of the volume holds on the live scan (readMultipleTops(charts.daily)) and the replay (disclosedRules.multipleTops, same charts.daily).
+- Placement: readEntryConfirmationNow refuses both sides while one stands (entry chart from the fetched year). Replay skips the entry the same way.
+- Exit: readGannExit "failed_top" when the latest test printed after the fill, on the 364 days before the next session (FAILED_TOP_CHART_DAYS pinned = ENTRY_CHART_DAYS); checked before C4 so the label is not hidden.
+- holdWiring's falling fixture had a real failed double top at 156 (tops within the 3 points); a last lower rally was added so it tests the held bottom alone.
+- Mutants E1-E3, H1-H4, P1-P2 killed. STRATEGY_VERSION 2026-10-16-gann-failed-tops.
+- Cost: readMultipleTops on 252 sessions 0.013 ms (live adds one per symbol, ~3 ms per 250-symbol scan; off the user's wait otherwise). Placement adds one 1-year daily fetch for shorts too (off the scan path). replay-reaction's falling fixtures rescaled to start at 3000 for the long cases (at 300 the band read the rally tops as a failed double top).
+
+## Item 9 step 8, FL6 a + A-LEVELS-03 in levels, 2026-10-16
+- gannTargetPool (levels.ts): Square of Nine prices only; fans stay on chart/card. Used by scanTicker and replay priceTradeLevels (also the crypto master path, which reads gannTargets).
+- campaignSupportLevels (campaignBottoms.ts): unbroken ladder bottoms under price join allLevels as 1Month on both surfaces (readCampaignBottoms(charts.monthly, charts.daily, asOf)); shorts can target them, a long's stop can rest under them.
+- Mutants G1-G3 killed. STRATEGY_VERSION 2026-10-16-gann-target-ladder. Replays for steps 5-8 queued one at a time after run 51.
+
+## Run 51 (38888547753, 05ad97e level-parity) — wrong cells, not comparable
+- Dispatched without the cells input, so it ran the default single baseline cell (production stop, bracket), not run 50's plan-reaction / plan-reaction-gannrunner pair. Baseline Execute n172 +0.171R [+0.013,+0.331]; all -0.040. Not compared with run 50. Run 52 (same mistake, at 4d05920) cancelled.
+- ALWAYS pass cells: [{"label":"plan-reaction-gannrunner","options":{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann-runner"}},{"label":"plan-reaction","options":{"usePlanLevels":true,"entryRule":"reaction"}}]
+- Rerunning 05ad97e with the cells as run 53, then steps 5-8 one at a time.
+
+## Review 11 (docs/gann-feature-map/item9b_review.md) fixes, 2026-10-16
+- PASS on code (replays pending): A-LEVELS-01, -05, -03, C-NUMEROLOGY-04. FAIL: A-LEVELS-04, fixed here, needs a re-review.
+- H1: failedTestInPath(reading, dir, entry, tp1): the hold, the placement wait and the replay skip apply only when the failed level lies between entry and TP1 (inclusive). Gann's double-bottom buy at a range's foot, TP1 under the failed top, is no longer held. Replay stores each session plan's entry/TP1 (sessionPlanPaths); place-order passes plan TP1 or the advised take-profit.
+- M1: the failed-top exit reads the 52 weeks before each session and fires when the top has failed now but had not at the fill (bars 13-19 exit, 21 does not).
+- M2: tests added for the bottom-side allowance (trend, readLevelTests), the ladder's price argument, a short's TP1 on a campaign bottom, the reject/null cases, the 345-day window, today's forming bar, the anchored replay skip. Mutants D/T x2 and P4 x2 killed.
+- M3: School line on failed double/triple tops (Academy 4); triple wording; coarse pre-filter exception recorded on applyFailedTopHold (it narrows the universe only; every kept symbol is held on the full scan).
+- L1: closesAfter() one-pass suffix max/min. readTrend 0.38 ms on 250 bars, of which readGannTrend (unchanged) is 0.33; the level step is ~0.05 ms.
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-path. Full suite 3000/3000, tsc, terms, eslint clean.
+
+## Review 12 (docs/gann-feature-map/item9b_review12.md) fixes, 2026-10-16
+- Verdict at cd064b8: A-LEVELS-04 FAIL. Fixed:
+- H1: the failed-top exit now exits on any failing test later than the one that stood at entry (same latest swing session = same test); a long excused under a failed top exits when the third test fails after the fill.
+- M1: the ticket sends the protocol TP1 as entryTarget; placement reads it (never the Manual Override target), the plan path reads plan.coordinates.takeProfit1; no target known -> any failed test beyond the entry holds the order. Behavioural tests in failedTopPlacement.test.ts.
+- M2: in path only when TP1 is past the failed level by more than the 3-point allowance (passing = Gann's crossing); a TP1 at the top sells at the top and is not held.
+- M3: new context factor failedTopBeyondFirstTarget (the excused population), fed the session plan's TP1 in the replay.
+- L1: boundary edges A1-A6, fill-on-failure-session, 52-week edge (first test 390 days back) tested; mutants A1-A6, H1, H3, E4, O1-O3, F1 killed. L2a (entry window anchored on next weekday instead of the fill session) survives: an edge-only difference.
+- L2: exit windows anchored on the next session (the fill session at entry, the next weekday today), as entryChartBars.
+- L3 (hold lifts once price is within 3 points under the failed top, not on a crossing): held for Chuck.
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-third. Full suite 3010/3010, tsc, terms, eslint clean.
+
+## Run 53 (38892166900, 05ad97e level-parity, cells correct), 2026-10-16
+- STRATEGY_VERSION 2026-10-16-gann-level-parity. gann-runner Execute n172 +0.144R [+0.025,+0.258], halves +0.097/+0.190; all -0.006; Watch n1815 -0.041. plan-reaction Execute +0.100 [-0.013,+0.210]. Run 50: n134 +0.148.
+- Inside Execute: historicalSR 0.401 (in bounds), dR +0.051; stopRoom 0.942 (near the 0.95 ceiling), dR -0.309 (run 50 +0.059) - look at it; volumeClimax dR -0.081 (run 50 -0.438). thirdTestFailedAgainstTrade 16 (run 50 7).
+
+## Failed top held until passed (owner card posted, building the recommended option), 2026-10-16
+- readMultipleTops: a double/triple top is failed once a close after its latest test fell 3 points under, and stays failed until a later close passes it by the 3 points or a new swing (a further test) replaces it. Before: failed only while price sat 3 points under, so a rally back within 3 points lifted the hold (review 12 L3). Bottoms mirror.
+- Fixtures moved off accidental second levels (failedTop, confirmNow range-volume cases get a TP1 at the range top). Mutants OLD, P1 killed; P2/P3 equivalent (a close over the top without the 3 points forms a new test).
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-passed. Full suite 3011/3011. If Chuck picks "within 3 points", revert this commit.
+
+## Astrology hold lifted; item 7 inputs, 2026-10-16
+- Chuck, 11:41 UTC in the intraday thread ("those quotes are mine."): the 2026-10-01 decisions stand platform-wide (every Gann method acts, no more context-only for those). Hold removed.
+- Item 7 (time windows) takes as inputs, not a separate path: lib/gann/astroRules.ts time readings (Mars half-return, solarPoint, naturalAngle, newMoon, lunarReturn) and PR #310's lib/gann/jensen.ts#jensenWindows(bars, unit, from, to) -> {date, source, expect, label, price?}[] (aspect calendar market-wide, ~140 ms a year, compute once per run). No dated window shown to members until measured. Item 7 F1 card still open.
+
+## Review 13 (docs/gann-feature-map/item9b_review13.md) fixes, 2026-10-16
+- Verdict at de40345: A-LEVELS-04 FAIL. Fixed:
+- H1: readMultipleTops judges "failed" on the cluster holding the latest swing of its kind, wherever price is; an older level nearer to price no longer hides it (Q1 test: held at entry, no stale exit later).
+- M1: guidedOrder sends entryTarget (Guided Mode and the demo now read the protocol TP1); ticket test pins entryTarget.
+- M2: "until passed" now tested: rising over the top short of the 3 points stays failed (P2/P2b), past it reads crossed (M4), a pass followed by a close back under stays failed (P3, pinned on the reviewers' seeded walk). The earlier "P2/P3 equivalent" note was wrong.
+- L1: the exit window is failedTopWindow() (exported), pinned on dates; M8, M9, M10, M10c killed.
+- L2: in path when the entry is short of the pass line (level + 3 points) and TP1 beyond it.
+- New, found by the replay tests: a crossing entry at the failed top is itself the pass, so it is exempt (crossingLevelOf / failedTestInPath crossedLevel); a crossing of a lower level is still held. Without this every breakout over a range top was held. Mutants X1-X4 killed.
+- M3 measurement and L3 (TP1 band, client-sent entryTarget trusted like entryStop) stay open: replay pending; L3 noted for Chuck.
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-latest. Full suite 3017/3017, tsc, terms, eslint clean.
+
+2026-10-16 A-LEVELS-04 review 14 fixes (STRATEGY_VERSION 2026-10-16-gann-failed-tops-crossing)
+- H: the crossing exemption now needs the crossed level at or past the failed level (was level minus 3 points); behavioural tests at L, L+2, L-0.01, L-3pts, bottoms mirrored.
+- M: latest-cluster selection pinned by two tests (newer swing apart; latest joins an older cluster).
+- L: confirmNow takes crossedLevel from its caller; place-order reads it from the plan's own stop or entryStop via protocolCrossedLevel (entryTrigger.ts), never the attached stop; a resting kind yields none.
+- M (card masking), documented, not changed: while the latest cluster reads failed, a nearer crossed cluster is not reported on the card or in multipleTopCrossedWithTrade. thirdTestFailedAgainstTrade's meaning moved three times today; compare runs on one STRATEGY_VERSION only.
+- Open for the owner: a pass that falls back reads failed again (design choice); the rule's reach (failed top stands in 47% of readings, 13.7% of 10-session longs exit on it) needs a replay.
+- Mutants M1-M6 (loose exemption, strict exemption, newest cluster, attached stop, null advised, resting kind) all killed. 3020 tests pass, tsc, check:terms clean.
+
+2026-10-16 A-LEVELS-04 review 15 (FAIL narrowly, no H). STRATEGY_VERSION 2026-10-16-gann-failed-tops-cent
+- M1 fixed: CROSSED_LEVEL_TOLERANCE (one cent) on the crossing exemption; placement rebuilds the crossed level from cent-rounded entry/stop. Tests: reviewer's 10.05/10.45/8.84 case and a sweep of rounded reaction pairs $10-$500; tolerance 0 and 0.03 mutants killed.
+- L2 fixed: lesson now says the hold applies to a move that must clear the top by 3 points to reach TP1.
+- L1 left: scan/replay verdict wiring of crossingLevelOf is pinned by source regex; the hold and the replay entry skip are behavioural.
+- M2 to owner: the exemption counts a 15-minute close past the break line as the pass, while the daily reading lifts a failure only on a daily close past L+3pts, so after such a fill the card can still read the top as failed and no failed-top exit fires until a new test.
+
+2026-10-16 A-LEVELS-04 review 16 (FAIL narrowly). STRATEGY_VERSION 2026-10-16-gann-failed-tops-exact
+- N-M1 fixed: the flat one-cent tolerance came off failedTestInPath (scan and replay pass exact levels; on DOGE it excused a lower second top). protocolCrossedLevel (placement only) now reads the rebuilt level half a cent (CENT_ROUNDING) in the trade's direction.
+- N-L1 fixed: bottom-side sweep and a cent-short hold for both sides; exact sub-dollar comparisons pinned. Mutants C0, C1, sign, top tolerance, bottom tolerance all killed. 3025 tests pass.
+- Note: plan levels are rounded to cents for every symbol (levels.ts round), so a sub-dollar coin's plan is coarse at placement; pre-existing, outside this rule.
+
+2026-10-16 A-LEVELS-04 review 17 (FAIL narrowly). STRATEGY_VERSION 2026-10-16-gann-failed-tops-epsilon
+- M1 fixed: LEVEL_EPSILON (relative 1e-9) on the crossed-level comparison; three tests at 42.70 average to 42.70000000000001 and held a crossing of the triple top itself on scan and replay. Tests for the top and a drifting bottom (0.35); E0, E3, bottom-side mutants killed. 3026 tests pass.
+- L2 fixed: failedTopBeyondFirstTarget comment says crossing-exempt entries read false.
+- L1 carried: placement excuses crossings up to half a cent short that the scan holds (plan prices are cent-rounded); up to 5.8% of price under $1.
+
+2026-10-16 Run 55 (item 9 step 5, 4d05920, STRATEGY_VERSION 2026-10-16-gann-old-tops-support; run 54 failed at checkout on a short ref)
+- gann-runner: all n2746 -0.005R [-0.031,+0.021]; Execute n182 +0.098R [-0.014,+0.211], halves +0.083/+0.112; Watch n1826 -0.034R.
+- plan-reaction: Execute n182 +0.082R [-0.031,+0.195]; Watch -0.069R.
+- vs run 53 (05ad97e): Execute +10 trades, gann-runner E -0.046R, CI now spans zero; population unchanged (bucket moves only).
+- Execute factors (gann-runner): historicalSR 44.0% dR +0.158; stopRoom 96.2% (past the 95% saturation ceiling) dR +0.200; volumeClimax 91.8% dR -0.208.
+
+2026-10-16 A-LEVELS-04 review 18: PASS. passes flipped to true.
+- L1: a close exactly on the 3-point line is pinned as not failed (strict reading, documented); the <= mutant is killed.
+- L2 carried: placement half-cent slack (cent-rounded plan prices).
+- Open owner cards on this rule (not blocking the flip): L3 (re-entry on the crossing vs within 3 points), 15-minute crossing as the pass.
+
+2026-10-16 A-LEVELS-04, owner answer on the 15-minute crossing: "If Gann says its a rule, then its a rule ... only if gann/Jensen said it". Gann: crossing old tops "safest at 3" (W006 Rule 3 p.46) and "still safer to wait for a close beyond it ... intraday pokes often reverse by the close" (Master Course rules 4-5). Jensen (W048/W049) has no crossing rule.
+- Built: the crossing exemption is removed everywhere (failedTestInPath takes no crossed level; crossingLevelOf, protocolCrossedLevel, CENT_ROUNDING, LEVEL_EPSILON and the confirmation/placement plumbing deleted). A failed top lifts only on a daily close past it by 3 points (readMultipleTops, unchanged). STRATEGY_VERSION 2026-10-16-gann-failed-tops-daily-close.
+- Replay fixture: dailyHistory narrowed to 98-101 so its range tops never fail (the old 96-102 range made every breakout a failed-top crossing, which Gann now holds).
+- Lesson line says a day must close 3 points over the top; an intraday poke doesn't count.
+- Supersedes owner card L3 ("on the crossing" vs "within 3 points"): neither; a daily close by 3 points.
+- passes set back to false until a fresh review of the daily-close version.
+
+2026-10-16 C-LEVELS-14 passes: it passed the item 10 review (docs/gann-feature-map/item10_review.md row C-LEVELS-14); only the flag was left.
+2026-10-16 A-PRICE-07 passes, per its item 10 review (item10_review.md row A-PRICE-07).

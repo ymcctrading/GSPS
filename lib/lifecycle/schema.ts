@@ -8,6 +8,7 @@ const RunnerRuleSchema = z.object({
 });
 
 const CoordinatesSchema = z.object({
+  entryKind: z.enum(["crossing", "oldLevel", "hold"]).optional(),
   entryTrigger: z.number(),
   entryLimitTolerance: z.number().nonnegative(),
   invalidation: z.number(),
@@ -67,6 +68,7 @@ const EntryConfirmationSchema = z.object({
   confirmationMoveAt: z.string().nullable(),
   confirmationMovePrice: z.number().nullable(),
   entryConfirmedAt: z.string().nullable(),
+  stopClosedAt: z.string().nullable().optional(),
 });
 
 export const NewTradePlanSchema = z.object({

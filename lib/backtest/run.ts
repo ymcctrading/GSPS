@@ -33,6 +33,8 @@ import {
   byOutputState,
   byScoreRange,
   bySetupKind,
+  byEntryKind,
+  byHoldBasis,
   combine,
   replay,
   summarise as summariseTrades,
@@ -44,6 +46,8 @@ import { computeRequiredMetrics, type RequiredMetrics } from "./metrics";
 import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
+import { monthlyChartFrom } from "@/lib/scan/entrySelection";
+import { LONG_MONTHLY_YEARS } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
 
 /** Verdict buckets, plus the trades the score could not reach. */
@@ -87,9 +91,9 @@ export interface BacktestRequest {
   attributeWithin?: AttributionScope;
   /**
    * Attribute factors within a score band instead of a verdict bucket —
-   * `[5, 6]` for "one point short of Execute", say. Takes precedence over
+   * `[5, 5]` for "one point short of Execute", say. Takes precedence over
    * `attributeWithin` when set, because a verdict bucket cannot express a
-   * band narrower than itself (Watch is 4–6 in one bucket).
+   * band narrower than itself (Watch is 3.5 up to 6 in one bucket).
    */
   attributeScoreRange?: [number, number];
   /** Criterion weights to score with. Defaults to one point each. */
@@ -119,7 +123,7 @@ export interface BacktestRequest {
   usePlanLevels?: boolean;
   /** Add to winners on Gann's pyramiding rules. See `ReplayOptions.pyramid`. */
   pyramid?: boolean;
-  /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"stop"`. */
+  /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"reaction"`, the production rule. */
   entryRule?: ReplayOptions["entryRule"];
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
   exitRule?: ReplayOptions["exitRule"];
@@ -232,7 +236,7 @@ export interface BacktestReport {
   /** Echoes the request: true when the bracket was the production plan's own stop and TP1. */
   usePlanLevels: boolean;
   /** Echoes the request: a report has to say which entry rule produced it. */
-  entryRule: "stop" | "confirmed";
+  entryRule: "stop" | "confirmed" | "reaction";
   /** Echoes the request: a report has to say which exit rule produced it. */
   exitRule: "bracket" | "gann" | "gann-runner";
   /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */
@@ -244,6 +248,14 @@ export interface BacktestReport {
    * only at Execute, so read that side together with the verdict buckets.
    */
   setupKindSplit: { reversion: RunSummary; continuation: RunSummary };
+  /**
+   * The run split by the buying point that priced each entry: a crossing, a
+   * double or triple bottom bought at the old level, or a buy at the close
+   * over a bottom that held.
+   */
+  entryKindSplit: { crossing: RunSummary; oldLevel: RunSummary; hold: RunSummary };
+  /** The held entries by the form of the hold: weeks, days, record, or the bear-market rally sell. */
+  holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
    * reason that was binding, a Gann exit signal, or the timeout), so each of
@@ -338,19 +350,42 @@ export async function fetchSeries(
   symbol: string,
   timeframe: Timeframe,
   includeMonthly = false,
-): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[] }> {
+): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();
   const window = (tf: Timeframe) => new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
-  const tenYearsAgo = new Date(now - 10 * 365.25 * 86_400_000);
+  // The older levels on the first daily session read the span before it (step 3 review R10).
+  const monthlyFrom = monthlyChartFrom(window("1Day"));
+  // The class C long counts read `LONG_MONTHLY_YEARS` before each session, as
+  // the live scan does; every other reading keeps the span above.
+  const start = window("1Day");
+  const longFrom = new Date(Math.min(monthlyFrom.getTime(), Date.UTC(start.getUTCFullYear() - LONG_MONTHLY_YEARS, start.getUTCMonth(), 1)));
 
-  const [bars, daily, monthly] = await Promise.all([
+  const [bars, daily, monthlyLong] = await Promise.all([
     provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
     provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
-    includeMonthly ? provider.fetchBars(symbol, "1Month", tenYearsAgo, null, assetClass) : Promise.resolve(undefined),
+    includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass) : Promise.resolve(undefined),
   ]);
-  return { bars, daily, ...(monthly ? { monthly } : {}) };
+  const monthly = monthlyLong?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
+  return { bars, daily, ...(monthly && monthlyLong ? { monthly, monthlyLong } : {}) };
+}
+
+type FetchedSeries = Awaited<ReturnType<typeof fetchSeries>>;
+
+/**
+ * The bars every replay of a symbol is handed: its own daily, monthly and long
+ * monthly series, and the market's (SPY) daily and monthly. One helper, so the
+ * route and the universe runner read the same series (item 7e review M1).
+ */
+export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries | undefined) {
+  return {
+    dailyBars: series.daily,
+    monthlyBars: series.monthly,
+    longMonthlyBars: series.monthlyLong,
+    marketDailyBars: market?.daily,
+    marketMonthlyBars: market?.monthly,
+  };
 }
 
 export interface RunOutcome {
@@ -422,13 +457,13 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // readings are then simply absent from every trade.
   const references = await loadInstrumentReferenceHistory(symbols);
   // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
-  const marketDailyBars = await fetchSeries("SPY", timeframe)
-    .then((s) => s.daily)
-    .catch(() => undefined);
+  // Its monthly bars too, to date the bull market for Gann's weak stocks.
+  const market = await fetchSeries("SPY", timeframe, true).catch(() => undefined);
 
   for (const symbol of symbols) {
     try {
-      const { bars: fetched, daily, monthly } = await fetchSeries(symbol, timeframe, true);
+      const series = await fetchSeries(symbol, timeframe, true);
+      const { bars: fetched, daily } = series;
       const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
       if (bars.length === 0) {
         skipped.push({
@@ -461,7 +496,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               dailyBars: daily,
             })
-          : replay(symbol, bars, { ...options, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
+          : replay(symbol, bars, { ...options, ...replaySeriesOptions(series, market), instrument }),
       );
       used.push(symbol);
     } catch (err) {
@@ -541,7 +576,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "stop", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
 
   const split = byOutputState(run.overall);
   const target = attributeScoreRange
@@ -555,6 +590,8 @@ export function buildReport(
   const capSplit = byLargeCap(run.overall);
   const cycleSplit = byYearCycle(run.overall);
   const kindSplit = bySetupKind(run.overall);
+  const entrySplit = byEntryKind(run.overall);
+  const holdSplit = byHoldBasis(run.overall);
 
   return {
     source: run.source,
@@ -584,6 +621,17 @@ export function buildReport(
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),
+    },
+    entryKindSplit: {
+      crossing: summarise(entrySplit.crossing),
+      oldLevel: summarise(entrySplit.oldLevel),
+      hold: summarise(entrySplit.hold),
+    },
+    holdBasisSplit: {
+      weeks: summarise(holdSplit.weeks),
+      days: summarise(holdSplit.days),
+      record: summarise(holdSplit.record),
+      rally: summarise(holdSplit.rally),
     },
     exitReasonSplit: Object.fromEntries(
       [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [

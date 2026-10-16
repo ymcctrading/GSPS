@@ -19,6 +19,7 @@
 
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
+import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
 import { readDayCircle } from "@/lib/gann/dayCircle";
 
@@ -28,6 +29,8 @@ export function contextFactorsFor(
   ctx: DisclosedRulesContext,
   direction: "bullish" | "bearish",
   price: number,
+  /** The plan's first target, when known (A-LEVELS-04's excused population). */
+  takeProfit1?: number | null,
   /** The entry bar, for Gann's day clock (`dayCircle.ts`). The replay passes it; omitted, those two factors are absent. */
   entryBar?: { time: string; barMinutes: number },
 ): ContextFactors {
@@ -73,6 +76,22 @@ export function contextFactorsFor(
     f.overbalancedAgainstCampaign = against && (c.spaceOverbalanced || c.timeOverbalanced);
     f.monthlyBreakAgainstCampaign = against && c.monthlyBreak;
     f.lateSection = c.sections >= 3;
+    // Class C trend readings (W003 p.17), measured, never gating (item 6).
+    f.reactionsContractingWithTrade = !against && c.contracting;
+    f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
+  }
+  // Class C entry readings (W003), measured, never gating (item 5 step 4b).
+  if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
+  if (ctx.narrowRangeBreak) f.narrowRangeBreakAgrees = ctx.narrowRangeBreak.direction === direction;
+  if (ctx.narrowWeekBreak) f.narrowWeekBreakAgrees = ctx.narrowWeekBreak.direction === direction;
+  // C-STOP-01 (W003 p.17): a failed push out of the range, in the trade's direction.
+  if (ctx.falseBreakout) f.falseBreakoutAgrees = ctx.falseBreakout.direction === direction;
+  // C-ENTRY-03 (Master Course Ch.8): the 2nd or 3rd higher bottom (lower top for a short).
+  if (ctx.successiveSwings) {
+    const n = bull ? ctx.successiveSwings.higherBottoms : ctx.successiveSwings.lowerTops;
+    f.secondOrThirdSwingWithTrade = n === 2 || n === 3;
+    // Fast moves start from the third or fourth (W003 p.17; Master Course p.248).
+    f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;
@@ -112,6 +131,33 @@ export function contextFactorsFor(
   if (ctx.accumulation) {
     f.longAccumulationBreakoutWithTrade = ctx.accumulation.long && ctx.accumulation.breakout === (bull ? "up" : "down");
   }
+  // A-VOLUME-12: the heaviest week since the last top warns of a top.
+  if (ctx.topVolume) {
+    f.topVolumeWarningAgainst = bull && ctx.topVolume.warning;
+    f.topVolumeWarningWith = !bull && ctx.topVolume.warning;
+  }
+  // A-VOLUME-13: a second top on two-thirds, or a third, of the first top's volume.
+  if (ctx.secondTopVolumeRatio != null) {
+    const twoThirds = ctx.secondTopVolumeRatio <= 2 / 3;
+    const third = ctx.secondTopVolumeRatio <= 1 / 3;
+    f.secondTopTwoThirdsVolumeAgainst = bull && twoThirds;
+    f.secondTopTwoThirdsVolumeWith = !bull && twoThirds;
+    f.secondTopThirdVolumeAgainst = bull && third;
+    f.secondTopThirdVolumeWith = !bull && third;
+  }
+  // A-VOLUME-10: a session leaving a narrow range, on volume or without it.
+  if (ctx.breakawayVolume) {
+    const withTrade = ctx.breakawayVolume.direction === direction;
+    const onVolume = ctx.breakawayVolume.ratio > 1;
+    f.breakawayOnVolumeWith = withTrade && onVolume;
+    f.breakawayWithoutVolumeWith = withTrade && !onVolume;
+    f.breakawayOnVolumeAgainst = !withTrade && onVolume;
+  }
+  // A-VOLUME-03: a distribution breakdown counts against a long and with a short.
+  if (ctx.distribution) {
+    f.distributionBreakdownAgainst = bull && ctx.distribution.distributionBreakdown;
+    f.distributionBreakdownWith = !bull && ctx.distribution.distributionBreakdown;
+  }
   // G7: a top warning counts against a long and with a short.
   if (ctx.sharesPerPoint) {
     f.sharesPerPointTopAgainst = bull && ctx.sharesPerPoint.topWarning;
@@ -127,13 +173,48 @@ export function contextFactorsFor(
     }
     f.reactionAbnormalLength = ctx.timeRules.reactionAbnormal;
   }
+  // The last campaign bottom broken by 3 points (A-LEVELS-03): bearish
+  // context, against a long and with a short.
+  if (ctx.campaignBottoms && ctx.campaignBottoms.bottoms.length > 0) {
+    const broken = ctx.campaignBottoms.bottoms[0].broken;
+    f.campaignBottomBrokenAgreesWithTrade = bull ? !broken : broken;
+  }
+  // Price under the bear campaign's secondary rally top (A-LEVELS-02).
+  if (ctx.campaign?.secondaryTurn?.kind === "top") f.belowSecondaryRallyTop = price < ctx.campaign.secondaryTurn.price;
+  // The first 100 points down from a high fall fastest (A-PRICE-01): against
+  // a long, with a short.
+  if (ctx.firstFall) f.firstFallFromHighAgreesWithTrade = bull ? !ctx.firstFall.inFirstFall : ctx.firstFall.inFirstFall;
+  // Over the 1-point-a-month line from the last campaign bottom (A-PRICE-05):
+  // with a long, against a short.
+  if (ctx.monthlyAngle) {
+    const over = price > ctx.monthlyAngle.price;
+    f.overMonthlyAngleAgreesWithTrade = bull ? over : !over;
+  }
+  // Over the square down from the latest monthly top (C-LEVELS-08): with a
+  // long, against a short.
+  if (ctx.monthlySquareFromHigh) {
+    const over = price > ctx.monthlySquareFromHigh.price;
+    f.overSquareFromHighAgreesWithTrade = bull ? over : !over;
+  }
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
-  // failed third test standing against it.
+  // failed test standing against it (the second or third since 2026-10-16,
+  // A-LEVELS-04; the factor keeps its name so earlier runs still compare,
+  // though its meaning moved with the rule on 2026-10-16: second or third
+  // test, then the latest cluster, then failed until passed. Compare runs on
+  // the same STRATEGY_VERSION only).
+  // A-SELECTION-01 (Q24): the stock's own signals work; the hold reads `queer`.
+  if (ctx.ruleFollowing && ctx.ruleFollowing.resolved > 0) f.followsRules = !ctx.ruleFollowing.queer;
   if (ctx.multipleTops) {
     // The level in the trade's path: a top for a long, a bottom for a short.
     const inPath = bull ? ctx.multipleTops.top : ctx.multipleTops.bottom;
     f.multipleTopCrossedWithTrade = inPath?.state === "crossed";
     f.thirdTestFailedAgainstTrade = inPath?.state === "failed";
+    // The failed tops the hold excuses (review 12 M3): failed, but not one the
+    // trade must pass to reach TP1. Since 2026-10-16 no crossing is exempt,
+    // so a trade with one in its path is not entered (review 19 L1).
+    if (takeProfit1 != null && inPath?.state === "failed") {
+      f.failedTopBeyondFirstTarget = failedTestInPath(ctx.multipleTops, direction, price, takeProfit1) === null;
+    }
   }
   // Time balancing (B2): today within two days of a date when the open leg
   // has lasted as long as the matching prior leg.
@@ -155,6 +236,48 @@ export function contextFactorsFor(
     f.earlyLeaderInTradeDirection = bull ? ctx.leadership.bottomedFirst : ctx.leadership.toppedFirst;
     if (bull) f.lateMoverLong = ctx.leadership.bottomedLate;
     if (bull && ctx.leadership.firstYearHighCrossed !== null) f.firstYearHighCrossed = ctx.leadership.firstYearHighCrossed;
+  }
+  // A-TREND-07/-08: a weak stock in a bull market; Gann leaves it alone on
+  // the buy side (the action is A-SELECTION-04, PLAN.md item 11).
+  if (bull && ctx.weakStock) f.weakStockLong = ctx.weakStock.weak;
+
+  // Class C time counts (item 7 step 2): measured, never gating. The circle,
+  // month and cycle counts take their direction from the anchor, as their
+  // class A counterparts do (a low argues up); the day, week and seasonal
+  // counts carry none, like theirs.
+  const st = ctx.secondaryTime;
+  if (st) {
+    const withTrade = (hs: { pivotKind: "high" | "low" }[]) => hs.some((h) => (h.pivotKind === "low") === bull);
+    f.secondaryDayCountActive = st.dayCounts.length > 0;
+    f.secondaryWeekCountActive = st.weekCounts.length > 0;
+    f.circleDivisionWithTrade = withTrade(st.circleDivisions);
+    if (st.monthCounts) f.secondaryMonthCountWithTrade = withTrade(st.monthCounts);
+    if (st.cycleFractions) f.cycleFractionWithTrade = withTrade(st.cycleFractions);
+    f.seasonalFineStepActive = st.seasonalFineStep !== null;
+    // A counter-move against the trade's own trend, by its length.
+    if (st.shortCounterMove && st.shortCounterMove.trend === direction) {
+      f.counterMovePastFourthDay = st.shortCounterMove.phase === "pastFourthDay";
+      f.counterMoveSevenToTen = st.shortCounterMove.phase === "sevenToTen";
+    }
+    // A top due counts against a long, a bottom due against a short.
+    if (st.timeBalanceSpans) f.timeBalanceTurnAgainstTrade = st.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
+    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
+    if (st.timeBalanceSpans) f.timeBalanceFalseBreakWithTrade = st.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
+    if (st.fanTimeRatios) f.fanTimeRatioActive = st.fanTimeRatios.length > 0;
+    // A rise from a low meeting its level on time argues for a turn down,
+    // against a long; a fall from a high, the mirror.
+    if (st.retracementTiming) f.retracementTurnAgainstTrade = st.retracementTiming.some((h) => (h.anchorKind === "low") === bull);
+    if (st.halfPriceHalfTime !== undefined) f.halfPriceHalfTimeRecent = st.halfPriceHalfTime !== null;
+  }
+
+  // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
+  // pivot, its direction from the anchor (a low argues up). Measured, never gating.
+  if (ctx.monthCounts) f.watchedMonthCountWithTrade = ctx.monthCounts.some((c) => c.watched && (c.kind === "low") === bull);
+  // A-TIME-06: for a long in a market bear, its bottom windows (months 30-36
+  // and 40-43) and a bear younger than the shortest on record (time not run out).
+  if (bull && ctx.bearDuration) {
+    f.marketBearBottomWindow = ctx.bearDuration.inBottomWindow;
+    f.marketBearYoung = ctx.bearDuration.beforeShortest;
   }
 
   // D2: Gann's capital-stock readings are top warnings, so they count against

@@ -45,6 +45,7 @@
 import type { Bar } from "@/lib/types";
 import { majorPivots } from "@/lib/analysis/pivots";
 import { findPivots } from "@/lib/analysis/pivots";
+import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 /** The 1/32 division of 360° in 11.25° steps, exactly as disclosed. */
 const GRID_STEP_DEG = 11.25;
@@ -132,4 +133,80 @@ export function angleMonthCounts(
     .map((d) => d.toISOString().slice(0, 10));
 
   return { active: nearby.length > 0, dates: upcoming };
+}
+
+// ---------------------------------------------------------------------------
+// Month counts from every prior pivot (A-TIME-05, W006 p.15; A-TIME-21, W046
+// p.2). Gann counts the months from each major top and bottom to the month in
+// hand: from the 1932 low, the February 1933 low and the 1933 top to 1936
+// (42, 37, 36 and 48 months), and from four prior pivots to the 19 March 1954
+// coffee high (9, 2, 6 and 5 months). The count is the calendar-month
+// difference `monthsElapsed` already takes. Context only: a list of periods to
+// watch, shown on the setup and measured, never gating.
+//
+// Three-question basis. Gann: the two texts above, class A. Cycles: a count is
+// a recurrence claim only once it repeats; this lists the counts and makes no
+// claim (Dewey's checklist is not run). Hermetic: Rhythm, each pivot setting a
+// clock that runs to the present.
+
+/**
+ * Gann's month steps to watch from a top or bottom, 18 to 48 months in sixes
+ * (How to Make Profits in Commodities p.58, per the item 7 map; W006 p.15's
+ * 36, 42 and 48 are among them). Used only to mark a count, not to gate.
+ */
+export const WATCHED_MONTH_COUNTS: readonly number[] = [18, 24, 30, 36, 42, 48];
+
+export interface PivotMonthCount {
+  /** The pivot's month (YYYY-MM). */
+  pivotMonth: string;
+  kind: "high" | "low";
+  price: number;
+  /** Calendar months from the pivot's month to the turn's. */
+  months: number;
+  /** The count is one of `WATCHED_MONTH_COUNTS`. */
+  watched: boolean;
+}
+
+/** Months from each pivot before the turn's month to the turn, most recent pivot first. */
+export function monthCountsToTurn(
+  pivots: { t: string; kind: "high" | "low"; price: number }[],
+  turn: Date,
+): PivotMonthCount[] {
+  return pivots
+    .map((p) => {
+      const months = monthsElapsed(new Date(p.t), turn);
+      return { pivotMonth: p.t.slice(0, 7), kind: p.kind, price: p.price, months, watched: WATCHED_MONTH_COUNTS.includes(months) };
+    })
+    .filter((c) => c.months > 0)
+    .sort((a, b) => a.months - b.months);
+}
+
+/**
+ * The counts from the monthly chart's major pivots (the anchors
+ * `secondaryTime`'s month counts use) to `asOf`'s month. Null with under two
+ * years of monthly bars.
+ */
+export function readMonthCounts(monthly: Bar[], asOf: Date, limit = 8): PivotMonthCount[] | null {
+  if (monthly.length < 24) return null;
+  const anchors = majorPivots(findPivots(monthly, 3)).map((p) => ({ t: p.bar.t, kind: p.kind, price: p.price }));
+  return monthCountsToTurn(anchors, asOf).slice(0, limit);
+}
+
+/**
+ * The counts from the weekly swing chart's tops and bottoms, dated to the day,
+ * to `asOf`'s month (A-TIME-21, W046 p.2). The coffee letter counts from
+ * swings two months back and from a low and a high a month apart, which the
+ * major monthly pivots `readMonthCounts` reads can never show (item 7e review
+ * M3). The weekly chart is the engineering choice of which swings to count:
+ * the letter dates its pivots to the day but names no chart. Null with under
+ * twenty sessions.
+ */
+export function readSwingMonthCounts(daily: Bar[], asOf: Date, limit = 8): PivotMonthCount[] | null {
+  if (daily.length < 20) return null;
+  const pivots = walkSwingChart(daily, WEEKLY_SWING_CHART).pivots.map((p) => ({
+    t: daily[p.index].t,
+    kind: p.kind === "top" ? ("high" as const) : ("low" as const),
+    price: p.price,
+  }));
+  return monthCountsToTurn(pivots, asOf).slice(0, limit);
 }

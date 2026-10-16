@@ -218,11 +218,10 @@ export interface PriceTimeConfluence {
  *
  * **Confluence/context only** (blueprint 7.4's safety rule, same as every
  * other function in this module): the type this returns must never by
- * itself gate a scored criterion. A caller may only fold it into a scored
- * check ANDed with an independent, non-DR Gann structural condition (e.g. a
- * retracement-zone or Square-of-9 match) — never as the sole basis for a
- * pass/fail. `lib/scoring/score.ts`'s `gannRetracementConfluence` criterion
- * is the one place this is wired into scoring, and it is wired that way.
+ * itself gate a scored criterion. Since 2026-10-16 (fork FL5 a) it is not
+ * folded into any scored check either: `lib/scoring/score.ts`'s
+ * `gannRetracementConfluence` used to AND it with the retracement match and
+ * now only names it on the card, since a class C reading may never gate.
  */
 export function priceTimeConfluence(
   currentPrice: number,

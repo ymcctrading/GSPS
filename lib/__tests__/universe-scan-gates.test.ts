@@ -52,7 +52,6 @@ describe("buildScanNoviceEligibility", () => {
       currentPrice: 50,
       liquidity: { price: 50, avgVolume: 20_000_000, avgDollarVolume: 1_000_000_000 },
       dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
-      binaryEventInHoldPeriod: false,
       dataLagged: false,
       scannedAt,
     });
@@ -60,22 +59,20 @@ describe("buildScanNoviceEligibility", () => {
     expect(verdict.reasons).toEqual([]);
   });
 
-  it("fails closed on a symbol outside both the large-cap list and the earnings calendar", () => {
+  it("fails closed on a symbol outside the large-cap list", () => {
     const verdict = buildScanNoviceEligibility({
       symbol: "ZZZZ",
       assetClass: "us_equity",
       currentPrice: 50,
       liquidity: { price: 50, avgVolume: 20_000_000, avgDollarVolume: 1_000_000_000 },
       dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
-      binaryEventInHoldPeriod: null,
       dataLagged: false,
       scannedAt,
     });
     expect(verdict.eligible).toBe(false);
-    // Both market_cap_pass (no large-cap coverage) and data_quality_pass (no
-    // earnings coverage) should fail closed independently.
+    // market_cap_pass fails closed without large-cap coverage. No report-date
+    // check runs since Q25 (2026-10-16).
     expect(verdict.filters.find((f) => f.key === "market_cap_pass")?.pass).toBe(false);
-    expect(verdict.filters.find((f) => f.key === "data_quality_pass")?.pass).toBe(false);
   });
 
   it("short-circuits on a prohibited leveraged/inverse symbol", () => {
@@ -85,28 +82,12 @@ describe("buildScanNoviceEligibility", () => {
       currentPrice: 50,
       liquidity: { price: 50, avgVolume: 20_000_000, avgDollarVolume: 1_000_000_000 },
       dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
-      binaryEventInHoldPeriod: false,
       dataLagged: false,
       scannedAt,
     });
     expect(verdict.eligible).toBe(false);
     expect(verdict.filters).toHaveLength(1);
     expect(verdict.filters[0].key).toBe("prohibited_class");
-  });
-
-  it("fails on a known binary event in the hold window even for an otherwise-eligible mega-cap", () => {
-    const verdict = buildScanNoviceEligibility({
-      symbol: "MCD",
-      assetClass: "us_equity",
-      currentPrice: 50,
-      liquidity: { price: 50, avgVolume: 20_000_000, avgDollarVolume: 1_000_000_000 },
-      dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
-      binaryEventInHoldPeriod: true,
-      dataLagged: false,
-      scannedAt,
-    });
-    expect(verdict.eligible).toBe(false);
-    expect(verdict.filters.find((f) => f.key === "event_risk_pass")?.pass).toBe(false);
   });
 
   it("falls back to the liquidity proxy for spread_pass since no bid/ask feed exists at scan time", () => {
@@ -116,7 +97,6 @@ describe("buildScanNoviceEligibility", () => {
       currentPrice: 50,
       liquidity: { price: 50, avgVolume: 1_000, avgDollarVolume: 50_000 },
       dailyBars: dailyBars(20, { close: 50, atrPct: 2 }),
-      binaryEventInHoldPeriod: false,
       dataLagged: false,
       scannedAt,
     });

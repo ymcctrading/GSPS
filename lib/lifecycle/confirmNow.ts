@@ -15,28 +15,36 @@
  *
  * It runs the same state machine the plans and the replay use
  * (`replayEntryConfirmation`) over closed execution-timeframe bars (today's
- * session, or since the plan was generated for a plan-sourced order):
- * touch, a close beyond the trigger by the 3-point-rule buffer, a retest,
- * then a close that holds. Only when all four have happened does the order
- * go in. The replay's confirmed rule also counts only bars from the session
- * the trigger is armed on, so the two read the same window.
+ * session, or since the plan was generated for a plan-sourced order). Since
+ * PLAN.md item 4 that is Gann's crossing rule: a close 3 points past the old
+ * level makes the entry ready, and the order rests as a limit at the plan's
+ * entry for the reaction. A later close through the stop calls it off. The
+ * replay's reaction rule counts bars from the session the trigger is armed
+ * on, so the two read the same window.
  *
  * Three-question basis:
- * 1. Gann: the break stage's buffer is his 3-point rule (*New Stock Trend
- *    Detector*, A5); the retest-and-hold is his "should not react back under
- *    the old top" read on the execution chart (A05 p. 20).
+ * 1. Gann: a close 3 points past an old top crosses it, and the buy is on
+ *    the reaction 1 point above it with the stop 3 points below (W006 pp.20,
+ *    46-47; *New Stock Trend Detector*, A5).
  * 2. Cycles: no periodicity claim, so Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect. The order is the effect; the observed
  *    confirmation is the cause it has to wait for.
  */
 
+import { readDistributionStanding } from "@/lib/gann/distribution";
+import { failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
+import { computeGannEntryTrigger, gannBreakLine } from "@/lib/gann/entryTrigger";
+import { breakawayVolumeMet } from "@/lib/gann/breakaway";
+import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
+import { etDateKey } from "@/lib/market/session";
+import { entryChart, entryChartBars, monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import type { EntryConfirmationEvidence } from "./types";
 
-export type ConfirmationStage = "not_touched" | "touched" | "broken" | "retested" | "confirmed";
+export type ConfirmationStage = "not_touched" | "touched" | "broken" | "retested" | "confirmed" | "dead";
 
 export interface ConfirmationNow {
   ready: boolean;
@@ -59,6 +67,7 @@ const NOTES: Record<ConfirmationStage, string> = {
   broken: "Price closed through the entry level and is waiting for a retest.",
   retested: "Price retested the entry level and is waiting for a close that holds.",
   confirmed: "The entry is confirmed: a close through the level, a retest, and a close that held.",
+  dead: "Price closed through the stop, so this entry is off until a new setup forms.",
 };
 
 /**
@@ -78,34 +87,202 @@ export function closedSessionBars(bars: Bar[], now: Date, intervalMs: number, si
   return closed.filter((b) => b.t.slice(0, 10) === day);
 }
 
+/** The same stages read under Gann's reaction rule (PLAN.md item 4). */
+const GANN_NOTES: Record<ConfirmationStage, string> = {
+  not_touched: "Price hasn't crossed the old level by 3 points yet.",
+  touched: "Price reached 3 points past the old level but hasn't closed there yet.",
+  broken: "Price closed 3 points past the old level.",
+  retested: "Price closed 3 points past the old level.",
+  confirmed: "Price closed 3 points past the old level, so the entry rests as a limit for the reaction.",
+  dead: "Price closed through the stop after the crossing, so this entry is off until a new setup forms.",
+};
+
+const OLD_LEVEL_NOTES = {
+  confirmed: "The entry rests at the old level, where a second or third test makes the double or triple bottom (top, for a short).",
+  dead: "Price closed through the stop under the old level, so this entry is off until a new setup forms.",
+} as const;
+
+// A short at the close is a top that held or a rally sold at the end of its
+// week, so its notes name the high the stop is over, not a low (step 4b R4).
+const HOLD_NOTES = {
+  confirmed: "The low has held, so the entry rests at the last close with the stop 3 points under the low.",
+  dead: "Price closed through the stop under the low that held, so this entry is off until a new setup forms.",
+} as const;
+
+const HOLD_SHORT_NOTES = {
+  confirmed: "The sell rests at the last close, with the stop 3 points over the high.",
+  dead: "Price closed through the stop over the high, so this entry is off until a new setup forms.",
+} as const;
+
+/**
+ * With `stopPrice`, Gann's reaction rule: ready once a closed bar has closed
+ * 3 points past the old level, and off ("dead") once a later close goes
+ * through the stop (W006 p.20: the stop is 3 points the other side of the
+ * level). Without it, the retest-and-hold sequence.
+ */
 export function confirmationFromBars(
   bars: Bar[],
   direction: "bullish" | "bearish",
   entryTrigger: number,
+  stopPrice?: number,
+  entryKind?: GannEntryKind,
 ): ConfirmationNow {
-  const evidence = replayEntryConfirmation({ direction, entryTrigger }, bars);
-  const stage = stageOf(evidence);
-  return { ready: stage === "confirmed", stage, note: NOTES[stage] };
+  if (stopPrice != null && restsWithoutCrossing(entryKind)) {
+    // Gann's double or triple bottom (PLAN.md item 5, step 2), or a bottom
+    // that has held (step 4): the order rests with nothing to cross first.
+    // Off once a close has gone through the stop.
+    const up = direction === "bullish";
+    const dead = bars.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice));
+    const notes = entryKind !== "hold" ? OLD_LEVEL_NOTES : up ? HOLD_NOTES : HOLD_SHORT_NOTES;
+    return dead ? { ready: false, stage: "dead", note: notes.dead } : { ready: true, stage: "confirmed", note: notes.confirmed };
+  }
+  const evidence = replayEntryConfirmation({ direction, entryTrigger, stopPrice }, bars);
+  let stage = stageOf(evidence);
+  if (stopPrice != null && stage === "confirmed" && evidence.breakOrSweepAt) {
+    const up = direction === "bullish";
+    const after = bars.filter((b) => b.t > evidence.breakOrSweepAt!);
+    if (after.some((b) => (up ? b.c <= stopPrice : b.c >= stopPrice))) stage = "dead";
+  }
+  const notes = stopPrice != null ? GANN_NOTES : NOTES;
+  return { ready: stage === "confirmed", stage, note: notes[stage] };
 }
 
-export async function readEntryConfirmationNow(input: {
+type ConfirmationInput = {
   symbol: string;
   assetClass: AssetClass;
   direction: "bullish" | "bearish";
   entryTrigger: number;
-  /** Count bars from this time (a plan's generation time). Default: today's session. */
+  /** The plan's stop: selects Gann's reaction rule (see `confirmationFromBars`). */
+  stopPrice?: number;
+  /**
+   * The protocol's first target: a failed double top (bottom) the trade must
+   * pass to reach it holds the entry (A-LEVELS-04). Absent, the target is
+   * unknown, so any failed test beyond the entry holds it (review 12 M1).
+   */
+  takeProfit1?: number;
+  /** Which of Gann's buying points; `oldLevel` and `hold` have nothing to cross. */
+  entryKind?: GannEntryKind;
+  /**
+   * Count bars from this time (a plan's generation time). Default: today's
+   * session, or the last four days under Gann's rule.
+   */
   since?: string;
   now?: Date;
-}): Promise<ConfirmationNow> {
+};
+
+/**
+ * Whether the entry has confirmed now. A long carrying the protocol's stop
+ * also waits while a distribution breakdown stands (A-VOLUME-03, review M2,
+ * 2026-10-16): the breakdown holds a new long to Watch on the scan and exits an
+ * open one, so a plan armed before it is not placed into it either. Both sides
+ * also wait while a failed double or triple top (bottom) stands between the
+ * entry and the first target (A-LEVELS-04, fork FL3 a), read on the same
+ * 52-week entry chart as the scan.
+ */
+export async function readEntryConfirmationNow(input: ConfirmationInput): Promise<ConfirmationNow> {
+  const read = await readEntryConfirmationCore(input);
+  if (!read.ready || input.stopPrice == null) return read;
+  const now = input.now ?? new Date();
+  const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  const daily = (await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass)) ?? [];
+  if (input.direction === "bullish" && readDistributionStanding(daily, now)) return DISTRIBUTION_STANDS;
+  const target = input.takeProfit1 ?? (input.direction === "bullish" ? Infinity : -Infinity);
+  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, target);
+  if (failed) {
+    const top = failed.kind === "top";
+    return {
+      ready: false,
+      stage: "broken",
+      note: `The market failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it before the first target, which marks a ${failed.kind}, so the ${top ? "buy" : "sell"} waits until a daily close passes that level by the allowance, or a new swing forms.`,
+    };
+  }
+  return read;
+}
+
+const DISTRIBUTION_STANDS: ConfirmationNow = {
+  ready: false,
+  stage: "broken",
+  note: "After a lower top, the stock's narrow range broke down on volume, a sign of a further decline, so a buy waits while price stays under the range, for up to 20 sessions after the break.",
+};
+
+async function readEntryConfirmationCore(input: ConfirmationInput): Promise<ConfirmationNow> {
   const now = input.now ?? new Date();
   const intervalMs = TF_INTERVAL_MS[EXECUTION_TIMEFRAME];
   const fourDays = now.getTime() - 4 * 24 * 3600 * 1000;
   const sinceMs = input.since ? Date.parse(input.since) : NaN;
   const start = new Date(Number.isFinite(sinceMs) ? Math.min(sinceMs, fourDays) : fourDays);
   const bars = await getMarketDataProvider().fetchBars(input.symbol, EXECUTION_TIMEFRAME, start, null, input.assetClass);
-  return confirmationFromBars(
-    closedSessionBars(bars, now, intervalMs, input.since),
-    input.direction,
-    input.entryTrigger,
-  );
+  // Gann's crossing can close on one day and the reaction come the next, and
+  // a plan is often generated after the crossing it buys (PLAN.md item 5,
+  // defect 2). So his rule reads every closed bar fetched: the last four days,
+  // or from the plan's generation time when that is earlier. A later close
+  // through the stop calls it off. The four days is an engineering choice,
+  // not a figure from Gann. The retest-and-hold sequence keeps today's
+  // session, or the bars since the plan.
+  const window =
+    input.stopPrice != null
+      ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
+      : closedSessionBars(bars, now, intervalMs, input.since);
+  const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind);
+  if (input.stopPrice == null || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
+  const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  const provider = getMarketDataProvider();
+  if (read.ready) {
+    const daily = await provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass);
+    return onVolume(daily, now, input.direction, input.entryTrigger, input.stopPrice) ? read : AWAITING_VOLUME;
+  }
+  // The daily chart below leaves out the day still forming, so a close
+  // through the stop in the bars above (today's included) ends it here.
+  const stop = input.stopPrice;
+  const up = input.direction === "bullish";
+  if (window.some((b) => (up ? b.c <= stop : b.c >= stop))) return { ready: false, stage: "dead", note: GANN_NOTES.dead };
+
+  // A reaction can run longer than the window above, so the crossing may be
+  // older than every bar fetched. The completed daily chart is where the scan
+  // found the level: if it still holds there (crossed, not broken, not yet
+  // bought) and it is the level this order buys, the entry is ready.
+  // The monthly chart holds the older levels the scan also reads (step 3).
+  const [daily, monthly] = await Promise.all([
+    provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass),
+    provider.fetchBars(input.symbol, "1Month", monthlyChartFrom(year), null, input.assetClass),
+  ]);
+  if (!heldOnDailyChart(daily, now, input.direction, input.entryTrigger, monthly)) return read;
+  return onVolume(daily, now, input.direction, input.entryTrigger, stop) ? { ready: true, stage: "confirmed", note: GANN_NOTES.confirmed } : AWAITING_VOLUME;
 }
+
+/**
+ * In a narrow range the crossing has to come on volume (A-VOLUME-10, fork
+ * FV6 b): a completed session closed past the crossing line on more than the
+ * range's average volume (`breakawayVolumeMet`). Read on the entry chart, the
+ * completed sessions the scan and the replay read.
+ */
+function onVolume(daily: Bar[], now: Date, direction: "bullish" | "bearish", entry: number, stop: number): boolean {
+  return breakawayVolumeMet(entryChartBars(daily, etDateKey(now)), direction, gannBreakLine(entry, stop));
+}
+
+const AWAITING_VOLUME: ConfirmationNow = {
+  ready: false,
+  stage: "broken",
+  note: "The stock is leaving a narrow range, so the entry waits for a completed session to close past the line, from short of it, on more than the range's average volume. A quiet crossing does not count, however heavy the sessions after it.",
+};
+
+/**
+ * Whether the completed daily bars hold a crossed level whose reaction buy is
+ * this entry (to the cent, or 0.1% on a large price). The bar still forming
+ * is left out, so an unfinished day can neither cross nor break the level.
+ */
+export function heldOnDailyChart(
+  daily: Bar[],
+  now: Date,
+  direction: "bullish" | "bearish",
+  entry: number,
+  monthly: Bar[] = [],
+): boolean {
+  // The scan's own window: the 52 weeks of sessions before today, and the
+  // older levels on the monthly chart.
+  const chart = entryChart(daily, monthly, etDateKey(now));
+  const trigger = computeGannEntryTrigger(chart.bars, direction, undefined, undefined, true, chart.older);
+  if (!trigger?.held) return false;
+  return Math.abs(trigger.reactionEntry - entry) <= Math.max(0.01, entry * 0.001);
+}
+

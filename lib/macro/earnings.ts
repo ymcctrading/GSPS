@@ -138,9 +138,8 @@ export function isBinaryEventInHoldPeriod(
  * report date exists in this generated calendar for a symbol outside the
  * mega-cap coverage it's built from.
  *
- * Used by `lib/universe/scanGates.ts` to populate `data_quality_pass`'s
- * earnings/events freshness check with a real (if generated, not
- * vendor-confirmed) date rather than a bare coverage flag.
+ * No longer read by any gate: the beginner universe's report-date check was
+ * removed on 2026-10-16 (owner, Q25).
  */
 export function nextKnownEarningsEvent(symbol: string, asOf: Date): EarningsEvent | null {
   if (!MEGA_CAP_SYMBOLS.has(symbol)) return null;
@@ -154,4 +153,13 @@ export function nextKnownEarningsEvent(symbol: string, asOf: Date): EarningsEven
     if (events.length > 0) return events[0];
   }
   return null;
+}
+
+/**
+ * Whether a (generated, not vendor-confirmed) report date for `symbol` falls
+ * on `asOf`'s calendar day. Gann reads a scheduled report date as a turn date
+ * (A-TIME-36, W022 pp.195-197, 217); the regime records it as context only.
+ */
+export function isScheduledReportDay(symbol: string, asOf: Date): boolean {
+  return isBinaryEventInHoldPeriod(symbol, asOf, 0) === true;
 }

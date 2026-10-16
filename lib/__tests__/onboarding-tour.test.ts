@@ -27,11 +27,11 @@ import {
   SNAPSHOT_RISK_PER_SHARE,
 } from "@/lib/onboarding/tour-snapshot";
 import {
-  DEFAULT_GUIDED_BUDGET_USD,
-  DEFAULT_MAX_DEPLOYED_PCT,
   DEFAULT_RISK_PCT,
 } from "@/lib/guided/config";
 import { exitSentence, riskRewardSentence } from "@/lib/guided/copy";
+import { sizeGuidedTrade } from "@/lib/guided/sizing";
+import { maxSharesForCapital } from "@/lib/risk/gannCapital";
 
 /**
  * Every `data-tour` value rendered anywhere in the app.
@@ -347,23 +347,19 @@ describe("the frozen snapshot holds together", () => {
   });
 
   it("sizes the example by the cap the tour claims sized it", () => {
-    // The tour tells the reader, in words, that the per-trade dollar budget
-    // produced 10 shares while the risk cap alone would have allowed 2,222 and
-    // the deployed-capital cap alone would have allowed 1,008. All three
-    // halves of that sentence are checked against the caps the app actually
-    // ships, so a change to any of them fails here rather than turning the
-    // tour into a confident description of arithmetic that no longer happens.
+    // The tour says the risk cap produced 2,222 shares while Gann's capital rule
+    // would allow 4,584. Checked against the real sizing, so a change to either
+    // fails here rather than leaving the tour describing arithmetic that no
+    // longer happens.
     const equity = 100_000;
-    const byRisk = Math.floor((equity * (DEFAULT_RISK_PCT / 100)) / SNAPSHOT_RISK_PER_SHARE);
-    const byDeployed = Math.floor((equity * (DEFAULT_MAX_DEPLOYED_PCT / 100)) / SNAPSHOT_PLAN.entry);
-    const byBudget = Math.floor(DEFAULT_GUIDED_BUDGET_USD / SNAPSHOT_PLAN.entry);
-
-    expect(byRisk).toBe(SNAPSHOT_GUIDED.qtyAllowedByRiskCap);
-    expect(byDeployed).toBe(SNAPSHOT_GUIDED.qtyAllowedByDeployedCap);
-    expect(SNAPSHOT_GUIDED.budgetUsd).toBe(DEFAULT_GUIDED_BUDGET_USD);
-    expect(byBudget).toBe(SNAPSHOT_GUIDED.qty);
-    expect(Math.min(byRisk, byDeployed, byBudget)).toBe(SNAPSHOT_GUIDED.qty);
-    expect(SNAPSHOT_GUIDED.bindingCap).toBe("budget");
+    const sized = sizeGuidedTrade({
+      side: "buy", equity, buyingPower: equity, ...SNAPSHOT_PLAN, riskPct: DEFAULT_RISK_PCT, capitalHeldUsd: 0,
+    });
+    expect(sized.qty).toBe(SNAPSHOT_GUIDED.qty);
+    expect(sized.qty).toBe(SNAPSHOT_GUIDED.qtyAllowedByRiskCap);
+    expect(sized.boundBy).toBe(SNAPSHOT_GUIDED.bindingCap);
+    expect(maxSharesForCapital(equity, SNAPSHOT_PLAN.entry)).toBe(SNAPSHOT_GUIDED.qtyAllowedByCapitalRule);
+    expect(sized.rewardUsd).toBeCloseTo(SNAPSHOT_GUIDED.rewardUsd, 2);
   });
 
   it("states a dollar risk that matches the size and the stop", () => {
@@ -403,15 +399,16 @@ describe("the frozen snapshot holds together", () => {
       riskRewardSentence(SNAPSHOT_GUIDED.riskUsd, SNAPSHOT_GUIDED.rewardUsd),
     );
     expect(SNAPSHOT_GUIDED.exitSentence).toBe(
-      exitSentence(SNAPSHOT_EXIT_LADDER[0].shares, SNAPSHOT_GUIDED.qty, "buy"),
+      exitSentence(0, SNAPSHOT_GUIDED.qty, "buy"),
     );
   });
 
   it("quotes the risk and reward figures its own sentences quote", () => {
     // The sentences are hand-written prose with numbers baked into them, which
     // is exactly where a fixture edit goes stale without anything noticing.
-    expect(SNAPSHOT_GUIDED.riskRewardSentence).toContain(String(Math.round(SNAPSHOT_GUIDED.riskUsd)));
-    expect(SNAPSHOT_GUIDED.riskRewardSentence).toContain(String(Math.round(SNAPSHOT_GUIDED.rewardUsd)));
+    const usd = (n: number) => Math.round(n).toLocaleString("en-US");
+    expect(SNAPSHOT_GUIDED.riskRewardSentence).toContain(usd(SNAPSHOT_GUIDED.riskUsd));
+    expect(SNAPSHOT_GUIDED.riskRewardSentence).toContain(usd(SNAPSHOT_GUIDED.rewardUsd));
     expect(SNAPSHOT_GUIDED.sizeSentence).toContain(String(SNAPSHOT_GUIDED.qty));
   });
 });

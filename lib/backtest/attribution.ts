@@ -42,6 +42,10 @@ export interface FactorArm {
   winRate: number;
   /** Mean R across this arm, after costs. */
   expectancyR: number;
+  /** Mean R of this arm's wins; 0 with none. Absent on runs committed before 2026-10-16. */
+  avgWinR?: number;
+  /** Mean R of this arm's losses (negative); 0 with none. */
+  avgLossR?: number;
 }
 
 export type FactorVerdict =
@@ -92,12 +96,17 @@ export interface AttributionOptions {
 
 function arm(trades: ReplayTrade[]): FactorArm {
   const n = trades.length;
-  const wins = trades.filter((t) => t.outcome === "win").length;
+  const won = trades.filter((t) => t.outcome === "win");
+  const lost = trades.filter((t) => t.outcome === "loss");
+  const wins = won.length;
+  const mean = (ts: ReplayTrade[]) => (ts.length === 0 ? 0 : ts.reduce((s, t) => s + t.rMultiple, 0) / ts.length);
   return {
     n,
     wins,
     winRate: n === 0 ? 0 : wins / n,
-    expectancyR: n === 0 ? 0 : trades.reduce((s, t) => s + t.rMultiple, 0) / n,
+    expectancyR: mean(trades),
+    avgWinR: mean(won),
+    avgLossR: mean(lost),
   };
 }
 

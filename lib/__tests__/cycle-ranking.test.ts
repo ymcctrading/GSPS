@@ -109,7 +109,11 @@ function extendedDowntrend(scale = 1): Bar[] {
     const tail = i >= 110 ? (i - 109) * 4 : 0;
     const c = (trend + wiggle - tail) * scale;
     const t = new Date(Date.UTC(2025, 0, 1 + i)).toISOString();
-    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });
+    // Heavy volume at the last swing low (bar 105): Gann's volume rule at the
+    // turn, so the fixture clears the coarse floor on his criteria (fan line
+    // and volume). Its distance from the 50% point stopped scoring on
+    // 2026-10-16 (item 6 step 6: never too high to buy, W006 p.22).
+    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: i === 105 ? 4_000_000 : 1_000_000 });
   }
   return bars;
 }

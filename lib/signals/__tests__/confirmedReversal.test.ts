@@ -11,9 +11,7 @@ const PASSING_GATES: SignalGates = {
   eligibleUniverse: true,
   operatingCandleClosed: true,
   staleData: false,
-  binaryEventInHoldPeriod: false,
   liquiditySpreadPass: true,
-  benchmarkSectorAlignment: true,
   targetRoomAvailable: true,
   stopWithinNovicePolicy: true,
   positionSizeAvailable: true,
@@ -85,6 +83,21 @@ function reversalBars(opts: { confirmed?: boolean; breakoutVolume?: number } = {
   return bars;
 }
 
+/**
+ * An older swing down to the capitulation's low and back, ahead of the
+ * reversal bars, so the low lands on an old bottom (W006 p.20: old tops and
+ * bottoms are the levels). Since 2026-10-16 a stretch from the 50% point alone
+ * is no longer a meaningful location (item 6 step 6).
+ */
+function withOldBottom(bars: Bar[]): Bar[] {
+  const low = Math.min(...bars.map((b) => b.l));
+  const older: Bar[] = [];
+  let p = 150;
+  for (let i = 0; i < 10; i++) older.push(bar(p, p + 0.2, (p -= (150 - low - 0.3) / 10) - 0.3, p, 500));
+  for (let i = 0; i < 10; i++) older.push(bar(p, (p += (150 - low - 0.3) / 10) + 0.3, p - 0.2, p, 500));
+  return [...older, ...bars];
+}
+
 describe("evaluateConfirmedReversal", () => {
   it("disqualifies outright on a hard gate failure, before any scoring", () => {
     const bars = reversalBars({ confirmed: true });
@@ -112,11 +125,20 @@ describe("evaluateConfirmedReversal", () => {
     }
   });
 
+  it("reads the stock's own trend, with no benchmark or sector check (each stock on its own trend)", () => {
+    const bars = reversalBars({ confirmed: true, breakoutVolume: 1200 });
+    const verdict = evaluateConfirmedReversal({ direction: "bullish", htfBars: bars, executionBars: bars, gates: PASSING_GATES });
+    expect(verdict.status).toBe("evaluated");
+    if (verdict.status === "evaluated") {
+      expect(verdict.alignment.breakdown.find((b) => b.key === "benchmarkSector")?.applicable).toBe(false);
+    }
+  });
+
   it("scores an exhaustion low with a confirmed structural break as tradeable", () => {
     const bars = reversalBars({ confirmed: true, breakoutVolume: 1200 });
     const verdict = evaluateConfirmedReversal({
       direction: "bullish",
-      htfBars: bars,
+      htfBars: withOldBottom(bars),
       executionBars: bars,
       gates: PASSING_GATES,
     });
@@ -131,6 +153,18 @@ describe("evaluateConfirmedReversal", () => {
       expect(verdict.tradeable).toBe(true);
       expect(verdict.plan).not.toBeNull();
       expect(verdict.plan?.stop).toBeLessThan(verdict.plan!.entryTrigger);
+    }
+  });
+
+  it("does not call a low meaningful for its stretch alone, when it sits at no old level", () => {
+    // Never too low to sell while the trend is down (W006 pp.22, 38-39): the
+    // capitulation is far under the 50% point, but no old bottom is there.
+    const bars = reversalBars({ confirmed: true, breakoutVolume: 1200 });
+    const verdict = evaluateConfirmedReversal({ direction: "bullish", htfBars: bars, executionBars: bars, gates: PASSING_GATES });
+    expect(verdict.status).toBe("evaluated");
+    if (verdict.status === "evaluated") {
+      expect(verdict.alignment.breakdown.find((b) => b.key === "exhaustionAtMeaningfulLevel")?.passed).toBe(false);
+      expect(verdict.tradeable).toBe(false);
     }
   });
 

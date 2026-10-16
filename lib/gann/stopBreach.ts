@@ -46,7 +46,7 @@
  *
  * Three-question basis (AGENTS.md):
  * 1. Gann, as cited above (Tier A, `docs/GANN_HISTORICAL_SOURCES.md`). The stop
- *    already sits beyond the swing extreme by his lost-motion allowance (*How to
+ *    already sits beyond the swing extreme by his 3-point allowance (*How to
  *    Make Profits in Commodities* p. 38), so touching it has cleared an ordinary
  *    poke. His rule 5 (a close decides) argues for holding the plan until the
  *    close, not retiring it on a touch. The owner chose the stricter reading;

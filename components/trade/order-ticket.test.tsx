@@ -139,6 +139,62 @@ describe("OrderTicket price increments", () => {
     expect(body.rounding).toBe("down");
     expect(body.limitPrice).toBe(49.755);
   });
+
+  it("sends the protocol stop with an advised entry, so the server reads the crossing line from the plan", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(49.755)} />);
+
+    await user.click(await screen.findByRole("button", { name: /Buy DRAM at \$49\.75/ }));
+
+    const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
+    const body = JSON.parse(String(orderCall![1]?.body));
+    expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
+    // And its first target, for the failed-top check (A-LEVELS-04).
+    expect(body.entryTarget).toBeCloseTo(49.755 * 1.24, 6);
+  });
+
+  it("sends an old-level plan's kind with its stop", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    const scan = scanWithEntry(49.755);
+    render(<OrderTicket result={{ ...scan, levels: { ...scan.levels!, entryKind: "oldLevel" } }} />);
+
+    await user.click(await screen.findByRole("button", { name: /Buy DRAM at \$49\.75/ }));
+
+    const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
+    const body = JSON.parse(String(orderCall![1]?.body));
+    expect(body.entryKind).toBe("oldLevel");
+    expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
+  });
+
+  it("sends a held-bottom plan's kind with its stop (PLAN.md item 5, step 4)", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    const scan = scanWithEntry(49.755);
+    render(<OrderTicket result={{ ...scan, levels: { ...scan.levels!, entryKind: "hold" } }} />);
+
+    await user.click(await screen.findByRole("button", { name: /Buy DRAM at \$49\.75/ }));
+
+    const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
+    const body = JSON.parse(String(orderCall![1]?.body));
+    expect(body.entryKind).toBe("hold");
+    expect(body.entryStop).toBeCloseTo(49.755 * 0.88, 6);
+  });
+
+  it("leaves the protocol stop off an order placed against the plan's direction", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(49.755, "bearish")} forceSide="buy" />);
+
+    await user.click(await screen.findByRole("button", { name: /Buy DRAM at \$49\.7/ }));
+
+    const orderCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/orders"));
+    const body = JSON.parse(String(orderCall![1]?.body));
+    expect(body.side).toBe("buy");
+    expect(body.entryStop).toBeUndefined();
+    expect(body.entryTarget).toBeUndefined();
+  });
 });
 
 /**
@@ -386,6 +442,19 @@ describe("OrderTicket with no bar-sequence pattern", () => {
     mockFetch();
     render(<OrderTicket result={{ ...scanWithEntry(40, "bearish"), pattern: null }} livePrice={40} />);
     expect(screen.getByText(/armed structural entry trigger is bearish/)).toBeInTheDocument();
+  });
+});
+
+// A plan the protocol rates below Execute is not a recommended trade (owner
+// report 2026-10-16: SPY's low-scoring plan read "Protocol Recommended").
+describe("the order ticket's protocol mode follows the verdict", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("offers Protocol Recommended only on an Execute verdict", async () => {
+    mockFetch();
+    const watch = { ...scanWithEntry(49.75), decision: { score: 4, outputState: "Watch" as const, breakdown: [] } };
+    render(<OrderTicket result={watch} />);
+    expect(await screen.findByRole("button", { name: "Protocol Recommended" })).toBeDisabled();
+    expect(screen.getByText(/rates this setup Watch/)).toBeInTheDocument();
   });
 });
 

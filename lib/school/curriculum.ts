@@ -27,6 +27,7 @@
 
 import type { PlatformTier } from "@/lib/tiers";
 import type { QuizQuestion } from "@/lib/school/content";
+import { OLD_LEVEL_BUYS_IN_RANGE } from "@/lib/gann/breakaway";
 
 export const SCHOOL_CURRICULUM_PROGRAM_ID = "gsps-school-curriculum";
 export const CURRICULUM_VERSION = "2026.09.1";
@@ -368,7 +369,7 @@ const ACADEMY_2: Academy = {
             "Mr. Bull and Mrs. Bear are your guides through GSPS School. Mr. Bull makes the case for a trade: what could go right. Mrs. Bear challenges it: what could go wrong, and what would prove the idea false. Every good decision hears both of them before it acts.",
             "Mr. Bull's first lesson: a market going up makes higher tops and higher bottoms, one after another. A market going down makes lower tops and lower bottoms. When you can't tell which it is doing, it is going sideways, and sideways is the hardest place to make money.",
             "Mrs. Bear's first lesson: don't argue with the trend. Buying in a downtrend because the price 'looks cheap' is how small losses become big ones. Wait for the market to show you it has turned: a higher bottom, then a break above the last top.",
-            "Old highs and lows matter again. A price where the market turned before is where buyers and sellers remember it, so it often stops the market again. When price finally pushes through an old high, that high often becomes the floor on the next dip.",
+            "Old highs and lows matter again. A price where the market turned before is where buyers and sellers remember it, so it often stops the market again. When price finally pushes through an old high, that high often becomes the floor on the next dip. It works the other way too: an old low that price breaks clearly below often becomes the ceiling on the next rally.",
           ],
           application:
             "Open any chart. Mark the last two tops and the last two bottoms. Are they rising, falling, or mixed? Say which way the trend is in one sentence, then say what Mrs. Bear would want to see before believing it.",
@@ -709,13 +710,17 @@ const ACADEMY_4: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Mr. Bull's entry: a buy is taken when price crosses the last swing top, by a small margin so a brush against the level doesn't count. Crossing the top is the market proving the buyers are in control. A short is the mirror: breaking the last swing bottom.",
-            "Mrs. Bear's stop: the stop goes beyond the last swing bottom (for a buy), again by a small margin. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
+            "Mr. Bull's entry: first price has to close 3 points above the last swing top, so a brush against the level doesn't count. The 3 points grow with the price: about 3 on a $40 stock, 5 on a $100 stock. Crossing the top is the market proving the buyers are in control. Then he doesn't chase it: he buys the pullback, 1 point above the old top. The old top need not be the last swing: a previous year's top, from any of the last ten years, and the record high from before the last 52 weeks are crossed and bought the same way, and so is an old bottom price fell through by 3 points and then climbed back over by 3 points. A short is the mirror, with one more condition: Mrs. Bear first wants to see the market spend about two weeks going sideways in a narrow band near its top, the sign that holders are selling. Then a close 3 points under the last swing bottom, and a sell on the bounce, 1 point below it. A previous year's bottom broken by 3 points needs no such spell. She has one more sale: a narrow week, then a week that closes 3 points under it on heavy volume, is sold on the bounce 1 point under the narrow week's low, with the stop 3 points over it, even while the market as a whole is rising.",
+            "Mr. Bull has a second entry: a swing bottom that already held once. His buy rests right at that bottom, so when price comes back down to test it, a second test makes a double bottom and a third a triple bottom. GSPS buys only those two tests. Mrs. Bear's stop for it goes 3 points under the bottom, so this trade risks 3 points. A short is the mirror at an old top that held.",
+            "His third entry is a low that has stopped falling. After a drop, once the low has held into its second week with no lower low, Mr. Bull buys at the last close, and Mrs. Bear's stop goes 3 points under that low. He only buys while price is still near the low, so the trade risks no more than 5 points. In a rising market he does not wait that long: after a drop of two to three weeks, two days without a lower low are enough. A short is the mirror at a high that has stopped rising, and in a falling market Mrs. Bear sells a rally that has run two to three weeks, at the close of its second or third week, with the stop 3 points over that week's high.",
+            "Mrs. Bear's stop: the stop goes 3 points below the old top the buy was taken over (above the old bottom for a short), scaled to the price the same way. That puts 4 points at risk, never more than 5. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
             "After a breakout, a strong market shouldn't fall back far under the level it crossed. If it closes back under it, the breakout didn't hold, and GSPS treats that as a reason to leave.",
+            "A market that rallies to the same top two or three times and then closes 3 points under it has made a double or triple top that failed. Mr. Bull doesn't buy a move that has to clear that top by 3 points to reach its first target. He waits until a day closes 3 points over that top, or a new swing forms. A quick poke over it during the day doesn't count, because those often fall back by the close. A rally back up near it is still under it. If the top fails after he has bought, he leaves. Mrs. Bear reads a failed double or triple bottom the same way for a short.",
+            "A stock that has drifted sideways in a narrow range needs volume to leave it. Mr. Bull only takes the crossing when the session that closed past the line did so on more volume than the range's average. A quiet crossing out of a range is a guess, so he waits for a new crossing that comes on volume. His resting buys at an old bottom need no crossing, so they wait for nothing.",
           ],
           application: "On a chart, mark the last swing top and bottom. Where would GSPS's entry be, and where would its stop go?",
           quiz: [
-            q("GSPS buys when price:", ["Falls to a round number", "Crosses the last swing top by a small margin", "Makes a red candle", "Opens higher"], 1),
+            q("After price closes 3 points over the last swing top, GSPS buys:", ["At a round number", "On the pullback, 1 point above the old top", "On the next red candle", "At the next open"], 1),
             q("A breakout that closes back under the level it crossed:", ["Is stronger than ever", "Did not hold, a reason to leave", "Should be doubled", "Means nothing"], 1),
           ],
           bullBear: { required: true, requiresRegimeCheckpoint: true, scenarioBasis: "hypothetical" },
@@ -729,7 +734,8 @@ const ACADEMY_4: Academy = {
           instruction: [
             "A strong uptrend rarely closes lower three days in a row. Mrs. Bear watches for the third lower close: it says the short-term trend has turned, at least for now. Three higher closes in a downtrend say the same thing the other way.",
             "At a bottom, selling usually dries up: volume gets smaller as the fall slows, and a retest of the low comes on lighter volume than the first low. That quiet is Mr. Bull's sign that the sellers are done. A panic day with huge volume can also end a fall, but it is the exception.",
-            "At a top, very heavy volume while price stops rising says the stock is being handed from strong holders to late buyers. Mrs. Bear reads that as a warning.",
+            "At a top, very heavy volume while price stops rising says the stock is being handed from strong holders to late buyers. Mrs. Bear reads that as a warning. The heaviest week often comes just before the final top, and a second rally that stops short of the top on smaller volume says the buyers are spent.",
+            "After a second, lower top, watch for a dull, narrow stretch: price going sideways in a tight range on quieter trading. If it then breaks down out of that range on heavier volume, Mrs. Bear reads it as a sign of a further fall. GSPS holds new buys and closes open ones while price stays under the range, for up to 20 sessions after the break.",
           ],
           application: "Find a recent bottom on a chart. Did volume shrink into it, and was the retest quieter than the first low?",
           quiz: [
@@ -744,7 +750,7 @@ const ACADEMY_4: Academy = {
           objectives: ["Describe how GSPS manages a trade that is working.", "Explain why a runner has no fixed target."],
           estimatedMinutes: 11,
           instruction: [
-            "When a GSPS trade reaches its first target, part of the position is taken off. Mr. Bull likes this: some profit is banked. The rest keeps running.",
+            "A GSPS trade has no fixed target. The first target on the plan is a level to watch, and nothing is sold there just because price reached it. The whole position keeps running.",
             "Once the trade has gained as much as it risked, the stop moves to the entry. After that, the stop steps up under each new higher bottom the market makes, and under last month's low once a new month begins.",
             "The part that keeps running has no fixed final target. It leaves when the market says the move is over: a swing chart turning, a reaction bigger or longer than any before it, or three closes against the trade. Mrs. Bear's point: let the market tell you when to leave instead of guessing a price in advance.",
           ],
@@ -926,9 +932,9 @@ const ACADEMY_6: Academy = {
           ],
           estimatedMinutes: 15,
           instruction: [
-            "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend.",
+            "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The main trend comes from the monthly chart, the weekly chart next, and the daily matters most for fast, active stocks, so GSPS weighs them in that order, in its first pass over the market as in the full scan. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend. A stock is never too high to buy while its trend is up, nor too low to sell while it is down, so long as a stop is placed: how far price has run is no reason on its own to trade against the trend.",
             "Trends run in sections, usually three or four. A signal in the third or fourth section counts for more than one in the second, because the move has had time to exhaust itself.",
-            "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and the first break of the prior month's low after a long advance (or of its high after a decline). Time is read first: a move that runs out of time usually runs out of price soon after.",
+            "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and a month that breaks the prior month's low in an advance (or its high in a decline), the first such break being the one to mark. Time is read first: a move that runs out of time usually runs out of price soon after. Either over-balance means GSPS no longer reads a confirmed trend. The monthly break is a warning: no new trade is taken with the trend while it stands. The trend holds while the reaction stays above the top of the move's previous section; if it goes under that top as well, GSPS no longer reads a confirmed trend.",
           ],
           application:
             "On a chart you know, mark the last swing top and bottom on the daily chart, count the sections of the current move, and note whether the current reaction is larger or longer than any before it.",
@@ -955,15 +961,15 @@ const ACADEMY_6: Academy = {
           ],
           estimatedMinutes: 14,
           instruction: [
-            "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that reaches a third month is treated as a change of trend, not a pause.",
-            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own.",
+            "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that is still making new lows in its third month, counted from the top it started from, is treated as a change of trend, not a pause; one that made its low in the second month and has held is not.",
+            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own: a window counts only when the market turns on it, and a trade against the trend waits for its turn to come on one.",
             "The three-close rule: after a run, three lower closes in a row turn a short-term uptrend down, and three higher closes turn a downtrend up. It is read on daily bars, and again on weekly and monthly bars, where it carries more weight.",
           ],
           application:
             "Find the last major bottom on a daily chart. Count the calendar days since it, and check whether today falls near a quarter, a third or a half of a year from it.",
           quiz: [
             q(
-              "A reaction in an uptrend that runs into a third month should be treated as:",
+              "A reaction in an uptrend that is still making new lows in its third month should be treated as:",
               ["A normal pullback", "A change of trend", "A buying opportunity", "Irrelevant"],
               1,
             ),
@@ -984,16 +990,18 @@ const ACADEMY_6: Academy = {
           ],
           estimatedMinutes: 16,
           instruction: [
-            "An entry is a crossing of an old swing top (long) or old swing bottom (short) by a small allowance, so ordinary noise at the level doesn't trigger it. GSPS then waits for confirmation: a close through the level, a retest, and a close that holds. Only then is the order placed, on every path, including automation. In a sideways market GSPS stays out until price breaks away from the range, because a trade inside the range is only a guess at which way it will leave.",
-            "The stop goes beyond the swing on the other side. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
-            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: part of the position is taken off at the first target, a level from the chart, and the rest runs under these rules until the trend changes. No fixed final target is set for it.",
+            "An entry starts with a close 3 points past an old swing top (long) or old swing bottom (short), so ordinary noise at the level doesn't count. A short on a swing bottom also needs distribution before the break: about two weeks of narrow, sideways trading near the top within the 13 weeks before it. GSPS then buys the reaction: the order rests 1 point past the old level and fills when price pulls back to it, on every path, including automation. When the crossing leaves a sideways range, it has to come on volume: GSPS takes it only when the completed session that closed past the line, from short of it, did so on more than the range's average volume; after a quiet crossing it waits for a new one. The old level need not be the last swing: any previous year's top or bottom, from the last ten years, and the record high or low from before the last 52 weeks, are crossed and bought the same way. So is an old bottom that price broke by 3 points and then closed 3 points back above: a market that regains the bottom it broke shows the decline is over, and it is bought 1 point over that bottom with the stop 3 points under (an old top lost after a break above it is the mirror sell). When one close crosses two levels at once, the buy is over the one nearer the price, and a level that is both a swing top and an older top is read as the older one. In a sideways market GSPS does not take a crossing until price breaks away from the range, because a crossing inside the range is only a guess at which way it will leave.",
+            `The other entry is the double or triple bottom: a swing bottom that already held, with the order resting at the bottom itself, so its second or third test is bought (an old top that held, for a short). A fourth test is not bought. A narrow week followed by a week that closes 3 points under it on heavy volume is also sold, on the bounce 1 point under the narrow week's low with the stop 3 points over it, even while the averages rise. ${OLD_LEVEL_BUYS_IN_RANGE ? "This entry is taken inside a sideways range too, since the bottom is the range's own edge." : "Like a crossing, it waits for the breakaway in a sideways range."}`,
+            "A third entry is a bottom that holds. After a reaction, once its low has stood into its second week, GSPS buys at the last close with the stop 3 points under the low; in a rising market, a reaction of two to three weeks is bought once its low has held two days; and a record low that holds for four weeks or more without a 3-point break is bought with the stop 3 points under the record. It is bought only near the low, so the stop is never more than 5 points away. A short sells a single top that holds the same way, and a rally in a falling market (its main trend down, not only the weekly chart) that has run two to three weeks is sold once, at the close of its second or third week, with the stop 3 points over that week's high.",
+            "The stop goes 3 points the other side of the old level, so a crossing risks 4 points, a double or triple bottom 3, and a buy over a bottom that held up to 5. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
+            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: the whole position runs under these rules until the trend changes. No profit target is fixed; the first target on the plan is a level from the chart to watch, not an order.",
           ],
           application:
-            "Take one GSPS plan. Identify the swing top or bottom its entry crosses, the swing its stop sits beyond, and the level its first target sits at.",
+            "Take one GSPS plan. Identify the old swing top or bottom it crosses or rests at, check that the entry sits 1 point past a crossed level (or at the old level itself) and the stop 3 points the other side, and find the level its first target sits at.",
           quiz: [
             q(
               "Where does a GSPS long entry come from?",
-              ["A fixed percentage above today's open", "A crossing of an old swing top plus a small allowance", "A moving-average crossover", "The previous day's close"],
+              ["A fixed percentage above today's open", "The pullback after a close 3 points over an old swing top", "A moving-average crossover", "The previous day's close"],
               1,
             ),
             q(
@@ -1013,9 +1021,9 @@ const ACADEMY_6: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, and a second top on smaller volume than the first says the advance is tiring.",
+            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, often heaviest in the weeks just before it, and a second top, or a lower rally after a heavy fall, on smaller volume than the first says the advance is tiring. Out of a long decline, a higher second low on less volume than the first advance, followed by a heavier advance, points to higher prices; so does the smallest monthly volume in years, when it comes at a bottom. After a second, lower top, a dull narrow range that breaks down on heavier volume points to a further decline: GSPS holds new buys and closes open ones while price stays under the range, for up to 20 sessions after the break. Volume is compared week against week, the second turn's week against the first's.",
             "After three losing trades in a row, GSPS pauses new entries for the rest of that day and the next trading day. The point is to stop and find out what changed, the market or your judgment, before the next trade. Stops and closes are never blocked.",
-            "Size is a fixed share of what the account is worth now, so a loss shrinks the next trade automatically. Nothing in GSPS raises size because of a winning streak: confidence after a run of wins is the moment to be most careful, not to trade bigger.",
+            "Size is a fixed share of your trading unit. The unit starts as the capital you began with and doubles only once your profits equal it, and never beyond what the account is worth now, so a loss shrinks the next trade at once. Nothing in GSPS raises size because of a winning streak: during a long run of wins the unit stays where the run began, because confidence after a run of wins is the moment to be most careful, not to trade bigger.",
           ],
           application:
             "Look at the last low on a chart you follow. Was volume shrinking into it, or was it a heavy-volume panic? Write down which rule you'd have applied.",
@@ -1043,7 +1051,7 @@ const ACADEMY_6: Academy = {
           estimatedMinutes: 13,
           instruction: [
             "Adding to a position is earned, never hoped for. The last lot must already show a profit at least as large as the risk the trade started with, and the market must prove the trend again by crossing a new swing top (a new swing bottom, for a short) made since that last lot. Adding to a losing trade to improve the average price is the one thing this rule exists to prevent.",
-            "Each addition is smaller than the one before, about half. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. After four lots, stop adding: the move is getting old.",
+            "Each addition is smaller than the one before, about half. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. Adding ends when the next half would be less than one share, because by then the move is getting old.",
             "With every addition, the stop on the whole position moves up to at least the combined break-even, so that a reversal can cost profit but not capital. A full stop-out of everything together should never cost more than a tenth of the account.",
             "GSPS shows an add on the Portfolio when a position has earned one. It is a suggestion: you place it through the order ticket, and nothing is added automatically.",
           ],
@@ -1311,7 +1319,7 @@ const ACADEMY_8: Academy = {
       slug: "w2-live-capital-recertification",
       title: "Course W2: Live-Trading Risk Re-Certification",
       outcome:
-        "The existing live-capital/loss-cascade/stop-override re-certification pilot — unchanged. Required only after a 50% live-loss restriction, not for initial Wall Street purchase.",
+        "The existing live-capital/loss-cascade/stop-rule re-certification pilot — unchanged. Required only to lift a live-trading restriction recorded under the retired 50% loss rule, not for initial Wall Street purchase.",
       lessons: [],
     },
   ],

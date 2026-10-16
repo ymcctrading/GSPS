@@ -10,17 +10,8 @@
 
 import { describe, expect, it } from "vitest";
 import type { GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
-import {
-  FALLBACK_FAN_PCT,
-  FALLBACK_HARMONIC_PCT,
-  FALLBACK_SR_PCT,
-  FAN_PROXIMITY_ATR,
-  HARMONIC_PROXIMITY_ATR,
-  SR_PROXIMITY_ATR,
-  atrPercentOfPrice,
-  nearAnyLevel,
-  proximityBandPct,
-} from "@/lib/scoring/proximity";
+import { atrPercentOfPrice, levelBandPct, nearAnyLevel, proximityBandPct } from "@/lib/scoring/proximity";
+import { gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 
 function trend(
@@ -91,23 +82,9 @@ const passed = (inp: ScoreInputs, key: string) =>
   computeScore(inp).breakdown.find((b) => b.key === key)?.passed;
 
 describe("proximityBandPct", () => {
-  it("falls back to the old fixed bands when there is no volatility read", () => {
-    expect(proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, undefined)).toBe(FALLBACK_FAN_PCT);
-    expect(proximityBandPct(HARMONIC_PROXIMITY_ATR, FALLBACK_HARMONIC_PCT, undefined)).toBe(
-      FALLBACK_HARMONIC_PCT,
-    );
-    expect(proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, undefined)).toBe(FALLBACK_SR_PCT);
-  });
-
-  it("scales the band with the instrument's own range", () => {
-    // 5%-ATR name: half a day's range is 2.5%. 1%-ATR name: 0.5%.
-    expect(proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, 5)).toBeCloseTo(2.5, 10);
-    expect(proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, 1)).toBeCloseTo(0.5, 10);
-  });
-
-  it("keeps the harmonic band tighter than the fan band, as the fixed pair did", () => {
-    const ratio = HARMONIC_PROXIMITY_ATR / FAN_PROXIMITY_ATR;
-    expect(ratio).toBeCloseTo(FALLBACK_HARMONIC_PCT / FALLBACK_FAN_PCT, 2);
+  it("falls back to the fixed band when there is no volatility read, and scales with it otherwise", () => {
+    expect(proximityBandPct(1, 2, undefined)).toBe(2);
+    expect(proximityBandPct(0.5, 2, 5)).toBeCloseTo(2.5, 10);
   });
 });
 
@@ -137,31 +114,28 @@ describe("nearAnyLevel", () => {
   });
 });
 
-describe("structural criteria across the universe", () => {
-  it("gives the same level different verdicts on a quiet and a volatile name", () => {
-    const quiet = inputs({ atrPct: 1 }); // band 0.5% — 1.2% away is not near
-    const volatile = inputs({ atrPct: 5 }); // band 2.5% — 1.2% away is near
+describe("at a level means within Gann's 3 points of it (N#27)", () => {
+  const band = gannThreePointsPct(100);
 
-    expect(passed(quiet, "gannRetracementConfluence")).toBe(false);
-    expect(passed(volatile, "gannRetracementConfluence")).toBe(true);
+  it("passes inside the level's 3-point allowance and fails just past it", () => {
+    expect(passed(inputs({ gann: gannAt(band - 0.1) }), "gannRetracementConfluence")).toBe(true);
+    expect(passed(inputs({ gann: gannAt(band + 0.1) }), "gannRetracementConfluence")).toBe(false);
   });
 
-  it("stops handing a free point to a 5%-ATR name that the old band gave away", () => {
-    // 1.2% cleared the old 1.5% fan band on every symbol regardless of range.
-    expect(passed(inputs(), "gannRetracementConfluence")).toBe(true);
-    expect(passed(inputs({ atrPct: 1 }), "gannRetracementConfluence")).toBe(false);
+  it("does not move with the day's range", () => {
+    const at = gannAt(band - 0.1);
+    expect(passed(inputs({ gann: at, atrPct: 1 }), "gannRetracementConfluence")).toBe(true);
+    expect(passed(inputs({ gann: at, atrPct: 5 }), "gannRetracementConfluence")).toBe(true);
   });
 
-  it("says which band a criterion was measured against", () => {
-    const item = computeScore(inputs({ atrPct: 2 })).breakdown.find(
-      (b) => b.key === "gannRetracementConfluence",
-    );
-    expect(item?.note).toContain("1.00%");
-    expect(item?.note).toContain("daily average range");
-  });
-
-  it("names the fallback when no volatility read is available", () => {
+  it("says which allowance a criterion was measured against", () => {
     const item = computeScore(inputs()).breakdown.find((b) => b.key === "gannRetracementConfluence");
-    expect(item?.note).toContain("fixed fallback band");
+    expect(item?.note).toContain(`${band.toFixed(2)}%`);
+    expect(item?.note).toContain("3-point allowance");
+  });
+
+  it("puts the S/R band at the price's own 3-point allowance", () => {
+    expect(levelBandPct(100)).toBeCloseTo(band, 10);
+    expect(levelBandPct(42.5)).toBeCloseTo((gannThreePoints(42.5) / 42.5) * 100, 10);
   });
 });

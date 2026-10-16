@@ -335,6 +335,28 @@ async function main() {
     await runCalendarTest({});
     await mkdir(path.join(root, "out"), { recursive: true });
     await writeFile(path.join(root, "out", "summary.md"), "Calendar test: see the job log.\n");
+    // The workflow's print step reads summary.json; the result itself is in the job log.
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Calendar test: see the job log." }) + "\n");
+    return;
+  }
+  // The item 7 time-window base-rate test rides it too (scripts/time-window-base-rates.mjs).
+  if (process.argv.includes("time-window-base-rates")) {
+    const { runTimeWindowBaseRates } = await import("./time-window-base-rates.mjs");
+    await runTimeWindowBaseRates({});
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Time-window base rates: see the job log.\n");
+    // The workflow's print step reads summary.json; the result itself is in the job log.
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Time-window base rates: see the job log." }) + "\n");
+    return;
+  }
+
+  // The Q33/Q38/Q40 pre-registered research tests ride it too (scripts/preregistered-time-tests.mjs).
+  if (process.argv.includes("preregistered-time-tests")) {
+    const { runPreregisteredTimeTests } = await import("./preregistered-time-tests.mjs");
+    await runPreregisteredTimeTests({});
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Pre-registered time tests: see the job log.\n");
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Pre-registered time tests: see the job log." }) + "\n");
     return;
   }
 
@@ -401,19 +423,22 @@ async function main() {
     const started = Date.now();
     const paceMs = args.symbolsPerMinute > 0 ? 60_000 / args.symbolsPerMinute : 0;
 
-    // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
-    let marketDailyBars;
+    // The market's bars (SPY) once: its daily for Gann's early/late leaders
+    // (G25), its monthly to date the bull and bear markets (weak stocks,
+    // A-TIME-06).
+    let market;
     try {
-      marketDailyBars = (await run.fetchSeries("SPY", args.timeframe, true)).daily;
+      market = await run.fetchSeries("SPY", args.timeframe, true);
     } catch {
-      marketDailyBars = undefined;
+      market = undefined;
     }
 
     for (let i = 0; i < universe.length; i++) {
       const symbol = universe[i];
       const tickStart = Date.now();
       try {
-        const { bars: fetched, daily, monthly } = await run.fetchSeries(symbol, args.timeframe, true);
+        const series = await run.fetchSeries(symbol, args.timeframe, true);
+        const fetched = series.bars;
         const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
         if (bars.length === 0) {
           skipped.push({ symbol, reason: "no execution-timeframe bars" });
@@ -431,9 +456,9 @@ async function main() {
                 ? replayIntraday(symbol, bars, {
                     ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
                     ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),
-                    dailyBars: daily,
+                    dailyBars: series.daily,
                   })
-                : replay(symbol, bars, { targetR: args.targetR, ...opts, dailyBars: daily, monthlyBars: monthly, instrument, marketDailyBars }),
+                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market), instrument }),
             );
           });
           used.push(symbol);

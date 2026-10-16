@@ -15,7 +15,8 @@
 
 import { describe, expect, it } from "vitest";
 import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
-import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { applyDataLagHold, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import { detectPatterns } from "@/lib/strat/patterns";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { computeTradeLevels } from "@/lib/strat/levels";
@@ -91,6 +92,7 @@ const gann: GannLevels = {
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 85,
+  stopBehindOldLevel: true,
   takeProfit1: 130,
   takeProfit2: 145,
   masterProfit: 145,
@@ -128,7 +130,7 @@ const allPass: ScoreInputs = {
   swingChart: { threeDay: "bullish", weekly: "bullish" },
   ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
   timePriceSquare: [
-    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
   ],
   volumeClimax: [
     { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
@@ -172,8 +174,8 @@ describe("confluence checklist copy", () => {
   it("reads in plain language on every price/time-square phrasing", () => {
     // The note branches on whether a reading exists at all, and whether it
     // squares or not — three distinct branches of copy.
-    const squared = { anchorKind: "low" as const, anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true };
-    const notSquared = { ...squared, priceMove: 40, priceMoveAtrUnits: 40, squared: false };
+    const squared = { anchorKind: "low" as const, anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true };
+    const notSquared = { ...squared, priceMove: 40, priceMovePoints: 40, squared: false };
     for (const timePriceSquare of [[squared], [notSquared], []]) {
       expectPlainLanguage(checklistStrings({ ...allPass, timePriceSquare }));
     }
@@ -192,7 +194,7 @@ describe("confluence checklist copy", () => {
   });
 
   it("reads in plain language on the downgrade note", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
+    const decision = applyDataLagHold(computeScore(allPass), decisionLag("15Min", FREE_EQUITY_FEED_DELAY_MS));
     expectPlainLanguage(decision.breakdown.flatMap((item) => [item.criterion, item.note]));
   });
 

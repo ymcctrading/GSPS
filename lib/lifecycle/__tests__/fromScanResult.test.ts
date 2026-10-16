@@ -56,6 +56,28 @@ describe("buildNewTradePlanFromScanResult", () => {
     );
   });
 
+  it("lasts until the close of the session it trades in", () => {
+    const plan = buildNewTradePlanFromScanResult(scanResult(), {
+      strategyVersion: "1.0.0",
+      signalId: "transition-1",
+      generatedAt: "2026-10-15T14:00:00.000Z",
+    });
+    expect(plan!.expiresAt).toBe("2026-10-15T20:00:00.000Z");
+  });
+
+  it("carries an old-level plan's kind, and leaves a crossing's unset", () => {
+    const opts = { strategyVersion: "1.0.0", signalId: "transition-1", generatedAt: "2026-08-30T13:00:00.000Z" };
+    const old = buildNewTradePlanFromScanResult(scanResult({ levels: { ...levels, entryKind: "oldLevel" } }), opts);
+    expect(old?.coordinates.entryKind).toBe("oldLevel");
+    expect(buildNewTradePlanFromScanResult(scanResult(), opts)?.coordinates.entryKind).toBeUndefined();
+  });
+
+  it("carries a held-bottom plan's kind (PLAN.md item 5, step 4)", () => {
+    const opts = { strategyVersion: "1.0.0", signalId: "transition-1", generatedAt: "2026-08-30T13:00:00.000Z" };
+    const held = buildNewTradePlanFromScanResult(scanResult({ levels: { ...levels, entryKind: "hold", holdBasis: "weeks" } }), opts);
+    expect(held?.coordinates.entryKind).toBe("hold");
+  });
+
   it("returns null when the scan has no priced levels", () => {
     const plan = buildNewTradePlanFromScanResult(scanResult({ levels: null }), {
       strategyVersion: "1.0.0",

@@ -64,6 +64,14 @@ export interface RunnerRule {
 
 /** `Coordinates` field group. */
 export interface PlanCoordinates {
+  /**
+   * Which of Gann's buying points the plan is (PLAN.md item 5): `crossing`
+   * arms on a close 3 points past the level and buys the reaction; `oldLevel`
+   * rests at the old bottom (top) with nothing to arm, and `hold` rests at the
+   * last close over a bottom that has held (step 4), nothing to arm either.
+   * Absent on plans stored before step 2, which are all crossings.
+   */
+  entryKind?: "crossing" | "oldLevel" | "hold";
   entryTrigger: number;
   entryLimitTolerance: number;
   invalidation: number;
@@ -139,6 +147,12 @@ export interface EntryConfirmationEvidence {
   confirmationMovePrice: number | null;
   /** Set once every prior stage is populated — mirrors `entryReady`'s decision. */
   entryConfirmedAt: string | null;
+  /**
+   * An old-level plan only (PLAN.md item 5, step 2): the bar that closed
+   * through the stop before the plan armed. The level is broken and the plan
+   * never arms after it. Absent on older rows, which read as never broken.
+   */
+  stopClosedAt?: string | null;
 }
 
 export const EMPTY_ENTRY_CONFIRMATION: EntryConfirmationEvidence = {

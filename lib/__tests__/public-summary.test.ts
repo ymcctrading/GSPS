@@ -17,7 +17,8 @@ import type {
   TradeLevels,
   TrendReading,
 } from "@/lib/types";
-import { applyReversionConfirmation, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { applyDataLagHold, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import {
   redactDecision,
   redactScanResult,
@@ -66,6 +67,7 @@ const gann: GannLevels = {
 const levels: TradeLevels = {
   entry: 100,
   stopLoss: 85,
+  stopBehindOldLevel: true,
   takeProfit1: 130,
   takeProfit2: 145,
   masterProfit: 145,
@@ -102,7 +104,7 @@ const allPass: ScoreInputs = {
   swingChart: { threeDay: "bullish", weekly: "bullish" },
   ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
   timePriceSquare: [
-    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
   ],
   volumeClimax: [
     { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
@@ -170,8 +172,8 @@ describe("toPublicScoreSummary", () => {
     expect(summary.stateNote).not.toBeNull();
   });
 
-  it("notes the downgrade of an unconfirmed reversal", () => {
-    const decision = applyReversionConfirmation(computeScore(allPass), pattern, false, false);
+  it("notes a downgrade from Execute", () => {
+    const decision = applyDataLagHold(computeScore(allPass), decisionLag("15Min", FREE_EQUITY_FEED_DELAY_MS));
     expect(toPublicScoreSummary(decision).stateNote).not.toBeNull();
   });
 

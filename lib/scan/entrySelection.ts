@@ -29,9 +29,12 @@
  *    on.
  */
 
-import type { StratPattern, TrendReading } from "@/lib/types";
+import type { Bar, StratPattern, TrendReading } from "@/lib/types";
 import type { SetupKind } from "@/lib/types";
 import { weightedTrendAgreement } from "@/lib/gann/timeframeWeight";
+import { readTrend } from "@/lib/analysis/trend";
+import { toWeeklyBars } from "@/lib/gann/disclosedRules";
+import { nearerBuyingPoint, OLDER_LEVELS_YEARS, olderGannLevels, selectGannEntry, type GannEntryTrigger, type OlderGannLevel } from "@/lib/gann/entryTrigger";
 import {
   CONTINUATION_PATTERNS,
   detectPatterns,
@@ -49,48 +52,157 @@ export type EntryDirection = "bullish" | "bearish";
 export const MIN_DAILY_BARS_FOR_SCAN = 30;
 
 /**
- * At least two of the three macro timeframes (monthly, weekly, daily; the
- * hourly never counts) read `direction`. This is the continuation pass's
- * breadth requirement. It is deliberately not the power-ratio weighting
- * `preferredEntryDirection` uses: a single heavily weighted timeframe would
- * satisfy a weighted score on its own, and this gate exists to demand
- * agreement across timeframes.
+ * How far back a buying point is read: 52 weeks of daily sessions. The live
+ * scan fetches a year of daily bars and the replay holds six, and since PLAN.md
+ * item 5 a crossed level stays held until it is bought, so a deeper history
+ * could hold a level the scan never sees. One window keeps them the same. Gann
+ * names no lookback for reading the chart; this is the live fetch's reach, an
+ * engineering choice. Levels older than this come from the monthly chart.
  */
-export function macroBreadthAgrees(
-  trends: Pick<TrendReading, "timeframe" | "direction">[],
-  direction: EntryDirection,
-): boolean {
-  return trends.filter((t) => t.timeframe !== "1Hour" && t.direction === direction).length >= 2;
+export const ENTRY_CHART_DAYS = 364;
+
+/**
+ * The daily bars every surface reads a buying point from: the sessions in the
+ * 52 weeks before `asOf` (YYYY-MM-DD), and never `asOf` itself. Gann's
+ * crossing is a close, and a session still forming has none, so the live scan
+ * reads only completed sessions, as the replay always has.
+ */
+export function entryChartBars(daily: Bar[], asOf: string): Bar[] {
+  const from = entryChartFrom(asOf);
+  return daily.filter((b) => {
+    const d = b.t.slice(0, 10);
+    return d >= from && d < asOf;
+  });
+}
+
+/** The first day (YYYY-MM-DD) of the 52 weeks before `asOf`. */
+export function entryChartFrom(asOf: string): string {
+  return new Date(Date.parse(`${asOf}T00:00:00Z`) - ENTRY_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
 }
 
 /**
- * Gann's continuation (2026-09-28, project owner: the STRAT shape gate "is not
- * Gann methodology, so implement Gann's methods"): buy on crossing an old top
- * while the trend is up, sell on breaking an old bottom while it is down (the
- * nine Buying and Selling Points, A8; "buy on crossing old tops in a bull
- * market", A5). The entry already crosses a swing extreme in `direction`
- * (`lib/gann/entryTrigger.ts`); what makes it a continuation rather than a
- * reversal is that the daily swing chart, confirmed by its stepping swings,
- * already runs that way (`readGannTrend`, via `readTrend`'s 1Day reading).
- * Replaces `isContinuationShape` as the gate on the live scan and the replay.
- *
- * Three-question basis: 1. Gann, as cited (Tier A). 2. No periodicity claim.
- * 3. Rhythm: a continuation joins the swing already under way instead of
- * reading a bar sequence.
+ * Where a surface's monthly fetch starts so its older levels on `asOf` see
+ * the whole span `olderGannLevels` reads: 1 January, `OLDER_LEVELS_YEARS`
+ * before `asOf`'s year (step 3 review R10). A surface that reads several days
+ * passes the earliest.
  */
-export function isGannContinuation(
-  trends: Pick<TrendReading, "timeframe" | "direction">[],
-  direction: EntryDirection,
-): boolean {
-  return trends.some((t) => t.timeframe === "1Day" && t.direction === direction);
+export function monthlyChartFrom(asOf: Date): Date {
+  return new Date(Date.UTC(asOf.getUTCFullYear() - OLDER_LEVELS_YEARS, 0, 1));
 }
 
 /**
- * The direction the scan arms a reversion setup in: against the macro move,
- * where the macro move is read with Gann's chart-timeframe power ratio rather
- * than a flat vote (a single monthly trend outweighs weekly and daily
- * disagreeing with it). A caller hunting a continuation supplies its own
- * direction instead.
+ * What a buying point is read from on `asOf`: the 52 weeks of completed daily
+ * sessions, and the older levels the monthly chart holds, each previous year's
+ * top and bottom and the record before the 52 weeks (PLAN.md item 5, step 3).
+ * Every surface that prices, confirms or recovers a buying point reads it
+ * through here.
+ */
+export function entryChart(daily: Bar[], monthly: Bar[], asOf: string): { bars: Bar[]; older: OlderGannLevel[] } {
+  return { bars: entryChartBars(daily, asOf), older: olderGannLevels(monthly, asOf, entryChartFrom(asOf)) };
+}
+
+/**
+ * Gann's trend over the monthly, weekly and daily charts, each weighted by his
+ * power ratio (A-TREND-01; *Wall Street Stock Selector*, 1930: a month counts
+ * 30 days, a week 7), or null when none of the three reads a trend. The hourly
+ * never counts.
+ */
+export function gannMacroDirection(trends: Pick<TrendReading, "timeframe" | "direction">[]): EntryDirection | null {
+  const macro = trends.filter((t) => t.timeframe !== "1Hour") as TrendReading[];
+  const score = weightedTrendAgreement(macro, "bullish").weightedScore;
+  return score > 0 ? "bullish" : score < 0 ? "bearish" : null;
+}
+
+/**
+ * Whether a with-trend setup runs with Gann's trend (PLAN.md item 6 step 11,
+ * A-TREND-09: "a stock is never too high to buy so long as the trend is up,
+ * provided you place a stop", W006 p.22; the mirror for a short, pp.38-39).
+ * The trend alone admits it. The momentum, breadth and quota gates it replaced
+ * (a 4-hour spike, range expansion, two of three timeframes, two slots a side)
+ * had no source in Gann.
+ */
+export function isWithGannTrend(trends: Pick<TrendReading, "timeframe" | "direction">[], direction: EntryDirection): boolean {
+  return gannMacroDirection(trends) === direction;
+}
+
+type EntryOf = (direction: EntryDirection) => GannEntryTrigger | null;
+
+/**
+ * The trends a surface can read from the bars it holds: the monthly chart when
+ * it has monthly bars, the weekly chart rolled from the daily, and the daily
+ * (A-TREND-01, W006 p.19). For the surfaces that don't fetch the full scan's
+ * long weekly history: the coarse pass, the graduation exam and the live exit
+ * manager. Pass bars dated before the day being read.
+ */
+export function trendsFromBars(daily: Bar[], monthly: Bar[] = []): Pick<TrendReading, "timeframe" | "direction">[] {
+  return [
+    ...(monthly.length > 0 ? [readTrend(monthly, "1Month")] : []),
+    readTrend(toWeeklyBars(daily), "1Week"),
+    readTrend(daily, "1Day"),
+  ].map((t) => ({ timeframe: t.timeframe, direction: t.direction }));
+}
+
+/**
+ * Each side's buying point as the scan prices it (`selectGannEntry`), read
+ * from the entry chart, with a bear-market rally sold only while Gann's
+ * weighted trend is down (A-ENTRY-18: the bear market is the main trend). The
+ * live scan, the replay, the graduation exam and the live exit manager all
+ * price through this, and nothing else calls `selectGannEntry`.
+ */
+export function gannEntryOf(
+  bars: Bar[],
+  older: OlderGannLevel[],
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+): EntryOf {
+  const main = gannMacroDirection(trends);
+  return (d) => selectGannEntry(bars, d, older, undefined, main === "bearish", main === "bullish");
+}
+
+/**
+ * The buying point a scan with no direction asked of it arms: against Gann's
+ * trend, where his counter-trend points stand (double and triple tops and
+ * bottoms, held levels, crossings). With no trend on any chart, both sides arm
+ * and the nearer buying point is the one (fork F4 a; Polarity: neither side is
+ * presumed). `price` is the last close of the chart the buying points were
+ * read from, the same price `selectGannEntry` measures nearness from.
+ */
+export function reversionEntry(
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+  entryOf: EntryOf,
+  price: number,
+): GannEntryTrigger | null {
+  const trend = gannMacroDirection(trends);
+  if (trend !== null) return entryOf(trend === "bullish" ? "bearish" : "bullish");
+  const up = entryOf("bullish");
+  const down = entryOf("bearish");
+  return up && down ? nearerBuyingPoint(up, down, price) : (up ?? down);
+}
+
+/**
+ * What one session arms, on the live scan's two passes and in the replay
+ * alike: the reversion (`reversionEntry`) and, when the charts read a trend,
+ * the buying point with it (`isWithGannTrend`). Each is the nearer of that
+ * side's crossing, old level and hold (`selectGannEntry`, via `entryOf`).
+ */
+export function armSessionEntries(
+  trends: Pick<TrendReading, "timeframe" | "direction">[],
+  entryOf: EntryOf,
+  price: number,
+): { setupKind: SetupKind; trigger: GannEntryTrigger }[] {
+  const out: { setupKind: SetupKind; trigger: GannEntryTrigger }[] = [];
+  const reversion = reversionEntry(trends, entryOf, price);
+  if (reversion) out.push({ setupKind: "reversion", trigger: reversion });
+  const trend = gannMacroDirection(trends);
+  const withTrend = trend !== null ? entryOf(trend) : null;
+  if (withTrend) out.push({ setupKind: "continuation", trigger: withTrend });
+  return out;
+}
+
+/**
+ * The direction the scan arms a reversion setup in when it has no buying
+ * point to read it from: against Gann's weighted trend, and short when no
+ * chart reads one. A caller hunting a continuation supplies its own
+ * direction instead. Where buying points exist, `reversionEntry` decides.
  */
 export function preferredEntryDirection(
   macroTrends: TrendReading[],

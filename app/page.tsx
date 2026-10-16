@@ -27,7 +27,7 @@ const FEATURES = [
   {
     icon: Target,
     title: "Pinpoint levels",
-    body: "Every setup ships with an entry, a structural stop, a 1.5R first target, and a final target stepped out to the nearest structural level — mapped before the candle opens, never in hindsight.",
+    body: "Every setup ships with an entry, a structural stop and the levels ahead of it, mapped before the candle opens, never in hindsight. No profit target is fixed: the trade runs until the market's own structure turns.",
   },
   {
     icon: ShieldCheck,

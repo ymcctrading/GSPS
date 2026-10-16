@@ -16,8 +16,10 @@ import {
   TP1_MULTIPLE_BY_ASSET,
   TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levels";
+import { EXECUTE_SCORE_THRESHOLD, TOTAL_POINTS } from "@/lib/scoring/weights";
 import {
   EXECUTE_RULE_DETAIL,
+  EXECUTE_RULE_LABEL,
   MASTER_RULE_LABEL,
   STOP_RULE_DETAIL,
   TP1_RULE_LABEL,
@@ -68,9 +70,16 @@ describe("the advertised targets match the priced ones", () => {
     expect(STOP_RULE_DETAIL).toContain("option premium");
   });
 
-  it("states every condition that can hold a 7-scored setup below Execute", () => {
+  it("states every condition that can hold a setup at the cutoff below Execute", () => {
+    expect(EXECUTE_RULE_LABEL).toContain(`${EXECUTE_SCORE_THRESHOLD}`);
+    expect(EXECUTE_RULE_LABEL).toContain(`${TOTAL_POINTS}`);
     expect(EXECUTE_RULE_DETAIL).toMatch(/trade plan/);
-    expect(EXECUTE_RULE_DETAIL).toMatch(/failed-push reversal/);
+    expect(EXECUTE_RULE_DETAIL).toMatch(/broken out of it/);
+    expect(EXECUTE_RULE_DETAIL).toMatch(/month/);
+    expect(EXECUTE_RULE_DETAIL).toMatch(/distribution/);
+    expect(EXECUTE_RULE_DETAIL).toMatch(/failed top/);
     expect(EXECUTE_RULE_DETAIL).toMatch(/behind the market/);
+    // No bar-sequence pattern holds a verdict since 2026-10-16 (N#1).
+    expect(EXECUTE_RULE_DETAIL).not.toMatch(/pattern|failed-push/);
   });
 });

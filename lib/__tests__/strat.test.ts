@@ -1,3 +1,4 @@
+import { gannThreePoints } from "@/lib/gann/pointScale";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { classifyBar, classifySeries } from "@/lib/strat/classify";
@@ -202,9 +203,11 @@ describe("computeTradeLevels", () => {
     // The assertion this test is actually named for: the copy quotes the stop
     // that was COMPUTED (115 is the raw input; levels.stopLoss may differ).
     expect(levels.pivotPlan?.confirmation).toContain(levels.stopLoss.toFixed(2));
-    // No session context exists at this timeframe to derive the pivot
-    // trade's own stop from — deliberately left null rather than fabricated.
-    expect(levels.pivotPlan?.invalidation).toBeNull();
+    // Reverse when caught (A-EXIT-02, Q15): the reversal's stop is 3 points
+    // beyond the old trade's extreme; at plan time that is the entry, a low
+    // for this short. The copy says it moves with the trade's best price.
+    expect(levels.pivotPlan?.invalidation).toBeCloseTo(levels.entry - gannThreePoints(levels.entry), 2);
+    expect(levels.pivotPlan?.confirmation).toContain("reverse");
     // Mirrors intraday's VWAP-as-first-target choice: here that's the level
     // the original thesis entered at.
     expect(levels.pivotPlan?.firstTarget).toBe(levels.entry);

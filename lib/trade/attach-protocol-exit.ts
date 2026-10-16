@@ -168,10 +168,9 @@ export interface UpdateProtocolExitInput {
  *
  *   - Refused outright while the position isn't in profit yet (current price
  *     hasn't crossed the entry in the favorable direction) — moving a stop
- *     before there's any cushion is exactly the risk-loosening the live-only
- *     `lib/risk/stop-override.ts` high-friction path exists to gate; this
- *     paper-only edit path doesn't carry that friction, so it simply refuses
- *     rather than allow an equivalent loosening informally.
+ *     before there's any cushion is a risk-loosening no path allows: a stop only
+ *     moves in the trade's favour (the live widen/remove override was removed
+ *     2026-10-16, owner, Q10).
  *   - Once in profit, the new stop must move in the risk-reducing direction
  *     only: up (toward/through entry) for a long, down for a short. A request
  *     that would loosen the stop — even one that's still technically on the

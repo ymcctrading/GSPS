@@ -11,10 +11,11 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
   computeGannEntryTrigger,
-  LOST_MOTION_BUFFER_PCT,
+  distributedBefore,
   ENTRY_TRIGGER_SWING_DAYS,
 } from "@/lib/gann/entryTrigger";
 import { swingPivots } from "@/lib/gann/swingChart";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 
 /** Bars from closes; high/low straddle each close so pivots are well defined. */
 function bars(closes: number[]): Bar[] {
@@ -34,6 +35,9 @@ const ZIGZAG = bars([
   15, 14, 13, 12, // four down closes: 3-day chart flips
   13, 14, 15, 16, 17, 18, // rally again
 ]);
+
+// The short's mirror, after distribution (A-ENTRY-15): two narrow weeks at the top, then a zigzag down.
+const ZIGZAG_SHORT = bars([...Array.from({ length: 10 }, (_, i) => 18 + (i % 2 ? 0.1 : -0.1)), 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10]);
 
 describe("swingPivots", () => {
   it("returns completed swing extremes, not per-bar extremes", () => {
@@ -71,10 +75,10 @@ describe("computeGannEntryTrigger", () => {
     expect(t!.pivot.price).not.toBe(priorBarHigh);
   });
 
-  it("clears the level by the lost-motion allowance rather than sitting on it", () => {
+  it("clears the level by 3 points, price-scaled, rather than sitting on it", () => {
     const t = computeGannEntryTrigger(ZIGZAG, "bullish")!;
     expect(t.triggerPrice).toBeGreaterThan(t.pivot.price);
-    expect(t.triggerPrice).toBeCloseTo(t.pivot.price * (1 + LOST_MOTION_BUFFER_PCT / 100), 8);
+    expect(t.triggerPrice).toBeCloseTo(t.pivot.price + gannThreePoints(t.pivot.price), 8);
   });
 
   it("stops beyond the protective swing on the other side", () => {
@@ -85,11 +89,52 @@ describe("computeGannEntryTrigger", () => {
   });
 
   it("mirrors exactly for a short", () => {
-    const t = computeGannEntryTrigger(ZIGZAG, "bearish")!;
+    const t = computeGannEntryTrigger(ZIGZAG_SHORT, "bearish")!;
     expect(t.pivot.kind).toBe("bottom");
     expect(t.protectivePivot.kind).toBe("top");
     expect(t.triggerPrice).toBeLessThan(t.pivot.price);
     expect(t.stopPrice).toBeGreaterThan(t.triggerPrice);
+  });
+
+  it("does not sell a swing bottom short without a distribution spell first (A-ENTRY-15)", () => {
+    const plain = bars([18, 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10]);
+    expect(computeGannEntryTrigger(plain, "bearish")).toBeNull();
+    expect(computeGannEntryTrigger(ZIGZAG_SHORT, "bearish")).not.toBeNull();
+  });
+
+  it("reads distribution as ten narrow sessions near the top, held above the level", () => {
+    expect(distributedBefore(ZIGZAG_SHORT, ZIGZAG_SHORT.length, 11)).toBe(true);
+    // The spell sat above the level; one that traded under it was not distribution there.
+    expect(distributedBefore(ZIGZAG_SHORT, ZIGZAG_SHORT.length, 30)).toBe(false);
+    // Fewer than ten sessions read: nothing to find.
+    expect(distributedBefore(ZIGZAG_SHORT, 9, 11)).toBe(false);
+  });
+
+  it("does not ask distribution of an old top lost by 3 points (A-ENTRY-15 is a bottom's break)", () => {
+    const lost = bars([40, 42, 44, 46, 48, 50, 48, 46, 44, 45, 47, 49, 51, 53, 55, 53, 51, 49, 47, 45, 44]);
+    const t = computeGannEntryTrigger(lost, "bearish");
+    expect(t).toMatchObject({ held: true, regained: true, source: "swing" });
+  });
+
+  it("reads the spell only near the top of the 13 weeks before the break", () => {
+    const flat = Array.from({ length: 12 }, (_, i) => 20 + (i % 2 ? 0.1 : -0.1));
+    const atTop = bars(flat);
+    expect(distributedBefore(atTop, atTop.length, 15)).toBe(true);
+    // The same spell well under an earlier high is not distribution at a top.
+    const underHigh = bars([24, 28, 32, 36, 40, 36, 32, 28, 24, 20, ...flat]);
+    expect(distributedBefore(underHigh, underHigh.length, 15)).toBe(false);
+  });
+
+  it("reads a spell wider than two 3-point allowances as no distribution", () => {
+    const w = 2.5 * gannThreePoints(19);
+    // Closes swing so the bars' highs and lows span 2.5 allowances: a sharp top, not a narrow spell.
+    const wide = bars(Array.from({ length: 12 }, (_, i) => (i % 2 ? 20 + (w - 2) / 2 : 20 - (w - 2) / 2)));
+    expect(distributedBefore(wide, wide.length, 10)).toBe(false);
+  });
+
+  it("leaves the intraday profile's own scale alone: the daily distribution spell is not read on it", () => {
+    const plain = bars([18, 17, 16, 15, 14, 13, 12, 13, 14, 15, 16, 15, 14, 13, 12, 11, 10]);
+    expect(computeGannEntryTrigger(plain, "bearish", ENTRY_TRIGGER_SWING_DAYS, 0.3)).not.toBeNull();
   });
 
   it("returns null rather than a plan with no history to price it from", () => {

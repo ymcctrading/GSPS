@@ -52,9 +52,7 @@ const BASE_GATES: SignalGates = {
   eligibleUniverse: true,
   operatingCandleClosed: true,
   staleData: false,
-  binaryEventInHoldPeriod: false,
   liquiditySpreadPass: true,
-  benchmarkSectorAlignment: true,
   targetRoomAvailable: true,
   stopWithinNovicePolicy: true,
   positionSizeAvailable: true,
@@ -67,10 +65,5 @@ const BASE_GATES: SignalGates = {
 describe("evaluateDisqualifiers", () => {
   it("passes clean gates with no disqualifiers", () => {
     expect(evaluateDisqualifiers(BASE_GATES)).toHaveLength(0);
-  });
-
-  it("blocks on unknown binary-event status rather than assuming it's clear", () => {
-    const dqs = evaluateDisqualifiers({ ...BASE_GATES, binaryEventInHoldPeriod: null });
-    expect(dqs.some((d) => d.key === "binaryEvent")).toBe(true);
   });
 });

@@ -18,12 +18,12 @@
  * just not yet an approved position.
  */
 
-import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
+import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import type { RulesAlignmentScore, SignalVerdict } from "@/lib/signals/types";
 import type { ScanResult } from "@/lib/types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
-import { sessionBarsDeadline } from "./expiry";
+import { sessionCloseDeadline } from "./expiry";
 
 /**
  * The execution timeframe every scan prices its plan against — re-exported
@@ -33,9 +33,6 @@ import { sessionBarsDeadline } from "./expiry";
  * to never reintroduce: a plan priced on one bar while patterns arm on another.
  */
 const PLAN_TIMEFRAME = EXECUTION_TIMEFRAME;
-
-/** Used when no `SignalVerdict` on the result carries its own `expiresAfterBars`. */
-const DEFAULT_EXPIRES_AFTER_BARS = 20;
 
 const WATCHLIST_TIER_SCORE: RulesAlignmentScore = {
   score: 0,
@@ -85,8 +82,6 @@ export function buildNewTradePlanFromScanResult(
     reasons: [],
     disqualifiers: [],
   };
-  const expiresAfterBars =
-    verdict?.status === "evaluated" ? verdict.expiresAfterBars : DEFAULT_EXPIRES_AFTER_BARS;
 
   return {
     strategyVersion: opts.strategyVersion,
@@ -95,11 +90,12 @@ export function buildNewTradePlanFromScanResult(
     market: result.assetClass,
     timeframe: PLAN_TIMEFRAME,
     generatedAt: opts.generatedAt,
-    expiresAt: sessionBarsDeadline(opts.generatedAt, expiresAfterBars, TF_INTERVAL_MS[PLAN_TIMEFRAME], result.assetClass),
+    expiresAt: sessionCloseDeadline(opts.generatedAt, result.assetClass),
     direction: result.direction,
     signalFingerprint: opts.signalFingerprint ?? opts.signalId,
     entryConfirmation: freshEntryConfirmation(),
     coordinates: {
+      ...(l.entryKind === "oldLevel" || l.entryKind === "hold" ? { entryKind: l.entryKind } : {}),
       entryTrigger: l.entry,
       // One tick over the structural stop's own tolerance isn't known here;
       // the trigger price itself is the only tolerance this pipeline has

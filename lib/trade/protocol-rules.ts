@@ -24,14 +24,11 @@
  * constants each model prices against, so the two cannot drift apart again.
  */
 
+import { EXECUTE_SCORE_THRESHOLD, TOTAL_POINTS } from "@/lib/scoring/weights";
 import {
-  EQUITY_FALLBACK_STOP_PCT,
   EQUITY_LARGE_CAP_FALLBACK_STOP_PCT,
   EQUITY_LARGE_CAP_STOP_MAX_PCT,
   EQUITY_MASTER_CAP_PCT,
-  EQUITY_STOP_BUFFER_PCT,
-  EQUITY_STOP_MAX_PCT,
-  EQUITY_STOP_MIN_PCT,
   EQUITY_TP1_MAX_PCT,
   EQUITY_TP1_MIN_PCT,
   EQUITY_TP2_MAX_PCT,
@@ -41,15 +38,6 @@ import {
   TP1_MULTIPLE_BY_ASSET,
   TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levels";
-
-// LARGE_CAP_LEEWAY_ATR / LARGE_CAP_MAX_STOP_ATR_MULTIPLE (the R-based
-// widening) are deliberately not imported here: that mechanism only ever
-// applied to a non-crypto assetClass (i.e. us_equity), which now
-// short-circuits to the percent model before that ATR-leeway logic runs at
-// all, and crypto always disabled it explicitly — so it cannot describe real
-// behavior for either asset class anymore. Its replacement,
-// EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT, is what
-// STOP_RULE_DETAIL below actually describes for stocks.
 
 const r = (n: number): string => `${n}R`;
 const pctRange = (min: number, max: number): string => `${min}–${max}%`;
@@ -70,25 +58,40 @@ export const MASTER_RULE_DETAIL =
   `Stocks: ${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} of entry price, stepped out to the nearest support or key price level when one sits in range, up to a ${EQUITY_MASTER_CAP_PCT}% ceiling. ` +
   `Crypto: ${r(TP2_MULTIPLE_BY_ASSET.crypto)} — stepped out to the nearest support or key price level when one sits in range, up to a ${r(MASTER_CAP_R)} ceiling.`;
 
-/** How the stop is placed on each asset class. */
-export const STOP_RULE_LABEL =
-  `Nearest support/resistance level, ${pctRange(EQUITY_STOP_MIN_PCT, EQUITY_STOP_MAX_PCT)} away (stocks); structural, capped at ${MAX_STOP_ATR_MULTIPLE}× the execution candle (crypto)`;
+/**
+ * How the entry and stop are placed (PLAN.md item 4, 2026-10-15): the
+ * reaction buy after a crossing, the same on every asset class. The entry is
+ * the crossed level plus 1 point and the stop the level less 3 points, so the
+ * risk is 4 points, inside the 5-point cap. Or (item 5, step 2) the buy rests
+ * at an old bottom that held, the stop 3 points under it. Points are
+ * price-scaled (`lib/gann/pointScale.ts`).
+ */
+export const STOP_RULE_LABEL = "3 points beyond the old top or bottom the entry crossed or rests at, the low that held, or the week's high a rally is sold under, scaled to the price";
 
 export const STOP_RULE_DETAIL =
-  `Stocks: the nearest support (long) or resistance (short) level between ${EQUITY_STOP_MIN_PCT}% and ${EQUITY_STOP_MAX_PCT}% of entry price, placed ${EQUITY_STOP_BUFFER_PCT}% beyond it — loose enough that ordinary day-to-day moves shouldn't trigger it. When no level lands in that band, the stop falls back to a fixed ${EQUITY_FALLBACK_STOP_PCT}% of purchase price. Large-cap stocks get more room on both: the accepted band widens to ${EQUITY_LARGE_CAP_STOP_MAX_PCT}% and the fallback to ${EQUITY_LARGE_CAP_FALLBACK_STOP_PCT}%, so an ordinary swing in a mega-cap name isn't mistaken for a stop-out. ` +
-  `Crypto: one tick beyond the trigger candle, widened by a tenth of an average execution candle so noise can't take it out, and never wider than ${MAX_STOP_ATR_MULTIPLE}× that candle. The 12–18% band applies to option premium, not to share price.`;
+  "Once price closes 3 points past an old top, the buy rests 1 point above that top and fills when price pulls back to it; the stop goes 3 points below the top. " +
+  "At a double or triple bottom the buy rests at the old bottom itself, with the stop 3 points under it. " +
+  "Once a low has held into its second week, the buy is at the last close, with the stop 3 points under the low, and only while that risks no more than 5 points. " +
+  "So a crossing risks 4 points, a double or triple bottom 3, and a buy over a low that held up to 5, the limit. Points grow with the price: 3 points is about 7% of a $40 stock, 5% at $100 and under 4% at $200. " +
+  "A short is the mirror: after a close 3 points under an old bottom, sell 1 point below it, with the stop 3 points above. The 12–18% band applies to option premium, not to share price.";
 
 /**
  * The Execute threshold, stated in full.
  *
- * Score 7 is necessary and never sufficient, which is why a 7-scored setup can
- * show as Watch: `computeScore` holds the state when there is no priced trade
- * plan to act on, `applyReversionConfirmation` holds a bare 2-2 that lacks
- * momentum and support/resistance confirmation, and `applyDataLagHold` holds
- * anything computed on bars a full execution candle behind the market. Settings
- * used to state the score cutoff alone, so every hold looked like a bug.
+ * The score cutoff is necessary and never sufficient, which is why a setup at
+ * or over it can show as Watch: `computeScore` holds the state when there is
+ * no priced trade plan, and the holds in `lib/scoring/score.ts` hold it for a
+ * range not yet broken away (`applyBreakawayHold`), a broken monthly low
+ * (`applyMonthlyBreakHold`), a distribution breakdown still standing
+ * (`applyDistributionBreakdownHold`), a failed top between the entry and the
+ * first target (`applyFailedTopHold`), a counter-trend turn that came on no
+ * dated time window (`applyTimeWindowHold`, Q19), a stock whose own buying
+ * points mostly failed (`applyRuleFollowingHold`, Q24) and a stale feed
+ * (`applyDataLagHold`).
+ * Settings used to state the score cutoff alone, so every hold looked like a
+ * bug. No bar-sequence pattern holds a verdict since 2026-10-16 (N#1).
  */
-export const EXECUTE_RULE_LABEL = "Score 7+ of 9, with a priced trade plan";
+export const EXECUTE_RULE_LABEL = `Score ${EXECUTE_SCORE_THRESHOLD}+ of ${TOTAL_POINTS}, with a priced trade plan`;
 
 export const EXECUTE_RULE_DETAIL =
-  "A setup also needs an armed pattern with entry, stop and targets priced from it. Execute is held back to Watch when the trade plan is missing, when a bare failed-push reversal lacks both momentum and support/resistance confirmation, or when the price feed is a full execution candle or more behind the market.";
+  "A setup also needs a buying or selling point with its entry, stop and targets priced. Execute is held back to Watch when the trade plan is missing, when the market sits in a narrow range and has not yet broken out of it, when the month has broken last month's low against the trade, when a distribution breakdown still stands against a buy, when a failed top stands between the entry and the first target, when a trade against the trend turned on no dated time window, when the stock's own buying points have mostly failed over the year, or when the price feed is a full execution candle or more behind the market.";

@@ -169,3 +169,19 @@ describe("buildDigitalRootFeature", () => {
     expect(buildDigitalRootFeature(1.5, ctx)).toBeNull();
   });
 });
+
+describe("C-NUMEROLOGY-04: the 3-6-9 vibration of 30-degree steps (arithmetic mod 9)", () => {
+  it("reduces each 30-degree step from 30 to 360 to 3, 6, 9 in turn", () => {
+    const roots = Array.from({ length: 12 }, (_, i) => digitalRoot1to9(30 * (i + 1)));
+    expect(roots).toEqual([3, 6, 9, 3, 6, 9, 3, 6, 9, 3, 6, 9]);
+  });
+
+  it("reduces the 1/32 percentage steps to 2, 4, 6, 8, 1, 3, 5, 7, 9", () => {
+    const roots = Array.from({ length: 9 }, (_, i) => calculateGannDr(((i + 1) * 100) / 32));
+    expect(roots).toEqual([2, 4, 6, 8, 1, 3, 5, 7, 9]);
+  });
+
+  it("reduces every multiple of 9 to 9", () => {
+    for (let k = 1; k <= 40; k++) expect(digitalRoot1to9(9 * k)).toBe(9);
+  });
+});

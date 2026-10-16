@@ -1,5 +1,7 @@
+import { gannThreePointsPct } from "@/lib/gann/pointScale";
+
 /**
- * How close is "near a level".
+ * How close is "near a level". (Superseded for levels by `levelBandPct`, 2026-10-16; the history below explains the ATR band it replaced.)
  *
  * Three of the nine criteria ask whether price is sitting on a structural level
  * — a support line, a harmonic level, a clustered historical S/R. All three used
@@ -28,27 +30,20 @@
  */
 
 /**
- * The bands used when no ATR is available. Identical to the thresholds that
- * were hard-coded before, so a caller that cannot supply volatility gets
- * exactly the old behaviour rather than a silently different one.
+ * "At a level" is within Gann's 3-point allowance of it (N#27, 2026-10-16):
+ * his double and triple bottoms are levels "within 1-3 points" (Master
+ * Course Ch.8), and a level holds until it is broken by 3 points (W006
+ * pp.20, 46). The allowance is price-scaled (`lib/gann/pointScale.ts`).
+ * Until 2026-10-16 the S/R and retracement bands were half a day's average
+ * true range (Wilder's), a non-Gann unit; the coarse pass's travel band
+ * below still is.
  */
-export const FALLBACK_FAN_PCT = 1.5;
-export const FALLBACK_HARMONIC_PCT = 1.0;
-export const FALLBACK_SR_PCT = 1.5;
+export function levelBandPct(price: number): number {
+  return gannThreePointsPct(price);
+}
 
-/** Fan-line proximity: half a day's range. */
-export const FAN_PROXIMITY_ATR = 0.5;
-
-/**
- * Harmonic proximity, derived rather than picked so the harmonic gate stays
- * exactly as much tighter than the fan gate as the old 1.0%/1.5% pair made it.
- * Re-basing the unit must not quietly re-tune which criterion is strictest.
- */
-export const HARMONIC_PROXIMITY_ATR =
-  FAN_PROXIMITY_ATR * (FALLBACK_HARMONIC_PCT / FALLBACK_FAN_PCT);
-
-/** Historical support/resistance proximity: half a day's range. */
-export const SR_PROXIMITY_ATR = 0.5;
+/** The basis a note names for `levelBandPct`. */
+export const LEVEL_BAND_BASIS = "the usual 3-point allowance at the level";
 
 /**
  * Daily ATR as a percentage of the reference price — a day's range in the same

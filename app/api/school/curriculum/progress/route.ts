@@ -56,7 +56,7 @@ export async function GET() {
       lesson: "Course W2 — Live-Trading Risk Re-Certification (pilot, unchanged)",
       lab: null,
       recordedField: "live_trading_restrictions.school_completed_at",
-      consequence: "Lifts a live-trading restriction after a 50% live-loss event. Never used as proof of pre-purchase Wall Street readiness.",
+      consequence: "Lifts a live-trading restriction recorded under the retired 50% loss rule. Never used as proof of pre-purchase Wall Street readiness.",
       met: restriction?.school_completed_at != null,
     },
   ];

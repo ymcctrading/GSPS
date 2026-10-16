@@ -10,7 +10,10 @@ vi.mock("@/lib/brokers/simulator", () => ({
 }));
 // No Gann reading: the stop under test is the one already applied.
 vi.mock("@/lib/trade/gann-exit-live", () => ({ readLiveGannExit: vi.fn(async () => null) }));
-vi.mock("@/lib/automation/stop-out", () => ({ handleAutomatedStopOut: vi.fn(async () => undefined) }));
+vi.mock("@/lib/automation/stop-out", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/automation/stop-out")>()),
+  handleAutomatedStopOut: vi.fn(async () => undefined),
+}));
 
 import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 
@@ -98,6 +101,8 @@ describe("manageSimulatedExits — a stop already applied", () => {
     }
     const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
     expect(log).toMatchObject({ exit_condition: "stop_loss", quantity: 3, exit_price: 601.6 });
+    // A person placed this trade, so the reversal is offered, not placed (Q15).
+    expect(run.notes.some((n) => n.includes("reverse") && n.includes("sell short at 601.60") && n.includes("Nothing was placed"))).toBe(true);
   });
 
   it("leaves the position alone while price holds above the stop", async () => {

@@ -11,7 +11,10 @@
  *    is known (see the warning block below).
  */
 
-import { stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
+import { gannReversal } from "@/lib/gann/reverse";
+import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
+import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -153,9 +156,6 @@ export const EQUITY_MASTER_CAP_PCT = 30;
 export const EQUITY_STOP_MIN_PCT = 3;
 export const EQUITY_STOP_MAX_PCT = 15;
 
-/** How far beyond the accepted level the stop actually sits — never exactly on it. */
-export const EQUITY_STOP_BUFFER_PCT = 0.5;
-
 /**
  * The fallback stop when no structural level lands inside the accepted band
  * — true for the large majority of setups (historicalSR, the criterion
@@ -196,6 +196,8 @@ export interface EquityTradeLevels {
   takeProfit1: number;
   takeProfit2: number;
   stopFromStructure: boolean;
+  /** An old level stands 3 points in front of the stop (`oldLevelBehindStop`; Q23). */
+  stopBehindOldLevel: boolean;
   /** TP1 sits on a Gann or S/R level (parity C4) rather than the ATR fallback. */
   tp1FromStructure: boolean;
   masterFromStructure: boolean;
@@ -282,6 +284,31 @@ function clampPct(pct: number, minPct: number, maxPct: number): number {
  * independently from price and structure), so branching mid-function would
  * only tangle two unrelated derivations together.
  */
+/**
+ * The old top or bottom that stands in front of the stop by at least Gann's 3
+ * points: between the stop and the entry, with the stop 3 points or more
+ * beyond it (W006 pp.20-24, 46-47: buy, and place the stop 3 points under the
+ * old bottom; the mirror for a short). Nearest such level to the stop, or
+ * null. One cent of slack absorbs the rounding of a stop priced exactly 3
+ * points beyond its level (engineering choice). Owner, Q23, 2026-10-16: the
+ * scored `stopBehindOldLevel` point, which replaced `stopRoom`.
+ */
+export function oldLevelBehindStop(
+  direction: "bullish" | "bearish",
+  entry: number,
+  stop: number,
+  levels: readonly number[],
+): number | null {
+  const dir = direction === "bullish" ? 1 : -1;
+  let best: number | null = null;
+  for (const L of levels) {
+    if (!(dir * (entry - L) > 0)) continue;
+    if (!(dir * (L - stop) >= gannThreePoints(L) - 0.01)) continue;
+    if (best === null || dir * (L - best) < 0) best = L;
+  }
+  return best;
+}
+
 export function computeEquityTradeLevels(params: {
   direction: "bullish" | "bearish";
   entry: number;
@@ -321,6 +348,13 @@ export function computeEquityTradeLevels(params: {
   atrPct?: number;
   /** Widens the stop-placement ceiling and fallback — see EQUITY_LARGE_CAP_STOP_MAX_PCT/EQUITY_LARGE_CAP_FALLBACK_STOP_PCT. */
   largeCap?: boolean;
+  /**
+   * A stop fixed by Gann's crossing rule (the crossed level less 3 points;
+   * PLAN.md item 4). Used as given. `stopFromStructure` is still read from the
+   * S/R band, because the `stopRoom` criterion asks whether real support sits
+   * behind the trade, which the fixed stop does not answer.
+   */
+  stopLoss?: number;
 }): EquityTradeLevels {
   const { direction, entry, structuralLevels, extensionLevels = structuralLevels, atrPct, largeCap = false, evenFigures = true } = params;
   const side: StopSide = direction === "bullish" ? "long" : "short";
@@ -337,14 +371,25 @@ export function computeEquityTradeLevels(params: {
     stopMaxPct,
   );
   const stopFromStructure = structuralStop !== null;
-  const stopPct = stopFromStructure
-    ? (Math.abs(entry - structuralStop) / entry) * 100 + EQUITY_STOP_BUFFER_PCT
-    : fallbackStopPct;
-  // Gann's even figures (2026-09-28): a stop resting just inside a round
-  // number is moved beyond it by the lost-motion allowance ("an old top of
-  // 100 crossed means a stop at 97"). See lib/gann/evenFigures.ts.
-  const rawStop = entry - dir * (stopPct / 100) * entry;
-  const stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + EQUITY_STOP_BUFFER_PCT) : rawStop;
+  // A structural stop sits Gann's 3 points beyond its level, once. Where the
+  // level rests on an even figure, the figure is the level ("an old top of 100
+  // crossed means a stop at 97"; lib/gann/evenFigures.ts), unless that would
+  // carry the stop past the band's ceiling. A fallback stop has no level, so
+  // the even-figure rule moves it past a figure it sits just inside.
+  let stopLoss: number;
+  if (params.stopLoss != null) {
+    stopLoss = params.stopLoss;
+  } else if (structuralStop !== null) {
+    const anchored = evenFigures ? levelOnFigure(structuralStop, direction) : structuralStop;
+    const ceiling = stopMaxPct + gannThreePointsPct(entry);
+    const fromFigure = beyondByThreePoints(anchored, -dir as 1 | -1);
+    stopLoss = (Math.abs(entry - fromFigure) / entry) * 100 <= ceiling
+      ? fromFigure
+      : beyondByThreePoints(structuralStop, -dir as 1 | -1);
+  } else {
+    const rawStop = entry - dir * (fallbackStopPct / 100) * entry;
+    stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + gannThreePointsPct(entry)) : rawStop;
+  }
 
   // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
   // supersedes my own"). Gann never fixes a profit objective; he sells at the
@@ -388,6 +433,9 @@ export function computeEquityTradeLevels(params: {
     takeProfit1: round(takeProfit1),
     takeProfit2: round(takeProfit2),
     stopFromStructure,
+    // A stop fixed by Gann's crossing rule is the crossed level less 3 points
+    // by construction; any other stop is checked against the S/R list.
+    stopBehindOldLevel: params.stopLoss != null || oldLevelBehindStop(direction, entry, stopLoss, structuralLevels) !== null,
     tp1FromStructure,
     masterFromStructure,
   };
@@ -458,7 +506,7 @@ export function computeStopWithLeeway(params: {
  *
  * Widened from `StratPattern` to this on 2026-09-17 so the trade plan is
  * priced from Gann's own entry rule (`lib/gann/entryTrigger.ts` — crossing an
- * old swing top/bottom plus the "lost motion" allowance) rather than from the
+ * old swing top/bottom plus the 3-point allowance) rather than from the
  * bar-sequence pattern's trigger. `StratPattern` still satisfies this shape
  * structurally, which is what keeps the existing tests meaningful, but the
  * live scan and the replay now both pass a `GannEntryTrigger`.
@@ -482,6 +530,86 @@ export interface EntrySource {
    * `buildPivotPlan` falls back to a neutral phrase rather than inventing one.
    */
   setupLabel?: string;
+  /** Which of Gann's buying points this is; carried onto the plan (`TradeLevels.entryKind`). */
+  entryKind?: GannEntryKind;
+  /** The crossed level's source when it is not a swing (`TradeLevels.entrySource`). */
+  entrySource?: "priorYear" | "allTime";
+  /** A previous year's level: its year (`TradeLevels.entryLevelYear`). */
+  entryLevelYear?: number;
+  /** A crossing that regained an old level after a break (`TradeLevels.entryRegained`). */
+  entryRegained?: true;
+  /** A held bottom's rule (`TradeLevels.holdBasis`). */
+  holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
+  /**
+   * True when this source is Gann's reaction buy after a crossing (PLAN.md
+   * item 4; W006 pp.20, 46-47): `triggerPrice` is the level plus 1 point and
+   * `stopPrice` the level less 3 points. Both are used exactly as given, on
+   * every asset class: no structural re-anchoring for stocks and no ATR
+   * leeway for crypto, because Gann fixes the stop at 3 points past the
+   * crossed level.
+   */
+  gannReaction?: boolean;
+}
+
+/**
+ * The plan Gann's crossing rule prices, shared by the live scan and the replay
+ * so the two cannot drift (PLAN.md item 4). The close past the old top by 3
+ * points (`triggerPrice`) arms it; the order is the reaction buy at the level
+ * plus 1 point, stopped at the level less 3 points (W006 pp.20, 46-47). Shorts
+ * are the mirror.
+ */
+export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
+  const long = trigger.direction === "bullish";
+  const multiple = (trigger.tests ?? 1) >= 2 ? "triple" : "double";
+  return {
+    direction: trigger.direction,
+    triggerPrice: trigger.reactionEntry,
+    stopPrice: trigger.reactionStop,
+    setupLabel:
+      trigger.kind === "hold"
+        ? trigger.holdBasis === "record"
+          ? "record low that held"
+          : trigger.holdBasis === "rally"
+            ? "bear-market rally"
+            : trigger.holdBasis === "narrowWeek"
+              ? "narrow week broken down"
+            : `single ${long ? "bottom" : "top"}`
+        : trigger.kind === "oldLevel"
+          ? `${multiple} ${long ? "bottom" : "top"}`
+          : trigger.regained
+            ? long
+              ? "regained old bottom"
+              : "lost old top"
+          : trigger.source === "priorYear"
+            ? trigger.levelYear !== undefined
+              ? `${trigger.levelYear} ${long ? "top crossing" : "bottom break"}`
+              : long
+                ? "previous year's top crossing"
+                : "previous year's bottom break"
+            : trigger.source === "allTime"
+              ? long
+                ? "old record high crossing"
+                : "old record low break"
+              : long
+                ? "swing-top crossing"
+                : "swing-bottom break",
+    entryKind: trigger.kind,
+    ...(trigger.kind === "crossing" && trigger.source !== "swing" ? { entrySource: trigger.source } : {}),
+    ...(trigger.kind === "crossing" && trigger.source === "priorYear" && trigger.levelYear !== undefined ? { entryLevelYear: trigger.levelYear } : {}),
+    ...(trigger.kind === "crossing" && trigger.regained ? { entryRegained: true as const } : {}),
+    ...(trigger.kind === "hold" && trigger.holdBasis ? { holdBasis: trigger.holdBasis } : {}),
+    gannReaction: true,
+  };
+}
+
+/**
+ * The price targets the Gann reading offers a plan (fork FL6 a, 2026-10-16):
+ * the Square of Nine's prices, Gann's own wheel. The fan lines' prices are
+ * spaced in ATR units, not on Gann's scale, so they stay on the chart and
+ * card but are not targets until FL4 settles a Gann price unit.
+ */
+export function gannTargetPool(gann: { fanLines: { price: number }[]; squareOf9: { price: number }[] }): number[] {
+  return gann.squareOf9.map((s) => s.price);
 }
 
 export function computeTradeLevels(
@@ -517,9 +645,16 @@ export function computeTradeLevels(
       extensionLevels: [...gannTargets, ...structuralLevels],
       atrPct: dailyAtrPct,
       largeCap: effectiveLargeCap,
+      stopLoss: pattern.gannReaction ? pattern.stopPrice : undefined,
     });
     const equityRisk = Math.abs(entry - equity.stopLoss);
     return {
+      ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
+      ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
+      ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
+    ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
+      ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
+      ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
       entry: round(entry),
       stopLoss: equity.stopLoss,
       takeProfit1: equity.takeProfit1,
@@ -531,6 +666,7 @@ export function computeTradeLevels(
       rewardToRiskMaster: equityRisk > 0 ? Math.abs(equity.takeProfit2 - entry) / equityRisk : 0,
       masterFromStructure: equity.masterFromStructure,
       stopFromStructure: equity.stopFromStructure,
+      stopBehindOldLevel: equity.stopBehindOldLevel,
       stopPctOfPrice: (Math.abs(entry - equity.stopLoss) / entry) * 100,
       stopBandWarning: null,
       pivotPlan: buildPivotPlan(pattern, equity.stopLoss, round(entry)),
@@ -540,7 +676,7 @@ export function computeTradeLevels(
   // Compute stop with ATR leeway (structural boundary + buffer for noise)
   // If no ATR available, fall back to structural stop only.
   let stopLoss = pattern.stopPrice;
-  if (executionAtr && executionAtr > 0) {
+  if (executionAtr && executionAtr > 0 && !pattern.gannReaction) {
     stopLoss = computeStopWithLeeway({
       side: pattern.direction === "bullish" ? "long" : "short",
       entry,
@@ -646,6 +782,11 @@ export function computeTradeLevels(
   }
 
   return {
+    ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
+    ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
+    ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
+    ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
+    ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
     entry: round(entry),
     stopLoss: round(stopLoss),
     takeProfit1: round(takeProfit1),
@@ -660,6 +801,8 @@ export function computeTradeLevels(
     // model here has no notion of "structural vs. fallback" stop, so this is
     // always false rather than a claim about this stop's own quality.
     stopFromStructure: false,
+    // Gann's reaction stop is its level less 3 points by construction.
+    stopBehindOldLevel: Boolean(pattern.gannReaction) || oldLevelBehindStop(pattern.direction, entry, stopLoss, structuralLevels) !== null,
     stopPctOfPrice,
     stopBandWarning,
     pivotPlan: buildPivotPlan(pattern, round(stopLoss), round(entry)),
@@ -667,19 +810,16 @@ export function computeTradeLevels(
 }
 
 /**
- * The counter-scenario the PRD's Trade Map contract requires: what invalidates
- * this thesis and what a trade in the opposite direction would need before
- * it's worth considering — the same philosophy as lib/scanner/intraday.ts's
- * own `pivotPlan`, described concretely enough to watch or (via the
- * automated portfolio manager's opt-in dial, lib/automation/stop-out.ts) to
- * seed a real trade plan from, rather than a plain note that the original
- * setup failed.
- *
- * Narrower than the intraday version in one respect: a daily/swing setup
- * has no session context (VWAP, opening range, intraday high/low) to derive
- * the pivot trade's *own* stop from, so `invalidation` stays null here —
- * honest about what this timeframe actually knows, rather than fabricating
- * a level nothing in the pattern supports.
+ * The counter-scenario the PRD's Trade Map contract requires, read through
+ * Gann's own rule for it (A-EXIT-02, W006 p.48 Rule 6; owner's Q15,
+ * 2026-10-16): reverse when caught. If the stop is hit, the opposite trade
+ * enters at the stop with its own stop 3 points beyond the old trade's best
+ * price (`lib/gann/reverse.ts`). At plan time the best price is the entry, so
+ * `invalidation` is that floor; the exit manager uses the real high or low
+ * when the stop is hit, and automation seeds the plan from it
+ * (lib/automation/stop-out.ts). The reversal still has to confirm, like every
+ * entry. `firstTarget` is the level the original thesis entered at, the first
+ * old level the reversal meets.
  */
 function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): PivotPlan {
   const bullish = pattern.direction === "bullish";
@@ -688,13 +828,13 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
   // still has a thesis to invalidate, and naming it something it isn't would
   // be worse than naming it generically.
   const label = pattern.setupLabel ?? "setup";
+  const reversal = gannReversal({ side: bullish ? "long" : "short", brokenLevel: stopLoss, extreme: entry });
+  const extremeWord = bullish ? "highest" : "lowest";
   return {
     confirmation:
-      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
-      `Even then, a ${opposite} trade needs its own evidence: a fresh setup confirming in the ${opposite} direction, not just this one stopping out.`,
-    invalidation: null,
-    // Mirrors intraday's choice of VWAP (the level a reversal is expected to
-    // retest first): here, that's the level the original thesis entered at.
+      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${stopLoss.toFixed(2)}. ` +
+      `The rules then reverse: a ${opposite} trade at ${stopLoss.toFixed(2)}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
+    invalidation: reversal ? round(reversal.stop) : null,
     firstTarget: entry,
     cancelIf:
       "Price chops between the stop and the entry level without holding either side. Neither direction is worth trading in that state — standing aside is a position.",

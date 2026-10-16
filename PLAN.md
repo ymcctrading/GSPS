@@ -87,6 +87,30 @@ Entered as card and replay context fields (measured, not gating), the same way S
 - Fix stale roadmap cells and AGENTS.md's line that `macroCycle.ts` is on an unmerged branch.
 - Step 9 of your method: `CLAUDE.md` is one line (`@AGENTS.md`), but AGENTS.md is very long. Move the domain history into `docs/` and keep AGENTS.md to commands, key files, source classes, protected actions and status vocabulary. This is a large doc change, so only if you want it.
 
+## Full parity order (Chuck, 2026-10-15 17:58 UTC)
+Chuck: "GSPS should be a 1 for 1 implementation of Gann's methodology." That covers three things: rules with no code get built; rules with code that nothing uses get wired in; and context-only (confluence) rules act where Gann says they act. The working method stays the same: one item at a time, failing test first, a fresh reviewer, UNVERIFIABLE for unread books, and entries and tests are never edited to make them pass. Items run in this order without waiting between them. I stop only where a rule forks on something only Chuck can decide.
+
+Count of entries still to do, by cause: 125 differ from the rule, 75 have no code, 23 have no test, and 8 failed review (231 in all). 77 UNVERIFIABLE and 23 UNDISCLOSED are held, as above.
+
+| # | Item | Entries | Moves the verdict |
+|---|---|---|---|
+| 3 | 3 points on the entry side (built; replay and review running) | A-ENTRY-01/-02/-04/-14/-15, A-STOP-01/-03 | yes |
+| 4 | Stops: the 5-point cap, stops placed where Gann places them (under the lowest week or day, 3 points beyond the crossed level), and the remaining A-STOP and C-STOP rules | A-STOP, C-STOP | yes |
+| 5 | Buying and selling points: turn the context-only bottoms, tops, halts and accumulation into entries; build the W006 points with no code (old item 6) | A-ENTRY, C-ENTRY | yes |
+| 6 | Trend: the rules that differ, plus "never too high to buy" over the coarse reversion pass (Gann's precedence) | A-TREND, C-TREND | yes |
+| 7 | Time: counts, fractions, anniversaries and bear-market durations act on the verdict where Gann acts on them, not as card context only | A-TIME, C-TIME | yes |
+| 8 | Volume rules | A-VOLUME | yes |
+| 9 | Price and levels | A-LEVELS, A-PRICE, C-LEVELS, C-PRICE, C-NUMEROLOGY | yes |
+| 10 | Risk and pyramiding: double the unit only when profits equal capital; cut the unit after a loss series, alongside the pause. The pyramid-lot conflict between W006 and W022 is Chuck's call. | A-RISK, C-RISK, A-PYRAMID | yes |
+| 11 | Exits, selection and the rest | A-EXIT, A-SELECTION, A-OTHER, C-OTHER | yes |
+| 12 | Cycle validation (old item 5) | CYC | no, unless a later item acts on it |
+| 13 | Intraday alerts on the same primitives (old item 8) | n/a | intraday only |
+| 14 | Docs housekeeping (old item 9) | n/a | no |
+
+Held: astrology (A-ASTRO, C-ASTRO) stays research-only under AGENTS.md decision 7 until Chuck changes that.
+
+Each item that moves the verdict gets a 766-symbol replay against main on a bumped `STRATEGY_VERSION`, and the result goes in its PR.
+
 ## Held, not proposed for building
 - **77 UNVERIFIABLE** entries wait for your reading of the nine books. When a book lands, each entry it covers is re-checked; the entry text isn't edited, but a new entry can be added if the book states the rule differently.
 - **23 UNDISCLOSED** entries are never built.

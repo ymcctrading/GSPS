@@ -184,7 +184,7 @@ export interface GannConfluenceResult {
    */
   boilingPoint: BoilingPointReading[];
   /**
-   * Blueprint §8.5's normalized Gann-angle slope — realized ATR-units-per-bar
+   * Blueprint §8.5's normalized Gann-angle slope — realized Gann points per bar
    * since the anchor, and which fixed angle ratio (1x4…4x1) that's closest
    * to. Diagnostic only, same non-authoritative role as every other field
    * here. Null when there's no ATR/anchor to compute it from. See

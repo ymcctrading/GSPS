@@ -6,7 +6,8 @@
  * already-coded need: `live_trading_restrictions.school_completed_at`
  * (`lib/risk/live-trade-loss.ts`) has existed since migration 0052 as a
  * policy hook with no writer — a restricted account had no path to lift a
- * 50%-loss-event restriction. This module is the one pilot program in
+ * 50%-loss-event restriction. (That 50% force-close was retired 2026-10-16,
+ * Q11; restrictions recorded before then are still lifted here.) This module is the one pilot program in
  * scope: re-certifying a restricted member on the GSPS rules that produced
  * the restriction, using only rules this codebase already implements and
  * enforces elsewhere. It is not a stand-in for the broader GSPS School
@@ -53,22 +54,22 @@ export const LIVE_TRADING_RECERTIFICATION_LESSONS: readonly SchoolLesson[] = [
     id: "why-you-are-here",
     title: "Why this account was restricted",
     objectives: [
-      "State the loss threshold that triggers a live-trading restriction.",
+      "State what restricted this account, and what now protects every live trade instead.",
       "Explain why the restriction applies only to live trading, not paper.",
     ],
     prerequisites: [],
     instruction: [
-      "A live position that reaches a 50% loss of the funds allocated to that trade triggers three things at once, automatically: any live automation profile tied to that symbol is paused, the position is flattened (closing orders included), and your account is restricted from opening new live trades.",
-      "This is a live-only rule. Nothing about it touches paper trading — a paper account can lose 50%, 100%, or more on a position with no restriction, because paper trading exists precisely so mistakes cost nothing.",
+      "Until October 16, 2026, a live position that reached a 50% loss of the funds allocated to it was closed automatically and the account was restricted from opening new live trades. That rule has been retired. What protects every live trade now is the stop it must carry from the moment it opens: no new position is accepted without one.",
+      "A restriction recorded under the old rule still stands until this program is completed. It is live-only. Nothing about it touches paper trading, because paper trading exists so mistakes cost nothing.",
       "Completing this program is how a restricted account demonstrates it understands why the restriction fired, and resumes live trading with that understanding refreshed — not as a formality.",
     ],
     application:
       "Before continuing, locate the position that triggered your restriction in your trade history and note its allocated risk and exit price.",
     quiz: [
       {
-        question: "A live-trading restriction fires at what loss threshold, measured against a trade's allocated funds?",
-        choices: ["9%", "30%", "50%", "It has no fixed threshold"],
-        correctIndex: 2,
+        question: "What limits the loss on a live trade today?",
+        choices: ["A 50% automatic close", "The stop the trade carries from the moment it opens", "A notification at 30%", "Nothing"],
+        correctIndex: 1,
       },
       {
         question: "Does the same restriction ever apply to a paper account?",
@@ -82,21 +83,21 @@ export const LIVE_TRADING_RECERTIFICATION_LESSONS: readonly SchoolLesson[] = [
     id: "the-loss-cascade",
     title: "The full loss-notification cascade",
     objectives: [
-      "List the notification thresholds below the 50% force-close level.",
+      "List the loss-notification thresholds.",
       "Explain what happens differently at 30% versus the earlier thresholds.",
     ],
     prerequisites: ["why-you-are-here"],
     instruction: [
       "Every live position is monitored against the same allocated-funds loss percentage. At 6%, 9%, and 15%, GSPS sends one notification per threshold, per trade — never repeated once you've been notified for that threshold on that trade.",
       "At 30%, the same notification fires but is treated as a hard warning rather than a routine one, regardless of your membership tier.",
-      "None of these thresholds pause or close anything by themselves. Only 50% does that. The earlier thresholds exist so a loss is never a surprise by the time it forces a close.",
+      "None of these thresholds pause or close anything. The trade's stop is what ends a loss; the notifications exist so a loss is never a surprise.",
     ],
     application:
       "If a live trade were losing money, name the first dollar-percentage point at which you would expect to hear from GSPS about it.",
     quiz: [
       {
-        question: "How many separate notification thresholds exist below the 50% force-close level?",
-        choices: ["One", "Two", "Four", "Notifications only start at 50%"],
+        question: "How many separate loss-notification thresholds are there?",
+        choices: ["One", "Two", "Four", "None"],
         correctIndex: 2,
       },
       {
@@ -114,32 +115,32 @@ export const LIVE_TRADING_RECERTIFICATION_LESSONS: readonly SchoolLesson[] = [
   },
   {
     id: "stop-discipline",
-    title: "Why widening or removing a live stop is deliberately hard",
+    title: "A live stop only moves in the trade's favour",
     objectives: [
-      "Describe the two-step friction required to widen or remove a live stop.",
-      "Explain why that friction exists.",
+      "State the one direction a live stop may move.",
+      "Explain why a stop is never widened or removed.",
     ],
     prerequisites: ["why-you-are-here"],
     instruction: [
-      "On a live position, widening or removing your stop-loss is not a single click. You must first acknowledge a high-friction warning, then confirm through a verified-email link sent to your account email before the change takes effect.",
-      "This exists because a stop being moved further away, or removed entirely, is one of the most common ways a manageable loss becomes an unmanageable one. Requiring a deliberate, delayed confirmation step is meant to interrupt an in-the-moment decision made while a position is already moving against you.",
-      "The verification link expires after 30 minutes. If it expires, you request the override again — the friction is intentional, not a bug.",
+      "Once a live trade is open, its stop-loss only moves in the trade's favour: up for a long, down for a short, and only once the trade is showing a profit. It is never moved further away and never removed. There is no setting or override that does either.",
+      "A stop moved further away, or taken off, is one of the most common ways a manageable loss becomes an unmanageable one. The decision to widen a stop is almost always made while the position is already moving against you, which is the worst moment to make it.",
+      "If the market reaches your stop, the trade was wrong at that level. Take the small loss, and wait for the next setup with its own stop.",
     ],
-    application: "Recall a time you wanted to move a stop further away while a trade was losing. What would 30 minutes of delay have changed?",
+    application: "Recall a time you wanted to move a stop further away while a trade was losing. What did the trade do next?",
     quiz: [
       {
-        question: "What must happen before a requested live stop-loss widen or removal takes effect?",
+        question: "Which way may a live stop-loss move?",
         choices: [
-          "Nothing — it applies immediately",
-          "A single confirmation checkbox",
-          "Acknowledging a warning, then confirming via a verified-email link",
-          "A phone call to support",
+          "Further away, if you confirm it",
+          "Only in the trade's favour, once it is in profit",
+          "Anywhere, at any time",
+          "It can be removed after a warning",
         ],
-        correctIndex: 2,
+        correctIndex: 1,
       },
       {
-        question: "How long is the verification link valid for?",
-        choices: ["5 minutes", "30 minutes", "24 hours", "It never expires"],
+        question: "Price reaches your stop. What does that tell you?",
+        choices: ["Move the stop and wait", "The trade was wrong at that level; take the small loss", "Add to the position", "Remove the stop"],
         correctIndex: 1,
       },
     ],
@@ -153,14 +154,14 @@ export const LIVE_TRADING_RECERTIFICATION_LESSONS: readonly SchoolLesson[] = [
     ],
     prerequisites: ["the-loss-cascade", "stop-discipline"],
     instruction: [
-      "Completing every lesson and quiz in this program lifts the live-trading restriction on your account. It does not change the rules above — the same 6/9/15/30/50% cascade and the same stop-override friction apply to your next live trade exactly as they did before the restriction.",
-      "A future 50% loss event restricts the account again, the same way, and requires completing this program again before live trading resumes.",
+      "Completing every lesson and quiz in this program lifts the live-trading restriction on your account. It does not change the rules above: the same 6/9/15/30% notifications and the same stop rule apply to your next live trade.",
+      "Every new live position needs its stop before it is placed, and the stop only moves in the trade's favour.",
     ],
-    application: "Before resuming, decide one concrete change to your position sizing or stop placement that would keep a future loss further from 50% of allocated funds.",
+    application: "Before resuming, decide one concrete change to your position sizing or stop placement that would keep a future loss small.",
     quiz: [
       {
         question: "Does completing this program change the loss-cascade thresholds for your account?",
-        choices: ["Yes, they reset to zero", "No — the same thresholds apply to every future live trade", "Only the 50% threshold changes", "It removes the stop-override friction"],
+        choices: ["Yes, they reset to zero", "No — the same thresholds apply to every future live trade", "Only the 30% threshold changes", "It lets you widen a stop"],
         correctIndex: 1,
       },
     ],

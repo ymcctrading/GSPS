@@ -86,7 +86,12 @@ export function OrderTicket({
   // point the opposite way from a Gann-armed setup — it must never decide
   // whether a protocol signal exists (that's `levels`/`result.direction`
   // alone) or, when a direction is actually armed, which side it's on.
-  const hasProtocolSignal = !!(levels && result.direction !== "none");
+  // A recommended trade is an Execute verdict (owner report, 2026-10-16: a
+  // low-scoring SPY plan read "Protocol Recommended"). A Watch or Reject plan
+  // keeps its levels for reference, and an order on it is a Manual Override.
+  const verdict = result.decision?.outputState;
+  const hasProtocolSignal = !!(levels && result.direction !== "none" && verdict === "Execute");
+  const belowExecute = !!(levels && result.direction !== "none" && verdict !== "Execute");
   // Reading `signalSide` off `pattern.direction` let the ticket highlight
   // "Buy/Long" for levels that were actually priced short (stop above entry,
   // targets below) -- internally contradictory, and read as invalidated
@@ -377,7 +382,7 @@ export function OrderTicket({
   const attachingLevels = attachLevels && !bracketBlocked;
 
   // How the position will be exited, computed from the same function the server
-  // runs. Shown before the button is pressed, because "60% out at TP1" changes
+  // runs. Shown before the button is pressed, because how it exits changes
   // what the order *is* — a user who reads "attach protocol levels" and expects
   // an all-or-nothing bracket has been told the wrong thing.
   const exitPlan =
@@ -465,6 +470,25 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode,
               limitPrice: entryMode === "advised" ? advised : undefined,
+              // The protocol's stop, so the server reads Gann's crossing line
+              // from the protocol's entry and stop even when no levels are
+              // attached or a Manual Override stop was typed. Only on the
+              // plan's own side: against it, the stop is on the wrong side
+              // and the order is the person's own limit.
+              entryStop:
+                entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                  ? levels.stopLoss
+                  : undefined,
+              entryKind:
+                entryMode === "advised" && levels?.entryKind && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                  ? levels.entryKind
+                  : undefined,
+              // The protocol's first target, for the failed-top check; a
+              // Manual Override target doesn't replace it.
+              entryTarget:
+                entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                  ? levels.takeProfit1
+                  : undefined,
               // The server re-validates and re-rounds; sending the mode keeps
               // its answer identical to the one shown above the button.
               rounding: effectiveRounding,
@@ -586,6 +610,12 @@ export function OrderTicket({
             Manual Override
           </button>
         </div>
+        {belowExecute && (
+          <p className="mt-2 text-xs text-muted">
+            The protocol rates this setup {verdict ?? "unrated"}, not Execute, so it is not a recommended trade. Its
+            levels are shown for reference; an order here is a Manual Override.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Caught before submit — price has already traded through the setup's
@@ -1060,9 +1090,9 @@ function ModeReading({ reading }: { reading: PlanReading }) {
  * What the protocol will do on the way out.
  *
  * This sits under the checkbox because "attach protocol levels" no longer means
- * one bracket that exits the whole position. It means a staged exit — most of
- * the position at TP1, part of the rest at the master target, a runner behind a
- * stop that ratchets to break-even and then trails. A user who presses the
+ * one bracket that exits the whole position. Since Q14 (2026-10-16) it means
+ * no fixed target: the whole position runs behind a stop that moves to
+ * break-even and then on the swings, and leaves on the method's exit signals. A user who presses the
  * button expecting all-or-nothing has been misled by the old wording, so the
  * real behaviour is spelled out in the real quantities before they commit.
  */
@@ -1088,7 +1118,7 @@ function ExitPlanNotice({
         <p className="mt-1">
           Once the trade has gained as much as it risked, the stop moves to your entry. After that it
           moves up under each higher swing bottom, and under last month&apos;s low once a new month
-          starts. The rest is closed if price falls back under the level it broke out of, closes
+          starts. The position is closed if price falls back under the level it broke out of, closes
           against the trade three days running, or the trend turns.
           {hasMaster
             ? " If price pushes through the MTP (master take profit) and falls back through it, the rest is closed."

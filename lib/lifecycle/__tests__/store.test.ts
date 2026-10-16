@@ -155,6 +155,25 @@ describe("createTradePlan / getTradePlan", () => {
     expect(fetched?.coordinates.masterProfit).toBe(110);
   });
 
+  it("stores an old-level plan's kind, and writes no kind column for a crossing", async () => {
+    const { client, plans } = fakeSupabase();
+    const base = newPlan().coordinates;
+    const old = await createTradePlan(client, "user-1", newPlan({ coordinates: { ...base, entryKind: "oldLevel" } }));
+    expect((await getTradePlan(client, "user-1", old.planId))?.coordinates.entryKind).toBe("oldLevel");
+    const crossing = await createTradePlan(client, "user-1", newPlan({ signalFingerprint: "sig-2" }));
+    expect((await getTradePlan(client, "user-1", crossing.planId))?.coordinates.entryKind).toBeUndefined();
+    expect(plans.find((r) => r.plan_id === crossing.planId)).not.toHaveProperty("entry_kind");
+    expect(plans.find((r) => r.plan_id === old.planId)?.entry_kind).toBe("oldLevel");
+  });
+
+  it("stores a held-bottom plan's kind (PLAN.md item 5, step 4)", async () => {
+    const { client, plans } = fakeSupabase();
+    const base = newPlan().coordinates;
+    const held = await createTradePlan(client, "user-1", newPlan({ coordinates: { ...base, entryKind: "hold" } }));
+    expect((await getTradePlan(client, "user-1", held.planId))?.coordinates.entryKind).toBe("hold");
+    expect(plans.find((r) => r.plan_id === held.planId)?.entry_kind).toBe("hold");
+  });
+
   it("gives the new plan's regime a second home in trend_state", async () => {
     const { client } = fakeSupabase();
     const created = await createTradePlan(client, "user-1", newPlan());

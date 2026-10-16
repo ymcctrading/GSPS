@@ -26,7 +26,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Entry (blue line)",
         plain:
-          "The price where the trade turns on. If price crosses this line, the setup is 'triggered' and that's where you'd get in.",
+          "The price where you get in. It is one of two kinds. Most often price has first closed a little past an old high (or low, for a short), and the buy waits on this line, just past that old level, filling when price pulls back to it. Or the buy waits at an old low that held before (an old high, for a short), filling if price comes back down to test it a second or third time.",
       },
       {
         term: "Stop loss (red line)",
@@ -150,7 +150,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Buy at advised price vs. Buy now",
         plain:
-          "'At advised price' waits to buy exactly at the entry line. 'Buy now' buys at the current market price right away.",
+          "'At advised price' waits for price to pull back to the entry line and buys there. 'Buy now' buys at the current market price right away.",
       },
     ],
   },

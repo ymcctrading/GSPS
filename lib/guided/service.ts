@@ -21,10 +21,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScanResult } from "@/lib/types";
 import { scanTicker } from "@/lib/scanTicker";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
-import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice } from "@/lib/brokers/simulator";
+import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice, STARTING_CASH } from "@/lib/brokers/simulator";
+import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
+import { capitalPerShare, MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
 import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/lib/guided/copy";
 import { pickNearestMiss, type NearMiss } from "@/lib/guided/near-miss";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -38,8 +40,13 @@ import type { PublicScoreSummary } from "@/lib/types";
 export interface GuidedAccount {
   equity: number;
   buyingPower: number;
-  /** Open paper positions by symbol, for the deployed-capital cap. */
+  /** Open paper positions by symbol, for Gann's capital rules (`readCapUsage`). */
   openSymbols: Map<string, { qty: number; avgEntry: number }>;
+  /**
+   * Gann's trading unit, the capital the per-trade risk percent applies to
+   * (`gannRiskCapital`, A-RISK-04 and rule 24; owner, 2026-10-16, Q7).
+   */
+  riskCapital: number;
 }
 
 /**
@@ -51,9 +58,10 @@ export async function readGuidedAccount(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<GuidedAccount> {
-  const [account, positions] = await Promise.all([
+  const [account, positions, run] = await Promise.all([
     getOrCreateAccount(supabase, userId),
     listOpenPositions(supabase, userId),
+    readWinningRun(supabase, userId),
   ]);
 
   const marks = await Promise.all(
@@ -70,8 +78,14 @@ export async function readGuidedAccount(
     positions.map((p) => [p.symbol.toUpperCase(), { qty: p.qty, avgEntry: p.avg_entry_price }]),
   );
 
+  const equity = account.cash + marketValue;
+  const riskCapital = run
+    ? gannRiskCapital({ equity, startingCapital: STARTING_CASH, ...run }).capital
+    : Math.min(equity, STARTING_CASH);
+
   return {
-    equity: account.cash + marketValue,
+    equity,
+    riskCapital,
     // No margin is modelled — a simulated cash account can only buy what it holds.
     buyingPower: account.cash,
     openSymbols,
@@ -198,6 +212,8 @@ export interface Recommendation {
     stopLoss: number;
     takeProfit1: number;
     masterProfit: number;
+    /** Which of Gann's buying points the entry is; absent is the crossing. */
+    entryKind?: "crossing" | "oldLevel" | "hold";
     trend: string;
     patternName: string | null;
     tickerHref: string;
@@ -236,7 +252,10 @@ export async function buildRecommendations(params: {
   symbols: string[];
   account: GuidedAccount;
   caps: GuidedCaps;
-  deployedUsd: number;
+  /** Capital Gann's rule holds behind the open shares (`readCapUsage`). */
+  capitalHeldUsd: number;
+  /** Markets open now (`readCapUsage`); at most three may be open at once. */
+  openMarkets: string[];
   now?: Date;
   /** `getUniversePolicy()`-resolved thresholds, resolved once by the caller. Defaults to the code constants. */
   universeThresholds?: UniverseThresholds;
@@ -247,7 +266,8 @@ export async function buildRecommendations(params: {
     symbols,
     account,
     caps,
-    deployedUsd,
+    capitalHeldUsd,
+    openMarkets,
     now = new Date(),
     universeThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
     guidedPolicy = DEFAULT_GUIDED_POLICY,
@@ -261,11 +281,12 @@ export async function buildRecommendations(params: {
   // set rather than from whichever batch happened to run last.
   const allScans: (ScanResult | null)[] = [];
 
-  // Deployed capital rises as this loop commits size, so each card is sized
-  // against what the *previous* cards on the same screen would already use.
-  // Sizing every card against the same starting figure would let three cards
-  // that are each inside the portfolio cap breach it together.
-  let committed = deployedUsd;
+  // Capital held, and the markets open, rise as this loop commits size, so each
+  // card is sized against what the *previous* cards on the same screen would
+  // already use. Sizing every card against the same starting figure would let
+  // three cards that each fit Gann's capital rule breach it together.
+  let committed = capitalHeldUsd;
+  const markets = new Set(openMarkets.map((m) => m.toUpperCase()));
 
   const budget = symbols.slice(0, guidedPolicy.maxCandidatesScanned);
 
@@ -299,6 +320,7 @@ export async function buildRecommendations(params: {
       account,
       caps,
       committed,
+      markets,
       expiresAt,
       room: guidedPolicy.maxRecommendations - recommendations.length,
       minGuidedQty: guidedPolicy.minGuidedQty,
@@ -325,7 +347,7 @@ export async function buildRecommendations(params: {
  * Split out of `buildRecommendations` when scanning became batched: the body
  * below is exactly what it always was, and keeping it inline would have meant a
  * loop inside a loop sharing four mutable variables, which is where this kind of
- * accounting starts getting the deployed-capital total wrong.
+ * accounting starts getting the capital-held total wrong.
  */
 function collectBatch(params: {
   batch: string[];
@@ -334,11 +356,12 @@ function collectBatch(params: {
   account: GuidedAccount;
   caps: GuidedCaps;
   committed: number;
+  markets: Set<string>;
   expiresAt: string;
   room: number;
   minGuidedQty: number;
 }): { recommendations: Recommendation[]; skipped: SkippedCandidate[]; committed: number } {
-  const { batch, scans, shortable, account, caps, expiresAt, room, minGuidedQty } = params;
+  const { batch, scans, shortable, account, caps, markets, expiresAt, room, minGuidedQty } = params;
   const recommendations: Recommendation[] = [];
   const skipped: SkippedCandidate[] = [];
   let committed = params.committed;
@@ -357,6 +380,11 @@ function collectBatch(params: {
       continue;
     }
 
+    if (!markets.has(result.symbol.toUpperCase()) && markets.size >= MAX_OPEN_SYMBOLS) {
+      skipped.push({ symbol: result.symbol, reasons: [`GSPS trades at most ${MAX_OPEN_SYMBOLS} markets at once.`] });
+      continue;
+    }
+
     const levels = result.levels!;
     const side = result.direction === "bearish" ? ("sell" as const) : ("buy" as const);
     const sized = sizeGuidedTrade({
@@ -368,9 +396,8 @@ function collectBatch(params: {
       takeProfit1: levels.takeProfit1,
       masterProfit: levels.masterProfit,
       riskPct: caps.riskPct,
-      maxDeployedPct: caps.maxDeployedPct,
-      deployedUsd: committed,
-      maxNotionalUsd: caps.budgetUsd,
+      riskCapital: account.riskCapital,
+      capitalHeldUsd: committed,
       minGuidedQty,
     });
 
@@ -379,14 +406,16 @@ function collectBatch(params: {
       continue;
     }
 
-    committed += sized.notionalUsd;
+    committed += sized.qty * capitalPerShare(levels.entry);
+    markets.add(result.symbol.toUpperCase());
     recommendations.push(toRecommendation(result, side, sized, expiresAt));
   }
 
   return { recommendations, skipped, committed };
 }
 
-function toRecommendation(
+/** One card from a scanned setup. Exported for its test. */
+export function toRecommendation(
   result: ScanResult,
   side: "buy" | "sell",
   sized: SizedTrade,
@@ -423,6 +452,7 @@ function toRecommendation(
       stopLoss: levels.stopLoss,
       takeProfit1: levels.takeProfit1,
       masterProfit: levels.masterProfit,
+      ...(levels.entryKind ? { entryKind: levels.entryKind } : {}),
       trend: trendSummary(result.trends),
       patternName: result.pattern?.name ?? null,
       tickerHref: tickerHref(result.symbol),

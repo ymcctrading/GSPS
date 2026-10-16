@@ -133,7 +133,7 @@ export function CurriculumDashboard() {
         <CardHeader>
           <CardTitle>Restricted from live trading?</CardTitle>
           <CardDescription>
-            A 50% live-loss event requires the separate Live-Trading Risk Re-Certification program, available any time regardless of curriculum progress.
+            A live-trading restriction recorded under the retired 50% loss rule is lifted by the separate Live-Trading Risk Re-Certification program, available any time regardless of curriculum progress.
           </CardDescription>
         </CardHeader>
         <CardContent>

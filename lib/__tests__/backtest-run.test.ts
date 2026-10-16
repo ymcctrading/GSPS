@@ -10,7 +10,7 @@
  * neither means anything.
  */
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { UNCONDITIONED_ATTRIBUTION, isAttributionScope, runBacktest } from "@/lib/backtest/run";
 import { getMarketDataProvider } from "@/lib/data/provider";
 
@@ -18,6 +18,15 @@ beforeAll(() => {
   // Pin the provider so a machine that happens to have vendor credentials
   // configured runs this against the same deterministic series as CI.
   process.env.MARKET_DATA_PROVIDER = "synthetic";
+  // The synthetic series ends at "now", so two replays that straddle a
+  // 15-minute bar boundary see different histories (CI, 2026-10-16 17:30).
+  // Pin the clock so every case reads the same bars.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-16T17:14:59Z"));
+});
+
+afterAll(() => {
+  vi.useRealTimers();
 });
 
 // Each case replays several synthetic symbols end to end (1-3s locally), so the
@@ -74,14 +83,15 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     // the live scan does. The synthetic provider's daily and 15-minute
     // series are independent random walks, so for most symbols the
     // 15-minute walk never reaches the daily trigger, and SPY/AAPL produce
-    // no trades to attribute.
+    // no trades to attribute. Re-picked 2026-10-15 when the trigger moved to
+    // Gann's full 3 points: NVDA/TSLA/IWM stopped reaching it.
     const all = await runBacktest({
-      symbols: ["NVDA", "TSLA", "IWM"],
+      symbols: ["AMZN", "DIS", "MSFT"],
       timeframe: "15Min",
       attributeWithin: UNCONDITIONED_ATTRIBUTION,
     });
     const execute = await runBacktest({
-      symbols: ["NVDA", "TSLA", "IWM"],
+      symbols: ["AMZN", "DIS", "MSFT"],
       timeframe: "15Min",
       attributeWithin: "Execute",
     });
@@ -107,13 +117,15 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     const nearMiss = await runBacktest({
       symbols: ["SPY", "AAPL"],
       timeframe: "15Min",
-      attributeScoreRange: [5, 6],
+      attributeScoreRange: [4, 5],
     });
 
-    expect(nearMiss.attributeWithin).toBe("score 5–6");
-    expect(nearMiss.attributeScoreRange).toEqual([5, 6]);
+    expect(nearMiss.attributeWithin).toBe("score 4–5");
+    expect(nearMiss.attributeScoreRange).toEqual([4, 5]);
 
-    // The 5–6 band is a subset of Watch (4–6), never a superset of it.
+    // The 4–5 band is a subset of Watch (3.5 up to, not including, 6), never a
+    // superset of it. A 6 is Execute unless a hold drops it, so a 5–6 band can
+    // hold trades from outside Watch.
     const watchBucket = withinWatch.buckets.find((b) => b.bucket === "Watch")!;
     const nearMissObserved = nearMiss.factors.reduce((n, f) => Math.max(n, f.observed), 0);
     expect(nearMissObserved).toBeLessThanOrEqual(watchBucket.trades);
@@ -146,6 +158,15 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     expect(report.useProductionStop).toBe(false);
   });
 
+  it("splits every trade by the kind of buying point that priced it", async () => {
+    const report = await runBacktest({ symbols: ["MSFT", "SPY"], timeframe: "15Min" });
+    const { crossing, oldLevel, hold } = report.entryKindSplit;
+    expect(report.overall.trades).toBeGreaterThan(0);
+    expect(crossing.trades + oldLevel.trades + hold.trades).toBe(report.overall.trades);
+    const { weeks, days, record, rally } = report.holdBasisSplit;
+    expect(weeks.trades + days.trades + record.trades + rally.trades).toBe(hold.trades);
+  });
+
   it("echoes useProductionStop, and both stop models still partition the same trade count", async () => {
     const raw = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min" });
     const widened = await runBacktest({ symbols: ["MSFT"], timeframe: "15Min", useProductionStop: true });
@@ -165,6 +186,17 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
  */
 describe("runBacktest with a pinned start", { timeout: REPLAY_TIMEOUT_MS }, () => {
   const full = () => runBacktest({ symbols: ["SPY"], timeframe: "15Min" });
+  // Each test compares two runs, and the mock bars end at the last 15-minute
+  // slot before now: a run either side of a slot boundary reads one bar more.
+  // Hold the clock mid-slot so both runs see the same bars.
+  beforeAll(() => {
+    const slot = 15 * 60_000;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Math.floor(Date.now() / slot) * slot + slot / 2);
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
 
   it("starts the window no earlier than the requested instant", async () => {
     const baseline = await full();

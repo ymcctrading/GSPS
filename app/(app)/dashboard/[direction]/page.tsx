@@ -49,7 +49,7 @@ export default async function DirectionListPage({
           {scanDate
             ? `Top ${rows.length} ${side} setup${rows.length === 1 ? "" : "s"} from the ${scanDate} market scan` +
               (continuations > 0
-                ? `: reversions first, topped up with ${continuations} momentum continuation${continuations === 1 ? "" : "s"} where too few reversions armed a trigger.`
+                ? `, ${continuations} of them taken with the trend, ranked with the reversions by score.`
                 : ". Every row carries a complete trade plan; a short list means the rest armed no trigger.")
             : "The daily market scan has not run yet — results appear here after the first cron run."}
         </p>

@@ -13,6 +13,18 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * Which way a key is tighter (Q13, owner 2026-10-16: a database row may
+ * tighten a limit, never loosen it). "atMost": a ceiling, a smaller value is
+ * tighter. "atLeast": a floor, a larger value is tighter.
+ */
+export type PolicyDirection = "atMost" | "atLeast";
+
+/** True when `value` is no looser than `fallback` for `direction`. */
+export function isNoLooser(value: number, fallback: number, direction: PolicyDirection): boolean {
+  return direction === "atMost" ? value <= fallback : value >= fallback;
+}
+
 interface PolicyValueRow {
   key: string;
   value: number;
@@ -29,6 +41,7 @@ export async function getPolicyOverrides<T extends object>(
   domain: string,
   defaults: T,
   keys: readonly (keyof T)[] = Object.keys(defaults) as (keyof T)[],
+  directions?: Partial<Record<keyof T, PolicyDirection>>,
 ): Promise<T> {
   const { data, error } = await supabase
     .from("policy_values")
@@ -47,6 +60,14 @@ export async function getPolicyOverrides<T extends object>(
     if (!(keys as unknown[]).map(String).includes(key)) continue;
     const value = typeof row.value === "number" ? row.value : Number(row.value);
     if (!Number.isFinite(value)) continue;
+    const direction = directions?.[key as keyof T];
+    if (direction) {
+      const fallback = (defaults as Record<string, number>)[key];
+      if (value < 0 || !isNoLooser(value, fallback, direction)) {
+        console.warn(`policy(${domain}): ignored ${key}=${value}, looser than the default ${fallback}`);
+        continue;
+      }
+    }
     resolved[key] = value;
   }
   return resolved as T;
@@ -63,7 +84,11 @@ export async function setPolicyValue(
   key: string,
   value: number,
   updatedBy: string | null,
+  bound?: { default: number; direction: PolicyDirection },
 ): Promise<void> {
+  if (bound && (value < 0 || !isNoLooser(value, bound.default, bound.direction))) {
+    throw new Error(`setPolicyValue(${domain}.${key}): ${value} is looser than the default ${bound.default}`);
+  }
   const { error } = await supabase
     .from("policy_values")
     .upsert({ domain, key, value, updated_by: updatedBy, updated_at: new Date().toISOString() }, { onConflict: "domain,key" });

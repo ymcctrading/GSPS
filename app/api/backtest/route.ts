@@ -15,12 +15,13 @@
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
  *                          the raw pattern one — see ReplayOptions.useProductionStop
- *   ?entryRule=confirmed   fill on the full entry-confirmation sequence (how
- *                          automation enters) instead of the resting stop
- *                          (how the ticket/Guided enter). See ReplayOptions.entryRule
+ *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
+ *   ?entryRule=confirmed   sequence instead of the reaction buy every path
+ *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
  *                          stop by for the plan to stand again: 3 (default, the
- *                          live scan's figure) or 5 (the stricter reading). See
+ *                          live scan's figure), 5 (the stricter reading) or 1
+ *                          (the 1-point penetration, C-STOP-04). See
  *                          ReplayOptions.reclaimPoints
  *   ?profile=intraday      walk the replay-only intraday profile (Gann's rules read
  *                          from the run's own bars, unscored) instead of the
@@ -153,16 +154,16 @@ export async function GET(req: NextRequest) {
   }
 
   const entryRuleRaw = searchParams.get("entryRule");
-  if (entryRuleRaw !== null && entryRuleRaw !== "stop" && entryRuleRaw !== "confirmed") {
-    return NextResponse.json({ error: `Invalid entryRule '${entryRuleRaw}' (stop | confirmed)` }, { status: 400 });
+  if (entryRuleRaw !== null && entryRuleRaw !== "stop" && entryRuleRaw !== "confirmed" && entryRuleRaw !== "reaction") {
+    return NextResponse.json({ error: `Invalid entryRule '${entryRuleRaw}' (stop | confirmed | reaction)` }, { status: 400 });
   }
   const entryRule = entryRuleRaw ?? undefined;
 
   // Only the two pre-registered readings (docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md
   // Part 5). Rejected rather than coerced, so no third value gets searched.
   const reclaimPointsRaw = searchParams.get("reclaimPoints");
-  if (reclaimPointsRaw !== null && reclaimPointsRaw !== "3" && reclaimPointsRaw !== "5") {
-    return NextResponse.json({ error: `Invalid reclaimPoints '${reclaimPointsRaw}' (3 | 5)` }, { status: 400 });
+  if (reclaimPointsRaw !== null && !["1", "3", "5"].includes(reclaimPointsRaw)) {
+    return NextResponse.json({ error: `Invalid reclaimPoints '${reclaimPointsRaw}' (1 | 3 | 5)` }, { status: 400 });
   }
   const reclaimPoints = reclaimPointsRaw === null ? undefined : Number(reclaimPointsRaw);
 

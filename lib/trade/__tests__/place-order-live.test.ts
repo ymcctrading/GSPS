@@ -49,6 +49,16 @@ vi.mock("@/lib/lifecycle/confirmNow", () => ({
       : { ready: false, stage: "broken", note: "Price closed through the entry level and is waiting for a retest." },
   ),
 }));
+// The capital-rule tests below isolate Gann's rules from the % ceilings.
+const limits = vi.hoisted(() => ({ bypass: false }));
+vi.mock("@/lib/risk/position-limits", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/risk/position-limits")>("@/lib/risk/position-limits");
+  return {
+    ...actual,
+    checkPositionLimits: (...args: Parameters<typeof actual.checkPositionLimits>) =>
+      limits.bypass ? { ok: true, violations: [] } : actual.checkPositionLimits(...args),
+  };
+});
 vi.mock("@/lib/trade/kill-switch", async () => {
   const actual = await vi.importActual<typeof import("@/lib/trade/kill-switch")>("@/lib/trade/kill-switch");
   return { ...actual, killSwitchRefusal: () => killSwitchRefusal() };
@@ -102,6 +112,8 @@ const baseInput: OrderInput = {
   qty: 10,
   mode: "live",
   intradaySourced: false,
+  // Every new position carries a stop (A-STOP-01, Q1).
+  attachLevels: { stopLoss: 95, takeProfit: 110 },
 };
 
 describe("placeSimulatedOrder — live branch", () => {
@@ -115,6 +127,7 @@ describe("placeSimulatedOrder — live branch", () => {
     countLiveEntriesOpenedToday.mockReset().mockResolvedValue(0);
     recordOrderExecution.mockReset();
     killSwitchRefusal.mockReset().mockReturnValue(null);
+    limits.bypass = false;
   });
 
   it("refuses a live options order — no live options infrastructure", async () => {
@@ -151,20 +164,12 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
-  it("submits a market order with no bracket when there are no attach levels", async () => {
-    readLiveAlpacaConnection.mockResolvedValue(connection);
-    getAccount.mockResolvedValue({ equity: "450" });
-    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
-    placeOrder.mockResolvedValue({ id: "alpaca-order-1", status: "accepted" });
-
-    const result = await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
-
-    expect(placeOrder).toHaveBeenCalledWith(
-      connection.creds,
-      expect.objectContaining({ symbol: "AAPL", side: "buy", qty: 10, type: "market", bracket: undefined }),
-    );
-    expect(result.status).toBe(200);
-    expect((result.body as { brokerOrderId: string }).brokerOrderId).toBe("alpaca-order-1");
+  it("refuses a new live position with no stop, before the broker is read (A-STOP-01, Q1)", async () => {
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, attachLevels: undefined });
+    expect(result.status).toBe(400);
+    expect((result.body as { code: string }).code).toBe("stop_required");
+    expect(readLiveAlpacaConnection).not.toHaveBeenCalled();
+    expect(placeOrder).not.toHaveBeenCalled();
   });
 
   it("passes a real live-entries-today count into the circuit-breaker gate, not a hardcoded 0", async () => {
@@ -214,11 +219,11 @@ describe("placeSimulatedOrder — live branch", () => {
 
   it("refuses when a real Alpaca rejection is thrown, and logs it", async () => {
     readLiveAlpacaConnection.mockResolvedValue(connection);
-    getAccount.mockResolvedValue({ equity: "450" });
+    getAccount.mockResolvedValue({ equity: "100000" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
     placeOrder.mockRejectedValue(new Error("insufficient buying power"));
 
-    const result = await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, referencePrice: 100 });
     expect(result.status).toBe(502);
     expect((result.body as { code: string }).code).toBe("live_order_rejected");
     expect(recordOrderExecution).toHaveBeenCalledWith(
@@ -325,9 +330,51 @@ describe("placeSimulatedOrder — live branch", () => {
       side: "sell",
       limitPrice: 100,
       referencePrice: 100,
+      // Closing a long needs no stop.
+      attachLevels: undefined,
     });
 
     expect(getPositions).not.toHaveBeenCalled();
     expect(result.status).toBe(200);
+  });
+
+  it("refuses a fourth market: at most three symbols open (A-RISK-08, Q6)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "100000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    getPositions.mockResolvedValue(
+      ["MSFT", "NVDA", "XOM"].map((symbol) => ({ symbol, qty: "1", avg_entry_price: "100", market_value: "100" })),
+    );
+    const input = { ...baseInput, entryMode: "advised" as const, limitPrice: 100, referencePrice: 100 };
+
+    const fourth = await placeSimulatedOrder(stubSupabase(), "u1", input);
+    expect(fourth.status).toBe(409);
+    expect((fourth.body as { code: string }).code).toBe("max_open_symbols");
+    expect(placeOrder).not.toHaveBeenCalled();
+
+    // Adding to a market already held is not a new market.
+    placeOrder.mockResolvedValue({ id: "alpaca-order-1", status: "accepted" });
+    const more = await placeSimulatedOrder(stubSupabase(), "u1", { ...input, symbol: "MSFT" });
+    expect((more.body as { code?: string }).code).not.toBe("max_open_symbols");
+  });
+
+  it("refuses more shares than the capital carries: 30 points a share (A-RISK-01, Q4)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    // About 49.77 of capital a share at 100, so 10,000 carries 200 shares.
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", {
+      ...baseInput,
+      qty: 250,
+      entryMode: "advised",
+      limitPrice: 100,
+      referencePrice: 100,
+    });
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("capital_per_share");
+    expect((result.body as { error: string }).error).toContain("at most 200 more");
+    expect(placeOrder).not.toHaveBeenCalled();
   });
 });

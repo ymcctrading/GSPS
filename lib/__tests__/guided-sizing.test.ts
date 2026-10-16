@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { sizeGuidedTrade } from "@/lib/guided/sizing";
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
+import { capitalPerShare, maxSharesForCapital } from "@/lib/risk/gannCapital";
 
 /** Entry 100, stop 90, first target 1.5R, master 2.5R — $10 of risk a share. */
 const base = {
@@ -18,8 +19,7 @@ const base = {
   takeProfit1: 115,
   masterProfit: 125,
   riskPct: 1,
-  maxDeployedPct: 25,
-  deployedUsd: 0,
+  capitalHeldUsd: 0,
 };
 
 describe("sizeGuidedTrade", () => {
@@ -31,34 +31,28 @@ describe("sizeGuidedTrade", () => {
     expect(sized.boundBy).toBe("risk");
   });
 
-  it("states the reward the staged exit actually produces, not qty × (target − entry)", () => {
-    const sized = sizeGuidedTrade(base);
-    // 60 shares out at 115, the remaining 40 at 125.
-    expect(sized.rewardUsd).toBeCloseTo(60 * 15 + 40 * 25, 6);
-    // The naive figure would be 100 × 25 = 2,500, which nothing about this
-    // trade would ever pay.
-    expect(sized.rewardUsd).not.toBeCloseTo(2500, 6);
+  it("values the whole position at the MTP, since nothing sells at a fixed target (Q14)", () => {
+    // No 60% at TP1 any more: all 100 shares run, so reaching 125 is 100 × 25.
+    expect(sizeGuidedTrade(base).rewardUsd).toBeCloseTo(100 * 25, 6);
   });
 
-  it("reports the partial outcome where only the first target fills", () => {
-    expect(sizeGuidedTrade(base).rewardAtTp1Usd).toBeCloseTo(60 * 15, 6);
+  it("values the whole position at TP1 for the first level ahead", () => {
+    expect(sizeGuidedTrade(base).rewardAtTp1Usd).toBeCloseTo(100 * 15, 6);
   });
 
-  it("lets the portfolio cap bind when a tight stop implies a large position", () => {
-    // A 2% stop at 1% risk implies a position worth half the account, which is
-    // twice what Guided Mode may commit — so the deployed-capital cap, not the
-    // risk cap, is what decides the size.
-    const sized = sizeGuidedTrade({ ...base, stopLoss: 98, takeProfit1: 103, masterProfit: 105 });
-    expect(sized.qty).toBe(250); // 25% of 100k ÷ $100
-    expect(sized.boundBy).toBe("portfolio");
-    expect(sized.riskUsd).toBeLessThan(base.equity * (base.riskPct / 100));
+  it("lets the capital rule bind when a tight stop implies a large position (A-RISK-01)", () => {
+    // A 50-cent stop at 2% risk implies 800 shares of a $20,000 account; at $100
+    // the rule holds about $49.77 a share, so the account carries 401.
+    const sized = sizeGuidedTrade({ ...base, equity: 20_000, riskPct: 2, stopLoss: 99.5, takeProfit1: 103, masterProfit: 105 });
+    expect(sized.qty).toBe(maxSharesForCapital(20_000, 100));
+    expect(sized.boundBy).toBe("capital");
   });
 
-  it("shrinks as capital already deployed through Guided Mode rises", () => {
-    // $1,000 of headroom left under the 25% cap → 10 shares.
-    const sized = sizeGuidedTrade({ ...base, stopLoss: 98, deployedUsd: 24_000 });
+  it("shrinks as capital already held behind open shares rises", () => {
+    const held = 100_000 - 10 * capitalPerShare(100);
+    const sized = sizeGuidedTrade({ ...base, stopLoss: 98, capitalHeldUsd: held });
     expect(sized.qty).toBe(10);
-    expect(sized.boundBy).toBe("portfolio");
+    expect(sized.boundBy).toBe("capital");
   });
 
   it("is bounded by cash when the account cannot pay for the risk-sized position", () => {
@@ -67,23 +61,24 @@ describe("sizeGuidedTrade", () => {
     expect(sized.boundBy).toBe("buying_power");
   });
 
-  it("refuses a trade too small for the protocol's staged exit", () => {
-    // $15 of risk budget against $10 a share — one share, which cannot scale out.
+  it("places a single share, now that nothing has to be split (Q14)", () => {
+    // $15 of risk budget against $10 a share: one share.
+    expect(MIN_GUIDED_QTY).toBe(1);
     const sized = sizeGuidedTrade({ ...base, equity: 1_500, buyingPower: 1_500 });
-    expect(sized.qty).toBe(0);
-    expect(sized.blockedReason).toContain(`${MIN_GUIDED_QTY}`);
+    expect(sized.qty).toBe(1);
+    expect(sized.blockedReason).toBeNull();
   });
 
-  it("says the room is spent when the portfolio cap is already full", () => {
-    const sized = sizeGuidedTrade({ ...base, deployedUsd: 25_000 });
+  it("says the room is spent when the capital is already held", () => {
+    const sized = sizeGuidedTrade({ ...base, capitalHeldUsd: 100_000 });
     expect(sized.qty).toBe(0);
-    expect(sized.blockedReason).toContain("Close a guided position");
+    expect(sized.blockedReason).toContain("Close a position");
   });
 
   it("does not tell a user with nothing deployed to close a position", () => {
     const sized = sizeGuidedTrade({ ...base, equity: 300, buyingPower: 300 });
     expect(sized.qty).toBe(0);
-    expect(sized.blockedReason).not.toContain("Close a guided position");
+    expect(sized.blockedReason).not.toContain("Close a position");
   });
 
   it("refuses a setup with no distance between entry and stop", () => {
@@ -95,35 +90,6 @@ describe("sizeGuidedTrade", () => {
   it("never risks more than the cap, however wide the stop", () => {
     const sized = sizeGuidedTrade({ ...base, stopLoss: 40 });
     expect(sized.riskUsd).toBeLessThanOrEqual(base.equity * (base.riskPct / 100));
-  });
-
-  it("lets the budget cap bind before the risk math ever gets to size the trade", () => {
-    // 100 shares at 1% risk (see the first test), but a $250 budget at a $100
-    // entry only reaches 2 shares — the novice ceiling, not the paper-equity one.
-    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: 250 });
-    expect(sized.qty).toBe(2);
-    expect(sized.boundBy).toBe("budget");
-    expect(sized.notionalUsd).toBeCloseTo(200, 6);
-  });
-
-  it("is unaffected by a budget cap wider than what the other ceilings would size anyway", () => {
-    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: 1_000_000 });
-    expect(sized.qty).toBe(100);
-    expect(sized.boundBy).toBe("risk");
-  });
-
-  it("refuses a symbol whose share price alone exceeds the budget", () => {
-    // $250 budget against a $300 entry can't buy even one share.
-    const sized = sizeGuidedTrade({ ...base, entry: 300, maxNotionalUsd: 250 });
-    expect(sized.qty).toBe(0);
-    expect(sized.boundBy).toBe("budget");
-    expect(sized.blockedReason).toContain("per-trade budget");
-  });
-
-  it("ignores the budget ceiling entirely when it is null", () => {
-    const sized = sizeGuidedTrade({ ...base, maxNotionalUsd: null });
-    expect(sized.qty).toBe(100);
-    expect(sized.boundBy).toBe("risk");
   });
 });
 
@@ -143,8 +109,8 @@ describe("sizeGuidedTrade — shorts", () => {
 
   it("counts a falling price as the reward, not as a loss", () => {
     const sized = sizeGuidedTrade(short);
-    // 60 shares covered at 85, the remaining 40 at 75.
-    expect(sized.rewardUsd).toBeCloseTo(60 * 15 + 40 * 25, 6);
+    // All 100 shares covered at 75.
+    expect(sized.rewardUsd).toBeCloseTo(100 * 25, 6);
     expect(sized.rewardUsd).toBeGreaterThan(0);
   });
 
@@ -174,14 +140,29 @@ describe("sizeGuidedTrade — shorts", () => {
     expect(sizeGuidedTrade({ ...base, buyingPower: 0 }).qty).toBe(0);
   });
 
-  it("is still bounded by the deployed-capital cap, which is a short's only ceiling", () => {
-    const sized = sizeGuidedTrade({ ...short, deployedUsd: 24_000 });
-    expect(sized.qty).toBe(10); // $1,000 of headroom ÷ $100
-    expect(sized.boundBy).toBe("portfolio");
+  it("is still bounded by the capital rule, which is a short's ceiling", () => {
+    const sized = sizeGuidedTrade({ ...short, capitalHeldUsd: 100_000 - 10 * capitalPerShare(100) });
+    expect(sized.qty).toBe(10);
+    expect(sized.boundBy).toBe("capital");
   });
 
   it("never risks more than the cap on a wide short stop", () => {
     const sized = sizeGuidedTrade({ ...short, stopLoss: 160 });
     expect(sized.riskUsd).toBeLessThanOrEqual(short.equity * (short.riskPct / 100));
+  });
+});
+
+// A-RISK-04 / Q7: the risk percent applies to Gann's trading unit, not to
+// equity that a run of profits has raised (`gannRiskCapital`).
+describe("sizeGuidedTrade on Gann's trading unit", () => {
+  it("sizes the risk budget off riskCapital when it is given", () => {
+    const sized = sizeGuidedTrade({ ...base, equity: 150_000, buyingPower: 150_000, riskCapital: 100_000 });
+    expect(sized.riskUsd).toBeCloseTo(1000, 6);
+  });
+  it("is wired into both Guided paths", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("lib/guided/service.ts", "utf8")).toMatch(/riskCapital: account\.riskCapital/);
+    expect(readFileSync("app/api/guided/execute/route.ts", "utf8")).toMatch(/riskCapital: account\.riskCapital/);
+    expect(readFileSync("lib/guided/service.ts", "utf8")).toMatch(/gannRiskCapital\(/);
   });
 });

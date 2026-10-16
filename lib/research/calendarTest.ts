@@ -188,7 +188,7 @@ export function scoreCell(
 }
 
 /** Holm–Bonferroni at family-wise alpha. Mutates and returns the results. */
-export function holm(results: CellResult[], alpha = 0.05): CellResult[] {
+export function holm<T extends { p: number; holmSignificant?: boolean }>(results: T[], alpha = 0.05): T[] {
   const order = [...results].sort((a, b) => a.p - b.p);
   let stop = false;
   order.forEach((r, i) => {

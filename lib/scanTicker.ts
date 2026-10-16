@@ -34,36 +34,44 @@ import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
+import { readWindowTurn } from "@/lib/gann/timeWindow";
+import { readRuleFollowing } from "@/lib/gann/ruleFollowing";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { readDistributionStanding } from "@/lib/gann/distribution";
+import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
-import { computeTradeLevels, type EntrySource } from "@/lib/strat/levels";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
+import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
+import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
+  applyDistributionBreakdownHold,
+  applyFailedTopHold,
+  applyTimeWindowHold,
+  applyRuleFollowingHold,
+  applyMonthlyBreakHold,
   applyDataLagHold,
-  applyReversionConfirmation,
   applyStopBreachHold,
   computeScore,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
+import { readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
+import { levelCharts } from "@/lib/scan/levelCharts";
 import {
-  FALLBACK_SR_PCT,
-  SR_PROXIMITY_ATR,
   atrPercentOfPrice,
   nearestLevelMatch,
-  proximityBandPct,
+  levelBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
 import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
-import { isBinaryEventInHoldPeriod } from "@/lib/macro/earnings";
 import { classifyRegime } from "@/lib/signals/regime";
+import { isScheduledReportDay } from "@/lib/macro/earnings";
 import { evaluateTrendPullback } from "@/lib/signals/states/trendPullback";
 import { evaluateTrendBreakout } from "@/lib/signals/states/trendBreakout";
 import { evaluateConfirmedReversal } from "@/lib/signals/states/confirmedReversal";
@@ -74,7 +82,7 @@ import { buildScanNoviceEligibility } from "@/lib/universe/scanGates";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { evaluateGannConfluence } from "@/lib/signals/confluence/gann";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
-import { getMarketDailyBars } from "@/lib/data/marketBenchmark";
+import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBenchmark";
 import { evaluateSaraConfluence } from "@/lib/signals/confluence/sara";
 import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
 import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
@@ -83,7 +91,7 @@ import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
  * What the caller is looking for. Left unset, a scan hunts reversions and
  * prefers the armed pattern that trades against the macro move — the protocol's
  * default. The market scan sets it when it is deliberately looking for a
- * momentum continuation instead, so the pattern chosen, the trade plan priced
+ * setup with the trend instead, so the pattern chosen, the trade plan priced
  * from it, and the macro criterion it is scored on all describe the same trade.
  */
 export interface ScanPreference {
@@ -140,22 +148,28 @@ export async function scanTicker(
     // The stored shares outstanding and inception date (parity roadmap D2,
     // D3) load alongside the bars. The whole table is read once per server
     // instance and cached, so after the first symbol this resolves at once.
-    const [{ monthly, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily] = await Promise.all([
+    const [{ monthly, monthlyLong, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
       // The market's daily bars for Gann's early/late leaders; read once a day.
       assetClass === "us_equity" ? getMarketDailyBars() : Promise.resolve(null),
+      // The market's monthly bars, to date its bull market for Gann's weak stocks.
+      assetClass === "us_equity" ? getMarketMonthlyBars() : Promise.resolve(null),
     ]);
 
     if (daily.length < MIN_DAILY_BARS_FOR_SCAN || execution.length < 10) {
       throw new Error(`Insufficient bar data for ${symbol}`);
     }
 
-    // ---- Level 1: macro trends + S/R (10yr monthly, 5yr weekly, 1yr daily)
-    const monthlyTrend = readTrend(monthly, "1Month");
-    const weeklyTrend = readTrend(weekly, "1Week");
-    const dailyTrend = readTrend(daily, "1Day");
+    // ---- Level 1: macro trends + S/R, read from the level charts the replay
+    // reads too (PLAN.md item 9 step 4): 52 weeks of completed sessions, 5
+    // years of weeks and 10 calendar years of months, each bar in progress
+    // built from completed sessions. See lib/scan/levelCharts.ts.
+    const charts = levelCharts({ daily, weekly, monthly: monthlyLong ?? monthly }, etDateKey(new Date(scannedAt)));
+    const monthlyTrend = readTrend(charts.monthly, "1Month");
+    const weeklyTrend = readTrend(charts.weekly, "1Week");
+    const dailyTrend = readTrend(charts.daily, "1Day");
     // Gann's 3-Day and 7-day weekly swing charts, replacing the monthly/weekly/daily
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
@@ -166,15 +180,15 @@ export async function scanTicker(
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     const ruleOfThree = computeRuleOfThree(daily);
     // Gann applies the rule to weekly and monthly closes too (2026-09-27).
-    const ruleOfThreeWeekly = weekly.length >= 4 ? computeRuleOfThree(weekly) : null;
-    const ruleOfThreeMonthly = monthly.length >= 4 ? computeRuleOfThree(monthly) : null;
+    const ruleOfThreeWeekly = charts.weekly.length >= 4 ? computeRuleOfThree(charts.weekly) : null;
+    const ruleOfThreeMonthly = charts.monthly.length >= 4 ? computeRuleOfThree(charts.monthly) : null;
 
     // ---- Level 2: 1hr refinement
     const hourlyTrend = readTrend(hourly, "1Hour");
 
     // ---- Gann structures (anchored on the daily chart)
-    const fanLines = computeFanLines(daily, currentPrice);
-    const s9 = recentSquareOf9Levels(daily, currentPrice).slice(0, 12);
+    const fanLines = computeFanLines(charts.daily, currentPrice);
+    const s9 = recentSquareOf9Levels(charts.daily, currentPrice).slice(0, 12);
     const cycles = timeCycles(daily);
     // The yearly cycles need the 10-year monthly chart; the daily read above
     // only reaches the day-count wheel. See yearCycleConvergence.
@@ -184,15 +198,16 @@ export async function scanTicker(
     // as angleSlopes, a different (raw count-for-count) construction.
     const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
-    const volumeClimax = computeVolumeClimax(daily);
+    // Completed sessions and months only, and the smallest month in years (A-VOLUME-09).
+    const volumeClimax = computeVolumeClimax(daily, undefined, { asOf: new Date(scannedAt), monthly });
     // Gann's "boiling point" blow-off duration off the same climax anchors,
     // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
     const boilingPoint = computeBoilingPoint(daily, volumeClimax);
-    const retracementLevels = computeRetracementLevels(daily, currentPrice);
+    const retracementLevels = computeRetracementLevels(charts.daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
-    // confluence/context only (blueprint 7.4); score.ts's gannRetracementConfluence
-    // criterion ANDs this with the retracement match above rather than gating on
-    // it alone. See lib/gann/digitalRoot.ts's priceTimeConfluence.
+    // confluence/context only (blueprint 7.4): score.ts's gannRetracementConfluence
+    // shows it on the card and no longer ANDs it in (fork FL5 a, 2026-10-16).
+    // See lib/gann/digitalRoot.ts's priceTimeConfluence.
     const digitalRootConfluences = angleSlopes
       .map((r) => {
         const confluence = priceTimeConfluence(currentPrice, r.anchorPrice, r.barsSinceAnchor);
@@ -240,14 +255,26 @@ export async function scanTicker(
     const executionAtr = atr(closedExecutionBars.slice(-30), 14);
     // Direction and pattern ranking are shared with the backtest replay
     // (lib/scan/entrySelection.ts) so the two cannot drift — see that
-    // module's header. Direction: against the macro move, weighted by Gann's
-    // chart-timeframe power ratio (a single monthly trend outweighs weekly +
-    // daily disagreeing with it, per Wall Street Stock Selector, 1930). A
+    // module's header. With no direction asked for, the scan arms against
+    // Gann's trend, weighted by his chart-timeframe power ratio (a single
+    // monthly trend outweighs weekly + daily disagreeing with it, per Wall
+    // Street Stock Selector, 1930), and with no trend on any chart, the nearer
+    // of the two sides' buying points (PLAN.md item 6 step 11, fork F4 a). A
     // caller hunting a continuation supplies its own direction instead.
-    const preferredDirection = preferredEntryDirection(
-      [monthlyTrend, weeklyTrend, dailyTrend],
-      preference,
-    );
+    //
+    // Read from completed sessions in the last 52 weeks, the window the replay
+    // and every other surface read it from, with the monthly chart's previous
+    // year's levels and record (`entryChart`, item 5 step 3).
+    const chart = entryChart(daily, monthly, etDateKey(new Date(scannedAt)));
+    const entryDaily = chart.bars;
+    const macroTrends = [monthlyTrend, weeklyTrend, dailyTrend];
+    const entryOf = gannEntryOf(entryDaily, chart.older, macroTrends);
+    const gannTrigger = preference
+      ? entryOf(preference.direction)
+      : entryDaily.length > 0
+        ? reversionEntry(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)
+        : null;
+    const preferredDirection = gannTrigger?.direction ?? preferredEntryDirection(macroTrends, preference);
     const armedPatterns = rankArmedPatterns({
       closedExecutionBars,
       currentPrice,
@@ -267,16 +294,18 @@ export async function scanTicker(
     // the single most load-bearing non-Gann component on the platform.
     //
     // It is now Gann's own rule: crossing an old swing top or bottom plus the
-    // "lost motion" allowance (`lib/gann/entryTrigger.ts`, sourced to the nine
+    // 3-point allowance, price-scaled (`lib/gann/entryTrigger.ts`, sourced to the nine
     // Buying Points and nine Selling Points). Direction comes from
-    // `preferredDirection`, which is already Gann-derived — `weightedTrendAgreement`
-    // over monthly/weekly/daily using his chart-timeframe power ratio.
+    // `reversionEntry` above, Gann's weighted trend over monthly/weekly/daily.
     //
     // The bar-sequence pattern is NOT removed. It keeps its display and
     // confluence role (`armedPatterns`, the price-action confluence layer),
     // which the project owner examined and deliberately kept — see AGENTS.md's
     // "Audit outcomes". What it no longer does is decide where an order goes.
-    const gannTrigger = computeGannEntryTrigger(daily, preferredDirection);
+    //
+    // Since PLAN.md item 5 step 2 the old bottom (top) is a buying point too:
+    // Gann's double and triple bottoms. Of the two, the plan is priced from
+    // the one nearer the price (`selectGannEntry`).
 
     const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
     const scoreDirection = gannTrigger?.direction ?? preferredDirection;
@@ -284,22 +313,14 @@ export async function scanTicker(
     // The label is what the invalidation copy calls this setup. It describes
     // what was crossed rather than naming a bar sequence, because that is what
     // actually armed the trade now.
-    const entrySource: EntrySource | null = gannTrigger
-      ? {
-          direction: gannTrigger.direction,
-          triggerPrice: gannTrigger.triggerPrice,
-          stopPrice: gannTrigger.stopPrice,
-          setupLabel:
-            gannTrigger.direction === "bullish" ? "swing-top crossing" : "swing-bottom break",
-        }
-      : null;
+    // Gann's reaction buy (PLAN.md item 4): the plan's entry is the level plus
+    // 1 point and its stop the level less 3; the close 3 points past the level
+    // arms it. Priced by the same helper the replay uses.
+    const entrySource: EntrySource | null = gannTrigger ? gannEntrySource(gannTrigger) : null;
 
     // ---- Trade levels
     const previousBar = closedExecutionBars[closedExecutionBars.length - 2] ?? closedExecutionBars[closedExecutionBars.length - 1];
-    const gannTargets = [
-      ...gann.fanLines.map((f) => f.price),
-      ...gann.squareOf9.map((s) => s.price),
-    ];
+    const gannTargets = gannTargetPool(gann);
     // A trade-plan failure is confined to the trade plan. The rest of the scan
     // — price, trends, structural levels, checklist — is still valid and worth
     // showing, so it degrades to "no levels" with a note instead of collapsing
@@ -330,10 +351,12 @@ export async function scanTicker(
       ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
       // Gann's major percentage-of-price levels, anchored on the monthly
       // history's extremes (2026-09-27). See majorPricePercentageLevels.
-      ...majorPricePercentageLevels([...monthly, ...daily]).map((price) => ({ price, timeframe: "1Month" as const })),
+      ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
+      // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
+      ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, new Date(scannedAt)), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
       // Gann's Square of 144 squares and his planetary averages (COE, MOF,
       // the six), as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
-      ...gannMasterLevels([...monthly, ...daily], daily, currentPrice, new Date()).map((l) => ({
+      ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, new Date(scannedAt)).map((l) => ({
         price: l.price,
         timeframe: "1Month" as const,
       })),
@@ -366,7 +389,7 @@ export async function scanTicker(
         levelsError = err instanceof Error ? err.message : String(err);
       }
     }
-    const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+    const srBandPct = levelBandPct(currentPrice);
     const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatch !== null;
 
@@ -381,7 +404,15 @@ export async function scanTicker(
 
     // Gann's breakaway rule (owner decision 5): a sideways market is Watch
     // context until the entry crosses the range's extreme.
-    const breakaway = readBreakaway(daily, gannTrigger);
+    const breakaway = readBreakaway(entryDaily, gannTrigger);
+    // Gann's monthly break warns against a new trade with the trend (PLAN.md
+    // item 6, step 3): the same daily chart, the same reading as the replay.
+    const monthlyWarning = readMonthlyBreakWarning(entryDaily);
+    // Gann's volume Rule 2 (A-VOLUME-03, fork FV7 b): a breakdown after a lower
+    // top holds a new long to Watch while it stands, as the replay reads it.
+    const distributionStanding = readDistributionStanding(daily, new Date(scannedAt));
+    // A-LEVELS-04 (fork FL3 a): the same 52-week entry chart the replay reads.
+    const failedTops = readMultipleTops(charts.daily);
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or
@@ -401,7 +432,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyBreakawayHold(applyReversionConfirmation(
+      applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -431,11 +462,15 @@ export async function scanTicker(
           setupKind,
           atrPct,
           weights: await getActiveCriterionWeights(),
-        }),
-        pattern,
-        momentumElevated,
-        nearSupportResistance,
-      ), breakaway),
+        }), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
+        // Q19: a counter-trend Execute needs its turn to come on a dated window
+        // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
+        setupKind,
+        () => readWindowTurn(charts.daily, scoreDirection),
+      ),
+        // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
+        readRuleFollowing(charts.daily),
+      ),
       dataLag,
     ), stopBreach);
 
@@ -446,16 +481,9 @@ export async function scanTicker(
     // placeholders — see `accountContextAssumed` on the returned verdict and
     // `lib/signals/scanGates.ts`. Callers with a real account (e.g. Guided
     // Decision Mode) should treat `tradeable` here as informational only.
-    const HOLD_PERIOD_DAYS = 7;
-    const binaryEventInHoldPeriod = isBinaryEventInHoldPeriod(
-      symbol.toUpperCase(),
-      new Date(scannedAt),
-      HOLD_PERIOD_DAYS,
-    );
     const marketGates = buildScanMarketGates({
       liquidity: liquidity ?? null,
       liquidityOk: meetsLiquidityFloor(liquidity ?? null, assetClass).ok,
-      binaryEventInHoldPeriod,
       dataLagged: dataLag.holdsExecute,
     });
 
@@ -471,13 +499,13 @@ export async function scanTicker(
         currentPrice,
         liquidity: liquidity ?? null,
         dailyBars: daily,
-        binaryEventInHoldPeriod,
         dataLagged: dataLag.holdsExecute,
         scannedAt,
       },
       universeThresholds,
     );
-    const regime = classifyRegime({ bars: daily });
+    // A scheduled report on the session is a turn date, context only (A-TIME-36).
+    const regime = classifyRegime({ bars: daily, scheduledReportDay: isScheduledReportDay(symbol.toUpperCase(), new Date(scannedAt)) });
 
     // ---- Gann Confluence Layer / Sara Confluence Layer — the addendum's
     // cross-market confluence modules (2026-08-28). Additive and
@@ -490,10 +518,15 @@ export async function scanTicker(
       ? evaluateGannConfluence({
           assetClass,
           symbol,
-          dailyBars: daily,
+          // The level charts' daily and monthly, as the replay reads them.
+          dailyBars: charts.daily,
           currentPrice,
           direction: scoreDirection,
-          instrument: instrumentReference ? { ...instrumentReference, marketDaily } : marketDaily ? { sharesOutstanding: null, inception: null, marketDaily } : null,
+          instrument: instrumentReference
+            ? { ...instrumentReference, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
+            : marketDaily
+              ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
+              : null,
         })
       : null;
     const saraConfluence = isConfluenceModuleEnabled(

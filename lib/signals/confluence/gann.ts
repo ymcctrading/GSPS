@@ -37,8 +37,8 @@
  */
 
 import type { AssetClass, Bar, Direction } from "@/lib/types";
-import { atr, findPivots } from "@/lib/analysis/pivots";
-import { computeFanLines, nearestFanLine } from "@/lib/gann/fans";
+import { findPivots } from "@/lib/analysis/pivots";
+import { angleUnit, computeFanLines, nearestFanLine } from "@/lib/gann/fans";
 import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
@@ -198,7 +198,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const angleMonthCountsResult = computeAngleMonthCounts(inputs.dailyBars);
   const spectralCycle = detectSpectralCycle(inputs.dailyBars);
   const campaignLeg = computeCampaignLeg(inputs.dailyBars);
-  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars);
+  const volumeClimaxReadings = computeVolumeClimax(inputs.dailyBars, undefined, { asOf: new Date(), monthly: inputs.instrument?.monthly ?? null });
   const boilingPoint = computeBoilingPoint(inputs.dailyBars, volumeClimaxReadings);
 
   // Digital Root/Vortex context (blueprint sections 2, 7, 18): price_dr from
@@ -244,13 +244,12 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       : null,
   };
 
-  // Blueprint §8.5's normalized Gann-angle slope: realized ATR-units-per-bar
-  // since the anchor pivot, and which fixed angle ratio that's nearest to.
-  // `atr()` needs at least 2 bars; when the anchor sits at (or near) the
-  // start of the window, widen the slice forward rather than reporting no
-  // slope at all — MIN_DAILY_BARS guarantees enough bars exist to do so.
-  const atrAtAnchor = atr(inputs.dailyBars.slice(0, Math.max(majorLowIndex + 1, 2)), 14);
-  const slope = normalizedSlope(inputs.currentPrice, majorLow, atrAtAnchor, timeDisplacementBars);
+  // Blueprint §8.5's normalized Gann-angle slope: realized Gann points per
+  // bar since the anchor pivot, and which of Gann's angles that's nearest to.
+  // The unit is the chart's Gann point (`fans.ts#angleUnit`), the one the
+  // scored slope and the fans read (owner, Q27, 2026-10-16; it was the ATR as
+  // of the anchor).
+  const slope = normalizedSlope(inputs.currentPrice, majorLow, angleUnit(inputs.dailyBars), timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
   // The live read: the day clock is read at the moment of the scan.
@@ -271,7 +270,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   }
   if (angleSlope) {
     explanationTrace.push(
-      `Normalized angle slope ${angleSlope.slope.toFixed(3)} ATR/bar${angleSlope.nearestAngle ? ` — nearest to ${angleSlope.nearestAngle.label} (${angleSlope.nearestAngle.direction})` : ""}.`,
+      `Normalized angle slope ${angleSlope.slope.toFixed(3)} points a bar${angleSlope.nearestAngle ? ` — nearest to ${angleSlope.nearestAngle.label} (${angleSlope.nearestAngle.direction})` : ""}.`,
     );
   }
   if (nearestS9) {

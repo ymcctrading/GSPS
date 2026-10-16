@@ -54,6 +54,7 @@ vi.mock("@/lib/entitlements/policy", () => ({
 }));
 
 vi.mock("@/lib/brokers/simulator", () => ({
+  STARTING_CASH: 100_000,
   assetClassOf: () => "us_equity",
   getOrCreateAccount: vi.fn().mockResolvedValue({ cash: 100_000 }),
   getOpenPosition: vi.fn().mockResolvedValue(null),
@@ -69,6 +70,7 @@ import { createTradePlan, applyEventAndPersist, type NewTradePlan } from "@/lib/
 import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { runAutonomousPortfolioManager } from "@/lib/automation/portfolio-manager";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
+import { isTriggered } from "@/lib/brokers/simulator";
 
 /**
  * In-memory fake covering every table the real code touches on this path:
@@ -86,10 +88,14 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
   const orders: Record<string, unknown>[] = [];
   const protocolExits: Record<string, unknown>[] = [];
 
-  function listTable(rows: Record<string, unknown>[]) {
+  // `project` returns only the columns a select names, the way Postgres
+  // does, so a query that leaves a column out cannot read it here either.
+  function listTable(rows: Record<string, unknown>[], project = false) {
     return {
-      select() {
+      select(columns?: string) {
         const filters: ((row: Record<string, unknown>) => boolean)[] = [];
+        const names = project && columns && columns !== "*" ? columns.split(",").map((c) => c.trim()) : null;
+        const shape = (r: Record<string, unknown>) => (names ? Object.fromEntries(names.map((n) => [n, r[n]])) : r);
         const chain = {
           eq(col: string, val: unknown) {
             filters.push((r) => r[col] === val);
@@ -111,16 +117,16 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
           },
           maybeSingle() {
             const matched = rows.filter((r) => filters.every((f) => f(r)));
-            return Promise.resolve({ data: matched[0] ?? null, error: null });
+            return Promise.resolve({ data: matched[0] ? shape(matched[0]) : null, error: null });
           },
           single() {
             const matched = rows.filter((r) => filters.every((f) => f(r)));
             return Promise.resolve(
-              matched[0] ? { data: matched[0], error: null } : { data: null, error: { message: "not found" } },
+              matched[0] ? { data: shape(matched[0]), error: null } : { data: null, error: { message: "not found" } },
             );
           },
           then(resolve: (v: { data: Record<string, unknown>[]; error: null }) => void) {
-            resolve({ data: rows.filter((r) => filters.every((f) => f(r))), error: null });
+            resolve({ data: rows.filter((r) => filters.every((f) => f(r))).map(shape), error: null });
           },
         };
         return chain;
@@ -130,7 +136,7 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
 
   function planTable() {
     return {
-      ...listTable(plans),
+      ...listTable(plans, true),
       insert(row: Record<string, unknown>) {
         const withId: Record<string, unknown> = {
           plan_id: row.plan_id ?? randomUUID(),
@@ -393,6 +399,9 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     });
 
     const planId = await createArmedPlan(client, "user-1");
+    // The reaction has come: the market is back at the plan's entry, so the
+    // resting limit (Gann's reaction buy, PLAN.md item 4) is marketable.
+    vi.mocked(isTriggered).mockReturnValue(true);
 
     // Confirms the first half of the ask directly: the plan really did reach
     // `armed` through the real lifecycle reducer, priced on EXECUTION_TIMEFRAME.
@@ -428,7 +437,75 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     // Automation is held to the same confirmation rule as every other entry,
     // judged on its plan's own trigger over the bars since the plan was made.
     expect(confirmNow.calls.at(-1)).toMatchObject({ symbol: "AAPL", direction: "bullish" });
+    // Gann's reaction rule: judged on the plan's entry and its stop, and the
+    // order is a limit at the entry, not a market order (PLAN.md item 4).
+    expect(confirmNow.calls.at(-1)).toMatchObject({ entryTrigger: 100, stopPrice: 97 });
+    expect(orders[0].limit_price).toBe(100);
     expect((confirmNow.calls.at(-1) as { since?: string }).since).toBeTruthy();
+  });
+
+  it("reads an old-level plan as resting at its level, not as a crossing (PLAN.md item 5, step 2)", async () => {
+    // A double bottom at 99.50, just under the round number 100. The level is
+    // the entry itself, close enough to 100 that the round-number check lets
+    // it through. Read as a crossing, the level would come back as 98.26 and
+    // the order would be held.
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    const base = armedCandidatePlan().coordinates;
+    await createArmedPlan(client, "user-1", { coordinates: { ...base, entryTrigger: 99.5, invalidation: 94.55, entryKind: "oldLevel" } });
+    vi.mocked(isTriggered).mockReturnValue(false);
+    const result = await runAutonomousPortfolioManager(client);
+    expect(result.errors).toEqual([]);
+    expect(orders).toHaveLength(1);
+    expect(orders[0].limit_price).toBe(99.5);
+    expect(confirmNow.calls.at(-1)).toMatchObject({ entryKind: "oldLevel", stopPrice: 94.55 });
+  });
+
+  it("reads a held-bottom plan as resting at its entry, not as a crossing (PLAN.md item 5, step 4)", async () => {
+    // As for the old level: the entry 99.50 is close enough to 100 to pass the
+    // round-number check. Read as a crossing it would come back as 98.26.
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    const base = armedCandidatePlan().coordinates;
+    await createArmedPlan(client, "user-1", { coordinates: { ...base, entryTrigger: 99.5, invalidation: 94.55, entryKind: "hold" } });
+    vi.mocked(isTriggered).mockReturnValue(false);
+    const result = await runAutonomousPortfolioManager(client);
+    expect(result.errors).toEqual([]);
+    expect(orders).toHaveLength(1);
+    expect(orders[0].limit_price).toBe(99.5);
+    expect(confirmNow.calls.at(-1)).toMatchObject({ entryKind: "hold", stopPrice: 94.55 });
+  });
+
+  it("rests a limit at the plan's entry while price has not yet reacted back to it", async () => {
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    await createArmedPlan(client, "user-1");
+    vi.mocked(isTriggered).mockReturnValue(false);
+    await runAutonomousPortfolioManager(client);
+    expect(orders).toHaveLength(1);
+    expect(orders[0].status).toBe("new");
+    expect(orders[0].limit_price).toBe(100);
   });
 
   it("places nothing for an armed plan whose entry hasn't confirmed on the bars", async () => {

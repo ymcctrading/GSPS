@@ -70,19 +70,42 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfwayRetest";
+import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
+import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
+import { readSuccessiveSwings, type SuccessiveSwings } from "@/lib/gann/trendStrength";
+import { readFalseBreakout, type FalseBreakoutReading } from "@/lib/gann/falseBreakout";
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
+import { etDateKey } from "@/lib/market/session";
+import { computeMidpointFan, readMonthlySquareFromHigh, type MonthlySquareReading, type MidpointFan } from "@/lib/gann/midpointFan";
+import { readCampaignBottoms, type CampaignBottomLadder } from "@/lib/gann/campaignBottoms";
+import {
+  annualRange,
+  integerSquareLevels,
+  monthlyAngle,
+  priceZone,
+  readFirstFallFromHigh,
+  STOCK_POINTS_PER_MONTH,
+  type AnnualRangeReading,
+  type FirstFallReading,
+  type PriceZone,
+} from "@/lib/gann/priceZone";
+import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
+import { readRuleFollowing, type RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
+import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
-import { readLeadership, type LeadershipReading } from "@/lib/gann/leadership";
+import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
+import { closesAfter } from "@/lib/analysis/trend";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
-import { buildCampaignLedger, describeCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
@@ -90,6 +113,12 @@ import { describeOvernightChart, readOvernightChart, type OvernightReading } fro
 import { describeCloseCluster, readCloseCluster, type CloseClusterReading } from "@/lib/gann/closeCluster";
 import { describeAstroRules, readAstroRules, type AstroReading } from "@/lib/gann/astroRules";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
+import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { readDistributionBreakdown, readDistributionStanding, type DistributionReading, type DistributionStanding } from "@/lib/gann/distribution";
+import { readBreakawayVolume, type BreakawayVolumeReading } from "@/lib/gann/breakaway";
+import { describeTopVolumeWarning, readTopVolumeWarning, type TopVolumeWarningReading } from "@/lib/gann/topVolume";
+import { readMonthCounts, readSwingMonthCounts, type PivotMonthCount } from "@/lib/gann/angleMonthCounts";
+import { describeBearDuration, readBearDuration, type BearDurationReading } from "@/lib/gann/bearDuration";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { describeMasterCalculator, readMasterCalculator, type MasterCalculatorReading } from "@/lib/gann/masterCalculator";
 import {
@@ -148,8 +177,10 @@ export function readBarMidpoint(bars: Bar[]): BarMidpointReading | null {
 export interface PricePercentageLevel {
   price: number;
   label: string;
-  /** 1 = most important (50% and 100% of the low, 50% of the high), 2 = the rest. */
+  /** 1 = most important (50% and 100% of the low and its multiples, 50% of the high), 2 = the rest. */
   importance: 1 | 2;
+  /** For a multiple of the low past 100%: how many times the low it is above it (2 = 200% above). */
+  multiple?: number;
 }
 
 export interface PricePercentageReading {
@@ -175,6 +206,18 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
       importance: k === 4 ? 1 : 2,
     });
   }
+  // "100% of the low and multiples", second only to 50% (45 Years Ch. IV
+  // p. 30, class A, page-checked 2026-10-16; the rye table runs to 700%,
+  // Commodities pp. 161-162): 200%, 300% ... above the low, projected up to
+  // 12 times the low (the compiler's 1-12 times, C-PRICE-02, W003 p.21) and
+  // past the record's high to the first multiple over it, so a market at a
+  // new high still has one ahead (batch review C1; the reach is an
+  // engineering choice, labelled).
+  const reach = Math.max(12 * low, high);
+  for (let m = 2; low > 0; m++) {
+    levels.push({ price: low * (1 + m), label: `${m * 100}% above the low`, importance: 1, multiple: m });
+    if (low * (1 + m) >= reach) break;
+  }
   levels.push({ price: high / 3, label: "1/3 of the high", importance: 2 });
   levels.push({ price: (high * 2) / 3, label: "2/3 of the high", importance: 2 });
   return levels.sort((a, b) => a.price - b.price);
@@ -193,8 +236,10 @@ export function majorPricePercentageLevels(bars: Bar[]): number[] {
   const low = Math.min(...bars.map((b) => b.l));
   const high = Math.max(...bars.map((b) => b.h));
   if (!(low > 0) || !(high > low)) return [];
+  // The multiples of the low past 100% stay on the card until a replay
+  // measures them in the pool (fork FL8, item 9 step 5).
   return pricePercentageLevels(low, high)
-    .filter((l) => l.importance === 1)
+    .filter((l) => l.importance === 1 && l.multiple === undefined)
     .map((l) => l.price);
 }
 
@@ -294,7 +339,7 @@ export type CounterMovePhase =
   | "extended"
   /** 31-60 days: into a 2nd month, which strong trends seldom reach. */
   | "secondMonth"
-  /** 61+ days: a 3rd month, which signals a change in trend. */
+  /** 61+ days: a 3rd month. The trend changes only when the reaction is still making new extremes there (`CampaignLedger.counterMoveThirdMonth`). */
   | "thirdMonth";
 
 export interface CounterMoveReading {
@@ -304,13 +349,15 @@ export interface CounterMoveReading {
   inCounterMove: boolean;
   /** Calendar days since the swing extreme the counter-move started from (0 when not in one). */
   days: number;
+  /** Trading days (bars) since that extreme (0 when not in one). */
+  tradingDays?: number;
   phase: CounterMovePhase | null;
 }
 
 export function counterMovePhase(days: number): CounterMovePhase {
   if (days <= 21) return "normal";
   if (days <= 30) return "extended";
-  if (days <= 60) return "secondMonth";
+  if (days <= SECOND_MONTH_END_DAYS) return "secondMonth";
   return "thirdMonth";
 }
 
@@ -324,15 +371,19 @@ export function readCounterMove(bars: Bar[]): CounterMoveReading | null {
   const resumed =
     start !== undefined &&
     bars.slice(start.index + 1).some((b) => (weekly.trend === "bullish" ? b.h > start.price : b.l < start.price));
-  if (!against || !start || resumed) return { trend: weekly.trend, inCounterMove: false, days: 0, phase: null };
+  if (!against || !start || resumed) return { trend: weekly.trend, inCounterMove: false, days: 0, tradingDays: 0, phase: null };
   const days = daysBetween(bars[start.index].t, bars[bars.length - 1].t);
-  return { trend: weekly.trend, inCounterMove: true, days, phase: counterMovePhase(days) };
+  return { trend: weekly.trend, inCounterMove: true, days, tradingDays: bars.length - 1 - start.index, phase: counterMovePhase(days) };
 }
 
 // ---------------------------------------------------------------------------
 // 5. Tests of a level
 
-export const LEVEL_TEST_TOLERANCE_PCT = 1.0;
+/**
+ * Swing extremes within Gann's 3 points of each other test the same level
+ * (A-LEVELS-06, W006 pp.11, 24), price-scaled by `pointScale.ts`; 1% until
+ * 2026-10-16.
+ */
 
 export interface LevelTestReading {
   level: number;
@@ -349,18 +400,25 @@ function nearestTestedLevel(prices: number[], currentPrice: number, side: "below
   const candidates = prices.filter((p) => (side === "below" ? p < currentPrice : p > currentPrice));
   if (candidates.length === 0) return null;
   const nearest = candidates.reduce((a, b) => (Math.abs(b - currentPrice) < Math.abs(a - currentPrice) ? b : a));
-  const cluster = prices.filter((p) => (Math.abs(p - nearest) / nearest) * 100 <= LEVEL_TEST_TOLERANCE_PCT);
+  const cluster = prices.filter((p) => (Math.abs(p - nearest) / nearest) * 100 <= gannThreePointsPct(nearest));
   const level = cluster.reduce((s, p) => s + p, 0) / cluster.length;
   return { level, tests: cluster.length };
 }
 
 export function readLevelTests(bars: Bar[], currentPrice: number): LevelTestsReading {
   const pivots = walkSwingChart(bars, THREE_DAY_CHART).pivots;
-  const bottoms = pivots.filter((p) => p.kind === "bottom").map((p) => p.price);
-  const tops = pivots.filter((p) => p.kind === "top").map((p) => p.price);
+  // "Old tops become bottoms, old bottoms later become tops" (A-LEVELS-01,
+  // W006 p.13, pp.40-41): a top a later close has cleared by Gann's 3 points
+  // tests as support, and a bottom a later close has broken by them as
+  // resistance (fork FL1 a, 2026-10-16), the same rule `readTrend` applies.
+  const { maxAfter, minAfter } = closesAfter(bars);
+  const crossed = (p: (typeof pivots)[number]) =>
+    p.kind === "top" ? maxAfter[p.index] > beyondByThreePoints(p.price, 1) : minAfter[p.index] < beyondByThreePoints(p.price, -1);
+  const supports = pivots.filter((p) => p.kind === "bottom" || crossed(p)).map((p) => p.price);
+  const resistances = pivots.filter((p) => p.kind === "top" || crossed(p)).map((p) => p.price);
   return {
-    support: nearestTestedLevel(bottoms, currentPrice, "below"),
-    resistance: nearestTestedLevel(tops, currentPrice, "above"),
+    support: nearestTestedLevel(supports, currentPrice, "below"),
+    resistance: nearestTestedLevel(resistances, currentPrice, "above"),
   };
 }
 
@@ -450,10 +508,58 @@ export interface DisclosedRulesContext {
   sharesPerPoint: SharesPerPointReading | null;
   /** Early and late leaders, and the first-year high. See `leadership.ts`. */
   leadership: LeadershipReading | null;
+  /** Gann's weak stocks in a bull market (A-TREND-07/-08, context only). See `readWeakStock`. */
+  weakStock?: WeakStockReading | null;
   /** The 2–3-day halt and the reaction-week rules. See `timeRules.ts`. */
   timeRules: TimeRulesReading | null;
   /** Double and triple tops and bottoms. See `multipleTops.ts`. */
   multipleTops: MultipleTopsReading | null;
+  /** Whether the stock's own buying and selling points worked (A-SELECTION-01, Q24). See `ruleFollowing.ts`. */
+  ruleFollowing?: RuleFollowingReading | null;
+  /** The first return to a broken 50% point (class C, context only). See `halfwayRetest.ts`. */
+  halfwayRetest?: HalfwayRetestReading | null;
+  /** A narrow 3-4 day range breaking (class C, context only). See `narrowRange.ts`. */
+  narrowRangeBreak?: NarrowRangeBreakReading | null;
+  /** A narrow week, then a sharp move on heavy volume (A-ENTRY-19, context only). See `narrowWeek.ts`. */
+  narrowWeekBreak?: NarrowWeekBreakReading | null;
+  /** Which higher bottom or lower top the market stands on (C-ENTRY-03, context only). See `readSuccessiveSwings`. */
+  successiveSwings?: SuccessiveSwings | null;
+  /** A move out of the 13-week range by under 3 points that failed the next week (C-STOP-01, context only). See `falseBreakout.ts`. */
+  falseBreakout?: FalseBreakoutReading | null;
+  /** The heaviest completed week since the last major top (A-VOLUME-12, context only). See `topVolume.ts`. */
+  topVolume?: TopVolumeWarningReading | null;
+  /** A second top at the first's level: its week's volume over the first top's week (A-VOLUME-13, context only). See `volumeClimax.ts`. */
+  secondTopVolumeRatio?: number | null;
+  /** After a lower weekly top, a narrow range broken down on volume, on the last completed session (A-VOLUME-03). See `distribution.ts`. */
+  distribution?: DistributionReading | null;
+  /** The breakdown, while it stands: it holds a new long to Watch and exits an open one (FV7 b). */
+  distributionStanding?: DistributionStanding | null;
+  /** Old campaign bottoms, newest first, and the one to look to next (A-LEVELS-03, context only). See `campaignBottoms.ts`. */
+  campaignBottoms?: CampaignBottomLadder | null;
+  /** Angles from the 50% point of the latest pivot high and low (C-LEVELS-10, card only). See `midpointFan.ts`. */
+  midpointFan?: MidpointFan | null;
+  /** Gann's price zone in his literal dollars (A-PRICE-01, context only). See `priceZone.ts`. */
+  priceZone?: PriceZone | null;
+  /** The fall from the 52-week high, and whether it is in the first 100 points (A-PRICE-01, context only). */
+  firstFall?: FirstFallReading | null;
+  /** The symbol's own median calendar-year range (A-PRICE-06, context only). */
+  annualRange?: AnnualRangeReading | null;
+  /** Squares of whole numbers either side of the price and the point between (C-LEVELS-01, card only). */
+  integerSquares?: [number, number, number] | null;
+  /** The 1-point-a-month line from the last campaign bottom, at the session's month (A-PRICE-05, context only). */
+  monthlyAngle?: { from: number; fromMonth: string; price: number } | null;
+  /** The 1x1 down from the latest monthly top at 1 point a month (C-LEVELS-08, context only). */
+  monthlySquareFromHigh?: MonthlySquareReading | null;
+  /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
+  breakawayVolume?: BreakawayVolumeReading | null;
+  /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
+  secondaryTime?: SecondaryTimeReading | null;
+  /** Months from the monthly chart's major tops and bottoms (A-TIME-05, context only). See `angleMonthCounts.ts`. */
+  monthCounts?: PivotMonthCount[] | null;
+  /** Months from the weekly swing chart's tops and bottoms, dated to the day, to the month in hand (A-TIME-21, W046 p.2). Context only. */
+  swingMonthCounts?: PivotMonthCount[] | null;
+  /** Months into the market's bear market from its top (A-TIME-06, context only). See `bearDuration.ts`. */
+  bearDuration?: BearDurationReading | null;
   /** The Overnight Chart and Gann's mechanical method on it (Master Course Ch. 3). See `overnightChart.ts`. */
   overnight: OvernightReading | null;
   /** Rule 8: three closes around one price, on days, weeks and months. See `closeCluster.ts`. */
@@ -492,6 +598,15 @@ export interface InstrumentFacts {
   inception: Inception | null;
   /** The market's daily bars (SPY), for early and late leaders (G25). See `leadership.ts`. */
   marketDaily?: Bar[] | null;
+  /** The stock's monthly bars, for the weak-stock readings (`readWeakStock`). */
+  monthly?: Bar[] | null;
+  /**
+   * The stock's monthly bars over `LONG_MONTHLY_YEARS`, for the long month
+   * counts (C-TIME-09/-12, A-TIME-05/-21) only. Falls back to `monthly`.
+   */
+  monthlyLong?: Bar[] | null;
+  /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
+  marketMonthly?: Bar[] | null;
 }
 
 export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
@@ -518,6 +633,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   leadership: null,
   timeRules: null,
   multipleTops: null,
+  ruleFollowing: null,
   overnight: null,
   closeClusters: { daily: null, weekly: null, monthly: null },
   masterCalculator: null,
@@ -548,6 +664,13 @@ export function readDisclosedRules(
 ): DisclosedRulesContext {
   const campaign = buildCampaignLedger(dailyBars);
   const counterMove = readCounterMove(dailyBars);
+  // The market's months with the month so far from its daily bars, as the
+  // live scan's monthly bars have it; the replay passes closed months only.
+  const longMonthly = instrument?.monthlyLong ?? instrument?.monthly ?? null;
+  const campaignBottoms = readCampaignBottoms(longMonthly, dailyBars, asOf);
+  const marketMonthly = instrument?.marketMonthly
+    ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t))
+    : null;
   // One Gann point for the whole read (`pointScale.ts#gannPointForBars`), as the S/R levels use.
   const unit = gannPointForBars(dailyBars);
   const inception = instrument?.inception;
@@ -571,10 +694,41 @@ export function readDisclosedRules(
     zone: readSevenZones(dailyBars),
     seasonal: readSeasonalCount(asOf),
     accumulation: readAccumulation(dailyBars),
-    sharesPerPoint: readSharesPerPoint(dailyBars, campaign),
+    sharesPerPoint: readSharesPerPoint(dailyBars, campaign, asOf),
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
+    weakStock:
+      instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
+    ruleFollowing: readRuleFollowing(dailyBars),
+    halfwayRetest: readHalfwayRetest(dailyBars),
+    narrowRangeBreak: readNarrowRangeBreak(dailyBars),
+    narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
+    successiveSwings: readSuccessiveSwings(dailyBars),
+    falseBreakout: readFalseBreakout(dailyBars, asOf),
+    topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
+    distribution: readDistributionBreakdown(dailyBars, asOf),
+    distributionStanding: readDistributionStanding(dailyBars, asOf),
+    campaignBottoms,
+    midpointFan: computeMidpointFan(dailyBars),
+    priceZone: priceZone(currentPrice),
+    firstFall: readFirstFallFromHigh(dailyBars, asOf),
+    annualRange: longMonthly ? annualRange(longMonthly, asOf) : null,
+    integerSquares: integerSquareLevels(currentPrice),
+    monthlyAngle: campaignBottoms?.bottoms[0]
+      ? {
+          from: campaignBottoms.bottoms[0].price,
+          fromMonth: campaignBottoms.bottoms[0].month,
+          price: monthlyAngle(campaignBottoms.bottoms[0].price, campaignBottoms.bottoms[0].month, STOCK_POINTS_PER_MONTH * unit, etDateKey(asOf).slice(0, 7)),
+        }
+      : null,
+    monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH * unit),
+    breakawayVolume: readBreakawayVolume(dailyBars, asOf),
+    secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
+    secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
+    monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
+    swingMonthCounts: readSwingMonthCounts(dailyBars, asOf),
+    bearDuration: marketMonthly ? readBearDuration(marketMonthly, asOf) : null,
     overnight: readOvernightChart(dailyBars),
     closeClusters: {
       daily: readCloseCluster(dailyBars, "daily"),
@@ -602,6 +756,56 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.capitalStock) lines.push(...describeCapitalStock(ctx.capitalStock));
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
+  if (ctx.secondaryTime) lines.push(...describeSecondaryTime(ctx.secondaryTime));
+  if (ctx.monthCounts && ctx.monthCounts.length > 0) {
+    const list = ctx.monthCounts.map((c) => `${c.months}${c.watched ? " (a watched count)" : ""} from the ${c.pivotMonth} ${c.kind === "high" ? "top" : "bottom"}`);
+    lines.push(`Months from the major tops and bottoms: ${list.join(", ")}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.swingMonthCounts && ctx.swingMonthCounts.length > 0) {
+    const list = ctx.swingMonthCounts.map((c) => `${c.months}${c.watched ? " (a watched count)" : ""} from the ${c.pivotMonth} ${c.kind === "high" ? "top" : "bottom"}`);
+    lines.push(`Months from the recent swing tops and bottoms: ${list.join(", ")}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.bearDuration) lines.push(describeBearDuration(ctx.bearDuration));
+  if (ctx.topVolume?.warning) lines.push(describeTopVolumeWarning(ctx.topVolume));
+  if (ctx.secondTopVolumeRatio != null && ctx.secondTopVolumeRatio <= 2 / 3) {
+    lines.push(`A second top at the first top's level on ${Math.round(ctx.secondTopVolumeRatio * 100)}% of its week's volume. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.breakawayVolume) {
+    const b = ctx.breakawayVolume;
+    lines.push(`The last session ${b.direction === "bullish" ? "crossed the top" : "broke the bottom"} of a narrow range on ${b.ratio.toFixed(1)}× the range's average volume${b.ratio > 1 ? "." : ": a breakout without volume, so an entry out of this range waits for a session that closes past the line on volume."}`);
+  }
+  if (ctx.campaignBottoms?.bottoms[0]?.broken) {
+    const next = ctx.campaignBottoms.nextSupport;
+    lines.push(`The last campaign bottom (${ctx.campaignBottoms.bottoms[0].price.toFixed(2)}, ${ctx.campaignBottoms.bottoms[0].month}) is broken by 3 points: ${next ? `the next older campaign bottom, ${next.price.toFixed(2)} (${next.month}), is the support to watch` : "no older campaign bottom below it is in the record"}.`);
+  }
+  if (ctx.priceZone) {
+    const fall = ctx.firstFall?.inFirstFall ? `, ${ctx.firstFall.pointsDown.toFixed(2)} points under the 52-week high (${ctx.firstFall.high.toFixed(2)}): the first 100 points down from a high fall fastest` : "";
+    lines.push(`Price zone ${ctx.priceZone} (moves speed up above 50, faster above 100, widest above 150-200)${fall}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.annualRange) {
+    lines.push(`Its usual yearly range is ${ctx.annualRange.medianPoints.toFixed(2)} points (the median of ${ctx.annualRange.years} completed year${ctx.annualRange.years === 1 ? "" : "s"}). Watch the dates more than the points. Shown for context.`);
+  }
+  if (ctx.midpointFan) {
+    const at = (d: "up" | "down") => ctx.midpointFan!.lines.find((l) => l.angle === "1x1" && l.direction === d)?.price;
+    const up = at("up");
+    const down = at("down");
+    lines.push(`From the 50% point (${ctx.midpointFan.midpoint.toFixed(2)}), the 1x1 angles stand at ${up?.toFixed(2) ?? "n/a"} up and ${down?.toFixed(2) ?? "n/a"} down. Not a level to trade on alone.`);
+  }
+  if (ctx.integerSquares) {
+    const [lo, mid, hi] = ctx.integerSquares;
+    lines.push(`Squares of whole numbers around the price: ${lo}, ${mid} (halfway) and ${hi}. Not a level to trade on alone.`);
+  }
+  if (ctx.monthlyAngle) {
+    const m = ctx.monthlyAngle;
+    lines.push(`The 45-degree line from the ${m.fromMonth} bottom (${m.from.toFixed(2)}) at 1 point a month stands at ${m.price.toFixed(2)}. Shown for context; it does not change the setup.`);
+  }
+  if (ctx.monthlySquareFromHigh) {
+    const q = ctx.monthlySquareFromHigh;
+    lines.push(`The square of price and time down from the ${q.fromMonth} top (${q.from.toFixed(2)}) at 1 point a month stands at ${q.price.toFixed(2)}. Not a level to trade on alone.`);
+  }
+  if (ctx.distributionStanding) {
+    lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);
+  }
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {
     const a = ctx.accumulation;
@@ -620,7 +824,11 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   for (const m of [ctx.multipleTops?.top, ctx.multipleTops?.bottom]) {
     if (!m) continue;
     const name = m.tests >= 3 ? `Triple ${m.kind}` : `Double ${m.kind}`;
-    lines.push(`${name} at ${m.level.toFixed(2)}: ${m.state === "crossed" ? "crossed, a strong breakout" : m.state === "failed" ? "failed on its third test" : "being tested"}.`);
+    lines.push(`${name} at ${m.level.toFixed(2)}: ${m.state === "crossed" ? "crossed, a strong breakout" : m.state === "failed" ? `failed on its ${m.tests >= 3 ? "third" : "second"} test, a ${m.kind}` : "being tested"}.`);
+  }
+  if (ctx.ruleFollowing && ctx.ruleFollowing.resolved > 0) {
+    const r = ctx.ruleFollowing;
+    lines.push(`Over the year, ${r.followed} of this stock's ${r.resolved} buying and selling points carried on and ${r.failed} failed${r.queer ? ": it is not following the rules, so it is left alone" : ""}.`);
   }
   if (ctx.leadership) {
     const l = ctx.leadership;
@@ -628,6 +836,45 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (l.bottomedLate) lines.push("Bottomed after the market: a late mover.");
     if (l.toppedFirst) lines.push("Topped before the market: watch for early weakness.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
+  }
+  if (ctx.weakStock?.earlyTopFailed) {
+    const w = ctx.weakStock.earlyTopFailed;
+    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years.`);
+  }
+  if (ctx.weakStock?.firstRallyNotExceeded) {
+    const w = ctx.weakStock.firstRallyNotExceeded;
+    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since.`);
+  }
+  if (ctx.narrowWeekBreak) {
+    const n = ctx.narrowWeekBreak;
+    lines.push(
+      n.direction === "bearish"
+        ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. The rule reads this as a sign the trend is turning down, even while the market rises; it does not change the trend read here.`
+        : `A narrow week, then a sharp rise on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points over that week's high (${n.narrowHigh.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume.`,
+    );
+  }
+  if (ctx.falseBreakout) {
+    const b = ctx.falseBreakout;
+    lines.push(
+      b.direction === "bearish"
+        ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
+        : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
+    );
+  }
+  const ss = ctx.successiveSwings;
+  const nth = (n: number) => (n === 2 ? "second" : n === 3 ? "third" : "fourth");
+  // Master Course p.248 names both: the advance is strongest after the second
+  // or third higher bottom, and fast moves start from the third or fourth
+  // (also W003 p.17).
+  if (ss && ss.higherBottoms >= 2 && ss.higherBottoms <= 4) {
+    lines.push(
+      ss.higherBottoms === 4
+        ? "Standing on the fourth higher bottom of the 3-Day Chart: the rule says fast moves start from the third or fourth."
+        : `Standing on the ${nth(ss.higherBottoms)} higher bottom of the 3-Day Chart: the rule reads the advance as strongest after the second or third${ss.higherBottoms === 3 ? ", and fast moves start from the third or fourth" : ""}.`,
+    );
+  }
+  if (ss && ss.lowerTops >= 2 && ss.lowerTops <= 4) {
+    lines.push(`Under the ${nth(ss.lowerTops)} lower top of the 3-Day Chart, a top the rule says to watch.`);
   }
   if (ctx.overnight) lines.push(...describeOvernightChart(ctx.overnight));
   if (ctx.astro) lines.push(...describeAstroRules(ctx.astro));
@@ -656,11 +903,17 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     );
   }
   if (ctx.counterMove?.inCounterMove && ctx.counterMove.phase) {
+    // The change of trend is the ledger's call (new extremes after day 60 from
+    // the section's top), so this line only says so when the ledger agrees.
     const note = {
       normal: "within the usual 2-3 weeks",
       extended: "longer than the usual 3 weeks",
       secondMonth: "into a second month, which strong trends seldom reach",
-      thirdMonth: "in its third month, which signals a change in trend",
+      thirdMonth: ctx.campaign?.counterMoveThirdMonth
+        ? "in its third month, which signals a change in trend"
+        : ctx.campaign
+          ? "past two months, though it has made no new extreme in its third month"
+          : "past two months",
     }[ctx.counterMove.phase];
     lines.push(`Counter-move against the ${ctx.counterMove.trend} trend: ${ctx.counterMove.days} days, ${note}.`);
   }

@@ -69,6 +69,24 @@ describe("timing: alternation, 144 convergence, projection dispersion", () => {
   });
 });
 
+describe("the 7th, 14th and 21st day from the last swing (C-TIME-18, W003 p.19; W034 p.4)", () => {
+  /** A 30-day rise to a top, then `k` days of decline with no further swing. */
+  function topThen(k: number): Bar[] {
+    const closes = [...Array.from({ length: 30 }, (_, i) => 100 + i), ...Array.from({ length: k }, (_, i) => 129 - (i + 1) * 0.5)];
+    return closes.map((c, i) => bar(i, c, c + 0.5, c - 0.5, c));
+  }
+
+  it("marks days 7, 14 and 21 after the top, a day either side", () => {
+    for (const [k, mark] of [[7, 7], [14, 14], [21, 21], [13, 14], [22, 21], [6, 7]] as const) {
+      expect(readTiming(topThen(k)).alternation).toEqual({ daysSincePivot: k, mark });
+    }
+  });
+
+  it("marks nothing between them", () => {
+    for (const k of [10, 12, 16, 24]) expect(readTiming(topThen(k)).alternation?.mark).toBeNull();
+  });
+});
+
 describe("spectral cycle significance (Schuster)", () => {
   it("gives a strong regular cycle a small Schuster p", () => {
     const bars = Array.from({ length: 240 }, (_, i) => {

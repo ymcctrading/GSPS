@@ -11,8 +11,9 @@
  * trending, and which way". It was the last non-Gann input to the regime
  * labels, and it answered a question the swing charts already answer. Gann
  * reads trend from tops and bottoms, not from averaged closes. The trend read
- * is now the weekly swing chart confirmed by stepping 3-day swings, plus the HH/HL
- * structure. The range read is the exact negation of that trend read, plus
+ * is now the weekly swing chart confirmed by stepping 3-day swings, and the
+ * HH/HL structure is those same 3-day swings (one definition since
+ * 2026-10-16). The range read is the exact negation of that trend read, plus
  * repeatable boundaries. The prior-trend direction a transition breaks
  * against is the weekly chart's. (The "9-day" close-count chart this used
  * to read was replaced by Gann's own weekly chart on 2026-09-27; see
@@ -41,8 +42,14 @@ export interface RegimeInputs {
   /** Closed bars on the timeframe the regime is being read on, ascending. */
   bars: Bar[];
   atrPeriod?: number;
-  /** Explicit event-risk flags — these short-circuit to the "event" regime. */
-  scheduledBinaryEvent?: boolean;
+  /**
+   * A scheduled report falls on this session. Gann reads report dates as turn
+   * dates (A-TIME-36, W022 pp.195-197, 217), so it is recorded as `turnDate`
+   * context and never stands the regime aside (owner, Q26, 2026-10-16; it
+   * was a `scheduledBinaryEvent` flag that forced the "event" regime).
+   */
+  scheduledReportDay?: boolean;
+  /** Explicit data-risk flags — these short-circuit to the "event" regime. */
   staleData?: boolean;
   abnormalSpread?: boolean;
   extremeGapRisk?: boolean;
@@ -60,11 +67,30 @@ const DEFAULTS = {
  */
 const MIN_REGIME_BARS = 60;
 
+/** Why the swing charts confirm no trend, in the order the read checks it. */
+function noTrendReason(t: ReturnType<typeof readGannTrend>): string {
+  if (t.weekly === null) return "No weekly swing chart direction yet: no confirmed trend.";
+  if (!t.structureAgrees) {
+    const steps = t.weekly === "bullish" ? "higher tops and higher bottoms" : "lower tops and lower bottoms";
+    return `Weekly swing chart ${t.weekly}, but the 3-day swings are not making ${steps}: no confirmed trend.`;
+  }
+  return `Weekly swing chart ${t.weekly}, but the move against it has run larger or longer than any before it: the trend is changing.`;
+}
+
 export function classifyRegime(inputs: RegimeInputs): RegimeRead {
+  const read = classifyRegimeCore(inputs);
+  const turnDate = inputs.scheduledReportDay === true;
+  return {
+    ...read,
+    turnDate,
+    reasons: turnDate ? [...read.reasons, "Scheduled report date: a turn date (context)."] : read.reasons,
+  };
+}
+
+function classifyRegimeCore(inputs: RegimeInputs): RegimeRead {
   const {
     bars,
     atrPeriod = DEFAULTS.atrPeriod,
-    scheduledBinaryEvent = false,
     staleData = false,
     abnormalSpread = false,
     extremeGapRisk = false,
@@ -73,7 +99,6 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   // Event/high uncertainty takes priority over every other read: none of the
   // other regimes' entry logic is trustworthy against stale or abnormal data.
   const eventReasons: string[] = [];
-  if (scheduledBinaryEvent) eventReasons.push("Scheduled binary event.");
   if (staleData) eventReasons.push("Stale market data.");
   if (abnormalSpread) eventReasons.push("Abnormal spread.");
   if (extremeGapRisk) eventReasons.push("Extreme gap risk.");
@@ -103,13 +128,17 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
   const trendStrengthSupport = gannTrend.confirmed;
   const gannDirection: "bullish" | "bearish" | null = gannTrend.direction;
 
+  // One definition of swing structure (PLAN.md item 6 step 4, A-TREND-02):
+  // rising or falling tops and bottoms are the 3-Day Chart's, the same swings
+  // `readGannTrend` steps through. A second fractal-pivot test (the last of
+  // four pivots against the first) used to sit here and could disagree with
+  // it. The fractal pivots below still supply the horizontal levels.
+  const higherHighsLows = gannTrend.structureAgrees && gannTrend.weekly === "bullish";
+  const lowerHighsLows = gannTrend.structureAgrees && gannTrend.weekly === "bearish";
+
   const pivots = findPivots(bars, 3);
   const highs = pivots.filter((p) => p.kind === "high").slice(-4).map((p) => p.price);
   const lows = pivots.filter((p) => p.kind === "low").slice(-4).map((p) => p.price);
-  const higherHighsLows = highs.length >= 2 && lows.length >= 2 &&
-    highs[highs.length - 1] > highs[0] && lows[lows.length - 1] > lows[0];
-  const lowerHighsLows = highs.length >= 2 && lows.length >= 2 &&
-    highs[highs.length - 1] < highs[0] && lows[lows.length - 1] < lows[0];
 
   const atrValue = atr(bars, atrPeriod);
   const rvol = relativeVolume(bars, 20);
@@ -179,7 +208,7 @@ export function classifyRegime(inputs: RegimeInputs): RegimeRead {
       regime: "range",
       direction: "sideways",
       reasons: [
-        `3-day and weekly swing charts do not agree (${gannTrend.threeDay ?? "unset"} vs ${gannTrend.weekly ?? "unset"}) — no confirmed trend.`,
+        noTrendReason(gannTrend),
         "Repeatable horizontal boundaries above and below price.",
       ],
       disqualifiers: [],

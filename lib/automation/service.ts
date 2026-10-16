@@ -287,7 +287,11 @@ function deriveOrderInputFromPlan(
       assetClass: "equity",
       side: plan.direction === "bullish" ? "buy" : "sell",
       qty,
-      entryMode: "now",
+      // Gann's reaction buy (PLAN.md item 4): a limit at the plan's entry,
+      // the crossed level plus 1 point, never a market order at whatever
+      // price the crossing left behind.
+      entryMode: "advised",
+      limitPrice: plan.coordinates.entryTrigger,
       referencePrice: plan.coordinates.entryTrigger,
       sourcePlanId: plan.planId,
       attachLevels: {

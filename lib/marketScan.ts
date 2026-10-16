@@ -2,27 +2,24 @@
  * Daily market-wide scan.
  *
  * Coarse pass: pull the most-active US equities and score cheap daily-bar
- * signals once per symbol, producing two candidate pools — reversions (trend
- * extension into a structural level) and continuations (a trend still
+ * signals once per symbol, producing two candidate pools — reversions (a turn
+ * at a Gann level, fan line or time window) and continuations (a trend still
  * expanding, with volume behind it).
  *
  * Full pass: run the complete multi-timeframe scanTicker on the reversion
- * shortlist and keep the top `perSide` per direction. Reversions are the
- * protocol's primary setup, so they fill the lists first.
+ * shortlist and keep the top `perSide` per direction.
  *
- * Continuation pass: not solely a shortfall backstop — every run scouts the
- * continuation pool, gated on `hasExceptional4hMomentum` (a genuine range and
- * volume spike in the most recently closed 4-hour bar, not just an ordinary
- * elevated day). A short direction gets topped up to `perSide`; a direction
- * that already filled on reversions alone still gets a small guaranteed
- * allotment appended past `perSide` when the pool has candidates that clear
- * the bar — reversions are scanned first and keep priority, but continuations
- * are no longer something the market only looks for when reversions come up
- * short. A short list is an acceptable outcome; a list padded with symbols
- * that have no trade plan, or with a trade plan too weak to have earned a
- * slot on its own merits, is not — `qualifiesAsContinuationFill` requires
- * both the right shape and an Execute-tier score, never just "the best of
- * what's left." Six 7/9s beat eighteen setups trailing off through 6, 5, 4.
+ * Continuation pass (rewritten 2026-10-16, PLAN.md item 6 step 11): Gann's
+ * "a stock is never too high to buy so long as the trend is up, provided you
+ * place a stop" (W006 p.22; the mirror for a short, pp.38-39). Every run scans
+ * the best-ranked candidates running with their trend, on each side, and they
+ * compete with the reversions for the same `perSide` slots by score. The trend
+ * alone admits one (`qualifiesAsContinuationFill`): a priced plan running
+ * with Gann's weighted trend. The 4-hour spike, range expansion, two-of-three
+ * breadth, Execute-score bar and two-slot quota that used to gate it had no
+ * source in Gann. The first two ranked the coarse pool for a while after;
+ * since 2026-10-16 (item 6, "fix all non Gann gaps") they are gone, and with
+ * them the 4-hour fetch.
  *
  * Cycle-timed selection (added 2026-09-25): each symbol's own Gann time
  * cycles now help decide *which* symbols reach a full scan, rather than only
@@ -54,24 +51,21 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { isGannContinuation, macroBreadthAgrees } from "@/lib/scan/entrySelection";
+import { gannMacroDirection, isWithGannTrend, trendsFromBars } from "@/lib/scan/entrySelection";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
-import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { MAG7, SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
-  FALLBACK_FAN_PCT,
-  FALLBACK_SR_PCT,
-  FAN_PROXIMITY_ATR,
-  SR_PROXIMITY_ATR,
   atrPercentOfPrice,
+  levelBandPct,
   proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
+import { isStopBreached } from "@/lib/gann/stopBreach";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -245,80 +239,9 @@ export interface CoarseCandidate {
   coarseScore: number;
 }
 
-/**
- * Recent range expansion, as a multiple of the trailing baseline, that counts
- * as "a lot of momentum". Matches the threshold scanTicker scores its own
- * momentum criterion on, so the coarse gate and the full scan agree.
- */
-export const MOMENTUM_EXPANSION = 1.2;
-
 function mean(values: number[]): number {
   return values.length === 0 ? 0 : values.reduce((s, v) => s + v, 0) / values.length;
 }
-
-/** Recent volatility against its own trailing baseline, or 0 when unreadable. */
-function expansionRatio(daily: Bar[]): number {
-  const recent = atr(daily.slice(-20), 14);
-  const baseline = atr(daily.slice(-100, -20), 14);
-  return baseline > 0 ? recent / baseline : 0;
-}
-
-/**
- * How much more range/volume than normal counts as "exceptional" over the
- * past 4 hours — deliberately stricter than `MOMENTUM_EXPANSION`, which only
- * asks for a trend that's still expanding. A continuation candidate has to
- * clear both: the trend intact on daily bars, *and* a genuine spike in the
- * most recent 4-hour bar, not just an ordinary elevated day.
- */
-export const EXCEPTIONAL_4H_RANGE_MULT = 2;
-export const EXCEPTIONAL_4H_VOLUME_MULT = 2;
-
-/** Bars needed before and including the most recent 4-hour candle to judge it. */
-const BARS_4H_BASELINE = 20;
-
-/**
- * Whether the most recently closed 4-hour candle shows a genuine volatility
- * *and* volume spike against its own trailing baseline — "the past 4 hours"
- * a continuation candidate is asked to prove itself on. Both have to fire:
- * a wide bar on thin volume is a gap, not participation; heavy volume in a
- * narrow bar is absorption, not a breakout.
- */
-export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
-  if (bars4h.length < BARS_4H_BASELINE + 1) return false;
-  const last = bars4h[bars4h.length - 1];
-  const baseline = bars4h.slice(-(BARS_4H_BASELINE + 1), -1);
-
-  const lastRange = last.h - last.l;
-  const baselineRange = mean(baseline.map((b) => b.h - b.l));
-  const baselineVolume = mean(baseline.map((b) => b.v));
-
-  if (!(baselineRange > 0) || !(baselineVolume > 0)) return false;
-  return (
-    lastRange / baselineRange >= EXCEPTIONAL_4H_RANGE_MULT &&
-    last.v / baselineVolume >= EXCEPTIONAL_4H_VOLUME_MULT
-  );
-}
-
-/**
- * How far "extended" means, in multiples of the symbol's own daily ATR —
- * the same re-basing the proximity gates already went through (see
- * lib/scoring/proximity.ts): a flat percent of price does not mean the same
- * thing on a 0.5%-ATR mega-cap as on a 4%-ATR small-cap, so a 1% SPY move
- * and a 15% small-cap move that cover the same number of ATRs now register
- * as equally "extended" instead of the mega-cap almost never qualifying.
- * Tier 2 is double tier 1, preserving the ratio the old 5%/10% pair
- * expressed — re-basing the unit, not covertly re-tuning which tier is
- * stricter.
- */
-export const EXTENSION_ATR_TIER1 = 2;
-export const EXTENSION_ATR_TIER2 = 4;
-/**
- * Fallback fixed-percent thresholds for when no ATR read is available —
- * identical to the values they replace, so a symbol with no volatility read
- * gets exactly the old behavior instead of a silently different one.
- */
-export const FALLBACK_EXTENSION_PCT_TIER1 = 5;
-export const FALLBACK_EXTENSION_PCT_TIER2 = 10;
 
 /**
  * The liquidity floor, applied at the top of the coarse pass so it gates both
@@ -379,7 +302,8 @@ function tradeable(daily: Bar[]): boolean {
  *    in the coarse gate, not a new technique.
  *
  * Value chosen to move, not decide: the reversion floor is score>=3 across
- * five criteria worth 1-2 points each (max 8) — +1 here is worth less than
+ * three criteria worth 2 points each plus this bonus (max 7; a fourth,
+ * distance from the 50% point, was removed 2026-10-16) — +1 here is worth less than
  * any single existing criterion, so cycle timing can tip a genuinely close
  * call but never substitute for the structural criteria that carry the
  * pass/fail weight. Not yet logged to `coarse_gate_telemetry` / calibrated
@@ -395,124 +319,144 @@ function cycleBonus(direction: "bullish" | "bearish", cycles: TimeCycleResult | 
   return matches ? CYCLE_WINDOW_BONUS : 0;
 }
 
+/**
+ * The trend the coarse pass reads (PLAN.md item 6 step 7 and the item 6 review,
+ * A-TREND-01): Gann reads the main trend from the monthly chart, the weekly
+ * next, and the daily only for fast, active stocks (W006 p.19; the weekly is
+ * "the best chart for trading purposes", p.46). It is the full scan's own
+ * 30/7/1 weighting (`gannMacroDirection`) over the monthly bars when the
+ * monthly fetch has landed, the weekly chart rolled from the year of daily
+ * bars, and the daily. Without monthly bars the same weighting reads the
+ * weekly first and the daily only when the weekly shows no trend. The full
+ * scan reads its weekly chart from five years of weekly bars, so the two can
+ * still differ where a year of history doesn't show the weekly trend.
+ */
+export function coarseTrendDirection(daily: Bar[], monthly?: Bar[]): "bullish" | "bearish" | "sideways" {
+  return gannMacroDirection(trendsFromBars(daily, monthly)) ?? "sideways";
+}
+
 export function coarseReversion(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  /** Read once per symbol by the caller; computed here when omitted. */
+  trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
   const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
-  const trend = readTrend(daily, "1Day");
-  if (trend.direction === "sideways") return null;
+  const trendDirection = trendRead ?? coarseTrendDirection(daily);
+  // A reversion candidate moves opposite its trend. With no trend the full
+  // scan arms the nearer side (`reversionEntry`), so both sides are scored and
+  // the better one is kept; the full scan still picks the side it arms.
+  const sides: ("bullish" | "bearish")[] =
+    trendDirection === "sideways" ? ["bullish", "bearish"] : [trendDirection === "bearish" ? "bullish" : "bearish"];
+  let best: CoarseCandidate | null = null;
+  for (const direction of sides) {
+    const score = reversionScore(daily, price, direction, cycles);
+    if (score >= 3 && (best === null || score > best.coarseScore)) {
+      best = { symbol, direction, kind: "reversion", coarseScore: score };
+    }
+  }
+  return best;
+}
 
-  // A reversion candidate moves opposite its current extended trend.
-  const direction = trend.direction === "bearish" ? "bullish" : "bearish";
+function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bearish", cycles?: TimeCycleResult): number {
+  // Support and resistance still come from the daily chart's tops and bottoms.
+  const trend = readTrend(daily, "1Day");
 
   let score = 0;
 
-  // Every distance below is measured against this symbol's own daily range,
-  // not a flat percent of price — see EXTENSION_ATR_TIER1 above for why.
-  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
+  // Every "at a level" distance below is Gann's 3-point allowance at the
+  // price (`levelBandPct`, N#27).
 
-  // Extension: distance of price from the 50% point of its last 50 bars'
-  // range (Gann's balance point; was the 50-bar closing mean, an SMA, until
-  // 2026-09-26), in multiples of the symbol's own ATR. More extended means
-  // more primed for reversion.
-  const mid50 = rangeMidpoint(daily.slice(-50));
-  if (mid50 === null) return null;
-  const extensionPct = (Math.abs(price - mid50) / mid50) * 100;
-  const tier1Pct = proximityBandPct(EXTENSION_ATR_TIER1, FALLBACK_EXTENSION_PCT_TIER1, atrPct);
-  const tier2Pct = proximityBandPct(EXTENSION_ATR_TIER2, FALLBACK_EXTENSION_PCT_TIER2, atrPct);
-  if (extensionPct > tier1Pct) score += 1;
-  if (extensionPct > tier2Pct) score += 1;
+  // How far price has run from its 50% point no longer scores (PLAN.md item 6
+  // step 6, A-TREND-09): "a stock is never too high to buy so long as the
+  // trend is up, provided you place a stop loss order" (W006 p.22, and the
+  // mirror for a short, pp.38-39). Height alone is no reason to trade against
+  // the trend; a reversion has to stand on Gann's own criteria below (a fan
+  // line, volume at the turn, an old level, a time window).
 
-  // Proximity to a Gann fan line — the same ATR-relative band the full
-  // scan's gannAngleSlope-adjacent proximity criteria use, so a symbol that
-  // clears this coarse gate is likely to clear the real one too.
-  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
+  // Proximity to a Gann fan line: within Gann's 3-point allowance, the band
+  // the full scan's level criteria use (N#27), so a symbol that clears this
+  // coarse gate is likely to clear the real one too.
   const fans = computeFanLines(daily, price);
-  if (fans.length > 0 && fans[0].distancePct <= fanBandPct) score += 2;
+  if (fans.length > 0 && fans[0].distancePct <= levelBandPct(price)) score += 2;
   // Same anchor convention and rule as the full scan's volumeClimax
   // criterion (lib/scoring/score.ts): Gann's volume rule at the turn, drying
   // up at a normal bottom or a climax in a panic, heavy at a top (parity D1).
   const climaxAnchorKind = direction === "bullish" ? "low" : "high";
-  const climax = computeVolumeClimax(daily).find((r) => r.anchorKind === climaxAnchorKind);
+  // Completed sessions, as the full scan reads them. The coarse pass has no
+  // monthly bars, so the smallest-month-in-years bottom (A-VOLUME-09) is read
+  // only by the full scan: a documented live-only gap in this pre-filter.
+  const climax = computeVolumeClimax(daily, undefined, { asOf: new Date() }).find((r) => r.anchorKind === climaxAnchorKind);
   if (climax?.confirms) score += 2;
 
   // Proximity to a clustered S/R level in the reversion direction
-  const srBandPct = proximityBandPct(SR_PROXIMITY_ATR, FALLBACK_SR_PCT, atrPct);
+  const srBandPct = levelBandPct(price);
   const levels = direction === "bullish" ? trend.support : trend.resistance;
   if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
 
   score += cycleBonus(direction, cycles);
-
-  if (score < 3) return null;
-  return { symbol, direction, kind: "reversion", coarseScore: score };
+  return score;
 }
 
 /**
- * The other side of the same daily bars: a trend that is still running, not one
- * stretched far enough to snap back. Scored on how much momentum is behind it,
- * because that is the whole reason to take a continuation — the gates are hard
- * (an expanding range, price holding the trend side of its mean, and a genuine
- * volatility/volume spike in the past 4 hours — see `hasExceptional4hMomentum`)
- * so the pool stays small and the fills are the ones actually moving right now,
- * not just a name with an elevated day somewhere in its trailing average.
+ * The other side of the same daily bars: a trend that is still running.
+ * Gann buys a stock however high while its trend is up, with a stop (W006
+ * p.22, A-TREND-09), so the trend alone admits a candidate (item 6 step 11).
+ * Momentum only ranks: the pool is scanned best first and the full pass is
+ * capped, so the score decides which trending names are looked at.
  */
 /**
- * Travel-from-mean threshold for the continuation gate, in ATR multiples —
- * scaled down from EXTENSION_ATR_TIER1 by the same ratio the old fixed
- * percentages (3% vs. 5%) expressed, so re-basing the unit doesn't quietly
- * change how strict this gate is relative to the reversion gate.
+ * Travel-from-mean threshold for the continuation ranking, in ATR multiples —
+ * scaled down from the reversion gate's old 2-ATR extension tier by the same
+ * ratio the old fixed percentages (3% vs. 5%) expressed. That tier was removed
+ * on 2026-10-16 (item 6 step 6). A ranking point only.
  */
 export const TRAVEL_ATR_MULT = 1.2;
 export const FALLBACK_TRAVEL_PCT = 3;
 
+/** Daily bars a continuation candidate needs: the coarse trend read's own minimum. */
+export const CONTINUATION_MIN_DAILY_BARS = 60;
+
 export function coarseContinuation(
   symbol: string,
   daily: Bar[],
-  bars4h: Bar[],
   cycles?: TimeCycleResult,
+  trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseCandidate | null {
-  // Needs the full trailing window the baseline is measured over.
-  if (daily.length < 120) return null;
+  if (daily.length < CONTINUATION_MIN_DAILY_BARS) return null;
   if (!tradeable(daily)) return null;
-  if (!hasExceptional4hMomentum(bars4h)) return null;
   const price = daily[daily.length - 1].c;
   if (price < MIN_SCAN_PRICE) return null;
-  const trend = readTrend(daily, "1Day");
-  if (trend.direction === "sideways") return null;
+  const trendDirection = trendRead ?? coarseTrendDirection(daily);
+  if (trendDirection === "sideways") return null;
 
   // A continuation candidate moves WITH its trend.
-  const direction = trend.direction;
+  const direction = trendDirection;
 
-  const ratio = expansionRatio(daily);
-  if (ratio < MOMENTUM_EXPANSION) return null;
+  // Ranking from here down: none of it admits or rejects. Every point reads
+  // Gann's own tools (the 50% point, volume behind the move, the time cycles).
+  // A widening daily range or a 4-hour spike is not among them, so neither
+  // ranks here (removed 2026-10-16).
+  let score = 3;
 
-  // The trend has to still be intact, not rolling over into the pullback that
-  // makes a reversion candidate: price on the trend side of the 50% point of
-  // its last 20 bars' range (Gann's balance point; was the 20-bar mean until
-  // 2026-09-26).
+  // Price on the trend side of the 50% point of its last 20 bars' range
+  // (Gann's balance point): running now rather than in a reaction.
   const mid20 = rangeMidpoint(daily.slice(-20));
-  if (mid20 === null) return null;
-  const intact = direction === "bullish" ? price > mid20 : price < mid20;
-  if (!intact) return null;
+  if (mid20 !== null && (direction === "bullish" ? price > mid20 : price < mid20)) score += 1;
 
-  let score = 3; // cleared the daily expansion gate and the 4-hour spike gate
-  if (ratio >= 1.5) score += 1;
-  if (ratio >= 2) score += 1;
-
-  // Participation: is the move being funded, or is it drifting on thin tape?
+  // Volume increasing with the trend (Gann's volume rules, W006 Ch. VI): is
+  // the move being funded, or drifting on thin tape? The 1.2 is an
+  // engineering choice, labelled.
   const volRecent = mean(daily.slice(-10).map((b) => b.v));
   const volBaseline = mean(daily.slice(-60, -10).map((b) => b.v));
   if (volBaseline > 0 && volRecent / volBaseline >= 1.2) score += 1;
 
   // Distance travelled from the 50% point of the last 50 bars' range in the
-  // trend direction: a trend that has actually gone somewhere, scored the
-  // opposite way to a reversion. Same balance point and ATR-relative
-  // rebasing as coarseReversion's extension tiers.
+  // trend direction: a trend that has actually gone somewhere.
   const mid50 = rangeMidpoint(daily.slice(-50));
   const travelPct = mid50 ? ((price - mid50) / mid50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
@@ -526,7 +470,7 @@ export function coarseContinuation(
 
 interface CoarseDiagnostics {
   symbol: string;
-  /** The underlying daily trend read, or null when sideways/unreadable. Not
+  /** The coarse pass's trend read (`coarseTrendDirection`), or null when sideways/unreadable. Not
    * the same as either gate's candidate direction — a reversion candidate
    * trades against this. */
   trendDirection: "bullish" | "bearish" | null;
@@ -558,6 +502,7 @@ function coarseDiagnostics(
   symbol: string,
   daily: Bar[],
   cycles?: TimeCycleResult,
+  trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseDiagnostics | null {
   if (daily.length < 60) return null;
   const price = daily[daily.length - 1].c;
@@ -567,13 +512,13 @@ function coarseDiagnostics(
   const extensionPct = mid50 ? (Math.abs(price - mid50) / mid50) * 100 : 0;
   const extensionAtr = atrPct !== null && atrPct > 0 ? extensionPct / atrPct : null;
 
-  const trend = daily.length >= 120 ? readTrend(daily, "1Day") : null;
+  const read = daily.length >= 120 ? (trendRead ?? coarseTrendDirection(daily)) : "sideways";
   let trendDirection: "bullish" | "bearish" | null = null;
   let travelPct: number | null = null;
   let travelAtr: number | null = null;
-  if (trend && trend.direction !== "sideways") {
-    trendDirection = trend.direction;
-    const dir = trend.direction === "bullish" ? 1 : -1;
+  if (read !== "sideways") {
+    trendDirection = read;
+    const dir = read === "bullish" ? 1 : -1;
     travelPct = mid50 ? ((price - mid50) / mid50) * 100 * dir : 0;
     travelAtr = atrPct !== null && atrPct > 0 ? travelPct / atrPct : null;
   }
@@ -614,6 +559,10 @@ export function hasTradePlan(r: ScanResult): boolean {
   // The plan's levels come only from Gann's entry trigger (scanTicker), so a
   // complete plan is the whole test. The STRAT pattern no longer gates
   // publication (2026-09-28, project owner; see AGENTS.md).
+  // A plan whose own stop is broken is retired (owner, 2026-09-30, "a breach
+  // retires the plan") and never takes a slot: the scan reports it
+  // (`stopBreach`), and the price it ran at is checked against the stop
+  // directly as well. Production published 11 of 14 such plans on 2026-10-16.
   return (
     l !== null &&
     [l.entry, l.stopLoss, l.takeProfit1, l.masterProfit].every(
@@ -623,52 +572,55 @@ export function hasTradePlan(r: ScanResult): boolean {
     // (owner decision 2026-09-30, `lib/gann/stopBreach.ts`): "the plan leaves
     // the lists". Until 2026-10-16 the scan marked it Reject but still published
     // it, so most published rows were dead on arrival (11 of 14 that morning)
-    // and the dashboard read them as setups.
-    !r.stopBreach
+    // and the dashboard read them as setups. The price the scan ran at is
+    // checked against the stop directly as well.
+    !r.stopBreach &&
+    !(r.direction !== "none" && isStopBreached(r.direction, l.stopLoss, r.currentPrice))
   );
 }
 
 /**
- * What earns a top-up slot: a priced plan, a Gann continuation (the daily swing
- * chart already running the trade's way), breaking in
- * the direction the macro timeframes already read, with the range expansion to
- * carry it. All four, or the row is not what the shortage asked for.
+ * A with-trend setup the continuation pass can publish: a priced plan, in the
+ * direction asked, running with Gann's weighted trend over the monthly,
+ * weekly and daily charts (`isWithGannTrend`, shared with the replay). The
+ * trend alone, as Gann buys (W006 p.22): no momentum, breadth or score bar.
  */
-export function isMomentumContinuation(
+export function isWithTrendContinuation(
   r: ScanResult,
   direction: "bullish" | "bearish",
 ): boolean {
-  if (!hasTradePlan(r) || r.direction !== direction || !r.momentumElevated) return false;
-  if (!isGannContinuation(r.trends, direction)) return false;
-  // Considered switching to lib/gann/timeframeWeight.ts's power-ratio
-  // weighting here too (the same fix applied to lib/scanTicker.ts's
-  // macro-direction pattern preference) — reverted: this gate needs a
-  // *breadth* requirement (at least 2 of 3 macro timeframes actually
-  // confirming), which a pure weighted score doesn't provide, since one
-  // strongly-weighted timeframe alone would then satisfy it. Confirmed by
-  // lib/__tests__/trade-plan.test.ts's "does not count the hourly trend
-  // toward macro confirmation" case, which the weighted version broke.
-  //
-  // Both halves of this rule live in lib/scan/entrySelection.ts, shared with
-  // the backtest replay's continuation arm, so the two can't drift.
-  return macroBreadthAgrees(r.trends, direction);
+  return hasTradePlan(r) && r.direction === direction && isWithGannTrend(r.trends, direction);
 }
 
 /**
- * The continuation top-up pass's actual admission test: a genuine momentum
- * continuation shape (`isMomentumContinuation`) that also clears the same
- * Execute-tier bar a reversion has to clear on its own merits
- * (`EXECUTE_SCORE_THRESHOLD`). A candidate that arms the right pattern but
- * scores a 6, 5, or 4 is not "the best of what's left" here — it's excluded,
- * same as a symbol with no trade plan at all. A short continuation fill (or
- * none) is the correct answer on a day nothing clears the bar, not a
- * shortfall to paper over with a weaker setup.
+ * The continuation pass's admission test. It competes with the reversions for
+ * the list's slots by score, so no score bar applies here (the Execute bar it
+ * carried until 2026-10-16 rationed with-trend setups only).
  */
 export function qualifiesAsContinuationFill(
   r: ScanResult,
   direction: "bullish" | "bearish",
 ): boolean {
-  return isMomentumContinuation(r, direction) && r.decision.score >= EXECUTE_SCORE_THRESHOLD;
+  return isWithTrendContinuation(r, direction);
+}
+
+/**
+ * One side's list after the continuation pass: the reversions and the
+ * admitted with-trend setups ranked together by score, the top `perSide`
+ * kept (item 6 step 11). On a tie the reversion already listed stays ahead.
+ * `added` counts the continuation rows that made the list.
+ */
+export function mergeContinuations(
+  list: ScanResult[],
+  scans: ScanResult[],
+  direction: "bullish" | "bearish",
+  perSide: number,
+): { list: ScanResult[]; added: number } {
+  // A symbol already on this list is not listed twice (item 7 review M3).
+  const onList = new Set(list.map((r) => r.symbol));
+  const qualifying = scans.filter((r) => !r.error && qualifiesAsContinuationFill(r, direction) && !onList.has(r.symbol));
+  const merged = [...list, ...qualifying].sort((a, b) => b.decision.score - a.decision.score).slice(0, perSide);
+  return { list: merged, added: merged.filter((r) => qualifying.includes(r)).length };
 }
 
 export interface MarketScanOutput {
@@ -751,16 +703,66 @@ export async function filterShortable(results: ScanResult[]): Promise<ScanResult
   return checked.filter((r): r is ScanResult => r !== null);
 }
 
-/** Ceiling on top-up scans, so a two-sided shortage can't run past the budget. */
-const MAX_TOPUP_SCANS = 24;
+/**
+ * The symbols already on a list, so the continuation pass doesn't re-scan
+ * them. The sell side is kept whole until its shortable cut, so only its top
+ * `perSide` rows count: a low-ranked short that will never publish must not
+ * block its own symbol's with-the-trend buy scan (item 6 second review F5).
+ */
+export function listedSymbols(lists: Record<"bullish" | "bearish", ScanResult[]>, perSide: number): Set<string> {
+  return new Set([...lists.bullish, ...lists.bearish.slice(0, perSide)].map((r) => r.symbol));
+}
 
 /**
- * Minimum continuation slots scouted per side on every run, regardless of
- * whether reversions already filled that side's list to `perSide` — the
- * market is scanned for continuations every run, not only when reversions
- * come up short.
+ * The symbols each side's continuation pass skips: everything `listedSymbols`
+ * counts, and for the sell side every row already on the sell list too, so a
+ * low-ranked short is not scanned and listed a second time (item 7 review M3).
  */
-const CONTINUATION_QUOTA_PER_SIDE = 2;
+export function continuationExclusions(
+  lists: Record<"bullish" | "bearish", ScanResult[]>,
+  perSide: number,
+): Record<"bullish" | "bearish", Set<string>> {
+  const published = listedSymbols(lists, perSide);
+  return { bullish: published, bearish: new Set([...published, ...lists.bearish.map((r) => r.symbol)]) };
+}
+
+/**
+ * A symbol is on one list only. A with-the-trend buy can be listed for a
+ * symbol whose short ranked too low to publish (F5); its sell row then goes,
+ * so the cut after the shortable check can't bring it back (item 7 review M3).
+ */
+export function dropSellsAlsoBought(lists: Record<"bullish" | "bearish", ScanResult[]>): ScanResult[] {
+  const bought = new Set(lists.bullish.map((r) => r.symbol));
+  return lists.bearish.filter((r) => !bought.has(r.symbol));
+}
+
+/**
+ * The best `n` rows the broker reports as shortable, in their ranked order.
+ * The list is cut only after the check (item 6 review R5), so a short that
+ * can't be borrowed never pushes a shortable one off the list. Checks a chunk
+ * of `n` at a time, so a list that is all shortable costs no more lookups than
+ * `filterShortable` on the cut list did.
+ */
+export async function takeShortable(ranked: ScanResult[], n: number): Promise<ScanResult[]> {
+  const kept: ScanResult[] = [];
+  for (let i = 0; i < ranked.length && kept.length < n; i += n) {
+    kept.push(...(await filterShortable(ranked.slice(i, i + n))));
+  }
+  return kept.slice(0, n);
+}
+
+/**
+ * Ceiling on the continuation pass's full scans a run, split across the sides
+ * (item 6 review R4). Since item 6 step 11 the trend alone admits a candidate,
+ * so the pool is rarely short of names and the pass spends its whole budget
+ * every run, where it used to spend nothing (production's continuation gate
+ * admitted no symbol from 2026-09-23 to 2026-10-16). 12 is the scans a run
+ * typically made when the top-up did fire. Estimated, not measured by stage
+ * (Hobby keeps runtime logs an hour): fast production runs finish the whole
+ * scan, 13-24 full scans included, in 7-13 s, so about 0.3-0.5 s a scan, or
+ * 4-6 s for 12. The "continuation pass scoring done" mark logs the real figure.
+ */
+const MAX_TOPUP_SCANS = 12;
 
 /** Full-pass shortlist size, as a multiple of `perSide`. */
 const SHORTLIST_MULTIPLE = 4;
@@ -887,11 +889,8 @@ export async function runMarketScan(
   const actives = await resolveUniverse(universeTop, extraSymbols);
   mark("resolveUniverse done", `${actives.length} symbols`);
 
-  // Coarse pass — daily bars for trend/level context, plus a short window of
-  // 4-hour bars so the continuation gate can judge the last 4 hours on their
-  // own bar rather than inferring them from the daily candle.
+  // Coarse pass: daily bars for trend/level context.
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
-  const recentWeeks = new Date(Date.now() - 15 * 24 * 3600 * 1000);
   const end = new Date(Date.now() - 16 * 60 * 1000);
 
   // Batched where the provider supports it: one request per timeframe for the
@@ -901,7 +900,7 @@ export async function runMarketScan(
   // timeout before a scan could finish. Falls back to per-symbol fetches below
   // when unavailable (e.g. the synthetic demo provider).
   // Monthly bars for the yearly-cycle re-rank, started alongside the daily
-  // and 4-hour fetch rather than after it, so it adds no wall-clock time: it
+  // fetch rather than after it, so it adds no wall-clock time: it
   // is under half the daily fetch's rows and runs while the daily fetch (the
   // long pole — 21.4s at 250 symbols, production 2026-09-25) is still going.
   // Never awaited past that point: if it hasn't landed by the time the coarse
@@ -923,31 +922,33 @@ export async function runMarketScan(
       });
   }
 
-  const [dailyBatch, bars4hBatch] = await Promise.all([
-    provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
-    provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
-  ]);
-  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"} 4h=${bars4hBatch?.size ?? "n/a"}`);
+  const dailyBatch = (await provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity")) ?? null;
+  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"}`);
 
+  // The monthly bars, when their fetch has landed by now (it normally has: it
+  // is under half the daily fetch's rows and starts with it), give the coarse
+  // trend read its main trend. Not waited on: without them the read falls back
+  // to the weekly and daily charts.
+  const monthlyAtCoarse = monthlyBatch as Map<string, Bar[]> | null | undefined;
+  mark("monthly bars at the coarse pass", monthlyAtCoarse ? `${monthlyAtCoarse.size} symbols` : "not in");
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
-      const [daily, bars4h] =
-        dailyBatch && bars4hBatch
-          ? [dailyBatch.get(symbol.toUpperCase()) ?? [], bars4hBatch.get(symbol.toUpperCase()) ?? []]
-          : await Promise.all([
-              provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
-              provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
-            ]);
+      const daily = dailyBatch
+        ? (dailyBatch.get(symbol.toUpperCase()) ?? [])
+        : await provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity");
       // Computed once per symbol and threaded into both gates plus
       // diagnostics — cheap (pure arithmetic over bars already in memory
       // from the batch fetch above), no extra network call. See
       // `CYCLE_WINDOW_BONUS`'s own comment for what this does and doesn't
       // claim.
       const cycles = timeCycles(daily);
+      // One trend read per symbol, shared by both gates and the telemetry.
+      const monthly = monthlyAtCoarse?.get(symbol.toUpperCase());
+      const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
       return {
-        reversion: coarseReversion(symbol, daily, cycles),
-        continuation: coarseContinuation(symbol, daily, bars4h, cycles),
-        diagnostics: coarseDiagnostics(symbol, daily, cycles),
+        reversion: coarseReversion(symbol, daily, cycles, trendRead),
+        continuation: coarseContinuation(symbol, daily, cycles, trendRead),
+        diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {
       return { reversion: null, continuation: null, diagnostics: null };
@@ -998,29 +999,21 @@ export async function runMarketScan(
   const rank = (dir: "bullish" | "bearish") =>
     valid
       .filter((r) => r.direction === dir && hasTradePlan(r))
-      .sort((a, b) => b.decision.score - a.decision.score)
-      .slice(0, perSide);
+      .sort((a, b) => b.decision.score - a.decision.score);
 
+  // The sell side is kept whole until the shortable check below cuts it.
+  const sideLimit = { bullish: perSide, bearish: Infinity };
   const lists: Record<"bullish" | "bearish", ScanResult[]> = {
-    bullish: rank("bullish"),
+    bullish: rank("bullish").slice(0, perSide),
     bearish: rank("bearish"),
   };
   const continuationFills = { bullish: 0, bearish: 0 };
 
-  // ---- Continuation pass: fill a short side, and give every side a small
-  // guaranteed allotment even when reversions already filled it — a strong
-  // 4-hour spike is worth scouting regardless of whether the reversion list
-  // needed help. `shortfall` still reflects the reversion-list gap (kept for
-  // `continuationFills` accounting downstream); `target` is what actually
-  // drives how many top-up slots each side gets scanned for.
-  const shortfall = {
-    bullish: perSide - lists.bullish.length,
-    bearish: perSide - lists.bearish.length,
-  };
-  const target = {
-    bullish: Math.max(shortfall.bullish, CONTINUATION_QUOTA_PER_SIDE),
-    bearish: Math.max(shortfall.bearish, CONTINUATION_QUOTA_PER_SIDE),
-  };
+  // ---- Continuation pass (item 6 step 11): every run scans the best-ranked
+  // candidates running with their trend on each side, up to the top-up
+  // ceiling, and they compete with the reversions for the `perSide` slots by
+  // score. Gann buys with the trend however high (W006 p.22), so they are not
+  // rationed to a shortfall or a fixed allotment.
 
   // Hoisted so the telemetry build below (outside this block) can see which
   // continuation candidates got a real full scan and what score they made.
@@ -1037,30 +1030,25 @@ export async function runMarketScan(
   }
 
   if (!continuationSkipped && continuationPool.length > 0) {
-    const published = new Set([...lists.bullish, ...lists.bearish].map((r) => r.symbol));
-    const shortSides = (["bullish", "bearish"] as const).filter(
-      (d) => target[d] > 0 && continuationPool.some((c) => c.direction === d),
-    );
-    // Split the budget across the sides being scanned so a deep shortfall on
-    // one can't consume every scan and leave the other empty.
-    const perSideBudget = Math.floor(MAX_TOPUP_SCANS / Math.max(shortSides.length, 1));
-    // A symbol already scanned in the reversion pass told us its daily swing
-    // trend. If that trend doesn't run the direction we need, it can't be a
-    // Gann continuation (`isGannContinuation`) — re-scanning it with a
-    // direction preference won't change the daily chart — so skip it and spend
-    // the call on a candidate that might.
+    const excluded = continuationExclusions(lists, perSide);
+    const sides = (["bullish", "bearish"] as const).filter((d) => continuationPool.some((c) => c.direction === d));
+    // Split the budget across the sides being scanned so one side's pool
+    // can't consume every scan and leave the other empty.
+    const perSideBudget = Math.floor(MAX_TOPUP_SCANS / Math.max(sides.length, 1));
+    // A symbol already scanned in the reversion pass told us its trend. If
+    // Gann's weighted trend doesn't run the direction we need, re-scanning it
+    // with a direction preference won't change the charts, so skip it and
+    // spend the call on a candidate that might.
     const scanned = new Map(valid.map((r) => [r.symbol, r]));
     const cannotArm = (c: CoarseCandidate): boolean => {
       const prior = scanned.get(c.symbol);
-      return prior !== undefined && !isGannContinuation(prior.trends, c.direction);
+      return prior !== undefined && !isWithGannTrend(prior.trends, c.direction);
     };
 
-    const fills = shortSides.flatMap((dir) =>
+    const fills = sides.flatMap((dir) =>
       continuationPool
-        .filter((c) => c.direction === dir && !published.has(c.symbol) && !cannotArm(c))
-        // Over-scan the target: not every candidate still arms a trigger on
-        // the execution timeframe, and the ones that don't are dropped.
-        .slice(0, Math.min(target[dir] * 3, perSideBudget)),
+        .filter((c) => c.direction === dir && !excluded[dir].has(c.symbol) && !cannotArm(c))
+        .slice(0, perSideBudget),
     );
 
     const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol), EXECUTION_TIMEFRAME);
@@ -1074,23 +1062,22 @@ export async function runMarketScan(
       ),
     );
     continuationScanResults = scans;
+    mark("continuation pass scoring done", `scanned=${scans.length}`);
 
     for (const dir of ["bullish", "bearish"] as const) {
-      if (target[dir] <= 0) continue;
-      const additions = scans
-        .filter((r) => !r.error && qualifiesAsContinuationFill(r, dir))
-        .sort((a, b) => b.decision.score - a.decision.score)
-        .slice(0, target[dir]);
-      lists[dir] = [...lists[dir], ...additions];
-      continuationFills[dir] = additions.length;
+      const merged = mergeContinuations(lists[dir], scans, dir, sideLimit[dir]);
+      lists[dir] = merged.list;
+      continuationFills[dir] = merged.added;
     }
   }
 
-  lists.bearish = await filterShortable(lists.bearish);
+  lists.bearish = await takeShortable(dropSellsAlsoBought(lists), perSide);
+  const continuationScans = new Set(continuationScanResults);
+  continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
   const shortlistedSymbols = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
   const fullScanResults = new Map(
-    [...valid, ...continuationScanResults].map((r) => [r.symbol, r]),
+    [...valid, ...continuationScanResults.filter((r) => !r.error)].map((r) => [r.symbol, r]),
   );
   const coarseTelemetry: CoarseTelemetryRow[] = coarse
     .filter((c) => c.diagnostics !== null)

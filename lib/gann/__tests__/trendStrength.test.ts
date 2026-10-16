@@ -14,7 +14,9 @@
 
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { isGannRangeBound, readGannTrend } from "@/lib/gann/trendStrength";
+import { isGannRangeBound, readGannTrend, readSuccessiveSwings } from "@/lib/gann/trendStrength";
+import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
+import { contextFactorsFor } from "@/lib/gann/contextFactors";
 
 // Consecutive calendar days, so the weekly (7-calendar-day) swing chart sees
 // real dates. Every fixture used to share one timestamp, which the old
@@ -105,5 +107,64 @@ describe("isGannRangeBound", () => {
     for (const bars of [uptrend(120), flatRange(120), [bar(100), bar(101)]]) {
       expect(isGannRangeBound(bars)).toBe(!readGannTrend(bars).confirmed);
     }
+  });
+});
+
+describe("readSuccessiveSwings (C-ENTRY-03, Master Course Ch.8)", () => {
+  /** Straight legs through the given turning closes, `n` sessions each. */
+  function zig(turns: number[], n = 5): Bar[] {
+    const out: Bar[] = [];
+    for (let k = 1; k < turns.length; k++) {
+      for (let i = 1; i <= n; i++) out.push(bar(turns[k - 1] + ((turns[k] - turns[k - 1]) * i) / n));
+    }
+    return out;
+  }
+
+  it("counts the higher bottoms since the last lower one: the third higher bottom reads 3", () => {
+    const r = readSuccessiveSwings([bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121])]);
+    expect(r.higherBottoms).toBe(3);
+    expect(r.lowerTops).toBe(0);
+  });
+
+  it("starts the count again after a lower bottom", () => {
+    const r = readSuccessiveSwings([bar(110), ...zig([110, 100, 112, 103, 115, 98, 118, 101, 121])]);
+    expect(r.higherBottoms).toBe(1);
+  });
+
+  it("is on the card and in the measured context, with a buy", () => {
+    const daily = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121])];
+    const price = daily[daily.length - 1].c;
+    const ctx = readDisclosedRules(daily, price, null, new Date(Date.parse(daily[daily.length - 1].t) + 86_400_000));
+    expect(ctx.successiveSwings?.higherBottoms).toBe(3);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("Standing on the third higher bottom"))).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", price).secondOrThirdSwingWithTrade).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", price).secondOrThirdSwingWithTrade).toBe(false);
+  });
+
+  // Review 22: W003 p.17 and the Master Course p.248 say fast moves start
+  // from the third or fourth higher bottom, so a fourth is counted and named.
+  it("counts a fourth higher bottom as 4, names it, and flags the third or fourth", () => {
+    const daily = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121, 112, 124])];
+    expect(readSuccessiveSwings(daily).higherBottoms).toBe(4);
+    const price = daily[daily.length - 1].c;
+    const ctx = readDisclosedRules(daily, price, null, new Date(Date.parse(daily[daily.length - 1].t) + 86_400_000));
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("Standing on the fourth higher bottom"))).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", price).thirdOrFourthSwingWithTrade).toBe(true);
+    expect(contextFactorsFor(ctx, "bullish", price).secondOrThirdSwingWithTrade).toBe(false);
+    const third = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121])];
+    const c3 = readDisclosedRules(third, third[third.length - 1].c, null, new Date(Date.parse(third[third.length - 1].t) + 86_400_000));
+    expect(contextFactorsFor(c3, "bullish", third[third.length - 1].c).thirdOrFourthSwingWithTrade).toBe(true);
+    const second = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118])];
+    const c2 = readDisclosedRules(second, second[second.length - 1].c, null, new Date(Date.parse(second[second.length - 1].t) + 86_400_000));
+    expect(c2.successiveSwings?.higherBottoms).toBe(2);
+    expect(contextFactorsFor(c2, "bullish", second[second.length - 1].c).thirdOrFourthSwingWithTrade).toBe(false);
+    const down = [bar(100), ...zig([100, 120, 108, 117, 105, 114, 102, 111, 99, 108, 96])];
+    expect(readSuccessiveSwings(down).lowerTops).toBe(4);
+  });
+
+  it("mirrors for lower tops", () => {
+    const r = readSuccessiveSwings([bar(100), ...zig([100, 120, 108, 117, 105, 114, 102, 111, 99])]);
+    expect(r.lowerTops).toBe(3);
+    expect(r.higherBottoms).toBe(0);
   });
 });

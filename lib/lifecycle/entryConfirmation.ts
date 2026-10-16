@@ -45,45 +45,68 @@
  * bar cannot satisfy two stages, matching "an indicator flip ... alone
  * cannot produce an entry."
  *
- * **The break stage's buffer** (added 2026-09-16, per
- * `docs/GANN_PLATFORM_AUDIT.md` Part 3f/4 item 2 / AGENTS.md's "WD Gann
- * precedence" principle): `New Stock Trend Detector` (1936,
- * `docs/GANN_HISTORICAL_SOURCES.md` A5) discloses the "3-point rule" — a
- * break of an old level must clear it by a real buffer (his stated figure,
- * 3 full points) before it's trusted, not any close a penny beyond it.
- * Before this change, `break_or_sweep_detected` fired on *any* close beyond
- * the trigger, with no buffer at all. Gann's literal "3 points" is a 1930s
- * stock-price-era absolute figure, not directly portable to a modern
- * multi-price-range, multi-asset-class platform (a 2026-09-16 sibling
- * change, `lib/strat/levels.ts`'s `combineNearbyLevels`, declines to port a
- * different disclosed absolute figure for the same reason) — so this
- * implements the *rule* (a real, non-trivial buffer, not the bare trigger
- * price) rather than his exact number, using `DEFAULT_CONFIRMATION_BUFFER_PCT`
- * as a percentage of the trigger price, the same order of magnitude as the
- * platform's other "how far beyond a level counts as real" convention
- * (`EQUITY_STOP_BUFFER_PCT`, `lib/strat/levels.ts`). Live now, gating real
- * entries — not measured against historical stop-hit data, per the explicit
- * override.
+ * **The break stage's buffer.** Gann's 3-point rule says a break of an old
+ * level must clear it by 3 points before it's trusted (W006 pp.20–24, 46–47;
+ * *New Stock Trend Detector* p. 20). From 2026-09-16 this stage asked for a
+ * close 0.3% beyond the trigger, on top of a trigger that was itself 0.3%
+ * beyond the level. From 2026-10-15 (owner: "Use Gann's full 3 points now";
+ * PLAN.md item 3) the full, price-scaled 3 points live in the trigger price
+ * (`lib/gann/entryTrigger.ts`, `lib/gann/pointScale.ts`), so the default
+ * buffer here is zero: a close beyond the trigger *is* a close 3 points
+ * beyond the old top. Adding the allowance again would ask for 6 points,
+ * which Gann never does. A caller whose trigger is not already a 3-point
+ * crossing can pass its own `confirmationBufferPct` (the intraday replay does).
+ *
+ * **Gann's reaction rule (PLAN.md item 4, 2026-10-15).** Every production
+ * caller now passes the plan's stop, which selects his own rule: old top 50,
+ * a close at 53 crosses it, buy the reaction at 51, stop at 47 (W006 pp.20,
+ * 46-47). The plan's entry is the level plus 1 point and its stop the level
+ * less 3, so the crossing line is recovered from the two (`gannBreakLine`).
+ * The entry is ready on the closing break; the order then rests as a limit at
+ * the entry and the reaction fills it. The four-stage sequence above remains
+ * for the replay's `"confirmed"` rule, so the two can be measured side by side.
  */
 
 import type { Bar } from "@/lib/types";
 import type { EntryConfirmationEvidence } from "./types";
 import { EMPTY_ENTRY_CONFIRMATION } from "./types";
+import { gannBreakLine } from "@/lib/gann/entryTrigger";
+import { restsWithoutCrossing, type GannEntryKind } from "@/lib/gann/entryKind";
 
 export type ConfirmationDirection = "bullish" | "bearish";
 
 /**
- * Default break-stage buffer as a percentage of the entry trigger price —
- * see the "3-point rule" note above. Applied when a rule doesn't specify its
- * own `confirmationBufferPct`.
+ * Default break-stage buffer as a percentage of the entry trigger price.
+ * Zero, because the trigger already carries Gann's 3 points — see "The break
+ * stage's buffer" above. Applied when a rule doesn't specify its own
+ * `confirmationBufferPct`.
  */
-export const DEFAULT_CONFIRMATION_BUFFER_PCT = 0.3;
+export const DEFAULT_CONFIRMATION_BUFFER_PCT = 0;
 
 export interface EntryConfirmationRule {
   direction: ConfirmationDirection;
   entryTrigger: number;
   /** Percentage of `entryTrigger` the break stage must clear by. Defaults to `DEFAULT_CONFIRMATION_BUFFER_PCT`. */
   confirmationBufferPct?: number;
+  /**
+   * The plan's stop. When given, the rule is Gann's reaction buy (PLAN.md
+   * item 4, W006 pp.20, 46-47) rather than the retest-and-hold sequence:
+   * `entryTrigger` is the level plus 1 point, this stop the level less 3,
+   * and the entry is ready once a closed bar closes at or past the level plus
+   * 3 points (`gannBreakLine`). The order then rests as a limit at
+   * `entryTrigger` and fills on the reaction. Every production path passes
+   * it; the replay's `"confirmed"` rule and the intraday replay don't, so
+   * the older sequence can still be measured.
+   */
+  stopPrice?: number;
+  /**
+   * With `stopPrice`: `oldLevel` is Gann's double or triple bottom (PLAN.md
+   * item 5, step 2), a resting order at the level itself with nothing to
+   * arm, so it is ready on the first bar that hasn't closed through the stop.
+   * `hold`, a bottom that has held (step 4), rests at the last close the same
+   * way. Absent or `crossing` is the reaction after a crossing.
+   */
+  entryKind?: GannEntryKind;
 }
 
 /**
@@ -103,6 +126,35 @@ export function advanceEntryConfirmation(
 
   let next = evidence;
 
+  if (rule.stopPrice != null && restsWithoutCrossing(rule.entryKind)) {
+    // The order rests at the old bottom (or over the bottom that held) from
+    // the start: nothing to cross. A
+    // close through the stop first breaks the level, and it never arms after
+    // that, as the placement check reads it (`confirmationFromBars`).
+    if (next.entryConfirmedAt == null && next.stopClosedAt == null) {
+      if (up ? bar.c > rule.stopPrice : bar.c < rule.stopPrice) {
+        next = { ...next, touchedAt: bar.t, touchedPrice: bar.c, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c, entryConfirmedAt: bar.t };
+      } else {
+        next = { ...next, stopClosedAt: bar.t };
+      }
+    }
+    return next;
+  }
+
+  if (rule.stopPrice != null) {
+    // Gann's crossing: the touch and the closing break may be the same bar,
+    // since "a close at 53 crosses 50" is one event. Once broken, the entry
+    // is ready: the reaction is bought with a resting limit, not here.
+    const line = gannBreakLine(trigger, rule.stopPrice);
+    if (next.touchedAt == null && (up ? bar.h >= line : bar.l <= line)) {
+      next = { ...next, touchedAt: bar.t, touchedPrice: up ? bar.h : bar.l };
+    }
+    if (next.touchedAt != null && next.breakOrSweepAt == null && (up ? bar.c >= line : bar.c <= line)) {
+      next = { ...next, breakOrSweepAt: bar.t, breakOrSweepPrice: bar.c, entryConfirmedAt: bar.t };
+    }
+    return next;
+  }
+
   // Stage 1: entry-zone touch. Range-based — a wick reaching the level
   // counts, since this stage explicitly does NOT gate an order.
   if (next.touchedAt == null) {
@@ -112,8 +164,8 @@ export function advanceEntryConfirmation(
     }
   }
 
-  // Stage 2: break/sweep. Requires a CLOSE beyond the trigger by the "3-point
-  // rule" buffer (see header), on a bar strictly after the touch bar.
+  // Stage 2: break/sweep. Requires a CLOSE beyond the trigger (which already
+  // carries Gann's 3 points; see header), on a bar strictly after the touch bar.
   if (next.touchedAt != null && next.breakOrSweepAt == null && bar.t > next.touchedAt) {
     const bufferPct = rule.confirmationBufferPct ?? DEFAULT_CONFIRMATION_BUFFER_PCT;
     const bufferedTrigger = up ? trigger * (1 + bufferPct / 100) : trigger * (1 - bufferPct / 100);
@@ -168,11 +220,12 @@ export function advanceEntryConfirmation(
  * `plan.state`, which this function doesn't have), does.
  */
 export function entryReady(evidence: EntryConfirmationEvidence): boolean {
+  // Gann's reaction rule confirms on the break alone (its limit order waits
+  // for the reaction); the retest-and-hold rule needs all four stages. Each
+  // rule sets `entryConfirmedAt` only when its own sequence is complete.
   return (
     evidence.touchedAt != null &&
     evidence.breakOrSweepAt != null &&
-    evidence.retestAt != null &&
-    evidence.confirmationMoveAt != null &&
     evidence.entryConfirmedAt != null
   );
 }

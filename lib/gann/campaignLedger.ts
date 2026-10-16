@@ -19,7 +19,8 @@
  *   (*Commodities* p. 51, 1951 New Rules p. 312; A09 Rule 8).
  * - **Monthly-low break.** The first break of a prior month's low since the
  *   top signals the turn, mirrored for highs (*New Stock Trend Detector*;
- *   *Wall Street Stock Selector* Ch. IV and VII).
+ *   *Wall Street Stock Selector* Ch. IV and VII). Read on the month so far,
+ *   with whether it is the campaign's first.
  * - **Time balancing.** Project a swing's duration forward from the last
  *   pivot: when the current move has lasted as long as the prior one, time
  *   has balanced (*Commodities* pp. 97-99, 205, 293).
@@ -85,26 +86,88 @@ export interface CampaignLedger {
   currentCounterMove: CounterMoveSize | null;
   spaceOverbalanced: boolean;
   timeOverbalanced: boolean;
-  /** The current bar broke the prior month's low (bullish campaign) or high (bearish). */
+  /**
+   * The counter-move in progress made its latest extreme in its third month
+   * (after `SECOND_MONTH_END_DAYS`): a rising stock that keeps falling in the
+   * third month has changed its trend (A-TIME-01, W006 p.38; the bear rally's
+   * mirror, A-TIME-02). One that made its low in the second month and has held
+   * since is resuming, and is not flagged.
+   */
+  counterMoveThirdMonth: boolean;
+  /** The day of the current section's top (bottom in a bear campaign), which the reaction is counted from. */
+  sectionTopDate: string;
+  /** This month so far has broken the prior month's low (bullish campaign) or high (bearish). */
   monthlyBreak: boolean;
+  /** It is the campaign's first: no earlier month in the campaign broke the one before it. */
+  monthlyBreakFirst: boolean;
+  /**
+   * The latest reaction has gone under the top of the section before the last
+   * one (over its bottom in a bear campaign). Gann's 1933 reaction broke
+   * monthly lows and he still read the trend as up because it held above the
+   * first section's top (W006 p.14, A-TREND-06); a monthly break with this
+   * set ends the trend (PLAN.md item 6 step 3, item 6 review R2). False when
+   * the campaign has no earlier section to measure against.
+   */
+  reactionBelowPriorSection: boolean;
+  /**
+   * A month since the current section's top broke the month before it. With
+   * `reactionBelowPriorSection` it ends the trend until a new section top: a
+   * later month that holds does not undo it (item 6 second review F4).
+   */
+  monthlyBreakInReaction: boolean;
+  /**
+   * The campaign's last three completed counter-moves each smaller than the
+   * one before (C-TREND-04, W003 p.17, class C: late in a trend reactions get
+   * smaller until a sharp reversal). Context only, never gating.
+   */
+  contracting: boolean;
+  /** Calendar days spent moving with the campaign's trend, completed legs plus the open one. */
+  trendDays: number;
+  /** Calendar days spent moving against it, the same way. */
+  counterDays: number;
+  /**
+   * More time against the trend than with it (C-TREND-07, W003 p.17 and W034
+   * p.2, class C: a rising market should spend more time rising than falling).
+   * Context only, never gating.
+   */
+  timeRatioInverted: boolean;
   /** Dates when the current move will have lasted as long as the matching prior leg. */
   timeBalanceDates: string[];
   firstYearHigh: { price: number; crossed: boolean } | null;
+  /**
+   * The top of the secondary rally (A-LEVELS-02, W006 p.13: after the 1929
+   * top, the rally to 297 in April 1930 "is always an important point to
+   * watch"): the first weekly-chart top after a bear campaign's start, once
+   * the chart has turned down from it. The bull campaign's mirror, the first
+   * weekly bottom after the start, is the same rule turned over (Polarity; an
+   * engineering symmetry, Gann gives the bear case). Context only. It carries
+   * no "crossed" flag: crossing it crosses the campaign's last weekly top
+   * too (each later one is lower), which turns the weekly chart and starts a
+   * new campaign.
+   */
+  secondaryTurn: { kind: "top" | "bottom"; price: number; date: string } | null;
 }
 
-function monthlyExtremeBefore(bars: Bar[], kind: "low" | "high"): number | null {
-  const lastMonth = bars[bars.length - 1].t.slice(0, 7);
-  let priorMonth: string | null = null;
-  let extreme: number | null = null;
-  for (let i = bars.length - 1; i >= 0; i--) {
+/** Each calendar month's low and high, oldest first, from `from` on. */
+function monthRanges(bars: Bar[], from = 0): { month: string; low: number; high: number }[] {
+  const out: { month: string; low: number; high: number }[] = [];
+  for (let i = from; i < bars.length; i++) {
     const m = bars[i].t.slice(0, 7);
-    if (m === lastMonth) continue;
-    if (priorMonth === null) priorMonth = m;
-    if (m !== priorMonth) break;
-    extreme = extreme === null ? (kind === "low" ? bars[i].l : bars[i].h) : kind === "low" ? Math.min(extreme, bars[i].l) : Math.max(extreme, bars[i].h);
+    const cur = out[out.length - 1];
+    if (cur && cur.month === m) {
+      cur.low = Math.min(cur.low, bars[i].l);
+      cur.high = Math.max(cur.high, bars[i].h);
+    } else out.push({ month: m, low: bars[i].l, high: bars[i].h });
   }
-  return extreme;
+  return out;
 }
+
+/**
+ * The counter-move clock's months, in calendar days (Stock Selector Ch. IV;
+ * `counterMovePhase` in disclosedRules.ts reads the same constant): a
+ * counter-move's second month ends on day 60, and its third begins after it.
+ */
+export const SECOND_MONTH_END_DAYS = 60;
 
 export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   if (bars.length < 10) return null;
@@ -191,8 +254,72 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const timeOverbalanced =
     currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.days > greatestCounterMove.days;
 
-  const priorMonthExtreme = monthlyExtremeBefore(bars, bull ? "low" : "high");
-  const monthlyBreak = priorMonthExtreme !== null && (bull ? last.l < priorMonthExtreme : last.h > priorMonthExtreme);
+  const lastCounters = counterLegs.slice(-3);
+  const contracting = lastCounters.length === 3 && lastCounters[1].pct < lastCounters[0].pct && lastCounters[2].pct < lastCounters[1].pct;
+  const openDays = days(bars[lastPoint.index], last);
+  const trendDays = legs.filter((l) => l.direction === trendDir).reduce((n, l) => n + l.days, 0) + (openIsCounter ? 0 : openDays);
+  const counterDays = counterLegs.reduce((n, l) => n + l.days, 0) + (openIsCounter ? openDays : 0);
+
+  // The monthly break (A-TREND-11/-12, W006 pp.40-43): a month's bar keeps its
+  // low (high) for the whole month, so the month so far is compared with the
+  // one before, not the last session alone. Gann marks the first such break
+  // since the last one; within the campaign, that is the first month to break
+  // its predecessor (step 6.3).
+  const breaks = (prev: { low: number; high: number }, cur: { low: number; high: number }) =>
+    bull ? cur.low < prev.low : cur.high > prev.high;
+  const months = monthRanges(bars);
+  const monthlyBreak = months.length >= 2 && breaks(months[months.length - 2], months[months.length - 1]);
+  const campaignMonths = monthRanges(bars, start);
+  let earlierBreak = false;
+  for (let k = 1; k < campaignMonths.length - 1; k++) if (breaks(campaignMonths[k - 1], campaignMonths[k])) earlierBreak = true;
+  const monthlyBreakFirst = monthlyBreak && !earlierBreak;
+
+  // The sections are the weekly chart's legs (item 6 second review F1): its
+  // trend-side turning points are the section tops (bottoms in a bear
+  // campaign), not every minor 3-Day swing, so a short bounce inside a
+  // reaction or a dip inside a section does not move them. Once price has gone
+  // past the last weekly top, a new section is running and its top is the
+  // running extreme; until then the reaction is still the one from that top.
+  // Only a record top (above every earlier one in the campaign; a record
+  // bottom in a bear campaign) starts a section: a lower weekly top is a rally
+  // inside the reaction, not a new section (item 7 review H1).
+  const trendKind = bull ? "top" : "bottom";
+  const weeklyTops: typeof weekly.pivots = [];
+  for (const p of weekly.pivots) {
+    if (p.index < start || p.kind !== trendKind) continue;
+    const record = weeklyTops[weeklyTops.length - 1];
+    if (!record || (bull ? p.price > record.price : p.price < record.price)) weeklyTops.push(p);
+  }
+  const beyond = (i: number, price: number) => (bull ? bars[i].h > price : bars[i].l < price);
+  let sectionTop = start;
+  let priorTop: number | null = null;
+  const lastTop = weeklyTops[weeklyTops.length - 1];
+  if (lastTop && !bars.slice(lastTop.index + 1).some((_, k) => beyond(lastTop.index + 1 + k, lastTop.price))) {
+    sectionTop = lastTop.index;
+    priorTop = weeklyTops.length >= 2 ? weeklyTops[weeklyTops.length - 2].price : null;
+  } else {
+    const from = lastTop ? lastTop.index : start;
+    sectionTop = from;
+    for (let i = from; i < bars.length; i++) if (beyond(i, bull ? bars[sectionTop].h : bars[sectionTop].l)) sectionTop = i;
+    priorTop = lastTop ? lastTop.price : null;
+  }
+  // The reaction: everything since the section's top.
+  let reactionExtreme = -1;
+  for (let i = sectionTop + 1; i < bars.length; i++) {
+    if (reactionExtreme < 0 || (bull ? bars[i].l < bars[reactionExtreme].l : bars[i].h > bars[reactionExtreme].h)) reactionExtreme = i;
+  }
+  const reactionBelowPriorSection =
+    priorTop !== null && reactionExtreme >= 0 && (bull ? bars[reactionExtreme].l < priorTop : bars[reactionExtreme].h > priorTop);
+  // A month since the section's top broke the month before it: the reaction's
+  // part of each month (the top's own month from the day after the top) against
+  // the whole month before.
+  let monthlyBreakInReaction = false;
+  for (const r of monthRanges(bars, sectionTop + 1)) {
+    const k = months.findIndex((m) => m.month === r.month);
+    if (k > 0 && breaks(months[k - 1], r)) monthlyBreakInReaction = true;
+  }
+  // The reaction still making new extremes in its third month (A-TIME-01/-02).
+  const counterMoveThirdMonth = reactionExtreme >= 0 && days(bars[sectionTop], bars[reactionExtreme]) > SECOND_MONTH_END_DAYS;
 
   // Time balancing: the open leg measured against the last completed leg in
   // the same direction.
@@ -212,6 +339,18 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     firstYearHigh = { price: high, crossed: last.c > high };
   }
 
+  // The secondary rally: Gann defines it by example only, so "the first weekly
+  // counter-swing after the campaign's start" is the engineering reading.
+  const counterKind = bull ? "bottom" : "top";
+  const secondary = weekly.pivots.find((p) => p.index > start && p.kind === counterKind);
+  const secondaryTurn: CampaignLedger["secondaryTurn"] = secondary
+    ? {
+        kind: counterKind,
+        price: secondary.price,
+        date: bars[secondary.index].t.slice(0, 10),
+      }
+    : null;
+
   return {
     trend: weekly.trend,
     campaignStartDate: bars[start].t.slice(0, 10),
@@ -221,10 +360,38 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     currentCounterMove,
     spaceOverbalanced,
     timeOverbalanced,
+    counterMoveThirdMonth,
+    sectionTopDate: bars[sectionTop].t.slice(0, 10),
     monthlyBreak,
+    monthlyBreakFirst,
+    reactionBelowPriorSection,
+    monthlyBreakInReaction,
+    contracting,
+    trendDays,
+    counterDays,
+    timeRatioInverted: counterDays > trendDays,
     timeBalanceDates,
     firstYearHigh,
+    secondaryTurn,
   };
+}
+
+export interface MonthlyBreakWarning {
+  trend: "bullish" | "bearish";
+  monthlyBreak: boolean;
+  first: boolean;
+}
+
+/**
+ * The monthly break as a warning against new trades with the campaign's trend
+ * (PLAN.md item 6, step 3). On its own it does not end the trend: Gann's 1933
+ * reaction broke monthly lows and he still read the trend as up, because the
+ * low held above the first section's top (W006 p.14). When the reaction has
+ * gone under that top as well, `readGannTrend` ends the trend instead.
+ */
+export function readMonthlyBreakWarning(bars: Bar[]): MonthlyBreakWarning | null {
+  const l = buildCampaignLedger(bars);
+  return l ? { trend: l.trend, monthlyBreak: l.monthlyBreak, first: l.monthlyBreakFirst } : null;
 }
 
 export function describeCampaignLedger(l: CampaignLedger): string[] {
@@ -237,8 +404,16 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
           : "."),
     );
   }
-  if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}.`);
+  if (l.counterMoveThirdMonth) lines.push(`Still making new ${l.trend === "bullish" ? "lows" : "highs"} in the counter-move's third month: the trend is changing.`);
+  if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}${l.monthlyBreakFirst ? ", the first such break of the campaign" : ""}.`);
+  if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
+  if (l.timeRatioInverted) lines.push(`More time against the trend (${l.counterDays}d) than with it (${l.trendDays}d).`);
   if (l.timeBalanceDates.length > 0) lines.push(`Time balances with the prior matching swing on ${l.timeBalanceDates[0]}.`);
+  if (l.secondaryTurn) {
+    const t = l.secondaryTurn;
+    const name = t.kind === "top" ? "secondary rally top" : "secondary reaction bottom";
+    lines.push(`The campaign's ${name}, ${t.price.toFixed(2)} (${t.date}), is a point to watch.`);
+  }
   if (l.firstYearHigh) lines.push(`First-year high ${l.firstYearHigh.price.toFixed(2)} ${l.firstYearHigh.crossed ? "crossed" : "not crossed"}.`);
   return lines;
 }

@@ -184,7 +184,7 @@ export function stillMatches(
   return { ok: true, reason: null };
 }
 
-/** Whether a computed size is large enough for the protocol's staged exit. */
+/** Whether a computed size clears Guided's minimum (one share since Q14). */
 export function sizeIsTradeable(qty: number, minGuidedQty: number = MIN_GUIDED_QTY): boolean {
   return Number.isFinite(qty) && qty >= minGuidedQty;
 }

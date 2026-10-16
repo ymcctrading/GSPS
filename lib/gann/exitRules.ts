@@ -19,6 +19,9 @@
  *   Stock Selector*, Rule 3). That is a profit equal to the risk taken, so the
  *   price-scaled form is: break-even once the trade has gone one risk unit in
  *   its favour.
+ * - **Weekly trail** (A-STOP-05, PLAN.md item 4). Trail the stop 3 points
+ *   under each completed week's bottom once the trade is into a new week
+ *   (W006 p.46: "1, 2, 3 or 5 points"; 3 is the stop he calls safest).
  * - **C3 structural trail.** Keep the stop under each higher bottom as the
  *   swings step up (the 3-Day Chart's bottoms, *45 Years in Wall Street*), and
  *   under the prior month's low once the trade has run into a new month
@@ -39,13 +42,23 @@
  *   and its bottom rule is volume drying up (D1), not a turnover count, so no
  *   mirror is invented for shorts. Needs the stored share count; without it
  *   the rule is silent. See `capitalStock.ts`.
+ * - **A-VOLUME-03 breakdown after a lower top** (added 2026-10-16, fork FV7 b).
+ *   After a second, lower top, a narrow spell broken down on increased volume
+ *   signals a further decline (W006 pp.39-40, volume Rule 2). A long leaves
+ *   when such a breakdown, printed since the fill, still stands
+ *   (`distribution.ts`). Longs only: shorts take the breakaway down as their
+ *   own entry. Reported as "distribution", the same reason as D2.
+ * - **A-LEVELS-04 failed double or triple top** (added 2026-10-16, fork FL3
+ *   a). "Failing to pass an old top is a top" (W006 pp.14-15, 44): a long
+ *   leaves when a double or triple top fails after the fill; a short on the
+ *   mirror at a double or triple bottom. Reported as "failed_top".
  *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
  *   Until 2026-09-28 it reused the entry's 0.3% lost-motion margin, about a
  *   tenth of his figure; the 15-minute diagnosis run showed the hold test
- *   ending most trades on it. The entry still crosses by lost motion (a
- *   different rule: how far past a level counts as past it).
+ *   ending most trades on it. Since 2026-10-15 the entry crosses by the
+ *   same price-scaled 3 points (PLAN.md item 3).
  * - Every rule reads completed daily sessions only. Callers act on a signal
  *   at the next opportunity (the replay at the next session's open).
  *
@@ -60,13 +73,44 @@
  *    Polarity: every rule has its mirror for shorts.
  */
 
+import { gannReversal, reversesOn, type GannReversal } from "./reverse";
 import type { Bar } from "@/lib/types";
+import { readDistributionStanding } from "@/lib/gann/distribution";
+import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 
+
+/**
+ * Days of completed sessions the failed-top exit reads: `ENTRY_CHART_DAYS`
+ * (`lib/scan/entrySelection.ts`), restated to keep this module free of the
+ * scan's imports; a test pins the two equal.
+ */
+export const FAILED_TOP_CHART_DAYS = 364;
+
+/**
+ * The bars the failed-top exit reads for the bars before `upTo`: the 52 weeks
+ * (`FAILED_TOP_CHART_DAYS`) before their next session, which is
+ * `daily[upTo]` when it exists (the fill session, for the reading at entry)
+ * and otherwise the next weekday, as `entryChartBars` reads the session's
+ * window (review 12 L2). Holidays are not known here, so the day after a
+ * holiday reads one day further back than the scan; an engineering choice.
+ */
+export function failedTopWindow(daily: Bar[], upTo: number): Bar[] {
+  const day = (b: Bar) => b.t.slice(0, 10);
+  let next: string;
+  if (upTo < daily.length) next = day(daily[upTo]);
+  else {
+    let t = Date.parse(`${day(daily[upTo - 1])}T00:00:00Z`) + 86_400_000;
+    while ([0, 6].includes(new Date(t).getUTCDay())) t += 86_400_000;
+    next = new Date(t).toISOString().slice(0, 10);
+  }
+  const from = new Date(Date.parse(`${next}T00:00:00Z`) - FAILED_TOP_CHART_DAYS * 86_400_000).toISOString().slice(0, 10);
+  return daily.slice(0, upTo).filter((b) => day(b) >= from);
+}
 
 /** Gann's final stage: the 3rd section of a campaign or later. */
 export const FINAL_STAGE_SECTION = 3;
@@ -83,8 +127,8 @@ export interface GannExitPosition {
   crossedLevel: number | null;
 }
 
-export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_month" | "final_stage";
-export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution";
+export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage";
+export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution" | "failed_top";
 
 export interface GannExitReading {
   /** The tightest stop Gann's rules allow now. Callers ratchet: never loosen a stop already placed. */
@@ -92,9 +136,40 @@ export interface GannExitReading {
   stopReason: GannStopReason;
   /** Set when a rule says to leave now, at the next opportunity. */
   exit: { reason: GannExitReason; note: string } | null;
+  /**
+   * A-EXIT-02 (Q15): set when the exit says the trend has changed. The
+   * opposite trade at the close the exit was read on, its stop 3 points beyond
+   * this trade's extreme (`lib/gann/reverse.ts`).
+   */
+  reverse?: GannReversal | null;
 }
 
 const day = (b: Bar) => b.t.slice(0, 10);
+
+/**
+ * Gann's time to hold (A-TIME-12, W006 p.23): a loss at the first close
+ * suggests you are wrong; a profit at the first close that is still there
+ * after three days means you are with the main trend. (Three closes against
+ * you is the `three_adverse_closes` exit below.) The fill's own session is
+ * day one. Null before the first close.
+ */
+export interface HoldTimeReading {
+  /** The first session closed against the trade: a warning, not an exit. */
+  firstCloseAgainst: boolean;
+  /** In profit at the first close and still at the third: with the trend. Null until three sessions have closed. */
+  withTrendAfter3: boolean | null;
+}
+
+export function readHoldTime(side: "long" | "short", entry: number, entryDate: string, daily: Bar[]): HoldTimeReading | null {
+  const since = daily.filter((b) => day(b) >= entryDate);
+  if (since.length === 0) return null;
+  const inProfit = (b: Bar) => (side === "long" ? b.c > entry : b.c < entry);
+  const against = (b: Bar) => (side === "long" ? b.c < entry : b.c > entry);
+  return {
+    firstCloseAgainst: against(since[0]),
+    withTrendAfter3: since.length >= 3 ? inProfit(since[0]) && inProfit(since[2]) : null,
+  };
+}
 
 /**
  * Read Gann's exit rules for one open position.
@@ -137,7 +212,8 @@ export function readGannExit(
     if (failed) {
       exit = {
         reason: "hold_test_failed",
-        note: `Closed back ${long ? "under" : "over"} the ${long ? "top" : "bottom"} it crossed (${pos.crossedLevel.toFixed(2)}): the breakout did not hold.`,
+        // The level may be an old top crossed or an old bottom regained (A-TREND-10).
+        note: `Closed back ${long ? "under" : "over"} the old level it crossed (${pos.crossedLevel.toFixed(2)}): the breakout did not hold.`,
       };
     }
   }
@@ -151,6 +227,37 @@ export function readGannExit(
   if (!exit && since.length >= 3) {
     const adverse = since.slice(0, 3).every((b) => (long ? b.c < pos.entry : b.c > pos.entry));
     if (adverse) exit = { reason: "three_adverse_closes", note: "Closed against the trade on each of its first three days." };
+  }
+
+  // A-LEVELS-04 (fork FL3 a): "failing to pass an old top is a top". A long
+  // exits when a double or triple top fails after the fill; a short exits on
+  // the mirror at a double or triple bottom. A test that had already failed at
+  // entry was part of the setup (the scan holds the long to Watch and
+  // placement refuses it only when that top stands before TP1), so the exit
+  // needs a new failure: either none had failed on the sessions before the
+  // fill (review 11 M1: the 3-Day Chart confirms the test's peak days after it
+  // prints, so the peak's own date is not the test), or the failing test now
+  // is a later one than the one that stood then, such as the third test of a
+  // top already failed twice (review 12 H1; W006 p.44, the third test
+  // decides). Each reading covers the 52 weeks before its next session, the
+  // entry chart's window (`FAILED_TOP_CHART_DAYS`; review 12 L2): the fill
+  // session for the reading at entry, the next weekday for today's.
+  if (!exit) {
+    const window = (upTo: number) => failedTopWindow(daily, upTo);
+    const side = long ? "bullish" : "bearish";
+    const nowBars = window(daily.length);
+    const failed = failedTestAgainst(readMultipleTops(nowBars), side);
+    const entryBars = firstAfter > 0 ? window(firstAfter) : [];
+    const atEntry = firstAfter > 0 ? failedTestAgainst(readMultipleTops(entryBars), side) : null;
+    // The same test: its latest swing extreme is the same session (a later
+    // test is a later swing).
+    const sameTest = failed !== null && atEntry !== null && nowBars[failed.lastTestIndex].t === entryBars[atEntry.lastTestIndex].t;
+    if (failed && !sameTest) {
+      exit = {
+        reason: "failed_top",
+        note: `Failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${long ? "under" : "over"} it: a ${failed.kind}.`,
+      };
+    }
   }
 
   // C4: a change of trend after entry.
@@ -179,6 +286,27 @@ export function readGannExit(
     };
   }
 
+  // The ledger's other trend-change calls (item 7 review L1): a reaction still
+  // making new extremes in its third month (A-TIME-01/-02), or a monthly break
+  // whose reaction went under the previous section's top (A-TREND-06). Only
+  // when the call was not already standing at entry: one that was is part of
+  // the setup, the same rule as the over-balance above. The same call means
+  // the same reaction, counted from the same section top; a new section's
+  // own call after the fill exits (item 7 second review L-c).
+  const sectionChange = (l: NonNullable<typeof ledger>) =>
+    l.counterMoveThirdMonth || (l.monthlyBreakInReaction && l.reactionBelowPriorSection);
+  if (!exit && withCampaign && sectionChange(ledger!)) {
+    const atEntry = buildCampaignLedger(daily.slice(0, firstAfter));
+    if (!(atEntry && atEntry.trend === ledger!.trend && atEntry.sectionTopDate === ledger!.sectionTopDate && sectionChange(atEntry))) {
+      exit = {
+        reason: "trend_change",
+        note: ledger!.counterMoveThirdMonth
+          ? "The reaction is still making new extremes in its third month: the trend is changing."
+          : "A month broke the one before it and the reaction went past the previous section's top: the trend is changing.",
+      };
+    }
+  }
+
   // D2: a distribution week at a top, printed after the fill.
   if (!exit && long && sharesOutstanding) {
     const cs = readCapitalStock(daily, toWeeklyBars(daily), sharesOutstanding);
@@ -193,6 +321,21 @@ export function readGannExit(
     }
   }
 
+  // A-VOLUME-03 (fork FV7 b): after a lower top, a narrow spell broken down on
+  // increased volume signals a further decline, so an open long exits while
+  // such a breakdown stands, whenever it was bought (review M2, 2026-10-16:
+  // Gann's signal does not depend on the fill date; placement also refuses a
+  // long while one stands, `entryConfirmationRefusal`).
+  if (!exit && long) {
+    const standing = readDistributionStanding(daily, new Date(Date.parse(last.t) + 36 * 3_600_000));
+    if (standing) {
+      exit = {
+        reason: "distribution",
+        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}): a sign of a further decline.`,
+      };
+    }
+  }
+
   // C2: break-even after a profit equal to the risk taken.
   const risk = Math.abs(pos.entry - pos.initialStop);
   if (best !== null && risk > 0 && (long ? best >= pos.entry + risk : best <= pos.entry - risk)) {
@@ -203,6 +346,17 @@ export function readGannExit(
   const swings = walkSwingChart(daily, THREE_DAY_CHART);
   const lastSwing = [...swings.pivots].reverse().find((p) => p.kind === (long ? "bottom" : "top") && p.index >= firstAfter);
   if (lastSwing) adopt(below(lastSwing.price), "last_reaction");
+
+  // A-STOP-05: under each week's bottom (over each week's top when short),
+  // once the trade has run into a new week. W006 p.46 gives "1, 2, 3 or 5
+  // points"; GSPS takes 3, the stop he calls safest on the same page.
+  const weeks = toWeeklyBars(daily);
+  const thisWeek = weeks.length > 0 ? weeks[weeks.length - 1].t.slice(0, 10) : null;
+  const entryWeek = toWeeklyBars(since)[0]?.t.slice(0, 10) ?? null;
+  if (thisWeek && entryWeek && thisWeek > entryWeek && weeks.length >= 2) {
+    const prior = weeks[weeks.length - 2];
+    adopt(below(long ? prior.l : prior.h), "prior_week");
+  }
 
   // C3: under the prior month's low once the trade has run into a new month.
   const month = day(last).slice(0, 7);
@@ -226,5 +380,10 @@ export function readGannExit(
     }
   }
 
-  return { stop, stopReason, exit };
+  let reverse: GannReversal | null = null;
+  if (exit && reversesOn(exit.reason)) {
+    const extreme = best ?? (long ? Math.max(...since.map((b) => b.h)) : Math.min(...since.map((b) => b.l)));
+    reverse = gannReversal({ side: pos.side, brokenLevel: last.c, extreme });
+  }
+  return { stop, stopReason, exit, reverse };
 }

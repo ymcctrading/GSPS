@@ -10,6 +10,7 @@ import {
 } from "@/lib/gann/stopBreach";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { applyStopBreachHold } from "@/lib/scoring/score";
+import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import type { ScanDecision } from "@/lib/types";
 
@@ -64,6 +65,17 @@ describe("reclaimLevel", () => {
   it("scales with the price, as he scaled his points", () => {
     const pctAt = (p: number) => (reclaimLevel("bullish", p) - p) / p;
     expect(pctAt(20)).toBeGreaterThan(pctAt(500));
+  });
+
+  it("reads the 1-point penetration as a third of the 3-point allowance, both ways (C-STOP-04)", () => {
+    expect(reclaimLevel("bullish", 88, 1) - 88).toBeCloseTo(gannThreePoints(88) / 3, 10);
+    expect(88 - reclaimLevel("bearish", 88, 1)).toBeCloseTo(gannThreePoints(88) / 3, 10);
+  });
+
+  it("lets the replay route measure 1, 3 or 5 points", async () => {
+    const fs = await import("node:fs");
+    const route = fs.readFileSync("app/api/backtest/route.ts", "utf8");
+    expect(route).toMatch(/\["1", "3", "5"\]\.includes\(reclaimPointsRaw\)/);
   });
 
   it("defaults to his 3 points, and the replay can ask for the stricter 5", () => {
@@ -187,5 +199,31 @@ describe("applyStopBreachHold", () => {
     expect(summary.stateNote).toMatch(/plan is retired/i);
     expect(summary.stateNote).toMatch(/false break/);
     expect(JSON.stringify(summary)).not.toMatch(/swingChartTrend|Swing chart trend/);
+  });
+});
+
+/**
+ * A-PRICE-07 (W036 pp. 22-23): both prices are stated before the event, and each
+ * acts when it is reached. The plan's trigger arms the entry on a close past it;
+ * its stop, unchanged, retires the plan once price goes through it.
+ */
+describe("A-PRICE-07: a trigger and a stop stated in advance, each acting", () => {
+  const trigger = 100;
+  const stop = 97;
+  const b = (t: string, l: number, h: number, c: number) => ({ t, o: c, h, l, c, v: 1000 });
+  const before = b("2026-09-25T13:30:00Z", 96.5, 99, 98.5);
+  const crossed = b("2026-09-25T13:45:00Z", 98.5, 104.5, 104);
+  const broke = b("2026-09-25T14:00:00Z", 95, 104, 95.5);
+
+  it("arms only once a close has gone past the stated trigger", () => {
+    expect(confirmationFromBars([before], "bullish", trigger, stop).ready).toBe(false);
+    expect(confirmationFromBars([before, crossed], "bullish", trigger, stop).ready).toBe(true);
+  });
+
+  it("retires the plan on the stated stop, which has not moved", () => {
+    expect(confirmationFromBars([before, crossed, broke], "bullish", trigger, stop).stage).toBe("dead");
+    const breach = readStopBreach({ direction: "bullish", stopLoss: stop, price: broke.c })!;
+    expect(breach).toMatchObject({ breached: true, stop });
+    expect(applyStopBreachHold(decision("Execute"), breach).outputState).toBe("Reject");
   });
 });

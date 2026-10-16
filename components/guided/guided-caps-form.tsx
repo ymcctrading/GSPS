@@ -5,23 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchWithTimeout } from "@/lib/utils";
-import {
-  DEFAULT_GUIDED_BUDGET_USD,
-  DEFAULT_GUIDED_CAPS,
-  MAX_GUIDED_BUDGET_USD,
-  MAX_RISK_PCT,
-  MIN_GUIDED_BUDGET_USD,
-  MIN_RISK_PCT,
-  type GuidedCaps,
-} from "@/lib/guided/config";
+import { DEFAULT_GUIDED_CAPS, MAX_RISK_PCT, MIN_RISK_PCT, type GuidedCaps } from "@/lib/guided/config";
+import { CAPITAL_POINTS_PER_SHARE, MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
 
-// budgetUsd stays a plain numeric string, same as every other field — the
-// on/off state lives in `budgetEnabled` instead of being inferred from an
-// empty string, because the input has to survive being cleared mid-edit
-// (select-all-and-retype) without the field itself disappearing under the
-// user's cursor. It is kept out of the generic FIELDS loop below and
-// rendered with its own checkbox.
-type Draft = Record<keyof GuidedCaps, string> & { budgetEnabled: boolean };
+type Draft = Record<keyof GuidedCaps, string>;
 
 const FIELDS: {
   key: keyof GuidedCaps;
@@ -39,40 +26,15 @@ const FIELDS: {
     min: MIN_RISK_PCT,
     max: MAX_RISK_PCT,
   },
-  {
-    key: "maxTradesPerDay",
-    label: "New positions per day",
-    hint: "Counted in Eastern trading days, and only against trades opened through Guided Mode.",
-    step: "1",
-    min: 1,
-    max: 20,
-  },
-  {
-    key: "maxTradesPerWeek",
-    label: "New positions per rolling week",
-    hint: "The last seven days, not the calendar week.",
-    step: "1",
-    min: 1,
-    max: 50,
-  },
-  {
-    key: "maxDeployedPct",
-    label: "Most equity deployed at once (%)",
-    hint: "Across all open guided positions together. Per-trade risk caps what one trade can lose; this caps what the mode can tie up.",
-    step: "5",
-    min: 5,
-    max: 100,
-  },
 ];
 
 /**
  * The Guided Mode caps, editable.
  *
- * Every limit the mode enforces is here, because a cap the user cannot see or
- * change is the app quietly deciding for them. What is *not* here is a way to
- * turn any of them off — the bounds on each field are the range Guided Mode is
- * willing to honour, and a value outside it is refused by the API too, not only
- * by this form.
+ * The per-trade risk percent is the one limit a user sets. The capital rules
+ * (30 points of capital a share, at most three markets) are shown, not edited:
+ * they are the method's, the same on every order path (Q12, 2026-10-16). The
+ * risk bounds are refused by the API too, not only by this form.
  */
 export function GuidedCapsForm() {
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -110,10 +72,6 @@ export function GuidedCapsForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           riskPct: Number(draft.riskPct),
-          maxTradesPerDay: Number(draft.maxTradesPerDay),
-          maxTradesPerWeek: Number(draft.maxTradesPerWeek),
-          maxDeployedPct: Number(draft.maxDeployedPct),
-          budgetUsd: draft.budgetEnabled ? Number(draft.budgetUsd) : null,
         }),
       });
       const body = await res.json();
@@ -168,32 +126,13 @@ export function GuidedCapsForm() {
               ))}
             </div>
             <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
-              <label className="flex items-center gap-2 font-medium">
-                <input
-                  type="checkbox"
-                  checked={draft.budgetEnabled}
-                  onChange={(e) => setDraft({ ...draft, budgetEnabled: e.target.checked })}
-                />
-                Cap each trade to a dollar budget
-              </label>
+              <span className="font-medium">Capital rules</span>
               <span className="text-xs text-muted">
-                For accounts trading with real money in the low hundreds: no recommendation will
-                ever cost more than this, however much the risk percentage above would otherwise
-                size it to. On by default, because the percentage caps alone are sized against
-                paper equity that can be far larger than what you actually have to spend.
+                Every share held needs capital behind it: {CAPITAL_POINTS_PER_SHARE} points a share, scaled to
+                the stock&apos;s price. At most {MAX_OPEN_SYMBOLS} markets are open at once, and three losses in a
+                row pause new entries for that day and the next. These are the method&apos;s rules, the same on
+                every order, so they are not settings.
               </span>
-              {draft.budgetEnabled && (
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="10"
-                  min={MIN_GUIDED_BUDGET_USD}
-                  max={MAX_GUIDED_BUDGET_USD}
-                  value={draft.budgetUsd}
-                  onChange={(e) => setDraft({ ...draft, budgetUsd: e.target.value })}
-                  className="max-w-40"
-                />
-              )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={() => void save()} disabled={saving}>
@@ -220,14 +159,5 @@ export function GuidedCapsForm() {
 }
 
 function toDraft(caps: GuidedCaps): Draft {
-  return {
-    riskPct: String(caps.riskPct),
-    maxTradesPerDay: String(caps.maxTradesPerDay),
-    maxTradesPerWeek: String(caps.maxTradesPerWeek),
-    maxDeployedPct: String(caps.maxDeployedPct),
-    // A remembered numeric value even while off, so re-checking the box does
-    // not reset a figure the user already chose.
-    budgetUsd: String(caps.budgetUsd ?? DEFAULT_GUIDED_BUDGET_USD),
-    budgetEnabled: caps.budgetUsd != null,
-  };
+  return { riskPct: String(caps.riskPct) };
 }

@@ -93,6 +93,15 @@ disclosed-by-Gann-himself versus later reconstruction versus unrelated.
 `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the implementation audit built
 from it.
 
+**Every book in the collection has been read (owner, 2026-10-16).** Never
+hold a rule as unverifiable on an unread book. The readings are in
+`/mnt/project-files/literature-reading-output/` (the long books' per-work notes
+under `external/checkpoint_v7/`, which numbers works its own way: its W023 is
+the *Master Stock Market Course*, W005 *Truth of the Stock Tape* and the *Stock
+Selector*, W001/W004 *Commodities*, W009 *45 Years*). Read-only. A rule found
+in Gann's own text there is his rule and is carried; one found in no book stays
+context only.
+
 `docs/memory-bank/` holds the page-by-page reads (2026-09-27) of the Gann,
 Observation of Cycles and Hermetic (Hauck) source folders, synthesised in our
 own words with no book text stored. **Start with
@@ -148,6 +157,13 @@ on Gann's exits"):** live and paper positions now exit on Gann's rules with
 60% still taken at TP1 (`LIVE_EXIT_RULE`, `lib/trade/protocol-exit.ts`;
 measured as `exitRule: "gann-runner"`, not yet run). `STRATEGY_VERSION` is
 `2026-09-28-gann-exits-figures` (even figures move plan stops and targets).
+**Superseded 2026-10-16 (owner, "Switch all nine", Q14):** no fixed target at
+all. `LIVE_EXIT_RULE` is "gann": nothing sells at TP1 and the whole position
+runs on Gann's stop and exit signals, as the replay's `exitRule: "gann"`
+measures; the 60% rule is kept as "gann-runner". Gann's capital rules
+(`lib/risk/gannCapital.ts`: 30 points of capital a share, at most 3 markets)
+size and refuse every order and replace Guided's own caps (Q4, Q6, Q12).
+`STRATEGY_VERSION` was `2026-10-16-gann-no-fixed-target`. **Q15, same day:** a trade caught on a stop or a change of trend reverses at Gann's geometry (`lib/gann/reverse.ts`: entry at the broken level, stop 3 points beyond the old extreme); automation seeds the plan with no setting to turn it off, a manual trade gets the offer in the exit notes, and the replay walks it (`reverseWhenCaught`). It still confirms before entry. `STRATEGY_VERSION` is `2026-10-16-gann-reverse-when-caught`.
 **Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
 cell loses over 2020-2026, interval wholly below zero, both halves; Execute
 is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The
@@ -863,6 +879,13 @@ for the project owner** — do not fix it silently, and re-verify it first:
   swing-chart run agrees: confirmed +0.190R vs stop −0.052R overall. Not
   covered, deliberately: the ticket's "now" market entry (no trigger to
   confirm) and protective orders.
+  **Superseded 2026-10-15 (PLAN.md item 4, owner: "GSPS should be a 1 for 1
+  implementation of Gann's methodology"):** the confirmation is now Gann's
+  crossing rule. A close 3 points past the old level arms the plan; the order
+  rests as a limit at the level plus 1 point and fills on the reaction, with
+  the stop 3 points the other side (W006 pp.20, 46-47). The retest-and-hold
+  sequence survives only as the replay's `entryRule: "confirmed"`.
+  `STRATEGY_VERSION` is `2026-10-15-gann-reaction-entry`.
 - **Non-Gann inputs in the Signal & Regime Engine (F2.5).** SMA 20/50 and
   anchored VWAP (`lib/signals/regime.ts`, `lib/signals/states/trendPullback.ts`)
   feed user-facing tier/"Tradeable" labels and trade-plan expiry. The
@@ -2007,7 +2030,7 @@ Standing facts for a session that touches any list of setups:
   user's watchlist symbols into the system scan's universe (capped at 50 total),
   so a symbol added there can be covered by that scan.
 - **Timeline, in one line.** Entry is minutes to a few hours (four closed
-  15-minute bars at least; a plan expires after 45 minutes to 5 hours); the
+  15-minute bars at least; a plan lasts its session unless its stop breaks first, Q17, 2026-10-16); the
   trade is days to weeks (median about 5 to 7 sessions in the replay, and 60%
   of trades on the live exits were still open at its 10-session limit).
 

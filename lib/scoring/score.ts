@@ -10,7 +10,12 @@
  */
 
 import type { BreakawayReading } from "@/lib/gann/breakaway";
+import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import type { DistributionStanding } from "@/lib/gann/distribution";
+import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
+import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
+import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import type {
   AssetClass,
   GannLevels,
@@ -23,10 +28,8 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import {
-  FALLBACK_FAN_PCT,
-  FAN_PROXIMITY_ATR,
-  bandBasis,
-  proximityBandPct,
+  LEVEL_BAND_BASIS,
+  levelBandPct,
 } from "@/lib/scoring/proximity";
 import { LEVEL_TIMEFRAME_USAGE, levelRoleLabel, levelTestConfidence, type LevelRole } from "@/lib/analysis/levelRole";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -43,6 +46,7 @@ import {
   type CriterionWeights,
 } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
+import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
 
 export interface ScoreInputs {
   direction: "bullish" | "bearish";
@@ -88,9 +92,9 @@ export interface ScoreInputs {
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
    * since the direction-matched swing pivot (low for bullish, high for
-   * bearish) checked against the raw price move since that pivot, one point
-   * per day. A different question from `gannAngleSlope`'s ATR-normalized
-   * rate of change. Empty when there isn't enough daily history to find a
+   * bearish) checked against the price move since that pivot measured in
+   * 14-bar ATRs, one ATR per day (an engineering unit, not Gann's raw point).
+   * A different question from `gannAngleSlope`'s rate of change. Empty when there isn't enough daily history to find a
    * pivot, which scores as a fail.
    */
   timePriceSquare?: TimePriceSquareReading[];
@@ -138,43 +142,50 @@ export interface ScoreInputs {
   pattern: StratPattern | null;
   /**
    * The armed entry trigger, from `lib/gann/entryTrigger.ts` — crossing an old
-   * swing top/bottom plus the "lost motion" allowance. Replaced `pattern` as
+   * swing top/bottom plus the 3-point allowance. Replaced `pattern` as
    * what arms and prices a trade on 2026-09-17; `pattern` stays for the
    * display/confluence role only. Null means nothing is armed.
    */
-  gannTrigger?: { triggerPrice: number; stopPrice: number; direction: "bullish" | "bearish" } | null;
+  gannTrigger?: {
+    triggerPrice: number;
+    stopPrice: number;
+    direction: "bullish" | "bearish";
+    kind?: "crossing" | "oldLevel" | "hold";
+    level?: number;
+    tests?: number;
+    /** `hold` only: which of Gann's hold rules found the bottom. */
+    holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
+    source?: "swing" | "priorYear" | "allTime";
+    regained?: true;
+    /** A previous year's level: its year. */
+    levelYear?: number;
+    newRecord?: boolean;
+  } | null;
   /**
    * Accepted but no longer read here: `momentum` stopped being a scored
-   * criterion on 2026-09-08 (see the `stopRoom` swap in
-   * `lib/scoring/weights.ts`). The field stays because the same value still
-   * gates the bare-2-2 check in `applyReversionConfirmation`, so a caller
-   * assembling one inputs object can feed both without recomputing it.
+   * criterion on 2026-09-08 (see the `stopRoom` swap, itself replaced by
+   * `stopBehindOldLevel` on 2026-10-16, in
+   * `lib/scoring/weights.ts`), and the bare-2-2 hold it fed was removed on
+   * 2026-10-16 (N#1). Nothing on the verdict path reads it; the field stays
+   * so the callers' inputs objects keep one shape.
    */
   momentumElevated: boolean;
   /**
-   * The setup's stop distance as a multiple of the execution ATR
-   * (`riskPerShare / executionAtr`). Null when no plan priced, which scores as
-   * a fail — a setup with no stop has no room to be measured. Read for every
-   * asset class except `us_equity`, whose `stopRoom` criterion asks a
-   * different question — see `hasStopRoom` below.
+   * The setup's stop distance as a multiple of the execution ATR. Accepted
+   * but no longer read: the stop point is Gann's old level 3 points in front
+   * of the stop since 2026-10-16 (Q23). The field stays so callers keep one
+   * shape.
    */
   stopAtrMultiple?: number | null;
   levels: TradeLevels | null;
-  /**
-   * Which `stopRoom` question to ask. `us_equity` reads `levels.stopFromStructure`
-   * instead of `stopAtrMultiple` — see `hasStopRoom` below and
-   * lib/strat/levels.ts's `computeEquityTradeLevels`. Every other asset class
-   * (including undefined, for backward compatibility) keeps the ATR-multiple
-   * check.
-   */
+  /** The instrument's asset class. The stop point reads the same rule on every class (Q23). */
   assetClass?: AssetClass;
   /** Defaults to "reversion" — the protocol's primary setup. */
   setupKind?: SetupKind;
   /**
-   * Daily ATR as a percentage of price. The structural proximity criteria are
-   * measured in multiples of it, so "near a level" means the same fraction of a
-   * day's range on every instrument — see lib/scoring/proximity.ts. Omitted
-   * means no volatility read is available and the old fixed bands apply.
+   * Daily ATR as a percentage of price. Accepted but no longer read here:
+   * since 2026-10-16 "at a level" is Gann's 3-point allowance
+   * (`levelBandPct`, N#27). The field stays so callers keep one shape.
    */
   atrPct?: number;
   /**
@@ -187,64 +198,65 @@ export interface ScoreInputs {
   weights?: CriterionWeights;
 }
 
-/**
- * Stop distance, in multiples of the execution ATR, at or above which a setup
- * has room to work. Replaces the `momentum` criterion, which measured nothing.
- *
- * Set from the first unconditioned replay (1,005 live-data reversion trades,
- * `docs/replay-runs/2026-09-08-15Min-since0615-all.json`), which is the only
- * population that can answer this without the score's own selection confounding
- * it. Expectancy by stop width there is monotonic across the boundary:
- *
- *   0.5–1.0x  n=442  win 32.6%  E[R] −0.038
- *   1.0–1.5x  n=398  win 30.2%  E[R] −0.110
- *   1.5–2.0x  n=100  win 38.0%  E[R] +0.151
- *   2.0–2.5x  n= 38  win 42.1%  E[R] +0.312
- *   2.5x+     n= 27  win 44.4%  E[R] +0.328
- *
- * Split at 1.5x: +0.217R against −0.072R, a +0.289R difference at t=2.40 — a
- * larger effect than any of the nine criteria this replaces one of, and the
- * only band boundary where the sign changes. Corroborated on a fresher, larger
- * unconditioned run (1,029 trades, `docs/replay-runs/2026-09-10-15Min-2R-
- * within-all.json`): the same side of the 33.3% break-even line flips the same
- * way (854 trades below 1.5x at 31.2% win rate; 175 at/above at 38.3%) — see
- * lib/validation/criteria-registry.ts's `stopRoom` entry for the caveat that
- * that table only carries per-band aggregates, not a second per-trade t-stat.
- *
- * **This is a selection rule, not an instruction to widen stops.** The bands
- * compare setups whose *structure* implied a wide stop against ones that did
- * not. They say nothing about what happens if you take a tight-stop setup and
- * move its stop out — that is a different trade, with a different R and a
- * different 2R target, and it is unmeasured. Read as a reason to prefer setups
- * with room, never as a reason to manufacture room.
- *
- * Two caveats travel with the number: the replay walked the raw pattern stop
- * (`useProductionStop: false`), not the leeway-widened stop production places,
- * and the sample is one window of six large caps on 15Min. `?productionStop=1`
- * confirmed nothing new — see the registry entry for why.
- */
-export const MIN_STOP_ROOM_ATR = 1.5;
-
 /** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
-function volumeNote(r: VolumeClimaxReading): string {
+export function volumeNote(r: VolumeClimaxReading): string {
   const at = `The ${r.anchorKind} at ${r.anchorPrice.toFixed(2)}`;
   if (r.anchorKind === "low") {
     if (r.dryingUp) return `${at} came on shrinking volume and a narrowing range: liquidation running its course, the normal bottom.`;
     if (r.retestOnLowerVolume) return `${at} retested the previous low on smaller volume: liquidation is over.`;
+    if (r.secondaryOnLowerVolume) return `${at} is a higher secondary low on less volume than the first advance, and the advance after it is heavier: higher prices ahead.`;
+    if (r.panicSecondary) return `${at} is a secondary low after a selling climax, on half its volume or less: the panic has run its course.`;
+    if (r.volumeExtremeLow) return `${at} comes with the smallest monthly volume in five years: a sign of bottom.`;
     if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: a selling climax, the panic-bottom exception.`;
     return `${at} came on neither shrinking volume nor a selling climax (${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best).`;
   }
+  if (r.retestOfHeavyTop) return `${at} is a second test of a top that came on heavy volume: a sign to sell.`;
   if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: tops come on heavy sales.`;
   if (r.retestOnLowerVolume) return `${at} is a secondary top on smaller volume than the one before: the advance is tiring.`;
+  if (r.secondaryOnLowerVolume) return `${at} is a lower secondary rally on smaller volume, after a decline on heavy volume: the final top may be in.`;
+  if (r.heavyAdvance) return `${at} came after the heaviest week since the last top: the largest volume often comes before the final top.`;
   return `${at} came on ordinary volume (${r.bestRecentRelativeVolume.toFixed(2)}x trailing at best): no sign of distribution yet.`;
+}
+
+/** What the crossing crosses, in the criterion's note (PLAN.md item 5, step 3). */
+/** The armed note for a bottom (top) that has held (PLAN.md item 5, step 4). */
+function heldNote(t: NonNullable<ScoreInputs["gannTrigger"]>): string {
+  const up = t.direction === "bullish";
+  const at = (t.level ?? t.triggerPrice).toFixed(2);
+  if (t.holdBasis === "narrowWeek") {
+    return `Trigger armed bearish: a narrow week was followed by a sharp drop on large volume, which turns the trend down, so a sell rests 1 point under that week's low at ${at}, for the bounce, with the stop 3 points over it.`;
+  }
+  if (t.holdBasis === "rally") {
+    return `Trigger armed bearish: a rally in a falling market has run to the end of its second or third week, so the entry rests at the last close with the stop 3 points over that week's high at ${at}.`;
+  }
+  const what =
+    t.holdBasis === "record"
+      ? `the record low at ${at} has held for weeks without a 3-point break`
+      : t.holdBasis === "days"
+        ? `the low at ${at} has held two days after a two-to-three-week reaction in a bull market`
+        : `the ${up ? "low" : "high"} at ${at} has held into its second week`;
+  return `Trigger armed ${t.direction}: ${what}, so the entry rests at the last close with the stop 3 points ${up ? "under" : "over"} it.`;
+}
+
+function crossedLevelName(source: "swing" | "priorYear" | "allTime" | undefined, direction: "bullish" | "bearish", levelYear?: number): string {
+  const up = direction === "bullish";
+  if (source === "priorYear") return priorYearLevelName(up, levelYear);
+  if (source === "allTime") return up ? "the record high before the last 52 weeks" : "the record low before the last 52 weeks";
+  return "the last completed swing level";
+}
+
+/** A regained old bottom (lost old top), A-TREND-10: what the arming close did. */
+function regainedNote(t: { direction: "bullish" | "bearish"; source?: "swing" | "priorYear" | "allTime"; levelYear?: number }): string {
+  const up = t.direction === "bullish";
+  const name = regainedLevelName(up, t.source === "swing" ? undefined : t.source, t.levelYear);
+  return `is 3 points back ${up ? "over" : "under"} ${name} after a 3-point break ${up ? "under" : "over"} it`;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
-    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels, stopAtrMultiple, assetClass,
+    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels,
     setupKind = "reversion",
-    atrPct,
     weights = DEFAULT_CRITERION_WEIGHTS,
   } = inputs;
 
@@ -266,9 +278,9 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // Added 2026-09-16: Gann's "Rule of Three" (see lib/gann/ruleOfThree.ts's
   // header for the exact rule and its generalization to both reversion and
   // continuation setups). A bullish call reads the downtrend-reversal mirror
-  // (>= 2 consecutive higher closes); a bearish call reads the uptrend rule
-  // (>= 3 consecutive lower closes) — Gann's own stated asymmetry, not
-  // symmetrized here.
+  // (>= 3 consecutive higher closes); a bearish call reads the uptrend rule
+  // (>= 3 consecutive lower closes). Gann's count is 3 both ways (M-R3,
+  // 2026-10-16; the bullish count was 2 before).
   const fires = (r: RuleOfThreeReading | null | undefined): boolean =>
     r != null && (direction === "bullish" ? r.bullishSignal : r.bearishSignal);
   const ruleOfThreeDaily = fires(ruleOfThree);
@@ -283,26 +295,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // and the alternative — treating "unknown" as a pass — would hand a free
   // point to exactly the setups that are least ready to trade.
   //
-  // us_equity asks a different question, resolved 2026-09-11 alongside the
-  // percent-of-price model replacing R:R for equities (lib/strat/levels.ts):
-  // the stop is no longer an ATR-relative distance, it's anchored to a real
-  // structural level or a fixed fallback percentage, so "is there room" no
-  // longer means anything measurable here — the question that translates is
-  // "did this trade get a real structural stop, or the arbitrary fallback."
-  // `stopFromStructure` already answers exactly that (`computeTradeLevels`'s
-  // equities branch), so this reads it directly rather than re-deriving
-  // anything from `stopAtrMultiple`, which for equities now measures the
-  // percent-based stop against intraday ATR — a number, but not the one this
-  // criterion has ever asked about.
-  const hasStopRoom =
-    assetClass === "us_equity"
-      ? levels?.stopFromStructure === true
-      : stopAtrMultiple != null && stopAtrMultiple >= MIN_STOP_ROOM_ATR;
+  // Gann's stop rule (owner, Q23, 2026-10-16): the stop sits 3 points beyond
+  // an old top or bottom (W006 pp.20-24, 46-47), so the point asks whether an
+  // old level stands 3 points in front of it, on every asset class. It
+  // replaced `stopRoom` (a 1.5x ATR multiple, or "anchored to S/R" for
+  // stocks), which had no source.
+  const stopBehindOldLevel = levels?.stopBehindOldLevel === true;
 
-  // "Near a level" is a multiple of the instrument's own daily range, not a
-  // fixed percentage of price — see lib/scoring/proximity.ts for why a fixed
-  // band made a 7/9 mean different things on different names.
-  const fanBandPct = proximityBandPct(FAN_PROXIMITY_ATR, FALLBACK_FAN_PCT, atrPct);
 
   // A structural level only confirms a trade when it's on the *right side* of
   // it — a long wants a support floor underneath, a short wants a resistance
@@ -374,17 +373,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     ? ` ${boilingPointReading.weeksSinceClimax} weeks since that climax (${boilingPointReading.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`
     : "";
 
-  // Gann's percentage-retracement zone (eighths), reusing the same band the
-  // (now retired) fan-line criterion used.
+  // Gann's percentage-retracement zone (eighths): price within the level's
+  // 3-point allowance (N#27, `levelBandPct`).
   const retracementMatch =
-    gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= fanBandPct) ?? null;
-  // Digital-root/vortex confluence off the same direction-matched anchor —
-  // never the sole basis for this criterion, only ANDed with the structural
-  // retracement match above. See lib/gann/digitalRoot.ts's priceTimeConfluence
-  // and its blueprint-7.4 confluence-only rule.
+    gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= levelBandPct(r.price)) ?? null;
+  // Digital-root/vortex reading off the same direction-matched anchor: card
+  // context only. Until 2026-10-16 it was ANDed into this point; fork FL5 a
+  // removed that, since a class C reading (W011, arithmetic mod 9) may never
+  // gate, and Gann's retracement levels (50% first; 45 Years in Wall Street,
+  // How to Make Profits in Commodities) score on their own. See
+  // lib/gann/digitalRoot.ts's priceTimeConfluence.
   const drReading = gann.digitalRootConfluences.find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const drConfluenceHolds = drReading !== null && drReading.type !== "NO_CONFLUENCE";
-  const gannConfluenceStackPassed = retracementMatch !== null && drConfluenceHolds;
+  const gannConfluenceStackPassed = retracementMatch !== null;
   // srMatch carries the role of the matched level; older callers that only
   // pass the boolean (no srMatch) keep the pre-fix behavior for this
   // criterion rather than being silently failed by a check they can't answer.
@@ -449,7 +450,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "trend",
       passed: angleHolding,
       note: angleReading?.nearestAngle
-        ? `Realized slope ${angleReading.slope.toFixed(2)} ATR/bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
+        ? `Realized slope ${angleReading.slope.toFixed(2)} points a bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
         : `No measurable structural angle slope since the last significant ${angleAnchorKind}.`,
     },
     {
@@ -485,27 +486,24 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       pillar: "setup",
       passed: patternValid,
       note: patternValid
-        ? `Trigger armed ${gannTrigger!.direction} at ${gannTrigger!.triggerPrice.toFixed(2)} — a crossing of the last completed swing level, with the stop beyond the opposing swing at ${gannTrigger!.stopPrice.toFixed(2)}.`
+        ? gannTrigger!.kind === "hold"
+          ? heldNote(gannTrigger!)
+          : gannTrigger!.kind === "oldLevel"
+            ? `Trigger armed ${gannTrigger!.direction}: the entry rests at the old ${gannTrigger!.direction === "bullish" ? "bottom" : "top"} at ${(gannTrigger!.level ?? gannTrigger!.triggerPrice).toFixed(2)}, where a ${(gannTrigger!.tests ?? 1) >= 2 ? "third" : "second"} test makes the ${(gannTrigger!.tests ?? 1) >= 2 ? "triple" : "double"} ${gannTrigger!.direction === "bullish" ? "bottom" : "top"}, with the stop 3 points beyond it.`
+            : `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} ${gannTrigger!.regained ? regainedNote(gannTrigger!) : `crosses ${crossedLevelName(gannTrigger!.source, gannTrigger!.direction, gannTrigger!.levelYear)} by 3 points`}, and the entry then waits for the pullback toward that level.${gannTrigger!.newRecord ? ` That close was a new record ${gannTrigger!.direction === "bullish" ? "high" : "low"} on the chart.` : ""}`
         : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
     },
     {
-      key: "stopRoom",
-      criterion:
-        assetClass === "us_equity" ? "Stop backed by real structure" : `Stop room (>= ${MIN_STOP_ROOM_ATR}x ATR)`,
+      key: "stopBehindOldLevel",
+      criterion: "Stop 3 points behind an old level",
       pillar: "setup",
-      passed: hasStopRoom,
+      passed: stopBehindOldLevel,
       note:
-        assetClass === "us_equity"
-          ? levels == null
-            ? "No trade plan priced, so the setup has no stop to check."
-            : hasStopRoom
-              ? "Stop is anchored to a real nearby support/resistance level, not the fixed fallback percentage."
-              : "No structural level sat close enough to anchor the stop, so it fell back to a fixed percentage of price."
-          : stopAtrMultiple == null
-            ? "No trade plan priced, so the setup has no stop distance to measure."
-            : hasStopRoom
-              ? `Stop sits ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry — far enough that ordinary noise should not reach it before the setup resolves.`
-              : `Stop sits only ${stopAtrMultiple.toFixed(2)}x the execution ATR from entry; setups this tight are inside the range ordinary noise covers.`,
+        levels == null
+          ? "No trade plan priced, so the setup has no stop to check."
+          : stopBehindOldLevel
+            ? `An old ${direction === "bullish" ? "bottom" : "top"} stands 3 points in front of the stop, so the market has to break it by the full allowance before the stop is hit.`
+            : `No old ${direction === "bullish" ? "bottom" : "top"} stands 3 points in front of the stop.`,
     },
     {
       key: "timePriceSquare",
@@ -520,17 +518,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "gannRetracementConfluence",
-      criterion: "Retracement zone + signal-flow confluence",
+      criterion: "Retracement zone",
       pillar: "riskReward",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
-        ? (drConfluenceHolds
-            ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)} — inside the ${fanBandPct.toFixed(2)}% band (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}), confirmed by a matching GSPS signal-flow reading off the same anchor.`
-            : `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, but no signal-flow confluence off the same anchor — the zone alone isn't enough.`) +
+        ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
+          (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
           (retracementMatch.importance != null
             ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
             : " Not one of the explicitly ranked fractions.")
-        : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${fanBandPct.toFixed(2)}% (${bandBasis(FAN_PROXIMITY_ATR, atrPct)}).`,
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${LEVEL_BAND_BASIS}.`,
     },
     {
       key: "ruleOfThree",
@@ -547,7 +544,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
               ? `${ruleOfThree.consecutiveHigherCloses} consecutive higher closes — Rule of Three reversal signal for an upturn.`
               : `${ruleOfThree.consecutiveLowerCloses} consecutive lower closes — Rule of Three reversal signal for a downturn.`
             : direction === "bullish"
-              ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 2 to confirm an upturn.`
+              ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 3 to confirm an upturn.`
               : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
     },
   ];
@@ -648,6 +645,166 @@ export function applyBreakawayHold(decision: ScanDecision, breakaway: BreakawayR
 }
 
 /**
+ * Gann's monthly break as a warning (A-TREND-11/-12, W006 pp.40-43; PLAN.md
+ * item 6, step 3): while the month so far has broken the prior month's low in
+ * an advance (high in a decline), a new trade with the campaign's trend is
+ * held from Execute to Watch. The trend itself still stands (W006 p.14).
+ */
+export function applyMonthlyBreakHold(
+  decision: ScanDecision,
+  warning: MonthlyBreakWarning | null,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!warning?.monthlyBreak || warning.trend !== direction || decision.outputState !== "Execute") return decision;
+  const side = warning.trend === "bullish" ? "low" : "high";
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "monthlyBreak",
+        criterion: "No break of the prior month's " + side,
+        passed: false,
+        note: `This month has broken the prior month's ${side}${warning.first ? ", the first such break of the move" : ""}, a warning that the trend may be turning. Held from Execute to Watch while it stands.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's volume Rule 2 (A-VOLUME-03, W006 pp.39-40; fork FV7 b, item 8 step
+ * 5): after a lower top, a narrow spell broken down on increased volume
+ * signals a further decline. While that breakdown stands
+ * (`readDistributionStanding`), a new long is held from Execute to Watch.
+ * Shorts are untouched: the breakaway down is their own entry.
+ */
+export function applyDistributionBreakdownHold(
+  decision: ScanDecision,
+  standing: DistributionStanding | null,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!standing || direction !== "bullish" || decision.outputState !== "Execute") return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "distributionBreakdown",
+        criterion: "No breakdown after a lower top",
+        passed: false,
+        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}), a sign of a further decline. Held from Execute to Watch while price stays under the range, for up to 20 sessions after the break.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's failed double or triple top (A-LEVELS-04, W006 pp.14-15, 44; fork
+ * FL3 a, 2026-10-16): "failing to pass an old top is a top". While a failed
+ * top stands between a new long's entry and its first target, the long is
+ * held from Execute to Watch; a failed bottom holds a new short the same way
+ * (Polarity). The reading is `readMultipleTops` on the 52-week entry chart,
+ * the same on both surfaces. A failed top past TP1 is not in the way
+ * (`failedTestInPath`). The coarse pre-filter in `lib/marketScan.ts` does
+ * not read it, by design: it only narrows the universe before each symbol is
+ * scanned, and every symbol it keeps is held here on the full scan (review 11
+ * M3).
+ */
+export function applyFailedTopHold(
+  decision: ScanDecision,
+  tops: MultipleTopsReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+  levels: Pick<TradeLevels, "entry" | "takeProfit1"> | null | undefined,
+): ScanDecision {
+  const failed = failedTestInPath(tops, direction, levels?.entry, levels?.takeProfit1);
+  if (!failed || decision.outputState !== "Execute") return decision;
+  const top = failed.kind === "top";
+  const name = `${failed.tests >= 3 ? "triple" : "double"} ${failed.kind}`;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "failedTop",
+        criterion: top ? "No failed double top overhead" : "No failed double bottom underneath",
+        passed: false,
+        note: `The market failed at a ${name} near ${failed.level.toFixed(2)}, which stands before the first target, and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until a daily close passes the level by the usual allowance or a new swing replaces it.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Leave queer-acting stocks alone (A-SELECTION-01, W006 pp.20, 34-35; owner,
+ * Q24 "Both"; `lib/gann/ruleFollowing.ts`): a stock whose own recent buying
+ * and selling points mostly failed is not traded on them. Execute is held to
+ * Watch while the reading stands.
+ */
+export function applyRuleFollowingHold(decision: ScanDecision, reading: RuleFollowingReading | null | undefined): ScanDecision {
+  if (!reading?.queer || decision.outputState !== "Execute") return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "queerActing",
+        criterion: "Stock follows the rules",
+        passed: false,
+        note: `Of this stock's last ${reading.resolved} buying and selling points over the year, ${reading.failed} failed back through their stop and ${reading.followed} carried on. A stock that does not follow the rules is left alone, so this is held from Execute to Watch until its signals work again.`,
+      },
+    ],
+  };
+}
+
+/**
+ * The shared time-window mechanism (Q19, owner 2026-10-16; `lib/gann/timeWindow.ts`):
+ * Gann trades a change of trend when the market turns close to a dated window
+ * (A-TIME-15, W036 p.22), and the turn's price confirms it (C-STOP-03). A
+ * counter-trend Execute whose bottom (top, for a short) did not come on any
+ * open window is held to Watch; a with-the-trend setup acts on price alone.
+ */
+export function applyTimeWindowHold(
+  decision: ScanDecision,
+  setupKind: SetupKind,
+  /** The turn, or a function reading it: read only when a counter-trend Execute needs it. */
+  turnOrRead: WindowTurn | null | undefined | (() => WindowTurn | null),
+): ScanDecision {
+  if (decision.outputState !== "Execute" || !needsWindowTurn(setupKind)) return decision;
+  const turn = typeof turnOrRead === "function" ? turnOrRead() : turnOrRead;
+  if (turn) {
+    return {
+      ...decision,
+      breakdown: [
+        ...decision.breakdown,
+        {
+          key: "timeWindowTurn",
+          criterion: "Turn came at a time window",
+          passed: true,
+          note: `The ${turn.kind} on ${turn.date} came on ${turn.windows.slice(0, 3).join("; ")}. Time and price agree on the turn.`,
+        },
+      ],
+    };
+  }
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "timeWindowTurn",
+        criterion: "Turn came at a time window",
+        passed: false,
+        note: "This trade goes against the trend, and its turn did not come on any dated time window. A change of trend comes at time, so it is held from Execute to Watch until a turn comes on one.",
+      },
+    ],
+  };
+}
+
+/**
  * A breached stop retires the plan (owner decision, 2026-09-30; see
  * `lib/gann/stopBreach.ts`). When the plan's stop is broken (price through it,
  * or broken earlier in the session and not yet closed back through the level by
@@ -676,39 +833,3 @@ export function applyStopBreachHold(decision: ScanDecision, breach: StopBreachRe
   };
 }
 
-/**
- * A bare "2-2" reversal (unsharpened by a prior inside/outside bar) is only
- * an actionable reversion call when both momentum/volatility and a
- * historical support/resistance level confirm it. Without both, it must be
- * downgraded to "Watch" regardless of score — never shown as a trade signal.
- */
-export function applyReversionConfirmation(
-  decision: ScanDecision,
-  pattern: StratPattern | null,
-  momentumElevated: boolean,
-  // Kept for signature stability; the confirmation itself now reads the
-  // score's own (role-aware) historicalSR verdict below so this can never
-  // disagree with what the breakdown actually shows.
-  _nearSupportResistance: boolean,
-): ScanDecision {
-  const isBareReversal = pattern?.name === "2-2";
-  const srConfirmed = decision.breakdown.some((b) => b.key === "historicalSR" && b.passed);
-  const confirmed = momentumElevated && srConfirmed;
-  if (!isBareReversal || confirmed || decision.outputState !== "Execute") {
-    return decision;
-  }
-
-  return {
-    ...decision,
-    outputState: "Watch",
-    breakdown: [
-      ...decision.breakdown,
-      {
-        key: "reversionConfirmation",
-        criterion: "Reversion confirmation (bare failed-push reversal needs momentum + S/R)",
-        passed: false,
-        note: "Bare failed-push reversal without both momentum/volatility and support/resistance confirmation — downgraded from Execute to Watch.",
-      },
-    ],
-  };
-}

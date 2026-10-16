@@ -228,7 +228,7 @@ describe("handleAutomatedStopOut", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("enters then invalidates an armed plan, and does not seed a pivot plan when the dial is off", async () => {
+  it("enters then invalidates an armed plan, and does not reverse after the hold test fails", async () => {
     const { client, plans } = fakeSupabase({ pivot_on_stop_out: false });
     const planId = await createArmedPlan(client, "user-1");
 
@@ -237,6 +237,7 @@ describe("handleAutomatedStopOut", () => {
       entryFillPrice: 100,
       stoppedAt: "2026-08-31T00:00:00.000Z",
       exitPrice: 97,
+      cause: "hold_test_failed",
     });
 
     const closed = await getTradePlan(client, "user-1", planId);
@@ -246,8 +247,8 @@ describe("handleAutomatedStopOut", () => {
     expect(plans).toHaveLength(1); // no pivot plan seeded
   });
 
-  it("seeds an opposite-direction pivot plan when the dial is on and the market is us_equity", async () => {
-    const { client, plans } = fakeSupabase({ pivot_on_stop_out: true });
+  it("reverses a stopped automated trade whatever the retired pivot setting says (Q15)", async () => {
+    const { client, plans } = fakeSupabase({ pivot_on_stop_out: false });
     const planId = await createArmedPlan(client, "user-1");
 
     await handleAutomatedStopOut(client, "user-1", {
@@ -278,7 +279,7 @@ describe("handleAutomatedStopOut", () => {
     expect(plans).toHaveLength(1);
   });
 
-  it("does nothing when no automation profile row exists for the user", async () => {
+  it("reverses on a change of trend at the level it broke, its stop over the top", async () => {
     const { client, plans } = fakeSupabase(null);
     const planId = await createArmedPlan(client, "user-1");
 
@@ -286,10 +287,16 @@ describe("handleAutomatedStopOut", () => {
       planId,
       entryFillPrice: 100,
       stoppedAt: "2026-08-31T00:00:00.000Z",
-      exitPrice: 97,
+      exitPrice: 102,
+      cause: "trend_change",
+      brokenLevel: 102,
+      extreme: 106,
     });
 
-    expect(plans).toHaveLength(1);
+    expect(plans).toHaveLength(2);
+    const pivot = await getTradePlan(client, "user-1", plans[1].plan_id as string);
+    expect(pivot?.coordinates.entryTrigger).toBe(102);
+    expect(pivot?.coordinates.invalidation).toBeGreaterThan(106);
     const closed = await getTradePlan(client, "user-1", planId);
     expect(closed?.state).toBe("invalidated"); // the plan's own lifecycle still closes out
   });

@@ -71,8 +71,11 @@ export function exitSentence(scaleOutQty: number, qty: number, side: "buy" | "se
   const close = side === "buy" ? "sold" : "bought back";
   const behind = side === "buy" ? "up" : "down";
   const swing = side === "buy" ? "each higher bottom" : "each lower top";
-  // Gann's exits are live (2026-09-28): no fixed second target; the rest runs
-  // until the trend changes, with the stop moved on the market's own swings.
+  // No fixed target (Q14, 2026-10-16): the whole position runs on Gann's
+  // stop and exit signals.
+  if (scaleOutQty <= 0) {
+    return `If it works, all ${qty} share${qty === 1 ? "" : "s"} run on until the trend changes, with the stop moved ${behind} behind ${swing}. No profit target is fixed. If it doesn't, the whole position is ${close} at the stop.`;
+  }
   return `If it works, ${scaleOutQty} of the ${qty} shares are ${close} at the first target and the other ${rest} run on until the trend changes, with the stop moved ${behind} behind ${swing}. If it doesn't, the whole position is ${close} at the stop.`;
 }
 

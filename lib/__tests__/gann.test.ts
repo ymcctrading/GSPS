@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { computeFanLines } from "@/lib/gann/fans";
+import { RETRACEMENT_ANGLE_PAIRS } from "@/lib/gann/secondaryTime";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeScore } from "@/lib/scoring/score";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
@@ -275,7 +276,7 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       swingChart: { threeDay: "bullish", weekly: "bullish" },
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
       ],
       volumeClimax: [
         { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
@@ -310,6 +311,7 @@ describe("computeScore", () => {
       levels: {
         entry: 100.5,
         stopLoss: 86,
+        stopBehindOldLevel: true,
         takeProfit1: 129.5,
         takeProfit2: 144,
         masterProfit: 144,
@@ -342,7 +344,7 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       swingChart: { threeDay: "bullish", weekly: "bullish" },
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
       ],
       volumeClimax: [
         { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
@@ -377,6 +379,7 @@ describe("computeScore", () => {
       levels: {
         entry: 100.5,
         stopLoss: 86,
+        stopBehindOldLevel: true,
         takeProfit1: 129.5,
         takeProfit2: 144,
         masterProfit: 144,
@@ -482,13 +485,13 @@ describe("computeScore", () => {
     const squared = computeScore({
       ...base,
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMoveAtrUnits: 10, squared: true },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
       ],
     });
     const notSquared = computeScore({
       ...base,
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 40, priceMoveAtrUnits: 40, squared: false },
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 40, priceMovePoints: 40, squared: false },
       ],
     });
 
@@ -498,4 +501,82 @@ describe("computeScore", () => {
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 
+});
+
+describe("turn windows one, two and three years from an important top or bottom (A-TIME-04, W006 pp.14, 44)", () => {
+  const DAY = 86_400_000;
+  const T0 = Date.UTC(2020, 0, 1);
+  /** Flat at 100 with one V to 50 at day 40 (or an inverted V to 150), so the series has a single pivot. */
+  function oneTurn(kind: "low" | "high"): Bar[] {
+    return Array.from({ length: 120 }, (_, i) => {
+      const depth = Math.max(0, 25 - Math.abs(i - 40)) * 2;
+      const c = kind === "low" ? 100 - depth : 100 + depth;
+      return { t: new Date(T0 + i * DAY).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 };
+    });
+  }
+  const turnAt = (years: number, plusDays = 0) => {
+    const d = new Date(T0 + 40 * DAY);
+    d.setUTCFullYear(d.getUTCFullYear() + years);
+    return new Date(d.getTime() + plusDays * DAY);
+  };
+
+  it("opens a buy-side window 1, 2 and 3 years after the low, and only within two days of it", () => {
+    for (const y of [1, 2, 3]) {
+      expect(timeCycles(oneTurn("low"), turnAt(y))).toMatchObject({ active: true, bullishActive: true, bearishActive: false });
+      expect(timeCycles(oneTurn("low"), turnAt(y, 2)).bullishActive).toBe(true);
+      expect(timeCycles(oneTurn("low"), turnAt(y, -2)).bullishActive).toBe(true);
+      expect(timeCycles(oneTurn("low"), turnAt(y, 3)).active).toBe(false);
+      expect(timeCycles(oneTurn("low"), turnAt(y, -3)).active).toBe(false);
+      expect(timeCycles(oneTurn("low"), turnAt(y, 6)).active).toBe(false);
+    }
+  });
+
+  it("projects each stock from its own turn (A-TIME-08, W006 pp.31, 35-37: each stock keeps its own time)", () => {
+    // The same V a month later: its anniversary is a month later too.
+    const later = oneTurn("low").map((b, i, all) => ({ ...all[Math.max(0, i - 30)], t: b.t }));
+    expect(timeCycles(oneTurn("low"), turnAt(1)).active).toBe(true);
+    expect(timeCycles(later, turnAt(1)).active).toBe(false);
+    expect(timeCycles(later, turnAt(1, 30)).bullishActive).toBe(true);
+  });
+
+  it("opens a sell-side window 1, 2 and 3 years after the top", () => {
+    for (const y of [1, 2, 3]) {
+      expect(timeCycles(oneTurn("high"), turnAt(y))).toMatchObject({ active: true, bullishActive: false, bearishActive: true });
+      expect(timeCycles(oneTurn("high"), turnAt(y, 6)).active).toBe(false);
+    }
+  });
+});
+
+
+describe("C-LEVELS-14: the Square of Nine's step per 45 degrees", () => {
+  // Convention recorded: GSPS adds deg/180 to the root, so 45 degrees adds 0.25
+  // and a full turn adds 2. The anonymous W009 table adds 1/8 per 45 degrees
+  // (half that); the Master Course wheel's own diagonals (3, 13, 31, 57, 91)
+  // step about 2 per turn, so GSPS keeps the Master Course convention.
+  it("puts the 45-degree level from 100 at 10.25 squared, where W009's 10.125 squared is a 22.5-degree step", () => {
+    const up45 = squareOf9Levels(100, 100).find((l) => l.degree === 45 && l.rotation === 0 && l.price > 100)!;
+    expect(up45.price).toBeCloseTo(10.25 ** 2, 9);
+    expect((Math.sqrt(100) + 22.5 / 180) ** 2).toBeCloseTo(10.125 ** 2, 9);
+  });
+
+  it("reproduces the wheel's diagonals within 1 point per full turn", () => {
+    const diagonals = [3, 13, 31, 57, 91];
+    for (let i = 0; i + 1 < diagonals.length; i++) {
+      const turn = squareOf9Levels(diagonals[i], diagonals[i]).find((l) => l.degree === 0 && l.rotation === 1)!;
+      expect(Math.abs(turn.price - diagonals[i + 1])).toBeLessThan(1);
+    }
+  });
+});
+
+describe("C-LEVELS-18: each retracement fraction paired with a fan angle", () => {
+  it("maps 1/8 to 1x8 through 7/8 to 8x1", () => {
+    expect(RETRACEMENT_ANGLE_PAIRS.map((p) => [p.label, p.angle])).toEqual([
+      ["1/8", "1x8"], ["1/4", "1x4"], ["1/3", "1x3"], ["3/8", "1x2"], ["1/2", "1x1"],
+      ["5/8", "2x1"], ["2/3", "3x1"], ["3/4", "4x1"], ["7/8", "8x1"],
+    ]);
+    for (const p of RETRACEMENT_ANGLE_PAIRS) {
+      const [n, d] = p.label.split("/").map(Number);
+      expect(p.fraction).toBeCloseTo(n / d, 12);
+    }
+  });
 });

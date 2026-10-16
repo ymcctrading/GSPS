@@ -51,7 +51,7 @@
  * Rob Smith's STRAT, which has no source in this platform's methodology, and
  * it was the last gate-1 failure on this scorecard. It now reads
  * `lib/gann/entryTrigger.ts`: crossing an old swing top or bottom plus the
- * "lost motion" allowance, both disclosed by Gann himself
+ * 3-point allowance, both disclosed by Gann himself
  * (`docs/GANN_HISTORICAL_SOURCES.md` A8, the nine Buying Points and nine
  * Selling Points). Renamed rather than removed, so `TOTAL_POINTS` stays 9 and
  * neither cutoff moves — this is a change of substance behind a criterion,
@@ -71,7 +71,7 @@ export const CRITERION_KEYS = [
   "volumeClimax",
   "historicalSR",
   "entryTriggerArmed",
-  "stopRoom",
+  "stopBehindOldLevel",
   "timePriceSquare",
   "gannRetracementConfluence",
   "ruleOfThree",
@@ -84,7 +84,7 @@ export type CriterionKey = (typeof CRITERION_KEYS)[number];
  * They carry no points and take no weight, but they are keyed too so the
  * replay's factor table and the UI can identify them without string matching.
  */
-export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag" | "breakaway" | "stopBreach";
+export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag" | "breakaway" | "stopBreach" | "monthlyBreak" | "distributionBreakdown" | "failedTop" | "timeWindowTurn" | "queerActing";
 
 export type BreakdownKey = CriterionKey | HoldKey;
 
@@ -95,9 +95,9 @@ export const CRITERION_LABELS: Record<CriterionKey, string> = {
   volumeClimax: "Volume at the turn",
   historicalSR: "Historical support/resistance",
   entryTriggerArmed: "Entry trigger armed (old-level crossing)",
-  stopRoom: "Stop room (>= 1.5x ATR)",
+  stopBehindOldLevel: "Stop 3 points behind an old level",
   timePriceSquare: "Price and time squared",
-  gannRetracementConfluence: "Retracement + signal-flow confluence",
+  gannRetracementConfluence: "Retracement zone",
   ruleOfThree: "Rule of Three (consecutive closes confirm direction)",
 };
 

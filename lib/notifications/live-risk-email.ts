@@ -1,5 +1,5 @@
 /**
- * Live-only per-trade loss/stop-override notifications, per the "GSPS
+ * Live-only per-trade loss notifications, per the "GSPS
  * Implementation Brief" spec pack: "Send email and phone/SMS notification
  * once per threshold per trade." Follows the same Resend pattern as
  * lib/notifications/resend-handler.ts (kept separate rather than added
@@ -67,50 +67,6 @@ export async function sendLiveLossThresholdEmail(data: LiveLossThresholdEmailDat
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Failed to send live-loss threshold email:", message);
-    return { success: false, error: message };
-  }
-}
-
-export interface StopOverrideEmailData {
-  userEmail: string;
-  symbol: string;
-  action: "widen" | "remove";
-  verificationUrl: string;
-}
-
-/** The stop-override verified-email confirmation link. */
-export async function sendStopOverrideVerificationEmail(data: StopOverrideEmailData) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn("RESEND_API_KEY not set; skipping stop-override email");
-    return { success: false, error: "RESEND_API_KEY not configured" };
-  }
-  try {
-    const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #7c2d12; margin: 0 0 20px;">⚠️ Confirm: ${data.action} stop on ${data.symbol}</h1>
-        <p style="color: #475569; font-size: 14px;">
-          You requested to ${data.action} the default stop on your live ${data.symbol} position.
-          This removes GSPS's automatic protection on this trade. Confirm only if you understand
-          and accept the added risk.
-        </p>
-        <p style="margin: 20px 0;">
-          <a href="${data.verificationUrl}" style="background:#dc2626;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;">
-            Confirm ${data.action}
-          </a>
-        </p>
-      </div>
-    `;
-    const result = await getResendClient().emails.send({
-      from: "GSPS Risk Alerts <onboarding@resend.dev>",
-      to: data.userEmail,
-      subject: `Confirm: ${data.action} stop on ${data.symbol}`,
-      html,
-    });
-    if (result.error) return { success: false, error: result.error.message };
-    return { success: true, id: result.data?.id };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("Failed to send stop-override verification email:", message);
     return { success: false, error: message };
   }
 }
