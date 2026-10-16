@@ -20,6 +20,7 @@
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
+import { gannPoint } from "@/lib/gann/overnightChart";
 
 export type ContextFactors = Record<string, boolean>;
 
@@ -170,6 +171,31 @@ export function contextFactorsFor(
     }
     if (inc.precision !== "year") f.incorporationMonth = inc.anniversaryMonth;
     f.incorporationCycleYear = inc.completingCycles.length > 0;
+  }
+  // Master Course Ch. 3: the Overnight Chart and the mechanical method on it.
+  const o = ctx.overnight;
+  if (o) {
+    const side = bull ? "up" : "down";
+    f.overnightLineWithTrade = o.line === side;
+    f.overnightTurnedWithTrade = o.turnedToday && o.line === side;
+    if (o.system) f.overnightSystemWithTrade = o.system === (bull ? "long" : "short");
+    // The worked log's buying (selling) point: the half-way point of the last
+    // swing in the trade's direction, within one point.
+    if (o.halfway) f.atOvernightHalfwayWithTrade = o.halfway.swing === side && Math.abs(price - o.halfway.price) <= o.point;
+  }
+  // Rule 8: three closes around one price, then a break, on any timeframe.
+  const clusters = [ctx.closeClusters.daily, ctx.closeClusters.weekly, ctx.closeClusters.monthly].filter((c) => c?.breakout);
+  if (clusters.length > 0) {
+    f.closeClusterBreakWithTrade = clusters.some((c) => c?.breakout === (bull ? "up" : "down"));
+    f.closeClusterBreakAgainstTrade = clusters.some((c) => c?.breakout === (bull ? "down" : "up"));
+  }
+  // Master Course Ch. 13: Square of 144 counts landing today, and price on a strong point or passing a square.
+  const sq = ctx.squareOf144;
+  if (sq) {
+    f.square144CountToday = sq.hits.length > 0;
+    f.square144Converging = sq.hits.length >= 2;
+    if (sq.price) f.square144PriceOnStrongPoint = sq.price.nearest.distance <= gannPoint(price);
+    if (sq.passedSquare) f.square144PassedWithTrade = sq.passedSquare.direction === (bull ? "up" : "down");
   }
   return f;
 }

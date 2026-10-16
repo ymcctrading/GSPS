@@ -86,6 +86,9 @@ import { buildCampaignLedger, describeCampaignLedger, type CampaignLedger } from
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
+import { describeOvernightChart, readOvernightChart, type OvernightReading } from "@/lib/gann/overnightChart";
+import { describeCloseCluster, readCloseCluster, type CloseClusterReading } from "@/lib/gann/closeCluster";
+import { describeSquareOf144, readSquareOf144, type Square144Reading } from "@/lib/gann/squareOf144";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
 import {
   describeIncorporationCycle,
@@ -435,6 +438,12 @@ export interface DisclosedRulesContext {
   timeRules: TimeRulesReading | null;
   /** Double and triple tops and bottoms. See `multipleTops.ts`. */
   multipleTops: MultipleTopsReading | null;
+  /** The Overnight Chart and Gann's mechanical method on it (Master Course Ch. 3). See `overnightChart.ts`. */
+  overnight: OvernightReading | null;
+  /** Rule 8: three closes around one price, on days, weeks and months. See `closeCluster.ts`. */
+  closeClusters: { daily: CloseClusterReading | null; weekly: CloseClusterReading | null; monthly: CloseClusterReading | null };
+  /** The Square of 144's fractions, squarings and convergence (Master Course Ch. 13). See `squareOf144.ts`. */
+  squareOf144: Square144Reading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -475,6 +484,9 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
   leadership: null,
   timeRules: null,
   multipleTops: null,
+  overnight: null,
+  closeClusters: { daily: null, weekly: null, monthly: null },
+  squareOf144: null,
   asOf: "",
 };
 
@@ -511,6 +523,13 @@ export function readDisclosedRules(
     leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
+    overnight: readOvernightChart(dailyBars),
+    closeClusters: {
+      daily: readCloseCluster(dailyBars, "daily"),
+      weekly: readCloseCluster(toWeeklyBars(dailyBars), "weekly"),
+      monthly: readCloseCluster(toMonthlyBars(dailyBars), "monthly"),
+    },
+    squareOf144: readSquareOf144(dailyBars),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -548,6 +567,11 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (l.toppedFirst) lines.push("Topped before the market: watch for early weakness.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
   }
+  if (ctx.overnight) lines.push(...describeOvernightChart(ctx.overnight));
+  for (const c of [ctx.closeClusters.daily, ctx.closeClusters.weekly, ctx.closeClusters.monthly]) {
+    if (c) lines.push(describeCloseCluster(c));
+  }
+  if (ctx.squareOf144) lines.push(...describeSquareOf144(ctx.squareOf144));
   if (ctx.evenFigures.overhead) lines.push(ctx.evenFigures.overhead.note);
   if (ctx.evenFigures.underneath) lines.push(ctx.evenFigures.underneath.note);
   if (ctx.barMidpoint) {

@@ -772,3 +772,45 @@ describe("gannFirstTarget", () => {
     expect(alert.continuationPlan.firstTarget).not.toBeCloseTo(alert.move.current + risk * 2, 6);
   });
 });
+
+describe("Gann's hourly chart (Master Course Ch. 13)", () => {
+  // Five-minute bars over three prior sessions, rolled into hours that climb
+  // three hours and give back one: rising swings, an up trend.
+  function recentFiveMinute(sign = 1): Bar[] {
+    const out: Bar[] = [];
+    let price = 480;
+    const pattern = [1, 1, 1, -0.8];
+    let k = 0;
+    for (let d = 3; d >= 1; d--) {
+      const day = Date.parse("2026-08-07T13:30:00Z") - d * 86_400_000;
+      for (let m = 0; m < 390; m += 5) {
+        if (m % 60 === 0) price += sign * pattern[k++ % pattern.length];
+        const t = new Date(day + m * 60_000).toISOString();
+        out.push({ t, o: price, h: price + 0.2, l: price - 0.2, c: price, v: 10_000 });
+      }
+    }
+    return out;
+  }
+
+  it("reads the swing chart on hourly roll-ups of recent sessions", () => {
+    const m = sessionMetrics(input({ recentBars: recentFiveMinute() }), DEFAULT_CONFIG)!;
+    expect(m.hourly?.trend).toBe("up");
+    expect(sessionMetrics(input({ recentBars: recentFiveMinute(-1) }), DEFAULT_CONFIG)!.hourly?.trend).toBe("down");
+  });
+
+  it("is absent without recent bars, and its factor is left out rather than failed", () => {
+    expect(sessionMetrics(input(), DEFAULT_CONFIG)!.hourly).toBeNull();
+    const without = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.flatMap((a) => a.confidenceFactors.map((f) => f.label));
+    expect(without).not.toContain("The hourly chart agrees");
+  });
+
+  it("adds the hourly factor to an alert when the history is there", () => {
+    const alerts = scanIntraday([input({ recentBars: recentFiveMinute() })], DEFAULT_CONFIG, AT_1133).alerts;
+    const withTrend = alerts.filter((a) => a.type === "old_level_cross" || a.type === "trend_continuation");
+    expect(withTrend.length).toBeGreaterThan(0);
+    for (const a of withTrend) {
+      const f = a.confidenceFactors.find((x) => x.label === "The hourly chart agrees");
+      expect(f?.passed).toBe(a.direction === "up");
+    }
+  });
+});

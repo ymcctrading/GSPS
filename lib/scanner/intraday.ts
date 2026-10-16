@@ -43,6 +43,7 @@
  * | Break of the first 15 minutes' range | A close beyond the prior session's top or bottom by one intraday point (`old_level_cross`) | Buy on crossing old tops, sell on breaking old bottoms (*New Stock Trend Detector* pp. 20-22); a close decides, since intraday pokes often reverse (*Master Course* rule 5) |
  * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`space_overbalance`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
  * | Higher highs and lows over six bars | The 3-bar swing chart's trend on the session's bars | The trend turns only when the last swing extreme breaks (NSTD pp. 19-20); "the hourly chart will give the first change in trend" (*Master Course* Ch. 13) |
+ * | (new, 2026-10-16) | The same chart on hourly bars over recent sessions, a factor on the crossing and continuation alerts | "Keep an hourly High and Low Chart… the Hourly Chart will give the first change in trend" (*Master Course* Ch. 13) |
  *
  * The failed-break alert reads the same prior-session levels: a cross that
  * closes back one point inside the level is Gann's false break (NSTD p. 20,
@@ -219,6 +220,14 @@ export interface SymbolInput {
    */
   priorDailyBars?: Bar[];
   /**
+   * Bars over the last several sessions (five-minute bars from the route),
+   * oldest first, rolled up into Gann's hourly High and Low chart: "when
+   * markets are very active… the Hourly Chart will give the first change in
+   * trend" (*Master Stock Market Course* Ch. 13). Without them the hourly
+   * factor is left out rather than counted as failed.
+   */
+  recentBars?: Bar[];
+  /**
    * Average daily volume over the recent sessions, for the platform-wide
    * liquidity floor (see lib/scan/liquidity.ts). Null when no daily history
    * came back, which fails the floor rather than passing it silently — a
@@ -261,6 +270,12 @@ export interface SessionMetrics {
   point: number;
   /** The 3-bar swing chart's trend on the session's bars; null before a swing completes. */
   swingTrend: Direction | null;
+  /**
+   * The same swing chart on hourly bars over recent sessions, and whether its
+   * trend turned on the latest hour (Gann's "first change in trend"). Null
+   * without enough history.
+   */
+  hourly: { trend: Direction | null; turned: boolean } | null;
   /** ATR of the intraday bars — the noise floor a real move has to clear. */
   intradayAtr: number;
   /** Null when no baseline was available. Never defaulted to 1. */
@@ -268,6 +283,45 @@ export interface SessionMetrics {
   /** Timestamp of the newest bar. */
   dataTimestamp: string;
   barCount: number;
+}
+
+/** Fewest hourly bars the hourly chart is read from. */
+export const MIN_HOURLY_BARS = 10;
+
+const toDirection = (d: "bullish" | "bearish" | null): Direction | null =>
+  d === "bullish" ? "up" : d === "bearish" ? "down" : null;
+
+/**
+ * The 3-bar swing chart on hourly bars rolled up from `recentBars`, the same
+ * hourly chart the intraday replay trades on (`lib/backtest/replayIntraday.ts`).
+ * Hours are bucketed by the bar's UTC hour, as there.
+ */
+export function hourlyChart(
+  input: Pick<SymbolInput, "recentBars">,
+  asOf: string,
+  regularOnly: boolean,
+): { trend: Direction | null; turned: boolean } | null {
+  const recent = (input.recentBars ?? [])
+    .filter(isUsableBar)
+    .filter((b) => b.t <= asOf && (!regularOnly || isRegularSession(new Date(b.t))));
+  const hours: Bar[] = [];
+  let key = "";
+  for (const b of recent) {
+    const k = b.t.slice(0, 13);
+    const cur = hours[hours.length - 1];
+    if (k !== key || !cur) {
+      hours.push({ ...b });
+      key = k;
+    } else {
+      cur.h = Math.max(cur.h, b.h);
+      cur.l = Math.min(cur.l, b.l);
+      cur.c = b.c;
+      cur.v += b.v;
+    }
+  }
+  if (hours.length < MIN_HOURLY_BARS) return null;
+  const walk = walkSwingChart(hours, SWING_BARS);
+  return { trend: toDirection(walk.trend), turned: walk.trendChanges.includes(hours.length - 1) };
 }
 
 /**
@@ -303,6 +357,7 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
   const intradayAtr = atr(bars.slice(-30), 14);
   const prior = lastPriorBar(input.priorDailyBars);
   const swing = walkSwingChart(bars, SWING_BARS).trend;
+  const hourly = hourlyChart(input, bars[bars.length - 1].t, regularOnly);
 
   return {
     sessionOpen: first.o,
@@ -318,6 +373,7 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
     priorLow: prior?.l ?? null,
     point: input.dailyAtr != null ? intradayPoint(lastClose, intradayAtr, input.dailyAtr) : 0,
     swingTrend: swing === "bullish" ? "up" : swing === "bearish" ? "down" : null,
+    hourly,
     intradayAtr,
     relativeVolume:
       input.volumeBaseline && input.volumeBaseline > 0
@@ -797,6 +853,7 @@ function detectOldLevelCross(
           : `${formatRvol(m.relativeVolume)} of the volume this symbol normally has by now.`,
     },
     swingFactor(m, direction),
+    ...hourlyFactors(m, direction),
     midpointFactor(m, direction),
     dayDirectionFactor(dayMove, direction),
   ];
@@ -855,6 +912,7 @@ function detectTrendContinuation(
 
   const factors: ConfidenceFactor[] = [
     { ...swingFactor(m, direction), weight: 30 },
+    ...hourlyFactors(m, direction),
     { label: "On the right side of the day's 50% point", passed: true, weight: 20, detail: `The middle of today's range is ${m.midpoint.toFixed(2)}.` },
     {
       label: direction === "up" ? "Above yesterday's high" : "Below yesterday's low",
@@ -1100,6 +1158,22 @@ function swingFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor 
         ? "The 3-bar swing chart on today's bars has not turned yet."
         : `The 3-bar swing chart on today's bars is ${m.swingTrend}.`,
   };
+}
+
+/** Gann's hourly chart, when there is enough history to read it. */
+function hourlyFactors(m: SessionMetrics, direction: Direction): ConfidenceFactor[] {
+  if (!m.hourly) return [];
+  return [
+    {
+      label: "The hourly chart agrees",
+      passed: m.hourly.trend === direction,
+      weight: 15,
+      detail:
+        m.hourly.trend === null
+          ? "The hourly swing chart has no trend yet."
+          : `The hourly swing chart is ${m.hourly.trend}${m.hourly.turned ? ", and turned on the latest hour: the first change in trend" : ""}.`,
+    },
+  ];
 }
 
 /**

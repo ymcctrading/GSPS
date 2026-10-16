@@ -930,6 +930,9 @@ async function buildInput(
       // Completed sessions only: the prior session's high and low are the old
       // top and bottom the crossing alerts read, and today is appended by the
       // scanner itself from the session's own bars.
+      // Recent sessions' five-minute bars, rolled up by the scanner into Gann's
+      // hourly chart ("the Hourly Chart will give the first change in trend").
+      recentBars: baselineBars,
       priorDailyBars: dailyBars.filter(
         (b) => !Number.isNaN(Date.parse(b.t)) && etDateKey(new Date(b.t)) < sessionBars.sessionDate,
       ),

@@ -190,6 +190,15 @@ zero-amplitude test, artifact guards and a 70/30 hold-out in `spectralCycle.ts`
 built (D2/D3 landed via #300). F4, the deferred cycles research, was done
 2026-09-28 (`docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md`): its
 pre-registered calendar test is designed, not run, pending the owner.
+**Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5
+Gann plans identified to be missing"):** the Overnight Chart and its
+stop-and-reverse method (`lib/gann/overnightChart.ts`), Rule 8's three closes
+around one price (`closeCluster.ts`), the Square of 144's fractions and
+convergence (`squareOf144.ts`), all context and measured factors on the live
+scan and the replay; the hourly chart as a factor on the intraday alerts
+(`lib/scanner/intraday.ts#hourlyChart`). The reversal is measured
+(`lib/backtest/replayOvernight.ts`, `/api/backtest?engine=overnight`), never
+placed: whether a caught stop opens the opposite plan is the owner's call.
 **Owner direction, same day: "the point of the parity is to align, infuse
 and implement within and throughout the entire GSPS platform."** A rule is
 not parity-complete while it only shows on a card: it has to act where Gann
