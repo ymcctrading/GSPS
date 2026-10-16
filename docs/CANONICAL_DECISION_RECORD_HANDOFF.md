@@ -33,7 +33,7 @@ doc is already implemented; do not duplicate it.
 | Non-production reference in older docs | `vlbsrhxghghfkjbttqha` — do not target this; it is not the deployed project |
 | Migration convention | Additive only, `000N_description.sql`, unique numeric prefix — `npm run check:migrations` (gated in `.github/workflows/test.yml`) enforces this. Never edit or renumber a historical migration. |
 | Branching | Feature branch off `main`, PR against `main`, name the roadmap phase in the PR (`ROADMAP.md`'s Q1–Q4, or `N/A` with a one-line reason — this is doctrine/infrastructure work, likely `N/A` unless it's been scheduled into a roadmap phase by the time you read this). See `AGENTS.md` and `CONTRIBUTING.md`. |
-| Deploys | `vercel.json` has `git.deploymentEnabled: true` — a push builds a preview, a merge to `main` deploys to production immediately. Never merge to `main` unless explicitly asked. |
+| Deploys | `vercel.json` has `git.deploymentEnabled: {"main": true, "*": false}` — a branch push builds nothing (2026-10-16), a merge to `main` deploys to production immediately. Never merge to `main` unless explicitly asked. |
 
 ## Why this exists (context, don't re-derive it)
 
