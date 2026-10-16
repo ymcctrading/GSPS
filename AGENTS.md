@@ -154,7 +154,7 @@ runs on Gann's stop and exit signals, as the replay's `exitRule: "gann"`
 measures; the 60% rule is kept as "gann-runner". Gann's capital rules
 (`lib/risk/gannCapital.ts`: 30 points of capital a share, at most 3 markets)
 size and refuse every order and replace Guided's own caps (Q4, Q6, Q12).
-`STRATEGY_VERSION` is `2026-10-16-gann-no-fixed-target`.
+`STRATEGY_VERSION` was `2026-10-16-gann-no-fixed-target`. **Q15, same day:** a trade caught on a stop or a change of trend reverses at Gann's geometry (`lib/gann/reverse.ts`: entry at the broken level, stop 3 points beyond the old extreme); automation seeds the plan with no setting to turn it off, a manual trade gets the offer in the exit notes, and the replay walks it (`reverseWhenCaught`). It still confirms before entry. `STRATEGY_VERSION` is `2026-10-16-gann-reverse-when-caught`.
 **Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
 cell loses over 2020-2026, interval wholly below zero, both halves; Execute
 is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The

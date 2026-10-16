@@ -9,24 +9,20 @@
  * every level here is derived from that plan's own already-computed
  * coordinates rather than new structural analysis.
  *
- * Deliberately conservative, matching Pivot Plan's existing "harder to
- * satisfy than continuation" philosophy (lib/scanner/intraday.ts's own
- * `pivotPlan`), and mirroring that function's own geometry directly (see its
- * doc comment): the pivot's own stop sits at the extreme of the *original*
- * direction, its target sits further beyond the entry in the *new*
- * direction.
- *  - Entry is the level whose breach ended the original thesis — the same
- *    level Pivot Plan's `confirmation` text already names as what a reversal
- *    would need to close back through.
- *  - The reversal's own stop sits at the original entry price — the most
- *    extreme real print this narrow function has access to in the original
- *    direction, standing in for intraday's session high/low (there is no
- *    session/swing-high data at this timeframe to derive a tighter one
- *    from).
- *  - Targets extend past the new entry by the same per-share risk the failed
- *    setup carried, one and two multiples out — a plain, symmetric default
- *    in the absence of a fresh pattern/ATR read for this instrument, not a
- *    claim that this is the best possible target.
+ * Gann's reversal geometry (A-EXIT-02, W006 p.48 Rule 6; owner's Q15,
+ * 2026-10-16), computed by `lib/gann/reverse.ts`:
+ *  - Entry is the level whose break ended the trade: the stop that was hit, or
+ *    the close a change-of-trend exit was read on (`brokenLevel`). Without one,
+ *    the old plan's own stop.
+ *  - The reversal's stop sits 3 of Gann's points beyond the old trade's
+ *    extreme, over the top a long reached (`extreme`, the exit manager's high
+ *    water). Without one, the old entry stands in for it. Until 2026-10-16 the
+ *    stop was the old entry itself, with no allowance beyond it.
+ *  - No target is fixed (Q14): the reversal leaves on Gann's exit rules like
+ *    any trade. The plan's TP1/TP2 fields are levels to watch, one and two of
+ *    the reversal's own risk out; the plan schema needs them and the fill check
+ *    reads TP1 as the far edge of the bracket. They are not Gann levels, and
+ *    nothing exits there.
  *
  * The resulting plan starts at WATCHLIST like any other and is walked
  * through QUALIFIED -> AWAITING_ENTRY_CONFIRMATION by the caller, same as
@@ -41,6 +37,7 @@ import type { TradePlan } from "./types";
 import type { NewTradePlan } from "./store";
 import { freshEntryConfirmation } from "./entryConfirmation";
 import { sessionCloseDeadline } from "./expiry";
+import { gannReversal } from "@/lib/gann/reverse";
 
 /** Every reversal plan this module builds carries a `signalId` with this prefix. */
 export const PIVOT_SIGNAL_PREFIX = "pivot:";
@@ -72,25 +69,25 @@ const WATCHLIST_TIER_SCORE: RulesAlignmentScore = {
  */
 export function buildPivotTradePlanFromStoppedPlan(
   stopped: TradePlan,
-  opts: { generatedAt: string },
+  opts: { generatedAt: string; brokenLevel?: number | null; extreme?: number | null },
 ): NewTradePlan | null {
-  const direction = stopped.direction === "bullish" ? "bearish" : "bullish";
-  const dir = direction === "bullish" ? 1 : -1;
-
   const originalRisk = Math.abs(stopped.coordinates.entryTrigger - stopped.coordinates.invalidation);
   if (!Number.isFinite(originalRisk) || originalRisk <= 0) return null;
 
-  // The level whose breach ended the original thesis is the reversal's entry.
-  const entryTrigger = stopped.coordinates.invalidation;
-  // The original entry price is the extreme in the *original* direction —
-  // this timeframe's stand-in for intraday's session high/low.
-  const invalidation = stopped.coordinates.entryTrigger;
-  const takeProfit1 = entryTrigger + dir * originalRisk;
-  const takeProfit2 = entryTrigger + dir * (2 * originalRisk);
-
-  // Guard against a degenerate/corrupt original plan producing a target that
-  // isn't actually beyond the new entry in the reversal's own direction.
-  if (dir * (takeProfit1 - entryTrigger) <= 0 || dir * (takeProfit2 - takeProfit1) <= 0) return null;
+  const reversal = gannReversal({
+    side: stopped.direction === "bullish" ? "long" : "short",
+    brokenLevel: opts.brokenLevel ?? stopped.coordinates.invalidation,
+    extreme: opts.extreme ?? stopped.coordinates.entryTrigger,
+  });
+  if (!reversal) return null;
+  const direction = reversal.side === "long" ? "bullish" : "bearish";
+  const dir = direction === "bullish" ? 1 : -1;
+  const entryTrigger = reversal.entry;
+  const invalidation = reversal.stop;
+  const risk = Math.abs(entryTrigger - invalidation);
+  const takeProfit1 = entryTrigger + dir * risk;
+  const takeProfit2 = entryTrigger + dir * (2 * risk);
+  if (dir * (takeProfit1 - entryTrigger) <= 0 || takeProfit1 <= 0 || takeProfit2 <= 0) return null;
 
   return {
     strategyVersion: stopped.strategyVersion,

@@ -77,7 +77,8 @@ import {
 import { readLiveGannExit } from "@/lib/trade/gann-exit-live";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
 import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
-import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
+import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
+import type { ReversalCause } from "@/lib/gann/reverse";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -249,7 +250,12 @@ async function advance(
     // Exits were attached and the position is gone: every tranche is out. The
     // trade gets its audit row, with the exit left pending — the fills that
     // closed it are what settlement reads, not a price guessed here.
-    await finish(supabase, userId, plan, "flat", run);
+    await finish(supabase, userId, plan, "flat", run, {
+      highWater: plan.high_water,
+      entryPrice: plan.entry_price,
+      // A flat position whose resting stop filled was stopped (Q15 reads it as caught).
+      stopFilled: LIVE_EXIT_RULE !== "bracket" && (await restingStopFilled(creds, plan)),
+    });
     run.closed++;
     run.notes.push(`${plan.symbol} is flat — logged, waiting on the broker's exit prices.`);
     return;
@@ -313,7 +319,13 @@ async function advance(
     // needs the true reason to decide whether this was an actual stop-loss
     // (lib/automation/stop-out.ts only fires on one of those, never a
     // master-target close).
-    await finish(supabase, userId, plan, "reversal", run, { highWater, entryPrice, stopReason: action.reason });
+    await finish(supabase, userId, plan, "reversal", run, {
+      highWater,
+      entryPrice,
+      stopReason: action.reason,
+      caught: gann?.exit && action.atMarket ? gann.exit.reason : null,
+      lastPrice: Number.isFinite(price) ? price : null,
+    });
     run.closed++;
     run.notes.push(`${plan.symbol}: ${action.explanation}`);
     return;
@@ -614,7 +626,16 @@ async function finish(
   plan: PlanRow,
   cause: "flat" | "reversal",
   run: ManageRun,
-  ctx?: { highWater: number | null; entryPrice: number; stopReason?: StopReason },
+  ctx?: {
+    highWater: number | null;
+    entryPrice: number;
+    stopReason?: StopReason;
+    /** The Gann exit signal that closed the trade at market, when one did. */
+    caught?: ReversalCause | null;
+    lastPrice?: number | null;
+    /** For a flat position: whether its resting stop is what filled. */
+    stopFilled?: boolean;
+  },
 ): Promise<void> {
   const result = await recordPendingExit(supabase, userId, {
     symbol: plan.symbol,
@@ -641,19 +662,29 @@ async function finish(
     ...(cause === "reversal" ? { applied_stop_reason: "master_reversal" as const } : {}),
   });
 
-  // A real stop-loss closing an automated position — never a master-target
-  // close, and never the ambiguous "flat" cause (a broker-side close this
-  // module can't itself classify as a stop vs. a target). See
-  // lib/automation/stop-out.ts.
+  // A real stop-loss closing an automated position ends its plan's lifecycle
+  // (lib/automation/stop-out.ts) — never a master-target close. A trade the
+  // rules reverse on (lib/gann/reverse.ts, Q15) is reversed: automatically for
+  // a trade automation placed, offered in a note for one a person placed. A
+  // flat position counts only when its own resting stop is what filled; any
+  // other broker-side close is one this module can't classify.
   const isRealStopLoss =
-    ctx?.stopReason === "protocol" || ctx?.stopReason === "trailing" || ctx?.stopReason === "break_even";
-  if (isRealStopLoss && plan.entry_order_id) {
-    const { data: orderRow } = await supabase
-      .from("orders")
-      .select("source_plan_id")
-      .eq("broker_order_id", plan.entry_order_id)
-      .maybeSingle();
-    const sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+    ctx?.stopReason === "protocol" || ctx?.stopReason === "trailing" || ctx?.stopReason === "break_even" || ctx?.stopFilled === true;
+  if (isRealStopLoss || ctx?.caught) {
+    const cause: ReversalCause = ctx?.caught ?? "stop";
+    const stopLevel = plan.applied_stop ?? plan.stop_loss;
+    // A signal exit leaves at the market: the level that broke is where it left.
+    const brokenLevel = ctx?.caught ? (ctx.lastPrice ?? stopLevel) : stopLevel;
+    const extreme = ctx?.highWater ?? plan.high_water ?? ctx?.entryPrice ?? plan.entry_price;
+    let sourcePlanId: string | null = null;
+    if (plan.entry_order_id) {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("source_plan_id")
+        .eq("broker_order_id", plan.entry_order_id)
+        .maybeSingle();
+      sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+    }
     if (sourcePlanId) {
       await handleAutomatedStopOut(supabase, userId, {
         planId: sourcePlanId,
@@ -661,14 +692,31 @@ async function finish(
         stoppedAt: new Date().toISOString(),
         // The real fill isn't known synchronously here — the broker settles
         // it asynchronously (see the module header on `recordPendingExit`).
-        // `plan.stop_loss` is the actual, known level whose breach triggered
-        // this close, used only for the invalidation audit reason's wording.
-        exitPrice: plan.stop_loss,
+        // The level that broke is used for the audit reason's wording.
+        exitPrice: brokenLevel,
+        cause,
+        brokenLevel,
+        extreme,
       }).catch((err) => {
         console.error(`exit-manager: stop-out handling for plan ${sourcePlanId} failed — ${String(err)}`);
       });
+    } else {
+      const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel, extreme });
+      if (offer) run.notes.push(offer);
     }
   }
+}
+
+/** Whether a tranche's resting stop is what filled (a flat position that was stopped). */
+async function restingStopFilled(creds: AlpacaCreds, plan: PlanRow): Promise<boolean> {
+  for (const id of [plan.scale_out_order_id, plan.master_order_id, plan.runner_order_id]) {
+    if (!id) continue;
+    const order = await getOrder(creds, id, { nested: true }).catch(() => null);
+    if (!order) continue;
+    const stops = [order, ...(order.legs ?? [])].filter((o) => o.type === "stop" || o.type === "stop_limit");
+    if (stops.some((o) => String(o.status ?? "").toLowerCase() === "filled")) return true;
+  }
+  return false;
 }
 
 async function closePlan(

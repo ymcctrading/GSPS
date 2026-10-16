@@ -375,4 +375,8 @@
 // `exitRule: "gann"` measures. Gann's capital rules (30 points a share, three
 // markets; Q4, Q6, Q12) size and refuse orders. Verdicts do not move; trades
 // and fills do.
-export const STRATEGY_VERSION = "2026-10-16-gann-no-fixed-target";
+// 2026-10-16-gann-reverse-when-caught (Q15, A-EXIT-02): a trade caught on a
+// stop or a change of trend is reversed at Gann's geometry (lib/gann/reverse.ts):
+// automation seeds the opposite plan, a person is offered it, and the replay
+// walks it (`reverseWhenCaught`, default on).
+export const STRATEGY_VERSION = "2026-10-16-gann-reverse-when-caught";

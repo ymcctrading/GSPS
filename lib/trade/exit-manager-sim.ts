@@ -30,7 +30,8 @@ import {
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
-import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
+import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
+import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveGannExit } from "@/lib/trade/gann-exit-live";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -196,6 +197,8 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   const remainingQty = stillOpenAfterTargets.reduce((n, t) => n + t.qty, 0);
 
   let stopAction: ReturnType<typeof planStopAdjustment> | null = null;
+  // Why the trade is leaving this pass, for the reversal (lib/gann/reverse.ts).
+  let caught: ReversalCause | null = null;
   if (remainingQty > 1e-9) {
     const gann =
       LIVE_EXIT_RULE !== "bracket"
@@ -234,6 +237,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       };
     }
     if (stopAction.kind === "close_all") {
+      caught = gann?.exit && stopAction.atMarket ? gann.exit.reason : "stop";
       // A Gann exit signal leaves at the market; a stop that was crossed fills at the stop.
       const fillAt = stopAction.atMarket ? price : stopAction.stop;
       for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
@@ -282,7 +286,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   const finalPlan = { ...plan, ...patch } as SimPlanRow;
   const done = tranches(finalPlan).every((t) => t.orderId);
   if (done) {
-    await finish(supabase, userId, finalPlan, run);
+    await finish(supabase, userId, finalPlan, run, caught);
   }
 }
 
@@ -321,7 +325,13 @@ function blendedExit(plan: SimPlanRow): { price: number; qty: number } {
   return { price: qty > 0 ? notional / qty : plan.entry_price, qty };
 }
 
-async function finish(supabase: Supabase, userId: string, plan: SimPlanRow, run: SimManageRun): Promise<void> {
+async function finish(
+  supabase: Supabase,
+  userId: string,
+  plan: SimPlanRow,
+  run: SimManageRun,
+  caught: ReversalCause | null = null,
+): Promise<void> {
   const { price: exitPrice, qty: exitQty } = blendedExit(plan);
   const direction: "buy" | "sell" = plan.side === "long" ? "buy" : "sell";
   const perShare = direction === "buy" ? exitPrice - plan.entry_price : plan.entry_price - exitPrice;
@@ -374,26 +384,37 @@ async function finish(supabase: Supabase, userId: string, plan: SimPlanRow, run:
     .eq("user_id", userId)
     .eq("status", "working");
 
-  // A real stop-loss (not TP1, not the master target) closing an automated
-  // position is the only trigger for lib/automation/stop-out.ts — never a
-  // pre-entry rejection, and never a manual ticket's exit (those have no
-  // `orders.source_plan_id` to find here).
-  if (exitCondition === "stop_loss" && plan.entry_order_id) {
-    const { data: orderRow } = await supabase
-      .from("orders")
-      .select("source_plan_id")
-      .eq("id", plan.entry_order_id)
-      .maybeSingle();
-    const sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+  // A real stop-loss (not TP1, not the master target) ends the automated
+  // plan's lifecycle (lib/automation/stop-out.ts), and a trade the rules
+  // reverse on (lib/gann/reverse.ts, Q15) is reversed: automatically for a
+  // trade automation placed, offered in a note for one a person placed.
+  if (exitCondition === "stop_loss") {
+    const cause: ReversalCause = caught ?? "stop";
+    const extreme = plan.high_water ?? plan.entry_price;
+    let sourcePlanId: string | null = null;
+    if (plan.entry_order_id) {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("source_plan_id")
+        .eq("id", plan.entry_order_id)
+        .maybeSingle();
+      sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+    }
     if (sourcePlanId) {
       await handleAutomatedStopOut(supabase, userId, {
         planId: sourcePlanId,
         entryFillPrice: plan.entry_price,
         stoppedAt: new Date().toISOString(),
         exitPrice,
+        cause,
+        brokenLevel: exitPrice,
+        extreme,
       }).catch((err) => {
         console.error(`exit-manager-sim: stop-out handling for plan ${sourcePlanId} failed — ${String(err)}`);
       });
+    } else {
+      const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel: exitPrice, extreme });
+      if (offer) run.notes.push(offer);
     }
   }
 

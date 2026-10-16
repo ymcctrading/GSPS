@@ -11,6 +11,7 @@
  *    is known (see the warning block below).
  */
 
+import { gannReversal } from "@/lib/gann/reverse";
 import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
@@ -809,19 +810,16 @@ export function computeTradeLevels(
 }
 
 /**
- * The counter-scenario the PRD's Trade Map contract requires: what invalidates
- * this thesis and what a trade in the opposite direction would need before
- * it's worth considering — the same philosophy as lib/scanner/intraday.ts's
- * own `pivotPlan`, described concretely enough to watch or (via the
- * automated portfolio manager's opt-in dial, lib/automation/stop-out.ts) to
- * seed a real trade plan from, rather than a plain note that the original
- * setup failed.
- *
- * Narrower than the intraday version in one respect: a daily/swing setup
- * has no session context (VWAP, opening range, intraday high/low) to derive
- * the pivot trade's *own* stop from, so `invalidation` stays null here —
- * honest about what this timeframe actually knows, rather than fabricating
- * a level nothing in the pattern supports.
+ * The counter-scenario the PRD's Trade Map contract requires, read through
+ * Gann's own rule for it (A-EXIT-02, W006 p.48 Rule 6; owner's Q15,
+ * 2026-10-16): reverse when caught. If the stop is hit, the opposite trade
+ * enters at the stop with its own stop 3 points beyond the old trade's best
+ * price (`lib/gann/reverse.ts`). At plan time the best price is the entry, so
+ * `invalidation` is that floor; the exit manager uses the real high or low
+ * when the stop is hit, and automation seeds the plan from it
+ * (lib/automation/stop-out.ts). The reversal still has to confirm, like every
+ * entry. `firstTarget` is the level the original thesis entered at, the first
+ * old level the reversal meets.
  */
 function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): PivotPlan {
   const bullish = pattern.direction === "bullish";
@@ -830,13 +828,13 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
   // still has a thesis to invalidate, and naming it something it isn't would
   // be worse than naming it generically.
   const label = pattern.setupLabel ?? "setup";
+  const reversal = gannReversal({ side: bullish ? "long" : "short", brokenLevel: stopLoss, extreme: entry });
+  const extremeWord = bullish ? "highest" : "lowest";
   return {
     confirmation:
-      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price closes back through the stop at ${stopLoss.toFixed(2)}. ` +
-      `Even then, a ${opposite} trade needs its own evidence: a fresh setup confirming in the ${opposite} direction, not just this one stopping out.`,
-    invalidation: null,
-    // Mirrors intraday's choice of VWAP (the level a reversal is expected to
-    // retest first): here, that's the level the original thesis entered at.
+      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${stopLoss.toFixed(2)}. ` +
+      `The rules then reverse: a ${opposite} trade at ${stopLoss.toFixed(2)}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
+    invalidation: reversal ? round(reversal.stop) : null,
     firstTarget: entry,
     cancelIf:
       "Price chops between the stop and the entry level without holding either side. Neither direction is worth trading in that state — standing aside is a position.",

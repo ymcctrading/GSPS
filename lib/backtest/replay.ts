@@ -82,6 +82,7 @@ import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
+import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
 import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
@@ -271,6 +272,18 @@ export interface ReplayOptions {
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
+   * Reverse when caught (A-EXIT-02, W006 p.48 Rule 6; owner's Q15,
+   * 2026-10-16), under the Gann exit rules only. A trade that leaves on a stop
+   * or on an exit that says the trend changed (`lib/gann/reverse.ts`) is
+   * followed by the opposite trade, as automation seeds it
+   * (lib/automation/stop-out.ts): entry at the level that broke, stop 3 points
+   * beyond the old trade's best price, entered once it confirms on the closed
+   * candles of the same session (the plan expires at the session's close), and
+   * walked on the same exit rules. A reversal that is caught reverses again,
+   * up to `MAX_REVERSALS` deep. Default true: production reverses.
+   */
+  reverseWhenCaught?: boolean;
+  /**
    * How many of Gann's points a closed candle has to clear a broken stop by for
    * the break to count as failed and the plan to stand again
    * (`lib/gann/stopBreach.ts#reclaimLevel`). Defaults to `RECLAIM_POINTS` (3),
@@ -363,6 +376,11 @@ export interface ReplayTrade {
   outcome: "win" | "loss" | "timeout";
   /** Lots held at the end, under `pyramid: true` (1 when nothing was added). */
   lots?: number;
+  /**
+   * Set on a reversal (`reverseWhenCaught`): how many trades back the caught
+   * one was, 1 for the reversal of an armed setup. Undefined on an armed setup.
+   */
+  reversal?: number;
   /** Why the trade left, under `exitRule: "gann"` or the intraday profile. Undefined under the bracket. */
   exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
@@ -721,6 +739,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     roundNumberHold = false,
     entryRule = "reaction",
     exitRule = "bracket",
+    reverseWhenCaught = true,
     reclaimPoints = RECLAIM_POINTS,
     pyramid = false,
     instrument,
@@ -1094,6 +1113,20 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
           ambiguous: false,
         });
+        if (reverseWhenCaught) {
+          for (const r of walkReversals({
+            bars, dailyBars: dailyBars ?? [], caughtAt: i + walked.barsHeld - 1, side: long ? "long" : "short",
+            cause: walked.reason, brokenLevel: walked.exit, extreme: walked.best ?? entry, maxBarsHeld,
+            costPerShare, runner: exitRule === "gann-runner",
+            sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
+          })) {
+            trades.push({
+              symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
+              score: decision.score, outputState: decision.outputState, criteria: criteriaOf(decision),
+              largeCap, ambiguous: false, ...r,
+            });
+          }
+        }
         continue;
       }
 
@@ -1228,6 +1261,91 @@ export function combine(results: ReplayResult[]): ReplayResult {
   return summarise(trades, armed, triggered, refusedFills, retiredPlans);
 }
 
+/** How many reversals deep the replay follows a chain of caught trades. An engineering bound, not Gann's. */
+export const MAX_REVERSALS = 3;
+
+export type ReversalTrade = Pick<
+  ReplayTrade,
+  "openedAt" | "direction" | "entry" | "stop" | "target" | "atrMultiple" | "barsHeld" | "outcome" | "exitReason" | "rMultiple" | "reversal"
+> & { contextFactors: Record<string, boolean> };
+
+/**
+ * The reversals that follow one caught trade (`reverseWhenCaught`). The plan
+ * is priced by `gannReversal` from the level that broke and the old trade's
+ * best price; it confirms on the closed candles after the exit, within the
+ * same session, through the same state machine placement uses for a reversal
+ * plan (no stop passed: `isPivotSignal`), and fills at the open of the candle
+ * after it confirms. A fill at or beyond its own stop is refused, as
+ * production refuses it.
+ */
+export function walkReversals(input: {
+  bars: Bar[];
+  dailyBars: Bar[];
+  /** Index of the candle the caught trade left on. */
+  caughtAt: number;
+  side: "long" | "short";
+  cause: ReversalCause | "timeout";
+  brokenLevel: number;
+  extreme: number;
+  maxBarsHeld: number;
+  costPerShare: number;
+  /** `"gann-runner"`: 60% leaves one risk out, the plan's TP1. */
+  runner?: boolean;
+  sharesOn?: (date: string) => number | null;
+}): ReversalTrade[] {
+  const out: ReversalTrade[] = [];
+  const { bars, dailyBars } = input;
+  let { caughtAt, side, cause, brokenLevel, extreme } = input;
+  for (let depth = 1; depth <= MAX_REVERSALS; depth++) {
+    if (!reversesOn(cause)) break;
+    const plan = gannReversal({ side, brokenLevel, extreme });
+    if (!plan) break;
+    const long = plan.side === "long";
+    const dir = long ? 1 : -1;
+    const session = bars[caughtAt]?.t.slice(0, 10);
+    let evidence = freshEntryConfirmation();
+    let fillAt = -1;
+    for (let k = caughtAt + 1; k < bars.length && bars[k].t.slice(0, 10) === session; k++) {
+      evidence = advanceEntryConfirmation(evidence, { direction: long ? "bullish" : "bearish", entryTrigger: plan.entry }, bars[k - 1]);
+      if (entryReady(evidence)) {
+        fillAt = k;
+        break;
+      }
+    }
+    if (fillAt === -1) break;
+    const entry = bars[fillAt].o;
+    if (long ? entry <= plan.stop : entry >= plan.stop) break;
+    const risk = Math.abs(entry - plan.stop);
+    const target = entry + dir * risk;
+    const walked = walkGannExit({
+      bars, from: fillAt, maxBarsHeld: input.maxBarsHeld, long, entry, stop: plan.stop, dailyBars,
+      crossedLevel: null,
+      scaleOut: input.runner ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
+      sharesOn: input.sharesOn,
+    });
+    const executionAtr = atr(bars.slice(Math.max(0, fillAt - 30), fillAt), 14);
+    out.push({
+      openedAt: bars[fillAt].t,
+      direction: long ? "bullish" : "bearish",
+      entry, stop: plan.stop, target,
+      atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+      barsHeld: walked.barsHeld,
+      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+      exitReason: walked.reason,
+      rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
+      reversal: depth,
+      contextFactors: {},
+    });
+    if (walked.reason === "timeout") break;
+    caughtAt = fillAt + walked.barsHeld - 1;
+    side = plan.side;
+    cause = walked.reason;
+    brokenLevel = walked.exit;
+    extreme = walked.best ?? entry;
+  }
+  return out;
+}
+
 /** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
 const RUNNER_SCALE_OUT = SCALE_OUT_PCT;
 
@@ -1254,7 +1372,7 @@ function walkGannExit(input: {
   scaleOut?: { price: number; fraction: number };
   /** Add to the winner on Gann's pyramiding rules (`lib/gann/pyramid.ts`). */
   pyramid?: boolean;
-}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout"; lots: number } {
+}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout"; lots: number; best: number | null } {
   const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid } = input;
   const dir = long ? 1 : -1;
   // Position accounting in units of the first lot (1.0). The result is
@@ -1270,6 +1388,7 @@ function walkGannExit(input: {
     barsHeld: j,
     reason,
     lots: lots.length,
+    best,
   });
   let scaled = false;
   let pendingAdd: { qty: number; trigger: number; newStop: number } | null = null;

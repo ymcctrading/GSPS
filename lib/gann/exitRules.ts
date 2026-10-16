@@ -73,6 +73,7 @@
  *    Polarity: every rule has its mirror for shorts.
  */
 
+import { gannReversal, reversesOn, type GannReversal } from "./reverse";
 import type { Bar } from "@/lib/types";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
@@ -135,6 +136,12 @@ export interface GannExitReading {
   stopReason: GannStopReason;
   /** Set when a rule says to leave now, at the next opportunity. */
   exit: { reason: GannExitReason; note: string } | null;
+  /**
+   * A-EXIT-02 (Q15): set when the exit says the trend has changed. The
+   * opposite trade at the close the exit was read on, its stop 3 points beyond
+   * this trade's extreme (`lib/gann/reverse.ts`).
+   */
+  reverse?: GannReversal | null;
 }
 
 const day = (b: Bar) => b.t.slice(0, 10);
@@ -373,5 +380,10 @@ export function readGannExit(
     }
   }
 
-  return { stop, stopReason, exit };
+  let reverse: GannReversal | null = null;
+  if (exit && reversesOn(exit.reason)) {
+    const extreme = best ?? (long ? Math.max(...since.map((b) => b.h)) : Math.min(...since.map((b) => b.l)));
+    reverse = gannReversal({ side: pos.side, brokenLevel: last.c, extreme });
+  }
+  return { stop, stopReason, exit, reverse };
 }

@@ -193,6 +193,14 @@ describe("a change of trend from the campaign ledger after entry (item 7 review 
     expect(exit?.note).toContain("third month");
   });
 
+  it("a change of trend on a long also yields a short at the close, its stop 3 points over the top (A-EXIT-02)", () => {
+    const bars = daily(closes);
+    const r = readGannExit(position(bars, entryIndex, { initialStop: 90 }), bars, 110);
+    expect(r.exit?.reason).toBe("trend_change");
+    const last = bars[bars.length - 1];
+    expect(r.reverse).toEqual({ side: "short", entry: last.c, stop: 110 + gannThreePoints(110) });
+  });
+
   it("does not exit when the reaction made its low in the second month and held", () => {
     const held = daily([...CAMPAIGN, ...leg(120, 108, 50), ...leg(108, 110, 4), ...Array.from({ length: 16 }, () => 109)]);
     expect(readGannExit(position(held, entryIndex, { initialStop: 90 }), held, 110).exit).toBeNull();
