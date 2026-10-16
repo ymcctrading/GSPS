@@ -112,3 +112,23 @@ export function failedTestAgainst(
   const r = direction === "bullish" ? reading?.top : direction === "bearish" ? reading?.bottom : null;
   return r?.state === "failed" ? r : null;
 }
+
+/**
+ * The failed test a new trade would have to pass on its way to its first
+ * target: at or beyond the entry and no further than TP1 (the map's FL3 a,
+ * "in the trade's path"; review 11 H1, 2026-10-16). A failed top above TP1 is
+ * not in the way: in a range, Gann's double-bottom buy at the range's foot
+ * aims for a target under the failed top and is his own rule, so it is not
+ * refused. Null without a TP1, since the path is then unknown.
+ */
+export function failedTestInPath(
+  reading: MultipleTopsReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+  entry: number | null | undefined,
+  takeProfit1: number | null | undefined,
+): MultipleTestReading | null {
+  const failed = failedTestAgainst(reading, direction);
+  if (!failed || entry == null || takeProfit1 == null) return null;
+  const inPath = direction === "bullish" ? failed.level >= entry && failed.level <= takeProfit1 : failed.level <= entry && failed.level >= takeProfit1;
+  return inPath ? failed : null;
+}

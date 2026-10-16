@@ -754,3 +754,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Dispatched without the cells input, so it ran the default single baseline cell (production stop, bracket), not run 50's plan-reaction / plan-reaction-gannrunner pair. Baseline Execute n172 +0.171R [+0.013,+0.331]; all -0.040. Not compared with run 50. Run 52 (same mistake, at 4d05920) cancelled.
 - ALWAYS pass cells: [{"label":"plan-reaction-gannrunner","options":{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann-runner"}},{"label":"plan-reaction","options":{"usePlanLevels":true,"entryRule":"reaction"}}]
 - Rerunning 05ad97e with the cells as run 53, then steps 5-8 one at a time.
+
+## Review 11 (docs/gann-feature-map/item9b_review.md) fixes, 2026-10-16
+- PASS on code (replays pending): A-LEVELS-01, -05, -03, C-NUMEROLOGY-04. FAIL: A-LEVELS-04, fixed here, needs a re-review.
+- H1: failedTestInPath(reading, dir, entry, tp1): the hold, the placement wait and the replay skip apply only when the failed level lies between entry and TP1 (inclusive). Gann's double-bottom buy at a range's foot, TP1 under the failed top, is no longer held. Replay stores each session plan's entry/TP1 (sessionPlanPaths); place-order passes plan TP1 or the advised take-profit.
+- M1: the failed-top exit reads the 52 weeks before each session and fires when the top has failed now but had not at the fill (bars 13-19 exit, 21 does not).
+- M2: tests added for the bottom-side allowance (trend, readLevelTests), the ladder's price argument, a short's TP1 on a campaign bottom, the reject/null cases, the 345-day window, today's forming bar, the anchored replay skip. Mutants D/T x2 and P4 x2 killed.
+- M3: School line on failed double/triple tops (Academy 4); triple wording; coarse pre-filter exception recorded on applyFailedTopHold (it narrows the universe only; every kept symbol is held on the full scan).
+- L1: closesAfter() one-pass suffix max/min. readTrend 0.38 ms on 250 bars, of which readGannTrend (unchanged) is 0.33; the level step is ~0.05 ms.
+- STRATEGY_VERSION 2026-10-16-gann-failed-tops-path. Full suite 3000/3000, tsc, terms, eslint clean.

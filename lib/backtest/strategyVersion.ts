@@ -231,4 +231,10 @@
 // Nine only (the ATR-spaced fan prices left the TP1 and master pool), and the
 // unbroken old campaign bottoms under the price join the support and
 // resistance pool on both surfaces (A-LEVELS-03).
-export const STRATEGY_VERSION = "2026-10-16-gann-target-ladder";
+//
+// 2026-10-16-gann-failed-tops-path: review 11 H1/M1. The failed-top hold and
+// the placement wait apply only when the failed top (or bottom) lies between
+// the entry and TP1, so the double-bottom buy at a range's foot is no longer
+// held; the failed-top exit reads the 52 weeks before each session, and fires
+// when the top fails after the fill.
+export const STRATEGY_VERSION = "2026-10-16-gann-failed-tops-path";

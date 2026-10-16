@@ -202,16 +202,23 @@ export function readGannExit(
   }
 
   // A-LEVELS-04 (fork FL3 a): "failing to pass an old top is a top". A long
-  // exits when a double or triple top fails after the fill (its latest test
-  // printed since); a short exits on the mirror at a double or triple bottom.
-  // One that stood at entry was part of the setup (the scan holds it to Watch
-  // and placement refuses it). Read over the 52 weeks before the next session,
-  // the entry chart's window (`FAILED_TOP_CHART_DAYS`).
+  // exits when a double or triple top fails after the fill; a short exits on
+  // the mirror at a double or triple bottom. One already failed at entry was
+  // part of the setup (the scan holds it to Watch and placement refuses it
+  // when it stands before TP1), so the exit needs the failure to be new: the
+  // same reading on the sessions before the fill was not failed (review 11
+  // M1: the 3-Day Chart confirms the test's peak days after it prints, so the
+  // peak's own date is not the test). Each reading covers the 52 weeks before
+  // its next session, the entry chart's window (`FAILED_TOP_CHART_DAYS`).
   if (!exit) {
-    const from = new Date(Date.parse(`${day(last)}T00:00:00Z`) - (FAILED_TOP_CHART_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
-    const offset = daily.findIndex((b) => day(b) >= from);
-    const failed = failedTestAgainst(readMultipleTops(daily.slice(offset)), long ? "bullish" : "bearish");
-    if (failed && offset + failed.lastTestIndex >= firstAfter) {
+    const window = (upTo: number) => {
+      const from = new Date(Date.parse(`${day(daily[upTo - 1])}T00:00:00Z`) - (FAILED_TOP_CHART_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+      return daily.slice(0, upTo).filter((b) => day(b) >= from);
+    };
+    const side = long ? "bullish" : "bearish";
+    const failed = failedTestAgainst(readMultipleTops(window(daily.length)), side);
+    const atEntry = firstAfter > 0 ? failedTestAgainst(readMultipleTops(window(firstAfter)), side) : null;
+    if (failed && !atEntry) {
       exit = {
         reason: "failed_top",
         note: `Failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${long ? "under" : "over"} it: a ${failed.kind}.`,

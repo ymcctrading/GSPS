@@ -239,10 +239,10 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
       o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6,
     }));
   const now = new Date("2026-10-15T15:00:00Z");
-  const read = (day: Bar[], direction: "bullish" | "bearish", stopPrice: number | undefined) => {
+  const read = (day: Bar[], direction: "bullish" | "bearish", stopPrice: number | undefined, takeProfit1: number | null = direction === "bullish" ? 115 : 95) => {
     const execution = direction === "bullish" ? [bar("2026-10-15T14:30:00Z", 103.5, 104, 103, 103.5)] : [bar("2026-10-15T14:30:00Z", 106.5, 107, 106, 106.5)];
     fetchBars.mockImplementation(async (_s: string, tf: string) => (tf === "1Day" ? day : execution));
-    return readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction, entryTrigger: direction === "bullish" ? 103 : 107, stopPrice, entryKind: "oldLevel", now });
+    return readEntryConfirmationNow({ symbol: "AAPL", assetClass: "us_equity", direction, entryTrigger: direction === "bullish" ? 103 : 107, stopPrice, takeProfit1: takeProfit1 ?? undefined, entryKind: "oldLevel", now });
   };
   const doubleTop = [...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 103, 5)];
   const doubleBottom = [...leg(110, 100, 6), ...leg(100, 108, 5), ...leg(108, 100, 6), ...leg(100, 107, 5)];
@@ -251,6 +251,18 @@ describe("readEntryConfirmationNow: an entry waits under a failed double top (A-
     const r = await read(daily(doubleTop), "bullish", 98);
     expect(r).toMatchObject({ ready: false, stage: "broken" });
     expect(r.note).toMatch(/double top near 110/);
+  });
+
+  it("does not wait when the first target is under the failed top, or unknown", async () => {
+    expect((await read(daily(doubleTop), "bullish", 98, 108)).ready).toBe(true);
+    expect((await read(daily(doubleTop), "bullish", 98, null)).ready).toBe(true);
+  });
+
+  it("reads completed sessions only: today's bar does not make the failure", async () => {
+    // Testing the ~110 top through yesterday; only today's bar is 3 points under.
+    const testing = daily([...leg(100, 110, 6), ...leg(110, 102, 5), ...leg(102, 110, 6), ...leg(110, 108, 4)]);
+    const today: Bar = { t: "2026-10-15T04:00:00.000Z", o: 103, h: 103.5, l: 102.5, c: 103, v: 1e6 };
+    expect((await read([...testing, today], "bullish", 98)).ready).toBe(true);
   });
 
   it("waits on a short over a failed double bottom, and not on a long there", async () => {

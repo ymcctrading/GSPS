@@ -12,7 +12,7 @@
 import type { BreakawayReading } from "@/lib/gann/breakaway";
 import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { DistributionStanding } from "@/lib/gann/distribution";
-import { failedTestAgainst, type MultipleTopsReading } from "@/lib/gann/multipleTops";
+import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import type {
   AssetClass,
@@ -766,16 +766,22 @@ export function applyDistributionBreakdownHold(
 /**
  * Gann's failed double or triple top (A-LEVELS-04, W006 pp.14-15, 44; fork
  * FL3 a, 2026-10-16): "failing to pass an old top is a top". While a failed
- * top stands above the price, a new long is held from Execute to Watch; a
- * failed bottom holds a new short the same way (Polarity). The reading is
- * `readMultipleTops` on the 52-week entry chart, the same on both surfaces.
+ * top stands between a new long's entry and its first target, the long is
+ * held from Execute to Watch; a failed bottom holds a new short the same way
+ * (Polarity). The reading is `readMultipleTops` on the 52-week entry chart,
+ * the same on both surfaces. A failed top past TP1 is not in the way
+ * (`failedTestInPath`). The coarse pre-filter in `lib/marketScan.ts` does
+ * not read it, by design: it only narrows the universe before each symbol is
+ * scanned, and every symbol it keeps is held here on the full scan (review 11
+ * M3).
  */
 export function applyFailedTopHold(
   decision: ScanDecision,
   tops: MultipleTopsReading | null | undefined,
   direction: "bullish" | "bearish" | "none",
+  levels: Pick<TradeLevels, "entry" | "takeProfit1"> | null | undefined,
 ): ScanDecision {
-  const failed = failedTestAgainst(tops, direction);
+  const failed = failedTestInPath(tops, direction, levels?.entry, levels?.takeProfit1);
   if (!failed || decision.outputState !== "Execute") return decision;
   const top = failed.kind === "top";
   const name = `${failed.tests >= 3 ? "triple" : "double"} ${failed.kind}`;
@@ -788,7 +794,7 @@ export function applyFailedTopHold(
         key: "failedTop",
         criterion: top ? "No failed double top overhead" : "No failed double bottom underneath",
         passed: false,
-        note: `The market failed at a ${name} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until price ${top ? "crosses" : "breaks"} the level or a new swing replaces it.`,
+        note: `The market failed at a ${name} near ${failed.level.toFixed(2)}, which stands before the first target, and closed back ${top ? "under" : "over"} it by the usual allowance: that is a ${failed.kind}. Held from Execute to Watch until price comes back within the allowance of the level or a new swing replaces it.`,
       },
     ],
   };

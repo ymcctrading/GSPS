@@ -99,6 +99,7 @@ import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
+import { closesAfter } from "@/lib/analysis/trend";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
 import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
@@ -383,11 +384,9 @@ export function readLevelTests(bars: Bar[], currentPrice: number): LevelTestsRea
   // W006 p.13, pp.40-41): a top a later close has cleared by Gann's 3 points
   // tests as support, and a bottom a later close has broken by them as
   // resistance (fork FL1 a, 2026-10-16), the same rule `readTrend` applies.
-  const crossed = (p: (typeof pivots)[number]) => {
-    const line = beyondByThreePoints(p.price, p.kind === "top" ? 1 : -1);
-    for (let i = p.index + 1; i < bars.length; i++) if (p.kind === "top" ? bars[i].c > line : bars[i].c < line) return true;
-    return false;
-  };
+  const { maxAfter, minAfter } = closesAfter(bars);
+  const crossed = (p: (typeof pivots)[number]) =>
+    p.kind === "top" ? maxAfter[p.index] > beyondByThreePoints(p.price, 1) : minAfter[p.index] < beyondByThreePoints(p.price, -1);
   const supports = pivots.filter((p) => p.kind === "bottom" || crossed(p)).map((p) => p.price);
   const resistances = pivots.filter((p) => p.kind === "top" || crossed(p)).map((p) => p.price);
   return {

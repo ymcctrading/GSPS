@@ -30,6 +30,26 @@ import { beyondByThreePoints } from "@/lib/gann/pointScale";
  *    also fits: the swing chart only turns when the market's own swing
  *    rhythm turns, not when an average of past closes drifts across another.
  */
+/**
+ * The highest and lowest close after each bar (exclusive), in one pass, so
+ * "a later close beyond the level" is one look-up per pivot (review 11 L1:
+ * rescanning from every pivot made `readTrend` 16-18 times slower).
+ */
+export function closesAfter(bars: Bar[]): { maxAfter: Float64Array; minAfter: Float64Array } {
+  const n = bars.length;
+  const maxAfter = new Float64Array(n);
+  const minAfter = new Float64Array(n);
+  let hi = -Infinity;
+  let lo = Infinity;
+  for (let i = n - 1; i >= 0; i--) {
+    maxAfter[i] = hi;
+    minAfter[i] = lo;
+    hi = Math.max(hi, bars[i].c);
+    lo = Math.min(lo, bars[i].c);
+  }
+  return { maxAfter, minAfter };
+}
+
 export function readTrend(bars: Bar[], timeframe: Timeframe): TrendReading {
   const closes = bars.map((b) => b.c);
   const last = closes[closes.length - 1] ?? 0;
@@ -45,11 +65,9 @@ export function readTrend(bars: Bar[], timeframe: Timeframe): TrendReading {
   // top under the price not yet cleared by the 3 points is still being tested,
   // and is neither. Engineering choices, labelled: pivot strength 3, the 1%
   // cluster, the five strongest clusters.
-  const crossed = (p: (typeof pivots)[number]) => {
-    const line = beyondByThreePoints(p.price, p.kind === "high" ? 1 : -1);
-    for (let i = p.index + 1; i < bars.length; i++) if (p.kind === "high" ? bars[i].c > line : bars[i].c < line) return true;
-    return false;
-  };
+  const { maxAfter, minAfter } = closesAfter(bars);
+  const crossed = (p: (typeof pivots)[number]) =>
+    p.kind === "high" ? maxAfter[p.index] > beyondByThreePoints(p.price, 1) : minAfter[p.index] < beyondByThreePoints(p.price, -1);
   const support = clusterLevels(
     pivots.filter((p) => p.price < last && (p.kind === "low" || crossed(p))).map((p) => p.price),
   ).slice(0, 5);

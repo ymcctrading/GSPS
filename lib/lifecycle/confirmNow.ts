@@ -32,7 +32,7 @@
  */
 
 import { readDistributionStanding } from "@/lib/gann/distribution";
-import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
+import { failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
@@ -154,6 +154,8 @@ type ConfirmationInput = {
   entryTrigger: number;
   /** The plan's stop: selects Gann's reaction rule (see `confirmationFromBars`). */
   stopPrice?: number;
+  /** The plan's first target: a failed double top (bottom) between the entry and it holds the entry (A-LEVELS-04). */
+  takeProfit1?: number;
   /** Which of Gann's buying points; `oldLevel` and `hold` have nothing to cross. */
   entryKind?: GannEntryKind;
   /**
@@ -169,8 +171,9 @@ type ConfirmationInput = {
  * also waits while a distribution breakdown stands (A-VOLUME-03, review M2,
  * 2026-10-16): the breakdown holds a new long to Watch on the scan and exits an
  * open one, so a plan armed before it is not placed into it either. Both sides
- * also wait while a failed double or triple top (bottom) stands against them
- * (A-LEVELS-04, fork FL3 a), read on the same 52-week entry chart as the scan.
+ * also wait while a failed double or triple top (bottom) stands between the
+ * entry and the first target (A-LEVELS-04, fork FL3 a), read on the same
+ * 52-week entry chart as the scan.
  */
 export async function readEntryConfirmationNow(input: ConfirmationInput): Promise<ConfirmationNow> {
   const read = await readEntryConfirmationCore(input);
@@ -179,13 +182,13 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
   const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
   const daily = (await getMarketDataProvider().fetchBars(input.symbol, "1Day", year, null, input.assetClass)) ?? [];
   if (input.direction === "bullish" && readDistributionStanding(daily, now)) return DISTRIBUTION_STANDS;
-  const failed = failedTestAgainst(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction);
+  const failed = failedTestInPath(readMultipleTops(entryChartBars(daily, etDateKey(now))), input.direction, input.entryTrigger, input.takeProfit1);
   if (failed) {
     const top = failed.kind === "top";
     return {
       ready: false,
       stage: "broken",
-      note: `The market failed at a double ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it, which marks a ${failed.kind}, so the ${top ? "buy" : "sell"} waits until price ${top ? "crosses" : "breaks"} that level.`,
+      note: `The market failed at a ${failed.tests >= 3 ? "triple" : "double"} ${failed.kind} near ${failed.level.toFixed(2)} and closed back ${top ? "under" : "over"} it before the first target, which marks a ${failed.kind}, so the ${top ? "buy" : "sell"} waits until price is back within the allowance of that level.`,
     };
   }
   return read;

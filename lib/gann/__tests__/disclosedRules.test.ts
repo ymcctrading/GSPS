@@ -157,6 +157,12 @@ describe("tests of a level (Commodities p. 43)", () => {
     const r = readLevelTests(daily(closes), 90);
     expect(Math.abs(r.resistance!.level - 100)).toBeLessThan(2);
   });
+
+  it("does not count a bottom only just broken, inside the 3 points, as resistance", () => {
+    const closes = [120, 115, 110, 105, 100, 103, 106, 109, 112, 108, 104, 101, 99, 97, 98, 97];
+    const r = readLevelTests(daily(closes), 97);
+    expect(r.resistance && Math.abs(r.resistance.level - 100) < 2).toBeFalsy();
+  });
 });
 
 describe("day-count bands and fractions of the year (A09 Rule 8; Master Course Ch. 13-14)", () => {

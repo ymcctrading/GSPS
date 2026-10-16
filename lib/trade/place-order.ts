@@ -226,6 +226,7 @@ export async function entryConfirmationRefusal(
     entryTrigger: number;
     stopPrice?: number;
     entryKind?: "crossing" | "oldLevel" | "hold";
+    takeProfit1?: number;
     since?: string;
   } | null = null;
   if (input.sourcePlanId) {
@@ -240,6 +241,7 @@ export async function entryConfirmationRefusal(
       // so it keeps the retest-and-hold confirmation.
       stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
       entryKind: plan.coordinates.entryKind,
+      takeProfit1: plan.coordinates.takeProfit1,
       since: plan.generatedAt,
     };
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
@@ -249,7 +251,13 @@ export async function entryConfirmationRefusal(
     // order without it falls back to the stop it attaches.
     const stopPrice = input.entryStop ?? input.attachLevels?.stopLoss;
     if (stopPrice != null) {
-      target = { direction: input.side === "sell" ? "bearish" : "bullish", entryTrigger: input.limitPrice, stopPrice, entryKind: input.entryKind };
+      target = {
+        direction: input.side === "sell" ? "bearish" : "bullish",
+        entryTrigger: input.limitPrice,
+        stopPrice,
+        entryKind: input.entryKind,
+        takeProfit1: input.attachLevels?.takeProfit,
+      };
     }
   }
   if (!target) return null;

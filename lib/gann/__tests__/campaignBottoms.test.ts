@@ -87,16 +87,26 @@ describe("A-LEVELS-03: the ladder joins the support and resistance pool (step 8)
     const levels = campaignSupportLevels(r, 90);
     expect(levels).toEqual([r.bottoms[1].price, r.bottoms[2].price]);
     expect(campaignSupportLevels(r, 80)).toEqual([r.bottoms[2].price]);
-    // Back over the broken 2023 bottom: it is resistance now, not a support.
+    // Back over the broken 2023 bottom it is not offered as a support.
     expect(campaignSupportLevels(r, 120)).toEqual([r.bottoms[1].price, r.bottoms[2].price]);
     expect(campaignSupportLevels(null, 90)).toEqual([]);
+  });
+
+  it("gives a short its first target at an old campaign bottom", async () => {
+    const { campaignSupportLevels } = await import("@/lib/gann/campaignBottoms");
+    const { computeEquityTradeLevels } = await import("@/lib/strat/levels");
+    const r = readCampaignBottoms(monthly([...legs, [129, 90], [130, 90]]), [], asOf)!;
+    const pool = campaignSupportLevels(r, 90);
+    const plan = computeEquityTradeLevels({ direction: "bearish", entry: 90, structuralLevels: [], extensionLevels: pool, evenFigures: false });
+    expect(plan.takeProfit1).toBeCloseTo(r.bottoms[1].price, 2);
+    expect(plan.tp1FromStructure).toBe(true);
   });
 
   it("is wired into the level pool on the live scan and the replay, and fan prices are no longer targets", async () => {
     const { readFileSync } = await import("node:fs");
     for (const f of ["lib/scanTicker.ts", "lib/backtest/replay.ts"]) {
       const s = readFileSync(f, "utf8");
-      expect(s).toMatch(/campaignSupportLevels\(readCampaignBottoms\(charts\.monthly, charts\.daily, /);
+      expect(s).toMatch(/campaignSupportLevels\(readCampaignBottoms\(charts\.monthly, charts\.daily, [^)]*\)+, (currentPrice|price)\)/);
       expect(s).toMatch(/gannTargetPool\(/);
       expect(s).not.toMatch(/fanLines\.map\(\(f\) => f\.price\)/);
     }

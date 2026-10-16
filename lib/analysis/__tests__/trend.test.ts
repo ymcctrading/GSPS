@@ -104,6 +104,12 @@ describe("A-LEVELS-01: old tops become bottoms, old bottoms become tops (W006 p.
     const r = readTrend(daily(legs([80, 100, 92, 104, 102])), "1Day");
     expect(r.support.some((p) => Math.abs(p - 101) < 0.5)).toBe(false);
   });
+
+  it("does not flip a bottom that closes have not yet broken by the 3 points", () => {
+    // 3 points at 99 are about 5; the lowest close is 96.
+    const r = readTrend(daily(legs([120, 100, 108, 96, 98])), "1Day");
+    expect(r.resistance.some((p) => Math.abs(p - 99) < 0.5)).toBe(false);
+  });
 });
 
 describe("A-LEVELS-05: in a bear market an old top below price is support (W006 p.24)", () => {

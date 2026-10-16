@@ -76,7 +76,7 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
-import { failedTestAgainst } from "@/lib/gann/multipleTops";
+import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
@@ -734,6 +734,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // it with a new plan. `retiredSessionPlans` counts each plan once that was ever
   // retired, for the report.
   const sessionPlanStops = new Map<string, number | null>();
+  // The same plan's entry and first target, for the failed-top check below.
+  const sessionPlanPaths = new Map<string, { entry: number; takeProfit1: number } | null>();
   const brokenPlans = new Set<string>();
   const retiredSessionPlans = new Set<string>();
   // Macro context and the daily triggers only move once a session, so they
@@ -846,16 +848,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // bracket walk as before.
       let planStop = sessionPlanStops.get(planKey);
       if (planStop === undefined) {
-        planStop =
-          priceTradeLevels({
-            context: arm.context,
-            gannTrigger: trigger,
-            history,
-            executionAtr: atr(history.slice(-30), 14),
-            assetClass,
-            largeCap: arm.largeCap,
-          })?.stopLoss ?? null;
+        const plan = priceTradeLevels({
+          context: arm.context,
+          gannTrigger: trigger,
+          history,
+          executionAtr: atr(history.slice(-30), 14),
+          assetClass,
+          largeCap: arm.largeCap,
+        });
+        planStop = plan?.stopLoss ?? null;
         sessionPlanStops.set(planKey, planStop);
+        sessionPlanPaths.set(planKey, plan ? { entry: plan.entry, takeProfit1: plan.takeProfit1 } : null);
         if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
           brokenPlans.add(planKey);
           retiredSessionPlans.add(planKey);
@@ -881,9 +884,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // A-VOLUME-03: no long is entered while a distribution breakdown stands,
       // as production refuses the placement (`entryConfirmationRefusal`).
       if (trigger.direction === "bullish" && arm.context.disclosedRules.distributionStanding) continue;
-      // A-LEVELS-04 (fork FL3 a): nor a long under a failed double top (a
-      // short over a failed double bottom), as production refuses it too.
-      if (failedTestAgainst(arm.context.disclosedRules.multipleTops, trigger.direction)) continue;
+      // A-LEVELS-04 (fork FL3 a): nor a long with a failed double top between
+      // its entry and TP1 (a short with a failed bottom), as production refuses it too.
+      const path = sessionPlanPaths.get(planKey);
+      if (failedTestInPath(arm.context.disclosedRules.multipleTops, trigger.direction, path?.entry, path?.takeProfit1)) continue;
 
       const long = trigger.direction === "bullish";
       const dir = long ? 1 : -1;
@@ -1391,7 +1395,7 @@ function scoreSetup(input: {
     context.momentumElevated,
     context.nearSupportResistance,
   ), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
-    context.disclosedRules.multipleTops, gannTrigger.direction);
+    context.disclosedRules.multipleTops, gannTrigger.direction, levels);
   return { decision, levels };
 }
 
