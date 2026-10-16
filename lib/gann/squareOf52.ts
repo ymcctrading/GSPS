@@ -40,6 +40,16 @@ import { majorPivots, findPivots } from "@/lib/analysis/pivots";
 
 export const SQUARE_OF_52_WEEKS = 52;
 
+/**
+ * C-TIME-13: the calculator is 104 weeks wide, running to 520 (Master Course
+ * Ch.14 PDF 385, 1955), so the divisions are read over two years: the
+ * disclosed fractions of the first year, and the same fractions 52 weeks on.
+ * The 52- and 104-week anniversaries are `timeCycles.ts`'s 1- and 2-year
+ * cycles. The lesson's "inner square from 26" (PDF 389-390) gives no counts
+ * in the reading notes, so it is not built.
+ */
+export const SQUARE_OF_52_SPAN_WEEKS = 104;
+
 export interface WeekFraction {
   fraction: number;
   label: string;
@@ -103,7 +113,10 @@ export function squareOf52Windows(dailyBars: Bar[], asOf: Date = new Date(), win
 
   const pivots = findPivots(dailyBars, 5);
   const anchors = majorPivots(pivots).slice(-12);
-  const disclosed = SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed);
+  const firstYear = SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.weeks);
+  const disclosed = [...firstYear, ...firstYear.map((w) => w + SQUARE_OF_52_WEEKS)]
+    .filter((w) => w < SQUARE_OF_52_SPAN_WEEKS)
+    .map((w) => ({ weeks: w }));
 
   const dayMs = 24 * 3600 * 1000;
   const dates: Date[] = [];

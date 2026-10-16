@@ -110,7 +110,10 @@ equivalent of Fibonacci retracement."
 **Numerology.** Gann leaned heavily on specific numbers he considered
 sacred, mostly drawn from the Bible: 3, 7, 9, 12, 21. He used them to build
 recurring time-count "watch dates" (every 45 days, every 90 days, every 7
-weeks — "the death zone" — and so on).
+weeks, and so on). (Corrected 2026-10-16: an earlier version called the 7th
+week "the death zone". In Gann's own course that phrase names the 8th and 9th
+sections of the Master 12 chart, Master Course Ch.2 PDF 66-68, not a week
+count.)
 
 ## Layer 3: Timing — the outer shell, now much more visible
 

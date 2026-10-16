@@ -37,6 +37,15 @@
  *   cycle (`FIXED_CALENDAR_WINDOWS`), so it is kept apart.
  * - The Winter-quarter seasonal dates (C-TIME-05): Master Course Ch.5 PDF
  *   161; see `seasonalCounts.ts`'s `WINTER_QUARTER_POINTS`.
+ * - Week counts (M-T11, C-TIME-08): Commodities p.311's periods from extreme
+ *   highs and lows, "6½ to 7 weeks, 13 weeks, 17 weeks, 20 weeks, 26 weeks,
+ *   32½ weeks, 35 weeks, 42 to 45 weeks, and 52 weeks", of which 20 and
+ *   42-45 are not read elsewhere (the rest are the Square of 52's divisions,
+ *   and 17 and 35 the class C week counts); 45½ weeks, ⅞ of the year (Master
+ *   Course Ch.14 PDF 385); and "78th to 80th week, month or day", 78¾ being
+ *   ⅞ of 90 (Ch.2 PDF 58). The compiler's "death zone" label for the 7th week
+ *   is not carried: in Gann it names the Master 12's 8th and 9th sections
+ *   (Ch.2 PDF 66-68), not a week count.
  *
  * Engineering choices, labelled as such: the anchors and windows follow the
  * class A reader each list sits beside (major daily pivots and ±2 days for the
@@ -88,6 +97,8 @@ export interface TimeCountsReading {
   rule8Date: (typeof RULE_8_MONTHLY_DATES)[number] | null;
   /** The Winter-quarter seasonal date today sits on, or null. */
   winterQuarter: WinterQuarterReading | null;
+  /** The class A week counts open today, from major daily pivots. */
+  weekCounts: PivotCountHit[];
 }
 
 function hit(p: { bar: Bar; kind: "high" | "low" }, count: number, label: string): PivotCountHit {
@@ -110,6 +121,36 @@ function projectedDayHits(bars: Bar[], asOf: Date, counts: readonly number[], un
 /** The Ch.5 wheel counts (C-TIME-06) from major daily pivots. */
 export function readWheelCountsCh5(bars: Bar[], asOf: Date): PivotCountHit[] {
   return projectedDayHits(bars, asOf, WHEEL_COUNTS_CH5, 1, "days");
+}
+
+/**
+ * M-T11, C-TIME-08: the class A week counts not read elsewhere, as inclusive
+ * week ranges (a single count has lo === hi).
+ */
+export const CLASS_A_WEEK_COUNTS: readonly { lo: number; hi: number; label: string }[] = [
+  { lo: 20, hi: 20, label: "20 weeks" },
+  { lo: 42, hi: 45, label: "42-45 weeks" },
+  { lo: 45.5, hi: 45.5, label: "45½ weeks" },
+  { lo: 78, hi: 80, label: "78-80 weeks" },
+];
+
+/**
+ * The class A week counts from `timeCycles()`' anchors: a single count is open
+ * ±2 days, a band on every day from its first week to its last (an
+ * engineering choice). The 78-80 week band needs more than the year of daily
+ * bars the scan holds, so it reads only where the history reaches.
+ */
+export function readWeekCounts(bars: Bar[], asOf: Date): PivotCountHit[] {
+  if (bars.length < 30) return [];
+  const out: PivotCountHit[] = [];
+  for (const p of majorPivots(findPivots(bars, 5)).slice(-12)) {
+    const days = (asOf.getTime() - Date.parse(p.bar.t)) / DAY_MS;
+    for (const c of CLASS_A_WEEK_COUNTS) {
+      const open = c.lo === c.hi ? Math.abs(days - c.lo * 7) <= WINDOW_DAYS : days >= c.lo * 7 && days <= c.hi * 7;
+      if (open) out.push(hit(p, c.lo, c.label));
+    }
+  }
+  return out;
 }
 
 /** M-T7: Commodities p.57's day bands from a top or bottom, inclusive. */
@@ -215,6 +256,7 @@ export function readTimeCounts(daily: Bar[], monthly: Bar[] | null | undefined, 
     commoditiesDayBands: readCommoditiesDayBands(daily),
     rule8Date: readRule8Date(asOf),
     winterQuarter: readWinterQuarterCount(asOf),
+    weekCounts: readWeekCounts(daily, asOf),
   };
 }
 
@@ -240,6 +282,8 @@ export function describeTimeCounts(r: TimeCountsReading): string[] {
     const name = MONTH_NAMES[d.month - 1];
     lines.push(`${name} ${d.startDay}-${d.endDay}: one of the month's turn dates${d.mostImportant ? ", among the most important of the year" : ""}. ${CONTEXT}`);
   }
+  const wk = r.weekCounts[0];
+  if (wk) lines.push(`${wk.label} from the ${wk.pivotKind} of ${wk.pivotDate}: a week count. ${CONTEXT}`);
   const wq = r.winterQuarter;
   if (wq) {
     const p = wq.point;

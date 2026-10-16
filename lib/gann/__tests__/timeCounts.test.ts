@@ -3,14 +3,17 @@ import type { Bar } from "@/lib/types";
 import { CYCLE_YEARS_1955, MAJOR_CYCLE_YEARS, MINOR_CYCLE_YEARS_1931, WHEEL_COUNTS, lessonCycleHits, timeCycles } from "../timeCycles";
 import { CIRCLE_FINE_DIVISIONS, readCircleDivisions } from "../secondaryTime";
 import {
+  CLASS_A_WEEK_COUNTS,
   COMMODITIES_DAY_BANDS,
   RULE_8_MONTHLY_DATES,
   WHEEL_COUNTS_CH5,
   readCommoditiesDayBands,
   readRule8Date,
   readTimeBalanceSpans,
+  readWeekCounts,
   readWheelCountsCh5,
 } from "../timeCounts";
+import { SQUARE_OF_52_SPAN_WEEKS, squareOf52Windows } from "../squareOf52";
 import { DAY_COUNT_BANDS } from "../timeCycles";
 import { SEASONAL_POINTS, WINTER_QUARTER_POINTS, readSeasonalCount, readWinterQuarterCount } from "../seasonalCounts";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
@@ -205,5 +208,39 @@ describe("the seasonal ranking (M-T8, Master Course Ch.18 TP-1 PDF 439)", () => 
     expect([rank("½"), rank("the full year")]).toEqual([1, 1]);
     expect([rank("¼"), rank("¾")]).toEqual([2, 2]);
     expect([rank("⅓"), rank("⅔")]).toEqual([3, 3]);
+  });
+});
+
+describe("the class A week counts (M-T11, C-TIME-08)", () => {
+  it("carries 20, 42-45, 45½ and 78-80 weeks", () => {
+    expect(CLASS_A_WEEK_COUNTS.map((c) => c.label)).toEqual(["20 weeks", "42-45 weeks", "45½ weeks", "78-80 weeks"]);
+  });
+
+  it("is open within two days of a single count, and on every day inside a band, from a major low", () => {
+    const at = (d: number) => fromLow(readWeekCounts(withPivotLow(20), after(d))).map((h) => h.label);
+    expect(at(140)).toEqual(["20 weeks"]);
+    expect(at(142)).toEqual(["20 weeks"]);
+    expect(at(143)).toEqual([]);
+    expect(at(294)).toEqual(["42-45 weeks"]);
+    expect(at(315)).toEqual(["42-45 weeks"]);
+    expect(at(318)).toEqual(["45½ weeks"]);
+    expect(at(546)).toEqual(["78-80 weeks"]);
+    expect(at(561)).toEqual([]);
+  });
+
+  it("is a measured factor with no direction, and a card line", () => {
+    const ctx = readDisclosedRules(withPivotLow(20), 115, null, after(140));
+    expect(contextFactorsFor(ctx, "bullish", 115).weekCountClassAActive).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 115).weekCountClassAActive).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("20 weeks from the low of 2026-01-31"))).toBe(true);
+  });
+});
+
+describe("the Square of 52 over its 104-week span (C-TIME-13, Master Course Ch.14 PDF 385)", () => {
+  it("projects the disclosed fractions into the second year", () => {
+    expect(SQUARE_OF_52_SPAN_WEEKS).toBe(104);
+    // 52 + 26 weeks from the low.
+    expect(squareOf52Windows(withPivotLow(20), after(78 * 7)).active).toBe(true);
+    expect(squareOf52Windows(withPivotLow(20), after(100 * 7)).active).toBe(false);
   });
 });
