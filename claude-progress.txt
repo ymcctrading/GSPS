@@ -701,3 +701,8 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 ## 2026-10-16 item 9 step 3f: multiples of the low (C-PRICE-02 under FL8 a)
 - Page check: 45 Years Ch. IV p.30 (checkpoint W009 notes) ranks "100% of the low and multiples" second after 50%, with the 1929 proof 500% of 64 = 384; Commodities pp.161-162 (W001) runs rye to 700%. Class A.
 - pricePercentageLevels adds 200%, 300% ... above the low up to the record's high, importance 1, tagged `multiple`. Card and the nearMajorPercentLevel factor read them; majorPricePercentageLevels excludes them, so the scan and replay pools are unchanged until FL8's replay (step 5). W003's 7/9/12 list stays out. Mutants Q1-Q4 killed.
+
+## 2026-10-16 item 9 step 3g: the Even Square (C-LEVELS-12) and C-LEVELS-15 held
+- lib/gann/evenSquare.ts: 16x16, 30 points a cell, even-side rings outward (each ring starts in its right column one row above its end and runs up, left, down, right, up), squares 4..256 in the row under the centre. Research only, no consumer (pinned). All 44 clearly read cells of W007 p.65 match.
+- Unread digits it predicts: row 1 "65?0" = 6570, 6540; row 2 "4?20" = 4920; centre "3?" = 30, "?0" = 90, "1?0" = 120, "4?0" = 480; row 4 "23??/23?0/22?0" = 2340/2310/2280; row 12 "1?20" = 1620. One conflict: row 3 col 3 read "3?30", the grid gives 3510 (forced by its read neighbours 3480 and 3540), so the reading likely mis-saw the third digit.
+- C-LEVELS-15 (Hayashi 33x33 sheet) not built: Hayashi's own spreadsheet, not Gann; CF and Step are user inputs, not disclosed constants (W023 summary); the Square of Nine itself is already squareOf9.ts. Held like FL9.
