@@ -86,6 +86,14 @@ export interface CampaignLedger {
   currentCounterMove: CounterMoveSize | null;
   spaceOverbalanced: boolean;
   timeOverbalanced: boolean;
+  /**
+   * The counter-move in progress made its latest extreme in its third month
+   * (after `SECOND_MONTH_END_DAYS`): a rising stock that keeps falling in the
+   * third month has changed its trend (A-TIME-01, W006 p.38; the bear rally's
+   * mirror, A-TIME-02). One that made its low in the second month and has held
+   * since is resuming, and is not flagged.
+   */
+  counterMoveThirdMonth: boolean;
   /** This month so far has broken the prior month's low (bullish campaign) or high (bearish). */
   monthlyBreak: boolean;
   /** It is the campaign's first: no earlier month in the campaign broke the one before it. */
@@ -133,6 +141,13 @@ function monthRanges(bars: Bar[], from = 0): { month: string; low: number; high:
   }
   return out;
 }
+
+/**
+ * The counter-move clock's months, in calendar days (Stock Selector Ch. IV;
+ * `counterMovePhase` in disclosedRules.ts reads the same constant): a
+ * counter-move's second month ends on day 60, and its third begins after it.
+ */
+export const SECOND_MONTH_END_DAYS = 60;
 
 export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   if (bars.length < 10) return null;
@@ -199,11 +214,13 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   }
   const openIsCounter = (bull ? lastPoint.kind === "top" : lastPoint.kind === "bottom") && !resumed;
   let currentCounterMove: CounterMoveSize | null = null;
+  let counterMoveThirdMonth = false;
   if (openIsCounter) {
     let extreme = lastPoint.index;
     for (let i = lastPoint.index + 1; i < bars.length; i++) {
       if (bull ? bars[i].l < bars[extreme].l : bars[i].h > bars[extreme].h) extreme = i;
     }
+    counterMoveThirdMonth = days(bars[lastPoint.index], bars[extreme]) > SECOND_MONTH_END_DAYS;
     const end = bull ? bars[extreme].l : bars[extreme].h;
     currentCounterMove = {
       pct: (Math.abs(lastPoint.price - end) / lastPoint.price) * 100,
@@ -279,6 +296,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     currentCounterMove,
     spaceOverbalanced,
     timeOverbalanced,
+    counterMoveThirdMonth,
     monthlyBreak,
     monthlyBreakFirst,
     reactionBelowPriorSection,
@@ -319,6 +337,7 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
           : "."),
     );
   }
+  if (l.counterMoveThirdMonth) lines.push(`Still making new ${l.trend === "bullish" ? "lows" : "highs"} in the counter-move's third month: the trend is changing.`);
   if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}${l.monthlyBreakFirst ? ", the first such break of the campaign" : ""}.`);
   if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
   if (l.timeRatioInverted) lines.push(`More time against the trend (${l.counterDays}d) than with it (${l.trendDays}d).`);

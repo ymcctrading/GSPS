@@ -85,7 +85,7 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
 import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
-import { buildCampaignLedger, describeCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
@@ -294,7 +294,7 @@ export interface CounterMoveReading {
 export function counterMovePhase(days: number): CounterMovePhase {
   if (days <= 21) return "normal";
   if (days <= 30) return "extended";
-  if (days <= 60) return "secondMonth";
+  if (days <= SECOND_MONTH_END_DAYS) return "secondMonth";
   return "thirdMonth";
 }
 

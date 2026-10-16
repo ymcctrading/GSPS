@@ -446,3 +446,10 @@ is unchecked here (collection-synthesis.md §1.6, §6).
   - C-TIME-02 (W003 p.16): no scored criterion reads an oscillator, and nothing on the verdict path imports the oscillator modules (criteria-gate.test.ts); an injected import fails it.
   - A-TIME-02's bear-side clock test already existed (disclosedRules.test.ts "times a rally against a bearish trend").
 - Noted for later items: applyReversionConfirmation (lib/scoring/score.ts ~764) holds Execute on a STRAT 2-2 pattern, which AGENTS.md forbids for the verdict (item 11); curriculum.ts:961 claims the third-month rule changes the trend (step 3 builds it).
+
+## 2026-10-16 Item 7 step 3 (A-TIME-01/-02): a reaction into its third month changes the trend
+- Fork F2 default taken (map §5): it marks the trend as changing, like the over-balances, rather than a separate Execute hold.
+- CampaignLedger.counterMoveThirdMonth: the open counter-move made its latest extreme more than 60 days after it began (SECOND_MONTH_END_DAYS, shared with counterMovePhase). readGannTrend sets `changing`, so the trend read is unconfirmed on every timeframe, live and in the replay (both read trends through readTrend). One that made its low in month 2 and held is not flagged. Card line added. curriculum.ts:961 already teaches it.
+- Tests: new thirdMonth.test.ts (5, incl. bear mirror, day 60 vs 61, a low held flat into month 3). Mutations Q1-Q5 caught.
+- STRATEGY_VERSION 2026-10-16-gann-third-month. Checks: 273 files / 2739 tests; tsc, check:terms, eslint clean.
+- The clock starts at the ledger's last 3-day swing point; the second item 6 review (F1) shows that point is a minor top in a two-leg reaction. Fixed next, with F1.

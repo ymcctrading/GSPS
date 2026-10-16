@@ -161,4 +161,7 @@
 // only: the coarse pass reads the monthly chart first when its bars are in,
 // keeps trendless symbols for the reversion pass, and the sell list is cut
 // after the shortable check.
-export const STRATEGY_VERSION = "2026-10-16-gann-trend-review";
+// Item 7 step 3, 2026-10-16: a counter-move still making new extremes in its
+// third month (after day 60) changes the trend (A-TIME-01/-02, W006 p.38),
+// alongside the over-balances of space and time, live and in the replay.
+export const STRATEGY_VERSION = "2026-10-16-gann-third-month";

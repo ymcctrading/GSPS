@@ -127,7 +127,8 @@ export interface GannTrendRead {
    * longer than the campaign's greatest (over-balance of space or time).
    * When either fires, the trend is changing and is no longer confirmed. So is
    * a monthly break whose reaction has gone under the previous section's top
-   * (item 6 review R2, W006 p.14). See `lib/gann/campaignLedger.ts` for the
+   * (item 6 review R2, W006 p.14), and a counter-move still making new
+   * extremes in its third month (item 7 step 3, A-TIME-01/-02, W006 p.38). See `lib/gann/campaignLedger.ts` for the
    * sources.
    */
   changing: boolean;
@@ -170,7 +171,11 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
   // section's top (W006 p.14, A-TREND-06); under it, the trend is changing.
   const changing =
     ledger !== null &&
-    (ledger.spaceOverbalanced || ledger.timeOverbalanced || (ledger.monthlyBreak && ledger.reactionBelowPriorSection));
+    (ledger.spaceOverbalanced ||
+      ledger.timeOverbalanced ||
+      // A reaction still making new extremes in its third month (A-TIME-01/-02, W006 p.38).
+      ledger.counterMoveThirdMonth ||
+      (ledger.monthlyBreak && ledger.reactionBelowPriorSection));
   const monthlyWarning = ledger !== null && ledger.monthlyBreak;
   const confirmed = weekly !== null && structureAgrees && !changing;
 
