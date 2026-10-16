@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import type { Bar } from "@/lib/types";
 import { computeRuleOfThree } from "../ruleOfThree";
 
@@ -62,5 +63,24 @@ describe("computeRuleOfThree", () => {
     const result = computeRuleOfThree(bars([100, 99, 98, 98]));
     expect(result.consecutiveLowerCloses).toBe(0);
     expect(result.bearishSignal).toBe(false);
+  });
+});
+
+describe("M-R3 on every surface (review 23)", () => {
+  it("still signals on a fourth lower close in a row", () => {
+    const r = computeRuleOfThree(bars([10, 9, 8, 7, 6]));
+    expect(r.consecutiveLowerCloses).toBe(4);
+    expect(r.bearishSignal).toBe(true);
+  });
+
+  it("reads the weekly and monthly charts on the live scan and the replay alike", () => {
+    const live = readFileSync("lib/scanTicker.ts", "utf8");
+    expect(live).toMatch(/const ruleOfThreeWeekly = charts\.weekly\.length >= 4 \? computeRuleOfThree\(charts\.weekly\) : null;/);
+    expect(live).toMatch(/const ruleOfThreeMonthly = charts\.monthly\.length >= 4 \? computeRuleOfThree\(charts\.monthly\) : null;/);
+    expect(live).toMatch(/ruleOfThree,\s*\n\s*ruleOfThreeWeekly,\s*\n\s*ruleOfThreeMonthly,/);
+    const replay = readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(replay).toMatch(/ruleOfThreeWeekly: weekly\.length >= 4 \? computeRuleOfThree\(weekly\) : null,/);
+    expect(replay).toMatch(/ruleOfThreeMonthly: monthly\.length >= 4 \? computeRuleOfThree\(monthly\) : null,/);
+    expect(replay).toMatch(/ruleOfThreeWeekly: context\.ruleOfThreeWeekly,\s*\n\s*ruleOfThreeMonthly: context\.ruleOfThreeMonthly,/);
   });
 });

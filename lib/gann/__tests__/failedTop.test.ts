@@ -407,3 +407,22 @@ describe("C-LEVELS-06: a double top is crossed only by a close 3 points over it 
     expect(readMultipleTops(bars(mirror([...testing, 108, line + 0.5, 109]))).bottom?.state).not.toBe("crossed");
   });
 });
+
+describe("A-LEVELS-04 and C-LEVELS-06 on uneven tops (review 23)", () => {
+  const leg = (a: number, b: number, n: number) => Array.from({ length: n }, (_, i) => Math.round((a + ((b - a) * (i + 1)) / n) * 100) / 100);
+  // Tests at ~110.5 and ~113.5 (mean 112), then a dip that holds.
+  const tops = [...leg(90, 110, 6), ...leg(110, 102, 5), ...leg(102, 113, 6), ...leg(113, 110, 3)];
+
+  it("fails 3 points under the tests' mean, not under the highest test", () => {
+    const between = (beyondByThreePoints(112, -1) + beyondByThreePoints(113.5, -1)) / 2;
+    expect(readMultipleTops(bars([...tops, between])).top?.state).not.toBe("failed");
+    const under = beyondByThreePoints(112, -1) - 0.3;
+    expect(readMultipleTops(bars([...tops, under])).top).toMatchObject({ state: "failed", level: 113.5 });
+  });
+
+  it("is crossed only 3 points over the highest test", () => {
+    const between = (beyondByThreePoints(112, 1) + beyondByThreePoints(113.5, 1)) / 2;
+    expect(readMultipleTops(bars([...tops, between])).top?.state).not.toBe("crossed");
+    expect(readMultipleTops(bars([...tops, beyondByThreePoints(113.5, 1) + 0.3])).top?.state).toBe("crossed");
+  });
+});
