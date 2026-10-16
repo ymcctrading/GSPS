@@ -53,4 +53,8 @@
 // and the GA-32 time angle are new measured context, not scored.
 // 2026-10-16: both 2026-09-30 changes together once PR #306 was merged with
 // main (the stop-breach retirement and the calculator/planetary levels).
-export const STRATEGY_VERSION = "2026-10-16-calculator-planetary-stop-breach";
+// 2026-10-16 (owner, 2026-10-01: "every Gann method acts"): the S/R list also
+// gains the nearest active angle above and below price for Jupiter, Saturn and
+// Uranus (a planet's longitude, square, trine or opposition, 1954 letter), via
+// lib/gann/astroRules.ts#activeAngleLevels and masterLevels.ts.
+export const STRATEGY_VERSION = "2026-10-16-active-angle-levels";

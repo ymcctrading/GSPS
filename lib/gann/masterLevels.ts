@@ -18,7 +18,10 @@
  *   72 points from 0, up from the extreme low and down from the extreme
  *   high), within half the price either way (`masterCalculator.ts`);
  * - each Tier A planetary average contributes only its nearest resistance
- *   point above and below price (`planetaryAverages.ts`).
+ *   point above and below price (`planetaryAverages.ts`);
+ * - each of Jupiter, Saturn and Uranus contributes only its nearest active
+ *   angle above and below price (`astroRules.ts#activeAngleLevels`; added
+ *   2026-10-16 under the owner's "every Gann method acts").
  *
  * The Gann point is fixed from the daily bars' extremes, and the extremes
  * are the longest history supplied (monthly plus daily), which Gann ranks
@@ -33,11 +36,12 @@ import type { Bar } from "@/lib/types";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { squareBoundaryLevels } from "@/lib/gann/masterCalculator";
 import { planetaryLevels } from "@/lib/gann/planetaryAverages";
+import { activeAngleLevels } from "@/lib/gann/astroRules";
 
 export interface MasterLevel {
   price: number;
   label: string;
-  source: "squareOf144" | "planetary";
+  source: "squareOf144" | "planetary" | "activeAngle";
 }
 
 export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number, asOf: Date): MasterLevel[] {
@@ -56,5 +60,6 @@ export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number
     for (const l of squareBoundaryLevels(price, low, high, unit)) out.push({ ...l, source: "squareOf144" });
   }
   for (const l of planetaryLevels(asOf, price, unit)) out.push({ ...l, source: "planetary" });
+  for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
   return out;
 }

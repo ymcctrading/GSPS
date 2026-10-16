@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { readAstroRules } from "../astroRules";
+import { activeAngleLevels, readAstroRules } from "../astroRules";
+import { gannMasterLevels } from "../masterLevels";
 import { planetLongitudes } from "../planetaryAverages";
 
 const DAY = 86_400_000;
@@ -65,5 +66,38 @@ describe("readAstroRules", () => {
     // The low sits 40 days back in `bars`; read 5 days later.
     const r = readAstroRules(bars("2026-06-01", 40, 50), new Date("2026-06-06T12:00:00Z"), 1)!;
     expect(r.jensen.time).toMatchObject({ from: "low", unit: "days", points: 45 });
+  });
+});
+
+describe("activeAngleLevels (active angles act as price resistance)", () => {
+  const date = new Date("2026-06-01T12:00:00Z");
+
+  it("gives each body its nearest active angle above and below price, one point to a degree", () => {
+    const levels = activeAngleLevels(date, 500, 1);
+    expect(levels).toHaveLength(6);
+    for (const body of ["Jupiter", "Saturn", "Uranus"]) {
+      const mine = levels.filter((l) => l.label.endsWith(body)).map((l) => l.price);
+      expect(mine).toHaveLength(2);
+      expect(Math.min(...mine)).toBeLessThanOrEqual(500);
+      expect(Math.max(...mine)).toBeGreaterThan(500);
+      // Four aspects in two frames: no point of this body sits closer to price.
+      expect(Math.max(...mine) - Math.min(...mine)).toBeLessThanOrEqual(360);
+    }
+  });
+
+  it("puts heliocentric Jupiter's own longitude on the list when price is just above it", () => {
+    const jup = planetLongitudes(date).helio.Jupiter;
+    const below = activeAngleLevels(date, 360 + jup + 0.1, 1).find((l) => l.label.endsWith("Jupiter") && l.price <= 360 + jup + 0.1)!;
+    expect(below.price).toBeCloseTo(360 + jup, 0);
+    expect(below.label).toBe("Active angle: on heliocentric Jupiter");
+  });
+
+  it("scales by the price unit and reaches the S/R list through the master levels", () => {
+    const daily: Bar[] = bars("2026-06-01", 40, 50);
+    const master = gannMasterLevels(daily, daily, 50, date);
+    const angles = master.filter((l) => l.source === "activeAngle");
+    // One above price per body always; one below only where a point sits above zero.
+    expect(angles.filter((l) => l.price > 50)).toHaveLength(3);
+    expect(angles.every((l) => l.price > 0)).toBe(true);
   });
 });

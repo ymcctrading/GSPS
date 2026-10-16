@@ -193,12 +193,16 @@ pre-registered calendar test is designed, not run, pending the owner.
 **Astrology and Jensen, built 2026-10-16 (owner: "infuse the astrology
 connected to Gann, Jensen, and anything from the cycles of observation folder
 that aligns"):** `lib/gann/astroRules.ts` on top of PR #306's planetary
-averages. Active angles, closes through a planet, Sun travel, the Mars
-half-return, the wheel of the year's extreme, the natural angle, seasonal
-points, new moon and lunar return, and Jensen's square of 90 in price and
-time. Trace lines are labelled research context and every reading is a
-measured factor (`astro*`, `jensen*`); none gates, per the astrology policy.
-About 0.7 ms per symbol (38 ms on the first call).
+averages. Under the 2026-10-01 decision ("Every Gann method acts" below), the
+active angles act: each of Jupiter, Saturn and Uranus puts its nearest
+longitude, square, trine or opposition above and below price into the S/R
+list (`activeAngleLevels`, via `masterLevels.ts`), so plan levels move
+(`STRATEGY_VERSION` `2026-10-16-active-angle-levels`). The time readings (the
+Mars half-return, the Sun's travel and seasonal points, the natural angle,
+new moon and lunar return, the wheel) are trace lines and measured factors
+until a shared time-window mechanism exists for them to act through.
+Jensen's square of 90 stays context until the owner places it. About 0.7 ms
+per symbol (38 ms on the first call).
 
 **Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5
 Gann plans identified to be missing"):** the Overnight Chart and its

@@ -8,13 +8,19 @@
  * are its IDs. The averages themselves (ASTRO-6, the COE and the MOF) are
  * `planetaryAverages.ts`.
  *
- * **Policy (AGENTS.md "Astrology"), unchanged by this module:** none of this
- * gates a verdict, prices a plan or moves a level. Each reading is shown in
- * the explanation trace, labelled, and recorded as a factor so the replay's
- * factor table can measure it against the trades where it did not hold. No
- * source in the collection measures a planetary timing rule against chance,
- * so every rule here starts at zero evidence. Promotion past context is a
- * separate, recorded owner decision on measured results.
+ * **Policy.** The owner decided on 2026-10-01 that every Gann method acts
+ * where Gann says it acts, astrology included (AGENTS.md "Every Gann method
+ * acts"). So far one reading here acts: the active angles at 0, 90, 120 and
+ * 180° join the support and resistance list as price resistance
+ * (`activeAngleLevels`, via `masterLevels.ts`), which moves plan stops and
+ * targets. The time readings (Mars half-returns, the Sun's points, the Moon)
+ * mark windows for a turn; they act once GSPS has one shared place where a
+ * time window acts on the verdict (the parity plan's item 7), and until then
+ * they are shown in the trace and measured as factors. Jensen's readings act
+ * where the owner places them, item by item (AGENTS.md); until he does, they
+ * are context. No source in the collection measures a planetary timing rule
+ * against chance, so each one starts at zero evidence, and an inversion in
+ * the replay is presumed a translation defect first.
  *
  * **What is built, and from what (tiers as in the spec):**
  * - ASTRO-4/5, active angles (A, the 1954 letters): price on the longitude of
@@ -209,6 +215,48 @@ function nearestLevel(pricePts: number, degree: number): number {
   return degree + 360 * Math.round((pricePts - degree) / 360);
 }
 
+/**
+ * Gann's active angles as price resistance (owner decision 2026-10-01, "every
+ * Gann method acts"; AGENTS.md). The 1954 letter defines an active angle as a
+ * price or time at a major planet's longitude or at a square, trine or
+ * opposition to it, and calls such points resistance, so they join the
+ * support and resistance list (`masterLevels.ts`) the way the planetary
+ * averages do. Only the letter's own aspects (0, 90, 120, 180) act; the 60°
+ * and 135° readings above stay context.
+ *
+ * Engineering choice, labelled as such: to keep the list sparse, each body
+ * contributes only its nearest point above and below price, across both
+ * frames and all four aspects (`planetaryLevels` keeps one pair per average).
+ */
+export const LEVEL_ASPECTS = [0, 90, 120, 180] as const;
+
+export function activeAngleLevels(asOf: Date, price: number, unit: number): { price: number; label: string }[] {
+  if (!(price > 0) || !(unit > 0)) return [];
+  const pts = price / unit;
+  const lon = planetLongitudes(new Date(ephemerisInstant(asOf).getTime()));
+  const out: { price: number; label: string }[] = [];
+  for (const body of ACTIVE_BODIES) {
+    let above: { pts: number; label: string } | null = null;
+    let below: { pts: number; label: string } | null = null;
+    for (const frame of ["helio", "geo"] as const) {
+      const l = lon[frame][body];
+      for (const aspect of LEVEL_ASPECTS) {
+        for (const deg of aspect === 0 || aspect === 180 ? [mod(l + aspect, 360)] : [mod(l + aspect, 360), mod(l - aspect, 360)]) {
+          // The largest point at this degree not above price, and the next one up.
+          const lo = Math.floor((pts - deg) / 360) * 360 + deg;
+          const hi = lo + 360;
+          const label = `Active angle: ${ASPECT_NAME[aspect]} ${frame === "helio" ? "heliocentric" : "geocentric"} ${body}`;
+          if (lo > 0 && (!below || lo > below.pts)) below = { pts: lo, label };
+          if (!above || hi < above.pts) above = { pts: hi, label };
+        }
+      }
+    }
+    if (below) out.push({ price: below.pts * unit, label: below.label });
+    if (above) out.push({ price: above.pts * unit, label: above.label });
+  }
+  return out;
+}
+
 export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroReading | null {
   if (bars.length < 20 || !(unit > 0)) return null;
   const last = bars[bars.length - 1];
@@ -349,12 +397,12 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroRead
 
 const ASPECT_NAME: Record<number, string> = { 0: "on", 60: "60° from", 90: "square to", 120: "trine to", 135: "135° from", 180: "opposite" };
 
-/** Plain-language lines for the explanation trace, each labelled as research context. */
+/** Plain-language lines for the explanation trace. Active angles act as levels; the rest is labelled context. */
 export function describeAstroRules(r: AstroReading): string[] {
-  const tag = "Planetary (research context, never gates)";
+  const tag = "Planetary (context)";
   const lines: string[] = [];
   const a = r.activeAngles[0];
-  if (a) lines.push(`${tag}: price is ${ASPECT_NAME[a.aspect]} ${a.frame === "helio" ? "heliocentric" : "geocentric"} ${a.body} (${a.level.toFixed(2)}), an active angle.`);
+  if (a) lines.push(`Planetary: price is ${ASPECT_NAME[a.aspect]} ${a.frame === "helio" ? "heliocentric" : "geocentric"} ${a.body} (${a.level.toFixed(2)}), an active angle.`);
   const c = r.closedThroughBody;
   if (c) lines.push(`${tag}: closed ${c.direction === "up" ? "above" : "below"} the longitude of ${c.frame === "helio" ? "heliocentric" : "geocentric"} ${c.body} (${c.level.toFixed(2)}).`);
   if (r.sunTravel?.on) lines.push(`${tag}: price is at the Sun's travel since the ${r.sunTravel.lowDate} low, added to the low (${r.sunTravel.level.toFixed(2)}).`);
