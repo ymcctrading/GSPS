@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { readGannExit, type GannExitPosition } from "../exitRules";
-import { gannThreePoints } from "../pointScale";
+import { gannPoint, gannThreePoints } from "../pointScale";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
 function daily(closes: number[], start = Date.UTC(2026, 0, 1)): Bar[] {
@@ -162,12 +162,12 @@ describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
     expect(r.stopReason).toBe("prior_week");
   });
 
-  it("moves a short's stop 3 points over the last completed week's top", () => {
+  it("moves a short's stop 1 point over the last completed week's top (Rule 4, W006 p.47)", () => {
     const bars = daily(Array.from({ length: 30 }, (_, i) => 200 - i));
     const pos = position(bars, 5, { side: "short", initialStop: bars[5].c + 20 });
     const high = Math.max(...priorWeek(bars).map((b) => b.h));
     const r = readGannExit(pos, bars, bars[bars.length - 1].l);
-    expect(r.stop).toBeCloseTo(high + gannThreePoints(high), 8);
+    expect(r.stop).toBeCloseTo(high + gannPoint(high), 8);
     expect(r.stopReason).toBe("prior_week");
   });
 
@@ -253,5 +253,30 @@ describe("a change of trend from the campaign ledger after entry (item 7 review 
     const bars = daily([...CAMPAIGN, ...leg(120, 106, 65), ...leg(106, 108, 4), ...leg(108, 130, 30), ...leg(130, 118, 70)]);
     const exit = readGannExit(position(bars, CAMPAIGN.length + 65, { initialStop: 90 }), bars, 130).exit;
     expect(exit?.reason).toBe("trend_change");
+  });
+});
+
+describe("readGannExit: 5 points under each day's high in the final stage (A-STOP-04, W006 p.46)", () => {
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  // Four sections up, each reaction about a quarter, the last leg fast.
+  const up = [...leg(30, 60, 30), ...leg(60, 45, 15), ...leg(45, 90, 30), ...leg(90, 68, 15), ...leg(68, 130, 30), ...leg(130, 100, 12), ...leg(100, 170, 20)];
+
+  it("trails a long 5 points under the last day's high", () => {
+    const bars = daily(up);
+    const e = up.length - 8;
+    const r = readGannExit(position(bars, e, { initialStop: up[e] - 30 }), bars, 170.5);
+    const high = bars[bars.length - 1].h;
+    expect(r.stop).toBeCloseTo(high - 5 * gannPoint(high), 8);
+    expect(r.stopReason).toBe("final_stage");
+  });
+
+  it("trails a short 5 points over the last day's low", () => {
+    const down = up.map((c) => 200 - c);
+    const bars = daily(down);
+    const e = down.length - 8;
+    const r = readGannExit(position(bars, e, { side: "short", initialStop: down[e] + 30 }), bars, 29.5);
+    const low = bars[bars.length - 1].l;
+    expect(r.stop).toBeCloseTo(low + 5 * gannPoint(low), 8);
+    expect(r.stopReason).toBe("final_stage");
   });
 });

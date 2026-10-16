@@ -78,7 +78,7 @@ import { gannReversal, reversesOn, type GannReversal } from "./reverse";
 import type { Bar } from "@/lib/types";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { gannPoint, gannThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
@@ -352,14 +352,16 @@ export function readGannExit(
   if (lastSwing) adopt(below(lastSwing.price), "last_reaction");
 
   // A-STOP-05: under each week's bottom (over each week's top when short),
-  // once the trade has run into a new week. W006 p.46 gives "1, 2, 3 or 5
-  // points"; GSPS takes 3, the stop he calls safest on the same page.
+  // once the trade has run into a new week. For longs W006 p.46 (Rule 2)
+  // gives "1, 2, 3 or 5 points"; GSPS takes 3, the stop he calls safest on
+  // the same page. For shorts Rule 4 (p.47) gives one figure: 1 point above
+  // the previous week's high.
   const weeks = toWeeklyBars(daily);
   const thisWeek = weeks.length > 0 ? weeks[weeks.length - 1].t.slice(0, 10) : null;
   const entryWeek = toWeeklyBars(since)[0]?.t.slice(0, 10) ?? null;
   if (thisWeek && entryWeek && thisWeek > entryWeek && weeks.length >= 2) {
     const prior = weeks[weeks.length - 2];
-    adopt(below(long ? prior.l : prior.h), "prior_week");
+    adopt(long ? below(prior.l) : prior.h + gannPoint(prior.h), "prior_week");
   }
 
   // C3: under the prior month's low once the trade has run into a new month.
@@ -382,6 +384,11 @@ export function readGannExit(
       const twoDayCounter = long ? p1.c < p2.c && p0.c < p1.c : p1.c > p2.c && p0.c > p1.c;
       if (twoDayCounter) adopt(below(long ? p0.l : p0.h), "final_stage");
     }
+    // A-STOP-04 (W006 p.46, Rule 2): in fast advances at high levels, trail 5
+    // points under each day's high (his 10 points "at very high levels" is
+    // the same 5 once the point is price-scaled). The final stage is GSPS's
+    // reading of "a fast advance at high levels"; mirrored for shorts.
+    adopt(long ? last.h - 5 * gannPoint(last.h) : last.l + 5 * gannPoint(last.l), "final_stage");
   }
 
   let reverse: GannReversal | null = null;
