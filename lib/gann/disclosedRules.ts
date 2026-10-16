@@ -88,7 +88,7 @@ import {
   type FirstFallReading,
   type PriceZone,
 } from "@/lib/gann/priceZone";
-import { gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
@@ -379,11 +379,20 @@ function nearestTestedLevel(prices: number[], currentPrice: number, side: "below
 
 export function readLevelTests(bars: Bar[], currentPrice: number): LevelTestsReading {
   const pivots = walkSwingChart(bars, THREE_DAY_CHART).pivots;
-  const bottoms = pivots.filter((p) => p.kind === "bottom").map((p) => p.price);
-  const tops = pivots.filter((p) => p.kind === "top").map((p) => p.price);
+  // "Old tops become bottoms, old bottoms later become tops" (A-LEVELS-01,
+  // W006 p.13, pp.40-41): a top a later close has cleared by Gann's 3 points
+  // tests as support, and a bottom a later close has broken by them as
+  // resistance (fork FL1 a, 2026-10-16), the same rule `readTrend` applies.
+  const crossed = (p: (typeof pivots)[number]) => {
+    const line = beyondByThreePoints(p.price, p.kind === "top" ? 1 : -1);
+    for (let i = p.index + 1; i < bars.length; i++) if (p.kind === "top" ? bars[i].c > line : bars[i].c < line) return true;
+    return false;
+  };
+  const supports = pivots.filter((p) => p.kind === "bottom" || crossed(p)).map((p) => p.price);
+  const resistances = pivots.filter((p) => p.kind === "top" || crossed(p)).map((p) => p.price);
   return {
-    support: nearestTestedLevel(bottoms, currentPrice, "below"),
-    resistance: nearestTestedLevel(tops, currentPrice, "above"),
+    support: nearestTestedLevel(supports, currentPrice, "below"),
+    resistance: nearestTestedLevel(resistances, currentPrice, "above"),
   };
 }
 

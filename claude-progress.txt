@@ -722,3 +722,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - Not changed (noted for later): the swing chart, campaign leg, rule of three daily, angle slopes, time-price square, volume climax and cycles still read the raw daily on each surface (live 1y with today, replay up to 6y).
 - Cost: levelCharts 0.09 ms per symbol live (~25 ms per 250-symbol scan), 0.72 ms per replay call (memoised Mondays).
 - Equality test: a live-shaped feed and a replay-shaped one give identical charts. Mutants L1-L6 killed. STRATEGY_VERSION 2026-10-16-gann-level-parity. Run 51 next (after run 50).
+
+## Run 50 (2026-10-16, 85b22af, gann-volume-review2, 766 sym 15Min)
+- gann-runner Execute n134 +0.148R [+0.011,+0.292], halves +0.140/+0.156; all trades -0.005. Bracket Execute +0.086. Unchanged from run 49.
+- volumeClimax inside Execute still inverted: dR -0.438 (run 49 -0.557). Distribution exits 2 -> 0; 18 Watch trades fell to Reject.
+
+## Item 9 step 5, FL1 a (A-LEVELS-01/-05), 2026-10-16
+- readTrend (lib/analysis/trend.ts) and readLevelTests (disclosedRules.ts): an old top cleared by a later close beyond beyondByThreePoints is support; an old bottom broken by one is resistance. Before: bottoms only support, tops only resistance.
+- Flows to stops/targets/coarse filter/historicalSR via the trend level lists, live and replay (same code). Curriculum lesson adds the mirror (old low broken becomes a ceiling).
+- Mutants R1-R5, T1-T4 killed (incl. "later close" only). Full suite 2973 passing. STRATEGY_VERSION 2026-10-16-gann-old-tops-support. Replay after run 51: report historicalSR pass rate vs saturation bounds, stop-from-structure share.

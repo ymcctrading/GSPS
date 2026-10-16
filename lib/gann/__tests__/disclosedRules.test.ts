@@ -132,6 +132,31 @@ describe("tests of a level (Commodities p. 43)", () => {
     expect(r.support?.tests).toBe(3);
     expect(r.support?.level).toBeCloseTo(100, 0);
   });
+
+  it("counts an old top crossed by the 3 points as support (A-LEVELS-01)", () => {
+    // A top near 100, a reaction, then a run well over it: the old top is now support.
+    const closes = [80, 85, 90, 95, 100, 97, 94, 91, 88, 92, 96, 100, 104, 108, 112, 116, 120, 118, 117, 119];
+    const r = readLevelTests(daily(closes), 115);
+    expect(Math.abs(r.support!.level - 100)).toBeLessThan(2);
+  });
+
+  it("does not count a top only just crossed, inside the 3 points, as support", () => {
+    const closes = [80, 85, 90, 95, 100, 97, 94, 91, 88, 92, 96, 99, 101, 103, 102, 101, 103];
+    const r = readLevelTests(daily(closes), 103);
+    expect(r.support?.level ?? 0).not.toBeCloseTo(100, 0);
+  });
+
+  it("needs the crossing after the top: closes over it before it printed do not count", () => {
+    const closes = [130, 125, 120, 115, 110, 105, 100, 95, 90, 85, 88, 91, 94, 97, 100, 97, 94, 92, 95, 98, 101, 102];
+    const r = readLevelTests(daily(closes), 102);
+    expect(r.support && Math.abs(r.support.level - 100) < 2).toBeFalsy();
+  });
+
+  it("counts an old bottom broken by the 3 points as resistance", () => {
+    const closes = [120, 115, 110, 105, 100, 103, 106, 109, 112, 108, 104, 100, 96, 92, 88, 84, 80, 82, 83, 81];
+    const r = readLevelTests(daily(closes), 90);
+    expect(Math.abs(r.resistance!.level - 100)).toBeLessThan(2);
+  });
 });
 
 describe("day-count bands and fractions of the year (A09 Rule 8; Master Course Ch. 13-14)", () => {

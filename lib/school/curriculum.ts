@@ -369,7 +369,7 @@ const ACADEMY_2: Academy = {
             "Mr. Bull and Mrs. Bear are your guides through GSPS School. Mr. Bull makes the case for a trade: what could go right. Mrs. Bear challenges it: what could go wrong, and what would prove the idea false. Every good decision hears both of them before it acts.",
             "Mr. Bull's first lesson: a market going up makes higher tops and higher bottoms, one after another. A market going down makes lower tops and lower bottoms. When you can't tell which it is doing, it is going sideways, and sideways is the hardest place to make money.",
             "Mrs. Bear's first lesson: don't argue with the trend. Buying in a downtrend because the price 'looks cheap' is how small losses become big ones. Wait for the market to show you it has turned: a higher bottom, then a break above the last top.",
-            "Old highs and lows matter again. A price where the market turned before is where buyers and sellers remember it, so it often stops the market again. When price finally pushes through an old high, that high often becomes the floor on the next dip.",
+            "Old highs and lows matter again. A price where the market turned before is where buyers and sellers remember it, so it often stops the market again. When price finally pushes through an old high, that high often becomes the floor on the next dip. It works the other way too: an old low that price breaks clearly below often becomes the ceiling on the next rally.",
           ],
           application:
             "Open any chart. Mark the last two tops and the last two bottoms. Are they rising, falling, or mixed? Say which way the trend is in one sentence, then say what Mrs. Bear would want to see before believing it.",

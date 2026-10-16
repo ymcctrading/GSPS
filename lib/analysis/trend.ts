@@ -1,6 +1,7 @@
 import type { Bar, Timeframe, TrendReading } from "@/lib/types";
 import { findPivots, clusterLevels } from "./pivots";
 import { readGannTrend } from "@/lib/gann/trendStrength";
+import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
 /**
  * Trend read per the Premise doc: verify highs/lows, support/resistance,
@@ -14,7 +15,9 @@ import { readGannTrend } from "@/lib/gann/trendStrength";
  * stepping the same way. Anything unconfirmed is "sideways". The same read
  * applies on monthly, weekly and daily bars. Gann kept swing charts on every
  * timeframe, and Correspondence is why a rule read on one is expected to hold
- * on another. Pivots still supply the support/resistance lists.
+ * on another. Pivots still supply the support/resistance lists, old tops
+ * crossed by the 3 points counting as support and old bottoms broken by them
+ * as resistance (A-LEVELS-01, 2026-10-16).
  *
  * Three-question basis:
  * 1. Gann: swing charts (the 3-Day Chart, A09 Ch. VII, and the 7-day weekly
@@ -34,11 +37,24 @@ export function readTrend(bars: Bar[], timeframe: Timeframe): TrendReading {
   const pivots = findPivots(bars, 3);
   const direction: TrendReading["direction"] = readGannTrend(bars).direction ?? "sideways";
 
+  // "Old tops become bottoms, old bottoms later become tops" (A-LEVELS-01,
+  // W006 p.13, pp.40-41; in a bear market, p.24): a top below the price that a
+  // later close has cleared by Gann's 3 points is support, and a bottom above
+  // it that a later close has broken by them is resistance (fork FL1 a,
+  // 2026-10-16; until then only bottoms were support and tops resistance). A
+  // top under the price not yet cleared by the 3 points is still being tested,
+  // and is neither. Engineering choices, labelled: pivot strength 3, the 1%
+  // cluster, the five strongest clusters.
+  const crossed = (p: (typeof pivots)[number]) => {
+    const line = beyondByThreePoints(p.price, p.kind === "high" ? 1 : -1);
+    for (let i = p.index + 1; i < bars.length; i++) if (p.kind === "high" ? bars[i].c > line : bars[i].c < line) return true;
+    return false;
+  };
   const support = clusterLevels(
-    pivots.filter((p) => p.kind === "low" && p.price < last).map((p) => p.price),
+    pivots.filter((p) => p.price < last && (p.kind === "low" || crossed(p))).map((p) => p.price),
   ).slice(0, 5);
   const resistance = clusterLevels(
-    pivots.filter((p) => p.kind === "high" && p.price > last).map((p) => p.price),
+    pivots.filter((p) => p.price > last && (p.kind === "high" || crossed(p))).map((p) => p.price),
   ).slice(0, 5);
 
   return { timeframe, direction, support, resistance };

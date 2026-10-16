@@ -216,4 +216,8 @@
 // levelCharts.ts): 52 weeks of completed sessions, 5 years of Monday weeks, 10
 // calendar years of months, each bar in progress from completed sessions. The
 // replay had read up to six years of daily bars and rolled-up weeks and months.
-export const STRATEGY_VERSION = "2026-10-16-gann-level-parity";
+// Item 9 step 5 (fork FL1 a), same day: an old top a later close clears by
+// Gann's 3 points is support and an old bottom broken by them is resistance
+// (A-LEVELS-01, -05), in the trends' level lists (stops, targets, the coarse
+// filter, historicalSR) and the level-test reading, live and in the replay.
+export const STRATEGY_VERSION = "2026-10-16-gann-old-tops-support";
