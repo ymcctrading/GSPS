@@ -954,6 +954,10 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (l.bottomedFirst) lines.push("Bottomed before the market: an early leader (stocks that bottom first top first).");
     if (l.bottomedLate) lines.push("Bottomed after the market: a late mover.");
     if (l.toppedFirst) lines.push("Topped before the market: watch for early weakness.");
+    if (l.lateBottomExpected)
+      lines.push("Topped after the market and now declining: late tops make late bottoms, so its low may come after the market's. Shown for context; it does not change the setup.");
+    if (l.earlyBottomExpected)
+      lines.push("Topped before the market and now declining: early tops make early bottoms, so its low may come before the market's. Shown for context; it does not change the setup.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
   }
   if (ctx.weakStock?.earlyTopFailed) {

@@ -3,6 +3,8 @@ import type { Bar } from "@/lib/types";
 import { readSeasonalCount } from "@/lib/gann/seasonalCounts";
 import { readAccumulation } from "@/lib/gann/accumulation";
 import { readLeadership } from "@/lib/gann/leadership";
+import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
+import { contextFactorsFor } from "@/lib/gann/contextFactors";
 import { readSharesPerPoint } from "@/lib/gann/sharesPerPoint";
 import { readDistributionBreakdown, readDistributionStanding, STANDING_SESSIONS } from "@/lib/gann/distribution";
 import { applyDistributionBreakdownHold } from "@/lib/scoring/score";
@@ -161,6 +163,76 @@ describe("leadership: topping first and bottoming late", () => {
     const r = readLeadership(stock, market)!;
     expect(r.bottomedLate).toBe(true);
     expect(r.bottomedFirst).toBe(false);
+  });
+
+  // A-TIME-08 (W006 pp.31, 35-37): late tops make late bottoms, early tops
+  // make early bottoms. Context only.
+  /**
+   * Swinging up to a top near session `topAt`, then swinging down through the
+   * last bottom, so the stock's own weekly chart turns down.
+   */
+  const upThenDown = (topAt: number, n = 120) => {
+    const out: number[] = [];
+    let p = 100;
+    for (let i = 0; i < n; i++) {
+      // Pullbacks of eight sessions, so the weekly chart has bottoms to break.
+      if (i < topAt) p += i % 20 < 12 ? 1.5 : -1;
+      else if (i > topAt) p += (i - topAt) % 20 < 12 ? -1.5 : 1;
+      out.push(p);
+    }
+    return out;
+  };
+  const toppedAfter = () => ({
+    stock: bars(upThenDown(80)),
+    market: bars(Array.from({ length: 120 }, (_, i) => (i < 40 ? 300 + i : 340 - (i - 40) * 0.5))),
+  });
+
+  it("marks a stock whose high came 10+ days after the market's as toppedLate, and expects a late bottom", () => {
+    const { stock, market } = toppedAfter();
+    const r = readLeadership(stock, market)!;
+    expect(r.toppedLate).toBe(true);
+    expect(r.toppedFirst).toBe(false);
+    expect(r.lateBottomExpected).toBe(true);
+    expect(r.earlyBottomExpected).toBe(false);
+  });
+
+  it("expects an early bottom from a stock that topped first while it declines", () => {
+    const stock = bars(upThenDown(40));
+    const market = bars(Array.from({ length: 120 }, (_, i) => (i < 80 ? 300 + i : 380 - (i - 80) * 0.5)));
+    const r = readLeadership(stock, market)!;
+    expect(r.earlyBottomExpected).toBe(true);
+    expect(r.lateBottomExpected).toBe(false);
+  });
+
+  it("reads neither when the stock topped with the market", () => {
+    const series = upThenDown(80);
+    const r = readLeadership(bars(series), bars(series.map((c) => c * 3)))!;
+    expect(r.toppedLate).toBe(false);
+    expect(r.lateBottomExpected).toBe(false);
+    expect(r.earlyBottomExpected).toBe(false);
+  });
+
+  it("does not expect a bottom while the stock's own campaign is still up", () => {
+    // Topped after the market, but still rising into its high.
+    const stock = bars(Array.from({ length: 120 }, (_, i) => 100 + i));
+    const { market } = toppedAfter();
+    const r = readLeadership(stock, market)!;
+    expect(r.toppedLate).toBe(true);
+    expect(r.lateBottomExpected).toBe(false);
+  });
+
+  it("puts the expected bottom on the card as context and in the measured factors", () => {
+    const { stock, market } = toppedAfter();
+    const price = stock[stock.length - 1].c;
+    const asOf = new Date(Date.parse(stock[stock.length - 1].t) + 86_400_000);
+    const ctx = readDisclosedRules(stock, price, { sharesOutstanding: null, inception: null, marketDaily: market }, asOf);
+    expect(ctx.leadership?.lateBottomExpected).toBe(true);
+    expect(
+      describeDisclosedRules(ctx).some((l) => l.startsWith("Topped after the market") && l.includes("Shown for context")),
+    ).toBe(true);
+    const f = contextFactorsFor(ctx, "bearish", price);
+    expect(f.lateBottomExpected).toBe(true);
+    expect(f.earlyBottomExpected).toBe(false);
   });
 });
 

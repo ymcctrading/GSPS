@@ -8,6 +8,11 @@
  * - A stock must cross the high of the first year of the bull campaign (by
  *   the 3-point allowance) before it can lead a later section.
  * - The last campaign's leader rarely leads the next one.
+ * - "Late tops make late bottoms, early tops make early bottoms" (A-TIME-08,
+ *   *New Stock Trend Detector* pp. 31, 35-37, Tier A): Coca-Cola topped late
+ *   and bottomed late. Read as a stock that topped after (or before) the
+ *   market while its own campaign has turned down, so its bottom is expected
+ *   after (or before) the market's. Context only; it gates nothing.
  *
  * The reading compares the stock's lowest low (and highest high) over the last
  * `LOOKBACK` sessions with the market's (the S&P 500 ETF, SPY, as the
@@ -39,6 +44,12 @@ export interface LeadershipReading {
   bottomedLate: boolean;
   /** The stock's high came before the market's: it may top first. */
   toppedFirst: boolean;
+  /** The stock's high came after the market's by LEAD_DAYS or more: a late top. */
+  toppedLate: boolean;
+  /** Topped late and the stock's campaign is now bearish: late tops make late bottoms (A-TIME-08). */
+  lateBottomExpected: boolean;
+  /** Topped first and the stock's campaign is now bearish: early tops make early bottoms (A-TIME-08). */
+  earlyBottomExpected: boolean;
   /** The campaign's first-year high, when a bull campaign has run a year. */
   firstYearHighCrossed: boolean | null;
 }
@@ -60,7 +71,15 @@ export function readLeadership(
   const ledger = campaign === undefined ? buildCampaignLedger(daily) : campaign;
   const firstYearHighCrossed = ledger?.firstYearHigh ? ledger.firstYearHigh.crossed : null;
   if (!market || market.length < 60) {
-    return { bottomedFirst: false, bottomedLate: false, toppedFirst: false, firstYearHighCrossed };
+    return {
+      bottomedFirst: false,
+      bottomedLate: false,
+      toppedFirst: false,
+      toppedLate: false,
+      lateBottomExpected: false,
+      earlyBottomExpected: false,
+      firstYearHighCrossed,
+    };
   }
   const end = daily[daily.length - 1].t;
   const mkt = market.filter((b) => b.t <= end).slice(-LOOKBACK);
@@ -70,10 +89,18 @@ export function readLeadership(
   const mLow = extremeDate(mkt, "low");
   const sHigh = extremeDate(stk, "high");
   const mHigh = extremeDate(mkt, "high");
+  const toppedFirst = mHigh - sHigh >= lead;
+  const toppedLate = sHigh - mHigh >= lead;
+  // Engineering choice, labelled: "now declining" is the stock's own campaign
+  // ledger reading bearish (its weekly chart's trend).
+  const declining = ledger?.trend === "bearish";
   return {
     bottomedFirst: mLow - sLow >= lead,
     bottomedLate: sLow - mLow >= lead,
-    toppedFirst: mHigh - sHigh >= lead,
+    toppedFirst,
+    toppedLate,
+    lateBottomExpected: toppedLate && declining,
+    earlyBottomExpected: toppedFirst && declining,
     firstYearHighCrossed,
   };
 }

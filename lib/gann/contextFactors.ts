@@ -268,6 +268,9 @@ export function contextFactorsFor(
   if (ctx.leadership) {
     f.earlyLeaderInTradeDirection = bull ? ctx.leadership.bottomedFirst : ctx.leadership.toppedFirst;
     if (bull) f.lateMoverLong = ctx.leadership.bottomedLate;
+    // A-TIME-08 (W006 pp.31, 35-37): late tops make late bottoms, early tops early ones. Measured, never gating.
+    f.lateBottomExpected = ctx.leadership.lateBottomExpected;
+    f.earlyBottomExpected = ctx.leadership.earlyBottomExpected;
     if (bull && ctx.leadership.firstYearHighCrossed !== null) f.firstYearHighCrossed = ctx.leadership.firstYearHighCrossed;
   }
   // A-TREND-07/-08: a weak stock in a bull market; Gann leaves it alone on
