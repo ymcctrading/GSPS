@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { Bar } from "@/lib/types";
 import { readYearRanges } from "../yearRanges";
-import { readDecadeAnalogue } from "../decadeAnalogue";
+import { ANALOGUE_YEARS, readDecadeAnalogue } from "../decadeAnalogue";
 import { NEVER_FAILING_RULES } from "@/lib/risk/neverFailingRules";
 import { contextFactorsFor } from "../contextFactors";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
@@ -70,6 +70,29 @@ describe("A-TIME-14: a year runs like its decade analogues (Master Course Ch.2 P
     const ten = r?.analogues.find((a) => a.yearsBack === 10);
     expect(ten).toMatchObject({ year: 2016, direction: "up" });
     expect(r?.agreed).toBe("up");
+  });
+
+  it("reads all four analogues, 10, 20, 30 and 60 years back, and agrees only when all four do (A-TIME-29)", () => {
+    // 61 years of months from 1965. Each analogue year's April closes above its
+    // March; every other month is flat, so a wrong analogue year reads flat.
+    const from = 1965;
+    const up = new Set([2016, 2006, 1996, 1966]);
+    const close = (down: number | null) => (i: number) => {
+      const y = from + Math.floor(i / 12);
+      const m = (i % 12) + 1;
+      if (m !== 4 || !up.has(y)) return 100;
+      return y === down ? 90 : 110;
+    };
+    const asOf = new Date("2026-03-15T20:00:00Z");
+    const r = readDecadeAnalogue(months(from, 61 * 12 + 3, close(null)), asOf);
+    expect(ANALOGUE_YEARS).toEqual([10, 20, 30, 60]);
+    expect(r?.analogues.map((a) => a.yearsBack)).toEqual([10, 20, 30, 60]);
+    expect(r?.analogues.map((a) => a.year)).toEqual([2016, 2006, 1996, 1966]);
+    expect(r?.analogues.every((a) => a.direction === "up")).toBe(true);
+    expect(r?.agreed).toBe("up");
+
+    // The 60-year analogue alone pointing down breaks the agreement.
+    expect(readDecadeAnalogue(months(from, 61 * 12 + 3, close(1966)), asOf)?.agreed).toBeNull();
   });
 
   it("returns no analogue the history cannot reach", () => {
