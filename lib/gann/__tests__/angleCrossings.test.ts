@@ -103,3 +103,30 @@ describe("angle crossings reach the live scan and the replay alike", () => {
     expect(lines.toLowerCase()).not.toContain(["g", "ann"].join(""));
   });
 });
+
+describe("readAngleCrossings on real swings (review of #328)", () => {
+  it("C-LEVELS-05: reads every test of the double or triple bottom, and their crossings", () => {
+    const bars = zigzag(80);
+    const m = readAngleCrossings(bars, bars[bars.length - 1].c).multipleTests;
+    expect(m?.kind).toBe("bottom");
+    expect(m!.tests).toBeGreaterThanOrEqual(2);
+    expect(m!.crossings.length).toBe((m!.tests * (m!.tests - 1)) / 2);
+  });
+
+  it("C-LEVELS-09: closes the square when time has run as many bars as the range has points", () => {
+    const flat = (n: number) => Array.from({ length: n }, (_, i) => {
+      const ph = (i % 12) / 12;
+      return bar(i, 40 + 10 * (ph < 0.5 ? ph * 2 : 2 - ph * 2));
+    });
+    let closed = 0;
+    for (let n = 40; n <= 100; n++) {
+      const b = flat(n);
+      const sq = readAngleCrossings(b, b[n - 1].c).square!;
+      expect(sq.atEnd, `n=${n}`).toBe(Math.abs(sq.endIndex - (n - 1)) <= 1);
+      if (sq.atEnd) closed++;
+    }
+    expect(closed).toBeGreaterThan(0);
+    const at60 = flat(60);
+    expect(readAngleCrossings(at60, at60[59].c).square?.atEnd).toBe(true);
+  });
+});

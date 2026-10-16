@@ -235,3 +235,35 @@ describe("the review's pinned limits (M-P9, C-TIME-14, C-TIME-07, M-T18)", () =>
     expect(hx?.line?.number).toBe(127);
   });
 });
+
+describe("A-PRICE-03 factor values (review of #333)", () => {
+  const daily = (n: number) =>
+    Array.from({ length: n }, (_, i) => {
+      const c = 40 + 8 * Math.sin(i / 6);
+      return { t: new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1000 };
+    });
+  const base = () => readDisclosedRules(daily(200), 42, null, new Date("2025-07-20T21:00:00Z"));
+  const withBalance = (b: ReturnType<typeof timePriceBalance>) => {
+    const ctx = base();
+    return { ...ctx, priceAsTime: { ...ctx.priceAsTime!, balance: b } };
+  };
+  const end = addDays("2025-01-01", 364);
+
+  it("sets both factors when the gain from the low runs ahead of time and past a point a month", () => {
+    const f = contextFactorsFor(withBalance(timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-12-01", price: 112 }, end, 110, 1)), "bullish", 110);
+    expect(f.priceAheadOfTime).toBe(true);
+    expect(f.gainBeyondPointPerMonth).toBe(true);
+  });
+
+  it("clears both when the gain is behind time and within a point a month", () => {
+    const f = contextFactorsFor(withBalance(timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-12-01", price: 62 }, end, 60, 1)), "bullish", 60);
+    expect(f.priceAheadOfTime).toBe(false);
+    expect(f.gainBeyondPointPerMonth).toBe(false);
+  });
+
+  it("reads no position on a move under the minimum, however soon after the pivot", () => {
+    const b = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-12-01", price: 56 }, addDays("2025-01-01", 14), 54, 1);
+    expect(b.fromLow.position).toBeNull();
+    expect(b.fromHigh.position).toBeNull();
+  });
+});
