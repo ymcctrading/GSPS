@@ -969,7 +969,7 @@
     "class": "A",
     "gsps_location": "lib/gann/stopBreach.ts:readStopBreach; lib/scoring/score.ts:applyStopBreachHold; lib/lifecycle/retire.ts — differs: the pre-stated level is the plan's stop, not a forecast target",
     "test": "lib/gann/__tests__/stopBreach.test.ts > applyStopBreachHold > drops an Execute plan whose stop is broken to Reject, keeping the score",
-    "passes": false
+    "passes": true
   },
   {
     "id": "A-LEVELS-01",

@@ -842,3 +842,4 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - passes set back to false until a fresh review of the daily-close version.
 
 2026-10-16 C-LEVELS-14 passes: it passed the item 10 review (docs/gann-feature-map/item10_review.md row C-LEVELS-14); only the flag was left.
+2026-10-16 A-PRICE-07 passes, per its item 10 review (item10_review.md row A-PRICE-07).
