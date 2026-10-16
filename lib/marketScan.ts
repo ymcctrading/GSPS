@@ -986,7 +986,7 @@ export async function runMarketScan(
       const monthly = monthlyAtCoarse?.get(symbol.toUpperCase());
       const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
       const reversion = coarseReversion(symbol, daily, cycles, trendRead);
-      // Gann's early leaders (A-SELECTION-02), read only for the candidates
+      // Gann's early leaders (A-SELECTION-02/-03), read only for the candidates
       // the shortlist cut ranks: a few array scans over bars already here.
       const leadership: LeadershipReading | null = reversion
         ? readLeadership(daily, marketDaily, null, { stock: monthly, market: marketMonthly })

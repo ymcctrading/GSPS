@@ -419,7 +419,7 @@ export async function scanTicker(
     const distributionStanding = readDistributionStanding(daily, new Date(scannedAt));
     // A-LEVELS-04 (fork FL3 a): the same 52-week entry chart the replay reads.
     const failedTops = readMultipleTops(charts.daily);
-    // Gann's selection rules (A-SELECTION-02): early leaders first in the
+    // Gann's selection rules (A-SELECTION-02/-03): early leaders first in the
     // lists. Read as `readDisclosedRules` reads it on the replay: the level
     // charts' daily and monthly, and the market's.
     const leadership = readLeadership(charts.daily, marketDaily, campaignLedger, { stock: charts.monthly, market: marketMonthly });

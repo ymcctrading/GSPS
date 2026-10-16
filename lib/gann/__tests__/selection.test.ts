@@ -70,3 +70,26 @@ describe("list order puts the leaders first", () => {
     expect(rankShortlist(pool, 1, null, strength).map((c) => c.symbol)).toEqual(["B"]);
   });
 });
+
+/** The mirror of `crossingSeries`: 2026 breaks the prior year's low. */
+function breakingSeries(breakDay: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < 365; i++) out.push(90 + 10 * Math.sin(i / 20));
+  for (let d = 0; d < 120; d++) out.push(d < breakDay ? 88 : 88 - (d - breakDay + 1) * 1.5);
+  return out;
+}
+
+describe("early leaders in a bear market (A-SELECTION-03)", () => {
+  it("marks a stock that broke last year's bottom well before the market as having broken first", () => {
+    const r = readLeadership(bars(breakingSeries(20)), bars(breakingSeries(60).map((c) => c * 4)), null)!;
+    expect(r.brokeBottomsFirst).toBe(true);
+  });
+
+  it("ranks a stock that topped first, or broke its bottoms first, above one that did neither on the sell side", () => {
+    const plain = { bottomedFirst: false, bottomedLate: false, toppedFirst: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
+    expect(selectionStrength("bearish", { ...plain, toppedFirst: true }, null)).toBeGreaterThan(selectionStrength("bearish", plain, null));
+    expect(selectionStrength("bearish", { ...plain, brokeBottomsFirst: true }, null)).toBeGreaterThan(0);
+    // A buy-side leader is no reason to sell it short.
+    expect(selectionStrength("bearish", { ...plain, bottomedFirst: true }, null)).toBe(0);
+  });
+});

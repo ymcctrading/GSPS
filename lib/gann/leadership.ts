@@ -160,6 +160,9 @@ export function readLeadership(
  *
  * - A-SELECTION-02: buy the early leaders of a bull market, the stocks that
  *   bottom first or cross previous years' tops first.
+ * - A-SELECTION-03: sell short the early leaders of a bear market, the
+ *   stocks that top first or break previous years' bottoms first (Chrysler
+ *   topped 11 months before the averages, W006 pp.24-25).
  *
  * It orders setups and never scores them: the 9-point score is unchanged.
  * Engineering choice, labelled as such: each reading counts one step, since
@@ -173,6 +176,7 @@ export function selectionStrength(
 ): number {
   if (!leadership) return 0;
   if (direction === "bullish") return leadership.bottomedFirst || leadership.crossedTopsFirst ? 1 : 0;
+  if (direction === "bearish") return leadership.toppedFirst || leadership.brokeBottomsFirst ? 1 : 0;
   return 0;
 }
 
