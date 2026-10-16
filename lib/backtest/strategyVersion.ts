@@ -132,4 +132,8 @@
 // bottoms from the 3-Day Chart swings readGannTrend uses, not a second
 // fractal-pivot test, so a trend those swings confirm is a clean trend for the
 // pullback and breakout states (regime labels and plan expiry can move).
-export const STRATEGY_VERSION = "2026-10-16-gann-one-structure";
+// Item 6 step 6, 2026-10-16: never too high to buy while the trend is up
+// (W006 pp.22, 38-39). The coarse reversion score no longer counts distance
+// from the 50% point (live only; the replay has no coarse pass), and the
+// confirmed-reversal state's meaningful location is an old level only.
+export const STRATEGY_VERSION = "2026-10-16-gann-never-too-high";

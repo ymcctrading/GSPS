@@ -28,7 +28,11 @@ function extendedDowntrend(scale: number): Bar[] {
     const tail = i >= 110 ? (i - 109) * 4 : 0;
     const c = (trend + wiggle - tail) * scale;
     const t = new Date(Date.UTC(2025, 0, 1 + i)).toISOString();
-    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: 1_000_000 });
+    // Heavy volume at the last swing low (bar 105): Gann's volume rule at the
+    // turn, so the fixture clears the coarse floor on his criteria (fan line
+    // and volume). Its distance from the 50% point stopped scoring on
+    // 2026-10-16 (item 6 step 6: never too high to buy, W006 p.22).
+    bars.push({ t, o: c, h: c * 1.01, l: c * 0.99, c, v: i === 105 ? 4_000_000 : 1_000_000 });
   }
   return bars;
 }
@@ -53,6 +57,15 @@ describe("coarseReversion price floor", () => {
     expect(at1000).not.toBeNull();
     expect(at1000?.coarseScore).toEqual(at2000?.coarseScore);
     expect(at1000?.direction).toEqual(at2000?.direction);
+  });
+});
+
+describe("coarseReversion and how far price has run (A-TREND-09)", () => {
+  it("scores nothing for distance from the 50% point: never too low to sell while the trend is down", () => {
+    // Without the volume at the last low, only the fan line scores (2 points),
+    // under the floor of 3, though price is far below its 50% point.
+    const bars = extendedDowntrend(10).map((b) => ({ ...b, v: 1_000_000 }));
+    expect(coarseReversion("X", bars)).toBeNull();
   });
 });
 

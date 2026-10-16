@@ -2,8 +2,8 @@
  * Daily market-wide scan.
  *
  * Coarse pass: pull the most-active US equities and score cheap daily-bar
- * signals once per symbol, producing two candidate pools — reversions (trend
- * extension into a structural level) and continuations (a trend still
+ * signals once per symbol, producing two candidate pools — reversions (a turn
+ * at a Gann level, fan line or time window) and continuations (a trend still
  * expanding, with volume behind it).
  *
  * Full pass: run the complete multi-timeframe scanTicker on the reversion
@@ -300,27 +300,6 @@ export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
 }
 
 /**
- * How far "extended" means, in multiples of the symbol's own daily ATR —
- * the same re-basing the proximity gates already went through (see
- * lib/scoring/proximity.ts): a flat percent of price does not mean the same
- * thing on a 0.5%-ATR mega-cap as on a 4%-ATR small-cap, so a 1% SPY move
- * and a 15% small-cap move that cover the same number of ATRs now register
- * as equally "extended" instead of the mega-cap almost never qualifying.
- * Tier 2 is double tier 1, preserving the ratio the old 5%/10% pair
- * expressed — re-basing the unit, not covertly re-tuning which tier is
- * stricter.
- */
-export const EXTENSION_ATR_TIER1 = 2;
-export const EXTENSION_ATR_TIER2 = 4;
-/**
- * Fallback fixed-percent thresholds for when no ATR read is available —
- * identical to the values they replace, so a symbol with no volatility read
- * gets exactly the old behavior instead of a silently different one.
- */
-export const FALLBACK_EXTENSION_PCT_TIER1 = 5;
-export const FALLBACK_EXTENSION_PCT_TIER2 = 10;
-
-/**
  * The liquidity floor, applied at the top of the coarse pass so it gates both
  * candidate pools from the same read of the same bars. A symbol that cannot be
  * filled cleanly is not a setup on either side — see lib/scan/liquidity.ts.
@@ -379,7 +358,8 @@ function tradeable(daily: Bar[]): boolean {
  *    in the coarse gate, not a new technique.
  *
  * Value chosen to move, not decide: the reversion floor is score>=3 across
- * five criteria worth 1-2 points each (max 8) — +1 here is worth less than
+ * three criteria worth 2 points each plus this bonus (max 7; a fourth,
+ * distance from the 50% point, was removed 2026-10-16) — +1 here is worth less than
  * any single existing criterion, so cycle timing can tip a genuinely close
  * call but never substitute for the structural criteria that carry the
  * pass/fail weight. Not yet logged to `coarse_gate_telemetry` / calibrated
@@ -413,20 +393,15 @@ export function coarseReversion(
   let score = 0;
 
   // Every distance below is measured against this symbol's own daily range,
-  // not a flat percent of price — see EXTENSION_ATR_TIER1 above for why.
+  // not a flat percent of price.
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
 
-  // Extension: distance of price from the 50% point of its last 50 bars'
-  // range (Gann's balance point; was the 50-bar closing mean, an SMA, until
-  // 2026-09-26), in multiples of the symbol's own ATR. More extended means
-  // more primed for reversion.
-  const mid50 = rangeMidpoint(daily.slice(-50));
-  if (mid50 === null) return null;
-  const extensionPct = (Math.abs(price - mid50) / mid50) * 100;
-  const tier1Pct = proximityBandPct(EXTENSION_ATR_TIER1, FALLBACK_EXTENSION_PCT_TIER1, atrPct);
-  const tier2Pct = proximityBandPct(EXTENSION_ATR_TIER2, FALLBACK_EXTENSION_PCT_TIER2, atrPct);
-  if (extensionPct > tier1Pct) score += 1;
-  if (extensionPct > tier2Pct) score += 1;
+  // How far price has run from its 50% point no longer scores (PLAN.md item 6
+  // step 6, A-TREND-09): "a stock is never too high to buy so long as the
+  // trend is up, provided you place a stop loss order" (W006 p.22, and the
+  // mirror for a short, pp.38-39). Height alone is no reason to trade against
+  // the trend; a reversion has to stand on Gann's own criteria below (a fan
+  // line, volume at the turn, an old level, a time window).
 
   // Proximity to a Gann fan line — the same ATR-relative band the full
   // scan's gannAngleSlope-adjacent proximity criteria use, so a symbol that
@@ -463,9 +438,10 @@ export function coarseReversion(
  */
 /**
  * Travel-from-mean threshold for the continuation gate, in ATR multiples —
- * scaled down from EXTENSION_ATR_TIER1 by the same ratio the old fixed
- * percentages (3% vs. 5%) expressed, so re-basing the unit doesn't quietly
- * change how strict this gate is relative to the reversion gate.
+ * scaled down from the reversion gate's old 2-ATR extension tier by the same
+ * ratio the old fixed percentages (3% vs. 5%) expressed. That tier was removed
+ * on 2026-10-16 (item 6 step 6); this one is reviewed with the continuation
+ * pass (item 6 step 11).
  */
 export const TRAVEL_ATR_MULT = 1.2;
 export const FALLBACK_TRAVEL_PCT = 3;
@@ -512,7 +488,7 @@ export function coarseContinuation(
   // Distance travelled from the 50% point of the last 50 bars' range in the
   // trend direction: a trend that has actually gone somewhere, scored the
   // opposite way to a reversion. Same balance point and ATR-relative
-  // rebasing as coarseReversion's extension tiers.
+  // rebasing coarseReversion's extension tiers had (removed 2026-10-16).
   const mid50 = rangeMidpoint(daily.slice(-50));
   const travelPct = mid50 ? ((price - mid50) / mid50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
   const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
