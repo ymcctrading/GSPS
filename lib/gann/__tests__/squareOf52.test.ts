@@ -67,3 +67,19 @@ describe("squareOf52Windows", () => {
     expect(expected.getTime() - anchorDate.getTime()).toBe(182 * 24 * 3600 * 1000);
   });
 });
+
+describe("the square of 52 reaches the live scan and the replay alike (M-T6, C-TIME-46)", () => {
+  it("is read by readDisclosedRules at the session being read, and turned into a factor", async () => {
+    const { readDisclosedRules } = await import("../disclosedRules");
+    const { contextFactorsFor } = await import("../contextFactors");
+    const bars = Array.from({ length: 200 }, (_, i) => {
+      const c = 40 + 6 * Math.abs(((i % 24) / 12) - 1);
+      return { t: new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1_000_000 };
+    });
+    const asOf = new Date(bars[bars.length - 1].t);
+    const ctx = readDisclosedRules(bars, bars[bars.length - 1].c, null, asOf);
+    expect(ctx.squareOf52).toEqual(squareOf52Windows(bars, asOf));
+    const f = contextFactorsFor(ctx, "bullish", bars[bars.length - 1].c);
+    expect(f.squareOf52Window).toBe(ctx.squareOf52!.active);
+  });
+});

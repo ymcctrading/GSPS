@@ -153,9 +153,10 @@ export interface BalanceSide {
   /**
    * A-PRICE-03, Ch.4 PDF 151 ("price ahead of time") on TP-2's 52 scale:
    * more points than weeks is ahead, fewer is behind, within the balance
-   * tolerance is balanced.
+   * tolerance is balanced. Null on a move under MIN_POINTS, too small to
+   * read against time (the same floor `balanced` uses).
    */
-  position: "ahead" | "behind" | "balanced";
+  position: "ahead" | "behind" | "balanced" | null;
   /**
    * A-PRICE-03, Ch.6 PDF 202: "a stock cannot maintain a gain of more than
    * one point per month". Points up from the low against calendar months
@@ -177,7 +178,7 @@ export function timePriceBalance(
     const days = elapsedDays(p.date, lastDate);
     const weeks = days / 7;
     const pts = unit > 0 ? Math.round((points / unit) * 100) / 100 : 0;
-    const position = Math.abs(pts - weeks) <= BALANCE_TOLERANCE ? "balanced" : pts > weeks ? "ahead" : "behind";
+    const position = !(unit > 0 && pts >= MIN_POINTS) ? null : Math.abs(pts - weeks) <= BALANCE_TOLERANCE ? "balanced" : pts > weeks ? "ahead" : "behind";
     return {
       pivotDate: p.date.slice(0, 10),
       points: pts,

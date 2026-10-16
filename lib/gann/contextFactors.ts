@@ -509,5 +509,10 @@ export function contextFactorsFor(
   if (yr && yr.yearTrend !== "inside") f.yearRangeTrendWithTrade = yr.yearTrend === (bull ? "up" : "down");
   const da = ctx.decadeAnalogue;
   if (da?.agreed) f.decadeAnalogueWithTrade = da.agreed === (bull ? "up" : "down");
+  // The square of 52 (M-T6, C-TIME-46) and the decade digit (M-T17, C-TIME-24), as the card reads them.
+  if (ctx.squareOf52) f.squareOf52Window = ctx.squareOf52.active;
+  const dc = ctx.decadeCycle;
+  if (dc && dc.bias !== "mixed") f.decadeYearWithTrade = dc.bias === (bull ? "bullish" : "bearish");
+  if (dc?.ninetiethMonth) f.decadeNinetiethMonth = dc.ninetiethMonth.active;
   return f;
 }

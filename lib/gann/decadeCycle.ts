@@ -16,7 +16,8 @@
  * the 9th year culminating September to November. The 90th month is read
  * from January of the '1' year as month 1 (Gann numbers the decade 1-10), so
  * it falls in June of the '8' year; that counting start is our reading of
- * his numbering, labelled as such. Card only, as before.
+ * his numbering, labelled as such. Read on the card and, through
+ * `readDisclosedRules`, on the live scan and the replay alike, as context factors.
  *
  * Per AGENTS.md's "Hermetic principles & cycle theory" standing principle:
  * this is built as real, running, clearly-labeled-hypothesis code,

@@ -18,8 +18,10 @@
  *   both read the same double bottom.
  * - C-LEVELS-09, the 1x1 first (PDF 125: "first and always most important";
  *   PDF 55: "draw the 45° first, then the 2x1s, then 4x1 and 8x1"), ranked by
- *   `fans.ts#angleRank`; and the square of the latest swing's range (Ch.13 PDF
- *   377-379, the calculator's squares; Ch.16 PDF 428: "the crossing of two
+ *   `fans.ts#angleRank`; and the square of the latest swing's range (Ch.4 PDF
+ *   148-150, squaring a range, "one of the most important and valuable
+ *   discoveries"; Ch.13 PDF 377-379, the calculator's squares in the square;
+ *   Ch.16 PDF 428: "the crossing of two
  *   right angles is very important"). The 45°s from the square's two left
  *   corners cross at its centre, the midpoint's two 45°s cross the corner
  *   angles at the quarters, and the square closes when time has run as many

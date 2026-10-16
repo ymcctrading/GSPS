@@ -104,3 +104,14 @@ describe("the year rules reach the live scan and the replay alike", () => {
     expect(lines.toLowerCase()).not.toContain(["g", "ann"].join(""));
   });
 });
+
+describe("A-TIME-14 factor sign (review of #331)", () => {
+  it("reads an analogue that agrees up as with a long and against a short", async () => {
+    const { EMPTY_DISCLOSED_RULES } = await import("../disclosedRules");
+    const up = { ...EMPTY_DISCLOSED_RULES, decadeAnalogue: { analogues: [], agreed: "up" as const } };
+    expect(contextFactorsFor(up, "bullish", 100).decadeAnalogueWithTrade).toBe(true);
+    expect(contextFactorsFor(up, "bearish", 100).decadeAnalogueWithTrade).toBe(false);
+    const down = { ...EMPTY_DISCLOSED_RULES, decadeAnalogue: { analogues: [], agreed: "down" as const } };
+    expect(contextFactorsFor(down, "bearish", 100).decadeAnalogueWithTrade).toBe(true);
+  });
+});

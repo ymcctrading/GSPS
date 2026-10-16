@@ -113,6 +113,8 @@ import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@
 import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
 import { describeYearRanges, readYearRanges, type YearRangesReading } from "@/lib/gann/yearRanges";
 import { describeDecadeAnalogue, readDecadeAnalogue, type DecadeAnalogueReading } from "@/lib/gann/decadeAnalogue";
+import { squareOf52Windows, type SquareOf52Result } from "@/lib/gann/squareOf52";
+import { computeDecadeCycle, type DecadeCycleReading } from "@/lib/gann/decadeCycle";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
@@ -659,6 +661,10 @@ export interface DisclosedRulesContext {
   yearRanges?: YearRangesReading | null;
   /** The month ahead in the years 10, 20, 30 and 60 back (A-TIME-14, context only). See `decadeAnalogue.ts`. */
   decadeAnalogue?: DecadeAnalogueReading | null;
+  /** The square of 52's disclosed fractions from the major pivots (M-T6, C-TIME-46, context only). See `squareOf52.ts`; the card reads the same. */
+  squareOf52?: SquareOf52Result | null;
+  /** The decade digit's character and the 90th month (M-T17, C-TIME-24, context only). See `decadeCycle.ts`; the card reads the same. */
+  decadeCycle?: DecadeCycleReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -828,6 +834,8 @@ export function readDisclosedRules(
     angleCrossings: readAngleCrossings(dailyBars, currentPrice),
     yearRanges: readYearRanges(dailyBars, asOf),
     decadeAnalogue: readDecadeAnalogue(longMonthly, asOf),
+    squareOf52: squareOf52Windows(dailyBars, asOf),
+    decadeCycle: computeDecadeCycle(asOf),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
