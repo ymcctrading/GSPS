@@ -17,7 +17,9 @@
  * alone admits one (`qualifiesAsContinuationFill`): a priced plan running
  * with Gann's weighted trend. The 4-hour spike, range expansion, two-of-three
  * breadth, Execute-score bar and two-slot quota that used to gate it had no
- * source in Gann; the first two now only rank the coarse pool.
+ * source in Gann. The first two ranked the coarse pool for a while after;
+ * since 2026-10-16 (item 6, "fix all non Gann gaps") they are gone, and with
+ * them the 4-hour fetch.
  *
  * Cycle-timed selection (added 2026-09-25): each symbol's own Gann time
  * cycles now help decide *which* symbols reach a full scan, rather than only
@@ -239,58 +241,8 @@ export interface CoarseCandidate {
   coarseScore: number;
 }
 
-/**
- * Recent range expansion, as a multiple of the trailing baseline, that counts
- * as "a lot of momentum". Matches the threshold scanTicker scores its own
- * momentum criterion on. A ranking point in the continuation pool since
- * 2026-10-16 (item 6 step 11), no longer a gate.
- */
-export const MOMENTUM_EXPANSION = 1.2;
-
 function mean(values: number[]): number {
   return values.length === 0 ? 0 : values.reduce((s, v) => s + v, 0) / values.length;
-}
-
-/** Recent volatility against its own trailing baseline, or 0 when unreadable. */
-function expansionRatio(daily: Bar[]): number {
-  const recent = atr(daily.slice(-20), 14);
-  const baseline = atr(daily.slice(-100, -20), 14);
-  return baseline > 0 ? recent / baseline : 0;
-}
-
-/**
- * How much more range/volume than normal counts as "exceptional" over the
- * past 4 hours — deliberately stricter than `MOMENTUM_EXPANSION`. A ranking
- * point in the continuation pool since 2026-10-16 (item 6 step 11), no longer
- * a gate.
- */
-export const EXCEPTIONAL_4H_RANGE_MULT = 2;
-export const EXCEPTIONAL_4H_VOLUME_MULT = 2;
-
-/** Bars needed before and including the most recent 4-hour candle to judge it. */
-const BARS_4H_BASELINE = 20;
-
-/**
- * Whether the most recently closed 4-hour candle shows a genuine volatility
- * *and* volume spike against its own trailing baseline — "the past 4 hours"
- * a continuation candidate is asked to prove itself on. Both have to fire:
- * a wide bar on thin volume is a gap, not participation; heavy volume in a
- * narrow bar is absorption, not a breakout.
- */
-export function hasExceptional4hMomentum(bars4h: Bar[]): boolean {
-  if (bars4h.length < BARS_4H_BASELINE + 1) return false;
-  const last = bars4h[bars4h.length - 1];
-  const baseline = bars4h.slice(-(BARS_4H_BASELINE + 1), -1);
-
-  const lastRange = last.h - last.l;
-  const baselineRange = mean(baseline.map((b) => b.h - b.l));
-  const baselineVolume = mean(baseline.map((b) => b.v));
-
-  if (!(baselineRange > 0) || !(baselineVolume > 0)) return false;
-  return (
-    lastRange / baselineRange >= EXCEPTIONAL_4H_RANGE_MULT &&
-    last.v / baselineVolume >= EXCEPTIONAL_4H_VOLUME_MULT
-  );
 }
 
 /**
@@ -476,7 +428,6 @@ export const CONTINUATION_MIN_DAILY_BARS = 60;
 export function coarseContinuation(
   symbol: string,
   daily: Bar[],
-  bars4h: Bar[],
   cycles?: TimeCycleResult,
   trendRead?: "bullish" | "bearish" | "sideways",
 ): CoarseCandidate | null {
@@ -490,20 +441,20 @@ export function coarseContinuation(
   // A continuation candidate moves WITH its trend.
   const direction = trendDirection;
 
-  // Ranking from here down: none of it admits or rejects.
+  // Ranking from here down: none of it admits or rejects. Every point reads
+  // Gann's own tools (the 50% point, volume behind the move, the time cycles).
+  // A widening daily range or a 4-hour spike is not among them, so neither
+  // ranks here (removed 2026-10-16).
   let score = 3;
-  if (hasExceptional4hMomentum(bars4h)) score += 1;
-  const ratio = expansionRatio(daily);
-  if (ratio >= MOMENTUM_EXPANSION) score += 1;
-  if (ratio >= 1.5) score += 1;
-  if (ratio >= 2) score += 1;
 
   // Price on the trend side of the 50% point of its last 20 bars' range
   // (Gann's balance point): running now rather than in a reaction.
   const mid20 = rangeMidpoint(daily.slice(-20));
   if (mid20 !== null && (direction === "bullish" ? price > mid20 : price < mid20)) score += 1;
 
-  // Participation: is the move being funded, or is it drifting on thin tape?
+  // Volume increasing with the trend (Gann's volume rules, W006 Ch. VI): is
+  // the move being funded, or drifting on thin tape? The 1.2 is an
+  // engineering choice, labelled.
   const volRecent = mean(daily.slice(-10).map((b) => b.v));
   const volBaseline = mean(daily.slice(-60, -10).map((b) => b.v));
   if (volBaseline > 0 && volRecent / volBaseline >= 1.2) score += 1;
@@ -930,11 +881,8 @@ export async function runMarketScan(
   const actives = await resolveUniverse(universeTop, extraSymbols);
   mark("resolveUniverse done", `${actives.length} symbols`);
 
-  // Coarse pass — daily bars for trend/level context, plus a short window of
-  // 4-hour bars so the continuation gate can judge the last 4 hours on their
-  // own bar rather than inferring them from the daily candle.
+  // Coarse pass: daily bars for trend/level context.
   const yearAgo = new Date(Date.now() - 365 * 24 * 3600 * 1000);
-  const recentWeeks = new Date(Date.now() - 15 * 24 * 3600 * 1000);
   const end = new Date(Date.now() - 16 * 60 * 1000);
 
   // Batched where the provider supports it: one request per timeframe for the
@@ -944,7 +892,7 @@ export async function runMarketScan(
   // timeout before a scan could finish. Falls back to per-symbol fetches below
   // when unavailable (e.g. the synthetic demo provider).
   // Monthly bars for the yearly-cycle re-rank, started alongside the daily
-  // and 4-hour fetch rather than after it, so it adds no wall-clock time: it
+  // fetch rather than after it, so it adds no wall-clock time: it
   // is under half the daily fetch's rows and runs while the daily fetch (the
   // long pole — 21.4s at 250 symbols, production 2026-09-25) is still going.
   // Never awaited past that point: if it hasn't landed by the time the coarse
@@ -966,11 +914,8 @@ export async function runMarketScan(
       });
   }
 
-  const [dailyBatch, bars4hBatch] = await Promise.all([
-    provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity") ?? null,
-    provider.fetchBarsBatch?.(actives, "4Hour", recentWeeks, end, "us_equity") ?? null,
-  ]);
-  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"} 4h=${bars4hBatch?.size ?? "n/a"}`);
+  const dailyBatch = (await provider.fetchBarsBatch?.(actives, "1Day", yearAgo, end, "us_equity")) ?? null;
+  mark("coarse batch bar fetch done", `daily=${dailyBatch?.size ?? "n/a"}`);
 
   // The monthly bars, when their fetch has landed by now (it normally has: it
   // is under half the daily fetch's rows and starts with it), give the coarse
@@ -980,13 +925,9 @@ export async function runMarketScan(
   mark("monthly bars at the coarse pass", monthlyAtCoarse ? `${monthlyAtCoarse.size} symbols` : "not in");
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
-      const [daily, bars4h] =
-        dailyBatch && bars4hBatch
-          ? [dailyBatch.get(symbol.toUpperCase()) ?? [], bars4hBatch.get(symbol.toUpperCase()) ?? []]
-          : await Promise.all([
-              provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity"),
-              provider.fetchBars(symbol, "4Hour", recentWeeks, end, "us_equity"),
-            ]);
+      const daily = dailyBatch
+        ? (dailyBatch.get(symbol.toUpperCase()) ?? [])
+        : await provider.fetchBars(symbol, "1Day", yearAgo, end, "us_equity");
       // Computed once per symbol and threaded into both gates plus
       // diagnostics — cheap (pure arithmetic over bars already in memory
       // from the batch fetch above), no extra network call. See
@@ -998,7 +939,7 @@ export async function runMarketScan(
       const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
       return {
         reversion: coarseReversion(symbol, daily, cycles, trendRead),
-        continuation: coarseContinuation(symbol, daily, bars4h, cycles, trendRead),
+        continuation: coarseContinuation(symbol, daily, cycles, trendRead),
         diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {

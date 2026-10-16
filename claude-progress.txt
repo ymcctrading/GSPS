@@ -641,3 +641,10 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 
 ## 2026-10-16 A-ENTRY-20 (W006 p.28), double top after a heavy earlier top
 - The sell is the existing old-level short (rest at the old top, stop 3 points over). The heavy earlier top already counts in volumeClimax's climax (best of the recent pivots); retestOfHeavyTop names the case (high reached within tolerance, earlier top's relative volume over 1.5, labelled) and the volume note says it. No verdict change, no version bump. Tests in volumeRule.test.ts; E1-E3 killed.
+
+## 2026-10-16 item 6 follow-up: last non-Gann ranking points out of the coarse continuation pool
+- Chuck's "fix all non Gann gaps" (relayed from the intraday-methods thread): lib/marketScan.ts's continuation pool no longer ranks on the 4-hour spike or ATR range expansion; hasExceptional4hMomentum, MOMENTUM_EXPANSION, EXCEPTIONAL_4H_* and the 4-hour batch fetch are deleted (one less fetch per scan, nothing waits longer).
+- Remaining points: the 20-bar 50% point, volume increasing behind the trend, travel from the 50-bar 50% point, the time-cycle bonus.
+- Tests: market-scan-coarse-trend.test.ts (widening range ranks equal; rising volume ranks ahead); market-scan-continuation.test.ts deleted with the function. Mutants M1 (volume point off), M2 (a range point back in) killed.
+- Coarse pool only: no verdict, risk or order change, and the replay does not model the coarse pool, so STRATEGY_VERSION stays.
+- Still open for item 11: applyReversionConfirmation (STRAT 2-2 plus ATR momentumElevated holds Execute) and guided/copy.ts's ATR-expansion sentence.

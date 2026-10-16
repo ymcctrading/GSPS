@@ -31,19 +31,15 @@ function extendedDowntrend(): Bar[] {
   return bars;
 }
 
-/** A steady advance whose last 20 days widen, and a 4-hour spike on its last bar. */
-function expandingAdvance(): { daily: Bar[]; bars4h: Bar[] } {
+/** A steady advance, 130 sessions; `widen` widens the last 20 days' range (ATR expansion). */
+function advance(widen = false, lastVolume = 2e6): Bar[] {
   const daily: Bar[] = [];
   for (let i = 0; i < 130; i++) {
     const c = 100 + i * 0.4;
-    const half = i >= 110 ? 2 : 0.5;
-    daily.push({ t: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(), o: c, h: c + half, l: c - half, c, v: 2e6 });
+    const half = widen && i >= 110 ? 2 : 0.5;
+    daily.push({ t: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(), o: c, h: c + half, l: c - half, c, v: i >= 120 ? lastVolume : 2e6 });
   }
-  const bars4h: Bar[] = Array.from({ length: 21 }, (_, i) => {
-    const big = i === 20;
-    return { t: new Date(Date.UTC(2025, 4, 1, 4 * i)).toISOString(), o: 150, h: 150 + (big ? 3 : 0.5), l: 150 - (big ? 3 : 0.5), c: 151, v: big ? 5e5 : 1e5 };
-  });
-  return { daily, bars4h };
+  return daily;
 }
 
 beforeEach(() => {
@@ -70,8 +66,7 @@ describe("the coarse pass's trend", () => {
 
   it("sets the continuation's direction with the weekly trend, not the daily", () => {
     Object.assign(dirs, { "1Week": "bullish", "1Day": "bearish" });
-    const { daily, bars4h } = expandingAdvance();
-    expect(coarseContinuation("X", daily, bars4h)?.direction).toBe("bullish");
+    expect(coarseContinuation("X", advance(true))?.direction).toBe("bullish");
   });
 });
 
@@ -101,9 +96,9 @@ describe("the coarse pass's main trend (item 6 review R1, A-TREND-01)", () => {
 
   it("asks a continuation for the monthly chart's side", () => {
     Object.assign(dirs, { "1Month": "bullish", "1Week": "bearish", "1Day": "bearish" });
-    const { daily, bars4h } = expandingAdvance();
+    const daily = advance(true);
     const read = coarseTrendDirection(daily, monthlyBars());
-    expect(coarseContinuation("X", daily, bars4h, undefined, read)?.direction).toBe("bullish");
+    expect(coarseContinuation("X", daily, undefined, read)?.direction).toBe("bullish");
   });
 
   it("admits a symbol with no trend to the reversion pool on its better side, as the full scan arms it", () => {
@@ -122,19 +117,23 @@ describe("the continuation pool (item 6 step 11, A-TREND-09)", () => {
     });
   }
 
-  it("admits a symbol on its trend alone: no 4-hour spike, no range expansion, under 120 sessions", () => {
+  it("admits a symbol on its trend alone: no range expansion, under 120 sessions", () => {
     Object.assign(dirs, { "1Week": "bullish" });
-    expect(coarseContinuation("X", quietAdvance(), [])).toMatchObject({ direction: "bullish", kind: "continuation" });
+    expect(coarseContinuation("X", quietAdvance())).toMatchObject({ direction: "bullish", kind: "continuation" });
   });
 
-  it("ranks a trend with momentum behind it ahead of a quiet one", () => {
+  it("does not rank on a widening daily range, which has no source in the rules", () => {
     Object.assign(dirs, { "1Week": "bullish" });
-    const { daily, bars4h } = expandingAdvance();
-    expect(coarseContinuation("X", daily, bars4h)!.coarseScore).toBeGreaterThan(coarseContinuation("Y", quietAdvance(), [])!.coarseScore);
+    expect(coarseContinuation("X", advance(true))!.coarseScore).toBe(coarseContinuation("Y", advance(false))!.coarseScore);
+  });
+
+  it("ranks a trend with volume increasing behind it ahead of one on ordinary volume", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    expect(coarseContinuation("X", advance(false, 4e6))!.coarseScore).toBeGreaterThan(coarseContinuation("Y", advance(false))!.coarseScore);
   });
 
   it("admits nothing without a trend", () => {
     Object.assign(dirs, { "1Week": "sideways", "1Day": "sideways" });
-    expect(coarseContinuation("X", quietAdvance(), [])).toBeNull();
+    expect(coarseContinuation("X", quietAdvance())).toBeNull();
   });
 });
