@@ -206,4 +206,8 @@
 // M1); a long is neither placed nor entered in the replay while one stands, and
 // an open long exits whenever it was bought (M2); a retest of a top or bottom
 // must not cross it by the 3 points, which moves the volume criterion (M3).
-export const STRATEGY_VERSION = "2026-10-16-gann-volume-review2";
+// Item 10 review, same day: a top crossed (bottom broken) by more than the 3
+// points is no longer read as a lower secondary rally (higher secondary low),
+// H1; "the same level" for a retest is Gann's 3 points on the near side too,
+// not 1% (M3). Both move the volume criterion.
+export const STRATEGY_VERSION = "2026-10-16-gann-retest-bands";

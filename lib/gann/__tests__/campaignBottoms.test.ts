@@ -62,6 +62,9 @@ describe("A-LEVELS-03: the ladder's span and sessions", () => {
     const day = (d: string, c: number): Bar => ({ t: `${d}T04:00:00Z`, o: c, h: c, l: c, c, v: 1e6 });
     expect(readCampaignBottoms(m, [day("2026-10-15", 90)], asOf)!.bottoms[0].broken).toBe(true);
     expect(readCampaignBottoms(m, [day("2026-10-16", 90)], asOf)!.bottoms[0].broken).toBe(false);
+    // The live feed's forming month closing under the line is no break either (review M1).
+    const forming = m.map((b) => (b.t.startsWith("2026-10") ? { ...b, c: 90, l: 89 } : b));
+    expect(readCampaignBottoms(forming, [], asOf)!.bottoms[0].broken).toBe(false);
   });
 
   it("is on the card and in the trade's factors", async () => {

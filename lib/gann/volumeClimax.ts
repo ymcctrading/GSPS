@@ -109,7 +109,7 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
-import { beyondByThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
 
 /**
  * Held at the `lib/signals/regime.ts`-matched 1.5x since 2026-09-14, when a
@@ -148,7 +148,7 @@ export const RECENT_PIVOTS_CHECKED = 3;
 
 /** Bars ending at the pivot that are compared with the bars before them for "drying up". */
 export const DRY_UP_BARS = 5;
-/** How close (percent) a later pivot must come to the earlier one to count as a retest of it. */
+/** The 1% retest band used until 2026-10-16 (review M3); the band is now Gann's 3 points. No longer read. */
 export const RETEST_TOLERANCE_PCT = 1;
 
 export interface VolumeClimaxReading {
@@ -370,7 +370,10 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
     let heavyAdvance = false;
     let retestOfHeavyTop = false;
     if (previous) {
-      const tol = (previous.price * RETEST_TOLERANCE_PCT) / 100;
+      // "The same level" on the near side is Gann's 3 points too, the band
+      // double tops, level tests and the old-level entry read (review M3,
+      // 2026-10-16; it was 1%, `RETEST_TOLERANCE_PCT`, kept for the record).
+      const tol = gannThreePoints(previous.price);
       // A retest reaches the old turn but does not cross it by Gann's 3 points
       // (W006 p.20): beyond them it is a crossing, not a second test (review
       // M3, 2026-10-16; until then a top any distance over the old one counted).
@@ -402,7 +405,9 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
           // rally on smaller volume. "Heavy": the decline's mean volume above
           // the `lookback` sessions before the first top (labelled).
           const heavyDecline = meanVolume(bars, previous.index + 1, mid) > meanVolume(bars, previous.index - lookback, previous.index - 1);
-          secondaryOnLowerVolume = !reached && heavyDecline && ratio !== null && ratio < 1;
+          // A lower top: one crossing the old by more than 3 points is a
+          // breakout, not Rule 1/7's secondary rally (review H1).
+          secondaryOnLowerVolume = anchor.price < previous.price - tol && heavyDecline && ratio !== null && ratio < 1;
         } else {
           // Rule 4: the first advance out of a bear market (the earlier low is
           // the lowest of the year before it, labelled), a higher secondary
@@ -415,7 +420,9 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
           const advance = meanVolume(bars, previous.index + 1, mid);
           const reaction = meanVolume(bars, mid + 1, anchor.index);
           const after = meanVolume(bars, anchor.index + 1, bars.length - 1);
-          secondaryOnLowerVolume = !reached && bearLow && reaction < advance && after > reaction;
+          // A higher low: one breaking the old by more than 3 points is a
+          // breakdown, not Rule 4's secondary low (review H1).
+          secondaryOnLowerVolume = anchor.price > previous.price + tol && bearLow && reaction < advance && after > reaction;
           // A-VOLUME-06: a panic bottom on large volume, a rally, then a
           // secondary decline on much less volume, at or above the panic low.
           const prevRvol = relativeVolume(bars.slice(0, previous.index + 1), lookback);

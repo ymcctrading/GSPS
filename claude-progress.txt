@@ -706,3 +706,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - lib/gann/evenSquare.ts: 16x16, 30 points a cell, even-side rings outward (each ring starts in its right column one row above its end and runs up, left, down, right, up), squares 4..256 in the row under the centre. Research only, no consumer (pinned). All 44 clearly read cells of W007 p.65 match.
 - Unread digits it predicts: row 1 "65?0" = 6570, 6540; row 2 "4?20" = 4920; centre "3?" = 30, "?0" = 90, "1?0" = 120, "4?0" = 480; row 4 "23??/23?0/22?0" = 2340/2310/2280; row 12 "1?20" = 1620. One conflict: row 3 col 3 read "3?30", the grid gives 3510 (forced by its read neighbours 3480 and 3540), so the reading likely mis-saw the third digit.
 - C-LEVELS-15 (Hayashi 33x33 sheet) not built: Hayashi's own spreadsheet, not Gann; CF and Step are user inputs, not disclosed constants (W023 summary); the Square of Nine itself is already squareOf9.ts. Held like FL9.
+
+## 2026-10-16 item 10 review (docs/gann-feature-map/item10_review.md) and its fixes
+- Verdicts: PASS A-PRICE-07, C-PRICE-03, C-LEVELS-14, C-LEVELS-18; PASS pending replay A-VOLUME-03/-09/-10; FAIL A-ENTRY-20 (H1, M3), A-LEVELS-04 (FL3 not built), -06 (parity), -03 (by plan, step 8), -05 (FL1), C-LEVELS-16 (owner exception), C-NUMEROLOGY-04 (FL5).
+- H1 fixed: secondary rally (Rule 1/7) needs a top under the old one by more than the band, Rule 4 a low above it; a 3-point crossing is neither. Pinned at 110/120 and 90/80.
+- M3 fixed: the near-side retest band is gannThreePoints (was 1%). Pinned (a top 4 under 100 is a retest).
+- M1 pinned: the forming month closing under a campaign bottom is no break (C5 killed).
+- M2 (live 1y vs replay 6y for multipleTops/levelTests) goes into step 4's level parity.
+- A-VOLUME-11's gsps_location still says "differs" (only `passes` may change in the feature list); its pass rests on the review in item8b_review.md.
+- STRATEGY_VERSION 2026-10-16-gann-retest-bands. Replay waits for step 4 so one run measures both.

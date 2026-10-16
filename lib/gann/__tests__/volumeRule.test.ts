@@ -566,3 +566,53 @@ describe("the heaviest week before a top is measured from the last major top, no
     expect(heaviestWeekBeforeTop(b, b.length - 1)).toBe(true);
   });
 });
+
+describe("a crossing is not a secondary move (review H1, 2026-10-16)", () => {
+  function weekdayBars(rows: Array<[number, number]>): Bar[] {
+    const t0 = Date.UTC(2025, 0, 6, 5);
+    return rows.map(([c, v], k) => ({ t: new Date(t0 + (Math.floor(k / 5) * 7 + (k % 5)) * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v }));
+  }
+  /** A top at 100, a heavy decline to 80, then a second top at `second` on light volume. */
+  function secondTop(second: number): Bar[] {
+    const rows: Array<[number, number]> = [];
+    for (let i = 0; i < 30; i++) rows.push([70 + i, 1000]);
+    rows.push([100, 1400]);
+    for (let i = 1; i <= 4; i++) rows.push([100 - i * 0.5, 1400]);
+    for (let i = 1; i <= 10; i++) rows.push([98 - i * 1.8, 2500]);
+    for (let i = 1; i <= 10; i++) rows.push([80 + ((second - 80) * i) / 10, 800]);
+    for (let i = 1; i <= 10; i++) rows.push([second - 1 - i, 1000]);
+    return weekdayBars(rows);
+  }
+  /** A bear low at 100, an advance on volume, a second low at `second` on light volume, then a heavier advance. */
+  function secondLow(second: number): Bar[] {
+    const rows: Array<[number, number]> = [];
+    for (let i = 0; i < 130; i++) rows.push([200 - i * 0.7, 1000]);
+    rows.push([100, 1000]);
+    for (let i = 1; i <= 6; i++) rows.push([100 + i * 2, 2000]);
+    for (let i = 1; i <= 6; i++) rows.push([112 - ((112 - second) * i) / 6, 500]);
+    for (let i = 1; i <= 8; i++) rows.push([second + 1 + i, 3000]);
+    return weekdayBars(rows);
+  }
+
+  it("reads a lower top on light volume as the secondary rally, and a top crossed by more than 3 points as neither", () => {
+    expect(computeVolumeClimax(secondTop(90)).find((r) => r.anchorKind === "high")!.secondaryOnLowerVolume).toBe(true);
+    // 4 points under a 100 top is inside Gann's 3 points there (about 5): a retest, not a lower top (review M3).
+    const near = computeVolumeClimax(secondTop(96)).find((r) => r.anchorKind === "high")!;
+    expect(near.retestOnLowerVolume).toBe(true);
+    expect(near.secondaryOnLowerVolume).toBe(false);
+    for (const second of [110, 120]) {
+      const h = computeVolumeClimax(secondTop(second)).find((r) => r.anchorKind === "high")!;
+      expect(h.secondaryOnLowerVolume).toBe(false);
+      expect(h.retestOnLowerVolume).toBe(false);
+    }
+  });
+
+  it("reads a higher low as Rule 4, and a bottom broken by more than 3 points as neither", () => {
+    expect(computeVolumeClimax(secondLow(108)).find((r) => r.anchorKind === "low")!.secondaryOnLowerVolume).toBe(true);
+    for (const second of [90, 80]) {
+      const l = computeVolumeClimax(secondLow(second)).find((r) => r.anchorKind === "low")!;
+      expect(l.secondaryOnLowerVolume).toBe(false);
+      expect(l.retestOnLowerVolume).toBe(false);
+    }
+  });
+});
