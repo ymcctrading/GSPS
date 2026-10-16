@@ -76,8 +76,9 @@ import {
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { applyBreakawayHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyMonthlyBreakHold, applyReversionConfirmation, computeScore } from "@/lib/scoring/score";
 import { readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
+import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
@@ -643,6 +644,8 @@ interface SessionTrigger {
   trigger: GannEntryTrigger;
   /** Gann's breakaway reading for this trigger, from prior sessions only (as the live scan reads it). */
   breakaway: BreakawayReading;
+  /** The monthly break as a warning, from the same chart (PLAN.md item 6, step 3). */
+  monthlyWarning: MonthlyBreakWarning | null;
   /** When the trigger's level formed: names it across sessions, as the window it is read from moves. */
   pivotAt: string;
 }
@@ -746,10 +749,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const entryDaily = chart.bars;
       const entryOf = (d: "bullish" | "bearish") =>
         entryRule === "reaction" ? selectGannEntry(entryDaily, d, chart.older) : computeGannEntryTrigger(entryDaily, d);
+      const monthlyWarning = readMonthlyBreakWarning(entryDaily);
       const sessionTrigger = (setupKind: SetupKind, trigger: GannEntryTrigger): SessionTrigger => ({
         setupKind,
         trigger,
         breakaway: readBreakaway(entryDaily, trigger),
+        monthlyWarning,
         pivotAt: trigger.formedAt,
       });
       const reversion = entryOf(reversionDirection);
@@ -784,7 +789,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const arm = sessionArm(date, lastClose);
     if (!arm) continue;
 
-    for (const { setupKind, trigger, breakaway, pivotAt } of arm.triggers) {
+    for (const { setupKind, trigger, breakaway, monthlyWarning, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
       // A crossing held for its reaction is one crossing of its level: a
       // level crossed again after a break is a new buy, as it is live (step 4
@@ -943,6 +948,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         largeCap,
         setupKind,
         breakaway,
+        monthlyWarning,
         weights,
       });
       const decision = scored.decision;
@@ -1309,9 +1315,10 @@ function scoreSetup(input: {
   largeCap: boolean;
   setupKind: SetupKind;
   breakaway: BreakawayReading;
+  monthlyWarning: MonthlyBreakWarning | null;
   weights?: CriterionWeights;
 }): { decision: ScanDecision; levels: TradeLevels | null } {
-  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, weights } = input;
+  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
@@ -1320,7 +1327,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyBreakawayHold(applyReversionConfirmation(
+  const decision = applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1349,7 +1356,7 @@ function scoreSetup(input: {
     pattern,
     context.momentumElevated,
     context.nearSupportResistance,
-  ), breakaway);
+  ), breakaway), monthlyWarning, gannTrigger.direction);
   return { decision, levels };
 }
 

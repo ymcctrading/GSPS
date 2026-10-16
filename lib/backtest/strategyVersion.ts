@@ -122,4 +122,10 @@
 // the weekly chart last turned, so a 3-day pullback inside a rally (or a bounce
 // inside a bull-market reaction) no longer restarts its clock; one rally is
 // sold once; a rally is over once the weekly chart turns down from its top.
-export const STRATEGY_VERSION = "2026-10-16-gann-rally-review";
+// Item 6 step 3, 2026-10-16: a month's low (high) is the month so far, so a
+// break early in the month still stands later in it (A-TREND-11/-12). The
+// break warns instead of ending the trend: the trend holds while the reaction
+// stays above the previous section's top (A-TREND-06), and only an
+// over-balance of space or time ends its confirmation. While the month stands
+// broken against the trade, Execute is held to Watch, live and in the replay.
+export const STRATEGY_VERSION = "2026-10-16-gann-monthly-warning";

@@ -124,12 +124,19 @@ export interface GannTrendRead {
   /**
    * Gann's change-of-trend signals against the weekly trend (added
    * 2026-09-27, parity roadmap B2): the current counter-move is larger or
-   * longer than the campaign's greatest (over-balance of space or time), or
-   * price has broken the prior month's low (high in a downtrend). When any
-   * of these fire, the trend is changing and is no longer confirmed. See
+   * longer than the campaign's greatest (over-balance of space or time).
+   * When either fires, the trend is changing and is no longer confirmed. See
    * `lib/gann/campaignLedger.ts` for the sources.
    */
   changing: boolean;
+  /**
+   * The month so far has broken the prior month's low (high in a downtrend).
+   * A warning, not the end of the trend (PLAN.md item 6, step 3): until
+   * 2026-10-16 it also unconfirmed the trend, but Gann's own 1933 reaction
+   * broke monthly lows while he read the trend as still up (W006 p.14). It
+   * holds a new Execute with the trend to Watch (`applyMonthlyBreakHold`).
+   */
+  monthlyWarning: boolean;
 }
 
 export function readGannTrend(bars: Bar[]): GannTrendRead {
@@ -156,11 +163,11 @@ export function readGannTrend(bars: Bar[]): GannTrendRead {
   const structureAgrees =
     (weekly === "bullish" && rising) || (weekly === "bearish" && falling);
   const ledger = buildCampaignLedger(bars);
-  const changing =
-    ledger !== null && (ledger.spaceOverbalanced || ledger.timeOverbalanced || ledger.monthlyBreak);
+  const changing = ledger !== null && (ledger.spaceOverbalanced || ledger.timeOverbalanced);
+  const monthlyWarning = ledger !== null && ledger.monthlyBreak;
   const confirmed = weekly !== null && structureAgrees && !changing;
 
-  return { direction: confirmed ? weekly : null, confirmed, threeDay, weekly, structureAgrees, changing };
+  return { direction: confirmed ? weekly : null, confirmed, threeDay, weekly, structureAgrees, changing, monthlyWarning };
 }
 
 /**

@@ -19,7 +19,8 @@
  *   (*Commodities* p. 51, 1951 New Rules p. 312; A09 Rule 8).
  * - **Monthly-low break.** The first break of a prior month's low since the
  *   top signals the turn, mirrored for highs (*New Stock Trend Detector*;
- *   *Wall Street Stock Selector* Ch. IV and VII).
+ *   *Wall Street Stock Selector* Ch. IV and VII). Read on the month so far,
+ *   with whether it is the campaign's first.
  * - **Time balancing.** Project a swing's duration forward from the last
  *   pivot: when the current move has lasted as long as the prior one, time
  *   has balanced (*Commodities* pp. 97-99, 205, 293).
@@ -85,8 +86,10 @@ export interface CampaignLedger {
   currentCounterMove: CounterMoveSize | null;
   spaceOverbalanced: boolean;
   timeOverbalanced: boolean;
-  /** The current bar broke the prior month's low (bullish campaign) or high (bearish). */
+  /** This month so far has broken the prior month's low (bullish campaign) or high (bearish). */
   monthlyBreak: boolean;
+  /** It is the campaign's first: no earlier month in the campaign broke the one before it. */
+  monthlyBreakFirst: boolean;
   /**
    * The campaign's last three completed counter-moves each smaller than the
    * one before (C-TREND-04, W003 p.17, class C: late in a trend reactions get
@@ -108,18 +111,18 @@ export interface CampaignLedger {
   firstYearHigh: { price: number; crossed: boolean } | null;
 }
 
-function monthlyExtremeBefore(bars: Bar[], kind: "low" | "high"): number | null {
-  const lastMonth = bars[bars.length - 1].t.slice(0, 7);
-  let priorMonth: string | null = null;
-  let extreme: number | null = null;
-  for (let i = bars.length - 1; i >= 0; i--) {
+/** Each calendar month's low and high, oldest first, from `from` on. */
+function monthRanges(bars: Bar[], from = 0): { month: string; low: number; high: number }[] {
+  const out: { month: string; low: number; high: number }[] = [];
+  for (let i = from; i < bars.length; i++) {
     const m = bars[i].t.slice(0, 7);
-    if (m === lastMonth) continue;
-    if (priorMonth === null) priorMonth = m;
-    if (m !== priorMonth) break;
-    extreme = extreme === null ? (kind === "low" ? bars[i].l : bars[i].h) : kind === "low" ? Math.min(extreme, bars[i].l) : Math.max(extreme, bars[i].h);
+    const cur = out[out.length - 1];
+    if (cur && cur.month === m) {
+      cur.low = Math.min(cur.low, bars[i].l);
+      cur.high = Math.max(cur.high, bars[i].h);
+    } else out.push({ month: m, low: bars[i].l, high: bars[i].h });
   }
-  return extreme;
+  return out;
 }
 
 export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
@@ -213,8 +216,19 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const trendDays = legs.filter((l) => l.direction === trendDir).reduce((n, l) => n + l.days, 0) + (openIsCounter ? 0 : openDays);
   const counterDays = counterLegs.reduce((n, l) => n + l.days, 0) + (openIsCounter ? openDays : 0);
 
-  const priorMonthExtreme = monthlyExtremeBefore(bars, bull ? "low" : "high");
-  const monthlyBreak = priorMonthExtreme !== null && (bull ? last.l < priorMonthExtreme : last.h > priorMonthExtreme);
+  // The monthly break (A-TREND-11/-12, W006 pp.40-43): a month's bar keeps its
+  // low (high) for the whole month, so the month so far is compared with the
+  // one before, not the last session alone. Gann marks the first such break
+  // since the last one; within the campaign, that is the first month to break
+  // its predecessor (step 6.3).
+  const breaks = (prev: { low: number; high: number }, cur: { low: number; high: number }) =>
+    bull ? cur.low < prev.low : cur.high > prev.high;
+  const months = monthRanges(bars);
+  const monthlyBreak = months.length >= 2 && breaks(months[months.length - 2], months[months.length - 1]);
+  const campaignMonths = monthRanges(bars, start);
+  let earlierBreak = false;
+  for (let k = 1; k < campaignMonths.length - 1; k++) if (breaks(campaignMonths[k - 1], campaignMonths[k])) earlierBreak = true;
+  const monthlyBreakFirst = monthlyBreak && !earlierBreak;
 
   // Time balancing: the open leg measured against the last completed leg in
   // the same direction.
@@ -244,6 +258,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     spaceOverbalanced,
     timeOverbalanced,
     monthlyBreak,
+    monthlyBreakFirst,
     contracting,
     trendDays,
     counterDays,
@@ -251,6 +266,23 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     timeBalanceDates,
     firstYearHigh,
   };
+}
+
+export interface MonthlyBreakWarning {
+  trend: "bullish" | "bearish";
+  monthlyBreak: boolean;
+  first: boolean;
+}
+
+/**
+ * The monthly break as a warning against new trades with the campaign's trend
+ * (PLAN.md item 6, step 3). It does not end the trend: Gann's 1933 reaction
+ * broke monthly lows and he still read the trend as up, because the low held
+ * above the first section's top (W006 p.14).
+ */
+export function readMonthlyBreakWarning(bars: Bar[]): MonthlyBreakWarning | null {
+  const l = buildCampaignLedger(bars);
+  return l ? { trend: l.trend, monthlyBreak: l.monthlyBreak, first: l.monthlyBreakFirst } : null;
 }
 
 export function describeCampaignLedger(l: CampaignLedger): string[] {
@@ -263,7 +295,7 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
           : "."),
     );
   }
-  if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}.`);
+  if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}${l.monthlyBreakFirst ? ", the first such break of the campaign" : ""}.`);
   if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
   if (l.timeRatioInverted) lines.push(`More time against the trend (${l.counterDays}d) than with it (${l.trendDays}d).`);
   if (l.timeBalanceDates.length > 0) lines.push(`Time balances with the prior matching swing on ${l.timeBalanceDates[0]}.`);

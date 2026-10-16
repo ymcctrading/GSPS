@@ -342,3 +342,10 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - Step 2: C-TREND-04 contracting and C-TREND-07 trendDays/counterDays/timeRatioInverted in campaignLedger.ts, card lines, contextFactors reactionsContractingWithTrade / timeRatioInvertedAgainstTrade. Context only, no version bump. Tests lib/gann/__tests__/trendClassC.test.ts (8); mutations 10 of 10 caught.
 - C-TREND-02 (blow-offs up to 20% a day) skipped: it reports a ceiling seen at climaxes, not a rule a reading can act on or be tested against.
 - 2642 passed; tsc, eslint (44 pre-existing warnings), terms clean.
+2026-10-16 Item 6 step 3 (A-TREND-11/-12, A-TREND-06), built on the owner card's recommended option "Warn only" pending Chuck's answer (revert to "end the trend" if he picks it):
+- campaignLedger.ts: monthRanges(bars, from) reads each month so far; monthlyBreak compares this month with the last; monthlyBreakFirst = no earlier campaign month broke its predecessor (months before the campaign's start don't count). readMonthlyBreakWarning.
+- trendStrength.ts: the monthly break no longer ends confirmation (only a space or time over-balance does); it is carried as monthlyWarning. The A-TREND-06 1933 shape now reads bullish with the warning (monthlyWarning.test.ts).
+- score.ts applyMonthlyBreakHold: Execute held to Watch while the month stands broken against the trade's direction. Wired in scanTicker.ts and replay.ts scoreSetup (same function), HoldKey and criteria-registry scoreHold "monthlyBreak". Curriculum trend lesson updated.
+- Tests: monthlyBreak.test.ts (8), monthlyWarning.test.ts. Mutations caught: month-to-date low/high, null guards, direction, first-break loop bound, campaign start.
+- Scan cost: about 119 ms over 766 symbols of 300 bars (0.16 ms a symbol), off any user wait in practice.
+- STRATEGY_VERSION 2026-10-16-gann-monthly-warning.

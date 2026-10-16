@@ -10,6 +10,7 @@
  */
 
 import type { BreakawayReading } from "@/lib/gann/breakaway";
+import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import type {
   AssetClass,
@@ -684,6 +685,34 @@ export function applyBreakawayHold(decision: ScanDecision, breakaway: BreakawayR
         criterion: "Breakaway from a sideways range",
         passed: false,
         note: `The market is moving sideways (range ${fmt(breakaway.rangeLow)}-${fmt(breakaway.rangeHigh)}) and the entry stays inside it. Held from Execute to Watch until price breaks away from the range.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Gann's monthly break as a warning (A-TREND-11/-12, W006 pp.40-43; PLAN.md
+ * item 6, step 3): while the month so far has broken the prior month's low in
+ * an advance (high in a decline), a new trade with the campaign's trend is
+ * held from Execute to Watch. The trend itself still stands (W006 p.14).
+ */
+export function applyMonthlyBreakHold(
+  decision: ScanDecision,
+  warning: MonthlyBreakWarning | null,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!warning?.monthlyBreak || warning.trend !== direction || decision.outputState !== "Execute") return decision;
+  const side = warning.trend === "bullish" ? "low" : "high";
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "monthlyBreak",
+        criterion: "No break of the prior month's " + side,
+        passed: false,
+        note: `This month has broken the prior month's ${side}${warning.first ? ", the first such break of the move" : ""}, a warning that the trend may be turning. Held from Execute to Watch while it stands.`,
       },
     ],
   };

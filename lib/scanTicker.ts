@@ -43,12 +43,14 @@ import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
+  applyMonthlyBreakHold,
   applyDataLagHold,
   applyReversionConfirmation,
   applyStopBreachHold,
   computeScore,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
+import { readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
@@ -380,6 +382,9 @@ export async function scanTicker(
     // Gann's breakaway rule (owner decision 5): a sideways market is Watch
     // context until the entry crosses the range's extreme.
     const breakaway = readBreakaway(entryDaily, gannTrigger);
+    // Gann's monthly break warns against a new trade with the trend (PLAN.md
+    // item 6, step 3): the same daily chart, the same reading as the replay.
+    const monthlyWarning = readMonthlyBreakWarning(entryDaily);
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or
@@ -399,7 +404,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyBreakawayHold(applyReversionConfirmation(
+      applyMonthlyBreakHold(applyBreakawayHold(applyReversionConfirmation(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -433,7 +438,7 @@ export async function scanTicker(
         pattern,
         momentumElevated,
         nearSupportResistance,
-      ), breakaway),
+      ), breakaway), monthlyWarning, scoreDirection),
       dataLag,
     ), stopBreach);
 

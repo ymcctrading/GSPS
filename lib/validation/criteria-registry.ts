@@ -855,6 +855,20 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "monthlyBreak",
+    family: "scoreHold",
+    source: "lib/gann/campaignLedger.ts",
+    label: "No break of the prior month's low (high)",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "PLAN.md item 6, step 3 (2026-10-16): a monthly break warns against new trades with the trend " +
+      "(W006 pp.40-43) without ending the trend (W006 p.14). Appended only when it holds an Execute with " +
+      "the campaign's trend while the month so far has broken the prior month's low (high), so it is " +
+      "failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "stopBreach",
     family: "scoreHold",
     source: "lib/gann/stopBreach.ts",
