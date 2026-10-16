@@ -66,7 +66,7 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
  * direction to implement Gann's method throughout); the earlier list stopped
  * at 45/90/120/180/270/360.
  */
-const WHEEL_COUNTS = [45, 90, 120, 135, 180, 225, 240, 270, 315, 360];
+export const WHEEL_COUNTS: readonly number[] = [45, 90, 120, 135, 180, 225, 240, 270, 315, 360];
 
 /**
  * Gann's day-count bands from any important high or low (*45 Years in Wall

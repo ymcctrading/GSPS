@@ -162,6 +162,21 @@ export function contextFactorsFor(
   // the buy side (the action is A-SELECTION-04, PLAN.md item 11).
   if (bull && ctx.weakStock) f.weakStockLong = ctx.weakStock.weak;
 
+  // Class C time counts (item 7 step 2): measured, never gating. The circle,
+  // month and cycle counts take their direction from the anchor, as their
+  // class A counterparts do (a low argues up); the day, week and seasonal
+  // counts carry none, like theirs.
+  const st = ctx.secondaryTime;
+  if (st) {
+    const withTrade = (hs: { pivotKind: "high" | "low" }[]) => hs.some((h) => (h.pivotKind === "low") === bull);
+    f.secondaryDayCountActive = st.dayCounts.length > 0;
+    f.secondaryWeekCountActive = st.weekCounts.length > 0;
+    f.circleDivisionWithTrade = withTrade(st.circleDivisions);
+    if (st.monthCounts) f.secondaryMonthCountWithTrade = withTrade(st.monthCounts);
+    if (st.cycleFractions) f.cycleFractionWithTrade = withTrade(st.cycleFractions);
+    f.seasonalFineStepActive = st.seasonalFineStep !== null;
+  }
+
   // D2: Gann's capital-stock readings are top warnings, so they count against
   // a long and with a short. Absent when no share count is stored.
   const cs = ctx.capitalStock;

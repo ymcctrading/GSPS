@@ -462,3 +462,18 @@ is unchecked here (collection-synthesis.md §1.6, §6).
 - F6 (low): the continuation pass's time is still an estimate (stage logs aren't retained); the reviewer measured the coarse-pass change at under 0.1 s. The fan-out 504s were reported to Chuck.
 - Mutations U1-U4 caught; U5 (counting months before the section top) survives because a reaction under the previous section's top always breaks a month after the top, so the two are equivalent in practice.
 - STRATEGY_VERSION 2026-10-16-gann-weekly-sections.
+
+## 2026-10-16 Replays 41 and 43 (766 symbols, 15Min, 2026-08-17 to 10-15; parsed in scratchpad run41.json / run43.json)
+- Run 41 (90df737, item 6 step 11, with-the-trend): gann-runner Execute n=142 +0.128R [-0.005, +0.260], halves +0.084/+0.171; Watch n=1974 -0.036R; all n=3267 -0.018R [-0.042, +0.007]. Bracket (plan-reaction) Execute +0.118R [-0.008, +0.241]; all -0.048R.
+- Run 42 (6ca51b1, rally sale only in a bear market) was cancelled by the workflow's concurrency when run 43 was dispatched; no result.
+- Run 43 (984a7da, first item 6 review fixes, includes the rally fix): gann-runner Execute n=140 +0.129R [+0.001, +0.262], halves +0.087/+0.170; Watch n=1882 -0.028R; all n=3138 -0.012R [-0.038, +0.013]. Bracket Execute +0.118R [-0.006, +0.247]; all -0.042R.
+- Against run 40 (before step 11: Execute n=53 +0.095R): the Execute bucket nearly triples and holds its expectancy; on the live rule its interval now sits just above zero. Execute beats Watch on both exit rules in both runs. Two months only (one phase), so not regime evidence.
+- Run 44 (67f2724, weekly-chart sections) dispatched.
+
+## 2026-10-16 Item 7 step 2a: class C time counts as context (C-TIME-09, -12, -19, -21, -37, -38, -44)
+- New lib/gann/secondaryTime.ts, its own lists, never the class A ones: day counts 23, 45-46, 49 (C-TIME-19); weeks 17 and 35 (C-TIME-21; 39 is already the Square of 52's 3/4); the circle's finer divisions in days 112.5, 150, 157.5, 165, 202.5, 247.5, 292.5, 337.5 (C-TIME-44); months 6, 12, 144 from a major monthly pivot (C-TIME-09); eighths and thirds of the 5-60-year cycles (C-TIME-12, cycleFractions); the 15 and 22.5 degree seasonal steps from March 21 that the class A eighths and thirds leave out (C-TIME-37/-38).
+- Read once in readDisclosedRules (live through the confluence layer, and the replay), shown on the card ("Shown for context; it does not change the setup"), and recorded as factors: secondaryDayCountActive, secondaryWeekCountActive, circleDivisionWithTrade, secondaryMonthCountWithTrade, cycleFractionWithTrade, seasonalFineStepActive. No gate, no score, no version bump.
+- WHEEL_COUNTS exported so the guard test can pin it; guard test pins WHEEL_COUNTS, DAY_COUNT_BANDS, MAJOR_CYCLE_YEARS, ANGLES, SEASONAL_POINTS and the disclosed Square of 52 weeks.
+- Where the entry's written test names a class A function (readDayCountBands, squareOf52Windows, timeCycles, readSeasonalCount, readTiming), the reading is a separate function instead, per the map's rule that class C counts never join the measured class A lists; the test asserts the rule against that reader and, for C-TIME-19 and -44, also that the class A reading is untouched. The reviewer judges whether that meets the entry. C-TIME-09's written test (readTiming's square144 at 144 months) cannot be met: readTiming counts from the year's extreme, so 144 months never arises there; the 144-month count is read from monthly pivots.
+- Tests: lib/gann/__tests__/secondaryTime.test.ts (15). Mutations V1-V14 caught.
+- Checks: vitest 275 files / 2760 tests pass; tsc clean; check:terms clean; eslint clean.

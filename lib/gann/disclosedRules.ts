@@ -76,6 +76,7 @@ import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/nar
 import { readTimeRules, type TimeRulesReading } from "@/lib/gann/timeRules";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
+import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
 import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
@@ -446,6 +447,8 @@ export interface DisclosedRulesContext {
   narrowRangeBreak?: NarrowRangeBreakReading | null;
   /** A narrow week, then a sharp move on heavy volume (A-ENTRY-19, context only). See `narrowWeek.ts`. */
   narrowWeekBreak?: NarrowWeekBreakReading | null;
+  /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
+  secondaryTime?: SecondaryTimeReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -536,6 +539,7 @@ export function readDisclosedRules(
     halfwayRetest: readHalfwayRetest(dailyBars),
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
+    secondaryTime: readSecondaryTime(dailyBars, instrument?.monthly ?? null, asOf),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -546,6 +550,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.capitalStock) lines.push(...describeCapitalStock(ctx.capitalStock));
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
+  if (ctx.secondaryTime) lines.push(...describeSecondaryTime(ctx.secondaryTime));
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {
     const a = ctx.accumulation;
