@@ -243,7 +243,7 @@ export interface ScoreInputs {
 export const MIN_STOP_ROOM_ATR = 1.5;
 
 /** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
-function volumeNote(r: VolumeClimaxReading): string {
+export function volumeNote(r: VolumeClimaxReading): string {
   const at = `The ${r.anchorKind} at ${r.anchorPrice.toFixed(2)}`;
   if (r.anchorKind === "low") {
     if (r.dryingUp) return `${at} came on shrinking volume and a narrowing range: liquidation running its course, the normal bottom.`;
@@ -254,6 +254,7 @@ function volumeNote(r: VolumeClimaxReading): string {
     if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: a selling climax, the panic-bottom exception.`;
     return `${at} came on neither shrinking volume nor a selling climax (${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume at best).`;
   }
+  if (r.retestOfHeavyTop) return `${at} is a second test of a top that came on heavy volume: a sell, with the stop 3 points over the old top.`;
   if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: tops come on heavy sales.`;
   if (r.retestOnLowerVolume) return `${at} is a secondary top on smaller volume than the one before: the advance is tiring.`;
   if (r.secondaryOnLowerVolume) return `${at} is a lower secondary rally on smaller volume, after a decline on heavy volume: the final top may be in.`;

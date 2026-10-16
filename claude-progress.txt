@@ -632,3 +632,12 @@ including the break) survive as equivalent on one session; B3 removed as redunda
 - readGannExit: a long exits ("distribution") when a standing breakdown was printed on or after the fill; live exit manager and replay both read it.
 - Card line and Academy volume lesson say what it does now. The distribution read window 240 -> 220 sessions so a breakdown 20 sessions old reads over the same sessions in the live year and the replay (parity test).
 - Mutations P2, P3, P5-P9 killed; P1 (220 -> 240) survives on the parity fixture (the walk gives the same tops either way), P4 (the breakout prefilter) is equivalent. Full suite 2901 pass. STRATEGY_VERSION 2026-10-16-gann-distribution-hold.
+
+## 2026-10-16 Run 48 (item 8 step 3, version 2026-10-16-gann-volume-rules)
+- Run 48 (c6f9db0, 766 symbols, 15Min, 2026-08-17 to 2026-10-15, 34.0 min vs 25.6): the same 3141 trades and exits as run 46; only the verdict split moved (Execute +17, Watch +52, Reject -69). gann-runner Execute n=156 +0.125R [-0.007, +0.249] (run 46: 139, +0.134 [+0.003, +0.266]), halves +0.120/+0.130; Watch n=1938 -0.024R; all -0.011R. Bracket Execute +0.102R [-0.024, +0.222]; all -0.044R.
+- volumeClimax within Execute: 143/156 pass (91.7%), delta -0.668R (run 46: 88.5%, -0.315). Still inverted, more strongly; only 13 Execute trades fail it. Under "Gann-derived AND measured" this is presumed a translation defect, not evidence against the rule; A-VOLUME-05/-06/-07/-13 stay passes:false. Next: the population-level factor row and which confirming branch (retest by week, heavyAdvance, secondary) carries the passes, before any change. Held for the owner.
+- New context factors: secondTopTwoThirdsVolumeAgainst 12/96 informative (delta -0.23/-0.43), weakStockLong 26/73 (+0.05/+0.07); the rest too few trades.
+- Run 49 (0b6f9b1, version 2026-10-16-gann-distribution-hold: steps 4, 5 and the review fixes) dispatched.
+
+## 2026-10-16 A-ENTRY-20 (W006 p.28), double top after a heavy earlier top
+- The sell is the existing old-level short (rest at the old top, stop 3 points over). The heavy earlier top already counts in volumeClimax's climax (best of the recent pivots); retestOfHeavyTop names the case (high reached within tolerance, earlier top's relative volume over 1.5, labelled) and the volume note says it. No verdict change, no version bump. Tests in volumeRule.test.ts; E1-E3 killed.

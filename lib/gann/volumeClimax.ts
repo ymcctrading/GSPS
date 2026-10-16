@@ -186,6 +186,8 @@ export interface VolumeClimaxReading {
   heavyAdvance?: boolean;
   /** A bottom printed near the last completed month, which traded the least of the last five years (A-VOLUME-09). */
   volumeExtremeLow?: boolean;
+  /** A high: a second test of a top that came on heavy volume, Gann's double-top sell (A-ENTRY-20). Already counted in `climax`. */
+  retestOfHeavyTop?: boolean;
   /** Gann's volume rule for this kind of turn holds (see the module header). */
   confirms: boolean;
 }
@@ -365,6 +367,7 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
     let secondaryOnLowerVolume = false;
     let panicSecondary = false;
     let heavyAdvance = false;
+    let retestOfHeavyTop = false;
     if (previous) {
       const tol = (previous.price * RETEST_TOLERANCE_PCT) / 100;
       const reached = kind === "low" ? anchor.price <= previous.price + tol : anchor.price >= previous.price - tol;
@@ -373,6 +376,15 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
       const ratio = prevWeek > 0 ? weekVolume(bars, anchor.index) / prevWeek : null;
       retestOnLowerVolume = reached && ratio !== null && ratio < 1;
       if (reached) retestWeekVolumeRatio = ratio;
+      // A-ENTRY-20 (W006 p.28): a double top whose earlier high came on heavy
+      // volume is a sell, the stop 3 points over the old high (the old-level
+      // short). The heavy earlier top already counts in `climax` (the best of
+      // the recent pivots); this names the case for the note. "Heavy" is
+      // `VOLUME_CLIMAX_THRESHOLD` (an engineering figure, labelled).
+      if (kind === "high" && reached) {
+        const prevRvol = relativeVolume(bars.slice(0, previous.index + 1), lookback);
+        retestOfHeavyTop = prevRvol !== null && prevRvol > VOLUME_CLIMAX_THRESHOLD;
+      }
       // The opposite extreme between the two turns: the decline (rally) that separates them.
       const between = bars.slice(previous.index + 1, anchor.index);
       if (between.length > 0) {
@@ -429,6 +441,7 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
       panicSecondary,
       heavyAdvance,
       volumeExtremeLow,
+      retestOfHeavyTop,
       confirms,
     });
   }

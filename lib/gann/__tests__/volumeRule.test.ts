@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeVolumeClimax } from "../volumeClimax";
+import { computeGannOldLevelEntry } from "@/lib/gann/entryTrigger";
+import { gannThreePoints } from "@/lib/gann/pointScale";
 
 /** Daily bars from a list of [close, volume, range] triples. */
 function bars(rows: Array<[number, number, number]>): Bar[] {
@@ -468,5 +470,46 @@ describe("completed sessions only", () => {
     const b = weekdays(rows);
     const asOf = new Date(Date.parse(b[b.length - 1].t) + 10 * 3_600_000);
     expect(computeVolumeClimax(b, 20, { asOf }).find((r) => r.anchorKind === "low")!.secondaryOnLowerVolume).toBe(false);
+  });
+});
+
+describe("a double top whose earlier high came on heavy volume (A-ENTRY-20, W006 p.28)", () => {
+  /** An advance to 100 with `topVolume` on the top's day, a reaction to 88, a second test of 100, then a decline. */
+  function doubleTop(topVolume: number, secondTop = 100): Bar[] {
+    const rows: Array<[number, number]> = [];
+    for (let i = 0; i < 30; i++) rows.push([70 + i, 1000]);
+    rows.push([100, topVolume]);
+    for (let i = 1; i <= 6; i++) rows.push([100 - i * 2, 1000]); // to 88
+    for (let i = 1; i <= 6; i++) rows.push([88 + ((secondTop - 88) * i) / 6, 1000]); // back to the second top
+    for (let i = 1; i <= 6; i++) rows.push([secondTop - 1 - i, 1000]);
+    return weekdays(rows);
+  }
+
+  it("is sold at the old top with the stop 3 points over it, and the volume point names it", () => {
+    const b = doubleTop(4000);
+    const sell = computeGannOldLevelEntry(b, "bearish")!;
+    expect(sell.level).toBeCloseTo(101, 6);
+    expect(sell.reactionStop).toBeCloseTo(101 + gannThreePoints(101), 6);
+    const high = computeVolumeClimax(b).find((r) => r.anchorKind === "high")!;
+    expect(high.retestOfHeavyTop).toBe(true);
+    expect(high.climax).toBe(true);
+    expect(high.confirms).toBe(true);
+  });
+
+  it("does not name a lower second top as a double top", () => {
+    const high = computeVolumeClimax(doubleTop(4000, 94)).find((r) => r.anchorKind === "high")!;
+    expect(high.anchorPrice).toBeCloseTo(95, 6);
+    expect(high.retestOfHeavyTop).toBe(false);
+  });
+
+  it("says so in the volume point's note", async () => {
+    const { volumeNote } = await import("@/lib/scoring/score");
+    const high = computeVolumeClimax(doubleTop(4000)).find((r) => r.anchorKind === "high")!;
+    expect(volumeNote(high)).toBe("The high at 101.00 is a second test of a top that came on heavy volume: a sell, with the stop 3 points over the old top.");
+  });
+
+  it("does not name it when the earlier top came on ordinary volume", () => {
+    const high = computeVolumeClimax(doubleTop(1100)).find((r) => r.anchorKind === "high")!;
+    expect(high.retestOfHeavyTop).toBe(false);
   });
 });
