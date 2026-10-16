@@ -103,6 +103,13 @@ export function contextFactorsFor(
     // Fast moves start from the third or fourth (W003 p.17; Master Course p.248).
     f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
+  // C-TREND-08 (Master Course Ch.7 PDF 223): the 5th unit of a run on days,
+  // weeks or months, in the trade's direction or against it.
+  if (ctx.ascension) {
+    const units = [ctx.ascension.daily, ctx.ascension.weekly, ctx.ascension.monthly].filter((a) => a?.fifth);
+    f.ascensionUnitWithTrade = units.some((a) => a!.direction === (bull ? "up" : "down"));
+    f.ascensionUnitAgainstTrade = units.some((a) => a!.direction === (bull ? "down" : "up"));
+  }
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;
   if (rs) f.reverseSignalAgrees = rs === (bull ? "bottom" : "top");

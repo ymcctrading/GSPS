@@ -477,6 +477,54 @@ export function readRuleOfThreeTimeframes(daily: Bar[]): RuleOfThreeTimeframes {
 }
 
 // ---------------------------------------------------------------------------
+// The 5th unit of a run: Ascension (C-TREND-08)
+//
+// "The 5th is the day, week, month, or year of Ascension and always marks
+// fast moves" (Master Course Ch. 7, PDF 223); "the 5th week is also very
+// important" (*Commodities* p. 59). Read here as the 5th consecutive close in
+// one direction on daily, weekly and monthly bars, an engineering reading of
+// what the 5th unit counts from (Gann does not say), mirrored for lower
+// closes (an engineering symmetry). The "4th consecutive higher week" rule is
+// not in Gann's text and is not built. Context only, never gating.
+
+export interface AscensionCount {
+  direction: "up" | "down";
+  /** Consecutive closes in that direction, ending at the last bar. */
+  count: number;
+  /** The last bar is the 5th: the unit of Ascension. */
+  fifth: boolean;
+}
+
+export interface AscensionReading {
+  daily: AscensionCount | null;
+  weekly: AscensionCount | null;
+  monthly: AscensionCount | null;
+}
+
+export const ASCENSION_UNIT = 5;
+
+export function readAscensionCount(bars: Bar[]): AscensionCount | null {
+  const n = bars.length;
+  if (n < 2 || bars[n - 1].c === bars[n - 2].c) return null;
+  const direction = bars[n - 1].c > bars[n - 2].c ? "up" : "down";
+  let count = 0;
+  for (let i = n - 1; i >= 1; i--) {
+    const d = bars[i].c - bars[i - 1].c;
+    if (direction === "up" ? d > 0 : d < 0) count++;
+    else break;
+  }
+  return { direction, count, fifth: count === ASCENSION_UNIT };
+}
+
+export function readAscension(daily: Bar[]): AscensionReading {
+  return {
+    daily: readAscensionCount(daily),
+    weekly: readAscensionCount(toWeeklyBars(daily)),
+    monthly: readAscensionCount(toMonthlyBars(daily)),
+  };
+}
+
+// ---------------------------------------------------------------------------
 
 export interface DisclosedRulesContext {
   barMidpoint: BarMidpointReading | null;
@@ -584,6 +632,8 @@ export interface DisclosedRulesContext {
   dayCircle?: DayCircleReading | null;
   /** Gann's planetary rules beyond the averages, and Jensen's square of 90: research context. See `astroRules.ts`. */
   astro?: AstroReading | null;
+  /** The 5th consecutive close in one direction on days, weeks and months (C-TREND-08, context only). */
+  ascension?: AscensionReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -746,6 +796,7 @@ export function readDisclosedRules(
     patternAngles: readPatternAngles(dailyBars, currentPrice, unit),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
     astro: readAstroRules(dailyBars, asOf, unit),
+    ascension: readAscension(dailyBars),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -927,6 +978,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   for (const [name, r] of [["Weekly", ctx.ruleOfThree.weekly], ["Monthly", ctx.ruleOfThree.monthly]] as const) {
     if (r?.bearishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveLowerCloses} lower closes in a row.`);
     else if (r?.bullishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveHigherCloses} higher closes in a row.`);
+  }
+  for (const [unitName, a] of [["day", ctx.ascension?.daily], ["week", ctx.ascension?.weekly], ["month", ctx.ascension?.monthly]] as const) {
+    if (a?.fifth) lines.push(`The 5th ${a.direction === "up" ? "higher" : "lower"} close in a row on the ${unitName}: the 5th ${unitName} marks fast moves.`);
   }
   const rs = ctx.extremes.reverseSignal;
   if (rs.signal) {
