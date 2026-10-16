@@ -525,5 +525,7 @@ export function contextFactorsFor(
   }
   // A-TIME-33: a 490, 1,290 or 1,335-day count from a major monthly turn. No direction in the text.
   if (ctx.outbreakCounts) f.outbreakDayCount = ctx.outbreakCounts.length > 0;
+  // A-SELECTION-07: a small number of shares, read on short candidates only.
+  if (!bull && ctx.capitalStock?.smallFloat !== undefined) f.smallFloatShort = ctx.capitalStock.smallFloat;
   return f;
 }
