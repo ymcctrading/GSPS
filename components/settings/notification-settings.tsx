@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NotificationHistory } from "@/components/settings/notification-history";
+import { PushDevices } from "@/components/settings/push-devices";
 import { authorizedFetch } from "@/lib/supabase/authorized-fetch";
 import { Bell } from "lucide-react";
 
@@ -115,9 +116,10 @@ export function NotificationSettings() {
           <Bell className="h-4 w-4 text-accent" /> Notifications
         </CardTitle>
         <CardDescription>
-          Email alerts for high-confidence signals, with quiet hours and a minimum score filter. Only
-          email actually sends today — SMS and browser push are on the roadmap, so those toggles save
-          your preference but nothing delivers to them yet.
+          Alerts for high-confidence signals, with quiet hours and a minimum score filter. Every alert
+          lands in the in-app bell whatever you choose here. Push reaches this device&apos;s own
+          notification tray once you enable it below. SMS is still on the roadmap, so that toggle saves
+          your preference but nothing delivers to it yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -151,11 +153,17 @@ export function NotificationSettings() {
                 checked={preferences.push_enabled}
                 onChange={(e) => update("push_enabled", e.target.checked)}
               />
-              Browser push
+              Push
             </span>
-            <Badge variant="muted">Coming soon</Badge>
+            <Badge variant="bull">Live</Badge>
           </label>
         </div>
+
+        {/* The transport half of push. Separate from the toggle above on
+            purpose: that one is intent, this one is "this browser, on this
+            device, can receive it" — a member wanting alerts on their phone
+            has to enable it there. */}
+        {preferences.push_enabled && <PushDevices />}
 
         {preferences.sms_enabled && (
           <div className="flex flex-col gap-1.5">

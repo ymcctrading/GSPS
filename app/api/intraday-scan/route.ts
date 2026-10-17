@@ -22,7 +22,8 @@
  * market is shut. Every other system scan, including a manual
  * `workflow_dispatch` run, covers the full default watchlist. This path
  * persists to `intraday_system_alerts` (no per-user cooldown to key off),
- * and emails every user whose notification preferences match — this is the
+ * and notifies every user whose notification preferences match — on the
+ * in-app bell always, plus push and email per their own toggles. This is the
  * path that actually answers "why didn't the scanner notify me."
  *
  * A signed-in user's refreshes are metered per tier — a per-day and a per-week
@@ -56,6 +57,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
+import { notifyIntradayAlert } from "@/lib/entitlements/delivery";
 import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
@@ -742,52 +744,83 @@ interface EffectiveNotificationPrefs {
   user_id: string;
   min_score: number;
   quiet_hours_enabled: boolean;
+  email_enabled: boolean;
+  push_enabled: boolean;
 }
 
 /**
- * Email every user whose notification preferences match a system-scan
- * alert. This is the piece that was built (migration 0022) but never wired
- * up — preferences and a Resend sender existed, nothing called them from an
- * actual scan. Best-effort per user: one user's bad email address or a
- * `notification_log` write failure must not stop the rest of the list from
- * being notified.
+ * Notify every user whose preferences match a system-scan alert, on every
+ * channel they have. This is the piece that was built (migration 0022) but
+ * never wired up — preferences and a Resend sender existed, nothing called
+ * them from an actual scan. Best-effort per user: one user's bad email
+ * address or a `notification_log` write failure must not stop the rest of the
+ * list from being notified.
  *
- * Fixed here: this used to query `notification_preferences` filtered to
+ * Fixed earlier: this used to query `notification_preferences` filtered to
  * `email_enabled = true`, which only matches users who have explicitly
  * opened Settings and saved a row. `app/api/notifications/preferences`'s own
  * GET handler answers a user with no saved row as `email_enabled: true` by
  * default — so "never visited Settings" was being read as "opted out",
- * silently dropping every user from this list who hadn't. That is the
- * "alerts exist but cannot reach users" gap in ROADMAP.md's critical-gaps
- * table: alerts were firing and persisting to `intraday_system_alerts` the
- * whole time, just never reaching an inbox. Now every user is a recipient
- * unless a saved row explicitly sets `email_enabled: false`.
+ * silently dropping every user from this list who hadn't.
+ *
+ * Fixed here (2026-10-16), and the reason that earlier fix did not help
+ * anybody: email was the *only* channel this fan-out had, and every email it
+ * sends goes out from Resend's shared sandbox sender, which Resend rejects
+ * for every recipient but the account's own verified address until a domain
+ * is verified (`lib/notifications/resend-handler.ts#sandboxBlockReason`). So
+ * alerts were firing, persisting to `intraday_system_alerts`, and being
+ * logged to `notification_log` as `failed` for every real member — a live SPY
+ * bearish alert (score 6, 2026-10-16 17:12 UTC) reached nobody. A member
+ * looking at the platform had no way to see any of it: the in-app bell
+ * (`in_app_notifications`, migration 0067) existed but no intraday alert ever
+ * wrote to it.
+ *
+ * Now each matching alert lands on three channels, independently:
+ *
+ * - **In-app**, always. Not opt-in, exactly as migration 0067 states for the
+ *   bell's other writer: it has no send cost and no external provider to
+ *   fail, so it is written for every eligible member regardless of their
+ *   email/push toggles.
+ * - **Push**, when `push_enabled` and the member has registered a device.
+ * - **Email**, when `email_enabled` and a Resend key is configured.
+ *
+ * A dead email provider can no longer mean a member sees nothing — which is
+ * the cross-platform consistency rule in AGENTS.md applied to delivery: a
+ * notification that exists on one surface and not the others does not exist.
  */
 async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[]): Promise<void> {
-  if (!process.env.RESEND_API_KEY) return; // sendAlertEmail would no-op anyway; skip the query entirely
-
   const { data: saved, error } = await supabase
     .from("notification_preferences")
-    .select("user_id, email_enabled, min_score, quiet_hours_enabled");
+    .select("user_id, email_enabled, push_enabled, min_score, quiet_hours_enabled");
   if (error) return;
 
   interface SavedRow {
     user_id: string;
     email_enabled: boolean | null;
+    push_enabled: boolean | null;
     min_score: number | null;
     quiet_hours_enabled: boolean | null;
   }
 
   const savedByUser = new Map<string, SavedRow>(((saved ?? []) as SavedRow[]).map((p) => [p.user_id, p]));
   const userIds = await listAllUserIds(supabase);
+  const emailConfigured = Boolean(process.env.RESEND_API_KEY);
 
+  // No `email_enabled` filter any more: a member who turned email off, or who
+  // never saved a row, still gets the in-app bell entry (and a push if they
+  // enabled one). The per-channel toggles are applied at the send below,
+  // where they belong, rather than deciding up front who is a recipient at all.
   const prefs: EffectiveNotificationPrefs[] = userIds
-    .map((user_id): SavedRow => savedByUser.get(user_id) ?? { user_id, email_enabled: true, ...DEFAULT_NOTIFICATION_PREFS })
-    .filter((p): p is SavedRow & { email_enabled: true } => p.email_enabled === true)
+    .map(
+      (user_id): SavedRow =>
+        savedByUser.get(user_id) ?? { user_id, email_enabled: true, push_enabled: false, ...DEFAULT_NOTIFICATION_PREFS },
+    )
     .map((p) => ({
       user_id: p.user_id,
       min_score: p.min_score ?? DEFAULT_NOTIFICATION_PREFS.min_score,
       quiet_hours_enabled: p.quiet_hours_enabled ?? DEFAULT_NOTIFICATION_PREFS.quiet_hours_enabled,
+      email_enabled: p.email_enabled !== false,
+      push_enabled: p.push_enabled === true,
     }));
   if (prefs.length === 0) return;
 
@@ -815,6 +848,40 @@ async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[])
         });
         if (inQuietHours) continue;
       }
+
+      // In-app first, and unconditionally: it is the one channel with no
+      // external provider between the alert and the member, so it is also the
+      // one that cannot fail the way email has been failing. Push rides along
+      // here for members who enabled it.
+      const { pushSent } = await notifyIntradayAlert(supabase, {
+        profileId: pref.user_id,
+        pushEnabled: pref.push_enabled,
+        alert: {
+          symbol: alert.symbol,
+          direction,
+          score,
+          entry: alert.move.current,
+          invalidation: alert.invalidation ?? null,
+          firstTarget: alert.continuationPlan.firstTarget ?? null,
+        },
+      });
+
+      if (pushSent > 0) {
+        const { error: pushLogError } = await supabase.from("notification_log").insert({
+          user_id: pref.user_id,
+          symbol: alert.symbol,
+          direction,
+          score,
+          channel: "push",
+          status: "sent",
+          triggered_at: new Date().toISOString(),
+          sent_at: new Date().toISOString(),
+          signal_hash: signalHash,
+        });
+        if (pushLogError) console.error("[intraday-scan] could not log push notification:", pushLogError);
+      }
+
+      if (!pref.email_enabled || !emailConfigured) continue;
 
       const { data: userRecord } = await supabase.auth.admin.getUserById(pref.user_id);
       const email = userRecord?.user?.email;

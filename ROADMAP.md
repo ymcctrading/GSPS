@@ -2,7 +2,11 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-10-16 (Strategy Modes and custom scripts became
+**Last updated:** 2026-10-16 (Alerts reach a member on three channels now,
+not one: the in-app bell carries every intraday alert and Web Push reaches a
+phone's own tray. Closes the "Push (phone) notifications — noted as backlog,
+not built" item under Q1.)
+Previously 2026-10-16 (Strategy Modes and custom scripts became
 explain-only by owner decision: GSPS's plan sets every level and a chosen
 technique explains it. See the note on the "Strategy Modes" entry under Q1.)
 Previously 2026-10-01 (Built the three held items from the setup-lifecycle
@@ -483,16 +487,39 @@ both signal discovery and execution.
   `/api/scan` — nor when `0068` added `'scheduled_first_90min_scan'`. Both
   values have been silently failing their `active_monitors` insert/update
   since. Migration `0070` adds both alongside the two new sources.)*
-- **Push (phone) notifications — noted as backlog, not built.** Requested
-  alongside the above; investigated and confirmed there is no push channel
-  today (`dispatchNotificationDelivery` in `lib/entitlements/delivery.ts`
-  explicitly rejects every channel but `"email"`, and there is no service
-  worker, manifest, or push SDK anywhere in the repo). Reaching a phone for
-  real needs either a PWA web-push pipeline (service worker + VAPID keys +
-  a subscription table + a real `"push"` branch in `dispatchNotificationDelivery`)
-  or the Q3 native mobile app already on this roadmap (line ~232) — both
-  meaningfully larger than this PR's scope, so left for a dedicated
-  follow-up rather than built partially here.
+- **Push (phone) notifications — ~~noted as backlog, not built~~ BUILT
+  2026-10-16.** Requested alongside the above and deferred at the time: there
+  was no push channel at all (`dispatchNotificationDelivery` in
+  `lib/entitlements/delivery.ts` rejected every channel but `"email"`, and
+  there was no service worker, manifest, or push SDK anywhere in the repo).
+  The PWA web-push pipeline that entry specified is now the one that was
+  built — service worker (`public/sw.js`, push delivery only, no `fetch`
+  handler and so no change to how any page loads), VAPID keys
+  (`scripts/generate-vapid-keys.mjs`, `lib/notifications/webpush.ts`), a
+  subscription table (migration `0088`, one row per device, pruned when a
+  push service reports an endpoint gone), a manifest (`app/manifest.ts`,
+  which is what makes push reachable on iOS at all — Safari only grants
+  permission to a site added to the home screen), and a real `"push"` branch
+  in `dispatchNotificationDelivery`. The Q3 native app remains the answer to
+  a real mobile experience; this is the answer to "an alert should reach my
+  phone."
+  *(Built together with the gap that made it urgent: the intraday system
+  scan's fan-out had exactly one channel, email, and every email it sends
+  goes from Resend's sandbox sender, which Resend rejects for every recipient
+  but the account's own verified address until a domain is verified. So
+  intraday alerts were firing, persisting to `intraday_system_alerts`, and
+  logging to `notification_log` as `failed` for every real member — a live
+  SPY bearish alert (score 6, 2026-10-16 17:12 UTC) reached nobody, and the
+  member had no in-app surface to find it on either, because no intraday
+  alert had ever written to the bell (`in_app_notifications`, migration
+  0067). Fixed at the fan-out: every matching alert now writes the bell row
+  unconditionally — no external provider, nothing to fail — and pushes to
+  the member's registered devices, with email as the third channel rather
+  than the only one. Migration `0087` widens the bell's verdict check to
+  admit `'Watch'`, which is what an intraday alert honestly is: a
+  confirmation a move is underway, not a scored Execute verdict. Verifying a
+  Resend domain is still worth doing, but a dead email provider can no
+  longer mean a member sees nothing.)*
 - **Conditional orders** — stop-loss and take-profit on any order; the
   foundation for Q2 bracket orders. *(2026-09-08: most of this was already
   built — `lib/trade/place-order.ts`'s `attachLevels` has staged a

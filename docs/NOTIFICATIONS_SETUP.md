@@ -98,13 +98,66 @@ if (verdict === 'Execute') {
 }
 ```
 
-### Multi-Channel Support (Future)
+### Multi-Channel Support
 
-Once SMS + push become available (Twilio, OneSignal, etc.):
-1. Check user's `notification_preferences` for enabled channels
-2. Skip if in quiet hours (`is_in_quiet_hours()`)
-3. Avoid duplicates via `signal_hash`
-4. Send to enabled channels in parallel
+Three channels exist today. SMS is still the one that doesn't deliver.
+
+| Channel | Status | Opt-in? |
+|---|---|---|
+| In-app bell | Live | No — always written |
+| Web Push | Live | Yes, twice: `push_enabled` **and** a registered device |
+| Email | Live (but see the Resend sandbox row in Troubleshooting) | `email_enabled` |
+| SMS | Not built | — |
+
+The in-app bell is deliberately not opt-in: it has no external provider and
+no send cost, so a member sees every alert on the platform itself whatever
+their other toggles say. This is what keeps a dead email provider from
+meaning a member sees nothing.
+
+## Web Push setup
+
+Push needs a VAPID keypair — one per deployment environment, generated once.
+Rotating it invalidates every row in `push_subscriptions`, so every member
+would have to re-enable alerts on every device. Generate once and keep it.
+
+```bash
+node scripts/generate-vapid-keys.mjs
+```
+
+Set the four variables it prints (Vercel dashboard for production,
+`.env.local` for development), then redeploy:
+
+- `WEB_PUSH_VAPID_PUBLIC_KEY`
+- `WEB_PUSH_VAPID_PRIVATE_KEY` — **server-side only.** Never prefix it
+  `NEXT_PUBLIC_`, which would ship a signing credential to every browser.
+- `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` — the same public key, which the
+  browser needs in order to subscribe
+- `WEB_PUSH_VAPID_SUBJECT` — a `mailto:` a push service can reach you at
+  (RFC 8292)
+
+Absent these, `isWebPushConfigured()` is false and every push send no-ops
+with a stated reason — the deployment degrades to the in-app bell rather
+than failing a scan.
+
+Also apply migration `0088_push_subscriptions.sql` (and
+`0087_in_app_notifications_watch_verdict.sql`, without which every intraday
+bell write fails its check constraint). **Merging a migration is not
+applying it** — see the Strategy Modes production-verification note in
+AGENTS.md for what that cost last time.
+
+### Enabling it as a member
+
+Settings → Notifications → tick **Push**, then **Enable on this device**.
+Per device, by construction: a push subscription belongs to one browser on
+one device, so enabling it on a laptop does nothing for a phone. **Send a
+test alert** proves the whole path, from the server through the push service
+to the tray.
+
+**On iPhone, the site must be added to the home screen first** (Safari →
+Share → Add to Home Screen, then open it from there). Safari grants
+notification permission to installed web apps only; before that, the browser
+has no `PushManager` at all and the UI says so rather than offering a button
+that cannot work.
 
 ### Scheduled Digest (Future Sprint 3)
 
@@ -123,6 +176,8 @@ Email digest of daily signals (morning wrap-up):
 | Email not received | Check spam folder; verify email address in auth |
 | "RESEND_API_KEY not set" | Ensure `.env.local` has `RESEND_API_KEY=re_...` |
 | Resend 403 "can only send testing emails to your own email address" | Every send still uses Resend's sandbox sender (`onboarding@resend.dev`), which only delivers to `RESEND_SANDBOX_RECIPIENTS` (defaults to this account's verified address). Anyone else is skipped with a logged reason rather than erroring — see the guard in `lib/notifications/resend-handler.ts`. Fixed permanently by verifying a domain at resend.com/domains and moving the `from` addresses off `onboarding@resend.dev`, at which point this env var and its guard should be removed. |
+| Push enabled but nothing arrives on the phone | Check it was enabled *on that phone* — a subscription is per device. Then **Send a test alert** in Settings, which names the failing link (no VAPID keys on the deployment, no registered device, or a registration the push service has expired). |
+| No "Enable on this device" button at all | The browser has no `PushManager`. On iPhone this means GSPS isn't on the home screen yet (Safari → Share → Add to Home Screen); it's also expected in a private window. |
 | Sentry not capturing errors | Check `NEXT_PUBLIC_SENTRY_DSN` is set; errors only sent to prod/staging |
 | Rate limit (100/day) | Resend free tier cap; upgrade plan if needed. Shared across alert emails, auth confirmation emails (see `docs/AUTH_EMAIL_SETUP.md`), order-invalidation emails, and the daily trade-journal digest (`/api/trade-journal/daily-email`, one email per user with a closed trade, 2 hours after close) — all draw from the same 100/day cap. |
 
@@ -149,6 +204,7 @@ User receives email in <10s
 ## Environment Variables
 
 - `RESEND_API_KEY` — required for email sends
+- `WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` / `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_SUBJECT` — required for Web Push (see "Web Push setup" above). The private key is server-side only.
 - `RESEND_SANDBOX_RECIPIENTS` — comma-separated allowlist for Resend's sandbox sender (see Troubleshooting); defaults to this account's verified address if unset
 - `NEXT_PUBLIC_SENTRY_DSN` — client-side error tracking
 - `SENTRY_DSN` — server-side error tracking
