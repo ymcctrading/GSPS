@@ -74,7 +74,8 @@ import {
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
-import { readLiveGannExit } from "@/lib/trade/gann-exit-live";
+import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { rebuyOffer } from "@/lib/gann/rebuy";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
 import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
@@ -704,6 +705,9 @@ async function finish(
       const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel, extreme });
       if (offer) run.notes.push(offer);
     }
+    // A-PYRAMID-07, as on paper (exit-manager-sim.ts): offered in a note.
+    const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: ctx?.entryPrice ?? plan.entry_price });
+    if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
   }
 }
 
