@@ -180,3 +180,57 @@ describe("time-window base rates", () => {
     expect(w.turns.every((i) => i >= 0 && i < bars.length)).toBe(true);
   });
 });
+
+describe("CYC-24: the macro cycle and the decade's 90th month get a base rate", () => {
+  it("opens the macro cycle's major months and the 90th month inside the record", async () => {
+    const { calendarFamilyWindows } = await import("@/lib/research/timeWindowBaseRate");
+    const sessions = Array.from({ length: 365 * 14 }, (_, i) => Date.UTC(2015, 0, 1) + i * DAY);
+    const w = calendarFamilyWindows(sessions);
+    const months = (ws: [number, number][]) => ws.map(([a]) => new Date(a).toISOString().slice(0, 7));
+    // 1896 + 130 years lands on 5- and 10-year cycles in August 2026; 2018 is an '8' year.
+    expect(months(w.macroCycle)).toContain("2026-08");
+    expect(months(w.decadeNinetiethMonth)).toContain("2018-06");
+  });
+
+  it("gives turns planted in the macro months a small p, with Holm across the two families", async () => {
+    const { calendarFamilyWindows, readCalendarBaseRates } = await import("@/lib/research/timeWindowBaseRate");
+    const sessions = Array.from({ length: 365 * 14 }, (_, i) => Date.UTC(2015, 0, 1) + i * DAY);
+    const w = calendarFamilyWindows(sessions);
+    const turns = w.macroCycle.map(([a]) => sessions.indexOf(a + 14 * DAY)).filter((i) => i >= 0);
+    const report = readCalendarBaseRates([{ sessions, turns }]);
+    const macro = report.find((f) => f.family === "macroCycle")!;
+    expect(macro.hitRate).toBe(1);
+    expect(macro.p).toBeLessThan(0.05);
+    expect(report.map((f) => f.family)).toEqual(["macroCycle", "decadeNinetiethMonth"]);
+    expect(report.every((f) => typeof f.holmSignificant === "boolean")).toBe(true);
+  });
+});
+
+describe("CYC-39: a window's hits are split by the turn that came, not assumed from its anchor", () => {
+  it("reports low-anchored windows that caught tops as tops", async () => {
+    const { hitsByTurnDirection } = await import("@/lib/research/timeWindowBaseRate");
+    const sessions = Array.from({ length: 400 }, (_, i) => T0 + i * DAY);
+    const windows = empty();
+    windows.wheel.push([sessions[100] - 2 * DAY, sessions[100] + 2 * DAY], [sessions[200] - 2 * DAY, sessions[200] + 2 * DAY], [sessions[300] - 2 * DAY, sessions[300] + 2 * DAY]);
+    const s: SymbolWindows = {
+      sessions,
+      turns: [100, 200, 300],
+      windows,
+      turnKinds: ["top", "top", "bottom"],
+      anchorKinds: { wheel: ["low", "low", "high"] },
+    };
+    const r = hitsByTurnDirection([s], "wheel");
+    expect(r.fromLows).toEqual({ windows: 2, caughtTops: 2, caughtBottoms: 0 });
+    expect(r.fromHighs).toEqual({ windows: 1, caughtTops: 0, caughtBottoms: 1 });
+  });
+
+  it("records the anchor and turn kinds when it builds a symbol's windows", () => {
+    const bars: Bar[] = Array.from({ length: 1400 }, (_, i) => {
+      const c = 100 + 20 * Math.sin((2 * Math.PI * i) / 180) + 5 * Math.sin((2 * Math.PI * i) / 23);
+      return { t: new Date(T0 + i * DAY).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1000 };
+    });
+    const w = symbolWindows(bars);
+    expect(w.turnKinds?.length).toBe(w.turns.length);
+    for (const f of WINDOW_FAMILIES) expect(w.anchorKinds?.[f]?.length).toBe(w.windows[f].length);
+  });
+});

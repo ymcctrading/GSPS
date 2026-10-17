@@ -47,7 +47,14 @@
  *   time" changes the trend (C-TREND-03): the two flags are read with "or"
  *   everywhere they are used.
  *
+ * - **Nearly equal corrections** (C-SWING-01, *Additional Cycle Findings*,
+ *   W003 p. 16, class C): corrections within an uptrend tend to be nearly
+ *   equal in size. The text gives the uptrend only and no tolerance; the
+ *   tolerance below was fixed before any measurement. Context only.
+ *
  * Engineering choices, labelled as such:
+ * - "Nearly equal" is the largest of the last three completed corrections at
+ *   most `EQUAL_CORRECTION_RATIO` times the smallest, by percent size.
  * - Size is measured in percent of price, not Gann's points, so the rule
  *   ports across price levels (the scaling precedent is Gann's own "normal
  *   move = 1/16 of price", *Commodities* 1951, p. 310).
@@ -206,6 +213,12 @@ export interface CampaignLedger {
    * smaller until a sharp reversal). Context only, never gating.
    */
   contracting: boolean;
+  /**
+   * The last three completed corrections of a bull campaign nearly equal in
+   * size (C-SWING-01, W003 p.16, class C). Uptrend only, as the text gives
+   * it. Context only, never gating.
+   */
+  equalCorrections: boolean;
   /** Calendar days spent moving with the campaign's trend, completed legs plus the open one. */
   trendDays: number;
   /** Calendar days spent moving against it, the same way. */
@@ -253,6 +266,9 @@ function monthRanges(bars: Bar[], from = 0): { month: string; low: number; high:
  * counter-move's second month ends on day 60, and its third begins after it.
  */
 export const SECOND_MONTH_END_DAYS = 60;
+
+/** C-SWING-01: the last three corrections are nearly equal when the largest is at most this times the smallest (fixed before measuring). */
+export const EQUAL_CORRECTION_RATIO = 1.25;
 
 export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   if (bars.length < 10) return null;
@@ -361,6 +377,8 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
 
   const lastCounters = counterLegs.slice(-3);
   const contracting = lastCounters.length === 3 && lastCounters[1].pct < lastCounters[0].pct && lastCounters[2].pct < lastCounters[1].pct;
+  const equalCorrections =
+    bull && lastCounters.length === 3 && Math.max(...lastCounters.map((l) => l.pct)) <= EQUAL_CORRECTION_RATIO * Math.min(...lastCounters.map((l) => l.pct));
   const openDays = days(bars[lastPoint.index], last);
   const trendDays = legs.filter((l) => l.direction === trendDir).reduce((n, l) => n + l.days, 0) + (openIsCounter ? 0 : openDays);
   const counterDays = counterLegs.reduce((n, l) => n + l.days, 0) + (openIsCounter ? openDays : 0);
@@ -475,6 +493,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     reactionBelowPriorSection,
     monthlyBreakInReaction,
     contracting,
+    equalCorrections,
     trendDays,
     counterDays,
     timeRatioInverted: counterDays > trendDays,
@@ -530,6 +549,7 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
   if (l.counterMoveThirdMonth) lines.push(`Still making new ${l.trend === "bullish" ? "lows" : "highs"} in the counter-move's third month: the trend is changing.`);
   if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}${l.monthlyBreakFirst ? ", the first such break of the campaign" : ""}.`);
   if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
+  if (l.equalCorrections) lines.push("The last three reactions in this uptrend were nearly equal in size. Shown for context; it does not change the setup.");
   if (l.timeRatioInverted) lines.push(`More time against the trend (${l.counterDays}d) than with it (${l.trendDays}d).`);
   if (l.timeBalanceDates.length > 0) lines.push(`Time balances with the prior matching swing on ${l.timeBalanceDates[0]}.`);
   if (l.secondaryTurn) {

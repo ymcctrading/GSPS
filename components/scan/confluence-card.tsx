@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import type { ConfluenceAlignment } from "@/lib/signals/confluence/types";
 import type { ScanResult } from "@/lib/types";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 const ALIGNMENT_LABEL: Record<ConfluenceAlignment, string> = {
   aligned: "Aligned",
@@ -92,37 +93,47 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               )}
             </div>
           )}
-          <div className="rounded-md border border-border bg-surface p-2">
-            <p className="text-muted">Time cycle</p>
-            <p className="font-mono font-semibold">{result.timeCycleActive ? "Active" : "None"}</p>
-          </div>
-          <div className="rounded-md border border-border bg-surface p-2">
-            <p className="text-muted">Macro time cycle (hypothesis)</p>
-            <p className="font-mono font-semibold">
-              {result.macroCycle.majorActive
-                ? `${Math.max(...result.macroCycle.activeWindows.flatMap((w) => w.majorCycleYears))}-year`
-                : result.macroCycle.active
-                  ? "Minor only"
-                  : "None"}
-            </p>
-            {result.macroCycle.upcomingMajor[0] && (
-              <p className="text-[10px] text-muted">Next major: {result.macroCycle.upcomingMajor[0].month}</p>
-            )}
-          </div>
+          {/* CYC-30/CYC-47: a time line shows its measured record, or is not shown (lib/gann/timeRecords.ts). */}
+          {TIME_LINE_RECORDS.timeCycle && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Time cycle</p>
+              <p className="font-mono font-semibold">{result.timeCycleActive ? "Active" : "None"}</p>
+              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.timeCycle.summary}</p>
+            </div>
+          )}
+          {TIME_LINE_RECORDS.macroCycle && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Macro time cycle (hypothesis)</p>
+              <p className="font-mono font-semibold">
+                {result.macroCycle.majorActive
+                  ? `${Math.max(...result.macroCycle.activeWindows.flatMap((w) => w.majorCycleYears))}-year`
+                  : result.macroCycle.active
+                    ? "Minor only"
+                    : "None"}
+              </p>
+              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.macroCycle.summary}</p>
+            </div>
+          )}
           {result.nearestMasterTwelve && (
             <div className="rounded-md border border-border bg-surface p-2">
               <p className="text-muted">Nearest Master Twelve level</p>
               <p className="font-mono font-semibold">{result.nearestMasterTwelve.price.toFixed(2)}</p>
             </div>
           )}
-          <div className="rounded-md border border-border bg-surface p-2">
-            <p className="text-muted">Square of 52 window</p>
-            <p className="font-mono font-semibold">{result.squareOf52.active ? "Active" : "None"}</p>
-          </div>
-          <div className="rounded-md border border-border bg-surface p-2">
-            <p className="text-muted">36-angle month-count</p>
-            <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
-          </div>
+          {TIME_LINE_RECORDS.squareOf52 && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">Square of 52 window</p>
+              <p className="font-mono font-semibold">{result.squareOf52.active ? "Active" : "None"}</p>
+              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.squareOf52.summary}</p>
+            </div>
+          )}
+          {TIME_LINE_RECORDS.angleMonthCounts && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">36-angle month-count</p>
+              <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
+              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.angleMonthCounts.summary}</p>
+            </div>
+          )}
           <div className="rounded-md border border-border bg-surface p-2">
             <p className="text-muted">Spectral cycle (hypothesis)</p>
             <p className="font-mono font-semibold">
@@ -169,7 +180,9 @@ function DisclosedRuleTiles({
   rules: NonNullable<NonNullable<ScanResult["signals"]>["gannConfluence"]>["disclosedRules"] | undefined;
 }) {
   if (!rules) return null;
-  const tiles: { label: string; value: string }[] = [];
+  const tiles: { label: string; value: string; note?: string }[] = [];
+  // CYC-30/CYC-47: time lines appear with their measured record, or not at all.
+  const rec = TIME_LINE_RECORDS;
   if (rules.counterMove?.inCounterMove && rules.counterMove.phase) {
     tiles.push({
       label: "Counter-move length",
@@ -195,11 +208,11 @@ function DisclosedRuleTiles({
       value: tests.map((t) => `${t!.level.toFixed(2)} ×${t!.tests}`).join(", "),
     });
   }
-  if (rules.yearFraction) {
-    tiles.push({ label: "Time from pivot", value: `${rules.yearFraction.fraction} (${rules.yearFraction.daysSincePivot}d)` });
-  } else if (rules.dayCountBands.length > 0) {
+  if (rules.yearFraction && rec.yearFraction) {
+    tiles.push({ label: "Time from pivot", value: `${rules.yearFraction.fraction} (${rules.yearFraction.daysSincePivot}d)`, note: rec.yearFraction.summary });
+  } else if (rules.dayCountBands.length > 0 && rec.dayCountBands) {
     const d = rules.dayCountBands[0];
-    tiles.push({ label: "Time from pivot", value: `${d.daysSincePivot}d (${d.band[0]}-${d.band[1]} band)` });
+    tiles.push({ label: "Time from pivot", value: `${d.daysSincePivot}d (${d.band[0]}-${d.band[1]} band)`, note: rec.dayCountBands.summary });
   }
   if (rules.barMidpoint) {
     tiles.push({ label: "Closes above bar midpoint", value: `${rules.barMidpoint.upOfLast5} of last 5` });
@@ -227,8 +240,8 @@ function DisclosedRuleTiles({
     timing?.alternation?.mark ? `${timing.alternation.mark}-day turn count` : null,
     timing?.square144 && timing.square144.units.length >= 2 ? `12-multiple in ${timing.square144.units.join("+")}` : null,
   ].filter(Boolean);
-  if (timingText.length > 0) tiles.push({ label: "Turn timing", value: timingText.join(", ") });
-  if (rules.seasonal) tiles.push({ label: "Seasonal count", value: rules.seasonal.point.label });
+  if (timingText.length > 0 && rec.turnTiming) tiles.push({ label: "Turn timing", value: timingText.join(", "), note: rec.turnTiming.summary });
+  if (rules.seasonal && rec.seasonalCount) tiles.push({ label: "Seasonal count", value: rules.seasonal.point.label, note: rec.seasonalCount.summary });
   if (rules.accumulation && rules.accumulation.weeks >= 2) {
     tiles.push({ label: "Weeks in range", value: `${rules.accumulation.weeks.toFixed(1)}${rules.accumulation.breakout ? ` (broke ${rules.accumulation.breakout})` : ""}` });
   }
@@ -283,18 +296,23 @@ function DisclosedRuleTiles({
     });
   }
   const ts = rules.squareOfNineTime?.[0];
-  if (ts) {
-    tiles.push({ label: "Time square", value: `${Math.round(ts.count)} ${ts.unit} from ${ts.pivot} (${ts.line.angle}° line)` });
+  if (ts && rec.timeSquare) {
+    tiles.push({ label: "Time square", value: `${Math.round(ts.count)} ${ts.unit} from ${ts.pivot} (${ts.line.angle}° line)`, note: rec.timeSquare.summary });
   }
   const dc = rules.dayCircle;
-  if (dc) {
+  if (dc && rec.dayCircle) {
     tiles.push({
       label: "Day circle",
       value: `${dc.degree.toFixed(1)}°${dc.majorDegree !== null ? ` (on ${dc.majorDegree}°)` : ""}; next ${dc.nextMajor.degree}° at ${dc.nextMajor.time} ET`,
+      note: rec.dayCircle.summary,
     });
   }
-  if (timing?.projection) {
-    tiles.push({ label: `Next swing ${timing.projection.kind}`, value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)` });
+  if (timing?.projection && rec.swingProjection) {
+    tiles.push({
+      label: `Next swing ${timing.projection.kind}`,
+      value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)`,
+      note: rec.swingProjection.summary,
+    });
   }
   return (
     <>
@@ -302,6 +320,7 @@ function DisclosedRuleTiles({
         <div key={t.label} className="rounded-md border border-border bg-surface p-2">
           <p className="text-muted">{t.label}</p>
           <p className="font-mono font-semibold">{t.value}</p>
+          {t.note && <p className="text-[10px] text-muted">{t.note}</p>}
         </div>
       ))}
     </>

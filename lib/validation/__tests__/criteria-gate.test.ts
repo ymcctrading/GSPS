@@ -36,6 +36,8 @@ import {
 import type { FactorAttribution } from "@/lib/backtest/attribution";
 
 const ROOT = process.cwd();
+/** Every import's specifier: `from "x"`, `import("x")` and a bare `import "x";`, either quote. */
+const IMPORT_SPEC = /(?:from\s+|import\s*\(\s*|^\s*import\s+)["']([^"']+)["']/gm;
 const STATES = ["trendPullback", "trendBreakout", "confirmedReversal", "rangeReversion"];
 
 /**
@@ -242,7 +244,7 @@ describe("no divergence times a turn (C-TIME-02)", () => {
     // Every import, aliased or relative, resolved to a repo path.
     const banned = (target: string) => /^lib\/(indicators|analysis\/indicators)$|^lib\/strategies(\/|$)/.test(target);
     const offenders = scanned.filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()["']([^"']+)["']/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(IMPORT_SPEC)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")
@@ -285,7 +287,7 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
 
   it("keeps lib/research off the verdict path", () => {
     const offenders = verdictFiles().filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/(?:from |import\()["']([^"']+)["']/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(IMPORT_SPEC)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")
@@ -297,8 +299,38 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
     expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
   });
 
+  // CYC-21 (Dewey, W039 pp.30-31): so many cycles exist that a period fitting a
+  // x2/x3 family from 17.75 years is easy, and periods are measured too
+  // crudely, so no criterion or gate may award credit for such a fit.
+  const FAMILY_FIT = /\b\w*(?:famil(?:y|ies)Fit|cycleFamil\w*|periodFamil\w*|harmonicFamil\w*|doublingFit|triplingFit|progressionFit)\w*\b/;
+  it("has no scored criterion or registry entry for a period's fit to a x2/x3 family (CYC-21)", () => {
+    for (const key of CRITERION_KEYS) expect(key).not.toMatch(/famil|progression|doubling|tripling/i);
+    for (const e of CRITERIA_REGISTRY) expect(e.id).not.toMatch(/famil|progression|doubling|tripling/i);
+  });
+
+  it("finds a family fit by name, and none on the verdict path (CYC-21)", () => {
+    expect(FAMILY_FIT.test("const credit = cycleFamilyMatch(period);")).toBe(true);
+    expect(FAMILY_FIT.test("const credit = harmonicFamilyScore(p);")).toBe(true);
+    expect(FAMILY_FIT.test("WHEEL_COUNTS halves and thirds")).toBe(false);
+    const offenders = verdictFiles().filter((f) => FAMILY_FIT.test(readFileSync(f, "utf8")));
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+
   it("never calls validateCycle outside its own module", () => {
     const callers = verdictFiles().filter((f) => path.relative(ROOT, f) !== "lib/gann/spectralCycle.ts" && /\bvalidateCycle\b/.test(readFileSync(f, "utf8")));
     expect(callers.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+});
+
+describe("the import guards read every import form", () => {
+  it("catches a bare side-effect import, a dynamic import and a single-quoted one", () => {
+    const src = [
+      'import "@/lib/research/x";',
+      "  import '@/lib/research/y';",
+      'const m = await import ( "@/lib/research/z" );',
+      'import { a } from\n  "@/lib/research/w";',
+    ].join("\n");
+    const specs = [...src.matchAll(IMPORT_SPEC)].map(([, s]) => s);
+    expect(specs).toEqual(["@/lib/research/x", "@/lib/research/y", "@/lib/research/z", "@/lib/research/w"]);
   });
 });

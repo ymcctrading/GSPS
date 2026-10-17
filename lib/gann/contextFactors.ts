@@ -78,6 +78,8 @@ export function contextFactorsFor(
     f.lateSection = c.sections >= 3;
     // Class C trend readings (W003 p.17), measured, never gating (item 6).
     f.reactionsContractingWithTrade = !against && c.contracting;
+    // C-SWING-01 (W003 p.16, class C): nearly equal corrections, uptrend only.
+    f.equalCorrectionsWithTrade = !against && c.equalCorrections;
     f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
     // C-TREND-03/-06 (Commodities p.312 "price or time"; Master Course Ch.8
     // PDF 249 "by 1+ point"): over-balance with Gann's 1-point margin.
@@ -531,5 +533,15 @@ export function contextFactorsFor(
   if (ctx.oneByOneBreak && ctx.oneByOneBreak.length > 0) f.oneByOneBreakWithTrade = ctx.oneByOneBreak.some((b) => b.direction === (bull ? "up" : "down"));
   // C-LEVELS-24: the session is on the convergence of lines from a double or triple bottom (top), within a bar. No direction in the text.
   if (ctx.jensenConvergence) f.jensenConvergenceNow = Math.abs(ctx.jensenConvergence.point.barsFromNow) <= 1;
+  // A-TIME-16: the next change date's label. No direction in the text.
+  if (ctx.timing.changeDates?.next) f.nextChangeDateExpectsHigh = ctx.timing.changeDates.next.expect === "high";
+  // A-TIME-03: the advance out of a bear market's low. Bull side only in the text; read the same for both directions.
+  const fr = ctx.firstRally;
+  if (fr && fr.state !== "early") {
+    f.firstRallyOnly = fr.state === "firstRally";
+    f.bullCampaignThreeMonths = fr.state === "bullCampaign";
+  }
+  // C-TIME-03 (W003 p.16, class C): the range break at a cycle's expiry, a short setup only.
+  if (!bull && ctx.cycleRangeBreak) f.cycleRangeBreakShort = ctx.cycleRangeBreak.shortSetup;
   return f;
 }

@@ -119,7 +119,7 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
-import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
+import { DAY_COUNT_BANDS, timeCycles } from "@/lib/gann/timeCycles";
 import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
@@ -153,6 +153,8 @@ import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading }
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
 import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
+import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/lib/gann/firstRally";
+import { describeCycleRangeBreak, readCycleRangeBreak, type CycleRangeBreak } from "@/lib/gann/cycleRangeBreak";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
 import {
@@ -680,6 +682,10 @@ export interface DisclosedRulesContext {
   oneByOneBreak?: OneByOneBreak[];
   /** Where lines of 90, 45 and 22½ from a double or triple bottom (top) converge (C-LEVELS-24, class C, context only). See `jensen.ts`. */
   jensenConvergence?: JensenConvergence | null;
+  /** The advance out of a bear market's low: a first rally or a bull campaign (A-TIME-03, context only). See `firstRally.ts`. */
+  firstRally?: FirstRallyReading | null;
+  /** A 3-4 day range broken down on volume, and whether on a time-cycle date (C-TIME-03, class C, context only). See `cycleRangeBreak.ts`. */
+  cycleRangeBreak?: CycleRangeBreak | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -718,7 +724,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
     reverseSignal: { signal: null, rule: null, runDays: null },
     gaps: { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null },
   },
-  timing: { alternation: null, square144: null, projection: null },
+  timing: { alternation: null, square144: null, projection: null, changeDates: null },
   capitalStock: null,
   incorporation: null,
   evenFigures: { overhead: null, underneath: null },
@@ -856,6 +862,8 @@ export function readDisclosedRules(
     outbreakCounts: readOutbreakCounts(longMonthly, asOf),
     oneByOneBreak: readOneByOneBreak(dailyBars),
     jensenConvergence: jensenBottomConvergence(dailyBars, unit),
+    firstRally: readFirstRally(instrument?.monthly ? monthlyWithCurrent(instrument.monthly, dailyBars) : toMonthlyBars(dailyBars)),
+    cycleRangeBreak: readCycleRangeBreak(dailyBars, timeCycles(dailyBars, asOf).active),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -1088,5 +1096,15 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
   for (const b of ctx.oneByOneBreak ?? []) lines.push(describeOneByOneBreak(b));
   if (ctx.jensenConvergence) lines.push(describeJensenConvergence(ctx.jensenConvergence));
+  const cd = ctx.timing.changeDates;
+  if (cd?.next) {
+    const missed = cd.dates.find((c) => c.came !== null && c.came !== c.expect);
+    lines.push(
+      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. Shown for context; it does not change the setup.`,
+    );
+  }
+  const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
+  if (fr) lines.push(fr);
+  if (ctx.cycleRangeBreak) lines.push(describeCycleRangeBreak(ctx.cycleRangeBreak));
   return lines;
 }
