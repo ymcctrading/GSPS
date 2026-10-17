@@ -29,6 +29,7 @@
  * to four doubling/tripling steps, as Dewey's Fig. 19 does.
  */
 import type { Bar } from "@/lib/types";
+import { SIDEREAL_DAYS, synodicPeriod, type PeriodBody } from "@/lib/research/planetaryPeriods";
 
 export interface SeriesCycle {
   symbol: string;
@@ -265,5 +266,52 @@ export function gridMatchBaseline(
     hits,
     misses: observed.length - hits,
     p: Math.round(binomialTail(observed.length, hits, baseline) * 10000) / 10000,
+  };
+}
+
+/**
+ * C-ASTRO-03: does a found cycle sit near a planetary period, and how often
+ * would a random period do as well? Research only, not sourced to Gann
+ * (W007 pp.28, 61 pairs found cycles with planets: 8 years with Venus,
+ * 19.875 years with the Jupiter-Saturn synodic period). With nine sidereal
+ * and 36 synodic periods, almost any period lies near one, so a match means
+ * nothing without its chance rate (CYC-41, CYC-49).
+ *
+ * The references are each body's sidereal period and every pair's synodic
+ * period (`planetaryPeriods.ts`), in days. `chanceRate` is the share of the
+ * log-uniform band [minPeriod, maxPeriod] lying within ±tolerance of a
+ * reference: the probability a random period in the band matches at least
+ * one. The tolerance and the log-uniform null are engineering choices, the
+ * same as `gridMatchBaseline`'s. Nothing on the verdict path reads this.
+ */
+export function matchPlanetaryPeriod(
+  periodDays: number,
+  opts: { minPeriod: number; maxPeriod: number; tolerance?: number },
+): { matches: { label: string; periodDays: number }[]; chanceRate: number; hypothesisOnly: true } {
+  const tol = opts.tolerance ?? MATCH_TOLERANCE;
+  const bodies = Object.keys(SIDEREAL_DAYS) as PeriodBody[];
+  const refs: { label: string; periodDays: number }[] = bodies.map((b) => ({ label: `${b} sidereal`, periodDays: SIDEREAL_DAYS[b] }));
+  for (let i = 0; i < bodies.length; i++) {
+    for (let j = i + 1; j < bodies.length; j++) {
+      refs.push({ label: `${bodies[i]}-${bodies[j]} synodic`, periodDays: synodicPeriod(SIDEREAL_DAYS[bodies[i]], SIDEREAL_DAYS[bodies[j]]) });
+    }
+  }
+  const lo = Math.log(opts.minPeriod);
+  const hi = Math.log(opts.maxPeriod);
+  const intervals = refs
+    .map((r) => [Math.max(lo, Math.log(r.periodDays * (1 - tol))), Math.min(hi, Math.log(r.periodDays * (1 + tol)))] as const)
+    .filter(([a, b]) => b > a)
+    .sort((x, y) => x[0] - y[0]);
+  let covered = 0;
+  let end = -Infinity;
+  for (const [a, b] of intervals) {
+    const from = Math.max(a, end);
+    if (b > from) covered += b - from;
+    end = Math.max(end, b);
+  }
+  return {
+    matches: refs.filter((r) => matches(periodDays, r.periodDays, tol)),
+    chanceRate: hi > lo ? Math.round((covered / (hi - lo)) * 10000) / 10000 : 0,
+    hypothesisOnly: true,
   };
 }

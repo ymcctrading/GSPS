@@ -44,7 +44,7 @@ import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
 import { displayableMacroCycle, displayableUpcomingMajor } from "@/lib/gann/timeRecords";
-import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import { masterTwelveCell, masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
 import { detectSpectralCycle } from "@/lib/gann/spectralCycle";
@@ -139,6 +139,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       decadeCycle: computeDecadeCycle(),
       macroCycle: displayableMacroCycle(computeMacroCycle()),
       nearestMasterTwelve: null,
+      masterTwelve: null,
       squareOf52: { active: false, dates: [] },
       angleMonthCounts: { active: false, dates: [] },
       spectralCycle: {
@@ -253,6 +254,11 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   // The unit is the chart's Gann point (`fans.ts#angleUnit`), the one the
   // scored slope and the fans read (owner, Q27, 2026-10-16; it was the ATR as
   // of the anchor).
+  // M-T16: the Master 12 chart read in time, bars since the anchor pivot.
+  const masterTwelveReading = (() => {
+    const cell = masterTwelveCell(timeDisplacementBars);
+    return cell ? { count: timeDisplacementBars, unit: "bars" as const, cell } : null;
+  })();
   const slope = normalizedSlope(inputs.currentPrice, majorLow, angleUnit(inputs.dailyBars), timeDisplacementBars);
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
@@ -293,6 +299,18 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   if (nearestMasterTwelve) {
     explanationTrace.push(
       `Nearest base-12 spiral level (a GSPS construction, not the Master 12 chart): ${nearestMasterTwelve.price.toFixed(2)} (${nearestMasterTwelve.role}, ${nearestMasterTwelve.distancePct.toFixed(2)}% away, degree ${nearestMasterTwelve.degree}, rotation ${nearestMasterTwelve.rotation}).`,
+    );
+  }
+  if (masterTwelveReading) {
+    const c = masterTwelveReading.cell;
+    const marks = [
+      c.squareEnd && "square end",
+      c.majorCentre && "major centre",
+      c.minorCentre && "minor centre",
+      c.diagonal && "diagonal",
+    ].filter(Boolean);
+    explanationTrace.push(
+      `12-by-12 chart: ${masterTwelveReading.count} bars since the anchor pivot sit in square ${c.square}, place ${c.place} (section ${c.section}, row ${c.row})${marks.length ? `, ${marks.join(", ")}` : ""}. Context only.`,
     );
   }
   if (squareOf52.active) {
@@ -371,6 +389,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     // CYC-47: the forward dates leave the server only with a measured record.
     macroCycle: displayableMacroCycle(macroCycle),
     nearestMasterTwelve,
+    masterTwelve: masterTwelveReading,
     squareOf52,
     angleMonthCounts: angleMonthCountsResult,
     spectralCycle,

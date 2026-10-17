@@ -29,7 +29,11 @@
  * exactly rather than forcing a count of 36. Review B, 2026-10-16, M-T16:
  * the gap stands. This builds the 32-way division plus the four starred
  * thirds and sixths, not 36 counts; the 36 are not recoverable from the
- * source as read.)
+ * source as read. Re-recorded 2026-10-17 with the M-T16 build: the source
+ * names 36 angles but lists only the 32-way grid. `ANGLE_MONTH_COUNTS` holds
+ * 36 values (32 grid steps of 11.25 degrees, plus 60, 120, 240 and 300, which
+ * fall off the grid), but that union is GSPS's reconstruction: nothing in the
+ * source confirms these are Gann's 36. Only the 32 grid counts are as listed.)
  *
  * Twelve of these are separately named "very important": 45, 60, 90, 120,
  * 135, 180, 225, 240, 270, 300, 315, 360. Four of those (60, 120, 240, 300)
