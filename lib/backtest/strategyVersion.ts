@@ -419,4 +419,10 @@
 // count needs a longer series. Same batch, no verdict change: generated report
 // dates no longer set the regime's turn date (A-TIME-36), and the late-top /
 // early-top bottom readings are context only (A-TIME-08).
-export const STRATEGY_VERSION = "2026-10-16-gann-yearly-count-windows";
+// 2026-10-17-gann-rebuy-after-stop: A-PYRAMID-07 (W022 p.198; owner's pick,
+// "Re-buy after stop"). Under Gann's exits, a trade left on a trailing stop
+// while the swing chart still runs its way rests a re-entry 12 points back from
+// its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`), and any
+// reversal opened at the stop is covered there (`rebuyAfterStop`, default on).
+// New re-entry trades appear and some reversals leave earlier; verdicts do not move.
+export const STRATEGY_VERSION = "2026-10-17-gann-rebuy-after-stop";

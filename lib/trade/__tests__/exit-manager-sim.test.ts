@@ -9,7 +9,11 @@ vi.mock("@/lib/brokers/simulator", () => ({
   assetClassOf: vi.fn(() => "us_equity"),
 }));
 // No Gann reading: the stop under test is the one already applied.
-vi.mock("@/lib/trade/gann-exit-live", () => ({ readLiveGannExit: vi.fn(async () => null) }));
+const readLiveRebuy = vi.fn();
+vi.mock("@/lib/trade/gann-exit-live", () => ({
+  readLiveGannExit: vi.fn(async () => null),
+  readLiveRebuy: (...args: unknown[]) => readLiveRebuy(...args),
+}));
 vi.mock("@/lib/automation/stop-out", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/automation/stop-out")>()),
   handleAutomatedStopOut: vi.fn(async () => undefined),
@@ -84,6 +88,7 @@ describe("manageSimulatedExits — a stop already applied", () => {
   beforeEach(() => {
     quotePrice.mockReset();
     executeFill.mockReset();
+    readLiveRebuy.mockReset().mockResolvedValue(null);
   });
 
   it("closes a long once price trades below a manual stop that hasn't moved", async () => {
@@ -103,6 +108,17 @@ describe("manageSimulatedExits — a stop already applied", () => {
     expect(log).toMatchObject({ exit_condition: "stop_loss", quantity: 3, exit_price: 601.6 });
     // A person placed this trade, so the reversal is offered, not placed (Q15).
     expect(run.notes.some((n) => n.includes("reverse") && n.includes("sell short at 601.60") && n.includes("Nothing was placed"))).toBe(true);
+  });
+
+  it("offers to buy again on the reaction when the trend still runs up (A-PYRAMID-07)", async () => {
+    quotePrice.mockResolvedValue(601.6);
+    readLiveRebuy.mockResolvedValue({ side: "long", entry: 590, stop: 580, extreme: 620 });
+    const { client } = stubSupabase(amdPlan());
+
+    const run = await manageSimulatedExits(client, "user-1");
+
+    expect(readLiveRebuy).toHaveBeenCalledWith(expect.objectContaining({ symbol: "AMD", side: "long", cause: "stop" }));
+    expect(run.notes.some((n) => n.includes("buy again") && n.includes("590.00") && n.includes("580.00"))).toBe(true);
   });
 
   it("leaves the position alone while price holds above the stop", async () => {
