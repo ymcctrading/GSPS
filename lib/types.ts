@@ -1,6 +1,6 @@
 /** Shared types for the GSPS scan engine. */
 
-import type { BreakdownKey } from "@/lib/scoring/weights";
+import type { BreakdownKey, CriterionKey } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
 import type { LiquidityRead } from "@/lib/scan/liquidity";
 import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
@@ -267,6 +267,12 @@ export interface ScoreBreakdownItem {
    * they belong to no pillar.
    */
   pillar?: ScorePillar;
+  /**
+   * Set on a check that one of the nine points is built from (2026-10-17): the
+   * point it feeds. A check carries no pillar and no point of its own, and is
+   * not a hold.
+   */
+  checkOf?: CriterionKey;
 }
 
 /** One pillar's contribution to the score: points earned out of points available. */
@@ -343,6 +349,12 @@ export interface ScanResult {
    * lib/gann/stopBreach.ts.
    */
   stopBreach?: { stop: number; price: number; reclaimAt: number };
+  /**
+   * How strongly the selection rules favour this setup's side (early leaders
+   * first; `lib/gann/leadership.ts#selectionStrength`). Orders the daily
+   * lists only; it is not part of the score.
+   */
+  selectionStrength?: number;
   /**
    * How far behind the market the bars this scan was computed on are, expressed
    * against the execution timeframe. Published deliberately: the verdict is

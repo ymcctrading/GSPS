@@ -17,9 +17,15 @@ export interface RestReminder {
   message: string;
 }
 
+export interface AwayReminder {
+  awayFrom: string;
+  message: string;
+}
+
 export function useGannRulePrefs() {
   const [prefs, setPrefs] = useState<GannRulePrefs>(DEFAULT_GANN_RULE_PREFS);
   const [restReminder, setRestReminder] = useState<RestReminder | null>(null);
+  const [awayReminder, setAwayReminder] = useState<AwayReminder | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +33,11 @@ export function useGannRulePrefs() {
     let cancelled = false;
     fetch("/api/settings/gann-rules")
       .then((res) => (res.ok ? res.json() : null))
-      .then((body: { prefs?: GannRulePrefs; restReminder?: RestReminder | null } | null) => {
+      .then((body: { prefs?: GannRulePrefs; restReminder?: RestReminder | null; awayReminder?: AwayReminder | null } | null) => {
         if (cancelled || !body) return;
         if (body.prefs) setPrefs(body.prefs);
         setRestReminder(body.restReminder ?? null);
+        setAwayReminder(body.awayReminder ?? null);
       })
       .catch(() => {})
       .finally(() => !cancelled && setLoaded(true));
@@ -53,8 +60,9 @@ export function useGannRulePrefs() {
     }
     setPrefs(body.prefs);
     if (patch.restDismissedFor !== undefined || patch.restReminder === false) setRestReminder(null);
+    if (patch.awayFrom !== undefined) setAwayReminder(null);
     return true;
   }, []);
 
-  return { prefs, restReminder, loaded, error, save };
+  return { prefs, restReminder, awayReminder, loaded, error, save };
 }

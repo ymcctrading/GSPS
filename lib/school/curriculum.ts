@@ -394,9 +394,9 @@ const ACADEMY_2: Academy = {
           ],
           estimatedMinutes: 9,
           instruction: [
-            "Mr. Bull likes to measure. Take the highest and lowest price of a move and find the point halfway between them. Pullbacks often stop near that halfway point, and a market that holds above it is still healthy. A market that falls well below it is losing strength.",
+            "Mr. Bull likes to measure. Take the highest and lowest price of a move and find the point halfway between them. Pullbacks often stop near that halfway point, and a market that holds above it is still healthy. A market that falls well below it is losing strength. After the halfway point, the quarter and three-quarter points of the move matter most, then the thirds, then the eighths.",
             "Round numbers such as 20, 50, 100 or 200 are where many people place their orders, because people think in round numbers. That crowd of orders often stops a rally just under the round number, or a fall just above it.",
-            "Mrs. Bear's warning: don't place your own order right on the round number, where everyone else's is. Place it a little before it. And when a stock finally breaks through a big round number, that is often a sign of real strength.",
+            "Mrs. Bear's warning: don't place your own order right on the round number, where everyone else's is. Place it a little before it. And when a stock finally breaks through a big round number, that is often a sign of real strength. The first time a stock gets above 200, expect it to reach about 202 or 203 and fall back; the second time often does the same. GSPS waits for the third time through before it buys, and holds the earlier tries to Watch.",
           ],
           application:
             "On a chart, find the high and low of the last big move and mark the halfway point. Then find the nearest round number above today's price. Which is closer?",
@@ -448,6 +448,38 @@ const ACADEMY_2: Academy = {
           quiz: [
             q("Which of these is NOT one of the five things a trader needs?", ["Patience", "Capital", "A lucky number", "Health"], 2),
             q("Trading to win back a loss is an example of:", ["Good risk control", "Overtrading", "Patience", "Pyramiding"], 1),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          // C-OTHER-02 (class C, Additional Cycle Findings p. 17): ignore the
+          // financial press. Written in our own words.
+          id: "academy-2/simple-rules/the-chart-not-the-news",
+          title: "Judge the Market From Its Own Chart",
+          objectives: [
+            "Explain why the chart, not the headlines, decides a trade.",
+            "Use news only to know when risk is higher, not to pick a direction.",
+          ],
+          estimatedMinutes: 8,
+          instruction: [
+            "Mrs. Bear's warning: headlines are written after the move. A story about why a stock jumped is an explanation of yesterday, and by the time you read it, the buying or selling it describes is already in the price.",
+            "Mr. Bull's rule: the chart is the record of what people actually did with their money. Tops, bottoms, the trend and the volume tell you where the market is going more honestly than anyone's opinion about it. If the chart and the news disagree, trust the chart.",
+            "Exciting news often arrives near the end of a move, when the last buyers are rushing in, and gloomy news near the end of a fall. Acting on how a story makes you feel is how traders buy near tops and sell near bottoms.",
+            "News still has one use: knowing when a scheduled event, such as an earnings report, can make price jump past your stop. That tells you when risk is higher and when to stay out. It does not tell you which way to trade.",
+          ],
+          application:
+            "Find a stock in the headlines today. Before reading the story, write down what its chart says: the trend, the last top and bottom, and where you would be wrong. Then read the story and ask whether it changes anything the chart told you.",
+          quiz: [
+            q(
+              "A headline says a stock is soaring on great news, but its chart shows lower tops and lower bottoms. What should guide your decision?",
+              ["The headline", "The chart", "Whichever you read first", "A friend's opinion"],
+              1,
+            ),
+            q(
+              "The sound use of scheduled news, such as an earnings date, is to:",
+              ["Pick which way to trade", "Know when risk is higher and when to stay out", "Remove your stop", "Trade bigger"],
+              1,
+            ),
           ],
           reviewMeta: AUTHOR,
         },
@@ -751,7 +783,7 @@ const ACADEMY_4: Academy = {
           estimatedMinutes: 11,
           instruction: [
             "A GSPS trade has no fixed target. The first target on the plan is a level to watch, and nothing is sold there just because price reached it. The whole position keeps running.",
-            "Once the trade has gained as much as it risked, the stop moves to the entry. After that, the stop steps up under each new higher bottom the market makes, and under last month's low once a new month begins.",
+            "Once the trade is 3 points ahead (points scaled to the price), the stop moves to the entry. After that, the stop steps up under each new higher bottom the market makes, and under last month's low once a new month begins.",
             "The part that keeps running has no fixed final target. It leaves when the market says the move is over: a swing chart turning, a reaction bigger or longer than any before it, or three closes against the trade. Mrs. Bear's point: let the market tell you when to leave instead of guessing a price in advance.",
           ],
           application: "Take a trade you know that went well. Where would the stop have been after each higher bottom?",
@@ -935,6 +967,7 @@ const ACADEMY_6: Academy = {
             "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The main trend comes from the monthly chart, the weekly chart next, and the daily matters most for fast, active stocks, so GSPS weighs them in that order, in its first pass over the market as in the full scan. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend. A stock is never too high to buy while its trend is up, nor too low to sell while it is down, so long as a stop is placed: how far price has run is no reason on its own to trade against the trend.",
             "Trends run in sections, usually three or four. A signal in the third or fourth section counts for more than one in the second, because the move has had time to exhaust itself.",
             "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and a month that breaks the prior month's low in an advance (or its high in a decline), the first such break being the one to mark. Time is read first: a move that runs out of time usually runs out of price soon after. Either over-balance means GSPS no longer reads a confirmed trend. The monthly break is a warning: no new trade is taken with the trend while it stands. The trend holds while the reaction stays above the top of the move's previous section; if it goes under that top as well, GSPS no longer reads a confirmed trend.",
+            "Which stocks to trade matters as much as when. The early leaders of an advance bottom before the market, or cross last year's top before it does; the early leaders of a decline top first, or break last year's bottom first. GSPS lists them first, buys on the buy list and shorts on the sell list. A stock that is weak while the market advances (its early top never exceeded in two years, or its first short rally never exceeded) is left alone as a buy: GSPS holds the buy to Watch and lists it first among shorts instead, so you can be long the strongest and short the weakest at the same time.",
           ],
           application:
             "On a chart you know, mark the last swing top and bottom on the daily chart, count the sections of the current move, and note whether the current reaction is larger or longer than any before it.",
@@ -994,7 +1027,7 @@ const ACADEMY_6: Academy = {
             `The other entry is the double or triple bottom: a swing bottom that already held, with the order resting at the bottom itself, so its second or third test is bought (an old top that held, for a short). A fourth test is not bought. A narrow week followed by a week that closes 3 points under it on heavy volume is also sold, on the bounce 1 point under the narrow week's low with the stop 3 points over it, even while the averages rise. ${OLD_LEVEL_BUYS_IN_RANGE ? "This entry is taken inside a sideways range too, since the bottom is the range's own edge." : "Like a crossing, it waits for the breakaway in a sideways range."}`,
             "A third entry is a bottom that holds. After a reaction, once its low has stood into its second week, GSPS buys at the last close with the stop 3 points under the low; in a rising market, a reaction of two to three weeks is bought once its low has held two days; and a record low that holds for four weeks or more without a 3-point break is bought with the stop 3 points under the record. It is bought only near the low, so the stop is never more than 5 points away. A short sells a single top that holds the same way, and a rally in a falling market (its main trend down, not only the weekly chart) that has run two to three weeks is sold once, at the close of its second or third week, with the stop 3 points over that week's high.",
             "The stop goes 3 points the other side of the old level, so a crossing risks 4 points, a double or triple bottom 3, and a buy over a bottom that held up to 5. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
-            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade has gained as much as it risked, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: the whole position runs under these rules until the trend changes. No profit target is fixed; the first target on the plan is a level from the chart to watch, not an order.",
+            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade is 3 points ahead (the method's points, scaled to the price), then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: the whole position runs under these rules until the trend changes. No profit target is fixed; the first target on the plan is a level from the chart to watch, not an order.",
           ],
           application:
             "Take one GSPS plan. Identify the old swing top or bottom it crosses or rests at, check that the entry sits 1 point past a crossed level (or at the old level itself) and the stop 3 points the other side, and find the level its first target sits at.",

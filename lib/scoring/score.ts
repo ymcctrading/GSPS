@@ -1,7 +1,8 @@
 /**
- * The Score out of `TOTAL_POINTS` (9 — `ruleOfThree` joined 2026-09-16 and
- * `adxTrendStrength` left the same day, see `lib/scoring/weights.ts`) — one
- * point per confirmed confluence condition, weighted by `CriterionWeights`.
+ * The Score out of `TOTAL_POINTS` (9): one point per pillar since 2026-10-17
+ * (`lib/scoring/pillars.ts`), each built from several of the method's checks,
+ * weighted by `CriterionWeights`. The nine criteria scored before that date
+ * stay in the breakdown as checks (`checkOf`), scoring nothing alone.
  * Execute at `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+,
  * Reject below — see those constants' own comments for the current values
  * and why; this header stopped restating the literal numbers after they
@@ -15,7 +16,23 @@ import type { DistributionStanding } from "@/lib/gann/distribution";
 import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
+import {
+  activityPillar,
+  anglesPillar,
+  definiteIndicationPillar,
+  marketCyclePillar,
+  priceLevelsPillar,
+  relativeStrengthPillar,
+  timePillar,
+  trendPillar,
+  volumePillar,
+  type PillarFacts,
+  type PillarResult,
+} from "@/lib/scoring/pillars";
 import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
+import type { WeakStockReading } from "@/lib/gann/leadership";
+import { LOWEST_RANK } from "@/lib/gann/retracement";
+import { FIGURE_BUY_TIME, type FigureCrossingReading } from "@/lib/gann/evenFigures";
 import type {
   AssetClass,
   GannLevels,
@@ -196,6 +213,14 @@ export interface ScoreInputs {
    * so the Execute/Watch cutoffs keep their meaning.
    */
   weights?: CriterionWeights;
+  /**
+   * The readings the nine pillars need beyond the checks above
+   * (`lib/scoring/pillars.ts#readPillarFacts`), built the same way on the live
+   * scan and the replay. Absent, the pillars that need them fail.
+   */
+  pillarFacts?: PillarFacts | null;
+  /** The dated time window at the turn, read only when it decides the time point. */
+  windowTurn?: (() => WindowTurn | null) | null;
 }
 
 /** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
@@ -258,6 +283,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     nearSupportResistance, srMatch, pattern, gannTrigger = null, levels,
     setupKind = "reversion",
     weights = DEFAULT_CRITERION_WEIGHTS,
+    pillarFacts = null,
+    windowTurn = null,
   } = inputs;
 
   // 2026-09-10: replaces macroTrend. macroTrend's monthly/weekly/daily
@@ -430,7 +457,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "swingChartTrend",
       criterion: "3-day/weekly swing chart trend",
-      pillar: "trend",
+      checkOf: "trendAllTimeframes",
       passed: swingChartAligned,
       note:
         swingChart == null || swingChart.threeDay == null || swingChart.weekly == null
@@ -447,7 +474,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "gannAngleSlope",
       criterion: "Structural trend-angle strength (1x2+)",
-      pillar: "trend",
+      checkOf: "geometricAngles",
       passed: angleHolding,
       note: angleReading?.nearestAngle
         ? `Realized slope ${angleReading.slope.toFixed(2)} points a bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
@@ -456,7 +483,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "volumeClimax",
       criterion: "Volume at the turn",
-      pillar: "structure",
+      checkOf: "volumeAccumulation",
       passed: volumeClimaxHolding,
       note: climaxReading
         ? volumeNote(climaxReading) + boilingPointNote
@@ -465,7 +492,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "historicalSR",
       criterion: "Historical support/resistance",
-      pillar: "structure",
+      checkOf: "priceLevels",
       passed: historicalSRPassed,
       note:
         (historicalSRPassed
@@ -483,7 +510,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       // wording stays outcome-shaped rather than naming the construction,
       // because the user-facing vocabulary gate applies to generated copy.
       criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} entry trigger armed`,
-      pillar: "setup",
+      checkOf: "definiteIndication",
       passed: patternValid,
       note: patternValid
         ? gannTrigger!.kind === "hold"
@@ -496,7 +523,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "stopBehindOldLevel",
       criterion: "Stop 3 points behind an old level",
-      pillar: "setup",
+      checkOf: "definiteIndication",
       passed: stopBehindOldLevel,
       note:
         levels == null
@@ -508,7 +535,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "timePriceSquare",
       criterion: "Price and time squared",
-      pillar: "timing",
+      checkOf: "timeFactors",
       passed: timePriceSquareHolding,
       note: squareReading
         ? timePriceSquareHolding
@@ -519,20 +546,20 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "gannRetracementConfluence",
       criterion: "Retracement zone",
-      pillar: "riskReward",
+      checkOf: "priceLevels",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
         ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
           (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
           (retracementMatch.importance != null
-            ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
+            ? ` Importance rank ${retracementMatch.importance} of ${LOWEST_RANK} (1 = 50%, the most important; 2 = the quarters and the full range; 3 = the thirds; 4 = the eighths and sixteenths).`
             : " Not one of the explicitly ranked fractions.")
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${LEVEL_BAND_BASIS}.`,
     },
     {
       key: "ruleOfThree",
       criterion: "Rule of Three (consecutive closes confirm direction)",
-      pillar: "trend",
+      checkOf: "trendAllTimeframes",
       passed: ruleOfThreeHolding,
       note:
         !ruleOfThreeDaily && ruleOfThreeHigher !== null
@@ -548,6 +575,27 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
               : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
     },
   ];
+
+  // The nine points (2026-10-17, owner: "the score stays out of 9" and the
+  // card's "Stop required"). The checks above feed them and score nothing on
+  // their own; see lib/scoring/pillars.ts.
+  const monthly = inputs.macroTrends.find((t) => t.timeframe === "1Month")?.direction ?? null;
+  const point = (key: CriterionKey, criterion: string, pillar: ScoreBreakdownItem["pillar"], r: PillarResult): ScoreBreakdownItem => ({
+    key, criterion, pillar, passed: r.passed, note: r.note,
+  });
+  breakdown.push(
+    point("marketCycle", "Market and cycle position", "timing", marketCyclePillar(pillarFacts, direction)),
+    point("trendAllTimeframes", "Trend on every timeframe", "trend", trendPillar({
+      side: direction, weekly: swingChart?.weekly, threeDay: swingChart?.threeDay, ruleOfThree: ruleOfThreeHolding, monthly,
+    })),
+    point("relativeStrength", "Relative strength and leadership", "trend", relativeStrengthPillar(pillarFacts, direction)),
+    point("activity", "Activity and character", "setup", activityPillar(pillarFacts)),
+    point("priceLevels", "Price levels", "structure", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
+    point("geometricAngles", "Angles", "structure", anglesPillar(pillarFacts, direction, angleHolding)),
+    point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts, windowTurn })),
+    point("volumeAccumulation", "Volume and accumulation", "setup", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
+    point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, patternValid, stopBehindOldLevel)),
+  );
 
   // Points, not criteria met: every criterion is worth one point under the
   // default weights, so this is the same integer it has always been, and a
@@ -566,15 +614,23 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // and can all pass with no armed pattern and no priced trade plan, which is
   // exactly the 7/9 that would otherwise read as Execute with no entry, stop or
   // targets. Without a plan the strongest honest reading is Watch.
-  const tradePlanReady = patternValid && levels !== null;
+  // M-K5: "Don't risk 3-5 points for 3-5" (*Wall Street Stock Selector*
+  // Ch.II; "scalpers ... simply get scalped"). Gann sets no ratio beyond "not
+  // equal", so the minimal reading is used: a first target no farther than the
+  // risk is not a trade. Added 2026-10-16.
+  const evenMoney =
+    levels !== null && Math.abs(levels.takeProfit1 - levels.entry) <= Math.abs(levels.entry - levels.stopLoss);
+  const tradePlanReady = patternValid && levels !== null && !evenMoney;
   if (score >= EXECUTE_SCORE_THRESHOLD && !tradePlanReady) {
     breakdown.push({
       key: "tradePlanPriced",
       criterion: "Trade plan priced (entry / stop / TP1 / master)",
       passed: false,
-      note: levels
-        ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
-        : "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch.",
+      note: !levels
+        ? "No trade plan computed — no entry, stop or targets to act on, so the state is held at Watch."
+        : !patternValid
+          ? "No armed pattern in the setup direction — nothing to enter against, so the state is held at Watch."
+          : "The first target is no farther than the risk: the method does not risk a move to make the same move, so the state is held at Watch.",
     });
   }
 
@@ -755,6 +811,64 @@ export function applyRuleFollowingHold(decision: ScanDecision, reading: RuleFoll
         criterion: "Stock follows the rules",
         passed: false,
         note: `Of this stock's last ${reading.resolved} buying and selling points over the year, ${reading.failed} failed back through their stop and ${reading.followed} carried on. A stock that does not follow the rules is left alone, so this is held from Execute to Watch until its signals work again.`,
+      },
+    ],
+  };
+}
+
+/**
+ * The third time through a round number (A-LEVELS-08; `readFigureCrossing`):
+ * the first and second times an entry crosses a major figure, Gann expects it
+ * to carry only a point or so over and break back, so the Execute is held to
+ * Watch. The third time through is bought.
+ */
+export function applyFigureCrossingHold(decision: ScanDecision, crossing: FigureCrossingReading | null | undefined): ScanDecision {
+  if (!crossing || crossing.time >= FIGURE_BUY_TIME || decision.outputState !== "Execute") return decision;
+  const long = crossing.direction === "bullish";
+  const fmt = crossing.figure.toFixed(crossing.figure < 10 ? 2 : 0);
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "figureCrossing",
+        criterion: "Third time through a round number",
+        passed: false,
+        note: `This ${long ? "buy crosses" : "short breaks"} the round number ${fmt} for the ${crossing.time === 1 ? "first" : "second"} time. Orders gather at round numbers, so the first and second times through usually carry only a point or so ${long ? "over" : "under"} and then break back. Held from Execute to Watch; the third time through is taken.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Buy the strong and leave the weak alone (A-SELECTION-04, W006 p.33: "Always
+ * buy the stocks in strong position and leave those in weak position alone").
+ * A buy in a stock that reads weak in a bull market (`readWeakStock`: its
+ * early top not exceeded in two years, or its first short rally never
+ * exceeded) is held from Execute to Watch. A short in it is untouched: Gann
+ * sells the weakest short (pp.37-38), and the sell list ranks it first
+ * (`selectionStrength`).
+ */
+export function applyWeakStockHold(
+  decision: ScanDecision,
+  weak: WeakStockReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!weak?.weak || direction !== "bullish" || decision.outputState !== "Execute") return decision;
+  const why = weak.earlyTopFailed
+    ? `its top of ${weak.earlyTopFailed.top.toFixed(2)} (${weak.earlyTopFailed.month}), made early in the market's advance, has not been exceeded in two years`
+    : `its first rally of the market's advance, to ${weak.firstRallyNotExceeded!.top.toFixed(2)} (${weak.firstRallyNotExceeded!.month}), lasted ${weak.firstRallyNotExceeded!.months} months and has never been exceeded`;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "weakStock",
+        criterion: "Stock in a strong position",
+        passed: false,
+        note: `This stock is weak while the market advances: ${why}. Buy the strong and leave the weak alone, so this buy is held from Execute to Watch while the reading stands.`,
       },
     ],
   };

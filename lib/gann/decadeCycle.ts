@@ -10,6 +10,15 @@
  * Gann's own private-course voice — B9's claim about this one technique was
  * correct, even though B9 remains an unreliable general source otherwise.
  *
+ * **Class A** (raised 2026-10-16, C-TIME-24 / M-T17): the finished reading
+ * of the Master Course confirms the ten characters in Gann's own November
+ * 1935 lesson (Ch. 7 PDF 223-224), including "8 = bull (the 90th month)" and
+ * the 9th year culminating September to November. The 90th month is read
+ * from January of the '1' year as month 1 (Gann numbers the decade 1-10), so
+ * it falls in June of the '8' year; that counting start is our reading of
+ * his numbering, labelled as such. Read on the card and, through
+ * `readDisclosedRules`, on the live scan and the replay alike, as context factors.
+ *
  * Per AGENTS.md's "Hermetic principles & cycle theory" standing principle:
  * this is built as real, running, clearly-labeled-hypothesis code,
  * confluence/context only (wired into `GannConfluenceResult`, never into
@@ -29,6 +38,8 @@ export interface DecadeCycleReading {
   bias: DecadeBias;
   label: string;
   note: string;
+  /** In an '8' year only: the decade's 90th month (YYYY-MM) and whether `asOf` is in it. */
+  ninetiethMonth?: { month: string; active: boolean };
 }
 
 interface DecadeCharacter {
@@ -94,5 +105,10 @@ export function computeDecadeCycle(asOf: Date = new Date()): DecadeCycleReading 
   const yearMod = asOf.getUTCFullYear() % 10;
   const yearDigit = yearMod === 0 ? 10 : yearMod;
   const character = DECADE_CHARACTER[yearDigit];
-  return { yearDigit, ...character };
+  if (yearDigit !== 8) return { yearDigit, ...character };
+  // Month 90 from January of the '1' year (month 1): 7 years and 5 months on, June of the '8' year.
+  const start = asOf.getUTCFullYear() - 7;
+  const m = start * 12 + 89;
+  const month = `${Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, "0")}`;
+  return { yearDigit, ...character, ninetiethMonth: { month, active: asOf.toISOString().slice(0, 7) === month } };
 }

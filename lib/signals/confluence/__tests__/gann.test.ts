@@ -47,6 +47,14 @@ function uptrendBars(n: number): Bar[] {
 }
 
 describe("evaluateGannConfluence", () => {
+  it("sends no upcoming macro window while the macro cycle has no measured record (CYC-47)", () => {
+    const bars = uptrendBars(60);
+    for (const dailyBars of [bars, []]) {
+      const result = evaluateGannConfluence({ assetClass: "us_equity", symbol: "TEST", dailyBars, currentPrice: 130, direction: "bullish" });
+      expect(result.macroCycle.upcomingMajor).toEqual([]);
+    }
+  });
+
   it("routes unsupported markets to notImplemented without computing anything", () => {
     const result = evaluateGannConfluence({
       assetClass: "us_equity",
@@ -228,5 +236,32 @@ describe("evaluateGannConfluence", () => {
       direction: null,
     });
     expect(result.alignment).toBe("neutral");
+  });
+
+  it("places the bars since the anchor pivot on the 12-by-12 time chart, with a trace line (M-T16)", () => {
+    const bars = swingBars(80);
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: bars,
+      currentPrice: bars[bars.length - 1].c,
+      direction: "bullish",
+    });
+    expect(result.masterTwelve).not.toBeNull();
+    expect(result.masterTwelve!.count).toBe(27);
+    expect(result.masterTwelve!.cell.place).toBe(27);
+    expect(result.masterTwelve!.cell.section).toBe(3);
+    expect(result.evidence.explanationTrace.some((l) => /12-by-12 chart: 27 bars/.test(l))).toBe(true);
+  });
+
+  it("has no 12-by-12 reading without enough history", () => {
+    const result = evaluateGannConfluence({
+      assetClass: "us_equity",
+      symbol: "TEST",
+      dailyBars: uptrendBars(10),
+      currentPrice: 105,
+      direction: "bullish",
+    });
+    expect(result.masterTwelve).toBeNull();
   });
 });

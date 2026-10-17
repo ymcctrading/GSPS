@@ -31,6 +31,22 @@
  *   Holm-significant and its hit rate is above the shifted mean. Otherwise it
  *   stays context, and no hold may be built on it.
  *
+ * Two calendar-only families are scored apart, as a second pre-registered
+ * set with its own Holm correction (CYC-24, added 2026-10-16), so the six
+ * families above keep the correction they were registered with:
+ * - `macroCycle`: every month a major (5-year-plus) cycle from the cited DJIA
+ *   turns lands in (`macroCycle.ts`), the whole month as the window.
+ * - `decadeNinetiethMonth`: the decade's 90th month in each '8' year
+ *   (`decadeCycle.ts`), the whole month.
+ * Both are the same dates for every symbol, so each symbol's own turns are
+ * scored against them with the same circular-shift base rate.
+ *
+ * CYC-39 (Halberg, W041 p. 18, feedsidewards): the same input can act
+ * differently by phase, and `timeCycles` fixes a window's direction by its
+ * anchor (a low argues bullish). `hitsByTurnDirection` reports each family's
+ * hits split by the turn that actually came (top or bottom) and by anchor
+ * kind, instead of assuming it. `timeWindow.ts`'s hold is unchanged.
+ *
  * Three-question basis. Gann: the windows are his (A-TIME-04, W006 pp.14, 44;
  * the wheel and bands in `timeCycles.ts`). Cycles: Dewey's recurrent-event
  * statistic (a hit rate against a base rate, CYC-24) and a correction for
@@ -42,6 +58,8 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { DAY_COUNT_BANDS, MAJOR_CYCLE_YEARS, WHEEL_COUNTS } from "@/lib/gann/timeCycles";
 import { holm } from "@/lib/research/calendarTest";
+import { computeMacroCycle } from "@/lib/gann/macroCycle";
+import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
 
 const DAY = 86_400_000;
 /** `timeCycles`' default window, in days either side. */
@@ -80,6 +98,10 @@ export interface SymbolWindows {
   turns: number[];
   /** Each family's windows, [start, end] in UTC-midnight ms, inside the record. */
   windows: Record<WindowFamily, [number, number][]>;
+  /** The kind of each turn in `turns` (CYC-39). */
+  turnKinds?: ("top" | "bottom")[];
+  /** The kind of pivot each window was counted from, parallel to `windows` (CYC-39). */
+  anchorKinds?: Partial<Record<WindowFamily, ("low" | "high")[]>>;
 }
 
 const midnight = (t: string) => Date.parse(`${t.slice(0, 10)}T00:00:00Z`);
@@ -87,14 +109,22 @@ const midnight = (t: string) => Date.parse(`${t.slice(0, 10)}T00:00:00Z`);
 export function symbolWindows(daily: Bar[]): SymbolWindows {
   const sessions = daily.map((b) => midnight(b.t));
   const walk = walkSwingChart(daily, WEEKLY_SWING_CHART);
-  const turns = walk.pivots.slice(0, -1).map((p) => p.index);
+  const done = walk.pivots.slice(0, -1);
+  const turns = done.map((p) => p.index);
+  const turnKinds = done.map((p) => p.kind);
   const first = sessions[0] ?? 0;
   const last = sessions[sessions.length - 1] ?? 0;
   const windows: Record<WindowFamily, [number, number][]> = { anniversary1: [], anniversary2: [], anniversary3: [], wheel: [], dayBands: [], yearCycles: [] };
+  const anchorKinds: Record<WindowFamily, ("low" | "high")[]> = { anniversary1: [], anniversary2: [], anniversary3: [], wheel: [], dayBands: [], yearCycles: [] };
+  let kind: "low" | "high" = "low";
   const keep = (family: WindowFamily, w: [number, number]) => {
-    if (w[0] >= first && w[1] <= last) windows[family].push(w);
+    if (w[0] >= first && w[1] <= last) {
+      windows[family].push(w);
+      anchorKinds[family].push(kind);
+    }
   };
   for (const a of majorPivots(findPivots(daily, 5))) {
+    kind = a.kind;
     const at = midnight(a.bar.t);
     for (const k of [1, 2, 3] as const) {
       const d = new Date(at);
@@ -105,6 +135,7 @@ export function symbolWindows(daily: Bar[]): SymbolWindows {
     for (const [lo, hi] of DAY_COUNT_BANDS) keep("dayBands", [at + lo * DAY, at + hi * DAY]);
   }
   for (const a of majorPivots(findPivots(monthsOf(daily), 3))) {
+    kind = a.kind;
     const d = new Date(a.bar.t);
     for (const y of YEAR_CYCLE_FAMILY_YEARS) {
       const from = Date.UTC(d.getUTCFullYear() + y, d.getUTCMonth(), 1);
@@ -112,7 +143,7 @@ export function symbolWindows(daily: Bar[]): SymbolWindows {
       keep("yearCycles", [from, to]);
     }
   }
-  return { sessions, turns, windows };
+  return { sessions, turns, windows, turnKinds, anchorKinds };
 }
 
 /** Whether a turn's session lies in [start, end]. `turnDays` holds the turns' session dates. */
@@ -143,11 +174,12 @@ export interface FamilyResult {
   beatsRandom?: boolean;
 }
 
-export function scoreFamily(series: SymbolWindows[], family: WindowFamily): FamilyResult {
+/** The circular-shift score of one set of windows per series. */
+function scoreWindows(series: { sessions: number[]; turns: number[]; windows: [number, number][] }[]) {
   const prepared = series.map((s) => ({
     turnDays: s.turns.map((i) => s.sessions[i]).sort((a, b) => a - b),
     last: s.sessions[s.sessions.length - 1] ?? 0,
-    windows: s.windows[family],
+    windows: s.windows,
   }));
   const rateAt = (shift: number) => {
     let n = 0;
@@ -173,13 +205,19 @@ export function scoreFamily(series: SymbolWindows[], family: WindowFamily): Fami
     if (rate >= observed) atLeast++;
   }
   return {
-    family,
-    symbols: series.filter((s) => s.windows[family].length > 0).length,
+    symbols: series.filter((s) => s.windows.length > 0).length,
     instances: obs.n,
     hits: obs.h,
     hitRate: observed,
     baseMean: sum / SHIFTS,
     p: (atLeast + 1) / (SHIFTS + 1),
+  };
+}
+
+export function scoreFamily(series: SymbolWindows[], family: WindowFamily): FamilyResult {
+  return {
+    family,
+    ...scoreWindows(series.map((s) => ({ sessions: s.sessions, turns: s.turns, windows: s.windows[family] }))),
     coverage: coverage(series, [family]),
   };
 }
@@ -208,4 +246,77 @@ export function readBaseRates(series: SymbolWindows[]): BaseRateReport {
   const families = holm(WINDOW_FAMILIES.map((f) => scoreFamily(series, f)));
   for (const f of families) f.beatsRandom = f.holmSignificant === true && f.hitRate > f.baseMean;
   return { families, coverageAll: coverage(series, WINDOW_FAMILIES) };
+}
+
+// ---------------------------------------------------------------------------
+// CYC-24: the calendar-only families (macro cycle, the decade's 90th month)
+
+export const CALENDAR_FAMILIES = ["macroCycle", "decadeNinetiethMonth"] as const;
+export type CalendarFamily = (typeof CALENDAR_FAMILIES)[number];
+
+/** Whole calendar months [first day, last day], UTC ms. */
+const monthWindow = (y: number, m: number): [number, number] => [Date.UTC(y, m, 1), Date.UTC(y, m + 1, 1) - DAY];
+
+/** Each calendar family's months wholly inside the sessions' record. */
+export function calendarFamilyWindows(sessions: number[]): Record<CalendarFamily, [number, number][]> {
+  const out: Record<CalendarFamily, [number, number][]> = { macroCycle: [], decadeNinetiethMonth: [] };
+  if (sessions.length === 0) return out;
+  const first = sessions[0];
+  const last = sessions[sessions.length - 1];
+  const d0 = new Date(first);
+  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); Date.UTC(y, m, 1) <= last; m === 11 ? ((m = 0), y++) : m++) {
+    const w = monthWindow(y, m);
+    if (w[0] < first || w[1] > last) continue;
+    const at = new Date(Date.UTC(y, m, 15));
+    if (computeMacroCycle(at, 0).majorActive) out.macroCycle.push(w);
+    if (computeDecadeCycle(at).ninetiethMonth?.active) out.decadeNinetiethMonth.push(w);
+  }
+  return out;
+}
+
+export interface CalendarFamilyResult extends Omit<FamilyResult, "family" | "coverage" | "beatsRandom"> {
+  family: CalendarFamily;
+  beatsRandom?: boolean;
+}
+
+/** Both calendar families scored on each series' own turns, Holm across the two. */
+export function readCalendarBaseRates(series: { sessions: number[]; turns: number[] }[]): CalendarFamilyResult[] {
+  const windows = series.map((s) => calendarFamilyWindows(s.sessions));
+  const results = holm(
+    CALENDAR_FAMILIES.map((family) => ({
+      family,
+      ...scoreWindows(series.map((s, k) => ({ sessions: s.sessions, turns: s.turns, windows: windows[k][family] }))),
+    })) as CalendarFamilyResult[],
+  );
+  for (const r of results) r.beatsRandom = r.holmSignificant === true && r.hitRate > r.baseMean;
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// CYC-39: hits split by the turn that came
+
+export interface TurnDirectionHits {
+  windows: number;
+  caughtTops: number;
+  caughtBottoms: number;
+}
+
+/** A family's windows by anchor kind, and how many caught a top and how many a bottom. */
+export function hitsByTurnDirection(series: SymbolWindows[], family: WindowFamily): { fromLows: TurnDirectionHits; fromHighs: TurnDirectionHits } {
+  const fromLows: TurnDirectionHits = { windows: 0, caughtTops: 0, caughtBottoms: 0 };
+  const fromHighs: TurnDirectionHits = { windows: 0, caughtTops: 0, caughtBottoms: 0 };
+  for (const s of series) {
+    const kinds = s.anchorKinds?.[family];
+    if (!kinds || !s.turnKinds) continue;
+    const of = (k: "top" | "bottom") => s.turns.filter((_, j) => s.turnKinds![j] === k).map((i) => s.sessions[i]).sort((a, b) => a - b);
+    const tops = of("top");
+    const bottoms = of("bottom");
+    s.windows[family].forEach((w, j) => {
+      const into = kinds[j] === "low" ? fromLows : fromHighs;
+      into.windows++;
+      if (caught(tops, w)) into.caughtTops++;
+      if (caught(bottoms, w)) into.caughtBottoms++;
+    });
+  }
+  return { fromLows, fromHighs };
 }

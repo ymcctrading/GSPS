@@ -379,4 +379,77 @@
 // stop or a change of trend is reversed at Gann's geometry (lib/gann/reverse.ts):
 // automation seeds the opposite plan, a person is offered it, and the replay
 // walks it (`reverseWhenCaught`, default on).
-export const STRATEGY_VERSION = "2026-10-16-gann-reverse-when-caught";
+// 2026-10-16-gann-book-rules: three rules confirmed in the read books move
+// verdicts, stops and levels: break-even once 3 points ahead (M-E6), orders ¼
+// to ½ point inside an even figure (M-P10), and no Execute whose first target
+// is no farther than its risk (M-K5).
+// 2026-10-16-gann-pyramid-capital: never-failing rule 21 (WSSS Ch. II): a
+// pyramid add goes to a long only in a stock with a small capital stock and
+// to a short only in one with a large capital stock (lib/gann/pyramid.ts,
+// 500 million shares, an engineering cutoff). The live add suggestion and the
+// replay's `pyramid: true` read the same rule. Verdicts do not move; pyramided
+// trades do.
+// 2026-10-16-gann-never-failing-1-9: never-failing rules 1 and 9. Rule 9
+// ("never limit your orders ... trade at the market", Commodities rule 9
+// pp.43-45 and p.19): the reaction entry keeps its zone and goes at the market
+// once a closed bar trades into it, so the replay fills at the next bar's open
+// instead of a limit at the level plus 1 point, and a close through the stop
+// before then calls the entry off. Fills move; R is still read on the plan's
+// risk. Rule 1 (a tenth of the trading capital at most, NSTD p.46,
+// Commodities pp.29-30) refuses or shrinks orders; the replay sizes no
+// position, so it does not move the replay.
+// 2026-10-16-gann-rule-of-three-closed: the live score's daily Rule of Three
+// reads completed sessions only, as the replay already did (review 25, R3-3).
+// Live verdicts move on days the forming session would have tipped the
+// count; the replay does not move.
+// 2026-10-16-gann-stops-and-steps: W006 Rules 2, 4 and 5 and Tunnel p.198.
+// Shorts trail 1 point over the prior week's high (Rule 4; was 3). In the
+// final stage the stop trails 5 points under the last day's high, mirrored
+// for shorts (A-STOP-04). Pyramid adds come every 5 Gann points of profit
+// instead of one risk unit (A-PYRAMID-01/06), and the whole line's stop goes
+// to the tighter of break-even and 5 points under the add (A-STOP-06). Exits
+// and pyramided trades move; verdicts do not.
+// 2026-10-16-gann-yearly-count-windows: the time-window hold (Q19) also reads
+// the yearly counts (`MAJOR_CYCLE_YEARS`, A-TIME-11's 20 years among them) on
+// the monthly chart closed before the turn's month (`yearCycleHits`), on the
+// live scan and the replay alike. A counter-trend Execute whose 3-Day Chart
+// turn lands an exact number of those years from a major monthly pivot of the
+// same side now acts where it was held to Watch. The longest monthly series
+// held is 13 years, so in practice the 1-10-year counts reach it; the 20-year
+// count needs a longer series. Same batch, no verdict change: generated report
+// dates no longer set the regime's turn date (A-TIME-36), and the late-top /
+// early-top bottom readings are context only (A-TIME-08).
+// 2026-10-17-gann-rebuy-after-stop: A-PYRAMID-07 (W022 p.198; owner's pick,
+// "Re-buy after stop"). Under Gann's exits, a trade left on a trailing stop
+// while the swing chart still runs its way rests a re-entry 12 points back from
+// its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`), and any
+// reversal opened at the stop is covered there (`rebuyAfterStop`, default on).
+// New re-entry trades appear and some reversals leave earlier; verdicts do not move.
+// 2026-10-16-gann-selection-levels (feature-map batch V3): the lists and the
+// full-scan shortlist put Gann's early leaders first (bottomed or crossed last
+// year's top first for buys, topped or broke last year's bottom first for
+// shorts; A-SELECTION-02/-03), weak stocks last among buys and first among
+// shorts, and a buy in a weak stock holds to Watch (A-SELECTION-04). The
+// first and second times through a major round number hold to Watch
+// (A-LEVELS-08). The campaign's secondary rally top joins the S/R pool
+// (A-LEVELS-02), so stops, targets and the S/R match move. Range divisions are
+// ranked by Master Course Ch. 6's tiers (M-P1). The calendar-day 1x1
+// (C-LEVELS-20) is context only. Verdicts, levels and list order move.
+// 2026-10-17-gann-review-b-fixes: review B of the built rules. Only Jensen's
+// square points join the S/R list; his trine points mark consolidation and
+// stay context (C-LEVELS-21). Resistance points within 1% are averaged into
+// one before TP1 and the master are read, as the stop's were (M-P4). Plan
+// levels and targets move; the new weekly trend line, Master 12 grid and
+// spectral-cycle changes are context only.
+// 2026-10-17-gann-yearly-count-reach: the time-window hold's yearly counts
+// read a separate monthly span, `YEAR_COUNT_MONTHLY_YEARS` (61), fetched in the
+// same monthly request and windowed point-in-time on the replay, so the
+// 20-year count (A-TIME-11) and the 30/50/60-year ones can act where the data
+// vendor's history reaches. The class C counts keep `LONG_MONTHLY_YEARS`.
+// 2026-10-17-gann-nine-pillars: the score's nine points are the nine pillars
+// (lib/scoring/pillars.ts), each a combination of the method's selection and
+// pre-trade checks; the nine former criteria are checks inside them. P9 needs
+// the trigger, the stop behind an old level and the greatest-reaction rule
+// (owner's "Stop required"). Every score moves; the 6/3.5 cutoffs hold until
+// a replay on this version re-derives them.
+export const STRATEGY_VERSION = "2026-10-17-gann-nine-pillars";

@@ -16,10 +16,25 @@
  * Confluence/context only, same evidence-gating discipline as this
  * session's other additions: never independently scored or gated in
  * `lib/scoring/score.ts`.
+ *
+ * **Second anchor, added 2026-10-16 (M-T10): where the run began.** Gann
+ * counts the 6-7 weeks from the start of the move, not from a volume climax:
+ * "rapid moves culminate in the 6th or 7th week" (*Wall Street Stock
+ * Selector* Ch. IV, pp. 41-59, the weekly time rule); "the final fast
+ * advance lasts 6-7 weeks, sometimes 10" (Ch. V); "most moves run out in 6-7
+ * weeks" (Master Course Ch. 2 PDF 52, 1931); and "the last weeks of a run are
+ * 6-7 weeks of a big advance" (*Commodities* p. 61). `computeRunBoilingPoint`
+ * counts from the weekly swing chart's last swing bottom (for a run up) or
+ * top (for a run down), Gann's own chart construction (`swingChart.ts`); the
+ * climax anchor above is kept beside it, unchanged. Which pivot counts as
+ * "where the run began" is our reading, labelled as such. Context only: it
+ * reaches the replay and the live scan through `readDisclosedRules`
+ * (`timeCounts.ts`), and feeds no score, gate, plan or order.
  */
 
 import type { Bar } from "@/lib/types";
 import type { VolumeClimaxReading } from "./volumeClimax";
+import { WEEKLY_SWING_CHART, walkSwingChart } from "./swingChart";
 
 /** The classic disclosed exhaustion window, in weeks. */
 export const CLASSIC_MIN_WEEKS = 6;
@@ -55,6 +70,36 @@ function classify(weeks: number): BoilingPointPhase {
  * climax (`climax: true`) — non-climax anchors have nothing to measure a
  * blow-off duration from.
  */
+export interface RunBoilingPointReading {
+  /** The run's direction from its starting pivot. */
+  run: "up" | "down";
+  /** The pivot the run started from: a low for a run up, a high for a run down. */
+  anchorKind: "high" | "low";
+  /** YYYY-MM-DD of the starting pivot. */
+  startDate: string;
+  weeksSinceStart: number;
+  phase: BoilingPointPhase;
+}
+
+/**
+ * Weeks since the current run began (M-T10): from the weekly swing chart's
+ * last swing extreme to the last bar. Null before the chart has a swing.
+ */
+export function computeRunBoilingPoint(bars: Bar[]): RunBoilingPointReading | null {
+  if (bars.length === 0) return null;
+  const pivots = walkSwingChart(bars, WEEKLY_SWING_CHART).pivots;
+  const start = pivots[pivots.length - 1];
+  if (!start) return null;
+  const weeks = Math.max(0, (new Date(bars[bars.length - 1].t).getTime() - new Date(bars[start.index].t).getTime()) / WEEK_MS);
+  return {
+    run: start.kind === "bottom" ? "up" : "down",
+    anchorKind: start.kind === "bottom" ? "low" : "high",
+    startDate: bars[start.index].t.slice(0, 10),
+    weeksSinceStart: Math.round(weeks * 10) / 10,
+    phase: classify(weeks),
+  };
+}
+
 export function computeBoilingPoint(bars: Bar[], climaxReadings: VolumeClimaxReading[]): BoilingPointReading[] {
   if (bars.length === 0) return [];
   const asOfMs = new Date(bars[bars.length - 1].t).getTime();

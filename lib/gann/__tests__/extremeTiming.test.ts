@@ -36,12 +36,61 @@ describe("reverse signal day and the 7-10 Day Rule", () => {
 });
 
 describe("gap rules", () => {
-  it("reads an exhaust gap: a one-day gap to a new high filled the next day", () => {
+  it("reads an exhaust gap: a one-day gap to a new high, then a reverse signal day (Commodities p.319)", () => {
     const bars = rise(25);
     const p = bars[bars.length - 1];
     bars.push(bar(25, p.h + 2, p.h + 3, p.h + 1, p.h + 2.5)); // gap up to a new high
-    bars.push(bar(26, p.h + 1.5, p.h + 1.8, p.h - 0.5, p.h - 0.2)); // fills it
+    bars.push(bar(26, p.h + 3.2, p.h + 3.6, p.h - 0.5, p.h - 0.2)); // opens over it, new high, closes near the low
     expect(readGaps(bars).exhaustGap).toBe("top");
+  });
+
+  it("reads an exhaust gap when the gap day is itself the reverse signal day", () => {
+    const bars = rise(25);
+    const p = bars[bars.length - 1];
+    bars.push(bar(25, p.h + 2, p.h + 3, p.h + 1, p.h + 1.1));
+    expect(readGaps(bars).exhaustGap).toBe("top");
+  });
+
+  it("no longer reads a gap filled the next day without a reverse signal day as exhaust", () => {
+    const bars = rise(25);
+    const p = bars[bars.length - 1];
+    bars.push(bar(25, p.h + 2, p.h + 3, p.h + 1, p.h + 2.5));
+    bars.push(bar(26, p.h + 1.5, p.h + 1.8, p.h - 0.5, p.h - 0.2)); // fills it, but opens inside the gap day
+    expect(readGaps(bars).exhaustGap).toBeNull();
+  });
+
+  it("mirrors at a bottom", () => {
+    const bars = rise(25, 200, -1);
+    const p = bars[bars.length - 1];
+    bars.push(bar(25, p.l - 2, p.l - 1, p.l - 3, p.l - 2.5)); // gap down to a new low
+    bars.push(bar(26, p.l - 3.2, p.l + 0.5, p.l - 3.6, p.l + 0.2)); // opens under it, new low, closes near the high
+    expect(readGaps(bars).exhaustGap).toBe("bottom");
+  });
+
+  it("keeps 3-4 gaps in new territory as the culmination count and flags 6 or more as extended (p.321)", () => {
+    const three = rise(25);
+    for (let k = 0; k < 3; k++) {
+      const q = three[three.length - 1];
+      three.push(bar(25 + k, q.h + 1, q.h + 2, q.h + 0.5, q.h + 1.5));
+    }
+    expect(readGaps(three).gapsInNewTerritory).toMatchObject({ direction: "up", count: 3, extended: false });
+    const many = rise(30, 100, 2); // every bar gaps over the one before
+    const g = readGaps(many).gapsInNewTerritory!;
+    expect(g.count).toBeGreaterThanOrEqual(6);
+    expect(g.extended).toBe(true);
+  });
+
+  it("puts the extended line exactly at 6 gaps: 5 is not extended, 6 is (Commodities p.321)", () => {
+    const withGaps = (k: number) => {
+      const bars = rise(25);
+      for (let j = 0; j < k; j++) {
+        const q = bars[bars.length - 1];
+        bars.push(bar(25 + j, q.h + 1, q.h + 2, q.h + 0.5, q.h + 1.5));
+      }
+      return readGaps(bars).gapsInNewTerritory!;
+    };
+    expect(withGaps(5)).toMatchObject({ count: 5, extended: false });
+    expect(withGaps(6)).toMatchObject({ count: 6, extended: true });
   });
 
   it("reads a filled gap as reversing the minor trend against it", () => {
@@ -97,5 +146,21 @@ describe("spectral cycle significance (Schuster)", () => {
     expect(r.dominantPeriodBars).toBe(20);
     expect(r.schusterP).not.toBeNull();
     expect(r.schusterP!).toBeLessThan(0.05);
+  });
+});
+
+describe("extended gap runs in the factor table", () => {
+  it("records an extended run of gaps in the trade's direction", async () => {
+    const { contextFactorsFor } = await import("../contextFactors");
+    const { EMPTY_DISCLOSED_RULES } = await import("../disclosedRules");
+    const ctx = {
+      ...EMPTY_DISCLOSED_RULES,
+      extremes: {
+        ...EMPTY_DISCLOSED_RULES.extremes,
+        gaps: { exhaustGap: null, filledGapReversal: null, gapsInNewTerritory: { direction: "up" as const, count: 7, extended: true } },
+      },
+    };
+    expect(contextFactorsFor(ctx, "bullish", 100).extendedGapsInTradeDirection).toBe(true);
+    expect(contextFactorsFor(ctx, "bearish", 100).extendedGapsInTradeDirection).toBe(false);
   });
 });

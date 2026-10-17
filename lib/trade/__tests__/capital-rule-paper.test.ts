@@ -61,8 +61,8 @@ describe("the capital rules on a paper order", () => {
     sim.open = [];
   });
 
-  it("refuses a fourth market and lets a held one add (A-RISK-08)", async () => {
-    sim.open = [held("MSFT"), held("NVDA"), held("XOM")];
+  it("refuses a sixth stock and lets a held one add (A-RISK-08, never-failing rule 8)", async () => {
+    sim.open = [held("MSFT"), held("NVDA"), held("XOM"), held("JPM"), held("KO")];
     expect((await place({})).body.code).toBe("max_open_symbols");
     expect((await place({ symbol: "MSFT" })).body.code).not.toBe("max_open_symbols");
   });
@@ -77,7 +77,7 @@ describe("the capital rules on a paper order", () => {
   });
 
   it("leaves an option order to the option rules", async () => {
-    sim.open = [held("MSFT"), held("NVDA"), held("XOM")];
+    sim.open = [held("MSFT"), held("NVDA"), held("XOM"), held("JPM"), held("KO")];
     expect((await place({ assetClass: "option" } as Partial<OrderInput>)).body.code).not.toBe("max_open_symbols");
   });
 });

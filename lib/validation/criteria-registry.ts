@@ -97,8 +97,13 @@ export interface RegisteredCriterion {
   saturation?: { minPassRate: number; maxPassRate: number };
 }
 
-/** The nine scored criteria. Every one is claimed to help when it passes. */
-const SCAN_SCORE: RegisteredCriterion[] = [
+/**
+ * The nine scored criteria until 2026-10-17. Each is now a check inside one of
+ * the nine points (`PILLAR_CHECK_KEYS`, `checkOf` on the breakdown item), still
+ * measured in the factor tables but scoring nothing alone, so they are retired
+ * as scored criteria; their evidence below describes them as scored criteria.
+ */
+const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
   {
     id: "swingChartTrend",
     family: "scanScore",
@@ -480,6 +485,61 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "it scores live today, not to whether its evidence claim is settled.",
   },
 ];
+
+const PILLAR_OF: Record<string, string> = {
+  swingChartTrend: "trendAllTimeframes",
+  ruleOfThree: "trendAllTimeframes",
+  gannAngleSlope: "geometricAngles",
+  volumeClimax: "volumeAccumulation",
+  historicalSR: "priceLevels",
+  gannRetracementConfluence: "priceLevels",
+  entryTriggerArmed: "definiteIndication",
+  stopBehindOldLevel: "definiteIndication",
+  timePriceSquare: "timeFactors",
+};
+
+const PILLAR_CHECKS: RegisteredCriterion[] = FORMER_SCAN_SCORE.map((c) => ({
+  ...c,
+  evidence: "retired" as const,
+  note: `A check inside the ${PILLAR_OF[c.id]} point since 2026-10-17, not scored alone. As a scored criterion it was ${c.evidence}. ${c.note ?? ""}`.trim(),
+}));
+
+const PILLAR = (id: string, label: string, source: string, note: string): RegisteredCriterion => ({
+  id,
+  family: "scanScore",
+  source: `lib/scoring/score.ts, lib/scoring/pillars.ts, ${source}`,
+  label,
+  expectedSign: "positive",
+  evidence: "unmeasured",
+  note: `${note} Built 2026-10-17; no replay has measured it yet.`,
+});
+
+/**
+ * The nine points (owner, 2026-10-17: a score out of 9, with several of the
+ * method's checks counting for one point; "Stop required" on P9). Design and
+ * citations: gann-feature-map/review/score-pillars-research.md §3.
+ */
+const SCAN_SCORE: RegisteredCriterion[] = [
+  PILLAR("marketCycle", "Market and cycle position", "lib/gann/trendStrength.ts, lib/gann/timeCycles.ts, lib/gann/decadeCycle.ts, lib/gann/yearRanges.ts",
+    "MC Ch.7 C1, C2: two of the market's trend with the side, no yearly count due against it, and the year's character with it."),
+  PILLAR("trendAllTimeframes", "Trend on every timeframe", "lib/gann/swingChart.ts, lib/gann/ruleOfThree.ts",
+    "MC Ch.7 C13; 45Y R1: the weekly swing with the side, and the 3-day swing or the Rule of Three. Absorbs swingChartTrend and ruleOfThree."),
+  PILLAR("relativeStrength", "Relative strength and leadership", "lib/gann/leadership.ts",
+    "Selection rules S4-S12: two of leading the market, the campaign's first-year high, and strength against the market (weakness, short)."),
+  PILLAR("activity", "Activity and character", "lib/gann/ruleFollowing.ts, lib/gann/sevenZones.ts, lib/gann/priceZone.ts",
+    "S1-S3, S18, S27: follows the rules, and two of volume at its norm, a 20-point yearly range, and ranges not quieter than usual."),
+  PILLAR("priceLevels", "Price levels", "lib/strat/levels.ts, lib/gann/retracement.ts",
+    "MC Ch.7 C6: an old top or bottom in the right role, or a percentage level. Merges historicalSR and gannRetracementConfluence."),
+  PILLAR("geometricAngles", "Angles", "lib/gann/patternAngles.ts",
+    "MC Ch.7 C10, C14: on the side of the 45° from the last major pivot, and not squeezed between two important angles (within 5 points)."),
+  PILLAR("timeFactors", "Time", "lib/gann/timePriceSquare.ts, lib/gann/timeWindow.ts, lib/gann/timeRules.ts",
+    "MC Ch.7 C3-C5, C9: two of price and time squared, a dated window at the turn, and the reaction inside its time limit (outrunning it, against the trend)."),
+  PILLAR("volumeAccumulation", "Volume and accumulation", "lib/gann/volumeClimax.ts, lib/gann/accumulation.ts, lib/gann/capitalStock.ts",
+    "MC Ch.7 C7, C8; S14, S21: volume at the turn or a base of weeks, with no capital-stock warning against a long."),
+  PILLAR("definiteIndication", "Definite indication with the stop placed", "lib/gann/entryTrigger.ts, lib/gann/campaignLedger.ts",
+    "MC Ch.7 C9, C11, C12: the trigger armed, the stop 3 points behind an old level, and the counter-move within the greatest reaction (exceeding it, against the trend). Merges entryTriggerArmed and stopBehindOldLevel."),
+];
+
 
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
 const RETIRED: RegisteredCriterion[] = [
@@ -936,6 +996,32 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "weakStock",
+    family: "scoreHold",
+    source: "lib/gann/leadership.ts",
+    label: "Stock in a strong position",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "A-SELECTION-04 (2026-10-16): buy the strong and leave the weak alone (W006 pp.32-34, 37-38). Appended " +
+      "only when it holds a long Execute in a stock that reads weak in a bull market (readWeakStock), so it is " +
+      "failed by construction whenever present. Measured as weakStockLong.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "figureCrossing",
+    family: "scoreHold",
+    source: "lib/gann/evenFigures.ts",
+    label: "Third time through a round number",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "A-LEVELS-08 (2026-10-16): above 200 expect 202-203 and a break back; buy the third time through " +
+      "(Stock Selector Ch. I, V; Tunnel PDF 151, 166). Appended only when it holds an Execute whose crossing is " +
+      "the first or second time through a major figure, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "timeWindowTurn",
     family: "scoreHold",
     source: "lib/gann/timeWindow.ts",
@@ -1079,6 +1165,7 @@ const DISQUALIFIERS: RegisteredCriterion[] = [
 
 export const CRITERIA_REGISTRY: RegisteredCriterion[] = [
   ...SCAN_SCORE,
+  ...PILLAR_CHECKS,
   ...RETIRED,
   ...SCORE_HOLDS,
   ...RULES_ALIGNMENT,

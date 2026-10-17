@@ -133,4 +133,21 @@ describe("A-LEVELS-02: the top of a secondary rally is an important point to wat
     expect(contextFactorsFor(ctx, "bullish", 155).belowSecondaryRallyTop).toBe(true);
     expect(contextFactorsFor(ctx, "bearish", 300).belowSecondaryRallyTop).toBe(false);
   });
+
+  it("joins the support and resistance levels the plan's stop and targets come from", async () => {
+    const { secondaryTurnLevels } = await import("../campaignLedger");
+    const { buildMacroContext } = await import("@/lib/backtest/replay");
+    expect(secondaryTurnLevels(buildCampaignLedger(daily(dow)))).toEqual([expect.closeTo(297.5, 6)]);
+    expect(secondaryTurnLevels(null)).toEqual([]);
+    const levels = buildMacroContext(daily(dow), 155).structuralLevels;
+    expect(levels.some((p) => Math.abs(p - 297.5) < 1e-6)).toBe(true);
+  });
+});
+
+describe("C-TIME-27: the 1935 culmination months are each pinned (Master Course Ch.7 PDF 220)", () => {
+  it("reads the 23rd, 24th, 27th and 30th months and the 34th-35th and 41st-42nd, and no month between", async () => {
+    const { readCampaignAge } = await import("../campaignLedger");
+    const on = [23, 24, 27, 30, 34, 35, 41, 42];
+    for (let m = 20; m <= 44; m++) expect(readCampaignAge(m).culmination1935, `month ${m}`).toBe(on.includes(m));
+  });
 });

@@ -2,14 +2,16 @@
 
 How changes reach users in GSPS, and what to verify at each point.
 
-> **Deploys are automatic.** `vercel.json` sets `deploymentEnabled: true`:
-> pushing a branch builds a preview, and **merging to `main` deploys
+> **Deploys are automatic.** `vercel.json` sets `deploymentEnabled` to
+> `{"main": true, "*": false}`: pushing any other branch builds nothing
+> (owner, 2026-10-16, to stay under the Hobby plan's daily deployment
+> limit), and **merging to `main` deploys
 > production immediately**. There is no manual deploy step and no gate in
 > between — the merge *is* the release. Everything below is verification you
 > perform around that fact, not permission you request.
 
-There are two environments, because there are two things Vercel builds: a
-preview per branch, and production from `main`.
+Vercel builds production from `main` automatically. A preview of a branch
+is now a manual deployment, made only when asked.
 
 ## Environments
 
@@ -65,8 +67,8 @@ the PR merges, the change is live.
 
 ### Steps
 1. Push your branch to origin: `git push -u origin <branch-name>`
-2. Vercel builds a preview automatically — no request needed
-3. The preview URL appears on the PR (also `https://<branch-name>.<project>.vercel.app`)
+2. Vercel no longer builds branches automatically; ask for a manual preview deployment if you need one
+3. A manual preview's URL appears on its deployment
 4. Work through the checklist below against that URL
 5. When the branch is deleted, the preview tears down
 

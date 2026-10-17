@@ -147,6 +147,8 @@ export function scoreCell(
   convention: Convention,
   /** Years to score, inclusive. Defaults to the whole years inside the record. */
   years?: [number, number],
+  /** Only the years this keeps are scored (CYC-35's phase split). */
+  keepYear: (year: number) => boolean = () => true,
 ): CellResult {
   const set = setName === "W1" ? W1 : W3;
   const anchor = setName === "W1" ? W1_ANCHOR_YEAR : W3_ANCHOR_YEAR;
@@ -157,6 +159,7 @@ export function scoreCell(
     let n = 0;
     let h = 0;
     for (let y = firstYear; y <= lastYear; y++) {
+      if (!keepYear(y)) continue;
       for (const w of windowInstances(set, anchor, y, convention, shift)) {
         n++;
         if (catches(input.sessions, pivotSet, w)) h++;
@@ -185,6 +188,47 @@ export function scoreCell(
     baseMean: sum / 364,
     p: (atLeast + 1) / 365,
   };
+}
+
+/**
+ * CYC-35: pooling across the phases of a longer cycle can hide a rhythm (a
+ * window that works every other year scores half as well pooled). Scores the
+ * cell once per phase: phase j keeps the years (y − first year) mod `phases`
+ * = j. Each phase is its own test, so apply `holm` across them.
+ * Research only, like the rest of this module.
+ */
+export function scoreCellByPhase(
+  series: string,
+  input: SeriesInput,
+  setName: "W1" | "W3",
+  convention: Convention,
+  phases: number,
+  years?: [number, number],
+): (CellResult & { phase: number; phases: number })[] {
+  const first = years?.[0] ?? new Date(input.sessions[0]).getUTCFullYear() + 1;
+  return Array.from({ length: phases }, (_, phase) => ({
+    ...scoreCell(series, input, setName, convention, years, (y) => (((y - first) % phases) + phases) % phases === phase),
+    phase,
+    phases,
+  }));
+}
+
+/**
+ * CYC-40 (Halberg, W041 pp. 10-11, 25): don't force the nominal period; a
+ * rhythm may fit better off it (28 h and 178 h beat 24 h and 168 h). Each
+ * year convention is scored, Holm is applied across the three, and the best
+ * fit (largest edge over its own base rate) is reported rather than assumed.
+ * Research only.
+ */
+export function bestConvention(
+  series: string,
+  input: SeriesInput,
+  setName: "W1" | "W3",
+  years?: [number, number],
+): { cells: CellResult[]; best: Convention; bestHolmSignificant: boolean } {
+  const cells = holm(CONVENTIONS.map((c) => scoreCell(series, input, setName, c, years)));
+  const best = cells.reduce((a, b) => (b.hitRate - b.baseMean > a.hitRate - a.baseMean ? b : a));
+  return { cells, best: best.convention, bestHolmSignificant: best.holmSignificant === true };
 }
 
 /** Holm–Bonferroni at family-wise alpha. Mutates and returns the results. */

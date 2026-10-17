@@ -14,8 +14,9 @@
  * - C-TIME-21 (W003 p.20): 17- and 35-week counts. The 39-week count is the
  *   disclosed ¾ of the Square of 52 already.
  * - C-TIME-44 (W035 p.1): the circle's finer divisions, as days, that the ten
- *   class A wheel counts leave out (112½, 150, 157½, 165, 202½, 247½, 292½,
- *   337½).
+ *   class A wheel counts leave out (112½, 157½, 165, 202½, 247½, 292½,
+ *   337½). 150 days moved to the class A Ch.5 wheel counts on 2026-10-16
+ *   (`timeCounts.ts`, Master Course Ch.5 PDF 162; C-TIME-06).
  * - C-TIME-09 (W003 p.18): 6, 12 and 144 months from a pivot.
  * - C-TIME-12 (W003 p.18; W034 p.3): eighths and thirds of the long cycles
  *   (a 30-year cycle gives 3.75, 7.5 and 10 years).
@@ -26,13 +27,13 @@
  * - C-TIME-25 (W003 p.22; W034 p.5): a counter-trend move normally lasts 3-5
  *   trading days on a stock; one past its 4th day signals consolidation or a
  *   reversal, and the next counter-move runs 7-10 days.
- * - C-TIME-42 (W032 pp.1-5): time balance from top to top and bottom to
- *   bottom. The open span since the last top (or bottom) within a week of the
- *   last completed top-to-top (or bottom-to-bottom) span points to the next
- *   top (or bottom). The matching-leg balance (high to low, low to high) is
- *   the campaign ledger's `timeBalanceDates` already. W032 adds that a
- *   balance needs a price event to act on (C-STOP-03): a false break, read
- *   on the last session (`falseBreakAt`), as context.
+ * - C-TIME-42 (W032 pp.1-5), time balance from top to top and bottom to
+ *   bottom, **moved to class A on 2026-10-16** (M-T11): it is Gann's own rule
+ *   in *How to Make Profits Trading in Commodities* p.311 ("always figure the
+ *   time from any top ... to the next top, and from any low ... to the next
+ *   low. This is BALANCING OF TIME"). It is read in `timeCounts.ts` now and
+ *   re-exported here; W032's false-break confirmation (C-STOP-03,
+ *   `falseBreakAt`) stays class C.
  * - C-TIME-40 (W033 pp.1-3): the fan as a time calculator, every ratio from
  *   1x8 (12.5%) to 8x1 (800%) of the anchor swing's own duration, from the
  *   fans' own anchors. `ANGLES` (which feeds a quarantined score) is not
@@ -83,9 +84,11 @@
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { MAJOR_CYCLE_YEARS } from "@/lib/gann/timeCycles";
-import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { fanAnchors } from "@/lib/gann/fans";
 import type { CounterMoveReading } from "@/lib/gann/disclosedRules";
+
+// The time balance moved to the class A counts (2026-10-16); kept importable from here.
+export { TIME_BALANCE_TOLERANCE_WEEKS, falseBreakAt, readTimeBalanceSpans } from "@/lib/gann/timeCounts";
 
 const DAY_MS = 86_400_000;
 
@@ -100,7 +103,7 @@ export const SECONDARY_DAY_COUNTS: readonly [number, number][] = [
 export const SECONDARY_WEEK_COUNTS: readonly number[] = [17, 35];
 
 /** C-TIME-44: circle divisions, as days, that `WHEEL_COUNTS` does not carry. */
-export const CIRCLE_FINE_DIVISIONS: readonly number[] = [112.5, 150, 157.5, 165, 202.5, 247.5, 292.5, 337.5];
+export const CIRCLE_FINE_DIVISIONS: readonly number[] = [112.5, 157.5, 165, 202.5, 247.5, 292.5, 337.5];
 
 /** C-TIME-09: month counts from a major monthly pivot. */
 export const SECONDARY_MONTH_COUNTS: readonly number[] = [6, 12, 144];
@@ -118,6 +121,22 @@ export const LONG_MONTHLY_YEARS = 13;
 /** The monthly bars within `LONG_MONTHLY_YEARS` before `asOf`, as the live scan holds them. */
 export function longMonthlyWindow(monthly: Bar[], asOf: Date): Bar[] {
   const from = new Date(Date.UTC(asOf.getUTCFullYear() - LONG_MONTHLY_YEARS, asOf.getUTCMonth(), 1)).toISOString().slice(0, 7);
+  return monthly.filter((b) => b.t.slice(0, 7) >= from);
+}
+
+/**
+ * Years of monthly history the yearly counts read (A-TIME-11's 20 years, and
+ * the 30, 50 and 60 of `MAJOR_CYCLE_YEARS`): the 60-year count plus a year for
+ * the months that confirm a pivot. Fetched in the same monthly request as
+ * `LONG_MONTHLY_YEARS` (the vendor returns what it holds), and handed only to
+ * the time-window hold (`readWindowTurn`). An engineering choice, sized to
+ * reach the count.
+ */
+export const YEAR_COUNT_MONTHLY_YEARS = 61;
+
+/** The monthly bars within `YEAR_COUNT_MONTHLY_YEARS` before `asOf`. */
+export function yearCountMonthlyWindow(monthly: Bar[], asOf: Date): Bar[] {
+  const from = new Date(Date.UTC(asOf.getUTCFullYear() - YEAR_COUNT_MONTHLY_YEARS, asOf.getUTCMonth(), 1)).toISOString().slice(0, 7);
   return monthly.filter((b) => b.t.slice(0, 7) >= from);
 }
 
@@ -223,9 +242,6 @@ export function shortCounterMovePhase(tradingDays: number): ShortCounterMovePhas
   return "longer";
 }
 
-/** C-TIME-42: the tolerance, in weeks, for two spans to balance. */
-export const TIME_BALANCE_TOLERANCE_WEEKS = 1;
-
 /** C-TIME-40: the fan's time ratios, as a fraction of the anchor swing's duration. */
 export const FAN_TIME_RATIOS: readonly { label: string; ratio: number }[] = [
   { label: "1x8", ratio: 1 / 8 },
@@ -290,9 +306,6 @@ export interface SecondaryTimeReading {
   seasonalFineStep: { degrees: number; date: string; offsetDays: number } | null;
   /** The open counter-move's length against the weekly trend, or null when not in one. */
   shortCounterMove?: { trend: "bullish" | "bearish"; tradingDays: number; phase: ShortCounterMovePhase } | null;
-  /** Top-to-top and bottom-to-bottom balances due now. */
-  /** `falseBreak`: the last session traded past the swing's extreme since the last opposite pivot and closed back inside it (C-STOP-03). */
-  timeBalanceSpans?: { kind: "top" | "bottom"; priorWeeks: number; openWeeks: number; falseBreak: boolean }[];
   /** Fan time ratios due within two days of today. */
   fanTimeRatios?: { label: string; anchorKind: "high" | "low"; date: string }[];
   /** Retracement levels reached at their angle's time, with the window still open today (C-TIME-39). */
@@ -402,40 +415,6 @@ export function readSeasonalFineStep(asOf: Date): SecondaryTimeReading["seasonal
     }
   }
   return best;
-}
-
-/** Top-to-top and bottom-to-bottom balances on the weekly swing chart (C-TIME-42). */
-export function readTimeBalanceSpans(bars: Bar[]): NonNullable<SecondaryTimeReading["timeBalanceSpans"]> {
-  if (bars.length === 0) return [];
-  const pivots = walkSwingChart(bars, WEEKLY_SWING_CHART).pivots;
-  const lastPivot = pivots[pivots.length - 1];
-  if (!lastPivot) return [];
-  const weeks = (a: number, b: number) => (Date.parse(bars[b].t) - Date.parse(bars[a].t)) / (7 * DAY_MS);
-  const out: NonNullable<SecondaryTimeReading["timeBalanceSpans"]> = [];
-  for (const kind of ["top", "bottom"] as const) {
-    // A top is next only while the swing runs up from a bottom, and the mirror.
-    if (lastPivot.kind === kind) continue;
-    const same = pivots.filter((p) => p.kind === kind);
-    if (same.length < 2) continue;
-    const priorWeeks = weeks(same[same.length - 2].index, same[same.length - 1].index);
-    const openWeeks = weeks(same[same.length - 1].index, bars.length - 1);
-    if (Math.abs(openWeeks - priorWeeks) <= TIME_BALANCE_TOLERANCE_WEEKS) {
-      out.push({ kind, priorWeeks: Math.round(priorWeeks * 10) / 10, openWeeks: Math.round(openWeeks * 10) / 10, falseBreak: falseBreakAt(bars, same[same.length - 1].price, kind) });
-    }
-  }
-  return out;
-}
-
-/**
- * C-STOP-03 (W032 pp.5-6, class C): time alone is not enough; a false break
- * confirms it. For a bottom due, the last session traded under the prior
- * swing bottom (`line`, the bottom the bottom-to-bottom span is counted from)
- * and closed back over it; the mirror for a top. Context only.
- */
-export function falseBreakAt(bars: Bar[], line: number, kind: "top" | "bottom"): boolean {
-  const last = bars[bars.length - 1];
-  if (!last) return false;
-  return kind === "bottom" ? last.l < line && last.c > line : last.h > line && last.c < line;
 }
 
 /** Fan time ratios (C-TIME-40) due within ±`windowDays` of `asOf`. */
@@ -550,7 +529,6 @@ export function readSecondaryTime(
       counterMove?.inCounterMove && counterMove.tradingDays !== undefined
         ? { trend: counterMove.trend, tradingDays: counterMove.tradingDays, phase: shortCounterMovePhase(counterMove.tradingDays) }
         : null,
-    timeBalanceSpans: readTimeBalanceSpans(daily),
     fanTimeRatios: readFanTimeRatios(daily, asOf),
     ...retracementTiming(daily),
     dayCounts: readSecondaryDayCounts(daily),
@@ -581,9 +559,6 @@ export function describeSecondaryTime(r: SecondaryTimeReading): string[] {
   if (scm && scm.phase !== "normal") {
     const note = { pastFourthDay: "past its 4th day, a sign of consolidation or a reversal", sevenToTen: "in the 7-10 day length of a second counter-move", longer: "longer than 10 days" }[scm.phase];
     lines.push(`Counter-move against the ${scm.trend} trend: ${scm.tradingDays} trading days, ${note}. Shown for context; it does not change the setup.`);
-  }
-  for (const b of r.timeBalanceSpans ?? []) {
-    lines.push(`${b.openWeeks} weeks since the last ${b.kind}, against ${b.priorWeeks} weeks from ${b.kind} to ${b.kind} before it: time balances, so a ${b.kind} may be due${b.falseBreak ? `, and the last session made a false break past the prior ${b.kind}, which confirms it` : ""}. Shown for context; it does not change the setup.`);
   }
   const rt = r.retracementTiming?.[0];
   if (rt) lines.push(`The ${rt.label} retracement (${rt.level.toFixed(2)}) was reached ${rt.date}, at the time the ${rt.angle} angle from the ${rt.anchorKind} gives: a turn is likelier. Shown for context; it does not change the setup.`);

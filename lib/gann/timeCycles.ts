@@ -58,6 +58,7 @@
 
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
+import { MIN_REPETITIONS } from "@/lib/gann/spectralCycle";
 
 /**
  * Fractions of the 360-day year counted from a pivot (Master Course Ch. 13-14:
@@ -111,7 +112,91 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * same disclosed year list, different anchor source. Keep both in sync from
  * this one export rather than letting a second copy drift.
  */
+// C-ASTRO-02, research only: the Saturn return (about 29.46 years) beside the
+// 30-year count is `lib/research/saturnReturn.ts`. It is not imported here and
+// never feeds `timeCycles()` or `applyTimeWindowHold`.
 export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
+
+/**
+ * CYC-04 (Dewey's repetitions criterion; Tomes declines a 30-36-year cycle on
+ * the same ground): the cycles in `MAJOR_CYCLE_YEARS` that repeat fewer than
+ * `MIN_REPETITIONS` times in a US equity record, taken as the Dow's, from
+ * 1896 (about 130 years). A label only: `timeCycles()` still projects every
+ * cycle on the 1935 list, as the lesson gives it.
+ */
+export const US_EQUITY_RECORD_YEARS = 130;
+export const FEW_REPETITION_CYCLE_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.filter(
+  (y) => US_EQUITY_RECORD_YEARS / y < MIN_REPETITIONS,
+);
+
+/*
+ * **Which lesson `MAJOR_CYCLE_YEARS` is (labelled 2026-10-16, M-T3).** It is
+ * the November 1935 lesson's list, word for word: Master Course Ch.7 PDF
+ * 224-225, "each stock's 1, 2, 3, 5, 7, 10, 15, 20, 30, 50 and 60-year
+ * cycles". Gann's lessons give different lists in different years, so each is
+ * named by lesson and year (AGENTS.md: cite the lesson and year). The two
+ * below are context only: they never join `timeCycles()`, the coarse cycle
+ * bonus or the year-cycle rerank, which read the 1935 list alone. A replay
+ * would be needed before either joined the rerank.
+ */
+
+/**
+ * The January 1955 lesson's yearly cycles (Master Course Ch.14 PDF 387, the
+ * Master Calculator for Weekly Time Periods): "1, 2, 3, 5, 7, 9, 10, 12, 14,
+ * 15, 18, 20, 21, 22½, 24, 25, 27, 28, 30, 40, 45, 49, 56, 60, 84 and 90
+ * which is the Great Cycle" (C-TIME-20). Context only.
+ */
+export const CYCLE_YEARS_1955: readonly number[] = [1, 2, 3, 5, 7, 9, 10, 12, 14, 15, 18, 20, 21, 22.5, 24, 25, 27, 28, 30, 40, 45, 49, 56, 60, 84, 90];
+
+/**
+ * The January 1931 lesson's minor cycles (Master Course Ch.2 PDF 50: "minor
+ * cycles of 3 and 6 years"; C-TIME-26). The 1935 lesson reads "3 years and 6
+ * [2?] years" (Ch.7 PDF 219, the editor's query) and the 1939 lesson "minor 3
+ * and 2 years" (Ch.10A PDF 283), so the 6-year cycle is labelled 1931. The
+ * 1955 list does not carry 6. Context only.
+ */
+export const MINOR_CYCLE_YEARS_1931: readonly number[] = [3, 6];
+
+export interface LessonCycleHit {
+  /** The cycle's length in years. */
+  years: number;
+  /** The lesson whose list names it. */
+  lesson: "1955" | "1931";
+  kind: "high" | "low";
+  /** The anchor's month (YYYY-MM). */
+  pivotMonth: string;
+}
+
+/**
+ * The cycles of the 1955 and 1931 lists that the 1935 list lacks, landing on
+ * `asOf`'s month from a major monthly pivot: `yearCycleConvergence`'s anchors
+ * and its exact-month rule, so the two readings differ only in the list.
+ * Reach is bounded by the monthly history held (13 years for the long
+ * counts), so in practice 6, 9 and 12 years.
+ */
+export function lessonCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): LessonCycleHit[] {
+  if (monthlyBars.length < 24) return [];
+  const in1935 = new Set(MAJOR_CYCLE_YEARS);
+  const lists: { lesson: LessonCycleHit["lesson"]; years: readonly number[] }[] = [
+    { lesson: "1955", years: CYCLE_YEARS_1955 },
+    { lesson: "1931", years: MINOR_CYCLE_YEARS_1931 },
+  ];
+  const monthIndex = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
+  const now = monthIndex(asOf);
+  const out: LessonCycleHit[] = [];
+  for (const anchor of majorPivots(findPivots(monthlyBars, 3))) {
+    const age = now - monthIndex(new Date(anchor.bar.t));
+    const seen = new Set<number>();
+    for (const { lesson, years } of lists) {
+      for (const y of years) {
+        if (in1935.has(y) || seen.has(y) || age !== Math.round(y * 12)) continue;
+        seen.add(y);
+        out.push({ years: y, lesson, kind: anchor.kind, pivotMonth: anchor.bar.t.slice(0, 7) });
+      }
+    }
+  }
+  return out;
+}
 
 /**
  * Gann's "permanent cycle which does not change" (A4, 1930 back matter):
@@ -276,19 +361,36 @@ export interface YearCycleConvergence {
  */
 export function yearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleConvergence {
   const result: YearCycleConvergence = { bullishHits: 0, bearishHits: 0 };
-  if (monthlyBars.length < 24) return result;
-
-  const monthIndex = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
-  const now = monthIndex(asOf);
-  const anchors = majorPivots(findPivots(monthlyBars, 3));
-
-  for (const anchor of anchors) {
-    const ageMonths = now - monthIndex(new Date(anchor.bar.t));
-    for (const years of MAJOR_CYCLE_YEARS) {
-      if (ageMonths !== years * 12) continue;
-      if (anchor.kind === "low") result.bullishHits += 1;
-      else result.bearishHits += 1;
-    }
+  for (const hit of yearCycleHits(monthlyBars, asOf)) {
+    if (hit.kind === "low") result.bullishHits += 1;
+    else result.bearishHits += 1;
   }
   return result;
+}
+
+export interface YearCycleHit {
+  /** The cycle's length in years, from `MAJOR_CYCLE_YEARS`. */
+  years: number;
+  kind: "high" | "low";
+  /** The anchor's month (YYYY-MM). */
+  pivotMonth: string;
+}
+
+/**
+ * The (major pivot, cycle length) pairs `yearCycleConvergence` counts, one per
+ * hit, so a hit can be named: the time-window hold labels each one
+ * (A-TIME-11, `timeWindow.ts`). Same anchors, list and exact-month rule.
+ */
+export function yearCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleHit[] {
+  if (monthlyBars.length < 24) return [];
+  const monthIndex = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
+  const now = monthIndex(asOf);
+  const out: YearCycleHit[] = [];
+  for (const anchor of majorPivots(findPivots(monthlyBars, 3))) {
+    const ageMonths = now - monthIndex(new Date(anchor.bar.t));
+    for (const years of MAJOR_CYCLE_YEARS) {
+      if (ageMonths === years * 12) out.push({ years, kind: anchor.kind, pivotMonth: anchor.bar.t.slice(0, 7) });
+    }
+  }
+  return out;
 }

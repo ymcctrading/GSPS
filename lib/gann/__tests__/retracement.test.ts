@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { computeRetracementLevels, nearestRetracementLevel } from "../retracement";
+import { computeRetracementLevels, isFirstTierRetracement, nearestRetracementLevel } from "../retracement";
 
 function bars(closes: number[]): Bar[] {
   return closes.map((c, i) => ({ t: `2026-01-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z`, o: c, h: c + 1, l: c - 1, c, v: 1000 }));
@@ -34,24 +34,25 @@ describe("computeRetracementLevels", () => {
     expect(labels).toContain("15/16");
   });
 
-  it("assigns the disclosed importance ranking: 1/2 highest, then full retracement, then 1/4, 1/8, 1/16, thirds lowest", () => {
+  // M-P1 (owner 2026-10-16: Ch. 6 tiers). Master Course Ch. 6 (PDF 185): on a
+  // basis of 100, first 1/4, 1/2 and 3/4; then 1/3 and 2/3; then the 1/8 and
+  // 1/16 points. 50% is flagged most important.
+  it("ranks the divisions in three tiers, with the half most important", () => {
     const levels = computeRetracementLevels(upSwingBars(), 100);
     const byLabel = Object.fromEntries(levels.map((l) => [l.label, l.importance]));
     expect(byLabel["1/2"]).toBe(1);
+    expect(byLabel["1/4"]).toBe(2);
+    expect(byLabel["3/4"]).toBe(2);
     expect(byLabel["1/1 (full retracement)"]).toBe(2);
-    expect(byLabel["1/4"]).toBe(3);
-    expect(byLabel["3/4"]).toBe(3);
-    expect(byLabel["1/8"]).toBe(4);
-    expect(byLabel["1/16"]).toBe(5);
-    expect(byLabel["1/3"]).toBe(6);
-    expect(byLabel["2/3"]).toBe(6);
+    expect(byLabel["1/3"]).toBe(3);
+    expect(byLabel["2/3"]).toBe(3);
+    for (const eighth of ["1/8", "3/8", "5/8", "7/8", "1/16", "15/16"]) expect(byLabel[eighth]).toBe(4);
   });
 
-  it("leaves the unranked 'other eighths' (3/8, 5/8) with a null importance rather than guessing", () => {
+  it("puts the half, the quarters and the full range in the first tier, and nothing else", () => {
     const levels = computeRetracementLevels(upSwingBars(), 100);
-    const byLabel = Object.fromEntries(levels.map((l) => [l.label, l.importance]));
-    expect(byLabel["3/8"]).toBeNull();
-    expect(byLabel["5/8"]).toBeNull();
+    const first = levels.filter(isFirstTierRetracement).map((l) => l.label).sort();
+    expect(first).toEqual(["1/1 (full retracement)", "1/2", "1/4", "3/4"]);
   });
 
   // Gann's divisions are eighths and thirds; 3/8 and 5/8 are Gann's own

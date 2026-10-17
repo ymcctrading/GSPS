@@ -16,6 +16,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar, GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
 import { applyDataLagHold, computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
 import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import { detectPatterns } from "@/lib/strat/patterns";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -143,6 +144,7 @@ const allPass: ScoreInputs = {
   stopAtrMultiple: 2,
   levels,
   weights: UNIFORM_WEIGHTS,
+  pillarFacts: passingPillarFacts(),
 };
 
 /** Every criterion failing — exercises the negative half. */

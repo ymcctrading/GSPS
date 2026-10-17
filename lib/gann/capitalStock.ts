@@ -67,6 +67,22 @@ export const PLAIN_TOP_WEEK_TURNOVER = 0.9;
 export const RANGE_TURNOVER_DISTRIBUTION = 1;
 /** Median weekly turnover above this means the share count is wrong, not the market. */
 export const IMPLAUSIBLE_MEDIAN_WEEK_TURNOVER = 0.25;
+/**
+ * A-SELECTION-07, a small number of shares (class A, *New Stock Trend
+ * Detector*, 1936, Ch. V pp. 38-39; long-book notes W011, W006): stocks of
+ * 130,000 to 166,000 shares (Case Threshing, Auburn) and Radio (549 to 2½,
+ * "the greatest decline in any stock") were sold short for the widest
+ * declines. *Wall Street Stock Selector* (1930; W005 notes) had listed small
+ * floats among the dangerous short sales; the 1936 book's "they can be sold
+ * short too" is the later word, and the conflict is recorded, not resolved.
+ *
+ * Engineering choice, labelled: 1930s share counts don't port, so "small" is
+ * read as heavy turnover against the count, a median week trading a tenth of
+ * the stock or more (large caps trade a few percent a week). Context only:
+ * recorded on short candidates and measured; it ranks nothing and gates
+ * nothing.
+ */
+export const SMALL_FLOAT_MEDIAN_WEEK_TURNOVER = 0.1;
 /** How many recent weeks a heavy week stays on the reading. */
 export const HEAVY_WEEK_MEMORY = 4;
 const TOP_RANGE_WEEKS = 13;
@@ -92,6 +108,10 @@ export interface CapitalStockReading {
   distributionInRange: boolean;
   /** Any of the three distribution readings holds. */
   distributionSignal: boolean;
+  /** The median week's volume as a fraction of shares outstanding. */
+  medianWeekTurnover?: number;
+  /** A-SELECTION-07: a small number of shares, read as `SMALL_FLOAT_MEDIAN_WEEK_TURNOVER` or more a median week. */
+  smallFloat?: boolean;
 }
 
 export function readCapitalStock(
@@ -102,7 +122,8 @@ export function readCapitalStock(
   if (!sharesOutstanding || sharesOutstanding <= 0 || weekly.length === 0 || daily.length === 0) return null;
   const shares = sharesOutstanding;
   const sorted = weekly.map((w) => w.v).sort((a, b) => a - b);
-  if (sorted[Math.floor(sorted.length / 2)] / shares > IMPLAUSIBLE_MEDIAN_WEEK_TURNOVER) return null;
+  const medianWeekTurnover = sorted[Math.floor(sorted.length / 2)] / shares;
+  if (medianWeekTurnover > IMPLAUSIBLE_MEDIAN_WEEK_TURNOVER) return null;
 
   const latestWeekTurnover = weekly[weekly.length - 1].v / shares;
   const topWindow = weekly.slice(-TOP_RANGE_WEEKS);
@@ -146,6 +167,8 @@ export function readCapitalStock(
     rangeAfterAdvance,
     distributionInRange,
     distributionSignal: distributionWeek || plainTopWeek || distributionInRange,
+    medianWeekTurnover,
+    smallFloat: medianWeekTurnover >= SMALL_FLOAT_MEDIAN_WEEK_TURNOVER,
   };
 }
 
@@ -161,6 +184,9 @@ export function describeCapitalStock(r: CapitalStockReading): string[] {
     lines.push(
       `Inside the current range, ${pct(r.rangeTurnover)} of the stock has traded${r.distributionInRange ? " after an advance: the whole capital stock has changed hands, a sign of distribution" : ""}.`,
     );
+  }
+  if (r.smallFloat && r.medianWeekTurnover !== undefined) {
+    lines.push(`A small number of shares: a typical week trades ${pct(r.medianWeekTurnover)} of the stock. Such stocks have made the widest declines when sold short. Shown for context; it does not change the setup.`);
   }
   return lines;
 }

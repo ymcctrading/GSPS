@@ -7,12 +7,19 @@
  * so the backtest can measure it before anything is allowed to gate (AGENTS.md
  * "Gann-derived AND measured").
  *
- * The rules, each with its source (all Tier A, Gann's own books or lessons):
+ * The rules, each with its source (Tier A, Gann's own books or lessons,
+ * except rule 1):
  *
- * 1. **Close vs the bar's midpoint** (Master Course Ch. 13; master report
- *    Part I §3.2). A close above the half-way point of the bar's range reads
- *    up, below reads down, "at least temporarily". Gann's own per-bar trend
- *    read.
+ * 1. **Close vs the bar's midpoint** — **class C, relabelled 2026-10-16
+ *    (M-R7).** A close above the half-way point of the bar's range reads up,
+ *    below reads down. The finished reading of the Master Course did not find
+ *    this up/down reading in Gann's text: Ch. 13 (PDF 377, 1953) lists "high,
+ *    low, half-way, open, close" as five factors but gives no reading of the
+ *    close against the half-way point, and Ch. 3 (PDF 72) uses the half-way
+ *    point of the last *move*, not of a bar. It is this repo's own reading,
+ *    so it stays context only: it feeds one measured factor
+ *    (`closeVsMidpointAgrees`) and a card tile, and never a score, gate,
+ *    plan or order.
  * 2. **Percentages of the extreme price**, not only of the range (*How to
  *    Make Profits in Commodities*, pp. 32-34; *45 Years in Wall Street*,
  *    Rule 3). Divide the low by 8 and add the eighths above it (12½% to
@@ -95,16 +102,25 @@ import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleT
 import { readRuleFollowing, type RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
 import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } from "@/lib/gann/secondaryTime";
+import { describeTimeCounts, readTimeCounts, type TimeCountsReading } from "@/lib/gann/timeCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
-import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
+import { monthlyWithCurrent, readLeadership, readWeakStockFrom, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
+import { readCalendarDayAngles, type CalendarDayAngleReading } from "@/lib/gann/normalizedSlope";
+import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
+import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@/lib/gann/priceAsTime";
+import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
+import { describeYearRanges, readYearRanges, type YearRangesReading } from "@/lib/gann/yearRanges";
+import { describeDecadeAnalogue, readDecadeAnalogue, type DecadeAnalogueReading } from "@/lib/gann/decadeAnalogue";
+import { squareOf52Windows, type SquareOf52Result } from "@/lib/gann/squareOf52";
+import { computeDecadeCycle, type DecadeCycleReading } from "@/lib/gann/decadeCycle";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { closesAfter } from "@/lib/analysis/trend";
 import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfThree";
-import { DAY_COUNT_BANDS } from "@/lib/gann/timeCycles";
+import { DAY_COUNT_BANDS, timeCycles } from "@/lib/gann/timeCycles";
 import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
@@ -133,8 +149,17 @@ import { describePlanetaryAverages, readPlanetaryAverages, type PlanetaryReading
 import { describeSquareOfNineTime, readSquareOfNineTime, type SquareOfNineTimeHit } from "@/lib/gann/squareOfNineTime";
 import { describeHexagonTime, readHexagonTime, type HexagonTimeHit } from "@/lib/gann/hexagonTime";
 import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } from "@/lib/gann/masterChartTime";
+import { describeCampaignLength, readCampaignLength, type CampaignLengthReading } from "@/lib/gann/campaignLength";
+import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
+import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
+import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
+import { describeWeeklyOneBar, walkWeeklyOneBar, type WeeklyOneBarReading } from "@/lib/gann/weeklyOneBar";
+import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
+import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/lib/gann/firstRally";
+import { describeCycleRangeBreak, readCycleRangeBreak, type CycleRangeBreak } from "@/lib/gann/cycleRangeBreak";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 import {
   describeIncorporationCycle,
   readIncorporationCycle,
@@ -149,7 +174,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Close vs the bar's midpoint
+// 1. Close vs the bar's midpoint (class C, the repo's own reading; M-R7)
 
 export interface BarMidpointReading {
   /** "up" when the last close is above (high + low) / 2, "down" below, "even" on it. */
@@ -477,6 +502,54 @@ export function readRuleOfThreeTimeframes(daily: Bar[]): RuleOfThreeTimeframes {
 }
 
 // ---------------------------------------------------------------------------
+// The 5th unit of a run: Ascension (C-TREND-08)
+//
+// "The 5th is the day, week, month, or year of Ascension and always marks
+// fast moves" (Master Course Ch. 7, PDF 223); "the 5th week is also very
+// important" (*Commodities* p. 59). Read here as the 5th consecutive close in
+// one direction on daily, weekly and monthly bars, an engineering reading of
+// what the 5th unit counts from (Gann does not say), mirrored for lower
+// closes (an engineering symmetry). The "4th consecutive higher week" rule is
+// not in Gann's text and is not built. Context only, never gating.
+
+export interface AscensionCount {
+  direction: "up" | "down";
+  /** Consecutive closes in that direction, ending at the last bar. */
+  count: number;
+  /** The last bar is the 5th: the unit of Ascension. */
+  fifth: boolean;
+}
+
+export interface AscensionReading {
+  daily: AscensionCount | null;
+  weekly: AscensionCount | null;
+  monthly: AscensionCount | null;
+}
+
+export const ASCENSION_UNIT = 5;
+
+export function readAscensionCount(bars: Bar[]): AscensionCount | null {
+  const n = bars.length;
+  if (n < 2 || bars[n - 1].c === bars[n - 2].c) return null;
+  const direction = bars[n - 1].c > bars[n - 2].c ? "up" : "down";
+  let count = 0;
+  for (let i = n - 1; i >= 1; i--) {
+    const d = bars[i].c - bars[i - 1].c;
+    if (direction === "up" ? d > 0 : d < 0) count++;
+    else break;
+  }
+  return { direction, count, fifth: count === ASCENSION_UNIT };
+}
+
+export function readAscension(daily: Bar[]): AscensionReading {
+  return {
+    daily: readAscensionCount(daily),
+    weekly: readAscensionCount(toWeeklyBars(daily)),
+    monthly: readAscensionCount(toMonthlyBars(daily)),
+  };
+}
+
+// ---------------------------------------------------------------------------
 
 export interface DisclosedRulesContext {
   barMidpoint: BarMidpointReading | null;
@@ -508,7 +581,7 @@ export interface DisclosedRulesContext {
   sharesPerPoint: SharesPerPointReading | null;
   /** Early and late leaders, and the first-year high. See `leadership.ts`. */
   leadership: LeadershipReading | null;
-  /** Gann's weak stocks in a bull market (A-TREND-07/-08, context only). See `readWeakStock`. */
+  /** Gann's weak stocks in a bull market (A-TREND-07/-08). A buy in one is held to Watch (A-SELECTION-04). See `readWeakStock`. */
   weakStock?: WeakStockReading | null;
   /** The 2–3-day halt and the reaction-week rules. See `timeRules.ts`. */
   timeRules: TimeRulesReading | null;
@@ -550,10 +623,14 @@ export interface DisclosedRulesContext {
   monthlyAngle?: { from: number; fromMonth: string; price: number } | null;
   /** The 1x1 down from the latest monthly top at 1 point a month (C-LEVELS-08, context only). */
   monthlySquareFromHigh?: MonthlySquareReading | null;
+  /** The 1x1 on a scale of one price unit per calendar day (C-LEVELS-20, Jensen; context only). See `normalizedSlope.ts#readCalendarDayAngles`. */
+  calendarDayAngles?: CalendarDayAngleReading | null;
   /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
   secondaryTime?: SecondaryTimeReading | null;
+  /** The class A time counts read as context only (2026-10-16). See `timeCounts.ts`. */
+  timeCounts?: TimeCountsReading | null;
   /** Months from the monthly chart's major tops and bottoms (A-TIME-05, context only). See `angleMonthCounts.ts`. */
   monthCounts?: PivotMonthCount[] | null;
   /** Months from the weekly swing chart's tops and bottoms, dated to the day, to the month in hand (A-TIME-21, W046 p.2). Context only. */
@@ -584,6 +661,38 @@ export interface DisclosedRulesContext {
   dayCircle?: DayCircleReading | null;
   /** Gann's planetary rules beyond the averages, and Jensen's square of 90: research context. See `astroRules.ts`. */
   astro?: AstroReading | null;
+  /** The 5th consecutive close in one direction on days, weeks and months (C-TREND-08, context only). */
+  ascension?: AscensionReading | null;
+  /** Odd/even squares, the 9 and 12 grid, and the range against 144 (C-NUMEROLOGY-01, C-TIME-15/-16, context only). See `priceGrids.ts`. */
+  priceGrids?: PriceGridReading | null;
+  /** Price read as time and the long counts (M-P9, C-TIME-04/-07/-14/-17/-20/-22, M-T18; context only). See `priceAsTime.ts`. */
+  priceAsTime?: PriceAsTimeReading | null;
+  /** Angles from zero, from a double or triple bottom's tests, and in the square of the range; the 1x1's rank (C-LEVELS-04/-05/-09, context only). See `angleCrossings.ts`. */
+  angleCrossings?: AngleCrossingsReading | null;
+  /** The Jan 2-7 / Jan 15-21 (and July) ranges that set the year's trend (A-TIME-20, context only). See `yearRanges.ts`. */
+  yearRanges?: YearRangesReading | null;
+  /** The month ahead in the years 10, 20, 30 and 60 back (A-TIME-14, context only). See `decadeAnalogue.ts`. */
+  decadeAnalogue?: DecadeAnalogueReading | null;
+  /** The square of 52's disclosed fractions from the major pivots (M-T6, C-TIME-46, context only). See `squareOf52.ts`; the card reads the same. */
+  squareOf52?: SquareOf52Result | null;
+  /** The decade digit's character and the 90th month (M-T17, C-TIME-24, context only). See `decadeCycle.ts`; the card reads the same. */
+  decadeCycle?: DecadeCycleReading | null;
+  /** The prior bull campaign's length projected on the current one (A-TIME-07, context only). See `campaignLength.ts`. */
+  campaignLength?: CampaignLengthReading | null;
+  /** Fixed year and month counts from the founding date (A-TIME-32, context only). See `incorporationCycle.ts`. */
+  foundingCounts?: FoundingCountReading | null;
+  /** 490, 1,290 and 1,335 days from the long monthly chart's major turns (A-TIME-33, context only). See `outbreakCounts.ts`. */
+  outbreakCounts?: OutbreakCountHit[];
+  /** A close through the 1x1 from a fan anchor, and the 1x2 it points to (C-STOP-02, class C, context only). See `fans.ts`. */
+  oneByOneBreak?: OneByOneBreak[];
+  /** Where lines of 90, 45 and 22½ from a double or triple bottom (top) converge (C-LEVELS-24, class C, context only). See `jensen.ts`. */
+  jensenConvergence?: JensenConvergence | null;
+  /** The advance out of a bear market's low: a first rally or a bull campaign (A-TIME-03, context only). See `firstRally.ts`. */
+  firstRally?: FirstRallyReading | null;
+  /** A 3-4 day range broken down on volume, and whether on a time-cycle date (C-TIME-03, class C, context only). See `cycleRangeBreak.ts`. */
+  cycleRangeBreak?: CycleRangeBreak | null;
+  /** Gann's weekly green/red trend line, the one-week swing chart (M-R8, context only). See `weeklyOneBar.ts`. */
+  weeklyOneBar?: WeeklyOneBarReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -605,6 +714,11 @@ export interface InstrumentFacts {
    * counts (C-TIME-09/-12, A-TIME-05/-21) only. Falls back to `monthly`.
    */
   monthlyLong?: Bar[] | null;
+  /**
+   * The stock's monthly bars over `YEAR_COUNT_MONTHLY_YEARS`, for the
+   * time-window hold's yearly counts (A-TIME-11) only.
+   */
+  monthlyYearCount?: Bar[] | null;
   /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
   marketMonthly?: Bar[] | null;
 }
@@ -622,7 +736,7 @@ export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
     reverseSignal: { signal: null, rule: null, runDays: null },
     gaps: { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null },
   },
-  timing: { alternation: null, square144: null, projection: null },
+  timing: { alternation: null, square144: null, projection: null, changeDates: null },
   capitalStock: null,
   incorporation: null,
   evenFigures: { overhead: null, underneath: null },
@@ -695,9 +809,11 @@ export function readDisclosedRules(
     seasonal: readSeasonalCount(asOf),
     accumulation: readAccumulation(dailyBars),
     sharesPerPoint: readSharesPerPoint(dailyBars, campaign, asOf),
-    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
-    weakStock:
-      instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
+    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign, {
+      stock: instrument?.monthly ?? null,
+      market: instrument?.marketMonthly ?? null,
+    }),
+    weakStock: readWeakStockFrom(instrument?.monthly, dailyBars, instrument?.marketMonthly, instrument?.marketDaily),
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
     ruleFollowing: readRuleFollowing(dailyBars),
@@ -723,9 +839,11 @@ export function readDisclosedRules(
         }
       : null,
     monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH * unit),
+    calendarDayAngles: readCalendarDayAngles(dailyBars, currentPrice),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
+    timeCounts: readTimeCounts(dailyBars, longMonthly, asOf),
     monthCounts: longMonthly ? readMonthCounts(monthlyWithCurrent(longMonthly, dailyBars), asOf) : null,
     swingMonthCounts: readSwingMonthCounts(dailyBars, asOf),
     bearDuration: marketMonthly ? readBearDuration(marketMonthly, asOf) : null,
@@ -746,6 +864,22 @@ export function readDisclosedRules(
     patternAngles: readPatternAngles(dailyBars, currentPrice, unit),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
     astro: readAstroRules(dailyBars, asOf, unit),
+    ascension: readAscension(dailyBars),
+    priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
+    priceAsTime: readPriceAsTime(dailyBars, currentPrice, unit, inception, asOf),
+    angleCrossings: readAngleCrossings(dailyBars, currentPrice),
+    yearRanges: readYearRanges(dailyBars, asOf),
+    decadeAnalogue: readDecadeAnalogue(longMonthly, asOf),
+    squareOf52: squareOf52Windows(dailyBars, asOf),
+    decadeCycle: computeDecadeCycle(asOf),
+    campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
+    foundingCounts: readFoundingCounts(inception, asOf),
+    outbreakCounts: readOutbreakCounts(longMonthly, asOf),
+    oneByOneBreak: readOneByOneBreak(dailyBars),
+    jensenConvergence: jensenBottomConvergence(dailyBars, unit),
+    firstRally: readFirstRally(instrument?.monthly ? monthlyWithCurrent(instrument.monthly, dailyBars) : toMonthlyBars(dailyBars)),
+    cycleRangeBreak: readCycleRangeBreak(dailyBars, timeCycles(dailyBars, asOf).active),
+    weeklyOneBar: walkWeeklyOneBar(toWeeklyBars(dailyBars)),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -757,6 +891,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.incorporation) lines.push(...describeIncorporationCycle(ctx.incorporation));
   if (ctx.zone) lines.push(describeSevenZones(ctx.zone));
   if (ctx.secondaryTime) lines.push(...describeSecondaryTime(ctx.secondaryTime));
+  if (ctx.timeCounts) lines.push(...describeTimeCounts(ctx.timeCounts));
   if (ctx.monthCounts && ctx.monthCounts.length > 0) {
     const list = ctx.monthCounts.map((c) => `${c.months}${c.watched ? " (a watched count)" : ""} from the ${c.pivotMonth} ${c.kind === "high" ? "top" : "bottom"}`);
     lines.push(`Months from the major tops and bottoms: ${list.join(", ")}. Shown for context; it does not change the setup.`);
@@ -803,6 +938,12 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     const q = ctx.monthlySquareFromHigh;
     lines.push(`The square of price and time down from the ${q.fromMonth} top (${q.from.toFixed(2)}) at 1 point a month stands at ${q.price.toFixed(2)}. Not a level to trade on alone.`);
   }
+  if (ctx.calendarDayAngles?.fromLow || ctx.calendarDayAngles?.fromHigh) {
+    const a = ctx.calendarDayAngles;
+    const up = a.fromLow ? `${a.fromLow.price.toFixed(2)} up from the ${a.fromLow.anchorDate} low` : null;
+    const down = a.fromHigh ? `${a.fromHigh.price.toFixed(2)} down from the ${a.fromHigh.anchorDate} high` : null;
+    lines.push(`Counting every calendar day as one point, the 1x1 stands at ${[up, down].filter(Boolean).join(" and ")}. Shown for context; it does not change the setup.`);
+  }
   if (ctx.distributionStanding) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);
   }
@@ -835,15 +976,21 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (l.bottomedFirst) lines.push("Bottomed before the market: an early leader (stocks that bottom first top first).");
     if (l.bottomedLate) lines.push("Bottomed after the market: a late mover.");
     if (l.toppedFirst) lines.push("Topped before the market: watch for early weakness.");
+    if (l.lateBottomExpected)
+      lines.push("Topped after the market and now declining: late tops make late bottoms, so its low may come after the market's. Shown for context; it does not change the setup.");
+    if (l.earlyBottomExpected)
+      lines.push("Topped before the market and now declining: early tops make early bottoms, so its low may come before the market's. Shown for context; it does not change the setup.");
+    if (l.crossedTopsFirst) lines.push("Crossed last year's top before the market: an early leader, listed first among buys.");
+    if (l.brokeBottomsFirst) lines.push("Broke last year's bottom before the market: an early leader down, listed first among shorts.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
   }
   if (ctx.weakStock?.earlyTopFailed) {
     const w = ctx.weakStock.earlyTopFailed;
-    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years.`);
+    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years. A buy is held to Watch; a short is listed first.`);
   }
   if (ctx.weakStock?.firstRallyNotExceeded) {
     const w = ctx.weakStock.firstRallyNotExceeded;
-    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since.`);
+    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since. A buy is held to Watch; a short is listed first.`);
   }
   if (ctx.narrowWeekBreak) {
     const n = ctx.narrowWeekBreak;
@@ -928,6 +1075,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     if (r?.bearishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveLowerCloses} lower closes in a row.`);
     else if (r?.bullishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveHigherCloses} higher closes in a row.`);
   }
+  for (const [unitName, a] of [["day", ctx.ascension?.daily], ["week", ctx.ascension?.weekly], ["month", ctx.ascension?.monthly]] as const) {
+    if (a?.fifth) lines.push(`The 5th ${a.direction === "up" ? "higher" : "lower"} close in a row on the ${unitName}: the 5th ${unitName} marks fast moves.`);
+  }
   const rs = ctx.extremes.reverseSignal;
   if (rs.signal) {
     lines.push(
@@ -937,9 +1087,11 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     );
   }
   const g = ctx.extremes.gaps;
-  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme, filled the next day.`);
+  if (g.exhaustGap) lines.push(`Exhaust gap at a ${g.exhaustGap}: a one-day gap to a new extreme with a reverse signal day.`);
   if (g.gapsInNewTerritory && g.gapsInNewTerritory.count >= 3) {
-    lines.push(`${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: a culmination is near.`);
+    lines.push(
+      `${g.gapsInNewTerritory.count} ${g.gapsInNewTerritory.direction} gaps in new territory this swing: ${g.gapsInNewTerritory.extended ? "an extended run past the usual 3-4, which in extreme cases reaches 10 before a culmination" : "a culmination is near"}.`,
+    );
   }
   if (g.filledGapReversal) lines.push(`A recent gap has been filled: the minor trend turns ${g.filledGapReversal}.`);
   const t = ctx.timing;
@@ -947,6 +1099,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (t.square144 && t.square144.units.length >= 2) {
     lines.push(`Time from the ${t.square144.pivotDate} extreme is on a multiple of 12 in ${t.square144.units.join(" and ")}: time counts converge.`);
   }
+  if (ctx.priceGrids) lines.push(...describePriceGrids(ctx.priceGrids));
+  if (ctx.priceAsTime) lines.push(...describePriceAsTime(ctx.priceAsTime));
   if (ctx.masterCalculator) lines.push(...describeMasterCalculator(ctx.masterCalculator));
   if (ctx.circle) lines.push(...describeCircle(ctx.circle));
   if (ctx.timeAngle) lines.push(describeTimeAngle(ctx.timeAngle));
@@ -956,10 +1110,34 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.masterChartTime) lines.push(...describeMasterChartTime(ctx.masterChartTime));
   if (ctx.patternAngles) lines.push(...describePatternAngles(ctx.patternAngles));
   if (ctx.dayCircle) lines.push(describeDayCircle(ctx.dayCircle));
+  if (ctx.angleCrossings) lines.push(...describeAngleCrossings(ctx.angleCrossings));
+  if (ctx.yearRanges) lines.push(...describeYearRanges(ctx.yearRanges));
+  if (ctx.decadeAnalogue) lines.push(...describeDecadeAnalogue(ctx.decadeAnalogue));
   if (t.projection) {
     lines.push(
       `Next swing ${t.projection.kind} projected around ${t.projection.medianDate} from ${t.projection.count} earlier cycles (spread ${t.projection.spreadDays} days${t.projection.spreadDays <= 5 ? ", tight" : ""}).`,
     );
   }
+  const cl = ctx.campaignLength ? describeCampaignLength(ctx.campaignLength) : null;
+  if (cl) lines.push(cl);
+  if (ctx.foundingCounts) lines.push(...describeFoundingCounts(ctx.foundingCounts));
+  if (ctx.outbreakCounts) lines.push(...describeOutbreakCounts(ctx.outbreakCounts));
+  for (const b of ctx.oneByOneBreak ?? []) lines.push(describeOneByOneBreak(b));
+  if (ctx.jensenConvergence) lines.push(describeJensenConvergence(ctx.jensenConvergence));
+  const cd = ctx.timing.changeDates;
+  if (cd?.next) {
+    const missed = cd.dates.find((c) => c.came !== null && c.came !== c.expect);
+    lines.push(
+      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. ${
+        // CYC-47: a dated forward label is shown only with a measured record (timeRecords.ts); the card gates its tile the same way.
+        TIME_LINE_RECORDS.turnTiming ? "Shown for context" : "Not shown: no measured record yet"
+      }; it does not change the setup.`,
+    );
+  }
+  const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
+  if (fr) lines.push(fr);
+  if (ctx.cycleRangeBreak) lines.push(describeCycleRangeBreak(ctx.cycleRangeBreak));
+  const wl = ctx.weeklyOneBar ? describeWeeklyOneBar(ctx.weeklyOneBar) : null;
+  if (wl) lines.push(wl);
   return lines;
 }

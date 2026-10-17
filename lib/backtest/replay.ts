@@ -75,28 +75,32 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, computeScore } from "@/lib/scoring/score";
+import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
-import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { readMonthlyBreakWarning, secondaryTurnLevels, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
+import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
+import { readGannTrend } from "@/lib/gann/trendStrength";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
-import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
+import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
 const PYRAMID_SHARE_SCALE = 1024;
-import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { figureCrossingOf, roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { selectionStrength } from "@/lib/gann/leadership";
 import {
   atrPercentOfPrice,
   nearestLevelMatch,
   levelBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
-import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, tradedIntoBuyZone, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
@@ -239,14 +243,20 @@ export interface ReplayOptions {
    *
    * - `"reaction"` (default; 2026-10-15, PLAN.md item 4): Gann's own crossing rule
    *   (W006 pp.20, 46-47). A close 3 points beyond the old level crosses it;
-   *   the buy is a limit on the reaction, 1 point past the level
-   *   (`reactionEntry`), filled at that price or at the open when a candle
-   *   opens through it; the stop is 3 points the other side of the level
-   *   (`reactionStop`), so the trade risks 4 points, inside his 5-point cap.
-   *   Price can't reach the stop line without trading through the buy, so a
-   *   failed crossing is a fill that is stopped, or a gap through the stop
-   *   that production refuses (`fill_outran_bracket`); the plan-stop breach
-   *   test doesn't apply. R is measured from the reaction buy to its stop.
+   *   the buy is on the reaction into the zone from 1 point past the level
+   *   (`reactionEntry`) down to 1 point short of the stop; the stop is 3
+   *   points the other side of the level (`reactionStop`), so the plan risks
+   *   4 points, inside his 5-point cap. Since never-failing rule 9
+   *   (2026-10-16; "trade at the market", Commodities rule 9 pp.43-45 and
+   *   p.19) no limit rests at `reactionEntry`: once a closed candle after the
+   *   crossing has traded into the zone, the buy is a market order, filled at
+   *   the next candle's open, as production places it (`confirmEntry`). A
+   *   closed candle through the stop before then calls the entry off; an open
+   *   through it is refused (`fill_outran_bracket`). R is measured on the
+   *   plan's 4 points; a fill away from `reactionEntry` moves the P&L, not
+   *   the bracket. A double or triple bottom, or a bottom that held, has
+   *   nothing to cross and is bought the same way once a closed candle has
+   *   come back to its entry.
    */
   entryRule?: "stop" | "confirmed" | "reaction";
   /**
@@ -283,6 +293,14 @@ export interface ReplayOptions {
    * up to `MAX_REVERSALS` deep. Default true: production reverses.
    */
   reverseWhenCaught?: boolean;
+  /**
+   * Re-buy after a stop (A-PYRAMID-07, W022 p.198; owner's pick, 2026-10-16),
+   * under the Gann exit rules only. A trade that leaves on a trailing stop
+   * while the swing chart still runs its way rests a re-entry 12 points back
+   * from its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`);
+   * any reversal opened at the stop is covered there. Default true.
+   */
+  rebuyAfterStop?: boolean;
   /**
    * How many of Gann's points a closed candle has to clear a broken stop by for
    * the break to count as failed and the plan to stand again
@@ -331,6 +349,13 @@ export interface ReplayOptions {
    * `monthlyBars`.
    */
   longMonthlyBars?: Bar[];
+  /**
+   * The stock's monthly bars over `YEAR_COUNT_MONTHLY_YEARS`, for the
+   * time-window hold's yearly counts (A-TIME-11's 20 years) only; each session
+   * reads the months closed before it within that span, as the live scan holds
+   * them. Falls back to `longMonthlyBars`.
+   */
+  yearCountMonthlyBars?: Bar[];
 }
 
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
@@ -381,8 +406,10 @@ export interface ReplayTrade {
    * one was, 1 for the reversal of an armed setup. Undefined on an armed setup.
    */
   reversal?: number;
+  /** Set on a re-entry after a stop (`rebuyAfterStop`). */
+  rebuy?: boolean;
   /** Why the trade left, under `exitRule: "gann"` or the intraday profile. Undefined under the bracket. */
-  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "timeout";
+  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "covered" | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
   rMultiple: number;
   /** True when one bar covered both stop and target, and the loss was assumed. */
@@ -446,6 +473,12 @@ export interface ReplayTrade {
    * market scan's yearly-cycle re-rank picks better trades.
    */
   yearCycleHits?: number;
+  /**
+   * The selection strength the live lists order by (`selectionStrength`,
+   * early leaders first; A-SELECTION-02). The replay has no list to order, so
+   * it records the value per trade for the run to split on.
+   */
+  selectionStrength?: number;
 }
 
 export interface ReplayResult {
@@ -525,6 +558,8 @@ export function rollUp(bars: Bar[], key: (bar: Bar) => string): Bar[] {
  * shipped system.
  */
 export interface MacroContext {
+  /** The 52-week level chart's daily bars, for readings the holds take straight off the chart. */
+  dailyChart: Bar[];
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
   /** How many 3-day swing-chart legs since the weekly chart's last trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
@@ -560,6 +595,8 @@ export interface MacroContext {
   disclosedRules: DisclosedRulesContext;
   /** The turn at a dated window (Q19, `lib/gann/timeWindow.ts`), read on the same chart as the live scan, once per direction when needed. */
   windowTurn: (direction: "bullish" | "bearish") => WindowTurn | null;
+  /** The facts the nine pillars read, built as lib/scanTicker.ts builds them. */
+  pillarFacts: PillarFacts;
 }
 
 /**
@@ -607,6 +644,8 @@ export function buildMacroContext(
     })
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
+  // Read before the levels: its campaign ledger supplies the secondary turn.
+  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
     ...dailyTrend.resistance.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -618,6 +657,8 @@ export function buildMacroContext(
     ...majorPricePercentageLevels([...monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
     // Mirrors lib/scanTicker.ts: the old campaign bottoms (A-LEVELS-03).
     ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, asOf), price).map((p) => ({ price: p, timeframe: "1Month" as const })),
+    // Mirrors lib/scanTicker.ts: the campaign's secondary turn (A-LEVELS-02).
+    ...secondaryTurnLevels(disclosedRules.campaign).map((p) => ({ price: p, timeframe: "1Week" as const })),
     // Mirrors lib/scanTicker.ts: the Square of 144 squares and the planetary averages.
     ...gannMasterLevels([...monthly, ...charts.daily], charts.daily, price, asOf).map((l) => ({
       price: l.price,
@@ -635,6 +676,7 @@ export function buildMacroContext(
   const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {
+    dailyChart: charts.daily,
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
     campaignLeg,
@@ -674,9 +716,10 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
-    disclosedRules: readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf),
+    disclosedRules,
+    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, price, asOf }),
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
     },
   };
@@ -740,12 +783,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     entryRule = "reaction",
     exitRule = "bracket",
     reverseWhenCaught = true,
+    rebuyAfterStop = true,
     reclaimPoints = RECLAIM_POINTS,
     pyramid = false,
     instrument,
     marketDailyBars,
     marketMonthlyBars,
     longMonthlyBars,
+    yearCountMonthlyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -756,8 +801,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // on, so no bar from before that session can count toward its confirmation.
   const confirmation = new Map<string, { since: string; evidence: EntryConfirmationEvidence }>();
   // Gann's crossing, per pivot, when `entryRule === "reaction"`: whether a
-  // close has crossed the level by 3 points since the pivot first armed.
-  const crossing = new Map<string, { since: string; crossed: boolean }>();
+  // close has crossed the level by 3 points since the pivot first armed, the
+  // time of that close (empty when nothing had to be crossed), and whether a
+  // closed candle after it has traded into the buying zone (rule 9).
+  const crossing = new Map<string, { since: string; crossed: boolean; crossedAt: string; reacted: boolean }>();
   // Counted once per session a pivot is armed on, and once per fill.
   const armedKeys = new Set<string>();
   let triggered = 0;
@@ -806,6 +853,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               monthly: monthlyBars ? priorMonthly : null,
               monthlyLong: longMonthlyBars
                 ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
+                : null,
+              monthlyYearCount: yearCountMonthlyBars
+                ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
                 : null,
               marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
             }
@@ -943,16 +993,28 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       if (entryRule === "reaction") {
         // A held trigger was already crossed on the completed daily chart
         // (PLAN.md item 5), the same reading the live scan prices from.
-        const state = crossing.get(pivotKey) ?? { since: date, crossed: false };
-        // An old-level buy rests at the level, and a held bottom's buy at the
+        const state = crossing.get(pivotKey) ?? { since: date, crossed: false, crossedAt: "", reacted: false };
+        // An old-level buy is at the level, and a held bottom's buy at the
         // last close, with nothing to cross.
         if (trigger.held || restsWithoutCrossing(trigger.kind)) state.crossed = true;
         const closed = history[history.length - 1];
-        if (closed.t.slice(0, 10) >= state.since && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
+        const inSession = closed.t.slice(0, 10) >= state.since;
+        if (state.crossed && inSession && closed.t > state.crossedAt) {
+          // After the crossing close: a close through the stop calls the
+          // entry off, as `confirmationFromBars` reads it; a candle into the
+          // zone makes it a market order.
+          if (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop) {
+            consumedPivots.add(pivotKey);
+            crossing.delete(pivotKey);
+            continue;
+          }
+          if (tradedIntoBuyZone(closed, trigger.direction, trigger.reactionEntry)) state.reacted = true;
+        } else if (!state.crossed && inSession && (long ? closed.c >= trigger.triggerPrice : closed.c <= trigger.triggerPrice)) {
           state.crossed = true;
+          state.crossedAt = closed.t;
         }
         crossing.set(pivotKey, state);
-        fired = state.crossed && breakawayVolume && (long ? live.l <= trigger.reactionEntry : live.h >= trigger.reactionEntry);
+        fired = state.crossed && state.reacted && breakawayVolume;
       } else if (entryRule === "confirmed") {
         // Advance the confirmation state machine on the last closed bar, if
         // it belongs to a session this pivot was armed on. Once the sequence
@@ -992,14 +1054,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       triggered++;
 
       // A stop entry fills at the trigger, or at the open when a candle opens
-      // beyond it. A confirmed entry is a market order after the hold, filled
-      // at this candle's open.
+      // beyond it. A confirmed entry is a market order after the hold, and a
+      // reaction entry a market order after a closed candle into the zone
+      // (never-failing rule 9), both filled at this candle's open.
       const entry =
-        entryRule === "reaction"
-          ? long
-            ? Math.min(trigger.reactionEntry, live.o)
-            : Math.max(trigger.reactionEntry, live.o)
-          : entryRule === "confirmed"
+        entryRule === "reaction" || entryRule === "confirmed"
           ? live.o
           : long
             ? Math.max(trigger.triggerPrice, live.o)
@@ -1091,6 +1150,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           crossedLevel: restsWithoutCrossing(trigger.kind) ? null : trigger.pivot.price,
           scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
           pyramid,
+          isStock: assetClass === "us_equity",
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
         });
         trades.push({
@@ -1106,6 +1166,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
           barsHeld: walked.barsHeld,
           outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
           exitReason: walked.reason,
@@ -1113,13 +1174,25 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
           ambiguous: false,
         });
+        const caughtAt = i + walked.barsHeld - 1;
+        const sharesOn = instrument ? (date: string) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined;
+        const rebuy = rebuyAfterStop ? rebuyPlanAt({ bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short", cause: walked.reason, extreme: walked.best ?? entry, entryPrice: entry }) : null;
         if (reverseWhenCaught) {
           for (const r of walkReversals({
-            bars, dailyBars: dailyBars ?? [], caughtAt: i + walked.barsHeld - 1, side: long ? "long" : "short",
+            bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
             cause: walked.reason, brokenLevel: walked.exit, extreme: walked.best ?? entry, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner",
-            sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry,
           })) {
+            trades.push({
+              symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
+              score: decision.score, outputState: decision.outputState, criteria: criteriaOf(decision),
+              largeCap, ambiguous: false, ...r,
+            });
+          }
+        }
+        if (rebuy) {
+          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn });
+          if (r) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
               score: decision.score, outputState: decision.outputState, criteria: criteriaOf(decision),
@@ -1155,6 +1228,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+        selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
       };
 
       if (outcome === "timeout") {
@@ -1266,8 +1340,78 @@ export const MAX_REVERSALS = 3;
 
 export type ReversalTrade = Pick<
   ReplayTrade,
-  "openedAt" | "direction" | "entry" | "stop" | "target" | "atrMultiple" | "barsHeld" | "outcome" | "exitReason" | "rMultiple" | "reversal"
+  "openedAt" | "direction" | "entry" | "stop" | "target" | "atrMultiple" | "barsHeld" | "outcome" | "exitReason" | "rMultiple" | "reversal" | "rebuy"
 > & { contextFactors: Record<string, boolean> };
+
+/** The re-entry a stopped trade rests (`rebuyAfterStop`), read on the completed sessions before the stop. */
+export function rebuyPlanAt(input: {
+  bars: Bar[];
+  dailyBars: Bar[];
+  caughtAt: number;
+  side: "long" | "short";
+  cause: ReversalCause | "covered" | "timeout";
+  extreme: number;
+  entryPrice: number;
+}): GannRebuy | null {
+  if (!rebuysOn(input.cause)) return null;
+  const date = input.bars[input.caughtAt]?.t.slice(0, 10);
+  if (!date) return null;
+  const prior = input.dailyBars.filter((d) => d.t.slice(0, 10) < date);
+  if (prior.length < 10) return null;
+  return gannRebuy({ side: input.side, extreme: input.extreme, trend: readGannTrend(prior).direction, entryPrice: input.entryPrice });
+}
+
+/**
+ * Walk one re-entry after a stop. It fills on the first candle after the stop
+ * that trades back to the resting level, at that level or the open if the
+ * candle opened through it, within `maxBarsHeld` candles, and is cancelled by a
+ * new extreme past the stopped trade's best price before the reaction comes. A
+ * fill at or beyond its own stop is refused. Walked on the same exit rules.
+ */
+export function walkRebuy(input: {
+  bars: Bar[];
+  dailyBars: Bar[];
+  caughtAt: number;
+  plan: GannRebuy;
+  maxBarsHeld: number;
+  costPerShare: number;
+  runner?: boolean;
+  sharesOn?: (date: string) => number | null;
+}): ReversalTrade | null {
+  const { bars, plan } = input;
+  const long = plan.side === "long";
+  const dir = long ? 1 : -1;
+  const end = Math.min(bars.length, input.caughtAt + 1 + input.maxBarsHeld);
+  for (let k = input.caughtAt + 1; k < end; k++) {
+    const b = bars[k];
+    if (long ? b.h > plan.extreme : b.l < plan.extreme) return null;
+    if (!(long ? b.l <= plan.entry : b.h >= plan.entry)) continue;
+    const entry = long ? Math.min(b.o, plan.entry) : Math.max(b.o, plan.entry);
+    if (long ? entry <= plan.stop : entry >= plan.stop) return null;
+    const risk = Math.abs(entry - plan.stop);
+    const target = entry + dir * risk;
+    const walked = walkGannExit({
+      bars, from: k, maxBarsHeld: input.maxBarsHeld, long, entry, stop: plan.stop, dailyBars: input.dailyBars,
+      crossedLevel: null,
+      scaleOut: input.runner ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
+      sharesOn: input.sharesOn,
+    });
+    const executionAtr = atr(bars.slice(Math.max(0, k - 30), k), 14);
+    return {
+      openedAt: b.t,
+      direction: long ? "bullish" : "bearish",
+      entry, stop: plan.stop, target,
+      atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
+      barsHeld: walked.barsHeld,
+      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+      exitReason: walked.reason,
+      rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
+      rebuy: true,
+      contextFactors: {},
+    };
+  }
+  return null;
+}
 
 /**
  * The reversals that follow one caught trade (`reverseWhenCaught`). The plan
@@ -1284,7 +1428,7 @@ export function walkReversals(input: {
   /** Index of the candle the caught trade left on. */
   caughtAt: number;
   side: "long" | "short";
-  cause: ReversalCause | "timeout";
+  cause: ReversalCause | "covered" | "timeout";
   brokenLevel: number;
   extreme: number;
   maxBarsHeld: number;
@@ -1292,6 +1436,8 @@ export function walkReversals(input: {
   /** `"gann-runner"`: 60% leaves one risk out, the plan's TP1. */
   runner?: boolean;
   sharesOn?: (date: string) => number | null;
+  /** A re-entry rests here (`rebuyAfterStop`): the first reversal is covered when price trades to it. */
+  coverAt?: number;
 }): ReversalTrade[] {
   const out: ReversalTrade[] = [];
   const { bars, dailyBars } = input;
@@ -1322,6 +1468,7 @@ export function walkReversals(input: {
       crossedLevel: null,
       scaleOut: input.runner ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
       sharesOn: input.sharesOn,
+      coverAt: depth === 1 ? input.coverAt : undefined,
     });
     const executionAtr = atr(bars.slice(Math.max(0, fillAt - 30), fillAt), 14);
     out.push({
@@ -1372,8 +1519,12 @@ function walkGannExit(input: {
   scaleOut?: { price: number; fraction: number };
   /** Add to the winner on Gann's pyramiding rules (`lib/gann/pyramid.ts`). */
   pyramid?: boolean;
-}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "timeout"; lots: number; best: number | null } {
-  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid } = input;
+  /** A stock, so rule 21 reads its capital stock for an add; false for crypto. */
+  isStock?: boolean;
+  /** Cover the whole position when price trades to this level (a re-buy rests there). */
+  coverAt?: number;
+}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "covered" | "timeout"; lots: number; best: number | null } {
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid, isStock = false, coverAt } = input;
   const dir = long ? 1 : -1;
   // Position accounting in units of the first lot (1.0). The result is
   // reported as the single exit price that gives the same P&L per unit, so the
@@ -1383,7 +1534,7 @@ function walkGannExit(input: {
   let realized = 0;
   const lots: PyramidLot[] = [{ qty: 1, price: entry, date: bars[from].t.slice(0, 10) }];
   const close = (price: number) => realized + dir * (openQty * price - cost);
-  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "timeout") => ({
+  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "covered" | "timeout") => ({
     exit: entry + dir * close(price),
     barsHeld: j,
     reason,
@@ -1421,12 +1572,17 @@ function walkGannExit(input: {
           initialStop: input.stop,
           daily: prior,
           price: prior[prior.length - 1].c,
+          // Rule 21, read as live reads it: the count public on this session.
+          ...(isStock ? { capitalStock: sharesOn?.(date) ?? null } : {}),
         }).add;
         // Lots are fractions of the first here, so the size rule is applied directly.
         if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };
       }
     }
     if (long ? b.l <= stop : b.h >= stop) return done(stop, j - from + 1, stopReason);
+    if (coverAt != null && (long ? b.h >= coverAt : b.l <= coverAt)) {
+      return done(long ? Math.max(coverAt, b.o) : Math.min(coverAt, b.o), j - from + 1, "covered");
+    }
     if (pendingAdd && (long ? b.h >= pendingAdd.trigger : b.l <= pendingAdd.trigger)) {
       const fill = long ? Math.max(pendingAdd.trigger, b.o) : Math.min(pendingAdd.trigger, b.o);
       openQty += pendingAdd.qty;
@@ -1519,7 +1675,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1543,9 +1699,15 @@ function scoreSetup(input: {
       assetClass,
       setupKind,
       atrPct: context.atrPct,
+      pillarFacts: context.pillarFacts,
+      windowTurn: () => context.windowTurn(gannTrigger.direction),
       ...(weights ? { weights } : {}),
     }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
-    context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing);
+    context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),
+    // A-SELECTION-04: a buy in a weak stock holds to Watch, as on the live scan.
+    context.disclosedRules.weakStock, gannTrigger.direction),
+    // A-LEVELS-08: the first and second times through a round number hold, as live.
+    figureCrossingOf(context.dailyChart, gannTrigger));
   return { decision, levels };
 }
 

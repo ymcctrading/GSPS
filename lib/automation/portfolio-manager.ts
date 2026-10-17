@@ -57,9 +57,11 @@ import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
-import { resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
+import { awayReminderDue, resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
+import { maxRiskForTrade } from "@/lib/risk/gannCapital";
+import { readProfitCeiling } from "@/lib/risk/profitPeak";
 
-type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
+export type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
 type TriggerType = "PERCENTAGE" | "DOLLAR_AMOUNT";
 
@@ -118,6 +120,19 @@ const RISK_PCT: Record<RiskProfile, number> = {
 
 /** Below this, a sized position would round to zero shares on most tickers — not worth activating. */
 const MIN_ALLOCATED_DOLLAR_RISK = 25;
+
+/**
+ * The dollars one activation may risk: the dial's percent of the trading
+ * capital, raised to the minimum allocation, and never more than a tenth of
+ * that capital (never-failing rule 1, W006 p.46; Commodities pp.29-30,
+ * `lib/risk/gannCapital.ts`). The tenth is applied last, so the minimum can't
+ * lift a small account past it. Placement checks the same tenth again
+ * (`lib/trade/place-order.ts`).
+ */
+export function allocatedDollarRiskFor(capital: number, riskProfile: RiskProfile, profitCeiling: number | null = null): number {
+  const dial = Math.max(MIN_ALLOCATED_DOLLAR_RISK, Math.round(capital * RISK_PCT[riskProfile]));
+  return Math.min(dial, maxRiskForTrade(capital, profitCeiling));
+}
 
 export interface PortfolioManagerRunResult {
   profilesEnabled: number;
@@ -280,14 +295,21 @@ async function runForProfile(
   // neither account steps up on a long run of wins. No starting capital is on
   // record for a live account, so only the rule-24 hold applies there.
   const run = await readWinningRun(supabase, profile.user_id);
+  // A-RISK-07: after large profits, a tenth of the profits at most, still
+  // after a loss, read on the equity before the unit (lib/risk/profitPeak.ts).
+  const profitCeiling = await readProfitCeiling(supabase, profile.user_id, executionMode === "live" ? "live" : "paper", equityBasis);
   equityBasis = run
     ? gannRiskCapital({ equity: equityBasis, startingCapital: executionMode === "live" ? 0 : STARTING_CASH, ...run }).capital
     : Math.min(equityBasis, executionMode === "live" ? equityBasis : STARTING_CASH);
 
-  const allocatedDollarRisk = Math.max(
-    MIN_ALLOCATED_DOLLAR_RISK,
-    Math.round(equityBasis * RISK_PCT[profile.risk_profile]),
-  );
+  const allocatedDollarRisk = allocatedDollarRiskFor(equityBasis, profile.risk_profile, profitCeiling);
+  if (!(allocatedDollarRisk > 0)) {
+    result.plansSkipped += candidates.length;
+    if (candidates.length > 0) {
+      result.errors.push({ userId: profile.user_id, reason: "No trading capital to size against — skipping this run." });
+    }
+    return;
+  }
 
   // "Take the top three setups" — MAX_NEW_POSITIONS_PER_DAY (lib/risk/config.ts,
   // = 3) is the platform's existing per-day new-position ceiling, enforced for
@@ -316,6 +338,17 @@ async function runForProfile(
   // lib/gann/evenFigures.ts#roundNumberEntryBlocked.
   const { data: settingsRow } = await supabase.from("settings").select("prefs").eq("user_id", profile.user_id).maybeSingle();
   const gannPrefs = resolveGannRulePrefs((settingsRow as { prefs?: unknown } | null)?.prefs ?? null);
+  // A-EXIT-05 (W022 p.113): Gann goes flat before he is away from the market,
+  // so inside the trader's away window nothing new is opened for them. Open
+  // positions keep their exits.
+  if (candidates.length > 0 && awayReminderDue(gannPrefs)) {
+    result.plansSkipped += candidates.length;
+    result.errors.push({
+      userId: profile.user_id,
+      reason: `Skipped ${candidates.length} candidate(s): the trader will be away from ${gannPrefs.awayFrom}, so no new position is opened.`,
+    });
+    return;
+  }
 
   for (const plan of candidates) {
     if (remainingToday <= 0) {

@@ -23,10 +23,11 @@ import { scanTicker } from "@/lib/scanTicker";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice, STARTING_CASH } from "@/lib/brokers/simulator";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
+import { readProfitCeiling } from "@/lib/risk/profitPeak";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
-import { capitalPerShare, MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
+import { capitalPerShare, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/lib/guided/copy";
 import { pickNearestMiss, type NearMiss } from "@/lib/guided/near-miss";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -47,6 +48,8 @@ export interface GuidedAccount {
    * (`gannRiskCapital`, A-RISK-04 and rule 24; owner, 2026-10-16, Q7).
    */
   riskCapital: number;
+  /** A tenth of the profits after large profits (A-RISK-07, `profitRiskCeiling`); null below them. */
+  profitCeiling: number | null;
 }
 
 /**
@@ -86,6 +89,7 @@ export async function readGuidedAccount(
   return {
     equity,
     riskCapital,
+    profitCeiling: await readProfitCeiling(supabase, userId, "paper", equity),
     // No margin is modelled — a simulated cash account can only buy what it holds.
     buyingPower: account.cash,
     openSymbols,
@@ -254,7 +258,7 @@ export async function buildRecommendations(params: {
   caps: GuidedCaps;
   /** Capital Gann's rule holds behind the open shares (`readCapUsage`). */
   capitalHeldUsd: number;
-  /** Markets open now (`readCapUsage`); at most three may be open at once. */
+  /** Stocks open now (`readCapUsage`); at most five may be open at once. */
   openMarkets: string[];
   now?: Date;
   /** `getUniversePolicy()`-resolved thresholds, resolved once by the caller. Defaults to the code constants. */
@@ -380,8 +384,8 @@ function collectBatch(params: {
       continue;
     }
 
-    if (!markets.has(result.symbol.toUpperCase()) && markets.size >= MAX_OPEN_SYMBOLS) {
-      skipped.push({ symbol: result.symbol, reasons: [`GSPS trades at most ${MAX_OPEN_SYMBOLS} markets at once.`] });
+    if (!markets.has(result.symbol.toUpperCase()) && markets.size >= MAX_OPEN_STOCKS) {
+      skipped.push({ symbol: result.symbol, reasons: [`GSPS trades at most ${MAX_OPEN_STOCKS} stocks at once.`] });
       continue;
     }
 
@@ -397,6 +401,7 @@ function collectBatch(params: {
       masterProfit: levels.masterProfit,
       riskPct: caps.riskPct,
       riskCapital: account.riskCapital,
+      profitCeiling: account.profitCeiling,
       capitalHeldUsd: committed,
       minGuidedQty,
     });

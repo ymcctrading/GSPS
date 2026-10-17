@@ -10,9 +10,10 @@ import { GuidedCard } from "@/components/guided/guided-card";
 import { NearMissCard } from "@/components/guided/near-miss-card";
 import type { NearMiss } from "@/lib/guided/near-miss";
 import { formatUsd } from "@/lib/utils";
-import { MAX_OPEN_SYMBOLS } from "@/lib/risk/gannCapital";
+import { MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
+import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 interface GuidedResponse {
   enabled: boolean;
@@ -171,7 +172,7 @@ export function GuidedMode() {
       {data?.caps && data.usage && (
         <p className="text-sm text-muted">
           Risking {data.caps.riskPct}% of your paper equity per trade · {data.usage.openMarkets.length} of{" "}
-          {MAX_OPEN_SYMBOLS} markets open.
+          {MAX_OPEN_STOCKS} stocks open.
         </p>
       )}
 
@@ -228,6 +229,8 @@ function ConfirmDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  // A-EXIT-05: inside the away window the close-out reminder sits above the button.
+  const { awayReminder } = useGannRulePrefs();
   return (
     <Modal
       open={rec !== null}
@@ -237,6 +240,7 @@ function ConfirmDialog({
       footer={
         rec && (
           <div className="flex flex-col gap-3">
+            {awayReminder && <p className="text-xs leading-relaxed text-warn">{awayReminder.message}</p>}
             <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
             <div className="flex gap-2">
               <Button onClick={onConfirm} disabled={busy} size="lg" className="flex-1">

@@ -10,6 +10,14 @@ date.
 ## 2026-10-16
 
 ### Changed
+- **Selection and levels, strategy version `2026-10-16-gann-selection-levels`.**
+  The daily lists and the full-scan shortlist put early leaders first (verdict,
+  then selection strength, then score), weak stocks last among buys and first
+  among shorts, and a buy in a weak stock is held to Watch. A crossing of a
+  major round number is held to Watch the first and second times through. The
+  secondary rally top joins the support and resistance levels, and range
+  divisions are ranked in Master Course Ch. 6's tiers. A calendar-day 1x1 is
+  shown as context.
 - **Intraday first target reads more of Gann's old levels**
   (`lib/scanner/intraday.ts#gannOldLevels`). Besides the session's own extreme
   and the prior close, the target now considers the session's completed swings,

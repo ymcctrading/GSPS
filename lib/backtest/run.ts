@@ -47,7 +47,7 @@ import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
 import { monthlyChartFrom } from "@/lib/scan/entrySelection";
-import { LONG_MONTHLY_YEARS } from "@/lib/gann/secondaryTime";
+import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
 
 /** Verdict buckets, plus the trades the score could not reach. */
@@ -350,25 +350,30 @@ export async function fetchSeries(
   symbol: string,
   timeframe: Timeframe,
   includeMonthly = false,
-): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[] }> {
+): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[]; monthlyYearCount?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();
   const window = (tf: Timeframe) => new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
   // The older levels on the first daily session read the span before it (step 3 review R10).
   const monthlyFrom = monthlyChartFrom(window("1Day"));
-  // The class C long counts read `LONG_MONTHLY_YEARS` before each session, as
-  // the live scan does; every other reading keeps the span above.
+  // The time-window hold's yearly counts read `YEAR_COUNT_MONTHLY_YEARS` and
+  // the class C long counts `LONG_MONTHLY_YEARS` before each session, as the
+  // live scan does (one request, windowed per session); every other reading
+  // keeps the span above.
   const start = window("1Day");
-  const longFrom = new Date(Math.min(monthlyFrom.getTime(), Date.UTC(start.getUTCFullYear() - LONG_MONTHLY_YEARS, start.getUTCMonth(), 1)));
+  const longFrom = new Date(Math.min(monthlyFrom.getTime(), Date.UTC(start.getUTCFullYear() - YEAR_COUNT_MONTHLY_YEARS, start.getUTCMonth(), 1)));
 
-  const [bars, daily, monthlyLong] = await Promise.all([
+  const [bars, daily, monthlyYearCount] = await Promise.all([
     provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
     provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
     includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass) : Promise.resolve(undefined),
   ]);
-  const monthly = monthlyLong?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
-  return { bars, daily, ...(monthly && monthlyLong ? { monthly, monthlyLong } : {}) };
+  const monthly = monthlyYearCount?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
+  // Long enough for the class C counts on the first session; the replay windows
+  // each session to `LONG_MONTHLY_YEARS` itself.
+  const monthlyLong = monthlyYearCount ? longMonthlyWindow(monthlyYearCount, new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1))) : undefined;
+  return { bars, daily, ...(monthly && monthlyLong && monthlyYearCount ? { monthly, monthlyLong, monthlyYearCount } : {}) };
 }
 
 type FetchedSeries = Awaited<ReturnType<typeof fetchSeries>>;
@@ -383,6 +388,7 @@ export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries
     dailyBars: series.daily,
     monthlyBars: series.monthly,
     longMonthlyBars: series.monthlyLong,
+    yearCountMonthlyBars: series.monthlyYearCount,
     marketDailyBars: market?.daily,
     marketMonthlyBars: market?.monthly,
   };

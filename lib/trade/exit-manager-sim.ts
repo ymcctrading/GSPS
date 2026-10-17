@@ -32,7 +32,8 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
 import type { ReversalCause } from "@/lib/gann/reverse";
-import { readLiveGannExit } from "@/lib/trade/gann-exit-live";
+import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { rebuyOffer } from "@/lib/gann/rebuy";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -416,6 +417,11 @@ async function finish(
       const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel: exitPrice, extreme });
       if (offer) run.notes.push(offer);
     }
+    // A-PYRAMID-07: a trailing stop while the trend still runs this way is
+    // bought again on the reaction (lib/gann/rebuy.ts). Offered in a note,
+    // for automation's trades as well: no plan is seeded for it yet.
+    const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: plan.entry_price });
+    if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
   }
 
   run.closed++;

@@ -69,7 +69,7 @@ function block(n: number, criteria: Record<string, boolean>, over: Partial<Repla
  * A run where `momentum` separates winners from losers in both halves. Each half
  * carries 30 passing winners and 30 failing losers, clearing every arm floor.
  */
-function separatingRun(key = "stopBehindOldLevel") {
+function separatingRun(key = "definiteIndication") {
   clock = 0;
   const half = () => [
     ...block(30, { [key]: true }, winner),
@@ -101,7 +101,7 @@ describe("splitChronologically", () => {
 describe("proposeWeights", () => {
   it("refuses to propose anything on too few trades", () => {
     clock = 0;
-    const proposal = proposeWeights([...block(20, { stopBehindOldLevel: true }, winner)]);
+    const proposal = proposeWeights([...block(20, { definiteIndication: true }, winner)]);
 
     expect(proposal.weights).toBeNull();
     expect(proposal.changed).toBe(false);
@@ -110,7 +110,7 @@ describe("proposeWeights", () => {
 
   it("up-weights a criterion that separates winners in both halves", () => {
     const proposal = proposeWeights(separatingRun(), { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "stopBehindOldLevel")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "definiteIndication")!;
 
     expect(momentum.outcome).toBe("adopted");
     expect(momentum.proposedWeight).toBeGreaterThan(1);
@@ -120,11 +120,11 @@ describe("proposeWeights", () => {
   it("down-weights a criterion whose passes lose money in both halves", () => {
     clock = 0;
     const half = () => [
-      ...block(30, { stopBehindOldLevel: true }, loser),
-      ...block(30, { stopBehindOldLevel: false }, winner),
+      ...block(30, { definiteIndication: true }, loser),
+      ...block(30, { definiteIndication: false }, winner),
     ];
     const proposal = proposeWeights([...half(), ...half()], { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "stopBehindOldLevel")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "definiteIndication")!;
 
     expect(momentum.outcome).toBe("adopted");
     expect(momentum.proposedWeight).toBeLessThan(1);
@@ -134,14 +134,14 @@ describe("proposeWeights", () => {
     clock = 0;
     const trades = [
       // First half: passing wins.
-      ...block(30, { stopBehindOldLevel: true }, winner),
-      ...block(30, { stopBehindOldLevel: false }, loser),
+      ...block(30, { definiteIndication: true }, winner),
+      ...block(30, { definiteIndication: false }, loser),
       // Second half: passing loses. Noise wearing a result's clothes.
-      ...block(30, { stopBehindOldLevel: true }, loser),
-      ...block(30, { stopBehindOldLevel: false }, winner),
+      ...block(30, { definiteIndication: true }, loser),
+      ...block(30, { definiteIndication: false }, winner),
     ];
     const proposal = proposeWeights(trades, { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "stopBehindOldLevel")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "definiteIndication")!;
 
     expect(momentum.outcome).toBe("disagreed");
     expect(momentum.rationale).toContain("disagree");
@@ -150,11 +150,11 @@ describe("proposeWeights", () => {
   it("holds a criterion that never varied", () => {
     clock = 0;
     const trades = [
-      ...block(60, { stopBehindOldLevel: true }, winner),
-      ...block(60, { stopBehindOldLevel: true }, winner),
+      ...block(60, { definiteIndication: true }, winner),
+      ...block(60, { definiteIndication: true }, winner),
     ];
     const proposal = proposeWeights(trades, { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "stopBehindOldLevel")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "definiteIndication")!;
 
     expect(momentum.outcome).toBe("unreadable");
     expect(momentum.rationale).toContain("never varied");
@@ -165,11 +165,11 @@ describe("proposeWeights", () => {
     const tiny = { outcome: "win" as const, rMultiple: 2 };
     const barelyLess = { outcome: "win" as const, rMultiple: 2 - MIN_EFFECT_R / 2 };
     const half = () => [
-      ...block(30, { stopBehindOldLevel: true }, tiny),
-      ...block(30, { stopBehindOldLevel: false }, barelyLess),
+      ...block(30, { definiteIndication: true }, tiny),
+      ...block(30, { definiteIndication: false }, barelyLess),
     ];
     const proposal = proposeWeights([...half(), ...half()], { inSampleFraction: 0.5 });
-    const momentum = proposal.proposals.find((p) => p.criterion === "stopBehindOldLevel")!;
+    const momentum = proposal.proposals.find((p) => p.criterion === "definiteIndication")!;
 
     expect(momentum.outcome).toBe("too-small");
   });
@@ -198,12 +198,12 @@ describe("proposeWeights", () => {
 
 describe("normalizeWeights", () => {
   it("holds the total at nine points", () => {
-    const w = normalizeWeights({ stopBehindOldLevel: 2, swingChartTrend: 0.5 });
+    const w = normalizeWeights({ definiteIndication: 2, trendAllTimeframes: 0.5 });
     expect(CRITERION_KEYS.reduce((s, k) => s + w[k], 0)).toBeCloseTo(TOTAL_POINTS, 1);
   });
 
   it("keeps every weight inside its band", () => {
-    const w = normalizeWeights({ stopBehindOldLevel: 99, swingChartTrend: 0.001 });
+    const w = normalizeWeights({ definiteIndication: 99, trendAllTimeframes: 0.001 });
     for (const k of CRITERION_KEYS) {
       expect(w[k]).toBeLessThanOrEqual(2);
       expect(w[k]).toBeGreaterThanOrEqual(0.5);
@@ -211,8 +211,8 @@ describe("normalizeWeights", () => {
   });
 
   it("treats an unusable value as one point rather than throwing", () => {
-    const w = normalizeWeights({ stopBehindOldLevel: Number.NaN, swingChartTrend: -3 });
-    expect(w.stopBehindOldLevel).toBeGreaterThan(0);
-    expect(w.swingChartTrend).toBeGreaterThan(0);
+    const w = normalizeWeights({ definiteIndication: Number.NaN, trendAllTimeframes: -3 });
+    expect(w.definiteIndication).toBeGreaterThan(0);
+    expect(w.trendAllTimeframes).toBeGreaterThan(0);
   });
 });

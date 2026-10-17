@@ -27,9 +27,14 @@ describe("SQUARE_OF_52_FRACTIONS", () => {
     expect(byLabel["3/4"].emphasis).toBe("very-important");
   });
 
-  it("flags exactly the six disclosed fractions as disclosed:true", () => {
+  it("flags exactly the disclosed fractions as disclosed:true (Master Course Ch.14 PDF 385, Ch.18 PDF 440; Commodities p.58)", () => {
     const disclosed = SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.label).sort();
-    expect(disclosed).toEqual(["1/2", "1/3", "1/4", "1/8", "3/4", "5/8"].sort());
+    expect(disclosed).toEqual(["1/16", "1/8", "1/4", "1/3", "3/8", "1/2", "5/8", "2/3", "3/4", "7/8"].sort());
+    const byLabel = Object.fromEntries(SQUARE_OF_52_FRACTIONS.map((f) => [f.label, f]));
+    // The source's own week counts: 19½, 35 (2/3 = 34.67) and 45½ weeks.
+    expect(byLabel["3/8"].weeks).toBe(19.5);
+    expect(byLabel["7/8"].weeks).toBe(45.5);
+    expect(byLabel["2/3"].weeks).toBeCloseTo(34.67, 2);
   });
 });
 
@@ -60,5 +65,21 @@ describe("squareOf52Windows", () => {
     const anchorDate = new Date(halfYear!.t);
     const expected = new Date(anchorDate.getTime() + 26 * 7 * 24 * 3600 * 1000);
     expect(expected.getTime() - anchorDate.getTime()).toBe(182 * 24 * 3600 * 1000);
+  });
+});
+
+describe("the square of 52 reaches the live scan and the replay alike (M-T6, C-TIME-46)", () => {
+  it("is read by readDisclosedRules at the session being read, and turned into a factor", async () => {
+    const { readDisclosedRules } = await import("../disclosedRules");
+    const { contextFactorsFor } = await import("../contextFactors");
+    const bars = Array.from({ length: 200 }, (_, i) => {
+      const c = 40 + 6 * Math.abs(((i % 24) / 12) - 1);
+      return { t: new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1_000_000 };
+    });
+    const asOf = new Date(bars[bars.length - 1].t);
+    const ctx = readDisclosedRules(bars, bars[bars.length - 1].c, null, asOf);
+    expect(ctx.squareOf52).toEqual(squareOf52Windows(bars, asOf));
+    const f = contextFactorsFor(ctx, "bullish", bars[bars.length - 1].c);
+    expect(f.squareOf52Window).toBe(ctx.squareOf52!.active);
   });
 });

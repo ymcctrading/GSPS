@@ -160,6 +160,7 @@ export async function POST(req: NextRequest) {
     masterProfit: agreed.masterProfit,
     riskPct: caps.riskPct,
     riskCapital: account.riskCapital,
+    profitCeiling: account.profitCeiling,
     capitalHeldUsd: usage.capitalHeldUsd,
     minGuidedQty: guidedPolicy.minGuidedQty,
   });

@@ -1,3 +1,4 @@
+import { shortOfFigure } from "@/lib/gann/evenFigures";
 import { describe, expect, it } from "vitest";
 import {
   computeEquityTradeLevels,
@@ -28,6 +29,16 @@ describe("computeEquityTradeLevels", () => {
     // have anchored it.
     expect(merged.stopFromStructure).toBe(true);
     expect(merged.stopLoss).toBeCloseTo(95.3 - gannThreePoints(95.3), 2);
+  });
+
+  it("averages two resistance levels within 1% into one target (M-P4)", () => {
+    const long = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [], extensionLevels: [105, 105.6], evenFigures: false });
+    expect(long.tp1FromStructure).toBe(true);
+    expect(long.takeProfit1).toBeCloseTo(105.3, 2);
+    const short = computeEquityTradeLevels({ direction: "bearish", entry: 100, structuralLevels: [], extensionLevels: [95, 94.4], evenFigures: false });
+    expect(short.takeProfit1).toBeCloseTo(94.7, 2);
+    // More than 1% apart, the nearer stands alone as TP1.
+    expect(computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [], extensionLevels: [105, 107], evenFigures: false }).takeProfit1).toBeCloseTo(105, 2);
   });
 
   it("keeps levels more than 1% apart separate", () => {
@@ -149,7 +160,7 @@ describe("computeEquityTradeLevels", () => {
     // Entry 92: 100 is 8.7% away, inside the TP1 band, so TP1 sits just under it.
     const result = computeEquityTradeLevels({ direction: "bullish", entry: 92, structuralLevels: [], atrPct: 3 });
     expect(result.tp1FromStructure).toBe(true);
-    expect(result.takeProfit1).toBeCloseTo(99.5, 2);
+    expect(result.takeProfit1).toBeCloseTo(shortOfFigure(100, "below"), 2);
     // A structural stop just above 90 is moved under 90.
     const withStop = computeEquityTradeLevels({ direction: "bullish", entry: 93, structuralLevels: [90.2], atrPct: 3 });
     expect(withStop.stopLoss).toBeLessThan(90);

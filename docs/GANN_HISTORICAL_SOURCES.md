@@ -367,6 +367,9 @@ re-uploaded directly (Google Drive's OCR pipeline couldn't handle the
   treatment, with worked examples of multiple resistance levels
   converging on real tops (e.g., the 1929 top landing simultaneously on
   1250% of the 1896 low and 225% of the 1919 high).
+  **GSPS follows Master Course Ch. 6's tiers instead (owner 2026-10-16:
+  Ch. 6 tiers; M-P1):** ¼, ½, ¾ first, with 50% most important, then ⅓
+  and ⅔, then the ⅛ and 1/16 points (`lib/gann/retracement.ts`).
 - **Duration-based "time square" thresholds** — specific day-count bands
   (7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157, 175–185
   days) and month-count bands (1–5 years, or 15/22/34/42/48/49 months)
@@ -1060,6 +1063,19 @@ the same vocabulary and, in Tomes' case, the same planetary-alignment
 reasoning Gann's own astrology material relies on (A2.1, A2.3, B11).
 **None of these are Gann sources; none should be cited as Gann's own
 claims.**
+
+**Lineage (CYC-20, added 2026-10-16).** Dewey warns that cycle lengths can
+cluster because investigators copy each other, not because the cycle is real
+(C6, criterion 17: 1,404 reports from 327 authors bunch at about 3½, 6 and 18
+years). So a period that several of these sources agree on counts as one
+line of evidence when they share a lineage, and as independent only when they
+don't.
+
+| Source | Lineage | Independent of |
+|---|---|---|
+| C1-C4 Tomes | Foundation for the Study of Cycles (C1 was published by it), then Tomes' own Cycles Research Institute. Builds on Dewey's catalogue of periods. | Not of C5-C6: a Tomes period that matches a Dewey period is one lineage. |
+| C5-C6 Dewey | Founder of the Foundation for the Study of Cycles (1941). His catalogue gathers other investigators' reports, which is the source of the clustering caveat. | Not of C1-C4. |
+| C7 Halberg | Chronobiology, University of Minnesota. Cosinor method; no FSC lineage. | Independent of C1-C6. |
 
 ### C1. Ray Tomes, "Towards a Unified Theory of Cycles" (Foundation for the
 Study of Cycles, 1990; republished 2005 with a correction)

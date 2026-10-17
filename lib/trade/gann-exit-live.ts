@@ -31,6 +31,9 @@ import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
 import { etDateKey } from "@/lib/market/session";
 import { entryChart, gannEntryOf, monthlyChartFrom, trendsFromBars } from "@/lib/scan/entrySelection";
+import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
+import { readGannTrend } from "@/lib/gann/trendStrength";
+import type { ReversalCause } from "@/lib/gann/reverse";
 
 /** About two years of sessions: enough for the weekly swing chart and the campaign ledger. */
 const DAILY_LOOKBACK_DAYS = 730;
@@ -130,6 +133,31 @@ export async function readLiveGannExit(input: LiveGannExitInput): Promise<GannEx
     return readGannExitFromBars(input, daily, ref?.sharesOutstanding ?? null, monthly);
   } catch (err) {
     console.error(`gann-exit-live: ${input.symbol} — ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+/**
+ * Re-buy after a stop (A-PYRAMID-07, `lib/gann/rebuy.ts`), read on the
+ * completed sessions when a live or paper trade leaves on a stop: the re-entry
+ * the rules rest on the reaction, or null when the trend no longer runs the
+ * trade's way, the stop doesn't re-buy, or the bars can't be read.
+ */
+export async function readLiveRebuy(input: {
+  symbol: string;
+  side: "long" | "short";
+  cause: ReversalCause | null;
+  extreme: number;
+  entryPrice: number;
+  now?: Date;
+}): Promise<GannRebuy | null> {
+  if (!rebuysOn(input.cause)) return null;
+  try {
+    const { bars: daily } = await completedDailyBars(input.symbol, input.now ?? new Date());
+    if (daily.length < 10) return null;
+    return gannRebuy({ side: input.side, extreme: input.extreme, trend: readGannTrend(daily).direction, entryPrice: input.entryPrice });
+  } catch (err) {
+    console.error(`gann-exit-live: re-buy ${input.symbol} — ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

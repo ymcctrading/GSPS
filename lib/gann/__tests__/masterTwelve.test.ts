@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GREAT_CYCLE,
   HALVING_CHAIN,
+  halvingChainTime,
   SQUARE_OF_9_TOTAL_CELLS,
   MASTER_NUMBERS,
   WHEAT_SQUARE_EXAMPLE,
@@ -66,5 +67,77 @@ describe("masterTwelveLevels", () => {
     for (const d of [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]) {
       expect(degrees.has(d)).toBe(true);
     }
+  });
+});
+
+describe("C-TIME-17: the halving chain as calendar days from a pivot (Master Course Ch.13 PDF 375, 379)", () => {
+  const addDays = (iso: string, d: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + d * 86_400_000).toISOString().slice(0, 10);
+
+  it("is on the chain 324 days after the low and projects the next term", () => {
+    const r = halvingChainTime({ date: "2025-01-01", price: 10 }, { date: "2024-06-01", price: 20 }, addDays("2025-01-01", 324));
+    expect(r.hits).toEqual([expect.objectContaining({ pivot: "low", days: 324 })]);
+    const next = r.next.find((n) => n.pivot === "low")!;
+    expect(next.days).toBe(648);
+    expect(next.date).toBe(addDays("2025-01-01", 648));
+  });
+
+  it("reads the full cycle as 56 years 9 months and about 23 days of 365-day years", () => {
+    // Ch.13 PDF 379: "56 years, 9 months and 23 days".
+    const years = Math.floor(GREAT_CYCLE / 365);
+    const rest = GREAT_CYCLE - years * 365;
+    expect(years).toBe(56);
+    expect(Math.floor(rest / (365 / 12))).toBe(9);
+  });
+
+  it("is off the chain between terms", () => {
+    const r = halvingChainTime({ date: "2025-01-01", price: 10 }, { date: "2024-06-01", price: 20 }, addDays("2025-01-01", 200));
+    expect(r.hits).toHaveLength(0);
+  });
+});
+
+describe("C-TIME-17: a halving-chain day is read within one day only (Master Course Ch.13 PDF 375, 379)", () => {
+  it("hits 324 days from the pivot, and not 2 days off it", async () => {
+    const { halvingChainTime } = await import("../masterTwelve");
+    const low = { date: "2025-01-01", price: 50 };
+    const high = { date: "2020-01-01", price: 90 };
+    const add = (d: number) => new Date(Date.parse("2025-01-01T00:00:00Z") + d * 86_400_000).toISOString().slice(0, 10);
+    expect(halvingChainTime(low, high, add(324)).hits.filter((h) => h.pivot === "low").map((h) => h.days)).toEqual([324]);
+    expect(halvingChainTime(low, high, add(325)).hits.some((h) => h.pivot === "low")).toBe(true);
+    expect(halvingChainTime(low, high, add(326)).hits.some((h) => h.pivot === "low")).toBe(false);
+  });
+});
+
+describe("the Master 12 chart, a 12x12 grid (M-T16)", () => {
+  it("ends its squares at 144, 288, 432 and 576", async () => {
+    const { MASTER_TWELVE_SQUARE_ENDS, masterTwelveCell } = await import("../masterTwelve");
+    expect(MASTER_TWELVE_SQUARE_ENDS).toEqual([144, 288, 432, 576]);
+    for (const [i, end] of MASTER_TWELVE_SQUARE_ENDS.entries()) {
+      expect(masterTwelveCell(end)).toMatchObject({ square: i + 1, place: 144, section: 12, row: 12, squareEnd: true });
+      expect(masterTwelveCell(end + 1)).toMatchObject({ square: i + 2, place: 1, section: 1, row: 1, squareEnd: false });
+    }
+  });
+
+  it("runs up columns of 12: bottoms 1, 13 ... 133, tops 12, 24 ... 144", async () => {
+    const { masterTwelveCell } = await import("../masterTwelve");
+    for (let c = 1; c <= 12; c++) {
+      expect(masterTwelveCell((c - 1) * 12 + 1)).toMatchObject({ section: c, row: 1 });
+      expect(masterTwelveCell(c * 12)).toMatchObject({ section: c, row: 12 });
+    }
+  });
+
+  it("places the major centre, the diagonals, the half line and the death zone where the chart lists them", async () => {
+    const { masterTwelveCell, MASTER_TWELVE_MINOR_CENTRES } = await import("../masterTwelve");
+    for (const n of [66, 67, 78, 79]) expect(masterTwelveCell(n)!.majorCentre).toBe(true);
+    for (const n of [14, 27, 40, 53, 66, 79, 92, 105, 118, 131, 144, 12, 23, 34, 45, 56, 67, 78, 89, 100, 111, 122, 133]) {
+      expect(masterTwelveCell(n)!.diagonal, String(n)).toBe(true);
+    }
+    expect(masterTwelveCell(15)!.diagonal).toBe(false);
+    for (const n of [6, 7, 18, 19, 138, 139]) expect(masterTwelveCell(n)!.halfLine).toBe(true);
+    for (const n of MASTER_TWELVE_MINOR_CENTRES) expect(masterTwelveCell(n)!.minorCentre).toBe(true);
+    expect(masterTwelveCell(85)!.deathZone).toBe(true);
+    expect(masterTwelveCell(108)!.deathZone).toBe(true);
+    expect(masterTwelveCell(109)!.deathZone).toBe(false);
+    // 436 is in the fourth square, at place 4.
+    expect(masterTwelveCell(436)).toMatchObject({ square: 4, place: 4 });
   });
 });

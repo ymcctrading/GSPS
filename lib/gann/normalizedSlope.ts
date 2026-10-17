@@ -14,6 +14,7 @@
 import { findPivots } from "@/lib/analysis/pivots";
 import type { Bar } from "@/lib/types";
 import { ANGLES, angleUnit } from "./fans";
+import { gannPointForBars } from "./pointScale";
 
 /**
  * `normalized_slope = (price_t - anchor_price) / (unit * bars_since_anchor)`.
@@ -107,4 +108,77 @@ export function computeAngleSlopes(bars: Bar[], currentPrice: number): AngleSlop
     });
   }
   return readings;
+}
+
+/**
+ * The fixed chart scale (C-LEVELS-20; Jensen, *Astro-Cycles and Speculative
+ * Markets*, printed pp.~124-125, Plate 2): every calendar day is shown, the
+ * non-trading days left blank, and one day's width equals one price unit's
+ * height ($1 a point in stocks, 1¢ in grain). On that chart a 1x1 moves one
+ * unit per calendar day, so it rises 7 units over a week of 5 sessions.
+ *
+ * Context only, by AGENTS.md's class C rule: the source is Jensen (Lambert-
+ * Gann, 1978), a parallel to Gann's method, not Gann's own text, and the
+ * owner's Q27 decision keeps the scored angles, the fans and the price-time
+ * square on the Gann point per trading bar. Nothing here moves a score, a gate
+ * or a level.
+ *
+ * Three-question basis: 1. Jensen, Tier B (source note B16), not Gann. 2. No periodicity is
+ * claimed; Dewey's checklist does not apply. 3. Correspondence: time and
+ * space read on one equal scale.
+ */
+export function calendarDayOneByOne(
+  anchorPrice: number,
+  anchorTime: string,
+  atTime: string,
+  unitPerDay: number,
+  direction: "up" | "down",
+): number {
+  const days = (Date.parse(atTime) - Date.parse(anchorTime)) / 86_400_000;
+  return anchorPrice + (direction === "up" ? 1 : -1) * unitPerDay * days;
+}
+
+export interface CalendarDayAngle {
+  anchorPrice: number;
+  anchorDate: string;
+  calendarDays: number;
+  /** The 1x1's price at the last bar. */
+  price: number;
+  priceAbove: boolean;
+}
+
+export interface CalendarDayAngleReading {
+  /** The price unit per calendar day: Jensen's $1 a point, scaled to the price as Gann's points are (`gannPoint`). */
+  unit: number;
+  fromLow: CalendarDayAngle | null;
+  fromHigh: CalendarDayAngle | null;
+}
+
+/**
+ * The rising 1x1 from the last significant low and the falling one from the
+ * last significant high (the anchors `computeAngleSlopes` reads), on the
+ * calendar-day scale. Engineering choice, labelled as such: Jensen's $1 per
+ * day is ported as one price-scaled point per day (`pointScale.ts#gannPoint`,
+ * exactly $1 at $42.50), the unit every other point rule here uses.
+ */
+export function readCalendarDayAngles(bars: Bar[], currentPrice: number): CalendarDayAngleReading | null {
+  if (bars.length < 20) return null;
+  const unit = gannPointForBars(bars);
+  if (!(unit > 0)) return null;
+  const pivots = findPivots(bars, 4);
+  const lastLow = [...pivots].reverse().find((p) => p.kind === "low");
+  const lastHigh = [...pivots].reverse().find((p) => p.kind === "high");
+  const at = bars[bars.length - 1].t;
+  const line = (p: typeof lastLow, dir: "up" | "down"): CalendarDayAngle | null => {
+    if (!p) return null;
+    const price = calendarDayOneByOne(p.price, p.bar.t, at, unit, dir);
+    return {
+      anchorPrice: p.price,
+      anchorDate: p.bar.t.slice(0, 10),
+      calendarDays: (Date.parse(at) - Date.parse(p.bar.t)) / 86_400_000,
+      price,
+      priceAbove: currentPrice > price,
+    };
+  };
+  return { unit, fromLow: line(lastLow, "up"), fromHigh: line(lastHigh, "down") };
 }

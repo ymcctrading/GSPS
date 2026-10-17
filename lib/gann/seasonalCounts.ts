@@ -26,6 +26,23 @@
  * counts (the summer half of the year is longer), and Gann's dates win over an
  * even split.
  *
+ * **The ranking, checked 2026-10-16 (M-T8).** Ch. 18 TP-1 (PDF 439, 1955):
+ * "Most important: 1/2 and the end of the season; next 1/4 and 3/4, and 1/3
+ * and 2/3". The season in that lesson is the seasonal year from March 20, so
+ * "the end of the season" is read as the full year, which already ranks with
+ * ½. Reading it as every quarter day would put ¼ and ¾ with ½, against the
+ * same sentence's "next 1/4 and 3/4", so the ranks are unchanged.
+ *
+ * **The Winter-quarter frame, added 2026-10-16 (C-TIME-05).** The c.1935
+ * lesson counts the seasons from the Winter quarter, December 22 (Ch. 5 PDF
+ * 161): January 5-6 (15 days), February 5 (45 days), March 21 (90 days, "the
+ * Sun crosses the equator"), May 6 (135°), June 22, July 7, August 8,
+ * September 23, November 8 and December 22. It is a second frame with its own
+ * dates (January 5-6, February 5 and July 7 have no March 21 counterpart),
+ * so it is kept as its own list (`WINTER_QUARTER_POINTS`) and read as context
+ * through `timeCounts.ts`, never ranked into `SEASONAL_POINTS`. The lesson
+ * gives it no ranking.
+ *
  * Engineering choice, labelled as such: "around" is ±`SEASONAL_TOLERANCE_DAYS`.
  *
  * Three-question basis:
@@ -87,6 +104,42 @@ export function readSeasonalCount(asOf: Date): SeasonalCountReading | null {
       const offsetDays = Math.round((today - Date.UTC(y, p.month - 1, p.day)) / DAY_MS);
       if (Math.abs(offsetDays) > SEASONAL_TOLERANCE_DAYS) continue;
       if (!best || p.rank < best.point.rank) best = { point: p, offsetDays };
+    }
+  }
+  return best;
+}
+
+/** C-TIME-05: the Winter-quarter seasonal dates (Master Course Ch. 5 PDF 161), days inclusive. */
+export const WINTER_QUARTER_POINTS: readonly { label: string; month: number; startDay: number; endDay: number }[] = [
+  { label: "15 days", month: 1, startDay: 5, endDay: 6 },
+  { label: "45 days", month: 2, startDay: 5, endDay: 5 },
+  { label: "90 days", month: 3, startDay: 21, endDay: 21 },
+  { label: "135°", month: 5, startDay: 6, endDay: 6 },
+  { label: "June 22", month: 6, startDay: 22, endDay: 22 },
+  { label: "July 7", month: 7, startDay: 7, endDay: 7 },
+  { label: "August 8", month: 8, startDay: 8, endDay: 8 },
+  { label: "September 23", month: 9, startDay: 23, endDay: 23 },
+  { label: "November 8", month: 11, startDay: 8, endDay: 8 },
+  { label: "the full year", month: 12, startDay: 22, endDay: 22 },
+];
+
+export interface WinterQuarterReading {
+  point: (typeof WINTER_QUARTER_POINTS)[number];
+  /** Days from the point's nearest day (negative before it, 0 inside it). */
+  offsetDays: number;
+}
+
+/** The Winter-quarter date today sits on (±tolerance), nearest first, or null. */
+export function readWinterQuarterCount(asOf: Date): WinterQuarterReading | null {
+  const today = Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate());
+  let best: WinterQuarterReading | null = null;
+  for (const y of [asOf.getUTCFullYear() - 1, asOf.getUTCFullYear(), asOf.getUTCFullYear() + 1]) {
+    for (const p of WINTER_QUARTER_POINTS) {
+      const start = Date.UTC(y, p.month - 1, p.startDay);
+      const end = Date.UTC(y, p.month - 1, p.endDay);
+      const offsetDays = today < start ? Math.round((today - start) / DAY_MS) : today > end ? Math.round((today - end) / DAY_MS) : 0;
+      if (Math.abs(offsetDays) > SEASONAL_TOLERANCE_DAYS) continue;
+      if (!best || Math.abs(offsetDays) < Math.abs(best.offsetDays)) best = { point: p, offsetDays };
     }
   }
   return best;

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
@@ -357,7 +358,8 @@ describe("replay scoring", () => {
     });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {
-      const passed = Object.values(t.criteria!).filter(Boolean).length;
+      // The points only: the checks they are built from score nothing alone.
+      const passed = CRITERION_KEYS.filter((k) => t.criteria![k]).length;
       expect(passed).toBe(t.score);
       // The trigger is what arms the trade, so the criterion that asks
       // whether one is armed in the setup's direction always passes here.
@@ -642,11 +644,13 @@ describe("replay continuation setups", () => {
       return { o: c, h: c + 0.3, l: c - 0.3, c };
     });
     const test = { o: L + 1, h: L + 1.2, l: L - 0.1, c: L + 0.5 };
-    const r = replay("TEST", intraday([...hold, test, { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 }]), { targetR: 2, dailyBars: later });
+    const next = { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 };
+    const r = replay("TEST", intraday([...hold, test, next, next]), { targetR: 2, dailyBars: later });
     const cont = r.trades.filter((t) => t.setupKind === "continuation");
     expect(cont).toHaveLength(1);
     expect(cont[0].direction).toBe("bullish");
-    expect(cont[0].entry).toBeCloseTo(L, 8);
+    // At the market once the test candle closed (never-failing rule 9): the next open.
+    expect(cont[0].entry).toBeCloseTo(L + 1, 8);
   });
 
   it("splits a run by setup kind without losing a trade", () => {
@@ -692,7 +696,8 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
       return { o: c, h: c + 0.3, l: c - 0.3, c };
     });
     const test = { o: L + 1, h: L + 1.2, l: L - 0.1, c: L + 0.5 };
-    const plan = replay("TEST", intraday([...hold, test, { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 }]), {
+    const next = { o: L + 1, h: L + 1.3, l: L + 0.8, c: L + 1 };
+    const plan = replay("TEST", intraday([...hold, test, next, next]), {
       targetR: 2,
       dailyBars: later,
       usePlanLevels: true,
@@ -716,6 +721,12 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
 });
 
 describe("replay exitRule: gann-runner (the live rule)", () => {
+  it("reads rule 21's share count for a stock's pyramid add, as live does", () => {
+    const src = fs.readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(src).toMatch(/\.\.\.\(isStock \? \{ capitalStock: sharesOn\?\.\(date\) \?\? null \} : \{\}\)/);
+    expect(src).toMatch(/isStock: assetClass === "us_equity"/);
+  });
+
   it("records lots under pyramiding and never adds to a trade that stopped out", () => {
     const through = TRIGGER.stopPrice - SIDE * 0.5;
     const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };

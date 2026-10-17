@@ -13,6 +13,16 @@
  *   level isn't that number. Default off, following Gann: buy and sell just
  *   before the figures, not into them.
  *
+ * - `awayFrom`: the date the trader will be away from the market. Gann goes
+ *   flat before travelling (*Tunnel Thru the Air*, W022 p.113, Tier A:
+ *   Robert covers his wheat and corn and goes flat before he travels;
+ *   A-EXIT-05). In the days before it, a reminder to close out every trade.
+ *   A reminder only; nothing is closed for the trader. Unset by default.
+ *   Inside the window a new entry carries the reminder back with the order
+ *   (`lib/trade/away-notice.ts`) and the portfolio manager opens nothing new.
+ *   The replay models no trader absence, so the rule does not apply there.
+ *   `AWAY_NOTICE_DAYS` is an engineering choice: Gann names no lead time.
+ *
  * The rest windows are an engineering choice, labelled as such: Gann gives
  * "twice a year" without dates, so the reminder uses the two half-year turns
  * of his seasonal calendar (the June and December solstice dates, June 21 and
@@ -37,6 +47,8 @@ export interface GannRulePrefs {
   autoOrderRoundNumbers: boolean;
   /** The rest period (e.g. "2026-12") the trader dismissed, so it doesn't reappear. */
   restDismissedFor: string | null;
+  /** YYYY-MM-DD the trader will be away from the market (A-EXIT-05), or null. */
+  awayFrom: string | null;
 }
 
 export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
@@ -44,7 +56,11 @@ export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
   restReminder: true,
   autoOrderRoundNumbers: false,
   restDismissedFor: null,
+  awayFrom: null,
 };
+
+/** Days before an absence the close-out reminder opens (engineering choice). */
+export const AWAY_NOTICE_DAYS = 3;
 
 export const REST_WINDOW_DAYS = 10;
 /** Month-day the two rest windows open (ET). */
@@ -62,6 +78,7 @@ export function resolveGannRulePrefs(prefs: unknown): GannRulePrefs {
     restReminder: bool(raw.restReminder, DEFAULT_GANN_RULE_PREFS.restReminder),
     autoOrderRoundNumbers: bool(raw.autoOrderRoundNumbers, DEFAULT_GANN_RULE_PREFS.autoOrderRoundNumbers),
     restDismissedFor: typeof raw.restDismissedFor === "string" ? raw.restDismissedFor : null,
+    awayFrom: typeof raw.awayFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.awayFrom) ? raw.awayFrom : null,
   };
 }
 
@@ -96,4 +113,16 @@ export function restReminderDue(prefs: GannRulePrefs, now: Date = new Date()): R
 }
 
 export const REST_REMINDER_COPY =
-  "Twice a year, close out every trade and rest for a while before starting again. Constant exposure wears down judgment, and a clear head sees the next move better. This is a reminder only: nothing is closed for you.";
+  "Twice a year, close out every trade and rest for a while before starting again. Constant exposure wears down judgment, and a clear head sees the next move better. Nothing is closed for you unless you choose to.";
+
+/** The close-out reminder before an absence, from `AWAY_NOTICE_DAYS` before it through its first day (ET). */
+export function awayReminderDue(prefs: GannRulePrefs, now: Date = new Date()): { awayFrom: string } | null {
+  if (!prefs.awayFrom) return null;
+  const today = etDateKey(now);
+  const opens = new Date(`${prefs.awayFrom}T12:00:00Z`);
+  opens.setUTCDate(opens.getUTCDate() - AWAY_NOTICE_DAYS);
+  return today >= opens.toISOString().slice(0, 10) && today <= prefs.awayFrom ? { awayFrom: prefs.awayFrom } : null;
+}
+
+export const AWAY_REMINDER_COPY =
+  "You'll be away from the market soon. Close out your trades before you go, so nothing can move against you while you can't watch it. Nothing is closed for you unless you choose to.";

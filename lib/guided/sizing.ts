@@ -8,22 +8,27 @@
  * in dollars is computed from the resulting quantity against the real
  * entry/stop/target prices, never from an advertised R-multiple.
  *
- * Four ceilings apply, and the smallest wins:
+ * Five ceilings apply, and the smallest wins:
  *
  *   1. Risk cap        — riskPct of equity ÷ the entry-to-stop distance.
- *   2. Capital         — Gann's 30 points of capital behind every share held
+ *   2. One tenth       — never more than a tenth of the trading capital at
+ *                        risk on one trade (never-failing rule 1, W006 p.46;
+ *                        Commodities pp.29-30, `lib/risk/gannCapital.ts`).
+ *                        Binds only when riskPct is over 10%; reported as
+ *                        the risk cap, since it is one.
+ *   3. Capital         — Gann's 30 points of capital behind every share held
  *                        (A-RISK-01, `lib/risk/gannCapital.ts`), counting the
  *                        shares already open. Replaced Guided's deployed-percent
  *                        and per-trade budget caps on 2026-10-16 (owner, Q12).
  *                        It bounds a short as well as a long.
- *   3. Buying power    — a simulated cash account cannot buy what it cannot pay
+ *   4. Buying power    — a simulated cash account cannot buy what it cannot pay
  *                        for. This one does not apply to a short: the simulator
  *                        moves cash by the full notional either way, so a sell
  *                        *credits* cash rather than spending it (see
  *                        `executeFill` in lib/brokers/simulator.ts). Sizing a
  *                        short against buying power would be arithmetic on a
  *                        number that grows as the position grows.
- *   4. Tradeability    — below MIN_GUIDED_QTY (one share since Q14, when the
+ *   5. Tradeability    — below MIN_GUIDED_QTY (one share since Q14, when the
  *                        staged exit was retired) there is no trade.
  *
  * Everything below is written in terms of "the risk side" and "the reward
@@ -32,7 +37,7 @@
  */
 
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
-import { maxSharesForCapital } from "@/lib/risk/gannCapital";
+import { maxRiskForTrade, maxSharesForCapital } from "@/lib/risk/gannCapital";
 import { planProtocolExit, SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 
 export interface SizingInputs {
@@ -58,6 +63,8 @@ export interface SizingInputs {
    * Defaults to `equity`. The capital and cash ceilings still read equity.
    */
   riskCapital?: number;
+  /** A tenth of the profits after large profits (A-RISK-07, `profitRiskCeiling`). */
+  profitCeiling?: number | null;
   /**
    * Capital Gann's rule already holds behind open shares (and any trade sized
    * ahead of this one in the same batch), in dollars (`capitalHeld`).
@@ -99,7 +106,7 @@ export interface SizedTrade {
 export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   const {
     side, equity, buyingPower, entry, stopLoss, takeProfit1, masterProfit,
-    riskPct, riskCapital = equity, capitalHeldUsd, wholeUnitsOnly = true,
+    riskPct, riskCapital = equity, profitCeiling = null, capitalHeldUsd, wholeUnitsOnly = true,
     minGuidedQty = MIN_GUIDED_QTY,
   } = input;
 
@@ -127,7 +134,11 @@ export function sizeGuidedTrade(input: SizingInputs): SizedTrade {
   }
 
   const riskBudget = Math.min(riskCapital, equity) * (riskPct / 100);
-  const byRisk = riskBudget / riskPerShare;
+  // Never-failing rule 1: a tenth of the trading capital at most, whatever riskPct says.
+  // Unfloored, so a fractional unit is rounded once, below.
+  // A-RISK-07: after large profits, a tenth of the profits at most too.
+  const byTenth = maxRiskForTrade(Math.min(riskCapital, equity), profitCeiling) / riskPerShare;
+  const byRisk = Math.min(riskBudget / riskPerShare, byTenth);
 
   const byCapital = maxSharesForCapital(equity - capitalHeldUsd, entry);
 

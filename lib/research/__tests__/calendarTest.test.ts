@@ -50,3 +50,67 @@ describe("holm", () => {
   });
 });
 
+
+describe("CYC-35: pooling across phases can hide a rhythm", () => {
+  it("scores each phase of a longer cycle on its own, so a window that works every other year shows", async () => {
+    const { scoreCellByPhase } = await import("@/lib/research/calendarTest");
+    const t0 = Date.UTC(2010, 0, 1);
+    const sessions = Array.from({ length: 365 * 12 }, (_, i) => t0 + i * DAY);
+    const at = new Map(sessions.map((t, i) => [t, i]));
+    const pivots: number[] = [];
+    for (let y = 2011; y <= 2020; y++) {
+      if (y % 2) continue;
+      for (const [from] of windowInstances(W1, 1929, y, "calendar")) {
+        const day = Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth(), new Date(from).getUTCDate());
+        const i = at.get(day);
+        if (i !== undefined) pivots.push(i);
+      }
+    }
+    const pooled = scoreCell("T", { sessions, pivots }, "W1", "calendar", [2011, 2020]);
+    const byPhase = scoreCellByPhase("T", { sessions, pivots }, "W1", "calendar", 2, [2011, 2020]);
+    expect(byPhase.map((r) => r.phase)).toEqual([0, 1]);
+    // 2011 starts phase 0, so the even years are phase 1.
+    expect(byPhase[1].hitRate).toBe(1);
+    expect(byPhase[0].hitRate).toBe(0);
+    expect(pooled.hitRate).toBeCloseTo(0.5, 1);
+    expect(byPhase[1].instances + byPhase[0].instances).toBe(pooled.instances);
+  });
+});
+
+describe("CYC-24: planted pivots give a small p, random pivots a large one", () => {
+  it("separates turns planted in the windows from turns placed at random", async () => {
+    const { seeded } = await import("@/lib/research/preregisteredTimeTests");
+    const t0 = Date.UTC(2010, 0, 1);
+    const sessions = Array.from({ length: 365 * 8 }, (_, i) => t0 + i * DAY);
+    const at = new Map(sessions.map((t, i) => [t, i]));
+    const planted: number[] = [];
+    for (let y = 2011; y <= 2016; y++) for (const [from] of windowInstances(W1, 1929, y, "calendar")) planted.push(at.get(from)!);
+    const p1 = scoreCell("P", { sessions, pivots: planted }, "W1", "calendar", [2011, 2016]);
+    expect(p1.hitRate).toBe(1);
+    expect(p1.p).toBeLessThan(0.05);
+    const rand = seeded(24);
+    const random = Array.from({ length: planted.length }, () => Math.floor(rand() * sessions.length)).sort((a, b) => a - b);
+    const p2 = scoreCell("R", { sessions, pivots: random }, "W1", "calendar", [2011, 2016]);
+    expect(p2.p).toBeGreaterThan(0.05);
+  });
+});
+
+describe("CYC-40: each year convention is scored and the best reported, not assumed", () => {
+  it("finds the 364-day convention when the turns follow it, with Holm across the three", async () => {
+    const { bestConvention } = await import("@/lib/research/calendarTest");
+    const t0 = Date.UTC(2010, 0, 1);
+    const sessions = Array.from({ length: 365 * 8 }, (_, i) => t0 + i * DAY);
+    const at = new Map(sessions.map((t, i) => [t, i]));
+    const pivots: number[] = [];
+    for (let y = 2011; y <= 2016; y++) for (const [from] of windowInstances(W1, 1929, y, "364")) {
+      const i = at.get(from);
+      if (i !== undefined) pivots.push(i);
+    }
+    pivots.sort((a, b) => a - b);
+    const r = bestConvention("T", { sessions, pivots }, "W1", [2011, 2016]);
+    expect(r.cells.map((c) => c.convention)).toEqual(["calendar", "solar", "364"]);
+    expect(r.cells.every((c) => typeof c.holmSignificant === "boolean")).toBe(true);
+    expect(r.best).toBe("364");
+    expect(r.bestHolmSignificant).toBe(true);
+  });
+});

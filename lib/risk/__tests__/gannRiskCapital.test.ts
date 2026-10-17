@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { GANN_LONG_RUN_WINS, gannRiskCapital } from "@/lib/risk/dynamic-risk";
+import { maxRiskForTrade } from "@/lib/risk/gannCapital";
 
 const base = { startingCapital: 100_000, consecutiveWins: 0, streakProfitUsd: 0 };
 
@@ -39,5 +40,17 @@ describe("gannRiskCapital", () => {
     expect(gannRiskCapital({ ...base, startingCapital: 0, equity: 5_000 }).capital).toBe(5_000);
     const run = { startingCapital: 0, equity: 6_000, consecutiveWins: GANN_LONG_RUN_WINS, streakProfitUsd: 1_000 };
     expect(gannRiskCapital(run)).toMatchObject({ capital: 5_000, frozen: true });
+  });
+});
+
+// A-RISK-03 (W006 p.46; the rest of the sentence is cut off in the copy, so
+// W022's "a tenth of what remains" is read): after a series of losses the
+// trading unit is the capital that remains, and a trade risks a tenth of it.
+// Met by the unit itself, never above the equity; the pause is lossSeries.ts.
+describe("the unit after a series of losses (A-RISK-03)", () => {
+  it("is cut to the capital that remains, and a trade risks a tenth of it", () => {
+    const unit = gannRiskCapital({ equity: 85_000, startingCapital: 100_000, consecutiveWins: 0, streakProfitUsd: 0 }).capital;
+    expect(unit).toBe(85_000);
+    expect(maxRiskForTrade(unit)).toBe(8_500);
   });
 });

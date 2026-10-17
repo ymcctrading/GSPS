@@ -44,7 +44,7 @@ const STOP_REASONS: ReadonlySet<string> = new Set<GannStopReason | "stop">([
 ]);
 
 /** Whether a trade that left for this reason is reversed. */
-export function reversesOn(cause: ReversalCause | "timeout" | null | undefined): boolean {
+export function reversesOn(cause: ReversalCause | "covered" | "timeout" | null | undefined): boolean {
   if (!cause) return false;
   return STOP_REASONS.has(cause) || REVERSING_EXITS.has(cause as GannExitReason);
 }

@@ -23,6 +23,17 @@
  *   the first close that is still there after three days (A-TIME-12, W006
  *   p.23; `readHoldTime`). Before that, the first lot has not shown which
  *   side of the trend it is on.
+ * - **Pyramid longs in stocks with small capital and shorts in stocks with
+ *   large capital** (never-failing rule 21, *Wall Street Stock Selector*,
+ *   1930, Ch. II pp. 18-28; W005 reading notes). The reason is in *Truth of
+ *   the Stock Tape* (1923) Ch. III pp. 5-7: the same buying moves a stock with
+ *   a small supply of shares 5-10 points (Baldwin, 200,000 shares) and hardly
+ *   moves one with a large supply (General Motors, 50 million). So a long adds
+ *   where demand can lift price fastest, and a short adds where the weight of
+ *   supply keeps a decline going. Added 2026-10-16 (owner: Gann's method
+ *   supersedes GSPS's). `capitalStock` carries the share count (migration
+ *   0083); a stock whose count isn't known gets no add, since the rule can't
+ *   be checked. It covers stocks only: crypto omits the field.
  *
  * How GSPS applies it: `readPyramidAdd` says whether the position has earned
  * an add now, how large, at what trigger, and where the whole position's stop
@@ -31,10 +42,24 @@
  * track one entry per plan, and an add changes the position they manage. That
  * is recorded in the parity roadmap as the remaining step.
  *
+ * - **Add at fixed steps** (A-PYRAMID-01, W006 p.47 Rule 5: every 5 points
+ *   for stocks at $20-50, every 10 at $80-200; A-PYRAMID-06, W022 pp.196-199:
+ *   10-point steps). Read as `PYRAMID_STEP_POINTS` Gann points past the last
+ *   lot, price-scaled by `gannPoint`, which makes his 5 at $42.50 and about
+ *   10 at $150-200 one figure. Until 2026-10-16 the step was one risk unit.
+ * - **Raise the whole line's stop to 10 points under as it grows** (A-STOP-06,
+ *   W022 p.198: at 253 the stop on the whole line goes to 243). Read as the
+ *   tighter of combined break-even and `PYRAMID_STEP_POINTS` Gann points
+ *   beyond the add (`wholeLineStop`).
+ *
  * Engineering choices, labelled as such:
- * - Gann's "full interval of profit" (3–5 or 10 points by price level) is
- *   price-scaled here as one risk unit, the same scaling the break-even rule
- *   uses (`exitRules.ts`).
+ * - Rule 21's small/large cutoff: the text gives no figure. Its examples are
+ *   relative (200,000 shares small, 5 and 50 million large, in 1923), and a
+ *   1920s share count doesn't port to today's issues. `LARGE_CAPITAL_MIN_SHARES`
+ *   is 500 million shares outstanding, a round figure near the middle of the
+ *   large-cap universe GSPS scans, so roughly half of it reads each way. It is
+ *   unmeasured; re-derive it from the stored counts' median if the split
+ *   proves lopsided.
  * - The add trigger is a completed 3-Day Chart top (bottom) made after the last
  *   lot, crossed by the 3-point allowance: the same Buying Point the entry
  *   uses (`entryTrigger.ts`).
@@ -50,7 +75,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { beyondByThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
@@ -72,6 +97,12 @@ export interface PyramidInput {
   daily: Bar[];
   /** The current price. */
   price: number;
+  /**
+   * Shares outstanding for a stock (rule 21), as of the session read. Null:
+   * a stock whose count isn't known, which gets no add. Omitted: a market the
+   * rule doesn't cover (crypto).
+   */
+  capitalStock?: number | null;
 }
 
 export interface PyramidAdd {
@@ -91,10 +122,49 @@ export interface PyramidReading {
   holdWarning?: string | null;
 }
 
+/**
+ * Engineering choice (see the header): the share count at or above which a
+ * stock reads as having a large capital stock under rule 21.
+ */
+export const LARGE_CAPITAL_MIN_SHARES = 500_000_000;
+
+/** Gann points of profit between lots, and between an add and the whole line's stop. */
+export const PYRAMID_STEP_POINTS = 5;
+
+/**
+ * The whole position's stop after an add: the tighter of combined break-even
+ * and `PYRAMID_STEP_POINTS` Gann points beyond the add (A-STOP-06), and never
+ * looser than the stop already in place.
+ */
+export function wholeLineStop(side: "long" | "short", avg: number, trigger: number, current: number): number {
+  const step = PYRAMID_STEP_POINTS * gannPoint(trigger);
+  return side === "long" ? Math.max(current, avg, trigger - step) : Math.min(current, avg, trigger + step);
+}
+
+export function capitalSize(shares: number | null | undefined): "small" | "large" | null {
+  if (shares == null || !(shares > 0)) return null;
+  return shares >= LARGE_CAPITAL_MIN_SHARES ? "large" : "small";
+}
+
 export function readPyramidAdd(input: PyramidInput): PyramidReading {
   const { side, lots, daily, price } = input;
   const long = side === "long";
   if (lots.length === 0) return { add: null, reason: "No position." };
+
+  // Rule 21: longs are added to in stocks with a small capital stock, shorts
+  // in stocks with a large one.
+  if (input.capitalStock !== undefined) {
+    const size = capitalSize(input.capitalStock);
+    if (size === null) {
+      return { add: null, reason: "The company's share count isn't known, so its capital stock can't be read for an add." };
+    }
+    if (long && size === "large") {
+      return { add: null, reason: "Longs are added to only in stocks with a small capital stock, and this one has a large one." };
+    }
+    if (!long && size === "small") {
+      return { add: null, reason: "Shorts are added to only in stocks with a large capital stock, and this one has a small one." };
+    }
+  }
 
   const first = lots[0];
   const last = lots[lots.length - 1];
@@ -118,9 +188,12 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
     };
   }
 
-  // Only add to a winner: the last lot must show a full risk unit of profit.
+  // Only add to a winner, at fixed steps: the last lot must show
+  // PYRAMID_STEP_POINTS Gann points of profit (A-PYRAMID-01, A-PYRAMID-06).
   const lastProfit = long ? price - last.price : last.price - price;
-  if (lastProfit < risk) return { add: null, reason: "The last lot hasn't yet gained as much as the trade risked." };
+  if (lastProfit < PYRAMID_STEP_POINTS * gannPoint(last.price)) {
+    return { add: null, reason: "The last lot hasn't yet gained a full step of profit." };
+  }
 
   // Where the trend proves itself: an old top (bottom) made since the last lot.
   const swings = walkSwingChart(daily, THREE_DAY_CHART);
@@ -137,7 +210,7 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   // The whole position's stop: never where the combined position could lose.
   const totalQty = lots.reduce((n, l) => n + l.qty, 0) + qty;
   const avg = (lots.reduce((n, l) => n + l.qty * l.price, 0) + qty * trigger) / totalQty;
-  const newStop = long ? Math.max(input.stop, avg) : Math.min(input.stop, avg);
+  const newStop = wholeLineStop(side, avg, trigger, input.stop);
   // A stop that would already be through the market can't be placed.
   if (long ? newStop >= price : newStop <= price) {
     return { add: null, reason: "Price is too close to break-even for the combined position to be protected." };

@@ -166,3 +166,25 @@ describe("sizeGuidedTrade on Gann's trading unit", () => {
     expect(readFileSync("lib/guided/service.ts", "utf8")).toMatch(/gannRiskCapital\(/);
   });
 });
+
+describe("sizeGuidedTrade: never more than a tenth of the capital at risk (never-failing rule 1)", () => {
+  it("caps a risk percent over 10% at a tenth of the trading capital", () => {
+    // 25% of a $10,000 unit would risk $2,500; a tenth is $1,000, so $10 a share carries 100.
+    const sized = sizeGuidedTrade({ ...base, riskPct: 25, riskCapital: 10_000 });
+    expect(sized.qty).toBe(100);
+    expect(sized.riskUsd).toBeLessThanOrEqual(1_000 + 1e-6);
+    expect(sized.boundBy).toBe("risk");
+  });
+  it("leaves a risk percent under a tenth alone", () => {
+    expect(sizeGuidedTrade({ ...base, riskPct: 2, riskCapital: 10_000 }).qty).toBe(20);
+  });
+});
+
+describe("sizeGuidedTrade: a tenth of the profits after large profits (A-RISK-07)", () => {
+  it("sizes no more than the profit ceiling carries", () => {
+    // 5% of 100k would risk $5,000; a $2,000 ceiling allows 200 shares at $10 a share.
+    expect(sizeGuidedTrade({ ...base, riskPct: 5 }).qty).toBe(500);
+    expect(sizeGuidedTrade({ ...base, riskPct: 5, profitCeiling: 2_000 }).qty).toBe(200);
+    expect(sizeGuidedTrade({ ...base, profitCeiling: null }).qty).toBe(100);
+  });
+});

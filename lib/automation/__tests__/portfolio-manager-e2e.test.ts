@@ -80,7 +80,7 @@ import { isTriggered } from "@/lib/brokers/simulator";
  * query), automation_profiles/automation_events (lib/automation/service.ts),
  * and orders/protocol_exits (lib/trade/place-order.ts's paper ledger write).
  */
-function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
+function fakeSupabase(automationProfileRow: Record<string, unknown> | null, prefs: unknown = null) {
   const plans: Record<string, unknown>[] = [];
   const audit: Record<string, unknown>[] = [];
   const automationProfiles: Record<string, unknown>[] = [];
@@ -288,8 +288,8 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
       if (name === "orders") return ordersTable();
       if (name === "protocol_exits") return protocolExitsTable();
       if (name === "settings") {
-        // No stored preferences: Gann rule defaults apply.
-        const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+        // No stored preferences unless a test passes some: rule defaults apply.
+        const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: prefs ? { prefs } : null, error: null }) };
         return q;
       }
       throw new Error(`unexpected table ${name}`);
@@ -399,8 +399,8 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     });
 
     const planId = await createArmedPlan(client, "user-1");
-    // The reaction has come: the market is back at the plan's entry, so the
-    // resting limit (Gann's reaction buy, PLAN.md item 4) is marketable.
+    // The reaction has come (a closed bar traded into the buying zone, which
+    // the mocked confirmation reports), so the buy goes at the market.
     vi.mocked(isTriggered).mockReturnValue(true);
 
     // Confirms the first half of the ask directly: the plan really did reach
@@ -437,10 +437,12 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     // Automation is held to the same confirmation rule as every other entry,
     // judged on its plan's own trigger over the bars since the plan was made.
     expect(confirmNow.calls.at(-1)).toMatchObject({ symbol: "AAPL", direction: "bullish" });
-    // Gann's reaction rule: judged on the plan's entry and its stop, and the
-    // order is a limit at the entry, not a market order (PLAN.md item 4).
+    // Gann's reaction rule: judged on the plan's entry and its stop, and since
+    // never-failing rule 9 the order goes at the market, with the plan's entry
+    // kept on the row to measure the fill against.
     expect(confirmNow.calls.at(-1)).toMatchObject({ entryTrigger: 100, stopPrice: 97 });
-    expect(orders[0].limit_price).toBe(100);
+    expect(orders[0].limit_price).toBeNull();
+    expect(orders[0].requested_limit_price).toBe(100);
     expect((confirmNow.calls.at(-1) as { since?: string }).since).toBeTruthy();
   });
 
@@ -464,7 +466,8 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     const result = await runAutonomousPortfolioManager(client);
     expect(result.errors).toEqual([]);
     expect(orders).toHaveLength(1);
-    expect(orders[0].limit_price).toBe(99.5);
+    expect(orders[0].requested_limit_price).toBe(99.5);
+    expect(orders[0].limit_price).toBeNull();
     expect(confirmNow.calls.at(-1)).toMatchObject({ entryKind: "oldLevel", stopPrice: 94.55 });
   });
 
@@ -486,11 +489,12 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     const result = await runAutonomousPortfolioManager(client);
     expect(result.errors).toEqual([]);
     expect(orders).toHaveLength(1);
-    expect(orders[0].limit_price).toBe(99.5);
+    expect(orders[0].requested_limit_price).toBe(99.5);
+    expect(orders[0].limit_price).toBeNull();
     expect(confirmNow.calls.at(-1)).toMatchObject({ entryKind: "hold", stopPrice: 94.55 });
   });
 
-  it("rests a limit at the plan's entry while price has not yet reacted back to it", async () => {
+  it("rests no limit: a confirmed entry fills at the market (never-failing rule 9)", async () => {
     const { client, orders } = fakeSupabase({
       user_id: "user-1",
       is_automation_enabled: true,
@@ -501,11 +505,12 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
       execution_mode: "paper",
     });
     await createArmedPlan(client, "user-1");
-    vi.mocked(isTriggered).mockReturnValue(false);
+    vi.mocked(isTriggered).mockReset().mockReturnValue(false);
     await runAutonomousPortfolioManager(client);
     expect(orders).toHaveLength(1);
-    expect(orders[0].status).toBe("new");
-    expect(orders[0].limit_price).toBe(100);
+    expect(orders[0].status).toBe("filled");
+    expect(orders[0].limit_price).toBeNull();
+    expect(vi.mocked(isTriggered)).not.toHaveBeenCalled();
   });
 
   it("places nothing for an armed plan whose entry hasn't confirmed on the bars", async () => {
@@ -540,6 +545,30 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     });
 
     await createArmedPlan(client, "user-1"); // bullish, per armedCandidatePlan's default
+
+    const result = await runAutonomousPortfolioManager(client);
+
+    expect(result.plansActivated).toBe(0);
+    expect(result.plansSkipped).toBe(1);
+    expect(orders).toHaveLength(0);
+  });
+
+  it("opens nothing new while the trader's away window is open (A-EXIT-05)", async () => {
+    const soon = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const { client, orders } = fakeSupabase(
+      {
+        user_id: "user-1",
+        is_automation_enabled: true,
+        risk_profile: "MODERATE",
+        directional_bias: "BOTH",
+        volatility_trigger_type: "DOLLAR_AMOUNT",
+        volatility_trigger_value: 1,
+        execution_mode: "paper",
+      },
+      { gannRules: { awayFrom: soon } },
+    );
+
+    await createArmedPlan(client, "user-1");
 
     const result = await runAutonomousPortfolioManager(client);
 

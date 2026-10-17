@@ -47,6 +47,8 @@ export interface RegimeInputs {
    * dates (A-TIME-36, W022 pp.195-197, 217), so it is recorded as `turnDate`
    * context and never stands the regime aside (owner, Q26, 2026-10-16; it
    * was a `scheduledBinaryEvent` flag that forced the "event" regime).
+   * Only a vendor-confirmed date counts (`isScheduledReportDay`); the
+   * generated calendar's estimates never set it.
    */
   scheduledReportDay?: boolean;
   /** Explicit data-risk flags — these short-circuit to the "event" regime. */

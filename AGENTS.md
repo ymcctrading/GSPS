@@ -163,7 +163,18 @@ runs on Gann's stop and exit signals, as the replay's `exitRule: "gann"`
 measures; the 60% rule is kept as "gann-runner". Gann's capital rules
 (`lib/risk/gannCapital.ts`: 30 points of capital a share, at most 3 markets)
 size and refuse every order and replace Guided's own caps (Q4, Q6, Q12).
-`STRATEGY_VERSION` was `2026-10-16-gann-no-fixed-target`. **Q15, same day:** a trade caught on a stop or a change of trend reverses at Gann's geometry (`lib/gann/reverse.ts`: entry at the broken level, stop 3 points beyond the old extreme); automation seeds the plan with no setting to turn it off, a manual trade gets the offer in the exit notes, and the replay walks it (`reverseWhenCaught`). It still confirms before entry. `STRATEGY_VERSION` is `2026-10-16-gann-reverse-when-caught`.
+`STRATEGY_VERSION` was `2026-10-16-gann-no-fixed-target`. **Q15, same day:** a trade caught on a stop or a change of trend reverses at Gann's geometry (`lib/gann/reverse.ts`: entry at the broken level, stop 3 points beyond the old extreme); automation seeds the plan with no setting to turn it off, a manual trade gets the offer in the exit notes, and the replay walks it (`reverseWhenCaught`). It still confirms before entry. `STRATEGY_VERSION` was `2026-10-16-gann-reverse-when-caught`. Then, from the read books: break-even once 3 points ahead (M-E6), orders ⅜ point inside an even figure (M-P10), no Execute whose first target is no farther than its risk (M-K5). `STRATEGY_VERSION` was `2026-10-16-gann-book-rules`.
+**Rule 21, same day:** pyramid adds go to longs only in stocks with a small capital stock and to shorts only in large ones (`lib/gann/pyramid.ts`, 500 million shares, an engineering cutoff), on the live suggestion and the replay alike. `STRATEGY_VERSION` was `2026-10-16-gann-pyramid-capital`.
+**Never-failing rules 1 and 9, same day:** a trade risks at most a tenth of the trading unit (`riskTenthRefusal`, on top of 30 points a share; placement, Guided and the portfolio manager, never a protective order), and the reaction entry keeps its zone but goes at the market once a closed bar trades into it (`gannBuyZone`; the replay fills at the next bar's open). `STRATEGY_VERSION` was `2026-10-16-gann-never-failing-1-9`. Rule 8 holds stocks to 5 open and crypto to 3 (owner). The live daily Rule of Three reads completed sessions only, as the replay does: `STRATEGY_VERSION` is `2026-10-16-gann-rule-of-three-closed`.
+**A-RISK-07, same day:** once a paper account's profits equal its starting capital, a trade risks at most a tenth of those profits, and a loss lowers that at once (`profitRiskCeiling`, *Tunnel Thru the Air* pp.198-199). Once reached it holds while any profit is left, so after a loss the next trade risks a tenth of what remains (`lib/risk/profitPeak.ts` reads the peak). It applies at placement, paper and live, in Guided and in the portfolio manager. A live account's starting capital is its first verified equity read (`risk_live_equity_snapshots`) until net deposits are read from the broker. The replay sizes no position. Verdicts and trades are unchanged, so `STRATEGY_VERSION` stays.
+**A-EXIT-05, same day:** a trader can set the day they will be away from the market; from three days before it, the Dashboard reminds them to close out their trades (`awayReminderDue`, *Tunnel Thru the Air* p.113). A reminder only, like the rest reminder: nothing is closed for them. A new entry placed in that window comes back with the reminder (`lib/trade/away-notice.ts`), Guided shows it on the confirm step, and the portfolio manager opens nothing new in it. The replay models no trader absence.
+**Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` is `2026-10-16-gann-stops-and-steps`.
+**Re-buy after a stop, 2026-10-17 (owner's pick on the card, A-PYRAMID-07, *Tunnel* p.198):** a trade left on a trailing stop while the swing chart still runs its way, and that ran past its entry by the reaction, rests a re-entry 12 Gann points back from its best price with the stop half the reaction beyond (`lib/gann/rebuy.ts`); a reversal opened at the stop is covered there. The replay walks it (`rebuyAfterStop`). Live and paper exits offer it in a note, for automation's trades too: no plan is seeded for it yet, because a resting reaction re-entry has no lifecycle entry kind. `STRATEGY_VERSION` is `2026-10-17-gann-rebuy-after-stop`.
+**Close-out button and the unit after losses, same day:** the rest and away reminders on the Dashboard carry an opt-in "Close all positions" button (M-K4; owner's Q16, "Button"): after a confirm it closes every open paper position at market (`/api/positions/close-all`, `lib/trade/close-position.ts`); nothing closes on its own. A-RISK-03's cut unit after a series of losses is met by the unit itself, never above the equity left, so a trade risks a tenth of what remains (pinned in `gannRiskCapital.test.ts`); the pause is `lossSeries.ts`. A-PYRAMID-08's adds on the decline are the short mirror of the add (pinned), and its re-short on the rally is the re-entry after a stop; its partial covers come from a trade record with no stated rule, so none is built, and Q14 fixes no target.
+**A-RISK-07, same day:** once a paper account's profits equal its starting capital, a trade risks at most a tenth of those profits, and a loss lowers that at once (`profitRiskCeiling`, *Tunnel Thru the Air* pp.198-199). It applies at placement, in Guided and in the portfolio manager. A live account has no starting capital on record, so it is not read there, and the replay sizes no position. Verdicts and trades are unchanged, so `STRATEGY_VERSION` stays.
+**A-EXIT-05, same day:** a trader can set the day they will be away from the market; from three days before it, the Dashboard reminds them to close out their trades (`awayReminderDue`, *Tunnel Thru the Air* p.113). A reminder only, like the rest reminder: nothing is closed for them.
+**Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` was `2026-10-16-gann-stops-and-steps`.
+**Review B fixes, 2026-10-17:** Jensen's trine points stay context and only his square points join the S/R list (C-LEVELS-21; 45 and 90 flagged doubly strong), and resistance points within 1% are averaged into one before TP1 and the master are read, as the stop already was (M-P4), on the live scan and the replay alike. Context only: Gann's weekly green/red trend line (`lib/gann/weeklyOneBar.ts`, M-R8, beside the 7-day chart, not replacing it), the Master 12 grid (`masterTwelveCell`, M-T16; the spiral is labelled a GSPS construction), and a spectral cycle needs Schuster's p under 0.05 × min(1, period/20) (CYC-27). `STRATEGY_VERSION` is `2026-10-17-gann-review-b-fixes`.
 **Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
 cell loses over 2020-2026, interval wholly below zero, both halves; Execute
 is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The
@@ -233,6 +244,17 @@ points only; a stop still breaks on Gann's 3-point rule. Not built: the Node
 against 9° Gemini, base charts and progressions, the Uranus and sunspot
 cycles, the tables and the lunar grain keys (no testable rule, or too few
 repetitions). About 0.7 ms per symbol (65 ms on the first call).
+**Yearly counts in the time-window hold, 2026-10-16 (A-TIME-11; owner: the
+20-year count acts through the hold):** `readWindowTurn` takes the monthly
+chart (`monthlyLong ?? charts.monthly` live, `instrument?.monthlyLong ??
+charts.monthly` in the replay, months before the turn's only) and
+`timeWindowsAt` adds a labelled window for each `MAJOR_CYCLE_YEARS` hit from a
+major monthly pivot on the turn's side (`yearCycleHits`). No new fetch; about
+0.05 ms, read only when a counter-trend Execute needs it. The 13-year series
+held reaches the 1-10-year counts, not yet the 20-year one. Verdicts move:
+`STRATEGY_VERSION` is `2026-10-16-gann-yearly-count-windows`. Same day, guard
+(C-ASTRO-15): an astro or Jensen window counts only on a 3-Day Chart turn,
+never alone (`timeWindow.test.ts`).
 
 **Master Course methods with no plan, built 2026-10-16 (owner: "Build the 5
 Gann plans identified to be missing"):** the Overnight Chart and its
@@ -273,6 +295,24 @@ Gann made about it is filed as source A13. It confirms the method was never
 disclosed: each statement says what it does, and none says how. Nothing in
 it can be built. Gann's November 1935 "Forecasting" lesson (A2.1 Ch. 7)
 never uses the term, so don't call its cycles the Master Time Factor.
+
+**A-TIME-11 reach, 2026-10-17:** the time-window hold's yearly counts read
+`YEAR_COUNT_MONTHLY_YEARS` (61) of monthly bars, live and replay, from the same
+request; the 20-year count acts only where the vendor's history reaches that far.
+`STRATEGY_VERSION` was `2026-10-17-gann-yearly-count-reach`.
+
+**The nine pillars, 2026-10-17 (owner: the score stays out of 9, several of
+Gann's checks may count for one point; "Stop required" on the card):**
+`CRITERION_KEYS` are nine pillars built in `lib/scoring/pillars.ts` from what
+Gann checked before choosing a stock and a trade (market and cycle, trend on
+every timeframe, relative strength, activity, price levels, angles, time,
+volume, and the definite indication with the stop placed). The nine former
+criteria stay in the breakdown as checks (`checkOf`), measured but scoring
+nothing alone, and are retired in the registry. The live scan and the replay
+build the facts the same way (`readPillarFacts`, about 0.4 ms a symbol; the
+live scan now reads the disclosed rules once and shares them with the
+confluence card). The 6/3.5 cutoffs are held until a replay on this version
+re-derives them. `STRATEGY_VERSION` is `2026-10-17-gann-nine-pillars`.
 
 ## WD Gann precedence — standing principle
 
@@ -1341,7 +1381,7 @@ They bound how the decision is built, not whether.
 (16x1 to 1x16) on the Gann point, from the major pivots, with the 45°, 2x1 and
 4x1 copied to the preceding opposite pivot (GA-12 to GA-16), joins the S/R list (`lib/gann/patternAngles.ts`, via
 `masterLevels.ts`, live and replay). `STRATEGY_VERSION` is
-`2026-10-16-gann-pattern-angles`. The Hexagon Chart's time counts, read from
+`2026-10-16-gann-pattern-angles`. **Batch V3, same day:** early leaders first and weak stocks held as buys (A-SELECTION-02/-04), the third time through a round number (A-LEVELS-08), the secondary rally top in the S/R pool (A-LEVELS-02) and Ch. 6's division tiers (M-P1); `STRATEGY_VERSION` is `2026-10-16-gann-selection-levels`. The Hexagon Chart's time counts, read from
 Gann's own plate (`hexagonTime.ts`), and the Master Chart of 360°'s 48ths and
 sevenths (`masterChartTime.ts`) are trace and measured factors until the
 shared time-window mechanism exists. The plate is not lost (Master Course
@@ -2268,9 +2308,9 @@ What that means for a session:
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.
-- `vercel.json` sets `"git": {"deploymentEnabled": true}`, so Git-triggered deployments are **on**: pushing a branch builds a preview, and **merging to `main` deploys straight to production**. There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
+- `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
-- A branch push unavoidably spawns a preview build. That is expected and fine when you are pushing real work; don't push no-op commits just to move a pointer.
+- A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
 
 ## Git / PR Workflow
 

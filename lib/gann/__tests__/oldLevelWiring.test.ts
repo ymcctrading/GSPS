@@ -34,9 +34,10 @@ const bar = (t: string, c: number): Bar => ({ t, o: c, h: c + 0.2, l: c - 0.2, c
 
 describe("the old-level entry is ready with nothing to cross", () => {
   // Old bottom 100, stop 95.
-  it("is ready with no bars, and with bars that stay above the stop", () => {
-    expect(confirmationFromBars([], "bullish", 100, 95, "oldLevel").ready).toBe(true);
-    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 102)], "bullish", 100, 95, "oldLevel").ready).toBe(true);
+  it("waits with no bars and above the level, and is ready (at the market) once a bar comes back to it", () => {
+    expect(confirmationFromBars([], "bullish", 100, 95, "oldLevel").ready).toBe(false);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 102)], "bullish", 100, 95, "oldLevel").ready).toBe(false);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 100.1)], "bullish", 100, 95, "oldLevel").ready).toBe(true);
   });
 
   it("is off once a close has gone through the stop", () => {
@@ -45,7 +46,8 @@ describe("the old-level entry is ready with nothing to cross", () => {
   });
 
   it("is the mirror for a short at an old top", () => {
-    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 98)], "bearish", 100, 105, "oldLevel").ready).toBe(true);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 98)], "bearish", 100, 105, "oldLevel").ready).toBe(false);
+    expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 99.9)], "bearish", 100, 105, "oldLevel").ready).toBe(true);
     expect(confirmationFromBars([bar("2026-10-15T14:30:00Z", 105.1)], "bearish", 100, 105, "oldLevel").stage).toBe("dead");
   });
 

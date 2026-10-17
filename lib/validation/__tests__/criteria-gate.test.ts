@@ -36,6 +36,8 @@ import {
 import type { FactorAttribution } from "@/lib/backtest/attribution";
 
 const ROOT = process.cwd();
+/** Every import's specifier: `from "x"`, `import("x")` and a bare `import "x";`, either quote. */
+const IMPORT_SPEC = /(?:from\s+|import\s*\(\s*|^\s*import\s+)["']([^"']+)["']/gm;
 const STATES = ["trendPullback", "trendBreakout", "confirmedReversal", "rangeReversion"];
 
 /**
@@ -242,7 +244,7 @@ describe("no divergence times a turn (C-TIME-02)", () => {
     // Every import, aliased or relative, resolved to a repo path.
     const banned = (target: string) => /^lib\/(indicators|analysis\/indicators)$|^lib\/strategies(\/|$)/.test(target);
     const offenders = scanned.filter((f) =>
-      [...readFileSync(f, "utf8").matchAll(/from "([^"]+)"/g)].some(([, spec]) => {
+      [...readFileSync(f, "utf8").matchAll(IMPORT_SPEC)].some(([, spec]) => {
         const target = spec.startsWith("@/")
           ? spec.slice(2)
           : spec.startsWith(".")
@@ -255,3 +257,118 @@ describe("no divergence times a turn (C-TIME-02)", () => {
   });
 });
 
+
+/**
+ * CYC-41 (Dewey, C06): a period match across series or domains is a hint,
+ * not proof. The research tools that find such matches (`lib/research/*`,
+ * among them `crossSeries.ts`) and `spectralCycle.ts#validateCycle` stay off
+ * the verdict path: no criterion, gate, plan, entry or order reads them.
+ */
+describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
+  const verdictFiles = () => {
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          // Everything that runs in the app, except research and validation themselves.
+          const rel = path.relative(ROOT, p);
+          if (e.name !== "__tests__" && rel !== "lib/research" && rel !== "lib/validation") walk(p);
+        } else if (/\.tsx?$/.test(p)) files.push(p);
+      }
+    };
+    for (const d of ["lib", "app", "components"]) walk(path.join(ROOT, d));
+    return files;
+  };
+
+  it("has no scored criterion named for a cross-series or cross-domain match", () => {
+    for (const key of CRITERION_KEYS) expect(key).not.toMatch(/crossSeries|samePeriod|periodPrior|waveShape|beat/i);
+  });
+
+  it("keeps lib/research off the verdict path", () => {
+    const offenders = verdictFiles().filter((f) =>
+      [...readFileSync(f, "utf8").matchAll(IMPORT_SPEC)].some(([, spec]) => {
+        const target = spec.startsWith("@/")
+          ? spec.slice(2)
+          : spec.startsWith(".")
+            ? path.relative(ROOT, path.resolve(path.dirname(f), spec))
+            : null;
+        return target !== null && /^lib\/research(\/|$)/.test(target);
+      }),
+    );
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+
+  // CYC-21 (Dewey, W039 pp.30-31): so many cycles exist that a period fitting a
+  // x2/x3 family from 17.75 years is easy, and periods are measured too
+  // crudely, so no criterion or gate may award credit for such a fit.
+  const FAMILY_FIT = /\b\w*(?:famil(?:y|ies)Fit|cycleFamil\w*|periodFamil\w*|harmonicFamil\w*|doublingFit|triplingFit|progressionFit)\w*\b/;
+  it("has no scored criterion or registry entry for a period's fit to a x2/x3 family (CYC-21)", () => {
+    for (const key of CRITERION_KEYS) expect(key).not.toMatch(/famil|progression|doubling|tripling/i);
+    for (const e of CRITERIA_REGISTRY) expect(e.id).not.toMatch(/famil|progression|doubling|tripling/i);
+  });
+
+  it("finds a family fit by name, and none on the verdict path (CYC-21)", () => {
+    expect(FAMILY_FIT.test("const credit = cycleFamilyMatch(period);")).toBe(true);
+    expect(FAMILY_FIT.test("const credit = harmonicFamilyScore(p);")).toBe(true);
+    expect(FAMILY_FIT.test("WHEEL_COUNTS halves and thirds")).toBe(false);
+    const offenders = verdictFiles().filter((f) => FAMILY_FIT.test(readFileSync(f, "utf8")));
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+
+  it("never calls validateCycle outside its own module", () => {
+    const callers = verdictFiles().filter((f) => path.relative(ROOT, f) !== "lib/gann/spectralCycle.ts" && /\bvalidateCycle\b/.test(readFileSync(f, "utf8")));
+    expect(callers.map((f) => path.relative(ROOT, f))).toEqual([]);
+  });
+});
+
+describe("the import guards read every import form", () => {
+  it("catches a bare side-effect import, a dynamic import and a single-quoted one", () => {
+    const src = [
+      'import "@/lib/research/x";',
+      "  import '@/lib/research/y';",
+      'const m = await import ( "@/lib/research/z" );',
+      'import { a } from\n  "@/lib/research/w";',
+    ].join("\n");
+    const specs = [...src.matchAll(IMPORT_SPEC)].map(([, s]) => s);
+    expect(specs).toEqual(["@/lib/research/x", "@/lib/research/y", "@/lib/research/z", "@/lib/research/w"]);
+  });
+});
+
+/**
+ * C-LEVELS-19 (Sidney, W031 p.1): breaking one angle does not mean price must
+ * go to the next. The next-angle price `readOneByOneBreak` computes
+ * (`lib/gann/fans.ts`) is card text and a context factor only, so no level
+ * pool, stop, target, score or order reads it.
+ */
+describe("the next angle after a 1x1 break is never a level (C-LEVELS-19)", () => {
+  const ALLOWED = new Set(["lib/gann/fans.ts", "lib/gann/disclosedRules.ts", "lib/gann/contextFactors.ts"]);
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== "__tests__" && e.name !== "node_modules") walk(p);
+      } else if (/\.tsx?$/.test(p) && !/\.test\.tsx?$/.test(p)) files.push(p);
+    }
+  };
+  for (const d of ["lib", "app", "components"]) walk(path.join(ROOT, d));
+  const reads = (f: string) => /readOneByOneBreak|oneByOneBreak|OneByOneBreak/.test(readFileSync(f, "utf8"));
+
+  it("is not read by the level, scoring, scan or replay modules", () => {
+    for (const f of ["lib/strat/levels.ts", "lib/scoring/score.ts", "lib/scanTicker.ts", "lib/backtest/replay.ts", "lib/gann/masterLevels.ts"]) {
+      expect(reads(path.join(ROOT, f)), f).toBe(false);
+    }
+  });
+
+  it("is read only by its own module, the card and the context factors", () => {
+    expect(files.filter(reads).map((f) => path.relative(ROOT, f)).filter((f) => !ALLOWED.has(f))).toEqual([]);
+  });
+
+  it("leaves the context factor a yes/no reading with no price", () => {
+    const src = readFileSync(path.join(ROOT, "lib/gann/contextFactors.ts"), "utf8");
+    const lines = src.split("\n").filter((l) => /oneByOneBreak/.test(l));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l).not.toMatch(/\.next\b|\.price\b/);
+  });
+});

@@ -12,6 +12,7 @@ import type { ScanResult, TradeLevels } from "@/lib/types";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 type Tab = "research" | "options" | "levelii" | "company";
 
@@ -227,14 +228,17 @@ function ResearchPanel({
             {tradeSideLabel(fetched.direction)}
           </Badge>
         )}
-        {fetched.gann.timeCycleActive && (
+        {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
+        {TIME_LINE_RECORDS.timeCycle && fetched.gann.timeCycleActive && (
           <Badge variant="warn">
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" />
+            <span className="font-normal"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
           </Badge>
         )}
-        {(fetched.gann.yearCycleBullishHits ?? 0) + (fetched.gann.yearCycleBearishHits ?? 0) > 0 && (
+        {TIME_LINE_RECORDS.yearCycles && (fetched.gann.yearCycleBullishHits ?? 0) + (fetched.gann.yearCycleBearishHits ?? 0) > 0 && (
           <Badge variant="warn">
             ⟳ <GlossaryTerm term="Yearly cycles converging" label="Yearly cycles converging" className="decoration-warn/60" />
+            <span className="font-normal"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
           </Badge>
         )}
       </div>

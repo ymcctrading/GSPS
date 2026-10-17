@@ -22,6 +22,7 @@ import type { ScanResult } from "@/lib/types";
 import type { SignalPlan } from "@/lib/signals/types";
 import type { LiveQuote } from "@/app/api/quote/route";
 import type { StrategyModeId } from "@/lib/strategies/types";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 const TIER_RANK = { watchlistOnly: 0, qualified: 1, aTier: 2, aPlusTier: 3 } as const;
 
@@ -247,15 +248,18 @@ export function TickerView({ symbol }: { symbol: string }) {
          * standing condition rather than a live reading, and the research tab
          * carries it on every screen size.
          */}
-        {result?.gann.timeCycleActive && (
+        {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
+        {TIME_LINE_RECORDS.timeCycle && result?.gann.timeCycleActive && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" /> active
+            <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
           </span>
         )}
-        {result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
+        {TIME_LINE_RECORDS.yearCycles && result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
             ⟳ <GlossaryTerm term="Yearly cycles converging" label="Yearly cycles converging" className="decoration-warn/60" />
             {" "}({result.gann.yearCycleBullishHits ?? 0} from lows, {result.gann.yearCycleBearishHits ?? 0} from highs)
+            <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">

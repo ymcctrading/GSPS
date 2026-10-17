@@ -78,7 +78,19 @@ export function contextFactorsFor(
     f.lateSection = c.sections >= 3;
     // Class C trend readings (W003 p.17), measured, never gating (item 6).
     f.reactionsContractingWithTrade = !against && c.contracting;
+    // C-SWING-01 (W003 p.16, class C): nearly equal corrections, uptrend only.
+    f.equalCorrectionsWithTrade = !against && c.equalCorrections;
     f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
+    // C-TREND-03/-06 (Commodities p.312 "price or time"; Master Course Ch.8
+    // PDF 249 "by 1+ point"): over-balance with Gann's 1-point margin.
+    f.overbalancedByPointAgainstCampaign = against && (c.spaceOverbalancedByPoint || c.timeOverbalanced);
+    // C-TIME-27 (Master Course Ch.2 PDF 51, Ch.7 PDF 220): a campaign with
+    // the trade in a culmination month, or past 3 years.
+    f.campaignCulminationMonthWithTrade = !against && (c.age.culmination1931 || c.age.culmination1935);
+    f.campaignPastCeilingWithTrade = !against && c.age.pastThreeYears;
+    // C-PRICE-01 (Master Course Ch.6 PDF 197): price within 1% of the
+    // prior-range projection, the levelTests tolerance.
+    if (c.rangeProjection) f.nearRangeProjection = (Math.abs(c.rangeProjection.price - price) / price) * 100 <= 1;
   }
   // Class C entry readings (W003), measured, never gating (item 5 step 4b).
   if (ctx.halfwayRetest) f.halfwayReturnAgrees = ctx.halfwayRetest.state === "returning" && ctx.halfwayRetest.direction === direction;
@@ -93,6 +105,23 @@ export function contextFactorsFor(
     // Fast moves start from the third or fourth (W003 p.17; Master Course p.248).
     f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
+  // Price grids (priceGrids.ts; Master Course Ch.6 PDF 186, 209-210; Ch.13
+  // PDF 375, 378): price within 1% of a level, the levelTests tolerance.
+  if (ctx.priceGrids) {
+    const g = ctx.priceGrids;
+    const near = (...xs: (number | null)[]) => xs.some((x) => x !== null && (Math.abs(x - price) / price) * 100 <= 1);
+    f.nearParitySquare = near(g.paritySquares.squareBelow, g.paritySquares.squareAbove);
+    f.nearSquareHalfway = near(g.paritySquares.halfwayBelow, g.paritySquares.halfwayAbove);
+    f.nearNineTwelveLevel = near(g.nineTwelve.nineBelow, g.nineTwelve.nineAbove, g.nineTwelve.twelveBelow, g.nineTwelve.twelveAbove);
+    f.rangeApproachingMultipleOf144 = g.range144.approaching;
+  }
+  // C-TREND-08 (Master Course Ch.7 PDF 223): the 5th unit of a run on days,
+  // weeks or months, in the trade's direction or against it.
+  if (ctx.ascension) {
+    const units = [ctx.ascension.daily, ctx.ascension.weekly, ctx.ascension.monthly].filter((a) => a?.fifth);
+    f.ascensionUnitWithTrade = units.some((a) => a!.direction === (bull ? "up" : "down"));
+    f.ascensionUnitAgainstTrade = units.some((a) => a!.direction === (bull ? "down" : "up"));
+  }
   // Stage F1: extreme-price and timing rules, in the trade's direction.
   const rs = ctx.extremes.reverseSignal.signal;
   if (rs) f.reverseSignalAgrees = rs === (bull ? "bottom" : "top");
@@ -103,7 +132,11 @@ export function contextFactorsFor(
   const gapsNew = ctx.extremes.gaps.gapsInNewTerritory;
   // Three or more gaps in new territory in the trade's own direction: that
   // move is near its culmination, a risk to this trade.
-  if (gapsNew) f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+  if (gapsNew) {
+    f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
+    // M-E12 (Commodities p.321): 6 or more, an extended run, measured on its own.
+    f.extendedGapsInTradeDirection = gapsNew.extended && gapsNew.direction === (bull ? "up" : "down");
+  }
   if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
   if (ctx.timing.square144) f.square144Convergence = ctx.timing.square144.units.length >= 2;
   if (ctx.timing.projection) f.tightTimeProjection = ctx.timing.projection.spreadDays <= 5;
@@ -196,6 +229,11 @@ export function contextFactorsFor(
     const over = price > ctx.monthlySquareFromHigh.price;
     f.overSquareFromHighAgreesWithTrade = bull ? over : !over;
   }
+  // Over the rising 1x1 from the last low on the calendar-day scale for a
+  // long, under the falling one from the last high for a short (C-LEVELS-20,
+  // Jensen; context only).
+  const calLine = bull ? ctx.calendarDayAngles?.fromLow : ctx.calendarDayAngles?.fromHigh;
+  if (calLine) f.calendarDayAngleAgreesWithTrade = bull ? price > calLine.price : price < calLine.price;
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
   // failed test standing against it (the second or third since 2026-10-16,
   // A-LEVELS-04; the factor keeps its name so earlier runs still compare,
@@ -235,6 +273,9 @@ export function contextFactorsFor(
   if (ctx.leadership) {
     f.earlyLeaderInTradeDirection = bull ? ctx.leadership.bottomedFirst : ctx.leadership.toppedFirst;
     if (bull) f.lateMoverLong = ctx.leadership.bottomedLate;
+    // A-TIME-08 (W006 pp.31, 35-37): late tops make late bottoms, early tops early ones. Measured, never gating.
+    f.lateBottomExpected = ctx.leadership.lateBottomExpected;
+    f.earlyBottomExpected = ctx.leadership.earlyBottomExpected;
     if (bull && ctx.leadership.firstYearHighCrossed !== null) f.firstYearHighCrossed = ctx.leadership.firstYearHighCrossed;
   }
   // A-TREND-07/-08: a weak stock in a bull market; Gann leaves it alone on
@@ -259,15 +300,38 @@ export function contextFactorsFor(
       f.counterMovePastFourthDay = st.shortCounterMove.phase === "pastFourthDay";
       f.counterMoveSevenToTen = st.shortCounterMove.phase === "sevenToTen";
     }
-    // A top due counts against a long, a bottom due against a short.
-    if (st.timeBalanceSpans) f.timeBalanceTurnAgainstTrade = st.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
-    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
-    if (st.timeBalanceSpans) f.timeBalanceFalseBreakWithTrade = st.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
     if (st.fanTimeRatios) f.fanTimeRatioActive = st.fanTimeRatios.length > 0;
     // A rise from a low meeting its level on time argues for a turn down,
     // against a long; a fall from a high, the mirror.
     if (st.retracementTiming) f.retracementTurnAgainstTrade = st.retracementTiming.some((h) => (h.anchorKind === "low") === bull);
     if (st.halfPriceHalfTime !== undefined) f.halfPriceHalfTimeRecent = st.halfPriceHalfTime !== null;
+  }
+
+  // Class A time counts read as context (2026-10-16, `timeCounts.ts`):
+  // measured, never gating. Directions follow each count's class A
+  // counterpart: from an anchor, a low argues up.
+  const tc = ctx.timeCounts;
+  if (tc) {
+    if (tc.lessonCycles) f.lessonCycleWithTrade = tc.lessonCycles.some((h) => (h.kind === "low") === bull);
+    f.wheelCountCh5WithTrade = tc.wheelCountsCh5.some((h) => (h.pivotKind === "low") === bull);
+    // Time balance (M-T11, class A since 2026-10-16; the factor names are kept
+    // so earlier runs still compare). A top due counts against a long, a
+    // bottom due against a short.
+    f.timeBalanceTurnAgainstTrade = tc.timeBalanceSpans.some((b) => b.kind === (bull ? "top" : "bottom"));
+    // A due bottom confirmed by a false break, with a long; a top, with a short (C-STOP-03).
+    f.timeBalanceFalseBreakWithTrade = tc.timeBalanceSpans.some((b) => b.falseBreak && b.kind === (bull ? "bottom" : "top"));
+    // The day bands and calendar dates carry no direction, like Rule 8's bands.
+    f.commoditiesDayBandActive = tc.commoditiesDayBands.length > 0;
+    f.rule8DateActive = tc.rule8Date !== null;
+    f.rule8DateMostImportant = tc.rule8Date?.mostImportant === true;
+    f.winterQuarterDateActive = tc.winterQuarter !== null;
+    f.weekCountClassAActive = tc.weekCounts.length > 0;
+    // Weeks since the run began (M-T10), for a run in the trade's direction.
+    if (tc.boilingRun) {
+      const withRun = tc.boilingRun.run === (bull ? "up" : "down");
+      f.boilingRunClassicWithTrade = withRun && tc.boilingRun.phase === "classic";
+      f.boilingRunPastClassicWithTrade = withRun && (tc.boilingRun.phase === "extended" || tc.boilingRun.phase === "overrun");
+    }
   }
 
   // A-TIME-05/-21: a watched month count (18-48 months in sixes) from a major
@@ -412,5 +476,82 @@ export function contextFactorsFor(
     const proj = astro.jensen.projection;
     if (proj) f.jensenAtProjectedExhaustion = proj.direction === "up" ? price >= proj.price - astro.unit : price <= proj.price + astro.unit;
   }
+  // Price read as time and the long counts (priceAsTime.ts; Master Course
+  // Ch.4 PDF 125, 144-150; Ch.6 PDF 191-197; Ch.13 PDF 375, 379; Ch.15B PDF
+  // 422-423; Ch.16 PDF 428-430; Ch.18 PDF 440). No direction in the text.
+  const pt = ctx.priceAsTime;
+  if (pt) {
+    f.priceAsTimeOnCount = pt.hits.length > 0;
+    f.priceTimeBalanceWeeks = pt.balance.fromLow.balanced || pt.balance.fromHigh.balanced;
+    // A-PRICE-03 (Ch.4 PDF 151, Ch.6 PDF 202): ahead of time, and a gain past one point a month.
+    f.priceAheadOfTime = pt.balance.fromLow.position === "ahead" || pt.balance.fromHigh.position === "ahead";
+    f.gainBeyondPointPerMonth = pt.balance.fromLow.beyondPointPerMonth;
+    f.halvingChainDay = pt.halving.hits.length > 0;
+    f.twoPivotFractionMeet = pt.twoPivot !== null;
+    f.twoPivotFractionAtHalfOrThreeQuarter = pt.twoPivot?.priceAtHalfOrThreeQuarter ?? false;
+    f.squareOf90Count = pt.squareOf90.length > 0;
+    f.marketDayEleventhCount = pt.marketDays.length > 0;
+    if (pt.inceptionRead) {
+      f.squareOf90FromInception = pt.squareOf90.some((s) => s.origin === "inception");
+      f.hexagonMonthFromInception = pt.hexagonInception !== null;
+    }
+  }
+  // Angles from zero, from a double or triple bottom (top), and in the square
+  // of the range (C-LEVELS-04/-05/-09, `angleCrossings.ts`). No direction in
+  // Gann's text for these; recorded as they stand.
+  const ac = ctx.angleCrossings;
+  if (ac) {
+    f.onZeroAngle = ac.fromZero.onLine;
+    f.atZeroAngleBalance = ac.fromZero.atBalance;
+    if (ac.multipleTests) {
+      f.onMultipleTestAngle = ac.multipleTests.onAngle;
+      f.atMultipleTestCrossing = ac.multipleTests.atCrossing;
+    }
+    if (ac.square) {
+      f.onSquareOfRangeAngle = ac.square.onAngle;
+      f.atSquareOfRangeCrossing = ac.square.atCrossing || ac.square.atEnd;
+    }
+    f.nearestAngleIsOneByOne = ac.nearestAngleRank === 1;
+  }
+  // The year's trend from its opening ranges (A-TIME-20) and the decade
+  // analogues' month ahead (A-TIME-14), each against the trade's direction.
+  const yr = ctx.yearRanges;
+  if (yr && yr.yearTrend !== "inside") f.yearRangeTrendWithTrade = yr.yearTrend === (bull ? "up" : "down");
+  const da = ctx.decadeAnalogue;
+  if (da?.agreed) f.decadeAnalogueWithTrade = da.agreed === (bull ? "up" : "down");
+  // The square of 52 (M-T6, C-TIME-46) and the decade digit (M-T17, C-TIME-24), as the card reads them.
+  if (ctx.squareOf52) f.squareOf52Window = ctx.squareOf52.active;
+  const dc = ctx.decadeCycle;
+  if (dc && dc.bias !== "mixed") f.decadeYearWithTrade = dc.bias === (bull ? "bullish" : "bearish");
+  if (dc?.ninetiethMonth) f.decadeNinetiethMonth = dc.ninetiethMonth.active;
+  // A-TIME-07: the market's bull campaign at the prior one's length. No direction in the text.
+  const cl = ctx.campaignLength;
+  if (cl?.current && cl.prior) f.bullCampaignAtPriorLength = cl.atPriorLength;
+  // A-TIME-32: a fixed count from the founding date. No direction in the text.
+  const fc = ctx.foundingCounts;
+  if (fc) {
+    f.foundingCountYear = fc.years.length > 0;
+    f.foundingCount42Months = fc.months42;
+  }
+  // A-TIME-33: a 490, 1,290 or 1,335-day count from a major monthly turn. No direction in the text.
+  if (ctx.outbreakCounts) f.outbreakDayCount = ctx.outbreakCounts.length > 0;
+  // A-SELECTION-07: a small number of shares, read on short candidates only.
+  if (!bull && ctx.capitalStock?.smallFloat !== undefined) f.smallFloatShort = ctx.capitalStock.smallFloat;
+  // C-STOP-02: a break of the 1x1 points down from a low and up from a high.
+  if (ctx.oneByOneBreak && ctx.oneByOneBreak.length > 0) f.oneByOneBreakWithTrade = ctx.oneByOneBreak.some((b) => b.direction === (bull ? "up" : "down"));
+  // C-LEVELS-24: the session is on the convergence of lines from a double or triple bottom (top), within a bar. No direction in the text.
+  if (ctx.jensenConvergence) f.jensenConvergenceNow = Math.abs(ctx.jensenConvergence.point.barsFromNow) <= 1;
+  // A-TIME-16: the next change date's label. No direction in the text.
+  if (ctx.timing.changeDates?.next) f.nextChangeDateExpectsHigh = ctx.timing.changeDates.next.expect === "high";
+  // A-TIME-03: the advance out of a bear market's low. Bull side only in the text; read the same for both directions.
+  const fr = ctx.firstRally;
+  if (fr && fr.state !== "early") {
+    f.firstRallyOnly = fr.state === "firstRally";
+    f.bullCampaignThreeMonths = fr.state === "bullCampaign";
+  }
+  // C-TIME-03 (W003 p.16, class C): the range break at a cycle's expiry, a short setup only.
+  if (!bull && ctx.cycleRangeBreak) f.cycleRangeBreakShort = ctx.cycleRangeBreak.shortSetup;
+  // M-R8: the weekly trend line is green for a long, red for a short.
+  if (ctx.weeklyOneBar?.colour) f.weeklyOneBarWithTrade = ctx.weeklyOneBar.colour === (bull ? "green" : "red");
   return f;
 }

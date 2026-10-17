@@ -13,6 +13,7 @@ import type {
   TrendReading,
 } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
 import { hasTradePlan, isWithTrendContinuation, mergeContinuations, qualifiesAsContinuationFill } from "@/lib/marketScan";
 import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionWeights } from "@/lib/scoring/weights";
 
@@ -120,6 +121,7 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
     stopAtrMultiple: 2,
     levels,
     weights: UNIFORM_WEIGHTS,
+    pillarFacts: passingPillarFacts(),
     ...overrides,
   };
 }
@@ -127,15 +129,23 @@ function inputs(overrides: Partial<ScoreInputs> = {}): ScoreInputs {
 describe("computeScore output state", () => {
   it("reaches Execute when the plan is priced", () => {
     const decision = computeScore(inputs());
-    expect(decision.score).toBe(8);
+    expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
+  });
+
+  it("holds at Watch when the first target is no farther than the risk (M-K5)", () => {
+    // "Don't risk 3-5 points for 3-5" (Stock Selector Ch.II): equal risk and reward is refused.
+    const even = { ...levels, takeProfit1: 101, rewardToRiskTp1: 1 };
+    const decision = computeScore(inputs({ levels: even }));
+    expect(decision.outputState).toBe("Watch");
+    expect(decision.breakdown.at(-1)?.note).toMatch(/no farther than the risk/);
   });
 
   it("holds at Watch when the context scores 6+ but no trigger is armed", () => {
     // `gannTrigger` is what arms the trade now; `pattern` no longer does.
-    // With no plan there is no stop either, so the stop point fails too (Q23).
+    // With no plan there is no stop either, so the definite-indication point fails (Q23).
     const decision = computeScore(inputs({ pattern: null, gannTrigger: null, levels: null }));
-    expect(decision.score).toBe(6);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Watch");
     expect(decision.breakdown.at(-1)?.criterion).toMatch(/Trade plan priced/);
   });
@@ -149,7 +159,7 @@ describe("computeScore output state", () => {
     const decision = computeScore(
       inputs({ gannTrigger: { ...gannTrigger, direction: "bearish" as const } }),
     );
-    expect(decision.score).toBe(7);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Watch");
   });
 
@@ -162,8 +172,10 @@ describe("computeScore output state", () => {
       nearSupportResistance: false,
       momentumElevated: false,
       stopAtrMultiple: 0.8,
+      pillarFacts: null,
     }));
-    expect(decision.breakdown).toHaveLength(9);
+    // Nine points and the nine checks they are built from.
+    expect(decision.breakdown).toHaveLength(18);
     expect(decision.outputState).toBe("Reject");
   });
 });
@@ -361,9 +373,9 @@ describe("continuation scoring", () => {
     expect(computeScore(inputs()).breakdown[4].criterion).toBe("Reversal entry trigger armed");
   });
 
-  it("can still reach 8/9 as a continuation — nothing structurally caps it", () => {
+  it("can still reach 9/9 as a continuation — nothing structurally caps it", () => {
     const decision = computeScore(inputs({ setupKind: "continuation", swingChart: swingBullish }));
-    expect(decision.score).toBe(8);
+    expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
   });
 

@@ -66,6 +66,8 @@ import {
 } from "@/lib/scoring/proximity";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import { isStopBreached } from "@/lib/gann/stopBreach";
+import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBenchmark";
+import { readLeadership, readWeakStockFrom, selectionStrength, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -606,7 +608,7 @@ export function qualifiesAsContinuationFill(
 
 /**
  * One side's list after the continuation pass: the reversions and the
- * admitted with-trend setups ranked together by score, the top `perSide`
+ * admitted with-trend setups ranked together (`compareForList`), the top `perSide`
  * kept (item 6 step 11). On a tie the reversion already listed stays ahead.
  * `added` counts the continuation rows that made the list.
  */
@@ -619,7 +621,7 @@ export function mergeContinuations(
   // A symbol already on this list is not listed twice (item 7 review M3).
   const onList = new Set(list.map((r) => r.symbol));
   const qualifying = scans.filter((r) => !r.error && qualifiesAsContinuationFill(r, direction) && !onList.has(r.symbol));
-  const merged = [...list, ...qualifying].sort((a, b) => b.decision.score - a.decision.score).slice(0, perSide);
+  const merged = [...list, ...qualifying].sort(compareForList).slice(0, perSide);
   return { list: merged, added: merged.filter((r) => qualifying.includes(r)).length };
 }
 
@@ -814,13 +816,40 @@ export function rankShortlist(
   pool: CoarseCandidate[],
   size: number,
   yearHits: Map<string, YearCycleConvergence> | null,
+  /**
+   * Each symbol's selection strength by direction (`selectionStrength`):
+   * Gann's early leaders take the full-scan slots first (A-SELECTION-02).
+   */
+  strength: Map<string, (direction: "bullish" | "bearish") => number> | null = null,
 ): CoarseCandidate[] {
-  if (!yearHits) return pool.slice(0, size);
+  if (!yearHits && !strength) return pool.slice(0, size);
   return pool
-    .map((c, i) => ({ c, i, rank: c.coarseScore + yearCycleBonus(c, yearHits.get(c.symbol.toUpperCase())) }))
-    .sort((a, b) => b.rank - a.rank || a.i - b.i)
+    .map((c, i) => {
+      const sym = c.symbol.toUpperCase();
+      return { c, i, lead: strength?.get(sym)?.(c.direction) ?? 0, rank: c.coarseScore + yearCycleBonus(c, yearHits?.get(sym)) };
+    })
+    .sort((a, b) => b.lead - a.lead || b.rank - a.rank || a.i - b.i)
     .slice(0, size)
     .map((x) => x.c);
+}
+
+const VERDICT_TIER: Record<string, number> = { Execute: 2, Watch: 1, Reject: 0 };
+
+/**
+ * The daily lists' order (A-SELECTION-02): Gann buys the early leaders first,
+ * so among setups with the same verdict the one his selection rules favour
+ * (`ScanResult.selectionStrength`) comes first, then the higher score. The
+ * verdict comes before both, so a held or rejected leader never takes an
+ * actionable setup's place: Gann picks his leaders from the stocks giving a
+ * signal. Before 2026-10-16 the lists sorted on score alone, so a held Watch
+ * could outrank an Execute; it no longer can.
+ */
+export function compareForList(a: ScanResult, b: ScanResult): number {
+  return (
+    (VERDICT_TIER[b.decision.outputState] ?? 0) - (VERDICT_TIER[a.decision.outputState] ?? 0) ||
+    (b.selectionStrength ?? 0) - (a.selectionStrength ?? 0) ||
+    b.decision.score - a.decision.score
+  );
 }
 
 /**
@@ -886,6 +915,15 @@ export async function runMarketScan(
   const scanDate = etDateKey(new Date());
   const provider = getMarketDataProvider();
 
+  // The market's (SPY's) daily and monthly bars, for Gann's early leaders in
+  // the shortlist cut (A-SELECTION-02). Read once a day and cached, and every
+  // full scan reads them anyway, so starting them here, alongside the
+  // universe and daily fetches, adds no request and no wait.
+  // A read that fails, however it fails, leaves the leadership reading unread.
+  const marketBarsP = Promise.resolve()
+    .then(() => Promise.all([getMarketDailyBars(), getMarketMonthlyBars()]))
+    .catch(() => [null, null] as const);
+
   const actives = await resolveUniverse(universeTop, extraSymbols);
   mark("resolveUniverse done", `${actives.length} symbols`);
 
@@ -931,6 +969,8 @@ export async function runMarketScan(
   // to the weekly and daily charts.
   const monthlyAtCoarse = monthlyBatch as Map<string, Bar[]> | null | undefined;
   mark("monthly bars at the coarse pass", monthlyAtCoarse ? `${monthlyAtCoarse.size} symbols` : "not in");
+  const [marketDaily, marketMonthly] = await marketBarsP;
+  mark("market bars for leadership", marketDaily ? `${marketDaily.length} days` : "none");
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
       const daily = dailyBatch
@@ -945,16 +985,32 @@ export async function runMarketScan(
       // One trend read per symbol, shared by both gates and the telemetry.
       const monthly = monthlyAtCoarse?.get(symbol.toUpperCase());
       const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
+      const reversion = coarseReversion(symbol, daily, cycles, trendRead);
+      // Gann's early leaders (A-SELECTION-02/-03), read only for the candidates
+      // the shortlist cut ranks: a few array scans over bars already here.
+      const leadership: LeadershipReading | null = reversion
+        ? readLeadership(daily, marketDaily, null, { stock: monthly, market: marketMonthly })
+        : null;
+      // And Gann's weak stocks (A-SELECTION-04), on the monthly bars when
+      // they are in.
+      const weak: WeakStockReading | null = reversion ? readWeakStockFrom(monthly, daily, marketMonthly, marketDaily) : null;
       return {
-        reversion: coarseReversion(symbol, daily, cycles, trendRead),
+        leadership,
+        weak,
+        reversion,
         continuation: coarseContinuation(symbol, daily, cycles, trendRead),
         diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {
-      return { reversion: null, continuation: null, diagnostics: null };
+      return { leadership: null, weak: null, reversion: null, continuation: null, diagnostics: null };
     }
   });
   mark("coarse scoring done");
+  const selection = new Map(
+    coarse
+      .filter((c) => c.reversion !== null)
+      .map((c) => [c.reversion!.symbol.toUpperCase(), (dir: "bullish" | "bearish") => selectionStrength(dir, c.leadership, c.weak)] as const),
+  );
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;
   const shortlistSize = perSide * SHORTLIST_MULTIPLE;
@@ -975,7 +1031,7 @@ export async function runMarketScan(
     console.warn(`market-scan: ${scanDate} monthly fetch still running after the coarse pass — yearly-cycle re-rank skipped`);
   }
   mark("yearly-cycle re-rank", yearHits ? `read=${yearHits.size}` : "skipped");
-  const shortlist = rankShortlist(rerankPool, shortlistSize, yearHits);
+  const shortlist = rankShortlist(rerankPool, shortlistSize, yearHits, selection);
   const continuationPool = coarse
     .map((c) => c.continuation)
     .filter((c): c is CoarseCandidate => c !== null)
@@ -999,7 +1055,7 @@ export async function runMarketScan(
   const rank = (dir: "bullish" | "bearish") =>
     valid
       .filter((r) => r.direction === dir && hasTradePlan(r))
-      .sort((a, b) => b.decision.score - a.decision.score);
+      .sort(compareForList);
 
   // The sell side is kept whole until the shortable check below cuts it.
   const sideLimit = { bullish: perSide, bearish: Infinity };

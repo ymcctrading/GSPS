@@ -16,9 +16,10 @@
  *   Detector* p. 23). Read on the first three sessions after the fill only.
  * - **C2 break-even.** Move the stop to break-even after 3-4 points of profit,
  *   with a 3-point stop (*Truth of the Stock Tape*, Book II; *Wall Street
- *   Stock Selector*, Rule 3). That is a profit equal to the risk taken, so the
- *   price-scaled form is: break-even once the trade has gone one risk unit in
- *   its favour.
+ *   Stock Selector*, Rule 3; Ch.II rule 4, "once 3 points ahead"). Since
+ *   2026-10-16 (M-E6) the price-scaled form is his own: break-even once the
+ *   best price is 3 points (`gannThreePoints`) past the entry. It had been
+ *   read as one risk unit.
  * - **Weekly trail** (A-STOP-05, PLAN.md item 4). Trail the stop 3 points
  *   under each completed week's bottom once the trade is into a new week
  *   (W006 p.46: "1, 2, 3 or 5 points"; 3 is the stop he calls safest).
@@ -77,7 +78,7 @@ import { gannReversal, reversesOn, type GannReversal } from "./reverse";
 import type { Bar } from "@/lib/types";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { gannPoint, gannThreePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
@@ -336,9 +337,12 @@ export function readGannExit(
     }
   }
 
-  // C2: break-even after a profit equal to the risk taken.
-  const risk = Math.abs(pos.entry - pos.initialStop);
-  if (best !== null && risk > 0 && (long ? best >= pos.entry + risk : best <= pos.entry - risk)) {
+  // Break-even once 3 points ahead (M-E6): "at 3-4 points' profit, move the
+  // stop to breakeven" (*Truth of the Stock Tape* Ch.VIII rule 4; the *Stock
+  // Selector* Ch.II rule 4, "once 3 points ahead"), price-scaled as his 3
+  // points are, which covers his "4-5 in high-priced" stocks. Until
+  // 2026-10-16 it waited for a profit equal to the risk taken.
+  if (best !== null && (long ? best >= pos.entry + gannThreePoints(pos.entry) : best <= pos.entry - gannThreePoints(pos.entry))) {
     adopt(pos.entry, "break_even");
   }
 
@@ -348,14 +352,16 @@ export function readGannExit(
   if (lastSwing) adopt(below(lastSwing.price), "last_reaction");
 
   // A-STOP-05: under each week's bottom (over each week's top when short),
-  // once the trade has run into a new week. W006 p.46 gives "1, 2, 3 or 5
-  // points"; GSPS takes 3, the stop he calls safest on the same page.
+  // once the trade has run into a new week. For longs W006 p.46 (Rule 2)
+  // gives "1, 2, 3 or 5 points"; GSPS takes 3, the stop he calls safest on
+  // the same page. For shorts Rule 4 (p.47) gives one figure: 1 point above
+  // the previous week's high.
   const weeks = toWeeklyBars(daily);
   const thisWeek = weeks.length > 0 ? weeks[weeks.length - 1].t.slice(0, 10) : null;
   const entryWeek = toWeeklyBars(since)[0]?.t.slice(0, 10) ?? null;
   if (thisWeek && entryWeek && thisWeek > entryWeek && weeks.length >= 2) {
     const prior = weeks[weeks.length - 2];
-    adopt(below(long ? prior.l : prior.h), "prior_week");
+    adopt(long ? below(prior.l) : prior.h + gannPoint(prior.h), "prior_week");
   }
 
   // C3: under the prior month's low once the trade has run into a new month.
@@ -378,6 +384,11 @@ export function readGannExit(
       const twoDayCounter = long ? p1.c < p2.c && p0.c < p1.c : p1.c > p2.c && p0.c > p1.c;
       if (twoDayCounter) adopt(below(long ? p0.l : p0.h), "final_stage");
     }
+    // A-STOP-04 (W006 p.46, Rule 2): in fast advances at high levels, trail 5
+    // points under each day's high (his 10 points "at very high levels" is
+    // the same 5 once the point is price-scaled). The final stage is GSPS's
+    // reading of "a fast advance at high levels"; mirrored for shorts.
+    adopt(long ? last.h - 5 * gannPoint(last.h) : last.l + 5 * gannPoint(last.l), "final_stage");
   }
 
   let reverse: GannReversal | null = null;

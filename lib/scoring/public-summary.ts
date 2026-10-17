@@ -48,9 +48,9 @@ export const SCORE_PILLAR_LABELS: Record<ScorePillar, string> = {
 export const SCORE_PILLAR_DESCRIPTIONS: Record<ScorePillar, string> = {
   trend: "How the higher timeframes are leaning relative to this setup.",
   structure: "Whether price is sitting at levels that have mattered before.",
-  setup: "Whether a tradeable trigger is armed and conditions are moving.",
+  setup: "Whether the stock is active and volume stands behind the move.",
   timing: "Whether the calendar favours a turn here.",
-  riskReward: "Whether the target is anchored to structure rather than projected.",
+  riskReward: "Whether the trigger is armed with the stop placed behind an old level.",
 };
 
 /**
@@ -84,6 +84,7 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
     // Items appended after scoring carry no pillar and no point. They explain a
     // capped state, which the note covers, so they must not inflate a total.
     if (!item.pillar) continue;
+    // A check feeds a point; only the point counts.
     const entry = counts.get(item.pillar) ?? { pillar: item.pillar, met: 0, total: 0 };
     entry.total += 1;
     if (item.passed) entry.met += 1;
@@ -94,7 +95,7 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
     (p): p is ScorePillarSummary => p !== undefined,
   );
 
-  const holds = decision.breakdown.filter((item) => !item.pillar && !item.passed);
+  const holds = decision.breakdown.filter((item) => !item.pillar && !item.checkOf && !item.passed);
   const laggedOnly = holds.length > 0 && holds.every((item) => item.key === "dataLag");
   const retired = holds.some((item) => item.key === "stopBreach");
 

@@ -94,7 +94,7 @@ const DAILY_HISTORY_DAYS = 400;
  * The mapping is stated once, here, and used by both the read and the write —
  * a round trip that disagrees with itself would silently disable the cooldown.
  *
- *   signal_id            ← the signal mode ("unusual_volume", …). Also what
+ *   signal_id            ← the signal mode ("overnight_turn", …). Also what
  *                          makes the table's (user, symbol, signal_id,
  *                          poll_cycle_timestamp) key mean one row per
  *                          symbol+mode per scan, which is the grain we want.
@@ -454,7 +454,6 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
 
   return {
     relativeVolumeThreshold: num("rvol", DEFAULT_CONFIG.relativeVolumeThreshold),
-    unusualVolumeThreshold: num("unusualVolume", DEFAULT_CONFIG.unusualVolumeThreshold),
     minMovePct: num("minMovePct", DEFAULT_CONFIG.minMovePct),
     maxDataAgeSeconds: num("maxDataAge", DEFAULT_CONFIG.maxDataAgeSeconds),
     cooldownMinutes: num("cooldown", DEFAULT_CONFIG.cooldownMinutes),

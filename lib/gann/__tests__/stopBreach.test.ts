@@ -214,10 +214,12 @@ describe("A-PRICE-07: a trigger and a stop stated in advance, each acting", () =
   const before = b("2026-09-25T13:30:00Z", 96.5, 99, 98.5);
   const crossed = b("2026-09-25T13:45:00Z", 98.5, 104.5, 104);
   const broke = b("2026-09-25T14:00:00Z", 95, 104, 95.5);
+  const reacted = b("2026-09-25T13:50:00Z", 99.8, 102, 101);
 
-  it("arms only once a close has gone past the stated trigger", () => {
+  it("arms only once a close has gone past the stated trigger and a later bar has reacted to it", () => {
     expect(confirmationFromBars([before], "bullish", trigger, stop).ready).toBe(false);
-    expect(confirmationFromBars([before, crossed], "bullish", trigger, stop).ready).toBe(true);
+    expect(confirmationFromBars([before, crossed], "bullish", trigger, stop).ready).toBe(false);
+    expect(confirmationFromBars([before, crossed, reacted], "bullish", trigger, stop).ready).toBe(true);
   });
 
   it("retires the plan on the stated stop, which has not moved", () => {

@@ -178,7 +178,7 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
   });
 
   describe("replay entryRule: reaction", () => {
-    it("buys the reaction to 1 point past the level after a close 3 points beyond it", () => {
+    it("buys at the next bar's open once a closed bar reacts into the zone after a close 3 points beyond the level", () => {
       const r = replay(
         "TEST",
         sess([
@@ -186,12 +186,14 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
           at(L + S * (P + 0.3)),
           at(L + (S * P) / 3 + S * 0.1, 0.4),
           at(L + S * P),
+          at(L + S * P),
         ]),
         opts,
       );
       expect(r.trades).toHaveLength(1);
       const t = r.trades[0];
-      expect(t.entry).toBeCloseTo(T.reactionEntry, 8);
+      // Never-failing rule 9: at the market, the open after the reaction bar, not a fixed price.
+      expect(t.entry).toBeCloseTo(L + S * P, 8);
       expect(t.stop).toBeCloseTo(T.reactionStop, 8);
     });
 
@@ -201,10 +203,11 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
         at(L + S * (P + 0.3)),
         at(L + (S * P) / 3 + S * 0.1, 0.4),
         at(L + S * P),
+        at(L + S * P),
       ]);
       const byDefault = replay("TEST", tail, { targetR: 2, dailyBars: DAILY });
       expect(byDefault.trades).toHaveLength(1);
-      expect(byDefault.trades[0].entry).toBeCloseTo(T.reactionEntry, 8);
+      expect(byDefault.trades[0].entry).toBeCloseTo(L + S * P, 8);
       expect(byDefault.trades).toEqual(replay("TEST", tail, opts).trades);
     });
 
@@ -217,9 +220,20 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
       expect(r.trades).toHaveLength(0);
     });
 
-    it("refuses a gap through the stop line rather than buying it", () => {
+    it("calls the entry off when the first bar into the zone closes through the stop", () => {
       const gap = at(L - S * (P + 0.5));
       const r = replay("TEST", sess([at(L + S * (P + 0.5)), gap, at(L)]), opts);
+      expect(r.trades).toHaveLength(0);
+      expect(r.refusedFills).toBe(0);
+    });
+
+    it("refuses a market fill that opens through the stop", () => {
+      const gapOpen = { ...at(L), o: L - S * (P + 0.5) };
+      const r = replay(
+        "TEST",
+        sess([at(L + S * (P + 0.5)), at(L + (S * P) / 3 + S * 0.1, 0.4), gapOpen, at(L)]),
+        opts,
+      );
       expect(r.trades).toHaveLength(0);
       expect(r.refusedFills).toBe(1);
     });
@@ -232,6 +246,7 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
           at(L + S * (P + 0.5)),
           at(L + S * (P + 0.3)),
           at(L + (S * P) / 3 + S * 0.1, 0.4),
+          at(L + (S * P) / 3 + S * 0.2, 0.1),
           win,
           at(L),
         ]),
@@ -272,14 +287,14 @@ describe("replay entryRule: reaction on a level the daily chart already crossed"
   const DAILY = [...base, ...extra];
   const T = computeGannEntryTrigger(DAILY, "bearish")!;
 
-  it("sells the reaction in the session without a fresh crossing there", () => {
+  it("sells at the next bar's open once a closed bar reacts into the zone, without a fresh crossing there", () => {
     expect(T.held).toBe(true);
     expect(T.level).toBe(L);
     const below = at(T.reactionEntry - 1);
     const head = Array.from({ length: 44 }, () => below);
-    const r = replay("TEST", intraday([...head, at(T.reactionEntry - 0.1, 0.4), below]), { targetR: 2, dailyBars: DAILY, entryRule: "reaction" });
+    const r = replay("TEST", intraday([...head, at(T.reactionEntry - 0.1, 0.4), below, below]), { targetR: 2, dailyBars: DAILY, entryRule: "reaction" });
     expect(r.trades).toHaveLength(1);
-    expect(r.trades[0].entry).toBeCloseTo(T.reactionEntry, 8);
+    expect(r.trades[0].entry).toBeCloseTo(T.reactionEntry - 1, 8);
     expect(r.trades[0].stop).toBeCloseTo(T.reactionStop, 8);
   });
 });
@@ -301,10 +316,10 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
     expect(T.reactionStop).toBeCloseTo(L - P, 8);
   });
 
-  it("buys when price comes down to the old bottom, with the stop 3 points under it", () => {
-    const r = replay("TEST", intraday([...head, at(L + 0.05, 0.2), above]), { targetR: 2, dailyBars: DAILY });
+  it("buys at the next bar's open once a closed bar comes down to the old bottom, with the stop 3 points under it", () => {
+    const r = replay("TEST", intraday([...head, at(L + 0.05, 0.2), above, above]), { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
-    expect(r.trades[0].entry).toBeCloseTo(L, 8);
+    expect(r.trades[0].entry).toBeCloseTo(L + P / 2, 8);
     expect(r.trades[0].stop).toBeCloseTo(L - P, 8);
   });
 
@@ -313,10 +328,11 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
     expect(r.trades).toHaveLength(0);
   });
 
-  it("buys on the first candle of the session the level first arms on", () => {
+  it("buys on the candle after the first candle of the session the level first arms on", () => {
     // The warm-up candles sit on a date with too little daily history to arm,
     // so the old bottom is first offered on DAY, whose first candle already
-    // trades under it (above the stop). The resting order is filled there.
+    // trades under it (above the stop). Once it has closed, the next candle's
+    // open is the market fill.
     const stamp = (date: string, hour: number, i: number) => {
       const m = i * 15;
       return `${date}T${String(hour + Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00Z`;
@@ -325,6 +341,7 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
     const day: Bar[] = Array.from({ length: 6 }, (_, i) => ({ ...at(L - P / 4, 0.05), t: stamp(DAY, 14, i), v: 1000 }));
     const r = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY });
     expect(r.trades).toHaveLength(1);
-    expect(r.trades[0].entry).toBeLessThanOrEqual(L);
+    expect(r.trades[0].entry).toBeCloseTo(L - P / 4, 8);
+    expect(r.trades[0].openedAt).toBe(day[1].t);
   });
 });
