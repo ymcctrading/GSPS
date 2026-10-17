@@ -11,8 +11,9 @@
  * - **Square of 90 in price (J-2, Section III): acts as levels.** Jensen lays
  *   the square at every major low and inverts it at every major high, and
  *   calls the square points resistance and the trine points consolidation.
- *   So the nearest point above and below price, counted up from the low and
- *   down from the high, joins the S/R list (`jensenLevels`, via
+ *   So the nearest square point above and below price, counted up from the
+ *   low and down from the high, joins the S/R list (trine points stay
+ *   context, C-LEVELS-21) (`jensenLevels`, via
  *   `masterLevels.ts`), on the live scan and the replay alike.
  * - **Square of 90 in time (J-2): forward turn dates.** The same counts in
  *   calendar days, weeks and months from the major high and low
@@ -105,6 +106,8 @@ const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 export const JENSEN_POINTS = [5.625, 7.5, 11.25, 15, 22.5, 30, 45, 60, 67.5, 75, 90] as const;
 /** The square points resist; the trine points consolidate. 90 and 45 are "doubly strong". */
 export const JENSEN_SQUARE_POINTS = new Set([5.625, 11.25, 22.5, 45, 67.5, 90]);
+/** The two square points Jensen calls "doubly strong" (B16 §3; C-LEVELS-21). */
+export const JENSEN_STRONG_POINTS = new Set([45, 90]);
 /** Time counts also run to 120, the top of the trine harmonics. */
 export const JENSEN_TIME_POINTS = [...JENSEN_POINTS, 120] as const;
 /** J-5: a point is broken only by a full one-point penetration. */
@@ -128,6 +131,8 @@ export interface JensenPoint {
   pts: number;
   from: "low" | "high";
   square: boolean;
+  /** A 45 or 90 point: "doubly strong". */
+  strong: boolean;
 }
 
 /** Every square-of-90 point from the low (up) and the high (down) within `span` points of `pricePts`. */
@@ -141,7 +146,7 @@ function jensenGrid(lowPts: number, highPts: number, pricePts: number, span: num
       for (const p of JENSEN_POINTS) {
         const points = k * JENSEN_SQUARE + p;
         const pts = base + sign * points;
-        if (pts > 0 && Math.abs(pts - pricePts) <= span) out.push({ points, pts, from, square: JENSEN_SQUARE_POINTS.has(p) });
+        if (pts > 0 && Math.abs(pts - pricePts) <= span) out.push({ points, pts, from, square: JENSEN_SQUARE_POINTS.has(p), strong: JENSEN_STRONG_POINTS.has(p) });
       }
     }
   }
@@ -149,11 +154,15 @@ function jensenGrid(lowPts: number, highPts: number, pricePts: number, span: num
 }
 
 const pointLabel = (p: JensenPoint) =>
-  `Jensen's square of 90: ${p.points} points ${p.from === "low" ? "above the low" : "below the high"} (${p.square ? "square point" : "trine point"})`;
+  `Jensen's square of 90: ${p.points} points ${p.from === "low" ? "above the low" : "below the high"} (${p.square ? (p.strong ? "square point, doubly strong" : "square point") : "trine point"})`;
 
 /**
- * Jensen's square of 90 as price levels: the nearest point above and below
- * price, counted up from the major low and down from the major high. Only the
+ * Jensen's square of 90 as price levels: the nearest square point above and
+ * below price, counted up from the major low and down from the major high.
+ * Only the square points: Jensen has them mark resistance and reversals, and
+ * the trine points (the 120 family) mark consolidation, so a trine point is
+ * read on the card (`jensenPriceHit`) and never joins the S/R list (review B,
+ * C-LEVELS-21, 2026-10-16; until then trine points joined it too). Only the
  * nearest pair, so the list stays sparse (engineering choice, as for the
  * active angles).
  */
@@ -165,6 +174,7 @@ export function jensenLevels(bars: Bar[], price: number, unit: number): { price:
   let above: JensenPoint | null = null;
   let below: JensenPoint | null = null;
   for (const p of grid) {
+    if (!p.square) continue;
     if (p.pts <= pts && (!below || p.pts > below.pts)) below = p;
     if (p.pts > pts && (!above || p.pts < above.pts)) above = p;
   }

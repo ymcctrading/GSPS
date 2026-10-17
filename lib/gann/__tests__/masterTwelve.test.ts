@@ -106,3 +106,38 @@ describe("C-TIME-17: a halving-chain day is read within one day only (Master Cou
     expect(halvingChainTime(low, high, add(326)).hits.some((h) => h.pivot === "low")).toBe(false);
   });
 });
+
+describe("the Master 12 chart, a 12x12 grid (M-T16)", () => {
+  it("ends its squares at 144, 288, 432 and 576", async () => {
+    const { MASTER_TWELVE_SQUARE_ENDS, masterTwelveCell } = await import("../masterTwelve");
+    expect(MASTER_TWELVE_SQUARE_ENDS).toEqual([144, 288, 432, 576]);
+    for (const [i, end] of MASTER_TWELVE_SQUARE_ENDS.entries()) {
+      expect(masterTwelveCell(end)).toMatchObject({ square: i + 1, place: 144, section: 12, row: 12, squareEnd: true });
+      expect(masterTwelveCell(end + 1)).toMatchObject({ square: i + 2, place: 1, section: 1, row: 1, squareEnd: false });
+    }
+  });
+
+  it("runs up columns of 12: bottoms 1, 13 ... 133, tops 12, 24 ... 144", async () => {
+    const { masterTwelveCell } = await import("../masterTwelve");
+    for (let c = 1; c <= 12; c++) {
+      expect(masterTwelveCell((c - 1) * 12 + 1)).toMatchObject({ section: c, row: 1 });
+      expect(masterTwelveCell(c * 12)).toMatchObject({ section: c, row: 12 });
+    }
+  });
+
+  it("places the major centre, the diagonals, the half line and the death zone where the chart lists them", async () => {
+    const { masterTwelveCell, MASTER_TWELVE_MINOR_CENTRES } = await import("../masterTwelve");
+    for (const n of [66, 67, 78, 79]) expect(masterTwelveCell(n)!.majorCentre).toBe(true);
+    for (const n of [14, 27, 40, 53, 66, 79, 92, 105, 118, 131, 144, 12, 23, 34, 45, 56, 67, 78, 89, 100, 111, 122, 133]) {
+      expect(masterTwelveCell(n)!.diagonal, String(n)).toBe(true);
+    }
+    expect(masterTwelveCell(15)!.diagonal).toBe(false);
+    for (const n of [6, 7, 18, 19, 138, 139]) expect(masterTwelveCell(n)!.halfLine).toBe(true);
+    for (const n of MASTER_TWELVE_MINOR_CENTRES) expect(masterTwelveCell(n)!.minorCentre).toBe(true);
+    expect(masterTwelveCell(85)!.deathZone).toBe(true);
+    expect(masterTwelveCell(108)!.deathZone).toBe(true);
+    expect(masterTwelveCell(109)!.deathZone).toBe(false);
+    // 436 is in the fourth square, at place 4.
+    expect(masterTwelveCell(436)).toMatchObject({ square: 4, place: 4 });
+  });
+});

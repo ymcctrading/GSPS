@@ -334,3 +334,41 @@ describe("the import guards read every import form", () => {
     expect(specs).toEqual(["@/lib/research/x", "@/lib/research/y", "@/lib/research/z", "@/lib/research/w"]);
   });
 });
+
+/**
+ * C-LEVELS-19 (Sidney, W031 p.1): breaking one angle does not mean price must
+ * go to the next. The next-angle price `readOneByOneBreak` computes
+ * (`lib/gann/fans.ts`) is card text and a context factor only, so no level
+ * pool, stop, target, score or order reads it.
+ */
+describe("the next angle after a 1x1 break is never a level (C-LEVELS-19)", () => {
+  const ALLOWED = new Set(["lib/gann/fans.ts", "lib/gann/disclosedRules.ts", "lib/gann/contextFactors.ts"]);
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== "__tests__" && e.name !== "node_modules") walk(p);
+      } else if (/\.tsx?$/.test(p) && !/\.test\.tsx?$/.test(p)) files.push(p);
+    }
+  };
+  for (const d of ["lib", "app", "components"]) walk(path.join(ROOT, d));
+  const reads = (f: string) => /readOneByOneBreak|oneByOneBreak|OneByOneBreak/.test(readFileSync(f, "utf8"));
+
+  it("is not read by the level, scoring, scan or replay modules", () => {
+    for (const f of ["lib/strat/levels.ts", "lib/scoring/score.ts", "lib/scanTicker.ts", "lib/backtest/replay.ts", "lib/gann/masterLevels.ts"]) {
+      expect(reads(path.join(ROOT, f)), f).toBe(false);
+    }
+  });
+
+  it("is read only by its own module, the card and the context factors", () => {
+    expect(files.filter(reads).map((f) => path.relative(ROOT, f)).filter((f) => !ALLOWED.has(f))).toEqual([]);
+  });
+
+  it("leaves the context factor a yes/no reading with no price", () => {
+    const src = readFileSync(path.join(ROOT, "lib/gann/contextFactors.ts"), "utf8");
+    const lines = src.split("\n").filter((l) => /oneByOneBreak/.test(l));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l).not.toMatch(/\.next\b|\.price\b/);
+  });
+});

@@ -367,6 +367,9 @@ re-uploaded directly (Google Drive's OCR pipeline couldn't handle the
   treatment, with worked examples of multiple resistance levels
   converging on real tops (e.g., the 1929 top landing simultaneously on
   1250% of the 1896 low and 225% of the 1919 high).
+  **GSPS follows Master Course Ch. 6's tiers instead (owner 2026-10-16:
+  Ch. 6 tiers; M-P1):** ¼, ½, ¾ first, with 50% most important, then ⅓
+  and ⅔, then the ⅛ and 1/16 points (`lib/gann/retracement.ts`).
 - **Duration-based "time square" thresholds** — specific day-count bands
   (7–12, 18–21, 28–31, 42–49, 57–65, 85–92, 112–120, 150–157, 175–185
   days) and month-count bands (1–5 years, or 15/22/34/42/48/49 months)

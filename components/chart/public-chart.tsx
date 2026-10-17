@@ -8,6 +8,7 @@ import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
 import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 /**
  * Read-only, publicly shareable chart view. No auth, no order ticket — just the
@@ -92,11 +93,18 @@ export function PublicChart({ symbol }: { symbol: string }) {
           {result && result.currentPrice > 0 && (
             <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
           )}
-          {result?.gann.timeCycleActive && (
-            <span className="text-xs font-medium text-warn">⏱ Cyclical turn window active</span>
+          {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
+          {TIME_LINE_RECORDS.timeCycle && result?.gann.timeCycleActive && (
+            <span className="text-xs font-medium text-warn">
+              ⏱ Cyclical turn window active
+              <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
+            </span>
           )}
-          {result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
-            <span className="text-xs font-medium text-warn">⟳ Yearly cycles converging</span>
+          {TIME_LINE_RECORDS.yearCycles && result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
+            <span className="text-xs font-medium text-warn">
+              ⟳ Yearly cycles converging
+              <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
+            </span>
           )}
           <div className="ml-auto">
             <ShareButton symbol={symbol} />

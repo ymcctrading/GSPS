@@ -46,8 +46,8 @@
  * **Chance first (X4, 2026-10-16).** Dewey's method (*The Case for Cycles*,
  * 1967) assumes a cycle is chance until shown otherwise, and his résumé says
  * dominance alone can never show it. So `active` now also needs Schuster's p
- * at or under 0.05 and a minimum repetition count that is stricter for short
- * periods (W040: short periodicities arise easily by chance). The hold-out is
+ * at or under 0.05 (stricter for short periods, W040: short periodicities
+ * arise easily by chance) and a minimum repetition count. The hold-out is
  * decided on the first 70% alone and ranked against other periods, and its
  * zero-amplitude test runs on the unseen 30% at the period fixed beforehand,
  * as Halberg's cosinor requires (W041). Three-question basis: (1) the
@@ -63,8 +63,9 @@ import type { Bar } from "@/lib/types";
 export interface SpectralCycleReading {
   /**
    * True only once chance is ruled out: the dominance threshold is cleared,
-   * the peak is not at the band edge, Schuster's p is at or under 0.05 and the
-   * period repeats at least `minRepetitions` times (CYC-01, -04, -13, -27). A
+   * the peak is not at the band edge, Schuster's p is at or under
+   * `schusterAlpha(period)` (0.05, stricter under 20 bars) and the period
+   * repeats at least `MIN_REPETITIONS` times (CYC-01, -04, -13, -27). A
    * candidate cycle exists, not a claim it's tradeable.
    */
   active: boolean;
@@ -73,7 +74,7 @@ export interface SpectralCycleReading {
   dominancePower: number | null;
   /** How many full cycles of the dominant period fit in the scanned window — Dewey's "repetition count" criterion. */
   repetitionCount: number | null;
-  /** Whether independently re-estimating the dominant period from each half of the window agrees within tolerance — Dewey's "constancy of period" criterion. Null when the window is too short to split. */
+  /** Whether independently re-estimating the dominant period from each half of the window agrees within tolerance — Dewey's "constancy of period" criterion. It is also this module's reading of Dewey's persistence through changed conditions (CYC-07): a change of regime between the halves (drift, volatility) is what the period has to survive. Null when the window is too short to split. */
   periodConsistent: boolean | null;
   /**
    * Schuster's test (parity F3/M1; B01): the chance that noise alone would
@@ -94,7 +95,8 @@ export interface SpectralCycleReading {
   /**
    * Artifact guards (B01): the peak is at the longest period scanned (a trend
    * residue, not a cycle), and whether the peak survives dropping the oldest
-   * 10% of the window.
+   * 10% of the window. The second is a window-artifact guard only, not
+   * Dewey's persistence through changed conditions (that is `periodConsistent`).
    */
   atBandEdge: boolean | null;
   windowStable: boolean | null;
@@ -146,14 +148,17 @@ const SCHUSTER_ALPHA = 0.05;
  */
 export const MIN_REPETITIONS = 5;
 /**
- * CYC-27: short periods arise easily by chance and long ones rarely, so a
- * short period must repeat more often: at least `MIN_REPETITIONS`, and enough
- * repetitions to cover 50 bars. The 50 is an engineering choice. With the
- * 60-bar minimum window the 50-bar part never binds today; it keeps the rule
- * true for any shorter window a caller passes.
+ * CYC-27: short periods arise easily by chance and long ones rarely (Dewey,
+ * W040 p.5), so a short peak must clear a stricter significance level:
+ * Schuster's p at or under 0.05 x min(1, period / 20). A 20-bar period or
+ * longer keeps the 0.05 level, a 10-bar one needs 0.025 and a 5-bar one
+ * 0.0125. The scaling and the 20-bar knee are an engineering choice; the
+ * source gives the direction only. Until 2026-10-16 this was a repetitions
+ * floor of 50 / period, which can never bind on the 60-bar minimum window
+ * (review x456).
  */
-export function minRepetitions(periodBars: number): number {
-  return Math.max(MIN_REPETITIONS, 50 / periodBars);
+export function schusterAlpha(periodBars: number): number {
+  return SCHUSTER_ALPHA * Math.min(1, periodBars / 20);
 }
 /** CYC-08: other periods tried against the hold-out, and the pass level. */
 const HOLDOUT_NULL_PERIODS = 39;
@@ -420,8 +425,8 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   // CYC-01/13: chance first. Dominance alone never makes a candidate; the
   // peak must also be significant (Schuster) and repeat often enough for its
   // length (CYC-04/27).
-  const significant = schusterP <= SCHUSTER_ALPHA;
-  const enoughRepetitions = n / result.period >= minRepetitions(result.period);
+  const significant = schusterP <= schusterAlpha(result.period);
+  const enoughRepetitions = n / result.period >= MIN_REPETITIONS;
   const active = dominant && significant && enoughRepetitions;
 
   let periodConsistent: boolean | null = null;
@@ -514,7 +519,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       : atBandEdge
         ? `The strongest peak (~${result.period} bars) sits at the longest period scanned: leftover trend, not a cycle. ${NOT_COMPUTED_NOTE}`
         : dominant
-          ? `A peak ~${result.period} bars stands out (${dominance.toFixed(2)}x mean power) but is not credited: ${significant ? "" : `chance not ruled out (Schuster p ≈ ${schusterP.toFixed(3)}, needs ${SCHUSTER_ALPHA} or less)${enoughRepetitions ? "" : "; "}`}${enoughRepetitions ? "" : `too few repetitions (~${repetitionCount}, needs ${Math.ceil(minRepetitions(result.period))})`}. ${NOT_COMPUTED_NOTE}`
+          ? `A peak ~${result.period} bars stands out (${dominance.toFixed(2)}x mean power) but is not credited: ${significant ? "" : `chance not ruled out (Schuster p ≈ ${schusterP.toFixed(3)}, needs ${+schusterAlpha(result.period).toFixed(4)} or less)${enoughRepetitions ? "" : "; "}`}${enoughRepetitions ? "" : `too few repetitions (~${repetitionCount}, needs ${MIN_REPETITIONS})`}. ${NOT_COMPUTED_NOTE}`
         : `No candidate cycle cleared the dominance threshold (best: ~${result.period} bars at ${dominance.toFixed(2)}x mean power, threshold ${DOMINANCE_THRESHOLD}x). ${NOT_COMPUTED_NOTE}`,
   };
 }

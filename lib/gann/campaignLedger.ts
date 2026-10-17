@@ -238,7 +238,7 @@ export interface CampaignLedger {
    * watch"): the first weekly-chart top after a bear campaign's start, once
    * the chart has turned down from it. The bull campaign's mirror, the first
    * weekly bottom after the start, is the same rule turned over (Polarity; an
-   * engineering symmetry, Gann gives the bear case). Context only. It carries
+   * engineering symmetry, Gann gives the bear case). It carries
    * no "crossed" flag: crossing it crosses the campaign's last weekly top
    * too (each later one is lower), which turns the weekly chart and starts a
    * new campaign.
@@ -503,6 +503,18 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   };
 }
 
+/**
+ * The secondary turn as a support and resistance level (A-LEVELS-02, W006
+ * p.13: "The top of secondary rally is always an important point to watch").
+ * It joins the level pool on the live scan and the replay, so a short's stop
+ * can rest over a secondary rally top and a long's target can stop under it;
+ * the bull mirror, the secondary reaction's bottom, is support. Empty when the
+ * ledger names none.
+ */
+export function secondaryTurnLevels(ledger: CampaignLedger | null | undefined): number[] {
+  return ledger?.secondaryTurn ? [ledger.secondaryTurn.price] : [];
+}
+
 export interface MonthlyBreakWarning {
   trend: "bullish" | "bearish";
   monthlyBreak: boolean;
@@ -555,7 +567,7 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
   if (l.secondaryTurn) {
     const t = l.secondaryTurn;
     const name = t.kind === "top" ? "secondary rally top" : "secondary reaction bottom";
-    lines.push(`The campaign's ${name}, ${t.price.toFixed(2)} (${t.date}), is a point to watch.`);
+    lines.push(`The campaign's ${name}, ${t.price.toFixed(2)} (${t.date}), is a point to watch, and a level the plan's stop and targets can use.`);
   }
   if (l.firstYearHigh) lines.push(`First-year high ${l.firstYearHigh.price.toFixed(2)} ${l.firstYearHigh.crossed ? "crossed" : "not crossed"}.`);
   return lines;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAJOR_DEGREES, divisionOf, readDegree, readTimeAngle, tableOf64ths } from "../circleOf360";
+import { MAJOR_DEGREES, divisionOf, readCircle, readDegree, readTimeAngle, tableOf64ths } from "../circleOf360";
 
 // Gann's own numbers: the 1953 lesson (May soy beans, the table of 64ths)
 // and GA-32 (U.S. Steel, 1915). Source note A12.
@@ -88,5 +88,33 @@ describe("GA-32: price on the degree of its time angle", () => {
     const start = new Date("2000-01-01T00:00:00Z");
     const asOf = new Date(start.getTime() + 180 * (365.25 / 12) * 86_400_000);
     expect(readTimeAngle(50, 1, "2000-01-01", asOf)!.state).toBe("balanced");
+  });
+});
+
+describe("readCircle: price as degrees (A-ASTRO-01)", () => {
+  // Price 436.75 in points of $1 is one circle and 76.75 degrees; the low of
+  // 400 puts it 36.75 points (degrees) up from the low.
+  const bars = [
+    { t: "2026-01-02T00:00:00Z", h: 420, l: 400 },
+    { t: "2026-03-02T00:00:00Z", h: 500, l: 430 },
+  ];
+
+  it("reads the price itself in degrees and whole circles", () => {
+    const r = readCircle(bars, 436.75, 1)!;
+    expect(r.price.degree).toBeCloseTo(76.75, 9);
+    expect(r.price.circles).toBe(1);
+  });
+
+  it("reads the points up from the low and down from the high", () => {
+    const r = readCircle(bars, 436.75, 1)!;
+    expect(r.upFromLow.degree).toBeCloseTo(36.75, 9);
+    expect(r.upFromLow.circles).toBe(0);
+    expect(r.downFromHigh.degree).toBeCloseTo(63.25, 9);
+  });
+
+  it("scales by the point unit", () => {
+    const r = readCircle(bars, 436.75, 0.5)!;
+    expect(r.price.degree).toBeCloseTo(873.5 - 720, 9);
+    expect(r.price.circles).toBe(2);
   });
 });

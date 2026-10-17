@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import type { Bar, ScanDecision } from "@/lib/types";
 import { applyTimeWindowHold } from "@/lib/scoring/score";
+import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { readWindowTurn, timeWindowsAt, type WindowsAt } from "@/lib/gann/timeWindow";
 import { CRITERION_KEYS } from "@/lib/scoring/weights";
 
@@ -192,9 +193,12 @@ describe("the yearly cycle counts reach the hold through the monthly chart (A-TI
     expect(seen?.at(-1)?.t.slice(0, 7)).toBe("2026-02");
   });
 
-  it("passes the longest monthly chart held on the live scan and the replay alike", () => {
-    for (const f of ["lib/scanTicker.ts", "lib/backtest/replay.ts"]) {
-      expect(fs.readFileSync(f, "utf8")).toMatch(/readWindowTurn\(charts\.daily, \w+, (instrument\?\.)?monthlyLong \?\? charts\.monthly\)/);
-    }
+  it("keeps the 20-year window through the windowing the live scan and the replay apply", () => {
+    const asOf = new Date("2026-03-08T12:00:00Z");
+    const yearly: WindowsAt = (b, d, k, m) => timeWindowsAt(b, d, k, m).filter((w) => / years? from the \d{4}-\d{2} major /.test(w));
+    const held = yearCountMonthlyWindow(monthly.filter((b) => b.t.slice(0, 7) < "2026-03"), asOf);
+    expect(readWindowTurn(bars, "bullish", held, yearly)?.windows).toEqual(["20 years from the 2006-03 major low"]);
+    // The class C span alone cannot reach it.
+    expect(readWindowTurn(bars, "bullish", longMonthlyWindow(monthly, asOf), yearly)).toBeNull();
   });
 });

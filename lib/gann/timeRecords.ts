@@ -51,7 +51,8 @@ export type TimeLine =
   | "seasonalCount"
   | "timeSquare"
   | "dayCircle"
-  | "swingProjection";
+  | "swingProjection"
+  | "yearCycles";
 
 const BASE_RATES_2026_10_16 = "docs/replay-runs/2026-10-16-time-window-base-rates-736sym.json";
 
@@ -78,9 +79,18 @@ export const TIME_LINE_RECORDS: Record<TimeLine, MeasuredRecord | null> = {
   timeSquare: null,
   dayCircle: null,
   swingProjection: null,
+  // The yearly-cycle convergence badge (`timeCycles.ts#yearCycleConvergence`).
+  // `timeWindowBaseRate.ts` now scores a `yearCycles` family, but the
+  // 2026-10-16 run predates it, so the badge stays hidden until a run holds it.
+  yearCycles: null,
 };
 
 /** The macro cycle's upcoming windows, only when the macro cycle has a measured record. */
 export function displayableUpcomingMajor(r: MacroCycleResult): MacroCycleWindow[] {
   return TIME_LINE_RECORDS.macroCycle ? r.upcomingMajor : [];
+}
+
+/** The macro-cycle reading as it may leave the server: its upcoming windows only with a measured record (CYC-47). */
+export function displayableMacroCycle(r: MacroCycleResult): MacroCycleResult {
+  return { ...r, upcomingMajor: displayableUpcomingMajor(r) };
 }

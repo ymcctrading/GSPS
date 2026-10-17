@@ -45,6 +45,15 @@ describe("the first rally out of a bear market (A-TIME-03)", () => {
     expect(r?.state).toBe("bullCampaign");
   });
 
+  it("counts a top exactly three months after the low as a bull campaign", () => {
+    // The top is the third month after the low; the month after it is lower.
+    const bars = months([...BEAR, [60, 50, 60], [70, 58, 55], [78, 66, 50], [76, 68, 30]]);
+    const r = readFirstRally(bars);
+    expect(r?.topMonth).toBe(bars[LOW + 3].t.slice(0, 7));
+    expect(r?.advanceMonths).toBe(3);
+    expect(r?.state).toBe("bullCampaign");
+  });
+
   it("waits while the advance is still in its first two months", () => {
     const bars = months([...BEAR, [60, 50, 60], [70, 58, 55]]);
     expect(readFirstRally(bars)?.state).toBe("early");

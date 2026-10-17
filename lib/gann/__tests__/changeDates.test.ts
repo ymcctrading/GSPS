@@ -9,6 +9,7 @@ import type { Bar } from "@/lib/types";
 import { labelChangeDates, readTiming } from "@/lib/gann/timeConvergence";
 import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 const DAY = 86_400_000;
 const T0 = Date.UTC(2026, 0, 5, 15);
@@ -49,14 +50,18 @@ describe("change dates alternate high and low (A-TIME-16)", () => {
     expect(r.next).toMatchObject({ days: 14, expect: "low" });
   });
 
-  it("is read from the last swing pivot on every scan, and shown for context", () => {
+  it("is read from the last swing pivot on every scan, and held off the card without a measured record", () => {
     const closes = Array.from({ length: 80 }, (_, i) => 100 + 10 * Math.sin(i / 5));
     const b = bars(closes);
     expect(readTiming(b).changeDates).not.toBeNull();
     const ctx = readDisclosedRules(b, b[b.length - 1].c, null, new Date(b[b.length - 1].t));
     const next = ctx.timing.changeDates?.next;
     expect(next).toBeTruthy();
-    expect(describeDisclosedRules(ctx).some((l) => /change date/.test(l) && /Shown for context/.test(l))).toBe(true);
+    // CYC-47: a dated forward label with no record is not shown (timeRecords.ts).
+    expect(TIME_LINE_RECORDS.turnTiming).toBeNull();
+    const line = describeDisclosedRules(ctx).find((l) => /change date/.test(l));
+    expect(line).toMatch(/Not shown: no measured record yet/);
+    expect(line).not.toMatch(/Shown for context/);
     expect(contextFactorsFor(ctx, "bullish", 100).nextChangeDateExpectsHigh).toBe(next!.expect === "high");
   });
 });

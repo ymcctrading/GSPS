@@ -1,13 +1,15 @@
 /**
- * The yearly-cycle badge on the chart's Research tab: shown when the monthly
- * chart has any yearly cycles landing this month, absent otherwise (including
- * when the fields are missing, as they are on older cached results).
+ * The yearly-cycle badge on the chart's Research tab. CYC-30: a time line is
+ * shown only with its measured record (lib/gann/timeRecords.ts), and the
+ * yearly-cycle convergence has none yet, so it is hidden even with hits; it
+ * is absent with no hits or missing fields too.
  */
 
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MarketTabs } from "./market-tabs";
 import type { GannLevels, ScanResult } from "@/lib/types";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 function scan(gann: Partial<GannLevels>): ScanResult {
   return {
@@ -44,9 +46,16 @@ afterEach(() => {
 });
 
 describe("MarketTabs yearly-cycle badge", () => {
-  it("shows when yearly cycles converge on this month", () => {
+  it("stays hidden with hits while the yearly cycles have no measured record", () => {
+    expect(TIME_LINE_RECORDS.yearCycles).toBeNull();
     render(<MarketTabs symbol="F" result={scan({ yearCycleBullishHits: 2, yearCycleBearishHits: 0 })} />);
-    expect(screen.getByText("Yearly cycles converging")).toBeTruthy();
+    expect(screen.queryByText("Yearly cycles converging")).toBeNull();
+  });
+
+  it("shows the turn window with its measured record", () => {
+    render(<MarketTabs symbol="F" result={scan({ timeCycleActive: true })} />);
+    expect(screen.getByText("Cyclical turn window")).toBeTruthy();
+    expect(screen.getByText(/no better than chance/)).toBeTruthy();
   });
 
   it("is absent with no hits, or when the fields are missing", () => {

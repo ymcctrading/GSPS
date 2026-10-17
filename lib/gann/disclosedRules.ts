@@ -105,9 +105,10 @@ import { describeSecondaryTime, readSecondaryTime, type SecondaryTimeReading } f
 import { describeTimeCounts, readTimeCounts, type TimeCountsReading } from "@/lib/gann/timeCounts";
 import { readAccumulation, type AccumulationReading } from "@/lib/gann/accumulation";
 import { readSharesPerPoint, type SharesPerPointReading } from "@/lib/gann/sharesPerPoint";
-import { monthlyWithCurrent, readLeadership, readWeakStock, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
+import { monthlyWithCurrent, readLeadership, readWeakStockFrom, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { describeSevenZones, readSevenZones, type ZoneReading } from "@/lib/gann/sevenZones";
 import { approachingFigure, type ApproachReading } from "@/lib/gann/evenFigures";
+import { readCalendarDayAngles, type CalendarDayAngleReading } from "@/lib/gann/normalizedSlope";
 import { describePriceGrids, readPriceGrids, type PriceGridReading } from "@/lib/gann/priceGrids";
 import { describePriceAsTime, readPriceAsTime, type PriceAsTimeReading } from "@/lib/gann/priceAsTime";
 import { describeAngleCrossings, readAngleCrossings, type AngleCrossingsReading } from "@/lib/gann/angleCrossings";
@@ -152,11 +153,13 @@ import { describeCampaignLength, readCampaignLength, type CampaignLengthReading 
 import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
+import { describeWeeklyOneBar, walkWeeklyOneBar, type WeeklyOneBarReading } from "@/lib/gann/weeklyOneBar";
 import { describeJensenConvergence, jensenBottomConvergence, type JensenConvergence } from "@/lib/gann/jensen";
 import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/lib/gann/firstRally";
 import { describeCycleRangeBreak, readCycleRangeBreak, type CycleRangeBreak } from "@/lib/gann/cycleRangeBreak";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 import {
   describeIncorporationCycle,
   readIncorporationCycle,
@@ -578,7 +581,7 @@ export interface DisclosedRulesContext {
   sharesPerPoint: SharesPerPointReading | null;
   /** Early and late leaders, and the first-year high. See `leadership.ts`. */
   leadership: LeadershipReading | null;
-  /** Gann's weak stocks in a bull market (A-TREND-07/-08, context only). See `readWeakStock`. */
+  /** Gann's weak stocks in a bull market (A-TREND-07/-08). A buy in one is held to Watch (A-SELECTION-04). See `readWeakStock`. */
   weakStock?: WeakStockReading | null;
   /** The 2–3-day halt and the reaction-week rules. See `timeRules.ts`. */
   timeRules: TimeRulesReading | null;
@@ -620,6 +623,8 @@ export interface DisclosedRulesContext {
   monthlyAngle?: { from: number; fromMonth: string; price: number } | null;
   /** The 1x1 down from the latest monthly top at 1 point a month (C-LEVELS-08, context only). */
   monthlySquareFromHigh?: MonthlySquareReading | null;
+  /** The 1x1 on a scale of one price unit per calendar day (C-LEVELS-20, Jensen; context only). See `normalizedSlope.ts#readCalendarDayAngles`. */
+  calendarDayAngles?: CalendarDayAngleReading | null;
   /** The last completed session left a narrow range: its volume over the range's average (A-VOLUME-10, context only). See `breakaway.ts`. */
   breakawayVolume?: BreakawayVolumeReading | null;
   /** The class C day, week, month, circle and seasonal counts (context only). See `secondaryTime.ts`. */
@@ -686,6 +691,8 @@ export interface DisclosedRulesContext {
   firstRally?: FirstRallyReading | null;
   /** A 3-4 day range broken down on volume, and whether on a time-cycle date (C-TIME-03, class C, context only). See `cycleRangeBreak.ts`. */
   cycleRangeBreak?: CycleRangeBreak | null;
+  /** Gann's weekly green/red trend line, the one-week swing chart (M-R8, context only). See `weeklyOneBar.ts`. */
+  weeklyOneBar?: WeeklyOneBarReading | null;
   /** The session this was read for (YYYY-MM-DD). */
   asOf: string;
 }
@@ -707,6 +714,11 @@ export interface InstrumentFacts {
    * counts (C-TIME-09/-12, A-TIME-05/-21) only. Falls back to `monthly`.
    */
   monthlyLong?: Bar[] | null;
+  /**
+   * The stock's monthly bars over `YEAR_COUNT_MONTHLY_YEARS`, for the
+   * time-window hold's yearly counts (A-TIME-11) only.
+   */
+  monthlyYearCount?: Bar[] | null;
   /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
   marketMonthly?: Bar[] | null;
 }
@@ -797,9 +809,11 @@ export function readDisclosedRules(
     seasonal: readSeasonalCount(asOf),
     accumulation: readAccumulation(dailyBars),
     sharesPerPoint: readSharesPerPoint(dailyBars, campaign, asOf),
-    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign),
-    weakStock:
-      instrument?.monthly && marketMonthly ? readWeakStock(monthlyWithCurrent(instrument.monthly, dailyBars), marketMonthly) : null,
+    leadership: readLeadership(dailyBars, instrument?.marketDaily ?? null, campaign, {
+      stock: instrument?.monthly ?? null,
+      market: instrument?.marketMonthly ?? null,
+    }),
+    weakStock: readWeakStockFrom(instrument?.monthly, dailyBars, instrument?.marketMonthly, instrument?.marketDaily),
     timeRules: readTimeRules(dailyBars, counterMove),
     multipleTops: readMultipleTops(dailyBars),
     ruleFollowing: readRuleFollowing(dailyBars),
@@ -825,6 +839,7 @@ export function readDisclosedRules(
         }
       : null,
     monthlySquareFromHigh: readMonthlySquareFromHigh(longMonthly, asOf, STOCK_POINTS_PER_MONTH * unit),
+    calendarDayAngles: readCalendarDayAngles(dailyBars, currentPrice),
     breakawayVolume: readBreakawayVolume(dailyBars, asOf),
     secondTopVolumeRatio: computeVolumeClimax(dailyBars, undefined, { asOf }).find((r) => r.anchorKind === "high")?.retestWeekVolumeRatio ?? null,
     secondaryTime: readSecondaryTime(dailyBars, longMonthly, asOf, counterMove),
@@ -864,6 +879,7 @@ export function readDisclosedRules(
     jensenConvergence: jensenBottomConvergence(dailyBars, unit),
     firstRally: readFirstRally(instrument?.monthly ? monthlyWithCurrent(instrument.monthly, dailyBars) : toMonthlyBars(dailyBars)),
     cycleRangeBreak: readCycleRangeBreak(dailyBars, timeCycles(dailyBars, asOf).active),
+    weeklyOneBar: walkWeeklyOneBar(toWeeklyBars(dailyBars)),
     asOf: asOf.toISOString().slice(0, 10),
   };
 }
@@ -922,6 +938,12 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     const q = ctx.monthlySquareFromHigh;
     lines.push(`The square of price and time down from the ${q.fromMonth} top (${q.from.toFixed(2)}) at 1 point a month stands at ${q.price.toFixed(2)}. Not a level to trade on alone.`);
   }
+  if (ctx.calendarDayAngles?.fromLow || ctx.calendarDayAngles?.fromHigh) {
+    const a = ctx.calendarDayAngles;
+    const up = a.fromLow ? `${a.fromLow.price.toFixed(2)} up from the ${a.fromLow.anchorDate} low` : null;
+    const down = a.fromHigh ? `${a.fromHigh.price.toFixed(2)} down from the ${a.fromHigh.anchorDate} high` : null;
+    lines.push(`Counting every calendar day as one point, the 1x1 stands at ${[up, down].filter(Boolean).join(" and ")}. Shown for context; it does not change the setup.`);
+  }
   if (ctx.distributionStanding) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);
   }
@@ -958,15 +980,17 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       lines.push("Topped after the market and now declining: late tops make late bottoms, so its low may come after the market's. Shown for context; it does not change the setup.");
     if (l.earlyBottomExpected)
       lines.push("Topped before the market and now declining: early tops make early bottoms, so its low may come before the market's. Shown for context; it does not change the setup.");
+    if (l.crossedTopsFirst) lines.push("Crossed last year's top before the market: an early leader, listed first among buys.");
+    if (l.brokeBottomsFirst) lines.push("Broke last year's bottom before the market: an early leader down, listed first among shorts.");
     if (l.firstYearHighCrossed !== null) lines.push(`First-year high of the campaign ${l.firstYearHighCrossed ? "crossed" : "not yet crossed"}.`);
   }
   if (ctx.weakStock?.earlyTopFailed) {
     const w = ctx.weakStock.earlyTopFailed;
-    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years.`);
+    lines.push(`Weak in this bull market: its ${w.month} top (${w.top.toFixed(2)}), made in the market's first two years up, has not been exceeded in two years. A buy is held to Watch; a short is listed first.`);
   }
   if (ctx.weakStock?.firstRallyNotExceeded) {
     const w = ctx.weakStock.firstRallyNotExceeded;
-    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since.`);
+    lines.push(`Weak in this bull market: its first rally ran only ${w.months} month${w.months === 1 ? "" : "s"}, to ${w.top.toFixed(2)} in ${w.month}, and has not been exceeded since. A buy is held to Watch; a short is listed first.`);
   }
   if (ctx.narrowWeekBreak) {
     const n = ctx.narrowWeekBreak;
@@ -1104,11 +1128,16 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (cd?.next) {
     const missed = cd.dates.find((c) => c.came !== null && c.came !== c.expect);
     lines.push(
-      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. Shown for context; it does not change the setup.`,
+      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. ${
+        // CYC-47: a dated forward label is shown only with a measured record (timeRecords.ts); the card gates its tile the same way.
+        TIME_LINE_RECORDS.turnTiming ? "Shown for context" : "Not shown: no measured record yet"
+      }; it does not change the setup.`,
     );
   }
   const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;
   if (fr) lines.push(fr);
   if (ctx.cycleRangeBreak) lines.push(describeCycleRangeBreak(ctx.cycleRangeBreak));
+  const wl = ctx.weeklyOneBar ? describeWeeklyOneBar(ctx.weeklyOneBar) : null;
+  if (wl) lines.push(wl);
   return lines;
 }

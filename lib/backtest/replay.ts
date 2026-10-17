@@ -75,11 +75,11 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
-import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { readMonthlyBreakWarning, secondaryTurnLevels, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
@@ -87,11 +87,12 @@ import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
-import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
+import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
 const PYRAMID_SHARE_SCALE = 1024;
-import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { figureCrossingOf, roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
+import { selectionStrength } from "@/lib/gann/leadership";
 import {
   atrPercentOfPrice,
   nearestLevelMatch,
@@ -347,6 +348,13 @@ export interface ReplayOptions {
    * `monthlyBars`.
    */
   longMonthlyBars?: Bar[];
+  /**
+   * The stock's monthly bars over `YEAR_COUNT_MONTHLY_YEARS`, for the
+   * time-window hold's yearly counts (A-TIME-11's 20 years) only; each session
+   * reads the months closed before it within that span, as the live scan holds
+   * them. Falls back to `longMonthlyBars`.
+   */
+  yearCountMonthlyBars?: Bar[];
 }
 
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
@@ -464,6 +472,12 @@ export interface ReplayTrade {
    * market scan's yearly-cycle re-rank picks better trades.
    */
   yearCycleHits?: number;
+  /**
+   * The selection strength the live lists order by (`selectionStrength`,
+   * early leaders first; A-SELECTION-02). The replay has no list to order, so
+   * it records the value per trade for the run to split on.
+   */
+  selectionStrength?: number;
 }
 
 export interface ReplayResult {
@@ -543,6 +557,8 @@ export function rollUp(bars: Bar[], key: (bar: Bar) => string): Bar[] {
  * shipped system.
  */
 export interface MacroContext {
+  /** The 52-week level chart's daily bars, for readings the holds take straight off the chart. */
+  dailyChart: Bar[];
   macroTrends: TrendReading[];
   swingChart: SwingChartReading;
   /** How many 3-day swing-chart legs since the weekly chart's last trend change, and Gann's "sections of a campaign" confidence read on that count. Confluence/context only — see lib/gann/swingChart.ts#computeCampaignLeg. */
@@ -625,6 +641,8 @@ export function buildMacroContext(
     })
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
+  // Read before the levels: its campaign ledger supplies the secondary turn.
+  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
   const allLevels = [
     ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
     ...dailyTrend.resistance.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
@@ -636,6 +654,8 @@ export function buildMacroContext(
     ...majorPricePercentageLevels([...monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
     // Mirrors lib/scanTicker.ts: the old campaign bottoms (A-LEVELS-03).
     ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, asOf), price).map((p) => ({ price: p, timeframe: "1Month" as const })),
+    // Mirrors lib/scanTicker.ts: the campaign's secondary turn (A-LEVELS-02).
+    ...secondaryTurnLevels(disclosedRules.campaign).map((p) => ({ price: p, timeframe: "1Week" as const })),
     // Mirrors lib/scanTicker.ts: the Square of 144 squares and the planetary averages.
     ...gannMasterLevels([...monthly, ...charts.daily], charts.daily, price, asOf).map((l) => ({
       price: l.price,
@@ -653,6 +673,7 @@ export function buildMacroContext(
   const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
 
   return {
+    dailyChart: charts.daily,
     macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
     swingChart,
     campaignLeg,
@@ -692,9 +713,9 @@ export function buildMacroContext(
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
-    disclosedRules: readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf),
+    disclosedRules,
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyLong ?? charts.monthly));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
     },
   };
@@ -765,6 +786,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     marketDailyBars,
     marketMonthlyBars,
     longMonthlyBars,
+    yearCountMonthlyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -827,6 +849,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               monthly: monthlyBars ? priorMonthly : null,
               monthlyLong: longMonthlyBars
                 ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
+                : null,
+              monthlyYearCount: yearCountMonthlyBars
+                ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
                 : null,
               marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
             }
@@ -1137,6 +1162,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
           barsHeld: walked.barsHeld,
           outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
           exitReason: walked.reason,
@@ -1198,6 +1224,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+        selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
       };
 
       if (outcome === "timeout") {
@@ -1644,7 +1671,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -1670,7 +1697,11 @@ function scoreSetup(input: {
       atrPct: context.atrPct,
       ...(weights ? { weights } : {}),
     }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
-    context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing);
+    context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),
+    // A-SELECTION-04: a buy in a weak stock holds to Watch, as on the live scan.
+    context.disclosedRules.weakStock, gannTrigger.direction),
+    // A-LEVELS-08: the first and second times through a round number hold, as live.
+    figureCrossingOf(context.dailyChart, gannTrigger));
   return { decision, levels };
 }
 

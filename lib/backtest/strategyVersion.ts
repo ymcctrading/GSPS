@@ -425,4 +425,25 @@
 // its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`), and any
 // reversal opened at the stop is covered there (`rebuyAfterStop`, default on).
 // New re-entry trades appear and some reversals leave earlier; verdicts do not move.
-export const STRATEGY_VERSION = "2026-10-17-gann-rebuy-after-stop";
+// 2026-10-16-gann-selection-levels (feature-map batch V3): the lists and the
+// full-scan shortlist put Gann's early leaders first (bottomed or crossed last
+// year's top first for buys, topped or broke last year's bottom first for
+// shorts; A-SELECTION-02/-03), weak stocks last among buys and first among
+// shorts, and a buy in a weak stock holds to Watch (A-SELECTION-04). The
+// first and second times through a major round number hold to Watch
+// (A-LEVELS-08). The campaign's secondary rally top joins the S/R pool
+// (A-LEVELS-02), so stops, targets and the S/R match move. Range divisions are
+// ranked by Master Course Ch. 6's tiers (M-P1). The calendar-day 1x1
+// (C-LEVELS-20) is context only. Verdicts, levels and list order move.
+// 2026-10-17-gann-review-b-fixes: review B of the built rules. Only Jensen's
+// square points join the S/R list; his trine points mark consolidation and
+// stay context (C-LEVELS-21). Resistance points within 1% are averaged into
+// one before TP1 and the master are read, as the stop's were (M-P4). Plan
+// levels and targets move; the new weekly trend line, Master 12 grid and
+// spectral-cycle changes are context only.
+// 2026-10-17-gann-yearly-count-reach: the time-window hold's yearly counts
+// read a separate monthly span, `YEAR_COUNT_MONTHLY_YEARS` (61), fetched in the
+// same monthly request and windowed point-in-time on the replay, so the
+// 20-year count (A-TIME-11) and the 30/50/60-year ones can act where the data
+// vendor's history reaches. The class C counts keep `LONG_MONTHLY_YEARS`.
+export const STRATEGY_VERSION = "2026-10-17-gann-yearly-count-reach";

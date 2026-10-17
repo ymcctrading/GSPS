@@ -229,6 +229,11 @@ export function contextFactorsFor(
     const over = price > ctx.monthlySquareFromHigh.price;
     f.overSquareFromHighAgreesWithTrade = bull ? over : !over;
   }
+  // Over the rising 1x1 from the last low on the calendar-day scale for a
+  // long, under the falling one from the last high for a short (C-LEVELS-20,
+  // Jensen; context only).
+  const calLine = bull ? ctx.calendarDayAngles?.fromLow : ctx.calendarDayAngles?.fromHigh;
+  if (calLine) f.calendarDayAngleAgreesWithTrade = bull ? price > calLine.price : price < calLine.price;
   // Double/triple tops and bottoms: crossed in the trade's direction, or a
   // failed test standing against it (the second or third since 2026-10-16,
   // A-LEVELS-04; the factor keeps its name so earlier runs still compare,
@@ -546,5 +551,7 @@ export function contextFactorsFor(
   }
   // C-TIME-03 (W003 p.16, class C): the range break at a cycle's expiry, a short setup only.
   if (!bull && ctx.cycleRangeBreak) f.cycleRangeBreakShort = ctx.cycleRangeBreak.shortSetup;
+  // M-R8: the weekly trend line is green for a long, red for a short.
+  if (ctx.weeklyOneBar?.colour) f.weeklyOneBarWithTrade = ctx.weeklyOneBar.colour === (bull ? "green" : "red");
   return f;
 }

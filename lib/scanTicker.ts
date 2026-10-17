@@ -52,13 +52,17 @@ import {
   applyFailedTopHold,
   applyTimeWindowHold,
   applyRuleFollowingHold,
+  applyWeakStockHold,
+  applyFigureCrossingHold,
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
   computeScore,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
-import { readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, readMonthlyBreakWarning, secondaryTurnLevels } from "@/lib/gann/campaignLedger";
+import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
+import { figureCrossingOf } from "@/lib/gann/evenFigures";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
@@ -148,7 +152,7 @@ export async function scanTicker(
     // The stored shares outstanding and inception date (parity roadmap D2,
     // D3) load alongside the bars. The whole table is read once per server
     // instance and cached, so after the first symbol this resolves at once.
-    const [{ monthly, monthlyLong, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
+    const [{ monthly, monthlyLong, monthlyYearCount, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
@@ -344,6 +348,9 @@ export async function scanTicker(
     // computeTradeLevels's equities path needs both the full level list and
     // atrPct to anchor a percent-based stop/runner — see
     // lib/strat/levels.ts#computeEquityTradeLevels.
+    // The campaign ledger on the level chart, as the replay's
+    // `readDisclosedRules` builds it.
+    const campaignLedger = buildCampaignLedger(charts.daily);
     const allLevels = [
       ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
       ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
@@ -356,6 +363,8 @@ export async function scanTicker(
       ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
       // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
       ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, new Date(scannedAt)), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
+      // The campaign's secondary rally top (reaction bottom), A-LEVELS-02.
+      ...secondaryTurnLevels(campaignLedger).map((price) => ({ price, timeframe: "1Week" as const })),
       // Gann's Square of 144 squares and his planetary averages (COE, MOF,
       // the six), as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
       ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, new Date(scannedAt)).map((l) => ({
@@ -415,6 +424,13 @@ export async function scanTicker(
     const distributionStanding = readDistributionStanding(daily, new Date(scannedAt));
     // A-LEVELS-04 (fork FL3 a): the same 52-week entry chart the replay reads.
     const failedTops = readMultipleTops(charts.daily);
+    // Gann's selection rules (A-SELECTION-02/-03): early leaders first in the
+    // lists. Read as `readDisclosedRules` reads it on the replay: the level
+    // charts' daily and monthly, and the market's.
+    const leadership = readLeadership(charts.daily, marketDaily, campaignLedger, { stock: charts.monthly, market: marketMonthly });
+    // A-SELECTION-04: a weak stock in a bull market ranks last as a buy, first
+    // as a short, and a buy in it holds to Watch.
+    const weakStock = readWeakStockFrom(charts.monthly, charts.daily, marketMonthly, marketDaily);
 
     // A breached stop retires the plan (owner decision, 2026-09-30): price the
     // scan ran at is already through the stop of the plan it just priced, or
@@ -434,7 +450,7 @@ export async function scanTicker(
     });
 
     const decision = applyStopBreachHold(applyDataLagHold(
-      applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -468,11 +484,13 @@ export async function scanTicker(
         // Q19: a counter-trend Execute needs its turn to come on a dated window
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
         setupKind,
-        () => readWindowTurn(charts.daily, scoreDirection, monthlyLong ?? charts.monthly),
+        () => readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly),
       ),
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
-      ),
+      ), weakStock, scoreDirection),
+        // A-LEVELS-08: the first and second times through a round number hold.
+        figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,
     ), stopBreach);
 
@@ -607,6 +625,7 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
+      selectionStrength: selectionStrength(direction, leadership, weakStock),
       ...(stopBreach.breached
         ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price!, reclaimAt: stopBreach.reclaimAt! } }
         : {}),

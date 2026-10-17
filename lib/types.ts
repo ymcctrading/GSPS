@@ -344,6 +344,12 @@ export interface ScanResult {
    */
   stopBreach?: { stop: number; price: number; reclaimAt: number };
   /**
+   * How strongly the selection rules favour this setup's side (early leaders
+   * first; `lib/gann/leadership.ts#selectionStrength`). Orders the daily
+   * lists only; it is not part of the score.
+   */
+  selectionStrength?: number;
+  /**
    * How far behind the market the bars this scan was computed on are, expressed
    * against the execution timeframe. Published deliberately: the verdict is
    * held back when the lag is a whole bar or more, and a reader is owed the

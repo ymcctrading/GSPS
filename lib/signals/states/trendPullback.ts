@@ -14,7 +14,7 @@
 import type { Bar, Direction } from "@/lib/types";
 import { atr, clusterLevels, findPivots } from "@/lib/analysis/pivots";
 import { relativeVolume } from "../indicators";
-import { computeRetracementLevels } from "@/lib/gann/retracement";
+import { computeRetracementLevels, isFirstTierRetracement } from "@/lib/gann/retracement";
 import { classifyRegime, type RegimeInputs } from "../regime";
 import { computeRulesAlignmentScore } from "../scoring";
 import { allSafetyGatesPass, evaluateDisqualifiers } from "../disqualifiers";
@@ -102,12 +102,12 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
   // Where a pullback may be bought (or a rally sold). These were the 20/50
   // SMAs and an anchored VWAP until 2026-09-26 (alignment audit F2.5). They
   // are now Gann's own retracement levels of the latest execution swing, the
-  // ones his importance ranking puts first: 1/2, the full retracement, 1/4
-  // and 3/4 (`RetracementLevel.importance` <= 3,
-  // docs/GANN_HISTORICAL_SOURCES.md). The support/resistance zones are kept
-  // as before.
+  // first tier of Master Course Ch. 6 (owner 2026-10-16: Ch. 6 tiers; M-P1):
+  // 1/2, 1/4, 3/4 and the full range (`isFirstTierRetracement`). The same set
+  // the earlier ranking's top four gave. The support/resistance zones are
+  // kept as before.
   const gannRetracements = computeRetracementLevels(executionBars, lastBar.c)
-    .filter((l) => l.importance !== null && l.importance <= 3)
+    .filter(isFirstTierRetracement)
     .map((l) => l.price);
   const approvedLocations = [...gannRetracements, ...definedZones].filter(
     (v): v is number => typeof v === "number" && Number.isFinite(v),

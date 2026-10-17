@@ -27,7 +27,7 @@ vi.mock("@/lib/data/synthetic", async () => {
 vi.stubEnv("MARKET_DATA_PROVIDER", "synthetic");
 
 const { fetchAllTimeframes, fetchAllTimeframesBatch } = await import("@/lib/data/provider");
-const { LONG_MONTHLY_YEARS, longMonthlyWindow, readSecondaryMonthCounts } = await import("@/lib/gann/secondaryTime");
+const { LONG_MONTHLY_YEARS, YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow, readSecondaryMonthCounts } = await import("@/lib/gann/secondaryTime");
 const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
 
 const YEAR = 365.25 * 86_400_000;
@@ -40,8 +40,10 @@ describe("the live fetch", () => {
     for (const read of [() => fetchAllTimeframes("TEST", "us_equity"), async () => (await fetchAllTimeframesBatch(["TEST"])).get("TEST")!]) {
       starts.monthly.length = 0;
       const r = await read();
-      expect(Math.abs(starts.monthly[0] - (now - LONG_MONTHLY_YEARS * YEAR))).toBeLessThan(5 * 86_400_000);
-      expect(r.monthlyLong).toEqual(longBars);
+      expect(Math.abs(starts.monthly[0] - (now - YEAR_COUNT_MONTHLY_YEARS * YEAR))).toBeLessThan(5 * 86_400_000);
+      expect(r.monthlyYearCount).toEqual(longBars);
+      expect(r.monthlyLong).toEqual(longMonthlyWindow(longBars, new Date(now)));
+      expect(r.monthlyLong!.length).toBeLessThan(longBars.length);
       expect(r.monthly.length).toBeGreaterThan(0);
       expect(r.monthly.every((b) => Date.parse(b.t) >= now - 10 * YEAR - 86_400_000)).toBe(true);
       expect(r.monthly).toEqual(longBars.filter((b) => Date.parse(b.t) >= Date.parse(r.monthly[0].t)));

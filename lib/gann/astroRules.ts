@@ -202,7 +202,7 @@ export interface AstroReading {
   lunarReturn: { pivotDate: string; offsetDays: number } | null;
   /** Jensen (`jensen.ts`): the square of 90 in price and time, the slow-planet aspects, the projection. */
   jensen: {
-    price: { points: number; from: "high" | "low"; level: number; square: boolean } | null;
+    price: { points: number; from: "high" | "low"; level: number; square: boolean; strong: boolean } | null;
     time: { from: "high" | "low"; unit: "days" | "weeks" | "months"; count: number; points: number } | null;
     aspects: JensenAspectReading;
     projection: JensenProjection | null;
@@ -372,7 +372,7 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroRead
   // J-2: Jensen's square of 90, up from the low and down from the high.
   const hitPrice = jensenPriceHit(bars, last.c, unit);
   const jensenPrice: AstroReading["jensen"]["price"] = hitPrice
-    ? { points: hitPrice.points, from: hitPrice.from, level: hitPrice.level, square: hitPrice.square }
+    ? { points: hitPrice.points, from: hitPrice.from, level: hitPrice.level, square: hitPrice.square, strong: hitPrice.strong }
     : null;
   let jensenTime: AstroReading["jensen"]["time"] = null;
   for (const [from, t0] of [["low", lowT], ["high", highT]] as const) {
@@ -419,7 +419,7 @@ export function describeAstroRules(r: AstroReading): string[] {
   if (r.newMoon) lines.push(`${tag}: New Moon within a day.`);
   if (r.lunarReturn) lines.push(`${tag}: the Moon is back at its place at the ${r.lunarReturn.pivotDate} swing pivot.`);
   const j = r.jensen;
-  if (j.price) lines.push(`Jensen's square of 90: price is ${j.price.points} points ${j.price.from === "low" ? "above the year's low" : "below the year's high"} (${j.price.level.toFixed(2)}), a ${j.price.square ? "square point, resistance" : "trine point, consolidation"}.`);
+  if (j.price) lines.push(`Jensen's square of 90: price is ${j.price.points} points ${j.price.from === "low" ? "above the year's low" : "below the year's high"} (${j.price.level.toFixed(2)}), a ${j.price.square ? (j.price.strong ? "doubly strong square point, resistance" : "square point, resistance") : "trine point, consolidation"}.`);
   if (j.time) lines.push(`Jensen's square of 90: ${j.time.count} ${j.time.unit} from the year's ${j.time.from}, on the ${j.time.points} count, a window for a turn.`);
   for (const h of j.aspects.hits) {
     const read = h.aspect.family === "square" ? "bearish" : h.aspect.family === "trine" ? "bullish" : h.aspect.family === "quintile" ? "a reversal trigger" : "takes the planets' nature";

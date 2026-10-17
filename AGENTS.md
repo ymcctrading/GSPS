@@ -171,6 +171,10 @@ size and refuse every order and replace Guided's own caps (Q4, Q6, Q12).
 **Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` is `2026-10-16-gann-stops-and-steps`.
 **Re-buy after a stop, 2026-10-17 (owner's pick on the card, A-PYRAMID-07, *Tunnel* p.198):** a trade left on a trailing stop while the swing chart still runs its way, and that ran past its entry by the reaction, rests a re-entry 12 Gann points back from its best price with the stop half the reaction beyond (`lib/gann/rebuy.ts`); a reversal opened at the stop is covered there. The replay walks it (`rebuyAfterStop`). Live and paper exits offer it in a note, for automation's trades too: no plan is seeded for it yet, because a resting reaction re-entry has no lifecycle entry kind. `STRATEGY_VERSION` is `2026-10-17-gann-rebuy-after-stop`.
 **Close-out button and the unit after losses, same day:** the rest and away reminders on the Dashboard carry an opt-in "Close all positions" button (M-K4; owner's Q16, "Button"): after a confirm it closes every open paper position at market (`/api/positions/close-all`, `lib/trade/close-position.ts`); nothing closes on its own. A-RISK-03's cut unit after a series of losses is met by the unit itself, never above the equity left, so a trade risks a tenth of what remains (pinned in `gannRiskCapital.test.ts`); the pause is `lossSeries.ts`. A-PYRAMID-08's adds on the decline are the short mirror of the add (pinned), and its re-short on the rally is the re-entry after a stop; its partial covers come from a trade record with no stated rule, so none is built, and Q14 fixes no target.
+**A-RISK-07, same day:** once a paper account's profits equal its starting capital, a trade risks at most a tenth of those profits, and a loss lowers that at once (`profitRiskCeiling`, *Tunnel Thru the Air* pp.198-199). It applies at placement, in Guided and in the portfolio manager. A live account has no starting capital on record, so it is not read there, and the replay sizes no position. Verdicts and trades are unchanged, so `STRATEGY_VERSION` stays.
+**A-EXIT-05, same day:** a trader can set the day they will be away from the market; from three days before it, the Dashboard reminds them to close out their trades (`awayReminderDue`, *Tunnel Thru the Air* p.113). A reminder only, like the rest reminder: nothing is closed for them.
+**Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` was `2026-10-16-gann-stops-and-steps`.
+**Review B fixes, 2026-10-17:** Jensen's trine points stay context and only his square points join the S/R list (C-LEVELS-21; 45 and 90 flagged doubly strong), and resistance points within 1% are averaged into one before TP1 and the master are read, as the stop already was (M-P4), on the live scan and the replay alike. Context only: Gann's weekly green/red trend line (`lib/gann/weeklyOneBar.ts`, M-R8, beside the 7-day chart, not replacing it), the Master 12 grid (`masterTwelveCell`, M-T16; the spiral is labelled a GSPS construction), and a spectral cycle needs Schuster's p under 0.05 × min(1, period/20) (CYC-27). `STRATEGY_VERSION` is `2026-10-17-gann-review-b-fixes`.
 **Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
 cell loses over 2020-2026, interval wholly below zero, both halves; Execute
 is worse than Watch (−0.090 stop, −0.123 confirmed, −0.164 Gann exits). The
@@ -291,6 +295,11 @@ Gann made about it is filed as source A13. It confirms the method was never
 disclosed: each statement says what it does, and none says how. Nothing in
 it can be built. Gann's November 1935 "Forecasting" lesson (A2.1 Ch. 7)
 never uses the term, so don't call its cycles the Master Time Factor.
+
+**A-TIME-11 reach, 2026-10-17:** the time-window hold's yearly counts read
+`YEAR_COUNT_MONTHLY_YEARS` (61) of monthly bars, live and replay, from the same
+request; the 20-year count acts only where the vendor's history reaches that far.
+`STRATEGY_VERSION` is `2026-10-17-gann-yearly-count-reach`.
 
 ## WD Gann precedence — standing principle
 
@@ -1359,7 +1368,7 @@ They bound how the decision is built, not whether.
 (16x1 to 1x16) on the Gann point, from the major pivots, with the 45°, 2x1 and
 4x1 copied to the preceding opposite pivot (GA-12 to GA-16), joins the S/R list (`lib/gann/patternAngles.ts`, via
 `masterLevels.ts`, live and replay). `STRATEGY_VERSION` is
-`2026-10-16-gann-pattern-angles`. The Hexagon Chart's time counts, read from
+`2026-10-16-gann-pattern-angles`. **Batch V3, same day:** early leaders first and weak stocks held as buys (A-SELECTION-02/-04), the third time through a round number (A-LEVELS-08), the secondary rally top in the S/R pool (A-LEVELS-02) and Ch. 6's division tiers (M-P1); `STRATEGY_VERSION` is `2026-10-16-gann-selection-levels`. The Hexagon Chart's time counts, read from
 Gann's own plate (`hexagonTime.ts`), and the Master Chart of 360°'s 48ths and
 sevenths (`masterChartTime.ts`) are trace and measured factors until the
 shared time-window mechanism exists. The plate is not lost (Master Course

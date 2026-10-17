@@ -16,6 +16,9 @@ import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleT
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
+import type { WeakStockReading } from "@/lib/gann/leadership";
+import { LOWEST_RANK } from "@/lib/gann/retracement";
+import { FIGURE_BUY_TIME, type FigureCrossingReading } from "@/lib/gann/evenFigures";
 import type {
   AssetClass,
   GannLevels,
@@ -525,7 +528,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
           (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
           (retracementMatch.importance != null
-            ? ` Importance rank ${retracementMatch.importance} of 6 (1 = 50%, the most important).`
+            ? ` Importance rank ${retracementMatch.importance} of ${LOWEST_RANK} (1 = 50%, the most important; 2 = the quarters and the full range; 3 = the thirds; 4 = the eighths and sixteenths).`
             : " Not one of the explicitly ranked fractions.")
         : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${LEVEL_BAND_BASIS}.`,
     },
@@ -763,6 +766,64 @@ export function applyRuleFollowingHold(decision: ScanDecision, reading: RuleFoll
         criterion: "Stock follows the rules",
         passed: false,
         note: `Of this stock's last ${reading.resolved} buying and selling points over the year, ${reading.failed} failed back through their stop and ${reading.followed} carried on. A stock that does not follow the rules is left alone, so this is held from Execute to Watch until its signals work again.`,
+      },
+    ],
+  };
+}
+
+/**
+ * The third time through a round number (A-LEVELS-08; `readFigureCrossing`):
+ * the first and second times an entry crosses a major figure, Gann expects it
+ * to carry only a point or so over and break back, so the Execute is held to
+ * Watch. The third time through is bought.
+ */
+export function applyFigureCrossingHold(decision: ScanDecision, crossing: FigureCrossingReading | null | undefined): ScanDecision {
+  if (!crossing || crossing.time >= FIGURE_BUY_TIME || decision.outputState !== "Execute") return decision;
+  const long = crossing.direction === "bullish";
+  const fmt = crossing.figure.toFixed(crossing.figure < 10 ? 2 : 0);
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "figureCrossing",
+        criterion: "Third time through a round number",
+        passed: false,
+        note: `This ${long ? "buy crosses" : "short breaks"} the round number ${fmt} for the ${crossing.time === 1 ? "first" : "second"} time. Orders gather at round numbers, so the first and second times through usually carry only a point or so ${long ? "over" : "under"} and then break back. Held from Execute to Watch; the third time through is taken.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Buy the strong and leave the weak alone (A-SELECTION-04, W006 p.33: "Always
+ * buy the stocks in strong position and leave those in weak position alone").
+ * A buy in a stock that reads weak in a bull market (`readWeakStock`: its
+ * early top not exceeded in two years, or its first short rally never
+ * exceeded) is held from Execute to Watch. A short in it is untouched: Gann
+ * sells the weakest short (pp.37-38), and the sell list ranks it first
+ * (`selectionStrength`).
+ */
+export function applyWeakStockHold(
+  decision: ScanDecision,
+  weak: WeakStockReading | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!weak?.weak || direction !== "bullish" || decision.outputState !== "Execute") return decision;
+  const why = weak.earlyTopFailed
+    ? `its top of ${weak.earlyTopFailed.top.toFixed(2)} (${weak.earlyTopFailed.month}), made early in the market's advance, has not been exceeded in two years`
+    : `its first rally of the market's advance, to ${weak.firstRallyNotExceeded!.top.toFixed(2)} (${weak.firstRallyNotExceeded!.month}), lasted ${weak.firstRallyNotExceeded!.months} months and has never been exceeded`;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "weakStock",
+        criterion: "Stock in a strong position",
+        passed: false,
+        note: `This stock is weak while the market advances: ${why}. Buy the strong and leave the weak alone, so this buy is held from Execute to Watch while the reading stands.`,
       },
     ],
   };

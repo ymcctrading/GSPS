@@ -29,6 +29,20 @@ function advance(reactions: number[]): number[] {
   return out;
 }
 
+/** A bear campaign from 100 whose rallies are the given percents. */
+function decline(rallies: number[]): number[] {
+  const out: number[] = [...leg(90, 100, 6)];
+  let p = 100;
+  for (const r of rallies) {
+    const bottom = p * 0.8;
+    out.push(...leg(p, bottom, 8));
+    p = bottom * (1 + r / 100);
+    out.push(...leg(bottom, p, 5));
+  }
+  out.push(...leg(p, p * 0.85, 8));
+  return out;
+}
+
 describe("nearly equal corrections in an uptrend (C-SWING-01)", () => {
   it("fixes the tolerance before measuring: the largest of the last three within 1.25x the smallest", () => {
     expect(EQUAL_CORRECTION_RATIO).toBe(1.25);
@@ -48,10 +62,19 @@ describe("nearly equal corrections in an uptrend (C-SWING-01)", () => {
   });
 
   it("is read for an uptrend only, as the text gives it", () => {
-    const bear = daily(advance([5, 5.5, 5]).map((c) => 300 - c));
-    const l = buildCampaignLedger(bear)!;
+    // A real decline whose three rallies are nearly equal in percent: equal
+    // within the tolerance, so only the uptrend condition keeps it false.
+    const l = buildCampaignLedger(daily(decline([5, 5.5, 5])))!;
     expect(l.trend).toBe("bearish");
+    const rallies = l.legs.filter((g) => g.direction === "up").slice(-3).map((g) => g.pct);
+    expect(rallies).toHaveLength(3);
+    expect(Math.max(...rallies)).toBeLessThanOrEqual(EQUAL_CORRECTION_RATIO * Math.min(...rallies));
     expect(l.equalCorrections).toBe(false);
+  });
+
+  it("holds the tolerance by behaviour: 5/5/6 are nearly equal, 5/5/6.5 are not", () => {
+    expect(buildCampaignLedger(daily(advance([5, 5, 6])))!.equalCorrections).toBe(true);
+    expect(buildCampaignLedger(daily(advance([5, 5, 6.5])))!.equalCorrections).toBe(false);
   });
 
   it("is shown for context and measured on a trade with the campaign's trend", () => {
