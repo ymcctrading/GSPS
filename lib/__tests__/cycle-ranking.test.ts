@@ -183,7 +183,7 @@ describe("buildMacroContext time-cycle date (replay)", () => {
 // A-SELECTION-04 (W006 pp.32-34, 37-38): buy the strong, leave the weak
 // alone, and sell the weakest short (long Chrysler, short United Fruit, 1935).
 describe("strongest first on the buy list, weakest first on the sell list", () => {
-  const plain = { bottomedFirst: false, bottomedLate: false, toppedFirst: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
+  const plain = { bottomedFirst: false, bottomedLate: false, toppedFirst: false, toppedLate: false, lateBottomExpected: false, earlyBottomExpected: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
   const weak = { bullStart: "2024-01", earlyTopFailed: { top: 50, month: "2024-06" }, firstRallyNotExceeded: null, weak: true };
   const row = (symbol: string, strength: number) =>
     ({ symbol, decision: { score: 6, outputState: "Execute", breakdown: [] }, selectionStrength: strength }) as unknown as ScanResult;

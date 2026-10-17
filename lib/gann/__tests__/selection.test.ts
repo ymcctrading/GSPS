@@ -86,7 +86,7 @@ describe("early leaders in a bear market (A-SELECTION-03)", () => {
   });
 
   it("ranks a stock that topped first, or broke its bottoms first, above one that did neither on the sell side", () => {
-    const plain = { bottomedFirst: false, bottomedLate: false, toppedFirst: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
+    const plain = { bottomedFirst: false, bottomedLate: false, toppedFirst: false, toppedLate: false, lateBottomExpected: false, earlyBottomExpected: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
     expect(selectionStrength("bearish", { ...plain, toppedFirst: true }, null)).toBeGreaterThan(selectionStrength("bearish", plain, null));
     expect(selectionStrength("bearish", { ...plain, brokeBottomsFirst: true }, null)).toBeGreaterThan(0);
     // A buy-side leader is no reason to sell it short.
