@@ -19,7 +19,7 @@ import type { NearestGannAngle } from "@/lib/gann/normalizedSlope";
 import type { LedgerCoordinate } from "@/lib/gann/coordinateLedger";
 import type { DecadeCycleReading } from "@/lib/gann/decadeCycle";
 import type { MacroCycleResult } from "@/lib/gann/macroCycle";
-import type { MasterTwelveLevel } from "@/lib/gann/masterTwelve";
+import type { MasterTwelveCell, MasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import type { SquareOf52Result } from "@/lib/gann/squareOf52";
 import type { AngleMonthCountResult } from "@/lib/gann/angleMonthCounts";
 import type { SpectralCycleReading } from "@/lib/gann/spectralCycle";
@@ -136,6 +136,13 @@ export interface GannConfluenceResult {
    * `nearestSquareOf9`. See `lib/gann/masterTwelve.ts`.
    */
   nearestMasterTwelve: MasterTwelveLevel | null;
+  /**
+   * M-T16: where the bars (trading days) since the anchor pivot sit on the
+   * Master 12 chart itself (`lib/gann/masterTwelve.ts#masterTwelveCell`,
+   * A2.1 Ch. 13): square, place, square end (144, 288 ...), centres, diagonal.
+   * Context only; it never sets alignment, a gate or a verdict.
+   */
+  masterTwelve: { count: number; unit: "bars"; cell: MasterTwelveCell } | null;
   /**
    * Square of 52 / Master Calculator for Weekly Time Periods
    * (`docs/GANN_HISTORICAL_SOURCES.md` A2.1 Ch. 14) — disclosed fractional

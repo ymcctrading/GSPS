@@ -120,6 +120,16 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               <p className="font-mono font-semibold">{result.nearestMasterTwelve.price.toFixed(2)}</p>
             </div>
           )}
+          {/* M-T16: the 12-by-12 time chart, context only. */}
+          {result.masterTwelve && (
+            <div className="rounded-md border border-border bg-surface p-2">
+              <p className="text-muted">12-by-12 time chart</p>
+              <p className="font-mono font-semibold">
+                {`${result.masterTwelve.count} bars: square ${result.masterTwelve.cell.square}, place ${result.masterTwelve.cell.place}${result.masterTwelve.cell.squareEnd ? ", square end" : result.masterTwelve.cell.majorCentre ? ", major centre" : result.masterTwelve.cell.minorCentre ? ", minor centre" : ""}`}
+              </p>
+              <p className="text-[10px] text-muted">Bars since the anchor pivot. Context only; it does not change the setup.</p>
+            </div>
+          )}
           {TIME_LINE_RECORDS.squareOf52 && (
             <div className="rounded-md border border-border bg-surface p-2">
               <p className="text-muted">Square of 52 window</p>

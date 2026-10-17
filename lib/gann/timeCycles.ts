@@ -112,6 +112,9 @@ export const DAY_COUNT_BANDS: readonly [number, number][] = [
  * same disclosed year list, different anchor source. Keep both in sync from
  * this one export rather than letting a second copy drift.
  */
+// C-ASTRO-02, research only: the Saturn return (about 29.46 years) beside the
+// 30-year count is `lib/research/saturnReturn.ts`. It is not imported here and
+// never feeds `timeCycles()` or `applyTimeWindowHold`.
 export const MAJOR_CYCLE_YEARS = [1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60];
 
 /**

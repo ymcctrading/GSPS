@@ -10,6 +10,7 @@ import { render, screen } from "@testing-library/react";
 import { ConfluenceCard } from "./confluence-card";
 import type { ScanResult } from "@/lib/types";
 import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRules";
+import { masterTwelveCell } from "@/lib/gann/masterTwelve";
 
 const baseResult: Omit<ScanResult, "signals"> = {
   symbol: "AAPL",
@@ -68,6 +69,7 @@ function makeResult(): ScanResult {
           upcomingMajor: [],
         },
         nearestMasterTwelve: null,
+        masterTwelve: null,
         squareOf52: { active: false, dates: [] },
         angleMonthCounts: { active: false, dates: [] },
         spectralCycle: {
@@ -274,3 +276,28 @@ describe("context readings reach the card", () => {
     expect(screen.queryByText(/change date/i)).not.toBeInTheDocument();
   });
 });
+
+describe("the 12-by-12 time chart reaches the card (M-T16)", () => {
+  function withCell(count: number): ScanResult {
+    const r = makeResult();
+    r.signals!.gannConfluence!.masterTwelve = { count, unit: "bars", cell: masterTwelveCell(count)! };
+    return r;
+  }
+
+  it("shows the square and place as context", () => {
+    render(<ConfluenceCard result={withCell(27)} />);
+    expect(screen.getByText("12-by-12 time chart")).toBeInTheDocument();
+    expect(screen.getByText(/27 bars: square 1, place 27/)).toBeInTheDocument();
+  });
+
+  it("shows 144 as a square end", () => {
+    render(<ConfluenceCard result={withCell(144)} />);
+    expect(screen.getByText(/144 bars: square 1, place 144, square end/)).toBeInTheDocument();
+  });
+
+  it("shows nothing when there is no reading", () => {
+    render(<ConfluenceCard result={makeResult()} />);
+    expect(screen.queryByText("12-by-12 time chart")).not.toBeInTheDocument();
+  });
+});
+
