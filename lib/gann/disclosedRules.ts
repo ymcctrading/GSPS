@@ -714,6 +714,11 @@ export interface InstrumentFacts {
    * counts (C-TIME-09/-12, A-TIME-05/-21) only. Falls back to `monthly`.
    */
   monthlyLong?: Bar[] | null;
+  /**
+   * The stock's monthly bars over `YEAR_COUNT_MONTHLY_YEARS`, for the
+   * time-window hold's yearly counts (A-TIME-11) only.
+   */
+  monthlyYearCount?: Bar[] | null;
   /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
   marketMonthly?: Bar[] | null;
 }

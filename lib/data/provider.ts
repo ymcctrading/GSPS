@@ -16,7 +16,7 @@
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import { TF_INTERVAL_MS } from "@/lib/timeframe";
-import { LONG_MONTHLY_YEARS } from "@/lib/gann/secondaryTime";
+import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 export interface MarketDataProvider {
   /** Stable identifier, surfaced to the UI (e.g. "alpaca", "synthetic"). */
@@ -185,8 +185,8 @@ export async function fetchAllTimeframes(
     ? Math.max(30, executionLookbackDays(executionTimeframe))
     : 30;
 
-  const [monthlyLong, weekly, daily, hourly, execution] = await Promise.all([
-    provider.fetchBars(symbol, "1Month", yearsAgo(LONG_MONTHLY_YEARS), end, assetClass),
+  const [monthlyYearCount, weekly, daily, hourly, execution] = await Promise.all([
+    provider.fetchBars(symbol, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, assetClass),
     provider.fetchBars(symbol, "1Week", yearsAgo(5), end, assetClass),
     provider.fetchBars(symbol, "1Day", yearsAgo(1), end, assetClass),
     provider.fetchBars(symbol, "1Hour", daysAgo(hourlyLookbackDays), end, assetClass),
@@ -195,9 +195,11 @@ export async function fetchAllTimeframes(
       : provider.fetchBars(symbol, executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe)), end, assetClass),
   ]);
 
+  const monthlyLong = longMonthlyWindow(monthlyYearCount, new Date(now));
   return {
     monthly: tenYears(monthlyLong, yearsAgo(10)),
     monthlyLong,
+    monthlyYearCount,
     weekly,
     daily,
     hourly,
@@ -207,7 +209,8 @@ export async function fetchAllTimeframes(
 
 /**
  * The monthly bars every reading uses are ten years; the fetch reaches
- * `LONG_MONTHLY_YEARS` so the class C long counts (C-TIME-09's 144 months) can
+ * `YEAR_COUNT_MONTHLY_YEARS` (the time-window hold's yearly counts); the class
+ * C long counts get `LONG_MONTHLY_YEARS` of it so they (C-TIME-09's 144 months) can
  * see their pivots, and only those readings get the longer series.
  */
 function tenYears(monthly: Bar[], from: Date): Bar[] {
@@ -218,6 +221,8 @@ export interface AllTimeframeBars {
   monthly: Bar[];
   /** `LONG_MONTHLY_YEARS` of monthly bars, for the class C long counts only. */
   monthlyLong?: Bar[];
+  /** `YEAR_COUNT_MONTHLY_YEARS` of monthly bars, for the time-window hold's yearly counts only. */
+  monthlyYearCount?: Bar[];
   weekly: Bar[];
   daily: Bar[];
   hourly: Bar[];
@@ -259,7 +264,7 @@ export async function fetchAllTimeframesBatch(
     : 30;
 
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
-    provider.fetchBarsBatch(symbols, "1Month", yearsAgo(LONG_MONTHLY_YEARS), end, "us_equity"),
+    provider.fetchBarsBatch(symbols, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Week", yearsAgo(5), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Hour", daysAgo(hourlyLookbackDays), end, "us_equity"),
@@ -277,10 +282,12 @@ export async function fetchAllTimeframesBatch(
   for (const symbol of symbols) {
     const sym = symbol.toUpperCase();
     const hourlyBars = hourly.get(sym) ?? [];
-    const monthlyLong = monthly.get(sym) ?? [];
+    const monthlyYearCount = monthly.get(sym) ?? [];
+    const monthlyLong = longMonthlyWindow(monthlyYearCount, new Date(now));
     out.set(symbol, {
       monthly: tenYears(monthlyLong, yearsAgo(10)),
       monthlyLong,
+      monthlyYearCount,
       weekly: weekly.get(sym) ?? [],
       daily: daily.get(sym) ?? [],
       hourly: hourlyBars,

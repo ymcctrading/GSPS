@@ -441,4 +441,9 @@
 // one before TP1 and the master are read, as the stop's were (M-P4). Plan
 // levels and targets move; the new weekly trend line, Master 12 grid and
 // spectral-cycle changes are context only.
-export const STRATEGY_VERSION = "2026-10-17-gann-review-b-fixes";
+// 2026-10-17-gann-yearly-count-reach: the time-window hold's yearly counts
+// read a separate monthly span, `YEAR_COUNT_MONTHLY_YEARS` (61), fetched in the
+// same monthly request and windowed point-in-time on the replay, so the
+// 20-year count (A-TIME-11) and the 30/50/60-year ones can act where the data
+// vendor's history reaches. The class C counts keep `LONG_MONTHLY_YEARS`.
+export const STRATEGY_VERSION = "2026-10-17-gann-yearly-count-reach";

@@ -87,7 +87,7 @@ import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
-import { longMonthlyWindow } from "@/lib/gann/secondaryTime";
+import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
 const PYRAMID_SHARE_SCALE = 1024;
@@ -348,6 +348,13 @@ export interface ReplayOptions {
    * `monthlyBars`.
    */
   longMonthlyBars?: Bar[];
+  /**
+   * The stock's monthly bars over `YEAR_COUNT_MONTHLY_YEARS`, for the
+   * time-window hold's yearly counts (A-TIME-11's 20 years) only; each session
+   * reads the months closed before it within that span, as the live scan holds
+   * them. Falls back to `longMonthlyBars`.
+   */
+  yearCountMonthlyBars?: Bar[];
 }
 
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
@@ -708,7 +715,7 @@ export function buildMacroContext(
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules,
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyLong ?? charts.monthly));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
     },
   };
@@ -779,6 +786,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     marketDailyBars,
     marketMonthlyBars,
     longMonthlyBars,
+    yearCountMonthlyBars,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -841,6 +849,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               monthly: monthlyBars ? priorMonthly : null,
               monthlyLong: longMonthlyBars
                 ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
+                : null,
+              monthlyYearCount: yearCountMonthlyBars
+                ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
                 : null,
               marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
             }

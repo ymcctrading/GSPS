@@ -296,6 +296,11 @@ disclosed: each statement says what it does, and none says how. Nothing in
 it can be built. Gann's November 1935 "Forecasting" lesson (A2.1 Ch. 7)
 never uses the term, so don't call its cycles the Master Time Factor.
 
+**A-TIME-11 reach, 2026-10-17:** the time-window hold's yearly counts read
+`YEAR_COUNT_MONTHLY_YEARS` (61) of monthly bars, live and replay, from the same
+request; the 20-year count acts only where the vendor's history reaches that far.
+`STRATEGY_VERSION` is `2026-10-17-gann-yearly-count-reach`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

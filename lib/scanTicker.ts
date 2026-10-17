@@ -152,7 +152,7 @@ export async function scanTicker(
     // The stored shares outstanding and inception date (parity roadmap D2,
     // D3) load alongside the bars. The whole table is read once per server
     // instance and cached, so after the first symbol this resolves at once.
-    const [{ monthly, monthlyLong, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
+    const [{ monthly, monthlyLong, monthlyYearCount, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
@@ -484,7 +484,7 @@ export async function scanTicker(
         // Q19: a counter-trend Execute needs its turn to come on a dated window
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
         setupKind,
-        () => readWindowTurn(charts.daily, scoreDirection, monthlyLong ?? charts.monthly),
+        () => readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly),
       ),
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),

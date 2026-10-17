@@ -124,6 +124,22 @@ export function longMonthlyWindow(monthly: Bar[], asOf: Date): Bar[] {
   return monthly.filter((b) => b.t.slice(0, 7) >= from);
 }
 
+/**
+ * Years of monthly history the yearly counts read (A-TIME-11's 20 years, and
+ * the 30, 50 and 60 of `MAJOR_CYCLE_YEARS`): the 60-year count plus a year for
+ * the months that confirm a pivot. Fetched in the same monthly request as
+ * `LONG_MONTHLY_YEARS` (the vendor returns what it holds), and handed only to
+ * the time-window hold (`readWindowTurn`). An engineering choice, sized to
+ * reach the count.
+ */
+export const YEAR_COUNT_MONTHLY_YEARS = 61;
+
+/** The monthly bars within `YEAR_COUNT_MONTHLY_YEARS` before `asOf`. */
+export function yearCountMonthlyWindow(monthly: Bar[], asOf: Date): Bar[] {
+  const from = new Date(Date.UTC(asOf.getUTCFullYear() - YEAR_COUNT_MONTHLY_YEARS, asOf.getUTCMonth(), 1)).toISOString().slice(0, 7);
+  return monthly.filter((b) => b.t.slice(0, 7) >= from);
+}
+
 /** C-TIME-12: the fractions any cycle is divided into. */
 export const CYCLE_FRACTIONS: readonly { label: string; fraction: number }[] = [
   { label: "1/8", fraction: 1 / 8 },
