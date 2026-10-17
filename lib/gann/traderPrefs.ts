@@ -113,7 +113,7 @@ export function restReminderDue(prefs: GannRulePrefs, now: Date = new Date()): R
 }
 
 export const REST_REMINDER_COPY =
-  "Twice a year, close out every trade and rest for a while before starting again. Constant exposure wears down judgment, and a clear head sees the next move better. This is a reminder only: nothing is closed for you.";
+  "Twice a year, close out every trade and rest for a while before starting again. Constant exposure wears down judgment, and a clear head sees the next move better. Nothing is closed for you unless you choose to.";
 
 /** The close-out reminder before an absence, from `AWAY_NOTICE_DAYS` before it through its first day (ET). */
 export function awayReminderDue(prefs: GannRulePrefs, now: Date = new Date()): { awayFrom: string } | null {
@@ -125,4 +125,4 @@ export function awayReminderDue(prefs: GannRulePrefs, now: Date = new Date()): {
 }
 
 export const AWAY_REMINDER_COPY =
-  "You'll be away from the market soon. Close out your trades before you go, so nothing can move against you while you can't watch it. This is a reminder only: nothing is closed for you.";
+  "You'll be away from the market soon. Close out your trades before you go, so nothing can move against you while you can't watch it. Nothing is closed for you unless you choose to.";
