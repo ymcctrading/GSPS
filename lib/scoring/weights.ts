@@ -66,6 +66,26 @@
  * `ruleOfThree` entry.
  */
 export const CRITERION_KEYS = [
+  "marketCycle",
+  "trendAllTimeframes",
+  "relativeStrength",
+  "activity",
+  "priceLevels",
+  "geometricAngles",
+  "timeFactors",
+  "volumeAccumulation",
+  "definiteIndication",
+] as const;
+
+export type CriterionKey = (typeof CRITERION_KEYS)[number];
+
+/**
+ * The checks the pillars are built from, kept in the breakdown with `checkOf`
+ * naming their pillar (2026-10-17). They score nothing on their own; the factor
+ * tables still measure each one, so the history of the nine criteria they were
+ * until that date stays continuous.
+ */
+export const PILLAR_CHECK_KEYS = [
   "swingChartTrend",
   "gannAngleSlope",
   "volumeClimax",
@@ -77,7 +97,7 @@ export const CRITERION_KEYS = [
   "ruleOfThree",
 ] as const;
 
-export type CriterionKey = (typeof CRITERION_KEYS)[number];
+export type PillarCheckKey = (typeof PILLAR_CHECK_KEYS)[number];
 
 /**
  * Ids for the checks that are appended after scoring to explain a held state.
@@ -86,19 +106,19 @@ export type CriterionKey = (typeof CRITERION_KEYS)[number];
  */
 export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag" | "breakaway" | "stopBreach" | "monthlyBreak" | "distributionBreakdown" | "failedTop" | "timeWindowTurn" | "queerActing" | "weakStock" | "figureCrossing";
 
-export type BreakdownKey = CriterionKey | HoldKey;
+export type BreakdownKey = CriterionKey | PillarCheckKey | HoldKey;
 
 /** Short labels for the factor tables, where the full criterion text is too wide. */
 export const CRITERION_LABELS: Record<CriterionKey, string> = {
-  swingChartTrend: "3-day/weekly swing chart trend",
-  gannAngleSlope: "Structural trend-angle strength (1x2+)",
-  volumeClimax: "Volume at the turn",
-  historicalSR: "Historical support/resistance",
-  entryTriggerArmed: "Entry trigger armed (old-level crossing)",
-  stopBehindOldLevel: "Stop 3 points behind an old level",
-  timePriceSquare: "Price and time squared",
-  gannRetracementConfluence: "Retracement zone",
-  ruleOfThree: "Rule of Three (consecutive closes confirm direction)",
+  marketCycle: "Market and cycle position",
+  trendAllTimeframes: "Trend on every timeframe",
+  relativeStrength: "Relative strength and leadership",
+  activity: "Activity and character",
+  priceLevels: "Price levels",
+  geometricAngles: "Angles",
+  timeFactors: "Time",
+  volumeAccumulation: "Volume and accumulation",
+  definiteIndication: "Definite indication with the stop placed",
 };
 
 export type CriterionWeights = Record<CriterionKey, number>;

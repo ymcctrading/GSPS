@@ -1,7 +1,8 @@
 /**
- * The Score out of `TOTAL_POINTS` (9 — `ruleOfThree` joined 2026-09-16 and
- * `adxTrendStrength` left the same day, see `lib/scoring/weights.ts`) — one
- * point per confirmed confluence condition, weighted by `CriterionWeights`.
+ * The Score out of `TOTAL_POINTS` (9): one point per pillar since 2026-10-17
+ * (`lib/scoring/pillars.ts`), each built from several of the method's checks,
+ * weighted by `CriterionWeights`. The nine criteria scored before that date
+ * stay in the breakdown as checks (`checkOf`), scoring nothing alone.
  * Execute at `EXECUTE_SCORE_THRESHOLD`+, Watch at `WATCH_SCORE_THRESHOLD`+,
  * Reject below — see those constants' own comments for the current values
  * and why; this header stopped restating the literal numbers after they
@@ -15,6 +16,19 @@ import type { DistributionStanding } from "@/lib/gann/distribution";
 import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
 import { needsWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
+import {
+  activityPillar,
+  anglesPillar,
+  definiteIndicationPillar,
+  marketCyclePillar,
+  priceLevelsPillar,
+  relativeStrengthPillar,
+  timePillar,
+  trendPillar,
+  volumePillar,
+  type PillarFacts,
+  type PillarResult,
+} from "@/lib/scoring/pillars";
 import type { RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import type { WeakStockReading } from "@/lib/gann/leadership";
 import { LOWEST_RANK } from "@/lib/gann/retracement";
@@ -199,6 +213,14 @@ export interface ScoreInputs {
    * so the Execute/Watch cutoffs keep their meaning.
    */
   weights?: CriterionWeights;
+  /**
+   * The readings the nine pillars need beyond the checks above
+   * (`lib/scoring/pillars.ts#readPillarFacts`), built the same way on the live
+   * scan and the replay. Absent, the pillars that need them fail.
+   */
+  pillarFacts?: PillarFacts | null;
+  /** The dated time window at the turn, read only when it decides the time point. */
+  windowTurn?: (() => WindowTurn | null) | null;
 }
 
 /** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
@@ -261,6 +283,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     nearSupportResistance, srMatch, pattern, gannTrigger = null, levels,
     setupKind = "reversion",
     weights = DEFAULT_CRITERION_WEIGHTS,
+    pillarFacts = null,
+    windowTurn = null,
   } = inputs;
 
   // 2026-09-10: replaces macroTrend. macroTrend's monthly/weekly/daily
@@ -433,7 +457,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "swingChartTrend",
       criterion: "3-day/weekly swing chart trend",
-      pillar: "trend",
+      checkOf: "trendAllTimeframes",
       passed: swingChartAligned,
       note:
         swingChart == null || swingChart.threeDay == null || swingChart.weekly == null
@@ -450,7 +474,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "gannAngleSlope",
       criterion: "Structural trend-angle strength (1x2+)",
-      pillar: "trend",
+      checkOf: "geometricAngles",
       passed: angleHolding,
       note: angleReading?.nearestAngle
         ? `Realized slope ${angleReading.slope.toFixed(2)} points a bar since the ${angleReading.anchorKind} anchor at ${angleReading.anchorPrice.toFixed(2)} (${angleReading.barsSinceAnchor} bars) — nearest to the ${angleReading.nearestAngle.label} structural angle, moving ${angleReading.nearestAngle.direction}.`
@@ -459,7 +483,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "volumeClimax",
       criterion: "Volume at the turn",
-      pillar: "structure",
+      checkOf: "volumeAccumulation",
       passed: volumeClimaxHolding,
       note: climaxReading
         ? volumeNote(climaxReading) + boilingPointNote
@@ -468,7 +492,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "historicalSR",
       criterion: "Historical support/resistance",
-      pillar: "structure",
+      checkOf: "priceLevels",
       passed: historicalSRPassed,
       note:
         (historicalSRPassed
@@ -486,7 +510,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       // wording stays outcome-shaped rather than naming the construction,
       // because the user-facing vocabulary gate applies to generated copy.
       criterion: `${setupKind === "continuation" ? "Continuation" : "Reversal"} entry trigger armed`,
-      pillar: "setup",
+      checkOf: "definiteIndication",
       passed: patternValid,
       note: patternValid
         ? gannTrigger!.kind === "hold"
@@ -499,7 +523,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "stopBehindOldLevel",
       criterion: "Stop 3 points behind an old level",
-      pillar: "setup",
+      checkOf: "definiteIndication",
       passed: stopBehindOldLevel,
       note:
         levels == null
@@ -511,7 +535,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "timePriceSquare",
       criterion: "Price and time squared",
-      pillar: "timing",
+      checkOf: "timeFactors",
       passed: timePriceSquareHolding,
       note: squareReading
         ? timePriceSquareHolding
@@ -522,7 +546,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "gannRetracementConfluence",
       criterion: "Retracement zone",
-      pillar: "riskReward",
+      checkOf: "priceLevels",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
         ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
@@ -535,7 +559,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     {
       key: "ruleOfThree",
       criterion: "Rule of Three (consecutive closes confirm direction)",
-      pillar: "trend",
+      checkOf: "trendAllTimeframes",
       passed: ruleOfThreeHolding,
       note:
         !ruleOfThreeDaily && ruleOfThreeHigher !== null
@@ -551,6 +575,27 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
               : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
     },
   ];
+
+  // The nine points (2026-10-17, owner: "the score stays out of 9" and the
+  // card's "Stop required"). The checks above feed them and score nothing on
+  // their own; see lib/scoring/pillars.ts.
+  const monthly = inputs.macroTrends.find((t) => t.timeframe === "1Month")?.direction ?? null;
+  const point = (key: CriterionKey, criterion: string, pillar: ScoreBreakdownItem["pillar"], r: PillarResult): ScoreBreakdownItem => ({
+    key, criterion, pillar, passed: r.passed, note: r.note,
+  });
+  breakdown.push(
+    point("marketCycle", "Market and cycle position", "timing", marketCyclePillar(pillarFacts, direction)),
+    point("trendAllTimeframes", "Trend on every timeframe", "trend", trendPillar({
+      side: direction, weekly: swingChart?.weekly, threeDay: swingChart?.threeDay, ruleOfThree: ruleOfThreeHolding, monthly,
+    })),
+    point("relativeStrength", "Relative strength and leadership", "trend", relativeStrengthPillar(pillarFacts, direction)),
+    point("activity", "Activity and character", "setup", activityPillar(pillarFacts)),
+    point("priceLevels", "Price levels", "structure", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
+    point("geometricAngles", "Angles", "structure", anglesPillar(pillarFacts, direction, angleHolding)),
+    point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts, windowTurn })),
+    point("volumeAccumulation", "Volume and accumulation", "setup", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
+    point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, patternValid, stopBehindOldLevel)),
+  );
 
   // Points, not criteria met: every criterion is worth one point under the
   // default weights, so this is the same integer it has always been, and a

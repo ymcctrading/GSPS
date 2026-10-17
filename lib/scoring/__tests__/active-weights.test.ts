@@ -65,7 +65,14 @@ describe("isWeightSetAddressedToCurrentCriteria", () => {
 
 describe("why the guard is needed at all", () => {
   it("parseCriterionWeights cannot tell a stale set apart — it reshapes it silently", () => {
-    const reshaped = parseCriterionWeights(PROMOTED_2026_09_16);
+    // Since 2026-10-17 that row shares no key with the nine points, so a set
+    // stale by one criterion stands in for it: eight current keys and one gone.
+    const stale = {
+      ...Object.fromEntries(CRITERION_KEYS.slice(0, 8).map((k, i) => [k, 0.6 + i * 0.15])),
+      adxTrendStrength: 1.4,
+    };
+    expect(isWeightSetAddressedToCurrentCriteria(stale)).toBe(false);
+    const reshaped = parseCriterionWeights(stale);
 
     // It drops the retired key, renormalises the rest, and returns something
     // structurally indistinguishable from a set somebody actually approved.

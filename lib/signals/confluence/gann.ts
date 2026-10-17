@@ -53,6 +53,7 @@ import {
   EMPTY_DISCLOSED_RULES,
   describeDisclosedRules,
   readDisclosedRules,
+  type DisclosedRulesContext,
   type InstrumentFacts,
 } from "@/lib/gann/disclosedRules";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
@@ -108,6 +109,8 @@ export interface GannConfluenceInputs {
    * two readings are null.
    */
   instrument?: InstrumentFacts | null;
+  /** The reading the live scan already made for the score's pillars, so it is read once. */
+  disclosedRules?: DisclosedRulesContext;
 }
 
 const MIN_DAILY_BARS = 30;
@@ -254,7 +257,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
   const angleSlope = slope !== null ? { slope, nearestAngle: nearestGannAngle(slope) } : null;
   const coordinateLedger = buildCoordinateLedger(inputs.dailyBars, inputs.currentPrice);
   // The live read: the day clock is read at the moment of the scan.
-  const disclosedRules = readDisclosedRules(inputs.dailyBars, inputs.currentPrice, inputs.instrument ?? null, new Date(), new Date());
+  const disclosedRules = inputs.disclosedRules ?? readDisclosedRules(inputs.dailyBars, inputs.currentPrice, inputs.instrument ?? null, new Date(), new Date());
 
   const explanationTrace: string[] = [
     `Root: sqrt(anchor ${anchorPivot?.kind === "high" ? "high" : "low"} ${majorLow.toFixed(2)}) = ${root.toFixed(4)}.`,

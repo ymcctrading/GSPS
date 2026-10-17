@@ -446,4 +446,10 @@
 // same monthly request and windowed point-in-time on the replay, so the
 // 20-year count (A-TIME-11) and the 30/50/60-year ones can act where the data
 // vendor's history reaches. The class C counts keep `LONG_MONTHLY_YEARS`.
-export const STRATEGY_VERSION = "2026-10-17-gann-yearly-count-reach";
+// 2026-10-17-gann-nine-pillars: the score's nine points are the nine pillars
+// (lib/scoring/pillars.ts), each a combination of the method's selection and
+// pre-trade checks; the nine former criteria are checks inside them. P9 needs
+// the trigger, the stop behind an old level and the greatest-reaction rule
+// (owner's "Stop required"). Every score moves; the 6/3.5 cutoffs hold until
+// a replay on this version re-derives them.
+export const STRATEGY_VERSION = "2026-10-17-gann-nine-pillars";
