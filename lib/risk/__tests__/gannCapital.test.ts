@@ -117,6 +117,15 @@ describe("a tenth of the profits after large profits (A-RISK-07, W022 pp.198-199
     // 150,000 of profit, then a 20,000 loss: the next trade risks 13,000.
     expect(profitRiskCeiling(230_000, 100_000)).toBe(13_000);
   });
+  it("keeps applying after a loss takes profits back under the starting capital", () => {
+    // 100,000 grew to 200,000, then a 10,000 loss: a tenth of the 90,000 left.
+    expect(profitRiskCeiling(190_000, 100_000, 100_000)).toBe(9_000);
+    expect(profitRiskCeiling(150_000, 100_000, 100_000)).toBe(5_000);
+    // Never reached: the tenth of the unit governs alone.
+    expect(profitRiskCeiling(190_000, 100_000, 99_000)).toBeNull();
+    // Every profit gone: back to the tenth of the unit.
+    expect(profitRiskCeiling(100_000, 100_000, 100_000)).toBeNull();
+  });
   it("does not apply with no starting capital on record", () => {
     expect(profitRiskCeiling(500_000, 0)).toBeNull();
   });

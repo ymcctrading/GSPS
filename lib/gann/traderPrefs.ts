@@ -18,6 +18,9 @@
  *   Robert covers his wheat and corn and goes flat before he travels;
  *   A-EXIT-05). In the days before it, a reminder to close out every trade.
  *   A reminder only; nothing is closed for the trader. Unset by default.
+ *   Inside the window a new entry carries the reminder back with the order
+ *   (`lib/trade/away-notice.ts`) and the portfolio manager opens nothing new.
+ *   The replay models no trader absence, so the rule does not apply there.
  *   `AWAY_NOTICE_DAYS` is an engineering choice: Gann names no lead time.
  *
  * The rest windows are an engineering choice, labelled as such: Gann gives

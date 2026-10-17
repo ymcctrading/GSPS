@@ -47,7 +47,14 @@ vi.mock("@/lib/risk/position-limits", async () => {
 
 import { placeSimulatedOrder, type OrderInput } from "@/lib/trade/place-order";
 
-function stubSupabase(cash = 100_000) {
+function rowsOf(rows: unknown[]) {
+  const q: Record<string, unknown> = {};
+  for (const k of ["select", "eq", "in", "not", "order", "limit"]) q[k] = () => q;
+  q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(ok);
+  return q;
+}
+
+function stubSupabase(cash = 100_000, closes: { profit_loss_dollars: number }[] = [], prefs: unknown = null) {
   const ordersInsert = vi.fn();
   const tables: Record<string, unknown> = {
     orders: {
@@ -66,6 +73,8 @@ function stubSupabase(cash = 100_000) {
     positions: {
       select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }) }),
     },
+    trade_logs: rowsOf(closes),
+    settings: { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: prefs ? { prefs } : null, error: null }) }) }) },
   };
   return { supabase: { from: (t: string) => tables[t] } as unknown as SupabaseClient, ordersInsert };
 }
@@ -113,6 +122,28 @@ describe("rule 1 on paper: a tenth of the trading capital", () => {
     const { supabase } = stubSupabase(150_000);
     const r = await placeSimulatedOrder(supabase, "u1", { ...now, qty: 1_300 });
     expect(r.body).toMatchObject({ code: "risk_one_tenth" });
+  });
+
+  it("after a loss from large profits, refuses more than a tenth of the profits left (A-RISK-07)", async () => {
+    // 100,000 grew to 200,000, then lost 10,000: 9,000 may be risked, not 10,000.
+    const { supabase, ordersInsert } = stubSupabase(190_000, [{ profit_loss_dollars: 100_000 }, { profit_loss_dollars: -10_000 }]);
+    const r = await placeSimulatedOrder(supabase, "u1", { ...now, qty: 1_200 });
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ code: "risk_tenth_of_profits" });
+    expect(ordersInsert).not.toHaveBeenCalled();
+    const ok = await placeSimulatedOrder(supabase, "u1", { ...now, qty: 1_125 });
+    expect(ok.status).toBe(200);
+  });
+
+  it("brings the close-out reminder back with a new entry inside the away window (A-EXIT-05)", async () => {
+    const soon = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const { supabase } = stubSupabase(100_000, [], { gannRules: { awayFrom: soon } });
+    const r = await placeSimulatedOrder(supabase, "u1", now);
+    expect(r.status).toBe(200);
+    expect(String(r.body.warning)).toMatch(/away from the market/);
+    const later = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+    const { supabase: s2 } = stubSupabase(100_000, [], { gannRules: { awayFrom: later } });
+    expect((await placeSimulatedOrder(s2, "u1", now)).body.warning ?? null).toBeNull();
   });
 
   it("never blocks an order that closes a position", async () => {

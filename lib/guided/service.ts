@@ -23,7 +23,7 @@ import { scanTicker } from "@/lib/scanTicker";
 import { DEFAULT_UNIVERSE_THRESHOLDS, type UniverseThresholds } from "@/lib/universe/eligibility";
 import { assetClassOf, getOrCreateAccount, listOpenPositions, quotePrice, STARTING_CASH } from "@/lib/brokers/simulator";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
-import { profitRiskCeiling } from "@/lib/risk/gannCapital";
+import { readProfitCeiling } from "@/lib/risk/profitPeak";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { assessEligibility } from "@/lib/guided/eligibility";
 import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
@@ -89,7 +89,7 @@ export async function readGuidedAccount(
   return {
     equity,
     riskCapital,
-    profitCeiling: profitRiskCeiling(equity, STARTING_CASH),
+    profitCeiling: await readProfitCeiling(supabase, userId, "paper", equity),
     // No margin is modelled — a simulated cash account can only buy what it holds.
     buyingPower: account.cash,
     openSymbols,
