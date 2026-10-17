@@ -307,6 +307,38 @@ function DisclosedRuleTiles({
       note: rec.dayCircle.summary,
     });
   }
+  // A-TIME-03, C-SWING-01, C-TIME-03: context readings whose described line
+  // lives only in the explanation trace, which every response empties, so the
+  // card shows them here from the structured reading.
+  const CONTEXT_NOTE = "Context only; it does not change the setup.";
+  const fr = rules.firstRally;
+  if (fr?.state === "firstRally") {
+    tiles.push({
+      label: "Advance from the bear low",
+      value: `first rally only (topped ${fr.topMonth}, ${fr.volumeRatio !== null ? `${fr.volumeRatio.toFixed(1)}× volume` : "heavy volume"})`,
+      note: CONTEXT_NOTE,
+    });
+  } else if (fr?.state === "bullCampaign") {
+    tiles.push({ label: "Advance from the bear low", value: `bull campaign, ${fr.advanceMonths} months from ${fr.lowMonth}`, note: CONTEXT_NOTE });
+  }
+  if (rules.campaign?.equalCorrections) {
+    tiles.push({ label: "Reactions in the uptrend", value: "last three nearly equal", note: CONTEXT_NOTE });
+  }
+  const crb = rules.cycleRangeBreak;
+  if (crb) {
+    // The cycle date is a time line, so it is named only with its record (CYC-30).
+    const onDate = crb.onCycleDate && rec.timeCycle;
+    tiles.push({
+      label: "Range break",
+      value: `${crb.rangeDays}-day range broken down on ${crb.volumeRatio.toFixed(1)}× volume${onDate ? ", on a time-cycle date" : ""}`,
+      note: `${onDate ? `Time cycle: ${rec.timeCycle!.summary}. ` : ""}Source unconfirmed. ${CONTEXT_NOTE}`,
+    });
+  }
+  // A-TIME-16: the dated change-date label is a forward claim, shown only with a measured record (CYC-47).
+  const nextChange = timing?.changeDates?.next;
+  if (nextChange && rec.turnTiming) {
+    tiles.push({ label: "Next change date", value: `${nextChange.date}: a ${nextChange.expect} expected`, note: rec.turnTiming.summary });
+  }
   if (timing?.projection && rec.swingProjection) {
     tiles.push({
       label: `Next swing ${timing.projection.kind}`,

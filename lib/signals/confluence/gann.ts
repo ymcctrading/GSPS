@@ -43,7 +43,7 @@ import { nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { timeCycles } from "@/lib/gann/timeCycles";
 import { computeDecadeCycle } from "@/lib/gann/decadeCycle";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
-import { displayableUpcomingMajor } from "@/lib/gann/timeRecords";
+import { displayableMacroCycle, displayableUpcomingMajor } from "@/lib/gann/timeRecords";
 import { masterTwelveLevels, nearestMasterTwelveLevel } from "@/lib/gann/masterTwelve";
 import { squareOf52Windows } from "@/lib/gann/squareOf52";
 import { angleMonthCounts as computeAngleMonthCounts } from "@/lib/gann/angleMonthCounts";
@@ -134,7 +134,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
       timeCycleFixedCalendarActive: false,
       timeCycleFixedCalendarDates: [],
       decadeCycle: computeDecadeCycle(),
-      macroCycle: computeMacroCycle(),
+      macroCycle: displayableMacroCycle(computeMacroCycle()),
       nearestMasterTwelve: null,
       squareOf52: { active: false, dates: [] },
       angleMonthCounts: { active: false, dates: [] },
@@ -365,7 +365,8 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     timeCycleFixedCalendarActive: cycles.fixedCalendarActive,
     timeCycleFixedCalendarDates: cycles.fixedCalendarDates,
     decadeCycle: computeDecadeCycle(barAsOf),
-    macroCycle,
+    // CYC-47: the forward dates leave the server only with a measured record.
+    macroCycle: displayableMacroCycle(macroCycle),
     nearestMasterTwelve,
     squareOf52,
     angleMonthCounts: angleMonthCountsResult,

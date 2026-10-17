@@ -34,3 +34,32 @@ describe("measured records for the card's time lines", () => {
     expect(readFileSync("lib/signals/confluence/gann.ts", "utf8")).not.toMatch(/upcomingMajor\[0\]/);
   });
 });
+
+/**
+ * CYC-30 on every surface: the page headers' turn-window and yearly-cycle
+ * badges are time lines too, so each is rendered only behind its record.
+ */
+describe("time-line badges outside the card", () => {
+  const PAGES = ["components/scan/ticker-view.tsx", "components/chart/market-tabs.tsx", "components/chart/public-chart.tsx"];
+  const OPENER = /\{[^{}\n]*?(timeCycleActive|yearCycle(?:Bullish|Bearish)Hits)[^{}\n]*?&&\s*\(/g;
+
+  it("has no record for the yearly-cycle convergence yet, since the committed run does not hold its family", () => {
+    expect(TIME_LINE_RECORDS.yearCycles).toBeNull();
+    const run = JSON.parse(readFileSync(TIME_LINE_RECORDS.timeCycle!.run, "utf8")) as { families: { family: string }[] };
+    expect(run.families.some((f) => f.family === "yearCycles")).toBe(false);
+  });
+
+  it("renders the turn-window and yearly-cycle badges only behind their records", () => {
+    let openers = 0;
+    for (const page of PAGES) {
+      const src = readFileSync(page, "utf8");
+      for (const m of src.matchAll(OPENER)) {
+        openers++;
+        const need = m[1] === "timeCycleActive" ? "TIME_LINE_RECORDS.timeCycle" : "TIME_LINE_RECORDS.yearCycles";
+        expect(m[0], page).toContain(need);
+      }
+      expect(src, page).toMatch(/TIME_LINE_RECORDS\.timeCycle\.summary/);
+    }
+    expect(openers).toBe(6);
+  });
+});

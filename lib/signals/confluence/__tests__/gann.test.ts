@@ -47,6 +47,14 @@ function uptrendBars(n: number): Bar[] {
 }
 
 describe("evaluateGannConfluence", () => {
+  it("sends no upcoming macro window while the macro cycle has no measured record (CYC-47)", () => {
+    const bars = uptrendBars(60);
+    for (const dailyBars of [bars, []]) {
+      const result = evaluateGannConfluence({ assetClass: "us_equity", symbol: "TEST", dailyBars, currentPrice: 130, direction: "bullish" });
+      expect(result.macroCycle.upcomingMajor).toEqual([]);
+    }
+  });
+
   it("routes unsupported markets to notImplemented without computing anything", () => {
     const result = evaluateGannConfluence({
       assetClass: "us_equity",

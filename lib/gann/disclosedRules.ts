@@ -159,6 +159,7 @@ import { describeFirstRally, readFirstRally, type FirstRallyReading } from "@/li
 import { describeCycleRangeBreak, readCycleRangeBreak, type CycleRangeBreak } from "@/lib/gann/cycleRangeBreak";
 import { describePatternAngles, readPatternAngles, type PatternAngleReading } from "@/lib/gann/patternAngles";
 import { describeDayCircle, readDayCircle, type DayCircleReading } from "@/lib/gann/dayCircle";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 import {
   describeIncorporationCycle,
   readIncorporationCycle,
@@ -1122,7 +1123,10 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (cd?.next) {
     const missed = cd.dates.find((c) => c.came !== null && c.came !== c.expect);
     lines.push(
-      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. Shown for context; it does not change the setup.`,
+      `Next change date ${cd.next.date} (${cd.next.days} days from the last swing): a ${cd.next.expect} is expected${missed ? `, since ${missed.date} came in ${missed.came} on a ${missed.expect} date` : ""}. A date marks some rally or decline, not always the extreme. ${
+        // CYC-47: a dated forward label is shown only with a measured record (timeRecords.ts); the card gates its tile the same way.
+        TIME_LINE_RECORDS.turnTiming ? "Shown for context" : "Not shown: no measured record yet"
+      }; it does not change the setup.`,
     );
   }
   const fr = ctx.firstRally ? describeFirstRally(ctx.firstRally) : null;

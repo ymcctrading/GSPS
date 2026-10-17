@@ -209,3 +209,68 @@ describe("time lines carry their measured record or are hidden", () => {
     }
   });
 });
+
+/**
+ * A-TIME-03, C-SWING-01 and C-TIME-03 are context readings whose description
+ * lives only in the explanation trace, which every API response empties. The
+ * card shows them as tiles from the structured reading instead. A-TIME-16's
+ * dated change-date label stays off the card until it has a measured record
+ * (CYC-47).
+ */
+describe("context readings reach the card", () => {
+  function withContext(): ScanResult {
+    const r = makeResult();
+    const g = r.signals!.gannConfluence!;
+    g.disclosedRules = {
+      ...EMPTY_DISCLOSED_RULES,
+      campaign: { equalCorrections: true, counterMoveThirdMonth: false },
+      firstRally: { lowMonth: "2026-01", topMonth: "2026-03", advanceMonths: 2, volumeRatio: 2.1, state: "firstRally" },
+      cycleRangeBreak: { rangeDays: 4, rangeLow: 99, rangeHigh: 101, volumeRatio: 2.5, onCycleDate: true, shortSetup: true },
+      timing: {
+        alternation: null,
+        square144: null,
+        projection: null,
+        changeDates: { dates: [{ date: "2026-11-09", days: 14, expect: "high", came: null }], next: { date: "2026-11-09", days: 14, expect: "high", came: null } },
+      },
+    } as unknown as typeof g.disclosedRules;
+    return r;
+  }
+
+  it("shows the first rally out of a bear market (A-TIME-03)", () => {
+    render(<ConfluenceCard result={withContext()} />);
+    expect(screen.getByText("Advance from the bear low")).toBeInTheDocument();
+    expect(screen.getByText(/first rally only/)).toBeInTheDocument();
+  });
+
+  it("shows a bull campaign of three months or more (A-TIME-03)", () => {
+    const r = withContext();
+    const rules = r.signals!.gannConfluence!.disclosedRules;
+    rules.firstRally = { lowMonth: "2026-01", topMonth: "2026-05", advanceMonths: 4, volumeRatio: 1.2, state: "bullCampaign" };
+    render(<ConfluenceCard result={r} />);
+    expect(screen.getByText(/bull campaign, 4 months/)).toBeInTheDocument();
+  });
+
+  it("shows nearly equal reactions in an uptrend (C-SWING-01)", () => {
+    render(<ConfluenceCard result={withContext()} />);
+    expect(screen.getByText("Reactions in the uptrend")).toBeInTheDocument();
+    expect(screen.getByText(/last three nearly equal/)).toBeInTheDocument();
+  });
+
+  it("shows a range broken on volume, with the time-cycle record beside its date (C-TIME-03)", () => {
+    render(<ConfluenceCard result={withContext()} />);
+    expect(screen.getByText("Range break")).toBeInTheDocument();
+    expect(screen.getByText(/4-day range broken down on 2.5× volume, on a time-cycle date/)).toBeInTheDocument();
+    expect(screen.getAllByText(/no better than chance/i).length).toBeGreaterThan(0);
+  });
+
+  it("labels each of the three as context that does not change the setup", () => {
+    render(<ConfluenceCard result={withContext()} />);
+    expect(screen.getAllByText(/does not change the setup/).length).toBe(3);
+  });
+
+  it("keeps the dated change-date label off the card while it has no measured record (A-TIME-16)", () => {
+    render(<ConfluenceCard result={withContext()} />);
+    expect(screen.queryByText(/2026-11-09/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/change date/i)).not.toBeInTheDocument();
+  });
+});
