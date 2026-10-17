@@ -80,7 +80,7 @@ import { isTriggered } from "@/lib/brokers/simulator";
  * query), automation_profiles/automation_events (lib/automation/service.ts),
  * and orders/protocol_exits (lib/trade/place-order.ts's paper ledger write).
  */
-function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
+function fakeSupabase(automationProfileRow: Record<string, unknown> | null, prefs: unknown = null) {
   const plans: Record<string, unknown>[] = [];
   const audit: Record<string, unknown>[] = [];
   const automationProfiles: Record<string, unknown>[] = [];
@@ -288,8 +288,8 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null) {
       if (name === "orders") return ordersTable();
       if (name === "protocol_exits") return protocolExitsTable();
       if (name === "settings") {
-        // No stored preferences: Gann rule defaults apply.
-        const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+        // No stored preferences unless a test passes some: rule defaults apply.
+        const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: prefs ? { prefs } : null, error: null }) };
         return q;
       }
       throw new Error(`unexpected table ${name}`);
@@ -545,6 +545,30 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     });
 
     await createArmedPlan(client, "user-1"); // bullish, per armedCandidatePlan's default
+
+    const result = await runAutonomousPortfolioManager(client);
+
+    expect(result.plansActivated).toBe(0);
+    expect(result.plansSkipped).toBe(1);
+    expect(orders).toHaveLength(0);
+  });
+
+  it("opens nothing new while the trader's away window is open (A-EXIT-05)", async () => {
+    const soon = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const { client, orders } = fakeSupabase(
+      {
+        user_id: "user-1",
+        is_automation_enabled: true,
+        risk_profile: "MODERATE",
+        directional_bias: "BOTH",
+        volatility_trigger_type: "DOLLAR_AMOUNT",
+        volatility_trigger_value: 1,
+        execution_mode: "paper",
+      },
+      { gannRules: { awayFrom: soon } },
+    );
+
+    await createArmedPlan(client, "user-1");
 
     const result = await runAutonomousPortfolioManager(client);
 

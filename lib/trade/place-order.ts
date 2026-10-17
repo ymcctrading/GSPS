@@ -45,7 +45,9 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
-import { capitalRuleRefusal, profitRiskCeiling, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { capitalRuleRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { readProfitCeiling } from "@/lib/risk/profitPeak";
+import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 
@@ -393,8 +395,12 @@ export async function placeSimulatedOrder(
     };
   }
 
+  // A-EXIT-05: inside the trader's away window a new entry comes back with
+  // the close-out reminder (lib/trade/away-notice.ts). Never on a protective order.
+  const awayNotice = isProtective ? null : await readAwayNotice(supabase, userId);
+
   if (input.mode === "live") {
-    return placeLiveOrder(supabase, userId, input, isProtective);
+    return withAwayNotice(await placeLiveOrder(supabase, userId, input, isProtective), awayNotice);
   }
 
   // Pro intraday module entry gates (lib/promotion/pro-intraday.ts's
@@ -524,8 +530,10 @@ export async function placeSimulatedOrder(
       const unit = run
         ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: STARTING_CASH, ...run }).capital
         : Math.min(Math.max(equity, 0), STARTING_CASH);
-      // A-RISK-07: after large profits, a tenth of the profits at most too.
-      const tenth = tenthRefusal(unit, candidateSymbol, referencePrice, input, profitRiskCeiling(Math.max(equity, 0), STARTING_CASH));
+      // A-RISK-07: after large profits, a tenth of the profits at most too,
+      // still after a loss (lib/risk/profitPeak.ts).
+      const ceiling = await readProfitCeiling(supabase, userId, "paper", Math.max(equity, 0));
+      const tenth = tenthRefusal(unit, candidateSymbol, referencePrice, input, ceiling);
       if (tenth) return tenth;
     }
   }
@@ -854,7 +862,7 @@ export async function placeSimulatedOrder(
       latencyMs: Date.now() - submittedAt,
     });
 
-    return { status: 200, orderId, body: {
+    return withAwayNotice({ status: 200, orderId, body: {
       order: { id: orderId, symbol: input.symbol.toUpperCase(), side: input.side, qty: input.qty, status: filled ? "filled" : "new", filled_avg_price: fillPrice, filled_qty: filled ? input.qty : null },
       mirrored: true,
       priceCheck,
@@ -863,7 +871,7 @@ export async function placeSimulatedOrder(
         ? { summary: exitPlan.summary, splittable: exitPlan.splittable, tranches: exitPlan.tranches }
         : null,
       warning: planError,
-    } };
+    } }, awayNotice);
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
 
@@ -1097,13 +1105,14 @@ async function placeLiveOrder(
       open: brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
     });
     if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
-    // Never-failing rule 1, as on paper. No starting capital is on record for
-    // a live account, so the unit is its equity, held during a long run of
-    // wins (rule 24), as the portfolio manager reads it, and A-RISK-07's tenth
-    // of the profits can't be read.
+    // Never-failing rule 1, as on paper. The unit is the live equity, held
+    // during a long run of wins (rule 24), as the portfolio manager reads it.
+    // A-RISK-07's tenth of the profits reads the account's first verified
+    // equity as its starting capital (lib/risk/profitPeak.ts).
     const run = await readWinningRun(supabase, userId);
     const unit = run ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: 0, ...run }).capital : Math.max(equity, 0);
-    const tenth = tenthRefusal(unit, input.symbol, referencePrice, input);
+    const ceiling = await readProfitCeiling(supabase, userId, "live", Math.max(equity, 0));
+    const tenth = tenthRefusal(unit, input.symbol, referencePrice, input, ceiling);
     if (tenth) return tenth;
   }
 

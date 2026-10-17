@@ -13,6 +13,7 @@ import { formatUsd } from "@/lib/utils";
 import { MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
+import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 interface GuidedResponse {
   enabled: boolean;
@@ -228,6 +229,8 @@ function ConfirmDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  // A-EXIT-05: inside the away window the close-out reminder sits above the button.
+  const { awayReminder } = useGannRulePrefs();
   return (
     <Modal
       open={rec !== null}
@@ -237,6 +240,7 @@ function ConfirmDialog({
       footer={
         rec && (
           <div className="flex flex-col gap-3">
+            {awayReminder && <p className="text-xs leading-relaxed text-warn">{awayReminder.message}</p>}
             <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
             <div className="flex gap-2">
               <Button onClick={onConfirm} disabled={busy} size="lg" className="flex-1">

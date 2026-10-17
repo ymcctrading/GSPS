@@ -101,6 +101,12 @@ function stubSupabase(overrides: Partial<Record<string, unknown>> = {}) {
         }),
       }),
     },
+    risk_live_equity_snapshots: (() => {
+      const q: Record<string, unknown> = {};
+      for (const k of ["select", "eq", "order", "limit"]) q[k] = () => q;
+      q.then = (resolve: (v: unknown) => unknown) => resolve({ data: overrides.snapshots ?? [], error: null });
+      return q;
+    })(),
   };
   return { from: (t: string) => tables[t] } as unknown as SupabaseClient;
 }
@@ -396,6 +402,20 @@ describe("placeSimulatedOrder — live branch", () => {
     const within = await placeSimulatedOrder(stubSupabase(), "u1", { ...input, qty: 125 });
     expect((within.body as { code?: string }).code).not.toBe("risk_one_tenth");
     expect(placeOrder).toHaveBeenCalled();
+  });
+
+  it("refuses more than a tenth of the profits once they reach the first verified equity (A-RISK-07)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "19000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    // Started at 5,000, now 19,000: 14,000 of profits, so at most 1,400 at risk.
+    const snapshots = [{ equity: 5_000 }, { equity: 19_000 }];
+    const input = { ...baseInput, qty: 200, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 92, takeProfit: 110 } };
+    const result = await placeSimulatedOrder(stubSupabase({ snapshots }), "u1", input);
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("risk_tenth_of_profits");
+    expect(placeOrder).not.toHaveBeenCalled();
   });
 
   it("sends the protocol's confirmed entry to the broker at the market, not as a limit (never-failing rule 9)", async () => {

@@ -126,17 +126,22 @@ export function capitalRuleRefusal(input: CapitalRuleInput): CapitalRuleRefusal 
  * Engineering choice, labelled: "large profits" is profits at least equal to
  * the starting capital, the point at which Gann lets the trading unit double
  * (`gannRiskCapital`, A-RISK-04). Below it the tenth of the unit governs
- * alone. With no starting capital on record (a live account) the profits
- * can't be read, so the rule does not apply.
+ * alone. `peakProfits` is the most profit the account has banked
+ * (`lib/risk/profitPeak.ts`): once it has reached the starting capital, the
+ * ceiling holds while any profit remains, so a loss that takes profits back
+ * under the starting capital still leaves the next trade a tenth of what is
+ * left. With every profit gone the tenth of the unit governs again. With no
+ * starting capital on record the rule does not apply.
  *
  * Three-question basis: 1. Gann, as cited. 2. Cycles: no periodicity claim.
  * 3. Hermetic: Cause and Effect, banked profit is the cause the next risk is
  * drawn from, and a loss shrinks it at once.
  */
-export function profitRiskCeiling(equity: number, startingCapital: number): number | null {
+export function profitRiskCeiling(equity: number, startingCapital: number, peakProfits = 0): number | null {
   if (!(startingCapital > 0)) return null;
   const profits = equity - startingCapital;
-  return profits >= startingCapital ? profits * MAX_RISK_FRACTION : null;
+  const reached = Math.max(profits, peakProfits) >= startingCapital;
+  return reached && profits > 0 ? profits * MAX_RISK_FRACTION : null;
 }
 
 /**
