@@ -169,3 +169,24 @@ describe("fixed steps and the whole-line stop (A-PYRAMID-01, A-PYRAMID-06, A-STO
     expect(wholeLineStop("long", 100, 130, 129)).toBe(129);
   });
 });
+
+// A-PYRAMID-08 (W001 p.7, the 1954 soybean record): sold more on each further
+// decline. The short mirror of the add above; the re-short on the rally is the
+// re-entry after a stop (lib/gann/rebuy.ts).
+describe("adding to a short on the decline (A-PYRAMID-08)", () => {
+  const fall = days(closes.map((c) => 200 - c));
+  it("adds half the last lot at the crossed swing bottom and lowers the stop to break-even", () => {
+    const r = readPyramidAdd({
+      side: "short",
+      lots: [{ qty: 100, price: 98.2, date: "2026-06-03" }],
+      stop: 101.7,
+      initialStop: 101.7,
+      daily: fall,
+      price: 89,
+    });
+    expect(r.add).not.toBeNull();
+    expect(r.add!.qty).toBe(50);
+    expect(r.add!.trigger).toBeLessThan(98.2);
+    expect(r.add!.newStop).toBeLessThanOrEqual(101.7);
+  });
+});
