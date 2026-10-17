@@ -8,6 +8,7 @@
  * pillar rollup, and nothing a reader could reassemble the criteria from.
  */
 
+import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
 import { describe, expect, it } from "vitest";
 import type {
   GannLevels,
@@ -117,6 +118,7 @@ const allPass: ScoreInputs = {
   stopAtrMultiple: 2,
   levels,
   weights: UNIFORM_WEIGHTS,
+  pillarFacts: passingPillarFacts(),
 };
 
 const allFail: ScoreInputs = {
@@ -167,7 +169,8 @@ describe("toPublicScoreSummary", () => {
     const decision = computeScore({ ...allPass, pattern: null, gannTrigger: null });
     const summary = toPublicScoreSummary(decision);
 
-    expect(decision.breakdown.length).toBeGreaterThan(9);
+    // Nine points, nine checks, and the hold.
+    expect(decision.breakdown.length).toBeGreaterThan(18);
     expect(summary.max).toBe(9);
     expect(summary.stateNote).not.toBeNull();
   });
@@ -237,7 +240,7 @@ describe("redaction at the API boundary", () => {
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
-    expect(result.decision.breakdown).toHaveLength(9);
+    expect(result.decision.breakdown).toHaveLength(18);
   });
 
   it("strips dailyBars — bulk internal data, not a public response field", () => {

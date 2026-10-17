@@ -33,7 +33,8 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
-import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
+import { majorPricePercentageLevels, readDisclosedRules } from "@/lib/gann/disclosedRules";
+import { readPillarFacts } from "@/lib/scoring/pillars";
 import { readWindowTurn } from "@/lib/gann/timeWindow";
 import { readRuleFollowing } from "@/lib/gann/ruleFollowing";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
@@ -449,6 +450,28 @@ export async function scanTicker(
       sessionBars: closedExecutionBars.filter((b) => etDateKey(new Date(b.t)) === sessionDay),
     });
 
+    // The rules the nine pillars read (lib/scoring/pillars.ts), read once and
+    // shared with the confluence card below, as the replay reads them.
+    const instrumentFacts = instrumentReference
+      ? { ...instrumentReference, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
+      : marketDaily
+        ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
+        : null;
+    const disclosedRules = readDisclosedRules(charts.daily, currentPrice, instrumentFacts, new Date(), new Date());
+    const pillarFacts = readPillarFacts({
+      rules: disclosedRules,
+      daily: charts.daily,
+      monthly: charts.monthly,
+      marketDaily: marketDaily ?? null,
+      price: currentPrice,
+      asOf: new Date(scannedAt),
+    });
+    let windowTurnRead: { turn: ReturnType<typeof readWindowTurn> } | null = null;
+    const windowTurn = () => {
+      windowTurnRead ??= { turn: readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly) };
+      return windowTurnRead.turn;
+    };
+
     const decision = applyStopBreachHold(applyDataLagHold(
       applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
@@ -480,11 +503,13 @@ export async function scanTicker(
           setupKind,
           atrPct,
           weights: await getActiveCriterionWeights(),
+          pillarFacts,
+          windowTurn,
         }), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
         // Q19: a counter-trend Execute needs its turn to come on a dated window
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
         setupKind,
-        () => readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly),
+        windowTurn,
       ),
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
@@ -542,11 +567,8 @@ export async function scanTicker(
           dailyBars: charts.daily,
           currentPrice,
           direction: scoreDirection,
-          instrument: instrumentReference
-            ? { ...instrumentReference, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
-            : marketDaily
-              ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
-              : null,
+          instrument: instrumentFacts,
+          disclosedRules,
         })
       : null;
     const saraConfluence = isConfluenceModuleEnabled(

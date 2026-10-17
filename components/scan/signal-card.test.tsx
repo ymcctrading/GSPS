@@ -94,7 +94,7 @@ describe("SignalCard score breakdown", () => {
     const { container } = render(<SignalCard result={result} />);
     const text = container.textContent ?? "";
 
-    expect(result.decision.breakdown).toHaveLength(9);
+    expect(result.decision.breakdown).toHaveLength(18);
     for (const item of result.decision.breakdown) {
       expect(text).not.toContain(item.criterion);
       expect(text).not.toContain(item.note);
@@ -109,13 +109,10 @@ describe("SignalCard score breakdown", () => {
     for (const label of ["Trend", "Structure", "Setup", "Timing", "Risk/reward"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Trend is the three-point pillar (swing chart, structural angle, Rule
-    // of Three) now that adxTrendStrength has been removed (2026-09-16, no
-    // Gann lineage — see lib/validation/criteria-registry.ts's RETIRED
-    // entry). None of the three passes in this fixture: no swing-chart data
-    // is supplied, no angle-slope data is supplied, and no ruleOfThree
-    // reading is supplied either.
-    expect(screen.getByText("0/3")).toBeInTheDocument();
+    // Trend holds two of the nine points since 2026-10-17 (the trend on every
+    // timeframe, and relative strength). Neither passes in this fixture: no
+    // swing-chart data and no leadership reading are supplied.
+    expect(screen.getAllByText("0/2").length).toBeGreaterThan(0);
   });
 
   it("says nothing about the score when no summary was attached", () => {

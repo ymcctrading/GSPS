@@ -358,7 +358,8 @@ describe("replay scoring", () => {
     });
     expect(r.trades.length).toBeGreaterThan(0);
     for (const t of r.trades) {
-      const passed = Object.values(t.criteria!).filter(Boolean).length;
+      // The points only: the checks they are built from score nothing alone.
+      const passed = CRITERION_KEYS.filter((k) => t.criteria![k]).length;
       expect(passed).toBe(t.score);
       // The trigger is what arms the trade, so the criterion that asks
       // whether one is armed in the setup's direction always passes here.

@@ -299,7 +299,20 @@ never uses the term, so don't call its cycles the Master Time Factor.
 **A-TIME-11 reach, 2026-10-17:** the time-window hold's yearly counts read
 `YEAR_COUNT_MONTHLY_YEARS` (61) of monthly bars, live and replay, from the same
 request; the 20-year count acts only where the vendor's history reaches that far.
-`STRATEGY_VERSION` is `2026-10-17-gann-yearly-count-reach`.
+`STRATEGY_VERSION` was `2026-10-17-gann-yearly-count-reach`.
+
+**The nine pillars, 2026-10-17 (owner: the score stays out of 9, several of
+Gann's checks may count for one point; "Stop required" on the card):**
+`CRITERION_KEYS` are nine pillars built in `lib/scoring/pillars.ts` from what
+Gann checked before choosing a stock and a trade (market and cycle, trend on
+every timeframe, relative strength, activity, price levels, angles, time,
+volume, and the definite indication with the stop placed). The nine former
+criteria stay in the breakdown as checks (`checkOf`), measured but scoring
+nothing alone, and are retired in the registry. The live scan and the replay
+build the facts the same way (`readPillarFacts`, about 0.4 ms a symbol; the
+live scan now reads the disclosed rules once and shares them with the
+confluence card). The 6/3.5 cutoffs are held until a replay on this version
+re-derives them. `STRATEGY_VERSION` is `2026-10-17-gann-nine-pillars`.
 
 ## WD Gann precedence — standing principle
 

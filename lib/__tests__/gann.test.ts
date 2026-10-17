@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
 import { squareOf9Levels, nearestS9Level, recentSquareOf9Levels } from "@/lib/gann/squareOf9";
 import { computeFanLines } from "@/lib/gann/fans";
 import { RETRACEMENT_ANGLE_PAIRS } from "@/lib/gann/secondaryTime";
@@ -324,8 +325,9 @@ describe("computeScore", () => {
         stopBandWarning: null,
       },
       weights: UNIFORM_WEIGHTS,
+      pillarFacts: passingPillarFacts(),
     });
-    expect(decision.score).toBe(8);
+    expect(decision.score).toBe(9);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -392,17 +394,19 @@ describe("computeScore", () => {
         stopBandWarning: null,
       },
       weights: UNIFORM_WEIGHTS,
+      pillarFacts: passingPillarFacts(),
     });
     const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
     expect(byKey.gannRetracementConfluence).toBe(false);
     expect(byKey.historicalSR).toBe(false);
     // Neither gannAngleSlope nor volumeClimax is a level-role check (they
     // read realized slope and pivot volume, not a structural level's role),
-    // so both still pass here — only the two role-gated criteria lose their
-    // point, and score drops by exactly 2.
+    // so both still pass here. The two role-gated checks make up the
+    // price-levels point, so that one point is lost.
     expect(byKey.gannAngleSlope).toBe(true);
     expect(byKey.volumeClimax).toBe(true);
-    expect(decision.score).toBe(6);
+    expect(byKey.priceLevels).toBe(false);
+    expect(decision.score).toBe(8);
     expect(decision.outputState).toBe("Execute");
   });
 
@@ -481,6 +485,7 @@ describe("computeScore", () => {
       stopAtrMultiple: 0.8,
       levels: null,
       weights: UNIFORM_WEIGHTS,
+      pillarFacts: passingPillarFacts(),
     };
     const squared = computeScore({
       ...base,
@@ -497,7 +502,7 @@ describe("computeScore", () => {
 
     expect(squared.score).toBe(notSquared.score + 1);
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
-    expect(squared.breakdown.map((b) => b.criterion)).toHaveLength(9);
+    expect(squared.breakdown.filter((b) => b.pillar || b.checkOf)).toHaveLength(18);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
   });
 

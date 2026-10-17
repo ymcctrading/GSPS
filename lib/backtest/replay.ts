@@ -75,6 +75,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
+import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
@@ -594,6 +595,8 @@ export interface MacroContext {
   disclosedRules: DisclosedRulesContext;
   /** The turn at a dated window (Q19, `lib/gann/timeWindow.ts`), read on the same chart as the live scan, once per direction when needed. */
   windowTurn: (direction: "bullish" | "bearish") => WindowTurn | null;
+  /** The facts the nine pillars read, built as lib/scanTicker.ts builds them. */
+  pillarFacts: PillarFacts;
 }
 
 /**
@@ -714,6 +717,7 @@ export function buildMacroContext(
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules,
+    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, price, asOf }),
     windowTurn: (direction) => {
       if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
@@ -1695,6 +1699,8 @@ function scoreSetup(input: {
       assetClass,
       setupKind,
       atrPct: context.atrPct,
+      pillarFacts: context.pillarFacts,
+      windowTurn: () => context.windowTurn(gannTrigger.direction),
       ...(weights ? { weights } : {}),
     }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
     context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),

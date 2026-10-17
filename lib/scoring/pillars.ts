@@ -1,0 +1,306 @@
+/**
+ * The nine pillars of the score (owner, 2026-10-17: "the score stays out of 9",
+ * "multiple criteria can count for one of the 9"; card pick "Stop required").
+ * Each pillar is one point, awarded on the combination its checks state. The
+ * checks are what Gann looked for when he chose a stock and a moment (Master
+ * Course Ch. 7's pre-trade list and its selection rules); the design and the
+ * citations are in `gann-feature-map/review/score-pillars-research.md` §3.
+ *
+ * Every reading here is one the live scan and the replay already make: both
+ * build `PillarFacts` with `readPillarFacts` from the same disclosed-rules
+ * reading, so the pillars cannot drift between the two surfaces.
+ *
+ * Three questions, as AGENTS.md asks:
+ * 1. Sources: MC Ch. 7 C1-C14 and the selection rules S1-S27 (Tier A), with the
+ *    trend, level, time and volume rules each module cites.
+ * 2. Cycles: P1 and P7 read counts and windows the time modules already carry;
+ *    no new periodicity is claimed here, so Dewey's checklist is not re-run.
+ * 3. Hermetic: Correspondence, in that each pillar asks one question on every
+ *    timeframe the rule reads (P2's monthly, weekly and daily); and Polarity,
+ *    in that every check has its short mirror (strongest for a long, weakest
+ *    for a short; a reaction inside its limit with the trend, one outrunning
+ *    it against the trend).
+ *
+ * Unknown is not a pass: a check that cannot be read fails, as the scored
+ * criteria always have. The one exception is a warning (the capital-stock
+ * warning in P8), where "no warning read" is literally true.
+ */
+
+import type { Bar } from "@/lib/types";
+import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import type { WindowTurn } from "@/lib/gann/timeWindow";
+import { readGannTrend } from "@/lib/gann/trendStrength";
+import { yearCycleConvergence } from "@/lib/gann/timeCycles";
+import { patternAngleLines } from "@/lib/gann/patternAngles";
+import { gannPointForBars } from "@/lib/gann/pointScale";
+import { QUIET } from "@/lib/gann/sevenZones";
+
+type Side = "bullish" | "bearish";
+
+/** S18, A-PRICE-06: an active stock's yearly range is 20 points or more. */
+export const MIN_ANNUAL_RANGE_POINTS = 20;
+/** C14's "3-5-point range": two important angles closer than this leave no room to trade. */
+export const SQUEEZE_POINTS = 5;
+/** The important angles C14 reads: the 45° first, then the 2x1 and 1x2. */
+const IMPORTANT_ANGLES = new Set(["1x1", "2x1", "1x2"]);
+/** Engineering choice: the recent and baseline windows for "volume above its own norm" (S2). */
+const RECENT_VOLUME_BARS = 20;
+const BASELINE_VOLUME_BARS = 250;
+
+export interface PillarFacts {
+  /** The market's trend (SPY's swing chart), cut to the stock's last session. */
+  marketTrend: Side | null;
+  /** Yearly counts from major pivots landing on this month (closed months only). */
+  yearCycle: { bullishHits: number; bearishHits: number } | null;
+  decadeBias: "bullish" | "bearish" | "mixed" | null;
+  /** The year's trend from its January (and July) ranges. */
+  yearTrend: "up" | "down" | "inside" | null;
+  leadership: {
+    bottomedFirst: boolean;
+    toppedFirst: boolean;
+    crossedTopsFirst: boolean;
+    brokeBottomsFirst: boolean;
+    firstYearHighCrossed: boolean | null;
+  } | null;
+  /** A-SELECTION-04's weak stock in a bull market; null when not read. */
+  weak: boolean | null;
+  /** Q24's queer-acting stock; null when too few rules resolved to say. */
+  queer: boolean | null;
+  /** Median volume of the last 20 sessions over the year before them. */
+  volumeActivity: number | null;
+  /** The median yearly range, in points. */
+  annualRangePoints: number | null;
+  /** The seven zones' range activity (recent median range over the baseline). */
+  zoneActivity: number | null;
+  angles: { holds45: Record<Side, boolean>; squeezed: boolean } | null;
+  /** A base of weeks: the current range's length and where the last close left it. */
+  base: { long: boolean; breakout: "up" | "down" | null } | null;
+  /** A capital-stock or shares-per-point warning at a top (against a long). */
+  capitalWarning: boolean;
+  counterMove: { trend: Side; inCounterMove: boolean; phase: "normal" | "extended" | "secondMonth" | "thirdMonth" | null } | null;
+  reactionAbnormal: boolean;
+  campaign: { trend: Side; spaceOverbalanced: boolean; timeOverbalanced: boolean } | null;
+}
+
+export interface PillarResult {
+  passed: boolean;
+  note: string;
+}
+
+const yes = (b: boolean) => (b ? "yes" : "no");
+const twoOf = (...xs: boolean[]) => xs.filter(Boolean).length >= 2;
+
+/** Is price on or above the 45° from the latest major bottom (on or below it from the top), and squeezed between two important angles? */
+export function readAngleFacts(bars: Bar[], price: number, unit: number): PillarFacts["angles"] {
+  if (!(price > 0) || !(unit > 0) || bars.length < 2) return null;
+  const lines = patternAngleLines(bars, unit);
+  const latest = (kind: "bottom" | "top") =>
+    lines
+      .filter((l) => l.angle === "1x1" && l.parallelFrom === null && l.from.kind === kind)
+      .reduce<(typeof lines)[number] | null>((best, l) => (!best || l.from.index > best.from.index ? l : best), null);
+  const fromBottom = latest("bottom");
+  const fromTop = latest("top");
+  let above = Infinity;
+  let below = -Infinity;
+  for (const l of lines) {
+    if (!IMPORTANT_ANGLES.has(l.angle)) continue;
+    if (l.price > price) above = Math.min(above, l.price);
+    else below = Math.max(below, l.price);
+  }
+  return {
+    holds45: {
+      bullish: fromBottom !== null && price >= fromBottom.price - unit,
+      bearish: fromTop !== null && price <= fromTop.price + unit,
+    },
+    squeezed: Number.isFinite(above) && Number.isFinite(below) && above - below <= SQUEEZE_POINTS * unit,
+  };
+}
+
+function median(xs: number[]): number | null {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
+
+/** S2: the last 20 sessions' median volume over the median of the year before them. */
+export function volumeActivity(daily: Bar[]): number | null {
+  if (daily.length < RECENT_VOLUME_BARS * 2) return null;
+  const recent = median(daily.slice(-RECENT_VOLUME_BARS).map((b) => b.v));
+  const base = median(daily.slice(-(RECENT_VOLUME_BARS + BASELINE_VOLUME_BARS), -RECENT_VOLUME_BARS).map((b) => b.v));
+  return recent !== null && base !== null && base > 0 ? recent / base : null;
+}
+
+/** The facts the nine pillars read, from readings both surfaces already make. */
+export function readPillarFacts(input: {
+  rules: DisclosedRulesContext;
+  daily: Bar[];
+  monthly: Bar[];
+  marketDaily: Bar[] | null;
+  price: number;
+  asOf: Date;
+}): PillarFacts {
+  const { rules, daily, monthly, marketDaily, price, asOf } = input;
+  const last = daily[daily.length - 1]?.t ?? "";
+  const market = (marketDaily ?? []).filter((b) => b.t <= last);
+  const month = asOf.toISOString().slice(0, 7);
+  const closedMonths = monthly.filter((b) => b.t.slice(0, 7) < month);
+  const unit = gannPointForBars(daily);
+  const leadership = rules.leadership;
+  const counterMove = rules.counterMove;
+  const campaign = rules.campaign;
+  return {
+    marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
+    yearCycle: closedMonths.length >= 12 ? yearCycleConvergence(closedMonths, asOf) : null,
+    decadeBias: rules.decadeCycle?.bias ?? null,
+    yearTrend: rules.yearRanges?.yearTrend ?? null,
+    leadership: leadership
+      ? {
+          bottomedFirst: leadership.bottomedFirst,
+          toppedFirst: leadership.toppedFirst,
+          crossedTopsFirst: leadership.crossedTopsFirst,
+          brokeBottomsFirst: leadership.brokeBottomsFirst,
+          firstYearHighCrossed: leadership.firstYearHighCrossed,
+        }
+      : null,
+    weak: rules.weakStock ? rules.weakStock.weak : null,
+    queer: rules.ruleFollowing ? rules.ruleFollowing.queer : null,
+    volumeActivity: volumeActivity(daily),
+    annualRangePoints: rules.annualRange && unit > 0 ? rules.annualRange.medianPoints / unit : null,
+    zoneActivity: rules.zone?.activity ?? null,
+    angles: readAngleFacts(daily, price, unit),
+    base: rules.accumulation ? { long: rules.accumulation.long, breakout: rules.accumulation.breakout } : null,
+    capitalWarning: rules.capitalStock?.distributionSignal === true || rules.sharesPerPoint?.topWarning === true,
+    counterMove: counterMove ? { trend: counterMove.trend, inCounterMove: counterMove.inCounterMove, phase: counterMove.phase } : null,
+    reactionAbnormal: rules.timeRules?.reactionAbnormal === true,
+    campaign: campaign
+      ? { trend: campaign.trend, spaceOverbalanced: campaign.spaceOverbalanced, timeOverbalanced: campaign.timeOverbalanced }
+      : null,
+  };
+}
+
+/** P1 (C1, C2, S22, S23): two of the market's trend, the stock's own cycle and the year's character. */
+export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
+  const market = f?.marketTrend === side;
+  const against = side === "bullish" ? f?.yearCycle?.bearishHits : f?.yearCycle?.bullishHits;
+  const cycle = against === 0;
+  const year = f != null && (f.decadeBias === side || f.yearTrend === (side === "bullish" ? "up" : "down"));
+  const passed = twoOf(market, cycle, year);
+  return {
+    passed,
+    note: `Market trend with the setup: ${yes(market)}. No yearly count due against it: ${yes(cycle)}. The year's character with it: ${yes(year)}. Two of three are needed${market && cycle && year ? "; all three agree" : ""}.`,
+  };
+}
+
+/** P2 (C13, T1, T7): the weekly swing, and the 3-day swing or the Rule of Three; the monthly makes it a cinch. */
+export function trendPillar(input: {
+  side: Side;
+  weekly: Side | null | undefined;
+  threeDay: Side | null | undefined;
+  ruleOfThree: boolean;
+  monthly: string | null | undefined;
+}): PillarResult {
+  const { side, weekly, threeDay, ruleOfThree, monthly } = input;
+  const weeklyWith = weekly === side;
+  const shortTerm = threeDay === side || ruleOfThree;
+  const passed = weeklyWith && shortTerm;
+  return {
+    passed,
+    note: `Weekly swing with the setup: ${yes(weeklyWith)}. 3-day swing or three closes with it: ${yes(shortTerm)}.${passed && monthly === side ? " The monthly trend agrees too: every timeframe is in line." : ""}`,
+  };
+}
+
+/** P3 (S4-S12): two of leading the market, crossing the campaign's first-year high (failing to, short), and strength against the market. */
+export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
+  const l = f?.leadership;
+  const long = side === "bullish";
+  const led = l != null && (long ? l.bottomedFirst || l.crossedTopsFirst : l.toppedFirst || l.brokeBottomsFirst);
+  const firstYear = l?.firstYearHighCrossed === long;
+  const strength = long ? f?.weak === false : f?.weak === true;
+  const passed = twoOf(led, firstYear, strength);
+  return {
+    passed,
+    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. ${long ? "Strong" : "Weak"} against the market: ${yes(strength)}. Two of three are needed.`,
+  };
+}
+
+/** P4 (S1-S3, S18, S23, S27): follows the rules, and two of active volume, a yearly range worth trading, and not slow. */
+export function activityPillar(f: PillarFacts | null | undefined): PillarResult {
+  const follows = f != null && f.queer !== true;
+  const volume = (f?.volumeActivity ?? 0) >= 1;
+  const range = (f?.annualRangePoints ?? 0) >= MIN_ANNUAL_RANGE_POINTS;
+  const lively = (f?.zoneActivity ?? 0) >= QUIET;
+  const passed = follows && twoOf(volume, range, lively);
+  return {
+    passed,
+    note: `Follows the rules: ${yes(follows)}. Volume at or above its own norm: ${yes(volume)}. A yearly range of ${MIN_ANNUAL_RANGE_POINTS} points or more: ${yes(range)}. Ranges not quieter than usual: ${yes(lively)}. Needs the first and two of the other three.`,
+  };
+}
+
+/** P5 (C6, T2, T4): an old top or bottom in the right role, or a percentage level. */
+export function priceLevelsPillar(oldLevel: boolean, percentage: boolean): PillarResult {
+  return {
+    passed: oldLevel || percentage,
+    note: `An old top or bottom in the right role: ${yes(oldLevel)}. A percentage or halfway level: ${yes(percentage)}.${oldLevel && percentage ? " Both together: the levels agree." : ""}`,
+  };
+}
+
+/** P6 (C10, C14): holding the 45° from the last major bottom (top, short) and not squeezed between two important angles. */
+export function anglesPillar(f: PillarFacts | null | undefined, side: Side, steepTrend: boolean): PillarResult {
+  const holds = f?.angles?.holds45[side] === true;
+  const free = f?.angles != null && !f.angles.squeezed;
+  const passed = holds && free;
+  return {
+    passed,
+    note: `${side === "bullish" ? "On or above the 45° from the last major bottom" : "On or below the 45° from the last major top"}: ${yes(holds)}. Not squeezed between two important angles: ${yes(free)}.${passed && steepTrend ? " The trend runs at the 1x2 or steeper." : ""}`,
+  };
+}
+
+/** P7 (C3-C5, C9 time): two of price and time squared, a dated window, and the reaction inside its time limit. */
+export function timePillar(input: {
+  side: Side;
+  squared: boolean;
+  facts: PillarFacts | null | undefined;
+  /** Read only when it decides the point. */
+  windowTurn?: (() => WindowTurn | null) | null;
+}): PillarResult {
+  const { side, squared, facts: f } = input;
+  const cm = f?.counterMove;
+  const late = cm?.phase === "secondMonth" || cm?.phase === "thirdMonth" || f?.reactionAbnormal === true;
+  const inLimit =
+    cm != null && (cm.trend === side ? !cm.inCounterMove || !late : cm.inCounterMove && late);
+  let windowOpen: boolean | null = null;
+  if (squared !== inLimit) {
+    const turn = input.windowTurn?.() ?? null;
+    windowOpen = turn !== null && turn.windows.length > 0;
+  }
+  const passed = (squared && inLimit) || (windowOpen === true);
+  const withTrend = cm?.trend === side;
+  return {
+    passed,
+    note: `Price and time squared: ${yes(squared)}. ${withTrend ? "The reaction is inside its time limit" : "The move against the trend has outrun its time limit"}: ${yes(inLimit)}.${windowOpen === null ? "" : ` A dated time window at the turn: ${yes(windowOpen)}.`} Two of three are needed.`,
+  };
+}
+
+/** P8 (C7, C8, S14, S21): volume at the turn or a base of weeks, with no capital-stock warning against the side. */
+export function volumePillar(f: PillarFacts | null | undefined, side: Side, climax: boolean): PillarResult {
+  const base = f?.base != null && f.base.long && f.base.breakout !== (side === "bullish" ? "down" : "up");
+  const noWarning = side === "bearish" || f?.capitalWarning !== true;
+  const passed = (climax || base) && noWarning;
+  return {
+    passed,
+    note: `Volume at the turn: ${yes(climax)}. A base of ${side === "bullish" ? "accumulation" : "distribution"} over weeks: ${yes(base)}. No warning from the turnover of the stock: ${yes(noWarning)}.`,
+  };
+}
+
+/** P9 (C9, C11, C12): the trigger armed, the stop behind an old level, and the counter-move against the greatest reaction. */
+export function definiteIndicationPillar(f: PillarFacts | null | undefined, side: Side, armed: boolean, stopPlaced: boolean): PillarResult {
+  const c = f?.campaign;
+  const overbalanced = c != null && (c.spaceOverbalanced || c.timeOverbalanced);
+  const reaction = c != null && (c.trend === side ? !overbalanced : overbalanced);
+  const passed = armed && stopPlaced && reaction;
+  const withTrend = c?.trend === side;
+  return {
+    passed,
+    note: `Trigger armed: ${yes(armed)}. Stop 3 points behind an old level: ${yes(stopPlaced)}. ${withTrend ? "The reaction is within the campaign's greatest" : "The move against the trend has exceeded the campaign's greatest reaction"}: ${yes(reaction)}. All three are needed.`,
+  };
+}
