@@ -409,4 +409,14 @@
 // instead of one risk unit (A-PYRAMID-01/06), and the whole line's stop goes
 // to the tighter of break-even and 5 points under the add (A-STOP-06). Exits
 // and pyramided trades move; verdicts do not.
-export const STRATEGY_VERSION = "2026-10-16-gann-stops-and-steps";
+// 2026-10-16-gann-yearly-count-windows: the time-window hold (Q19) also reads
+// the yearly counts (`MAJOR_CYCLE_YEARS`, A-TIME-11's 20 years among them) on
+// the monthly chart closed before the turn's month (`yearCycleHits`), on the
+// live scan and the replay alike. A counter-trend Execute whose 3-Day Chart
+// turn lands an exact number of those years from a major monthly pivot of the
+// same side now acts where it was held to Watch. The longest monthly series
+// held is 13 years, so in practice the 1-10-year counts reach it; the 20-year
+// count needs a longer series. Same batch, no verdict change: generated report
+// dates no longer set the regime's turn date (A-TIME-36), and the late-top /
+// early-top bottom readings are context only (A-TIME-08).
+export const STRATEGY_VERSION = "2026-10-16-gann-yearly-count-windows";

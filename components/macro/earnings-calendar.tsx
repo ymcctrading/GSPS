@@ -146,7 +146,10 @@ export function EarningsCalendar() {
                       </Link>
                       <span className="text-muted">{e.name}</span>
                     </div>
-                    <Badge variant="muted">{e.timing === "BMO" ? "Before open" : "After close"}</Badge>
+                    <Badge variant="muted">
+                      {e.timing === "BMO" ? "Before open" : "After close"}
+                      {e.confirmed ? "" : " (estimate)"}
+                    </Badge>
                   </div>
                 ))}
               </div>

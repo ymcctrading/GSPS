@@ -21,9 +21,15 @@
  * with-the-trend setup acts on price, as Gann's buying points do.
  *
  * Engineering choices, labelled: the orb is each source's own (`timeCycles`'
- * two days, the astro readings' one day, Jensen's dates within two days); the
- * windows are read on the bars through the turn only, so nothing after it
- * decides.
+ * two days, the astro readings' one day, Jensen's dates within two days, the
+ * yearly counts' exact month); the windows are read on the bars through the
+ * turn only, and the monthly chart on months closed before the turn's month,
+ * so nothing after it decides.
+ *
+ * The yearly counts (`MAJOR_CYCLE_YEARS`, A-TIME-11's 20 years among them)
+ * open a window from the monthly chart's major pivots (`yearCycleHits`), added
+ * 2026-10-16 on the owner's decision that the 20-year count acts here: the
+ * scans' year of daily bars holds no anchor old enough for them.
  *
  * Three-question basis:
  * 1. Gann: as cited, class A. Jensen's and the planetary readings are the
@@ -43,7 +49,7 @@
  */
 import type { Bar, SetupKind } from "@/lib/types";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { timeCycles } from "@/lib/gann/timeCycles";
+import { timeCycles, yearCycleHits } from "@/lib/gann/timeCycles";
 import { jensenWindows } from "@/lib/gann/jensen";
 import { readAstroRules } from "@/lib/gann/astroRules";
 import { readSquareOfNineTime } from "@/lib/gann/squareOfNineTime";
@@ -60,18 +66,26 @@ export interface WindowTurn {
   windows: string[];
 }
 
-/** The windows open on `date` for a turn of `kind`, read on `bars` (which end at the turn). */
-export type WindowsAt = (bars: Bar[], date: string, kind: "bottom" | "top") => string[];
+/**
+ * The windows open on `date` for a turn of `kind`, read on `bars` (which end at
+ * the turn) and on the monthly chart closed before the turn's month, when held.
+ */
+export type WindowsAt = (bars: Bar[], date: string, kind: "bottom" | "top", monthly?: Bar[] | null) => string[];
 
 const DAY_MS = 86_400_000;
 
 /** Every dated reading open on the turn's date, polarity respected where the source has one. */
-export const timeWindowsAt: WindowsAt = (bars, date, kind) => {
+export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly) => {
   const asOf = new Date(`${date}T12:00:00Z`);
   const low = kind === "bottom";
   const out: string[] = [];
   const cycles = timeCycles(bars, asOf);
   if (low ? cycles.bullishActive : cycles.bearishActive) out.push(`a time window from a major ${low ? "low" : "high"}`);
+  // The yearly counts (A-TIME-11's 20 years among them) from the monthly
+  // chart's major pivots: the daily year cannot reach them.
+  for (const h of yearCycleHits(monthly ?? [], asOf)) {
+    if (h.kind === (low ? "low" : "high")) out.push(`${h.years} year${h.years === 1 ? "" : "s"} from the ${h.pivotMonth} major ${h.kind}`);
+  }
   if (cycles.fixedCalendarActive) out.push("a fixed seasonal date");
   // Gann's time counts from the extreme high and low, landing on the turn.
   for (const h of readSquareOfNineTime(bars)) out.push(`${Math.round(h.count)} ${h.unit} from the ${h.pivotDate} ${h.pivot}, a squared time count`);
@@ -101,6 +115,12 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind) => {
 export function readWindowTurn(
   daily: Bar[],
   direction: "bullish" | "bearish",
+  /**
+   * The monthly chart, for the yearly counts (A-TIME-11). The live scan and
+   * the replay both pass their level charts' monthly bars; only months closed
+   * before the turn's month are read.
+   */
+  monthly: Bar[] | null = null,
   windowsAt: WindowsAt = timeWindowsAt,
 ): WindowTurn | null {
   const kind = direction === "bullish" ? "bottom" : "top";
@@ -108,7 +128,8 @@ export function readWindowTurn(
   if (!pivot) return null;
   const through = daily.slice(0, pivot.index + 1);
   const date = daily[pivot.index].t.slice(0, 10);
-  const windows = windowsAt(through, date, kind);
+  const monthlyThrough = monthly ? monthly.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null;
+  const windows = windowsAt(through, date, kind, monthlyThrough);
   return windows.length > 0 ? { kind, date, price: pivot.price, windows } : null;
 }
 
