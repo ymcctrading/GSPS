@@ -480,4 +480,12 @@
 // replay's `buildMacroContext` does. Before this a live scan during the session
 // scored today's unclosed bar, which the replay never sees. The replay is
 // unchanged; live scores taken while a session trades move.
-export const STRATEGY_VERSION = "2026-10-20-gann-closed-sessions";
+// 2026-10-20-gann-weekly-parity: the replay's weekly chart reads the provider's
+// closed weeks, as the live scan's does, with the week in progress built from
+// completed sessions on both (`levelCharts`). It had rolled its weeks up from
+// daily bars, which differ from the provider's and hold no weeks before the
+// daily history starts, so its weekly trend, weekly levels and weekly Rule of
+// Three were not production's. The yearly cycles count the same months on both
+// (`yearCycleMonths`: closed months, ten years back, at the session's noon).
+// Replay readings that touch the weekly chart move; the live verdict does not.
+export const STRATEGY_VERSION = "2026-10-20-gann-weekly-parity";

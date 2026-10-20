@@ -359,6 +359,15 @@ reads completed sessions only. Every scored or verdict-affecting daily read now
 takes `sessions`, the completed ones, and `pillarParity.test.ts` holds it with an
 unclosed bar present. `STRATEGY_VERSION` is `2026-10-20-gann-closed-sessions`.
 
+**Weekly parity, same day.** The replay rolled its weekly chart up from daily
+bars while the live scan read the provider's weeks, so the two read different
+weekly trends and levels. Both now read the provider's closed weeks (the
+backtest fetches them, `WEEKLY_CHART_YEARS` before the first session), with the
+week in progress built from completed sessions (`levelCharts`). The yearly
+cycles count the same closed months on both (`yearCycleMonths`). The monthly
+chart already matched. `pillarParity.test.ts` compares all three trends.
+`STRATEGY_VERSION` is `2026-10-20-gann-weekly-parity`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

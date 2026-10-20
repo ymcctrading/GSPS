@@ -55,6 +55,8 @@ import { fetchAllTimeframes } from "@/lib/data/provider";
 import { computeScore } from "@/lib/scoring/score";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { etDateKey } from "@/lib/market/session";
+import { yearCycleConvergence } from "@/lib/gann/timeCycles";
+import { yearCycleMonths } from "@/lib/scan/levelCharts";
 
 describe("the nine pillars on the live scan and the replay", () => {
   const original = process.env.MARKET_DATA_PROVIDER;
@@ -92,10 +94,15 @@ describe("the nine pillars on the live scan and the replay", () => {
       monthly: bars.monthly,
       monthlyLong: bars.monthlyLong ?? null,
       marketMonthly: liveIn.marketMonthly,
-    });
+    }, bars.weekly);
     const replayIn = seen.facts.at(-1)!.input as FactsInput;
     expect(replayIn.daily).toEqual(liveIn.daily);
     expect(replayIn.monthly).toEqual(liveIn.monthly);
+    // The weekly and monthly trends, read off the same charts (2026-10-20).
+    const liveScoreIn = liveScore!.input as ScoreInputs;
+    expect(context.macroTrends).toEqual(liveScoreIn.macroTrends.slice(0, 3));
+    expect(context.ruleOfThreeWeekly).toEqual(liveScoreIn.ruleOfThreeWeekly);
+    expect(context.ruleOfThreeMonthly).toEqual(liveScoreIn.ruleOfThreeMonthly);
     expect(context.pillarFacts).toEqual(liveFacts);
 
     // The same score from either surface's facts.
@@ -140,7 +147,7 @@ describe("the nine pillars on the live scan and the replay", () => {
       monthly: bars.monthly,
       monthlyLong: bars.monthlyLong ?? null,
       marketMonthly: liveIn.marketMonthly,
-    });
+    }, bars.weekly);
 
     // Each daily read the score takes, one by one, so a failure names it.
     expect(input.swingChart).toEqual(context.swingChart);
@@ -149,16 +156,27 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(input.timePriceSquare).toEqual(context.timePriceSquare);
     expect(input.volumeClimax).toEqual(context.volumeClimax);
     expect(input.boilingPoint).toEqual(context.boilingPoint);
-    // The yearly cycles are read off the monthly chart and shown only (no score reads them).
+    // The yearly cycles are read off the closed months at the session's noon,
+    // as the replay tags its trades (`yearCycleHitsAt`), not off the provider's
+    // month in progress at the wall clock.
+    const noon = new Date(`${today}T12:00:00Z`);
+    const yearCycles = yearCycleConvergence(yearCycleMonths(bars.monthlyLong ?? bars.monthly, today), noon);
+    expect(input.gann.yearCycleBullishHits).toBe(yearCycles.bullishHits);
+    expect(input.gann.yearCycleBearishHits).toBe(yearCycles.bearishHits);
     expect({ ...input.gann, yearCycleBullishHits: undefined, yearCycleBearishHits: undefined }).toEqual(context.gann);
     expect(input.momentumElevated).toBe(context.momentumElevated);
     expect(input.atrPct).toBe(context.atrPct);
     expect(input.nearSupportResistance).toBe(context.nearSupportResistance);
     expect(input.srMatch).toEqual(context.srMatch);
-    // The daily trend is read off the level chart on both. (The weekly and
-    // monthly differ in source, the provider's bars live and roll-ups on the
-    // replay, which is not a session question; they are left as the live scan reads them.)
+    // The monthly, weekly and daily trends are read off the same level charts
+    // on both: the provider's closed months and weeks, with the bar in
+    // progress built from completed sessions (2026-10-20). Before this the
+    // replay rolled its weeks up from daily bars and read a different chart.
+    expect(input.macroTrends[0]).toEqual(context.macroTrends[0]);
+    expect(input.macroTrends[1]).toEqual(context.macroTrends[1]);
     expect(input.macroTrends[2]).toEqual(context.macroTrends[2]);
+    expect(input.ruleOfThreeWeekly).toEqual(context.ruleOfThreeWeekly);
+    expect(input.ruleOfThreeMonthly).toEqual(context.ruleOfThreeMonthly);
 
     // And the breakdown the replay's reads produce is the live one.
     const direction = input.direction === "bearish" ? "bearish" : "bullish";
@@ -184,6 +202,18 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(fromReplay.breakdown).toEqual(liveOut.breakdown);
     expect(fromReplay.score).toBe(liveOut.score);
   }, 60_000);
+
+  it("counts the yearly cycles on closed months reaching ten years back, the month in progress left out", () => {
+    const month = (t: string) => ({ t: `${t}-01T05:00:00.000Z`, o: 1, h: 1, l: 1, c: 1, v: 1 });
+    const months = ["2016-09", "2016-10", "2020-01", "2026-09", "2026-10"].map(month);
+    expect(yearCycleMonths(months, "2026-10-20").map((b) => b.t.slice(0, 7))).toEqual(["2016-10", "2020-01", "2026-09"]);
+  });
+
+  it("hands the replay the provider's weekly bars on both replay paths", () => {
+    const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
+    expect(src("backtest/run.ts")).toMatch(/weeklyBars: series\.weekly,/);
+    expect(src("backtest/replay.ts")).toMatch(/buildMacroContext\(priorSessions, price, new Date\(`\$\{date\}T12:00:00Z`\), priorMonthly, facts, priorWeekly\)/);
+  });
 
   it("hands computeScore the pillar facts and the window turn on both surfaces", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");

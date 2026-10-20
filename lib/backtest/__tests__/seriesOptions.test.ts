@@ -14,14 +14,22 @@ import { replaySeriesOptions } from "@/lib/backtest/run";
 const bar = (t: string): Bar => ({ t, o: 1, h: 1, l: 1, c: 1, v: 1 });
 
 describe("replay series options", () => {
-  it("hands the replay the symbol's daily, monthly and long monthly bars and the market's daily and monthly bars", () => {
+  it("hands the replay the symbol's daily, weekly, monthly and long monthly bars and the market's daily and monthly bars", () => {
     const daily = [bar("2026-01-02T00:00:00Z")];
     const monthly = [bar("2020-01-01T00:00:00Z")];
     const monthlyLong = [bar("2014-01-01T00:00:00Z"), ...monthly];
     const marketDaily = [bar("2026-01-03T00:00:00Z")];
     const marketMonthly = [bar("2019-01-01T00:00:00Z")];
-    const o = replaySeriesOptions({ bars: [], daily, monthly, monthlyLong }, { bars: [], daily: marketDaily, monthly: marketMonthly });
-    expect(o).toEqual({ dailyBars: daily, monthlyBars: monthly, longMonthlyBars: monthlyLong, marketDailyBars: marketDaily, marketMonthlyBars: marketMonthly });
+    const weekly = [bar("2021-01-04T05:00:00Z")];
+    const o = replaySeriesOptions({ bars: [], daily, weekly, monthly, monthlyLong }, { bars: [], daily: marketDaily, monthly: marketMonthly });
+    expect(o).toEqual({
+      dailyBars: daily,
+      weeklyBars: weekly,
+      monthlyBars: monthly,
+      longMonthlyBars: monthlyLong,
+      marketDailyBars: marketDaily,
+      marketMonthlyBars: marketMonthly,
+    });
   });
 
   it("leaves the market's series out when SPY could not be fetched", () => {

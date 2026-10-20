@@ -73,7 +73,7 @@ import {
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { levelCharts } from "@/lib/scan/levelCharts";
+import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
@@ -166,6 +166,16 @@ export interface ReplayOptions {
    * confirm, so no future bar can reach the tag.
    */
   monthlyBars?: Bar[];
+  /**
+   * The provider's weekly bars for the same symbol, reaching
+   * `WEEKLY_CHART_YEARS` before the first session. Supplying them gives the
+   * replay the live scan's weekly chart: the closed weeks before each
+   * session's week, and the week in progress built from its completed
+   * sessions (`levelCharts`). Without them the weeks are rolled up from
+   * `dailyBars`, which differs from the provider's weeks and holds no weeks
+   * from before the daily history starts (2026-10-20, weekly parity).
+   */
+  weeklyBars?: Bar[];
   /**
    * Criterion weights to score with. Defaults to `DEFAULT_CRITERION_WEIGHTS`
    * (`lib/scoring/weights.ts`) — one point each, restored on principle
@@ -614,11 +624,19 @@ export function buildMacroContext(
   priorMonthly: Bar[] = [],
   /** Shares outstanding as of this session and the inception date (D2, D3), when stored. */
   instrument: InstrumentFacts | null = null,
+  /**
+   * The provider's weekly bars, when the run has them: the closed weeks the
+   * live scan's weekly chart reads (2026-10-20, weekly parity). Null (unit
+   * fixtures) rolls the weeks up from `daily` instead.
+   */
+  priorWeekly: Bar[] | null = null,
 ): MacroContext {
   const windowTurns = new Map<"bullish" | "bearish", WindowTurn | null>();
   // Mirrors lib/scanTicker.ts: the level charts both surfaces read (PLAN.md
   // item 9 step 4), from the completed sessions and closed months held here.
-  const charts = levelCharts({ daily, weekly: null, monthly: priorMonthly }, etDateKey(asOf));
+  // The closed weeks are the provider's, as live (2026-10-20); the week in
+  // progress is built from the completed sessions on both.
+  const charts = levelCharts({ daily, weekly: priorWeekly, monthly: priorMonthly }, etDateKey(asOf));
   const weekly = charts.weekly;
   const monthly = charts.monthly;
   const monthlyTrend = readTrend(monthly, "1Month");
@@ -681,8 +699,8 @@ export function buildMacroContext(
     swingChart,
     campaignLeg,
     ruleOfThree,
-    // Mirrors lib/scanTicker.ts. The live scan reads the provider's weekly
-    // and monthly bars; here they are rolled up from the daily history.
+    // Mirrors lib/scanTicker.ts: the same weekly and monthly level charts,
+    // the provider's closed bars and the bar in progress from completed sessions.
     ruleOfThreeWeekly: weekly.length >= 4 ? computeRuleOfThree(weekly) : null,
     ruleOfThreeMonthly: monthly.length >= 4 ? computeRuleOfThree(monthly) : null,
     timePriceSquare,
@@ -776,6 +794,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     warmupBars = 40,
     dailyBars,
     monthlyBars,
+    weeklyBars,
     weights,
     useProductionStop = false,
     usePlanLevels = false,
@@ -860,7 +879,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
             }
           : null;
-      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts);
+      // Only weeks that began before this session's week; `levelCharts` builds
+      // the week in progress from the completed sessions, so no later bar is read.
+      const thisWeek = mondayOf(date);
+      const priorWeekly = weeklyBars ? weeklyBars.filter((b) => mondayOf(b.t.slice(0, 10)) < thisWeek) : null;
+      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts, priorWeekly);
       const triggers: SessionTrigger[] = [];
       // The reaction rule is production's, and production prices from the
       // nearer of the crossing and the old level (PLAN.md item 5, step 2). The
@@ -1740,9 +1763,9 @@ export function byOutputState(result: ReplayResult): {
  */
 /** Hits in `direction` at `at`, from monthly bars that closed before `at`'s month. */
 function yearCycleHitsAt(monthlyBars: Bar[], at: string, direction: "bullish" | "bearish"): number {
-  const month = at.slice(0, 7);
-  const closed = monthlyBars.filter((b) => b.t.slice(0, 7) < month);
-  const hits = yearCycleConvergence(closed, new Date(`${at.slice(0, 10)}T12:00:00Z`));
+  // The live scan's months (`yearCycleMonths`): closed before the session's
+  // month and reaching ten years back.
+  const hits = yearCycleConvergence(yearCycleMonths(monthlyBars, at.slice(0, 10)), new Date(`${at.slice(0, 10)}T12:00:00Z`));
   return direction === "bullish" ? hits.bullishHits : hits.bearishHits;
 }
 

@@ -187,7 +187,8 @@ export async function fetchAllTimeframes(
 
   const [monthlyYearCount, weekly, daily, hourly, execution] = await Promise.all([
     provider.fetchBars(symbol, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, assetClass),
-    provider.fetchBars(symbol, "1Week", yearsAgo(5), end, assetClass),
+    // A week before the five years, so the weekly chart's first week (`levelCharts`) is never cut at the boundary.
+    provider.fetchBars(symbol, "1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000), end, assetClass),
     provider.fetchBars(symbol, "1Day", yearsAgo(1), end, assetClass),
     provider.fetchBars(symbol, "1Hour", daysAgo(hourlyLookbackDays), end, assetClass),
     executionIsHourly
@@ -265,7 +266,7 @@ export async function fetchAllTimeframesBatch(
 
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
     provider.fetchBarsBatch(symbols, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, "us_equity"),
-    provider.fetchBarsBatch(symbols, "1Week", yearsAgo(5), end, "us_equity"),
+    provider.fetchBarsBatch(symbols, "1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, "us_equity"),
     provider.fetchBarsBatch(symbols, "1Hour", daysAgo(hourlyLookbackDays), end, "us_equity"),
     executionIsHourly
