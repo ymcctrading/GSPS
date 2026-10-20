@@ -187,7 +187,7 @@ describe("over-balance of time reads the reaction to its extreme", () => {
     const held = bars([...CAMPAIGN, ...leg(120, 113, 15), ...Array.from({ length: 15 }, () => 113)]);
     const price = held[held.length - 1].c;
     const asOf = new Date(Date.parse(held[held.length - 1].t) + DAY);
-    const facts = readPillarFacts({ rules: readDisclosedRules(held, price, null, asOf), daily: held, monthly: [], marketDaily: null, price, asOf });
+    const facts = readPillarFacts({ rules: readDisclosedRules(held, price, null, asOf), daily: held, monthly: [], marketDaily: null, marketMonthly: null, price, asOf });
     expect(definiteIndicationPillar(facts, "bullish", true, true).passed).toBe(true);
     expect(definiteIndicationPillar(facts, "bearish", true, true).passed).toBe(false);
   });

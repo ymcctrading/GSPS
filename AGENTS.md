@@ -337,7 +337,6 @@ rank and a group map stay open. `STRATEGY_VERSION` is
 `2026-10-20-gann-p3-monthly-strength`. The research-only planetary matcher
 (C-ASTRO-03) now tests whole multiples of each period, with the chance rate
 widened to match.
-re-derives them. `STRATEGY_VERSION` was `2026-10-17-gann-nine-pillars`.
 
 **Pillar diagnosis, 2026-10-20 (first nine-pillar replay, Execute worst in both
 cells).** One translation defect, fixed: the campaign ledger's over-balance of
