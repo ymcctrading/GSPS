@@ -472,4 +472,12 @@
 // over-balanced while it waits for the 3-Day Chart to turn. P9's greatest-
 // reaction rule, the trend read (`readGannTrend`), the Gann exits' over-balance
 // call and the intraday over-balance factor all move.
-export const STRATEGY_VERSION = "2026-10-20-gann-time-overbalance-extreme";
+// 2026-10-20-gann-closed-sessions: the live scan's daily reads that score or
+// hold a verdict (swing chart, campaign leg, time cycles, angle slopes, the
+// time-price square, volume climax, boiling point, ATR and momentum, the S/R
+// test count, liquidity and large-cap, the distribution standing, and the
+// Signal & Regime Engine's daily bars) take completed sessions only, as the
+// replay's `buildMacroContext` does. Before this a live scan during the session
+// scored today's unclosed bar, which the replay never sees. The replay is
+// unchanged; live scores taken while a session trades move.
+export const STRATEGY_VERSION = "2026-10-20-gann-closed-sessions";

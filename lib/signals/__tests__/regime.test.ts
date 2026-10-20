@@ -78,7 +78,7 @@ describe("classifyRegime", () => {
 describe("the report-day turn date on every surface", () => {
   it("is read on the live scan and the signal replay", async () => {
     const { readFileSync } = await import("node:fs");
-    expect(readFileSync("lib/scanTicker.ts", "utf8")).toMatch(/classifyRegime\(\{ bars: daily, scheduledReportDay: isScheduledReportDay\(/);
+    expect(readFileSync("lib/scanTicker.ts", "utf8")).toMatch(/classifyRegime\(\{ bars: sessions, scheduledReportDay: isScheduledReportDay\(/);
     expect(readFileSync("lib/backtest/replaySignals.ts", "utf8")).toMatch(/classifyRegime\(\{ bars: window, scheduledReportDay: isScheduledReportDay\(/);
   });
 
