@@ -102,6 +102,15 @@ describe("buildSetupSynopsis", () => {
     expect(text).not.toContain("$");
   });
 
+  it("says the plan waits for a reaction when price has already run past the entry", () => {
+    const text = buildSetupSynopsis({ side: "buy", verdict: "Watch", scoreText: "8", scoreMax: 9, checks, levels, price: 106.67 });
+    expect(text).toContain("Price is already above the entry at $106.67: the plan waits for a reaction back to $100.00 and is not taken here.");
+    const short = buildSetupSynopsis({ side: "sell", verdict: "Watch", scoreText: "8", scoreMax: 9, checks, levels, price: 90 });
+    expect(short).toContain("already below the entry at $90.00");
+    const near = buildSetupSynopsis({ side: "buy", verdict: "Watch", scoreText: "8", scoreMax: 9, checks, levels, price: 99 });
+    expect(near).not.toContain("already");
+  });
+
   it("leaves the count out for a setup saved without a score", () => {
     const text = buildSetupSynopsis({ side: "buy", verdict: "Reject", scoreText: null, scoreMax: 9, checks: [], levels });
     expect(text).toMatch(/^A buy setup\. Enter near/);

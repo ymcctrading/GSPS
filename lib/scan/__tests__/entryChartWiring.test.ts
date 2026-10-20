@@ -120,7 +120,10 @@ describe("the window each surface reads", () => {
     }, 30_000);
 
     it("arms the side the replay arms, by the same rule (item 6 step 11)", async () => {
-      const { gannEntryOf, reversionEntry } = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
+      // The replay arms both of the session's buying points (`armSessionEntries`);
+      // a scan with no direction asked of it shows the one `chooseSessionEntry`
+      // picks from that same pair, so the two cannot disagree on a side.
+      const { gannEntryOf, chooseSessionEntry } = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
       const symbols = ["AAPL", "MSFT", "XOM", "JPM", "KO", "TSLA", "NVDA", "PFE"];
       const sides = new Set<string>();
       for (const symbol of symbols) {
@@ -128,8 +131,9 @@ describe("the window each surface reads", () => {
         const r = await scanTicker(symbol);
         const chart = spies.entryChart.mock.results[0].value as { bars: Bar[]; older: Parameters<typeof gannEntryOf>[1] };
         const macro = r.trends.filter((t) => t.timeframe !== "1Hour");
-        const expected = reversionEntry(macro, gannEntryOf(chart.bars, chart.older, macro), chart.bars[chart.bars.length - 1].c);
-        expect(r.direction).toBe(expected?.direction ?? "none");
+        const expected = chooseSessionEntry(macro, gannEntryOf(chart.bars, chart.older, macro), chart.bars[chart.bars.length - 1].c);
+        expect(r.direction).toBe(expected?.trigger.direction ?? "none");
+        expect(r.setupKind).toBe(expected?.setupKind ?? "reversion");
         sides.add(r.direction);
       }
       expect(sides.size).toBeGreaterThan(1);

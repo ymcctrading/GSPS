@@ -43,7 +43,8 @@ import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, reversionEntry } from "@/lib/scan/entrySelection";
+import { chooseSessionEntry, entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
 import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -146,7 +147,7 @@ export async function scanTicker(
 ): Promise<ScanResult> {
   const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const scannedAt = new Date().toISOString();
-  const setupKind: SetupKind = preference?.kind ?? "reversion";
+  let setupKind: SetupKind = preference?.kind ?? "reversion";
 
   try {
     const provider = getMarketDataProvider();
@@ -276,11 +277,25 @@ export async function scanTicker(
     const entryDaily = chart.bars;
     const macroTrends = [monthlyTrend, weeklyTrend, dailyTrend];
     const entryOf = gannEntryOf(entryDaily, chart.older, macroTrends);
-    const gannTrigger = preference
-      ? entryOf(preference.direction)
-      : entryDaily.length > 0
-        ? reversionEntry(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)
-        : null;
+    // With no direction asked for, the scan reads what the session arms
+    // (`armSessionEntries`, the same two readings the market scan's two passes
+    // and the replay take): the reversion against the trend, and the buying
+    // point with it. Before 2026-10-20 only the reversion was read here, so a
+    // symbol published on the daily list from the continuation pass (with the
+    // trend) opened on its own page scored against the trend, on a side that
+    // had armed nothing: SHEL on 2026-10-16 read 8 of 9 Buy on the list and
+    // 2 of 9 Sell on its page at the same minute and price. When both sides
+    // arm, the nearer buying point is the one (the no-trend rule, fork F4 a).
+    let gannTrigger: GannEntryTrigger | null = null;
+    if (preference) {
+      gannTrigger = entryOf(preference.direction);
+    } else if (entryDaily.length > 0) {
+      const chosen = chooseSessionEntry(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
+      if (chosen) {
+        gannTrigger = chosen.trigger;
+        setupKind = chosen.setupKind;
+      }
+    }
     const preferredDirection = gannTrigger?.direction ?? preferredEntryDirection(macroTrends, preference);
     const armedPatterns = rankArmedPatterns({
       closedExecutionBars,
