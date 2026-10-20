@@ -54,6 +54,7 @@ import { buildMacroContext } from "@/lib/backtest/replay";
 import { fetchAllTimeframes } from "@/lib/data/provider";
 import { computeScore } from "@/lib/scoring/score";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
+import { etDateKey } from "@/lib/market/session";
 
 describe("the nine pillars on the live scan and the replay", () => {
   const original = process.env.MARKET_DATA_PROVIDER;
@@ -101,6 +102,84 @@ describe("the nine pillars on the live scan and the replay", () => {
     const input = liveScore!.input as ScoreInputs;
     const direction = input.direction === "bearish" ? "bearish" : "bullish";
     const fromReplay = computeScore({ ...input, pillarFacts: context.pillarFacts, windowTurn: () => context.windowTurn(direction) });
+    const liveOut = liveScore!.output as ReturnType<typeof computeScore>;
+    expect(fromReplay.breakdown).toEqual(liveOut.breakdown);
+    expect(fromReplay.score).toBe(liveOut.score);
+  }, 60_000);
+
+  it("scores completed sessions only, so an unclosed session bar changes nothing the replay would not see", async () => {
+    const bars = await fetchAllTimeframes("AAPL", "us_equity", EXECUTION_TIMEFRAME);
+    const today = etDateKey(new Date());
+    const sessions = bars.daily.filter((b) => b.t.slice(0, 10) < today);
+    const last = sessions[sessions.length - 1];
+    // Today's session, still trading: a wide range on heavy volume, the kind
+    // of bar that moves a swing chart, an angle anchor, a climax and the ATR.
+    const unclosed = {
+      t: `${today}T04:00:00.000Z`,
+      o: last.c,
+      h: last.c * 1.25,
+      l: last.c * 0.75,
+      c: last.c * 1.2,
+      v: last.v * 40,
+    };
+    const live = { ...bars, daily: [...sessions, unclosed] };
+    seen.facts.length = 0;
+    seen.scores.length = 0;
+    await scanTicker("AAPL", undefined, undefined, live);
+    const liveFacts = seen.facts.at(-1)!;
+    const liveIn = liveFacts.input as FactsInput;
+    const liveScore = seen.scores.find((s) => (s.input as ScoreInputs).pillarFacts === liveFacts.output);
+    expect(liveScore).toBeDefined();
+    const input = liveScore!.input as ScoreInputs;
+
+    // The replay at that session: the completed sessions before it, read at noon.
+    const context = buildMacroContext(sessions, liveIn.price, new Date(`${today}T12:00:00Z`), bars.monthlyLong ?? bars.monthly, {
+      sharesOutstanding: 50_000_000,
+      inception: null,
+      marketDaily: liveIn.marketDaily,
+      monthly: bars.monthly,
+      monthlyLong: bars.monthlyLong ?? null,
+      marketMonthly: liveIn.marketMonthly,
+    });
+
+    // Each daily read the score takes, one by one, so a failure names it.
+    expect(input.swingChart).toEqual(context.swingChart);
+    expect(input.campaignLeg).toEqual(context.campaignLeg);
+    expect(input.ruleOfThree).toEqual(context.ruleOfThree);
+    expect(input.timePriceSquare).toEqual(context.timePriceSquare);
+    expect(input.volumeClimax).toEqual(context.volumeClimax);
+    expect(input.boilingPoint).toEqual(context.boilingPoint);
+    // The yearly cycles are read off the monthly chart and shown only (no score reads them).
+    expect({ ...input.gann, yearCycleBullishHits: undefined, yearCycleBearishHits: undefined }).toEqual(context.gann);
+    expect(input.momentumElevated).toBe(context.momentumElevated);
+    expect(input.atrPct).toBe(context.atrPct);
+    expect(input.nearSupportResistance).toBe(context.nearSupportResistance);
+    expect(input.srMatch).toEqual(context.srMatch);
+    // The daily trend is read off the level chart on both. (The weekly and
+    // monthly differ in source, the provider's bars live and roll-ups on the
+    // replay, which is not a session question; they are left as the live scan reads them.)
+    expect(input.macroTrends[2]).toEqual(context.macroTrends[2]);
+
+    // And the breakdown the replay's reads produce is the live one.
+    const direction = input.direction === "bearish" ? "bearish" : "bullish";
+    const fromReplay = computeScore({
+      ...input,
+      swingChart: context.swingChart,
+      campaignLeg: context.campaignLeg,
+      ruleOfThree: context.ruleOfThree,
+      ruleOfThreeWeekly: context.ruleOfThreeWeekly,
+      ruleOfThreeMonthly: context.ruleOfThreeMonthly,
+      timePriceSquare: context.timePriceSquare,
+      volumeClimax: context.volumeClimax,
+      boilingPoint: context.boilingPoint,
+      gann: context.gann,
+      nearSupportResistance: context.nearSupportResistance,
+      srMatch: context.srMatch,
+      momentumElevated: context.momentumElevated,
+      atrPct: context.atrPct,
+      pillarFacts: context.pillarFacts,
+      windowTurn: () => context.windowTurn(direction),
+    });
     const liveOut = liveScore!.output as ReturnType<typeof computeScore>;
     expect(fromReplay.breakdown).toEqual(liveOut.breakdown);
     expect(fromReplay.score).toBe(liveOut.score);

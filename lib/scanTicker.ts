@@ -172,17 +172,27 @@ export async function scanTicker(
     // reads too (PLAN.md item 9 step 4): 52 weeks of completed sessions, 5
     // years of weeks and 10 calendar years of months, each bar in progress
     // built from completed sessions. See lib/scan/levelCharts.ts.
-    const charts = levelCharts({ daily, weekly, monthly: monthlyLong ?? monthly }, etDateKey(new Date(scannedAt)));
+    const sessionDay = etDateKey(new Date(scannedAt));
+    const charts = levelCharts({ daily, weekly, monthly: monthlyLong ?? monthly }, sessionDay);
+    // Completed sessions only, all the history held, as the replay's
+    // `buildMacroContext` reads them (`priorSessions`). The raw `daily` ends in
+    // today's session while it trades; every scored or verdict-affecting read
+    // below takes `sessions` so the live scan never scores an intraday bar the
+    // replay never sees (2026-10-20). `daily` stays for display, the learning
+    // record and the data-quality checks, which want the latest bar.
+    const sessions = daily.filter((b) => b.t.slice(0, 10) < sessionDay);
+    // The replay's session date, at noon UTC (`buildMacroContext`'s asOf).
+    const sessionNoon = new Date(`${sessionDay}T12:00:00Z`);
     const monthlyTrend = readTrend(charts.monthly, "1Month");
     const weeklyTrend = readTrend(charts.weekly, "1Week");
     const dailyTrend = readTrend(charts.daily, "1Day");
     // Gann's 3-Day and 7-day weekly swing charts, replacing the monthly/weekly/daily
     // macroTrend agreement check — same daily bars, a different (reversal-
     // count) construction. See lib/gann/swingChart.ts.
-    const swingChart = computeSwingChart(daily);
+    const swingChart = computeSwingChart(sessions);
     // Gann's "sections of a campaign" leg count, added 2026-09-16 — confluence/
     // context only, see lib/gann/swingChart.ts#computeCampaignLeg.
-    const campaignLeg = computeCampaignLeg(daily);
+    const campaignLeg = computeCampaignLeg(sessions);
     // Gann's Rule of Three, added 2026-09-16 — see lib/gann/ruleOfThree.ts.
     // Completed sessions only: a session still trading has no close yet, and
     // the replay reads the same (review 25, R3-3).
@@ -197,20 +207,20 @@ export async function scanTicker(
     // ---- Gann structures (anchored on the daily chart)
     const fanLines = computeFanLines(charts.daily, currentPrice);
     const s9 = recentSquareOf9Levels(charts.daily, currentPrice).slice(0, 12);
-    const cycles = timeCycles(daily);
+    const cycles = timeCycles(sessions, sessionNoon);
     // The yearly cycles need the 10-year monthly chart; the daily read above
     // only reaches the day-count wheel. See yearCycleConvergence.
     const yearCycles = yearCycleConvergence(monthly);
-    const angleSlopes = computeAngleSlopes(daily, currentPrice);
+    const angleSlopes = computeAngleSlopes(sessions, currentPrice);
     // Gann's squaring of price and time, replacing timeCycle — same anchors
     // as angleSlopes, a different (raw count-for-count) construction.
-    const timePriceSquare = computeTimePriceSquare(daily, currentPrice);
+    const timePriceSquare = computeTimePriceSquare(sessions, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
     // Completed sessions and months only, and the smallest month in years (A-VOLUME-09).
-    const volumeClimax = computeVolumeClimax(daily, undefined, { asOf: new Date(scannedAt), monthly });
+    const volumeClimax = computeVolumeClimax(sessions, undefined, { asOf: new Date(scannedAt), monthly });
     // Gann's "boiling point" blow-off duration off the same climax anchors,
     // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
-    const boilingPoint = computeBoilingPoint(daily, volumeClimax);
+    const boilingPoint = computeBoilingPoint(sessions, volumeClimax);
     const retracementLevels = computeRetracementLevels(charts.daily, currentPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4): score.ts's gannRetracementConfluence
@@ -348,9 +358,9 @@ export async function scanTicker(
     // showing, so it degrades to "no levels" with a note instead of collapsing
     // the whole scan into an error and leaving the ticker page blank.
     // Read once, shared by the large-cap check below and the `liquidity` field
-    // on the returned result — same daily bars either way, no reason to read
-    // them twice.
-    const liquidity = readLiquidity(daily) ?? undefined;
+    // on the returned result — same completed sessions either way (the
+    // replay's `readLiquidity(priorSessions)`), no reason to read them twice.
+    const liquidity = readLiquidity(sessions) ?? undefined;
     const largeCap = isLargeCapStock(symbol, assetClass, liquidity);
 
     // ---- Supporting signals
@@ -388,8 +398,8 @@ export async function scanTicker(
         timeframe: "1Month" as const,
       })),
     ];
-    const recentAtr = atr(daily.slice(-20), 14);
-    const baselineAtr = atr(daily.slice(-100, -20), 14);
+    const recentAtr = atr(sessions.slice(-20), 14);
+    const baselineAtr = atr(sessions.slice(-100, -20), 14);
     const momentumElevated = baselineAtr > 0 && recentAtr / baselineAtr >= 1.2;
 
     // The structural proximity criteria are measured in multiples of this
@@ -437,7 +447,7 @@ export async function scanTicker(
     const monthlyWarning = readMonthlyBreakWarning(entryDaily);
     // Gann's volume Rule 2 (A-VOLUME-03, fork FV7 b): a breakdown after a lower
     // top holds a new long to Watch while it stands, as the replay reads it.
-    const distributionStanding = readDistributionStanding(daily, new Date(scannedAt));
+    const distributionStanding = readDistributionStanding(sessions, new Date(scannedAt));
     // A-LEVELS-04 (fork FL3 a): the same 52-week entry chart the replay reads.
     const failedTops = readMultipleTops(charts.daily);
     // Gann's selection rules (A-SELECTION-02/-03): early leaders first in the
@@ -457,7 +467,6 @@ export async function scanTicker(
     // The session's own closed bars are what tell a poke that reversed by the
     // close from a break: a plan broken earlier today stands again only once a
     // bar has closed back through the level by Gann's 3-point allowance.
-    const sessionDay = etDateKey(new Date(scannedAt));
     const stopBreach = readStopBreach({
       direction: entrySource?.direction ?? "none",
       stopLoss: levels?.stopLoss,
@@ -507,7 +516,7 @@ export async function scanTicker(
           srMatch: srMatch && {
             ...srMatch,
             role: levelRole(currentPrice, srMatch.price),
-            testCount: countLevelTests(daily, srMatch.price, srBandPct),
+            testCount: countLevelTests(sessions, srMatch.price, srBandPct),
           },
           pattern,
           gannTrigger,
@@ -566,7 +575,7 @@ export async function scanTicker(
       universeThresholds,
     );
     // A scheduled report on the session is a turn date, context only (A-TIME-36).
-    const regime = classifyRegime({ bars: daily, scheduledReportDay: isScheduledReportDay(symbol.toUpperCase(), new Date(scannedAt)) });
+    const regime = classifyRegime({ bars: sessions, scheduledReportDay: isScheduledReportDay(symbol.toUpperCase(), new Date(scannedAt)) });
 
     // ---- Gann Confluence Layer / Sara Confluence Layer — the addendum's
     // cross-market confluence modules (2026-08-28). Additive and
@@ -604,7 +613,7 @@ export async function scanTicker(
       regime.regime === "trend" && regime.direction !== "sideways"
         ? evaluateTrendPullback({
             direction: regime.direction,
-            htfBars: daily,
+            htfBars: sessions,
             executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,
@@ -618,7 +627,7 @@ export async function scanTicker(
       closedExecutionBars.length >= 17
         ? evaluateTrendBreakout({
             direction: scoreDirection,
-            htfBars: daily,
+            htfBars: sessions,
             executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,
@@ -630,7 +639,7 @@ export async function scanTicker(
       closedExecutionBars.length >= 22
         ? evaluateConfirmedReversal({
             direction: scoreDirection,
-            htfBars: daily,
+            htfBars: sessions,
             executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,
@@ -642,7 +651,7 @@ export async function scanTicker(
       closedExecutionBars.length >= 26
         ? evaluateRangeReversion({
             direction: scoreDirection,
-            htfBars: daily,
+            htfBars: sessions,
             executionBars: closedExecutionBars,
             gates: marketGates,
             accountContextAssumed: true,

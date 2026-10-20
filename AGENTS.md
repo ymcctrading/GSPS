@@ -352,6 +352,13 @@ for the owner: the dated-window part is open on every turn of a random walk
 reversion hold already requires it. `STRATEGY_VERSION` is
 `2026-10-20-gann-time-overbalance-extreme`.
 
+**Closed sessions on the live scan, 2026-10-20.** `lib/scanTicker.ts` scored
+some daily reads (swing chart, time-price square, angle slopes, climax, ATR,
+liquidity and more) on raw bars that end in today's unclosed session; the replay
+reads completed sessions only. Every scored or verdict-affecting daily read now
+takes `sessions`, the completed ones, and `pillarParity.test.ts` holds it with an
+unclosed bar present. `STRATEGY_VERSION` is `2026-10-20-gann-closed-sessions`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
