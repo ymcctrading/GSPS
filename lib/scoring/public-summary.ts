@@ -43,14 +43,19 @@ export const SCORE_PILLAR_LABELS: Record<ScorePillar, string> = {
 /**
  * What each pillar means to a reader, in the vocabulary the glossary already
  * uses. Deliberately describes the *question* the pillar asks, never the
- * conditions that answer it.
+ * conditions that answer it. Each covers every point its group holds
+ * (`lib/scoring/score.ts`, re-worded 2026-10-20 for the nine pillars):
+ * trend holds the trend on every timeframe and relative strength; structure
+ * the price levels and the angles; setup activity and volume; timing the
+ * market and cycle position and time; risk/reward the definite indication
+ * with the stop placed.
  */
 export const SCORE_PILLAR_DESCRIPTIONS: Record<ScorePillar, string> = {
-  trend: "How the higher timeframes are leaning relative to this setup.",
-  structure: "Whether price is sitting at levels that have mattered before.",
-  setup: "Whether the stock is active and volume stands behind the move.",
-  timing: "Whether the calendar favours a turn here.",
-  riskReward: "Whether the trigger is armed with the stop placed behind an old level.",
+  trend: "Whether the trend runs this way on every timeframe, and whether this stock is leading the market or lagging it.",
+  structure: "Whether price is at levels that have mattered before, with its trend angle holding and room to move.",
+  setup: "Whether the stock is active and trades normally, and volume or a long base stands behind the move.",
+  timing: "Whether the market, the stock's cycles and the time since its last turn favour a move here.",
+  riskReward: "Whether the trigger is armed, the stop sits behind an old level, and the pullback has not outgrown the trend's largest so far.",
 };
 
 /**

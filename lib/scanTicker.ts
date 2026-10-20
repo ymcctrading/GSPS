@@ -478,6 +478,7 @@ export async function scanTicker(
       daily: charts.daily,
       monthly: charts.monthly,
       marketDaily: marketDaily ?? null,
+      marketMonthly: marketMonthly ?? null,
       price: currentPrice,
       asOf: new Date(scannedAt),
     });

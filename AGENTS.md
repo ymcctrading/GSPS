@@ -325,6 +325,19 @@ bought on the reaction back to it): the setup card now says so instead of
 reading as a plan to take at the market. `STRATEGY_VERSION` is
 `2026-10-20-gann-session-entry`; the 6/3.5 cutoffs still await a replay.
 
+**Score pillar P3(c), 2026-10-20 (stand-in, labelled).** S6 ranks a stock
+among its group or universe by monthly highs and lows. GSPS scores one symbol
+at a time (market scan, symbol page, replay), so P3(c) compares the stock with
+the market (SPY) instead: higher in its year of monthly highs and lows for a
+long, lower for a short (`lib/gann/leadership.ts#readMonthlyStrength`), read
+identically on both surfaces and guarded by
+`lib/scan/__tests__/pillarParity.test.ts`. It replaced a weak-stock reading
+that was never S6. About 0.03 ms a symbol, no request. A true cross-sectional
+rank and a group map stay open. `STRATEGY_VERSION` is
+`2026-10-20-gann-p3-monthly-strength`. The research-only planetary matcher
+(C-ASTRO-03) now tests whole multiples of each period, with the chance rate
+widened to match.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

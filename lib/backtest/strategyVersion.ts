@@ -459,4 +459,10 @@
 // replay already armed both (`armSessionEntries`), so it is unchanged; the
 // published lists can now carry a with-trend setup from the first pass, and
 // a symbol's page agrees with the list that named it.
-export const STRATEGY_VERSION = "2026-10-20-gann-session-entry";
+// 2026-10-20-gann-p3-monthly-strength: P3(c) reads S6, the stock's monthly
+// highs and lows against the market's (higher in its year's range for a long,
+// lower for a short; lib/gann/leadership.ts#readMonthlyStrength), on the live
+// scan and the replay alike. It replaces A-SELECTION-04's weak-stock reading.
+// A stand-in for Gann's rank among peers, labelled in pillars.ts and the
+// registry. P3 and so some scores move.
+export const STRATEGY_VERSION = "2026-10-20-gann-p3-monthly-strength";

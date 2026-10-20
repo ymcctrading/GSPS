@@ -270,30 +270,54 @@ export function gridMatchBaseline(
 }
 
 /**
- * C-ASTRO-03: does a found cycle sit near a planetary period, and how often
- * would a random period do as well? Research only, not sourced to Gann
- * (W007 pp.28, 61 pairs found cycles with planets: 8 years with Venus,
- * 19.875 years with the Jupiter-Saturn synodic period). With nine sidereal
- * and 36 synodic periods, almost any period lies near one, so a match means
- * nothing without its chance rate (CYC-41, CYC-49).
+ * Engineering choice, labelled: the largest whole multiple of a planetary
+ * period `matchPlanetaryPeriod` tests by default. W007's own pairings reach
+ * seven (159 months is about seven Mars years); nothing in the source sets a
+ * ceiling, so this is the smallest one that reproduces them.
+ */
+export const PLANETARY_MAX_MULTIPLE = 7;
+
+/**
+ * C-ASTRO-03: does a found cycle sit near a planetary period or a whole
+ * multiple of one, and how often would a random period do as well? Research
+ * only, not sourced to Gann. W007 (pp. 28, 61) pairs found cycles with
+ * planets, mostly as multiples: 8 years with about five Venus synodic periods,
+ * 159 months with about seven Mars sidereal periods, 19.875 years with the
+ * Jupiter-Saturn synodic period itself. With nine sidereal and 36 synodic
+ * periods and their multiples, almost any period lies near one, so a match
+ * means nothing without its chance rate (CYC-41, CYC-49).
  *
- * The references are each body's sidereal period and every pair's synodic
- * period (`planetaryPeriods.ts`), in days. `chanceRate` is the share of the
- * log-uniform band [minPeriod, maxPeriod] lying within ±tolerance of a
- * reference: the probability a random period in the band matches at least
- * one. The tolerance and the log-uniform null are engineering choices, the
- * same as `gridMatchBaseline`'s. Nothing on the verdict path reads this.
+ * The references are k = 1..`maxMultiple` times each body's sidereal period
+ * and each pair's synodic period (`planetaryPeriods.ts`), in days; k = 1 keeps
+ * its plain label ("Jupiter-Saturn synodic"), a multiple is labelled "×k".
+ * `chanceRate` is the share of the log-uniform band [minPeriod, maxPeriod]
+ * lying within ±tolerance of any reference, multiples included: the
+ * probability a random period in the band matches at least one. It rises
+ * toward 1 as multiples are added, which is the honest cost of allowing them
+ * (about 0.78 at the default seven on a 30-40,000-day band, against 0.28 for
+ * the periods alone). A pairing that needs more multiples than `maxMultiple`
+ * is not reproduced unless the caller raises it.
+ * The tolerance and the log-uniform null are engineering choices, the same as
+ * `gridMatchBaseline`'s. Nothing on the verdict path reads this
+ * (`criteria-gate.test.ts` guards that).
  */
 export function matchPlanetaryPeriod(
   periodDays: number,
-  opts: { minPeriod: number; maxPeriod: number; tolerance?: number },
-): { matches: { label: string; periodDays: number }[]; chanceRate: number; hypothesisOnly: true } {
+  opts: { minPeriod: number; maxPeriod: number; tolerance?: number; maxMultiple?: number },
+): { matches: { label: string; periodDays: number; multiple: number }[]; chanceRate: number; hypothesisOnly: true } {
   const tol = opts.tolerance ?? MATCH_TOLERANCE;
+  const maxMultiple = Math.max(1, Math.floor(opts.maxMultiple ?? PLANETARY_MAX_MULTIPLE));
   const bodies = Object.keys(SIDEREAL_DAYS) as PeriodBody[];
-  const refs: { label: string; periodDays: number }[] = bodies.map((b) => ({ label: `${b} sidereal`, periodDays: SIDEREAL_DAYS[b] }));
+  const base: { label: string; periodDays: number }[] = bodies.map((b) => ({ label: `${b} sidereal`, periodDays: SIDEREAL_DAYS[b] }));
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
-      refs.push({ label: `${bodies[i]}-${bodies[j]} synodic`, periodDays: synodicPeriod(SIDEREAL_DAYS[bodies[i]], SIDEREAL_DAYS[bodies[j]]) });
+      base.push({ label: `${bodies[i]}-${bodies[j]} synodic`, periodDays: synodicPeriod(SIDEREAL_DAYS[bodies[i]], SIDEREAL_DAYS[bodies[j]]) });
+    }
+  }
+  const refs: { label: string; periodDays: number; multiple: number }[] = [];
+  for (const r of base) {
+    for (let k = 1; k <= maxMultiple; k++) {
+      refs.push({ label: k === 1 ? r.label : `${r.label} ×${k}`, periodDays: r.periodDays * k, multiple: k });
     }
   }
   const lo = Math.log(opts.minPeriod);

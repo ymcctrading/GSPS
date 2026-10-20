@@ -330,3 +330,69 @@ export function readWeakStock(stockMonthly: Bar[], marketMonthly: Bar[]): WeakSt
 
   return { bullStart, earlyTopFailed, firstRallyNotExceeded, weak: earlyTopFailed !== null || firstRallyNotExceeded !== null };
 }
+
+/**
+ * S6 (*How to Make Profits in Commodities* pp. 20, 47, Tier A): "compare the
+ * monthly highs and lows" across markets and take the strongest for a long,
+ * the weakest for a short; a market that fails to cross its former tops shows
+ * relative weakness. P3(c) of the score reads this (`lib/scoring/pillars.ts`).
+ *
+ * **A stand-in, labelled as one (2026-10-20).** Gann ranks a market among its
+ * peers. GSPS scores one symbol at a time on three surfaces: the market scan's
+ * shortlist, the symbol page's single scan and the replay, which walks one
+ * symbol per run. Only the first has a universe in hand, and there only when
+ * its monthly batch has landed, which it does not wait for. A true
+ * cross-sectional rank would give one symbol two scores (list and symbol
+ * page) and make the replay's score depend on which symbols a run was handed.
+ * So the peer here is the market itself (SPY, the index the universe's stocks
+ * make up): the stock's last close is placed within its own last
+ * `STRENGTH_MONTHS` months of highs and lows, the market's the same way, and
+ * the stock is stronger when it sits higher in its range than the market does
+ * (weaker when lower). It reads "stronger than the average of the universe",
+ * not "among the strongest of it", so it is a lower bar than Gann's. A true
+ * cross-sectional rank (and a group map, which GSPS lacks) remains open.
+ *
+ * Engineering choices, labelled: the window is a year of months (Gann's
+ * comparisons are of yearly tops and bottoms); position-in-range is how the
+ * highs and lows are compared; each chart carries its month in progress from
+ * its daily bars (`monthlyWithCurrent`, the market's cut at the stock's last
+ * session), so the live scan and the replay read the same months.
+ *
+ * Three questions: 1. S6 and S4 (buy the strong, sell the weak), Tier A.
+ * 2. No period is claimed; Dewey does not apply. 3. Polarity (the strongest
+ * long, the weakest short, one test mirrored) and Correspondence (the stock's
+ * months read against the market's).
+ */
+export const STRENGTH_MONTHS = 12;
+
+export interface MonthlyStrengthReading {
+  /** Where the stock's last close sits in its last STRENGTH_MONTHS months' range, 0 (the low) to 1 (the high). */
+  stock: number;
+  /** The same for the market. */
+  market: number;
+  stronger: boolean;
+  weaker: boolean;
+}
+
+function rangePosition(months: Bar[]): number | null {
+  if (months.length < STRENGTH_MONTHS) return null;
+  const win = months.slice(-STRENGTH_MONTHS);
+  const hi = Math.max(...win.map((b) => b.h));
+  const lo = Math.min(...win.map((b) => b.l));
+  const close = win[win.length - 1].c;
+  return hi > lo ? (close - lo) / (hi - lo) : null;
+}
+
+export function readMonthlyStrength(
+  stockMonthly: Bar[] | null | undefined,
+  stockDaily: Bar[],
+  marketMonthly: Bar[] | null | undefined,
+  marketDaily: Bar[] | null | undefined,
+): MonthlyStrengthReading | null {
+  if (!stockMonthly || !marketMonthly || stockDaily.length === 0) return null;
+  const end = stockDaily[stockDaily.length - 1].t;
+  const stock = rangePosition(monthlyWithCurrent(stockMonthly, stockDaily));
+  const market = rangePosition(monthlyWithCurrent(marketMonthly, (marketDaily ?? []).filter((b) => b.t <= end)));
+  if (stock === null || market === null) return null;
+  return { stock, market, stronger: stock > market, weaker: stock < market };
+}

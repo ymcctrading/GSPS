@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SCANNER_STATE_META } from "@/lib/signals/types";
+import { EXECUTE_SCORE_THRESHOLD, WATCH_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
 interface Term {
   term: string;
@@ -86,17 +87,16 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Score out of 9",
         plain:
-          "How many of 9 quality checks the setup passes (trend, structural levels, pattern, risk, etc.). The higher the score, the stronger the setup.",
+          "One point for each of nine questions the setup answers yes to: the market and cycle position, the trend on every timeframe, relative strength and leadership, activity, price levels, angles, time, volume and accumulation, and a definite entry signal with the stop placed. Each point needs several of its own conditions to agree, so a point is not easy to earn. The higher the score, the stronger the setup.",
       },
       {
         term: "Execute - Watch - Reject",
-        plain:
-          "The bottom line. Execute (7-9) = strong and has a valid entry/stop/target ready to trade. Watch (4-6) = keep an eye on it — a 7-9 score with no armed trade plan also shows as Watch, since there's nothing to act on yet. Reject (0-3) = skip it.",
+        plain: `The bottom line. Execute (${EXECUTE_SCORE_THRESHOLD} or more) = strong and has a valid entry/stop/target ready to trade. Watch (${WATCH_SCORE_THRESHOLD} up to ${EXECUTE_SCORE_THRESHOLD}) = keep an eye on it — an Execute-level score with no armed trade plan, or one a rule is holding back, also shows as Watch, since there's nothing to act on yet. Reject (below ${WATCH_SCORE_THRESHOLD}) = skip it.`,
       },
       {
         term: "Reversal & continuation patterns",
         plain:
-          "GSPS arms a setup off the shape of the last two or three closed bars, then waits for the next bar to break a trigger price by one penny. Each shape below is one of those setups — expand a pattern card on the scan page for the plain-language version of the one that's currently armed.",
+          "GSPS arms a setup when price crosses an old swing top (for a buy) or an old swing bottom (for a sell) by a small allowance that scales with the price, so a bare poke through the level doesn't count. The bar shapes below are shown on the chart as context for reading the last few bars; they don't set the entry price.",
       },
       {
         term: "Failed-push reversal",
@@ -131,7 +131,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Armed vs. triggered",
         plain:
-          "'Armed' means the pattern has formed on the last closed bar and is waiting with a trigger price. 'Triggered' means the live candle has broken that price by a penny and the trade is live. A pattern can arm and then never trigger if price never reaches the line — that's not a loss, just a setup that expired unused.",
+          "'Armed' means there is an old swing top or bottom to cross and the setup is waiting with a trigger price just beyond it. 'Triggered' means price has crossed that line by the allowance and the entry has confirmed on closed bars, so the trade can be placed. A setup can arm and then never trigger if price never reaches the line — that's not a loss, just a setup that expired unused.",
       },
     ],
   },

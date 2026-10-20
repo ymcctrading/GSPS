@@ -17,7 +17,7 @@ const nearMiss: NearMiss = {
   max: 9,
   verdict: "Watch",
   missing: [
-    "Scores 6 out of 9. Guided only offers setups scoring 7 or better, so this one is worth watching rather than buying.",
+    "Scores 5 out of 9. Guided only offers setups scoring 6 or better, so this one is worth watching rather than buying.",
     "The trade plan has no entry, stop or target priced yet, so there is nothing to place.",
   ],
   tickerHref: "/ticker/NVDA",

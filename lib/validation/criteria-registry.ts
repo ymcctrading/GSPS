@@ -525,7 +525,11 @@ const SCAN_SCORE: RegisteredCriterion[] = [
   PILLAR("trendAllTimeframes", "Trend on every timeframe", "lib/gann/swingChart.ts, lib/gann/ruleOfThree.ts",
     "MC Ch.7 C13; 45Y R1: the weekly swing with the side, and the 3-day swing or the Rule of Three. Absorbs swingChartTrend and ruleOfThree."),
   PILLAR("relativeStrength", "Relative strength and leadership", "lib/gann/leadership.ts",
-    "Selection rules S4-S12: two of leading the market, the campaign's first-year high, and strength against the market (weakness, short)."),
+    "Selection rules S4-S12: two of leading the market, the campaign's first-year high, and S6 strength by monthly highs and lows (weakness, short). " +
+      "STAND-IN (2026-10-20): S6 ranks a stock among its group or universe; GSPS scores one symbol at a time (market scan, symbol page, replay), " +
+      "so the peer is the market (SPY): higher in its year of monthly highs and lows than the market (lower, short), readMonthlyStrength. " +
+      "That is 'stronger than the universe's average', a lower bar than 'among the strongest'. It replaced, the same day, A-SELECTION-04's " +
+      "weak-stock reading, which counted a weak stock in a bull market as a short's strength. A true cross-sectional rank and a group map stay open."),
   PILLAR("activity", "Activity and character", "lib/gann/ruleFollowing.ts, lib/gann/sevenZones.ts, lib/gann/priceZone.ts",
     "S1-S3, S18, S27: follows the rules, and two of volume at its norm, a 20-point yearly range, and ranges not quieter than usual."),
   PILLAR("priceLevels", "Price levels", "lib/strat/levels.ts, lib/gann/retracement.ts",
