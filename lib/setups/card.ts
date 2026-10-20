@@ -144,8 +144,10 @@ export function buildSetupSynopsis(args: {
   scoreMax: number;
   checks: SetupCheck[];
   levels: SetupLevels;
+  /** The price the card is read at, when known: says when it has run past the buying point. */
+  price?: number | null;
 }): string {
-  const { side, verdict, scoreText, scoreMax, checks, levels } = args;
+  const { side, verdict, scoreText, scoreMax, checks, levels, price } = args;
   const status = VERDICT_STATUS[verdict] ?? "not yet strong enough to act on";
   const noun = side === "buy" ? "buy" : "sell";
 
@@ -172,7 +174,16 @@ export function buildSetupSynopsis(args: {
     `first target ${formatUsd(levels.tp1!)}` +
     (r1 != null ? ` (${r1.toFixed(1)}× the risk)` : "") +
     ".";
-  return `${first} ${second}`;
+  // The buying point is the crossed level, bought on the reaction back to it
+  // (the method's reaction buy, lib/gann/entryTrigger.ts). A price already
+  // beyond it has not missed the plan; it has not reached it. Said plainly,
+  // since the levels alone read as a plan to take at the market (2026-10-16:
+  // SHEL listed at $106.67 against a $96.49 entry).
+  const ran = price != null && (side === "buy" ? price > levels.entry! : price < levels.entry!);
+  const third = ran
+    ? ` Price is already ${side === "buy" ? "above" : "below"} the entry at ${formatUsd(price)}: the plan waits for a reaction back to ${formatUsd(levels.entry!)} and is not taken here.`
+    : "";
+  return `${first} ${second}${third}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +284,7 @@ export function buildDailyCardModel(
       scoreMax: opts.scoreMax,
       checks,
       levels,
+      price,
     }),
     tickerHref: tickerHref(row.symbol),
   };

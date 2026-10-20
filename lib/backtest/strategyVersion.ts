@@ -452,4 +452,11 @@
 // the trigger, the stop behind an old level and the greatest-reaction rule
 // (owner's "Stop required"). Every score moves; the 6/3.5 cutoffs hold until
 // a replay on this version re-derives them.
-export const STRATEGY_VERSION = "2026-10-17-gann-nine-pillars";
+// 2026-10-20-gann-session-entry: a scan with no direction asked of it (the
+// symbol page, a batch scan, Guided Mode's recheck, the market scan's first
+// pass) shows whichever of the session's two buying points armed, the nearer
+// when both did (`chooseSessionEntry`), where it read the reversion alone. The
+// replay already armed both (`armSessionEntries`), so it is unchanged; the
+// published lists can now carry a with-trend setup from the first pass, and
+// a symbol's page agrees with the list that named it.
+export const STRATEGY_VERSION = "2026-10-20-gann-session-entry";

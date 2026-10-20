@@ -313,6 +313,17 @@ build the facts the same way (`readPillarFacts`, about 0.4 ms a symbol; the
 live scan now reads the disclosed rules once and shares them with the
 confluence card). The 6/3.5 cutoffs are held until a replay on this version
 re-derives them. `STRATEGY_VERSION` is `2026-10-17-gann-nine-pillars`.
+**List and page disagreement, 2026-10-20 (owner's report: SHEL 8 of 9 Buy on
+the list, 2 of 9 Sell on its page, same minute and price).** A scan with no
+direction asked of it read only the reversion against the trend, while the
+list's with-trend rows came from the continuation pass with a direction. Now
+`chooseSessionEntry` (`lib/scan/entrySelection.ts`) shows whichever of the
+session's two buying points armed, the nearer when both did, on every surface
+without a preference; the replay already armed both. A plan whose entry the
+price has already run past is the method's reaction buy (the crossed level,
+bought on the reaction back to it): the setup card now says so instead of
+reading as a plan to take at the market. `STRATEGY_VERSION` is
+`2026-10-20-gann-session-entry`; the 6/3.5 cutoffs still await a replay.
 
 ## WD Gann precedence — standing principle
 

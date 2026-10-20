@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { TrendReading } from "@/lib/types";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { armSessionEntries, gannMacroDirection, reversionEntry } from "@/lib/scan/entrySelection";
+import { armSessionEntries, chooseSessionEntry, gannMacroDirection, reversionEntry } from "@/lib/scan/entrySelection";
 
 const trend = (timeframe: TrendReading["timeframe"], direction: TrendReading["direction"]): TrendReading =>
   ({ timeframe, direction, support: [], resistance: [] }) as unknown as TrendReading;
@@ -51,5 +51,26 @@ describe("the buying points a session arms", () => {
 
   it("with no trend, arms the side that has a buying point when the other has none", () => {
     expect(reversionEntry(none, (d) => (d === "bullish" ? fake("bullish", 130) : null), 100)?.direction).toBe("bullish");
+  });
+});
+
+describe("the setup a scan with no direction asked of it shows", () => {
+  const up = [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "bullish")];
+
+  it("shows the with-trend buying point when the reversion armed nothing", () => {
+    const only = (d: "bullish" | "bearish") => (d === "bullish" ? fake("bullish", 96.49) : null);
+    const chosen = chooseSessionEntry(up, only, 106.67);
+    expect(chosen?.setupKind).toBe("continuation");
+    expect(chosen?.trigger.direction).toBe("bullish");
+  });
+
+  it("shows the nearer buying point when both sides armed", () => {
+    const both = (d: "bullish" | "bearish") => (d === "bullish" ? fake("bullish", 104) : fake("bearish", 97));
+    expect(chooseSessionEntry(up, both, 98)?.setupKind).toBe("reversion");
+    expect(chooseSessionEntry(up, both, 103)?.setupKind).toBe("continuation");
+  });
+
+  it("shows nothing when neither side armed", () => {
+    expect(chooseSessionEntry(up, () => null, 100)).toBeNull();
   });
 });
