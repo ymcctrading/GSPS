@@ -337,6 +337,21 @@ rank and a group map stay open. `STRATEGY_VERSION` is
 `2026-10-20-gann-p3-monthly-strength`. The research-only planetary matcher
 (C-ASTRO-03) now tests whole multiples of each period, with the chance rate
 widened to match.
+re-derives them. `STRATEGY_VERSION` was `2026-10-17-gann-nine-pillars`.
+
+**Pillar diagnosis, 2026-10-20 (first nine-pillar replay, Execute worst in both
+cells).** One translation defect, fixed: the campaign ledger's over-balance of
+time measured the reaction in progress to today, but completed reactions top
+to bottom, so a reaction that had made its low and was holding read
+over-balanced and failed P9's greatest-reaction rule (about one flag in ten on
+synthetic walks). It now reads to the extreme (`CounterMoveSize.extremeDays`),
+everywhere the ledger is read. P9's other failures, and P2's and
+`swingChartTrend`'s inversions, are a handful of counter-weekly Execute trades
+(4 and 5 of 73 and 164), not a code fault. P7's saturation is structural, held
+for the owner: the dated-window part is open on every turn of a random walk
+(the Square of Nine and Hexagon time counts alone hit about 60%), and the
+reversion hold already requires it. `STRATEGY_VERSION` is
+`2026-10-20-gann-time-overbalance-extreme`.
 
 ## WD Gann precedence — standing principle
 

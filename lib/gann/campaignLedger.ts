@@ -104,7 +104,14 @@ export interface SwingLeg {
 
 export interface CounterMoveSize {
   pct: number;
+  /** Calendar days: a completed leg's top to bottom; the move in progress, its start to today (its age). */
   days: number;
+  /**
+   * The move in progress only: calendar days from its start to its extreme so
+   * far, which is how a completed leg's length is measured. Over-balance of
+   * time compares this, not the age (see `timeOverbalanced`).
+   */
+  extremeDays?: number;
 }
 
 /** The campaign's month, counted with its start month as the first (Master Course Ch. 6, PDF 197). */
@@ -344,6 +351,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     currentCounterMove = {
       pct: (Math.abs(lastPoint.price - end) / lastPoint.price) * 100,
       days: days(bars[lastPoint.index], last),
+      extremeDays: days(bars[lastPoint.index], bars[extreme]),
     };
   }
 
@@ -352,8 +360,17 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
 
   const spaceOverbalanced =
     currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.pct > greatestCounterMove.pct;
+  // Like for like (fixed 2026-10-20): a completed reaction's length runs from
+  // its top to its bottom, so the reaction in progress is measured to its own
+  // extreme so far, not to today. Measured to today, a reaction that had made
+  // its low and was holding or turning up (the buying point a with-trend setup
+  // waits for) kept adding days until the 3-Day Chart turned, and read as
+  // over-balanced in time; once completed, the same reaction measured shorter
+  // and was not. The third-month rule already reads to the extreme
+  // (`counterMoveThirdMonth`, A-TIME-01: a reaction that made its low and has
+  // held is resuming), and so does the space test (`pct`).
   const timeOverbalanced =
-    currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.days > greatestCounterMove.days;
+    currentCounterMove !== null && greatestCounterMove !== null && (currentCounterMove.extremeDays ?? currentCounterMove.days) > greatestCounterMove.days;
   // C-TREND-06: "by 1+ point" (Master Course Ch. 8, PDF 249), one point at the counter-move's start price.
   const pointPct = (gannPoint(lastPoint.price) / lastPoint.price) * 100;
   const spaceOverbalancedByPoint =
@@ -537,7 +554,7 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
   const lines = [`Campaign (${l.trend}) since ${l.campaignStartDate}: section ${l.sections}.`];
   if (l.currentCounterMove && l.greatestCounterMove) {
     lines.push(
-      `Current counter-move ${l.currentCounterMove.pct.toFixed(1)}% over ${l.currentCounterMove.days}d vs the campaign's greatest ${l.greatestCounterMove.pct.toFixed(1)}% / ${l.greatestCounterMove.days}d` +
+      `Current counter-move ${l.currentCounterMove.pct.toFixed(1)}% over ${l.currentCounterMove.extremeDays ?? l.currentCounterMove.days}d to its extreme so far vs the campaign's greatest ${l.greatestCounterMove.pct.toFixed(1)}% / ${l.greatestCounterMove.days}d` +
         (l.spaceOverbalanced || l.timeOverbalanced
           ? ` — over-balanced in ${[l.spaceOverbalanced && "space", l.timeOverbalanced && "time"].filter(Boolean).join(" and ")}${l.sections >= 3 ? " after the 3rd section" : ""}.`
           : "."),
