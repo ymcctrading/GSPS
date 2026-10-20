@@ -325,6 +325,33 @@ bought on the reaction back to it): the setup card now says so instead of
 reading as a plan to take at the market. `STRATEGY_VERSION` is
 `2026-10-20-gann-session-entry`; the 6/3.5 cutoffs still await a replay.
 
+**Score pillar P3(c), 2026-10-20 (stand-in, labelled).** S6 ranks a stock
+among its group or universe by monthly highs and lows. GSPS scores one symbol
+at a time (market scan, symbol page, replay), so P3(c) compares the stock with
+the market (SPY) instead: higher in its year of monthly highs and lows for a
+long, lower for a short (`lib/gann/leadership.ts#readMonthlyStrength`), read
+identically on both surfaces and guarded by
+`lib/scan/__tests__/pillarParity.test.ts`. It replaced a weak-stock reading
+that was never S6. About 0.03 ms a symbol, no request. A true cross-sectional
+rank and a group map stay open. `STRATEGY_VERSION` is
+`2026-10-20-gann-p3-monthly-strength`. The research-only planetary matcher
+(C-ASTRO-03) now tests whole multiples of each period, with the chance rate
+widened to match.
+
+**Pillar diagnosis, 2026-10-20 (first nine-pillar replay, Execute worst in both
+cells).** One translation defect, fixed: the campaign ledger's over-balance of
+time measured the reaction in progress to today, but completed reactions top
+to bottom, so a reaction that had made its low and was holding read
+over-balanced and failed P9's greatest-reaction rule (about one flag in ten on
+synthetic walks). It now reads to the extreme (`CounterMoveSize.extremeDays`),
+everywhere the ledger is read. P9's other failures, and P2's and
+`swingChartTrend`'s inversions, are a handful of counter-weekly Execute trades
+(4 and 5 of 73 and 164), not a code fault. P7's saturation is structural, held
+for the owner: the dated-window part is open on every turn of a random walk
+(the Square of Nine and Hexagon time counts alone hit about 60%), and the
+reversion hold already requires it. `STRATEGY_VERSION` is
+`2026-10-20-gann-time-overbalance-extreme`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

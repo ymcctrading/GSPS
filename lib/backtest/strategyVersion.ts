@@ -459,4 +459,17 @@
 // replay already armed both (`armSessionEntries`), so it is unchanged; the
 // published lists can now carry a with-trend setup from the first pass, and
 // a symbol's page agrees with the list that named it.
-export const STRATEGY_VERSION = "2026-10-20-gann-session-entry";
+// 2026-10-20-gann-p3-monthly-strength: P3(c) reads S6, the stock's monthly
+// highs and lows against the market's (higher in its year's range for a long,
+// lower for a short; lib/gann/leadership.ts#readMonthlyStrength), on the live
+// scan and the replay alike. It replaces A-SELECTION-04's weak-stock reading.
+// A stand-in for Gann's rank among peers, labelled in pillars.ts and the
+// registry. P3 and so some scores move.
+// 2026-10-20-gann-time-overbalance-extreme: the campaign ledger's over-balance
+// of time measures the reaction in progress to its extreme so far, as a
+// completed reaction is measured (top to bottom) and as the third-month rule
+// already reads it. A reaction that made its low and has held no longer reads
+// over-balanced while it waits for the 3-Day Chart to turn. P9's greatest-
+// reaction rule, the trend read (`readGannTrend`), the Gann exits' over-balance
+// call and the intraday over-balance factor all move.
+export const STRATEGY_VERSION = "2026-10-20-gann-time-overbalance-extreme";

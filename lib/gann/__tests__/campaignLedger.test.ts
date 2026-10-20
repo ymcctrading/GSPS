@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import { buildCampaignLedger, describeCampaignLedger } from "../campaignLedger";
 import { contextFactorsFor } from "../contextFactors";
 import { readDisclosedRules } from "../disclosedRules";
+import { definiteIndicationPillar, readPillarFacts } from "@/lib/scoring/pillars";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
 function daily(closes: number[]): Bar[] {
@@ -149,5 +150,54 @@ describe("C-TIME-27: the 1935 culmination months are each pinned (Master Course 
     const { readCampaignAge } = await import("../campaignLedger");
     const on = [23, 24, 27, 30, 34, 35, 41, 42];
     for (let m = 20; m <= 44; m++) expect(readCampaignAge(m).culmination1935, `month ${m}`).toBe(on.includes(m));
+  });
+});
+
+// Over-balance of time, like for like (2026-10-20): a completed reaction is
+// measured top to bottom, so the one in progress is measured to its extreme so
+// far. A reaction that made its low inside the campaign's longest and has held
+// since is not over-balanced in time, however long it has held.
+describe("over-balance of time reads the reaction to its extreme", () => {
+  const DAY = 86_400_000;
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  const bars = (closes: number[]): Bar[] => {
+    const t0 = Date.parse("2025-01-02T05:00:00Z");
+    return closes.map((c, i) => ({ t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: 1e6 }));
+  };
+  // A bull campaign whose one completed reaction (81 to 70) runs 20 days.
+  const CAMPAIGN = [...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 70, 20), ...leg(70, 120, 100)];
+  const mirror = (b: Bar[]): Bar[] => b.map((x) => ({ ...x, o: 300 - x.o, c: 300 - x.c, h: 300 - x.l, l: 300 - x.h }));
+
+  it("does not flag a reaction that made its low on day 15 and has held for 15 more", () => {
+    const held = bars([...CAMPAIGN, ...leg(120, 113, 15), ...Array.from({ length: 15 }, () => 113)]);
+    const l = buildCampaignLedger(held)!;
+    expect(l.trend).toBe("bullish");
+    expect(l.greatestCounterMove?.days).toBe(20);
+    expect(l.currentCounterMove?.days).toBe(30);
+    expect(l.currentCounterMove?.extremeDays).toBe(15);
+    expect(l.spaceOverbalanced).toBe(false);
+    expect(l.timeOverbalanced).toBe(false);
+    // The mirror, a bear campaign's rally that topped and held.
+    const m = buildCampaignLedger(mirror(held))!;
+    expect(m.trend).toBe("bearish");
+    expect(m.timeOverbalanced).toBe(false);
+  });
+
+  it("lets the definite-indication pillar pass a long bought at that held low", () => {
+    const held = bars([...CAMPAIGN, ...leg(120, 113, 15), ...Array.from({ length: 15 }, () => 113)]);
+    const price = held[held.length - 1].c;
+    const asOf = new Date(Date.parse(held[held.length - 1].t) + DAY);
+    const facts = readPillarFacts({ rules: readDisclosedRules(held, price, null, asOf), daily: held, monthly: [], marketDaily: null, marketMonthly: null, price, asOf });
+    expect(definiteIndicationPillar(facts, "bullish", true, true).passed).toBe(true);
+    expect(definiteIndicationPillar(facts, "bearish", true, true).passed).toBe(false);
+  });
+
+  it("still flags a reaction still making new lows past the campaign's longest", () => {
+    const longer = bars([...CAMPAIGN, ...leg(120, 113, 25)]);
+    const l = buildCampaignLedger(longer)!;
+    expect(l.currentCounterMove?.extremeDays).toBe(25);
+    expect(l.spaceOverbalanced).toBe(false);
+    expect(l.timeOverbalanced).toBe(true);
+    expect(buildCampaignLedger(mirror(longer))!.timeOverbalanced).toBe(true);
   });
 });

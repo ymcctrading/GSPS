@@ -34,6 +34,7 @@ import { yearCycleConvergence } from "@/lib/gann/timeCycles";
 import { patternAngleLines } from "@/lib/gann/patternAngles";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
+import { readMonthlyStrength } from "@/lib/gann/leadership";
 
 type Side = "bullish" | "bearish";
 
@@ -62,8 +63,12 @@ export interface PillarFacts {
     brokeBottomsFirst: boolean;
     firstYearHighCrossed: boolean | null;
   } | null;
-  /** A-SELECTION-04's weak stock in a bull market; null when not read. */
-  weak: boolean | null;
+  /**
+   * S6: the stock's monthly highs and lows against the market's
+   * (`readMonthlyStrength`), for P3(c). A stand-in for Gann's rank among peers:
+   * see that function's header. Null when not read.
+   */
+  monthlyStrength: { stronger: boolean; weaker: boolean } | null;
   /** Q24's queer-acting stock; null when too few rules resolved to say. */
   queer: boolean | null;
   /** Median volume of the last 20 sessions over the year before them. */
@@ -136,10 +141,12 @@ export function readPillarFacts(input: {
   daily: Bar[];
   monthly: Bar[];
   marketDaily: Bar[] | null;
+  /** The market's monthly bars (closed months, or with the month in progress; the month in progress is rebuilt from `marketDaily` either way). */
+  marketMonthly: Bar[] | null;
   price: number;
   asOf: Date;
 }): PillarFacts {
-  const { rules, daily, monthly, marketDaily, price, asOf } = input;
+  const { rules, daily, monthly, marketDaily, marketMonthly, price, asOf } = input;
   const last = daily[daily.length - 1]?.t ?? "";
   const market = (marketDaily ?? []).filter((b) => b.t <= last);
   const month = asOf.toISOString().slice(0, 7);
@@ -162,7 +169,10 @@ export function readPillarFacts(input: {
           firstYearHighCrossed: leadership.firstYearHighCrossed,
         }
       : null,
-    weak: rules.weakStock ? rules.weakStock.weak : null,
+    monthlyStrength: (() => {
+      const m = readMonthlyStrength(monthly, daily, marketMonthly, marketDaily);
+      return m ? { stronger: m.stronger, weaker: m.weaker } : null;
+    })(),
     queer: rules.ruleFollowing ? rules.ruleFollowing.queer : null,
     volumeActivity: volumeActivity(daily),
     annualRangePoints: rules.annualRange && unit > 0 ? rules.annualRange.medianPoints / unit : null,
@@ -209,17 +219,31 @@ export function trendPillar(input: {
   };
 }
 
-/** P3 (S4-S12): two of leading the market, crossing the campaign's first-year high (failing to, short), and strength against the market. */
+/**
+ * P3 (S4-S12): two of leading the market, crossing the campaign's first-year
+ * high (failing to, short), and strength by monthly highs and lows (S6).
+ *
+ * (c) is a stand-in, recorded here and in the registry (2026-10-20). Gann's
+ * rule is "among the strongest of its group or universe" (weakest, short),
+ * judged by monthly highs and lows against peers. GSPS scores one symbol at a
+ * time on the live scan, the symbol page and the replay, so the peer is the
+ * market (SPY): stronger when the stock sits higher in its year of monthly
+ * highs and lows than the market does, weaker when lower
+ * (`lib/gann/leadership.ts#readMonthlyStrength`). That is "stronger than the
+ * universe's average", a lower bar than "among its strongest". It replaced,
+ * the same day, a reading of A-SELECTION-04's weak-in-a-bull-market stock,
+ * which counted a weak stock as a short's strength and was never S6.
+ */
 export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const l = f?.leadership;
   const long = side === "bullish";
   const led = l != null && (long ? l.bottomedFirst || l.crossedTopsFirst : l.toppedFirst || l.brokeBottomsFirst);
   const firstYear = l?.firstYearHighCrossed === long;
-  const strength = long ? f?.weak === false : f?.weak === true;
+  const strength = long ? f?.monthlyStrength?.stronger === true : f?.monthlyStrength?.weaker === true;
   const passed = twoOf(led, firstYear, strength);
   return {
     passed,
-    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. ${long ? "Strong" : "Weak"} against the market: ${yes(strength)}. Two of three are needed.`,
+    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. ${long ? "Higher" : "Lower"} in its year of monthly highs and lows than the market: ${yes(strength)}. Two of three are needed.`,
   };
 }
 

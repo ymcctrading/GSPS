@@ -27,6 +27,7 @@
 import type { ScanResult } from "@/lib/types";
 import { tickerHref } from "@/lib/routes";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
+import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
 export interface NearMiss {
   symbol: string;
@@ -54,14 +55,17 @@ export function missingFor(result: ScanResult, score: number): string[] {
   const missing: string[] = [];
 
   // Two different reasons a verdict lands below Execute, and saying the wrong
-  // one is worse than saying nothing: a setup can score 7-9 and still be held
-  // at Watch because its plan has not armed or its data is stale. Telling that
-  // reader "scores 8 out of 9, and we only offer 7 or better" is a sentence
-  // that contradicts itself.
+  // one is worse than saying nothing: a setup can reach the Execute cutoff and
+  // still be held at Watch because its plan has not armed or its data is
+  // stale. Telling that reader "scores 8 out of 9, and we only offer 6 or
+  // better" is a sentence that contradicts itself. The bar is the Execute
+  // cutoff itself, since Guided offers only Execute setups
+  // (`lib/guided/eligibility.ts`); it was a hardcoded 7 until 2026-10-20, left
+  // over from the old 7/4 cutoffs.
   if (result.decision.outputState !== "Execute") {
     missing.push(
-      score < 7
-        ? `Scores ${score} out of 9. Guided only offers setups scoring 7 or better, so this one is worth watching rather than buying.`
+      score < EXECUTE_SCORE_THRESHOLD
+        ? `Scores ${score} out of 9. Guided only offers setups scoring ${EXECUTE_SCORE_THRESHOLD} or better, so this one is worth watching rather than buying.`
         : `Scores ${score} out of 9, which is strong — but the verdict is still ${result.decision.outputState}, so something else has not lined up yet.`,
     );
   }

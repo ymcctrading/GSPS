@@ -14,6 +14,7 @@
 import { describe, expect, it } from "vitest";
 import { missingFor, pickNearestMiss } from "@/lib/guided/near-miss";
 import type { ScanResult } from "@/lib/types";
+import { EXECUTE_SCORE_THRESHOLD, WATCH_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
 function scan(over: Partial<ScanResult> & { symbol: string; score: number }): ScanResult {
   const { score, ...rest } = over;
@@ -25,7 +26,7 @@ function scan(over: Partial<ScanResult> & { symbol: string; score: number }): Sc
     error: null,
     decision: {
       score,
-      outputState: score >= 7 ? "Execute" : score >= 4 ? "Watch" : "Reject",
+      outputState: score >= EXECUTE_SCORE_THRESHOLD ? "Execute" : score >= WATCH_SCORE_THRESHOLD ? "Watch" : "Reject",
       summary: { score, max: 9, pillars: [], stateNote: null },
     },
     ...rest,
@@ -95,9 +96,9 @@ describe("pickNearestMiss", () => {
 
 describe("what it says is missing", () => {
   it("names the score against the bar, in words a beginner can use", () => {
-    const reasons = missingFor(scan({ symbol: "AAA", score: 6 }), 6);
-    expect(reasons.join(" ")).toMatch(/6 out of 9/);
-    expect(reasons.join(" ")).toMatch(/7 or better/);
+    const reasons = missingFor(scan({ symbol: "AAA", score: 5 }), 5);
+    expect(reasons.join(" ")).toMatch(/5 out of 9/);
+    expect(reasons.join(" ")).toContain(`${EXECUTE_SCORE_THRESHOLD} or better`);
   });
 
   it("flags an unpriced plan", () => {

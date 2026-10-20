@@ -717,7 +717,7 @@ export function buildMacroContext(
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules,
-    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, price, asOf }),
+    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, marketMonthly: instrument?.marketMonthly ?? null, price, asOf }),
     windowTurn: (direction) => {
       if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;

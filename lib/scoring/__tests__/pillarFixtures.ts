@@ -15,7 +15,7 @@ export function passingPillarFacts(side: "bullish" | "bearish" = "bullish"): Pil
       brokeBottomsFirst: !long,
       firstYearHighCrossed: long,
     },
-    weak: !long,
+    monthlyStrength: { stronger: long, weaker: !long },
     queer: false,
     volumeActivity: 1.2,
     annualRangePoints: 40,
