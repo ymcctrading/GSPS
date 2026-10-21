@@ -35,6 +35,8 @@ import {
   type InvalidatableOrder,
 } from "@/lib/trade/invalidate-pending";
 import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
+import { checkBracket } from "@/lib/trade/bracket";
+import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import type { createClient } from "@/lib/supabase/server";
 import type { AssetClass } from "@/lib/types";
 
@@ -369,6 +371,7 @@ async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string
     .from("protocol_exits")
     .select("id")
     .eq("user_id", userId)
+    .eq("mode", "paper")
     .eq("symbol", symbol.toUpperCase())
     .eq("status", "working")
     .limit(1)
@@ -510,7 +513,7 @@ export async function evaluateRestingOrders(
 ): Promise<{ filled: number; invalidated: number; error: string | null }> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, symbol, side, qty, limit_price, stop_price, asset_class, created_at")
+    .select("id, symbol, side, qty, order_type, limit_price, stop_price, take_profit, master_profit, asset_class, created_at")
     .eq("user_id", userId)
     .eq("mode", "paper")
     .eq("status", "new")
@@ -566,6 +569,29 @@ export async function evaluateRestingOrders(
     }
 
     if (isRestingOrderTriggered(side, limitPrice, market, row.created_at as string | null)) {
+      // A resting bracket carries its protocol levels, and they have to come
+      // with the fill: until 2026-10-21 it filled with no stop on the position
+      // and no exit plan, so nothing would ever take it out (review finding
+      // R-011). The same post-fill check placement makes runs first, so a fill
+      // past the plan's own stop or target is refused, not opened unprotected.
+      const bracket = row.order_type === "bracket" ? bracketOf(row) : null;
+      if (row.order_type === "bracket") {
+        const check = bracket ? checkBracket({ side, basePrice: market, stopLoss: bracket.stopLoss, takeProfit: bracket.takeProfit }) : null;
+        if (!check?.ok) {
+          const reason = `The market reached ${market} before this order filled, past its own stop or target. ${check?.reason ?? "Its levels couldn't be read."} Refresh the setup and resubmit.`;
+          const { data: refused } = await supabase
+            .from("orders")
+            .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
+            .eq("id", row.id)
+            .eq("user_id", userId)
+            .eq("status", "new")
+            .select("id")
+            .maybeSingle();
+          if (refused) invalidated++;
+          continue;
+        }
+      }
+
       // Claim before executing, same reasoning as the exit manager's tranche
       // claim: a concurrent poll must not fill this same resting order twice.
       const { data: claimed } = await supabase
@@ -584,12 +610,79 @@ export async function evaluateRestingOrders(
         side,
         qty: Number(row.qty),
         price: market,
+        stopLoss: bracket?.stopLoss ?? null,
+        takeProfit: bracket?.takeProfit ?? null,
+        masterProfit: bracket?.masterProfit ?? null,
       });
       if (executed.closed) {
         await logPlainClose(supabase, userId, symbol, assetClassOf(symbol), side, executed.closed);
       }
+      if (bracket) await attachRestingExitPlan(supabase, userId, String(row.id), symbol, side, Number(row.qty), market, bracket);
       filled++;
     }
   }
   return { filled, invalidated, error: null };
+}
+
+interface RestingBracket {
+  stopLoss: number;
+  takeProfit: number;
+  masterProfit: number | null;
+}
+
+function bracketOf(row: Record<string, unknown>): RestingBracket | null {
+  const stopLoss = Number(row.stop_price);
+  const takeProfit = Number(row.take_profit);
+  if (!(stopLoss > 0) || !(takeProfit > 0)) return null;
+  const master = row.master_profit == null ? null : Number(row.master_profit);
+  return { stopLoss, takeProfit, masterProfit: master != null && master > 0 ? master : null };
+}
+
+/**
+ * The staged exit for a resting bracket that just filled, written the way
+ * placement writes it for an order that fills at once (`placeSimulatedOrder`).
+ */
+async function attachRestingExitPlan(
+  supabase: Supabase,
+  userId: string,
+  orderId: string,
+  symbol: string,
+  side: "buy" | "sell",
+  qty: number,
+  fillPrice: number,
+  levels: RestingBracket,
+): Promise<void> {
+  const exitPlan = planProtocolExit(qty, {
+    stopLoss: levels.stopLoss,
+    takeProfit1: levels.takeProfit,
+    masterProfit: levels.masterProfit,
+  });
+  const now = new Date().toISOString();
+  const { data: plan, error } = await supabase
+    .from("protocol_exits")
+    .insert({
+      user_id: userId,
+      symbol: symbol.toUpperCase(),
+      side: side === "buy" ? "long" : "short",
+      mode: "paper",
+      qty,
+      entry_price: fillPrice,
+      entry_order_id: orderId,
+      stop_loss: levels.stopLoss,
+      take_profit_1: levels.takeProfit,
+      master_profit: levels.masterProfit,
+      scale_out_qty: exitPlan.scaleOutQty,
+      master_qty: exitPlan.masterQty,
+      runner_qty: exitPlan.runnerQty,
+      exits_attached_at: now,
+      applied_stop: levels.stopLoss,
+      applied_stop_reason: "protocol",
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error(`simulator: exit plan for resting ${symbol} order ${orderId} not recorded — ${error.message}`);
+    return;
+  }
+  if (plan?.id) await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
 }
