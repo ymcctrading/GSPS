@@ -464,7 +464,9 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
       "mod 9) may never gate a scored point, and the retracement levels score on their own. The " +
       "digital-root reading stays on the card as context. The key keeps its old name so committed runs " +
       "still validate, but their numbers describe the AND. Unmeasured on the new rule; needs a fresh " +
-      "committed replay before any sign claim.",
+      "committed replay before any sign claim. Since 2026-10-21 the division must be the one the last " +
+      "reaction stopped at and held (lib/gann/rangeDivisions.ts#heldRangeDivision, historicalSR's rule), " +
+      "not one inside the 3-point allowance, which passed 56-92% of random-walk readings.",
   },
   {
     id: "ruleOfThree",

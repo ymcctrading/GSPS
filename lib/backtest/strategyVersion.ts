@@ -646,4 +646,10 @@
 // 2026-10-21-review-second-round-on-held-old-level: the two entries above
 // merged onto main's group rank, square against the move, Square of Nine price
 // numbers and held old level; no new rule.
-export const STRATEGY_VERSION = "2026-10-21-review-second-round-on-held-old-level";
+// 2026-10-21-gann-held-range-division: P5's percentage half
+// (gannRetracementConfluence) passes on a division of the major ranges that
+// the last reaction stopped at and held (heldRangeDivision, historicalSR's
+// rule), not on one inside the 3-point allowance (Master Course Ch. 9, PDF
+// 266-277: "held 2½ above 193"). Random walks: 56-92% before, 37-62% after.
+// Scores and verdicts move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-held-range-division";

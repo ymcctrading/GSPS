@@ -827,8 +827,23 @@ a price, 440 readings a side), long/short before → after: $20 100/100 →
 43.0/50.0%, $50 99.8/100 → 39.5/47.7%, $150 99.8/99.1 → 34.5/42.5%, $500
 99.3/99.8 → 26.6/36.1%. `STRATEGY_VERSION` was `2026-10-21-gann-held-old-level`;
 P5, Execute and the 6/3.5 cutoffs need a fresh run on it. The review's second
-round merged onto it (no new rule): `STRATEGY_VERSION` is
+round merged onto it (no new rule): `STRATEGY_VERSION` was
 `2026-10-21-review-second-round-on-held-old-level`.
+
+**The held range division, same day (pillar census:
+`replay-diagnosis/2026-10-21-pillar-saturation-census.md`).** P5's other half,
+the percentage levels (`gannRetracementConfluence`), still passed on nearness:
+a division about every 1/24 of each range, each with the 3-point allowance,
+passed 56-92% of random-walk readings and carried P5 once `historicalSR` was
+fixed. Gann's Ch. 9 reviews judge a division the way they judge an old top, by
+price acting there ("held 2½ above 193", "not 3 points above 193"), so the
+division now has to be the one the last reaction stopped at and held, read
+with `historicalSR`'s rule (`heldRangeDivision`, `lib/gann/rangeDivisions.ts`),
+live and replay alike through `readPillarFacts`. Random walks, long/short: $20
+62.0/58.2%, $50 59.3/55.5%, $150 55.5/49.1%, $500 46.1/37.3%. Still denser at
+low prices (the allowance), held for the owner with the rest of the price
+scaling. `STRATEGY_VERSION` is `2026-10-21-gann-held-range-division`; P5,
+Execute and the 6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
