@@ -90,6 +90,12 @@ function fakeSupabase(automationProfile: { pivot_on_stop_out: boolean } | null) 
             for (const r of plans) if (filters.every((f) => f(r))) Object.assign(r, patch);
             resolve({ error: null });
           },
+          // The lifecycle store's compare-and-set reads back what it wrote (R-015).
+          select() {
+            const hit = plans.filter((r) => filters.every((f) => f(r)));
+            for (const r of hit) Object.assign(r, patch);
+            return Promise.resolve({ data: hit.map((r) => ({ plan_id: r.plan_id })), error: null });
+          },
         };
         return chain;
       },

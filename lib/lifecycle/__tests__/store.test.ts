@@ -85,6 +85,12 @@ function fakeSupabase() {
             for (const r of rows) if (filters.every((f) => f(r))) Object.assign(r, patch);
             resolve({ error: null });
           },
+          // The lifecycle store's compare-and-set reads back what it wrote (R-015).
+          select() {
+            const hit = rows.filter((r) => filters.every((f) => f(r)));
+            for (const r of hit) Object.assign(r, patch);
+            return Promise.resolve({ data: hit.map((r) => ({ plan_id: r.plan_id })), error: null });
+          },
         };
         return chain;
       },
@@ -239,6 +245,42 @@ describe("applyEventAndPersist", () => {
 
     const persisted = await getTradePlan(client, "user-1", created.planId);
     expect(persisted?.highWater).toBe(101);
+  });
+
+  // R-015: two passes acting on one plan at once. The second write finds the
+  // version it read has moved, re-reads, and applies its event on top.
+  it("re-reads and re-applies when another pass wrote the plan first", async () => {
+    const { client, plans } = fakeSupabase();
+    const created = await createTradePlan(client, "user-1", newPlan());
+    let raced = false;
+    const racing = {
+      from(name: string) {
+        const table = (client as unknown as { from: (n: string) => Record<string, unknown> }).from(name);
+        if (name !== "trade_plans" || raced) return table;
+        return {
+          ...table,
+          update(patch: Record<string, unknown>) {
+            // Another pass wrote first: the row moved on a version.
+            raced = true;
+            const row = plans.find((r) => r.plan_id === created.planId)!;
+            row.version = Number(row.version) + 1;
+            return (table.update as (p: Record<string, unknown>) => unknown)(patch);
+          },
+        };
+      },
+    } as unknown as SupabaseClient;
+
+    const result = await applyEventAndPersist(racing, "user-1", created.planId, {
+      type: "qualify",
+      at: "2026-08-29T14:00:00.000Z",
+      reason: "gates passed",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error();
+    expect(result.plan.version).toBe(2);
+    const persisted = await getTradePlan(client, "user-1", created.planId);
+    expect(persisted?.state).toBe("qualified");
+    expect(persisted?.version).toBe(2);
   });
 
   it("returns not_found for a nonexistent plan", async () => {

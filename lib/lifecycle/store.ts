@@ -355,26 +355,55 @@ export async function createOrGetIdempotentTradePlan(
  * runs it through the pure `applyPlanEvent` reducer, then writes back the
  * plan's mutable columns and the one new audit row the event produced (a
  * `mark_price` event bumps no version and appends no audit row).
+ *
+ * The write is a compare-and-set on the version it read (review finding
+ * R-015, 2026-10-21). Several passes can act on one plan at once (the scan
+ * fan-out's advance, the manager's arming, a stop-out, the reaper); before,
+ * the second write overwrote the first's state and then threw on
+ * `trade_plan_audit`'s unique (plan_id, version). Now a write that finds the
+ * version moved re-reads the plan and applies the event to what is there,
+ * up to `MAX_PLAN_WRITE_ATTEMPTS` times.
  */
+const MAX_PLAN_WRITE_ATTEMPTS = 3;
+
 export async function applyEventAndPersist(
   supabase: SupabaseClient,
   userId: string,
   planId: string,
   event: PlanEvent,
 ): Promise<TransitionResult | { ok: false; error: "not_found" }> {
-  const plan = await getTradePlan(supabase, userId, planId);
-  if (!plan) return { ok: false, error: "not_found" };
+  for (let attempt = 1; ; attempt++) {
+    const plan = await getTradePlan(supabase, userId, planId);
+    if (!plan) return { ok: false, error: "not_found" };
 
-  const result = applyPlanEvent(plan, event);
-  if (!result.ok) return result;
+    const result = applyPlanEvent(plan, event);
+    if (!result.ok) return result;
 
-  const { error: updateErr } = await supabase
-    .from("trade_plans")
-    .update(planToUpdateRow(result.plan))
-    .eq("user_id", userId)
-    .eq("plan_id", planId);
-  if (updateErr) throw new Error(updateErr.message);
+    const { data: written, error: updateErr } = await supabase
+      .from("trade_plans")
+      .update(planToUpdateRow(result.plan))
+      .eq("user_id", userId)
+      .eq("plan_id", planId)
+      .eq("version", plan.version)
+      .select("plan_id");
+    if (updateErr) throw new Error(updateErr.message);
+    if (!written || written.length === 0) {
+      if (attempt >= MAX_PLAN_WRITE_ATTEMPTS) {
+        throw new Error(`trade plan ${planId} changed under ${MAX_PLAN_WRITE_ATTEMPTS} write attempts; event ${event.type} not applied`);
+      }
+      continue;
+    }
+    return persistAudit(supabase, userId, planId, plan, result);
+  }
+}
 
+async function persistAudit(
+  supabase: SupabaseClient,
+  userId: string,
+  planId: string,
+  plan: TradePlan,
+  result: Extract<TransitionResult, { ok: true }>,
+): Promise<TransitionResult> {
   if (result.plan.version > plan.version) {
     const newEntry = result.plan.audit.at(-1)!;
     const { error: auditErr } = await supabase.from("trade_plan_audit").insert({
