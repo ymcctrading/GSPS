@@ -869,8 +869,8 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
   const extremeWord = bullish ? "highest" : "lowest";
   return {
     confirmation:
-      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${stopLoss}. ` +
-      `The rules then reverse: a ${opposite} trade at ${stopLoss}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
+      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${priceText(stopLoss)}. ` +
+      `The rules then reverse: a ${opposite} trade at ${priceText(stopLoss)}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
     invalidation: reversal ? round(reversal.stop) : null,
     firstTarget: entry,
     cancelIf:
@@ -890,6 +890,11 @@ function round(n: number): number {
   const places = size >= 1 || size === 0 ? 2 : Math.min(10, Math.ceil(-Math.log10(size)) + 3);
   const scale = 10 ** places;
   return Math.round(n * scale) / scale;
+}
+
+/** Cents at $1 and above; below it, the places `round` kept. */
+function priceText(n: number): string {
+  return Math.abs(n) >= 1 ? n.toFixed(2) : String(round(n));
 }
 
 /**
