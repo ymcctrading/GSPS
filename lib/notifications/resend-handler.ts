@@ -8,20 +8,29 @@ function getResendClient() {
 }
 
 /**
- * Every send in this file goes out from Resend's shared sandbox sender
- * ("onboarding@resend.dev" — see the `from` on each `.emails.send()` call
- * below), and Resend hard-rejects that sender for any recipient except the
- * account's own verified address until a custom domain is verified at
- * resend.com/domains (docs/NOTIFICATIONS_SETUP.md). Before that happens,
- * every other recipient fails identically — so skip them here, with a clear
- * reason, instead of letting each one surface as an unexplained Resend 403.
+ * The sender. `RESEND_FROM` is an address on a domain verified at
+ * resend.com/domains (e.g. "alerts@example.com"). Until it is set, every send
+ * goes out from Resend's shared sandbox sender, "onboarding@resend.dev", and
+ * Resend rejects that sender for any recipient but the account's own address
+ * (review finding S-04: 12,534 failures, every delivery to a member). So while
+ * it is unset, other recipients are skipped here with a clear reason, marked
+ * `skipped`, instead of each surfacing as an unexplained Resend 403.
  *
- * `RESEND_SANDBOX_RECIPIENTS` (comma-separated) overrides the default; unset,
- * it falls back to the address Resend's own error already names as this
- * account's verified owner. Once a domain is verified and the `from`
- * addresses below move off `onboarding@resend.dev`, this check should be
- * removed rather than reconfigured.
+ * `RESEND_SANDBOX_RECIPIENTS` (comma-separated) overrides the sandbox's
+ * allowed recipients; unset, it falls back to the address Resend's own error
+ * names as this account's verified owner.
  */
+export const SANDBOX_SENDER = "onboarding@resend.dev";
+
+export function senderAddress(): string {
+  return process.env.RESEND_FROM?.trim() || SANDBOX_SENDER;
+}
+
+/** The `from` header for a send: a display name on the configured sender. */
+export function fromHeader(label: string): string {
+  return `${label} <${senderAddress()}>`;
+}
+
 function sandboxRecipients(): string[] {
   return (process.env.RESEND_SANDBOX_RECIPIENTS ?? "ymcctrading@gmail.com")
     .split(",")
@@ -29,12 +38,14 @@ function sandboxRecipients(): string[] {
     .filter(Boolean);
 }
 
-function sandboxBlockReason(toEmail: string): string | null {
+/** Why a send to `toEmail` is skipped, or null when it may go out. */
+export function sandboxBlockReason(toEmail: string): string | null {
+  if (senderAddress() !== SANDBOX_SENDER) return null;
   const recipients = sandboxRecipients();
   if (recipients.includes(toEmail.trim().toLowerCase())) return null;
   return (
-    `Resend sandbox sender (onboarding@resend.dev) can only deliver to ` +
-    `${recipients.join(", ")} until a domain is verified at resend.com/domains — skipped ${toEmail}.`
+    `Resend sandbox sender (${SANDBOX_SENDER}) can only deliver to ` +
+    `${recipients.join(", ")} until a domain is verified at resend.com/domains and RESEND_FROM is set — skipped ${toEmail}.`
   );
 }
 
@@ -74,7 +85,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
   const blocked = sandboxBlockReason(data.userEmail);
   if (blocked) {
     console.warn(blocked);
-    return { success: false, error: blocked };
+    return { success: false, error: blocked, skipped: true };
   }
 
   try {
@@ -148,7 +159,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
     // Use Resend's default "onboarding" domain until gsps.app is verified
     // Format: from@resend.dev or your verified domain
     const result = await getResendClient().emails.send({
-      from: "GSPS Alerts <onboarding@resend.dev>",
+      from: fromHeader("GSPS Alerts"),
       to: data.userEmail,
       subject,
       html,
@@ -189,7 +200,7 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
   const blocked = sandboxBlockReason(data.userEmail);
   if (blocked) {
     console.warn(blocked);
-    return { success: false, error: blocked };
+    return { success: false, error: blocked, skipped: true };
   }
 
   try {
@@ -212,7 +223,7 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
     `;
 
     const result = await getResendClient().emails.send({
-      from: "GSPS Alerts <onboarding@resend.dev>",
+      from: fromHeader("GSPS Alerts"),
       to: data.userEmail,
       subject,
       html,
@@ -252,7 +263,7 @@ export async function sendJournalEmail(data: JournalEmailData) {
   const blocked = sandboxBlockReason(data.userEmail);
   if (blocked) {
     console.warn(blocked);
-    return { success: false, error: blocked };
+    return { success: false, error: blocked, skipped: true };
   }
 
   try {
@@ -289,7 +300,7 @@ export async function sendJournalEmail(data: JournalEmailData) {
       </div>
     `;
     const result = await getResendClient().emails.send({
-      from: "GSPS Journal <onboarding@resend.dev>",
+      from: fromHeader("GSPS Journal"),
       to: data.userEmail,
       subject: `Trade journal — ${data.dateLabel}`,
       html,
@@ -339,7 +350,7 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
   const blocked = sandboxBlockReason(data.userEmail);
   if (blocked) {
     console.warn(blocked);
-    return { success: false, error: blocked };
+    return { success: false, error: blocked, skipped: true };
   }
 
   try {
@@ -363,7 +374,7 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
       </div>
     `;
     const result = await getResendClient().emails.send({
-      from: "GSPS Alerts <onboarding@resend.dev>",
+      from: fromHeader("GSPS Alerts"),
       to: data.userEmail,
       subject,
       html,
@@ -416,7 +427,7 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
   const blocked = sandboxBlockReason(to);
   if (blocked) {
     console.warn(blocked);
-    return { success: false, error: blocked };
+    return { success: false, error: blocked, skipped: true };
   }
 
   try {
@@ -452,7 +463,7 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
       </div>
     `;
     const result = await getResendClient().emails.send({
-      from: "GSPS Ops <onboarding@resend.dev>",
+      from: fromHeader("GSPS Ops"),
       to,
       subject,
       html,
@@ -493,7 +504,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
   const blocked = sandboxBlockReason(data.userEmail);
   if (blocked) {
     console.warn(blocked);
-    return { success: false, error: blocked };
+    return { success: false, error: blocked, skipped: true };
   }
 
   try {
@@ -520,7 +531,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     `;
 
     const result = await getResendClient().emails.send({
-      from: "GSPS Alerts <onboarding@resend.dev>",
+      from: fromHeader("GSPS Alerts"),
       to: data.userEmail,
       subject,
       html,

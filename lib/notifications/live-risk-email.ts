@@ -13,6 +13,7 @@
  */
 
 import { Resend } from "resend";
+import { fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -30,6 +31,11 @@ export async function sendLiveLossThresholdEmail(data: LiveLossThresholdEmailDat
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set; skipping live-loss email");
     return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) {
+    console.warn(blocked);
+    return { success: false, error: blocked, skipped: true };
   }
   try {
     const subject = data.hardWarning
@@ -57,7 +63,7 @@ export async function sendLiveLossThresholdEmail(data: LiveLossThresholdEmailDat
       </div>
     `;
     const result = await getResendClient().emails.send({
-      from: "GSPS Risk Alerts <onboarding@resend.dev>",
+      from: fromHeader("GSPS Risk Alerts"),
       to: data.userEmail,
       subject,
       html,

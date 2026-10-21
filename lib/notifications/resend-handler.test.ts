@@ -77,3 +77,29 @@ describe("sendAlertEmail", () => {
     expect(html).toContain(BASE.verdict);
   });
 });
+
+describe("the sender (review finding S-04)", () => {
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "test-key";
+    sendMock.mockReset();
+    sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+  });
+
+  afterEach(() => {
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_FROM;
+  });
+
+  it("skips a member the sandbox sender cannot reach, and marks it skipped", async () => {
+    const result = await sendAlertEmail(BASE);
+    expect(result).toMatchObject({ success: false, skipped: true });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("sends to any member from the verified address once RESEND_FROM is set", async () => {
+    process.env.RESEND_FROM = "alerts@example.com";
+    const result = await sendAlertEmail(BASE);
+    expect(result).toMatchObject({ success: true, id: "email-1" });
+    expect(sendMock.mock.calls[0][0].from).toBe("GSPS Alerts <alerts@example.com>");
+  });
+});

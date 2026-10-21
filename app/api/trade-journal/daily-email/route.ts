@@ -100,7 +100,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
     });
 
     if (result.success) sent++;
-    else if (result.error?.startsWith("Resend sandbox sender")) sandboxBlocked.push(user.email);
+    else if ("skipped" in result && result.skipped) sandboxBlocked.push(user.email);
     else failures.push(`${user.email}: ${result.error}`);
   }
 

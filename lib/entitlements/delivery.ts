@@ -123,7 +123,7 @@ export async function getEnabledChannels(service: SupabaseClient, profileId: str
 }
 
 export type DispatchOutcome =
-  | { dispatched: true; status: "sent" | "failed" }
+  | { dispatched: true; status: "sent" | "failed" | "skipped" }
   | { dispatched: false; reason: "not_pending" | "channel_unsupported" | "no_email" | "preview_suppressed" | "max_attempts" };
 
 /** Attempt ceiling for a stuck `pending`/`failed` delivery the retry sweep will pick back up. */
@@ -183,13 +183,20 @@ export async function dispatchNotificationDelivery(
     payload.verdict === "INVALIDATED"
       ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
       : await sendAlertEmail({ userEmail: email, ...payload });
-  const status: "sent" | "failed" = result.success ? "sent" : "failed";
+  // A send the sandbox sender cannot deliver is `skipped`, not `failed`, and
+  // never retried; every other failure keeps Resend's own reason (S-04).
+  const status: "sent" | "failed" | "skipped" = result.success
+    ? "sent"
+    : "skipped" in result && result.skipped
+      ? "skipped"
+      : "failed";
 
   await service
     .from("notification_deliveries")
     .update({
       status,
       provider_ref: result.success ? (result.id ?? null) : null,
+      error: result.success ? null : (result.error ?? null),
       attempt_count: (current.attempt_count ?? 0) + 1,
       updated_at: new Date().toISOString(),
     })
