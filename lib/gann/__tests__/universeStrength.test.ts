@@ -117,6 +117,7 @@ describe("the relative strength rank among the universe (S6)", () => {
     const g = buildGroupMap(sics);
     expect(g.get("A")?.key).toBe("37");
     expect(g.get("C")?.key).toBe("37");
+    expect(g.get("A")?.label).toBe("SIC 37");
   });
 
   it("reads the group rank from the stock's own months, counts ties and larger groups, and mirrors the gates", () => {
@@ -133,14 +134,17 @@ describe("the relative strength rank among the universe (S6)", () => {
     // An even group's standing is the average of its two middle readings: S103 and S104's,
     // the universe's middle, so neither gate shuts.
     const r = readUniverseRank("S107", null, readAt, u, g)!.group!;
-    expect(r.groupPercentile).toBeGreaterThan(0.25);
-    expect(r.groupPercentile).toBeLessThan(0.75);
+    expect(r.groupPercentile).toBeCloseTo(0.52, 3); // the lower middle alone read 0.5175
     // The stock's own months, read stronger than the universe's reading of it: its own
     // stored reading is not counted as a peer above it.
     const strongMonths = months(n, () => 100, (i) => (i === n - 1 ? 101 : 100));
     const fromMonths = readUniverseRank("S100", strongMonths, readAt, u, g)!.group!;
     expect(fromMonths.peers).toBe(7);
     expect(fromMonths.strongest).toBe(true);
+    // Read weaker than its stored reading: S106's own months put it between S105 and S106,
+    // so only S107 is above it; counting its own stored reading as a peer would make two.
+    const between = months(n, () => 100, (i) => (i === n - 1 ? 99 + (2 * 105.5) / 199 : 100));
+    expect(readUniverseRank("S106", between, readAt, u, g)!.group).toMatchObject({ peers: 7, strongest: true });
   });
 
   it("gates on the group's standing at the universe's quarter, both sides", () => {
