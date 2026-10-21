@@ -11,7 +11,7 @@ import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
-import { getTrackedExecuteSetups } from "@/lib/dashboard/trackedExecute";
+import { getTrackedExecuteSetups, withDailyScanRange } from "@/lib/dashboard/trackedExecute";
 import { getSavedSetupRows } from "@/lib/dashboard/savedSetups";
 import { getDashboardWatchlist } from "@/lib/dashboard/watchlist";
 import { DEFAULTS } from "@/lib/sectors";
@@ -53,7 +53,9 @@ export default async function DashboardPage() {
   const [noviceSummary, trackedExecute, savedSetups, watchlist] = user
     ? await Promise.all([
         getNoviceSummaryIfApplicable(user.id, bullish, bearish),
-        getTrackedExecuteSetups(supabase, user.id),
+        // Today's price and day's range, where the daily scan has the symbol,
+        // so a resting order is listed apart (lib/setups/resting.ts).
+        getTrackedExecuteSetups(supabase, user.id).then((rows) => withDailyScanRange(rows, [...bullish, ...bearish])),
         getSavedSetupRows(supabase, Promise.resolve(scans)),
         getDashboardWatchlist(supabase, user.id),
       ])

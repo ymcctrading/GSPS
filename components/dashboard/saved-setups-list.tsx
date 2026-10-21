@@ -28,6 +28,13 @@ export interface SavedSetupRow {
   currentScore: number | null;
   currentOutputState: string | null;
   /**
+   * Today's scan price and day's range for the same symbol and side, so the
+   * card can say when the saved entry is a resting order (lib/setups/resting.ts).
+   * Optional: absent when today's scan does not have it.
+   */
+  currentPrice?: number | null;
+  dayRange?: number | null;
+  /**
    * The Watch -> Execute monitor's live read on this symbol (WATCH, EXECUTE,
    * INVALIDATED, NO_SETUP, EXPIRED), independent of when the last scan ran —
    * the monitor re-evaluates on every scheduled scan, so this can catch a
@@ -139,6 +146,8 @@ function SavedRow({
       masterProfit: row.master_profit,
       patternName: row.pattern_name,
       setupKind: row.setup_kind === "continuation" ? "continuation" : "reversion",
+      currentPrice: row.currentPrice ?? null,
+      dayRange: row.dayRange ?? null,
     },
     {
       // A setup saved without a score has no count of checks to state.

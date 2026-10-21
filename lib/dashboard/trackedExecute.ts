@@ -56,6 +56,29 @@ export interface TrackedExecuteRow {
   stopLoss: number | null;
   takeProfit1: number | null;
   masterProfit: number | null;
+  /**
+   * Today's scan-time price and day's range for the same symbol and side, when
+   * the market-wide daily scan has it (`withDailyScanRange`). The monitor row
+   * stores neither, so a symbol the daily scan does not cover has no resting
+   * read and stays in the Execute list (lib/setups/resting.ts).
+   */
+  currentPrice?: number | null;
+  dayRange?: number | null;
+}
+
+/**
+ * Join today's daily-scan price and day's range onto the tracked rows, by
+ * symbol and side, for the resting-order read (owner, 2026-10-21).
+ */
+export function withDailyScanRange<
+  R extends { symbol: string; direction: string; currentPrice?: number | null; dayRange?: number | null },
+>(rows: TrackedExecuteRow[], scanRows: R[]): TrackedExecuteRow[] {
+  const bySymbolSide = new Map(scanRows.map((r) => [`${r.symbol}-${r.direction}`, r]));
+  return rows.map((row) => {
+    const scan = bySymbolSide.get(`${row.symbol}-${row.direction}`);
+    if (!scan) return row;
+    return { ...row, currentPrice: scan.currentPrice ?? null, dayRange: scan.dayRange ?? null };
+  });
 }
 
 interface OpenExecuteMonitor {

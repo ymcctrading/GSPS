@@ -29,6 +29,7 @@ interface DailyScanRow {
     setupKind?: string | null;
     scannedAt?: string | null;
     currentPrice?: number | null;
+    dayRange?: number | null;
     breakdown?: ScoreBreakdownItem[] | null;
     trends?: { timeframe: string; direction: string }[] | null;
     signal?: PublicSignalSummary | null;
@@ -110,6 +111,9 @@ function toRow(r: DailyScanRow): ScanRow {
     // reversions, which is also what the column defaults to reading as.
     setupKind: r.detail?.setupKind === "continuation" ? "continuation" : "reversion",
     currentPrice: r.detail?.currentPrice ?? null,
+    // Null on a row published before the field existed: the list then keeps
+    // the plan where its verdict put it (lib/setups/resting.ts).
+    dayRange: r.detail?.dayRange ?? null,
     // undefined (not yet computed at write time) collapses to null here —
     // ScanRow's contract only distinguishes "no live scan ran this" from
     // "ran and nothing qualified" for the manual scanner; a persisted row

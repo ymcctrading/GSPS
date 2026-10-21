@@ -27,6 +27,7 @@ function toRow(r: ScanResult): ScanRow {
     patternName: r.pattern?.name ?? null,
     setupKind: r.setupKind,
     currentPrice: r.currentPrice,
+    dayRange: r.dayRange ?? null,
     signal: toPublicSignalSummary(
       r.signals?.trendPullback,
       r.signals?.trendBreakout,
