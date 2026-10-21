@@ -38,6 +38,13 @@ describe("squareOf9Levels", () => {
     expect(prices).toContain("121.00");
   });
 
+  it("reads all 16 lines of the square, one every 22.5° (Gann's plate, Vol. 3 p. 34)", () => {
+    const first = squareOf9Levels(100, 100, 0).filter((l) => l.price > 100);
+    expect(new Set(first.map((l) => l.degree)).size).toBe(15); // 22.5 to 337.5; 0 is the anchor itself
+    // 22.5° = (10 + 0.125)² = 102.515625
+    expect(first.some((l) => Math.abs(l.price - 102.515625) < 1e-9 && l.degree === 22.5)).toBe(true);
+  });
+
   it("sorts by distance from current price and respects proximity gate", () => {
     const levels = squareOf9Levels(100, 121.5);
     expect(levels[0].price).toBeCloseTo(121, 0);

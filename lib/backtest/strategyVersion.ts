@@ -603,4 +603,8 @@
 // 2026-10-21-review-fixes-on-replay-daily-closed-session: the review fixes
 // above merged onto main's narrow-weeks breakaway, decade month in ET and
 // closed-session daily replay; no new rule.
-export const STRATEGY_VERSION = "2026-10-21-review-fixes-on-replay-daily-closed-session";
+// 2026-10-21-gann-square-of-nine-16-lines: the Square of Nine's price levels
+// come from all 16 of its lines, one every 22.5° (Gann's plate, Vol. 3 p. 34;
+// source note B12), not the 8 every 45°. The nearest twelve that join the S/R
+// list are denser, so plan stops and targets move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-square-of-nine-16-lines";
