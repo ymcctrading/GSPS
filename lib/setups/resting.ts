@@ -183,3 +183,26 @@ export function restingInputOfRow(row: RestingRowFields, price?: number | null):
 export function isRestingExecuteRow(row: RestingRowFields): boolean {
   return row.outputState === "Execute" && isResting(restingInputOfRow(row));
 }
+
+/**
+ * Whether a scan result's Execute plan is resting, read at the scan's own
+ * price. The monitor reads such a plan as Watch (`evaluateMonitorsAndNotify`),
+ * so its Execute alert comes once price is within a day's range of the entry.
+ */
+export function isRestingScanResult(
+  r: {
+    currentPrice?: number | null;
+    dayRange?: number | null;
+    levels?: { entry?: number | null; takeProfit1?: number | null; masterProfit?: number | null } | null;
+  },
+  side: RestingSide,
+): boolean {
+  return isResting({
+    side,
+    price: r.currentPrice,
+    entry: r.levels?.entry,
+    dayRange: r.dayRange,
+    tp1: r.levels?.takeProfit1,
+    mtp: r.levels?.masterProfit,
+  });
+}

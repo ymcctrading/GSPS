@@ -652,11 +652,14 @@ entry fills. Guided Mode and the demo account do not offer it
 (`assessEligibility`), and the Novice home's Today's plan ranks it with Watch.
 Presentation and selection only: the scored verdict, the replay, plan arming and
 order placement are unchanged (automation's resting orders already wait for
-price to trade into the buy zone), so `STRATEGY_VERSION` stays. Gaps, labelled:
+price to trade into the buy zone), so `STRATEGY_VERSION` stays. The scan's
+monitor reads a resting Execute as Watch (`isRestingScanResult` in
+`evaluateMonitorsAndNotify`), so the Execute alert, and the plan it creates,
+come once price is within a day's range of the entry. Gaps, labelled:
 a tracked symbol the daily scan does not cover has no range read (the monitor
 row stores none) and stays in its list; saved setups are not bucketed by verdict
-and get the card's sentence only; the Watch → Execute notifications and the
-intraday alerts are not read.
+and get the card's sentence only; the intraday alerts are not read (they are
+priced from the session in progress).
 
 ## WD Gann precedence — standing principle
 
