@@ -732,6 +732,22 @@ instruction from the project owner (2026-09-16), not a case-by-case
 judgment call: where a real choice exists between "what GSPS currently
 does" and "what Gann's own sources say," the sources win.
 
+**Gann answers the question; don't hold it for the owner (2026-10-21,
+owner: "anything that can be answered by a Gann method, should use the Gann
+method as an answer. going forward on the GSPS platform").** Before holding
+any question, decision or open item for the owner, ask whether a Gann method
+answers it, and look in his books (`/mnt/project-files/literature-reading-output/`),
+`docs/GANN_HISTORICAL_SOURCES.md` and `docs/memory-bank/`. If one does, that is
+the answer: build it, cite the source in the code and the change record, and
+tell the owner what was decided and why, rather than asking. This covers
+trading rules, thresholds Gann states, entries, exits, stops, sizing, time and
+price readings, and how a rule reads on a surface. Only a question no Gann
+method answers goes to the owner: security, access, billing, ops, legal,
+product copy with no Gann content, or a figure Gann never gave (label that
+engineering choice as such). It is the owner's earlier "Determine how WD Gann
+would answer these questions, and those are your answers" (2026-10-21) made
+standing.
+
 This does not mean bypassing engineering judgment about *how* to translate
 a disclosed rule into working code, and it does not mean porting a raw
 historical number (a 1930s dollar/cents figure, a commodity-specific unit)
