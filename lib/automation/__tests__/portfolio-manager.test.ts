@@ -67,7 +67,7 @@ describe("allocatedDollarRiskFor: a tenth of the profits after large profits (A-
   });
 });
 
-describe("rankPlansByScore: Gann's score first", () => {
+describe("rankPlansByScore: best score first", () => {
   const plan = (instrument: string, direction: string, id: string) => ({ instrument, direction, id });
   it("puts the higher score first, unscored plans last, ties in query order", () => {
     const plans = [plan("AAA", "bullish", "1"), plan("BBB", "bullish", "2"), plan("CCC", "bearish", "3"), plan("DDD", "bullish", "4")];

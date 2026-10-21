@@ -279,7 +279,7 @@ async function runForProfile(
   const unranked = ((plans ?? []) as CandidatePlanRow[]).filter((plan) => !alreadyAutomated.has(plan.plan_id));
   const { scores, error: scoresError } = await readPlanScores(supabase, profile.user_id, unranked.map((p) => p.instrument));
   // Not fatal: the run goes ahead in the query's order, and says so.
-  if (scoresError) result.errors.push({ userId: profile.user_id, reason: `Could not read Gann scores to rank plans: ${scoresError}` });
+  if (scoresError) result.errors.push({ userId: profile.user_id, reason: `Could not read the scores to rank plans: ${scoresError}` });
   const candidates = rankPlansByScore(unranked, scores);
 
   // A member's choice of "live" only ever becomes a live order once the

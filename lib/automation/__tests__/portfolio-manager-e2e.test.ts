@@ -644,7 +644,7 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(orders).toHaveLength(0);
   });
 
-  it("activates every armed candidate, best Gann score first, never by the old tier", async () => {
+  it("activates every armed candidate, best score first, never by the old tier", async () => {
     const { client, automationProfiles } = fakeSupabase(
       {
       user_id: "user-1",
