@@ -52,6 +52,12 @@ describe("summarizeRiskBook", () => {
     expect(s.unprotected).toBe(2);
   });
 
+  it("prices the risk on the shares held when a plain sell shrank a plan-managed position", () => {
+    // A 100-share plan, then 60 sold through the ticket: 40 held, tranches still open.
+    const s = summarizeRiskBook({ ...base, positions: [pos({ symbol: "QQQ", qty: 40, legs: [{ qty: 100, entry: 100, stop: 97 }] })] });
+    expect(s.positions[0]).toMatchObject({ riskUsd: 120, unprotectedQty: 0 });
+  });
+
   it("shows a stop trailed past the entry as no risk", () => {
     const s = summarizeRiskBook({ ...base, positions: [pos({ symbol: "MSFT", qty: 10, entry: 400, legs: [{ qty: 10, entry: 400, stop: 410 }] })] });
     expect(s.positions[0]).toMatchObject({ riskUsd: 0, stopPastEntry: true });

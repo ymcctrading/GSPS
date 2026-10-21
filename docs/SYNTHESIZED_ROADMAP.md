@@ -167,8 +167,12 @@ method goal (Track M) and the created third it aims at.
 - **The third:** a trader who gets an alert, opens a setup card whose score
   counts Gann's own conditions, and can see what the platform has and has not
   proven.
-- **Exit test:** every Q1 item in Part 5 is done, waiting on the owner's
-  budget or accounts (Part 6), or moved with a reason.
+- **Exit test:** every Q1 item in Part 5 that costs nothing is done, and the
+  edge is measured on the current version. There is no budget (owner,
+  2026-10-21): paid items (Part 6) stay parked, not counted as pending. The
+  owner's plan is to fund them from trading GSPS's own signals once Gann is
+  carried 1 for 1 and the edge is proven, with progress recorded daily, and
+  from customers his stories bring in.
 
 ### Q2 — Differentiation and scale (Nov 2026–Jan 2027)
 

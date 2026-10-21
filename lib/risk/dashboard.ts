@@ -160,9 +160,14 @@ export function summarizeRiskBook(input: RiskBookInput): RiskBookSummary {
       };
     }
     const legs = p.legs.filter((l) => finite(l.qty) && l.qty > 0 && finite(l.entry) && finite(l.stop));
-    const covered = Math.min(legs.reduce((n, l) => n + l.qty, 0), p.qty);
+    const legQty = legs.reduce((n, l) => n + l.qty, 0);
+    const covered = Math.min(legQty, p.qty);
     const unprotectedQty = Math.max(p.qty - covered, 0);
-    const risk = legs.length === 0 ? null : legs.reduce((sum, l) => sum + legRisk(p.side, l), 0);
+    // A plain sell against a plan-managed position shrinks the position but
+    // leaves its tranches unfilled, so the legs can hold more shares than the
+    // account does. Price the risk on the shares actually held.
+    const held = legQty > p.qty ? p.qty / legQty : 1;
+    const risk = legs.length === 0 ? null : legs.reduce((sum, l) => sum + legRisk(p.side, l), 0) * held;
     return {
       symbol: p.symbol, side: p.side, qty: p.qty, entry: p.entry,
       stops: legs.map((l) => l.stop),
