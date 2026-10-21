@@ -76,6 +76,7 @@ import {
   type ScannerConfig,
   type SignalType,
   type SymbolInput,
+  INTRADAY_DAILY_HISTORY_DAYS,
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
 import { isCronAuthorized } from "@/lib/cron-auth";
@@ -84,13 +85,8 @@ export const maxDuration = 120;
 
 /** Sessions of history behind the relative-volume baseline. */
 const BASELINE_DAYS = 12;
-/**
- * Daily history fetched per symbol: a year, so the campaign ledger behind the
- * over-balance-of-space alert can find the weekly trend's start, the same
- * year of daily bars the daily scan reads (2026-10-16). The ATR and the
- * liquidity floor still read only their own trailing windows of it.
- */
-const DAILY_HISTORY_DAYS = 400;
+/** Daily history fetched per symbol (`INTRADAY_DAILY_HISTORY_DAYS`, shared with the alert replay). */
+const DAILY_HISTORY_DAYS = INTRADAY_DAILY_HISTORY_DAYS;
 
 /**
  * `intraday_alerts` (migration 0016, renumbered from 0008 — see that file's
@@ -1166,6 +1162,8 @@ async function buildInput(
         baselineBars,
         etParts(new Date(last.t)).minutes,
         sessionBars.sessionDate,
+        2,
+        assetClass === "us_equity",
       ),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
       // Completed sessions only: the prior session's high and low are the old
