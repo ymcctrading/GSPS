@@ -622,9 +622,15 @@ plan audit, lesson progress, learning labs and the order lock goes through
 `ledgerWriter` (`lib/supabase/ledger.ts`), which swaps a member's session
 client for the service role, and names its user on every insert, update and
 delete. A new write to those tables must do the same. Migration 0095 takes
-member writes away and is applied only after that code is deployed;
+member writes away and is applied only after that code is deployed (applied
+2026-10-21 once #391 was live, on the owner's go-ahead, as were 0088 and 0091);
 `user_automation_profiles` stays member-written (own settings, entitlement
-checked where it acts).
+checked where it acts). **Retention (S-07, owner 2026-10-21, "Keep
+indefinitely"):** closed orders, positions and trade logs are never deleted by
+the app; they are hidden from the tabs (`lib/portfolio/prune.ts`) and leave only
+when the member's account is deleted (their foreign keys cascade from
+`auth.users`). Gann kept a record of every trade and his rules read it back
+(the series of losses, the profit peak), so nothing may prune them on a timer.
 
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops
