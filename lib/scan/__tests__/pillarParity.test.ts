@@ -52,7 +52,7 @@ vi.mock("@/lib/data/instrumentReference", async () => {
 import { scanTicker } from "@/lib/scanTicker";
 import { buildMacroContext } from "@/lib/backtest/replay";
 import { fetchAllTimeframes } from "@/lib/data/provider";
-import { computeScore } from "@/lib/scoring/score";
+import { computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { etDateKey } from "@/lib/market/session";
 import { yearCycleConvergence } from "@/lib/gann/timeCycles";
@@ -170,8 +170,8 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(input.momentumElevated).toBe(context.momentumElevated);
     expect(input.atrPct).toBe(context.atrPct);
     expect(input.nearSupportResistance).toBe(context.nearSupportResistance);
-    expect(input.srMatch).toEqual(context.srMatch);
-    // The monthly, weekly and daily trends are read off the same level charts
+    // The S/R level of the score's own role, picked the same way (2026-10-21).
+    expect(input.srMatch).toEqual(srMatchForSide(context.srMatches, input.direction));    // The monthly, weekly and daily trends are read off the same level charts
     // on both: the provider's closed months and weeks, with the bar in
     // progress built from completed sessions (2026-10-20). Before this the
     // replay rolled its weeks up from daily bars and read a different chart.
@@ -194,7 +194,7 @@ describe("the nine pillars on the live scan and the replay", () => {
       boilingPoint: context.boilingPoint,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
-      srMatch: context.srMatch,
+      srMatch: srMatchForSide(context.srMatches, input.direction),
       momentumElevated: context.momentumElevated,
       atrPct: context.atrPct,
       pillarFacts: context.pillarFacts,

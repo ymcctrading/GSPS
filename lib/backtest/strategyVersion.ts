@@ -551,4 +551,12 @@
 // November, and '3' and '10' years rally to March/April before the bear year.
 // The fall of 2026 had read bullish, giving every long the point free. P1 and
 // so some scores move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-decade-in-year-turns";
+// 2026-10-21-gann-major-range-levels: P5's percentage check divides the major
+// ranges by 8 and by 3, in Gann's order (the extreme range, the highest price,
+// the latest campaign of a year or more: Master Course Ch. 9, PDF 263-264;
+// Commodities pp. 34-35; 50% first, 45 Years Ch. IV), instead of the last
+// daily swing (`lib/gann/rangeDivisions.ts`, read in `readPillarFacts`). The
+// S/R check reads the nearest level of the wanted role (support below price
+// for a long, resistance above it for a short; `srMatchForSide`) instead of
+// the nearest of either role. Scores and verdicts move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-major-range-levels";

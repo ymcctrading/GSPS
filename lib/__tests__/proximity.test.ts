@@ -13,6 +13,8 @@ import type { GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/
 import { atrPercentOfPrice, levelBandPct, nearAnyLevel, proximityBandPct } from "@/lib/scoring/proximity";
 import { gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import { rangeDivisionMatch, type RangeDivisionLevel } from "@/lib/gann/rangeDivisions";
+import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
 
 function trend(
   timeframe: TrendReading["timeframe"],
@@ -117,19 +119,27 @@ describe("nearAnyLevel", () => {
 describe("at a level means within Gann's 3 points of it (N#27)", () => {
   const band = gannThreePointsPct(100);
 
+  // P5(b)'s levels are the major-range divisions (2026-10-21), matched in
+  // `rangeDivisionMatch` at the level's own allowance.
+  const level: RangeDivisionLevel = { price: 100, label: "1/2 of the extreme range (50.00-150.00)", basis: "extremeRange", importance: 1 };
+  const priceAbove = (d: number) => 100 / (1 - d / 100);
+
   it("passes inside the level's 3-point allowance and fails just past it", () => {
-    expect(passed(inputs({ gann: gannAt(band - 0.1) }), "gannRetracementConfluence")).toBe(true);
-    expect(passed(inputs({ gann: gannAt(band + 0.1) }), "gannRetracementConfluence")).toBe(false);
+    expect(rangeDivisionMatch([level], priceAbove(band - 0.1), "support")).not.toBeNull();
+    expect(rangeDivisionMatch([level], priceAbove(band + 0.1), "support")).toBeNull();
   });
 
   it("does not move with the day's range", () => {
-    const at = gannAt(band - 0.1);
-    expect(passed(inputs({ gann: at, atrPct: 1 }), "gannRetracementConfluence")).toBe(true);
-    expect(passed(inputs({ gann: at, atrPct: 5 }), "gannRetracementConfluence")).toBe(true);
+    const match = rangeDivisionMatch([level], priceAbove(band - 0.1), "support");
+    const facts = { ...passingPillarFacts(), rangeLevels: { bullish: match, bearish: null } };
+    expect(passed(inputs({ pillarFacts: facts, atrPct: 1 }), "gannRetracementConfluence")).toBe(true);
+    expect(passed(inputs({ pillarFacts: facts, atrPct: 5 }), "gannRetracementConfluence")).toBe(true);
   });
 
   it("says which allowance a criterion was measured against", () => {
-    const item = computeScore(inputs()).breakdown.find((b) => b.key === "gannRetracementConfluence");
+    const match = rangeDivisionMatch([level], priceAbove(1), "support");
+    const facts = { ...passingPillarFacts(), rangeLevels: { bullish: match, bearish: null } };
+    const item = computeScore(inputs({ pillarFacts: facts })).breakdown.find((b) => b.key === "gannRetracementConfluence");
     expect(item?.note).toContain(`${band.toFixed(2)}%`);
     expect(item?.note).toContain("3-point allowance");
   });
