@@ -1,4 +1,5 @@
--- GSPS — 0097: the bell takes intraday signals
+-- GSPS — 0100: the bell takes intraday signals (numbered 0097 when it was
+-- applied to production on 2026-10-21; renumbered when main took 0097)
 --
 -- Owner decision, 2026-10-21 ("Yes, build and apply it"): a new intraday
 -- signal from the scheduled scans puts a bell notice on every member who has

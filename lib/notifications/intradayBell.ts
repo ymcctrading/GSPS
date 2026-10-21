@@ -5,7 +5,7 @@
  * Email to members is held by the sandbox sender until a domain is verified,
  * and the fast moves the owner most wants to catch can't wait on an inbox. So
  * every new signal from the scheduled intraday scan also goes in the bell
- * (`in_app_notifications`, verdict 'Intraday', migration 0097) for each member
+ * (`in_app_notifications`, verdict 'Intraday', migration 0100) for each member
  * who watches the symbol: on one of their watchlists, or tracked by an open
  * WATCH/EXECUTE monitor. A member's tier decides what reaches them, as it does
  * on the panel: no intraday access, nothing; Pro's bounded module, only the
