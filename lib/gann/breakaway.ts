@@ -14,9 +14,15 @@
  * of the range.
  *
  * Engineering choices, labelled as such:
- * - "Range-bound" is `isGannRangeBound`: the weekly swing chart's trend is
- *   not confirmed by stepping 3-day swings. That is the codebase's existing
- *   Gann-grounded negation of a trend (`trendStrength.ts`).
+ * - "Range-bound" is `isGannRangeBound` (the weekly swing chart's trend is
+ *   not confirmed by stepping 3-day swings, `trendStrength.ts`) AND the
+ *   range's sessions are narrow (`isNarrowRange`, at least
+ *   `MIN_RANGE_SESSIONS` of them). Until 2026-10-21 it was the first alone,
+ *   which is true of about half the readings of a steadily rising random walk
+ *   (46% at +0.2% a day) and of most turns; Gann's rule is for a market held
+ *   in a narrow range for weeks, and this module's volume half already read
+ *   it that way. The width is `NARROW_RANGE_ALLOWANCES`, an engineering
+ *   figure; Gann gives none.
  * - The range is the completed 3-Day Chart tops and bottoms from the last
  *   91 calendar days, Gann's upper bound of 13 weeks. The same chart arms the
  *   entry trigger, so the comparison is like for like.
@@ -84,6 +90,17 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   // the top made after it is the breakaway's own move, not the range.
   const end = trigger?.held && trigger.crossedAt ? Date.parse(trigger.crossedAt) : Infinity;
   const cutoff = Math.min(Date.parse(daily[daily.length - 1].t), end) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  // Gann's sideways market is a narrow range held for weeks (Commodities
+  // pp. 51-52; Master Course: "2-6 or 10-13 weeks in a narrow range"), not
+  // any market whose trend is unconfirmed (2026-10-21): the same narrow
+  // sessions `breakawayVolumeMet` reads, at least Gann's two weeks of them.
+  const sessions = daily.filter((b) => {
+    const t = Date.parse(b.t);
+    return t >= cutoff && t < end;
+  });
+  if (sessions.length < MIN_RANGE_SESSIONS || !isNarrowRange(sessions)) {
+    return { rangeBound: false, rangeHigh: null, rangeLow: null, breaksAway: true };
+  }
   const pivots = swingPivots(daily, trigger?.swingDays ?? 3).filter((p) => {
     const t = Date.parse(daily[p.index].t);
     return t >= cutoff && t < end;

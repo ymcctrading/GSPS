@@ -501,4 +501,13 @@
 // read as a price filter (526 of 701 trades at 6+ on the 2026-10-20 run).
 // M-K5 itself is unchanged. Verdicts, plan targets and A-LEVELS-04's
 // failed-top-in-path refusal (it reads TP1) move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-first-target";
+// 2026-10-21-gann-narrow-range-breakaway: the breakaway hold (owner decision 5)
+// reads a sideways market as Gann describes one, a narrow range held for weeks
+// (Commodities pp. 51-52; Master Course "2-6 or 10-13 weeks in a narrow
+// range"): `readBreakaway` needs the trend unconfirmed AND the 13-week range's
+// sessions narrow (`isNarrowRange`, at least `MIN_RANGE_SESSIONS`), the same
+// narrow the breakaway's volume rule already read. Unconfirmed alone held 28%
+// of triggers on trendless random walks and 18% on walks rising 0.2% a day;
+// now 12% and 3%. Verdicts move, live and replay alike, as does the capital
+// stock's range reading (`capitalStock.ts`, context).
+export const STRATEGY_VERSION = "2026-10-21-gann-narrow-range-breakaway";

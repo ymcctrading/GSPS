@@ -99,6 +99,57 @@ describe("applyBreakawayHold", () => {
   });
 });
 
+// Gann's sideways market is a narrow range held for weeks (Commodities pp.
+// 51-52; Master Course "2-6 or 10-13 weeks in a narrow range"). A market whose
+// trend is merely unconfirmed, swinging widely, is not one (2026-10-21).
+describe("readBreakaway reads a narrow range only", () => {
+  /** Swings between 70 and 130: no confirmed trend, but far wider than narrow. */
+  function wideSwings(cycles: number): number[] {
+    const out: number[] = [];
+    for (let k = 0; k < cycles; k++) {
+      const top = k % 2 === 0 ? 130 : 126;
+      for (let i = 1; i <= 5; i++) out.push(70 + ((top - 70) * i) / 5);
+      for (let i = 1; i <= 5; i++) out.push(top - ((top - 70) * i) / 5);
+    }
+    return out;
+  }
+  const flip = (xs: number[]) => xs.map((x) => 200 - x);
+  const execute = { outputState: "Execute", breakdown: [] } as unknown as ScanDecision;
+
+  it("does not hold a long inside a wide, unconfirmed market", () => {
+    const bars = daily([...wideSwings(6), 80, 90, 100, 110, 100, 90, 85]);
+    const trigger = computeGannEntryTrigger(bars, "bullish");
+    expect(trigger).not.toBeNull();
+    const r = readBreakaway(bars, trigger);
+    expect(r.rangeBound).toBe(false);
+    expect(r.breaksAway).toBe(true);
+    expect(applyBreakawayHold(execute, r).outputState).toBe("Execute");
+  });
+
+  it("is the mirror for a short", () => {
+    const bars = daily(flip([...wideSwings(6), 80, 90, 100, 110, 100, 90, 85]));
+    const trigger = computeGannEntryTrigger(bars, "bearish");
+    expect(trigger).not.toBeNull();
+    const r = readBreakaway(bars, trigger);
+    expect(r.rangeBound).toBe(false);
+    expect(applyBreakawayHold(execute, r).outputState).toBe("Execute");
+  });
+
+  it("still holds a short inside a narrow range", () => {
+    const bars = daily(flip([...sideways(6), 97, 98, 99, 100, 99, 98, 97, 96]));
+    const trigger = computeGannEntryTrigger(bars, "bearish");
+    expect(trigger).not.toBeNull();
+    const r = readBreakaway(bars, trigger);
+    expect(r.rangeBound).toBe(true);
+    expect(r.breaksAway).toBe(false);
+    expect(applyBreakawayHold(execute, r).outputState).toBe("Watch");
+  });
+
+  it("needs two weeks of sessions before it reads a range", () => {
+    expect(readBreakaway(daily([100, 101, 100, 101, 100, 101]), null).rangeBound).toBe(false);
+  });
+});
+
 describe("readBreakaway on a held crossed level", () => {
   it("measures the range before the crossing, not the top made after it", () => {
     // Cross the 105.5 range high by 3 points, run to 113, react: the level is
@@ -111,8 +162,9 @@ describe("readBreakaway on a held crossed level", () => {
     expect(r.rangeBound).toBe(true);
     expect(r.rangeHigh).toBe(105.5);
     expect(r.breaksAway).toBe(true);
-    // Read over every top, the move after the crossing would set the range.
-    expect(readBreakaway(bars, { ...t, held: false, crossedAt: null }).rangeHigh).toBeGreaterThan(110);
+    // Read over every session, the move after the crossing would widen the
+    // range past narrow, so it would not be read as a range at all.
+    expect(readBreakaway(bars, { ...t, held: false, crossedAt: null }).rangeBound).toBe(false);
   });
 
   it("is the mirror for a short: the range ends where the bottom was broken", () => {
