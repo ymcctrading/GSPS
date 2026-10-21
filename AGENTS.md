@@ -410,8 +410,29 @@ breakaway's volume rule already read: 12% and 3% held. Decision 5 itself is
 unchanged: inside a narrow range Execute still needs the breakaway. The width
 (`NARROW_RANGE_ALLOWANCES`, 3 allowances over 13 weeks) is an engineering figure,
 and a 2-6 week narrow range after a wide 13 weeks is not read yet; both held for
-the owner. `STRATEGY_VERSION` is `2026-10-21-gann-narrow-range-breakaway`;
+the owner. `STRATEGY_VERSION` was `2026-10-21-gann-narrow-range-breakaway`;
 Execute and the 6/3.5 cutoffs need a fresh run on it.
+**Replay accounting, 2026-10-21.** Three replay defects, fixed. (1) A fired entry
+with no tradeable plan behind it (no plan, no risk, TP1 not beyond the entry, the
+round-number hold) was dropped uncounted: 392 of 1,475 fires on the 2026-10-20
+run. Now `droppedPlans` and `droppedPlanReasons` beside `refusedFills`, in the
+report and the universe summary's fill table. (2) Reversals started from the
+blended exit price under a scale-out (60% out at 103, the rest stopped at 99 read
+101.4). `walkGannExit` now returns `finalExit`, the price the last shares left
+at, for every reversal in the chain; P&L keeps the blend. The paper simulator had
+the same fault after a TP1 fill and now reverses at the stop leg's fill; the
+broker exit manager already used the stop. The re-buy reads only the best price,
+so it was unaffected. (3) Reversals and re-buys inherited the parent's score,
+verdict and criteria. They now carry `derived` and none of those: they count in
+the totals and in `derivedSplit` (and the summary's "derived" scope), never in a
+bucket, score band or factor table. **The owner's runs used `entryRule:
+"confirmed"`, which is not production's entry:** it arms on the crossing alone
+and measures R from the crossing price, 2 points past the reaction entry the plan
+and TP1 are priced from. Production's rule is `"reaction"`, the default. A
+production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann"}`
+(`LIVE_EXIT_RULE` is "gann" since Q14; `useProductionStop` does nothing under
+"reaction"). `STRATEGY_VERSION` is `2026-10-21-replay-accounting`; Execute and
+the 6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
@@ -1931,6 +1952,25 @@ same event. This section predates the formal mandate by a few hours in the
 same session; it is kept as the concrete artifact rather than folded away,
 the same way `lib/gann/entryTrigger.ts` is a standing worked example rather
 than a paragraph summarizing it.
+
+## The Law of Creation — fourth question of the mandate (2026-10-21, project owner)
+
+"Add this to the same memory bank that our mandate, roadmaps, parities and
+memory [live in] so every session implements it by default." The owner's
+Multi-Dimensional Creation Equation is in
+`docs/memory-bank/LAW_OF_CREATION.md`, kept as he gave it: two complementary
+entities that truly interact produce a third neither contained
+(a ⊗ b = a + b + I(a,b)·ab, so 1 ⊗ 1 = 3), while a pair that does not interact
+is a mixture (1 + 1 = 2); the created third can interact again; substance is
+conserved, form is created. **Every session applies it by default** as a fourth
+question beside the three-question mandate above, while conceiving a concept:
+name the complementary pair, say whether the join is a creation or only a
+mixture, and where a created third exists, what it is and where it re-enters.
+Same discipline as the Hermetic lens: it shapes design and reasoning and is
+never evidence. It cannot move a threshold, weight, gate or verdict, and its
+counting results (2ⁿ − 1, the chain, 3ⁿ) are interpretive by the owner's own
+tier, never market numbers. Worked readings (price ⊗ time, level ⊗ close,
+novice ⊗ expert, live scan ⊗ replay) are in that file.
 
 ## Cycles as architecture, not only scoring — standing direction (2026-09-23, project owner)
 

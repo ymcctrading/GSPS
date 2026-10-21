@@ -32,13 +32,16 @@ import {
   byLargeCap,
   byYearCycle,
   byOutputState,
+  byDerived,
   byScoreRange,
   bySetupKind,
   byEntryKind,
   byHoldBasis,
   combine,
+  emptyDroppedPlanReasons,
   replay,
   summarise as summariseTrades,
+  type DroppedPlanReasons,
   type ReplayOptions,
   type ReplayResult,
 } from "./replay";
@@ -276,6 +279,16 @@ export interface BacktestReport {
    * stop or target, which production refuses (`fill_outran_bracket`).
    */
   refusedFills: number;
+  /** Fired entries dropped with no trade because no tradeable plan stood behind them (`ReplayResult.droppedPlans`). */
+  droppedPlans: number;
+  /** `droppedPlans` by reason. */
+  droppedPlanReasons: DroppedPlanReasons;
+  /**
+   * The trades the armed setups opened, and the reversals and re-entries the
+   * replay opened from them (`ReplayTrade.derived`). The derived trades count
+   * in `overall` but in no bucket, score band or factor table.
+   */
+  derivedSplit: { armed: RunSummary; reversal: RunSummary; rebuy: RunSummary };
   /**
    * Session plans retired by a breached stop (owner decision, 2026-09-30;
    * `lib/gann/stopBreach.ts`), whether or not a later closing candle reinstated
@@ -600,10 +613,12 @@ export function buildReport(
   const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
 
   const split = byOutputState(run.overall);
+  const derived = byDerived(run.overall);
+  // Unconditioned attribution reads the armed setups only: nothing scored a derived trade.
   const target = attributeScoreRange
     ? byScoreRange(run.overall, attributeScoreRange[0], attributeScoreRange[1])
     : attributeWithin === UNCONDITIONED_ATTRIBUTION
-      ? run.overall
+      ? derived.armed
       : split[attributeWithin];
   const attributedLabel = attributeScoreRange
     ? `score ${attributeScoreRange[0]}–${attributeScoreRange[1]}`
@@ -663,6 +678,13 @@ export function buildReport(
     armed: run.overall.armed,
     triggered: run.overall.triggered,
     refusedFills: run.overall.refusedFills,
+    droppedPlans: run.overall.droppedPlans ?? 0,
+    droppedPlanReasons: run.overall.droppedPlanReasons ?? emptyDroppedPlanReasons(),
+    derivedSplit: {
+      armed: summarise(derived.armed),
+      reversal: summarise(derived.reversal),
+      rebuy: summarise(derived.rebuy),
+    },
     retiredPlans: run.overall.retiredPlans,
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
@@ -670,7 +692,7 @@ export function buildReport(
     contextFactors: attributeFactors(target.trades, { field: "contextFactors" }),
     halves: chronologicalHalves(target.trades),
     byYear: splitByYear(run.overall.trades),
-    executeByYear: splitByYear(run.overall.trades.filter((t) => t.outputState === "Execute")),
+    executeByYear: splitByYear(split.Execute.trades),
     atrBands: attributeByAtrMultiple(target.trades).map(({ from, to, arm }) => ({
       from,
       to,

@@ -132,4 +132,27 @@ describe("summarizeCells", () => {
     expect(md).toContain("SYNTHETIC — do not publish");
     expect(md).toContain("confirmed − base");
   });
+
+  it("keeps reversals and re-entries out of the buckets, and prints the fill accounting", () => {
+    const withDerived = [...a, trade({ symbol: "CCC", rMultiple: 4, derived: "reversal", outputState: "Execute" })];
+    const s = summarizeCells([
+      {
+        cell: { label: "base", options: {} },
+        trades: withDerived,
+        accounting: { triggered: 5, refusedFills: 1, droppedPlans: 2, droppedPlanReasons: { noLevels: 0, invalidRisk: 0, targetNotBeyondEntry: 2, roundNumberHold: 0 } },
+      },
+    ]);
+    expect(s.cells[0].scopes.Execute.n).toBe(1);
+    expect(s.cells[0].scopes.all.n).toBe(3);
+    expect(s.cells[0].scopes.derived.n).toBe(1);
+    const md = summaryMarkdown(
+      {
+        universe: "mega-12", symbolsUsed: 2, symbolsRequested: 2, ref: "r", sha: "s", timeframe: "15Min",
+        targetR: 2, source: "synthetic", live: false, window: { from: null, to: null }, generatedAt: "t", skipped: [],
+      },
+      s,
+    );
+    expect(md).toContain("Reversals and re-entries (derived, unscored)");
+    expect(md).toContain("| base | 5 | 1 | 2 | 0 | 0 | 2 | 0 |");
+  });
 });

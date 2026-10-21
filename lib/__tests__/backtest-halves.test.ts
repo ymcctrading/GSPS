@@ -45,6 +45,8 @@ describe("buildReport: chronological halves", () => {
     expectancyR: trades.reduce((s, t) => s + t.rMultiple, 0) / trades.length,
     totalR: trades.reduce((s, t) => s + t.rMultiple, 0),
     refusedFills: 0,
+    droppedPlans: 0,
+    droppedPlanReasons: { noLevels: 0, invalidRisk: 0, targetNotBeyondEntry: 0, roundNumberHold: 0 },
     retiredPlans: 0,
   };
   const report = buildReport(

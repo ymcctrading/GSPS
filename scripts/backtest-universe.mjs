@@ -183,10 +183,13 @@ export function describeTrades(trades) {
   };
 }
 
+// Reversals and re-entries after a stop (`derived`) were never scored: they
+// count in "all" and in their own scope, never in a verdict bucket.
 const SCOPES = {
-  Execute: (t) => t.outputState === "Execute",
-  Watch: (t) => t.outputState === "Watch",
+  Execute: (t) => !t.derived && t.outputState === "Execute",
+  Watch: (t) => !t.derived && t.outputState === "Watch",
   all: () => true,
+  derived: (t) => Boolean(t.derived),
 };
 
 /** A fingerprint of a cell's trades, to catch options the ref silently ignored. */
@@ -199,10 +202,11 @@ function tradeSignature(trades) {
  * for any two cells whose options differ but whose trades are identical.
  */
 export function summarizeCells(cellResults) {
-  const cells = cellResults.map(({ cell, trades }) => ({
+  const cells = cellResults.map(({ cell, trades, accounting }) => ({
     label: cell.label,
     options: cell.options ?? {},
     scopes: Object.fromEntries(Object.entries(SCOPES).map(([k, f]) => [k, describeTrades(trades.filter(f))])),
+    ...(accounting ? { accounting } : {}),
   }));
 
   const reference = cellResults[0];
@@ -255,7 +259,9 @@ export function summaryMarkdown(meta, summary) {
     lines.push("");
   }
   for (const scope of Object.keys(SCOPES)) {
-    lines.push(`## ${scope === "all" ? "All trades (unconditioned)" : `${scope} bucket`}`);
+    lines.push(
+      `## ${scope === "all" ? "All trades (unconditioned)" : scope === "derived" ? "Reversals and re-entries (derived, unscored)" : `${scope} bucket`}`,
+    );
     lines.push("");
     lines.push("| Cell | n | Expectancy | 95% CI | Win rate | PF | 1st half | 2nd half |");
     lines.push("|---|---:|---:|---|---:|---:|---:|---:|");
@@ -271,6 +277,23 @@ export function summaryMarkdown(meta, summary) {
       const s = d.scopes[scope];
       lines.push("");
       lines.push(`${d.label} − ${d.against}: ${fmtR(s.diffR)}, 95% CI ${fmtCI(s.diffCI95)}`);
+    }
+    lines.push("");
+  }
+  if (summary.cells.some((c) => c.accounting)) {
+    // Every fired entry is a trade, a refused fill or a dropped plan.
+    lines.push("## Fill accounting");
+    lines.push("");
+    lines.push("| Cell | Triggered | Refused fills | Dropped plans | no levels | no risk | TP1 not beyond entry | round number |");
+    lines.push("|---|---:|---:|---:|---:|---:|---:|---:|");
+    for (const c of summary.cells) {
+      const a = c.accounting;
+      if (!a) continue;
+      const r = a.droppedPlanReasons ?? {};
+      lines.push(
+        `| ${c.label} | ${a.triggered} | ${a.refusedFills} | ${a.droppedPlans} | ${r.noLevels ?? 0} | ${r.invalidRisk ?? 0} | ` +
+          `${r.targetNotBeyondEntry ?? 0} | ${r.roundNumberHold ?? 0} |`,
+      );
     }
     lines.push("");
   }
@@ -501,7 +524,16 @@ async function main() {
       });
       await writeFile(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
       await writeFile(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
-      cellResults.push({ cell, trades: overall.trades });
+      cellResults.push({
+        cell,
+        trades: overall.trades,
+        accounting: {
+          triggered: overall.triggered,
+          refusedFills: overall.refusedFills ?? 0,
+          droppedPlans: overall.droppedPlans ?? 0,
+          droppedPlanReasons: overall.droppedPlanReasons ?? null,
+        },
+      });
     }
 
     const { sha, ref } = gitInfo();

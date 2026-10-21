@@ -510,4 +510,9 @@
 // of triggers on trendless random walks and 18% on walks rising 0.2% a day;
 // now 12% and 3%. Verdicts move, live and replay alike, as does the capital
 // stock's range reading (`capitalStock.ts`, context).
-export const STRATEGY_VERSION = "2026-10-21-gann-narrow-range-breakaway";
+// 2026-10-21-replay-accounting: a reversal enters at the price the last of the
+// position left at, not the blended exit (replay and paper simulator), and
+// reversals and re-buys carry no inherited verdict, so they leave the buckets,
+// score bands and factor tables. Fired entries with no plan are counted
+// (`droppedPlans`). Replay buckets and reversal trades move; live verdicts do not.
+export const STRATEGY_VERSION = "2026-10-21-replay-accounting";
