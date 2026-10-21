@@ -608,7 +608,7 @@ owner's go-ahead. `STRATEGY_VERSION` was
 `2026-10-21-review-fixes-on-major-range-levels`.
 **Second round, same day, answered from Gann rather than held (owner: fixes
 built in the review's own session):** the Square of Nine reads all 16 of its
-lines (R-033, Gann's plate); with no trend on any chart and no buying point the
+lines (Gann's plate, Vol. 3 p. 34); with no trend on any chart and no buying point the
 live scan stands aside instead of taking the short side by default
 (`applyStandAsideHold`, never-failing rules 5 and 6, D-05); and the forward
 test (`lib/shadow/evaluate.ts`) enters on the reaction and exits on Gann's
