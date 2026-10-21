@@ -752,7 +752,7 @@ changes, on a feature branch with `commit` set (it commits the file there).
 SEC refused GitHub's runners until the repository secret `SEC_USER_AGENT`
 (a real name and email) was set; the noreply fallback alone is refused. The
 first map (2026-10-21) coded 830 of 831 symbols (ARCC has none) and put 778 in
-65 groups. Engineering choices, labelled in `lib/gann/industryGroups.ts`: the
+65 groups (762 in 58 after the review below). Engineering choices, labelled in `lib/gann/industryGroups.ts`: the
 three-digit SIC industry group when at least 5 universe stocks share it, else
 the two-digit major group, else none; a group rank needs 4 peers. P3(c) passes
 on the strongest quarter of the group or of the universe (the weakest, short),
@@ -914,7 +914,28 @@ Gann wrote nothing on currencies). Futures and forex have quotes only, no bars o
 broker, so they price nothing live yet. Options follow his course (Master Course
 Ch. 19A/B, `lib/options/gannOptionPlan.ts`): the premium is the risk, the
 ticket offers the first expiry 30 or more days out, strikes a few points out.
-`STRATEGY_VERSION` is `2026-10-21-gann-one-plan-every-market`.
+`STRATEGY_VERSION` was `2026-10-21-gann-one-plan-every-market`.
+
+**Group rank reviewed, same day (owner's review mandate, run on #388 after its
+merge).** Three fixes. (1) The major-group fallback counted every stock with the
+two-digit prefix, those already in an industry group too, so leftovers formed
+"groups" of one to four that never ranked; it now counts only the stocks left
+over, and every group holds at least 5 (762 symbols in 58 groups, was 778 in 65).
+(2) A group's strongest is a quarter of its members rounded down, at least one
+(`groupTopCount`); the percentile cut passed the top 2 of 5. (3) Gann ranks the
+groups before the stocks in them (*Truth of the Stock Tape* Ch. XVI, "Position of
+groups"; Ch. XVII, buy the strong stocks and sell the weak), so the group rank
+counts for a long only in a group whose median position is not in the universe's
+weakest quarter, and for a short only in one not in its strongest
+(`groupPercentile`, the members' median, the two middle readings averaged in an
+even group; the median and the quarter gate are engineering choices, held for
+the owner). The best stock of a weak group is no longer a strong stock.
+Industry groups are labelled by their key and their members' commonest SEC
+description, major groups by their key alone.
+Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
+other's peers, in the universe and the group. `STRATEGY_VERSION` is
+`2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh
+run on it.
 
 ## WD Gann precedence — standing principle
 
