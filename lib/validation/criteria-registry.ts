@@ -552,7 +552,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
   PILLAR("volumeAccumulation", "Volume and accumulation", "lib/gann/volumeClimax.ts, lib/gann/accumulation.ts, lib/gann/capitalStock.ts",
     "MC Ch.7 C7, C8; S14, S21: volume at the turn or a base of weeks, with no capital-stock warning against a long."),
   PILLAR("definiteIndication", "Definite indication with the stop placed", "lib/gann/entryTrigger.ts, lib/gann/campaignLedger.ts",
-    "MC Ch.7 C9, C11, C12: the trigger armed, the stop 3 points behind an old level, and the counter-move within the greatest reaction (exceeding it, against the trend). Merges entryTriggerArmed and stopBehindOldLevel."),
+    "MC Ch.7 C9, C11, C12: the definite indication shown (since 2026-10-21 a crossing counts once made, not while waiting), the stop 3 points behind an old level, and the counter-move within the greatest reaction (exceeding it, against the trend). Merges entryTriggerArmed and stopBehindOldLevel."),
 ];
 
 

@@ -422,7 +422,12 @@ export function volumePillar(f: PillarFacts | null | undefined, side: Side, clim
   };
 }
 
-/** P9 (C9, C11, C12): the trigger armed, the stop behind an old level, and the counter-move against the greatest reaction. */
+/**
+ * P9 (C9, C11, C12): the definite indication shown (the old top crossed by 3
+ * points, or a buying point at an old bottom or a held bottom; `armed` is
+ * `indicationShown` in score.ts), the stop behind an old level, and the
+ * counter-move against the greatest reaction.
+ */
 export function definiteIndicationPillar(f: PillarFacts | null | undefined, side: Side, armed: boolean, stopPlaced: boolean): PillarResult {
   const c = f?.campaign;
   const overbalanced = c != null && (c.spaceOverbalanced || c.timeOverbalanced);
@@ -431,6 +436,6 @@ export function definiteIndicationPillar(f: PillarFacts | null | undefined, side
   const withTrend = c?.trend === side;
   return {
     passed,
-    note: `Trigger armed: ${yes(armed)}. Stop 3 points behind an old level: ${yes(stopPlaced)}. ${withTrend ? "The reaction is within the campaign's greatest" : "The move against the trend has exceeded the campaign's greatest reaction"}: ${yes(reaction)}. All three are needed.`,
+    note: `Definite indication shown: ${yes(armed)}. Stop 3 points behind an old level: ${yes(stopPlaced)}. ${withTrend ? "The reaction is within the campaign's greatest" : "The move against the trend has exceeded the campaign's greatest reaction"}: ${yes(reaction)}. All three are needed.`,
   };
 }
