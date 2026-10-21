@@ -18,21 +18,36 @@
  * - **Fast**, his fast-market method: the daily chart "in fast markets"
  *   (*Commodities* p. 31; Master Course PDF 255; W011), the hourly chart for
  *   "the first change in trend" in very active markets (Master Course Ch.
- *   13), entry on the reaction ("buy on the second day's reaction and stop
- *   three points", *Truth of the Stock Tape*), the stop 3 points beyond the
- *   last completed day's low (high, short) and trailed under each day's low
- *   (W006 Rule 2, p. 46: "a 3-points stop loss order is the safest"; the
- *   1940-41 soybean trade; *Commodities* Selling Point 9: fast declines "run
- *   10 to 30 days without crossing the high of the previous day"). Held for
- *   days, until a day's low breaks. `lib/gann/dayStop.ts`.
+ *   13). The entry and the initial stop are the swing plan's (Rule 3, W006
+ *   pp. 46-47: "old top 50, a close at 53 crosses it, buy 51 down to 48, stop
+ *   47"): the entry rule and the stop are not changed by the speed. Once
+ *   filled, the stop trails 3 points under each completed day's low (over
+ *   each day's high, short), from the fill's own session (W006 Rule 2, p. 46:
+ *   in fast moves "1 to 3 points under the day's low", "a 3-points stop loss
+ *   order is the safest"; the 1940-41 soybean trade's stops 1 cent under each
+ *   day's low, W001 pp. 134-137; *Truth of the Stock Tape*, "buy on the second
+ *   day's reaction and stop three points", anchored on the day bought;
+ *   *Commodities* Selling Point 9: fast declines "run 10 to 30 days without
+ *   crossing the high of the previous day"). Held for days, until a day's low
+ *   breaks. The trail is `readGannExit`'s "day_low" (`lib/gann/dayStop.ts`),
+ *   read by the live and paper exit managers and the replay alike.
+ *
+ * Engineering choices inside Gann's range, labelled: Rule 2 gives "1 to 3
+ * points" under the day's low or close "in fast high-level advances"; GSPS
+ * reads 3 points (the stop he calls safest) under the low, and applies it from
+ * the fill wherever the trader chooses Fast, since the choice is the trader's
+ * reading that the market is fast. A trade keeps the style that stood when it
+ * filled (`styleAt`).
+ *
+ * Corrected 2026-10-21 (review of #405): the first build put the day stop on
+ * as the initial stop, before the fill. That is Rule 2's trail read as an
+ * entry stop: it moved the confirmation line Gann's crossing is judged on and
+ * sat inside the reaction zone, so the reaction that fills the order broke
+ * it.
  *
  * Both styles enter only with the daily trend (never-failing rule 5, "never
  * buck the trend") and take the same targets: the first Gann level that pays
  * more than the risk, then no fixed target (Q14).
- *
- * Measured basis for the Fast stop: the six-year one-hour replay lost
- * (49.1% wins against 50.8% needed), all of it from initial stops inside the
- * day's range. The Fast stop sits behind the prior day's bar.
  *
  * Three-question basis: 1. Gann, as cited (Tier A). 2. The expected holds are
  * measured durations from the replay and Gann's own fast-market counts, not
@@ -78,11 +93,11 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
   fast: {
     style: "fast",
     label: "Fast",
-    summary: "The fast-market method: entry timed intraday, stop behind the last day's bar, trailed under each day's low. Not closed at the end of the session.",
+    summary: "The fast-market method: the same entry and stop as Swing; once filled, the stop follows each day's low up. Not closed at the end of the session.",
     trendCharts: "Daily, with the hourly for the first change in trend",
     entryTiming: "Closed hourly and 15-minute bars",
-    stopRule: "3 points beyond the last completed day's low (high, short), never looser than the swing plan's stop",
-    trailRule: "3 points under each new day's low (over each day's high, short)",
+    stopRule: "3 points beyond the old top or bottom the entry crossed, the same as Swing",
+    trailRule: "Trails 3 points under each completed day's low from the day filled (over each day's high, short), and is never lowered",
     expectedHold: "Days, until a day's low breaks",
     sources: "W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13",
   },
@@ -92,6 +107,6 @@ export function parseTradeStyle(value: unknown): TradeStyle {
   return value === "fast" ? "fast" : DEFAULT_TRADE_STYLE;
 }
 
-// The pricing half (the day stop, the fast plan) is `tradeStylePlan.ts`, kept
-// apart so client pages can read the profiles without bundling a Gann engine
-// module (review finding R-033).
+// The trail itself is `readGannExit`'s "day_low" (`lib/gann/exitRules.ts`),
+// kept out of this module so client pages can read the profiles without
+// bundling a Gann engine module (review finding R-033).

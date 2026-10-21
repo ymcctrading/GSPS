@@ -2,9 +2,11 @@
 
 /**
  * The trader's trade style (Swing or Fast, `lib/trade/tradeStyle.ts`), saved
- * to their settings so every surface reads the same choice. Both are Gann's:
- * his main swing method and his fast-market method. Neither closes a trade at
- * the end of the session; Gann never did.
+ * to their settings. Both open on the same plan; the paper and live exit
+ * managers trail each of the trader's own trades in the style that stood when
+ * it filled (`lib/trade/exit-style.ts`). Both are Gann's: his main swing method and his
+ * fast-market method. Neither closes a trade at the end of the session; Gann
+ * never did.
  */
 
 import { TRADE_STYLES, type TradeStyle } from "@/lib/trade/tradeStyle";
@@ -43,7 +45,8 @@ export function TradeStylePicker({
       </div>
       {!compact && (
         <p className="text-xs text-muted">
-          {profile.summary} Stop: {profile.stopRule}. Expected hold: {profile.expectedHold.toLowerCase()}.
+          {profile.summary} Stop: {profile.stopRule}. Once filled: {profile.trailRule.charAt(0).toLowerCase() + profile.trailRule.slice(1)}. Expected hold:{" "}
+          {profile.expectedHold.toLowerCase()}. Applies to trades you place from now on; trades already open keep the style they were filled in, and the portfolio manager's stay on Swing.
         </p>
       )}
     </div>

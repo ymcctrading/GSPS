@@ -674,4 +674,12 @@
 // and M-K5 on crypto move, live and replay alike. Adds the fast-market plan
 // (`fastLevels`, Gann's day stop) beside the swing plan, and the replay's
 // `tradeStyle` option to walk it; the default replay is unchanged.
-export const STRATEGY_VERSION = "2026-10-21-gann-one-plan-every-market";
+// 2026-10-21-gann-fast-trail-after-fill: review of #405. The Fast style
+// opens on the swing plan's entry and stop (Rule 3, W006 pp.46-47) and trails
+// 3 points under each completed day's low from the fill's session
+// (`readGannExit`'s "day_low"; W006 Rule 2 p.46), live, paper and replay
+// alike; `fastLevels` and its day stop before the fill are gone. Every named
+// market's plan is now refused when its rounded levels are not a priced plan
+// (F-02's check, which crypto lost on the previous version). Swing verdicts
+// and trades are unchanged except plans that round onto themselves.
+export const STRATEGY_VERSION = "2026-10-21-gann-fast-trail-after-fill";

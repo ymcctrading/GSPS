@@ -194,15 +194,10 @@ export function SignalCard({
         {levels && (
           <p className="text-xs text-muted">
             <span className="font-medium text-foreground">Swing</span> (the main method): expected hold{" "}
-            {TRADE_STYLES.swing.expectedHold.toLowerCase()}.
-            {result.fastLevels ? (
-              <>
-                {" "}
-                <span className="font-medium text-foreground">Fast</span> (the fast-market method): same entry, stop{" "}
-                {formatUsd(result.fastLevels.stopLoss)} ({TRADE_STYLES.fast.stopRule.split(",")[0]}), TP1{" "}
-                {formatUsd(result.fastLevels.takeProfit1)}, held {TRADE_STYLES.fast.expectedHold.toLowerCase()}.
-              </>
-            ) : null}
+            {TRADE_STYLES.swing.expectedHold.toLowerCase()}.{" "}
+            <span className="font-medium text-foreground">Fast</span> (the fast-market method): the same entry and
+            stop; once filled, the stop {TRADE_STYLES.fast.trailRule.charAt(0).toLowerCase() + TRADE_STYLES.fast.trailRule.slice(1)}, held{" "}
+            {TRADE_STYLES.fast.expectedHold.toLowerCase()}.
           </p>
         )}
 

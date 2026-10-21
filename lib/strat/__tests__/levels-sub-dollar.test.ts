@@ -40,3 +40,15 @@ describe("crypto plan levels below a dollar", () => {
     expect(l.rewardToRiskTp1).toBeLessThan(1);
   });
 });
+
+describe("a named market's rounded plan is checked (review of #405)", () => {
+  it("refuses a crypto plan whose stop rounds onto its entry", () => {
+    const flat: EntrySource = { direction: "bullish", triggerPrice: 30.004, stopPrice: 30.001, gannReaction: true };
+    expect(() => computeTradeLevels(flat, prev(30.01, 29.99), [], undefined, undefined, "crypto")).toThrow(/not a priced bullish plan/);
+  });
+
+  it("refuses a stock plan whose stop is not beyond the entry", () => {
+    const wrongSide: EntrySource = { direction: "bullish", triggerPrice: 50, stopPrice: 51, gannReaction: true };
+    expect(() => computeTradeLevels(wrongSide, prev(51, 49), [], undefined, undefined, "us_equity")).toThrow(/not a priced bullish plan/);
+  });
+});

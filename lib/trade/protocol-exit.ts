@@ -473,6 +473,8 @@ function explainGann(reason: GannStopReason | null, stop: number): string {
       return `The trade has run into a new month, so the stop moves under last month's extreme, to ${usd(stop)}.`;
     case "final_stage":
       return `The move is in its late stage, so the stop is kept close, at ${usd(stop)}.`;
+    case "day_low":
+      return `Fast trade: the stop follows the last completed day, 3 points beyond its extreme, to ${usd(stop)}.`;
     default:
       return `The protocol stop rests at ${usd(stop)}.`;
   }

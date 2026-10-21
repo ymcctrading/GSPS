@@ -49,6 +49,15 @@
  *   when such a breakdown, printed since the fill, still stands
  *   (`distribution.ts`). Longs only: shorts take the breakaway down as their
  *   own entry. Reported as "distribution", the same reason as D2.
+ * - **Fast-market day trail** (added 2026-10-21, the trade styles,
+ *   `lib/trade/tradeStyle.ts`). A trade opened in the Fast style keeps the
+ *   swing plan's entry and stop (Rule 3, W006 pp.46-47) and, from the fill's
+ *   own session, trails 3 points under each completed day's low (over its
+ *   high, short): W006 Rule 2 p.46, "1 to 3 points under the day's low" in
+ *   fast moves; the 1940-41 soybean trade's stops 1 cent under each day's low
+ *   (W001 pp.134-137); *Truth of the Stock Tape*, "buy on the second day's
+ *   reaction and stop three points", anchored on the day bought. Reported as
+ *   "day_low" (`gannDayStop`). Swing trades never read it.
  * - **A-LEVELS-04 failed double or triple top** (added 2026-10-16, fork FL3
  *   a). "Failing to pass an old top is a top" (W006 pp.14-15, 44): a long
  *   leaves when a double or triple top fails after the fill; a short on the
@@ -83,6 +92,8 @@ import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
+import { gannDayStop } from "@/lib/gann/dayStop";
+import type { TradeStyle } from "@/lib/trade/tradeStyle";
 
 
 /**
@@ -126,9 +137,11 @@ export interface GannExitPosition {
   entryDate: string;
   /** The old top (long) or bottom (short) the entry crossed, for the hold test. */
   crossedLevel: number | null;
+  /** The trade style it was opened in. "fast" adds the day trail ("day_low"). Default swing. */
+  style?: TradeStyle;
 }
 
-export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage";
+export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage" | "day_low";
 export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution" | "failed_top";
 
 /**
@@ -148,6 +161,7 @@ export const GANN_EXIT_RULE_NAMES = [
   "prior_week",
   "prior_month",
   "final_stage",
+  "day_low",
   "hold_test_failed",
   "three_adverse_closes",
   "trend_change",
@@ -433,6 +447,13 @@ export function readGannExit(
     // the same 5 once the point is price-scaled). The final stage is GSPS's
     // reading of "a fast advance at high levels"; mirrored for shorts.
     adopt(long ? last.h - 5 * gannPoint(last.h) : last.l + 5 * gannPoint(last.l), "final_stage");
+  }
+
+  // The Fast style's day trail: 3 points beyond the latest completed session
+  // since the fill, its own session included (header). Adopted only when
+  // tighter, so the stop follows each day's low up and is never lowered.
+  if (pos.style === "fast") {
+    adopt(gannDayStop({ extreme: long ? last.l : last.h, side: pos.side }), "day_low");
   }
 
   let reverse: GannReversal | null = null;

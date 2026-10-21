@@ -2,8 +2,9 @@
  * Gann's day stop: a stop a set number of his points beyond a day's low (a
  * day's high for a short), never looser than the plan's own stop. The one
  * implementation of this rule on the platform (agreed 2026-10-21 between the
- * trade-style and intraday threads): the Fast trade style and the intraday
- * "daily plan's level held" alert both call it.
+ * trade-style and intraday threads): the Fast style's trail (`readGannExit`,
+ * "day_low", which ratchets it) and the intraday "daily plan's level held"
+ * alert both call it.
  *
  * Sources (Tier A, Gann's own text):
  * - W006 Rule 2, p.46: stop orders "1, 2 or 3 points away"; "a 3-points stop
@@ -49,15 +50,4 @@ export function gannDayStop({ extreme, side, points = 3, planStop = null }: DayS
   const raw = side === "long" ? extreme - offset : extreme + offset;
   if (planStop == null || !(planStop > 0)) return raw;
   return side === "long" ? Math.max(raw, planStop) : Math.min(raw, planStop);
-}
-
-/**
- * The trailing day stop: the latest day's stop, never moved back against the
- * trade (W006 Rule 2: the stop follows each day's low up; it is never lowered).
- */
-export function trailDayStop(current: number | null, input: DayStopInput): number | null {
-  const next = gannDayStop(input);
-  if (next == null) return current;
-  if (current == null) return next;
-  return input.side === "long" ? Math.max(current, next) : Math.min(current, next);
 }

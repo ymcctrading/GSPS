@@ -34,6 +34,8 @@ import {
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
 import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
@@ -108,9 +110,10 @@ export async function manageSimulatedExits(supabase: Supabase, userId: string): 
   if (plans.length === 0) return idle();
 
   const run: SimManageRun = { ...idle(), managed: plans.length };
+  const styleHistory = await traderStyleHistory(supabase, userId);
   for (const plan of plans) {
     try {
-      await advance(supabase, userId, plan, run);
+      await advance(supabase, userId, plan, run, styleHistory);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`exit-manager-sim: ${plan.symbol} plan ${plan.id} — ${detail}`);
@@ -209,7 +212,7 @@ function tranches(plan: SimPlanRow): Tranche[] {
  * claiming are still null, so the loser of the race gets zero rows back and
  * walks away having mutated nothing.
  */
-async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run: SimManageRun): Promise<void> {
+async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run: SimManageRun, styleHistory: readonly TradeStyleChange[] = []): Promise<void> {
   const price = await quotePrice(plan.symbol, assetClassOf(plan.symbol));
   if (price == null) return; // no data this pass; try again next poll
 
@@ -248,6 +251,8 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
             initialStop: plan.stop_loss,
             openedAt: plan.created_at,
             best: highWater,
+            // A paper exit row is written at the fill, so `created_at` is the day bought.
+            style: await positionTradeStyle(supabase, styleHistory, plan.created_at, plan.entry_order_id, "id"),
           })
         : null;
     stopAction = planStopAdjustment({
