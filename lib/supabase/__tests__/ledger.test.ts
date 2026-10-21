@@ -1,6 +1,9 @@
 /** Review finding R-029: ledger writes go through the service role, never a member's session. */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+// The real constructor needs a WebSocket, which CI's Node 20 lacks.
+vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ from: () => null }) }));
 import { isMemberClient, ledgerWriter, markMemberClient } from "@/lib/supabase/ledger";
 
 const fake = () => ({ from: () => null }) as unknown as SupabaseClient;
