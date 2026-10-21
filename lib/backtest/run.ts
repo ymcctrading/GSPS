@@ -26,6 +26,7 @@ import { fetchUniverseStrengthSince } from "@/lib/data/universeStrength";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
+import { TOTAL_POINTS } from "@/lib/scoring/weights";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS } from "@/lib/timeframe";
@@ -323,6 +324,13 @@ export interface BacktestReport {
     late: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
   };
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
+  /**
+   * The armed trades split by whole score, 0 through `TOTAL_POINTS`, so one
+   * cell gives every score band (derived trades carry no score and are left
+   * out, as in the buckets). Before this, each band needed its own cell and a
+   * six-year run with five cells outran the workflow's time limit.
+   */
+  scoreBands: Array<{ score: number } & RunSummary>;
   /**
    * The rule-set identifier this run describes — see `strategyVersion.ts`.
    * Every report carries one so a performance claim stays traceable to the
@@ -713,6 +721,10 @@ export function buildReport(
       trades: arm.n,
       winRate: arm.winRate,
       expectancyR: arm.expectancyR,
+    })),
+    scoreBands: Array.from({ length: TOTAL_POINTS + 1 }, (_, score) => ({
+      score,
+      ...summarise(byScoreRange(run.overall, score, score)),
     })),
     strategyVersion: STRATEGY_VERSION,
     ...(slippageSensitivity ? { slippageSensitivity } : {}),

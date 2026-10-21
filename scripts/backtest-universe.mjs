@@ -192,6 +192,17 @@ const SCOPES = {
   derived: (t) => Boolean(t.derived),
 };
 
+/**
+ * The scored trades by whole score, so one cell gives every band (a band per
+ * cell outran the workflow's time limit on a six-year run). Derived trades
+ * carry no score and are left out, as in the verdict buckets.
+ */
+export function scoreBands(trades) {
+  const scored = trades.filter((t) => !t.derived && typeof t.score === "number");
+  const scores = [...new Set(scored.map((t) => Math.round(t.score)))].sort((a, b) => a - b);
+  return scores.map((score) => ({ score, ...describeTrades(scored.filter((t) => Math.round(t.score) === score)) }));
+}
+
 /** A fingerprint of a cell's trades, to catch options the ref silently ignored. */
 function tradeSignature(trades) {
   return trades.map((t) => `${t.symbol}|${t.openedAt}|${t.entry}|${t.rMultiple.toFixed(6)}`).join(";");
@@ -206,6 +217,7 @@ export function summarizeCells(cellResults) {
     label: cell.label,
     options: cell.options ?? {},
     scopes: Object.fromEntries(Object.entries(SCOPES).map(([k, f]) => [k, describeTrades(trades.filter(f))])),
+    scoreBands: scoreBands(trades),
     ...(accounting ? { accounting } : {}),
   }));
 
@@ -277,6 +289,21 @@ export function summaryMarkdown(meta, summary) {
       const s = d.scopes[scope];
       lines.push("");
       lines.push(`${d.label} − ${d.against}: ${fmtR(s.diffR)}, 95% CI ${fmtCI(s.diffCI95)}`);
+    }
+    lines.push("");
+  }
+  if (summary.cells.some((c) => (c.scoreBands ?? []).length > 0)) {
+    lines.push("## Score bands (scored trades by whole score)");
+    lines.push("");
+    lines.push("| Cell | Score | n | Expectancy | 95% CI | Win rate | 1st half | 2nd half |");
+    lines.push("|---|---:|---:|---:|---|---:|---:|---:|");
+    for (const c of summary.cells) {
+      for (const s of c.scoreBands ?? []) {
+        lines.push(
+          `| ${c.label} | ${s.score} | ${s.n} | ${fmtR(s.expectancyR)} | ${fmtCI(s.expectancyCI95)} | ${fmtPct(s.winRate)} | ` +
+            `${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ${fmtR(s.halves.second.expectancyR)} (n=${s.halves.second.n}) |`,
+        );
+      }
     }
     lines.push("");
   }
