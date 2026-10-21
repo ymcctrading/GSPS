@@ -120,8 +120,12 @@ session reading only this file still follows them.
 - The parity matrix (`GANN_PARITY_ROADMAP.md`) has every buildable row built.
   Open there: automated pyramid adds, the shared time-window mechanism that
   astro and Jensen time readings act through, the dated-forecast teaching
-  example (`macroCycle.ts`), and the missing calculator chapters (Squares of
-  90, 52, 67), which no source in the collection holds.
+  example (`macroCycle.ts`), and the Square of 67, which no source in the
+  collection holds. (The Square of 52 is Master Course Ch. 14 and is built;
+  Ch. 15A gives the Square of 90's days.) The 42 open feature-map rules are
+  sorted in the doc "Filling the open Gann rules" (2026-10-21): 10 fillable
+  from Gann's text, 11 with a labelled reconstruction, 15 not Gann's, 6
+  missing.
 - **Named in the books, method under re-check (Chuck, 2026-10-21):** the
   Master Time Factor, the Master Three-Dimension Chart, mass pressure and name
   numerology. Each is being traced back to every page that touches it and to
