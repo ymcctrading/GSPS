@@ -14,6 +14,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Inception, InceptionPrecision } from "@/lib/gann/incorporationCycle";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 export interface InstrumentReference {
   symbol: string;
@@ -35,7 +36,7 @@ const PAGE = 1000;
 
 function serviceClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = serviceRoleKey();
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
 }
