@@ -345,6 +345,15 @@ export interface ScanResult {
   armedPatterns: StratPattern[];
   levels: TradeLevels | null;
   /**
+   * The same plan in Gann's fast-market style (`lib/trade/tradeStyle.ts`):
+   * the stop 3 points beyond the last completed day's low (high, short),
+   * never looser than `levels`' stop, and the targets re-read against that
+   * risk. Null when no plan or when the day stop is no tighter. The verdict
+   * is the swing plan's: the style changes the trade's speed, not whether
+   * Gann's selection rules found one.
+   */
+  fastLevels?: TradeLevels | null;
+  /**
    * Why the trade plan is missing while the rest of the scan is intact. Unlike
    * `error` (which means the whole scan failed), this leaves the scan usable.
    */

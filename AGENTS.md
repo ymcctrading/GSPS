@@ -886,6 +886,36 @@ chart. The squeeze still reads the daily angles. `STRATEGY_VERSION` is
 `2026-10-21-gann-monthly-forty-five`; P6, Execute and the 6/3.5 cutoffs need a
 fresh run on it.
 
+**Trade style and instrument, 2026-10-21 (owner: "how can we make it possible
+that the trade plan aligns with the type of trade that the user is looking for.
+Swing, intraday", with futures, crypto, options, forex and commodities).** Gann
+answers it (design: `/mnt/project-files/trade-style/DESIGN.md`). He did not
+day-trade ("the big money … is made on the long swings and not by day to day
+trading", W036; *Commodities* pp. 4-7, 55), so the styles are his two speeds of
+one method (`lib/trade/tradeStyle.ts`): **Swing**, the default, and **Fast**,
+his fast-market method: the same entry and verdict, the stop on his day stop, 3
+points beyond the last completed day's low (high, short) and never looser than
+the swing stop (`lib/gann/dayStop.ts`; W006 Rule 2 p.46, "a 3-points stop … is
+the safest"; *Truth of the Stock Tape*; *Commodities* Selling Point 9), trailed
+under each day's low, never closed at the session's end. The scan prices both
+(`ScanResult.fastLevels`, `lib/trade/tradeStylePlan.ts#priceFastLevels`); the
+replay walks either (`tradeStyle`, `?tradeStyle=fast`). The style is a trader
+preference (`settings.prefs.gannRules.tradeStyle`), chosen on the order ticket,
+which then uses that style's levels; the ticker page's card shows both. The
+intraday alerts' "level held" stop calls the same `gannDayStop` (intraday
+thread). Not yet on the style, stated reasons: Guided Mode (Novice gets the main
+method), the portfolio manager (trades Fast only once the replay has measured
+it), the daily list cards and notifications (they show the swing plan).
+One plan for every market: crypto and commodity targets were 1.5R and 2.5-3R,
+no Gann source; every named market now takes the level plan (`computeTradeLevels`).
+`lib/instruments/spec.ts` defines each market's unit, session, contract size and
+risk (futures from the exchanges' specs, forex's pip an engineering choice;
+Gann wrote nothing on currencies). Futures and forex have quotes only, no bars or
+broker, so they price nothing live yet. Options follow his course (Master Course
+Ch. 19A/B, `lib/options/gannOptionPlan.ts`): the premium is the risk, the
+ticket offers the first expiry 30 or more days out, strikes a few points out.
+`STRATEGY_VERSION` is `2026-10-21-gann-one-plan-every-market`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

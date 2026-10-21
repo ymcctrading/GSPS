@@ -24,8 +24,6 @@ import {
   MAX_STOP_ATR_MULTIPLE,
   LARGE_CAP_LEEWAY_ATR,
   LARGE_CAP_MAX_STOP_ATR_MULTIPLE,
-  TP1_MULTIPLE_BY_ASSET,
-  TP2_MULTIPLE_BY_ASSET,
   MASTER_CAP_R,
   DEFAULT_TP1_MULTIPLE,
   DEFAULT_TP2_MULTIPLE,
@@ -51,8 +49,6 @@ export {
   MAX_STOP_ATR_MULTIPLE,
   LARGE_CAP_LEEWAY_ATR,
   LARGE_CAP_MAX_STOP_ATR_MULTIPLE,
-  TP1_MULTIPLE_BY_ASSET,
-  TP2_MULTIPLE_BY_ASSET,
   MASTER_CAP_R,
   EQUITY_TP1_ATR_MULTIPLE,
   EQUITY_TP2_ATR_MULTIPLE,
@@ -530,7 +526,16 @@ export function computeTradeLevels(
   const dir = pattern.direction === "bullish" ? 1 : -1;
   const effectiveLargeCap = largeCap && assetClass !== "crypto";
 
-  if (assetClass === "us_equity") {
+  // Every named market takes the same Gann plan (2026-10-21, trade-style
+  // design): the stop from Gann's rule, TP1 the first level that pays more
+  // than the risk, the master the next level beyond it. Gann's rule does not
+  // change by market, only the unit (*Commodities* pp.43-45: stops 1-3 cents
+  // in grain, 1-3 points in stocks; W006 pp.20, 46), and he never fixed a
+  // target as a multiple of the risk. Until this date crypto and commodities
+  // priced TP1 at 1.5R and the master at 2.5-3R capped at 5R, an R-multiple
+  // model with no Gann source. The R model below now serves only a caller
+  // that names no market (old tests and pattern previews).
+  if (assetClass !== undefined) {
     const equity = computeEquityTradeLevels({
       direction: pattern.direction,
       entry,
@@ -604,9 +609,7 @@ export function computeTradeLevels(
   // in 6,362 armed setups; the lower asset-class multiples here make it
   // reachable, but nothing has re-measured how often. The scored structural
   // criterion reads the master target instead — see docs/BACKTESTING.md.
-  const tp1Multiple = assetClass
-    ? TP1_MULTIPLE_BY_ASSET[assetClass]
-    : DEFAULT_TP1_MULTIPLE;
+  const tp1Multiple = DEFAULT_TP1_MULTIPLE;
   const structuralT1 = pattern.direction === "bullish" ? previousBar.h : previousBar.l;
   const tp1Target = entry + dir * tp1Multiple * risk;
   const takeProfit1 =
@@ -616,9 +619,7 @@ export function computeTradeLevels(
 
   // TP2 (runner): asset-class-dependent, snaps to structural extensions.
   // If TP1 (via structural extension) runs past TP2, step the runner out by 1R.
-  const tp2Multiple = assetClass
-    ? TP2_MULTIPLE_BY_ASSET[assetClass]
-    : DEFAULT_TP2_MULTIPLE;
+  const tp2Multiple = DEFAULT_TP2_MULTIPLE;
   const tp2Target = entry + dir * tp2Multiple * risk;
   const fiveR = entry + dir * MASTER_CAP_R * risk;
 

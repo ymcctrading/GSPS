@@ -666,4 +666,12 @@
 // 16-64% with no drift after, and longs ahead of shorts in an uptrend. The
 // squeeze still reads the daily angles. Scores and verdicts move, live and
 // replay alike (readPillarFacts).
-export const STRATEGY_VERSION = "2026-10-21-gann-monthly-forty-five";
+// 2026-10-21-gann-one-plan-every-market: crypto and commodity plans take
+// the same level plan as stocks (TP1 the first level paying more than the
+// risk, the master the next level beyond), not 1.5R and 2.5-3R capped at 5R,
+// which had no Gann source (*Commodities* pp.43-45: one rule, each market's
+// own unit). Stock plans, scores and verdicts are unchanged; crypto targets
+// and M-K5 on crypto move, live and replay alike. Adds the fast-market plan
+// (`fastLevels`, Gann's day stop) beside the swing plan, and the replay's
+// `tradeStyle` option to walk it; the default replay is unchanged.
+export const STRATEGY_VERSION = "2026-10-21-gann-one-plan-every-market";
