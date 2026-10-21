@@ -24,6 +24,7 @@
  */
 
 import { executeFill, quotePrice, assetClassOf } from "@/lib/brokers/simulator";
+import { insertTradeLog } from "@/lib/portfolio/trade-log-insert";
 import {
   extendHighWater,
   LIVE_EXIT_RULE,
@@ -35,6 +36,7 @@ import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -307,7 +309,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
 
   if (Object.keys(patch).length === 0) return; // nothing to do this pass
 
-  let query = supabase
+  let query = ledgerWriter(supabase)
     .from("protocol_exits")
     .update({ ...patch, last_managed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", plan.id)
@@ -414,7 +416,7 @@ async function finish(
           ? "master_target"
           : "tp1";
 
-  const { error: logError } = await supabase.from("trade_logs").insert({
+  const { error: logError } = await insertTradeLog(supabase, {
     user_id: userId,
     symbol: plan.symbol.toUpperCase(),
     asset_class: assetClassOf(plan.symbol),
@@ -435,11 +437,11 @@ async function finish(
     // outcome to the order (review finding S-07).
     order_id: plan.entry_order_id,
   });
-  if (logError && !logError.message.includes("duplicate")) {
+  if (logError) {
     console.error(`exit-manager-sim: trade log for plan ${plan.id} not written — ${logError.message}`);
   }
 
-  await supabase
+  await ledgerWriter(supabase)
     .from("protocol_exits")
     .update({ status: "closed", closed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", plan.id)

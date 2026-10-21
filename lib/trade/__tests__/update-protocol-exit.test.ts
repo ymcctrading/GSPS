@@ -31,9 +31,9 @@ function stub() {
   const tables: Record<string, unknown> = {
     protocol_exits: {
       select: () => chain(),
-      update: (row: unknown) => { update(row); return { eq: () => Promise.resolve({ error: null }) }; },
+      update: (row: unknown) => { update(row); return { eq: function eq(): unknown { return { eq, then: (r: (v: { error: null }) => void) => r({ error: null }) }; } }; },
     },
-    positions: { update: () => ({ eq: () => Promise.resolve({ error: null }) }) },
+    positions: { update: () => ({ eq: function eq(): unknown { return { eq, then: (r: (v: { error: null }) => void) => r({ error: null }) }; } }) },
   };
   return { supabase: { from: (t: string) => tables[t] } as unknown as SupabaseClient, update };
 }

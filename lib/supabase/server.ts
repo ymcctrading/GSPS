@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createBaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { markMemberClient } from "@/lib/supabase/ledger";
 
 // Public project values — env vars override when present.
 export const SUPABASE_URL =
@@ -11,7 +12,7 @@ export const SUPABASE_ANON_KEY =
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const client = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -27,6 +28,7 @@ export async function createClient() {
       },
     },
   });
+  return markMemberClient(client);
 }
 
 /** Service-role client for cron jobs and server-only writes (bypasses RLS). */

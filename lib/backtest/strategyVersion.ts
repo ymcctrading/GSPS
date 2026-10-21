@@ -635,4 +635,15 @@
 // lib/scan/structuralLevels.ts, one builder for both surfaces). The S/R list,
 // stops, TP1 and MTP are unchanged. Random walks: 98-100% passing before,
 // 27-50% after. Scores and verdicts move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-held-old-level";
+// 2026-10-21-gann-square-of-nine-16-lines: the Square of Nine's price levels
+// come from all 16 of its lines, one every 22.5° (Gann's plate, Vol. 3 p. 34;
+// source note B12), not the 8 every 45°. The nearest six that join the target
+// pool are denser, so plan targets move, live and replay alike.
+// 2026-10-21-gann-stand-aside-no-trend: with no trend on any chart and no
+// buying point armed, the live scan stood on the short side by default; it now
+// stands aside (Reject; never-failing rules 5 and 6, D-05). The replay scores
+// only armed triggers, so its trades do not move; live verdicts can.
+// 2026-10-21-review-second-round-on-held-old-level: the two entries above
+// merged onto main's group rank, square against the move, Square of Nine price
+// numbers and held old level; no new rule.
+export const STRATEGY_VERSION = "2026-10-21-review-second-round-on-held-old-level";

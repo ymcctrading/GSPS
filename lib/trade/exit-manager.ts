@@ -81,6 +81,7 @@ import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
 import type { ReversalCause } from "@/lib/gann/reverse";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -387,7 +388,7 @@ async function entryStillFilling(creds: AlpacaCreds, plan: PlanRow): Promise<boo
 async function claimAttach(supabase: Supabase, userId: string, plan: PlanRow): Promise<boolean> {
   const now = new Date();
   const staleBefore = new Date(now.getTime() - CLAIM_STALE_MS).toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await ledgerWriter(supabase)
     .from("protocol_exits")
     .update({ attach_claimed_at: now.toISOString() })
     .eq("id", plan.id)
@@ -743,7 +744,7 @@ async function patchPlan(
   fields: Record<string, unknown>,
 ): Promise<void> {
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { error } = await ledgerWriter(supabase)
     .from("protocol_exits")
     .update({ ...fields, last_managed_at: now, updated_at: now })
     .eq("id", plan.id)

@@ -156,6 +156,7 @@ const row = (direction: "bullish" | "bearish", rank: number): DailyScanRow => ({
   direction,
   rank,
   symbol: `S${rank}`,
+  strategy_version: "test",
   score: 8,
   output_state: "Execute",
   entry: 100,

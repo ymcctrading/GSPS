@@ -168,12 +168,9 @@ size and refuse every order and replace Guided's own caps (Q4, Q6, Q12).
 **Never-failing rules 1 and 9, same day:** a trade risks at most a tenth of the trading unit (`riskTenthRefusal`, on top of 30 points a share; placement, Guided and the portfolio manager, never a protective order), and the reaction entry keeps its zone but goes at the market once a closed bar trades into it (`gannBuyZone`; the replay fills at the next bar's open). `STRATEGY_VERSION` was `2026-10-16-gann-never-failing-1-9`. Rule 8 holds stocks to 5 open and crypto to 3 (owner). The live daily Rule of Three reads completed sessions only, as the replay does: `STRATEGY_VERSION` is `2026-10-16-gann-rule-of-three-closed`.
 **A-RISK-07, same day:** once a paper account's profits equal its starting capital, a trade risks at most a tenth of those profits, and a loss lowers that at once (`profitRiskCeiling`, *Tunnel Thru the Air* pp.198-199). Once reached it holds while any profit is left, so after a loss the next trade risks a tenth of what remains (`lib/risk/profitPeak.ts` reads the peak). It applies at placement, paper and live, in Guided and in the portfolio manager. A live account's starting capital is its first verified equity read (`risk_live_equity_snapshots`) until net deposits are read from the broker. The replay sizes no position. Verdicts and trades are unchanged, so `STRATEGY_VERSION` stays.
 **A-EXIT-05, same day:** a trader can set the day they will be away from the market; from three days before it, the Dashboard reminds them to close out their trades (`awayReminderDue`, *Tunnel Thru the Air* p.113). A reminder only, like the rest reminder: nothing is closed for them. A new entry placed in that window comes back with the reminder (`lib/trade/away-notice.ts`), Guided shows it on the confirm step, and the portfolio manager opens nothing new in it. The replay models no trader absence.
-**Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` is `2026-10-16-gann-stops-and-steps`.
+**Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` was `2026-10-16-gann-stops-and-steps`.
 **Re-buy after a stop, 2026-10-17 (owner's pick on the card, A-PYRAMID-07, *Tunnel* p.198):** a trade left on a trailing stop while the swing chart still runs its way, and that ran past its entry by the reaction, rests a re-entry 12 Gann points back from its best price with the stop half the reaction beyond (`lib/gann/rebuy.ts`); a reversal opened at the stop is covered there. The replay walks it (`rebuyAfterStop`). Live and paper exits offer it in a note, for automation's trades too: no plan is seeded for it yet, because a resting reaction re-entry has no lifecycle entry kind. `STRATEGY_VERSION` is `2026-10-17-gann-rebuy-after-stop`.
 **Close-out button and the unit after losses, same day:** the rest and away reminders on the Dashboard carry an opt-in "Close all positions" button (M-K4; owner's Q16, "Button"): after a confirm it closes every open paper position at market (`/api/positions/close-all`, `lib/trade/close-position.ts`); nothing closes on its own. A-RISK-03's cut unit after a series of losses is met by the unit itself, never above the equity left, so a trade risks a tenth of what remains (pinned in `gannRiskCapital.test.ts`); the pause is `lossSeries.ts`. A-PYRAMID-08's adds on the decline are the short mirror of the add (pinned), and its re-short on the rally is the re-entry after a stop; its partial covers come from a trade record with no stated rule, so none is built, and Q14 fixes no target.
-**A-RISK-07, same day:** once a paper account's profits equal its starting capital, a trade risks at most a tenth of those profits, and a loss lowers that at once (`profitRiskCeiling`, *Tunnel Thru the Air* pp.198-199). It applies at placement, in Guided and in the portfolio manager. A live account has no starting capital on record, so it is not read there, and the replay sizes no position. Verdicts and trades are unchanged, so `STRATEGY_VERSION` stays.
-**A-EXIT-05, same day:** a trader can set the day they will be away from the market; from three days before it, the Dashboard reminds them to close out their trades (`awayReminderDue`, *Tunnel Thru the Air* p.113). A reminder only, like the rest reminder: nothing is closed for them.
-**Stops and pyramid steps, same day (W006 Rules 2, 4, 5; *Tunnel* p.198):** shorts trail 1 point over the prior week's high (A-STOP-05); in the final stage the stop trails 5 points under the last day's high (A-STOP-04); pyramid adds come every 5 Gann points of profit (A-PYRAMID-01/06) and lift the whole line's stop to the tighter of break-even and 5 points under the add (A-STOP-06; `wholeLineStop`). Live exits, the pyramid suggestion and the replay read the same code. `STRATEGY_VERSION` was `2026-10-16-gann-stops-and-steps`.
 **Review B fixes, 2026-10-17:** Jensen's trine points stay context and only his square points join the S/R list (C-LEVELS-21; 45 and 90 flagged doubly strong), and resistance points within 1% are averaged into one before TP1 and the master are read, as the stop already was (M-P4), on the live scan and the replay alike. Context only: Gann's weekly green/red trend line (`lib/gann/weeklyOneBar.ts`, M-R8, beside the 7-day chart, not replacing it), the Master 12 grid (`masterTwelveCell`, M-T16; the spiral is labelled a GSPS construction), and a spectral cycle needs Schuster's p under 0.05 × min(1, period/20) (CYC-27). `STRATEGY_VERSION` is `2026-10-17-gann-review-b-fixes`.
 **Six-year one-hour run, 2026-09-28** (same notes file, runs 12 and 13): every
 cell loses over 2020-2026, interval wholly below zero, both halves; Execute
@@ -435,7 +432,6 @@ production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitR
 (`LIVE_EXIT_RULE` is "gann" since Q14; `useProductionStop` does nothing under
 "reaction"). `STRATEGY_VERSION` was `2026-10-21-replay-accounting`; Execute and
 the 6/3.5 cutoffs need a fresh run on it.
-the owner. `STRATEGY_VERSION` was `2026-10-21-gann-narrow-range-breakaway`.
 
 **Over-balance answered from Gann, 2026-10-21 (owner: "Determine how WD Gann
 would answer these questions, and those are your answers"; the two questions
@@ -471,18 +467,6 @@ progress only (a standing one was alerted the day it happened), in points. The
 exit rule's trend change reads the over-balancing reaction's own start.
 `STRATEGY_VERSION` was `2026-10-21-gann-overbalance-points-standing`; Execute
 and the 6/3.5 cutoffs need a fresh run on it.
-**Senior code review fixes, 2026-10-21 (owner: "Fill known gaps as Gann
-would").** The live scan's dated reads take the session's noon UTC, as the
-replay's do, not the wall clock (F-03, guarded in `pillarParity.test.ts`).
-Non-equity plans round to the places a price needs and refuse levels that are
-not four distinct positive prices; a short's master that the R projection puts
-below zero goes to the largest eighth of the entry beyond TP1 (F-02).
-Placement reads the limit or the server's quote before every risk ceiling,
-never the ticket's price, and refuses when it has none (F-01); a bought option
-risks its premium under rule 1 (F-04). `STRATEGY_VERSION` is
-`2026-10-21-review-session-clock-sub-dollar`. The review itself is in
-`/mnt/project-files/senior-code-review/`.
-
 **Trend pillar's weekly leg, 2026-10-21 (diagnosis of P2's inversion).** One
 translation defect, fixed. P2's design (`score-pillars-research.md` §3) and
 its source T1 ("on the weekly, buy when the line turns green", Master Course
@@ -621,6 +605,26 @@ score rollup, never the breakdown, since production lets any role read it
 and display name, R-028) were applied to production the same day on the
 owner's go-ahead. `STRATEGY_VERSION` was
 `2026-10-21-review-fixes-on-major-range-levels`.
+**Second round, same day, answered from Gann rather than held (owner: fixes
+built in the review's own session):** the Square of Nine reads all 16 of its
+lines (Gann's plate, Vol. 3 p. 34); with no trend on any chart and no buying point the
+live scan stands aside instead of taking the short side by default
+(`applyStandAsideHold`, never-failing rules 5 and 6, D-05); and the forward
+test (`lib/shadow/evaluate.ts`) enters on the reaction and exits on Gann's
+rules as production does, with the 2026-08-27 baseline labelled as other rules
+and not compared (R-032). Migration 0094 (one-transaction paper fill, the
+strategy version on scans, orders and trades, the forward test's outcomes) is
+applied before the code that writes it merges (applied 2026-10-21 on the
+owner's go-ahead). `STRATEGY_VERSION` was
+`2026-10-21-gann-stand-aside-no-trend`. **The ledger is server-written (R-029):**
+every write to positions, orders, paper accounts, trade logs, exits, plans,
+plan audit, lesson progress, learning labs and the order lock goes through
+`ledgerWriter` (`lib/supabase/ledger.ts`), which swaps a member's session
+client for the service role, and names its user on every insert, update and
+delete. A new write to those tables must do the same. Migration 0095 takes
+member writes away and is applied only after that code is deployed;
+`user_automation_profiles` stays member-written (own settings, entitlement
+checked where it acts).
 
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops
@@ -810,8 +814,10 @@ and monthly pivots as the stand-in for "old", and the 2-session hold; his
 weekly form (2-3 weeks) is not read. Random walks (`heldLevel.test.ts`, 20 walks
 a price, 440 readings a side), long/short before → after: $20 100/100 →
 43.0/50.0%, $50 99.8/100 → 39.5/47.7%, $150 99.8/99.1 → 34.5/42.5%, $500
-99.3/99.8 → 26.6/36.1%. `STRATEGY_VERSION` is `2026-10-21-gann-held-old-level`;
-P5, Execute and the 6/3.5 cutoffs need a fresh run on it.
+99.3/99.8 → 26.6/36.1%. `STRATEGY_VERSION` was `2026-10-21-gann-held-old-level`;
+P5, Execute and the 6/3.5 cutoffs need a fresh run on it. The review's second
+round merged onto it (no new rule): `STRATEGY_VERSION` is
+`2026-10-21-review-second-round-on-held-old-level`.
 
 ## WD Gann precedence — standing principle
 
@@ -823,6 +829,22 @@ methodology**, not GSPS's existing approach. This is a direct, standing
 instruction from the project owner (2026-09-16), not a case-by-case
 judgment call: where a real choice exists between "what GSPS currently
 does" and "what Gann's own sources say," the sources win.
+
+**Gann answers the question; don't hold it for the owner (2026-10-21,
+owner: "anything that can be answered by a Gann method, should use the Gann
+method as an answer. going forward on the GSPS platform").** Before holding
+any question, decision or open item for the owner, ask whether a Gann method
+answers it, and look in his books (`/mnt/project-files/literature-reading-output/`),
+`docs/GANN_HISTORICAL_SOURCES.md` and `docs/memory-bank/`. If one does, that is
+the answer: build it, cite the source in the code and the change record, and
+tell the owner what was decided and why, rather than asking. This covers
+trading rules, thresholds Gann states, entries, exits, stops, sizing, time and
+price readings, and how a rule reads on a surface. Only a question no Gann
+method answers goes to the owner: security, access, billing, ops, legal,
+product copy with no Gann content, or a figure Gann never gave (label that
+engineering choice as such). It is the owner's earlier "Determine how WD Gann
+would answer these questions, and those are your answers" (2026-10-21) made
+standing.
 
 This does not mean bypassing engineering judgment about *how* to translate
 a disclosed rule into working code, and it does not mean porting a raw
@@ -1503,8 +1525,9 @@ for the project owner** — do not fix it silently, and re-verify it first:
   weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
-  `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
-  and `quantityFromPermittedRisk`/`plannedRiskDollars`.
+  `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
+  `quantityFromPermittedRisk`/`plannedRiskDollars` and the rest of the risk-band
+  policy were removed 2026-10-21 (R-004): Gann's capital rules size every order.
 - **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The
   owner saw OXY and GOOGL read invalidated on the Dashboard while the chart
   still showed the plan. Three surfaces called a plan dead from a quote (the

@@ -19,6 +19,7 @@ import { closePositionSim, getOpenPosition, listOpenPositions } from "@/lib/brok
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { brokerStatusFrom, recordOrderExecution } from "@/lib/learning/record";
 import { buildTradeLogRow } from "@/lib/portfolio/trade-log";
+import { insertTradeLog } from "@/lib/portfolio/trade-log-insert";
 import { closeSimPlanForSymbol } from "@/lib/trade/exit-manager-sim";
 
 export interface ClosedPosition {
@@ -67,7 +68,7 @@ export async function closePaperPosition(
       closedQty: fill.qty,
       exitPrice: fill.price,
     });
-    const { error: logError } = await supabase.from("trade_logs").insert(row);
+    const { error: logError } = await insertTradeLog(supabase, { ...row });
     if (logError) {
       console.error(`positions/close: trade log for ${row.symbol} not written — ${logError.message}`);
     } else {

@@ -13,6 +13,7 @@
  * shape (parse, status codes); this owns what actually happens to the money.
  */
 
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
@@ -52,6 +53,7 @@ import { paperTradingUnit } from "@/lib/trade/resting-entry-guard";
 import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -713,6 +715,8 @@ async function placeChecked(
   const ledgerRow = {
     user_id: userId,
     mode: "paper" as const,
+    // The rules this order was placed under (review finding P-02, migration 0094).
+    strategy_version: STRATEGY_VERSION,
     symbol: input.symbol.toUpperCase(),
     asset_class: isOption ? "option" : "us_equity",
     side: input.side,
@@ -836,7 +840,7 @@ async function placeChecked(
       }
     }
 
-    const { data: inserted, error: dbError } = await supabase
+    const { data: inserted, error: dbError } = await ledgerWriter(supabase)
       .from("orders")
       .insert({
         ...ledgerRow,
@@ -876,7 +880,7 @@ async function placeChecked(
       // quantity bought — no "wait for the entry to stop filling" step is
       // needed, unlike the real broker's asynchronous fills.
       if (exitPlan && bracketLevels) {
-        const { data: plan, error } = await supabase
+        const { data: plan, error } = await ledgerWriter(supabase)
           .from("protocol_exits")
           .insert({
             user_id: userId,
@@ -903,7 +907,7 @@ async function placeChecked(
           planError =
             "The order filled, but the staged exit couldn't be saved — TP1 and the final target won't be taken automatically. Close the position by hand if it moves against you.";
         } else if (plan?.id && orderId) {
-          await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
+          await ledgerWriter(supabase).from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId).eq("user_id", userId);
         }
       }
     }
@@ -940,7 +944,7 @@ async function placeChecked(
 
     // Record the rejection. A rejected order still needs a row to be shown,
     // explained and resubmitted from.
-    const { data: inserted, error: dbError } = await supabase
+    const { data: inserted, error: dbError } = await ledgerWriter(supabase)
       .from("orders")
       .insert({
         ...ledgerRow,
@@ -1287,12 +1291,13 @@ async function placeLiveOrder(
     return { status: 502, body: { error: `The broker refused this order — ${raw}`, code: "live_order_rejected" } };
   }
 
-  const { data: inserted, error: dbError } = await supabase
+  const { data: inserted, error: dbError } = await ledgerWriter(supabase)
     .from("orders")
     .insert({
       user_id: userId,
       connection_id: connection.connectionId,
       mode: "live",
+      strategy_version: STRATEGY_VERSION,
       broker_order_id: String(order.id),
       symbol: input.symbol.toUpperCase(),
       asset_class: "us_equity",
@@ -1323,7 +1328,7 @@ async function placeLiveOrder(
       takeProfit1: input.attachLevels!.takeProfit,
       masterProfit: input.attachLevels!.masterProfit ?? null,
     });
-    const { data: plan, error: planErr } = await supabase
+    const { data: plan, error: planErr } = await ledgerWriter(supabase)
       .from("protocol_exits")
       .insert({
         user_id: userId,
@@ -1351,7 +1356,7 @@ async function placeLiveOrder(
       planError =
         "The order was placed, but its staged exit couldn't be saved — attach TP1 and the final target by hand once it fills.";
     } else if (plan?.id) {
-      await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
+      await ledgerWriter(supabase).from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId).eq("user_id", userId);
     }
   }
 

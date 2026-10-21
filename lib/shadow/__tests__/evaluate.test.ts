@@ -10,50 +10,84 @@ const { fetchBarsMock } = vi.hoisted(() => ({ fetchBarsMock: vi.fn() }));
 vi.mock("@/lib/data/provider", () => ({
   getMarketDataProvider: () => ({ fetchBars: fetchBarsMock }),
 }));
+vi.mock("@/lib/data/instrumentReference", () => ({
+  getInstrumentReference: () => Promise.resolve(null),
+}));
 
-import { walkShadowOutcome, evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
+import { walkShadowTrade, evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
+import { resetGannExitCache } from "@/lib/trade/gann-exit-live";
 
-describe("walkShadowOutcome", () => {
-  it("is pending when neither level has been touched and the window hasn't elapsed", () => {
-    const bars = [bar("2026-08-25", 201, 202, 199, 200)];
-    const result = walkShadowOutcome(bars, "bullish", 200, 195, 215, 10);
-    expect(result.outcome).toBe("pending");
+/** Quiet daily history before the signal, so Gann's exit rules have sessions to read. */
+function history(until: string, n = 60, price = 100): Bar[] {
+  const end = new Date(`${until}T05:00:00Z`).getTime();
+  return Array.from({ length: n }, (_, i) => {
+    const t = new Date(end - (n - i) * 86_400_000).toISOString();
+    return bar(t, price, price + 0.5, price - 0.5, price);
+  });
+}
+
+function session(date: string, rows: [number, number, number, number][]): Bar[] {
+  return rows.map(([o, h, l, c], i) => {
+    const minutes = 14 * 60 + 30 + i * 15;
+    const t = `${date}T${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00Z`;
+    return bar(t, o, h, l, c);
+  });
+}
+
+const base = { direction: "bullish" as const, entry: 100, stopLoss: 96 };
+
+describe("walkShadowTrade (R-032: production's reaction entry and the method's exits)", () => {
+  it("never fills a plan whose session passes without a pullback into the zone", () => {
+    const sessionBars = session("2026-08-25", [[101, 102, 100.5, 101.5], [101.5, 103, 101, 102.5]]);
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
+    expect(r.outcome).toBe("expired");
+    expect(r.fillPrice).toBeNull();
   });
 
-  it("wins a long when the target is touched before the stop", () => {
-    const bars = [bar("2026-08-25", 205, 216, 204, 215)];
-    const result = walkShadowOutcome(bars, "bullish", 200, 195, 215, 10);
-    expect(result.outcome).toBe("win");
-    expect(result.rMultiple).toBeCloseTo(3, 6); // 15 reward / 5 risk
-    expect(result.barsHeld).toBe(1);
+  it("stays pending while the session is still open and nothing has happened", () => {
+    const sessionBars = session("2026-08-25", [[101, 102, 100.5, 101.5]]);
+    expect(walkShadowTrade({ ...base, sessionBars, sessionComplete: false, dailyBars: [] }).outcome).toBe("pending");
   });
 
-  it("loses a long when the stop is touched", () => {
-    const bars = [bar("2026-08-25", 199, 200, 194, 196)];
-    const result = walkShadowOutcome(bars, "bullish", 200, 195, 215, 10);
-    expect(result.outcome).toBe("loss");
-    expect(result.rMultiple).toBeCloseTo(-1, 6);
+  it("retires a plan whose bar closes through the stop before the reaction", () => {
+    const sessionBars = session("2026-08-25", [[101, 101, 95, 95.5]]);
+    expect(walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: [] }).outcome).toBe("retired");
   });
 
-  it("counts a same-bar stop-and-target touch as the loss", () => {
-    const bars = [bar("2026-08-25", 200, 220, 190, 210)];
-    const result = walkShadowOutcome(bars, "bullish", 200, 195, 215, 10);
-    expect(result.outcome).toBe("loss");
+  it("fills at the next bar's open after the reaction, and a stop hit is a loss on the plan's risk", () => {
+    const sessionBars = session("2026-08-25", [
+      [101, 101.5, 99.8, 100.2], // trades into the zone
+      [100.4, 100.6, 95, 95.5], // fills at 100.4, then the stop at 96 is hit
+    ]);
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
+    expect(r.fillPrice).toBe(100.4);
+    expect(r.outcome).toBe("loss");
+    expect(r.rMultiple).toBeCloseTo((96 - 100.4) / 4, 6);
+    expect(r.barsHeld).toBe(1);
   });
 
-  it("marks out at the last close as a timeout once the window elapses untouched", () => {
-    const bars = Array.from({ length: 3 }, (_, i) => bar(`2026-08-2${5 + i}`, 200, 201, 199, 201));
-    const result = walkShadowOutcome(bars, "bullish", 200, 195, 215, 3);
-    expect(result.outcome).toBe("timeout");
-    expect(result.rMultiple).toBeCloseTo(0.2, 6); // (201-200)/5
-    expect(result.barsHeld).toBe(3);
+  it("holds with no fixed target: a run far past any target is still open, then marked out at the limit", () => {
+    const sessionBars = session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.4, 101, 100.2, 100.8]]);
+    const after = Array.from({ length: 3 }, (_, i) => {
+      const p = 104 + i * 4;
+      return bar(new Date(Date.UTC(2026, 7, 26 + i, 5)).toISOString(), p, p + 1, p - 0.5, p + 0.5);
+    });
+    const daily = [...history("2026-08-25"), ...after];
+    const open = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: daily, maxHoldDays: 5 });
+    expect(open.outcome).toBe("pending");
+    const done = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: daily, maxHoldDays: 2 });
+    expect(done.outcome).toBe("timeout");
+    expect(done.rMultiple!).toBeGreaterThan(0);
   });
 
-  it("mirrors the arithmetic for a short", () => {
-    const bars = [bar("2026-08-25", 194, 196, 184, 185)];
-    const result = walkShadowOutcome(bars, "bearish", 200, 205, 185, 10);
-    expect(result.outcome).toBe("win");
-    expect(result.rMultiple).toBeCloseTo(3, 6);
+  it("mirrors the reaction for a short", () => {
+    const sessionBars = session("2026-08-25", [
+      [99, 100.3, 98.8, 99.9],
+      [99.6, 104.5, 99.5, 104.2],
+    ]);
+    const r = walkShadowTrade({ direction: "bearish", entry: 100, stopLoss: 104, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
+    expect(r.fillPrice).toBe(99.6);
+    expect(r.outcome).toBe("loss");
   });
 });
 
@@ -76,67 +110,39 @@ describe("evaluatePendingShadowSignals", () => {
     return { client, updates };
   }
 
+  const row = { id: "s1", symbol: "AAPL", direction: "bullish", entry: 100, stop_loss: 96, scanned_at: "2026-08-25T14:30:00Z" };
+
   beforeEach(() => {
     fetchBarsMock.mockReset();
+    resetGannExitCache();
   });
 
-  it("evaluates a resolvable signal and writes its outcome back", async () => {
-    const now = new Date("2026-09-05T00:00:00Z");
-    const { client, updates } = makeSupabase([
-      {
-        id: "s1",
-        symbol: "AAPL",
-        direction: "bullish",
-        entry: 200,
-        stop_loss: 195,
-        target: 215,
-        scanned_at: "2026-08-28T14:30:00Z",
-      },
-    ]);
-    fetchBarsMock.mockResolvedValueOnce([bar("2026-08-31", 205, 216, 204, 215)]);
+  function bars(byTimeframe: Record<string, Bar[]>) {
+    fetchBarsMock.mockImplementation((_s: string, tf: string) => Promise.resolve(byTimeframe[tf] ?? []));
+  }
 
-    const outcome = await evaluatePendingShadowSignals(client, now);
+  it("writes a filled trade's outcome and fill price back", async () => {
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.4, 100.6, 95, 95.5]]),
+      "1Day": history("2026-08-25"),
+    });
+    const { client, updates } = makeSupabase([row]);
+    const outcome = await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
     expect(outcome.evaluated).toBe(1);
-    expect(updates).toHaveLength(1);
-    expect(updates[0]).toMatchObject({ outcome: "win" });
+    expect(updates[0]).toMatchObject({ outcome: "loss", fill_price: 100.4 });
   });
 
-  it("leaves a signal pending when nothing has resolved it yet", async () => {
-    const now = new Date("2026-08-29T00:00:00Z");
-    const { client } = makeSupabase([
-      {
-        id: "s1",
-        symbol: "AAPL",
-        direction: "bullish",
-        entry: 200,
-        stop_loss: 195,
-        target: 215,
-        scanned_at: "2026-08-28T14:30:00Z",
-      },
-    ]);
-    fetchBarsMock.mockResolvedValueOnce([bar("2026-08-28", 200, 201, 199, 200)]);
-
-    const outcome = await evaluatePendingShadowSignals(client, now);
-    expect(outcome.stillPending).toBe(1);
-    expect(outcome.evaluated).toBe(0);
+  it("records a plan that never filled in its session as expired", async () => {
+    bars({ "15Min": session("2026-08-25", [[101, 102, 100.5, 101.5]]), "1Day": history("2026-08-25") });
+    const { client, updates } = makeSupabase([row]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "expired", fill_price: null });
   });
 
   it("counts a per-symbol provider failure without aborting the pass", async () => {
-    const now = new Date("2026-09-05T00:00:00Z");
-    const { client } = makeSupabase([
-      {
-        id: "s1",
-        symbol: "AAPL",
-        direction: "bullish",
-        entry: 200,
-        stop_loss: 195,
-        target: 215,
-        scanned_at: "2026-08-28T14:30:00Z",
-      },
-    ]);
-    fetchBarsMock.mockRejectedValueOnce(new Error("provider timeout"));
-
-    const outcome = await evaluatePendingShadowSignals(client, now);
+    fetchBarsMock.mockRejectedValue(new Error("provider timeout"));
+    const { client } = makeSupabase([row]);
+    const outcome = await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
     expect(outcome.failed).toBe(1);
     expect(outcome.evaluated).toBe(0);
   });

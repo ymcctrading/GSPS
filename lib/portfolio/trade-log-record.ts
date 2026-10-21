@@ -13,7 +13,9 @@
  * `settlePendingTradeLogs` comes back for it once the broker reports the fill.
  */
 
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -63,9 +65,10 @@ export async function recordPendingExit(
   userId: string,
   input: PendingExitLog,
 ): Promise<RecordExitResult> {
-  const { data, error } = await supabase
+  const { data, error } = await ledgerWriter(supabase)
     .from("trade_logs")
     .insert({
+      strategy_version: STRATEGY_VERSION,
       user_id: userId,
       symbol: input.symbol.toUpperCase(),
       asset_class: input.assetClass ?? "us_equity",

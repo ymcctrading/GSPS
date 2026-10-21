@@ -26,15 +26,12 @@
 
 import { EXECUTE_SCORE_THRESHOLD, TOTAL_POINTS } from "@/lib/scoring/weights";
 import {
-  EQUITY_LARGE_CAP_FALLBACK_STOP_PCT,
-  EQUITY_LARGE_CAP_STOP_MAX_PCT,
   EQUITY_MASTER_CAP_PCT,
   EQUITY_TP1_MAX_PCT,
   EQUITY_TP1_MIN_PCT,
   EQUITY_TP2_MAX_PCT,
   EQUITY_TP2_MIN_PCT,
   MASTER_CAP_R,
-  MAX_STOP_ATR_MULTIPLE,
   TP1_MULTIPLE_BY_ASSET,
   TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levelConstants";
@@ -42,21 +39,36 @@ import {
 const r = (n: number): string => `${n}R`;
 const pctRange = (min: number, max: number): string => `${min}–${max}%`;
 
-/** "3-15% on stocks, 1.5R on crypto". */
+// Updated 2026-10-21 (review finding R-007). The copy still described the
+// equity TP1 as a percent of entry scaled by the daily range, and both targets
+// as places the position sells. Since 2026-10-21 the equity TP1 is the first
+// Gann or support/resistance level in the band that pays more than the risk
+// (lib/strat/levels.ts), and since Q14 (2026-10-16) nothing sells at a fixed
+// target: `LIVE_EXIT_RULE` is "gann", so the whole position runs on Gann's
+// stop and exit signals (lib/trade/protocol-exit.ts).
+const NO_FIXED_TARGET =
+  "Nothing is sold there: the method never fixes a profit objective, so the whole position runs on the trailing stop and the protocol's exit signals.";
+
+/** "First level past the risk, 3-15% on stocks; 1.5R on crypto". */
 export const TP1_RULE_LABEL =
-  `${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} on stocks, ${r(TP1_MULTIPLE_BY_ASSET.crypto)} on crypto`;
+  `First key price level that pays more than the risk, ${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} from entry on stocks; ${r(TP1_MULTIPLE_BY_ASSET.crypto)} on crypto`;
 
 export const TP1_RULE_DETAIL =
-  `Stocks: ${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} of entry price, scaled by the stock's own average daily range so a volatile name aims further than a quiet one. ` +
-  `Crypto: ${r(TP1_MULTIPLE_BY_ASSET.crypto)} from entry, or the previous candle's high/low when that structural target is further away.`;
+  `Stocks: the first key price level (structural or clustered support/resistance) between ${EQUITY_TP1_MIN_PCT}% and ${EQUITY_TP1_MAX_PCT}% from entry that lies farther away than the stop. ` +
+  `When no level in that band does, the nearest one is shown and the setup is held from Execute, since a first target no farther than the risk pays even money at best. ` +
+  `With no level in the band at all, the target is set from the stock's own average daily range, inside the same band. ` +
+  `Crypto: ${r(TP1_MULTIPLE_BY_ASSET.crypto)} from entry, or the previous candle's high/low when that structural target is further away. ` +
+  NO_FIXED_TARGET;
 
-/** "6-25% on stocks, 3R on crypto". */
+/** "Next level beyond TP1, up to 25% on stocks; 3R on crypto". */
 export const MASTER_RULE_LABEL =
-  `${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} on stocks, ${r(TP2_MULTIPLE_BY_ASSET.crypto)} on crypto`;
+  `Next key price level beyond TP1, up to ${EQUITY_MASTER_CAP_PCT}% on stocks; ${r(TP2_MULTIPLE_BY_ASSET.crypto)} on crypto`;
 
 export const MASTER_RULE_DETAIL =
-  `Stocks: ${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} of entry price, stepped out to the nearest support or key price level when one sits in range, up to a ${EQUITY_MASTER_CAP_PCT}% ceiling. ` +
-  `Crypto: ${r(TP2_MULTIPLE_BY_ASSET.crypto)} — stepped out to the nearest support or key price level when one sits in range, up to a ${r(MASTER_CAP_R)} ceiling.`;
+  `Stocks: the next key price level at least ${EQUITY_TP1_MIN_PCT}% beyond TP1, up to a ${EQUITY_MASTER_CAP_PCT}% ceiling. ` +
+  `With none there, ${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} of entry, scaled by the stock's average daily range. ` +
+  `Crypto: ${r(TP2_MULTIPLE_BY_ASSET.crypto)}, stepped out to the nearest key price level in range, up to a ${r(MASTER_CAP_R)} ceiling. ` +
+  NO_FIXED_TARGET;
 
 /**
  * How the entry and stop are placed (PLAN.md item 4, 2026-10-15): the
@@ -86,12 +98,15 @@ export const STOP_RULE_DETAIL =
  * (`applyDistributionBreakdownHold`), a failed top between the entry and the
  * first target (`applyFailedTopHold`), a counter-trend turn that came on no
  * dated time window (`applyTimeWindowHold`, Q19), a stock whose own buying
- * points mostly failed (`applyRuleFollowingHold`, Q24) and a stale feed
- * (`applyDataLagHold`).
+ * points mostly failed (`applyRuleFollowingHold`, Q24), a first target no
+ * farther than the risk (M-K5, `tradePlanPriced`), the first or second time
+ * through a round number (`applyFigureCrossingHold`), a weak stock bought in
+ * an advancing market (`applyWeakStockHold`) and a stale feed
+ * (`applyDataLagHold`). A broken stop drops it to Reject (`applyStopBreachHold`).
  * Settings used to state the score cutoff alone, so every hold looked like a
  * bug. No bar-sequence pattern holds a verdict since 2026-10-16 (N#1).
  */
 export const EXECUTE_RULE_LABEL = `Score ${EXECUTE_SCORE_THRESHOLD}+ of ${TOTAL_POINTS}, with a priced trade plan`;
 
 export const EXECUTE_RULE_DETAIL =
-  "A setup also needs a buying or selling point with its entry, stop and targets priced. Execute is held back to Watch when the trade plan is missing, when the market sits in a narrow range and has not yet broken out of it, when the month has broken last month's low against the trade, when a distribution breakdown still stands against a buy, when a failed top stands between the entry and the first target, when a trade against the trend turned on no dated time window, when the stock's own buying points have mostly failed over the year, or when the price feed is a full execution candle or more behind the market.";
+  "A setup also needs a buying or selling point with its entry, stop and targets priced. Execute is held back to Watch when the trade plan is missing, when the market sits in a narrow range and has not yet broken out of it, when the month has broken last month's low against the trade, when a distribution breakdown still stands against a buy, when a failed top stands between the entry and the first target, when a trade against the trend turned on no dated time window, when the stock's own buying points have mostly failed over the year, when the first target is no farther than the risk, when an entry crosses a round number for the first or second time, when a buy is in a stock that reads weak while the market advances, or when the price feed is a full execution candle or more behind the market. A setup whose price has already gone through its own stop drops to Reject.";

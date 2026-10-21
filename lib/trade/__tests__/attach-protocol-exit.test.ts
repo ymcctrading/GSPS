@@ -49,7 +49,7 @@ function stubSupabase(opts: { existingPlan?: unknown } = {}) {
       }),
     },
     positions: {
-      update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+      update: () => ({ eq: function eq(): unknown { return { eq, then: (r: (v: { error: null }) => void) => r({ error: null }) }; } }),
     },
   };
   return { from: (t: string) => tables[t] } as unknown as SupabaseClient;

@@ -20,6 +20,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runAutonomousPortfolioManager } from "@/lib/automation/portfolio-manager";
 import { manageAllSimulatedExits } from "@/lib/trade/exit-manager-sim";
+import { evaluateAllRestingOrders } from "@/lib/brokers/simulator";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. This loop is per-user/per-plan database work with no external data
@@ -33,7 +35,7 @@ export async function GET(req: NextRequest) {
     console.error("automation/portfolio-manager/run: CRON_SECRET is not set — the scheduled run cannot execute");
     return NextResponse.json({ error: "CRON_SECRET is not configured on this deployment" }, { status: 503 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -41,6 +43,9 @@ export async function GET(req: NextRequest) {
   // Exits first: a stop read this pass frees its capital and its market
   // before the manager looks for anything new to open.
   const exits = await manageAllSimulatedExits(supabase as unknown as Parameters<typeof manageAllSimulatedExits>[0]);
+  // Then the resting entries whose price has come, so a fill this pass is in
+  // the book the manager reads before it opens anything new.
+  const resting = await evaluateAllRestingOrders(supabase as unknown as Parameters<typeof evaluateAllRestingOrders>[0]);
   const result = await runAutonomousPortfolioManager(supabase);
-  return NextResponse.json({ ...result, exits });
+  return NextResponse.json({ ...result, exits, resting });
 }

@@ -40,6 +40,7 @@ import type { AlpacaCreds, AlpacaFillActivity, AlpacaOrder } from "@/lib/brokers
 import { getOrders, listFillActivities } from "@/lib/brokers/alpaca";
 import { classifyExit, computeRealizedPl, type ExitCondition } from "@/lib/portfolio/reconcile";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -261,7 +262,7 @@ export async function settlePendingTradeLogs(
 
   const results = await Promise.all(
     updates.map(({ id, ...fields }) =>
-      supabase
+      ledgerWriter(supabase)
         .from("trade_logs")
         .update({ ...fields, updated_at: new Date().toISOString() })
         .eq("id", id)

@@ -955,6 +955,32 @@ export function applyTimeWindowHold(
 }
 
 /**
+ * No trend on the monthly, weekly or daily chart and no buying point armed:
+ * the method stands aside (review finding D-05, 2026-10-21). "Never buck the
+ * trend" and "when in doubt, get out" (never-failing rules 5 and 6,
+ * *Commodities* pp. 43-45): with no trend there is no side to buck or follow,
+ * so there is no trade to watch. The scorecard is still read (on the long
+ * side, a reading only) so the page can show what each check found, but the
+ * verdict is Reject.
+ */
+export function applyStandAsideHold(decision: ScanDecision, standAside: boolean): ScanDecision {
+  if (!standAside || decision.outputState === "Reject") return decision;
+  return {
+    ...decision,
+    outputState: "Reject",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "standAside",
+        criterion: "A trend to trade with",
+        passed: false,
+        note: "No trend on the monthly, weekly or daily chart and no buying point armed: with no side to take, the method stands aside until a trend or a buying point appears.",
+      },
+    ],
+  };
+}
+
+/**
  * A breached stop retires the plan (owner decision, 2026-09-30; see
  * `lib/gann/stopBreach.ts`). When the plan's stop is broken (price through it,
  * or broken earlier in the session and not yet closed back through the level by

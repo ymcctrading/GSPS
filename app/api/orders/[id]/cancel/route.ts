@@ -27,6 +27,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { normalizeOrderStatus } from "@/lib/portfolio/order-status";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { cancelOrder } from "@/lib/brokers/alpaca";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const { error: updateError } = await service
+  const { error: updateError } = await ledgerWriter(service)
     .from("orders")
     .update({
       status: "canceled",

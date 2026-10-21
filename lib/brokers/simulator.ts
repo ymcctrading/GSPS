@@ -36,10 +36,12 @@ import {
 } from "@/lib/trade/invalidate-pending";
 import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import { checkBracket } from "@/lib/trade/bracket";
+import { insertTradeLog, TRADE_LOG_ATTEMPTS } from "@/lib/portfolio/trade-log-insert";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { isProtectiveOrder } from "@/lib/trade/kill-switch";
 import type { createClient } from "@/lib/supabase/server";
 import type { AssetClass } from "@/lib/types";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -59,7 +61,7 @@ export async function getOrCreateAccount(supabase: Supabase, userId: string): Pr
     .maybeSingle();
   if (data) return { cash: Number(data.cash) };
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await ledgerWriter(supabase)
     .from("paper_accounts")
     .insert({ user_id: userId, cash: STARTING_CASH })
     .select("cash")
@@ -84,7 +86,7 @@ export async function getOrCreateAccount(supabase: Supabase, userId: string): Pr
  * this only ever adjusts an existing one.
  */
 export async function adjustCash(supabase: Supabase, userId: string, delta: number): Promise<void> {
-  const { error } = await supabase.rpc("increment_paper_cash", { p_user_id: userId, p_delta: delta });
+  const { error } = await ledgerWriter(supabase).rpc("increment_paper_cash", { p_user_id: userId, p_delta: delta });
   if (error) throw new Error(`Cash update failed for user ${userId}: ${error.message}`);
 }
 
@@ -389,10 +391,9 @@ export async function executeFill(
   const notional = input.price * input.qty;
   await getOrCreateAccount(supabase, userId); // ensures the row exists before the increment below
   const cashDelta = input.side === "buy" ? -notional : notional;
-  await adjustCash(supabase, userId, cashDelta);
 
   const assetClass = input.assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity";
-  const { data, error } = await supabase.rpc("execute_position_fill", {
+  const fill = {
     p_user_id: userId,
     p_symbol: symbol,
     p_asset_class: assetClass,
@@ -403,7 +404,16 @@ export async function executeFill(
     p_take_profit: input.takeProfit ?? null,
     p_master_profit: input.masterProfit ?? null,
     p_scan_result_id: input.scanResultId ?? null,
-  });
+  };
+  // The cash and the position move in one transaction (review finding S-08,
+  // migration 0094): before, the cash moved first, so a failed position write
+  // left cash spent with no position. Until 0094 is applied the function is
+  // missing and the two calls run as before.
+  let { data, error } = await ledgerWriter(supabase).rpc("execute_paper_fill", { ...fill, p_cash_delta: cashDelta });
+  if (error && isMissingFunction(error)) {
+    await adjustCash(supabase, userId, cashDelta);
+    ({ data, error } = await ledgerWriter(supabase).rpc("execute_position_fill", fill));
+  }
   if (error) throw new Error(`Position fill failed for ${symbol}: ${error.message}`);
 
   const result = data as { positionId: string | null; closed: (NonNullable<FillOutcome["closed"]> & { openedAt: string }) | null };
@@ -427,6 +437,11 @@ async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string
     .limit(1)
     .maybeSingle();
   return data != null;
+}
+
+/** PostgREST's "no such function" (PGRST202) or Postgres's undefined_function (42883). */
+function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || error.code === "42883";
 }
 
 function round2(n: number): number {
@@ -458,7 +473,7 @@ export async function logPlainClose(
   const perShare = closed.qty > 0 ? closed.realizedPl / closed.qty : 0;
   const percent = closed.entryPrice === 0 ? null : round2((perShare / closed.entryPrice) * 100);
 
-  const { error } = await supabase.from("trade_logs").insert({
+  const { error } = await insertTradeLog(supabase, {
     user_id: userId,
     symbol: symbol.toUpperCase(),
     asset_class: assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity",
@@ -474,7 +489,7 @@ export async function logPlainClose(
     exit_condition: "manual",
     signal_called: "manual order",
   });
-  if (error) console.error(`simulator: trade log for ${symbol} not written — ${error.message}`);
+  if (error) console.error(`simulator: trade log for ${symbol} not written after ${TRADE_LOG_ATTEMPTS} attempts — ${error.message}`);
 }
 
 /** Liquidate all (or `qty`) of an open position at the current market price. */
@@ -596,7 +611,7 @@ export async function evaluateRestingOrders(
     };
     if (isInvalidatedByStop(invalidatable, market)) {
       const reason = invalidationReason(invalidatable, market);
-      const { data: claimed } = await supabase
+      const { data: claimed } = await ledgerWriter(supabase)
         .from("orders")
         .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
         .eq("id", row.id)
@@ -632,7 +647,7 @@ export async function evaluateRestingOrders(
         const check = bracket ? checkBracket({ side, basePrice: market, stopLoss: bracket.stopLoss, takeProfit: bracket.takeProfit }) : null;
         if (!check?.ok) {
           const reason = `The market reached ${market} before this order filled, past its own stop or target. ${check?.reason ?? "Its levels couldn't be read."} Refresh the setup and resubmit.`;
-          const { data: rejected } = await supabase
+          const { data: rejected } = await ledgerWriter(supabase)
             .from("orders")
             .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
             .eq("id", row.id)
@@ -661,7 +676,7 @@ export async function evaluateRestingOrders(
         price: market,
       });
       if (refusal) {
-        const { data: cancelled } = await supabase
+        const { data: cancelled } = await ledgerWriter(supabase)
           .from("orders")
           .update({ status: "rejected", reject_reason: refusal.error, updated_at: new Date().toISOString() })
           .eq("id", row.id)
@@ -675,7 +690,7 @@ export async function evaluateRestingOrders(
 
       // Claim before executing, same reasoning as the exit manager's tranche
       // claim: a concurrent poll must not fill this same resting order twice.
-      const { data: claimed } = await supabase
+      const { data: claimed } = await ledgerWriter(supabase)
         .from("orders")
         .update({ status: "filled", filled_qty: row.qty, filled_avg_price: market, updated_at: new Date().toISOString() })
         .eq("id", row.id)
@@ -703,6 +718,58 @@ export async function evaluateRestingOrders(
     }
   }
   return { filled, invalidated, refused, error: null };
+}
+
+/**
+ * Every account's resting paper orders, on the scheduled run (review,
+ * 2026-10-21). `evaluateRestingOrders` ran only when someone opened the
+ * orders page, so a resting entry whose price had come waited, unfilled, for
+ * its owner to look: the same shape the exits had before the scheduled run
+ * managed them (`manageAllSimulatedExits`). Called with the service-role
+ * client by `/api/automation/portfolio-manager/run`; each account is read on
+ * its own, as the page reads it.
+ */
+export async function evaluateAllRestingOrders(
+  supabase: Supabase,
+): Promise<{ accounts: number; filled: number; invalidated: number; refused: number; errors: string[] }> {
+  const out = { accounts: 0, filled: 0, invalidated: 0, refused: 0, errors: [] as string[] };
+  const { data, error } = await supabase
+    .from("orders")
+    .select("user_id")
+    .eq("mode", "paper")
+    .eq("status", "new")
+    .in("order_type", ["limit", "bracket"])
+    .limit(1000);
+  if (error) {
+    out.errors.push(`Could not list resting paper orders: ${error.message}`);
+    return out;
+  }
+  const users = [...new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id))];
+  for (const userId of users) {
+    out.accounts++;
+    const email = await accountEmail(supabase, userId);
+    const run = await evaluateRestingOrders(supabase, userId, email).catch((err: unknown) => ({
+      filled: 0,
+      invalidated: 0,
+      refused: 0,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    out.filled += run.filled;
+    out.invalidated += run.invalidated;
+    out.refused += run.refused;
+    if (run.error) out.errors.push(`${userId}: ${run.error}`);
+  }
+  return out;
+}
+
+/** The account's e-mail for the order-invalidated notice; null when it can't be read. */
+async function accountEmail(supabase: Supabase, userId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.admin.getUserById(userId);
+    return data?.user?.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 interface RestingBracket {
@@ -739,7 +806,7 @@ async function attachRestingExitPlan(
     masterProfit: levels.masterProfit,
   });
   const now = new Date().toISOString();
-  const { data: plan, error } = await supabase
+  const { data: plan, error } = await ledgerWriter(supabase)
     .from("protocol_exits")
     .insert({
       user_id: userId,
@@ -765,5 +832,5 @@ async function attachRestingExitPlan(
     console.error(`simulator: exit plan for resting ${symbol} order ${orderId} not recorded — ${error.message}`);
     return;
   }
-  if (plan?.id) await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
+  if (plan?.id) await ledgerWriter(supabase).from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId).eq("user_id", userId);
 }

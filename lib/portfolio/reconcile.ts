@@ -33,6 +33,8 @@
 import type { AlpacaCreds } from "@/lib/brokers/alpaca";
 import { getOrders } from "@/lib/brokers/alpaca";
 import { createClient } from "@/lib/supabase/server";
+import { insertTradeLog } from "@/lib/portfolio/trade-log-insert";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -189,7 +191,7 @@ async function recordOpen(supabase: Supabase, userId: string, live: LivePosition
   // The Supabase client resolves with `{ error }` rather than rejecting, so a
   // failed insert would otherwise vanish silently instead of showing up as a
   // rejection in reconcilePositions' Promise.allSettled.
-  const { error } = await supabase.from("positions").insert({
+  const { error } = await ledgerWriter(supabase).from("positions").insert({
     user_id: userId,
     connection_id: order?.connection_id ?? null,
     mode: "live",
@@ -229,10 +231,11 @@ async function recordClose(
   if (!closingOrder) {
     // Closed outside any order we tracked (e.g. via the broker directly) —
     // mark it closed without fabricating an exit price or P/L.
-    const { error } = await supabase
+    const { error } = await ledgerWriter(supabase)
       .from("positions")
       .update({ closed: true, closed_at: new Date().toISOString() })
-      .eq("id", openRow.id);
+      .eq("id", openRow.id)
+      .eq("user_id", userId);
     if (error) throw new Error(`positions close for ${openRow.symbol} failed: ${error.message}`);
     return;
   }
@@ -265,7 +268,7 @@ async function recordClose(
   // failure on this exact retry, immediately after the first insert
   // succeeded, can in principle double-write the row; that is a visible,
   // auditable duplicate, which is the safer failure to risk.
-  const { error: logError } = await supabase.from("trade_logs").insert({
+  const { error: logError } = await insertTradeLog(supabase, {
     user_id: userId,
     position_id: openRow.id,
     symbol: openRow.symbol,
@@ -285,10 +288,11 @@ async function recordClose(
   });
   if (logError) throw new Error(`trade_logs insert for ${openRow.symbol} failed: ${logError.message}`);
 
-  const { error: closeError } = await supabase
+  const { error: closeError } = await ledgerWriter(supabase)
     .from("positions")
     .update({ closed: true, closed_at: closingOrder.filled_at, realized_pl: realizedPl })
-    .eq("id", openRow.id);
+    .eq("id", openRow.id)
+    .eq("user_id", userId);
   if (closeError) {
     throw new Error(`positions close for ${openRow.symbol} failed: ${closeError.message}`);
   }

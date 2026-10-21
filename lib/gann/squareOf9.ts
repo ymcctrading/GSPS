@@ -4,10 +4,17 @@
  * Prices map onto a square-root spiral: one full 360° rotation adds 2 to
  * sqrt(price) (the Master Course wheel's diagonals, 3, 13, 31, 57, 91, step
  * this way; the anonymous W009 table steps half as far, see C-LEVELS-14 in
- * `lib/__tests__/gann.test.ts`). From an anchor price (major low or high), levels at the
- * cardinal (0/90/180/270°) and ordinal (45/135/225/315°) angles are:
+ * `lib/__tests__/gann.test.ts`). From an anchor price (major low or high), levels on
+ * each of the square's 16 lines, one every 22.5°, are:
  *
  *   level(deg) = (sqrt(anchor) + deg/180)²
+ *
+ * 16 lines, not 8 (2026-10-21, review; AGENTS.md "Gann answers the question"):
+ * Gann's own Square of Nine plate (Vol. 3 p. 34) labels the circle every
+ * 22.5°, and the Master Chart sheets of it mark 16 lines (source note B12).
+ * Until this date the code read only the cardinal and ordinal 8, every 45°.
+ * The 22.5° line is read as an angle round the ring (half-way between the 0°
+ * and 45° cells on an even ring), as B12 records the convention.
  *
  * These are the classic "natural support/resistance" coordinates where the
  * protocol expects liquidity to rest.
@@ -26,7 +33,8 @@ export interface S9Level {
   role: LevelRole;
 }
 
-const DEGREES = [0, 45, 90, 135, 180, 225, 270, 315];
+/** The square's 16 lines, every 22.5° (Gann's plate, Vol. 3 p. 34). */
+const DEGREES = Array.from({ length: 16 }, (_, i) => i * 22.5);
 
 export function squareOf9Levels(
   anchorPrice: number,

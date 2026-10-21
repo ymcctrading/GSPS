@@ -73,7 +73,7 @@ describe("evaluateShadowDrift", () => {
           return {
             select: () => ({
               eq: () => ({
-                not: () => ({
+                in: () => ({
                   gte: () => Promise.resolve({ data: rows, error: null }),
                 }),
               }),
@@ -112,12 +112,20 @@ describe("evaluateShadowDrift", () => {
     expect(alert!.shadow.trades).toBe(MIN_SHADOW_SAMPLES);
   });
 
+  it("withholds, without reading, when the baseline was measured on another strategy version", async () => {
+    const rows = Array.from({ length: MIN_SHADOW_SAMPLES }, () => ({ outcome: "loss" as const, r_multiple: -1 }));
+    const { client } = makeSupabase(rows);
+    const stale = { ...BASELINE, strategyVersion: "2026-08-27" };
+    expect(await evaluateShadowDrift(client, stale, 60, new Date("2026-09-01T00:00:00Z"))).toBeNull();
+    expect(sendOperatorDriftAlertEmailMock).not.toHaveBeenCalled();
+  });
+
   it("returns null on a read error", async () => {
     const client = {
       from: () => ({
         select: () => ({
           eq: () => ({
-            not: () => ({
+            in: () => ({
               gte: () => Promise.resolve({ data: null, error: { message: "boom" } }),
             }),
           }),

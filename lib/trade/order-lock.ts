@@ -22,6 +22,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 /** Longer than any one placement (a quote, a few reads, a write). */
 export const LEASE_SECONDS = 30;
@@ -62,7 +63,7 @@ export async function withOrderLock<T>(
   const token = randomUUID();
   const deadline = Date.now() + (options.waitMs ?? WAIT_MS);
   for (;;) {
-    const { data, error } = await supabase.rpc("try_acquire_order_lock", {
+    const { data, error } = await ledgerWriter(supabase).rpc("try_acquire_order_lock", {
       p_user_id: userId,
       p_token: token,
       p_ttl_seconds: LEASE_SECONDS,
@@ -78,7 +79,7 @@ export async function withOrderLock<T>(
   try {
     return await place();
   } finally {
-    const { error } = await supabase.rpc("release_order_lock", { p_user_id: userId, p_token: token });
+    const { error } = await ledgerWriter(supabase).rpc("release_order_lock", { p_user_id: userId, p_token: token });
     // The lease lapses on its own; a failed release only delays the next order.
     if (error) console.error(`order-lock: release failed for ${userId} — ${error.message}`);
   }
