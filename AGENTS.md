@@ -636,6 +636,11 @@ figure it out"):** the server reads `serviceRoleKey()`
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
 The readable legacy variable was removed from Vercel once production ran on
 the secret key. Read the key through that helper, never from `process.env`.
+**Breached passwords (S-11):** Supabase's leaked-password setting is a
+dashboard switch no tool here reaches, so sign-up, reset and the Settings
+password change refuse a password found in Have I Been Pwned
+(`lib/auth/breached-password.ts`, k-anonymity through
+`/api/auth/password-breach`; fails open). A new password form calls it too.
 
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops
