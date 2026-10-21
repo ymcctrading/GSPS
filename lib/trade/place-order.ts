@@ -55,6 +55,7 @@ import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { paperEquity } from "@/lib/portfolio/paper-equity";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -523,7 +524,12 @@ async function placeChecked(
         (sum, p) => sum + (p.stop_loss == null ? 0 : Math.abs(p.avg_entry_price - p.stop_loss) * p.qty),
         0,
       ) + working.reduce((sum, w) => sum + (w.stop == null ? 0 : Math.abs(w.price - w.stop) * w.qty), 0);
-    const equity = account.cash + positionsUsd;
+    // A short is owed back, so it counts against the account (paperEquity);
+    // positions at cost, as the deployed figure reads them.
+    const equity = paperEquity(
+      account.cash,
+      openPositions.map((p) => ({ side: p.side, qty: p.qty, price: p.avg_entry_price })),
+    );
     const candidateSymbol = input.symbol.toUpperCase();
     const bookSymbols = new Set([...openPositions.map((p) => p.symbol.toUpperCase()), ...working.map((w) => w.symbol)]);
     const candidateJoinsExistingGroup = bookSymbols.has(candidateSymbol);

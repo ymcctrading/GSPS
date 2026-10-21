@@ -28,6 +28,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { paperEquity } from "@/lib/portfolio/paper-equity";
 import {
   STARTING_CASH,
   getOrCreateAccount,
@@ -64,8 +65,11 @@ export async function restingEntryRefusal(
   if (isProtectiveOrder(held?.side ?? null, order.side, order.qty, held?.qty ?? 0)) return null;
 
   const account = await getOrCreateAccount(supabase, userId);
-  const deployed = open.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
-  const equity = Math.max(account.cash + deployed, 0);
+  // A short is owed back, so it counts against the account (paperEquity).
+  const equity = Math.max(
+    paperEquity(account.cash, open.map((p) => ({ side: p.side, qty: p.qty, price: p.avg_entry_price }))),
+    0,
+  );
 
   const capital = capitalRuleRefusal({
     capital: equity,

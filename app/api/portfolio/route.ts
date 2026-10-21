@@ -6,7 +6,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { paperEquity, recordPaperEquityMarks } from "@/lib/portfolio/paper-equity";
 import {
   getOrCreateAccount,
   listOpenPositions,
@@ -114,7 +115,18 @@ export async function GET() {
     // Paper-only — `equity` below must never include a live leg's value.
     const rawPositions: RawPosition[] = positionRows.map((p) => toRawPosition(p, "paper"));
 
-    const equity = account.cash + rawPositions.reduce((sum, p) => sum + p.marketValue, 0);
+    // A short is owed back, so it counts against the account (paperEquity).
+    // Before 2026-10-21 this added a short's market value, so a short sale's
+    // credited cash was counted twice.
+    const equity = paperEquity(
+      account.cash,
+      rawPositions.map((p) => ({ side: p.side === "short" ? "short" : "long", qty: Math.abs(p.qty), price: p.currentPrice })),
+    );
+    // The account's record over time (migration 0101); never blocks the page.
+    await recordPaperEquityMarks(
+      createServiceClient(),
+      new Map([[user.id, { equity, cash: account.cash, openPositions: rawPositions.length }]]),
+    ).catch((err: unknown) => console.error(`portfolio: equity mark not recorded — ${String(err)}`));
 
     const openedBySymbol = new Map<string, OpenedAt>(
       allPositionRows.map((p) => [p.symbol.toUpperCase(), { openedAt: p.opened_at, reason: "derived" as const }]),
