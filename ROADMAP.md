@@ -2,7 +2,12 @@
 
 **Status:** Active — this is the governing roadmap for GSPS.
 **Horizon:** 12 months from August 2026.
-**Last updated:** 2026-10-16 (Strategy Modes and custom scripts became
+**Synthesized roadmap (2026-10-21):** `docs/SYNTHESIZED_ROADMAP.md` now
+governs what is built and in what order. It joins this roadmap with the parity
+documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
+This file keeps each phase's detail and history.
+**Last updated:** 2026-10-21 (pointer to the synthesized roadmap). Previously
+2026-10-16 (Strategy Modes and custom scripts became
 explain-only by owner decision: GSPS's plan sets every level and a chosen
 technique explains it. See the note on the "Strategy Modes" entry under Q1.)
 Previously 2026-10-01 (Built the three held items from the setup-lifecycle
