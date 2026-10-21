@@ -1,0 +1,185 @@
+/**
+ * GSPS — the intraday focus list: the stocks the evening reads as primed for
+ * the next session, so the intraday scan times those instead of a fixed list
+ * (owner, 2026-10-21: "Just take the highly likely, and track those.
+ * invalidate and replace them with executable moves throughout the day").
+ *
+ * Gann chose his active stocks from the daily charts, then timed the entry on
+ * the hourly and session charts (Master Course Ch. 13); he traded active
+ * stocks (*Truth of the Stock Tape*). A stock is primed for one of four
+ * reasons, each his:
+ *
+ * 1. `plan_near` — a standing Execute or Watch plan whose entry is within a
+ *    day's range of the last close (`lib/setups/resting.ts`'s reading, the
+ *    owner's own line between a plan to time today and a resting order).
+ * 2. `narrow_range` — the market has been held narrow for two weeks or more
+ *    (`narrowRangeSessions`, Master Course pp. 246-248: "2-6 or 10-13 weeks
+ *    in a narrow range ... the longer in range, the bigger the move";
+ *    *Commodities* p. 51). Flagged at the edge when the close is within the
+ *    3-point allowance of the range's top or bottom, where the breakaway comes.
+ * 3. `big_day` — the last session was a reverse signal day or a 7-10 Day
+ *    turn (`readReverseSignal`, *Commodities* pp. 319-321), or a wide range on
+ *    heavy volume, which marks a culmination or a breakaway the next session
+ *    confirms or reverses (*45 Years* Ch. X; *New Stock Trend Detector*
+ *    pp. 39-45). "Wide" is twice the 14-session average true range and
+ *    "heavy" the volume climax's 1.5× (`VOLUME_CLIMAX_THRESHOLD`): the width
+ *    is an engineering figure, labelled; Gann gives none.
+ * 4. `old_level` — the close within the 3-point allowance of the last
+ *    completed 3-Day Chart top above it or bottom below it, the old level his
+ *    crossing rule acts on (W006 p. 20; `lib/gann/entryTrigger.ts`).
+ *
+ * Gann ranks none of these above another (AGENTS.md, "The scorecard's
+ * role"), so the list orders by how many reasons a stock has, then by its
+ * average dollar volume (the more active stock first). `FOCUS_SIZE` is an
+ * engineering figure sized to the free feed, labelled.
+ *
+ * Mandate: Gann as cited. Dewey: no periodicity claim. Hermetic: Cause and
+ * Effect (each reason is a cause the chart already shows; the session is its
+ * effect) and Rhythm (the list is rebuilt every evening and thinned through
+ * the day as stops break, a wheel, not a batch). Law of Creation: the evening
+ * read ⊗ the session's timing; neither alone says "this stock, now".
+ */
+
+import type { Bar } from "@/lib/types";
+import type { DailyPlanLevels } from "@/lib/scanner/intraday";
+import { atr } from "@/lib/analysis/pivots";
+import { narrowRangeSessions, BREAKAWAY_RANGE_DAYS } from "@/lib/gann/breakaway";
+import { readReverseSignal } from "@/lib/gann/extremeRules";
+import { gannThreePoints } from "@/lib/gann/pointScale";
+import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { VOLUME_CLIMAX_THRESHOLD } from "@/lib/gann/volumeClimax";
+import { readLiquidity } from "@/lib/scan/liquidity";
+
+/** Names the intraday scan times from the list at once (engineering, labelled). */
+export const FOCUS_SIZE = 36;
+/** Names stored per evening, so a broken one is replaced by the next. */
+export const FOCUS_STORED = 72;
+/** A wide day is this many 14-session average true ranges (engineering, labelled). */
+export const WIDE_DAY_ATRS = 2;
+/** Sessions read for the average true range and volume. */
+const AVERAGE_SESSIONS = 20;
+
+export type BigDaySignal =
+  | "reverse_top"
+  | "reverse_bottom"
+  | "seven_to_ten_top"
+  | "seven_to_ten_bottom"
+  | "wide_up"
+  | "wide_down";
+
+export type FocusReason =
+  | { kind: "plan_near"; direction: "up" | "down"; verdict: "Execute" | "Watch"; entry: number; distance: number }
+  | { kind: "narrow_range"; sessions: number; top: number; bottom: number; edge: "top" | "bottom" | null }
+  | { kind: "big_day"; signal: BigDaySignal }
+  | { kind: "old_level"; level: number; side: "top" | "bottom" };
+
+export interface FocusReading {
+  symbol: string;
+  reasons: FocusReason[];
+  close: number;
+  avgDollarVolume: number;
+}
+
+/** Calendar milliseconds in a day. */
+const DAY_MS = 86_400_000;
+
+function narrowRange(sessions: Bar[], close: number): FocusReason | null {
+  const last = sessions[sessions.length - 1];
+  const cutoff = Date.parse(last.t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
+  const window = sessions.filter((b) => Date.parse(b.t) > cutoff);
+  const run = narrowRangeSessions(window);
+  if (!run) return null;
+  const top = Math.max(...run.map((b) => b.h));
+  const bottom = Math.min(...run.map((b) => b.l));
+  const toTop = top - close <= gannThreePoints(top) ? top - close : Infinity;
+  const toBottom = close - bottom <= gannThreePoints(bottom) ? close - bottom : Infinity;
+  const edge = toTop === Infinity && toBottom === Infinity ? null : toTop <= toBottom ? "top" : "bottom";
+  return { kind: "narrow_range", sessions: run.length, top, bottom, edge };
+}
+
+function bigDay(sessions: Bar[]): FocusReason | null {
+  const reverse = readReverseSignal(sessions);
+  if (reverse.signal) {
+    const prefix = reverse.rule === "sevenToTenDay" ? "seven_to_ten" : "reverse";
+    return { kind: "big_day", signal: `${prefix}_${reverse.signal}` as BigDaySignal };
+  }
+  if (sessions.length < AVERAGE_SESSIONS + 2) return null;
+  const last = sessions[sessions.length - 1];
+  const prior = sessions.slice(0, -1);
+  const prev = prior[prior.length - 1];
+  const range = Math.max(last.h - last.l, Math.abs(last.h - prev.c), Math.abs(last.l - prev.c));
+  const avgRange = atr(prior.slice(-(AVERAGE_SESSIONS + 1)), 14);
+  const avgVolume = prior.slice(-AVERAGE_SESSIONS).reduce((s, b) => s + b.v, 0) / AVERAGE_SESSIONS;
+  if (!(avgRange > 0) || !(avgVolume > 0)) return null;
+  if (range < WIDE_DAY_ATRS * avgRange || last.v < VOLUME_CLIMAX_THRESHOLD * avgVolume) return null;
+  return { kind: "big_day", signal: last.c >= prev.c ? "wide_up" : "wide_down" };
+}
+
+function oldLevel(sessions: Bar[], close: number): FocusReason | null {
+  const pivots = walkSwingChart(sessions, THREE_DAY_CHART).pivots;
+  const top = [...pivots].reverse().find((p) => p.kind === "top" && p.price > close);
+  const bottom = [...pivots].reverse().find((p) => p.kind === "bottom" && p.price < close);
+  const nearTop = top && top.price - close <= gannThreePoints(top.price) ? top.price - close : Infinity;
+  const nearBottom = bottom && close - bottom.price <= gannThreePoints(bottom.price) ? close - bottom.price : Infinity;
+  if (nearTop === Infinity && nearBottom === Infinity) return null;
+  return nearTop <= nearBottom
+    ? { kind: "old_level", level: top!.price, side: "top" }
+    : { kind: "old_level", level: bottom!.price, side: "bottom" };
+}
+
+function planNear(plan: DailyPlanLevels | null, close: number, dayRange: number): FocusReason | null {
+  if (!plan || !(dayRange > 0)) return null;
+  const distance = Math.abs(close - plan.entry);
+  if (distance > dayRange) return null;
+  // A plan whose stop the close is already through is broken, not near.
+  if (plan.direction === "up" ? close <= plan.stop : close >= plan.stop) return null;
+  return { kind: "plan_near", direction: plan.direction, verdict: plan.verdict, entry: plan.entry, distance };
+}
+
+/**
+ * Why `sessions` (completed daily bars, oldest first) is primed for the next
+ * session, or null when it has no reason or too little history.
+ */
+export function readFocus(symbol: string, sessions: Bar[], plan: DailyPlanLevels | null): FocusReading | null {
+  if (sessions.length < AVERAGE_SESSIONS + 2) return null;
+  const close = sessions[sessions.length - 1].c;
+  if (!(close > 0)) return null;
+  const liquidity = readLiquidity(sessions);
+  const dayRange = atr(sessions.slice(-(14 + 1)), 14);
+  const reasons = [
+    planNear(plan, close, dayRange),
+    narrowRange(sessions, close),
+    bigDay(sessions),
+    oldLevel(sessions, close),
+  ].filter((r): r is FocusReason => r !== null);
+  if (reasons.length === 0) return null;
+  return { symbol, reasons, close, avgDollarVolume: liquidity?.avgDollarVolume ?? 0 };
+}
+
+/** More reasons first, then the more active stock (Gann ranks no reason above another). */
+export function rankFocus(readings: FocusReading[], limit = FOCUS_STORED): FocusReading[] {
+  return [...readings]
+    .sort((a, b) => b.reasons.length - a.reasons.length || b.avgDollarVolume - a.avgDollarVolume)
+    .slice(0, limit);
+}
+
+/** One line a person reads for a reason. */
+export function describeFocusReason(reason: FocusReason): string {
+  switch (reason.kind) {
+    case "plan_near":
+      return `${reason.verdict} plan's entry ${reason.entry.toFixed(2)} is within a day's range`;
+    case "narrow_range":
+      return `${reason.sessions} sessions in a narrow range${reason.edge ? `, at its ${reason.edge}` : ""}`;
+    case "big_day":
+      return {
+        reverse_top: "Reverse signal day at a top",
+        reverse_bottom: "Reverse signal day at a bottom",
+        seven_to_ten_top: "7-10 day run turned down",
+        seven_to_ten_bottom: "7-10 day run turned up",
+        wide_up: "Wide range up on heavy volume",
+        wide_down: "Wide range down on heavy volume",
+      }[reason.signal];
+    case "old_level":
+      return `Within 3 points of the old ${reason.side} at ${reason.level.toFixed(2)}`;
+  }
+}

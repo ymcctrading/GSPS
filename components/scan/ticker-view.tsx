@@ -12,6 +12,7 @@ import { SignalCard } from "@/components/scan/signal-card";
 import { SignalRegimeCard } from "@/components/scan/signal-regime-card";
 import { ConfluenceCard } from "@/components/scan/confluence-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
+import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
@@ -290,6 +291,12 @@ export function TickerView({ symbol }: { symbol: string }) {
       </div>
 
       <MarketTabs symbol={symbol} result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+
+      {/* The intraday read of this symbol, beside the daily verdict and
+          labelled apart from it: a daily Reject and an intraday signal can
+          stand together (TSLA, 2026-10-21). Hidden where the plan has no
+          intraday access or nobody is signed in. */}
+      <IntradayAlerts symbols={[symbol]} hideWhenLocked title={`${symbol} intraday, separate from the daily verdict`} />
 
       {result && <SignalCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
 

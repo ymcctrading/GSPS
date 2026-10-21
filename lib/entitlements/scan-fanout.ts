@@ -100,7 +100,8 @@ export async function fanOutForProfile(
 /**
  * Evaluates a monitor for every visible setup (WATCH/EXECUTE) and for every
  * scanned-but-rejected symbol that already has an open monitor
- * (INVALIDATED). Records and immediately dispatches a notification delivery
+ * (INVALIDATED when the scan retired its plan for a broken stop, NO_SETUP
+ * otherwise). Records and immediately dispatches a notification delivery
  * for each transition that confirms WATCH -> EXECUTE, and for each tracked
  * setup that just broke (WATCH/EXECUTE -> INVALIDATED). Returns the number
  * of deliveries this call actually sent (not merely recorded), for callers
@@ -202,13 +203,24 @@ export async function evaluateMonitorsAndNotify(
 
   const invalidatedWorthy: { transitionId: string; symbol: string }[] = [];
 
+  // Only a broken stop invalidates a tracked setup: in Gann's method a plan
+  // ends on its stop (*New Stock Trend Detector* p. 20; `lib/gann/stopBreach.ts`),
+  // not on a recount of its checks. Any other Reject (the score slipping under
+  // the Watch cutoff, the stand-aside hold, no direction) is a later scan not
+  // re-confirming it: NO_SETUP, which sends no notice (`lib/entitlements/monitor.ts`).
+  // Before 2026-10-21 every Reject went INVALIDATED and told the member "price
+  // broke the level it was staked on": SPY that day, 30 points above its stop,
+  // after a 4-of-9 Watch re-read as 3. The live stop sweep
+  // (`/api/monitors/invalidation-sweep`) still invalidates on a quoted break.
+  const brokenStops = new Set((args.retired ?? []).map((r) => r.symbol));
+
   for (const symbol of args.rejectedSymbols) {
     try {
       const result = await evaluateMonitor(service, {
         profileId: args.profileId,
         symbol,
         source: args.source,
-        candidateState: "INVALIDATED",
+        candidateState: brokenStops.has(symbol) ? "INVALIDATED" : "NO_SETUP",
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,
       });

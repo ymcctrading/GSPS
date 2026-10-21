@@ -91,6 +91,7 @@ describe("evaluateMonitorsAndNotify", () => {
       scanExecutionId: "se1",
       visible: [fakeSetup("MSFT", "Reject"), fakeSetup("AAPL", "Watch")],
       rejectedSymbols: new Set(["MSFT"]),
+      retired: [{ symbol: "MSFT", direction: "bullish", stop: 400, price: 390, reclaimAt: 410 }],
       maxActiveWatchMonitors: 15,
     });
 
@@ -200,7 +201,7 @@ describe("evaluateMonitorsAndNotify", () => {
     expect(recordNotificationDeliveryMock).not.toHaveBeenCalled();
   });
 
-  it("invalidates monitors for rejected symbols without affecting visible-setup evaluation", async () => {
+  it("invalidates monitors for rejected symbols whose stop broke, without affecting visible-setup evaluation", async () => {
     evaluateMonitorMock.mockResolvedValue({ outcome: "applied", monitorId: "m2", transitionId: null, notify: false });
 
     await evaluateMonitorsAndNotify(insertOnlyClient(), {
@@ -209,6 +210,7 @@ describe("evaluateMonitorsAndNotify", () => {
       scanExecutionId: "se1",
       visible: [],
       rejectedSymbols: new Set(["TSLA"]),
+      retired: [{ symbol: "TSLA", direction: "bullish", stop: 200, price: 195, reclaimAt: 206 }],
       maxActiveWatchMonitors: 15,
     });
 
@@ -216,6 +218,29 @@ describe("evaluateMonitorsAndNotify", () => {
       expect.anything(),
       expect.objectContaining({ symbol: "TSLA", candidateState: "INVALIDATED" }),
     );
+  });
+
+  it("reads a Reject with its stop intact as NO_SETUP, never as invalidated (SPY, 2026-10-21)", async () => {
+    // A 4-of-9 Watch re-read as 3 at 774 with its stop at 744.12: the plan has
+    // not broken, so the member is not told "price broke the level".
+    evaluateMonitorMock.mockResolvedValue({ outcome: "applied", monitorId: "m3", transitionId: "t3", notify: false });
+
+    const sent = await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "single_ticker",
+      scanExecutionId: "se1",
+      visible: [],
+      rejectedSymbols: new Set(["SPY"]),
+      retired: [],
+      maxActiveWatchMonitors: 15,
+    });
+
+    expect(sent).toBe(0);
+    expect(evaluateMonitorMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ symbol: "SPY", candidateState: "NO_SETUP" }),
+    );
+    expect(recordNotificationDeliveryMock).not.toHaveBeenCalled();
   });
 
   it("records and dispatches a notification for a tracked setup breaking (WATCH/EXECUTE -> INVALIDATED)", async () => {
@@ -235,6 +260,7 @@ describe("evaluateMonitorsAndNotify", () => {
       scanExecutionId: "se1",
       visible: [],
       rejectedSymbols: new Set(["TSLA"]),
+      retired: [{ symbol: "TSLA", direction: "bullish", stop: 200, price: 195, reclaimAt: 206 }],
       maxActiveWatchMonitors: 15,
     });
 
