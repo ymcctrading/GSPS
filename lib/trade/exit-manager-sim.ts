@@ -414,6 +414,9 @@ async function finish(
     signal_called: describeSimSignal(plan),
     signal_adherence: "yes",
     exit_plan_id: plan.id,
+    // The order that opened the trade, so the record reaches back from the
+    // outcome to the order (review finding S-07).
+    order_id: plan.entry_order_id,
   });
   if (logError && !logError.message.includes("duplicate")) {
     console.error(`exit-manager-sim: trade log for plan ${plan.id} not written — ${logError.message}`);
