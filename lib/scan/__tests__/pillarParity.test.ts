@@ -212,7 +212,6 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("backtest/replay.ts")).toMatch(/buildMacroContext\(priorSessions, price, new Date\(`\$\{date\}T12:00:00Z`\), priorMonthly, facts, priorWeekly\)/);
   });
 
-  it("hands computeScore the pillar facts and the window turn on both surfaces", () => {
   it("hands computeScore the pillar facts, and the window turn only to the time-window hold, on both surfaces", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
     expect(src("scanTicker.ts")).toMatch(/marketMonthly: marketMonthly \?\? null,/);
