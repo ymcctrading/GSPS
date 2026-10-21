@@ -51,6 +51,7 @@ import {
   scoreThreeElementSubmission,
   type ThreeElementSubmission,
 } from "@/lib/school/bull-bear";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 export interface QuizGradeResult {
   passed: boolean;
@@ -166,7 +167,7 @@ export async function recordCurriculumLessonAttempt(
   const alreadyPassed = existing?.status === "passed";
   const nextAttemptCount = (existing?.attempt_count ?? 0) + 1;
 
-  const { error } = await supabase.from("school_lesson_progress").upsert(
+  const { error } = await ledgerWriter(supabase).from("school_lesson_progress").upsert(
     {
       user_id: userId,
       program_id: SCHOOL_CURRICULUM_PROGRAM_ID,
@@ -342,7 +343,7 @@ export async function submitLearningLab(
     .eq("lab_id", labId)
     .maybeSingle();
 
-  const { error } = await supabase.from("school_learning_labs").upsert(
+  const { error } = await ledgerWriter(supabase).from("school_learning_labs").upsert(
     {
       user_id: userId,
       program_id: SCHOOL_CURRICULUM_PROGRAM_ID,

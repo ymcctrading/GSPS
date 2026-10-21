@@ -22,6 +22,7 @@ import { getOpenPosition, quotePrice, assetClassOf, isOption as isOptionSymbol }
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 export interface AttachProtocolExitInput {
   symbol: string;
@@ -105,7 +106,7 @@ export async function attachProtocolExit(
     masterProfit: input.masterProfit ?? null,
   });
 
-  const { data: plan, error } = await supabase
+  const { data: plan, error } = await ledgerWriter(supabase)
     .from("protocol_exits")
     .insert({
       user_id: userId,
@@ -133,10 +134,11 @@ export async function attachProtocolExit(
 
   // Mirrored onto `positions` too, purely for display — the exit-manager
   // poll reads `protocol_exits`, not these columns.
-  await supabase
+  await ledgerWriter(supabase)
     .from("positions")
     .update({ stop_loss: stop.price, take_profit: target.price, master_profit: input.masterProfit ?? null })
-    .eq("id", position.id);
+    .eq("id", position.id)
+    .eq("user_id", userId);
 
   return {
     status: 200,
@@ -301,7 +303,7 @@ export async function updateProtocolExit(
     masterProfit: newMaster,
   });
 
-  const { error } = await supabase
+  const { error } = await ledgerWriter(supabase)
     .from("protocol_exits")
     .update({
       stop_loss: newStop,
@@ -314,15 +316,17 @@ export async function updateProtocolExit(
       // leaves the trailed stop where the rules put it (R-008).
       ...(input.stopLoss != null ? { applied_stop: newStop, applied_stop_reason: "manual" } : {}),
     })
-    .eq("id", existing.id);
+    .eq("id", existing.id)
+    .eq("user_id", userId);
   if (error) {
     return { status: 502, body: { error: `Couldn't save the updated levels — ${error.message}.` } };
   }
 
-  await supabase
+  await ledgerWriter(supabase)
     .from("positions")
     .update({ stop_loss: newStop, take_profit: newTarget, master_profit: newMaster })
-    .eq("id", position.id);
+    .eq("id", position.id)
+    .eq("user_id", userId);
 
   return {
     status: 200,

@@ -26,6 +26,7 @@ import type { PlanState, TradePlan } from "./types";
 import { EMPTY_ENTRY_CONFIRMATION, PRE_ENTRY_STATES } from "./types";
 import { applyPlanEvent, type PlanEvent, type TransitionResult } from "./transitions";
 import { recordTradePlanRegime } from "@/lib/learning/record";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 /** Everything the caller must supply to start a plan at WATCHLIST. */
 export type NewTradePlan = Omit<
@@ -292,7 +293,7 @@ export async function createTradePlan(
   userId: string,
   input: NewTradePlan,
 ): Promise<TradePlan> {
-  const { data, error } = await supabase
+  const { data, error } = await ledgerWriter(supabase)
     .from("trade_plans")
     .insert(newPlanToRow(userId, input))
     .select("*")
@@ -321,7 +322,7 @@ export async function createOrGetIdempotentTradePlan(
   userId: string,
   input: NewTradePlan,
 ): Promise<{ plan: TradePlan; created: boolean }> {
-  const { data, error } = await supabase
+  const { data, error } = await ledgerWriter(supabase)
     .from("trade_plans")
     .insert(newPlanToRow(userId, input))
     .select("*")
@@ -379,7 +380,7 @@ export async function applyEventAndPersist(
     const result = applyPlanEvent(plan, event);
     if (!result.ok) return result;
 
-    const { data: written, error: updateErr } = await supabase
+    const { data: written, error: updateErr } = await ledgerWriter(supabase)
       .from("trade_plans")
       .update(planToUpdateRow(result.plan))
       .eq("user_id", userId)
@@ -406,7 +407,7 @@ async function persistAudit(
 ): Promise<TransitionResult> {
   if (result.plan.version > plan.version) {
     const newEntry = result.plan.audit.at(-1)!;
-    const { error: auditErr } = await supabase.from("trade_plan_audit").insert({
+    const { error: auditErr } = await ledgerWriter(supabase).from("trade_plan_audit").insert({
       plan_id: planId,
       user_id: userId,
       version: newEntry.version,

@@ -36,6 +36,7 @@ import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -308,7 +309,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
 
   if (Object.keys(patch).length === 0) return; // nothing to do this pass
 
-  let query = supabase
+  let query = ledgerWriter(supabase)
     .from("protocol_exits")
     .update({ ...patch, last_managed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", plan.id)
@@ -440,7 +441,7 @@ async function finish(
     console.error(`exit-manager-sim: trade log for plan ${plan.id} not written — ${logError.message}`);
   }
 
-  await supabase
+  await ledgerWriter(supabase)
     .from("protocol_exits")
     .update({ status: "closed", closed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", plan.id)

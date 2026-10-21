@@ -36,7 +36,7 @@ function session(date: string, rows: [number, number, number, number][]): Bar[] 
 
 const base = { direction: "bullish" as const, entry: 100, stopLoss: 96 };
 
-describe("walkShadowTrade (R-032: production's reaction entry and Gann's exits)", () => {
+describe("walkShadowTrade (R-032: production's reaction entry and the method's exits)", () => {
   it("never fills a plan whose session passes without a pullback into the zone", () => {
     const sessionBars = session("2026-08-25", [[101, 102, 100.5, 101.5], [101.5, 103, 101, 102.5]]);
     const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });

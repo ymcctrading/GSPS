@@ -77,4 +77,6 @@ end;
 $$;
 
 revoke execute on function public.execute_paper_fill(uuid, numeric, text, text, text, numeric, numeric, numeric, numeric, numeric, uuid) from public, anon;
-grant execute on function public.execute_paper_fill(uuid, numeric, text, text, text, numeric, numeric, numeric, numeric, numeric, uuid) to authenticated, service_role;
+-- The server calls it with the service role (lib/supabase/ledger.ts, R-029).
+revoke execute on function public.execute_paper_fill(uuid, numeric, text, text, text, numeric, numeric, numeric, numeric, numeric, uuid) from authenticated;
+grant execute on function public.execute_paper_fill(uuid, numeric, text, text, text, numeric, numeric, numeric, numeric, numeric, uuid) to service_role;

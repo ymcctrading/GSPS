@@ -29,6 +29,7 @@
 import type { AlpacaCreds, AlpacaOrder } from "@/lib/brokers/alpaca";
 import { listOrders } from "@/lib/brokers/alpaca";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -377,11 +378,11 @@ export async function syncLiveOrderStatuses(
   const syncedAt = new Date().toISOString();
   const results = await Promise.all([
     ...updates.map(({ id, ...fields }) =>
-      supabase.from("orders").update(fields).eq("id", id).eq("user_id", userId),
+      ledgerWriter(supabase).from("orders").update(fields).eq("id", id).eq("user_id", userId),
     ),
     ...(orphanedIds.length > 0
       ? [
-          supabase
+          ledgerWriter(supabase)
             .from("orders")
             .update({ status: "unknown", last_synced_at: syncedAt })
             .in("id", orphanedIds)

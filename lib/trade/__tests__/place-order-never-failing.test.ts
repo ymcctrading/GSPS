@@ -63,7 +63,7 @@ function stubSupabase(cash = 100_000, closes: { profit_loss_dollars: number }[] 
         ordersInsert(row);
         return { select: () => ({ single: () => Promise.resolve({ data: { id: "order-1" }, error: null }) }) };
       },
-      update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+      update: () => ({ eq: function eq(): unknown { return { eq, then: (r: (v: { error: null }) => void) => r({ error: null }) }; } }),
     },
     protocol_exits: {
       insert: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: { id: "plan-1" }, error: null }) }) }),

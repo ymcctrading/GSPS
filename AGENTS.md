@@ -616,7 +616,15 @@ rules as production does, with the 2026-08-27 baseline labelled as other rules
 and not compared (R-032). Migration 0094 (one-transaction paper fill, the
 strategy version on scans, orders and trades, the forward test's outcomes) is
 applied before the code that writes it merges. `STRATEGY_VERSION` is
-`2026-10-21-gann-stand-aside-no-trend`.
+`2026-10-21-gann-stand-aside-no-trend`. **The ledger is server-written (R-029):**
+every write to positions, orders, paper accounts, trade logs, exits, plans,
+plan audit, lesson progress, learning labs and the order lock goes through
+`ledgerWriter` (`lib/supabase/ledger.ts`), which swaps a member's session
+client for the service role, and names its user on every insert, update and
+delete. A new write to those tables must do the same. Migration 0095 takes
+member writes away and is applied only after that code is deployed;
+`user_automation_profiles` stays member-written (own settings, entitlement
+checked where it acts).
 
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops

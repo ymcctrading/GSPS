@@ -41,6 +41,7 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { isProtectiveOrder } from "@/lib/trade/kill-switch";
 import type { createClient } from "@/lib/supabase/server";
 import type { AssetClass } from "@/lib/types";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -60,7 +61,7 @@ export async function getOrCreateAccount(supabase: Supabase, userId: string): Pr
     .maybeSingle();
   if (data) return { cash: Number(data.cash) };
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await ledgerWriter(supabase)
     .from("paper_accounts")
     .insert({ user_id: userId, cash: STARTING_CASH })
     .select("cash")
@@ -85,7 +86,7 @@ export async function getOrCreateAccount(supabase: Supabase, userId: string): Pr
  * this only ever adjusts an existing one.
  */
 export async function adjustCash(supabase: Supabase, userId: string, delta: number): Promise<void> {
-  const { error } = await supabase.rpc("increment_paper_cash", { p_user_id: userId, p_delta: delta });
+  const { error } = await ledgerWriter(supabase).rpc("increment_paper_cash", { p_user_id: userId, p_delta: delta });
   if (error) throw new Error(`Cash update failed for user ${userId}: ${error.message}`);
 }
 
@@ -408,10 +409,10 @@ export async function executeFill(
   // migration 0094): before, the cash moved first, so a failed position write
   // left cash spent with no position. Until 0094 is applied the function is
   // missing and the two calls run as before.
-  let { data, error } = await supabase.rpc("execute_paper_fill", { ...fill, p_cash_delta: cashDelta });
+  let { data, error } = await ledgerWriter(supabase).rpc("execute_paper_fill", { ...fill, p_cash_delta: cashDelta });
   if (error && isMissingFunction(error)) {
     await adjustCash(supabase, userId, cashDelta);
-    ({ data, error } = await supabase.rpc("execute_position_fill", fill));
+    ({ data, error } = await ledgerWriter(supabase).rpc("execute_position_fill", fill));
   }
   if (error) throw new Error(`Position fill failed for ${symbol}: ${error.message}`);
 
@@ -610,7 +611,7 @@ export async function evaluateRestingOrders(
     };
     if (isInvalidatedByStop(invalidatable, market)) {
       const reason = invalidationReason(invalidatable, market);
-      const { data: claimed } = await supabase
+      const { data: claimed } = await ledgerWriter(supabase)
         .from("orders")
         .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
         .eq("id", row.id)
@@ -646,7 +647,7 @@ export async function evaluateRestingOrders(
         const check = bracket ? checkBracket({ side, basePrice: market, stopLoss: bracket.stopLoss, takeProfit: bracket.takeProfit }) : null;
         if (!check?.ok) {
           const reason = `The market reached ${market} before this order filled, past its own stop or target. ${check?.reason ?? "Its levels couldn't be read."} Refresh the setup and resubmit.`;
-          const { data: rejected } = await supabase
+          const { data: rejected } = await ledgerWriter(supabase)
             .from("orders")
             .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
             .eq("id", row.id)
@@ -675,7 +676,7 @@ export async function evaluateRestingOrders(
         price: market,
       });
       if (refusal) {
-        const { data: cancelled } = await supabase
+        const { data: cancelled } = await ledgerWriter(supabase)
           .from("orders")
           .update({ status: "rejected", reject_reason: refusal.error, updated_at: new Date().toISOString() })
           .eq("id", row.id)
@@ -689,7 +690,7 @@ export async function evaluateRestingOrders(
 
       // Claim before executing, same reasoning as the exit manager's tranche
       // claim: a concurrent poll must not fill this same resting order twice.
-      const { data: claimed } = await supabase
+      const { data: claimed } = await ledgerWriter(supabase)
         .from("orders")
         .update({ status: "filled", filled_qty: row.qty, filled_avg_price: market, updated_at: new Date().toISOString() })
         .eq("id", row.id)
@@ -805,7 +806,7 @@ async function attachRestingExitPlan(
     masterProfit: levels.masterProfit,
   });
   const now = new Date().toISOString();
-  const { data: plan, error } = await supabase
+  const { data: plan, error } = await ledgerWriter(supabase)
     .from("protocol_exits")
     .insert({
       user_id: userId,
@@ -831,5 +832,5 @@ async function attachRestingExitPlan(
     console.error(`simulator: exit plan for resting ${symbol} order ${orderId} not recorded — ${error.message}`);
     return;
   }
-  if (plan?.id) await supabase.from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId);
+  if (plan?.id) await ledgerWriter(supabase).from("orders").update({ exit_plan_id: plan.id }).eq("id", orderId).eq("user_id", userId);
 }

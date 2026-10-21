@@ -13,6 +13,7 @@ import {
   getPublishedLessons,
   type SchoolLesson,
 } from "@/lib/school/content";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 export interface GradeQuizArgs {
   lessonId: string;
@@ -79,7 +80,7 @@ export async function recordLessonAttempt(
   const alreadyPassed = existing?.status === "passed";
   const nextAttemptCount = (existing?.attempt_count ?? 0) + 1;
 
-  const { error } = await supabase
+  const { error } = await ledgerWriter(supabase)
     .from("school_lesson_progress")
     .upsert(
       {

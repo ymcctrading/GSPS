@@ -15,6 +15,7 @@ import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 const TradeLogSchema = z.object({
   orderId: z.string().uuid().optional(),
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
   const input = parsed.data;
 
   try {
-    const { data, error } = await supabase.from("trade_logs").insert({
+    const { data, error } = await ledgerWriter(supabase).from("trade_logs").insert({
       strategy_version: STRATEGY_VERSION,
       user_id: user.id,
       order_id: input.orderId ?? null,

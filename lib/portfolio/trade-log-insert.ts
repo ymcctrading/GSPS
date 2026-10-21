@@ -13,6 +13,7 @@
 
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { createClient } from "@/lib/supabase/server";
+import { ledgerWriter } from "@/lib/supabase/ledger";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -26,7 +27,7 @@ export async function insertTradeLog(
   const stamped = { strategy_version: STRATEGY_VERSION, ...row };
   let last: { code?: string; message: string } | null = null;
   for (let attempt = 0; attempt < TRADE_LOG_ATTEMPTS; attempt++) {
-    const { error } = await supabase.from("trade_logs").insert(stamped);
+    const { error } = await ledgerWriter(supabase).from("trade_logs").insert(stamped);
     if (!error) return { error: null, duplicate: false };
     if (error.code === UNIQUE_VIOLATION) return { error: null, duplicate: true };
     last = error;
