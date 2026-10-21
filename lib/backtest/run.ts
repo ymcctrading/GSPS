@@ -25,6 +25,7 @@
 import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import { fetchUniverseStrengthSince } from "@/lib/data/universeStrength";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
+import type { GannExitRuleName } from "@/lib/gann/exitRules";
 import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
 import { TOTAL_POINTS } from "@/lib/scoring/weights";
@@ -44,13 +45,14 @@ import {
   combine,
   emptyDroppedPlanReasons,
   replay,
+  resolveDisableExits,
   summarise as summariseTrades,
   type DroppedPlanReasons,
   type ReplayOptions,
   type ReplayResult,
 } from "./replay";
 import { attributeByAtrMultiple, attributeFactors, type FactorAttribution } from "./attribution";
-import { computeRequiredMetrics, type RequiredMetrics } from "./metrics";
+import { computeClosedSummary, computeRequiredMetrics, type ClosedSummary, type RequiredMetrics } from "./metrics";
 import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
@@ -126,6 +128,11 @@ export interface BacktestRequest {
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
   exitRule?: ReplayOptions["exitRule"];
   /**
+   * Measurement only: Gann exit rules switched off inside the walk. See
+   * `ReplayOptions.disableExits`. Defaults to none.
+   */
+  disableExits?: ReplayOptions["disableExits"];
+  /**
    * Points a close must clear a broken stop by to stand the plan again. See
    * `ReplayOptions.reclaimPoints`. Defaults to 3, the live scan's figure.
    */
@@ -166,6 +173,10 @@ export interface RunSummary {
    * drawdown, and time-in-trade — the metric set the Validation, Backtesting,
    * Audit & Compliance spec pack requires alongside win rate/expectancy. */
   required: RequiredMetrics;
+  /** Trades still open when the data ended (`exitReason: "open_at_end"`), marked to market at the last close. */
+  openAtEnd: number;
+  /** The same scope without the `open_at_end` trades: what the closed trades realised. */
+  closed: ClosedSummary;
 }
 
 /** Expectancy at the base cost vs. at an elevated one, and how much of the edge that ate. */
@@ -237,6 +248,8 @@ export interface BacktestReport {
   entryRule: "stop" | "confirmed" | "reaction";
   /** Echoes the request: a report has to say which exit rule produced it. */
   exitRule: "bracket" | "gann" | "gann-runner";
+  /** Echoes the request: the Gann exit rules switched off for this cell (empty for production's rules). */
+  disableExits: GannExitRuleName[];
   /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */
   reclaimPoints: number;
   /** Echoes the request: which rule set walked the bars. */
@@ -256,8 +269,10 @@ export interface BacktestReport {
   holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary; narrowWeek: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
-   * reason that was binding, a Gann exit signal, or the timeout), so each of
-   * Gann's exit rules can be read on its own. Empty under the bracket.
+   * reason that was binding, a Gann exit signal, or the timeout: held to the
+   * session limit, `held_to_limit`, or still open when the data ended,
+   * `open_at_end`), so each of Gann's exit rules can be read on its own. Under
+   * the bracket only the two timeouts appear.
    */
   exitReasonSplit: Record<string, RunSummary>;
   /**
@@ -311,8 +326,8 @@ export interface BacktestReport {
    * evidence of anything.
    */
   halves: {
-    early: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
-    late: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+    early: { summary: RunSummary; factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+    late: { summary: RunSummary; factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
   };
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   /**
@@ -348,6 +363,8 @@ function summarise(r: ReplayResult): RunSummary {
     totalR: r.totalR,
     profitable: r.trades.length > 0 && r.expectancyR > 0,
     required: computeRequiredMetrics(r.trades),
+    openAtEnd: r.trades.filter((t) => t.exitReason === "open_at_end").length,
+    closed: computeClosedSummary(r.trades),
   };
 }
 
@@ -465,9 +482,15 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     pyramid,
     entryRule,
     exitRule,
+    disableExits,
     reclaimPoints,
     profile = "swing",
   } = request;
+  // Rejected before any fetch, so a misspelt rule fails at once rather than
+  // as every symbol skipped (replay() throws the same error per symbol).
+  if (resolveDisableExits(disableExits, exitRule ?? "bracket").size > 0 && profile === "intraday") {
+    throw new Error("disableExits applies to the swing profile's exit rules; the intraday profile has its own exits");
+  }
 
   const sinceMs = since === undefined ? null : Date.parse(since);
   if (sinceMs !== null && Number.isNaN(sinceMs)) {
@@ -485,6 +508,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(pyramid !== undefined ? { pyramid } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
     ...(exitRule !== undefined ? { exitRule } : {}),
+    ...(disableExits !== undefined ? { disableExits } : {}),
     ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
   };
 
@@ -612,6 +636,7 @@ function chronologicalHalves(trades: ReplayResult["trades"]): BacktestReport["ha
   const sorted = [...trades].sort((a, b) => a.openedAt.localeCompare(b.openedAt));
   const mid = Math.floor(sorted.length / 2);
   const table = (ts: typeof sorted) => ({
+    summary: summarise(summariseTrades(ts)),
     factors: attributeFactors(ts),
     contextFactors: attributeFactors(ts, { field: "contextFactors" }),
   });
@@ -623,7 +648,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
 
   const split = byOutputState(run.overall);
   const derived = byDerived(run.overall);
@@ -665,6 +690,7 @@ export function buildReport(
     usePlanLevels,
     entryRule,
     exitRule,
+    disableExits: [...resolveDisableExits(disableExits)],
     reclaimPoints,
     profile,
     setupKindSplit: {

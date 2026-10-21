@@ -1,0 +1,3333 @@
+{
+ "source": "SEC EDGAR company_tickers.json and submissions (SIC), via scripts/fetch-industry-groups.mjs",
+ "fetched": "2026-10-21",
+ "groups": {
+  "A": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "AA": {
+   "sic": "3334",
+   "description": "Primary Production of  Aluminum"
+  },
+  "AAPL": {
+   "sic": "3571",
+   "description": "Electronic Computers"
+  },
+  "ABBV": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ABEV": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "ABNB": {
+   "sic": "7340",
+   "description": "Services-To Dwellings & Other Buildings"
+  },
+  "ABT": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ACGL": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "ACN": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "ADBE": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "ADI": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "ADM": {
+   "sic": "2070",
+   "description": "Fats & Oils"
+  },
+  "ADP": {
+   "sic": "7374",
+   "description": "Services-Computer Processing & Data Preparation"
+  },
+  "ADSK": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "AEE": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "AEIS": {
+   "sic": "3679",
+   "description": "Electronic Components, NEC"
+  },
+  "AEM": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "AEP": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "AER": {
+   "sic": "7359",
+   "description": "Services-Equipment Rental & Leasing, NEC"
+  },
+  "AES": {
+   "sic": "4991",
+   "description": "Cogeneration Services & Small Power Producers"
+  },
+  "AFG": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "AFL": {
+   "sic": "6321",
+   "description": "Accident & Health Insurance"
+  },
+  "AFRM": {
+   "sic": "6141",
+   "description": "Personal Credit Institutions"
+  },
+  "AGNC": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "AHR": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "AIG": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "AIT": {
+   "sic": "5080",
+   "description": "Wholesale-Machinery, Equipment & Supplies"
+  },
+  "AIZ": {
+   "sic": "6399",
+   "description": "Insurance Carriers, NEC"
+  },
+  "AJG": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "AKAM": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "ALAB": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "ALB": {
+   "sic": "2821",
+   "description": "Plastic Materials, Synth Resins & Nonvulcan Elastomers"
+  },
+  "ALC": {
+   "sic": "3851",
+   "description": "Ophthalmic Goods"
+  },
+  "ALGN": {
+   "sic": "3842",
+   "description": "Orthopedic, Prosthetic & Surgical Appliances & Supplies"
+  },
+  "ALL": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "ALLY": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "ALNY": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ALSN": {
+   "sic": "3714",
+   "description": "Motor Vehicle Parts & Accessories"
+  },
+  "AM": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "AMAT": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "AMD": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "AME": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "AMGN": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "AMH": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "AMKR": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "AMP": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "AMRZ": {
+   "sic": "3241",
+   "description": "Cement, Hydraulic"
+  },
+  "AMT": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "AMX": {
+   "sic": "4813",
+   "description": "Telephone Communications (No Radiotelephone)"
+  },
+  "AMZN": {
+   "sic": "5961",
+   "description": "Retail-Catalog & Mail-Order Houses"
+  },
+  "ANET": {
+   "sic": "3576",
+   "description": "Computer Communications Equipment"
+  },
+  "AON": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "APA": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "APD": {
+   "sic": "2810",
+   "description": "Industrial Inorganic Chemicals"
+  },
+  "APG": {
+   "sic": "7340",
+   "description": "Services-To Dwellings & Other Buildings"
+  },
+  "APH": {
+   "sic": "3678",
+   "description": "Electronic Connectors"
+  },
+  "APO": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "APP": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "AR": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "ARES": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "ARGX": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "ARMK": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "ARW": {
+   "sic": "5065",
+   "description": "Wholesale-Electronic Parts & Equipment, NEC"
+  },
+  "ARWR": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ARXS": {
+   "sic": "3728",
+   "description": "Aircraft Parts & Auxiliary Equipment, NEC"
+  },
+  "ASML": {
+   "sic": "3559",
+   "description": "Special Industry Machinery, NEC"
+  },
+  "ASTS": {
+   "sic": "4899",
+   "description": "Communications Services, NEC"
+  },
+  "ASX": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "ATI": {
+   "sic": "3317",
+   "description": "Steel Pipe & Tubes"
+  },
+  "ATO": {
+   "sic": "4924",
+   "description": "Natural Gas Distribution"
+  },
+  "AU": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "AUR": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "AVGO": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "AVTR": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "AVY": {
+   "sic": "2670",
+   "description": "Converted Paper & Paperboard Prods (No Contaners/Boxes)"
+  },
+  "AWK": {
+   "sic": "4941",
+   "description": "Water Supply"
+  },
+  "AXON": {
+   "sic": "3480",
+   "description": "Ordnance & Accessories, (No Vehicles/Guided Missiles)"
+  },
+  "AXP": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "AXSM": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "AZN": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "AZO": {
+   "sic": "5531",
+   "description": "Retail-Auto & Home Supply Stores"
+  },
+  "B": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "BA": {
+   "sic": "3721",
+   "description": "Aircraft"
+  },
+  "BABA": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "BAC": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "BALL": {
+   "sic": "3411",
+   "description": "Metal Cans"
+  },
+  "BAM": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "BAP": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "BAX": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "BBD": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "BBIO": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "BBVA": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "BBY": {
+   "sic": "5731",
+   "description": "Retail-Radio, Tv & Consumer Electronics Stores"
+  },
+  "BCS": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "BDX": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "BE": {
+   "sic": "3620",
+   "description": "Electrical Industrial Apparatus"
+  },
+  "BEN": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "BEP": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "BF.A": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "BG": {
+   "sic": "2070",
+   "description": "Fats & Oils"
+  },
+  "BIDU": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "BIIB": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "BIO": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "BJ": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "BKNG": {
+   "sic": "4700",
+   "description": "Transportation Services"
+  },
+  "BKR": {
+   "sic": "3533",
+   "description": "Oil & Gas Field Machinery & Equipment"
+  },
+  "BLK": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "BMNR": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "BMO": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "BMRN": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "BMY": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "BN": {
+   "sic": "6512",
+   "description": "Opeators of  Nonresidential Buildings"
+  },
+  "BNS": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "BNTX": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "BNY": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "BP": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "BPOP": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "BR": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "BRK.B": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "BRO": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "BSP": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "BSX": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "BTI": {
+   "sic": "2111",
+   "description": "Cigarettes"
+  },
+  "BTSG": {
+   "sic": "8082",
+   "description": "Services-Home Health Care Services"
+  },
+  "BUD": {
+   "sic": "2082",
+   "description": "Malt Beverages"
+  },
+  "BURL": {
+   "sic": "5311",
+   "description": "Retail-Department Stores"
+  },
+  "BWA": {
+   "sic": "3714",
+   "description": "Motor Vehicle Parts & Accessories"
+  },
+  "BWXT": {
+   "sic": "3510",
+   "description": "Engines & Turbines"
+  },
+  "BX": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "BXP": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "C": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "CACI": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "CAH": {
+   "sic": "5122",
+   "description": "Wholesale-Drugs, Proprietaries & Druggists' Sundries"
+  },
+  "CARR": {
+   "sic": "3585",
+   "description": "Air-Cond & Warm Air Heatg Equip & Comm & Indl Refrig Equip"
+  },
+  "CART": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "CASY": {
+   "sic": "5500",
+   "description": "Retail-Auto Dealers & Gasoline Stations"
+  },
+  "CAT": {
+   "sic": "3531",
+   "description": "Construction Machinery & Equip"
+  },
+  "CB": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "CBOE": {
+   "sic": "6200",
+   "description": "Security & Commodity Brokers, Dealers, Exchanges & Services"
+  },
+  "CBRE": {
+   "sic": "6500",
+   "description": "Real Estate"
+  },
+  "CBRS": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "CCEP": {
+   "sic": "2086",
+   "description": "Bottled & Canned Soft Drinks & Carbonated Waters"
+  },
+  "CCI": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "CCJ": {
+   "sic": "1090",
+   "description": "Miscellaneous Metal Ores"
+  },
+  "CCK": {
+   "sic": "3411",
+   "description": "Metal Cans"
+  },
+  "CCL": {
+   "sic": "4400",
+   "description": "Water Transportation"
+  },
+  "CDE": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "CDNS": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "CDW": {
+   "sic": "5961",
+   "description": "Retail-Catalog & Mail-Order Houses"
+  },
+  "CEG": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "CF": {
+   "sic": "2870",
+   "description": "Agricultural Chemicals"
+  },
+  "CFG": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "CFR": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "CG": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "CGNX": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "CHD": {
+   "sic": "2840",
+   "description": "Soap, Detergents, Cleang Preparations, Perfumes, Cosmetics"
+  },
+  "CHRW": {
+   "sic": "4731",
+   "description": "Arrangement of  Transportation of  Freight & Cargo"
+  },
+  "CHT": {
+   "sic": "4812",
+   "description": "Radiotelephone Communications"
+  },
+  "CHTR": {
+   "sic": "4841",
+   "description": "Cable & Other Pay Television Services"
+  },
+  "CHYM": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "CI": {
+   "sic": "6324",
+   "description": "Hospital & Medical Service Plans"
+  },
+  "CIB": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "CIEN": {
+   "sic": "3661",
+   "description": "Telephone & Telegraph Apparatus"
+  },
+  "CINF": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "CL": {
+   "sic": "2844",
+   "description": "Perfumes, Cosmetics & Other Toilet Preparations"
+  },
+  "CLH": {
+   "sic": "4955",
+   "description": "Hazardous Waste Management"
+  },
+  "CLS": {
+   "sic": "3672",
+   "description": "Printed Circuit Boards"
+  },
+  "CLX": {
+   "sic": "2842",
+   "description": "Specialty Cleaning, Polishing and Sanitation Preparations"
+  },
+  "CM": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "CMCSA": {
+   "sic": "4841",
+   "description": "Cable & Other Pay Television Services"
+  },
+  "CME": {
+   "sic": "6200",
+   "description": "Security & Commodity Brokers, Dealers, Exchanges & Services"
+  },
+  "CMG": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "CMI": {
+   "sic": "3510",
+   "description": "Engines & Turbines"
+  },
+  "CMS": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "CNA": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "CNC": {
+   "sic": "6324",
+   "description": "Hospital & Medical Service Plans"
+  },
+  "CNI": {
+   "sic": "4011",
+   "description": "Railroads, Line-Haul Operating"
+  },
+  "CNP": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "CNQ": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "COF": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "COHR": {
+   "sic": "3827",
+   "description": "Optical Instruments & Lenses"
+  },
+  "COIN": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "COKE": {
+   "sic": "2086",
+   "description": "Bottled & Canned Soft Drinks & Carbonated Waters"
+  },
+  "COO": {
+   "sic": "3851",
+   "description": "Ophthalmic Goods"
+  },
+  "COP": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "COR": {
+   "sic": "5122",
+   "description": "Wholesale-Drugs, Proprietaries & Druggists' Sundries"
+  },
+  "CORT": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "COST": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "CP": {
+   "sic": "4011",
+   "description": "Railroads, Line-Haul Operating"
+  },
+  "CPAY": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "CPNG": {
+   "sic": "5961",
+   "description": "Retail-Catalog & Mail-Order Houses"
+  },
+  "CPRT": {
+   "sic": "5500",
+   "description": "Retail-Auto Dealers & Gasoline Stations"
+  },
+  "CPT": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "CQP": {
+   "sic": "4924",
+   "description": "Natural Gas Distribution"
+  },
+  "CR": {
+   "sic": "3490",
+   "description": "Miscellaneous Fabricated Metal Products"
+  },
+  "CRBG": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "CRCL": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "CRDO": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "CRH": {
+   "sic": "3241",
+   "description": "Cement, Hydraulic"
+  },
+  "CRL": {
+   "sic": "8731",
+   "description": "Services-Commercial Physical & Biological Research"
+  },
+  "CRM": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "CRS": {
+   "sic": "3312",
+   "description": "Steel Works, Blast Furnaces & Rolling Mills (Coke Ovens)"
+  },
+  "CRWD": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "CRWV": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "CSCO": {
+   "sic": "3576",
+   "description": "Computer Communications Equipment"
+  },
+  "CSGP": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "CSL": {
+   "sic": "3060",
+   "description": "Fabricated Rubber Products, NEC"
+  },
+  "CSX": {
+   "sic": "4011",
+   "description": "Railroads, Line-Haul Operating"
+  },
+  "CTAS": {
+   "sic": "2320",
+   "description": "Men's & Boys' Furnishgs, Work Clothg, & Allied Garments"
+  },
+  "CTSH": {
+   "sic": "7371",
+   "description": "Services-Computer Programming Services"
+  },
+  "CTVA": {
+   "sic": "0100",
+   "description": "Agricultural Production-Crops"
+  },
+  "CVE": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "CVNA": {
+   "sic": "5500",
+   "description": "Retail-Auto Dealers & Gasoline Stations"
+  },
+  "CVS": {
+   "sic": "5912",
+   "description": "Retail-Drug Stores and Proprietary Stores"
+  },
+  "CVX": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "CW": {
+   "sic": "3590",
+   "description": "Misc Industrial & Commercial Machinery & Equipment"
+  },
+  "CYTK": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "D": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "DAL": {
+   "sic": "4512",
+   "description": "Air Transportation, Scheduled"
+  },
+  "DAR": {
+   "sic": "2070",
+   "description": "Fats & Oils"
+  },
+  "DASH": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "DB": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "DCI": {
+   "sic": "3564",
+   "description": "Industrial & Commercial Fans & Blowers & Air Purifing Equip"
+  },
+  "DD": {
+   "sic": "2821",
+   "description": "Plastic Materials, Synth Resins & Nonvulcan Elastomers"
+  },
+  "DDOG": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "DE": {
+   "sic": "3523",
+   "description": "Farm Machinery & Equipment"
+  },
+  "DECK": {
+   "sic": "3021",
+   "description": "Rubber & Plastics Footwear"
+  },
+  "DEO": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "DG": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "DGX": {
+   "sic": "8071",
+   "description": "Services-Medical Laboratories"
+  },
+  "DHI": {
+   "sic": "1531",
+   "description": "Operative Builders"
+  },
+  "DHR": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "DINO": {
+   "sic": "4610",
+   "description": "Pipe Lines (No Natural Gas)"
+  },
+  "DIS": {
+   "sic": "7990",
+   "description": "Services-Miscellaneous Amusement & Recreation"
+  },
+  "DKNG": {
+   "sic": "7990",
+   "description": "Services-Miscellaneous Amusement & Recreation"
+  },
+  "DKS": {
+   "sic": "5940",
+   "description": "Retail-Miscellaneous Shopping Goods Stores"
+  },
+  "DLR": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "DLTR": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "DOC": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "DOCN": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "DOCU": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "DOV": {
+   "sic": "3530",
+   "description": "Construction, Mining & Materials Handling Machinery & Equip"
+  },
+  "DOW": {
+   "sic": "2821",
+   "description": "Plastic Materials, Synth Resins & Nonvulcan Elastomers"
+  },
+  "DPZ": {
+   "sic": "5140",
+   "description": "Wholesale-Groceries & Related Products"
+  },
+  "DRI": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "DT": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "DTE": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "DTM": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "DUK": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "DVA": {
+   "sic": "8090",
+   "description": "Services-Misc Health & Allied Services, NEC"
+  },
+  "DVN": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "DXCM": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "E": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "EBAY": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "EC": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "ECHO": {
+   "sic": "4899",
+   "description": "Communications Services, NEC"
+  },
+  "ECL": {
+   "sic": "2840",
+   "description": "Soap, Detergents, Cleang Preparations, Perfumes, Cosmetics"
+  },
+  "ED": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "EFX": {
+   "sic": "7320",
+   "description": "Services-Consumer Credit Reporting, Collection Agencies"
+  },
+  "EGP": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "EHC": {
+   "sic": "8060",
+   "description": "Services-Hospitals"
+  },
+  "EIX": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "EL": {
+   "sic": "2844",
+   "description": "Perfumes, Cosmetics & Other Toilet Preparations"
+  },
+  "ELAN": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ELS": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "ELV": {
+   "sic": "6324",
+   "description": "Hospital & Medical Service Plans"
+  },
+  "EME": {
+   "sic": "1731",
+   "description": "Electrical Work"
+  },
+  "EMR": {
+   "sic": "3600",
+   "description": "Electronic & Other Electrical Equipment (No Computer Equip)"
+  },
+  "ENB": {
+   "sic": "4610",
+   "description": "Pipe Lines (No Natural Gas)"
+  },
+  "ENSG": {
+   "sic": "8051",
+   "description": "Services-Skilled Nursing Care Facilities"
+  },
+  "ENTG": {
+   "sic": "3089",
+   "description": "Plastics Products, NEC"
+  },
+  "EOG": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "EPD": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "EQH": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "EQIX": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "EQNR": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "EQT": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "ERIC": {
+   "sic": "3663",
+   "description": "Radio & Tv Broadcasting & Communications Equipment"
+  },
+  "ERIE": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "ES": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "ESLT": {
+   "sic": "3728",
+   "description": "Aircraft Parts & Auxiliary Equipment, NEC"
+  },
+  "ESS": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "ET": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "ETN": {
+   "sic": "3590",
+   "description": "Misc Industrial & Commercial Machinery & Equipment"
+  },
+  "ETR": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "EVR": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "EVRG": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "EW": {
+   "sic": "3842",
+   "description": "Orthopedic, Prosthetic & Surgical Appliances & Supplies"
+  },
+  "EWBC": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "EXC": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "EXE": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "EXEL": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "EXPD": {
+   "sic": "4731",
+   "description": "Arrangement of  Transportation of  Freight & Cargo"
+  },
+  "EXPE": {
+   "sic": "4700",
+   "description": "Transportation Services"
+  },
+  "EXR": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "F": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "FANG": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "FAST": {
+   "sic": "5200",
+   "description": "Retail-Building Materials, Hardware, Garden Supply"
+  },
+  "FCNCA": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "FCX": {
+   "sic": "1000",
+   "description": "Metal Mining"
+  },
+  "FDX": {
+   "sic": "4513",
+   "description": "Air Courier Services"
+  },
+  "FDXF": {
+   "sic": "4513",
+   "description": "Air Courier Services"
+  },
+  "FE": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "FERG": {
+   "sic": "5070",
+   "description": "Wholesale-Hardware & Plumbing & Heating Equipment & Supplies"
+  },
+  "FFIV": {
+   "sic": "3576",
+   "description": "Computer Communications Equipment"
+  },
+  "FHN": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "FICO": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "FIG": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "FIS": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "FISV": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "FITB": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "FIVE": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "FIX": {
+   "sic": "1731",
+   "description": "Electrical Work"
+  },
+  "FLEX": {
+   "sic": "3672",
+   "description": "Printed Circuit Boards"
+  },
+  "FMX": {
+   "sic": "2086",
+   "description": "Bottled & Canned Soft Drinks & Carbonated Waters"
+  },
+  "FNF": {
+   "sic": "6361",
+   "description": "Title Insurance"
+  },
+  "FNV": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "FOX": {
+   "sic": "4833",
+   "description": "Television Broadcasting Stations"
+  },
+  "FROG": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "FRT": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "FSLR": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "FTAI": {
+   "sic": "7350",
+   "description": "Services-Miscellaneous Equipment Rental & Leasing"
+  },
+  "FTI": {
+   "sic": "3533",
+   "description": "Oil & Gas Field Machinery & Equipment"
+  },
+  "FTNT": {
+   "sic": "3577",
+   "description": "Computer Peripheral Equipment, NEC"
+  },
+  "FTS": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "FTV": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "FWONK": {
+   "sic": "4833",
+   "description": "Television Broadcasting Stations"
+  },
+  "GD": {
+   "sic": "3730",
+   "description": "Ship & Boat Building & Repairing"
+  },
+  "GDDY": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "GE": {
+   "sic": "3600",
+   "description": "Electronic & Other Electrical Equipment (No Computer Equip)"
+  },
+  "GEHC": {
+   "sic": "3844",
+   "description": "X-Ray Apparatus & Tubes & Related Irradiation Apparatus"
+  },
+  "GEN": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "GFI": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "GFS": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "GGG": {
+   "sic": "3561",
+   "description": "Pumps & Pumping Equipment"
+  },
+  "GH": {
+   "sic": "8071",
+   "description": "Services-Medical Laboratories"
+  },
+  "GILD": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "GIS": {
+   "sic": "2040",
+   "description": "Grain Mill Products"
+  },
+  "GKOS": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "GL": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "GLPI": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "GLW": {
+   "sic": "3357",
+   "description": "Drawing & Insulating of  Nonferrous Wire"
+  },
+  "GM": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "GMED": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "GNRC": {
+   "sic": "3621",
+   "description": "Motors & Generators"
+  },
+  "GOOG": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "GOOGL": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "GPC": {
+   "sic": "5013",
+   "description": "Wholesale-Motor Vehicle Supplies & New Parts"
+  },
+  "GPN": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "GRMN": {
+   "sic": "3812",
+   "description": "Search, Detection, Navigation, Guidance, Aeronautical Sys"
+  },
+  "GS": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "GSAT": {
+   "sic": "4899",
+   "description": "Communications Services, NEC"
+  },
+  "GSK": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "GWRE": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "GWW": {
+   "sic": "5000",
+   "description": "Wholesale-Durable Goods"
+  },
+  "H": {
+   "sic": "7011",
+   "description": "Hotels & Motels"
+  },
+  "HAL": {
+   "sic": "1389",
+   "description": "Oil & Gas Field Services, NEC"
+  },
+  "HALO": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "HAS": {
+   "sic": "3944",
+   "description": "Games, Toys & Children's Vehicles (No Dolls & Bicycles)"
+  },
+  "HBAN": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "HCA": {
+   "sic": "8062",
+   "description": "Services-General Medical & Surgical Hospitals, NEC"
+  },
+  "HD": {
+   "sic": "5211",
+   "description": "Retail-Lumber & Other Building Materials Dealers"
+  },
+  "HDB": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "HEI": {
+   "sic": "3724",
+   "description": "Aircraft Engines & Engine Parts"
+  },
+  "HIG": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "HII": {
+   "sic": "3730",
+   "description": "Ship & Boat Building & Repairing"
+  },
+  "HL": {
+   "sic": "1400",
+   "description": "Mining & Quarrying of  Nonmetallic Minerals (No Fuels)"
+  },
+  "HLN": {
+   "sic": "2844",
+   "description": "Perfumes, Cosmetics & Other Toilet Preparations"
+  },
+  "HLT": {
+   "sic": "7011",
+   "description": "Hotels & Motels"
+  },
+  "HMC": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "HON": {
+   "sic": "3724",
+   "description": "Aircraft Engines & Engine Parts"
+  },
+  "HONA": {
+   "sic": "3724",
+   "description": "Aircraft Engines & Engine Parts"
+  },
+  "HOOD": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "HPE": {
+   "sic": "3570",
+   "description": "Computer & office Equipment"
+  },
+  "HPQ": {
+   "sic": "3570",
+   "description": "Computer & office Equipment"
+  },
+  "HRL": {
+   "sic": "2011",
+   "description": "Meat Packing Plants"
+  },
+  "HSBC": {
+   "sic": "6035",
+   "description": "Savings Institution, Federally Chartered"
+  },
+  "HST": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "HSY": {
+   "sic": "2060",
+   "description": "Sugar & Confectionery Products"
+  },
+  "HUBB": {
+   "sic": "3670",
+   "description": "Electronic Components & Accessories"
+  },
+  "HUBS": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "HUM": {
+   "sic": "6324",
+   "description": "Hospital & Medical Service Plans"
+  },
+  "HWM": {
+   "sic": "3350",
+   "description": "Rolling Drawing & Extruding of  Nonferrous Metals"
+  },
+  "IBKR": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "IBM": {
+   "sic": "3570",
+   "description": "Computer & office Equipment"
+  },
+  "IBN": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "ICE": {
+   "sic": "6200",
+   "description": "Security & Commodity Brokers, Dealers, Exchanges & Services"
+  },
+  "IDXX": {
+   "sic": "2835",
+   "description": "In Vitro & In Vivo Diagnostic Substances"
+  },
+  "IESC": {
+   "sic": "1731",
+   "description": "Electrical Work"
+  },
+  "IEX": {
+   "sic": "3561",
+   "description": "Pumps & Pumping Equipment"
+  },
+  "IFF": {
+   "sic": "2860",
+   "description": "Industrial Organic Chemicals"
+  },
+  "IHG": {
+   "sic": "7011",
+   "description": "Hotels & Motels"
+  },
+  "ILMN": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "IMO": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "INCY": {
+   "sic": "8731",
+   "description": "Services-Commercial Physical & Biological Research"
+  },
+  "INFY": {
+   "sic": "7371",
+   "description": "Services-Computer Programming Services"
+  },
+  "ING": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "INSM": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "INTC": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "INTU": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "INVH": {
+   "sic": "6510",
+   "description": "Real Estate Operators (No Developers) & Lessors"
+  },
+  "IONQ": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "IOT": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "IP": {
+   "sic": "2621",
+   "description": "Paper Mills"
+  },
+  "IQV": {
+   "sic": "8731",
+   "description": "Services-Commercial Physical & Biological Research"
+  },
+  "IR": {
+   "sic": "3560",
+   "description": "General Industrial Machinery & Equipment"
+  },
+  "IRM": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "ISRG": {
+   "sic": "3842",
+   "description": "Orthopedic, Prosthetic & Surgical Appliances & Supplies"
+  },
+  "IT": {
+   "sic": "8741",
+   "description": "Services-Management Services"
+  },
+  "ITT": {
+   "sic": "3561",
+   "description": "Pumps & Pumping Equipment"
+  },
+  "ITUB": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "ITW": {
+   "sic": "3560",
+   "description": "General Industrial Machinery & Equipment"
+  },
+  "IVZ": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "IX": {
+   "sic": "6159",
+   "description": "Miscellaneous Business Credit Institution"
+  },
+  "J": {
+   "sic": "1600",
+   "description": "Heavy Construction Other Than Bldg Const - Contractors"
+  },
+  "JBHT": {
+   "sic": "4213",
+   "description": "Trucking (No Local)"
+  },
+  "JBL": {
+   "sic": "3672",
+   "description": "Printed Circuit Boards"
+  },
+  "JCI": {
+   "sic": "3585",
+   "description": "Air-Cond & Warm Air Heatg Equip & Comm & Indl Refrig Equip"
+  },
+  "JD": {
+   "sic": "5990",
+   "description": "Retail-Retail Stores, NEC"
+  },
+  "JEF": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "JKHY": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "JLL": {
+   "sic": "6531",
+   "description": "Real Estate Agents & Managers (For Others)"
+  },
+  "JNJ": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "JPM": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "KB": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "KDP": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "KEY": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "KEYS": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "KGC": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "KHC": {
+   "sic": "2030",
+   "description": "Canned, Frozen & Preservd Fruit, Veg & Food Specialties"
+  },
+  "KIM": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "KKR": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "KLAC": {
+   "sic": "3827",
+   "description": "Optical Instruments & Lenses"
+  },
+  "KMB": {
+   "sic": "2670",
+   "description": "Converted Paper & Paperboard Prods (No Contaners/Boxes)"
+  },
+  "KMI": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "KNX": {
+   "sic": "4213",
+   "description": "Trucking (No Local)"
+  },
+  "KO": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "KOF": {
+   "sic": "2086",
+   "description": "Bottled & Canned Soft Drinks & Carbonated Waters"
+  },
+  "KR": {
+   "sic": "5411",
+   "description": "Retail-Grocery Stores"
+  },
+  "KRYS": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "KVUE": {
+   "sic": "2844",
+   "description": "Perfumes, Cosmetics & Other Toilet Preparations"
+  },
+  "L": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "LAMR": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "LDOS": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "LECO": {
+   "sic": "3540",
+   "description": "Metalworkg Machinery & Equipment"
+  },
+  "LEN": {
+   "sic": "1520",
+   "description": "General Bldg Contractors - Residential Bldgs"
+  },
+  "LFUS": {
+   "sic": "3613",
+   "description": "Switchgear & Switchboard Apparatus"
+  },
+  "LH": {
+   "sic": "8071",
+   "description": "Services-Medical Laboratories"
+  },
+  "LHX": {
+   "sic": "3812",
+   "description": "Search, Detection, Navigation, Guidance, Aeronautical Sys"
+  },
+  "LII": {
+   "sic": "3585",
+   "description": "Air-Cond & Warm Air Heatg Equip & Comm & Indl Refrig Equip"
+  },
+  "LIN": {
+   "sic": "2810",
+   "description": "Industrial Inorganic Chemicals"
+  },
+  "LITE": {
+   "sic": "3669",
+   "description": "Communications Equipment, NEC"
+  },
+  "LLY": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "LMT": {
+   "sic": "3760",
+   "description": "Guided Missiles & Space Vehicles & Parts"
+  },
+  "LNG": {
+   "sic": "4924",
+   "description": "Natural Gas Distribution"
+  },
+  "LNT": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "LOW": {
+   "sic": "5211",
+   "description": "Retail-Lumber & Other Building Materials Dealers"
+  },
+  "LPLA": {
+   "sic": "6200",
+   "description": "Security & Commodity Brokers, Dealers, Exchanges & Services"
+  },
+  "LRCX": {
+   "sic": "3559",
+   "description": "Special Industry Machinery, NEC"
+  },
+  "LSCC": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "LUV": {
+   "sic": "4512",
+   "description": "Air Transportation, Scheduled"
+  },
+  "LVS": {
+   "sic": "7011",
+   "description": "Hotels & Motels"
+  },
+  "LYB": {
+   "sic": "2860",
+   "description": "Industrial Organic Chemicals"
+  },
+  "LYG": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "LYV": {
+   "sic": "7900",
+   "description": "Services-Amusement & Recreation Services"
+  },
+  "MA": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "MAA": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "MAIR": {
+   "sic": "3564",
+   "description": "Industrial & Commercial Fans & Blowers & Air Purifing Equip"
+  },
+  "MANH": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "MAR": {
+   "sic": "7011",
+   "description": "Hotels & Motels"
+  },
+  "MAS": {
+   "sic": "3430",
+   "description": "Heating Equip, Except Elec & Warm Air; & Plumbing Fixtures"
+  },
+  "MCD": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "MCHP": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "MCK": {
+   "sic": "5122",
+   "description": "Wholesale-Drugs, Proprietaries & Druggists' Sundries"
+  },
+  "MCO": {
+   "sic": "7320",
+   "description": "Services-Consumer Credit Reporting, Collection Agencies"
+  },
+  "MDB": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "MDGL": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "MDLN": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "MDLZ": {
+   "sic": "2000",
+   "description": "Food and Kindred Products"
+  },
+  "MDT": {
+   "sic": "3845",
+   "description": "Electromedical & Electrotherapeutic Apparatus"
+  },
+  "MEDP": {
+   "sic": "8731",
+   "description": "Services-Commercial Physical & Biological Research"
+  },
+  "MELI": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "MET": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "META": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "MFC": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "MFG": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "MGM": {
+   "sic": "7011",
+   "description": "Hotels & Motels"
+  },
+  "MKC": {
+   "sic": "2090",
+   "description": "Miscellaneous Food Preparations & Kindred Products"
+  },
+  "MKL": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "MKSI": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "MLI": {
+   "sic": "3350",
+   "description": "Rolling Drawing & Extruding of  Nonferrous Metals"
+  },
+  "MLM": {
+   "sic": "1400",
+   "description": "Mining & Quarrying of  Nonmetallic Minerals (No Fuels)"
+  },
+  "MMM": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "MNST": {
+   "sic": "2086",
+   "description": "Bottled & Canned Soft Drinks & Carbonated Waters"
+  },
+  "MO": {
+   "sic": "2111",
+   "description": "Cigarettes"
+  },
+  "MOH": {
+   "sic": "6324",
+   "description": "Hospital & Medical Service Plans"
+  },
+  "MPC": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "MPLX": {
+   "sic": "4610",
+   "description": "Pipe Lines (No Natural Gas)"
+  },
+  "MPWR": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "MRK": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "MRNA": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "MRSH": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "MS": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "MSCI": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "MSFT": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "MSI": {
+   "sic": "3663",
+   "description": "Radio & Tv Broadcasting & Communications Equipment"
+  },
+  "MSTR": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "MT": {
+   "sic": "3312",
+   "description": "Steel Works, Blast Furnaces & Rolling Mills (Coke Ovens)"
+  },
+  "MTB": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "MTD": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "MTSI": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "MTZ": {
+   "sic": "1623",
+   "description": "Water, Sewer, Pipeline, Comm & Power Line Construction"
+  },
+  "MU": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "NBIS": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "NBIX": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "NDAQ": {
+   "sic": "6200",
+   "description": "Security & Commodity Brokers, Dealers, Exchanges & Services"
+  },
+  "NDSN": {
+   "sic": "3569",
+   "description": "General Industrial Machinery & Equipment, NEC"
+  },
+  "NEE": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "NEM": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "NET": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "NFLX": {
+   "sic": "7841",
+   "description": "Services-Video Tape Rental"
+  },
+  "NGG": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "NI": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "NKE": {
+   "sic": "3021",
+   "description": "Rubber & Plastics Footwear"
+  },
+  "NLY": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "NMR": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "NOC": {
+   "sic": "3812",
+   "description": "Search, Detection, Navigation, Guidance, Aeronautical Sys"
+  },
+  "NOK": {
+   "sic": "3663",
+   "description": "Radio & Tv Broadcasting & Communications Equipment"
+  },
+  "NOW": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "NRG": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "NSC": {
+   "sic": "4011",
+   "description": "Railroads, Line-Haul Operating"
+  },
+  "NTAP": {
+   "sic": "3572",
+   "description": "Computer Storage Devices"
+  },
+  "NTES": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "NTNX": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "NTR": {
+   "sic": "2870",
+   "description": "Agricultural Chemicals"
+  },
+  "NTRA": {
+   "sic": "8071",
+   "description": "Services-Medical Laboratories"
+  },
+  "NTRS": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "NU": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "NUE": {
+   "sic": "3312",
+   "description": "Steel Works, Blast Furnaces & Rolling Mills (Coke Ovens)"
+  },
+  "NVDA": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "NVR": {
+   "sic": "1531",
+   "description": "Operative Builders"
+  },
+  "NVS": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "NVT": {
+   "sic": "3550",
+   "description": "Special Industry Machinery (No Metalworking Machinery)"
+  },
+  "NWG": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "NWS": {
+   "sic": "2711",
+   "description": "Newspapers: Publishing or  Publishing & Printing"
+  },
+  "NXPI": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "NXT": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "NYT": {
+   "sic": "2711",
+   "description": "Newspapers: Publishing or  Publishing & Printing"
+  },
+  "O": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "OC": {
+   "sic": "3290",
+   "description": "Abrasive, Asbestos & Misc Nonmetallic Mineral Prods"
+  },
+  "ODFL": {
+   "sic": "4213",
+   "description": "Trucking (No Local)"
+  },
+  "OHI": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "OKE": {
+   "sic": "4923",
+   "description": "Natural Gas Transmisison & Distribution"
+  },
+  "OKTA": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "OMC": {
+   "sic": "7311",
+   "description": "Services-Advertising Agencies"
+  },
+  "ON": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "ONC": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ONTO": {
+   "sic": "3829",
+   "description": "Measuring & Controlling Devices, NEC"
+  },
+  "ORCL": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "ORLY": {
+   "sic": "5531",
+   "description": "Retail-Auto & Home Supply Stores"
+  },
+  "OTIS": {
+   "sic": "3600",
+   "description": "Electronic & Other Electrical Equipment (No Computer Equip)"
+  },
+  "OVV": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "OWL": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "OXY": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "P": {
+   "sic": "3572",
+   "description": "Computer Storage Devices"
+  },
+  "PAA": {
+   "sic": "4610",
+   "description": "Pipe Lines (No Natural Gas)"
+  },
+  "PAG": {
+   "sic": "5500",
+   "description": "Retail-Auto Dealers & Gasoline Stations"
+  },
+  "PANW": {
+   "sic": "3577",
+   "description": "Computer Peripheral Equipment, NEC"
+  },
+  "PAYX": {
+   "sic": "8700",
+   "description": "Services-Engineering, Accounting, Research, Management"
+  },
+  "PBA": {
+   "sic": "1382",
+   "description": "Oil & Gas Field Exploration Services"
+  },
+  "PBR": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "PCAR": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "PCG": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "PDD": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "PEG": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "PEN": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "PEP": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "PFE": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "PFG": {
+   "sic": "6321",
+   "description": "Accident & Health Insurance"
+  },
+  "PFGC": {
+   "sic": "5141",
+   "description": "Wholesale-Groceries, General Line"
+  },
+  "PG": {
+   "sic": "2840",
+   "description": "Soap, Detergents, Cleang Preparations, Perfumes, Cosmetics"
+  },
+  "PGR": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "PH": {
+   "sic": "3490",
+   "description": "Miscellaneous Fabricated Metal Products"
+  },
+  "PHG": {
+   "sic": "3844",
+   "description": "X-Ray Apparatus & Tubes & Related Irradiation Apparatus"
+  },
+  "PHM": {
+   "sic": "1531",
+   "description": "Operative Builders"
+  },
+  "PINS": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "PKG": {
+   "sic": "2650",
+   "description": "Paperboard Containers & Boxes"
+  },
+  "PLD": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "PLTR": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "PM": {
+   "sic": "2111",
+   "description": "Cigarettes"
+  },
+  "PNC": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "PNFP": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "PNW": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "PPG": {
+   "sic": "2851",
+   "description": "Paints, Varnishes, Lacquers, Enamels & Allied Prods"
+  },
+  "PPL": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "PR": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "PRU": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "PS": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "PSA": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "PSKY": {
+   "sic": "4833",
+   "description": "Television Broadcasting Stations"
+  },
+  "PSX": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "PTC": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "PUK": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "PWR": {
+   "sic": "1731",
+   "description": "Electrical Work"
+  },
+  "PYPL": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "Q": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "QCOM": {
+   "sic": "3663",
+   "description": "Radio & Tv Broadcasting & Communications Equipment"
+  },
+  "QNT": {
+   "sic": "7373",
+   "description": "Services-Computer Integrated Systems Design"
+  },
+  "QSR": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "QXO": {
+   "sic": "5030",
+   "description": "Wholesale-Lumber & Other Construction Materials"
+  },
+  "RACE": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "RBC": {
+   "sic": "3562",
+   "description": "Ball & Roller Bearings"
+  },
+  "RBLX": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "RBRK": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "RCL": {
+   "sic": "4400",
+   "description": "Water Transportation"
+  },
+  "RDDT": {
+   "sic": "7374",
+   "description": "Services-Computer Processing & Data Preparation"
+  },
+  "REG": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "REGN": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "RELX": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "RF": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "RGA": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "RGLD": {
+   "sic": "6795",
+   "description": "Mineral Royalty Traders"
+  },
+  "RIO": {
+   "sic": "1000",
+   "description": "Metal Mining"
+  },
+  "RIVN": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "RJF": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "RKLB": {
+   "sic": "3760",
+   "description": "Guided Missiles & Space Vehicles & Parts"
+  },
+  "RKT": {
+   "sic": "6162",
+   "description": "Mortgage Bankers & Loan Correspondents"
+  },
+  "RL": {
+   "sic": "2320",
+   "description": "Men's & Boys' Furnishgs, Work Clothg, & Allied Garments"
+  },
+  "RMD": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "ROIV": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "ROK": {
+   "sic": "3829",
+   "description": "Measuring & Controlling Devices, NEC"
+  },
+  "ROKU": {
+   "sic": "4841",
+   "description": "Cable & Other Pay Television Services"
+  },
+  "ROL": {
+   "sic": "7340",
+   "description": "Services-To Dwellings & Other Buildings"
+  },
+  "ROP": {
+   "sic": "3823",
+   "description": "Industrial Instruments For Measurement, Display, and Control"
+  },
+  "ROST": {
+   "sic": "5651",
+   "description": "Retail-Family Clothing Stores"
+  },
+  "RPM": {
+   "sic": "2851",
+   "description": "Paints, Varnishes, Lacquers, Enamels & Allied Prods"
+  },
+  "RPRX": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "RRX": {
+   "sic": "3569",
+   "description": "General Industrial Machinery & Equipment, NEC"
+  },
+  "RS": {
+   "sic": "5051",
+   "description": "Wholesale-Metals Service Centers & of fices"
+  },
+  "RSG": {
+   "sic": "4953",
+   "description": "Refuse Systems"
+  },
+  "RTX": {
+   "sic": "3724",
+   "description": "Aircraft Engines & Engine Parts"
+  },
+  "RVMD": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "RVTY": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "RY": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "RYAAY": {
+   "sic": "4512",
+   "description": "Air Transportation, Scheduled"
+  },
+  "RYAN": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "SANM": {
+   "sic": "3672",
+   "description": "Printed Circuit Boards"
+  },
+  "SAP": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "SBAC": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "SBUX": {
+   "sic": "5810",
+   "description": "Retail-Eating & Drinking Places"
+  },
+  "SCCO": {
+   "sic": "1000",
+   "description": "Metal Mining"
+  },
+  "SCHW": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "SCI": {
+   "sic": "7200",
+   "description": "Services-Personal Services"
+  },
+  "SE": {
+   "sic": "7380",
+   "description": "Services-Miscellaneous Business Services"
+  },
+  "SEIC": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "SF": {
+   "sic": "6211",
+   "description": "Security Brokers, Dealers & Flotation Companies"
+  },
+  "SGI": {
+   "sic": "2510",
+   "description": "Household Furniture"
+  },
+  "SHEL": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "SHG": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "SHOP": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "SHW": {
+   "sic": "5200",
+   "description": "Retail-Building Materials, Hardware, Garden Supply"
+  },
+  "SITM": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "SJM": {
+   "sic": "2033",
+   "description": "Canned, Fruits, Veg, Preserves, Jams & Jellies"
+  },
+  "SLB": {
+   "sic": "1389",
+   "description": "Oil & Gas Field Services, NEC"
+  },
+  "SLF": {
+   "sic": "6311",
+   "description": "Life Insurance"
+  },
+  "SMCI": {
+   "sic": "3571",
+   "description": "Electronic Computers"
+  },
+  "SMFG": {
+   "sic": "6029",
+   "description": "Commercial Banks, NEC"
+  },
+  "SMTC": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "SN": {
+   "sic": "3630",
+   "description": "Household Appliances"
+  },
+  "SNA": {
+   "sic": "3420",
+   "description": "Cutlery, Handtools & General Hardware"
+  },
+  "SNOW": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "SNPS": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "SNX": {
+   "sic": "5045",
+   "description": "Wholesale-Computers & Peripheral Equipment & Software"
+  },
+  "SNY": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "SO": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "SOFI": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "SOLS": {
+   "sic": "2800",
+   "description": "Chemicals & Allied Products"
+  },
+  "SOLV": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "SONY": {
+   "sic": "3651",
+   "description": "Household Audio & Video Equipment"
+  },
+  "SPG": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "SPGI": {
+   "sic": "7320",
+   "description": "Services-Consumer Credit Reporting, Collection Agencies"
+  },
+  "SPOT": {
+   "sic": "4832",
+   "description": "Radio Broadcasting Stations"
+  },
+  "SRE": {
+   "sic": "4932",
+   "description": "Gas & Other Services Combined"
+  },
+  "SSB": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "SSNC": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "STE": {
+   "sic": "3842",
+   "description": "Orthopedic, Prosthetic & Surgical Appliances & Supplies"
+  },
+  "STLD": {
+   "sic": "3312",
+   "description": "Steel Works, Blast Furnaces & Rolling Mills (Coke Ovens)"
+  },
+  "STM": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "STRL": {
+   "sic": "1600",
+   "description": "Heavy Construction Other Than Bldg Const - Contractors"
+  },
+  "STT": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "STZ": {
+   "sic": "2080",
+   "description": "Beverages"
+  },
+  "SU": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "SUI": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "SUN": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "SUNB": {
+   "sic": "7359",
+   "description": "Services-Equipment Rental & Leasing, NEC"
+  },
+  "SW": {
+   "sic": "2650",
+   "description": "Paperboard Containers & Boxes"
+  },
+  "SWK": {
+   "sic": "3420",
+   "description": "Cutlery, Handtools & General Hardware"
+  },
+  "SWKS": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "SYF": {
+   "sic": "6199",
+   "description": "Finance Services"
+  },
+  "SYK": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "SYM": {
+   "sic": "3569",
+   "description": "General Industrial Machinery & Equipment, NEC"
+  },
+  "SYY": {
+   "sic": "5140",
+   "description": "Wholesale-Groceries & Related Products"
+  },
+  "T": {
+   "sic": "4813",
+   "description": "Telephone Communications (No Radiotelephone)"
+  },
+  "TAK": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "TCOM": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "TDG": {
+   "sic": "3728",
+   "description": "Aircraft Parts & Auxiliary Equipment, NEC"
+  },
+  "TDY": {
+   "sic": "3812",
+   "description": "Search, Detection, Navigation, Guidance, Aeronautical Sys"
+  },
+  "TEAM": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "TECH": {
+   "sic": "2836",
+   "description": "Biological Products, (No Diagnostic Substances)"
+  },
+  "TECK": {
+   "sic": "1400",
+   "description": "Mining & Quarrying of  Nonmetallic Minerals (No Fuels)"
+  },
+  "TEL": {
+   "sic": "5065",
+   "description": "Wholesale-Electronic Parts & Equipment, NEC"
+  },
+  "TEM": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "TER": {
+   "sic": "3825",
+   "description": "Instruments For Meas & Testing of  Electricity & Elec Signals"
+  },
+  "TEVA": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "TFC": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "TGT": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "THC": {
+   "sic": "8062",
+   "description": "Services-General Medical & Surgical Hospitals, NEC"
+  },
+  "TJX": {
+   "sic": "5651",
+   "description": "Retail-Family Clothing Stores"
+  },
+  "TKO": {
+   "sic": "7900",
+   "description": "Services-Amusement & Recreation Services"
+  },
+  "TLN": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "TM": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "TMO": {
+   "sic": "3829",
+   "description": "Measuring & Controlling Devices, NEC"
+  },
+  "TMUS": {
+   "sic": "4812",
+   "description": "Radiotelephone Communications"
+  },
+  "TOL": {
+   "sic": "1531",
+   "description": "Operative Builders"
+  },
+  "TOST": {
+   "sic": "7374",
+   "description": "Services-Computer Processing & Data Preparation"
+  },
+  "TPG": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "TPL": {
+   "sic": "6792",
+   "description": "Oil Royalty Traders"
+  },
+  "TPR": {
+   "sic": "3100",
+   "description": "Leather & Leather Products"
+  },
+  "TRGP": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "TRI": {
+   "sic": "2741",
+   "description": "Miscellaneous Publishing"
+  },
+  "TRMB": {
+   "sic": "3829",
+   "description": "Measuring & Controlling Devices, NEC"
+  },
+  "TROW": {
+   "sic": "6282",
+   "description": "Investment Advice"
+  },
+  "TRP": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "TRU": {
+   "sic": "7320",
+   "description": "Services-Consumer Credit Reporting, Collection Agencies"
+  },
+  "TRV": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "TS": {
+   "sic": "3312",
+   "description": "Steel Works, Blast Furnaces & Rolling Mills (Coke Ovens)"
+  },
+  "TSCO": {
+   "sic": "5200",
+   "description": "Retail-Building Materials, Hardware, Garden Supply"
+  },
+  "TSEM": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "TSLA": {
+   "sic": "3711",
+   "description": "Motor Vehicles & Passenger Car Bodies"
+  },
+  "TSM": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "TSN": {
+   "sic": "2015",
+   "description": "Poultry Slaughtering and Processing"
+  },
+  "TT": {
+   "sic": "3822",
+   "description": "Auto Controls For Regulating Residential & Comml Environments"
+  },
+  "TTMI": {
+   "sic": "3672",
+   "description": "Printed Circuit Boards"
+  },
+  "TTWO": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "TW": {
+   "sic": "6200",
+   "description": "Security & Commodity Brokers, Dealers, Exchanges & Services"
+  },
+  "TWLO": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "TXN": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "TXRH": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "TXT": {
+   "sic": "3720",
+   "description": "Aircraft & Parts"
+  },
+  "TYL": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "U": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "UAL": {
+   "sic": "4512",
+   "description": "Air Transportation, Scheduled"
+  },
+  "UBER": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "UBS": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "UDR": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "UHAL": {
+   "sic": "7510",
+   "description": "Services-Auto Rental & Leasing (No Drivers)"
+  },
+  "UHS": {
+   "sic": "8062",
+   "description": "Services-General Medical & Surgical Hospitals, NEC"
+  },
+  "UI": {
+   "sic": "3663",
+   "description": "Radio & Tv Broadcasting & Communications Equipment"
+  },
+  "UL": {
+   "sic": "2840",
+   "description": "Soap, Detergents, Cleang Preparations, Perfumes, Cosmetics"
+  },
+  "ULS": {
+   "sic": "8734",
+   "description": "Services-Testing Laboratories"
+  },
+  "ULTA": {
+   "sic": "5990",
+   "description": "Retail-Retail Stores, NEC"
+  },
+  "UMBF": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "UMC": {
+   "sic": "3674",
+   "description": "Semiconductors & Related Devices"
+  },
+  "UNH": {
+   "sic": "6324",
+   "description": "Hospital & Medical Service Plans"
+  },
+  "UNM": {
+   "sic": "6321",
+   "description": "Accident & Health Insurance"
+  },
+  "UNP": {
+   "sic": "4011",
+   "description": "Railroads, Line-Haul Operating"
+  },
+  "UPS": {
+   "sic": "4210",
+   "description": "Trucking & Courier Services (No Air)"
+  },
+  "URI": {
+   "sic": "7359",
+   "description": "Services-Equipment Rental & Leasing, NEC"
+  },
+  "USB": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "USFD": {
+   "sic": "5140",
+   "description": "Wholesale-Groceries & Related Products"
+  },
+  "UTHR": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "V": {
+   "sic": "7389",
+   "description": "Services-Business Services, NEC"
+  },
+  "VALE": {
+   "sic": "1000",
+   "description": "Metal Mining"
+  },
+  "VEEV": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "VG": {
+   "sic": "4924",
+   "description": "Natural Gas Distribution"
+  },
+  "VICI": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "VIK": {
+   "sic": "4400",
+   "description": "Water Transportation"
+  },
+  "VLO": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "VLTO": {
+   "sic": "3825",
+   "description": "Instruments For Meas & Testing of  Electricity & Elec Signals"
+  },
+  "VMC": {
+   "sic": "1400",
+   "description": "Mining & Quarrying of  Nonmetallic Minerals (No Fuels)"
+  },
+  "VMRK": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "VNOM": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "VOD": {
+   "sic": "4812",
+   "description": "Radiotelephone Communications"
+  },
+  "VRSK": {
+   "sic": "7374",
+   "description": "Services-Computer Processing & Data Preparation"
+  },
+  "VRSN": {
+   "sic": "7371",
+   "description": "Services-Computer Programming Services"
+  },
+  "VRT": {
+   "sic": "3679",
+   "description": "Electronic Components, NEC"
+  },
+  "VRTX": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "VST": {
+   "sic": "4911",
+   "description": "Electric Services"
+  },
+  "VTR": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "VTRS": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  },
+  "VZ": {
+   "sic": "4813",
+   "description": "Telephone Communications (No Radiotelephone)"
+  },
+  "W": {
+   "sic": "5961",
+   "description": "Retail-Catalog & Mail-Order Houses"
+  },
+  "WAB": {
+   "sic": "3743",
+   "description": "Railroad Equipment"
+  },
+  "WAT": {
+   "sic": "3826",
+   "description": "Laboratory Analytical Instruments"
+  },
+  "WBD": {
+   "sic": "4841",
+   "description": "Cable & Other Pay Television Services"
+  },
+  "WCC": {
+   "sic": "5063",
+   "description": "Wholesale-Electrical Apparatus & Equipment, Wiring Supplies "
+  },
+  "WCN": {
+   "sic": "4953",
+   "description": "Refuse Systems"
+  },
+  "WDAY": {
+   "sic": "7374",
+   "description": "Services-Computer Processing & Data Preparation"
+  },
+  "WDC": {
+   "sic": "3572",
+   "description": "Computer Storage Devices"
+  },
+  "WDS": {
+   "sic": "1311",
+   "description": "Crude Petroleum & Natural Gas"
+  },
+  "WEC": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "WELL": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "WES": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "WFC": {
+   "sic": "6021",
+   "description": "National Commercial Banks"
+  },
+  "WM": {
+   "sic": "4953",
+   "description": "Refuse Systems"
+  },
+  "WMB": {
+   "sic": "4922",
+   "description": "Natural Gas Transmission"
+  },
+  "WMG": {
+   "sic": "7900",
+   "description": "Services-Amusement & Recreation Services"
+  },
+  "WMT": {
+   "sic": "5331",
+   "description": "Retail-Variety Stores"
+  },
+  "WPC": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "WPM": {
+   "sic": "1040",
+   "description": "Gold and Silver Ores"
+  },
+  "WRB": {
+   "sic": "6331",
+   "description": "Fire, Marine & Casualty Insurance"
+  },
+  "WSM": {
+   "sic": "5700",
+   "description": "Retail-Home Furniture, Furnishings & Equipment Stores"
+  },
+  "WSO": {
+   "sic": "5070",
+   "description": "Wholesale-Hardware & Plumbing & Heating Equipment & Supplies"
+  },
+  "WST": {
+   "sic": "3841",
+   "description": "Surgical & Medical Instruments & Apparatus"
+  },
+  "WTFC": {
+   "sic": "6022",
+   "description": "State Commercial Banks"
+  },
+  "WTRG": {
+   "sic": "4941",
+   "description": "Water Supply"
+  },
+  "WTS": {
+   "sic": "3490",
+   "description": "Miscellaneous Fabricated Metal Products"
+  },
+  "WTW": {
+   "sic": "6411",
+   "description": "Insurance Agents, Brokers & Service"
+  },
+  "WWD": {
+   "sic": "3620",
+   "description": "Electrical Industrial Apparatus"
+  },
+  "WY": {
+   "sic": "6798",
+   "description": "Real Estate Investment Trusts"
+  },
+  "XEL": {
+   "sic": "4931",
+   "description": "Electric & Other Services Combined"
+  },
+  "XOM": {
+   "sic": "2911",
+   "description": "Petroleum Refining"
+  },
+  "XPO": {
+   "sic": "4700",
+   "description": "Transportation Services"
+  },
+  "XYL": {
+   "sic": "3561",
+   "description": "Pumps & Pumping Equipment"
+  },
+  "XYZ": {
+   "sic": "7372",
+   "description": "Services-Prepackaged Software"
+  },
+  "YUM": {
+   "sic": "5812",
+   "description": "Retail-Eating  Places"
+  },
+  "ZBH": {
+   "sic": "3842",
+   "description": "Orthopedic, Prosthetic & Surgical Appliances & Supplies"
+  },
+  "ZBRA": {
+   "sic": "3560",
+   "description": "General Industrial Machinery & Equipment"
+  },
+  "ZM": {
+   "sic": "7370",
+   "description": "Services-Computer Programming, Data Processing, Etc."
+  },
+  "ZS": {
+   "sic": "7371",
+   "description": "Services-Computer Programming Services"
+  },
+  "ZTS": {
+   "sic": "2834",
+   "description": "Pharmaceutical Preparations"
+  }
+ },
+ "missing": [
+  "ARCC"
+ ]
+}

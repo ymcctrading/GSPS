@@ -119,12 +119,12 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
     isStock: input.sharesOutstanding != null,
   });
   // Ran out of bars before an exit or the limit: still open.
-  if (walked.reason === "timeout" && bars.length < from + maxBarsHeld) return PENDING;
+  if (walked.reason === "open_at_end") return PENDING;
 
   const rMultiple = ((long ? 1 : -1) * (walked.exit - fill)) / risk;
   const sessions = new Set(bars.slice(from, from + walked.barsHeld).map((b) => b.t.slice(0, 10))).size;
   return {
-    outcome: walked.reason === "timeout" ? "timeout" : rMultiple > 0 ? "win" : "loss",
+    outcome: walked.reason === "held_to_limit" ? "timeout" : rMultiple > 0 ? "win" : "loss",
     rMultiple,
     barsHeld: sessions,
     fillPrice: fill,

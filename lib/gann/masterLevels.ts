@@ -27,7 +27,11 @@
  *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16);
  * - Gann's full angle set, drawn from the major pivots and copied to the
  *   preceding opposite pivots, contributes its nearest line above and below
- *   price (`patternAngles.ts#patternAngleLevels`, gap G27, 2026-10-16).
+ *   price (`patternAngles.ts#patternAngleLevels`, gap G27, 2026-10-16);
+ * - the Square of Nine's cardinal and fixed crosses contribute their nearest
+ *   number above and below price, read in Gann points (Master Course Ch. 2,
+ *   "great resistance points"; `squareOfNinePrice.ts`, C-LEVELS-15,
+ *   2026-10-21).
  *
  * The Gann point is fixed from the daily bars' extremes, and the extremes
  * are the longest history supplied (monthly plus daily), which Gann ranks
@@ -45,11 +49,12 @@ import { planetaryLevels } from "@/lib/gann/planetaryAverages";
 import { activeAngleLevels } from "@/lib/gann/astroRules";
 import { jensenLevels } from "@/lib/gann/jensen";
 import { patternAngleLevels } from "@/lib/gann/patternAngles";
+import { squareOfNinePriceLevels } from "@/lib/gann/squareOfNinePrice";
 
 export interface MasterLevel {
   price: number;
   label: string;
-  source: "squareOf144" | "planetary" | "activeAngle" | "jensen" | "patternAngle";
+  source: "squareOf144" | "planetary" | "activeAngle" | "jensen" | "patternAngle" | "squareOfNine";
 }
 
 export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number, asOf: Date): MasterLevel[] {
@@ -71,5 +76,6 @@ export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number
   for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
   for (const l of jensenLevels(daily, price, unit)) out.push({ ...l, source: "jensen" });
   for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });
+  for (const l of squareOfNinePriceLevels(price, unit)) out.push({ price: l.price, label: l.label, source: "squareOfNine" });
   return out;
 }

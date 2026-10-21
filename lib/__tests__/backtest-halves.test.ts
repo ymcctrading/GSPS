@@ -40,6 +40,7 @@ describe("buildReport: chronological halves", () => {
     wins,
     losses: trades.length - wins,
     timeouts: 0,
+    openAtEnd: 0,
     ambiguous: 0,
     winRate: wins / trades.length,
     expectancyR: trades.reduce((s, t) => s + t.rMultiple, 0) / trades.length,

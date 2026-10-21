@@ -508,8 +508,7 @@ Measured: the rank read is about 0.005-0.009 ms a symbol, building the table
 is logged by the market scan's "universe strength read" breadcrumb and was
 not measurable from this session. Engineering choices, labelled: the quarter,
 `MIN_PEERS` 100, position in range as the comparison, and today's list carried
-back in time (survivorship). US equities only; a group map (Gann's "within a
-group") stays open. A failed universe read leaves P3(c) unread, which fails as
+back in time (survivorship). US equities only. A failed universe read leaves P3(c) unread, which fails as
 an unread check does. `STRATEGY_VERSION` was
 `2026-10-21-gann-universe-strength-rank` (since moved on); Execute and the 6/3.5 cutoffs need a
 fresh run on it.
@@ -615,7 +614,8 @@ test (`lib/shadow/evaluate.ts`) enters on the reaction and exits on Gann's
 rules as production does, with the 2026-08-27 baseline labelled as other rules
 and not compared (R-032). Migration 0094 (one-transaction paper fill, the
 strategy version on scans, orders and trades, the forward test's outcomes) is
-applied before the code that writes it merges. `STRATEGY_VERSION` is
+applied before the code that writes it merges (applied 2026-10-21 on the
+owner's go-ahead). `STRATEGY_VERSION` was
 `2026-10-21-gann-stand-aside-no-trend`. **The ledger is server-written (R-029):**
 every write to positions, orders, paper accounts, trade logs, exits, plans,
 plan audit, lesson progress, learning labs and the order lock goes through
@@ -666,7 +666,7 @@ Live working orders are not counted yet. (3) The decade digit and its in-year
 turns read the year and month in UTC while the live scan passes the wall clock,
 so from 8 PM ET on a month's last day live read the next month and the replay
 the current one. `computeDecadeCycle` reads them in New York time.
-`STRATEGY_VERSION` is `2026-10-21-gann-decade-month-et`. (4) Pro's intraday
+`STRATEGY_VERSION` was `2026-10-21-gann-decade-month-et`. (4) Pro's intraday
 module still refused a third intraday entry a day, a daily count R-019 removed
 everywhere else; the count is gone (`canEnterNewIntradayPosition` keeps the
 concurrent, consecutive-loss and daily-loss gates), with its spec line.
@@ -721,8 +721,71 @@ needs repeating on it.
 **The review fixes merged onto the above, same day.** The paper exit manager
 fills a crossed stop at the market quote (R-010) and reverses the trade at the
 stop itself (review fix 1 above), so the fill and the reversal level differ
-when the quote gapped through. `STRATEGY_VERSION` is
+when the quote gapped through. `STRATEGY_VERSION` was
 `2026-10-21-review-fixes-on-replay-daily-closed-session`; no new rule.
+
+**Group rank, same day (owner: "Yes I want this next").** The rank is also
+read within the stock's industry group, Gann's "buy the strongest stocks in the
+group and sell short the ones in the weakest position" (S4, *Stock Selector*
+Ch. VII; *Truth of the Stock Tape* Ch. XVI-XIX). Groups are SEC industry codes
+(SIC), fetched once by `scripts/fetch-industry-groups.mjs` through the manual
+workflow `fetch-industry-groups.yml` (this sandbox can't reach sec.gov) and
+checked in as `lib/gann/industryGroups.json`, so every surface reads the same
+map and nothing at runtime calls SEC. Re-run it when `LARGE_CAP_UNIVERSE`
+changes, on a feature branch with `commit` set (it commits the file there).
+SEC refused GitHub's runners until the repository secret `SEC_USER_AGENT`
+(a real name and email) was set; the noreply fallback alone is refused. The
+first map (2026-10-21) coded 830 of 831 symbols (ARCC has none) and put 778 in
+65 groups. Engineering choices, labelled in `lib/gann/industryGroups.ts`: the
+three-digit SIC industry group when at least 5 universe stocks share it, else
+the two-digit major group, else none; a group rank needs 4 peers. P3(c) passes
+on the strongest quarter of the group or of the universe (the weakest, short),
+as its design reads S6, and `selectionStrength` counts either. No new fetch;
+the group read adds a filter of the month's positions once per group and month.
+`STRATEGY_VERSION` was `2026-10-21-gann-group-strength-rank`.
+
+**Price and time squared against the move, 2026-10-21 (diagnosis of run 73's P7
+inversion: the check −0.188R, P7 −0.150R, negative in both halves).** One translation
+defect, fixed: the square shared the angle's anchor, the low for a long, so it passed
+when the advance from the low had balanced time and price, which by Gann marks a top
+due. Gann measures the balance "up from lows" and "down from highs" (Master Course
+Ch. 6-7: low 50, price 102, up 52 = 1 year; high 182, now 130, down 52 = 1 year), and
+for a long the buy is the decline from the high squaring out. `computeScore` now reads
+the square from the last high for a long and the last low for a short
+(`squareAnchorKind`, `lib/scoring/score.ts`); the angle, the climax and the boiling
+point keep the trade's own anchor. Random walks (`timePillarRule.test.ts`, 38,400
+readings): squared 21.1% either way, P7 "and" 11.6% → 9.5%. The same diagnosis found
+the population figure carried by trades still open at the window's end, which the
+replay reported as `timeout`; that is being split out separately. `STRATEGY_VERSION`
+was `2026-10-21-gann-square-against-move`; P7 and the 6/3.5 cutoffs need a fresh run.
+**Square of Nine in price, same day (C-LEVELS-15).** Gann lists the numbers on
+the Square of Nine's diagonals (3, 13, 31, 57, 91 … and 7, 21, 43, 73, 111 …,
+with 8, 23, 46, 77 … and 4, 15, 34, 61 …) as "great resistance points and
+measuring out important time factors" (Master Course Ch. 2, PDF 68, per the
+memory-bank read of A2.1; Ch. 15A, PDF 393-395, corrects the printed 75 to 73),
+and ranks the cardinal and fixed crosses as the strongest angles (Ch. 2 PDF
+57-58, Ch. 4 PDF 152-153). The time half was built 2026-09-30
+(`squareOfNineTime.ts`); this is the price half. `lib/gann/squareOfNinePrice.ts`
+reads the cross numbers (0/90/180/270 and 45/135/225/315, the 22.5° lines and
+numbers below 10 left out) as prices in Gann points, and the nearest below and
+above price join the S/R list as support and resistance through
+`masterLevels.ts`, on the live scan and the replay alike. `squareOf9.ts` (the
+anchor spiral) is unchanged. Density, held for the owner: on 400 random walks a
+cross number lay inside the 3-point band on 95.8/94.0% (long/short) of
+readings at $20, 89.8/89.3% at $50, 70.8/67.0% at $150 and 52.5/56.3% at $500,
+because ring k spaces the cross numbers k points apart and the band is 3
+points, so a stock reading under about 49 points (ring 3, most stocks under
+~$100) nearly always has one in band (the unit is fixed from the bars' gravity
+centre, the band from today's price, so not quite always). `historicalSR` itself was already near saturation on the same walks
+(before → after, long/short: $20 99.8/100 → 100/100%, $50 99.8/99.8 →
+100/99.8%, $150 99.5/99.3 → 99.5/99.5%, $500 97.8/98.5 → 98.8/99.3%); P5(b)
+reads the range divisions, not the S/R list, and is unchanged. Stops and
+targets read the list too, so plans move: `replay.test.ts`'s A-LEVELS-04
+fixture moved from 300 to 295 sessions, because 300's first target became the
+cross number short of the failed top. `STRATEGY_VERSION` was
+`2026-10-21-gann-nine-square-price`; Execute and the 6/3.5 cutoffs need a
+fresh run on it. The review's second round merged onto it (no new rule):
+`STRATEGY_VERSION` is `2026-10-21-review-second-round-on-nine-square-price`.
 
 ## WD Gann precedence — standing principle
 

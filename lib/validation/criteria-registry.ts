@@ -529,7 +529,8 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     "Selection rules S4-S12: two of leading the market, the campaign's first-year high, and S6, among the strongest quarter of the scan universe " +
       "by its year of monthly highs and lows (the weakest quarter, short; HMPC pp. 20, 47; WSSS Ch. VII). Since 2026-10-21 a true " +
       "cross-sectional rank (readUniverseRank) on completed months against the fixed LARGE_CAP_UNIVERSE, the same on the live scan, the " +
-      "symbol page and the replay; it replaced the 2026-10-20 stand-in (the stock against SPY alone). A group map stays open."),
+      "symbol page and the replay; it replaced the 2026-10-20 stand-in (the stock against SPY alone). Or the strongest quarter of its industry " +
+      "group (S4, WSSS Ch. VII), groups from SEC industry codes (lib/gann/industryGroups.ts), same day."),
   PILLAR("activity", "Activity and character", "lib/gann/ruleFollowing.ts, lib/gann/sevenZones.ts, lib/gann/priceZone.ts",
     "S1-S3, S18, S27: follows the rules, and two of volume at its norm, a 20-point yearly range, and ranges not quieter than usual."),
   PILLAR("priceLevels", "Price levels", "lib/strat/levels.ts, lib/gann/retracement.ts",

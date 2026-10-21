@@ -171,9 +171,10 @@ export function readLeadership(
  *
  * - S6 (*How to Make Profits in Commodities* p. 20): "How to Select the
  *   Commodity that will Lead": compare the monthly highs and lows and take the
- *   strongest for a long, the weakest for a short. A stock in the universe's
- *   strongest quarter (`readUniverseRank`) ranks a step higher as a buy, one
- *   in its weakest quarter a step higher as a short (2026-10-21).
+ *   strongest for a long, the weakest for a short. A stock in the strongest
+ *   quarter of the universe or of its industry group (`readUniverseRank`)
+ *   ranks a step higher as a buy, one in the weakest quarter a step higher as
+ *   a short (2026-10-21).
  *
  * It orders setups and never scores them here (P3(c) scores the same rank).
  * Engineering choice, labelled as such: each reading counts one step, since
@@ -183,11 +184,13 @@ export function selectionStrength(
   direction: "bullish" | "bearish" | "none",
   leadership: LeadershipReading | null | undefined,
   weak?: WeakStockReading | null,
-  rank?: { strongest: boolean; weakest: boolean } | null,
+  rank?: { strongest: boolean; weakest: boolean; group?: { strongest: boolean; weakest: boolean } | null } | null,
 ): number {
+  const strong = rank?.strongest || rank?.group?.strongest ? 1 : 0;
+  const weakest = rank?.weakest || rank?.group?.weakest ? 1 : 0;
   const isWeak = weak?.weak === true ? 1 : 0;
-  if (direction === "bullish") return (leadership?.bottomedFirst || leadership?.crossedTopsFirst ? 1 : 0) - isWeak + (rank?.strongest ? 1 : 0);
-  if (direction === "bearish") return (leadership?.toppedFirst || leadership?.brokeBottomsFirst ? 1 : 0) + isWeak + (rank?.weakest ? 1 : 0);
+  if (direction === "bullish") return (leadership?.bottomedFirst || leadership?.crossedTopsFirst ? 1 : 0) - isWeak + strong;
+  if (direction === "bearish") return (leadership?.toppedFirst || leadership?.brokeBottomsFirst ? 1 : 0) + isWeak + weakest;
   return 0;
 }
 

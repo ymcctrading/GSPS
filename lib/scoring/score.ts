@@ -389,8 +389,22 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // bars elapsed since the same direction-matched anchor angleHolding reads,
   // checked one-for-one against the raw price move since it, not the
   // ATR-normalized rate angleHolding tests.
+  //
+  // 2026-10-21: the square reads the move against the trade, not the move with
+  // it. A balance of time and price marks a turn, measured "up from lows" and
+  // "down from highs" (Master Course Ch. 6-7, PDF 750 of the notes: low 50,
+  // price 102, up 52 = 1 year, "a Time and Price Balance"; high 182, now 130,
+  // down 52 = 1 year). For a long, the decline from the last high squaring out
+  // says a bottom is due, which is the buy; the advance from the last low
+  // squaring out says a top is due, which is against it. The reading had
+  // shared the angle's anchor (the low for a long), so it passed when a top
+  // was due: on the 2026-10-21 15-minute run the check measured -0.188R
+  // passing against failing, P7 -0.150R, negative in both halves
+  // (`/mnt/project-files/replay-diagnosis/2026-10-21-15min-prod.md`). The
+  // angle, the climax and the boiling point keep the trade's own anchor.
+  const squareAnchorKind: "low" | "high" = direction === "bullish" ? "high" : "low";
   const squareReading =
-    (timePriceSquare ?? []).find((r) => r.anchorKind === angleAnchorKind) ?? null;
+    (timePriceSquare ?? []).find((r) => r.anchorKind === squareAnchorKind) ?? null;
   const timePriceSquareHolding = squareReading?.squared === true;
 
   // 2026-09-10: replaces harmonicProximity. harmonicProximity's Square-of-9
@@ -564,7 +578,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? timePriceSquareHolding
           ? `${squareReading.barsSinceAnchor} bars since the ${squareReading.anchorKind} anchor at ${squareReading.anchorPrice.toFixed(2)} squares with the ${squareReading.priceMove.toFixed(2)}-point move since it.`
           : `${squareReading.barsSinceAnchor} bars since the ${squareReading.anchorKind} anchor at ${squareReading.anchorPrice.toFixed(2)} does not square with the ${squareReading.priceMove.toFixed(2)}-point move since it.`
-        : `No measurable price/time square since the last significant ${angleAnchorKind}.`,
+        : `No measurable price/time square since the last significant ${squareAnchorKind}.`,
     },
     {
       key: "gannRetracementConfluence",

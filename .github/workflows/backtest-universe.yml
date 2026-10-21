@@ -20,6 +20,9 @@ name: Universe backtest (manual)
 # `backtest-universe-<run id>` artifact (full reports and trade lists), and
 # printed between BEGIN/END markers in the "Print results" step's log, so a
 # session can read them through the GitHub API without downloading anything.
+# The run step's own log also prints every trade as CSV between
+# "=== BEGIN trades.csv ===" and "=== END trades.csv ===" (gzipped and base64
+# encoded, under "trades.csv.gz.base64", when over about 2 MB), for exact splits.
 # Committing a run to docs/replay-runs/ stays a deliberate, reviewed step.
 
 on:

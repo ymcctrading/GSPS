@@ -74,7 +74,14 @@ export interface PillarFacts {
    * S6: the stock's rank among the scan universe by its year of monthly highs
    * and lows (`readUniverseRank`), for P3(c). Null when not read.
    */
-  universeRank: { percentile: number; peers: number; strongest: boolean; weakest: boolean } | null;
+  universeRank: {
+    percentile: number;
+    peers: number;
+    strongest: boolean;
+    weakest: boolean;
+    /** The same rank within its industry group (S4); null without a group read. */
+    group: { label: string; percentile: number; peers: number; strongest: boolean; weakest: boolean } | null;
+  } | null;
   /** Q24's queer-acting stock; null when too few rules resolved to say. */
   queer: boolean | null;
   /** Median volume of the last 20 sessions over the year before them. */
@@ -192,7 +199,17 @@ export function readPillarFacts(input: {
       : null,
     universeRank: (() => {
       const r = universe ? readUniverseRank(universe.symbol, monthly, asOf, universe.strength) : null;
-      return r ? { percentile: r.percentile, peers: r.peers, strongest: r.strongest, weakest: r.weakest } : null;
+      return r
+        ? {
+            percentile: r.percentile,
+            peers: r.peers,
+            strongest: r.strongest,
+            weakest: r.weakest,
+            group: r.group
+              ? { label: r.group.label, percentile: r.group.percentile, peers: r.group.peers, strongest: r.group.strongest, weakest: r.group.weakest }
+              : null,
+          }
+        : null;
     })(),
     queer: rules.ruleFollowing ? rules.ruleFollowing.queer : null,
     volumeActivity: volumeActivity(daily),
@@ -263,20 +280,23 @@ export function trendPillar(input: {
  * P3 (S4-S12): two of leading the market, crossing the campaign's first-year
  * high (failing to, short), and ranking among the strongest of the scan
  * universe by monthly highs and lows (the weakest, short; S6,
- * `lib/gann/universeStrength.ts`). (c) was a stand-in from 2026-10-20 to
- * 2026-10-21, the stock against SPY alone; it is now the rank Gann describes,
- * among the universe. Among its group as well awaits a group map.
+ * `lib/gann/universeStrength.ts`), or of its industry group (S4,
+ * `lib/gann/industryGroups.ts`). (c) was a stand-in from 2026-10-20 to
+ * 2026-10-21, the stock against SPY alone; it is now the rank Gann describes.
  */
 export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const l = f?.leadership;
   const long = side === "bullish";
   const led = l != null && (long ? l.bottomedFirst || l.crossedTopsFirst : l.toppedFirst || l.brokeBottomsFirst);
   const firstYear = l?.firstYearHighCrossed === long;
-  const strength = long ? f?.universeRank?.strongest === true : f?.universeRank?.weakest === true;
+  const r = f?.universeRank;
+  const ofUniverse = long ? r?.strongest === true : r?.weakest === true;
+  const ofGroup = long ? r?.group?.strongest === true : r?.group?.weakest === true;
+  const strength = ofUniverse || ofGroup;
   const passed = twoOf(led, firstYear, strength);
   return {
     passed,
-    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of the universe by its year of monthly highs and lows: ${yes(strength)}${f?.universeRank ? ` (rank ${Math.round(f.universeRank.percentile * 100)} of 100 among ${f.universeRank.peers})` : ""}. Two of three are needed.`,
+    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}` : ""})` : ""}. Two of three are needed.`,
   };
 }
 
@@ -344,10 +364,11 @@ export function reactionInTimeLimit(side: Side, f: PillarFacts | null | undefine
  * Measured on random walks (`lib/scoring/__tests__/timePillarRule.test.ts`,
  * 400 walks of 300 weekday sessions, every 5th session from the 60th, both
  * sides; 38,400 readings): squared 21.1%, the reaction in its limit 50.0%,
- * "and" 11.6%, "or" 59.5%. Neither is saturated (above 95%) or near-empty
+ * "and" 9.5%, "or" 61.6% (since 2026-10-21 the square reads the move against
+ * the trade; with the trade's own anchor they were 11.6% and 59.5%). Neither is saturated (above 95%) or near-empty
  * (below 5%), so the measurement does not decide between them, and the spec
  * does: "and" is its "2 of 3" with one check gone. "Or" would pass on the
- * reaction clock alone half the time (50.0% of the 59.5%), so time squared,
+ * reaction clock alone half the time (50.0% of the 61.6%), so time squared,
  * the pillar's first check, would decide little.
  *
  * Revert: put the window back as a third check in `timePillar` (the turn is

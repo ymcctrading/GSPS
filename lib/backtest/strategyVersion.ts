@@ -603,6 +603,27 @@
 // 2026-10-21-review-fixes-on-replay-daily-closed-session: the review fixes
 // above merged onto main's narrow-weeks breakaway, decade month in ET and
 // closed-session daily replay; no new rule.
+// 2026-10-21-gann-group-strength-rank: the same rank is also read within the
+// stock's industry group (S4, "buy the strongest stocks in the group", Stock
+// Selector Ch. VII), groups from SEC industry codes checked in
+// (lib/gann/industryGroups.json). P3(c) passes on the strongest quarter of its
+// group or of the universe (the weakest, short), as its design reads S6, and
+// `selectionStrength` counts either. Scores and list order move, live and
+// replay alike.
+// 2026-10-21-gann-square-against-move: the price and time square (P7's first
+// check and the timePriceSquare check) reads the move against the trade, the
+// decline from the last high for a long and the rally from the last low for a
+// short, not the trade's own anchor. A balance marks a turn, measured "up from
+// lows" and "down from highs" (Master Course Ch. 6-7), so the advance from the
+// low squaring out says a top is due, against a long. Verdicts move, live and
+// replay alike.
+// 2026-10-21-gann-nine-square-price: the Square of Nine's fixed numbers act
+// as price levels (C-LEVELS-15; Master Course Ch. 2 PDF 68, "great resistance
+// points", 73 as corrected in Ch. 15A). The nearest cardinal- or fixed-cross
+// number below and above price, read in Gann points, joins the S/R list
+// through gannMasterLevels (lib/gann/squareOfNinePrice.ts), live and replay
+// alike; the 22.5° lines are left out. historicalSR, stops and targets read
+// it, so verdicts and plans move.
 // 2026-10-21-gann-square-of-nine-16-lines: the Square of Nine's price levels
 // come from all 16 of its lines, one every 22.5° (Gann's plate, Vol. 3 p. 34;
 // source note B12), not the 8 every 45°. The nearest six that join the target
@@ -611,4 +632,7 @@
 // buying point armed, the live scan stood on the short side by default; it now
 // stands aside (Reject; never-failing rules 5 and 6, D-05). The replay scores
 // only armed triggers, so its trades do not move; live verdicts can.
-export const STRATEGY_VERSION = "2026-10-21-gann-stand-aside-no-trend";
+// 2026-10-21-review-second-round-on-nine-square-price: the two entries above
+// merged onto main's group rank, square against the move and Square of Nine
+// price numbers; no new rule.
+export const STRATEGY_VERSION = "2026-10-21-review-second-round-on-nine-square-price";

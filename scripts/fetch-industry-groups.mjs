@@ -52,6 +52,7 @@ function universeFromSource() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let last = 0;
+let blockedOnce = false;
 async function secGet(url) {
   const wait = last + 125 - Date.now();
   if (wait > 0) await sleep(wait);
@@ -64,7 +65,19 @@ async function secGet(url) {
       await sleep(2000 * 2 ** attempt);
       continue;
     }
-    throw new Error(`${url}: HTTP ${res.status}`);
+    const body = await res.text();
+    // SEC blocks an address for about ten minutes once it passes its rate
+    // threshold, and a shared CI runner's address may already be blocked
+    // by someone else's traffic: wait it out once.
+    if (res.status === 403 && /Rate Threshold/i.test(body) && !blockedOnce) {
+      blockedOnce = true;
+      console.error(`${url}: SEC rate block, waiting 11 minutes`);
+      await sleep(11 * 60 * 1000);
+      attempt--;
+      continue;
+    }
+    const why = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+    throw new Error(`${url}: HTTP ${res.status}: ${why}`);
   }
   throw new Error(`${url}: gave up after retries`);
 }

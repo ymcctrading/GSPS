@@ -9,7 +9,8 @@ import { reactionInTimeLimit, type PillarFacts } from "@/lib/scoring/pillars";
 // P7 without the dated window (2026-10-20, pending the owner's choice): how
 // often "squared AND in its limit" and "squared OR in its limit" pass on a
 // random walk, read the way the score reads them (the direction-matched
-// anchor's square; the counter-move clock and the abnormal-reaction rule).
+// anchor's square, the move against the trade since 2026-10-21; the
+// counter-move clock and the abnormal-reaction rule).
 // The numbers are recorded at `TIME_PILLAR_COMBINE` in pillars.ts.
 
 const DAY = 86_400_000;
@@ -62,7 +63,7 @@ describe("P7's pass rate on random walks, without the window", () => {
           reactionAbnormal: readTimeRules(through, cm).reactionAbnormal,
         } as unknown as PillarFacts;
         for (const side of ["bullish", "bearish"] as const) {
-          const squared = square.find((r) => r.anchorKind === (side === "bullish" ? "low" : "high"))?.squared === true;
+          const squared = square.find((r) => r.anchorKind === (side === "bullish" ? "high" : "low"))?.squared === true;
           const inLimit = reactionInTimeLimit(side, facts);
           n++;
           if (squared) squaredN++;

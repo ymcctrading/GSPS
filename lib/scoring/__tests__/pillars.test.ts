@@ -127,14 +127,23 @@ describe("trend on every timeframe", () => {
 describe("relative strength and leadership", () => {
   it("needs two of leading, the first-year high and strength, for a long", () => {
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, bottomedFirst: true, firstYearHighCrossed: true } }), "bullish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true }, universeRank: { percentile: 0.9, peers: 700, strongest: true, weakest: false } }), "bullish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, firstYearHighCrossed: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true } }), "bullish").passed).toBe(false);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true }, universeRank: { percentile: 0.9, peers: 700, strongest: true, weakest: false, group: null } }), "bullish").passed).toBe(true);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, firstYearHighCrossed: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true, group: null } }), "bullish").passed).toBe(false);
+  });
+
+  it("counts the strongest of its industry group as strength when the universe rank does not", () => {
+    const group = { label: "MOTOR VEHICLES", percentile: 0.9, peers: 6, strongest: true, weakest: false };
+    const rank = { percentile: 0.6, peers: 700, strongest: false, weakest: false, group };
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true }, universeRank: rank }), "bullish").passed).toBe(true);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: rank }), "bearish").passed).toBe(false);
+    const weakGroup = { ...rank, group: { ...group, percentile: 0.1, strongest: false, weakest: true } };
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: weakGroup }), "bearish").passed).toBe(true);
   });
 
   it("mirrors for a short: topped first, failed the first-year high, weak", () => {
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, toppedFirst: true, firstYearHighCrossed: false } }), "bearish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true } }), "bearish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, bottomedFirst: true, firstYearHighCrossed: true }, universeRank: { percentile: 0.9, peers: 700, strongest: true, weakest: false } }), "bearish").passed).toBe(false);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true, group: null } }), "bearish").passed).toBe(true);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, bottomedFirst: true, firstYearHighCrossed: true }, universeRank: { percentile: 0.9, peers: 700, strongest: true, weakest: false, group: null } }), "bearish").passed).toBe(false);
   });
 });
 

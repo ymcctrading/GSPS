@@ -16,6 +16,7 @@ import {
   bySetupKind,
   combine,
   replay,
+  resolveDisableExits,
   rollUp,
   walkGannExit,
   summarise,
@@ -569,8 +570,10 @@ describe("replay continuation setups", () => {
    */
 
   // 301 sessions, not 300 (2026-10-21): at 300 a failed top at about 145
-  // stands between the entry and the first target that pays the risk, so
-  // A-LEVELS-04 refuses the long (pinned below). These tests are about arming.
+  // stood between the entry and the first target that pays the risk, so
+  // A-LEVELS-04 refused the long (pinned below, now at 295: since the Square
+  // of Nine's cross numbers joined the S/R list, 300's first target is the
+  // cross number short of that top). These tests are about arming.
   const rising = risingDaily(301, DAY);
   const ctx = buildMacroContext(rising, rising[rising.length - 1].c);
   const reversionDir = preferredEntryDirection(ctx.macroTrends);
@@ -661,10 +664,14 @@ describe("replay continuation setups", () => {
   });
 
   it("refuses the long when a failed top stands between the entry and the first target that pays the risk (A-LEVELS-04)", () => {
-    const at300 = risingDaily(300, DAY);
-    const U = computeGannEntryTrigger(at300, "bullish")!.triggerPrice;
+    // 295 sessions (300 until 2026-10-21, when the Square of Nine's cross
+    // numbers gave 300 a first target short of the failed top): the failed top
+    // near 142 (its 3-point line at 148) stands between the entry at
+    // 146.33 and the first target, and without A-LEVELS-04 the long is taken.
+    const at295 = risingDaily(295, DAY);
+    const U = computeGannEntryTrigger(at295, "bullish")!.triggerPrice;
     const shift = (b: { o: number; h: number; l: number; c: number }) => ({ o: b.o - T + U, h: b.h - T + U, l: b.l - T + U, c: b.c - T + U });
-    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after].map(shift)), { entryRule: "stop", targetR: 2, dailyBars: at300 });
+    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after].map(shift)), { entryRule: "stop", targetR: 2, dailyBars: at295 });
     expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
   });
 
@@ -1033,5 +1040,165 @@ describe("walkGannExit's final exit (the level a reversal enters at)", () => {
     expect(src).toContain("brokenLevel: walked.finalExit, extreme");
     expect(src).toContain("brokenLevel = walked.finalExit;");
     expect(src).not.toMatch(/brokenLevel: walked\.exit\b/);
+  });
+});
+
+describe("timeouts: held to the limit or still open at the data's end (2026-10-21)", () => {
+  const t0 = Date.UTC(2026, 2, 2, 14, 30);
+  const bar = (i: number, c: number): Bar => ({ t: new Date(t0 + i * 900_000).toISOString(), o: c, h: c + 0.2, l: c - 0.2, c, v: 1000 });
+  const flat = (n: number) => Array.from({ length: n }, (_, i) => bar(i, 100 + i * 0.01));
+
+  it("Gann exits: a trade the data cuts off reads open_at_end, marked at the last close", () => {
+    const bars = flat(4);
+    const w = walkGannExit({ bars, from: 0, maxBarsHeld: 10, long: true, entry: 100, stop: 95, dailyBars: [], crossedLevel: null });
+    expect(w.reason).toBe("open_at_end");
+    expect(w.barsHeld).toBe(4);
+    expect(w.finalExit).toBe(bars[3].c);
+  });
+
+  it("Gann exits: a trade that reaches the session limit inside the data reads held_to_limit", () => {
+    const bars = flat(12);
+    const w = walkGannExit({ bars, from: 0, maxBarsHeld: 10, long: true, entry: 100, stop: 95, dailyBars: [], crossedLevel: null });
+    expect(w.reason).toBe("held_to_limit");
+    expect(w.barsHeld).toBe(10);
+    // The limit landing on the last bar is still the limit, not the data's end.
+    expect(walkGannExit({ bars: flat(10), from: 0, maxBarsHeld: 10, long: true, entry: 100, stop: 95, dailyBars: [], crossedLevel: null }).reason).toBe("held_to_limit");
+  });
+
+  it("the bracket labels its timeouts the same way, and the trade is unchanged", () => {
+    const open = replay("TEST", session([crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
+    expect(open.trades).toHaveLength(1);
+    expect(open.trades[0].outcome).toBe("timeout");
+    expect(open.trades[0].exitReason).toBe("open_at_end");
+    expect(open.trades[0].closedAt).toBe(session([crossing, quiet]).at(-1)!.t);
+    expect(open.openAtEnd).toBe(1);
+
+    const held = replay("TEST", session([crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, maxBarsHeld: 2 });
+    expect(held.trades).toHaveLength(1);
+    expect(held.trades[0].exitReason).toBe("held_to_limit");
+    expect(held.trades[0].rMultiple).toBeCloseTo(open.trades[0].rMultiple, 10);
+    expect(held.openAtEnd).toBe(0);
+  });
+
+  it("the report's closed summary leaves the open trades out of every scope", () => {
+    const trades: ReplayTrade[] = [
+      trade({ outcome: "win", rMultiple: 2, outputState: "Execute", score: 7 }),
+      trade({ outcome: "loss", rMultiple: -1, outputState: "Execute", score: 7 }),
+      trade({ outcome: "timeout", exitReason: "held_to_limit", rMultiple: -0.5, outputState: "Execute", score: 7 }),
+      trade({ outcome: "timeout", exitReason: "open_at_end", rMultiple: 3, outputState: "Execute", score: 7 }),
+      trade({ outcome: "timeout", exitReason: "open_at_end", rMultiple: 1.5, derived: "reversal" }),
+    ];
+    const report = buildReport(
+      { source: "synthetic", live: false, timeframe: "15Min", targetR: 2, symbols: ["TEST"], skipped: [], window: { from: null, to: null }, overall: summarise(trades) },
+      { symbols: ["TEST"], attributeWithin: "Execute" },
+    );
+    expect(report.overall.trades).toBe(5);
+    expect(report.overall.openAtEnd).toBe(2);
+    expect(report.overall.closed.n).toBe(3);
+    expect(report.overall.closed.expectancyR).toBeCloseTo((2 - 1 - 0.5) / 3, 10);
+    expect(report.overall.closed.expectancyCI95).not.toBeNull();
+    expect(report.overall.closed.winRate).toBeCloseTo(1 / 3, 10);
+    const execute = report.buckets.find((b) => b.bucket === "Execute")!;
+    expect(execute.openAtEnd).toBe(1);
+    expect(execute.closed.n).toBe(3);
+    expect(report.scoreBands.find((b) => b.score === 7)!.closed.n).toBe(3);
+    expect(report.derivedSplit.reversal.openAtEnd).toBe(1);
+    expect(report.derivedSplit.reversal.closed.n).toBe(0);
+    expect(report.halves.early.summary.closed.n + report.halves.late.summary.closed.n).toBe(3);
+    expect(report.exitReasonSplit.open_at_end.trades).toBe(2);
+    expect(report.exitReasonSplit.held_to_limit.trades).toBe(1);
+  });
+});
+
+describe("disableExits: Gann exit rules switched off in the replay walk (measurement only)", () => {
+  /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
+  const days = (closes: number[]): Bar[] =>
+    closes.map((c, i) => ({ t: new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1000 }));
+  const stepping = (cycles: number, from = 100) => {
+    const out: number[] = [];
+    let p = from;
+    for (let k = 0; k < cycles; k++) {
+      for (let i = 0; i < 6; i++) out.push((p += 1));
+      for (let i = 0; i < 3; i++) out.push((p -= 0.5));
+    }
+    return out;
+  };
+  const beyond = past(3 * RISK);
+  const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+  const through = TRIGGER.stopPrice - SIDE * 0.5;
+  const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };
+
+  it("an empty list gives results identical to leaving it out, on every exit rule", () => {
+    const fixtures = [session([crossing, run, quiet]), session([crossing, fall, quiet]), session([crossing, quiet, run, quiet])];
+    let gannTrades = 0;
+    for (const bars of fixtures) {
+      for (const exitRule of ["bracket", "gann", "gann-runner"] as const) {
+        for (const entryRule of ["stop", "reaction"] as const) {
+          const base = replay("TEST", bars, { entryRule, targetR: 2, dailyBars: DAILY, exitRule });
+          const empty = replay("TEST", bars, { entryRule, targetR: 2, dailyBars: DAILY, exitRule, disableExits: [] });
+          expect(empty).toEqual(base);
+          if (exitRule !== "bracket") gannTrades += base.trades.length;
+        }
+      }
+    }
+    // The comparison is over real Gann walks, not empty results.
+    expect(gannTrades).toBeGreaterThan(0);
+  });
+
+  it("an unknown name is an error, and so is a list under the bracket", () => {
+    const bars = session([crossing, quiet]);
+    expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, exitRule: "gann", disableExits: ["three_adverse_close" as never] })).toThrow(/Unknown exit rule/);
+    expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, exitRule: "gann", disableExits: ["initial" as never] })).toThrow(/Unknown exit rule/);
+    expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, disableExits: ["prior_week"] })).toThrow(/needs exitRule/);
+    expect(resolveDisableExits(undefined).size).toBe(0);
+    expect([...resolveDisableExits(["prior_week", "three_adverse_closes"], "gann")]).toEqual(["prior_week", "three_adverse_closes"]);
+    expect(() => resolveDisableExits("prior_week")).toThrow(/array/);
+  });
+
+  it("disabling three_adverse_closes stops that exit in the walk", () => {
+    const closes = [...stepping(3), 125, 124.8, 124.7, ...Array.from({ length: 12 }, (_, i) => 124.8 + (i % 2) * 0.2)];
+    const daily = days(closes);
+    const from = stepping(3).length;
+    const walk = (disabled?: Set<"three_adverse_closes">) =>
+      walkGannExit({ bars: daily, from, maxBarsHeld: 12, long: true, entry: 125.2, stop: 118, dailyBars: daily, crossedLevel: null, disabled });
+    const on = walk();
+    expect(on.reason).toBe("three_adverse_closes");
+    expect(on.barsHeld).toBe(4);
+    const off = walk(new Set(["three_adverse_closes"]));
+    expect(off.reason).not.toBe("three_adverse_closes");
+    expect(off.barsHeld).toBeGreaterThan(on.barsHeld);
+  });
+
+  it("disabling prior_week stops the weekly trail in the walk", () => {
+    // A straight January advance, then a slide that catches the weekly trail.
+    const closes = [...Array.from({ length: 22 }, (_, i) => 101 + i), 121, 118, 115, 112, 109, 106];
+    const daily = days(closes);
+    const walk = (disabled?: Set<"prior_week">) =>
+      walkGannExit({ bars: daily, from: 5, maxBarsHeld: 25, long: true, entry: 106, stop: 86, dailyBars: daily, crossedLevel: null, disabled });
+    const on = walk();
+    expect(on.reason).toBe("prior_week");
+    const off = walk(new Set(["prior_week"]));
+    expect(off.reason).not.toBe("prior_week");
+    expect(off.barsHeld).toBeGreaterThanOrEqual(on.barsHeld);
+  });
+
+  it("records the entry's old level and where the last shares left (reporting only)", () => {
+    const r = replay("TEST", session([crossing, fall, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    const t = r.trades[0];
+    expect(t.exitReason).toBe("initial");
+    expect(t.crossedLevel).toBe(t.entryKind === "hold" ? null : TRIGGER.level);
+    expect(t.exitPrice).toBe(SIDE > 0 ? Math.min(t.stop, fall.o) : Math.max(t.stop, fall.o));
+    const b = replay("TEST", session([crossing, fall, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
+    expect(b.trades[0].exitPrice).toBe(t.exitPrice);
+    const open = replay("TEST", session([crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
+    expect(open.trades[0].exitReason).toBe("open_at_end");
+    expect(open.trades[0].exitPrice).toBe(quiet.c);
+  });
+
+  it("is echoed on the report, empty by default", () => {
+    const r = replay("TEST", session([crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, exitRule: "gann" });
+    const outcome = { source: "synthetic", live: false, timeframe: "15Min" as const, targetR: 2, symbols: ["TEST"], skipped: [], window: { from: null, to: null }, overall: r };
+    expect(buildReport(outcome, { symbols: ["TEST"] }).disableExits).toEqual([]);
+    expect(buildReport(outcome, { symbols: ["TEST"], exitRule: "gann", disableExits: ["prior_week"] }).disableExits).toEqual(["prior_week"]);
   });
 });

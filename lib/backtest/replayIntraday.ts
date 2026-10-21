@@ -80,7 +80,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
-import { BARS_PER_SESSION, rollUp, stopFill, summarise, type IntradayExitReason, type ReplayResult, type ReplayTrade } from "./replay";
+import { BARS_PER_SESSION, isTimeoutReason, rollUp, stopFill, summarise, timeoutReasonAt, type IntradayExitReason, type ReplayResult, type ReplayTrade, type TimeoutReason } from "./replay";
 
 /** Closed bars read for the swing charts and the trail. Bounds the work per bar; two completed swings fit in far less. */
 export const INTRADAY_WINDOW_BARS = 400;
@@ -294,8 +294,11 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         largeCap,
         barsHeld: walked.barsHeld,
-        outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
+        closedAt: bars[i + walked.barsHeld - 1].t,
+        outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
         exitReason: walked.reason,
+        crossedLevel: null,
+        exitPrice: walked.finalExit,
         rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
         ambiguous: false,
       });
@@ -322,7 +325,7 @@ function walkIntradayExit(input: {
   stop: number;
   point: number;
   firstTarget: number | null;
-}): { exit: number; barsHeld: number; reason: IntradayExitReason | "timeout" } {
+}): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
   const { bars, from, maxBarsHeld, long, entry, point, firstTarget } = input;
   const dir = long ? 1 : -1;
   let stop = input.stop;
@@ -333,8 +336,9 @@ function walkIntradayExit(input: {
   let realized = 0;
   let scaled = false;
   const equivalent = (price: number) => entry + dir * (realized + openQty * dir * (price - entry));
-  const done = (price: number, held: number, reason: IntradayExitReason | "timeout") => ({
+  const done = (price: number, held: number, reason: IntradayExitReason | TimeoutReason) => ({
     exit: equivalent(price),
+    finalExit: price,
     barsHeld: held,
     reason,
   });
@@ -364,5 +368,5 @@ function walkIntradayExit(input: {
     const trend = walkSwingChart(rollUp(window, hourKey), SWING_BARS).trend;
     if (trend !== null && trend !== (long ? "bullish" : "bearish")) leaveAtOpen = true;
   }
-  return done(bars[end - 1].c, end - from, "timeout");
+  return done(bars[end - 1].c, end - from, timeoutReasonAt(from, maxBarsHeld, bars.length));
 }

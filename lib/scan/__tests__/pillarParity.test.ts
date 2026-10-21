@@ -230,6 +230,17 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("backtest/replay.ts")).toMatch(/setupKind, \(\) => context\.windowTurn\(gannTrigger\.direction\)\)/);
   });
 
+  it("puts gannMasterLevels (the 144 square, planetary, angles, Jensen, nine-square crosses) into the S/R list on both surfaces", () => {
+    // The Square of Nine's cross numbers (C-LEVELS-15, 2026-10-21) are added
+    // inside gannMasterLevels, so one call on each surface carries them.
+    const live = readFileSync(path.resolve(__dirname, "../../", "scanTicker.ts"), "utf8");
+    const replay = readFileSync(path.resolve(__dirname, "../../", "backtest/replay.ts"), "utf8");
+    expect(live).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, currentPrice, sessionNoon\)/);
+    expect(replay).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf\)/);
+    const master = readFileSync(path.resolve(__dirname, "../../", "gann/masterLevels.ts"), "utf8");
+    expect(master).toMatch(/squareOfNinePriceLevels\(price, unit\)/);
+  });
+
   it("reads every dated read at the session's noon UTC on the live scan, as the replay does (F-03)", () => {
     // After 8 PM New York time the wall clock's UTC date is tomorrow, and on a
     // month's last evening it reads the month in progress as closed.

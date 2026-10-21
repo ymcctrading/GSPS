@@ -84,7 +84,14 @@ import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, secondaryTurnLevels, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
-import { readGannExit, type GannExitReason, type GannStopReason } from "@/lib/gann/exitRules";
+import {
+  GANN_EXIT_RULE_NAMES,
+  isGannExitRuleName,
+  readGannExit,
+  type GannExitReason,
+  type GannExitRuleName,
+  type GannStopReason,
+} from "@/lib/gann/exitRules";
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
 import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
@@ -299,6 +306,21 @@ export interface ReplayOptions {
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
+   * Measurement only: switch named Gann exit rules off inside the replay's
+   * walk, to ask what the same trades would have done without them (the
+   * 2026-10-21 15-minute exit diagnosis). A stop trail named here
+   * (`prior_week`, `break_even`, ...) is never adopted; an exit signal named
+   * here (`three_adverse_closes`, `trend_change`, ...) never fires; every
+   * other rule reads as before. Applies to every trade the walk opens,
+   * reversals and re-buys included, under `exitRule: "gann"` or
+   * `"gann-runner"`; the bracket has no Gann rules to switch off. An unknown
+   * name throws (`resolveDisableExits`). Default empty: identical results.
+   * The live exit path never reads it: no production caller passes a set to
+   * `readGannExit`. Not covered: the pyramid's whole-line stop
+   * (`pyramid: true`), which is not one of the named rules.
+   */
+  disableExits?: GannExitRuleName[];
+  /**
    * Reverse when caught (A-EXIT-02, W006 p.48 Rule 6; owner's Q15,
    * 2026-10-16), under the Gann exit rules only. A trade that leaves on a stop
    * or on an exit that says the trend changed (`lib/gann/reverse.ts`) is
@@ -382,8 +404,53 @@ export interface ReplayOptions {
   yearCountMonthlyBars?: Bar[];
 }
 
+/**
+ * Validate `ReplayOptions.disableExits`: an array of `GANN_EXIT_RULE_NAMES`.
+ * Anything else throws, so a misspelt rule cannot leave a cell silently
+ * identical to its baseline. Given the cell's `exitRule`, a non-empty list
+ * under the bracket throws too: the bracket reads no Gann rule to switch off.
+ */
+export function resolveDisableExits(names: unknown, exitRule?: ReplayOptions["exitRule"]): ReadonlySet<GannExitRuleName> {
+  if (names === undefined || names === null) return new Set();
+  if (!Array.isArray(names)) throw new Error(`disableExits must be an array of rule names (${GANN_EXIT_RULE_NAMES.join(", ")})`);
+  const unknown = names.filter((n) => !isGannExitRuleName(n));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown exit rule${unknown.length > 1 ? "s" : ""} in disableExits: ${unknown.map((n) => JSON.stringify(n)).join(", ")} (expected ${GANN_EXIT_RULE_NAMES.join(", ")})`);
+  }
+  if (names.length > 0 && exitRule === "bracket") {
+    throw new Error(`disableExits switches off named exit rules and needs exitRule "gann" or "gann-runner" (got "bracket")`);
+  }
+  return new Set(names as GannExitRuleName[]);
+}
+
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
 export type IntradayExitReason = "intraday_initial_stop" | "intraday_trailing_stop" | "intraday_trend_change";
+
+/**
+ * Why a trade with no stop, target or exit signal left, marked at the last
+ * close it reached (2026-10-21; both were one "timeout" before):
+ * `held_to_limit` when `maxBarsHeld` was reached inside the data, and
+ * `open_at_end` when the data ended first, so the trade was still open and
+ * its R is only marked to market. Gann's exits cut losers early, so the open
+ * ones are mostly winners: a summary that counts them reads higher than the
+ * closed trades do, which is why every report scope also carries a `closed`
+ * summary without them. Neither changes a trade: both are `outcome: "timeout"`.
+ */
+export type TimeoutReason = "held_to_limit" | "open_at_end";
+
+export function isTimeoutReason(reason: string | null | undefined): reason is TimeoutReason {
+  return reason === "held_to_limit" || reason === "open_at_end";
+}
+
+/** Which timeout a walk from `from` met: the session limit inside `barCount` bars, or the data's end. */
+export function timeoutReasonAt(from: number, maxBarsHeld: number, barCount: number): TimeoutReason {
+  return from + maxBarsHeld <= barCount ? "held_to_limit" : "open_at_end";
+}
+
+/** A trade still open when the data ended: its R is marked to market, not realised. */
+export function isOpenAtEnd(trade: Pick<ReplayTrade, "exitReason">): boolean {
+  return trade.exitReason === "open_at_end";
+}
 
 export interface ReplayTrade {
   symbol: string;
@@ -422,6 +489,11 @@ export interface ReplayTrade {
   /** The first target. NaN (null in JSON) when the intraday profile names none: Gann fixes no target and the stop trails. */
   target: number;
   barsHeld: number;
+  /**
+   * Stamp of the bar the trade left on (the bar it was marked at, for a
+   * timeout). Undefined only on records built before the field existed.
+   */
+  closedAt?: string;
   outcome: "win" | "loss" | "timeout";
   /** Lots held at the end, under `pyramid: true` (1 when nothing was added). */
   lots?: number;
@@ -440,8 +512,27 @@ export interface ReplayTrade {
    * verdict bucket, score band or factor table (`byDerived` reports it).
    */
   derived?: "reversal" | "rebuy";
-  /** Why the trade left, under `exitRule: "gann"` or the intraday profile. Undefined under the bracket. */
-  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "covered" | "timeout";
+  /**
+   * Why the trade left, under `exitRule: "gann"` or the intraday profile.
+   * Under the bracket only a timeout carries one (`TimeoutReason`); a stop or
+   * target there leaves it undefined.
+   */
+  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "covered" | TimeoutReason;
+  /**
+   * Reporting only: the old level the plan's entry was priced from, the old
+   * top or bottom crossed (`crossing`) or the double or triple bottom bought
+   * (`oldLevel`). Null for a `hold` entry and for a derived trade. Undefined
+   * on records built before the field existed.
+   */
+  crossedLevel?: number | null;
+  /**
+   * Reporting only: the price the last of the position left at (the stop's
+   * fill, the signal's open, the cover, the target), or the close it was
+   * marked at for a timeout. Under a scale-out it is the last tranche's price,
+   * not the blend `rMultiple` is computed from. Undefined on records built
+   * before the field existed.
+   */
+  exitPrice?: number;
   /** Realised result in units of the trade's own risk, after costs. */
   rMultiple: number;
   /** True when one bar covered both stop and target, and the loss was assumed. */
@@ -520,6 +611,8 @@ export interface ReplayResult {
   wins: number;
   losses: number;
   timeouts: number;
+  /** Timeouts whose data ended before the session limit (`open_at_end`): still open, marked to market. */
+  openAtEnd: number;
   ambiguous: number;
   winRate: number;
   /** Mean result per trade, in R, after costs. */
@@ -578,7 +671,7 @@ export function emptyDroppedPlanReasons(): DroppedPlanReasons {
 }
 
 const EMPTY: Omit<ReplayResult, "trades" | "droppedPlanReasons"> = {
-  armed: 0, triggered: 0, refusedFills: 0, droppedPlans: 0, retiredPlans: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
+  armed: 0, triggered: 0, refusedFills: 0, droppedPlans: 0, retiredPlans: 0, wins: 0, losses: 0, timeouts: 0, openAtEnd: 0, ambiguous: 0,
   winRate: 0, expectancyR: 0, totalR: 0,
 };
 
@@ -857,6 +950,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     rebuyAfterStop = true,
     reclaimPoints = RECLAIM_POINTS,
     pyramid = false,
+    disableExits,
     instrument,
     marketDailyBars,
     marketMonthlyBars,
@@ -870,6 +964,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // sessions are 260 candles, but 260 candles of a coin that trades all day
   // and night are under three days.
   const maxBarsHeld = maxBarsHeldOption ?? (assetClass === "crypto" ? CRYPTO_BARS_PER_SESSION : BARS_PER_SESSION) * 10;
+  const disabled = resolveDisableExits(disableExits, exitRule);
 
   const trades: ReplayTrade[] = [];
   // Entry-confirmation evidence per armed pivot, used only when
@@ -1257,6 +1352,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       let outcome: ReplayTrade["outcome"] = "timeout";
       let barsHeld = 0;
       let ambiguous = false;
+      // Reporting only: the old level this plan was priced from, when its kind has one.
+      const planLevel = trigger.kind === "hold" ? null : trigger.level;
 
       if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
         const walked = walkGannExit({
@@ -1269,6 +1366,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           pyramid,
           isStock: assetClass === "us_equity",
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
+          disabled,
         });
         trades.push({
           symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
@@ -1285,10 +1383,13 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
           selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
           barsHeld: walked.barsHeld,
+          closedAt: bars[i + walked.barsHeld - 1].t,
           // A win is a trade that made money after costs, on the same net basis
           // as its R (review finding F-07).
-          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
+          outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
           exitReason: walked.reason,
+          crossedLevel: planLevel,
+          exitPrice: walked.finalExit,
           ...(pyramid ? { lots: walked.lots } : {}),
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
           ambiguous: false,
@@ -1300,21 +1401,21 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
             cause: walked.reason, brokenLevel: walked.finalExit, extreme: walked.best ?? entry, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry, disabled,
           })) {
             // Not scored: no verdict, score or criteria is inherited (see `derived`).
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
-              largeCap, ambiguous: false, derived: "reversal", ...r,
+              largeCap, ambiguous: false, crossedLevel: null, derived: "reversal", ...r,
             });
           }
         }
         if (rebuy) {
-          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn });
+          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled });
           if (r) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
-              largeCap, ambiguous: false, derived: "rebuy", ...r,
+              largeCap, ambiguous: false, crossedLevel: null, derived: "rebuy", ...r,
             });
           }
         }
@@ -1347,14 +1448,18 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
         selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
+        crossedLevel: planLevel,
       };
 
       if (outcome === "timeout") {
         // Marked out at the last close rather than silently dropped.
         barsHeld = Math.min(maxBarsHeld, bars.length - i);
-        const exit = bars[Math.min(bars.length - 1, i + barsHeld - 1)].c;
+        const exitBar = bars[Math.min(bars.length - 1, i + barsHeld - 1)];
+        const exit = exitBar.c;
         trades.push({
-          ...base, barsHeld, outcome,
+          ...base, barsHeld, closedAt: exitBar.t, outcome,
+          exitReason: timeoutReasonAt(i, maxBarsHeld, bars.length),
+          exitPrice: exit,
           rMultiple: (dir * (exit - entry) - costPerShare) / risk,
           ambiguous: false,
         });
@@ -1362,9 +1467,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       // Gross P&L is the actual price distance from the fill to the exit.
-      const gross = dir * ((outcome === "win" ? target : stopFill(long, stop, bars[i + barsHeld - 1].o)) - entry);
+      const exitPrice = outcome === "win" ? target : stopFill(long, stop, bars[i + barsHeld - 1].o);
+      const gross = dir * (exitPrice - entry);
       trades.push({
-        ...base, barsHeld, outcome,
+        ...base, barsHeld, closedAt: bars[i + barsHeld - 1].t, outcome, exitPrice,
         rMultiple: (gross - costPerShare) / risk,
         ambiguous,
       });
@@ -1442,6 +1548,7 @@ export function summarise(
     wins,
     losses,
     timeouts,
+    openAtEnd: trades.filter(isOpenAtEnd).length,
     ambiguous: trades.filter((t) => t.ambiguous).length,
     // Timeouts are neither wins nor losses, but they are still trades taken —
     // excluding them from the denominator would flatter the win rate.
@@ -1470,7 +1577,7 @@ export const MAX_REVERSALS = 3;
 
 export type ReversalTrade = Pick<
   ReplayTrade,
-  "openedAt" | "direction" | "entry" | "stop" | "target" | "atrMultiple" | "barsHeld" | "outcome" | "exitReason" | "rMultiple" | "reversal" | "rebuy"
+  "openedAt" | "closedAt" | "direction" | "entry" | "stop" | "target" | "atrMultiple" | "barsHeld" | "outcome" | "exitReason" | "exitPrice" | "rMultiple" | "reversal" | "rebuy"
 > & { contextFactors: Record<string, boolean> };
 
 /** The re-entry a stopped trade rests (`rebuyAfterStop`), read on the completed sessions before the stop. */
@@ -1479,7 +1586,7 @@ export function rebuyPlanAt(input: {
   dailyBars: Bar[];
   caughtAt: number;
   side: "long" | "short";
-  cause: ReversalCause | "covered" | "timeout";
+  cause: ReversalCause | "covered" | TimeoutReason;
   extreme: number;
   entryPrice: number;
 }): GannRebuy | null {
@@ -1507,6 +1614,8 @@ export function walkRebuy(input: {
   costPerShare: number;
   runner?: boolean;
   sharesOn?: (date: string) => number | null;
+  /** `ReplayOptions.disableExits`, resolved. */
+  disabled?: ReadonlySet<GannExitRuleName>;
 }): ReversalTrade | null {
   const { bars, plan } = input;
   const long = plan.side === "long";
@@ -1525,6 +1634,7 @@ export function walkRebuy(input: {
       crossedLevel: null,
       scaleOut: input.runner ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
       sharesOn: input.sharesOn,
+      disabled: input.disabled,
     });
     const executionAtr = atr(bars.slice(Math.max(0, k - 30), k), 14);
     return {
@@ -1533,8 +1643,10 @@ export function walkRebuy(input: {
       entry, stop: plan.stop, target,
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
-      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
+      closedAt: bars[k + walked.barsHeld - 1].t,
+      outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
       exitReason: walked.reason,
+      exitPrice: walked.finalExit,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
       rebuy: true,
       contextFactors: {},
@@ -1558,7 +1670,7 @@ export function walkReversals(input: {
   /** Index of the candle the caught trade left on. */
   caughtAt: number;
   side: "long" | "short";
-  cause: ReversalCause | "covered" | "timeout";
+  cause: ReversalCause | "covered" | TimeoutReason;
   brokenLevel: number;
   extreme: number;
   maxBarsHeld: number;
@@ -1568,6 +1680,8 @@ export function walkReversals(input: {
   sharesOn?: (date: string) => number | null;
   /** A re-entry rests here (`rebuyAfterStop`): the first reversal is covered when price trades to it. */
   coverAt?: number;
+  /** `ReplayOptions.disableExits`, resolved. */
+  disabled?: ReadonlySet<GannExitRuleName>;
 }): ReversalTrade[] {
   const out: ReversalTrade[] = [];
   const { bars, dailyBars } = input;
@@ -1599,6 +1713,7 @@ export function walkReversals(input: {
       scaleOut: input.runner ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
       sharesOn: input.sharesOn,
       coverAt: depth === 1 ? input.coverAt : undefined,
+      disabled: input.disabled,
     });
     const executionAtr = atr(bars.slice(Math.max(0, fillAt - 30), fillAt), 14);
     out.push({
@@ -1607,13 +1722,15 @@ export function walkReversals(input: {
       entry, stop: plan.stop, target,
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
-      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
+      closedAt: bars[fillAt + walked.barsHeld - 1].t,
+      outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
       exitReason: walked.reason,
+      exitPrice: walked.finalExit,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
       reversal: depth,
       contextFactors: {},
     });
-    if (walked.reason === "timeout") break;
+    if (isTimeoutReason(walked.reason)) break;
     caughtAt = fillAt + walked.barsHeld - 1;
     side = plan.side;
     cause = walked.reason;
@@ -1665,17 +1782,23 @@ export function walkGannExit(input: {
   isStock?: boolean;
   /** Cover the whole position when price trades to this level (a re-buy rests there). */
   coverAt?: number;
+  /**
+   * Gann rules switched off for a counterfactual cell (`ReplayOptions.disableExits`,
+   * resolved): passed to `readGannExit`, so a disabled trail is never adopted
+   * and a disabled signal never fires. Default none.
+   */
+  disabled?: ReadonlySet<GannExitRuleName>;
 }): {
   /** The single price that gives the whole exit's P&L per first-lot unit (scale-outs and adds blended in): for R only. */
   exit: number;
   /** Where the last of the position actually left: the stop, the signal's open, the cover or the timeout close. The level that broke, for a reversal. */
   finalExit: number;
   barsHeld: number;
-  reason: GannStopReason | GannExitReason | "covered" | "timeout";
+  reason: GannStopReason | GannExitReason | "covered" | TimeoutReason;
   lots: number;
   best: number | null;
 } {
-  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid, isStock = false, coverAt } = input;
+  const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid, isStock = false, coverAt, disabled } = input;
   const dir = long ? 1 : -1;
   // Position accounting in units of the first lot (1.0). The result is
   // reported as the single exit price that gives the same P&L per unit, so the
@@ -1685,7 +1808,7 @@ export function walkGannExit(input: {
   let realized = 0;
   const lots: PyramidLot[] = [{ qty: 1, price: entry, date: bars[from].t.slice(0, 10) }];
   const close = (price: number) => realized + dir * (openQty * price - cost);
-  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "covered" | "timeout") => ({
+  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "covered" | TimeoutReason) => ({
     exit: entry + dir * close(price),
     finalExit: price,
     barsHeld: j,
@@ -1706,7 +1829,7 @@ export function walkGannExit(input: {
     const date = b.t.slice(0, 10);
     if (j > from && date !== bars[j - 1].t.slice(0, 10)) {
       const prior = dailyBars.filter((d) => d.t.slice(0, 10) < date);
-      const reading = readGannExit(position, prior, best, sharesOn?.(date) ?? null);
+      const reading = readGannExit(position, prior, best, sharesOn?.(date) ?? null, disabled);
       if (reading.exit) return done(b.o, j - from + 1, reading.exit.reason);
       if (long ? reading.stop > stop : reading.stop < stop) {
         stop = reading.stop;
@@ -1759,7 +1882,7 @@ export function walkGannExit(input: {
     }
     best = best === null ? (long ? b.h : b.l) : long ? Math.max(best, b.h) : Math.min(best, b.l);
   }
-  return done(bars[end - 1].c, end - from, "timeout");
+  return done(bars[end - 1].c, end - from, timeoutReasonAt(from, maxBarsHeld, bars.length));
 }
 
 /**
