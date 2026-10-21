@@ -3018,10 +3018,50 @@ What that means for a session:
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
 - A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
 
+## Code review before every merge — standing mandate (2026-10-21, project owner)
+
+In the owner's words: "1. code reviewer checks all code to make sure it is
+working correctly, and implement just as Gann would. 2. any code that comes
+back with an error is highlighted and solved for, as Gann would 3. only after
+all code passes the reviewer can the pr be merged." Every session, every PR,
+no exceptions by size.
+
+- **Scope: the PR's own diff.** The whole repository was reviewed on
+  2026-10-21 (`/mnt/project-files/senior-code-review/`), so a review covers
+  only the code in the PR about to be pushed or merged, plus whatever that
+  code calls or is called by where the change could break it.
+- **Premise: the 2026-10-21 senior review's** (§1 of
+  `senior-code-review/00-comprehension-and-manifest.md`). Two questions for
+  every changed file:
+  1. Does it work as intended? Logic, edge cases (NaN, null, Infinity,
+     sub-penny and negative prices), rounding, New York time and DST,
+     closed bars only, no look-ahead, determinism, error handling, and
+     whether the tests prove the behaviour.
+  2. Does it carry Gann's method? Each rule traced from its source (book
+     and page) to the code and the test, marked FAITHFUL, APPROXIMATED,
+     ABSENT or CONTRADICTED; the live scan and the replay run the same code;
+     the rule reaches every surface it applies to (cross-platform rule
+     above). Gann doctrine, the STRAT display taxonomy and the Hermetic
+     gates stay separate in every finding.
+- **Errors are highlighted and fixed, as Gann would.** Each finding is listed
+  with file, line and a concrete failure. The fix follows "Gann answers the
+  question" above: his rule is the answer, cited in the code and the change
+  record. Only a question no Gann method answers goes to the owner.
+- **Merge only after the review passes.** Fixes go on the same PR and are
+  reviewed again until no blocking finding remains. Record the result in the
+  PR body (a "Code review" section: what was checked, findings, fixes). The
+  owner's "merge when green" means green CI and a passed review.
+- A reviewer may be a separate agent or a fresh pass by the session itself,
+  but it reads the diff cold, as a reviewer, not as the author defending it.
+- PRs merged before this mandate (#405 and earlier on 2026-10-21) are
+  reviewed after the fact when their thread is next active, and any fix
+  ships in a new PR that passes review.
+
 ## Git / PR Workflow
 
 - After pushing commits that contain code changes, **always open a pull request** against `main` rather than stopping at the push. Check for a PR template first.
 - Do work on the designated feature branch for the task; don't commit directly to `main`.
+- **No PR merges before its code review passes** (see "Code review before every merge" above).
 - **Name the ROADMAP phase in the PR** — `Q1`, `Q2`, `Q3`, `Q4`, or `N/A` for out-of-phase work — in the title or body. The `roadmap-phase` CI gate requires it.
 - **Delete the branch immediately after its PR merges** (`git push origin --delete <branch>`, or GitHub's button on the merged PR). Not later, not at the next cleanup.
 - A PR whose branch diverged from `main` more than 30 days ago fails the `stale-branch` gate. Merge `main` in (or rebase onto it) and push.
