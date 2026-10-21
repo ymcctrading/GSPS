@@ -1411,8 +1411,9 @@ for the project owner** — do not fix it silently, and re-verify it first:
   weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
-  `withinTriggerTolerance` (an unenforced spec rule), `toSaraStrategyResult`,
-  and `quantityFromPermittedRisk`/`plannedRiskDollars`.
+  `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
+  `quantityFromPermittedRisk`/`plannedRiskDollars` and the rest of the risk-band
+  policy were removed 2026-10-21 (R-004): Gann's capital rules size every order.
 - **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The
   owner saw OXY and GOOGL read invalidated on the Dashboard while the chart
   still showed the plan. Three surfaces called a plan dead from a quote (the
