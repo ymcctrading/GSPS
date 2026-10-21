@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -33,7 +33,13 @@ export async function GET(request: Request) {
               .maybeSingle();
             const referrerId = (referrer as { id: string } | null)?.id;
             if (referrerId) {
-              await supabase.from("profiles").update({ referred_by: referrerId }).eq("id", user.user.id);
+              // On the service role: members hold no UPDATE on `referred_by`
+              // (0093), so one can't credit or re-credit a referrer later.
+              await createServiceClient()
+                .from("profiles")
+                .update({ referred_by: referrerId })
+                .eq("id", user.user.id)
+                .is("referred_by", null);
             }
           }
         }
