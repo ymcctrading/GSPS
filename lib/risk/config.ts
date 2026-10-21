@@ -55,8 +55,13 @@ export const EXECUTION_SCORE_WEIGHTS = {
   journalCompletion: 0.05,
 } as const;
 
-/** Position, allocation, and correlation ceilings. */
-export const MAX_NEW_POSITIONS_PER_DAY = 3;
+/**
+ * Position, allocation, and correlation ceilings. There is no daily count of
+ * new positions (Q8, Gann sets none; R-019, 2026-10-21): the open-market
+ * count is Gann's (`lib/risk/gannCapital.ts`, five stocks, three other
+ * markets). `entry_pause` stays a state for stored rows and the enum in
+ * migration 0042, but nothing triggers it now.
+ */
 export const MAX_TOTAL_OPEN_RISK_PCT = 2.0; // upper end of the 1.5-2.0% configured range
 export const MIN_TOTAL_OPEN_RISK_PCT = 1.5;
 export const MAX_SINGLE_POSITION_ALLOCATION_PCT = 25; // upper end of 20-25%

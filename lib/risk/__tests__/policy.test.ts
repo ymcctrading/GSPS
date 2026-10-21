@@ -48,12 +48,12 @@ describe("getRiskPolicy", () => {
   });
 
   it("refuses to write a looser risk value", async () => {
-    await expect(setRiskPolicyValue(makeSupabase([]), "maxNewPositionsPerDay", 10, null)).rejects.toThrow(/looser/);
+    await expect(setRiskPolicyValue(makeSupabase([]), "warning48hLossPct", 10, null)).rejects.toThrow(/looser/);
   });
 
   it("default policy values match the pure-function defaults 1:1", () => {
     expect(DEFAULT_RISK_POLICY_VALUES.riskBandRateBase).toBe(DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.base);
     expect(DEFAULT_RISK_POLICY_VALUES.absoluteTierCapPct).toBe(DEFAULT_RISK_BAND_THRESHOLDS.absoluteTierCapPct);
-    expect(DEFAULT_RISK_POLICY_VALUES.maxNewPositionsPerDay).toBe(DEFAULT_CIRCUIT_THRESHOLDS.maxNewPositionsPerDay);
+    expect(DEFAULT_RISK_POLICY_VALUES.warning48hLossPct).toBe(DEFAULT_CIRCUIT_THRESHOLDS.warning48hLossPct);
   });
 });

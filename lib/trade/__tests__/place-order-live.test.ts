@@ -7,7 +7,6 @@ const getAccount = vi.fn();
 const placeOrder = vi.fn();
 const getPositions = vi.fn();
 const evaluateLiveCircuitBreaker = vi.fn();
-const countLiveEntriesOpenedToday = vi.fn();
 const recordOrderExecution = vi.fn();
 const killSwitchRefusal = vi.fn(() => null);
 
@@ -30,7 +29,6 @@ vi.mock("@/lib/brokers/alpaca", () => ({
 }));
 vi.mock("@/lib/risk/service", () => ({
   evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
-  countLiveEntriesOpenedToday: (...args: unknown[]) => countLiveEntriesOpenedToday(...args),
 }));
 vi.mock("@/lib/risk/live-trade-loss", () => ({
   isLiveTradingRestricted: vi.fn(() => Promise.resolve(false)),
@@ -130,7 +128,6 @@ describe("placeSimulatedOrder — live branch", () => {
     placeOrder.mockReset();
     getPositions.mockReset().mockResolvedValue([]);
     evaluateLiveCircuitBreaker.mockReset();
-    countLiveEntriesOpenedToday.mockReset().mockResolvedValue(0);
     recordOrderExecution.mockReset();
     killSwitchRefusal.mockReset().mockReturnValue(null);
     limits.bypass = false;
@@ -178,23 +175,15 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
-  it("passes a real live-entries-today count into the circuit-breaker gate, not a hardcoded 0", async () => {
+  it("gates on the circuit's loss and drawdown reads only, with no daily entry count (Q8, R-019)", async () => {
     readLiveAlpacaConnection.mockResolvedValue(connection);
     getAccount.mockResolvedValue({ equity: "450" });
-    countLiveEntriesOpenedToday.mockResolvedValue(3);
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
     placeOrder.mockResolvedValue({ id: "alpaca-order-count", status: "accepted" });
 
     await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
 
-    expect(countLiveEntriesOpenedToday).toHaveBeenCalledWith(expect.anything(), "u1");
-    expect(evaluateLiveCircuitBreaker).toHaveBeenCalledWith(
-      expect.anything(),
-      "u1",
-      450,
-      true,
-      3,
-    );
+    expect(evaluateLiveCircuitBreaker).toHaveBeenCalledWith(expect.anything(), "u1", 450, true);
   });
 
   it("submits a stop-only bracket (no take-profit leg) when attach levels are given, and writes a protocol_exits plan", async () => {

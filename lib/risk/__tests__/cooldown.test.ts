@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { gateAction, validateResetChecklist, requiresResetChecklist } from "@/lib/risk/cooldown";
 
 describe("gateAction", () => {
-  const hardCooldownInputs = { newPositionsOpenedToday: 0, loss48hPct: 5, drawdown30dPct: 0 };
+  const hardCooldownInputs = { loss48hPct: 5, drawdown30dPct: 0 };
 
   it("always allows stop loss, take profit, reduce, close, and cancel even in a lock", () => {
     for (const action of [
@@ -12,7 +12,7 @@ describe("gateAction", () => {
       "position_close",
       "cancel_pending_entry",
     ] as const) {
-      const r = gateAction(action, { newPositionsOpenedToday: 0, loss48hPct: 18, drawdown30dPct: 18 });
+      const r = gateAction(action, { loss48hPct: 18, drawdown30dPct: 18 });
       expect(r.allowed).toBe(true);
     }
   });
@@ -29,7 +29,7 @@ describe("gateAction", () => {
   });
 
   it("allows a new entry in warning, but flags it as requiring risk review", () => {
-    const r = gateAction("new_entry", { newPositionsOpenedToday: 0, loss48hPct: 2, drawdown30dPct: 0 });
+    const r = gateAction("new_entry", { loss48hPct: 2, drawdown30dPct: 0 });
     expect(r.allowed).toBe(true);
     expect(r.requiresRiskReview).toBe(true);
   });

@@ -526,9 +526,11 @@ it is sized and refused by Gann's capital rules alone (`gannCapital.ts`: 30
 points a share, a tenth at risk, five stocks). Above Novice the ceilings had
 refused the size Gann's rules give (a 1% risk with his stop about 3% away is a
 third of the account). Law of Creation: novice ⊗ expert, two poles held apart
-on purpose, the guard rails a learner needs and the method itself. The
-portfolio manager keeps no daily count of new positions (Q8); the live circuit
-breaker's own daily pause is unchanged. On the symbol page and any surface
+on purpose, the guard rails a learner needs and the method itself. Now
+no surface keeps a daily count of new positions (Q8; R-019, 2026-10-21): not
+the portfolio manager, not the live circuit breaker (`entry_pause` no longer
+triggers), and not the Novice home, which now shows the room left under
+Gann's five stocks and three other markets. On the symbol page and any surface
 without a preference, `chooseSessionEntry` now shows the with-trend
 (continuation) buying point first when both armed, the reversion only when it
 alone armed ("never buck the trend", *Wall Street Stock Selector* pp. 18-19,

@@ -20,15 +20,8 @@
  * the moment live execution is built, it is already there rather than a
  * second integration pass — see the call site for the exact seam.
  *
- * `newPositionsOpenedToday`: callers pass `countLiveEntriesOpenedToday`'s
- * result (below) — a real count of this user's live entries opened since
- * midnight ET, read from the `positions` table's `mode = 'live'` rows now
- * that live order placement exists (see `lib/trade/place-order.ts`'s
- * `mode === "live"` branch). Until 2026-09-23 this was hardcoded to 0 at
- * every call site with a comment claiming "no live order history to count
- * from yet" — stale even at the time it was written, since live order
- * placement had already shipped; `entry_pause` could never trigger from
- * live trading as a result. Fixed then.
+ * There is no daily new-position count (Q8, Gann sets none; R-019,
+ * 2026-10-21): the circuit reads the loss and drawdown metrics only.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -99,34 +92,6 @@ async function readEquitySamples(
   };
 }
 
-/**
- * How many `mode = 'live'` positions this user has opened since midnight ET
- * — the real input `evaluateLiveCircuitBreaker`'s `newPositionsOpenedToday`
- * needs to let `entry_pause` trigger from live trading. Counts `positions`
- * rows rather than `orders`: a position row is only ever created on a fill
- * (`lib/trade/place-order.ts`'s live insert branches), so an order that
- * never filled — rejected, canceled — correctly doesn't count as an entry.
- */
-export async function countLiveEntriesOpenedToday(
-  supabase: SupabaseClient,
-  userId: string,
-  now: Date = new Date(),
-): Promise<number> {
-  const { minutes } = etParts(now);
-  const startOfTodayEt = new Date(now.getTime() - minutes * 60_000);
-  const { count, error } = await supabase
-    .from("positions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("mode", "live")
-    .gte("opened_at", startOfTodayEt.toISOString());
-  if (error) {
-    console.error(`risk: live entries-opened-today count failed for ${userId} — ${error.message}`);
-    return 0;
-  }
-  return count ?? 0;
-}
-
 /** The last equity mark before the current ET trading day began (approximated as the prior day's 20:00 ET close). */
 function sessionStart(now: Date): Date {
   const { minutes } = etParts(now);
@@ -183,7 +148,6 @@ export async function evaluateLiveCircuitBreaker(
   userId: string,
   equity: number,
   equityVerified: boolean,
-  newPositionsOpenedToday: number,
   now: Date = new Date(),
 ): Promise<CircuitEvaluation> {
   await recordLiveEquitySnapshot(supabase, userId, equity, equityVerified, now);
@@ -210,7 +174,7 @@ export async function evaluateLiveCircuitBreaker(
     : undefined;
 
   const decision = resolveState(
-    { newPositionsOpenedToday, loss48hPct: loss48h.lossPct, drawdown30dPct: drawdown30d.lossPct },
+    { loss48hPct: loss48h.lossPct, drawdown30dPct: drawdown30d.lossPct },
     prior,
     (from) => tradingDaysElapsed(from, now),
     policy.circuit,
@@ -240,7 +204,7 @@ export async function evaluateLiveCircuitBreaker(
       userId,
       priorState,
       decision,
-      metricInputs: { newPositionsOpenedToday, loss48hPct: loss48h.lossPct, drawdown30dPct: drawdown30d.lossPct },
+      metricInputs: { loss48hPct: loss48h.lossPct, drawdown30dPct: drawdown30d.lossPct },
       sourceDataConfidence,
       // No delivery channel is wired yet — the transition is recorded
       // truthfully as not-yet-notified rather than claiming a notification
