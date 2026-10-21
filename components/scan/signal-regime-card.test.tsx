@@ -31,7 +31,7 @@ describe("SignalRegimeCard", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the regime, each state's tier, and a tradeable plan's levels", () => {
+  it("shows the regime and each state's tier, and never the engine's own levels (R-025)", () => {
     const result: ScanResult = {
       ...baseResult,
       signals: {
@@ -72,9 +72,7 @@ describe("SignalRegimeCard", () => {
     expect(screen.getByText("Trend Pullback")).toBeInTheDocument();
     expect(screen.getByText("Tradeable")).toBeInTheDocument();
     expect(screen.getByText("A-tier")).toBeInTheDocument();
-    expect(screen.getByText("$101.50")).toBeInTheDocument();
-    expect(screen.getByText("$98.00")).toBeInTheDocument();
-    expect(screen.getByText("$110.00")).toBeInTheDocument();
+    for (const level of ["$101.50", "$98.00", "$110.00"]) expect(screen.queryByText(level)).not.toBeInTheDocument();
     expect(screen.getByText("Market data is stale.")).toBeInTheDocument();
     expect(screen.getByText("Not available")).toBeInTheDocument();
   });

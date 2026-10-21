@@ -2,8 +2,9 @@
  * Server side of the graduation exams (`lib/school/graduationExam.ts`):
  * starting an attempt (fetching the charts and fixing the answer key),
  * grading it, and reading whether a student has passed. Writes go through the
- * service role only; `graduation_exam_attempts` (migration 0084) is
- * owner-readable and otherwise closed, because a pass gates promotion.
+ * service role only; `graduation_exam_attempts` (migration 0084) is closed
+ * to members entirely since 0092, because each row holds its answer key and
+ * a pass gates promotion (review R-027).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

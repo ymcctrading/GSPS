@@ -191,6 +191,22 @@ describe("time lines carry their measured record or are hidden", () => {
     return r;
   }
 
+  it("drops a fan line's time target, which has no measured record (R-024)", () => {
+    const r = withTime();
+    r.signals!.gannConfluence!.nearestFanLine = {
+      angle: "1x1 (low)",
+      price: 100,
+      distancePct: 0.5,
+      anchor: { price: 90, index: 10, kind: "low" },
+      role: "support",
+      timeProjectionDate: "2027-01-15",
+      rank: 1,
+    };
+    render(<ConfluenceCard result={r} />);
+    expect(screen.getByText("1x1 (low)")).toBeInTheDocument();
+    expect(screen.queryByText(/2027-01-15/)).not.toBeInTheDocument();
+  });
+
   it("drops the macro cycle's next major date, which has no measured record (CYC-47)", () => {
     render(<ConfluenceCard result={withTime()} />);
     expect(screen.queryByText(/Next major/)).not.toBeInTheDocument();

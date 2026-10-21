@@ -23,10 +23,13 @@ import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import {
   redactDecision,
   redactScanResult,
+  toAnonymousScanResult,
   toPublicScoreSummary,
   SCORE_PILLARS,
 } from "@/lib/scoring/public-summary";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+import { EMPTY_DISCLOSED_RULES, type DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import { redactDisclosedRules } from "@/lib/signals/publicSummary";
 
 /**
  * These fixtures check raw pass/fail arithmetic against fixed score values
@@ -236,11 +239,49 @@ describe("redaction at the API boundary", () => {
 
     expect(redacted.levels).toEqual(result.levels);
     expect(redacted.pattern).toEqual(result.pattern);
-    expect(redacted.gann).toEqual(result.gann);
+    // The levels a chart draws pass; the method's working stays server-side
+    // (review finding S-02).
+    expect(redacted.gann.squareOf9).toEqual(result.gann.squareOf9);
+    expect(redacted.gann.fanLines).toEqual(result.gann.fanLines);
+    expect(redacted.gann.timeCycleActive).toBe(true);
+    expect(redacted.gann.digitalRootConfluences).toEqual([]);
+    expect(redacted.gann.angleSlopes).toEqual([]);
+    expect(redacted.gann.retracementLevels).toEqual([]);
+    expect(redacted.gann.timeCycleDates).toEqual([]);
+    expect(result.gann.digitalRootConfluences).toHaveLength(1);
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
     expect(result.decision.breakdown).toHaveLength(18);
+  });
+
+  it("gives a visitor with no session only what the public chart draws", () => {
+    const result: ScanResult = {
+      symbol: "AAPL",
+      assetClass: "us_equity",
+      scannedAt: "2026-08-08T00:00:00Z",
+      currentPrice: 100,
+      direction: "bullish",
+      setupKind: "reversion",
+      momentumElevated: true,
+      trends: [trend("bullish")],
+      gann,
+      pattern,
+      armedPatterns: [pattern],
+      levels,
+      decision,
+      volatilityRead: { atr: 2, regime: "normal" },
+    };
+
+    const anon = toAnonymousScanResult(result);
+    expect(anon.levels).toEqual(result.levels);
+    expect(anon.gann.squareOf9).toEqual(result.gann.squareOf9);
+    expect(anon.gann.digitalRootConfluences).toEqual([]);
+    expect(anon.signals).toBeUndefined();
+    expect(anon.pattern).toBeNull();
+    expect(anon.armedPatterns).toEqual([]);
+    expect(anon.volatilityRead).toBeUndefined();
+    expect(anon.decision.breakdown).toEqual([]);
   });
 
   it("strips dailyBars — bulk internal data, not a public response field", () => {
@@ -321,11 +362,78 @@ describe("redaction at the API boundary", () => {
       expect(redacted.signals.trendPullback.alignment.score).toBe(88);
       expect(redacted.signals.trendPullback.alignment.tier).toBe("aTier");
       expect(redacted.signals.trendPullback.tradeable).toBe(true);
-      expect(redacted.signals.trendPullback.plan?.entryTrigger).toBe(101);
+      // The engine's own plan is not Gann's and stays on the server (R-025).
+      expect(redacted.signals.trendPullback.plan).toBeNull();
     }
     // The caller's own copy keeps its breakdown server-side.
     if (result.signals?.trendPullback?.status === "evaluated") {
       expect(result.signals.trendPullback.alignment.breakdown).toHaveLength(1);
     }
+  });
+});
+
+describe("the Gann rule readings at the API boundary (R-024)", () => {
+  function rules(): DisclosedRulesContext {
+    return {
+      ...EMPTY_DISCLOSED_RULES,
+      asOf: "2026-10-21",
+      counterMove: { inCounterMove: true, phase: "normal", days: 9, trend: "bullish" } as DisclosedRulesContext["counterMove"],
+      astro: { jensen: { projection: { price: 123.45, fromDate: "2026-10-01" } } } as unknown as DisclosedRulesContext["astro"],
+      hexagonTime: [{ secret: "hexagon count" }] as unknown as DisclosedRulesContext["hexagonTime"],
+      timing: {
+        alternation: { daysSincePivot: 14, mark: 14 },
+        square144: null,
+        projection: { kind: "top", medianDate: "2026-11-02", spreadDays: 4, count: 3 },
+        changeDates: { dates: [], next: { date: "2026-11-09", days: 14, expect: "high", came: null } },
+      } as DisclosedRulesContext["timing"],
+    };
+  }
+
+  it("keeps what the confluence card draws", () => {
+    const out = redactDisclosedRules(rules());
+    expect(out.counterMove?.days).toBe(9);
+    expect(out.timing.alternation?.mark).toBe(14);
+    expect(out.asOf).toBe("2026-10-21");
+  });
+
+  it("keeps the astrology, the undrawn counts and the dated forward labels on the server", () => {
+    const out = redactDisclosedRules(rules());
+    const serialised = JSON.stringify(out);
+    expect(out.astro).toBeNull();
+    expect(out.hexagonTime).toEqual([]);
+    expect(out.timing.projection).toBeNull();
+    expect(out.timing.changeDates).toBeNull();
+    for (const leak of ["123.45", "hexagon count", "2026-11-02", "2026-11-09"]) expect(serialised).not.toContain(leak);
+  });
+});
+
+describe("the Gann confluence's working at the API boundary (R-024)", () => {
+  it("drops the root, the dated counts, the vortex and the ledger", async () => {
+    const { redactScanSignals } = await import("@/lib/signals/publicSummary");
+    const gann = {
+      root: 12.34,
+      timeCycleDates: ["2026-11-03"],
+      timeCycleFixedCalendarDates: ["2026-11-08"],
+      squareOf52: { active: true, dates: ["2026-11-10"] },
+      angleMonthCounts: { active: false, dates: ["2026-12-01"] },
+      vortexContext: { priceDisplacement: 3, timeDisplacement: 6, priceVortexClass: "x", timeVortexClass: "y", relationship: "z", transition: "w" },
+      angleSlope: { slope: 1.1, nearestAngle: null },
+      coordinateLedger: [{ price: 1 }],
+      nearestFanLine: null,
+      disclosedRules: EMPTY_DISCLOSED_RULES,
+      evidence: { calculationVersion: "1", inputs: {}, sourceTimestamp: "x", explanationTrace: ["t"] },
+    };
+    const out = redactScanSignals({
+      regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+      trendPullback: null,
+      trendBreakout: null,
+      confirmedReversal: null,
+      rangeReversion: null,
+      gannConfluence: gann as never,
+      saraConfluence: null,
+    })!.gannConfluence!;
+    expect(out.squareOf52.active).toBe(true);
+    const serialised = JSON.stringify(out);
+    for (const leak of ["12.34", "2026-11-03", "2026-11-08", "2026-11-10", "2026-12-01", "1.1", "\"price\":1"]) expect(serialised).not.toContain(leak);
   });
 });

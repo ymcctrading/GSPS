@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { safeNextPath } from "@/lib/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeNextPath(searchParams.get("next"));
   // Carried from a referral link (/r/<username> redirects here with ?ref=)
   // straight into signUp's metadata, for handle_new_user to attribute.
   const ref = searchParams.get("ref");
@@ -105,30 +106,31 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           }
         }
       } else {
-        // Login accepts either an email address or a username. The lookup
-        // goes through our own route rather than calling the
-        // resolve_username_email RPC directly — see
-        // app/api/auth/resolve-username/route.ts for why.
-        let loginEmail = identifier;
+        // Login accepts either an email address or a username. A username
+        // signs in on the server (app/api/auth/username-login/route.ts), so
+        // the email behind it never reaches the browser.
         if (!identifier.includes("@")) {
-          let resolvedEmail: string | null = null;
+          let ok = false;
           try {
-            const res = await fetch("/api/auth/resolve-username", {
+            const res = await fetch("/api/auth/username-login", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username: identifier }),
+              body: JSON.stringify({ username: identifier, password }),
             });
-            ({ email: resolvedEmail } = await res.json());
+            ok = res.ok;
           } catch {
             // Falls through to the generic error below, same as a lookup miss.
           }
-          if (!resolvedEmail) {
+          if (!ok) {
             setError("Invalid login credentials");
             setLoading(false);
             return;
           }
-          loginEmail = resolvedEmail;
+          router.push(next);
+          router.refresh();
+          return;
         }
+        const loginEmail = identifier;
         const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) setError(error.message);
         else {

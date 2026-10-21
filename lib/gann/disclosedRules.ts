@@ -77,6 +77,7 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRulesEmpty";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfwayRetest";
 import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
@@ -726,45 +727,7 @@ export interface InstrumentFacts {
   universe?: { symbol: string; strength: UniverseStrength | null } | null;
 }
 
-export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
-  barMidpoint: null,
-  pricePercentages: null,
-  dayCountBands: [],
-  yearFraction: null,
-  counterMove: null,
-  levelTests: { support: null, resistance: null },
-  ruleOfThree: { weekly: null, monthly: null },
-  campaign: null,
-  extremes: {
-    reverseSignal: { signal: null, rule: null, runDays: null },
-    gaps: { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null },
-  },
-  timing: { alternation: null, square144: null, projection: null, changeDates: null },
-  capitalStock: null,
-  incorporation: null,
-  evenFigures: { overhead: null, underneath: null },
-  zone: null,
-  seasonal: null,
-  accumulation: null,
-  sharesPerPoint: null,
-  leadership: null,
-  timeRules: null,
-  multipleTops: null,
-  ruleFollowing: null,
-  overnight: null,
-  closeClusters: { daily: null, weekly: null, monthly: null },
-  masterCalculator: null,
-  circle: null,
-  timeAngle: null,
-  planetary: null,
-  squareOfNineTime: [],
-  hexagonTime: [],
-  masterChartTime: [],
-  patternAngles: null,
-  dayCircle: null,
-  astro: null,
-  asOf: "",
-};
+export { EMPTY_DISCLOSED_RULES };
 
 export function readDisclosedRules(
   dailyBars: Bar[],

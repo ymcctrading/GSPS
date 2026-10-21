@@ -26,11 +26,12 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { sendPriceAlertEmail } from "@/lib/notifications/resend-handler";
 import { isPriceAlertFired } from "@/lib/trade/price-alert";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const maxDuration = 60;
 
 function isAuthorized(authorizationHeader: string | null): boolean {
-  return Boolean(process.env.CRON_SECRET) && authorizationHeader === `Bearer ${process.env.CRON_SECRET}`;
+  return isCronAuthorized(authorizationHeader);
 }
 
 interface AlertRow {

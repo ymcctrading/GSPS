@@ -15,7 +15,9 @@
  * behavior it enables (different messaging for "confirm your email" vs.
  * "reset your password" vs. "create an account") needs it. It is not exposed
  * to the browser directly (the SQL function's EXECUTE is revoked from
- * anon/authenticated), so this route is the only caller.
+ * anon/authenticated), so this route is the only caller. Because it answers
+ * whether an email has an account, `proxy.ts` holds it to the credential
+ * bucket (5 a minute per caller, review finding S-05, 2026-10-21).
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -960,6 +960,17 @@ describe("derived trades (reversals and re-entries)", () => {
     expect(byScoreRange(r, 0, 9).trades).toEqual([armedExecute, armedWatch]);
   });
 
+  it("sits in no setup-kind or entry-kind split, though it carries its parent's kind", () => {
+    const kinds = bySetupKind(r);
+    expect(kinds.reversion.trades.length + kinds.continuation.trades.length).toBe(2);
+    const report = buildReport(
+      { source: "synthetic", live: false, timeframe: "15Min", targetR: 2, symbols: ["TEST"], skipped: [], window: { from: null, to: null }, overall: r },
+      { symbols: ["TEST"] },
+    );
+    const entryKinds = Object.values(report.entryKindSplit).reduce((n, s) => n + s.trades, 0);
+    expect(entryKinds).toBe(2);
+  });
+
   it("measures no factor", () => {
     const row = attributeFactors(r.trades, { minSamples: 1 }).find((f) => f.criterion === "p1")!;
     expect(row.observed).toBe(2);

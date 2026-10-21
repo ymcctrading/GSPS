@@ -469,8 +469,19 @@ reactions before it in space and time; `levelRole.test.ts`'s 1931 shape now
 asserts the points reading. The intraday space alert reads the reaction in
 progress only (a standing one was alerted the day it happened), in points. The
 exit rule's trend change reads the over-balancing reaction's own start.
-`STRATEGY_VERSION` is `2026-10-21-gann-overbalance-points-standing`; Execute
+`STRATEGY_VERSION` was `2026-10-21-gann-overbalance-points-standing`; Execute
 and the 6/3.5 cutoffs need a fresh run on it.
+**Senior code review fixes, 2026-10-21 (owner: "Fill known gaps as Gann
+would").** The live scan's dated reads take the session's noon UTC, as the
+replay's do, not the wall clock (F-03, guarded in `pillarParity.test.ts`).
+Non-equity plans round to the places a price needs and refuse levels that are
+not four distinct positive prices; a short's master that the R projection puts
+below zero goes to the largest eighth of the entry beyond TP1 (F-02).
+Placement reads the limit or the server's quote before every risk ceiling,
+never the ticket's price, and refuses when it has none (F-01); a bought option
+risks its premium under rule 1 (F-04). `STRATEGY_VERSION` is
+`2026-10-21-review-session-clock-sub-dollar`. The review itself is in
+`/mnt/project-files/senior-code-review/`.
 
 **Trend pillar's weekly leg, 2026-10-21 (diagnosis of P2's inversion).** One
 translation defect, fixed. P2's design (`score-pillars-research.md` §3) and
@@ -591,6 +602,27 @@ support below price and resistance above it (W006 pp.19-24). `STRATEGY_VERSION`
 was `2026-10-21-gann-major-range-levels`; Execute and the 6/3.5 cutoffs need a
 fresh run on it.
 
+**Senior code review fixes, 2026-10-21 (owner: "Fill known gaps as Gann
+would").** The live scan's dated reads take the session's noon UTC, as the
+replay's do, not the wall clock (F-03, guarded in `pillarParity.test.ts`).
+Non-equity plans round to the places a price needs and refuse levels that are
+not four distinct positive prices; a short's master that the R projection puts
+below zero goes to the largest eighth of the entry beyond TP1 (F-02).
+Placement reads the limit or the server's quote before every risk ceiling,
+never the ticket's price, and refuses when it has none (F-01); a bought option
+risks its premium under rule 1 (F-04). `STRATEGY_VERSION` was
+`2026-10-21-review-session-clock-sub-dollar`. The review itself is in
+`/mnt/project-files/senior-code-review/`. Later the same day: the replays fill
+a stop a candle opens through at that open, not the stop (`stopFill`, R-022),
+as the paper exit manager fills at the market. `STRATEGY_VERSION` was
+`2026-10-21-review-gap-stop-fill`; replay losses on gaps move, live verdicts
+don't. Also from the review, not in the verdict: `daily_scans` stores only the
+score rollup, never the breakdown, since production lets any role read it
+(R-021). Migrations 0090, 0092 and 0093 (members update only their username
+and display name, R-028) were applied to production the same day on the
+owner's go-ahead. `STRATEGY_VERSION` was
+`2026-10-21-review-fixes-on-major-range-levels`.
+
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops
 or breaks the bottoms "of the previous weeks": "2-6 or 10-13 weeks in a narrow
@@ -680,8 +712,14 @@ counts each plan once per session it stood (about 1.4 a symbol-session over
 828 symbols and some 1,500 sessions, of at most 2: the reversion and the
 with-trend point),
 before the breach, distribution and failed-top checks and the zone test.
-`STRATEGY_VERSION` is `2026-10-21-replay-daily-closed-session`; the 1Day run
+`STRATEGY_VERSION` was `2026-10-21-replay-daily-closed-session`; the 1Day run
 needs repeating on it.
+
+**The review fixes merged onto the above, same day.** The paper exit manager
+fills a crossed stop at the market quote (R-010) and reverses the trade at the
+stop itself (review fix 1 above), so the fill and the reversal level differ
+when the quote gapped through. `STRATEGY_VERSION` is
+`2026-10-21-review-fixes-on-replay-daily-closed-session`; no new rule.
 
 ## WD Gann precedence — standing principle
 

@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
-import { redactScanResult } from "@/lib/scoring/public-summary";
+import { redactScanResult, toAnonymousScanResult } from "@/lib/scoring/public-summary";
 import { verifyAuth } from "@/lib/auth";
 import { recordScanVerdict } from "@/lib/learning/record";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const userId = await verifyAuth();
     const { universe } = await getUniversePolicy(createServiceClient());
     const result = await withTimeout(
       scanTicker(ticker, optionPremium, undefined, undefined, universe),
@@ -55,7 +56,6 @@ export async function GET(req: NextRequest) {
     // rows are per-user and RLS-scoped, so an anonymous scan has no row to own.
     // Failures are swallowed inside the recorder — a scan that produced an answer
     // must not 500 because telemetry could not be stored.
-    const userId = await verifyAuth();
     if (userId) {
       await recordScanVerdict(userId, result, {
         // The bar this scan actually ran on — `EXECUTION_TIMEFRAME`
@@ -85,20 +85,27 @@ export async function GET(req: NextRequest) {
     // `exactScoreDisplayEnabled` rides alongside it, not inside it — see
     // lib/scoring/display.ts. The score in the redacted result itself stays
     // exact; only the UI's rendered number should be formatted through it.
+    // A visitor with no session (the public shareable chart) gets only what
+    // that chart draws; see `toAnonymousScanResult`.
     return NextResponse.json({
-      ...redactScanResult(result),
+      ...(userId ? redactScanResult(result) : toAnonymousScanResult(result)),
       exactScoreDisplayEnabled: await resolveExactScoreDisplayEnabled(),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[scan] request failed:", message);
+    // A fixed message and a real status (review finding S-14, 2026-10-21):
+    // the raw error can name internal providers, and a 200 told the caller
+    // the scan had succeeded. The clients read `error` from the body either
+    // way (`parseJsonResponse`).
+    const timedOut = /^Timeout after/.test(message);
     return NextResponse.json(
       {
-        error: message,
+        error: timedOut ? "The scan took too long. Please try again." : "The scan could not be completed. Please try again.",
         direction: "none",
         decision: { outputState: "Reject", score: 0 },
       } as ScanResult,
-      { status: 200 }
+      { status: timedOut ? 504 : 502 }
     );
   }
 }

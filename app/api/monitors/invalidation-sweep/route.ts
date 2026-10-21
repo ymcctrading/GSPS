@@ -38,11 +38,12 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
 import type { MonitorState } from "@/lib/entitlements/monitor";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const maxDuration = 60;
 
 function isAuthorized(authorizationHeader: string | null): boolean {
-  return Boolean(process.env.CRON_SECRET) && authorizationHeader === `Bearer ${process.env.CRON_SECRET}`;
+  return isCronAuthorized(authorizationHeader);
 }
 
 interface OpenMonitor {

@@ -50,6 +50,12 @@ describe("reasonLine", () => {
     expect(line).not.toMatch(/stopped declines/);
   });
 
+  it("describes a priced plan with no bar-sequence pattern, since Gann's trigger prices it", () => {
+    const line = reasonLine(scan({ pattern: null }));
+    expect(line).toMatch(/turning back up through \$100/);
+    expect(line).not.toMatch(/hasn't priced/);
+  });
+
   it("describes a short continuation as a downtrend breaking lower", () => {
     const line = reasonLine(scan({ direction: "bearish", setupKind: "continuation" }));
     expect(line).toMatch(/trending down/);

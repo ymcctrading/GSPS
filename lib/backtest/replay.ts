@@ -40,15 +40,16 @@
  *
  * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
  * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
- * excluded early history the live scan does trade). One remaining difference
- * is stated rather than hidden: the replay reads weekly and monthly trends
- * from rollups of the daily bars, while the live scan fetches those
- * timeframes directly. On short daily history the rollups have fewer bars
- * than the live fetch would.
+ * excluded early history the live scan does trade). Since 2026-10-20 both
+ * read the provider's closed weeks and months, with the bar in progress built
+ * from completed sessions (`levelCharts`), so the weekly and monthly trends
+ * agree; `pillarParity.test.ts` compares all three.
  *
  * Deliberately pessimistic wherever a bar is ambiguous:
  *   - The trigger is a resting stop order. If a candle opens already beyond
  *     it, the fill is that open, not the trigger price.
+ *   - A stop a candle opens through fills at that open, not the stop
+ *     (`stopFill`).
  *   - When a single bar's range covers both the stop and the target there is
  *     no way to know which came first, so it counts as a loss.
  *   - Round-trip friction is charged against every trade, widening losses and
@@ -133,6 +134,8 @@ import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
 export const BARS_PER_SESSION = 26;
+/** Crypto trades around the clock: 24 hours of 15-minute candles. */
+export const CRYPTO_BARS_PER_SESSION = 96;
 
 /**
  * Daily history needed before a session can arm. This is the live scan's own
@@ -291,8 +294,8 @@ export interface ReplayOptions {
    *   order, as the bracket does). The replay's target is `targetR`, while live
    *   TP1 is a Gann level; the tranche split is the same.
    *
-   * All fill a stop at the stop price, so they are compared on the same
-   * convention.
+   * All fill a stop at the stop price, or at the open of a candle that opens
+   * through it (`stopFill`), so they are compared on the same convention.
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
@@ -839,7 +842,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const {
     targetR,
     costPerShare = DEFAULT_COST_PER_SHARE_USD,
-    maxBarsHeld = BARS_PER_SESSION * 10,
+    maxBarsHeld: maxBarsHeldOption,
     warmupBars = 40,
     dailyBars,
     monthlyBars,
@@ -863,6 +866,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // Ten sessions held on every asset (review finding F-06): ten equity
+  // sessions are 260 candles, but 260 candles of a coin that trades all day
+  // and night are under three days.
+  const maxBarsHeld = maxBarsHeldOption ?? (assetClass === "crypto" ? CRYPTO_BARS_PER_SESSION : BARS_PER_SESSION) * 10;
 
   const trades: ReplayTrade[] = [];
   // Entry-confirmation evidence per armed pivot, used only when
@@ -1278,7 +1285,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
           selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
           barsHeld: walked.barsHeld,
-          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+          // A win is a trade that made money after costs, on the same net basis
+          // as its R (review finding F-07).
+          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
           exitReason: walked.reason,
           ...(pyramid ? { lots: walked.lots } : {}),
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
@@ -1353,7 +1362,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       // Gross P&L is the actual price distance from the fill to the exit.
-      const gross = dir * ((outcome === "win" ? target : stop) - entry);
+      const gross = dir * ((outcome === "win" ? target : stopFill(long, stop, bars[i + barsHeld - 1].o)) - entry);
       trades.push({
         ...base, barsHeld, outcome,
         rMultiple: (gross - costPerShare) / risk,
@@ -1371,24 +1380,28 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
  * continuation at.
  */
 export function bySetupKind(result: ReplayResult): { reversion: ReplayResult; continuation: ReplayResult } {
+  const armed = result.trades.filter((t) => !t.derived);
   return {
-    reversion: summarise(result.trades.filter((t) => t.setupKind === "reversion")),
-    continuation: summarise(result.trades.filter((t) => t.setupKind === "continuation")),
+    reversion: summarise(armed.filter((t) => t.setupKind === "reversion")),
+    continuation: summarise(armed.filter((t) => t.setupKind === "continuation")),
   };
 }
 
 /**
  * Split a run by the kind of buying point that priced each entry, so the
  * crossing, the double bottom and the held bottom can each be read on their own.
+ * Reversals and re-entries carry their parent's kind but were priced by
+ * neither, so these splits (and `bySetupKind`'s) read the armed trades only;
+ * `byDerived` reports the rest.
  */
 export function byEntryKind(result: ReplayResult): Record<GannEntryKind, ReplayResult> {
-  const of = (kind: GannEntryKind) => summarise(result.trades.filter((t) => (t.entryKind ?? "crossing") === kind));
+  const of = (kind: GannEntryKind) => summarise(result.trades.filter((t) => !t.derived && (t.entryKind ?? "crossing") === kind));
   return { crossing: of("crossing"), oldLevel: of("oldLevel"), hold: of("hold") };
 }
 
 /** The held entries split by the form of the hold that priced them. */
 export function byHoldBasis(result: ReplayResult): Record<GannHoldBasis, ReplayResult> {
-  const of = (basis: GannHoldBasis) => summarise(result.trades.filter((t) => t.entryKind === "hold" && t.holdBasis === basis));
+  const of = (basis: GannHoldBasis) => summarise(result.trades.filter((t) => !t.derived && t.entryKind === "hold" && t.holdBasis === basis));
   return { weeks: of("weeks"), days: of("days"), record: of("record"), rally: of("rally"), narrowWeek: of("narrowWeek") };
 }
 
@@ -1520,7 +1533,7 @@ export function walkRebuy(input: {
       entry, stop: plan.stop, target,
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
-      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
       exitReason: walked.reason,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
       rebuy: true,
@@ -1594,7 +1607,7 @@ export function walkReversals(input: {
       entry, stop: plan.stop, target,
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
-      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
       exitReason: walked.reason,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
       reversal: depth,
@@ -1608,6 +1621,18 @@ export function walkReversals(input: {
     extreme = walked.best ?? entry;
   }
   return out;
+}
+
+/**
+ * Where a stop fills on the candle that reaches it: at the stop, or at the open
+ * when the candle opens through it (a gap). A resting stop becomes a market
+ * order once touched, so a gap fills it at the gap, as the paper exit manager
+ * fills at the market (`closeSimPlanForSymbol`). Filling every gap at the stop
+ * made the loss side of the measurement optimistic, against the header's rule
+ * of being pessimistic wherever a bar is ambiguous.
+ */
+export function stopFill(long: boolean, stop: number, open: number): number {
+  return long ? Math.min(stop, open) : Math.max(stop, open);
 }
 
 /** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
@@ -1706,7 +1731,7 @@ export function walkGannExit(input: {
         if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };
       }
     }
-    if (long ? b.l <= stop : b.h >= stop) return done(stop, j - from + 1, stopReason);
+    if (long ? b.l <= stop : b.h >= stop) return done(stopFill(long, stop, b.o), j - from + 1, stopReason);
     if (coverAt != null && (long ? b.h >= coverAt : b.l <= coverAt)) {
       return done(long ? Math.max(coverAt, b.o) : Math.min(coverAt, b.o), j - from + 1, "covered");
     }

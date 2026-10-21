@@ -31,6 +31,7 @@ import { closedSessionBars } from "./confirmNow";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import { isExpiredByClock } from "./expiry";
 import { applyEventAndPersist, listTradePlans } from "./store";
+import { isPivotSignal } from "./fromPivot";
 import { isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 
 /**
@@ -107,8 +108,20 @@ export async function armConfirmedPlansFromBars(
         result.stopBroken.push(plan.planId);
         continue;
       }
+      // The plan's own rule, read exactly as the scan-driven advance reads it
+      // (`advanceConfirmation.ts`): Gann's crossing line from the entry and
+      // stop, or no crossing for an old-level or hold entry; only a
+      // stop-and-reverse plan keeps the retest-and-hold sequence. Until
+      // 2026-10-21 this passed neither the stop nor the entry kind, so the
+      // manager armed every plan on the retest sequence that the reaction
+      // rule replaced (review finding R-014).
       const evidence = replayEntryConfirmation(
-        { direction: plan.direction, entryTrigger: plan.coordinates.entryTrigger },
+        {
+          direction: plan.direction,
+          entryTrigger: plan.coordinates.entryTrigger,
+          stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
+          entryKind: plan.coordinates.entryKind,
+        },
         closedSessionBars(bars, now, intervalMs, plan.generatedAt),
       );
       if (!entryReady(evidence)) continue;
@@ -126,7 +139,11 @@ export async function armConfirmedPlansFromBars(
       const armed = await applyEventAndPersist(supabase, userId, plan.planId, {
         type: "arm",
         at,
-        reason: "Break/retest/confirmation-move sequence completed on closed bars since the plan was generated.",
+        reason: isPivotSignal(plan.signalId)
+          ? "Break/retest/confirmation-move sequence completed on closed bars since the plan was generated."
+          : plan.coordinates.entryKind === "oldLevel" || plan.coordinates.entryKind === "hold"
+            ? "The entry rests at its level, read on closed bars since the plan was generated."
+            : "Price closed 3 points past the old level on a closed bar; the entry waits for the reaction.",
       });
       if (armed.ok) result.armed.push(plan.planId);
       else result.errors.push({ planId: plan.planId, reason: armed.error });

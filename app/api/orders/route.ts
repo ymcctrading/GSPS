@@ -15,7 +15,7 @@ import {
 import { evaluateTargets } from "@/lib/trade/targets";
 import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { OrderSchema, placeSimulatedOrder } from "@/lib/trade/place-order";
-import { pruneClosedOrders } from "@/lib/portfolio/prune";
+import { agedOffOrderIds } from "@/lib/portfolio/prune";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { syncLiveAccount } from "@/lib/trade/live-sync";
 
@@ -113,22 +113,15 @@ export async function GET() {
 
   let orders = (data ?? []) as Record<string, unknown>[];
 
-  // A closed order — filled, no longer held, untouched for 24+ hours — has
-  // nothing left to show, so it's deleted rather than kept growing the ledger.
+  // A closed order — filled and no longer held, or ended without filling —
+  // leaves the tab 3 hours after the close that followed it. The row is kept:
+  // it is the trade's record (lib/portfolio/prune.ts).
   const heldSymbols = new Set((await listOpenPositions(supabase, user.id)).map((p) => p.symbol.toUpperCase()));
-  const prune = await pruneClosedOrders(supabase, user.id, heldSymbols).catch(
-    (err): { deleted: number; error: string | null; staleIds: string[] } => ({
-      deleted: 0,
-      error: err instanceof Error ? err.message : String(err),
-      staleIds: [],
-    }),
+  const agedOff = agedOffOrderIds(
+    orders as { id: unknown; symbol: unknown; status: unknown; updated_at: unknown }[],
+    heldSymbols,
   );
-  if (prune.error) {
-    console.error(`orders: closed-order prune — ${prune.error}`);
-  } else if (prune.staleIds.length > 0) {
-    const pruned = new Set(prune.staleIds);
-    orders = orders.filter((o) => !pruned.has(String(o.id)));
-  }
+  if (agedOff.size > 0) orders = orders.filter((o) => !agedOff.has(String(o.id)));
 
   // One quote per unique equity/crypto symbol on the page — bounded to what's
   // actually shown, not a market-wide call. Options have no live per-contract

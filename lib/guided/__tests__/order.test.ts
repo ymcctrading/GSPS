@@ -52,7 +52,7 @@ describe("a held bottom (PLAN.md item 5, step 4)", () => {
       symbol: "AAPL", assetClass: "us_equity", currentPrice: 41, direction: "bullish",
       levels: { ...levels, entryKind: "hold", riskPerShare: 1.96, rewardPerShare: 4.3, riskReward: 2.2 },
       decision: { score: 7, outputState: "Execute", breakdown: [], summary: { score: 7, outOf: 9, pillars: [] } },
-      trends: [], pattern: null, signals: {},
+      trends: [], pattern: null, signals: {}, gann: { fanLines: [], squareOf9: [] },
     } as unknown as ScanResult;
     const sized = { qty: 10, notionalUsd: 397, riskUsd: 19.6, rewardUsd: 43, boundBy: "risk", blockedReason: null } as never;
     expect(toRecommendation(result, "buy", sized, "2026-10-15T20:00:00Z").why.entryKind).toBe("hold");
@@ -71,6 +71,7 @@ describe("toRecommendation", () => {
       trends: [],
       pattern: null,
       signals: {},
+      gann: { fanLines: [], squareOf9: [] },
     } as unknown as ScanResult;
     const sized = { qty: 10, notionalUsd: 397, riskUsd: 19.6, rewardUsd: 43, boundBy: "risk", blockedReason: null } as never;
     const rec = toRecommendation(result, "buy", sized, "2026-10-15T20:00:00Z");

@@ -72,6 +72,7 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const maxDuration = 120;
 
@@ -119,10 +120,7 @@ const MAX_SYMBOLS = 25;
  * invocations, so an unset secret means the check fails closed, not open.
  */
 function isSystemScan(req: NextRequest): boolean {
-  return (
-    Boolean(process.env.CRON_SECRET) &&
-    req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`
-  );
+  return isCronAuthorized(req.headers.get("authorization"));
 }
 
 export async function GET(req: NextRequest) {

@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { NO_GUARANTEE_DISCLAIMER } from "@/lib/school/curriculum";
+import { NO_GUARANTEE_DISCLAIMER } from "@/lib/school/disclaimer";
 
 export type ScenarioBasis = "hypothetical" | "simulation" | "paper_trading" | "recorded_behavior";
 

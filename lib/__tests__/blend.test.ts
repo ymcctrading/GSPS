@@ -107,3 +107,17 @@ describe("buildBlendedPositions", () => {
     expect(groups).toHaveLength(0);
   });
 });
+
+describe("paper and live in the same name (review finding R-012)", () => {
+  it("keeps both holdings instead of letting one overwrite the other", async () => {
+    const { buildBlendedPositions } = await import("@/lib/portfolio/blend");
+    const base = { symbol: "AAPL", qty: 10, side: "long", avgEntry: 100, currentPrice: 110, marketValue: 1100, unrealizedPl: 100, unrealizedPlPct: 10, todayPlPct: 0 };
+    const groups = buildBlendedPositions(
+      [{ ...base, mode: "paper" as const }, { ...base, qty: 5, marketValue: 550, unrealizedPl: 50, mode: "live" as const }],
+      () => 110,
+    );
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.equity?.mode)).toEqual(["live", "paper"]);
+    expect(groups.map((g) => g.equity?.totalShares)).toEqual([5, 10]);
+  });
+});
