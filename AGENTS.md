@@ -333,7 +333,7 @@ long, lower for a short (`lib/gann/leadership.ts#readMonthlyStrength`), read
 identically on both surfaces and guarded by
 `lib/scan/__tests__/pillarParity.test.ts`. It replaced a weak-stock reading
 that was never S6. About 0.03 ms a symbol, no request. A true cross-sectional
-rank and a group map stay open. `STRATEGY_VERSION` is
+rank and a group map stay open (the rank was built 2026-10-21, below). `STRATEGY_VERSION` was
 `2026-10-20-gann-p3-monthly-strength`. The research-only planetary matcher
 (C-ASTRO-03) now tests whole multiples of each period, with the chance rate
 widened to match.
@@ -470,6 +470,34 @@ progress only (a standing one was alerted the day it happened), in points. The
 exit rule's trend change reads the over-balancing reaction's own start.
 `STRATEGY_VERSION` is `2026-10-21-gann-overbalance-points-standing`; Execute
 and the 6/3.5 cutoffs need a fresh run on it.
+
+**Relative strength rank, 2026-10-21 (S6 built, replacing the P3(c) stand-in).**
+P3(c) now ranks the stock among the scan universe (`LARGE_CAP_UNIVERSE`, the
+766-symbol list the market scan rotates through) by where its last monthly
+close sits in its year of monthly highs and lows, and passes in the strongest
+quarter for a long, the weakest for a short (*Commodities* p. 20, "compare the
+monthly highs and lows" and choose the strongest or weakest, p. 47; *Stock
+Selector* Ch. VII, "those selling at the highest levels are in the strongest
+position"; `lib/gann/universeStrength.ts`). The stand-in's obstacle was that a
+rank among the symbols in hand gives one symbol two scores; here the peers are a
+fixed list and the rank reads completed months only, keyed by the month it is
+read in, so the market scan, the symbol page and the replay read the same peers
+on the same months (`pillarParity.test.ts`). The live scan reads the universe's
+monthly bars once per ET day per instance (`lib/data/universeStrength.ts`, 8
+batched requests, started beside the symbol's own fetches); both backtest
+runners read the whole span once per run (`fetchReplayUniverseStrength`). The
+rank also adds a step to `selectionStrength`, so the shortlist cut (when the
+universe read has landed, never waited on) and the lists' order use it.
+Measured: the rank read is about 0.005-0.009 ms a symbol, building the table
+10 ms once a day live and 110 ms once per replay run; the fetch's wall time
+is logged by the market scan's "universe strength read" breadcrumb and was
+not measurable from this session. Engineering choices, labelled: the quarter,
+`MIN_PEERS` 100, position in range as the comparison, and today's list carried
+back in time (survivorship). US equities only; a group map (Gann's "within a
+group") stays open. A failed universe read leaves P3(c) unread, which fails as
+an unread check does. `STRATEGY_VERSION` is
+`2026-10-21-gann-universe-strength-rank`; Execute and the 6/3.5 cutoffs need a
+fresh run on it.
 
 ## WD Gann precedence — standing principle
 

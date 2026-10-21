@@ -68,6 +68,8 @@ import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import { isStopBreached } from "@/lib/gann/stopBreach";
 import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBenchmark";
 import { readLeadership, readWeakStockFrom, selectionStrength, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
+import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
+import { getUniverseStrength } from "@/lib/data/universeStrength";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -923,6 +925,15 @@ export async function runMarketScan(
   const marketBarsP = Promise.resolve()
     .then(() => Promise.all([getMarketDailyBars(), getMarketMonthlyBars()]))
     .catch(() => [null, null] as const);
+  // The scan universe's monthly bars for Gann's relative strength rank (S6),
+  // read once a day and cached; the shortlisted scans read it in full. The
+  // shortlist cut uses it only if it has landed by then, never waited on.
+  let universeAtCoarse: UniverseStrength | null | undefined = undefined;
+  const universeStarted = Date.now();
+  void getUniverseStrength().then((u) => {
+    universeAtCoarse = u;
+    mark("universe strength read", u ? `${u.size} months in ${Date.now() - universeStarted}ms` : "unread");
+  });
 
   const actives = await resolveUniverse(universeTop, extraSymbols);
   mark("resolveUniverse done", `${actives.length} symbols`);
@@ -971,6 +982,9 @@ export async function runMarketScan(
   mark("monthly bars at the coarse pass", monthlyAtCoarse ? `${monthlyAtCoarse.size} symbols` : "not in");
   const [marketDaily, marketMonthly] = await marketBarsP;
   mark("market bars for leadership", marketDaily ? `${marketDaily.length} days` : "none");
+  const universeStrength = universeAtCoarse as UniverseStrength | null | undefined;
+  mark("universe strength at the coarse pass", universeStrength ? `${universeStrength.size} months` : "not in");
+  const coarseAsOf = new Date();
   const coarse = await mapWithConcurrency(actives, 8, async (symbol) => {
     try {
       const daily = dailyBatch
@@ -994,22 +1008,25 @@ export async function runMarketScan(
       // And Gann's weak stocks (A-SELECTION-04), on the monthly bars when
       // they are in.
       const weak: WeakStockReading | null = reversion ? readWeakStockFrom(monthly, daily, marketMonthly, marketDaily) : null;
+      // And its rank among the universe (S6), when the universe's months are in.
+      const rank = reversion && universeStrength ? readUniverseRank(symbol, monthly ?? null, coarseAsOf, universeStrength) : null;
       return {
         leadership,
         weak,
+        rank,
         reversion,
         continuation: coarseContinuation(symbol, daily, cycles, trendRead),
         diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {
-      return { leadership: null, weak: null, reversion: null, continuation: null, diagnostics: null };
+      return { leadership: null, weak: null, rank: null, reversion: null, continuation: null, diagnostics: null };
     }
   });
   mark("coarse scoring done");
   const selection = new Map(
     coarse
       .filter((c) => c.reversion !== null)
-      .map((c) => [c.reversion!.symbol.toUpperCase(), (dir: "bullish" | "bearish") => selectionStrength(dir, c.leadership, c.weak)] as const),
+      .map((c) => [c.reversion!.symbol.toUpperCase(), (dir: "bullish" | "bearish") => selectionStrength(dir, c.leadership, c.weak, c.rank)] as const),
   );
 
   const byCoarseScore = (a: CoarseCandidate, b: CoarseCandidate) => b.coarseScore - a.coarseScore;

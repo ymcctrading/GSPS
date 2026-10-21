@@ -28,7 +28,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
     decadeBias: null,
     yearTrend: null,
     leadership: null,
-    monthlyStrength: null,
+    universeRank: null,
     queer: null,
     volumeActivity: null,
     annualRangePoints: null,
@@ -82,14 +82,14 @@ describe("trend on every timeframe", () => {
 describe("relative strength and leadership", () => {
   it("needs two of leading, the first-year high and strength, for a long", () => {
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, bottomedFirst: true, firstYearHighCrossed: true } }), "bullish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true }, monthlyStrength: { stronger: true, weaker: false } }), "bullish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, firstYearHighCrossed: true }, monthlyStrength: { stronger: false, weaker: true } }), "bullish").passed).toBe(false);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true }, universeRank: { percentile: 0.9, peers: 700, strongest: true, weakest: false } }), "bullish").passed).toBe(true);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, firstYearHighCrossed: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true } }), "bullish").passed).toBe(false);
   });
 
   it("mirrors for a short: topped first, failed the first-year high, weak", () => {
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, toppedFirst: true, firstYearHighCrossed: false } }), "bearish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, monthlyStrength: { stronger: false, weaker: true } }), "bearish").passed).toBe(true);
-    expect(relativeStrengthPillar(facts({ leadership: { ...lead, bottomedFirst: true, firstYearHighCrossed: true }, monthlyStrength: { stronger: true, weaker: false } }), "bearish").passed).toBe(false);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true } }), "bearish").passed).toBe(true);
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, bottomedFirst: true, firstYearHighCrossed: true }, universeRank: { percentile: 0.9, peers: 700, strongest: true, weakest: false } }), "bearish").passed).toBe(false);
   });
 });
 

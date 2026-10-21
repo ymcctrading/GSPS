@@ -35,6 +35,7 @@ import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
 import { majorPricePercentageLevels, readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { readPillarFacts } from "@/lib/scoring/pillars";
+import { getUniverseStrength } from "@/lib/data/universeStrength";
 import { readWindowTurn } from "@/lib/gann/timeWindow";
 import { readRuleFollowing } from "@/lib/gann/ruleFollowing";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
@@ -154,7 +155,7 @@ export async function scanTicker(
     // The stored shares outstanding and inception date (parity roadmap D2,
     // D3) load alongside the bars. The whole table is read once per server
     // instance and cached, so after the first symbol this resolves at once.
-    const [{ monthly, monthlyLong, monthlyYearCount, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly] = await Promise.all([
+    const [{ monthly, monthlyLong, monthlyYearCount, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly, universeStrength] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
       provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
@@ -162,6 +163,9 @@ export async function scanTicker(
       assetClass === "us_equity" ? getMarketDailyBars() : Promise.resolve(null),
       // The market's monthly bars, to date its bull market for Gann's weak stocks.
       assetClass === "us_equity" ? getMarketMonthlyBars() : Promise.resolve(null),
+      // The scan universe's monthly bars, for Gann's relative strength rank
+      // (S6); read once a day, alongside the rest.
+      assetClass === "us_equity" ? getUniverseStrength() : Promise.resolve(null),
     ]);
 
     if (daily.length < MIN_DAILY_BARS_FOR_SCAN || execution.length < 10) {
@@ -490,7 +494,7 @@ export async function scanTicker(
       daily: charts.daily,
       monthly: charts.monthly,
       marketDaily: marketDaily ?? null,
-      marketMonthly: marketMonthly ?? null,
+      universe: assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
       price: currentPrice,
       asOf: new Date(scannedAt),
     });
@@ -674,7 +678,7 @@ export async function scanTicker(
       armedPatterns,
       levels,
       levelsError,
-      selectionStrength: selectionStrength(direction, leadership, weakStock),
+      selectionStrength: selectionStrength(direction, leadership, weakStock, pillarFacts.universeRank),
       ...(stopBreach.breached
         ? { stopBreach: { stop: stopBreach.stop!, price: stopBreach.price!, reclaimAt: stopBreach.reclaimAt! } }
         : {}),
