@@ -89,7 +89,7 @@ describe("both surfaces read their levels from the level charts", () => {
     const live = fs.readFileSync("lib/scanTicker.ts", "utf8");
     const replay = fs.readFileSync("lib/backtest/replay.ts", "utf8");
     for (const src of [live, replay]) {
-      expect(src).toMatch(/levelCharts\(\{ daily, weekly(: null)?, monthly: /);
+      expect(src).toMatch(/levelCharts\(\{ daily, weekly(: priorWeekly)?, monthly: /);
       expect(src).toMatch(/readTrend\(charts\.daily, "1Day"\)/);
       expect(src).toMatch(/computeFanLines\(charts\.daily, /);
       expect(src).toMatch(/recentSquareOf9Levels\(charts\.daily, /);

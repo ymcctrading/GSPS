@@ -68,7 +68,7 @@ import { figureCrossingOf } from "@/lib/gann/evenFigures";
 import { readStopBreach } from "@/lib/gann/stopBreach";
 import { decisionLag, feedDelayMs } from "@/lib/data/latency";
 import { etDateKey, marketSession } from "@/lib/market/session";
-import { levelCharts } from "@/lib/scan/levelCharts";
+import { levelCharts, yearCycleMonths } from "@/lib/scan/levelCharts";
 import {
   atrPercentOfPrice,
   nearestLevelMatch,
@@ -210,7 +210,10 @@ export async function scanTicker(
     const cycles = timeCycles(sessions, sessionNoon);
     // The yearly cycles need the 10-year monthly chart; the daily read above
     // only reaches the day-count wheel. See yearCycleConvergence.
-    const yearCycles = yearCycleConvergence(monthly);
+    // The closed months at the session's noon, as the replay tags its trades
+    // (`yearCycleHitsAt`): not the provider's month in progress, and not the
+    // wall clock, whose UTC month runs ahead of the ET session in the evening.
+    const yearCycles = yearCycleConvergence(yearCycleMonths(monthlyLong ?? monthly, sessionDay), sessionNoon);
     const angleSlopes = computeAngleSlopes(sessions, currentPrice);
     // Gann's squaring of price and time, replacing timeCycle — same anchors
     // as angleSlopes, a different (raw count-for-count) construction.

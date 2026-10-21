@@ -27,6 +27,7 @@ import type { Bar, Timeframe } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { TF_LOOKBACK_DAYS, TF_MAX_BARS } from "@/lib/timeframe";
+import { WEEKLY_CHART_YEARS } from "@/lib/scan/levelCharts";
 import {
   byLargeCap,
   byYearCycle,
@@ -342,7 +343,7 @@ function summarise(r: ReplayResult): RunSummary {
  * every trade comes back unscored and there is nothing to attribute.
  */
 /**
- * `includeMonthly` adds ten years of monthly bars for `replay`'s
+ * `includeMonthly` adds the weekly bars the weekly chart reads and ten years of monthly bars for `replay`'s
  * `yearCycleHits` tag. Off by default so callers that only need daily bars
  * (the signal-engine replay) don't pay for an extra request per symbol.
  */
@@ -350,7 +351,7 @@ export async function fetchSeries(
   symbol: string,
   timeframe: Timeframe,
   includeMonthly = false,
-): Promise<{ bars: Bar[]; daily: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[]; monthlyYearCount?: Bar[] }> {
+): Promise<{ bars: Bar[]; daily: Bar[]; weekly?: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[]; monthlyYearCount?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const now = Date.now();
@@ -364,16 +365,29 @@ export async function fetchSeries(
   const start = window("1Day");
   const longFrom = new Date(Math.min(monthlyFrom.getTime(), Date.UTC(start.getUTCFullYear() - YEAR_COUNT_MONTHLY_YEARS, start.getUTCMonth(), 1)));
 
-  const [bars, daily, monthlyYearCount] = await Promise.all([
+  // The live scan's weekly chart reads `WEEKLY_CHART_YEARS` of the provider's
+  // closed weeks (`levelCharts`), so the replay fetches them from that span
+  // before its first session, plus a week for the boundary (2026-10-20, weekly
+  // parity). One request per symbol, made alongside the others, off any
+  // user's path; the replay windows it per session.
+  const weeklyFrom = new Date(Date.UTC(start.getUTCFullYear() - WEEKLY_CHART_YEARS, start.getUTCMonth(), start.getUTCDate()) - 7 * 86_400_000);
+
+  const [bars, daily, monthlyYearCount, weekly] = await Promise.all([
     provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
     provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
     includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass) : Promise.resolve(undefined),
+    includeMonthly ? provider.fetchBars(symbol, "1Week", weeklyFrom, null, assetClass, TF_MAX_BARS["1Week"]) : Promise.resolve(undefined),
   ]);
   const monthly = monthlyYearCount?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
   // Long enough for the class C counts on the first session; the replay windows
   // each session to `LONG_MONTHLY_YEARS` itself.
   const monthlyLong = monthlyYearCount ? longMonthlyWindow(monthlyYearCount, new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1))) : undefined;
-  return { bars, daily, ...(monthly && monthlyLong && monthlyYearCount ? { monthly, monthlyLong, monthlyYearCount } : {}) };
+  return {
+    bars,
+    daily,
+    ...(monthly && monthlyLong && monthlyYearCount ? { monthly, monthlyLong, monthlyYearCount } : {}),
+    ...(weekly ? { weekly } : {}),
+  };
 }
 
 type FetchedSeries = Awaited<ReturnType<typeof fetchSeries>>;
@@ -386,6 +400,7 @@ type FetchedSeries = Awaited<ReturnType<typeof fetchSeries>>;
 export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries | undefined) {
   return {
     dailyBars: series.daily,
+    weeklyBars: series.weekly,
     monthlyBars: series.monthly,
     longMonthlyBars: series.monthlyLong,
     yearCountMonthlyBars: series.monthlyYearCount,

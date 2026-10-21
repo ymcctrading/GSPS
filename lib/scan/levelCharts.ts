@@ -131,3 +131,21 @@ export function levelCharts(input: { daily: Bar[]; weekly: Bar[] | null; monthly
 
   return { daily, weekly, monthly };
 }
+
+/**
+ * The months the yearly cycles are counted on (`yearCycleConvergence`) for
+ * the session `asOf` (YYYY-MM-DD): the closed months from the same month ten
+ * years before it, the provider's month in progress left out. The live scan
+ * read the provider's ten years to the wall clock, month in progress included,
+ * and the replay every closed month it held (up to sixteen years back), so the
+ * two counted different anchors (2026-10-20, weekly parity). Ten years is the
+ * provider's monthly reach the cycle count was written for.
+ */
+export function yearCycleMonths(monthly: Bar[], asOf: string): Bar[] {
+  const thisMonth = asOf.slice(0, 7);
+  const from = `${Number(asOf.slice(0, 4)) - 10}${asOf.slice(4, 7)}`;
+  return monthly.filter((b) => {
+    const m = b.t.slice(0, 7);
+    return m >= from && m < thisMonth;
+  });
+}
