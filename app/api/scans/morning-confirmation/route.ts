@@ -19,5 +19,5 @@ import { runScheduledScan } from "@/lib/entitlements/scheduled-scan";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  return runScheduledScan(req.headers.get("authorization"), "scheduled_morning_confirmation_scan");
+  return runScheduledScan(req.headers.get("authorization"), "scheduled_morning_confirmation_scan", 555); // not before 9:15 ET
 }

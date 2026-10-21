@@ -6,7 +6,9 @@ const {
   isTradingDayMock,
   fanOutForProfileMock,
   createServiceClientMock,
+  etMinutes,
 } = vi.hoisted(() => ({
+  etMinutes: { value: 10 * 60 },
   runMarketScanMock: vi.fn(),
   isTradingDayMock: vi.fn(),
   fanOutForProfileMock: vi.fn(),
@@ -15,7 +17,10 @@ const {
 
 vi.mock("@/lib/marketScan", () => ({ runMarketScan: runMarketScanMock, FULL_UNIVERSE_TOP: 700 }));
 vi.mock("@/lib/market/calendar", () => ({ isTradingDay: isTradingDayMock }));
-vi.mock("@/lib/market/session", () => ({ etDateKey: () => "2026-08-26" }));
+vi.mock("@/lib/market/session", () => ({
+  etDateKey: () => "2026-08-26",
+  etParts: () => ({ minutes: etMinutes.value, weekday: 3 }),
+}));
 vi.mock("@/lib/entitlements/scan-fanout", () => ({ fanOutForProfile: fanOutForProfileMock }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceClient: createServiceClientMock }));
 
@@ -127,6 +132,27 @@ describe("runScheduledScan", () => {
     const body = await res.json();
     expect(body).toMatchObject({ skipped: "non_trading_day" });
     expect(runMarketScanMock).not.toHaveBeenCalled();
+  });
+
+  it("skips a run before its ET time (the winter firing of a dual-hour job)", async () => {
+    etMinutes.value = 8 * 60 + 18;
+    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", 9 * 60 + 15);
+    const body = await res.json();
+    expect(body).toMatchObject({ skipped: "before_scheduled_time" });
+    expect(runMarketScanMock).not.toHaveBeenCalled();
+    expect(createServiceClientMock).not.toHaveBeenCalled();
+    etMinutes.value = 10 * 60;
+  });
+
+  it("runs once its ET time has come", async () => {
+    etMinutes.value = 9 * 60 + 18;
+    const { client } = fakeService({ existingRun: { id: "se-existing" } });
+    createServiceClientMock.mockReturnValue(client);
+    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", 9 * 60 + 15);
+    const body = await res.json();
+    expect(body.skipped).not.toBe("before_scheduled_time");
+    expect(createServiceClientMock).toHaveBeenCalled();
+    etMinutes.value = 10 * 60;
   });
 
   it("is idempotent: skips a market date that already has a scan_executions row, without re-running the scan", async () => {

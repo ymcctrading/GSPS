@@ -61,7 +61,7 @@ import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
-import { etDateKey } from "@/lib/market/session";
+import { etDateKey, etParts } from "@/lib/market/session";
 import type { EntitlementPolicy } from "@/lib/entitlements/policy";
 import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
@@ -120,7 +120,7 @@ function logRunOutcome(args: {
   runId: string;
   source: ScheduledScanSource;
   marketDateEt: string | null;
-  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
+  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "before_scheduled_time" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
   environment: string;
   eligibleCount?: number;
   profilesFannedOut?: number;
@@ -148,6 +148,11 @@ function logRunOutcome(args: {
 export async function runScheduledScan(
   authorizationHeader: string | null,
   source: ScheduledScanSource,
+  /** Minutes after midnight ET before which the scan skips. pg_cron runs in
+   *  UTC, so a job meant for a fixed ET time is scheduled at both its EDT and
+   *  EST hour (migration 0102); this drops the early one in winter, and the
+   *  (source, date) idempotency drops the late one in summer. */
+  notBeforeEtMinutes?: number,
 ): Promise<NextResponse> {
   const runId = randomUUID();
   const environment = process.env.VERCEL_ENV ?? "unknown";
@@ -173,6 +178,10 @@ export async function runScheduledScan(
   }
 
   const marketDateEt = etDateKey(now);
+  if (notBeforeEtMinutes !== undefined && etParts(now).minutes < notBeforeEtMinutes) {
+    logRunOutcome({ runId, source, marketDateEt, outcome: "before_scheduled_time", environment });
+    return NextResponse.json({ skipped: "before_scheduled_time", source, runId });
+  }
   const service = createServiceClient();
 
   // Idempotency check-before-write: cheap and covers the common case (a

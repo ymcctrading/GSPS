@@ -16,20 +16,32 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 const RESEND_API = "https://api.resend.com";
 
 async function resend(path: string, init?: RequestInit) {
-  const res = await fetch(`${RESEND_API}${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    cache: "no-store",
-  });
-  const body = await res.json().catch(() => null);
-  return { status: res.status, body };
+  try {
+    const res = await fetch(`${RESEND_API}${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = await res.json().catch(() => null);
+    return { status: res.status, body };
+  } catch {
+    return { status: 504, body: { error: "Resend did not answer within 10 seconds" } };
+  }
 }
 
-async function findDomain(name: string) {
+/** The domain's Resend id, or the response to return when it can't be found:
+ *  Resend's own error (a revoked key, a rate limit) passes through rather than
+ *  reading as a missing domain. */
+async function findDomain(name: string): Promise<{ id: string } | { response: NextResponse }> {
   const list = await resend("/domains");
+  if (list.status < 200 || list.status >= 300) {
+    return { response: NextResponse.json(list.body, { status: list.status }) };
+  }
   const domains: { id: string; name: string }[] = list.body?.data ?? [];
   const match = domains.find((d) => d.name === name);
-  return match ? match.id : null;
+  if (!match) return { response: NextResponse.json({ error: `${name} is not in Resend` }, { status: 404 }) };
+  return { id: match.id };
 }
 
 async function guard(req: NextRequest) {
@@ -46,9 +58,9 @@ export async function GET(req: NextRequest) {
   const denied = await guard(req);
   if (denied) return denied;
   const name = req.nextUrl.searchParams.get("domain") ?? "gsps.world";
-  const id = await findDomain(name);
-  if (!id) return NextResponse.json({ error: `${name} is not in Resend` }, { status: 404 });
-  const detail = await resend(`/domains/${id}`);
+  const found = await findDomain(name);
+  if ("response" in found) return found.response;
+  const detail = await resend(`/domains/${found.id}`);
   return NextResponse.json(detail.body, { status: detail.status });
 }
 
@@ -56,8 +68,8 @@ export async function POST(req: NextRequest) {
   const denied = await guard(req);
   if (denied) return denied;
   const name = req.nextUrl.searchParams.get("domain") ?? "gsps.world";
-  const id = await findDomain(name);
-  if (!id) return NextResponse.json({ error: `${name} is not in Resend` }, { status: 404 });
-  const verify = await resend(`/domains/${id}/verify`, { method: "POST" });
+  const found = await findDomain(name);
+  if ("response" in found) return found.response;
+  const verify = await resend(`/domains/${found.id}/verify`, { method: "POST" });
   return NextResponse.json(verify.body, { status: verify.status });
 }
