@@ -28,6 +28,8 @@ import {
   SCORE_PILLARS,
 } from "@/lib/scoring/public-summary";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
+import { EMPTY_DISCLOSED_RULES, type DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import { redactDisclosedRules } from "@/lib/signals/publicSummary";
 
 /**
  * These fixtures check raw pass/fail arithmetic against fixed score values
@@ -366,5 +368,40 @@ describe("redaction at the API boundary", () => {
     if (result.signals?.trendPullback?.status === "evaluated") {
       expect(result.signals.trendPullback.alignment.breakdown).toHaveLength(1);
     }
+  });
+});
+
+describe("the Gann rule readings at the API boundary (R-024)", () => {
+  function rules(): DisclosedRulesContext {
+    return {
+      ...EMPTY_DISCLOSED_RULES,
+      asOf: "2026-10-21",
+      counterMove: { inCounterMove: true, phase: "normal", days: 9, trend: "bullish" } as DisclosedRulesContext["counterMove"],
+      astro: { jensen: { projection: { price: 123.45, fromDate: "2026-10-01" } } } as unknown as DisclosedRulesContext["astro"],
+      hexagonTime: [{ secret: "hexagon count" }] as unknown as DisclosedRulesContext["hexagonTime"],
+      timing: {
+        alternation: { daysSincePivot: 14, mark: 14 },
+        square144: null,
+        projection: { kind: "top", medianDate: "2026-11-02", spreadDays: 4, count: 3 },
+        changeDates: { dates: [], next: { date: "2026-11-09", days: 14, expect: "high", came: null } },
+      } as DisclosedRulesContext["timing"],
+    };
+  }
+
+  it("keeps what the confluence card draws", () => {
+    const out = redactDisclosedRules(rules());
+    expect(out.counterMove?.days).toBe(9);
+    expect(out.timing.alternation?.mark).toBe(14);
+    expect(out.asOf).toBe("2026-10-21");
+  });
+
+  it("keeps the astrology, the undrawn counts and the dated forward labels on the server", () => {
+    const out = redactDisclosedRules(rules());
+    const serialised = JSON.stringify(out);
+    expect(out.astro).toBeNull();
+    expect(out.hexagonTime).toEqual([]);
+    expect(out.timing.projection).toBeNull();
+    expect(out.timing.changeDates).toBeNull();
+    for (const leak of ["123.45", "hexagon count", "2026-11-02", "2026-11-09"]) expect(serialised).not.toContain(leak);
   });
 });
