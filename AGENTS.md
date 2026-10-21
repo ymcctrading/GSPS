@@ -882,7 +882,7 @@ live and replay alike). Random walks, 20 a price: no drift $20 16.0/21.8%
 the 3-bar chart as "3 months", its last swing as "the last bottom of the final
 run". Trap for later work: `majorAnglePivots` on weekly or monthly bars uses
 the 7-calendar-day chart, so every bar turns; give those timeframes the 3-bar
-chart. The squeeze still reads the daily angles. `STRATEGY_VERSION` is
+chart. The squeeze still reads the daily angles. `STRATEGY_VERSION` was
 `2026-10-21-gann-monthly-forty-five`; P6, Execute and the 6/3.5 cutoffs need a
 fresh run on it.
 
