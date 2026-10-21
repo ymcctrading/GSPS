@@ -831,7 +831,8 @@ async function persistSystemAlerts(
 /**
  * Today's scheduled-scan alerts, latest first and one per symbol and signal,
  * read from `intraday_system_alerts`. Pro's bounded module sees only the
- * closed-bar lengths it allows, as on a scan it runs itself.
+ * closed-bar lengths it allows, and no more symbols than its daily bound, as
+ * on a scan it runs itself.
  */
 async function loadRecentSystemAlerts(
   supabase: ServiceSupabase,
@@ -851,6 +852,7 @@ async function loadRecentSystemAlerts(
   if (error || !data) return [];
 
   const seen = new Set<string>();
+  const symbolsShown = new Set<string>();
   const out: RecentSystemAlert[] = [];
   for (const row of data) {
     if (etDateKey(new Date(row.poll_cycle_timestamp)) !== todayEt) continue;
@@ -864,6 +866,16 @@ async function loadRecentSystemAlerts(
     const direction: Direction = row.signal_type === "bearish" ? "down" : "up";
     const key = `${row.symbol}|${row.signal_id}|${direction}`;
     if (seen.has(key)) continue;
+    // Pro's module shows a bounded number of setups a day; the free list
+    // honours that bound as a scan does (review, 2026-10-21).
+    if (
+      proBounded &&
+      !symbolsShown.has(row.symbol) &&
+      symbolsShown.size >= DEFAULT_PRO_INTRADAY_POLICY.setupsDisplayedPerDayMax
+    ) {
+      continue;
+    }
+    symbolsShown.add(row.symbol);
     seen.add(key);
     const num = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
     out.push({

@@ -45,7 +45,7 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
   plan_level_held:
-    "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: a stop under the reaction's low, and the daily plan's targets.",
+    "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: a stop 3 points under the day's low (over the high, for a sell), never past the daily plan's own stop, and the daily plan's targets.",
   reversal_risk:
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
 };

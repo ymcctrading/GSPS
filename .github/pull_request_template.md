@@ -29,6 +29,22 @@ Replace with the phase this work belongs to (see ROADMAP.md):
 - [ ] `npx tsc --noEmit`
 - [ ] `npm run build`
 
+## Code review
+
+<!--
+Required before merge (AGENTS.md, "Code review before every merge"). The
+review reads this PR's diff only: does it work as intended, and does it carry
+Gann's method (source, FAITHFUL / APPROXIMATED / ABSENT / CONTRADICTED, live
+scan and replay alike, every surface it applies to). Fix findings on this PR
+the way Gann's rule answers them, then review again.
+-->
+
+**Checked:**
+
+**Findings and fixes:**
+
+- [ ] Review passed: no blocking finding remains.
+
 ## Deploy / docs impact
 
 <!--
