@@ -28,7 +28,7 @@ export const MIN_GROUP_MEMBERS = 5;
 export interface IndustryGroup {
   /** "371" (industry group) or "37" (major group). */
   key: string;
-  /** "SIC 371 (Motor Vehicles & Passenger Car Bodies)": the key and its members' commonest SEC description. */
+  /** "SIC 371 (Motor Vehicles & Passenger Car Bodies)", or "SIC 37" for a major group. */
   label: string;
 }
 
@@ -56,17 +56,22 @@ export function buildGroupMap(sics: SicMap): Map<string, IndustryGroup> {
   }
   const two = tally(left.map(([, k]) => k));
   for (const [symbol, k] of left) if ((two.get(k) ?? 0) >= MIN_GROUP_MEMBERS) keyOf.set(symbol, k);
-  // The label is the group's own: its key and its members' commonest description.
+  // The label is the group's own: an industry group's key and its members' commonest
+  // description; a major group mixes industries, so its key alone.
   const descs = new Map<string, Map<string, number>>();
   for (const [symbol, key] of keyOf) {
     const d = sics[symbol].description;
+    if (!d || key.length < 3) {
+      if (!descs.has(key)) descs.set(key, new Map());
+      continue;
+    }
     const m = descs.get(key) ?? new Map<string, number>();
     m.set(d, (m.get(d) ?? 0) + 1);
     descs.set(key, m);
   }
   const labels = new Map<string, string>();
   for (const [key, m] of descs) {
-    const [top] = [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    const top = [...m].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))[0]?.[0];
     labels.set(key, `SIC ${key}${top ? ` (${top})` : ""}`);
   }
   const out = new Map<string, IndustryGroup>();

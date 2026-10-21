@@ -927,8 +927,11 @@ groups before the stocks in them (*Truth of the Stock Tape* Ch. XVI, "Position o
 groups"; Ch. XVII, buy the strong stocks and sell the weak), so the group rank
 counts for a long only in a group whose median position is not in the universe's
 weakest quarter, and for a short only in one not in its strongest
-(`groupPercentile`). The best stock of a weak group is no longer a strong stock.
-Groups are labelled by their key and their members' commonest SEC description.
+(`groupPercentile`, the members' median, the two middle readings averaged in an
+even group; the median and the quarter gate are engineering choices, held for
+the owner). The best stock of a weak group is no longer a strong stock.
+Industry groups are labelled by their key and their members' commonest SEC
+description, major groups by their key alone.
 Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
 other's peers, in the universe and the group. `STRATEGY_VERSION` is
 `2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh

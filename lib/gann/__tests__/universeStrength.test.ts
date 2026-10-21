@@ -3,6 +3,7 @@ import {
   MIN_PEERS,
   STRENGTH_MONTHS,
   buildUniverseStrength,
+  groupTopCount,
   readUniverseRank,
   strengthPosition,
 } from "@/lib/gann/universeStrength";
@@ -116,6 +117,48 @@ describe("the relative strength rank among the universe (S6)", () => {
     const g = buildGroupMap(sics);
     expect(g.get("A")?.key).toBe("37");
     expect(g.get("C")?.key).toBe("37");
+  });
+
+  it("reads the group rank from the stock's own months, counts ties and larger groups, and mirrors the gates", () => {
+    const u = buildUniverseStrength(universe(200, n));
+    const sics: Record<string, { sic: string; description: string }> = {};
+    // Eight members, S100..S107: the strongest two of eight pass.
+    for (let k = 100; k < 108; k++) sics[`S${k}`] = { sic: "2834", description: "PHARMA" };
+    const g = buildGroupMap(sics);
+    expect(groupTopCount(8)).toBe(2);
+    expect(groupTopCount(5)).toBe(1);
+    expect(readUniverseRank("S106", null, readAt, u, g)!.group).toMatchObject({ peers: 7, strongest: true });
+    expect(readUniverseRank("S105", null, readAt, u, g)!.group).toMatchObject({ strongest: false });
+    expect(readUniverseRank("S101", null, readAt, u, g)!.group).toMatchObject({ weakest: true });
+    // An even group's standing is the average of its two middle readings: S103 and S104's,
+    // the universe's middle, so neither gate shuts.
+    const r = readUniverseRank("S107", null, readAt, u, g)!.group!;
+    expect(r.groupPercentile).toBeGreaterThan(0.25);
+    expect(r.groupPercentile).toBeLessThan(0.75);
+    // The stock's own months, read stronger than the universe's reading of it: its own
+    // stored reading is not counted as a peer above it.
+    const strongMonths = months(n, () => 100, (i) => (i === n - 1 ? 101 : 100));
+    const fromMonths = readUniverseRank("S100", strongMonths, readAt, u, g)!.group!;
+    expect(fromMonths.peers).toBe(7);
+    expect(fromMonths.strongest).toBe(true);
+  });
+
+  it("gates on the group's standing at the universe's quarter, both sides", () => {
+    const u = buildUniverseStrength(universe(200, n));
+    // A group at the very bottom (S0..S4) and one at the very top (S195..S199).
+    const sics: Record<string, { sic: string; description: string }> = {};
+    for (let k = 0; k < 5; k++) sics[`S${k}`] = { sic: "2911", description: "OIL" };
+    for (let k = 195; k < 200; k++) sics[`S${k}`] = { sic: "3711", description: "MOTORS" };
+    const g = buildGroupMap(sics);
+    const low = readUniverseRank("S4", null, readAt, u, g)!.group!;
+    const high = readUniverseRank("S195", null, readAt, u, g)!.group!;
+    expect(low.groupPercentile).toBeLessThanOrEqual(0.25);
+    expect(high.groupPercentile).toBeGreaterThanOrEqual(0.75);
+    expect(low.strongest).toBe(false);
+    expect(high.weakest).toBe(false);
+    // The short side of the weak group and the long side of the strong one stay open.
+    expect(readUniverseRank("S0", null, readAt, u, g)!.group!.weakest).toBe(true);
+    expect(readUniverseRank("S199", null, readAt, u, g)!.group!.strongest).toBe(true);
   });
 
   it("counts the major group over the stocks left without an industry group", () => {

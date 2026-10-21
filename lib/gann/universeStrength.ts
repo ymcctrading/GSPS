@@ -148,9 +148,11 @@ export interface GroupRankReading {
   /** The group's own standing: its members' median position ranked in the universe, 0 to 1. */
   groupPercentile: number;
   /**
-   * Among the strongest `topCount` of the group (no more peers above it than
-   * that less one), and the group itself not in the universe's weakest
-   * quarter: "buy the strong stocks in the strong groups" (TST Ch. XVII).
+   * Among the strongest `groupTopCount` of the group (fewer peers above it
+   * than that), and the group itself not in the universe's weakest quarter.
+   * Gann ranks the groups first (TST Ch. XVI-XVII); reading a group's standing
+   * as its members' median position, and "not in the weakest quarter" as the
+   * gate, are engineering choices held for the owner.
    */
   strongest: boolean;
   /** The mirror: among the weakest of a group not in the universe's strongest quarter. */
@@ -269,7 +271,10 @@ export function readUniverseRank(
       // groups"; Ch. XVII, "always sell the weak stocks and buy the strong ones"):
       // the best stock of a weak group is not a strong stock. The group's median
       // position, ranked among the universe, is its standing.
-      const groupPercentile = rankAmong(entry.sorted, sorted[Math.floor((sorted.length - 1) / 2)], undefined).percentile;
+      // The median averages the two middle readings of an even group, so the long and short gates mirror.
+      const mid = sorted.length / 2;
+      const median = sorted.length % 2 ? sorted[Math.floor(mid)] : (sorted[mid - 1] + sorted[mid]) / 2;
+      const groupPercentile = rankAmong(entry.sorted, median, undefined).percentile;
       group = {
         key: g.key,
         label: g.label,
