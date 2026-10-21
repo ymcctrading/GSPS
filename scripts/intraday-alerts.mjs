@@ -86,7 +86,12 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
       if (wait > 0) await sleep(wait);
     };
     const skipped = [];
-    const references = await loadInstrumentReferenceHistory(universe).catch(() => new Map());
+    const references = await loadInstrumentReferenceHistory(universe).catch((err) => {
+      skipped.push({ symbol: "(instrument reference)", reason: err instanceof Error ? err.message : String(err) });
+      return new Map();
+    });
+    // Without share counts the D2 distribution-week exit is unread on every symbol.
+    const referenceNote = references.size === 0 ? "No instrument reference was read, so the D2 distribution-week exit (shares outstanding) was not walked." : null;
 
     // Pass 1: each symbol's daily plan per session and its evening focus reading.
     const market = await withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY").catch(() => undefined);
@@ -187,6 +192,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         "planLevelHeld walks every symbol in the universe; live shows that alert only on the symbols it scans.",
         limit ? `--limit ${limit}: the focus list was ranked among ${universe.length} symbols only, so it is not comparable with live.` : null,
         "Fills are the open three five-minute bars after the next one (the feed delay); the daily plan carries no data-lag hold.",
+        referenceNote,
       ].filter(Boolean),
       cells: {
         planLevelHeld: summariseAlertTrades(planHeld),

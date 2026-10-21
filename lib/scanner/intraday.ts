@@ -1855,6 +1855,16 @@ export function barsForSession(bars: Bar[], etDate: string): Bar[] {
     .sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
 }
 
+/**
+ * Calendar days of daily history the intraday scan reads per symbol: a year,
+ * so the campaign ledger behind the over-balance-of-space alert can find the
+ * weekly trend's start, the same year of daily bars the daily scan reads
+ * (2026-10-16). The ATR and the liquidity floor still read only their own
+ * trailing windows of it. The route fetches it, and the alert replay
+ * (`lib/backtest/replayIntradayAlerts.ts`) windows each session to it.
+ */
+export const INTRADAY_DAILY_HISTORY_DAYS = 400;
+
 /** ---- Formatting helpers ------------------------------------------------ */
 
 function ageSeconds(timestamp: string, now: Date): number {

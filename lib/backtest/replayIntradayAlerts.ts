@@ -22,8 +22,9 @@
  * the live system scan's cadence (every 15 minutes), with the inputs the live
  * route builds (`app/api/intraday-scan/route.ts#buildInput`): the session's
  * bars, the prior close, the same-time-of-day volume baseline (regular session
- * only, as the numerator), the daily ATR, the last 299 completed daily
- * sessions (live fetches 300 daily bars, today's among them), the recent
+ * only, as the numerator), the daily ATR, the completed daily sessions of
+ * the last `INTRADAY_DAILY_HISTORY_DAYS` calendar days (the span the route
+ * fetches), the recent
  * five-minute bars for the hourly chart, the day's plan and the alerts already
  * fired this session (so the scan's own cooldown applies).
  *
@@ -79,6 +80,7 @@ import { etDateKey, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import {
   DEFAULT_CONFIG,
+  INTRADAY_DAILY_HISTORY_DAYS,
   scanIntraday,
   sessionMetrics,
   volumeBaseline,
@@ -105,8 +107,6 @@ export const ALERT_SCAN_MINUTES = 15;
 export const ALERT_FEED_DELAY_BARS = 3;
 /** Sessions of five-minute bars the volume baseline reads (the route's `BASELINE_DAYS`, calendar days). */
 const BASELINE_DAYS = 12;
-/** Completed daily sessions the scan reads (the route fetches 300 daily bars, today's among them). */
-const PRIOR_DAILY_BARS = 299;
 /** Regular session, ET minutes after midnight. */
 const OPEN_MINUTE = 9 * 60 + 30;
 const CLOSE_MINUTE = 16 * 60;
@@ -203,7 +203,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     if (sessions && !sessions.has(date)) continue;
     const from = starts.get(date)!;
     const to = s + 1 < dates.length ? starts.get(dates[s + 1])! : bars.length;
-    const priorDaily = dailyBars.filter((b) => b.t.slice(0, 10) < date).slice(-PRIOR_DAILY_BARS);
+    const dailyFrom = new Date(Date.parse(`${date}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const priorDaily = dailyBars.filter((b) => b.t.slice(0, 10) >= dailyFrom && b.t.slice(0, 10) < date);
     if (priorDaily.length < 3) continue;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
@@ -243,7 +244,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
       const entered = enterAlert({
         alert, bars, from: k + 1, at, sessionEnd: to, point, dailyBars, monthlyBars: input.monthlyBars ?? [], sharesOn: input.sharesOn,
-        maxBarsHeld, costPerShare, symbol, date, dailyPlan,
+        maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan,
       });
       if (typeof entered === "string") {
         refused[entered] = (refused[entered] ?? 0) + 1;
@@ -272,10 +273,11 @@ function enterAlert(input: {
   maxBarsHeld: number;
   costPerShare: number;
   symbol: string;
+  kind: AssetKind;
   date: string;
   dailyPlan: DailyPlanLevels | null;
 }): AlertTrade | AlertRefusal {
-  const { alert, bars, from, at, sessionEnd, point, dailyBars, monthlyBars, sharesOn, maxBarsHeld, costPerShare, symbol, date, dailyPlan } = input;
+  const { alert, bars, from, at, sessionEnd, point, dailyBars, monthlyBars, sharesOn, maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan } = input;
   if (at >= sessionEnd) return "session_ended";
   const long = alert.direction === "up";
   const dir = long ? 1 : -1;
@@ -295,7 +297,7 @@ function enterAlert(input: {
   const crossedLevel = entryCrossedLevel(side, entry, bars[at].t, dailyBars, monthlyBars);
   const walked = walkGannExit({
     bars, from: at, maxBarsHeld, long, entry, stop, dailyBars, crossedLevel,
-    sharesOn, isStock: sharesOn != null,
+    sharesOn, isStock: kind !== "crypto",
   });
   const r = (dir * (walked.exit - entry) - costPerShare) / risk;
   const exitReason = walked.reason;
