@@ -28,6 +28,7 @@ import { auditLogEntry, createModel, createLearningClient } from "@/lib/learning
 import { SCORE_WEIGHT_MODEL_TYPE } from "@/lib/scoring/active-weights";
 import { verifyAuth } from "@/lib/auth";
 import { isTimeframe } from "@/lib/timeframe";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 /** Same ceiling as /api/backtest — past this the replay outlives the function. */
 const MAX_SYMBOLS = 12;
@@ -36,9 +37,7 @@ const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 export const maxDuration = 300;
 
 function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  return req.headers.get("authorization") === `Bearer ${secret}`;
+  return isCronAuthorized(req.headers.get("authorization"));
 }
 
 export async function POST(req: NextRequest) {

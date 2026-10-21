@@ -31,7 +31,15 @@ const SCAN_PREFIXES = ["/api/scan", "/api/batch-scan", "/api/intraday-scan", "/a
 // this at most a handful of times per session (typos aside), so a much
 // tighter budget costs a legitimate user nothing.
 const CREDENTIAL_LIMIT = 5;
-const CREDENTIAL_PREFIXES = ["/api/alpaca/connect-live", "/api/snaptrade/connect"];
+//
+// The two sign-in lookups join it (review findings S-01 and S-05,
+// 2026-10-21): a username sign-in is a password guess, and the account-status
+// check tells whether an email has an account, so both are the shape an
+// attacker scripts against. A person signing in or up sends each once or twice.
+const CREDENTIAL_PREFIXES = [
+  "/api/alpaca/connect-live", "/api/snaptrade/connect",
+  "/api/auth/username-login", "/api/auth/account-status",
+];
 
 function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");

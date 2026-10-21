@@ -144,8 +144,50 @@ export function redactDecision(decision: ScanDecision): ScanDecision {
 export function redactScanResult(result: ScanResult): ScanResult {
   return {
     ...result,
+    gann: redactGannLevels(result.gann),
     decision: redactDecision(result.decision),
     signals: redactScanSignals(result.signals),
     dailyBars: undefined,
+  };
+}
+
+/**
+ * The Gann readings no screen draws are the method's working, not its
+ * output: the digital-root pairs (price and time roots), each angle's slope
+ * and anchor, the retracement fractions and the projected cycle dates. They
+ * stay on the server (review finding S-02, 2026-10-21). The levels a chart
+ * draws (fan lines, Square of Nine prices) and the time flags it shows pass.
+ * Emptied rather than deleted so the shape stays a `GannLevels`.
+ */
+export function redactGannLevels(gann: ScanResult["gann"]): ScanResult["gann"] {
+  return {
+    ...gann,
+    angleSlopes: [],
+    retracementLevels: [],
+    digitalRootConfluences: [],
+    timeCycleDates: [],
+    timeCycleFixedCalendarDates: gann.timeCycleFixedCalendarDates ? [] : undefined,
+  };
+}
+
+/**
+ * What a visitor with no session gets from `/api/scan`, which serves the
+ * public shareable chart (`components/chart/public-chart.tsx`): the plan's
+ * levels, the price levels the chart draws, the verdict's rollup and the
+ * trend reads, and nothing else. The Signal & Regime Engine's verdicts and
+ * the confluence readings are for signed-in members only.
+ */
+export function toAnonymousScanResult(result: ScanResult): ScanResult {
+  const redacted = redactScanResult(result);
+  return {
+    ...redacted,
+    pattern: null,
+    armedPatterns: [],
+    signals: undefined,
+    executionBar: undefined,
+    liquidity: undefined,
+    volatilityRead: undefined,
+    volumeRead: undefined,
+    noviceUniverse: undefined,
   };
 }

@@ -23,6 +23,7 @@ import { FREE_EQUITY_FEED_DELAY_MS, decisionLag } from "@/lib/data/latency";
 import {
   redactDecision,
   redactScanResult,
+  toAnonymousScanResult,
   toPublicScoreSummary,
   SCORE_PILLARS,
 } from "@/lib/scoring/public-summary";
@@ -236,11 +237,49 @@ describe("redaction at the API boundary", () => {
 
     expect(redacted.levels).toEqual(result.levels);
     expect(redacted.pattern).toEqual(result.pattern);
-    expect(redacted.gann).toEqual(result.gann);
+    // The levels a chart draws pass; the method's working stays server-side
+    // (review finding S-02).
+    expect(redacted.gann.squareOf9).toEqual(result.gann.squareOf9);
+    expect(redacted.gann.fanLines).toEqual(result.gann.fanLines);
+    expect(redacted.gann.timeCycleActive).toBe(true);
+    expect(redacted.gann.digitalRootConfluences).toEqual([]);
+    expect(redacted.gann.angleSlopes).toEqual([]);
+    expect(redacted.gann.retracementLevels).toEqual([]);
+    expect(redacted.gann.timeCycleDates).toEqual([]);
+    expect(result.gann.digitalRootConfluences).toHaveLength(1);
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
     // backtest replay and the published rows all still read it server-side.
     expect(result.decision.breakdown).toHaveLength(18);
+  });
+
+  it("gives a visitor with no session only what the public chart draws", () => {
+    const result: ScanResult = {
+      symbol: "AAPL",
+      assetClass: "us_equity",
+      scannedAt: "2026-08-08T00:00:00Z",
+      currentPrice: 100,
+      direction: "bullish",
+      setupKind: "reversion",
+      momentumElevated: true,
+      trends: [trend("bullish")],
+      gann,
+      pattern,
+      armedPatterns: [pattern],
+      levels,
+      decision,
+      volatilityRead: { atr: 2, regime: "normal" },
+    };
+
+    const anon = toAnonymousScanResult(result);
+    expect(anon.levels).toEqual(result.levels);
+    expect(anon.gann.squareOf9).toEqual(result.gann.squareOf9);
+    expect(anon.gann.digitalRootConfluences).toEqual([]);
+    expect(anon.signals).toBeUndefined();
+    expect(anon.pattern).toBeNull();
+    expect(anon.armedPatterns).toEqual([]);
+    expect(anon.volatilityRead).toBeUndefined();
+    expect(anon.decision.breakdown).toEqual([]);
   });
 
   it("strips dailyBars — bulk internal data, not a public response field", () => {

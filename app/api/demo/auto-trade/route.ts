@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runDemoAutoTrade } from "@/lib/demo/auto-trade";
 import { generateMissingCritiques } from "@/lib/demo/critique";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. buildRecommendations batches its live re-scans specifically to fit
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     console.error("demo/auto-trade: CRON_SECRET is not set — the scheduled run cannot execute");
     return NextResponse.json({ error: "CRON_SECRET is not configured on this deployment" }, { status: 503 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

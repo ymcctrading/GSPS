@@ -105,30 +105,31 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           }
         }
       } else {
-        // Login accepts either an email address or a username. The lookup
-        // goes through our own route rather than calling the
-        // resolve_username_email RPC directly — see
-        // app/api/auth/resolve-username/route.ts for why.
-        let loginEmail = identifier;
+        // Login accepts either an email address or a username. A username
+        // signs in on the server (app/api/auth/username-login/route.ts), so
+        // the email behind it never reaches the browser.
         if (!identifier.includes("@")) {
-          let resolvedEmail: string | null = null;
+          let ok = false;
           try {
-            const res = await fetch("/api/auth/resolve-username", {
+            const res = await fetch("/api/auth/username-login", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username: identifier }),
+              body: JSON.stringify({ username: identifier, password }),
             });
-            ({ email: resolvedEmail } = await res.json());
+            ok = res.ok;
           } catch {
             // Falls through to the generic error below, same as a lookup miss.
           }
-          if (!resolvedEmail) {
+          if (!ok) {
             setError("Invalid login credentials");
             setLoading(false);
             return;
           }
-          loginEmail = resolvedEmail;
+          router.push(next);
+          router.refresh();
+          return;
         }
+        const loginEmail = identifier;
         const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) setError(error.message);
         else {
