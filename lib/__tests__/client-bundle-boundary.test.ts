@@ -54,7 +54,8 @@ function runtimeDeps(file: string): string[] {
   if (cached) return cached;
   const src = fs.readFileSync(file, "utf8");
   const out: string[] = [];
-  for (const m of src.matchAll(/^\s*(?:import|export)\s+(?!type\b)[^;]*?from\s+["']([^"']+)["']/gms)) {
+  // `[\s\S]` rather than the `s` flag, which this project's target predates.
+  for (const m of src.matchAll(/^\s*(?:import|export)\s+(?!type\b)(?:(?!;)[\s\S])*?from\s+["']([^"']+)["']/gm)) {
     const r = resolve(file, m[1]);
     if (r) out.push(r);
   }
