@@ -14,7 +14,7 @@ import { parseSubscription, sendPushToProfile, vapidConfig } from "@/lib/notific
  *          browser is left.
  *
  * Writes run on the service role and always name the session's own user, so
- * a member can't file or remove another account's subscription (migration 0098).
+ * a member can't file or remove another account's subscription (migration 0099).
  */
 
 async function sessionUser(req: NextRequest): Promise<User | null> {

@@ -1,4 +1,4 @@
--- GSPS — 0098: browser push subscriptions
+-- GSPS — 0099: browser push subscriptions
 --
 -- ROADMAP.md Q1 "Notification system" (browser push), docs/SYNTHESIZED_ROADMAP.md
 -- Part 5 item 2. One row per browser a member turned push on in. The endpoint

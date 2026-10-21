@@ -11,7 +11,7 @@
  * off: a push delivery is recorded `skipped` with the reason, never `failed`,
  * and the settings toggle says so.
  *
- * Subscriptions live in `push_subscriptions` (migration 0098), one row per
+ * Subscriptions live in `push_subscriptions` (migration 0099), one row per
  * browser. A push service answering 404 or 410 means that browser has
  * unsubscribed, so its row is removed; nothing else is retried here (the
  * delivery ledger's retry sweep owns retries).
