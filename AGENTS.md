@@ -634,8 +634,12 @@ when the member's account is deleted (their foreign keys cascade from
 figure it out"):** the server reads `serviceRoleKey()`
 (`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
-The readable legacy variable was removed from Vercel once production ran on
-the secret key. Read the key through that helper, never from `process.env`.
+Correction, 2026-10-21: the readable legacy
+`SUPABASE_SERVICE_ROLE_KEY` is still in Vercel (production and preview,
+flagged a readable secret). Production does not need it, since it reads
+`SUPABASE_SECRET_KEY`; only preview deployments fell back to it, and those
+stop with `vercel.json`'s `*/**` rule. Removing it is the owner's step in the
+Vercel dashboard (this environment can't edit Vercel variables). Read the key through that helper, never from `process.env`.
 **Breached passwords (S-11):** Supabase's leaked-password setting is a
 dashboard switch no tool here reaches, so sign-up, reset and the Settings
 password change refuse a password found in Have I Been Pwned
@@ -3035,7 +3039,7 @@ What that means for a session:
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.
-- `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
+- `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false, "*/**": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). The patterns are minimatch globs, and `*` never matches a `/`, so until 2026-10-21 every `claude/...` branch still built a preview and the account hit 100 deployments that day; `*/**` covers them. There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
 - A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
 
