@@ -274,11 +274,13 @@ export function readGannExit(
   const withCampaign = ledger !== null && ledger.trend === (long ? "bullish" : "bearish");
   // Only a reaction that began after the fill: one already running at entry
   // was part of the setup, not a signal about this trade.
-  const reactionStart = ledger && ledger.legs.length > 0 ? ledger.legs[ledger.legs.length - 1].toIndex : -1;
+  // The over-balancing reaction's own start: the one in progress, or a
+  // completed one still standing (`overbalance`, 2026-10-21).
+  const reactionStart = ledger?.overbalance?.fromIndex ?? -1;
   if (!exit && withCampaign && reactionStart >= firstAfter && (ledger!.spaceOverbalanced || ledger!.timeOverbalanced)) {
     exit = {
       reason: "trend_change",
-      note: `The current reaction is larger than any earlier one in this campaign (${[
+      note: `A reaction since the fill is larger than any earlier one in this campaign (${[
         ledger!.spaceOverbalanced && "price",
         ledger!.timeOverbalanced && "time",
       ]

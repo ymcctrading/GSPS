@@ -51,13 +51,19 @@
  *   W003 p. 16, class C): corrections within an uptrend tend to be nearly
  *   equal in size. The text gives the uptrend only and no tolerance; the
  *   tolerance below was fixed before any measurement. Context only.
+ * - **Points, and a standing over-balance** (2026-10-21). Over-balance of
+ *   space compares swings in points (price), as Gann states it ("a decline
+ *   in points", Master Course Ch. 8, PDF 249; *45 Years* Rule 8; Ch. 11A's
+ *   reviews), and an over-balance stands until price goes back past the top
+ *   the reaction fell from (the secondary rally after it is the sale, Master
+ *   Course PDF 244-245, 249). See the comment at the reading.
  *
  * Engineering choices, labelled as such:
  * - "Nearly equal" is the largest of the last three completed corrections at
  *   most `EQUAL_CORRECTION_RATIO` times the smallest, by percent size.
- * - Size is measured in percent of price, not Gann's points, so the rule
- *   ports across price levels (the scaling precedent is Gann's own "normal
- *   move = 1/16 of price", *Commodities* 1951, p. 310).
+ * - The class C readings (contracting and nearly equal corrections) compare
+ *   swings in percent of their start, as before; their sources give no unit.
+ *   Over-balance of space no longer does (see above).
  * - The campaign starts at the extreme the weekly chart's current trend
  *   began from, and sections and reactions are counted on the 3-Day Chart.
  * - The first-year high needs a campaign at least a year old, which the
@@ -68,7 +74,7 @@
  *   low is the bottom that ended the counter-move after it (mirrored in a
  *   bear campaign, an engineering symmetry).
  * - The 1-point margin is one price-scaled point (`pointScale.ts#gannPoint`)
- *   at the counter-move's start, in percent of that price.
+ *   at the counter-move's start.
  *
  * Context only for now, like Stage A: nothing here scores or gates until the
  * replay has measured it.
@@ -97,12 +103,17 @@ export interface SwingLeg {
   direction: "up" | "down";
   fromIndex: number;
   toIndex: number;
+  /** Size in price (Gann's points): the distance from the leg's start to its end. */
+  points: number;
   /** Size as a percent of the price the leg started from. */
   pct: number;
   days: number;
 }
 
 export interface CounterMoveSize {
+  /** Size in price (Gann's points). Over-balance of space compares this (2026-10-21). */
+  points: number;
+  /** Size as a percent of the price it started from, for display and the class C readings. */
   pct: number;
   /** Calendar days: a completed leg's top to bottom; the move in progress, its start to today (its age). */
   days: number;
@@ -181,6 +192,14 @@ export interface CampaignLedger {
   timeOverbalanced: boolean;
   /** The counter-move exceeds the greatest by 1 point or more (C-TREND-06, Master Course Ch. 8 PDF 249). Context only. */
   spaceOverbalancedByPoint: boolean;
+  /**
+   * The over-balancing reaction, or null when nothing is over-balanced:
+   * the bar index, date and price of the top (bottom in a bear campaign) it
+   * fell from, and whether it is a completed reaction still standing (price
+   * has not gone back past that top) rather than the one in progress. The
+   * exit rules read `fromIndex` to tell a reaction that began after the fill.
+   */
+  overbalance: { fromIndex: number; fromDate: string; fromPrice: number; standing: boolean } | null;
   /** The campaign's age in months and Gann's culmination months (C-TIME-27). Context only. */
   age: CampaignAge;
   /** A prior leg's range from the later low, as a resistance (support) candidate (C-PRICE-01). Context only. */
@@ -319,6 +338,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
       direction: b.price > a.price ? "up" : "down",
       fromIndex: a.index,
       toIndex: b.index,
+      points: Math.abs(b.price - a.price),
       pct: (Math.abs(b.price - a.price) / a.price) * 100,
       days: days(bars[a.index], bars[b.index]),
     });
@@ -328,7 +348,11 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const counterLegs = legs.filter((l) => l.direction !== trendDir);
   const greatestCounterMove =
     counterLegs.length > 0
-      ? { pct: Math.max(...counterLegs.map((l) => l.pct)), days: Math.max(...counterLegs.map((l) => l.days)) }
+      ? {
+          points: Math.max(...counterLegs.map((l) => l.points)),
+          pct: Math.max(...counterLegs.map((l) => l.pct)),
+          days: Math.max(...counterLegs.map((l) => l.days)),
+        }
       : null;
 
   // The open leg runs from the last swing point to the current extreme.
@@ -349,6 +373,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     }
     const end = bull ? bars[extreme].l : bars[extreme].h;
     currentCounterMove = {
+      points: Math.abs(lastPoint.price - end),
       pct: (Math.abs(lastPoint.price - end) / lastPoint.price) * 100,
       days: days(bars[lastPoint.index], last),
       extremeDays: days(bars[lastPoint.index], bars[extreme]),
@@ -358,8 +383,73 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const trendLegs = legs.filter((l) => l.direction === trendDir).length;
   const sections = trendLegs + (openIsCounter ? 0 : 1);
 
-  const spaceOverbalanced =
-    currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.pct > greatestCounterMove.pct;
+  // Over-balance of space is read in points, not percent (2026-10-21, owner:
+  // "Determine how WD Gann would answer"). Gann's space rule is "a decline in
+  // points" that exceeds "the greatest decline of a previous reaction" by one
+  // or more points (Master Course Ch. 8, PDF 249); every campaign in Ch. 11A
+  // closes with its greatest counter-move in points; the Stock Selector's
+  // yardstick is Vanadium's 17-point reaction; *45 Years* Rule 8 compares a
+  // decline's points with the prior decline's. A point is one price unit
+  // wherever the swing sits, so the comparison is of the swings' price sizes;
+  // Gann's price scaling of the point (`pointScale.ts`) sets his allowances,
+  // here only the 1-point margin, never which swing is larger. Percent of each swing's start
+  // made equal-point rallies over-balance in a falling market (29 points
+  // from 90 is 32%, 30 from 110 is 27%) and Gann reads that very shape, the
+  // November 1931 rally failing at 119 under the 120 top, as the bear still
+  // on (*New Stock Trend Detector*, PDF p.24). On his own figures (PDF
+  // pp.13-14) that rally was 33½ points from 85½, 39%, against the June
+  // rally's 37½ points from 120, 31%: in percent it over-balanced.
+  //
+  // And the over-balance stands until the trend resumes past the top the
+  // reaction fell from (bottom in a bear campaign). Gann: the main trend "has
+  // changed or will soon", a secondary rally "usually" follows and is the
+  // place to sell (Master Course Ch. 8, PDF 249; Sell 3, PDF 244-245: the
+  // secondary rally after the first decline exceeds the greatest reaction);
+  // the time rule likewise, with shorts on the secondary rally. Until this
+  // date only the reaction in progress was read: once it ended and the 3-Day
+  // Chart turned back, it joined the record it is measured against and the
+  // over-balance vanished with price still under the top, the moment that
+  // secondary rally is sold (and a with-trend buy would be taken). Each
+  // completed reaction is measured against the greatest of the campaign's
+  // reactions before it (the over-balancing one is never its own yardstick);
+  // once the trend has resumed past its top it is simply one of the
+  // campaign's reactions and the yardstick for the next. Gann does not say
+  // more about a reaction that over-balanced and was then followed by a new
+  // high, so that is the current reading kept. When the weekly chart turns,
+  // a new campaign begins and the ledger starts over.
+  let standingSpace = false;
+  let standingTime = false;
+  let standingByPoint = false;
+  let standingFrom: number | null = null;
+  {
+    let prior: { points: number; days: number } | null = null;
+    for (let k = 0; k < legs.length; k++) {
+      const l = legs[k];
+      if (l.direction === trendDir) continue;
+      if (prior !== null) {
+        const topPrice = points[k].price;
+        let resumedPast = false;
+        for (let i = l.toIndex + 1; i < bars.length && !resumedPast; i++) {
+          if (bull ? bars[i].h > topPrice : bars[i].l < topPrice) resumedPast = true;
+        }
+        if (!resumedPast) {
+          const space = l.points > prior.points;
+          const time = l.days > prior.days;
+          if (space || time) {
+            standingSpace ||= space;
+            standingTime ||= time;
+            standingFrom ??= l.fromIndex;
+          }
+          if (l.points >= prior.points + gannPoint(topPrice)) standingByPoint = true;
+        }
+      }
+      prior = prior === null ? { points: l.points, days: l.days } : { points: Math.max(prior.points, l.points), days: Math.max(prior.days, l.days) };
+    }
+  }
+
+  const openSpace =
+    currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.points > greatestCounterMove.points;
+  const spaceOverbalanced = openSpace || standingSpace;
   // Like for like (fixed 2026-10-20): a completed reaction's length runs from
   // its top to its bottom, so the reaction in progress is measured to its own
   // extreme so far, not to today. Measured to today, a reaction that had made
@@ -368,13 +458,26 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   // over-balanced in time; once completed, the same reaction measured shorter
   // and was not. The third-month rule already reads to the extreme
   // (`counterMoveThirdMonth`, A-TIME-01: a reaction that made its low and has
-  // held is resuming), and so does the space test (`pct`).
-  const timeOverbalanced =
+  // held is resuming), and so does the space test (`points`).
+  const openTime =
     currentCounterMove !== null && greatestCounterMove !== null && (currentCounterMove.extremeDays ?? currentCounterMove.days) > greatestCounterMove.days;
+  const timeOverbalanced = openTime || standingTime;
   // C-TREND-06: "by 1+ point" (Master Course Ch. 8, PDF 249), one point at the counter-move's start price.
-  const pointPct = (gannPoint(lastPoint.price) / lastPoint.price) * 100;
   const spaceOverbalancedByPoint =
-    currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.pct >= greatestCounterMove.pct + pointPct;
+    (currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.points >= greatestCounterMove.points + gannPoint(lastPoint.price)) ||
+    standingByPoint;
+  // The over-balancing reaction: the one in progress, else the earliest
+  // completed one still standing.
+  const overbalanceFrom = openSpace || openTime ? lastPoint.index : standingFrom;
+  const overbalance: CampaignLedger["overbalance"] =
+    overbalanceFrom === null
+      ? null
+      : {
+          fromIndex: overbalanceFrom,
+          fromDate: bars[overbalanceFrom].t.slice(0, 10),
+          fromPrice: bull ? bars[overbalanceFrom].h : bars[overbalanceFrom].l,
+          standing: !(openSpace || openTime),
+        };
 
   // C-PRICE-01: the last completed leg with the trend, added to the extreme
   // that ended the counter-move after it (Master Course Ch. 6, PDF 197).
@@ -501,6 +604,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     spaceOverbalanced,
     timeOverbalanced,
     spaceOverbalancedByPoint,
+    overbalance,
     age: readCampaignAge(campaignMonthOrdinal(bars[start].t.slice(0, 10), last.t.slice(0, 10))),
     rangeProjection,
     counterMoveThirdMonth,
@@ -552,12 +656,20 @@ export function readMonthlyBreakWarning(bars: Bar[]): MonthlyBreakWarning | null
 
 export function describeCampaignLedger(l: CampaignLedger): string[] {
   const lines = [`Campaign (${l.trend}) since ${l.campaignStartDate}: section ${l.sections}.`];
+  const overbalancedIn = [l.spaceOverbalanced && "space", l.timeOverbalanced && "time"].filter(Boolean).join(" and ");
+  const afterThird = l.sections >= 3 ? " after the 3rd section" : "";
   if (l.currentCounterMove && l.greatestCounterMove) {
+    const c = l.currentCounterMove;
     lines.push(
-      `Current counter-move ${l.currentCounterMove.pct.toFixed(1)}% over ${l.currentCounterMove.extremeDays ?? l.currentCounterMove.days}d to its extreme so far vs the campaign's greatest ${l.greatestCounterMove.pct.toFixed(1)}% / ${l.greatestCounterMove.days}d` +
-        (l.spaceOverbalanced || l.timeOverbalanced
-          ? ` — over-balanced in ${[l.spaceOverbalanced && "space", l.timeOverbalanced && "time"].filter(Boolean).join(" and ")}${l.sections >= 3 ? " after the 3rd section" : ""}.`
-          : "."),
+      `Current counter-move ${c.points.toFixed(2)} points (${c.pct.toFixed(1)}%) over ${c.extremeDays ?? c.days}d to its extreme so far vs the campaign's greatest ${l.greatestCounterMove.points.toFixed(2)} points / ${l.greatestCounterMove.days}d` +
+        (overbalancedIn && !l.overbalance?.standing ? ` — over-balanced in ${overbalancedIn}${afterThird}.` : "."),
+    );
+  }
+  if (l.overbalance?.standing) {
+    const o = l.overbalance;
+    const bull = l.trend === "bullish";
+    lines.push(
+      `The ${bull ? "reaction" : "rally"} from the ${bull ? "top" : "bottom"} of ${o.fromPrice.toFixed(2)} (${o.fromDate}) exceeded the campaign's greatest in ${overbalancedIn}${afterThird}: the trend has changed or soon will. It stands until price goes back ${bull ? "above" : "below"} ${o.fromPrice.toFixed(2)}.`,
     );
   }
   const age = l.age;

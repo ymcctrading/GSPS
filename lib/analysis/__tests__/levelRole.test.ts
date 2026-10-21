@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { countLevelTests, levelRole, levelTestConfidence } from "../levelRole";
 import { readGannTrend } from "@/lib/gann/trendStrength";
+import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 
 function bar(price: number, rangeHalf = 0.5): Bar {
   return { t: "2026-01-01T00:00:00Z", o: price, h: price + rangeHalf, l: price - rangeHalf, c: price, v: 1000 };
@@ -71,5 +72,24 @@ describe("A-LEVELS-05: a rally failing just under an old top in a decline", () =
 
   it("keeps the trend read bearish once the rally has failed", () => {
     expect(readGannTrend(bars)).toMatchObject({ direction: "bearish", confirmed: true });
+  });
+
+  // Gann measures the rallies in points (Master Course Ch. 8, PDF 249: "a
+  // decline in points"; *45 Years* Rule 8). The last rally, 90 to 119, is 29
+  // points against the campaign's greatest of 30 (110 to 140): no
+  // over-balance, so the bear is still on, as he reads the November 1931
+  // rally failing at 119 (W006 p.24). In percent of their start it is 32%
+  // against 27% and would have read as a change of trend; until 2026-10-21 the
+  // ledger read percent, and this test passed only because the rally had
+  // completed and dropped out of the record.
+  it("reads the rally to 119 as within the greatest in points, though larger in percent", () => {
+    const l = buildCampaignLedger(bars)!;
+    expect(l.trend).toBe("bearish");
+    const rallies = l.legs.filter((x) => x.direction === "up");
+    const last = rallies[rallies.length - 1];
+    expect(last.points).toBeLessThan(l.greatestCounterMove!.points);
+    expect(last.pct).toBeGreaterThan(Math.max(...rallies.slice(0, -1).map((x) => x.pct)));
+    expect(l.spaceOverbalanced).toBe(false);
+    expect(l.overbalance).toBeNull();
   });
 });

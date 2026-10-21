@@ -394,7 +394,8 @@ the owner, not changed: an over-balancing reaction drops out of the campaign
 ledger as soon as the 3-Day Chart turns back (it joins the greatest it is
 compared with), and swings in percent of their start make equal-point rallies
 in a bear campaign over-balance (`levelRole.test.ts`'s 1931 shape: 32% against
-27%, 29 points against 30). `STRATEGY_VERSION` was `2026-10-21-gann-first-target`.
+27%, 29 points against 30). Both answered from Gann the same day ("Over-balance
+answered from Gann" below). `STRATEGY_VERSION` was `2026-10-21-gann-first-target`.
 
 **Breakaway diagnosis, 2026-10-21 (first-target run: `breakaway` held 261 of the
 727 trades scoring 6+ at +0.086R, Execute +0.005R).** One translation defect,
@@ -431,8 +432,44 @@ and measures R from the crossing price, 2 points past the reaction entry the pla
 and TP1 are priced from. Production's rule is `"reaction"`, the default. A
 production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann"}`
 (`LIVE_EXIT_RULE` is "gann" since Q14; `useProductionStop` does nothing under
-"reaction"). `STRATEGY_VERSION` is `2026-10-21-replay-accounting`; Execute and
+"reaction"). `STRATEGY_VERSION` was `2026-10-21-replay-accounting`; Execute and
 the 6/3.5 cutoffs need a fresh run on it.
+the owner. `STRATEGY_VERSION` was `2026-10-21-gann-narrow-range-breakaway`.
+
+**Over-balance answered from Gann, 2026-10-21 (owner: "Determine how WD Gann
+would answer these questions, and those are your answers"; the two questions
+the even-money entry held).** Q1, how long an over-balance stands and against
+what: the reaction is measured against the greatest of the campaign's
+reactions before it, and when it exceeds that the main trend "has changed or
+will soon" (Master Course Ch. 8, PDF 249; Ch. 11A's campaign reviews; *Commodities*
+pp. 51, 312); the sale is the secondary rally after it (Sell 3, PDF 244-245;
+the time rule, "shorts on the secondary rally"). So it stands after the
+reaction ends, until price goes back past the top it fell from (bottom in a
+bear campaign): `buildCampaignLedger` now keeps each completed reaction's
+over-balance against the reactions before it (`overbalance`, with `standing`
+and the top that clears it), so the 3-Day Chart turning back no longer erases
+it. Gann is silent on a reaction that over-balanced and was then followed by
+a new high: it stays one of the campaign's reactions and the yardstick for the
+next, as before; a turn of the weekly chart starts a new campaign, as before.
+Q2, points or percent: points. "A decline in points exceeds the greatest
+decline of a previous reaction by one or more points" (PDF 249), *45 Years*
+Rule 8's prior decline's points, Ch. 11A's reviews in points, the Stock
+Selector's 17-point Vanadium yardstick. His percentages (*Commodities* p. 32,
+the percentages of highs, lows and ranges) are resistance levels, not swing
+sizes. Over-balance of space now compares `points`; `pct` stays for display
+and the class C readings (contracting, nearly equal corrections), whose
+sources give no unit. On his own 1931 figures (NSTD pp. 13-14) the November
+rally to 119 was 33½ points (39%) against June's 37½ (31%), and he reads it as
+the bear still on (p. 24): points agree, percent did not. Tests corrected,
+each saying so: `monthlyWarning.test.ts`'s second reactions (to 75 and to 105)
+over-balanced in points and are now to 80 and 109.5, and
+`regimeStructure.test.ts`'s spike reaction over-balanced the 6-point
+reactions before it in space and time; `levelRole.test.ts`'s 1931 shape now
+asserts the points reading. The intraday space alert reads the reaction in
+progress only (a standing one was alerted the day it happened), in points. The
+exit rule's trend change reads the over-balancing reaction's own start.
+`STRATEGY_VERSION` is `2026-10-21-gann-overbalance-points-standing`; Execute
+and the 6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 

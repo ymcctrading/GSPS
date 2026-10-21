@@ -1029,13 +1029,20 @@ function detectSpaceOverbalance(
     return null;
   }
   const against: Direction = ledger.trend === "bullish" ? "down" : "up";
-  const current = ledger.currentCounterMove?.pct ?? 0;
-  const greatest = ledger.greatestCounterMove.pct;
-  const qualifies = ledger.spaceOverbalanced && dayMove.direction === against;
+  // In points, as the ledger reads it (Gann's "a decline in points", Master
+  // Course Ch. 8, PDF 249; 2026-10-21). The alert is for the reaction in
+  // progress, the session that made the difference: a completed reaction's
+  // over-balance that still stands (`overbalance.standing`) was alerted on
+  // the day it happened, so it does not alert again here.
+  const current = ledger.currentCounterMove?.points ?? 0;
+  const currentPct = ledger.currentCounterMove?.pct ?? 0;
+  const greatest = ledger.greatestCounterMove.points;
+  const inProgress = ledger.currentCounterMove !== null && current > greatest;
+  const qualifies = inProgress && dayMove.direction === against;
   checks.push({
     name: "Over-balance of space",
     passed: qualifies,
-    detail: `The ${ledger.trend} campaign's current reaction is ${current.toFixed(1)}% against its greatest of ${greatest.toFixed(1)}%${qualifies ? ", and today's move made the difference" : ""}.`,
+    detail: `The ${ledger.trend} campaign's current reaction is ${current.toFixed(2)} points (${currentPct.toFixed(1)}%) against its greatest of ${greatest.toFixed(2)} points${qualifies ? ", and today's move made the difference" : ""}.`,
   });
   if (!qualifies) return null;
 
@@ -1044,7 +1051,7 @@ function detectSpaceOverbalance(
       label: "Greatest reaction of the campaign exceeded",
       passed: true,
       weight: 35,
-      detail: `${current.toFixed(1)}% against the trend, more than any reaction since the campaign began on ${ledger.campaignStartDate.slice(0, 10)} (largest ${greatest.toFixed(1)}%).`,
+      detail: `${current.toFixed(2)} points (${currentPct.toFixed(1)}%) against the trend, more than any reaction since the campaign began on ${ledger.campaignStartDate.slice(0, 10)} (largest ${greatest.toFixed(2)} points).`,
     },
     {
       label: "Volume supports it",
