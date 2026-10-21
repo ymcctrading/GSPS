@@ -25,8 +25,10 @@ async function resend(path: string, init?: RequestInit) {
     });
     const body = await res.json().catch(() => null);
     return { status: res.status, body };
-  } catch {
-    return { status: 504, body: { error: "Resend did not answer within 10 seconds" } };
+  } catch (err) {
+    return err instanceof Error && err.name === "TimeoutError"
+      ? { status: 504, body: { error: "Resend did not answer within 10 seconds" } }
+      : { status: 502, body: { error: "Resend could not be reached" } };
   }
 }
 
@@ -36,7 +38,13 @@ async function resend(path: string, init?: RequestInit) {
 async function findDomain(name: string): Promise<{ id: string } | { response: NextResponse }> {
   const list = await resend("/domains");
   if (list.status < 200 || list.status >= 300) {
-    return { response: NextResponse.json(list.body, { status: list.status }) };
+    // 502, so a refused Resend key never reads as this route's own 401.
+    return {
+      response: NextResponse.json(
+        { error: "Resend error", upstreamStatus: list.status, upstream: list.body },
+        { status: 502 },
+      ),
+    };
   }
   const domains: { id: string; name: string }[] = list.body?.data ?? [];
   const match = domains.find((d) => d.name === name);

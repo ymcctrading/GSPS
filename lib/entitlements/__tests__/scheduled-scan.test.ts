@@ -24,7 +24,7 @@ vi.mock("@/lib/market/session", () => ({
 vi.mock("@/lib/entitlements/scan-fanout", () => ({ fanOutForProfile: fanOutForProfileMock }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceClient: createServiceClientMock }));
 
-import { runScheduledScan } from "@/lib/entitlements/scheduled-scan";
+import { etWindowFrom, runScheduledScan } from "@/lib/entitlements/scheduled-scan";
 
 const CRON_SECRET = "test-secret";
 const AUTH = `Bearer ${CRON_SECRET}`;
@@ -106,6 +106,7 @@ beforeEach(() => {
   isTradingDayMock.mockReset().mockReturnValue(true);
   fanOutForProfileMock.mockReset().mockResolvedValue({ visibleCount: 0, notifiedCount: 0 });
   createServiceClientMock.mockReset();
+  etMinutes.value = 10 * 60;
   process.env.CRON_SECRET = CRON_SECRET;
   delete process.env.VERCEL_ENV;
 });
@@ -134,25 +135,28 @@ describe("runScheduledScan", () => {
     expect(runMarketScanMock).not.toHaveBeenCalled();
   });
 
-  it("skips a run before its ET time (the winter firing of a dual-hour job)", async () => {
+  it("skips a firing before its ET window (the winter EDT-hour firing)", async () => {
     etMinutes.value = 8 * 60 + 18;
-    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", 9 * 60 + 15);
-    const body = await res.json();
-    expect(body).toMatchObject({ skipped: "before_scheduled_time" });
+    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", etWindowFrom(9, 15));
+    expect(await res.json()).toMatchObject({ skipped: "outside_scheduled_window" });
     expect(runMarketScanMock).not.toHaveBeenCalled();
     expect(createServiceClientMock).not.toHaveBeenCalled();
-    etMinutes.value = 10 * 60;
   });
 
-  it("runs once its ET time has come", async () => {
-    etMinutes.value = 9 * 60 + 18;
+  it("skips a firing past its ET window, so a failed run is not retried an hour late", async () => {
+    etMinutes.value = 10 * 60 + 18;
+    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", etWindowFrom(9, 15));
+    expect(await res.json()).toMatchObject({ skipped: "outside_scheduled_window" });
+    expect(createServiceClientMock).not.toHaveBeenCalled();
+  });
+
+  it("runs at the window's first minute", async () => {
+    etMinutes.value = 9 * 60 + 15;
     const { client } = fakeService({ existingRun: { id: "se-existing" } });
     createServiceClientMock.mockReturnValue(client);
-    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", 9 * 60 + 15);
-    const body = await res.json();
-    expect(body.skipped).not.toBe("before_scheduled_time");
+    const res = await runScheduledScan(AUTH, "scheduled_morning_confirmation_scan", etWindowFrom(9, 15));
+    expect((await res.json()).skipped).not.toBe("outside_scheduled_window");
     expect(createServiceClientMock).toHaveBeenCalled();
-    etMinutes.value = 10 * 60;
   });
 
   it("is idempotent: skips a market date that already has a scan_executions row, without re-running the scan", async () => {

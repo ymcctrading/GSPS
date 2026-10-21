@@ -120,7 +120,7 @@ function logRunOutcome(args: {
   runId: string;
   source: ScheduledScanSource;
   marketDateEt: string | null;
-  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "before_scheduled_time" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
+  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "outside_scheduled_window" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
   environment: string;
   eligibleCount?: number;
   profilesFannedOut?: number;
@@ -145,14 +145,21 @@ function logRunOutcome(args: {
   );
 }
 
+/** A window of `length` minutes from an ET clock time, for runScheduledScan. */
+export function etWindowFrom(hour: number, minute: number, length = 30): { from: number; to: number } {
+  const from = hour * 60 + minute;
+  return { from, to: from + length };
+}
+
 export async function runScheduledScan(
   authorizationHeader: string | null,
   source: ScheduledScanSource,
-  /** Minutes after midnight ET before which the scan skips. pg_cron runs in
-   *  UTC, so a job meant for a fixed ET time is scheduled at both its EDT and
-   *  EST hour (migration 0102); this drops the early one in winter, and the
-   *  (source, date) idempotency drops the late one in summer. */
-  notBeforeEtMinutes?: number,
+  /** The ET window, in minutes after midnight [from, to), the scan runs in.
+   *  pg_cron runs in UTC, so a job meant for a fixed ET time fires at both its
+   *  EDT and EST hour (migration 0102) and exactly one firing falls inside the
+   *  window in either season. Outside it the scan skips, so a failed run is
+   *  never retried an hour late. The times are product choices, not Gann's. */
+  etWindow?: { from: number; to: number },
 ): Promise<NextResponse> {
   const runId = randomUUID();
   const environment = process.env.VERCEL_ENV ?? "unknown";
@@ -178,9 +185,12 @@ export async function runScheduledScan(
   }
 
   const marketDateEt = etDateKey(now);
-  if (notBeforeEtMinutes !== undefined && etParts(now).minutes < notBeforeEtMinutes) {
-    logRunOutcome({ runId, source, marketDateEt, outcome: "before_scheduled_time", environment });
-    return NextResponse.json({ skipped: "before_scheduled_time", source, runId });
+  if (etWindow) {
+    const minutes = etParts(now).minutes;
+    if (minutes < etWindow.from || minutes >= etWindow.to) {
+      logRunOutcome({ runId, source, marketDateEt, outcome: "outside_scheduled_window", environment });
+      return NextResponse.json({ skipped: "outside_scheduled_window", source, runId });
+    }
   }
   const service = createServiceClient();
 
