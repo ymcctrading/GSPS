@@ -66,7 +66,9 @@ import {
   volumeBaseline,
   type Alert,
   type AssetKind,
+  type DailyPlanLevels,
   type Direction,
+  type RecentSystemAlert,
   type ScannerConfig,
   type SignalType,
   type SymbolInput,
@@ -169,7 +171,18 @@ export async function GET(req: NextRequest) {
       usageBefore,
     );
     if (new URL(req.url).searchParams.get("budget") === "1") {
-      return NextResponse.json({ budget: budgetBefore });
+      // The budget read costs nothing, so it also carries what today's
+      // scheduled scans already flagged: the panel shows those at once while
+      // the person decides whether to spend a refresh (2026-10-21, a scan
+      // that took minutes left the panel empty in the meantime).
+      const narrowed = new URL(req.url).searchParams.get("symbols");
+      const recent = await loadRecentSystemAlerts(
+        createServiceClient(),
+        now,
+        narrowed ? resolveUniverse(narrowed).map((u) => u.symbol) : null,
+        !policy.intradayScansEnabled && policy.proIntradayModuleEnabled,
+      ).catch(() => []);
+      return NextResponse.json({ budget: budgetBefore, recent });
     }
     if (!budgetBefore.allowed) {
       return NextResponse.json({ error: describeRefreshBlock(budgetBefore), budget: budgetBefore }, { status: 429 });
@@ -203,9 +216,17 @@ export async function GET(req: NextRequest) {
     ? await loadPriorSystemAlerts(supabase as ServiceSupabase, universe.map((u) => u.symbol), now)
     : await loadPriorAlerts(supabase as Supabase, universe.map((u) => u.symbol), now);
 
+  // The daily plans standing on these symbols, for "Daily plan's level held"
+  // (lib/scanner/intraday.ts#detectPlanLevelHeld): the intraday chart times
+  // the daily plan's own entry. One read for the universe, best-effort.
+  const dailyPlans = await loadDailyPlans(createServiceClient(), universe.map((u) => u.symbol), userId).catch((err) => {
+    console.error("[intraday-scan] daily plans not read:", err);
+    return new Map<string, DailyPlanLevels>();
+  });
+
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
     withTimeout(
-      buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now),
+      buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now, dailyPlans.get(entry.symbol) ?? null),
       15_000,
       `buildInput for ${entry.symbol}`
     ).catch((err) => {
@@ -238,7 +259,11 @@ export async function GET(req: NextRequest) {
     );
     const shownToday = await countProIntradaySetupsShownToday(supabase as Supabase, userId!, now);
     const remaining = remainingSetupsDisplayable({ setupsDisplayedToday: shownToday }, DEFAULT_PRO_INTRADAY_POLICY);
-    output = { ...output, alerts: confirmed.slice(0, remaining) };
+    // Held alerts were shown before, so they count against nothing new.
+    const heldConfirmed = output.heldAlerts.filter((alert) =>
+      isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
+    );
+    output = { ...output, alerts: confirmed.slice(0, remaining), heldAlerts: heldConfirmed };
   }
 
   // Persisting the alerts is what makes the cooldown survive across runs, but
@@ -562,6 +587,8 @@ async function persistAlerts(
       direction: alert.direction,
       relativeVolume: alert.relativeVolume,
       dataTimestamp: alert.dataTimestamp,
+      masterTarget: alert.continuationPlan.masterTarget ?? null,
+      paysRisk: alert.continuationPlan.paysRisk ?? null,
     },
   }));
 
@@ -694,6 +721,8 @@ async function persistSystemAlerts(
       relativeVolume: alert.relativeVolume,
       dataTimestamp: alert.dataTimestamp,
       barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
+      masterTarget: alert.continuationPlan.masterTarget ?? null,
+      paysRisk: alert.continuationPlan.paysRisk ?? null,
     },
   }));
 
@@ -706,6 +735,139 @@ async function persistSystemAlerts(
     return false;
   }
   return true;
+}
+
+/**
+ * The daily plan standing on each symbol: the freshest Execute or Watch plan
+ * with an entry and a stop, from the daily lists (`daily_scans`) or a monitor
+ * (`active_monitors`, which the symbol page's own scan keeps current). An
+ * on-demand scan reads the caller's own monitors; a system scan reads any,
+ * since the plan is the symbol's, priced the same for everyone.
+ *
+ * A Reject has no plan to time, so it is left out. A read failure leaves the
+ * map empty, and "Daily plan's level held" simply doesn't fire.
+ */
+async function loadDailyPlans(
+  supabase: ServiceSupabase,
+  symbols: string[],
+  userId: string | null,
+): Promise<Map<string, DailyPlanLevels>> {
+  const plans = new Map<string, { plan: DailyPlanLevels; at: number }>();
+  if (symbols.length === 0) return new Map();
+  const since = new Date(Date.now() - 4 * 86_400_000);
+
+  let monitors = supabase
+    .from("active_monitors")
+    .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, last_evaluated_at")
+    .in("symbol", symbols)
+    .in("state", ["WATCH", "EXECUTE"])
+    .gte("last_evaluated_at", since.toISOString())
+    .not("entry", "is", null)
+    .not("stop_loss", "is", null);
+  if (userId) monitors = monitors.eq("profile_id", userId);
+
+  const [{ data: monitorRows }, { data: scanRows }] = await Promise.all([
+    monitors,
+    supabase
+      .from("daily_scans")
+      .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at")
+      .in("symbol", symbols)
+      .in("output_state", ["Execute", "Watch"])
+      .gte("updated_at", since.toISOString()),
+  ]);
+
+  const consider = (row: {
+    symbol: string;
+    direction: string | null;
+    entry: number | string | null;
+    stop_loss: number | string | null;
+    take_profit_1: number | string | null;
+    master_profit: number | string | null;
+    output_state: string | null;
+    at: string | null;
+  }) => {
+    const direction = row.direction === "bullish" ? "up" : row.direction === "bearish" ? "down" : null;
+    const verdict = row.output_state === "Execute" ? "Execute" : row.output_state === "Watch" ? "Watch" : null;
+    const entry = Number(row.entry);
+    const stop = Number(row.stop_loss);
+    const at = row.at ? Date.parse(row.at) : NaN;
+    if (!direction || !verdict || !(entry > 0) || !(stop > 0) || Number.isNaN(at)) return;
+    // A plan whose stop sits on the wrong side of its entry is not a plan.
+    if (direction === "up" ? stop >= entry : stop <= entry) return;
+    const prior = plans.get(row.symbol);
+    if (prior && prior.at >= at) return;
+    const tp1 = row.take_profit_1 == null ? null : Number(row.take_profit_1);
+    const mtp = row.master_profit == null ? null : Number(row.master_profit);
+    plans.set(row.symbol, {
+      plan: {
+        direction,
+        verdict,
+        entry,
+        stop,
+        tp1: tp1 != null && tp1 > 0 ? tp1 : null,
+        mtp: mtp != null && mtp > 0 ? mtp : null,
+      },
+      at,
+    });
+  };
+
+  for (const r of monitorRows ?? []) consider({ ...r, at: r.last_evaluated_at });
+  for (const r of scanRows ?? []) consider({ ...r, at: r.updated_at });
+
+  return new Map([...plans].map(([symbol, { plan }]) => [symbol, plan]));
+}
+
+/**
+ * Today's scheduled-scan alerts, latest first and one per symbol and signal,
+ * read from `intraday_system_alerts`. Pro's bounded module sees only the
+ * closed-bar lengths it allows, as on a scan it runs itself.
+ */
+async function loadRecentSystemAlerts(
+  supabase: ServiceSupabase,
+  now: Date,
+  symbols: string[] | null,
+  proBounded: boolean,
+): Promise<RecentSystemAlert[]> {
+  const todayEt = etDateKey(now);
+  let query = supabase
+    .from("intraday_system_alerts")
+    .select("symbol, signal_id, signal_type, entry_level, stop_loss_level, take_profit_1_level, poll_cycle_timestamp, metadata")
+    .gte("poll_cycle_timestamp", new Date(now.getTime() - 20 * 3600_000).toISOString())
+    .order("poll_cycle_timestamp", { ascending: false })
+    .limit(200);
+  if (symbols && symbols.length > 0) query = query.in("symbol", symbols);
+  const { data, error } = await query;
+  if (error || !data) return [];
+
+  const seen = new Set<string>();
+  const out: RecentSystemAlert[] = [];
+  for (const row of data) {
+    if (etDateKey(new Date(row.poll_cycle_timestamp)) !== todayEt) continue;
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    if (
+      proBounded &&
+      !isConfirmedIntradayEntry(Number(meta.barIntervalMinutes ?? 1), true, DEFAULT_PRO_INTRADAY_POLICY)
+    ) {
+      continue;
+    }
+    const direction: Direction = row.signal_type === "bearish" ? "down" : "up";
+    const key = `${row.symbol}|${row.signal_id}|${direction}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const num = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+    out.push({
+      symbol: row.symbol,
+      type: row.signal_id as SignalType,
+      direction,
+      entry: num(row.entry_level),
+      stop: num(row.stop_loss_level),
+      firstTarget: num(row.take_profit_1_level),
+      masterTarget: num(meta.masterTarget),
+      confidence: num(meta.confidence),
+      at: row.poll_cycle_timestamp,
+    });
+  }
+  return out;
 }
 
 /**
@@ -871,6 +1033,7 @@ async function buildInput(
   provider: Provider,
   lastAlerts: PriorAlert[],
   now: Date,
+  dailyPlan: DailyPlanLevels | null = null,
 ): Promise<SymbolInput | null> {
   const { symbol, kind } = entry;
   const assetClass = kind === "crypto" ? "crypto" : "us_equity";
@@ -938,6 +1101,7 @@ async function buildInput(
       avgDailyVolume: readLiquidity(dailyBars)?.avgVolume ?? null,
       lastAlerts,
       marketClosed,
+      dailyPlan,
     };
   } catch {
     return null;

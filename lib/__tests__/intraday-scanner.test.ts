@@ -10,6 +10,7 @@ import {
   scanIntraday,
   barsForSession,
   scoreConfidence,
+  targetPaysRisk,
   sessionMetrics,
   volumeBaseline,
   type ScannerConfig,
@@ -478,11 +479,30 @@ describe("scanIntraday — suppression", () => {
     expect(output.alerts.map((a) => a.type)).not.toContain("old_level_cross");
   });
 
-  it("records the suppression in the audit rather than looking like no signal", () => {
+  it("records the held repeat in the audit rather than looking like no signal", () => {
     const output = scanIntraday([input({ lastAlerts: recent })], DEFAULT_CONFIG, AT_1133);
-    const suppression = output.audit[0].checks.find((c) => c.name.includes("suppression"));
-    expect(suppression).toBeDefined();
-    expect(suppression!.detail).toContain("suppressed until");
+    const held = output.audit[0].checks.find((c) => c.name.includes("repeat held"));
+    expect(held).toBeDefined();
+    expect(held!.detail).toContain("Still qualifies");
+  });
+
+  it("keeps a still-qualifying repeat on screen, marked with when it first fired (TSLA, 2026-10-21)", () => {
+    const output = scanIntraday([input({ lastAlerts: recent })], DEFAULT_CONFIG, AT_1133);
+    const held = output.heldAlerts.find((a) => a.type === "old_level_cross");
+    expect(held).toBeDefined();
+    expect(held!.firstFlaggedAt).toBe("2026-08-07T15:20:00.000Z");
+  });
+
+  it("reads first-flagged back through a chain of repeats, not the latest one", () => {
+    const chain = [
+      { type: "old_level_cross" as const, direction: "up" as const, at: "2026-08-07T15:20:00Z" },
+      { type: "old_level_cross" as const, direction: "up" as const, at: "2026-08-07T14:55:00Z" },
+      // More than a cooldown before the next: a separate, earlier run.
+      { type: "old_level_cross" as const, direction: "up" as const, at: "2026-08-07T13:40:00Z" },
+    ];
+    const output = scanIntraday([input({ lastAlerts: chain })], DEFAULT_CONFIG, AT_1133);
+    const held = output.heldAlerts.find((a) => a.type === "old_level_cross");
+    expect(held?.firstFlaggedAt).toBe("2026-08-07T14:55:00.000Z");
   });
 
   it("never lets a momentum alert silence a reversal alert on the same symbol", () => {
@@ -500,6 +520,46 @@ describe("scanIntraday — suppression", () => {
     ];
     const output = scanIntraday([input({ lastAlerts: old })], DEFAULT_CONFIG, AT_1133);
     expect(output.alerts.map((a) => a.type)).toContain("old_level_cross");
+  });
+});
+
+describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () => {
+  const plan = { direction: "up" as const, entry: 500.5, stop: 495, tp1: 510, mtp: 520, verdict: "Execute" as const };
+
+  it("alerts when price reacts to the daily plan's entry and the session turns back up through it", () => {
+    const output = scanIntraday([input({ dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
+    const held = output.alerts.find((a) => a.type === "plan_level_held");
+    expect(held).toBeDefined();
+    expect(held!.direction).toBe("up");
+    // Stop under the reaction's low on the session chart, above the daily stop.
+    expect(held!.invalidation!).toBeLessThan(500.5);
+    expect(held!.invalidation!).toBeGreaterThan(plan.stop);
+    // The daily plan's own targets carry through.
+    expect(held!.continuationPlan.firstTarget).toBe(510);
+    expect(held!.continuationPlan.masterTarget).toBe(520);
+  });
+
+  it("stays quiet with no daily plan", () => {
+    const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+  });
+
+  it("stays quiet once the daily plan's stop has traded this session", () => {
+    const output = scanIntraday([input({ dailyPlan: { ...plan, stop: 500.1 } })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+  });
+
+  it("stays quiet when price never came back to the plan's entry", () => {
+    const output = scanIntraday([input({ dailyPlan: { ...plan, entry: 490, stop: 485 } })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+  });
+});
+
+describe("gannFirstTarget — profits must exceed losses", () => {
+  it("passes over a level nearer than the risk for the first one that pays more", () => {
+    expect(targetPaysRisk(100, 98, 101)).toBe(false);
+    expect(targetPaysRisk(100, 98, 103)).toBe(true);
+    expect(targetPaysRisk(100, 98, null)).toBeNull();
   });
 });
 
@@ -759,6 +819,15 @@ describe("gannFirstTarget", () => {
   it("takes the prior close above a price still under it as the nearest old level", () => {
     const t = gannFirstTarget({ ...base, last: 498.6, sessionHigh: 498.7, sessionLow: 490, prevClose: 502.25, dailyAtr: 6 });
     expect(t).toBe(502.25);
+  });
+
+  it("passes over a level that pays less than the risk for the first that pays more (M-K5)", () => {
+    // 483 is 3 away, 485 is 5 away; with 4 at risk only 485 pays.
+    expect(gannFirstTarget({ ...base, sessionHigh: 483, oldLevels: [485], dailyAtr: 8, risk: 4 })).toBe(485);
+  });
+
+  it("keeps the nearest when nothing ahead pays the risk, so the card can say no trade", () => {
+    expect(gannFirstTarget({ ...base, sessionHigh: 483, risk: 10 })).toBe(483);
   });
 
   it("picks the nearest of several levels", () => {

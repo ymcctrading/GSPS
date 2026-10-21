@@ -20,6 +20,7 @@ export const MOVE_BASIS_LABELS: Record<MoveBasis, string> = {
   session_open: "today's open",
   prior_session: "the prior session's high or low",
   midpoint: "the middle of today's range",
+  plan_entry: "the daily plan's entry",
 };
 
 export const SIGNAL_LABELS: Record<SignalType, string> = {
@@ -28,6 +29,7 @@ export const SIGNAL_LABELS: Record<SignalType, string> = {
   space_overbalance: "Over-balance of space",
   overnight_turn: "Overnight Chart turned",
   hourly_turn: "Hourly chart turned",
+  plan_level_held: "Daily plan's level held",
   reversal_risk: "Reversal risk",
 };
 
@@ -42,6 +44,8 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
     "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes 1 point beyond the last bottom or top.",
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
+  plan_level_held:
+    "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: a stop under the reaction's low, and the daily plan's targets.",
   reversal_risk:
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
 };

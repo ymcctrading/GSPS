@@ -21,7 +21,10 @@
  *    lies ahead the method fixes no target and the stop trails the move, and the
  *    card says so instead of inventing one.
  *  - **MTP** is empty: the intraday scanner prices an exit and a first target
- *    and no master take profit.
+ *    and no master take profit, except on "Daily plan's level held", which
+ *    carries the daily plan's TP1 and MTP (2026-10-21).
+ *  - A first target that pays no more than the risk (`paysRisk === false`) is
+ *    said so: Gann takes no such trade (M-K5).
  *
  * A **reversal risk** alert is a warning to stand aside, not a setup, so it
  * carries no levels at all — the card says so instead of pricing a trade the
@@ -44,7 +47,8 @@ export function intradayLevels(alert: Alert): SetupLevels {
     entry: alert.move.current,
     stop: alert.invalidation,
     tp1: alert.continuationPlan.firstTarget,
-    mtp: null,
+    // Only an alert carrying a daily plan has one (`plan_level_held`).
+    mtp: alert.continuationPlan.masterTarget ?? null,
   };
 }
 
@@ -68,13 +72,20 @@ export function buildIntradaySynopsis(alert: Alert): string {
 
   const levels = intradayLevels(alert);
   if (levels.entry == null || levels.stop == null) return first;
-  const wait = `${first} Wait for a bar to close ${up ? "above" : "below"} ${formatUsd(levels.entry)}, exit at ${formatUsd(levels.stop)} if it fails`;
+  const wait =
+    alert.type === "plan_level_held"
+      ? `${first} The daily plan's level held and a bar has closed back ${up ? "above" : "below"} it: entry near ${formatUsd(levels.entry)}, exit at ${formatUsd(levels.stop)} if it fails`
+      : `${first} Wait for a bar to close ${up ? "above" : "below"} ${formatUsd(levels.entry)}, exit at ${formatUsd(levels.stop)} if it fails`;
   if (levels.tp1 == null) {
     // No old top or bottom lies ahead: name none rather than invent one.
     return `${wait}. No target is fixed: there is no old ${up ? "high" : "low"} ahead of price, so the stop trails under each ${up ? "higher bottom" : "lower top"} instead.`;
   }
   const multiple = rewardToRisk(levels, levels.tp1);
-  return `${wait}, first target ${formatUsd(levels.tp1)}${multiple != null ? ` (${multiple.toFixed(1)}× the risk)` : ""}.`;
+  const base = `${wait}, first target ${formatUsd(levels.tp1)}${multiple != null ? ` (${multiple.toFixed(1)}× the risk)` : ""}${levels.mtp != null ? `, then ${formatUsd(levels.mtp)} (MTP)` : ""}.`;
+  if (alert.continuationPlan.paysRisk === false) {
+    return `${base} That target pays no more than the risk, so the method takes no trade here: profits must exceed losses.`;
+  }
+  return base;
 }
 
 export function buildIntradayCardModel(alert: Alert): SetupCardModel {

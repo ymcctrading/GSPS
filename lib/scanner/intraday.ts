@@ -101,12 +101,13 @@ export type SignalType =
   | "space_overbalance"
   | "overnight_turn"
   | "hourly_turn"
+  | "plan_level_held"
   | "reversal_risk";
 
 export type Direction = "up" | "down";
 
 /** What a move is measured against. Always stated; never left to inference. */
-export type MoveBasis = "prior_close" | "session_open" | "prior_session" | "midpoint";
+export type MoveBasis = "prior_close" | "session_open" | "prior_session" | "midpoint" | "plan_entry";
 
 export type AssetKind = "equity" | "etf" | "index" | "crypto";
 
@@ -236,6 +237,12 @@ export interface SymbolInput {
    * symbol whose turnover cannot be read is not one to alert a novice onto.
    */
   avgDailyVolume?: number | null;
+  /**
+   * The symbol's standing daily plan (the daily scan's entry, stop, TP1 and
+   * MTP), when one exists. `plan_level_held` reads it: the daily plan entered
+   * on the session's chart. Without it that alert reports "no daily plan".
+   */
+  dailyPlan?: DailyPlanLevels | null;
   /** Last time this symbol+signal+direction alerted, for cooldown suppression. */
   lastAlerts?: { type: SignalType; direction: Direction; at: string }[];
   /**
@@ -247,6 +254,17 @@ export interface SymbolInput {
    * this way says so, in `whyNotEarlier`.
    */
   marketClosed?: boolean;
+}
+
+/** A daily plan's levels, as the daily scan priced them. */
+export interface DailyPlanLevels {
+  direction: Direction;
+  entry: number;
+  stop: number;
+  tp1: number | null;
+  mtp: number | null;
+  /** The daily verdict the plan carried: Execute or Watch. */
+  verdict: "Execute" | "Watch";
 }
 
 /** ---- Derived session metrics ------------------------------------------- */
@@ -284,6 +302,13 @@ export interface SessionMetrics {
    * without enough history.
    */
   hourly: { trend: Direction | null; turned: boolean } | null;
+  /**
+   * The daily trend: the 3-Day Chart on the prior daily bars, the chart the
+   * daily plans read (`THREE_DAY_CHART`). Null without enough daily history.
+   */
+  dailyTrend: Direction | null;
+  /** The session's completed swing bottoms and tops (3-bar chart), oldest first. */
+  sessionPivots: { price: number; kind: "top" | "bottom" }[];
   /** ATR of the intraday bars — the noise floor a real move has to clear. */
   intradayAtr: number;
   /** Null when no baseline was available. Never defaulted to 1. */
@@ -364,8 +389,11 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
   const lastClose = bars[bars.length - 1].c;
   const intradayAtr = atr(bars.slice(-30), 14);
   const prior = lastPriorBar(input.priorDailyBars);
-  const swing = walkSwingChart(bars, SWING_BARS).trend;
+  const sessionWalk = walkSwingChart(bars, SWING_BARS);
+  const swing = sessionWalk.trend;
   const hourly = hourlyChart(input, bars[bars.length - 1].t, regularOnly);
+  const priorDaily = (input.priorDailyBars ?? []).filter(isUsableBar);
+  const dailyTrend = priorDaily.length >= 10 ? toDirection(walkSwingChart(priorDaily, THREE_DAY_CHART).trend) : null;
 
   return {
     sessionOpen: first.o,
@@ -383,6 +411,8 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
     oldLevels: gannOldLevels(bars, input.priorDailyBars),
     swingTrend: swing === "bullish" ? "up" : swing === "bearish" ? "down" : null,
     hourly,
+    dailyTrend,
+    sessionPivots: sessionWalk.pivots.map((p) => ({ price: p.price, kind: p.kind })),
     intradayAtr,
     relativeVolume:
       input.volumeBaseline && input.volumeBaseline > 0
@@ -517,6 +547,17 @@ export interface TradePlan {
    * names none and the stop trails the move instead.
    */
   firstTarget: number | null;
+  /**
+   * Whether `firstTarget` pays more than the risk to `invalidation`
+   * (`targetPaysRisk`). False means the method takes no trade here: no
+   * "Trade this" is offered. Null when no target is fixed or no stop is set.
+   */
+  paysRisk?: boolean | null;
+  /**
+   * The master target, only where the alert carries a daily plan's
+   * (`plan_level_held`). The session's own alerts price none.
+   */
+  masterTarget?: number | null;
   /** Conditions that cancel the setup before it triggers. */
   cancelIf: string;
 }
@@ -546,9 +587,28 @@ export interface Alert {
   whyThisAppeared: string;
   /** Why an already-completed move is only being reported now. */
   whyNotEarlier: string | null;
+  /**
+   * Set only on a held alert (`ScanOutput.heldAlerts`): when this same signal,
+   * symbol and direction first fired inside the cooldown. The signal still
+   * qualifies on this scan; only the repeat notice is held back.
+   */
+  firstFlaggedAt?: string | null;
 }
 
 
+
+/** One signal today's scheduled scans flagged, as stored (not the full alert). */
+export interface RecentSystemAlert {
+  symbol: string;
+  type: SignalType;
+  direction: Direction;
+  entry: number | null;
+  stop: number | null;
+  firstTarget: number | null;
+  masterTarget: number | null;
+  confidence: number | null;
+  at: string;
+}
 
 /** ---- Audit trail ------------------------------------------------------- */
 
@@ -585,6 +645,14 @@ export interface ScanOutput {
   config: ScannerConfig;
   /** Symbols whose data was too old to alert on. Surfaced, not swallowed. */
   staleSymbols: string[];
+  /**
+   * Signals that still qualify on this scan but fired inside the cooldown
+   * (2026-10-21, TSLA: a 6-of-6 signal read "Suppressed" minutes after it was
+   * first shown). They stay on screen, marked with when they first fired;
+   * only the repeat is held back, so callers must not persist or notify them
+   * as new.
+   */
+  heldAlerts: Alert[];
 }
 
 /** ---- The scan ---------------------------------------------------------- */
@@ -595,6 +663,7 @@ export function scanIntraday(
   now: Date = new Date(),
 ): ScanOutput {
   const alerts: Alert[] = [];
+  const heldAlerts: Alert[] = [];
   const audit: SymbolAudit[] = [];
   const staleSymbols: string[] = [];
 
@@ -605,13 +674,15 @@ export function scanIntraday(
     // it is shown, the same rule as a daily plan whose stop broke
     // (`lib/gann/stopBreach.ts`).
     alerts.push(...result.alerts.filter((a) => !isThroughInvalidation(a)));
+    heldAlerts.push(...result.held.filter((a) => !isThroughInvalidation(a)));
     if (result.audit.outcome === "stale_data") staleSymbols.push(input.symbol);
   }
 
   // Strongest first, so a page that shows five rows shows the five that matter.
   alerts.sort((a, b) => b.confidence - a.confidence || a.symbol.localeCompare(b.symbol));
+  heldAlerts.sort((a, b) => b.confidence - a.confidence || a.symbol.localeCompare(b.symbol));
 
-  return { scannedAt: now.toISOString(), alerts, audit, config, staleSymbols };
+  return { scannedAt: now.toISOString(), alerts, heldAlerts, audit, config, staleSymbols };
 }
 
 /** True when the alert's current price has already reached its own exit level. */
@@ -623,6 +694,8 @@ export function isThroughInvalidation(alert: Pick<Alert, "direction" | "invalida
 
 interface SymbolResult {
   alerts: Alert[];
+  /** Still qualifying, inside the cooldown: shown, not re-sent. */
+  held: Alert[];
   audit: SymbolAudit;
 }
 
@@ -630,6 +703,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   const checks: AuditCheck[] = [];
   const bail = (outcome: AuditOutcome, reason: string, metrics: SessionMetrics | null = null): SymbolResult => ({
     alerts: [],
+    held: [],
     audit: {
       symbol: input.symbol,
       kind: input.kind,
@@ -761,6 +835,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     detectSpaceOverbalance(input, metrics, dayMove, config, checks, now),
     detectOvernightTurn(input, metrics, dayMove, checks, now),
     detectHourlyTurn(input, metrics, checks, now),
+    detectPlanLevelHeld(input, metrics, checks, now),
     detectReversalRisk(input, metrics, dayMove, config, checks, now),
   ].filter((a): a is Alert => a !== null);
 
@@ -776,30 +851,40 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   // silenced by a cooldown is not the same as a signal that never qualified,
   // and collapsing the two is how a scanner appears to have missed a move it
   // actually caught thirty minutes earlier.
+  //
+  // A signal inside its cooldown still qualifies, so it stays on screen with
+  // the time it first fired (`held`); only the repeat notice is held back.
   const kept: Alert[] = [];
+  const held: Alert[] = [];
   for (const alert of candidates) {
     const suppressedUntil = cooldownUntil(input, alert, config);
     if (suppressedUntil && suppressedUntil > now) {
+      const firstFlaggedAt = firstFlaggedWithin(input, alert, config, now);
       checks.push({
-        name: `${SIGNAL_LABELS[alert.type]} suppression`,
+        name: `${SIGNAL_LABELS[alert.type]} repeat held`,
         passed: false,
-        detail: `Already alerted on this symbol and direction; suppressed until ${suppressedUntil.toISOString()}.`,
+        detail: `Still qualifies; first flagged ${firstFlaggedAt ?? "earlier"}. Shown, not re-sent, until ${suppressedUntil.toISOString()}.`,
       });
+      held.push({ ...alert, firstFlaggedAt });
       continue;
     }
     kept.push(alert);
   }
 
   if (kept.length === 0) {
-    return bail(
-      "suppressed",
-      "A signal qualified, but this symbol already alerted recently and is inside its cooldown.",
-      metrics,
-    );
+    return {
+      ...bail(
+        "suppressed",
+        "A signal still qualifies; it was first flagged earlier, so it is shown again without a new notice until its cooldown ends.",
+        metrics,
+      ),
+      held,
+    };
   }
 
   return {
     alerts: kept,
+    held,
     audit: {
       symbol: input.symbol,
       kind: input.kind,
@@ -1155,6 +1240,131 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
   });
 }
 
+/**
+ * The daily plan entered on the session's chart: Gann's intraday use, the
+ * main trend's plan timed on the shortest chart (2026-10-21, project owner: an
+ * intraday plan for a symbol whose daily plan filled in the first 45 minutes).
+ *
+ * The rule, from Gann's text:
+ * - Buy on the reaction back to the planned level (a crossed old top "nearly
+ *   always" holds the first time, *Truth of the Stock Tape*; the reaction buy,
+ *   *New Stock Trend Detector* p. 20), and act on a definite turn on a closed
+ *   bar, never ahead of it ("don't try to get ahead of the market", *Master
+ *   Stock Market Course* Ch. 8 p. 251). In very active markets the shortest
+ *   chart shows the turn first (*Master Course* Ch. 13, the hourly chart).
+ *   So: price has traded into the plan's entry this session (within one
+ *   intraday point), the session's 3-bar swing chart runs the plan's way, and
+ *   the last bar closed back beyond the entry.
+ * - The stop goes under the reaction's low, "the lowest day" of the reaction
+ *   in active markets (*New Stock Trend Detector* p. 46), here the session's
+ *   latest completed swing bottom (top, for a short) less one intraday point.
+ * - The targets are the daily plan's TP1 and MTP: "the big money in the
+ *   markets is made on the long swings and not by day to day trading"
+ *   (*Annual Forecasts 1919-1922* p. 24).
+ * - Missed it? The next higher bottom is the next buying point while the plan
+ *   stands (re-buy on the reaction, *Tunnel Thru the Air* p. 198): a later
+ *   swing bottom above the first moves the stop up to it and the alert fires
+ *   again once the cooldown clears.
+ * Not fired when the plan's stop broke this session (the plan is retired,
+ * `lib/gann/stopBreach.ts`) or price is already at the plan's TP1.
+ *
+ * Three-question basis: 1. Gann, as cited (Tier A; the *Master Course* is read
+ * in `docs/memory-bank/sources/`). 2. No periodicity claim; Dewey does not
+ * apply. 3. Correspondence: one plan read at two scales, the daily chart for
+ * what and where, the session's chart for when. Law of Creation: daily plan ⊗
+ * session turn creates the third neither holds alone, an entry with the daily
+ * targets and a session-sized risk.
+ */
+function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: AuditCheck[], now: Date): Alert | null {
+  const plan = input.dailyPlan;
+  const name = "Daily plan's level";
+  if (!plan) {
+    checks.push({ name, passed: false, detail: "No standing daily plan for this symbol." });
+    return null;
+  }
+  const up = plan.direction === "up";
+  const broke = up ? m.low <= plan.stop : m.high >= plan.stop;
+  if (broke) {
+    checks.push({ name, passed: false, detail: `The daily plan's stop (${plan.stop.toFixed(2)}) traded this session, so the plan is retired.` });
+    return null;
+  }
+  const touched = up ? m.low <= plan.entry + m.point : m.high >= plan.entry - m.point;
+  if (!touched) {
+    checks.push({
+      name,
+      passed: false,
+      detail: `Price has not reacted to the plan's entry (${plan.entry.toFixed(2)}) this session; the session's ${up ? "low" : "high"} is ${(up ? m.low : m.high).toFixed(2)}.`,
+    });
+    return null;
+  }
+  if (plan.tp1 != null && (up ? m.last >= plan.tp1 : m.last <= plan.tp1)) {
+    checks.push({ name, passed: false, detail: `Price is already at the plan's first target (${plan.tp1.toFixed(2)}).` });
+    return null;
+  }
+  const turned = m.swingTrend === plan.direction && (up ? m.lastClose > plan.entry : m.lastClose < plan.entry);
+  if (!turned) {
+    checks.push({
+      name,
+      passed: false,
+      detail: `Price reacted to the plan's entry (${plan.entry.toFixed(2)}), but the session's swing chart has not turned ${plan.direction} with a close back ${up ? "above" : "below"} it yet.`,
+    });
+    return null;
+  }
+
+  // The reaction's extreme: the latest completed swing bottom (top), or the
+  // session's own low (high) before one completes.
+  const pivots = m.sessionPivots.filter((p) => p.kind === (up ? "bottom" : "top"));
+  const extreme = pivots.length > 0 ? pivots[pivots.length - 1].price : up ? m.low : m.high;
+  const allowance = m.point > 0 ? m.point : m.intradayAtr;
+  const stop = up ? extreme - allowance : extreme + allowance;
+  const entry = m.lastClose;
+  const rebuy = up ? extreme > m.low + allowance : extreme < m.high - allowance;
+  const cause = rebuy
+    ? `${input.symbol} reacted to its daily plan's entry at ${plan.entry.toFixed(2)} earlier, and has now made a ${up ? "higher bottom" : "lower top"} at ${extreme.toFixed(2)} and turned ${plan.direction} again: the next buying point while the plan stands.`
+    : `${input.symbol} reacted to its daily plan's entry at ${plan.entry.toFixed(2)}, held, and the session's swing chart turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
+  checks.push({ name, passed: true, detail: cause });
+
+  const move = measureMove(m.last, plan.entry, "plan_entry");
+  if (!move) return null;
+  const factors: ConfidenceFactor[] = [
+    {
+      label: "The daily plan's level held",
+      passed: true,
+      weight: 30,
+      detail: `Daily plan (${plan.verdict}): entry ${plan.entry.toFixed(2)}, stop ${plan.stop.toFixed(2)}.`,
+    },
+    {
+      label: "The daily verdict is Execute",
+      passed: plan.verdict === "Execute",
+      weight: 15,
+      detail: plan.verdict === "Execute" ? "The daily scan reads this plan Execute." : "The daily scan reads this plan Watch, not Execute.",
+    },
+    { ...swingFactor(m, plan.direction), weight: 15 },
+    ...hourlyFactors(m, plan.direction),
+    midpointFactor(m, plan.direction),
+  ];
+  const sessionPlan: TradePlan = {
+    confirmation: `Done: a bar closed back ${up ? "above" : "below"} the plan's entry after the reaction. Enter near ${entry.toFixed(2)}; don't chase a bar that has run away from the stop.`,
+    invalidation: stop,
+    firstTarget: plan.tp1,
+    masterTarget: plan.mtp,
+    paysRisk: targetPaysRisk(entry, stop, plan.tp1),
+    cancelIf: `A bar closes ${up ? "below" : "above"} ${stop.toFixed(2)}, or the daily plan's stop at ${plan.stop.toFixed(2)} trades.`,
+  };
+  return buildAlert({
+    now,
+    input,
+    metrics: m,
+    type: "plan_level_held",
+    direction: plan.direction,
+    move,
+    factors,
+    invalidation: stop,
+    plan: sessionPlan,
+    whyThisAppeared: `${cause} The stop goes one point ${up ? "under" : "over"} that ${up ? "bottom" : "top"}, at ${stop.toFixed(2)}, much closer than the daily stop; the targets stay the daily plan's${plan.tp1 != null ? `, ${plan.tp1.toFixed(2)}` : ""}${plan.mtp != null ? ` and ${plan.mtp.toFixed(2)}` : ""}, because the money is made on the swing, not the day.`,
+  });
+}
+
 function detectReversalRisk(
   input: SymbolInput,
   m: SessionMetrics,
@@ -1253,6 +1463,19 @@ function hourlyFactors(m: SessionMetrics, direction: Direction): ConfidenceFacto
   ];
 }
 
+/** The daily 3-Day Chart's trend, when there is enough daily history to read it. */
+function dailyTrendFactors(m: SessionMetrics, direction: Direction): ConfidenceFactor[] {
+  if (m.dailyTrend === null) return [];
+  return [
+    {
+      label: "With the daily trend",
+      passed: m.dailyTrend === direction,
+      weight: 20,
+      detail: `The 3-Day Chart on the daily bars is ${m.dailyTrend}${m.dailyTrend === direction ? "" : ": this alert runs against it"}.`,
+    },
+  ];
+}
+
 /**
  * The daily campaign ledger with today's session as the newest bar, so a
  * reaction that is happening now counts. Null without enough daily history.
@@ -1295,9 +1518,15 @@ function buildAlert(args: {
   move: Move;
   factors: ConfidenceFactor[];
   invalidation: number | null;
+  /** The continuation plan, when the detector prices its own (`plan_level_held`). */
+  plan?: TradePlan;
   whyThisAppeared: string;
 }): Alert {
-  const { now, input, metrics: m, type, direction, move, factors, invalidation } = args;
+  const { now, input, metrics: m, type, direction, move, invalidation } = args;
+  // Every trade alert is read against the daily trend: "never buck the trend"
+  // (never-failing rule 5, *Commodities* pp. 43-45). A reversal-risk alert is a
+  // warning to stand aside, not a trade, so it carries no such check.
+  const factors = type === "reversal_risk" ? args.factors : [...args.factors, ...dailyTrendFactors(m, direction)];
 
   const confidence = scoreConfidence(factors);
   const dataAge = ageSeconds(m.dataTimestamp, now);
@@ -1317,7 +1546,7 @@ function buildAlert(args: {
     confidence,
     confidenceFactors: factors,
     invalidation,
-    continuationPlan: continuationPlan(m, direction, invalidation, input.prevClose, input.dailyAtr),
+    continuationPlan: args.plan ?? continuationPlan(m, direction, invalidation, input.prevClose, input.dailyAtr),
     pivotPlan: pivotPlan(m, direction, invalidation),
     whyThisAppeared: args.whyThisAppeared,
     whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
@@ -1374,6 +1603,15 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
  * swings, the prior session's high and low, and the 3-Day Chart's swings on
  * the daily bars). Until 2026-10-16 only the first two were read, which left
  * many alerts with no target where an old level did lie ahead.
+ *
+ * The target must pay more than the risk (2026-10-21, the daily plan's rule
+ * carried to the session's scale): "profits must exceed losses" (*Wall Street
+ * Stock Selector* Ch. II), never risk 3-5 points to make 3-5, and no trade
+ * whose first target is no farther than its risk (M-K5). Given `risk`, the
+ * target is the nearest candidate that pays more than it; with none, the
+ * nearest stays and the plan says it does not pay (`targetPaysRisk`). Every
+ * SPY alert on 2026-10-21 named a first target nearer than its stop (0.30
+ * against 2.64 at 1:45 PM), because the nearest level was taken whatever it paid.
  */
 export function gannFirstTarget(input: {
   direction: Direction;
@@ -1385,8 +1623,10 @@ export function gannFirstTarget(input: {
   intradayAtr: number;
   /** Old tops and bottoms from `gannOldLevels`; only those beyond the price count. */
   oldLevels?: number[];
+  /** Distance from the entry to the stop; when given, the first level that pays more than it is taken. */
+  risk?: number | null;
 }): number | null {
-  const { direction, last, sessionHigh, sessionLow, prevClose, dailyAtr, intradayAtr, oldLevels = [] } = input;
+  const { direction, last, sessionHigh, sessionLow, prevClose, dailyAtr, intradayAtr, oldLevels = [], risk = null } = input;
   const up = direction === "up";
   const floor = Math.max(0, intradayAtr);
   const beyond = (p: number) => (up ? p - last : last - p) >= floor && (up ? p > last : p < last);
@@ -1401,7 +1641,21 @@ export function gannFirstTarget(input: {
   ].filter((p) => Number.isFinite(p) && beyond(p));
 
   if (candidates.length === 0) return null;
-  return candidates.reduce((nearest, p) => (Math.abs(p - last) < Math.abs(nearest - last) ? p : nearest));
+  const nearestOf = (ps: number[]) => ps.reduce((nearest, p) => (Math.abs(p - last) < Math.abs(nearest - last) ? p : nearest));
+  const paying = risk != null && risk > 0 ? candidates.filter((p) => Math.abs(p - last) > risk) : [];
+  return nearestOf(paying.length > 0 ? paying : candidates);
+}
+
+/**
+ * Whether a first target pays more than the risk taken to reach it (M-K5;
+ * *Wall Street Stock Selector* Ch. II, "profits must exceed losses"). Null when
+ * either is missing: no fixed target (the stop trails) or no stop to measure.
+ */
+export function targetPaysRisk(entry: number, stop: number | null, target: number | null): boolean | null {
+  if (stop == null || target == null) return null;
+  const risk = Math.abs(entry - stop);
+  if (!(risk > 0)) return null;
+  return Math.abs(target - entry) > risk;
 }
 
 function continuationPlan(
@@ -1420,11 +1674,13 @@ function continuationPlan(
     dailyAtr,
     intradayAtr: m.intradayAtr,
     oldLevels: m.oldLevels,
+    risk: invalidation != null ? Math.abs(m.last - invalidation) : null,
   });
   return {
     confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${m.last.toFixed(2)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
     invalidation,
     firstTarget: target,
+    paysRisk: targetPaysRisk(m.last, invalidation, target),
     cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's 50% point at ${m.midpoint.toFixed(2)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
   };
 }
@@ -1498,6 +1754,33 @@ export function cooldownUntil(
   if (latest === -Infinity) return null;
 
   return new Date(latest + config.cooldownMinutes * 60_000);
+}
+
+/**
+ * When this signal first fired in the run of alerts its cooldown belongs to:
+ * the earliest prior alert of the same type and direction from which each
+ * later one came inside the cooldown, so a signal that has held for an hour
+ * reads as first flagged an hour ago, not at its latest repeat.
+ */
+export function firstFlaggedWithin(
+  input: SymbolInput,
+  alert: Pick<Alert, "type" | "direction">,
+  config: ScannerConfig,
+  now: Date,
+): string | null {
+  const times = (input.lastAlerts ?? [])
+    .filter((a) => a.type === alert.type && a.direction === alert.direction)
+    .map((a) => Date.parse(a.at))
+    .filter((t) => !Number.isNaN(t) && t <= now.getTime())
+    .sort((a, b) => b - a);
+  if (times.length === 0) return null;
+  const gap = config.cooldownMinutes * 60_000;
+  let first = times[0];
+  for (const t of times.slice(1)) {
+    if (first - t > gap) break;
+    first = t;
+  }
+  return new Date(first).toISOString();
 }
 
 /** ---- Volume baseline --------------------------------------------------- */

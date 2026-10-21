@@ -17,11 +17,11 @@ import {
   formatRvol,
   formatVolume,
 } from "@/lib/scanner/intradayDisplay";
-import type { Alert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
+import type { Alert, RecentSystemAlert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
 import { buildIntradayCardModel, isReversalRisk } from "@/lib/setups/intraday";
 import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";
-import { intradayTradeHref } from "@/lib/routes";
+import { intradayTradeHref, tickerHref } from "@/lib/routes";
 
 /**
  * Intraday momentum panel.
@@ -59,7 +59,16 @@ type ScanResponse = ScanOutput & {
   budget?: IntradayRefreshBudget | null;
 };
 
-export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
+export function IntradayAlerts({
+  symbols,
+  hideWhenLocked = false,
+  title = "Intraday movement",
+}: {
+  symbols?: string[];
+  /** Render nothing for a plan without intraday access (the ticker page). */
+  hideWhenLocked?: boolean;
+  title?: string;
+}) {
   const [output, setOutput] = useState<ScanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +77,8 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
   const [budget, setBudget] = useState<IntradayRefreshBudget | null>(null);
   const [budgetKnown, setBudgetKnown] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  // What today's scheduled scans already flagged, shown at once and free.
+  const [recent, setRecent] = useState<RecentSystemAlert[]>([]);
 
   const query = symbols?.length ? `?symbols=${encodeURIComponent(symbols.join(","))}` : "";
 
@@ -96,11 +107,11 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
     let timer: ReturnType<typeof setInterval> | undefined;
     let kickoff: ReturnType<typeof setTimeout> | undefined;
 
-    fetch("/api/intraday-scan?budget=1")
+    fetch(`/api/intraday-scan?budget=1${query ? `&${query.slice(1)}` : ""}`)
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.status === 403) {
+        if (res.status === 403 || (hideWhenLocked && res.status === 401)) {
           setLocked(data.error ?? "Intraday scans aren't included in your plan.");
           setBudgetKnown(true);
           return;
@@ -108,6 +119,7 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
         if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
         const known: IntradayRefreshBudget | null = data.budget ?? null;
         setBudget(known);
+        setRecent(Array.isArray(data.recent) ? data.recent : []);
         setBudgetKnown(true);
         // No budget in the answer means nothing is metered here.
         if (known === null || known.automatic) {
@@ -129,7 +141,13 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
       if (kickoff) clearTimeout(kickoff);
       if (timer) clearInterval(timer);
     };
-  }, [run]);
+  }, [run, query, hideWhenLocked]);
+
+  // New signals first, then the ones that still qualify but fired earlier
+  // (their repeat notice is held back; the card says when they first fired).
+  const shown = output ? [...output.alerts, ...(output.heldAlerts ?? [])] : [];
+
+  if (locked && hideWhenLocked) return null;
 
   const metered = budget !== null && !budget.automatic;
   const outOfRefreshes = budget !== null && !budget.allowed;
@@ -139,7 +157,7 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <CardTitle>Intraday movement</CardTitle>
+            <CardTitle>{title}</CardTitle>
             <CardDescription>
               Confirmation of moves that have already happened, with the evidence attached — not a
               forecast. Every alert names what it measured the move against and the price that would
@@ -170,19 +188,21 @@ export function IntradayAlerts({ symbols }: { symbols?: string[] }) {
             {loading
               ? "Running the scan…"
               : metered
-                ? "Nothing has been scanned yet. Run the scan when you want a fresh read — each run uses one of your refreshes."
+                ? "Run the scan when you want a fresh read — each run uses one of your refreshes."
                 : "No scan has run yet."}
           </p>
         )}
 
-        {output && output.alerts.length === 0 && (
+        {!locked && !output && recent.length > 0 && <RecentList recent={recent} />}
+
+        {output && shown.length === 0 && (
           <p className="py-4 text-center text-sm text-muted">
             Nothing crossed a detection threshold on this pass. Open the audit below to see what each
             symbol was checked against — an empty list here is a result, not a failure.
           </p>
         )}
 
-        {output && consolidateBySymbol(output.alerts).map(({ alert, otherSignals }) => (
+        {output && consolidateBySymbol(shown).map(({ alert, otherSignals }) => (
           <AlertCard key={alert.symbol} alert={alert} otherSignals={otherSignals} />
         ))}
 
@@ -259,6 +279,47 @@ function consolidateBySymbol(alerts: Alert[]): { alert: Alert; otherSignals: Ale
   });
 }
 
+/**
+ * What today's scheduled scans flagged, from the stored rows: the symbol, the
+ * signal and its levels, with the time it fired. Shown before a refresh is
+ * spent, and while one runs, so the panel is never empty for a signal that
+ * already fired today. Running the scan gives the full card.
+ */
+function RecentList({ recent }: { recent: RecentSystemAlert[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">Flagged today by the scheduled scans</p>
+      {recent.map((r) => {
+        const up = r.direction === "up";
+        return (
+          <div key={`${r.symbol}-${r.type}-${r.direction}`} className="rounded-lg border border-border p-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href={tickerHref(r.symbol)} className="font-semibold hover:underline">
+                {r.symbol}
+              </Link>
+              <Badge variant={r.type === "reversal_risk" ? "warn" : up ? "bull" : "bear"}>
+                {SIGNAL_LABELS[r.type] ?? r.type} {up ? "↑" : "↓"}
+              </Badge>
+              <span className="text-xs text-muted">{formatOpenedAt(r.at)}</span>
+            </div>
+            {r.type !== "reversal_risk" && (
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+                <Field label="Entry" value={r.entry != null ? formatUsd(r.entry) : "—"} />
+                <Field label="Exit (S/L)" value={r.stop != null ? formatUsd(r.stop) : "—"} />
+                <Field label="TP1" value={r.firstTarget != null ? formatUsd(r.firstTarget) : "—"} />
+                <Field label="MTP" value={r.masterTarget != null ? formatUsd(r.masterTarget) : "—"} />
+              </dl>
+            )}
+          </div>
+        );
+      })}
+      <p className="text-xs text-muted">
+        Levels as they stood when each fired. Run the scan for the current read and the full card.
+      </p>
+    </div>
+  );
+}
+
 function FreshnessLine({ output }: { output: ScanResponse }) {
   return (
     <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2 text-xs">
@@ -290,6 +351,9 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   const { stage, setStage, toggleName } = useCardStage();
   const up = alert.direction === "up";
   const isRisk = isReversalRisk(alert);
+  // A first target that pays no more than the risk is no trade (M-K5;
+  // "profits must exceed losses", *Wall Street Stock Selector* Ch. II).
+  const unpaid = alert.continuationPlan.paysRisk === false;
   const model = buildIntradayCardModel(alert);
   const cardId = `intraday-card-${alert.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
   const { levels } = model;
@@ -317,6 +381,12 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               {" — shown here as confirming signals, not separate setups."}
             </p>
           )}
+          {alert.firstFlaggedAt && (
+            <p className="mt-1 text-xs text-muted">
+              First flagged {formatOpenedAt(alert.firstFlaggedAt)}. It still qualifies; no new notice is sent for the
+              repeat.
+            </p>
+          )}
         </div>
 
         <div className="shrink-0 text-right">
@@ -338,8 +408,13 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
           <Field label="Entry" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
           <Field label="Exit (S/L)" value={levels.stop != null ? formatUsd(levels.stop) : "—"} />
           <Field label="TP1" value={levels.tp1 != null ? formatUsd(levels.tp1) : "—"} />
-          <Field label="MTP" value="—" />
+          <Field label="MTP" value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
         </dl>
+      )}
+      {!isRisk && unpaid && (
+        <p className="mt-1 text-xs text-muted">
+          The first target pays no more than the risk, so this is no trade: profits must exceed losses.
+        </p>
       )}
 
       {stage !== "closed" && (
@@ -355,7 +430,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
             </Badge>
           }
           actions={
-            !isRisk && (
+            !isRisk && !unpaid && (
               <Link
                 href={intradayTradeHref(alert.symbol, up ? "buy" : "sell")}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
@@ -380,12 +455,18 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
                 <Field label="Data age" value={formatAge(alert.dataAgeSeconds)} />
               </dl>
 
-              {!isRisk && (
+              {!isRisk && alert.type === "plan_level_held" && (
+                <p className="text-xs text-muted">
+                  This is the daily plan entered on today&apos;s chart: the stop sits under the reaction&apos;s low on
+                  the intraday chart, and TP1 and MTP are the daily plan&apos;s own targets.
+                </p>
+              )}
+              {!isRisk && alert.type !== "plan_level_held" && (
                 <p className="text-xs text-muted">
                   Intraday setups price an exit and a first target only — there is no MTP (master take profit) on
-                  one. TP1 here is the nearest old high or low beyond the price, or a round number just short of
-                  one. When there is none ahead, no target is fixed and the stop trails under each higher bottom
-                  (a lower top for a sell) instead.
+                  one. TP1 here is the first old high or low beyond the price, or a round number just short of
+                  one, that pays more than the risk. When there is none ahead, no target is fixed and the stop
+                  trails under each higher bottom (a lower top for a sell) instead.
                 </p>
               )}
 
@@ -445,6 +526,7 @@ function Plan({
           label="First target"
           value={plan.firstTarget != null ? formatUsd(plan.firstTarget) : "None fixed: the stop trails the move"}
         />
+        {plan.masterTarget != null && <PlanLine label="MTP" value={formatUsd(plan.masterTarget)} />}
         <PlanLine label="Cancel if" value={plan.cancelIf} />
       </dl>
     </div>
@@ -472,7 +554,7 @@ const OUTCOME_TONE: Record<SymbolAudit["outcome"], "bull" | "warn" | "muted"> = 
 const OUTCOME_LABELS: Record<SymbolAudit["outcome"], string> = {
   alerted: "Alerted",
   no_signal: "Checked — quiet",
-  suppressed: "Suppressed",
+  suppressed: "Still qualifies (flagged earlier)",
   stale_data: "Stale data",
   insufficient_data: "No data",
   filtered: "Filtered out",

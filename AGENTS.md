@@ -2629,6 +2629,29 @@ Standing facts for a session that touches any list of setups:
   trade is days to weeks (median about 5 to 7 sessions in the replay, and 60%
   of trades on the live exits were still open at its 10-session limit).
 
+**Intraday, 2026-10-21 (owner: SPY's daily plan filled in the first 45
+minutes and nothing intraday said so; TSLA's 6/6 signal read "Suppressed").**
+Gann trades the swing, not the day (*Annual Forecasts* p.24; "scalpers get
+scalped", *Stock Selector*), and uses the hourly and session charts to time an
+entry in an active market (Master Course Ch.13). So the intraday scanner now
+times the daily plan: "Daily plan's level held" (`plan_level_held`,
+`lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
+Watch plan's entry without trading its stop and the session's swing chart turns
+back through it; the stop sits under the reaction's low, TP1 and MTP are the
+daily plan's (NSTD pp.20, 46; *Tunnel* p.198 for the re-buy). The route reads
+the plans from `daily_scans` and `active_monitors` (`loadDailyPlans`). Every
+intraday TP1 must pay more than the risk (`gannFirstTarget`'s `risk`,
+`targetPaysRisk`, M-K5), in the alert and the intraday replay; a plan with
+none says no trade and offers no "Trade this". Alerts carry a "With the daily
+trend" check. A signal inside its 30-minute cooldown stays on screen
+(`ScanOutput.heldAlerts`, `firstFlaggedAt`); only the repeat is not persisted
+or sent. The budget read returns today's scheduled-scan alerts (`recent`), so
+a metered panel shows them before a refresh is spent, and the ticker page has
+its own intraday panel, labelled apart from the daily verdict. A monitor goes
+INVALIDATED only when the scan retired the plan for a broken stop; any other
+Reject is NO_SETUP and sends nothing (`evaluateMonitorsAndNotify`). The daily
+verdict and `STRATEGY_VERSION` are unchanged.
+
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 
 The novice/expert interface worked example in the Three-question mandate

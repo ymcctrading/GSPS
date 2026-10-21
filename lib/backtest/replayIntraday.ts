@@ -278,6 +278,8 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         intradayAtr: executionAtr,
         // The same old tops and bottoms the live alert reads, as of this candle.
         oldLevels: gannOldLevels(sessionBars, dailyBars.filter((d) => dateOf(d) < date)),
+        // The first level that pays more than the risk, as the live alert reads it.
+        risk: Math.abs(entry - stop),
       });
 
       const walked = walkIntradayExit({ bars, from: i, maxBarsHeld, long, entry, stop, point, firstTarget });
