@@ -132,12 +132,31 @@ describe("computeEquityTradeLevels", () => {
   it("takes TP1 at the nearest level in its band and the master at the next level (parity C4)", () => {
     const entry = 100;
     const atrPct = 3;
-    const structuralLevels = [95, 106, 115]; // 106 is inside the TP1 band, 115 beyond it, inside the 30% cap
+    // The stop is 3 points under 95 (about 90.2): 112 is the nearest level in
+    // the TP1 band beyond that risk, 120 beyond it, inside the 30% cap.
+    const structuralLevels = [95, 112, 120];
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
     expect(result.tp1FromStructure).toBe(true);
-    expect(result.takeProfit1).toBe(106);
+    expect(result.takeProfit1).toBe(112);
     expect(result.masterFromStructure).toBe(true);
-    expect(result.takeProfit2).toBe(115);
+    expect(result.takeProfit2).toBe(120);
+  });
+
+  // M-K5 (2026-10-21): the first target pays more than the risk. A level
+  // inside the risk is passed over for the next one beyond it; with none
+  // beyond it in the band, the nearest stays and score.ts holds the plan.
+  it("takes TP1 at the first level beyond the risk, past a nearer level inside it", () => {
+    const entry = 100;
+    const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels: [], extensionLevels: [104, 112], atrPct: 3, stopLoss: 94, evenFigures: false });
+    expect(result.takeProfit1).toBe(112);
+    const short = computeEquityTradeLevels({ direction: "bearish", entry, structuralLevels: [], extensionLevels: [96, 88], atrPct: 3, stopLoss: 106, evenFigures: false });
+    expect(short.takeProfit1).toBe(88);
+  });
+
+  it("keeps the nearest level when no level in the band pays the risk", () => {
+    const result = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [], extensionLevels: [104], atrPct: 3, stopLoss: 90, evenFigures: false });
+    expect(result.takeProfit1).toBe(104);
+    expect(result.takeProfit1 - 100).toBeLessThanOrEqual(100 - result.stopLoss);
   });
 
   it("falls back to the range-scaled TP1 only when no level lies in the TP1 band", () => {
@@ -199,24 +218,24 @@ describe("computeEquityTradeLevels", () => {
       direction: "bullish",
       entry,
       structuralLevels: [], // no S/R for the stop
-      extensionLevels: [106, 115], // Gann-only targets, inside the TP1 band and the 30% cap
+      extensionLevels: [112, 120], // Gann-only targets, beyond the 8% fallback risk, inside the TP1 band and the 30% cap
       atrPct,
     });
     expect(result.stopFromStructure).toBe(false);
-    expect(result.takeProfit1).toBe(106);
+    expect(result.takeProfit1).toBe(112);
     expect(result.masterFromStructure).toBe(true);
-    expect(result.takeProfit2).toBe(115);
+    expect(result.takeProfit2).toBe(120);
   });
 
   it("defaults extensionLevels to structuralLevels when omitted, unchanged from before the split", () => {
     const entry = 100;
     const atrPct = 3;
-    const structuralLevels = [95, 106, 115];
+    const structuralLevels = [95, 112, 120];
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
     expect(result.stopFromStructure).toBe(true);
     expect(result.tp1FromStructure).toBe(true);
     expect(result.masterFromStructure).toBe(true);
-    expect(result.takeProfit2).toBe(115);
+    expect(result.takeProfit2).toBe(120);
   });
 
   it("keeps the stop-placement band consistent with the exported min/max constants", () => {

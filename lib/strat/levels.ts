@@ -416,7 +416,23 @@ export function computeEquityTradeLevels(params: {
   // as the stop's, `combineNearbyLevels`): averaged before TP1 and the master
   // are read from them (review B, 2026-10-16; until then only the stop was).
   const ascending = [...combineNearbyLevels(extensionLevels), ...figureTargets].sort((a, b) => dir * (a - b));
-  const levelTp1 = ascending.find((l) => pctFrom(l) >= EQUITY_TP1_MIN_PCT && pctFrom(l) <= EQUITY_TP1_MAX_PCT);
+  // TP1 is the first level that pays more than the risk (fixed 2026-10-21).
+  // Gann: "don't trade for 3-5 points unless the stop can be 1-2 points";
+  // "profits must exceed losses" (*Wall Street Stock Selector* Ch. II, *45
+  // Years* pp.16-26), and a swing is held through minor resistance until a
+  // reverse swing, never scalped (*Commodities* p.316, M-E8). Until this date
+  // TP1 was simply the nearest level past the band's fixed 3% floor. Gann's
+  // reaction stop is 4 price-scaled points (about 12% of a $30 stock, 5% at
+  // $200, 2% at $700; pointScale.ts), so that level sat inside the risk on
+  // most stocks under about $250 even when Gann levels stood beyond it, and
+  // M-K5's hold in score.ts read as a price filter (on the 2026-10-20 run it
+  // held 526 of the 701 trades scoring 6+). The nearest level in the band is
+  // still TP1 when none beyond the risk is in it, so M-K5 holds a plan whose
+  // Gann levels within reach do not pay the risk.
+  const riskDistance = Math.abs(entry - stopLoss);
+  const inBand = ascending.filter((l) => pctFrom(l) >= EQUITY_TP1_MIN_PCT && pctFrom(l) <= EQUITY_TP1_MAX_PCT);
+  // One cent beyond the risk, so the rounded plan clears M-K5's "no farther than the risk".
+  const levelTp1 = inBand.find((l) => dir * (l - entry) > riskDistance + 0.01) ?? inBand[0];
   const tp1FromStructure = levelTp1 !== undefined;
   const takeProfit1 = levelTp1 ?? atrTp1;
 

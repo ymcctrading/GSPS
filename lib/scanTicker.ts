@@ -532,7 +532,6 @@ export async function scanTicker(
           atrPct,
           weights: await getActiveCriterionWeights(),
           pillarFacts,
-          windowTurn,
         }), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
         // Q19: a counter-trend Execute needs its turn to come on a dated window
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.

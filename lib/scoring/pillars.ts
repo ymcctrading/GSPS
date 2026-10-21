@@ -13,7 +13,8 @@
  * Three questions, as AGENTS.md asks:
  * 1. Sources: MC Ch. 7 C1-C14 and the selection rules S1-S27 (Tier A), with the
  *    trend, level, time and volume rules each module cites.
- * 2. Cycles: P1 and P7 read counts and windows the time modules already carry;
+ * 2. Cycles: P1 reads counts and windows, and P7 the time square and the
+ *    reaction clock, that the time modules already carry;
  *    no new periodicity is claimed here, so Dewey's checklist is not re-run.
  * 3. Hermetic: Correspondence, in that each pillar asks one question on every
  *    timeframe the rule reads (P2's monthly, weekly and daily); and Polarity,
@@ -28,7 +29,6 @@
 
 import type { Bar } from "@/lib/types";
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
-import type { WindowTurn } from "@/lib/gann/timeWindow";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { yearCycleConvergence } from "@/lib/gann/timeCycles";
 import { patternAngleLines } from "@/lib/gann/patternAngles";
@@ -279,29 +279,58 @@ export function anglesPillar(f: PillarFacts | null | undefined, side: Side, stee
   };
 }
 
-/** P7 (C3-C5, C9 time): two of price and time squared, a dated window, and the reaction inside its time limit. */
-export function timePillar(input: {
-  side: Side;
-  squared: boolean;
-  facts: PillarFacts | null | undefined;
-  /** Read only when it decides the point. */
-  windowTurn?: (() => WindowTurn | null) | null;
-}): PillarResult {
-  const { side, squared, facts: f } = input;
+/**
+ * P7's (c): the reaction is inside its time limit with the trend (not into a
+ * 2nd month, nor abnormally long), or a move against the trend has outrun it.
+ */
+export function reactionInTimeLimit(side: Side, f: PillarFacts | null | undefined): boolean {
   const cm = f?.counterMove;
   const late = cm?.phase === "secondMonth" || cm?.phase === "thirdMonth" || f?.reactionAbnormal === true;
-  const inLimit =
-    cm != null && (cm.trend === side ? !cm.inCounterMove || !late : cm.inCounterMove && late);
-  let windowOpen: boolean | null = null;
-  if (squared !== inLimit) {
-    const turn = input.windowTurn?.() ?? null;
-    windowOpen = turn !== null && turn.windows.length > 0;
-  }
-  const passed = (squared && inLimit) || (windowOpen === true);
-  const withTrend = cm?.trend === side;
+  return cm != null && (cm.trend === side ? !cm.inCounterMove || !late : cm.inCounterMove && late);
+}
+
+/**
+ * How P7 combines its two remaining checks: "and" (both) or "or" (either).
+ *
+ * The spec (`score-pillars-research.md` §3 P7) bundles (a) price and time
+ * squared, (b) a dated time window and (c) the reaction inside its time limit,
+ * "2 of 3". (b) was dropped on 2026-10-20 (`STRATEGY_VERSION`
+ * `2026-10-20-gann-time-pillar-no-window`), pending the owner's choice: the
+ * window was open on 100% of random-walk turns, and neither excluding the
+ * square's 22.5° lines and the Hexagon (99.2%) nor requiring two families to
+ * converge (93.0%; 70.8% for three) made it selective. "2 of 3" with one gone
+ * is 2 of 2, so the spec's own reading is "and", and it is the spec's §3
+ * preference too (all-of wherever the checks ask one question, Gann's "all of
+ * the parts make up the whole").
+ *
+ * Measured on random walks (`lib/scoring/__tests__/timePillarRule.test.ts`,
+ * 400 walks of 300 weekday sessions, every 5th session from the 60th, both
+ * sides; 38,400 readings): squared 21.1%, the reaction in its limit 50.0%,
+ * "and" 11.6%, "or" 59.5%. Neither is saturated (above 95%) or near-empty
+ * (below 5%), so the measurement does not decide between them, and the spec
+ * does: "and" is its "2 of 3" with one check gone. "Or" would pass on the
+ * reaction clock alone half the time (50.0% of the 59.5%), so time squared,
+ * the pillar's first check, would decide little.
+ *
+ * Revert: put the window back as a third check in `timePillar` (the turn is
+ * still read for `applyTimeWindowHold`, which is unchanged).
+ */
+export const TIME_PILLAR_COMBINE: "and" | "or" = "and";
+
+/**
+ * P7 (C3-C5, C9 time): price and time squared and the reaction inside its time
+ * limit. The dated window is no longer one of its checks (see
+ * `TIME_PILLAR_COMBINE`); it still holds a counter-trend Execute through
+ * `applyTimeWindowHold`.
+ */
+export function timePillar(input: { side: Side; squared: boolean; facts: PillarFacts | null | undefined }): PillarResult {
+  const { side, squared, facts: f } = input;
+  const inLimit = reactionInTimeLimit(side, f);
+  const passed = TIME_PILLAR_COMBINE === "and" ? squared && inLimit : squared || inLimit;
+  const withTrend = f?.counterMove?.trend === side;
   return {
     passed,
-    note: `Price and time squared: ${yes(squared)}. ${withTrend ? "The reaction is inside its time limit" : "The move against the trend has outrun its time limit"}: ${yes(inLimit)}.${windowOpen === null ? "" : ` A dated time window at the turn: ${yes(windowOpen)}.`} Two of three are needed.`,
+    note: `Price and time squared: ${yes(squared)}. ${withTrend ? "The reaction is inside its time limit" : "The move against the trend has outrun its time limit"}: ${yes(inLimit)}. ${TIME_PILLAR_COMBINE === "and" ? "Both are needed" : "Either one is enough"}.`,
   };
 }
 

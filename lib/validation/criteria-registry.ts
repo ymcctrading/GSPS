@@ -536,8 +536,9 @@ const SCAN_SCORE: RegisteredCriterion[] = [
     "MC Ch.7 C6: an old top or bottom in the right role, or a percentage level. Merges historicalSR and gannRetracementConfluence."),
   PILLAR("geometricAngles", "Angles", "lib/gann/patternAngles.ts",
     "MC Ch.7 C10, C14: on the side of the 45° from the last major pivot, and not squeezed between two important angles (within 5 points)."),
-  PILLAR("timeFactors", "Time", "lib/gann/timePriceSquare.ts, lib/gann/timeWindow.ts, lib/gann/timeRules.ts",
-    "MC Ch.7 C3-C5, C9: two of price and time squared, a dated window at the turn, and the reaction inside its time limit (outrunning it, against the trend)."),
+  PILLAR("timeFactors", "Time", "lib/gann/timePriceSquare.ts, lib/gann/timeRules.ts",
+    "MC Ch.7 C3-C5, C9: price and time squared and the reaction inside its time limit (outrunning it, against the trend). The dated window was dropped " +
+    "2026-10-20, pending the owner's choice: it was open on nearly every random-walk turn. It still holds a counter-trend Execute (timeWindowTurn)."),
   PILLAR("volumeAccumulation", "Volume and accumulation", "lib/gann/volumeClimax.ts, lib/gann/accumulation.ts, lib/gann/capitalStock.ts",
     "MC Ch.7 C7, C8; S14, S21: volume at the turn or a base of weeks, with no capital-stock warning against a long."),
   PILLAR("definiteIndication", "Definite indication with the stop placed", "lib/gann/entryTrigger.ts, lib/gann/campaignLedger.ts",

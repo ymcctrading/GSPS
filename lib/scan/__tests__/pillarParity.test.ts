@@ -107,8 +107,7 @@ describe("the nine pillars on the live scan and the replay", () => {
 
     // The same score from either surface's facts.
     const input = liveScore!.input as ScoreInputs;
-    const direction = input.direction === "bearish" ? "bearish" : "bullish";
-    const fromReplay = computeScore({ ...input, pillarFacts: context.pillarFacts, windowTurn: () => context.windowTurn(direction) });
+    const fromReplay = computeScore({ ...input, pillarFacts: context.pillarFacts });
     const liveOut = liveScore!.output as ReturnType<typeof computeScore>;
     expect(fromReplay.breakdown).toEqual(liveOut.breakdown);
     expect(fromReplay.score).toBe(liveOut.score);
@@ -179,7 +178,6 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(input.ruleOfThreeMonthly).toEqual(context.ruleOfThreeMonthly);
 
     // And the breakdown the replay's reads produce is the live one.
-    const direction = input.direction === "bearish" ? "bearish" : "bullish";
     const fromReplay = computeScore({
       ...input,
       swingChart: context.swingChart,
@@ -196,7 +194,6 @@ describe("the nine pillars on the live scan and the replay", () => {
       momentumElevated: context.momentumElevated,
       atrPct: context.atrPct,
       pillarFacts: context.pillarFacts,
-      windowTurn: () => context.windowTurn(direction),
     });
     const liveOut = liveScore!.output as ReturnType<typeof computeScore>;
     expect(fromReplay.breakdown).toEqual(liveOut.breakdown);
@@ -215,11 +212,13 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("backtest/replay.ts")).toMatch(/buildMacroContext\(priorSessions, price, new Date\(`\$\{date\}T12:00:00Z`\), priorMonthly, facts, priorWeekly\)/);
   });
 
-  it("hands computeScore the pillar facts and the window turn on both surfaces", () => {
+  it("hands computeScore the pillar facts, and the window turn only to the time-window hold, on both surfaces", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
     expect(src("scanTicker.ts")).toMatch(/marketMonthly: marketMonthly \?\? null,/);
-    expect(src("scanTicker.ts")).toMatch(/\n\s+pillarFacts,\n\s+windowTurn,\n/);
+    expect(src("scanTicker.ts")).toMatch(/\n\s+pillarFacts,\n\s+\}\), breakaway\)/);
+    expect(src("scanTicker.ts")).toMatch(/\n\s+setupKind,\n\s+windowTurn,\n/);
     expect(src("backtest/replay.ts")).toMatch(/marketMonthly: instrument\?\.marketMonthly \?\? null, price, asOf \}\)/);
-    expect(src("backtest/replay.ts")).toMatch(/pillarFacts: context\.pillarFacts,\n\s+windowTurn: \(\) => context\.windowTurn\(gannTrigger\.direction\),/);
+    expect(src("backtest/replay.ts")).toMatch(/pillarFacts: context\.pillarFacts,\n\s+\.\.\.\(weights/);
+    expect(src("backtest/replay.ts")).toMatch(/setupKind, \(\) => context\.windowTurn\(gannTrigger\.direction\)\)/);
   });
 });
