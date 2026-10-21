@@ -861,8 +861,30 @@ bottom (Rule 1) and the held bottom count as they stand. Measured share of
 readings with the indication shown: $20 23%, $150 46%, $500 52%; P9 itself is
 about half of that once the reaction check is read (estimated, not measured).
 The `entryTriggerArmed` check, the plan and `tradePlanReady` are unchanged.
-`STRATEGY_VERSION` is `2026-10-21-gann-definite-indication`; Execute and the
+`STRATEGY_VERSION` was `2026-10-21-gann-definite-indication`; Execute and the
 6/3.5 cutoffs need a fresh run on it.
+
+**P6's monthly 45°, same day (`replay-diagnosis/2026-10-21-p6-angle-scale.md`).**
+P6's "holds the 45°" read the daily 45° at one Gann point a session (15-65% a
+month) and passed 1-13% of random-walk readings, with no difference between an
+uptrend and none. Gann's trend test is the monthly and weekly angle: the
+monthly chart decides the main trend (Master Course GA-2/3), "monthly/weekly
+angles > daily" and "first weakness = breaking the first important angle up
+from the last bottom of the final run" (GA-21-23), angles start after 3 months
+(GA-7/9), and no stock holds more than a point a month for long (printed
+p. 199). The daily 45° is his cinch buying point, which the S/R list already
+carries. So P6(a) now reads the monthly 45° at 1 Gann point a month from the
+last bottom of the 3-month swing chart (last top, short), held unless broken
+by 1 point (`readMonthlyFortyFive`, `lib/scoring/pillars.ts`, closed months,
+live and replay alike). Random walks, 20 a price: no drift $20 16.0/21.8%
+(long/short), $150 46.6/55.4%, $500 56.8/64.4%; drifting up 0.05% a day $20
+31.2/13.4%, $150 63.6/30.6%, $500 73.8/36.8%. Engineering choices, labelled:
+the 3-bar chart as "3 months", its last swing as "the last bottom of the final
+run". Trap for later work: `majorAnglePivots` on weekly or monthly bars uses
+the 7-calendar-day chart, so every bar turns; give those timeframes the 3-bar
+chart. The squeeze still reads the daily angles. `STRATEGY_VERSION` is
+`2026-10-21-gann-monthly-forty-five`; P6, Execute and the 6/3.5 cutoffs need a
+fresh run on it.
 
 ## WD Gann precedence — standing principle
 

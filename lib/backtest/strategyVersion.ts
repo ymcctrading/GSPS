@@ -659,4 +659,11 @@
 // Rules 1 and 3(b)-(c)). On random walks 51-77% of armed triggers were
 // crossings not yet made. The plan and tradePlanReady are unchanged; scores
 // and verdicts move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-definite-indication";
+// 2026-10-21-gann-monthly-forty-five: P6's 45° test reads the monthly 45°
+// at 1 Gann point a month from the last bottom of the 3-month swing chart (the
+// last top for a short), not the daily 45° at 1 point a day (Master Course
+// GA-2/3, GA-7/9, GA-21-23, printed p. 199). Random walks: 1-13% before,
+// 16-64% with no drift after, and longs ahead of shorts in an uptrend. The
+// squeeze still reads the daily angles. Scores and verdicts move, live and
+// replay alike (readPillarFacts).
+export const STRATEGY_VERSION = "2026-10-21-gann-monthly-forty-five";

@@ -544,8 +544,8 @@ const SCAN_SCORE: RegisteredCriterion[] = [
   PILLAR("priceLevels", "Price levels", "lib/strat/levels.ts, lib/gann/retracement.ts",
     "MC Ch.7 C6: an old top or bottom in the right role that the last reaction stopped at and held (since 2026-10-21; " +
       "W006 p.20), or a percentage level. Merges historicalSR and gannRetracementConfluence."),
-  PILLAR("geometricAngles", "Angles", "lib/gann/patternAngles.ts",
-    "MC Ch.7 C10, C14: on the side of the 45° from the last major pivot, and not squeezed between two important angles (within 5 points)."),
+  PILLAR("geometricAngles", "Angles", "lib/gann/patternAngles.ts, lib/scoring/pillars.ts#readMonthlyFortyFive",
+    "MC Ch.7 C10, C14: on the side of the monthly 45° (1 point a month) from the last 3-month swing bottom (top, short), since 2026-10-21 (the daily 45° at 1 point a day passed 1-13% of random walks; GA-2/3, GA-21-23), and not squeezed between two important angles (within 5 points)."),
   PILLAR("timeFactors", "Time", "lib/gann/timePriceSquare.ts, lib/gann/timeRules.ts",
     "MC Ch.7 C3-C5, C9: price and time squared and the reaction inside its time limit (outrunning it, against the trend). The dated window was dropped " +
     "2026-10-20, pending the owner's choice: it was open on nearly every random-walk turn. It still holds a counter-trend Execute (timeWindowTurn)."),
