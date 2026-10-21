@@ -29,6 +29,8 @@ import { SCORE_WEIGHT_MODEL_TYPE } from "@/lib/scoring/active-weights";
 import { verifyAuth } from "@/lib/auth";
 import { isTimeframe } from "@/lib/timeframe";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /** Same ceiling as /api/backtest — past this the replay outlives the function. */
 const MAX_SYMBOLS = 12;
@@ -43,8 +45,15 @@ function authorized(req: NextRequest): boolean {
 export async function POST(req: NextRequest) {
   // Either the scheduler's shared secret, or a signed-in operator running it by
   // hand from the dashboard.
-  if (!authorized(req) && !(await verifyAuth())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!authorized(req)) {
+    const userId = await verifyAuth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // The same replay `/api/backtest` gates on the Wall Street plan; this
+    // route ran it for any signed-in user, for up to 300 s (review R-026).
+    const policy = await getUserEntitlementPolicy(createServiceClient(), userId);
+    if (!policy.backtestingEnabled) {
+      return NextResponse.json({ error: "Backtesting is available on the Wall Street plan." }, { status: 403 });
+    }
   }
 
   const { searchParams } = new URL(req.url);
