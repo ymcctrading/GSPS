@@ -201,3 +201,105 @@ describe("over-balance of time reads the reaction to its extreme", () => {
     expect(buildCampaignLedger(mirror(longer))!.timeOverbalanced).toBe(true);
   });
 });
+
+describe("an over-balancing reaction stands until the trend resumes past its top (2026-10-21)", () => {
+  const DAY = 86_400_000;
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  const bars = (closes: number[]): Bar[] => {
+    const t0 = Date.parse("2025-01-02T05:00:00Z");
+    return closes.map((c, i) => ({ t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: 1e6 }));
+  };
+  const mirror = (b: Bar[]): Bar[] => b.map((x) => ({ ...x, o: 300 - x.o, c: 300 - x.c, h: 300 - x.l, l: 300 - x.h }));
+  // A bull campaign whose one earlier reaction (81 to 70) is about 14%; then a
+  // reaction from 120 to 98 (about 19%) that has ended, and a rally to 108,
+  // still under 120.
+  const CAMPAIGN = [...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 70, 20), ...leg(70, 120, 100)];
+  const completed = bars([...CAMPAIGN, ...leg(120, 98, 15), ...leg(98, 108, 8)]);
+
+  it("still reads the completed reaction as over-balanced in space", () => {
+    const l = buildCampaignLedger(completed)!;
+    expect(l.trend).toBe("bullish");
+    expect(l.currentCounterMove).toBeNull();
+    expect(l.spaceOverbalanced).toBe(true);
+    expect(l.overbalance).toMatchObject({ fromIndex: CAMPAIGN.length - 1, standing: true });
+    const m = buildCampaignLedger(mirror(completed))!;
+    expect(m.trend).toBe("bearish");
+    expect(m.spaceOverbalanced).toBe(true);
+  });
+
+  it("clears once price goes back past the top the reaction fell from", () => {
+    const resumed = bars([...CAMPAIGN, ...leg(120, 98, 15), ...leg(98, 124, 20)]);
+    const l = buildCampaignLedger(resumed)!;
+    expect(l.spaceOverbalanced).toBe(false);
+    expect(l.timeOverbalanced).toBe(false);
+    expect(l.overbalance).toBeNull();
+    expect(buildCampaignLedger(mirror(resumed))!.spaceOverbalanced).toBe(false);
+  });
+
+  it("fails the definite-indication pillar for a long bought on that rally, and passes the short", () => {
+    const price = completed[completed.length - 1].c;
+    const asOf = new Date(Date.parse(completed[completed.length - 1].t) + DAY);
+    const facts = readPillarFacts({ rules: readDisclosedRules(completed, price, null, asOf), daily: completed, monthly: [], marketDaily: null, marketMonthly: null, price, asOf });
+    expect(definiteIndicationPillar(facts, "bullish", true, true).passed).toBe(false);
+    expect(definiteIndicationPillar(facts, "bearish", true, true).passed).toBe(true);
+    // The bear mirror: the short fails it on the secondary reaction, the long passes.
+    const m = mirror(completed);
+    const mp = m[m.length - 1].c;
+    const mFacts = readPillarFacts({ rules: readDisclosedRules(m, mp, null, asOf), daily: m, monthly: [], marketDaily: null, marketMonthly: null, price: mp, asOf });
+    expect(definiteIndicationPillar(mFacts, "bearish", true, true).passed).toBe(false);
+    expect(definiteIndicationPillar(mFacts, "bullish", true, true).passed).toBe(true);
+  });
+
+  it("says on the card that it stands, and until which price", () => {
+    const text = describeCampaignLedger(buildCampaignLedger(completed)!).join(" ");
+    expect(text).toMatch(/exceeded the campaign's greatest in space/);
+    expect(text).toMatch(/stands until price goes back above 120\.30/);
+    const bear = describeCampaignLedger(buildCampaignLedger(mirror(completed))!).join(" ");
+    expect(bear).toMatch(/The rally from the bottom of 179\.70/);
+    expect(bear).toMatch(/goes back below 179\.70/);
+  });
+
+  it("is measured against the reactions before it, and once the trend has resumed it is the yardstick for the next", () => {
+    // After the new high, a reaction of 20 points: larger than 81-70 but not than 120-98.
+    const after = bars([...CAMPAIGN, ...leg(120, 98, 15), ...leg(98, 130, 40), ...leg(130, 110, 15), ...leg(110, 114, 4)]);
+    const l = buildCampaignLedger(after)!;
+    expect(l.trend).toBe("bullish");
+    expect(l.greatestCounterMove!.points).toBeCloseTo(22.6, 1);
+    expect(l.spaceOverbalanced).toBe(false);
+    expect(buildCampaignLedger(mirror(after))!.spaceOverbalanced).toBe(false);
+  });
+});
+
+describe("over-balance of space is read in points, as the method states it (2026-10-21)", () => {
+  const DAY = 86_400_000;
+  const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
+  const bars = (closes: number[]): Bar[] => {
+    const t0 = Date.parse("2025-01-02T05:00:00Z");
+    return closes.map((c, i) => ({ t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: 1e6 }));
+  };
+  const mirror = (b: Bar[]): Bar[] => b.map((x) => ({ ...x, o: 300 - x.o, c: 300 - x.c, h: 300 - x.l, l: 300 - x.h }));
+  // Reactions of 20 points from 100 (20%) and then 23 points from 160 (14%),
+  // the second still running and as short in time as the first.
+  const shape = bars([...leg(30, 40, 20), ...leg(40, 100, 60), ...leg(100, 80, 15), ...leg(80, 160, 80), ...leg(160, 137, 12)]);
+
+  it("a larger reaction in points over-balances though it is smaller in percent", () => {
+    const l = buildCampaignLedger(shape)!;
+    expect(l.trend).toBe("bullish");
+    expect(l.currentCounterMove!.points).toBeGreaterThan(l.greatestCounterMove!.points);
+    expect(l.currentCounterMove!.pct).toBeLessThan(l.greatestCounterMove!.pct);
+    expect(l.timeOverbalanced).toBe(false);
+    expect(l.spaceOverbalanced).toBe(true);
+    expect(l.overbalance).toMatchObject({ standing: false });
+  });
+
+  it("reads the bear mirror the same, point for point", () => {
+    const l = buildCampaignLedger(mirror(shape))!;
+    expect(l.trend).toBe("bearish");
+    expect(l.currentCounterMove!.points).toBeCloseTo(buildCampaignLedger(shape)!.currentCounterMove!.points, 6);
+    expect(l.spaceOverbalanced).toBe(true);
+  });
+
+  it("the card gives the sizes in points", () => {
+    expect(describeCampaignLedger(buildCampaignLedger(shape)!).join(" ")).toMatch(/points \([\d.]+%\) over \d+d .* greatest [\d.]+ points/);
+  });
+});

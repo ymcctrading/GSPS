@@ -515,4 +515,12 @@
 // reversals and re-buys carry no inherited verdict, so they leave the buckets,
 // score bands and factor tables. Fired entries with no plan are counted
 // (`droppedPlans`). Replay buckets and reversal trades move; live verdicts do not.
-export const STRATEGY_VERSION = "2026-10-21-replay-accounting";
+// 2026-10-21-gann-overbalance-points-standing: the campaign ledger's
+// over-balance of space compares swings in points (price), not percent of
+// their start (Master Course Ch. 8, PDF 249, "a decline in points"; 45 Years
+// Rule 8; Ch. 11A's reviews), and an over-balance of space or time stands
+// after the reaction ends, until price goes back past the top (bottom) it fell
+// from (Master Course PDF 244-245, 249: the secondary rally after it is the
+// sale). P9, `readGannTrend`'s confirmation, the Gann exit's trend change and
+// the measured factors move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-overbalance-points-standing";

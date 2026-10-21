@@ -34,8 +34,12 @@ describe("a reaction held above the previous section's top (A-TREND-06)", () => 
   });
 });
 
-// The same campaign with the second reaction taken to 75, under the first section's top of 81.
-const BELOW_FIRST_TOP = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 75, 30), ...leg(75, 78.5, 4)]);
+// The same campaign with the second reaction taken to 80, under the first
+// section's top of 81. Corrected 2026-10-21: it went to 75, 35½ points against
+// the first reaction's 31½, which over-balances in Gann's points (Master
+// Course Ch. 8, PDF 249) and only read as within the greatest in percent (32%
+// against 39%). At 80 it is 30½ points, inside the greatest, as the test means.
+const BELOW_FIRST_TOP = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 80, 30), ...leg(80, 83.5, 4)]);
 /** The mirror: a bear campaign, each price reflected about 150. */
 const mirror = (bars: Bar[]): Bar[] => bars.map((b) => ({ ...b, o: 300 - b.o, c: 300 - b.c, h: 300 - b.l, l: 300 - b.h }));
 
@@ -56,14 +60,15 @@ describe("a monthly break with the reaction under the previous section's top (it
   });
 
   it("measures against the section just before the last, not the campaign's first", () => {
-    // Three sections: tops 81, 110.5 and 140; the last reaction to 105 holds above 81 but not above 110.5.
-    const third = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 90, 30), ...leg(90, 140, 90), ...leg(140, 105, 30), ...leg(105, 108.5, 4)]);
+    // Three sections: tops 81, 110.5 and 140; the last reaction to 109.5 holds above 81 but not above 110.5.
+    // (To 109.5, 30½ points, within the greatest 31½; it went to 105, 35 points, an over-balance in points. Corrected 2026-10-21.)
+    const third = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 90, 30), ...leg(90, 140, 90), ...leg(140, 109.5, 30), ...leg(109.5, 113, 4)]);
     const ledger = buildCampaignLedger(third)!;
     expect(ledger.monthlyBreak).toBe(true);
     expect(ledger.spaceOverbalanced || ledger.timeOverbalanced).toBe(false);
     expect(ledger.reactionBelowPriorSection).toBe(true);
     expect(readGannTrend(third).direction).toBeNull();
-    // The bear mirror: bottoms 219, 189.5 and 160; the rally to 195 goes over 189.5.
+    // The bear mirror: bottoms 219, 189.5 and 160; the rally to 190.5 goes over 189.5.
     const bear = buildCampaignLedger(mirror(third))!;
     expect(bear.trend).toBe("bearish");
     expect(bear.reactionBelowPriorSection).toBe(true);
