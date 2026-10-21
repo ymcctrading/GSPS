@@ -156,6 +156,7 @@ export interface ScoreInputs {
    * keep working — the note just falls back to the generic wording.
    */
   srMatch?: { price: number; timeframe: Timeframe; role: LevelRole; testCount?: number } | null;
+  // (Pick it with `srMatchForSide`: the wanted role's nearest first.)
   pattern: StratPattern | null;
   /**
    * The armed entry trigger, from `lib/gann/entryTrigger.ts` — crossing an old
@@ -273,6 +274,19 @@ function regainedNote(t: { direction: "bullish" | "bearish"; source?: "swing" | 
   const up = t.direction === "bullish";
   const name = regainedLevelName(up, t.source === "swing" ? undefined : t.source, t.levelYear);
   return `is 3 points back ${up ? "over" : "under"} ${name} after a 3-point break ${up ? "under" : "over"} it`;
+}
+
+/**
+ * The S/R match the score reads for `direction`: the nearest in-band level of
+ * the wanted role (support for a long, resistance for a short), else the
+ * nearest of the other role so the note can say it is on the wrong side
+ * (`nearestLevelMatchByRole`). The live scan and the replay both pick with it.
+ */
+export function srMatchForSide<T>(
+  matches: Record<LevelRole, T | null>,
+  direction: "bullish" | "bearish",
+): T | null {
+  return direction === "bullish" ? matches.support ?? matches.resistance : matches.resistance ?? matches.support;
 }
 
 export function computeScore(inputs: ScoreInputs): ScanDecision {
@@ -397,10 +411,13 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     ? ` ${boilingPointReading.weeksSinceClimax} weeks since that climax (${boilingPointReading.phase} — the disclosed exhaustion window is 6-7 weeks, rarely past 10).`
     : "";
 
-  // Gann's percentage-retracement zone (eighths): price within the level's
-  // 3-point allowance (N#27, `levelBandPct`).
-  const retracementMatch =
-    gann.retracementLevels.find((r) => r.role === wantedRole && r.distancePct <= levelBandPct(r.price)) ?? null;
+  // Gann's percentage levels: the eighths and thirds of the extreme range, the
+  // highest price and the latest campaign of a year or more, in the right
+  // role, within the level's 3-point allowance (N#27, `levelBandPct`). Read
+  // once for both surfaces in `readPillarFacts` (`PillarFacts.rangeLevels`).
+  // Until 2026-10-21 this divided only the last daily swing
+  // (`gann.retracementLevels`, now card context): see lib/gann/rangeDivisions.ts.
+  const retracementMatch = pillarFacts?.rangeLevels?.[direction] ?? null;
   // Digital-root/vortex reading off the same direction-matched anchor: card
   // context only. Until 2026-10-16 it was ANDed into this point; fork FL5 a
   // removed that, since a class C reading (W011, arithmetic mod 9) may never
@@ -410,9 +427,16 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const drReading = gann.digitalRootConfluences.find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const drConfluenceHolds = drReading !== null && drReading.type !== "NO_CONFLUENCE";
   const gannConfluenceStackPassed = retracementMatch !== null;
-  // srMatch carries the role of the matched level; older callers that only
-  // pass the boolean (no srMatch) keep the pre-fix behavior for this
-  // criterion rather than being silently failed by a check they can't answer.
+  // srMatch is the nearest in-band level of the wanted role when there is one,
+  // and only otherwise the nearest of the other role (`srMatchForSide`, read
+  // the same way on the live scan and the replay), so it passes whenever a
+  // level of the wanted role is in the band: Gann's level is support below
+  // price and resistance above it. Until 2026-10-21 both surfaces passed the
+  // nearest level of either role, which failed a long whose nearest in-band
+  // level sat overhead though a support was in the band too. Older callers
+  // that only pass the boolean (no srMatch) keep the pre-fix behavior for
+  // this criterion rather than being silently failed by a check they can't
+  // answer.
   const historicalSRPassed = srMatch ? srMatch.role === wantedRole : nearSupportResistance;
 
   // What arms the trade. Was `pattern.direction === direction` off the
@@ -546,12 +570,10 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       checkOf: "priceLevels",
       passed: gannConfluenceStackPassed,
       note: retracementMatch
-        ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of the ${retracementMatch.label} retracement ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
+        ? `Price within ${retracementMatch.distancePct.toFixed(2)}% of ${retracementMatch.label}, a ${levelRoleLabel(retracementMatch.role).toLowerCase()} at ${retracementMatch.price.toFixed(2)}, inside the ${levelBandPct(retracementMatch.price).toFixed(2)}% band (${LEVEL_BAND_BASIS}).` +
           (drConfluenceHolds ? " A signal-flow reading off the same anchor agrees (context only)." : "") +
-          (retracementMatch.importance != null
-            ? ` Importance rank ${retracementMatch.importance} of ${LOWEST_RANK} (1 = 50%, the most important; 2 = the quarters and the full range; 3 = the thirds; 4 = the eighths and sixteenths).`
-            : " Not one of the explicitly ranked fractions.")
-        : `No ${levelRoleLabel(wantedRole).toLowerCase()} retracement zone within ${LEVEL_BAND_BASIS}.`,
+          ` Importance rank ${retracementMatch.importance} of ${LOWEST_RANK} (1 = 50%, the most important; 2 = the quarters; 3 = the thirds; 4 = the eighths).`
+        : `No ${levelRoleLabel(wantedRole).toLowerCase()} at a division of the extreme range, the highest price or the last campaign within ${LEVEL_BAND_BASIS}.`,
     },
     {
       key: "ruleOfThree",

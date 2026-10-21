@@ -43,6 +43,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
     counterMove: null,
     reactionAbnormal: false,
     campaign: null,
+    rangeLevels: { bullish: null, bearish: null },
     ...over,
   };
 }

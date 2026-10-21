@@ -394,7 +394,14 @@ describe("computeScore", () => {
         stopBandWarning: null,
       },
       weights: UNIFORM_WEIGHTS,
-      pillarFacts: passingPillarFacts(),
+      // The major-range division in reach is overhead: resistance, the wrong role for a long.
+      pillarFacts: {
+        ...passingPillarFacts(),
+        rangeLevels: {
+          bullish: null,
+          bearish: { price: 100.5, label: "1/2 of the extreme range (51.00-150.00)", basis: "extremeRange", importance: 1, role: "resistance", distancePct: 0.5 },
+        },
+      },
     });
     const byKey = Object.fromEntries(decision.breakdown.map((b) => [b.key, b.passed]));
     expect(byKey.gannRetracementConfluence).toBe(false);
@@ -461,6 +468,7 @@ describe("computeScore", () => {
           stopPctOfPrice,
           stopBandWarning: null,
         },
+        pillarFacts: passingPillarFacts(),
       }).breakdown.find((b) => b.key === "gannRetracementConfluence");
 
     // 5% and 30% both sit outside the old 12–18% band; only whether the
