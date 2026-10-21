@@ -228,7 +228,7 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | # | Q1 item | Status | Evidence or next step |
 |---|---|---|---|
 | 1 | Email alerts, quiet hours, alert history | Done in code; delivery failing | 94% of sends fail on the Resend domain (S-04). Senior-review thread |
-| 2 | Browser push notifications | **Open** | No service worker or push channel exists. Web push needs no paid service (self-generated VAPID keys) |
+| 2 | Browser push notifications | **Built** (PR #404), live once migration 0099 is applied and the VAPID keys are set | `lib/notifications/web-push.ts`, `public/sw.js`, Settings toggle; setup alerts and price alerts send push, and every send now honors quiet hours and the score floor. Intraday alerts join once #404 merges (intraday thread) |
 | 3 | SMS alerts | Owner | Needs a paid SMS provider (Twilio or similar) |
 | 4 | Portfolio analytics | Done | `components/portfolio/analytics-dashboard.tsx` |
 | 5 | Conditional orders | Done | `lib/trade/attach-protocol-exit.ts` |
@@ -239,11 +239,11 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 10 | Pay-your-way promotion checkout | Owner | Prices approved; same Stripe step |
 | 11 | Vercel Pro | Owner (optional) | No longer needed for scheduling: jobs moved to Supabase pg_cron (#381), and Vercel's crons now run only two daily backups. Its one remaining use is the daily deploy cap |
 | 12 | Sentry error capture | Owner | Code done; needs a DSN from a Sentry account (free tier) |
-| 13 | Caching for scan results and portfolio snapshots | **Open** (snapshots) | Scan results are persisted (`daily_scans`). Paper accounts have no equity snapshots, so promotion's drawdown and the Sharpe ratio are approximations |
-| 14 | Rate-limit hardening | **Open** (route audit) | Blanket limiter on every route; the audit of which routes need their own tier was never done |
-| 15 | E2E tests | **Open** (alert delivery spec); Owner (CI) | No alert-delivery spec; CI needs a test Supabase project |
-| 16 | Novice risk engine reset checklist | **Open** | `validateResetChecklist` and `risk_reset_checklists` have no writer or screen |
-| 17 | Decision-gate metrics (retention, adoption, signal quality) | **Open** | No operator view reads the Q1 gate's numbers |
+| 13 | Caching for scan results and portfolio snapshots | **Built** (PR #404, migration 0101) | `lib/portfolio/paper-equity.ts` marks every paper account each session; promotion reads its high-water drawdown. Found and fixed on the way: paper equity counted a short's value twice, on every surface that read it |
+| 14 | Rate-limit hardening | **Done** (PR #404) | `lib/rate-limit-policy.ts`: five budgets by what a request costs; scheduled jobs exempt. A shared store stays a Q2 item |
+| 15 | E2E tests | **In progress** (intraday thread); Owner (CI) | The intraday thread is writing the alert-delivery spec; CI needs a test Supabase project |
+| 16 | Novice risk engine reset checklist | **Done** (PR #404) | `/api/risk/reset-checklist`, a Settings card, and the circuit breaker holds new entries until it is completed |
+| 17 | Decision-gate metrics (retention, adoption, signal quality) | **Done** (PR #404) | `/api/admin/decision-gate` (operator secret only). Read 2026-10-21: 20 members, 3 active in 30 days, first-cohort retention 1 of 18 (6%), 0 paying, forward test 19 of 30 winners (+0.82R average), alerts 714 of 12,974 sent |
 | 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
 | 19 | Re-derive the 6/3.5 cutoffs | Other thread | Gann-rules thread, after 20:15 UTC |
 | 20 | Intraday alerts on Gann's primitives | Other thread | Intraday thread, PR #402 |
