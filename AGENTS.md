@@ -573,8 +573,26 @@ so the divisions sit inside one allowance. Gann divides the major range ("on a
 basis of 100", Ch. 6; "50% of the highest price, then of the range", 45 Years
 Ch. IV); which range to divide is the owner's call. P5's failures are prices
 clear of that swing, a market reading, not a mirror or bar fault.
-`STRATEGY_VERSION` is `2026-10-21-gann-decade-in-year-turns`; P1 and the 6/3.5
+`STRATEGY_VERSION` was `2026-10-21-gann-decade-in-year-turns`; P1 and the 6/3.5
 cutoffs need a fresh run on it.
+
+**Senior code review fixes, 2026-10-21 (owner: "Fill known gaps as Gann
+would").** The live scan's dated reads take the session's noon UTC, as the
+replay's do, not the wall clock (F-03, guarded in `pillarParity.test.ts`).
+Non-equity plans round to the places a price needs and refuse levels that are
+not four distinct positive prices; a short's master that the R projection puts
+below zero goes to the largest eighth of the entry beyond TP1 (F-02).
+Placement reads the limit or the server's quote before every risk ceiling,
+never the ticket's price, and refuses when it has none (F-01); a bought option
+risks its premium under rule 1 (F-04). `STRATEGY_VERSION` was
+`2026-10-21-review-session-clock-sub-dollar`. The review itself is in
+`/mnt/project-files/senior-code-review/`. Later the same day: the replays fill
+a stop a candle opens through at that open, not the stop (`stopFill`, R-022),
+as the paper exit manager fills at the market. `STRATEGY_VERSION` is
+`2026-10-21-review-gap-stop-fill`; replay losses on gaps move, live verdicts
+don't. Also from the review, not in the verdict: `daily_scans` stores only the
+score rollup, never the breakdown, since production lets any role read it
+(R-021; migration 0089 drops that policy, not applied).
 
 ## WD Gann precedence — standing principle
 

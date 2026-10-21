@@ -48,6 +48,8 @@
  * Deliberately pessimistic wherever a bar is ambiguous:
  *   - The trigger is a resting stop order. If a candle opens already beyond
  *     it, the fill is that open, not the trigger price.
+ *   - A stop a candle opens through fills at that open, not the stop
+ *     (`stopFill`).
  *   - When a single bar's range covers both the stop and the target there is
  *     no way to know which came first, so it counts as a loss.
  *   - Round-trip friction is charged against every trade, widening losses and
@@ -1339,7 +1341,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       // Gross P&L is the actual price distance from the fill to the exit.
-      const gross = dir * ((outcome === "win" ? target : stop) - entry);
+      const gross = dir * ((outcome === "win" ? target : stopFill(long, stop, bars[i + barsHeld - 1].o)) - entry);
       trades.push({
         ...base, barsHeld, outcome,
         rMultiple: (gross - costPerShare) / risk,
@@ -1596,6 +1598,18 @@ export function walkReversals(input: {
   return out;
 }
 
+/**
+ * Where a stop fills on the candle that reaches it: at the stop, or at the open
+ * when the candle opens through it (a gap). A resting stop becomes a market
+ * order once touched, so a gap fills it at the gap, as the paper exit manager
+ * fills at the market (`closeSimPlanForSymbol`). Filling every gap at the stop
+ * made the loss side of the measurement optimistic, against the header's rule
+ * of being pessimistic wherever a bar is ambiguous.
+ */
+export function stopFill(long: boolean, stop: number, open: number): number {
+  return long ? Math.min(stop, open) : Math.max(stop, open);
+}
+
 /** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
 const RUNNER_SCALE_OUT = SCALE_OUT_PCT;
 
@@ -1692,7 +1706,7 @@ export function walkGannExit(input: {
         if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };
       }
     }
-    if (long ? b.l <= stop : b.h >= stop) return done(stop, j - from + 1, stopReason);
+    if (long ? b.l <= stop : b.h >= stop) return done(stopFill(long, stop, b.o), j - from + 1, stopReason);
     if (coverAt != null && (long ? b.h >= coverAt : b.l <= coverAt)) {
       return done(long ? Math.max(coverAt, b.o) : Math.min(coverAt, b.o), j - from + 1, "covered");
     }

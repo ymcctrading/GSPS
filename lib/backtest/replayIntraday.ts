@@ -80,7 +80,7 @@ import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
-import { BARS_PER_SESSION, rollUp, summarise, type IntradayExitReason, type ReplayResult, type ReplayTrade } from "./replay";
+import { BARS_PER_SESSION, rollUp, stopFill, summarise, type IntradayExitReason, type ReplayResult, type ReplayTrade } from "./replay";
 
 /** Closed bars read for the swing charts and the trail. Bounds the work per bar; two completed swings fit in far less. */
 export const INTRADAY_WINDOW_BARS = 400;
@@ -344,7 +344,7 @@ function walkIntradayExit(input: {
     const b = bars[j];
     if (leaveAtOpen) return done(b.o, j - from + 1, "intraday_trend_change");
     if (long ? b.l <= stop : b.h >= stop) {
-      return done(stop, j - from + 1, trailed ? "intraday_trailing_stop" : "intraday_initial_stop");
+      return done(stopFill(long, stop, b.o), j - from + 1, trailed ? "intraday_trailing_stop" : "intraday_initial_stop");
     }
     if (firstTarget !== null && !scaled && (long ? b.h >= firstTarget : b.l <= firstTarget)) {
       realized += dir * SCALE_OUT_PCT * (firstTarget - entry);

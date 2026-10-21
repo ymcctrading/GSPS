@@ -7,6 +7,17 @@ the old `VERSAILLES_DEPLOYMENT.md`) — new entries go here instead.
 This project doesn't yet follow semantic versioning; entries are grouped by
 date.
 
+## 2026-10-21
+
+### Fixed
+- **Replay stop fills on gaps, strategy version `2026-10-21-review-gap-stop-fill`.**
+  A stop a candle opens through now fills at that open in every replay walk,
+  not at the stop. Replay losses on gaps move; live verdicts do not.
+- **Daily lists keep the score breakdown server-side.** `daily_scans` rows
+  store only the per-pillar rollup. Migration 0089 (not applied) strips the
+  breakdown from stored rows and drops a public read policy that no migration
+  created.
+
 ## 2026-10-16
 
 ### Changed

@@ -563,4 +563,8 @@
 // not 260 candles (F-06), and counts a win on the net, after-cost result its R
 // is measured on (F-07). Evening live verdicts, sub-dollar crypto plans, the
 // replay's crypto horizon and its win rates move; equity plans do not.
-export const STRATEGY_VERSION = "2026-10-21-review-session-clock-sub-dollar";
+// 2026-10-21-review-gap-stop-fill: a stop a candle opens through fills at that
+// open in the replays (the daily, the intraday profile and every reversal and
+// re-buy walk), not at the stop, as the paper exit manager fills at the market
+// (review finding R-022). Replay losses on gaps move; live verdicts do not.
+export const STRATEGY_VERSION = "2026-10-21-review-gap-stop-fill";
