@@ -18,6 +18,7 @@ import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
+import { roundPrice as round, priceText } from "./priceText";
 
 import {
   MAX_STOP_ATR_MULTIPLE,
@@ -752,25 +753,6 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
     cancelIf:
       "Price chops between the stop and the entry level without holding either side. Neither direction is worth trading in that state — standing aside is a position.",
   };
-}
-
-/**
- * Rounds a price to the places its own size needs: cents at $1 and above,
- * and below $1 enough places to keep three significant figures (0.1612, not
- * 0.16). A fixed two places collapsed a sub-dollar coin's entry and stop onto
- * the same cent and left a plan with no risk (review finding F-02,
- * 2026-10-21).
- */
-function round(n: number): number {
-  const size = Math.abs(n);
-  const places = size >= 1 || size === 0 ? 2 : Math.min(10, Math.ceil(-Math.log10(size)) + 3);
-  const scale = 10 ** places;
-  return Math.round(n * scale) / scale;
-}
-
-/** Cents at $1 and above; below it, the places `round` kept. */
-function priceText(n: number): string {
-  return Math.abs(n) >= 1 ? n.toFixed(2) : String(round(n));
 }
 
 /**

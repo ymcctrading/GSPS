@@ -18,6 +18,7 @@ import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { gannThreePoints } from "@/lib/gann/pointScale";
+import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { readUserLossSeries } from "@/lib/risk/lossSeries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -384,6 +385,16 @@ export async function placeSimulatedOrder(
   );
   const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
+
+  // Never on synthetic prices in production (senior code review, lib/data):
+  // a paper order fills at the provider's quote, so none is placed, protective
+  // or not. A live order fills at the broker's price, so a protective live
+  // order still goes through; a new live entry would read its ceilings from
+  // the synthetic quote, so it is refused.
+  if (input.mode !== "live" || !isProtective) {
+    const refused = syntheticDataRefusal(`place a ${input.mode === "live" ? "live" : "paper"} order for ${input.symbol.toUpperCase()}`);
+    if (refused) return { status: 503, body: { error: `${refused} Nothing was placed.`, code: "synthetic_market_data" } };
+  }
 
   // A stop on every trade (A-STOP-01; owner, 2026-10-16, Q1): a new equity
   // position is refused without one, the manual ticket's own orders included.

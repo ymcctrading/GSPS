@@ -38,6 +38,7 @@
 
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
+import { assertLiveMarketData } from "@/lib/data/feed-mode";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { rangeMidpoint } from "@/lib/gann/retracement";
@@ -916,6 +917,9 @@ export async function runMarketScan(
   // tonight's levels as though they were current.
   const scanDate = etDateKey(new Date());
   const provider = getMarketDataProvider();
+  // Never publish setups priced from the synthetic walk (both callers fail
+  // closed on a throw: the route returns 502, the scheduled scan 503).
+  assertLiveMarketData("run the market scan", provider);
 
   // The market's (SPY's) daily and monthly bars, for Gann's early leaders in
   // the shortlist cut (A-SELECTION-02). Read once a day and cached, and every

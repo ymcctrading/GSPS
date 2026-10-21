@@ -25,6 +25,7 @@
 import type { Bar } from "@/lib/types";
 import { monthlyWithCurrent } from "@/lib/gann/leadership";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { assertLiveMarketData } from "@/lib/data/feed-mode";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
@@ -52,6 +53,9 @@ export async function completedDailyBars(symbol: string, now: Date): Promise<{ b
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const start = new Date(now.getTime() - DAILY_LOOKBACK_DAYS * 86_400_000);
   const provider = getMarketDataProvider();
+  // A live position is never managed on synthetic bars; the broker's own
+  // stop stays where it is.
+  assertLiveMarketData(`read ${symbol.toUpperCase()}'s daily chart to manage its exit`, provider);
   const [bars, monthly] = await Promise.all([
     provider.fetchBars(symbol, "1Day", start, null, assetClass),
     provider.fetchBars(symbol, "1Month", monthlyChartFrom(start), null, assetClass),

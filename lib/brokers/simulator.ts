@@ -27,6 +27,7 @@
  */
 
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol, fetchOptionLatestTrade } from "@/lib/data/alpaca";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import {
@@ -241,8 +242,12 @@ function normalizePosition(row: Record<string, unknown>): SimPosition {
  * fall back to its underlying's spot price or its entry price instead.
  */
 export async function quotePrice(symbol: string, assetClass: AssetClass): Promise<number | null> {
+  // No mark at all rather than a synthetic one: every caller already treats
+  // null as "no price", so nothing fills, exits or prices a ceiling from it.
+  const provider = getMarketDataProvider();
+  if (syntheticDataRefusal(`quote ${symbol.toUpperCase()} for a paper fill or exit`, provider)) return null;
   try {
-    return await getMarketDataProvider().fetchLatestPrice(symbol, assetClass);
+    return await provider.fetchLatestPrice(symbol, assetClass);
   } catch {
     return null;
   }

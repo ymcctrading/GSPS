@@ -26,6 +26,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { assertLiveMarketData } from "@/lib/data/feed-mode";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { closedSessionBars } from "./confirmNow";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
@@ -57,7 +58,9 @@ export function stopBrokenSince(
 /** Every execution bar since `generatedAt`, the one still forming included. */
 export async function fetchBarsSince(symbol: string, market: string, generatedAt: string): Promise<Bar[]> {
   const intervalMs = TF_INTERVAL_MS[EXECUTION_TIMEFRAME];
-  const bars = await getMarketDataProvider().fetchBars(
+  const provider = getMarketDataProvider();
+  assertLiveMarketData(`arm ${symbol.toUpperCase()}'s plan from its bars`, provider);
+  const bars = await provider.fetchBars(
     symbol,
     EXECUTION_TIMEFRAME,
     new Date(Date.parse(generatedAt) - intervalMs),

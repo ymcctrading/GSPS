@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { sendPriceAlertEmail } from "@/lib/notifications/resend-handler";
 import { isPriceAlertFired } from "@/lib/trade/price-alert";
@@ -81,6 +82,8 @@ export async function GET(req: NextRequest) {
 
   const symbols = [...new Set(openAlerts.map((a) => a.symbol))];
   const provider = getMarketDataProvider();
+  const refused = syntheticDataRefusal("check price alerts", provider);
+  if (refused) return NextResponse.json({ error: refused, code: "synthetic_market_data" }, { status: 503 });
   const priceBySymbol = new Map<string, number | null>();
   await mapWithConcurrency(symbols, 6, async (symbol) => {
     try {
