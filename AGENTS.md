@@ -468,8 +468,19 @@ reactions before it in space and time; `levelRole.test.ts`'s 1931 shape now
 asserts the points reading. The intraday space alert reads the reaction in
 progress only (a standing one was alerted the day it happened), in points. The
 exit rule's trend change reads the over-balancing reaction's own start.
-`STRATEGY_VERSION` is `2026-10-21-gann-overbalance-points-standing`; Execute
+`STRATEGY_VERSION` was `2026-10-21-gann-overbalance-points-standing`; Execute
 and the 6/3.5 cutoffs need a fresh run on it.
+**Senior code review fixes, 2026-10-21 (owner: "Fill known gaps as Gann
+would").** The live scan's dated reads take the session's noon UTC, as the
+replay's do, not the wall clock (F-03, guarded in `pillarParity.test.ts`).
+Non-equity plans round to the places a price needs and refuse levels that are
+not four distinct positive prices; a short's master that the R projection puts
+below zero goes to the largest eighth of the entry beyond TP1 (F-02).
+Placement reads the limit or the server's quote before every risk ceiling,
+never the ticket's price, and refuses when it has none (F-01); a bought option
+risks its premium under rule 1 (F-04). `STRATEGY_VERSION` is
+`2026-10-21-review-session-clock-sub-dollar`. The review itself is in
+`/mnt/project-files/senior-code-review/`.
 
 **Trend pillar's weekly leg, 2026-10-21 (diagnosis of P2's inversion).** One
 translation defect, fixed. P2's design (`score-pillars-research.md` §3) and

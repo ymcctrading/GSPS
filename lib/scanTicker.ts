@@ -224,7 +224,7 @@ export async function scanTicker(
     const timePriceSquare = computeTimePriceSquare(sessions, currentPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
     // Completed sessions and months only, and the smallest month in years (A-VOLUME-09).
-    const volumeClimax = computeVolumeClimax(sessions, undefined, { asOf: new Date(scannedAt), monthly });
+    const volumeClimax = computeVolumeClimax(sessions, undefined, { asOf: sessionNoon, monthly });
     // Gann's "boiling point" blow-off duration off the same climax anchors,
     // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
     const boilingPoint = computeBoilingPoint(sessions, volumeClimax);
@@ -395,12 +395,12 @@ export async function scanTicker(
       // history's extremes (2026-09-27). See majorPricePercentageLevels.
       ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
       // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
-      ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, new Date(scannedAt)), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
+      ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, sessionNoon), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
       // The campaign's secondary rally top (reaction bottom), A-LEVELS-02.
       ...secondaryTurnLevels(campaignLedger).map((price) => ({ price, timeframe: "1Week" as const })),
       // Gann's Square of 144 squares and his planetary averages (COE, MOF,
       // the six), as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
-      ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, new Date(scannedAt)).map((l) => ({
+      ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, sessionNoon).map((l) => ({
         price: l.price,
         timeframe: "1Month" as const,
       })),
@@ -454,7 +454,7 @@ export async function scanTicker(
     const monthlyWarning = readMonthlyBreakWarning(entryDaily);
     // Gann's volume Rule 2 (A-VOLUME-03, fork FV7 b): a breakdown after a lower
     // top holds a new long to Watch while it stands, as the replay reads it.
-    const distributionStanding = readDistributionStanding(sessions, new Date(scannedAt));
+    const distributionStanding = readDistributionStanding(sessions, sessionNoon);
     // A-LEVELS-04 (fork FL3 a): the same 52-week entry chart the replay reads.
     const failedTops = readMultipleTops(charts.daily);
     // Gann's selection rules (A-SELECTION-02/-03): early leaders first in the
@@ -488,7 +488,7 @@ export async function scanTicker(
       : marketDaily
         ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
         : null;
-    const disclosedRules = readDisclosedRules(charts.daily, currentPrice, instrumentFacts, new Date(), new Date());
+    const disclosedRules = readDisclosedRules(charts.daily, currentPrice, instrumentFacts, sessionNoon, new Date());
     const pillarFacts = readPillarFacts({
       rules: disclosedRules,
       daily: charts.daily,
@@ -496,7 +496,10 @@ export async function scanTicker(
       marketDaily: marketDaily ?? null,
       universe: assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
       price: currentPrice,
-      asOf: new Date(scannedAt),
+      // The session's noon UTC, as the replay reads it: the wall clock cut to
+      // a UTC date runs a day ahead after 8 PM New York time and reads the
+      // month in progress as closed on its last evening (review finding F-03).
+      asOf: sessionNoon,
     });
     let windowTurnRead: { turn: ReturnType<typeof readWindowTurn> } | null = null;
     const windowTurn = () => {

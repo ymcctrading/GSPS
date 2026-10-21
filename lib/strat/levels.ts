@@ -671,7 +671,6 @@ export function computeTradeLevels(
       ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
       ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
       ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
-    ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
       ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
       ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
       entry: round(entry),
@@ -755,7 +754,16 @@ export function computeTradeLevels(
     .filter((g) => dir * (g - masterFloor) > 0 && dir * (g - masterCap) <= 0)
     .sort((a, b) => dir * (a - b))[0];
   const masterFromStructure = structuralExtension !== undefined;
-  const masterProfit = structuralExtension ?? steppedMaster;
+  let masterProfit = structuralExtension ?? steppedMaster;
+  if (dir < 0 && masterProfit <= 0) {
+    const eighth = takeProfit1 > 0 ? eighthBelow(entry, takeProfit1) : null;
+    if (eighth == null) {
+      throw new Error(
+        `Invalid trade levels: the short from ${round(entry)} has no target above zero beyond TP1 (${round(takeProfit1)}).`,
+      );
+    }
+    masterProfit = eighth;
+  }
 
   // Use structural risk for warning checks (the actual setup as presented,
   // before ATR bounds are applied). The computed risk may have been constrained
@@ -797,6 +805,16 @@ export function computeTradeLevels(
   if (dir * (masterProfit - takeProfit1) <= 0) {
     throw new Error(
       `Invalid trade levels: master profit (${round(masterProfit)}) is not more extreme than TP1 (${round(takeProfit1)}) in the ${pattern.direction} direction.`,
+    );
+  }
+
+  // After rounding, every level is a real price and the plan still has risk
+  // (review finding F-02): checked on the numbers a person will see and an
+  // order will carry, not on the unrounded ones above.
+  const shown = [entry, stopLoss, takeProfit1, masterProfit].map(round);
+  if (shown.some((v) => !Number.isFinite(v) || v <= 0) || shown[0] === shown[1]) {
+    throw new Error(
+      `Invalid trade levels: entry ${shown[0]}, stop ${shown[1]}, TP1 ${shown[2]}, master ${shown[3]} are not four distinct positive prices.`,
     );
   }
 
@@ -851,8 +869,8 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
   const extremeWord = bullish ? "highest" : "lowest";
   return {
     confirmation:
-      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${stopLoss.toFixed(2)}. ` +
-      `The rules then reverse: a ${opposite} trade at ${stopLoss.toFixed(2)}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
+      `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${stopLoss}. ` +
+      `The rules then reverse: a ${opposite} trade at ${stopLoss}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
     invalidation: reversal ? round(reversal.stop) : null,
     firstTarget: entry,
     cancelIf:
@@ -860,6 +878,32 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
   };
 }
 
+/**
+ * Rounds a price to the places its own size needs: cents at $1 and above,
+ * and below $1 enough places to keep three significant figures (0.1612, not
+ * 0.16). A fixed two places collapsed a sub-dollar coin's entry and stop onto
+ * the same cent and left a plan with no risk (review finding F-02,
+ * 2026-10-21).
+ */
 function round(n: number): number {
-  return Math.round(n * 100) / 100;
+  const size = Math.abs(n);
+  const places = size >= 1 || size === 0 ? 2 : Math.min(10, Math.ceil(-Math.log10(size)) + 3);
+  const scale = 10 ** places;
+  return Math.round(n * scale) / scale;
+}
+
+/**
+ * A short's target below zero is no price at all (review finding F-02: a
+ * crypto short at 1.00, stop 1.60, projected its master to -0.80). Where the
+ * projection runs out of price, the target is Gann's own division of the
+ * price into eighths (Ch. on resistance levels: 1/8, 1/4, 3/8, 1/2 ... of the
+ * highest price): the largest eighth of the entry still beyond TP1. With
+ * none left above zero there is no target, and no plan.
+ */
+function eighthBelow(entry: number, beyond: number): number | null {
+  for (let k = 7; k >= 1; k--) {
+    const level = (entry * k) / 8;
+    if (level < beyond) return level;
+  }
+  return null;
 }
