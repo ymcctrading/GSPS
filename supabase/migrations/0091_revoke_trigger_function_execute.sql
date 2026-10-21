@@ -1,4 +1,4 @@
--- GSPS — 0087: close the last three SECURITY DEFINER functions anon can call
+-- GSPS — 0091: close the last three SECURITY DEFINER functions anon can call
 --
 -- Review finding S-10 (2026-10-21). Supabase's Security Advisor lists three
 -- SECURITY DEFINER functions in `public` that `anon` (and `authenticated`)
