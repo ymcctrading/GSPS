@@ -18,7 +18,7 @@ import type { ProIntradayUsage } from "@/lib/promotion/pro-intraday";
 
 type Supabase = SupabaseClient;
 
-/** Recent-history window wide enough to cover today's orders plus a consecutive-loss streak that started yesterday. */
+/** Recent-history window: today's orders, plus earlier orders whose trades closed today. */
 const LOOKBACK_DAYS = 10;
 const CONSECUTIVE_LOSS_SCAN_LIMIT = 20;
 
@@ -59,6 +59,16 @@ async function estimatePaperEquity(supabase: Supabase, userId: string): Promise<
     0,
   );
   return cash + holdingsValue;
+}
+
+/** Losses in a row from the newest trade back, stopping at the first winner. */
+export function countLossStreak(newestFirst: readonly { outcome: "profit" | "loss" }[]): number {
+  let streak = 0;
+  for (const t of newestFirst) {
+    if (t.outcome !== "loss") break;
+    streak++;
+  }
+  return streak;
 }
 
 export async function loadProIntradayUsage(
@@ -127,16 +137,14 @@ export async function loadProIntradayUsage(
       exit_timestamp: string | null;
     }[];
 
-    for (const t of trades) {
-      if (t.outcome === "loss") consecutiveLosses++;
-      else break;
-    }
-
-    for (const t of trades) {
-      if (t.exit_timestamp && etDateKey(new Date(t.exit_timestamp)) === today) {
-        realizedPnlTodayUsd += Number(t.profit_loss_dollars ?? 0);
-      }
-    }
+    // Both read today's session only. The streak is "since the last winner
+    // (or session start)" (`ProIntradayUsage`) and the pause lasts "for the
+    // rest of the session": counting yesterday's losses too kept a streak
+    // alive with no way to end it, since a paused trader can't take the
+    // winner that would, until the losing orders aged out of the lookback.
+    const todays = trades.filter((t) => t.exit_timestamp && etDateKey(new Date(t.exit_timestamp)) === today);
+    consecutiveLosses = countLossStreak(todays);
+    realizedPnlTodayUsd = todays.reduce((sum, t) => sum + Number(t.profit_loss_dollars ?? 0), 0);
   }
 
   const dailyLossPct = equity > 0 && realizedPnlTodayUsd < 0 ? (Math.abs(realizedPnlTodayUsd) / equity) * 100 : 0;
