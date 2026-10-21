@@ -10,7 +10,9 @@
  * both (review finding S-07). Gann kept a record of every trade, and the
  * method's own rules read it back (the series of losses, the profit peak, the
  * winning run). The rows are kept now and only hidden from the tab; a GET no
- * longer deletes anything.
+ * longer deletes anything. Retention policy (owner, 2026-10-21): kept
+ * indefinitely, leaving only when the member's account is deleted (their
+ * foreign keys cascade from `auth.users`). Nothing prunes them on a timer.
  *
  * The retention window is anchored to the market close rather than a flat
  * duration: a position that closes at 15:55 and one that closes at 09:35 both
