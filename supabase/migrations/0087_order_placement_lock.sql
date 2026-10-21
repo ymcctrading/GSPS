@@ -14,6 +14,11 @@
 --
 -- Protective orders (a stop, a close) never take it, so nothing here can
 -- stand between a trader and getting out.
+--
+-- The functions run as the caller (security invoker): a member reaches only
+-- their own row through the policy below, and the service role (the portfolio
+-- manager) bypasses RLS as it does everywhere else. Applied to production
+-- 2026-10-21 in this form.
 
 create table if not exists public.order_placement_locks (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -22,50 +27,47 @@ create table if not exists public.order_placement_locks (
 );
 
 alter table public.order_placement_locks enable row level security;
--- No policies: rows are reached only through the two functions below.
 
+create policy order_placement_locks_own on public.order_placement_locks
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- True when this token now holds the lease: no lease, or the old one expired.
 create or replace function public.try_acquire_order_lock(
   p_user_id uuid,
   p_token uuid,
   p_ttl_seconds integer default 30
 ) returns boolean
-language plpgsql
-security definer
+language sql
+security invoker
 set search_path = public
-as $$
-declare
-  acquired boolean := false;
-begin
-  if coalesce(auth.role(), '') <> 'service_role' and p_user_id is distinct from auth.uid() then
-    raise exception 'order lock: not your account' using errcode = '42501';
-  end if;
-  insert into public.order_placement_locks as l (user_id, token, locked_until)
-  values (p_user_id, p_token, now() + make_interval(secs => greatest(1, least(p_ttl_seconds, 120))))
-  on conflict (user_id) do update
-    set token = excluded.token, locked_until = excluded.locked_until
-    where l.locked_until < now()
-  returning true into acquired;
-  return coalesce(acquired, false);
-end;
-$$;
+as $fn$
+  with taken as (
+    insert into public.order_placement_locks as l (user_id, token, locked_until)
+    values (p_user_id, p_token, now() + make_interval(secs => greatest(1, least(p_ttl_seconds, 120))))
+    on conflict (user_id) do update
+      set token = excluded.token, locked_until = excluded.locked_until
+      where l.locked_until < now()
+    returning 1
+  )
+  select exists (select 1 from taken);
+$fn$;
 
+-- Gives the lease back only if this token still holds it.
 create or replace function public.release_order_lock(
   p_user_id uuid,
   p_token uuid
 ) returns void
-language plpgsql
-security definer
+language sql
+security invoker
 set search_path = public
-as $$
-begin
-  if coalesce(auth.role(), '') <> 'service_role' and p_user_id is distinct from auth.uid() then
-    raise exception 'order lock: not your account' using errcode = '42501';
-  end if;
+as $fn$
   delete from public.order_placement_locks where user_id = p_user_id and token = p_token;
-end;
-$$;
+$fn$;
 
 revoke execute on function public.try_acquire_order_lock(uuid, uuid, integer) from public, anon;
 revoke execute on function public.release_order_lock(uuid, uuid) from public, anon;
 grant execute on function public.try_acquire_order_lock(uuid, uuid, integer) to authenticated, service_role;
 grant execute on function public.release_order_lock(uuid, uuid) to authenticated, service_role;
+grant select, insert, update, delete on public.order_placement_locks to authenticated, service_role;
