@@ -56,7 +56,8 @@ export function levelTestConfidence(testCount: number): LevelTestConfidence {
  * Wiring scope for this rule (AGENTS.md cross-platform-consistency): wired
  * into `lib/scoring/score.ts`'s `historicalSR` note (mirrored identically in
  * `lib/scanTicker.ts` and `lib/backtest/replay.ts`, both computing
- * `srMatch.testCount` off the same daily bars) — that criterion is the one
+ * `srMatch.testCount` off the same daily bars; since 2026-10-21 shown only
+ * when the nearest level is the held one, `lib/gann/heldLevel.ts`) — that criterion is the one
  * place in the codebase that already matches price against a specific
  * clustered level. `lib/strat/levels.ts`'s `combineNearbyLevels` is a
  * deliberate non-target: it dedupes candidate stop/runner anchors into

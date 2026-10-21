@@ -624,6 +624,17 @@
 // through gannMasterLevels (lib/gann/squareOfNinePrice.ts), live and replay
 // alike; the 22.5° lines are left out. historicalSR, stops and targets read
 // it, so verdicts and plans move.
+// 2026-10-21-gann-held-old-level: the historicalSR check (P5's old-level
+// half) passes when the last reaction stopped at an old level and held, not
+// when a level sits near price (W006 p.20, Rule 3(b)-(c); *Truth of the Stock
+// Tape*). For a long, the lowest low of the last 10 completed sessions printed
+// from 3 Gann points under an old support to 1 over it, at least 2 sessions
+// ago, with no close since 3 points through it; the short mirrors it. Old
+// levels are the weekly and monthly pivots, the percentage levels, the
+// campaign bottoms and the secondary turn (lib/gann/heldLevel.ts,
+// lib/scan/structuralLevels.ts, one builder for both surfaces). The S/R list,
+// stops, TP1 and MTP are unchanged. Random walks: 98-100% passing before,
+// 27-50% after. Scores and verdicts move, live and replay alike.
 // 2026-10-21-gann-square-of-nine-16-lines: the Square of Nine's price levels
 // come from all 16 of its lines, one every 22.5° (Gann's plate, Vol. 3 p. 34;
 // source note B12), not the 8 every 45°. The nearest six that join the target
@@ -632,7 +643,7 @@
 // buying point armed, the live scan stood on the short side by default; it now
 // stands aside (Reject; never-failing rules 5 and 6, D-05). The replay scores
 // only armed triggers, so its trades do not move; live verdicts can.
-// 2026-10-21-review-second-round-on-nine-square-price: the two entries above
-// merged onto main's group rank, square against the move and Square of Nine
-// price numbers; no new rule.
-export const STRATEGY_VERSION = "2026-10-21-review-second-round-on-nine-square-price";
+// 2026-10-21-review-second-round-on-held-old-level: the two entries above
+// merged onto main's group rank, square against the move, Square of Nine price
+// numbers and held old level; no new rule.
+export const STRATEGY_VERSION = "2026-10-21-review-second-round-on-held-old-level";

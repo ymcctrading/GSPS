@@ -784,8 +784,40 @@ targets read the list too, so plans move: `replay.test.ts`'s A-LEVELS-04
 fixture moved from 300 to 295 sessions, because 300's first target became the
 cross number short of the failed top. `STRATEGY_VERSION` was
 `2026-10-21-gann-nine-square-price`; Execute and the 6/3.5 cutoffs need a
-fresh run on it. The review's second round merged onto it (no new rule):
-`STRATEGY_VERSION` is `2026-10-21-review-second-round-on-nine-square-price`.
+fresh run on it.
+**The held old level, same day (diagnosis:
+`replay-diagnosis/2026-10-21-historicalSR-saturation.md`).** One translation
+defect, fixed. `historicalSR` (P5's old-level half) passed whenever a level of
+the wanted role sat inside the 3-point band, and the S/R list holds the
+lattices (Square of 144, planetary averages, active angles, Jensen's square of
+90, pattern angles, now the Square of Nine), each adding its nearest point
+below and above price, plus the daily pivots, so it passed on noise. Gann never
+confirms a level by being near it; price has to act there: "wait until it holds
+a level 2-3 weeks, buy with a stop 3 points under the lowest week (2-3 days and
+the lowest day in active markets)" (W006 p.20, Rule 3(b) p.46); "a stock nearly
+always gets support the first time it reacts back to old high levels" (*Truth
+of the Stock Tape*); after crossing an old top "it should not react 3 points
+below the old high" (Rule 3(c)); the Master Course's Ch. 9 reviews judge a
+level by price reaching it and holding inside 3 points. Now, for a long, the
+lowest low of the last 10 completed sessions printed from 3 Gann points under
+an old support to 1 point over it, at least 2 sessions ago, with no close since
+3 points through it (`lib/gann/heldLevel.ts`, price-scaled at the level); the
+short mirrors it on the highest high and resistance. Old levels only: the
+weekly and monthly pivots, the percentage levels, the campaign bottoms and the
+secondary turn (`buildStructuralLevels(...).old`, `lib/scan/structuralLevels.ts`,
+which both surfaces now call to build the whole list). Read once in
+`readPillarFacts` (`PillarFacts.heldLevels`), so the live scan and the replay
+read it the same way (`pillarParity.test.ts`). The S/R list itself, stops, TP1,
+MTP and the card are unchanged; without the facts the check fails, as the
+pillars do. Engineering choices, labelled: the 10-session reaction, the weekly
+and monthly pivots as the stand-in for "old", and the 2-session hold; his
+weekly form (2-3 weeks) is not read. Random walks (`heldLevel.test.ts`, 20 walks
+a price, 440 readings a side), long/short before → after: $20 100/100 →
+43.0/50.0%, $50 99.8/100 → 39.5/47.7%, $150 99.8/99.1 → 34.5/42.5%, $500
+99.3/99.8 → 26.6/36.1%. `STRATEGY_VERSION` was `2026-10-21-gann-held-old-level`;
+P5, Execute and the 6/3.5 cutoffs need a fresh run on it. The review's second
+round merged onto it (no new rule): `STRATEGY_VERSION` is
+`2026-10-21-review-second-round-on-held-old-level`.
 
 ## WD Gann precedence — standing principle
 

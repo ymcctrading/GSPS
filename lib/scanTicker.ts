@@ -33,12 +33,12 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart } from "@/lib/gann/swingChart";
 import { computeRuleOfThree } from "@/lib/gann/ruleOfThree";
-import { majorPricePercentageLevels, readDisclosedRules } from "@/lib/gann/disclosedRules";
+import { readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { readPillarFacts } from "@/lib/scoring/pillars";
+import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
 import { getUniverseStrength } from "@/lib/data/universeStrength";
 import { readWindowTurn } from "@/lib/gann/timeWindow";
 import { readRuleFollowing } from "@/lib/gann/ruleFollowing";
-import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
@@ -47,7 +47,6 @@ import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { chooseSessionEntry, entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
-import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
@@ -65,7 +64,7 @@ import {
   srMatchForSide,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
-import { buildCampaignLedger, readMonthlyBreakWarning, secondaryTurnLevels } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
 import { figureCrossingOf } from "@/lib/gann/evenFigures";
 import { readStopBreach } from "@/lib/gann/stopBreach";
@@ -389,27 +388,16 @@ export async function scanTicker(
     // The campaign ledger on the level chart, as the replay's
     // `readDisclosedRules` builds it.
     const campaignLedger = buildCampaignLedger(charts.daily);
-    const allLevels = [
-      ...dailyTrend.support.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
-      ...dailyTrend.resistance.map((price) => ({ price, timeframe: dailyTrend.timeframe })),
-      ...weeklyTrend.support.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
-      ...weeklyTrend.resistance.map((price) => ({ price, timeframe: weeklyTrend.timeframe })),
-      ...monthlyTrend.support.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
-      ...monthlyTrend.resistance.map((price) => ({ price, timeframe: monthlyTrend.timeframe })),
-      // Gann's major percentage-of-price levels, anchored on the monthly
-      // history's extremes (2026-09-27). See majorPricePercentageLevels.
-      ...majorPricePercentageLevels([...charts.monthly, ...charts.daily]).map((price) => ({ price, timeframe: "1Month" as const })),
-      // The old campaign bottoms Gann looks to in turn (A-LEVELS-03, step 8).
-      ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, sessionNoon), currentPrice).map((price) => ({ price, timeframe: "1Month" as const })),
-      // The campaign's secondary rally top (reaction bottom), A-LEVELS-02.
-      ...secondaryTurnLevels(campaignLedger).map((price) => ({ price, timeframe: "1Week" as const })),
-      // Gann's Square of 144 squares and his planetary averages (COE, MOF,
-      // the six), as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
-      ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, currentPrice, sessionNoon).map((l) => ({
-        price: l.price,
-        timeframe: "1Month" as const,
-      })),
-    ];
+    // One builder for both surfaces (lib/scan/structuralLevels.ts): `all` is
+    // the S/R list, `old` the old levels `historicalSR` reads (heldLevel.ts).
+    const structural = buildStructuralLevels({
+      trends: { daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend },
+      charts,
+      campaign: campaignLedger,
+      price: currentPrice,
+      asOf: sessionNoon,
+    });
+    const allLevels = structural.all;
     const recentAtr = atr(sessions.slice(-20), 14);
     const baselineAtr = atr(sessions.slice(-100, -20), 14);
     const momentumElevated = baselineAtr > 0 && recentAtr / baselineAtr >= 1.2;
@@ -503,6 +491,7 @@ export async function scanTicker(
       monthly: charts.monthly,
       marketDaily: marketDaily ?? null,
       universe: assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
+      oldLevels: structural.old,
       price: currentPrice,
       // The session's noon UTC, as the replay reads it: the wall clock cut to
       // a UTC date runs a day ahead after 8 PM New York time and reads the
