@@ -131,6 +131,41 @@ export interface GannExitPosition {
 export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage";
 export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution" | "failed_top";
 
+/**
+ * A Gann exit rule that can be switched off by name, for measurement only:
+ * a stop trail (every `GannStopReason` but the initial stop, which is the
+ * plan's own) or an exit signal. Read only by the replay's `disableExits`
+ * (`lib/backtest/replay.ts`), which asks what a trade would have done without
+ * one rule. No production caller passes a set to `readGannExit`, so live and
+ * paper exits always read every rule.
+ */
+export type GannExitRuleName = Exclude<GannStopReason, "initial"> | GannExitReason;
+
+/** Every name `GannExitRuleName` admits, stop trails first. */
+export const GANN_EXIT_RULE_NAMES = [
+  "break_even",
+  "last_reaction",
+  "prior_week",
+  "prior_month",
+  "final_stage",
+  "hold_test_failed",
+  "three_adverse_closes",
+  "trend_change",
+  "distribution",
+  "failed_top",
+] as const satisfies readonly GannExitRuleName[];
+
+// Compile-time guard: the list names every rule, so a new reason cannot be
+// left out of the replay's validation.
+const allRuleNamesListed: [Exclude<GannExitRuleName, (typeof GANN_EXIT_RULE_NAMES)[number]>] extends [never] ? true : never = true;
+void allRuleNamesListed;
+
+export function isGannExitRuleName(name: unknown): name is GannExitRuleName {
+  return typeof name === "string" && (GANN_EXIT_RULE_NAMES as readonly string[]).includes(name);
+}
+
+const NO_RULES_DISABLED: ReadonlySet<GannExitRuleName> = new Set();
+
 export interface GannExitReading {
   /** The tightest stop Gann's rules allow now. Callers ratchet: never loosen a stop already placed. */
   stop: number;
@@ -179,12 +214,17 @@ export function readHoldTime(side: "long" | "short", entry: number, entryDate: s
  * history from before the entry (the swing charts and the campaign need it).
  * `best` is the best price the trade has seen since the fill.
  * `sharesOutstanding` is the stored share count as of now (D2), when known.
+ * `disabled` switches named rules off, for the replay's counterfactual cells
+ * only (`ReplayOptions.disableExits`): a disabled trail is never adopted and a
+ * disabled signal never fires; every other rule reads as before. It defaults
+ * to none, and no production caller passes it.
  */
 export function readGannExit(
   pos: GannExitPosition,
   daily: Bar[],
   best: number | null,
   sharesOutstanding: number | null = null,
+  disabled: ReadonlySet<GannExitRuleName> = NO_RULES_DISABLED,
 ): GannExitReading {
   const long = pos.side === "long";
   // Gann's "3 points" beyond a level, price-scaled as he scaled it (pointScale.ts).
@@ -193,7 +233,8 @@ export function readGannExit(
 
   let stop = pos.initialStop;
   let stopReason: GannStopReason = "initial";
-  const adopt = (candidate: number | null, reason: GannStopReason) => {
+  const adopt = (candidate: number | null, reason: Exclude<GannStopReason, "initial">) => {
+    if (disabled.has(reason)) return;
     if (candidate === null || !Number.isFinite(candidate)) return;
     if (tighter(candidate, stop)) {
       stop = candidate;
@@ -208,7 +249,8 @@ export function readGannExit(
 
   // C1: the hold test and three adverse closes.
   let exit: GannExitReading["exit"] = null;
-  if (pos.crossedLevel !== null) {
+  const on = (reason: GannExitReason) => !disabled.has(reason);
+  if (on("hold_test_failed") && pos.crossedLevel !== null) {
     const failed = since.some((b) => (long ? b.c < below(pos.crossedLevel!) : b.c > below(pos.crossedLevel!)));
     if (failed) {
       exit = {
@@ -225,7 +267,7 @@ export function readGannExit(
   // fired on any three closes under the entry at any point in the trade, a
   // pullback in a winner included; run 19 showed that exit costing 107 trades
   // at -0.25R.
-  if (!exit && since.length >= 3) {
+  if (!exit && on("three_adverse_closes") && since.length >= 3) {
     const adverse = since.slice(0, 3).every((b) => (long ? b.c < pos.entry : b.c > pos.entry));
     if (adverse) exit = { reason: "three_adverse_closes", note: "Closed against the trade on each of its first three days." };
   }
@@ -243,7 +285,7 @@ export function readGannExit(
   // decides). Each reading covers the 52 weeks before its next session, the
   // entry chart's window (`FAILED_TOP_CHART_DAYS`; review 12 L2): the fill
   // session for the reading at entry, the next weekday for today's.
-  if (!exit) {
+  if (!exit && on("failed_top")) {
     const window = (upTo: number) => failedTopWindow(daily, upTo);
     const side = long ? "bullish" : "bearish";
     const nowBars = window(daily.length);
@@ -262,7 +304,7 @@ export function readGannExit(
   }
 
   // C4: a change of trend after entry.
-  if (!exit) {
+  if (!exit && on("trend_change")) {
     const weekly = walkSwingChart(daily, WEEKLY_SWING_CHART);
     const changedAt = weekly.trendChanges[weekly.trendChanges.length - 1];
     const against = long ? "bearish" : "bullish";
@@ -277,7 +319,7 @@ export function readGannExit(
   // The over-balancing reaction's own start: the one in progress, or a
   // completed one still standing (`overbalance`, 2026-10-21).
   const reactionStart = ledger?.overbalance?.fromIndex ?? -1;
-  if (!exit && withCampaign && reactionStart >= firstAfter && (ledger!.spaceOverbalanced || ledger!.timeOverbalanced)) {
+  if (!exit && on("trend_change") && withCampaign && reactionStart >= firstAfter && (ledger!.spaceOverbalanced || ledger!.timeOverbalanced)) {
     exit = {
       reason: "trend_change",
       note: `A reaction since the fill is larger than any earlier one in this campaign (${[
@@ -298,7 +340,7 @@ export function readGannExit(
   // own call after the fill exits (item 7 second review L-c).
   const sectionChange = (l: NonNullable<typeof ledger>) =>
     l.counterMoveThirdMonth || (l.monthlyBreakInReaction && l.reactionBelowPriorSection);
-  if (!exit && withCampaign && sectionChange(ledger!)) {
+  if (!exit && on("trend_change") && withCampaign && sectionChange(ledger!)) {
     const atEntry = buildCampaignLedger(daily.slice(0, firstAfter));
     if (!(atEntry && atEntry.trend === ledger!.trend && atEntry.sectionTopDate === ledger!.sectionTopDate && sectionChange(atEntry))) {
       exit = {
@@ -311,7 +353,7 @@ export function readGannExit(
   }
 
   // D2: a distribution week at a top, printed after the fill.
-  if (!exit && long && sharesOutstanding) {
+  if (!exit && on("distribution") && long && sharesOutstanding) {
     const cs = readCapitalStock(daily, toWeeklyBars(daily), sharesOutstanding);
     // Weekly bars are keyed by their Monday, so a week that began before the
     // fill but closed after it still counts.
@@ -329,7 +371,7 @@ export function readGannExit(
   // such a breakdown stands, whenever it was bought (review M2, 2026-10-16:
   // Gann's signal does not depend on the fill date; placement also refuses a
   // long while one stands, `entryConfirmationRefusal`).
-  if (!exit && long) {
+  if (!exit && on("distribution") && long) {
     const standing = readDistributionStanding(daily, new Date(Date.parse(last.t) + 36 * 3_600_000));
     if (standing) {
       exit = {

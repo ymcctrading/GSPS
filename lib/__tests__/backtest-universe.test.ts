@@ -204,8 +204,10 @@ describe("per-trade CSV for the job log", () => {
     {
       cell: { label: "base" },
       trades: [
-        trade({ closedAt: "2026-09-01T15:00:00Z", direction: "bearish", score: 6, setupKind: "reversion", entryKind: "crossing", exitReason: "open_at_end", outcome: "timeout", barsHeld: 4, rMultiple: 0.5 }),
-        trade({ direction: "bullish", outcome: "loss", rMultiple: -1, barsHeld: 2, derived: "reversal", outputState: undefined }),
+        trade({ closedAt: "2026-09-01T15:00:00Z", direction: "bearish", score: 6, setupKind: "reversion", entryKind: "crossing", exitReason: "open_at_end", outcome: "timeout", barsHeld: 4, rMultiple: 0.5, stop: 10.4, crossedLevel: 10.1, exitPrice: 9.8 }),
+        trade({ direction: "bullish", outcome: "loss", rMultiple: -1, barsHeld: 2, derived: "reversal", outputState: undefined, stop: 9.5, crossedLevel: null, exitPrice: 9.5 }),
+        // A record from before the price fields existed leaves them empty.
+        trade({ entry: undefined, outcome: "win", barsHeld: 1 }),
       ],
     },
   ];
@@ -214,8 +216,10 @@ describe("per-trade CSV for the job log", () => {
     const csv = tradesCsv(cellResults);
     const rows = csv.trim().split("\n");
     expect(rows[0]).toBe(TRADE_CSV_COLUMNS.join(","));
-    expect(rows[1]).toBe("base,AAA,2026-09-01T14:00:00Z,2026-09-01T15:00:00Z,short,6,Execute,reversion,crossing,open_at_end,4,0.5000,");
-    expect(rows[2]).toBe("base,AAA,2026-09-01T14:00:00Z,,long,,,,,bracket_stop,2,-1.0000,reversal");
+    expect(TRADE_CSV_COLUMNS.slice(-4)).toEqual(["entryPrice", "initialStop", "crossedLevel", "exitPrice"]);
+    expect(rows[1]).toBe("base,AAA,2026-09-01T14:00:00Z,2026-09-01T15:00:00Z,short,6,Execute,reversion,crossing,open_at_end,4,0.5000,,10,10.4,10.1,9.8");
+    expect(rows[2]).toBe("base,AAA,2026-09-01T14:00:00Z,,long,,,,,bracket_stop,2,-1.0000,reversal,10,9.5,,9.5");
+    expect(rows[3]).toBe("base,AAA,2026-09-01T14:00:00Z,,long,,Execute,,,bracket_target,1,1.0000,,,,,");
   });
 
   it("prints it plain between markers, and gzipped base64 when over the limit", () => {

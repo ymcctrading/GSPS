@@ -25,6 +25,7 @@
 import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import { fetchUniverseStrengthSince } from "@/lib/data/universeStrength";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
+import type { GannExitRuleName } from "@/lib/gann/exitRules";
 import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
 import { TOTAL_POINTS } from "@/lib/scoring/weights";
@@ -44,6 +45,7 @@ import {
   combine,
   emptyDroppedPlanReasons,
   replay,
+  resolveDisableExits,
   summarise as summariseTrades,
   type DroppedPlanReasons,
   type ReplayOptions,
@@ -125,6 +127,11 @@ export interface BacktestRequest {
   entryRule?: ReplayOptions["entryRule"];
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
   exitRule?: ReplayOptions["exitRule"];
+  /**
+   * Measurement only: Gann exit rules switched off inside the walk. See
+   * `ReplayOptions.disableExits`. Defaults to none.
+   */
+  disableExits?: ReplayOptions["disableExits"];
   /**
    * Points a close must clear a broken stop by to stand the plan again. See
    * `ReplayOptions.reclaimPoints`. Defaults to 3, the live scan's figure.
@@ -241,6 +248,8 @@ export interface BacktestReport {
   entryRule: "stop" | "confirmed" | "reaction";
   /** Echoes the request: a report has to say which exit rule produced it. */
   exitRule: "bracket" | "gann" | "gann-runner";
+  /** Echoes the request: the Gann exit rules switched off for this cell (empty for production's rules). */
+  disableExits: GannExitRuleName[];
   /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */
   reclaimPoints: number;
   /** Echoes the request: which rule set walked the bars. */
@@ -473,9 +482,15 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     pyramid,
     entryRule,
     exitRule,
+    disableExits,
     reclaimPoints,
     profile = "swing",
   } = request;
+  // Rejected before any fetch, so a misspelt rule fails at once rather than
+  // as every symbol skipped (replay() throws the same error per symbol).
+  if (resolveDisableExits(disableExits, exitRule ?? "bracket").size > 0 && profile === "intraday") {
+    throw new Error("disableExits applies to the swing profile's exit rules; the intraday profile has its own exits");
+  }
 
   const sinceMs = since === undefined ? null : Date.parse(since);
   if (sinceMs !== null && Number.isNaN(sinceMs)) {
@@ -493,6 +508,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(pyramid !== undefined ? { pyramid } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
     ...(exitRule !== undefined ? { exitRule } : {}),
+    ...(disableExits !== undefined ? { disableExits } : {}),
     ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
   };
 
@@ -632,7 +648,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
 
   const split = byOutputState(run.overall);
   const derived = byDerived(run.overall);
@@ -674,6 +690,7 @@ export function buildReport(
     usePlanLevels,
     entryRule,
     exitRule,
+    disableExits: [...resolveDisableExits(disableExits)],
     reclaimPoints,
     profile,
     setupKindSplit: {

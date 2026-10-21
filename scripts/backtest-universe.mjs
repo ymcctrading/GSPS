@@ -34,6 +34,12 @@
  * `scripts/replay-report.mjs` does: a full table of numbers describing a
  * random walk is how a placeholder once became a published finding.
  *
+ * `options.disableExits` (measurement only, `ReplayOptions.disableExits`)
+ * switches named Gann exit rules off inside the walk, e.g.
+ * `{"exitRule":"gann","disableExits":["three_adverse_closes"]}`. Every name
+ * is checked against `GANN_EXIT_RULE_NAMES` before any symbol is fetched, and
+ * an unknown one stops the run.
+ *
  * An unknown `options` key is silently ignored by `replay()`. So if two
  * cells with different options produce identical trades, the summary says so
  * loudly — it usually means the option doesn't exist on the checked-out ref.
@@ -299,7 +305,13 @@ export const TRADE_CSV_COLUMNS = [
   "barsHeld",
   "R",
   "derived",
+  "entryPrice",
+  "initialStop",
+  "crossedLevel",
+  "exitPrice",
 ];
+
+const priceField = (v) => (typeof v === "number" && Number.isFinite(v) ? v : "");
 
 const csvField = (v) => {
   const text = v === null || v === undefined ? "" : String(v);
@@ -311,7 +323,11 @@ const csvField = (v) => {
  * log can still run exact splits. `bucket` is the verdict (`unscored` for an
  * armed trade the score could not reach, empty for a derived one). A trade
  * that left on the bracket's stop or target has no `exitReason` of its own,
- * so it reads `bracket_stop` or `bracket_target`.
+ * so it reads `bracket_stop` or `bracket_target`. `entryPrice` is the fill,
+ * `initialStop` the stop it opened with, `crossedLevel` the plan's old level
+ * (the top or bottom crossed, or the double or triple bottom bought; empty for
+ * a held entry and a derived trade), and `exitPrice` where the last shares
+ * left, or the close a timeout was marked at.
  */
 export function tradesCsv(cellResults) {
   const rows = [TRADE_CSV_COLUMNS.join(",")];
@@ -333,6 +349,10 @@ export function tradesCsv(cellResults) {
           t.barsHeld,
           Number.isFinite(t.rMultiple) ? t.rMultiple.toFixed(4) : "",
           t.derived ?? "",
+          priceField(t.entry),
+          priceField(t.stop),
+          priceField(t.crossedLevel),
+          priceField(t.exitPrice),
         ]
           .map(csvField)
           .join(","),
@@ -555,6 +575,23 @@ async function main() {
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
     if (typeof run.buildReport !== "function") {
       throw new Error("lib/backtest/run.ts has no buildReport on this ref — merge main into it first.");
+    }
+    // Measurement-only exit switches: check every cell's names before any fetch.
+    const { resolveDisableExits } = await server.ssrLoadModule("/lib/backtest/replay.ts");
+    for (const cell of cells) {
+      const names = cell.options?.disableExits;
+      if (names === undefined) continue;
+      if (typeof resolveDisableExits !== "function") {
+        throw new Error(`Cell "${cell.label}": disableExits is not supported on this ref.`);
+      }
+      try {
+        resolveDisableExits(names, cell.options?.exitRule ?? "bracket");
+        if (cell.options?.profile === "intraday" && names.length > 0) {
+          throw new Error("disableExits applies to the swing profile's exit rules, not the intraday profile");
+        }
+      } catch (err) {
+        throw new Error(`Cell "${cell.label}": ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
 
     const provider = getMarketDataProvider();

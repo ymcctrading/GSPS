@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { readGannExit, type GannExitPosition } from "../exitRules";
+import fs from "node:fs";
+import { GANN_EXIT_RULE_NAMES, isGannExitRuleName, readGannExit, type GannExitPosition } from "../exitRules";
 import { gannPoint, gannThreePoints } from "../pointScale";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
@@ -278,5 +279,51 @@ describe("readGannExit: 5 points under each day's high in the final stage (A-STO
     const low = bars[bars.length - 1].l;
     expect(r.stop).toBeCloseTo(low + 5 * gannPoint(low), 8);
     expect(r.stopReason).toBe("final_stage");
+  });
+});
+
+describe("readGannExit: rules switched off by name (the replay's disableExits only)", () => {
+  it("a disabled signal never fires, and the default reads every rule", () => {
+    const bars = daily([...steppingAdvance(3), 125, 124.8, 124.7]);
+    const pos = position(bars, bars.length - 3, { entry: 125.2 });
+    expect(readGannExit(pos, bars, 125.5, null, new Set()).exit?.reason).toBe("three_adverse_closes");
+    const on = readGannExit(pos, bars, 125.5);
+    const off = readGannExit(pos, bars, 125.5, null, new Set(["three_adverse_closes"]));
+    expect(on.exit?.reason).toBe("three_adverse_closes");
+    expect(off.exit?.reason).not.toBe("three_adverse_closes");
+    // The stop is read the same either way.
+    expect(off.stop).toBe(on.stop);
+    expect(off.stopReason).toBe(on.stopReason);
+  });
+
+  it("a disabled trail is never adopted, and the exit signals are unchanged", () => {
+    const bars = daily(Array.from({ length: 30 }, (_, i) => 101 + i));
+    const pos = position(bars, 5, { initialStop: bars[5].c - 20 });
+    const on = readGannExit(pos, bars, bars[bars.length - 1].h);
+    expect(on.stopReason).toBe("prior_week");
+    const off = readGannExit(pos, bars, bars[bars.length - 1].h, null, new Set(["prior_week"]));
+    expect(off.stopReason).not.toBe("prior_week");
+    // Without the weekly trail the stop sits where the other rules put it, looser here.
+    expect(off.stop).toBeLessThan(on.stop);
+    expect(off.exit).toEqual(on.exit);
+  });
+
+  it("names every rule but the initial stop", () => {
+    expect(GANN_EXIT_RULE_NAMES).toHaveLength(10);
+    expect(isGannExitRuleName("prior_week")).toBe(true);
+    expect(isGannExitRuleName("three_adverse_closes")).toBe(true);
+    expect(isGannExitRuleName("initial")).toBe(false);
+    expect(isGannExitRuleName("three_adverse_close")).toBe(false);
+  });
+
+  it("no production exit path passes a set of disabled rules", () => {
+    for (const file of ["lib/trade/gann-exit-live.ts", "lib/trade/protocol-exit.ts", "lib/trade/exit-manager-sim.ts", "lib/trade/exit-manager.ts"]) {
+      if (!fs.existsSync(file)) continue;
+      expect(fs.readFileSync(file, "utf8")).not.toMatch(/disableExits|GannExitRuleName|NO_RULES_DISABLED/);
+    }
+    const live = fs.readFileSync("lib/trade/gann-exit-live.ts", "utf8");
+    const call = live.slice(live.indexOf("return readGannExit("), live.indexOf(");", live.indexOf("return readGannExit(")));
+    // Position, daily bars, best price, share count: no fifth argument.
+    expect(call).toMatch(/sharesOutstanding,\s*$/);
   });
 });
