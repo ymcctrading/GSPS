@@ -35,7 +35,7 @@ import { patternAngleLines } from "@/lib/gann/patternAngles";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
-import { majorRangeDivisions, rangeDivisionMatch, type RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
+import { majorRangeDivisions, heldRangeDivision, type RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
 import { readHeldLevel, type HeldLevelMatch } from "@/lib/gann/heldLevel";
 import type { StructuralLevel } from "@/lib/scan/structuralLevels";
 
@@ -102,9 +102,10 @@ export interface PillarFacts {
   campaign: { trend: Side; spaceOverbalanced: boolean; timeOverbalanced: boolean } | null;
   /**
    * P5(b): the division of the extreme range, the highest price or the latest
-   * campaign of a year or more (`lib/gann/rangeDivisions.ts`) inside Gann's
-   * 3-point allowance, below price for a long (support) and above it for a
-   * short (resistance). Null on a side with none.
+   * campaign of a year or more (`lib/gann/rangeDivisions.ts`) that the last
+   * reaction stopped at and held (`heldRangeDivision`, since 2026-10-21),
+   * below price for a long (support) and above it for a short (resistance).
+   * Null on a side with none.
    */
   rangeLevels: Record<Side, RangeDivisionMatch | null>;
   /**
@@ -234,8 +235,9 @@ export function readPillarFacts(input: {
       ? { trend: campaign.trend, spaceOverbalanced: campaign.spaceOverbalanced, timeOverbalanced: campaign.timeOverbalanced }
       : null,
     rangeLevels: {
-      bullish: rangeDivisionMatch(divisions, price, "support"),
-      bearish: rangeDivisionMatch(divisions, price, "resistance"),
+      // Held, not near (heldRangeDivision): `daily` is the completed sessions.
+      bullish: heldRangeDivision(daily, divisions, price, "bullish"),
+      bearish: heldRangeDivision(daily, divisions, price, "bearish"),
     },
     // `daily` is the level chart's completed sessions on both surfaces.
     heldLevels: {
