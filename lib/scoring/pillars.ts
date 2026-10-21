@@ -36,6 +36,8 @@ import { gannPointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
 import { majorRangeDivisions, rangeDivisionMatch, type RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
+import { readHeldLevel, type HeldLevelMatch } from "@/lib/gann/heldLevel";
+import type { StructuralLevel } from "@/lib/scan/structuralLevels";
 
 type Side = "bullish" | "bearish";
 
@@ -105,6 +107,12 @@ export interface PillarFacts {
    * short (resistance). Null on a side with none.
    */
   rangeLevels: Record<Side, RangeDivisionMatch | null>;
+  /**
+   * P5(a), `historicalSR` since 2026-10-21: the old level the last reaction
+   * stopped at and has held (`lib/gann/heldLevel.ts`), support for a long and
+   * resistance for a short. Null on a side with none.
+   */
+  heldLevels: Record<Side, HeldLevelMatch | null>;
 }
 
 export interface PillarResult {
@@ -167,10 +175,12 @@ export function readPillarFacts(input: {
    * (live) or its absence (replay) changes nothing.
    */
   universe: { symbol: string; strength: UniverseStrength | null } | null;
+  /** The old levels of the S/R list (`buildStructuralLevels(...).old`), for `heldLevels`. */
+  oldLevels: StructuralLevel[];
   price: number;
   asOf: Date;
 }): PillarFacts {
-  const { rules, daily, monthly, marketDaily, universe, price, asOf } = input;
+  const { rules, daily, monthly, marketDaily, universe, oldLevels, price, asOf } = input;
   const last = daily[daily.length - 1]?.t ?? "";
   const market = (marketDaily ?? []).filter((b) => b.t <= last);
   const month = asOf.toISOString().slice(0, 7);
@@ -226,6 +236,11 @@ export function readPillarFacts(input: {
     rangeLevels: {
       bullish: rangeDivisionMatch(divisions, price, "support"),
       bearish: rangeDivisionMatch(divisions, price, "resistance"),
+    },
+    // `daily` is the level chart's completed sessions on both surfaces.
+    heldLevels: {
+      bullish: readHeldLevel(daily, oldLevels, price, "bullish"),
+      bearish: readHeldLevel(daily, oldLevels, price, "bearish"),
     },
   };
 }
@@ -314,7 +329,8 @@ export function activityPillar(f: PillarFacts | null | undefined): PillarResult 
 }
 
 /**
- * P5 (C6, T2, T4): an old top or bottom in the right role, or a percentage
+ * P5 (C6, T2, T4): an old top or bottom in the right role that the last
+ * reaction stopped at and held (`PillarFacts.heldLevels`), or a percentage
  * level in the right role: a division of the extreme range, the highest price
  * or the latest campaign of a year or more (Master Course Ch. 9, PDF 263-264;
  * `PillarFacts.rangeLevels`).

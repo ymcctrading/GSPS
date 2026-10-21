@@ -154,6 +154,7 @@ export interface ScoreInputs {
    * the timeframe it was read off and its role at current price. Optional so
    * callers that only have the boolean (the backtest replay, existing tests)
    * keep working — the note just falls back to the generic wording.
+   * Since 2026-10-21 context only: the check reads `PillarFacts.heldLevels`.
    */
   srMatch?: { price: number; timeframe: Timeframe; role: LevelRole; testCount?: number } | null;
   // (Pick it with `srMatchForSide`: the wanted role's nearest first.)
@@ -292,7 +293,7 @@ export function srMatchForSide<T>(
 export function computeScore(inputs: ScoreInputs): ScanDecision {
   const {
     direction, swingChart, campaignLeg, ruleOfThree, ruleOfThreeWeekly = null, ruleOfThreeMonthly = null, timePriceSquare, volumeClimax, boilingPoint, gann,
-    nearSupportResistance, srMatch, pattern, gannTrigger = null, levels,
+    srMatch, pattern, gannTrigger = null, levels,
     setupKind = "reversion",
     weights = DEFAULT_CRITERION_WEIGHTS,
     pillarFacts = null,
@@ -441,17 +442,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const drReading = gann.digitalRootConfluences.find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const drConfluenceHolds = drReading !== null && drReading.type !== "NO_CONFLUENCE";
   const gannConfluenceStackPassed = retracementMatch !== null;
-  // srMatch is the nearest in-band level of the wanted role when there is one,
-  // and only otherwise the nearest of the other role (`srMatchForSide`, read
-  // the same way on the live scan and the replay), so it passes whenever a
-  // level of the wanted role is in the band: Gann's level is support below
-  // price and resistance above it. Until 2026-10-21 both surfaces passed the
-  // nearest level of either role, which failed a long whose nearest in-band
-  // level sat overhead though a support was in the band too. Older callers
-  // that only pass the boolean (no srMatch) keep the pre-fix behavior for
-  // this criterion rather than being silently failed by a check they can't
-  // answer.
-  const historicalSRPassed = srMatch ? srMatch.role === wantedRole : nearSupportResistance;
+  // Since 2026-10-21 (later the same day as the role fix): the last reaction
+  // stopped at an old level of the wanted role and held there
+  // (`PillarFacts.heldLevels`, lib/gann/heldLevel.ts), read once for both
+  // surfaces in `readPillarFacts`. Before, it passed whenever any level of the
+  // wanted role sat within the 3-point allowance of price (`srMatch`), which
+  // the lattices in the S/R list made true on 98-100% of random-walk
+  // readings; Gann confirms a level only when price acts at it (W006 p.20,
+  // Rule 3(b)-(c); *Truth of the Stock Tape*). Without the facts the check
+  // fails, as the pillars do. `srMatch` stays for the note's context only.
+  const heldLevel = pillarFacts?.heldLevels?.[direction] ?? null;
+  const historicalSRPassed = heldLevel !== null;
+  // The nearest level's test count describes the held level only when they are the same level.
+  const srMatchIsHeld = heldLevel !== null && srMatch != null && Math.abs(srMatch.price - heldLevel.price) < 0.005;
 
   // What arms the trade. Was `pattern.direction === direction` off the
   // bar-sequence pattern until 2026-09-17; now the swing-crossing trigger.
@@ -471,7 +474,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // Street, 1949): a level's 4th+ test is markedly less safe than the first
   // three. See lib/analysis/levelRole.ts#levelTestConfidence.
   const levelTestNote =
-    srMatch?.testCount != null && srMatch.testCount > 0
+    srMatchIsHeld && srMatch?.testCount != null && srMatch.testCount > 0
       ? ` This is test #${srMatch.testCount} of this level${
           levelTestConfidence(srMatch.testCount) === "caution"
             ? " — the 4th+ test of the same level is historically less safe; it nearly always goes through."
@@ -532,13 +535,11 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       checkOf: "priceLevels",
       passed: historicalSRPassed,
       note:
-        (historicalSRPassed
-          ? srMatch
-            ? `Price sits at a clustered ${srMatch.timeframe} ${levelRoleLabel(srMatch.role).toLowerCase()} level at ${srMatch.price.toFixed(2)}. ${LEVEL_TIMEFRAME_USAGE[srMatch.timeframe]}.`
-            : "Price sits at a clustered macro S/R level."
-          : nearSupportResistance && srMatch
-            ? `Nearest clustered level at ${srMatch.price.toFixed(2)} is ${levelRoleLabel(srMatch.role).toLowerCase()} — wrong side for a ${direction} setup, so it doesn't confirm.`
-            : "Not at a significant historical S/R level.") + levelTestNote,
+        (heldLevel
+          ? direction === "bullish"
+            ? `The last pullback stopped at an old ${heldLevel.timeframe} support level at ${heldLevel.price.toFixed(2)}: its low of ${heldLevel.extreme.toFixed(2)} came ${heldLevel.sessionsAgo} sessions ago, and no close since has broken the level by 3 points. ${LEVEL_TIMEFRAME_USAGE[heldLevel.timeframe]}.`
+            : `The last rally stopped at an old ${heldLevel.timeframe} resistance level at ${heldLevel.price.toFixed(2)}: its high of ${heldLevel.extreme.toFixed(2)} came ${heldLevel.sessionsAgo} sessions ago, and no close since has gone through the level by 3 points. ${LEVEL_TIMEFRAME_USAGE[heldLevel.timeframe]}.`
+          : `The last ${direction === "bullish" ? "pullback has not stopped and held at an old support level" : "rally has not stopped and held at an old resistance level"}. Being near a level is not enough: price has to come to it and hold there.`) + levelTestNote,
     },
     {
       key: "entryTriggerArmed",

@@ -104,9 +104,11 @@ describe("A-LEVELS-03: the ladder joins the support and resistance pool (step 8)
 
   it("is wired into the level pool on the live scan and the replay, and fan prices are no longer targets", async () => {
     const { readFileSync } = await import("node:fs");
+    // Both surfaces build the pool through one helper since 2026-10-21.
+    expect(readFileSync("lib/scan/structuralLevels.ts", "utf8")).toMatch(/campaignSupportLevels\(readCampaignBottoms\(charts\.monthly, charts\.daily, asOf\), price\)/);
     for (const f of ["lib/scanTicker.ts", "lib/backtest/replay.ts"]) {
       const s = readFileSync(f, "utf8");
-      expect(s).toMatch(/campaignSupportLevels\(readCampaignBottoms\(charts\.monthly, charts\.daily, [^)]*\)+, (currentPrice|price)\)/);
+      expect(s).toMatch(/buildStructuralLevels\(\{/);
       expect(s).toMatch(/gannTargetPool\(/);
       expect(s).not.toMatch(/fanLines\.map\(\(f\) => f\.price\)/);
     }

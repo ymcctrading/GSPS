@@ -324,7 +324,13 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
       "two (+0.56R, +1.50R on 2026-09-08) was inside an Execute-conditioned bucket — exactly the " +
       "collider this module's own sign-check guard refuses to read a sign from, so those never counted. " +
       "These two do: both unconditioned, both informative, both significant, both positive. Promoted " +
-      "from hypothesis to validated on the second confirming run, per this file's own stated bar.",
+      "from hypothesis to validated on the second confirming run, per this file's own stated bar. " +
+      "RULE REPLACED (2026-10-21): every figure above measured the proximity rule (any level of the wanted role " +
+      "within the band), which passed 98-100% of random-walk readings once the lattices joined the S/R list. It " +
+      "now passes only when the last reaction stopped at an old level (weekly or monthly pivot, percentage level, " +
+      "campaign bottom, secondary turn) and held: the 10-session extreme 3 points through to 1 point short of " +
+      "it, 2+ sessions old (W006 p.20, Rule 3(b)-(c); Truth of the Stock Tape; lib/gann/heldLevel.ts). Random " +
+      "walks 27-50%. Unmeasured on this rule.",
   },
   {
     id: "entryTriggerArmed",
@@ -534,7 +540,8 @@ const SCAN_SCORE: RegisteredCriterion[] = [
   PILLAR("activity", "Activity and character", "lib/gann/ruleFollowing.ts, lib/gann/sevenZones.ts, lib/gann/priceZone.ts",
     "S1-S3, S18, S27: follows the rules, and two of volume at its norm, a 20-point yearly range, and ranges not quieter than usual."),
   PILLAR("priceLevels", "Price levels", "lib/strat/levels.ts, lib/gann/retracement.ts",
-    "MC Ch.7 C6: an old top or bottom in the right role, or a percentage level. Merges historicalSR and gannRetracementConfluence."),
+    "MC Ch.7 C6: an old top or bottom in the right role that the last reaction stopped at and held (since 2026-10-21; " +
+      "W006 p.20), or a percentage level. Merges historicalSR and gannRetracementConfluence."),
   PILLAR("geometricAngles", "Angles", "lib/gann/patternAngles.ts",
     "MC Ch.7 C10, C14: on the side of the 45° from the last major pivot, and not squeezed between two important angles (within 5 points)."),
   PILLAR("timeFactors", "Time", "lib/gann/timePriceSquare.ts, lib/gann/timeRules.ts",

@@ -44,6 +44,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
     reactionAbnormal: false,
     campaign: null,
     rangeLevels: { bullish: null, bearish: null },
+    heldLevels: { bullish: null, bearish: null },
     ...over,
   };
 }
@@ -303,6 +304,8 @@ describe("the score out of nine", () => {
       pattern: null,
       momentumElevated: false,
       levels: null,
+      // Since 2026-10-21 the old level is the one the last reaction held at, read in the facts.
+      pillarFacts: facts({ heldLevels: { bullish: { price: 98, timeframe: "1Week", extreme: 97.5, sessionsAgo: 3 }, bearish: null } }),
     } as unknown as Parameters<typeof computeScore>[0]);
     const points = decision.breakdown.filter((b) => b.pillar);
     expect(points.map((b) => b.key)).toEqual([...CRITERION_KEYS]);
@@ -330,7 +333,7 @@ describe("P1's year check reads the decade digit at the session's month (2026-10
       const asOf = new Date(iso);
       const daily = bars.filter((b) => b.t < iso);
       const rules = readDisclosedRules(daily, daily[daily.length - 1].c, null, asOf);
-      return readPillarFacts({ rules, daily, monthly: [], marketDaily: null, universe: null, price: daily[daily.length - 1].c, asOf });
+      return readPillarFacts({ rules, daily, monthly: [], marketDaily: null, universe: null, oldLevels: [], price: daily[daily.length - 1].c, asOf });
     };
     // July 2026: the bull year; the digit gives a long its point.
     expect(read("2026-07-25T12:00:00Z").decadeBias).toBe("bullish");
