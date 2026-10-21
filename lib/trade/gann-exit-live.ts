@@ -45,7 +45,7 @@ export function resetGannExitCache(): void {
 }
 
 /** Completed daily sessions, and the monthly chart the entry's older levels come from (PLAN.md item 5, step 3). */
-async function completedDailyBars(symbol: string, now: Date): Promise<{ bars: Bar[]; monthly: Bar[] }> {
+export async function completedDailyBars(symbol: string, now: Date): Promise<{ bars: Bar[]; monthly: Bar[] }> {
   const today = etDateKey(now);
   const hit = cache.get(symbol);
   if (hit && hit.day === today) return hit;

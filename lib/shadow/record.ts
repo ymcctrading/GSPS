@@ -49,9 +49,8 @@ export function buildShadowSignal(result: ScanResult, source: string): ShadowSig
     strategyVersion: STRATEGY_VERSION,
     entry: result.levels.entry,
     stopLoss: result.levels.stopLoss,
-    // The master target, not TP1 — a shadow signal tracks whether the full
-    // structural call played out, the same target the backtest harness's
-    // own `targetR`-derived target approximates for comparison purposes.
+    // The master target, kept for reference only: the walk exits on Gann's
+    // rules with no fixed target (lib/shadow/evaluate.ts, R-032).
     target: result.levels.masterProfit,
     score: result.decision.score,
     source,

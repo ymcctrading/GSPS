@@ -16,10 +16,20 @@
 -- app. Nullable, no default: rows before this have no version on record, and
 -- saying otherwise would be a guess.
 --
+-- R-032. The forward test (lib/shadow/evaluate.ts) now enters on production's
+-- reaction and exits on Gann's rules, so a recorded signal can end without a
+-- trade: `expired` (never traded into its zone in its session) or `retired`
+-- (closed through its stop first). `fill_price` is where the reaction filled.
+-- Rows already evaluated keep their outcome; they were recorded under earlier
+-- strategy versions, which the drift check never mixes with this one.
+--
 -- Additive only. Apply before the code that writes these columns is merged.
 -- Forward-only: no earlier migration is edited.
 --
 -- Rollback:
+--   alter table public.shadow_signals drop constraint if exists shadow_signals_outcome_check;
+--   alter table public.shadow_signals add constraint shadow_signals_outcome_check check (outcome in ('win', 'loss', 'timeout'));
+--   alter table public.shadow_signals drop column if exists fill_price;
 --   drop function if exists public.execute_paper_fill(uuid, numeric, text, text, text, numeric, numeric, numeric, numeric, numeric, uuid);
 --   alter table public.daily_scans drop column if exists strategy_version;
 --   alter table public.orders drop column if exists strategy_version;
@@ -28,6 +38,11 @@
 alter table public.daily_scans add column if not exists strategy_version text;
 alter table public.orders add column if not exists strategy_version text;
 alter table public.trade_logs add column if not exists strategy_version text;
+
+alter table public.shadow_signals add column if not exists fill_price numeric;
+alter table public.shadow_signals drop constraint if exists shadow_signals_outcome_check;
+alter table public.shadow_signals add constraint shadow_signals_outcome_check
+  check (outcome in ('win', 'loss', 'timeout', 'expired', 'retired'));
 
 create or replace function public.execute_paper_fill(
   p_user_id uuid,

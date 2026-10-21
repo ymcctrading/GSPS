@@ -24,6 +24,12 @@ const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
  * same manual-bump discipline as `STRATEGY_VERSION`.
  */
 const BACKTEST_BASELINE = { trades: 31, winRate: 0.387, expectancyR: 0.151 };
+/**
+ * That baseline was measured on earlier rules (a stop entry and a fixed
+ * target), so it is shown for reference and not sent for a drift verdict
+ * (R-032, 2026-10-21). Set this true once it is re-based on the current rules.
+ */
+const BASELINE_COMPARABLE = false;
 /** Mirrors `lib/shadow/compare.ts`'s `MIN_SHADOW_SAMPLES` — below this, a comparison is withheld server-side too. */
 const MIN_SHADOW_SAMPLES_HINT = 15;
 
@@ -106,11 +112,15 @@ export default function LearningPage() {
     let cancelled = false;
     (async () => {
       try {
-        const params = new URLSearchParams({
-          backtestTrades: String(BACKTEST_BASELINE.trades),
-          backtestWinRate: String(BACKTEST_BASELINE.winRate),
-          backtestExpectancyR: String(BACKTEST_BASELINE.expectancyR),
-        });
+        const params = new URLSearchParams(
+          BASELINE_COMPARABLE
+            ? {
+                backtestTrades: String(BACKTEST_BASELINE.trades),
+                backtestWinRate: String(BACKTEST_BASELINE.winRate),
+                backtestExpectancyR: String(BACKTEST_BASELINE.expectancyR),
+              }
+            : {},
+        );
         const res = await fetch(`/api/shadow/summary?${params}`);
         const body = await res.json();
         if (cancelled) return;
@@ -249,7 +259,9 @@ export default function LearningPage() {
                     </TD>
                   </TR>
                   <TR className="border-t-2 border-border">
-                    <TD className="font-medium">Backtest baseline</TD>
+                    <TD className="font-medium">
+                      Backtest baseline{!BASELINE_COMPARABLE && " (earlier rules, not compared)"}
+                    </TD>
                     <TD className="text-right tabular-nums">{BACKTEST_BASELINE.trades}</TD>
                     <TD className="text-right tabular-nums">{pct(BACKTEST_BASELINE.winRate)}</TD>
                     <TD className={cn("text-right tabular-nums", toneFor(BACKTEST_BASELINE.expectancyR))}>
@@ -261,8 +273,9 @@ export default function LearningPage() {
 
               <p className="text-xs text-muted">
                 {shadowSummary.pending} signal{shadowSummary.pending === 1 ? "" : "s"} still waiting on
-                an outcome (up to {shadowSummary.maxHoldDays} trading days each) — not counted above yet.
-                {shadowSummary.shadow.trades < MIN_SHADOW_SAMPLES_HINT &&
+                an outcome (up to {shadowSummary.maxHoldDays} trading days each) — not counted above yet. A
+                signal counts only once its entry filled on the pullback the same session.
+                {BASELINE_COMPARABLE && shadowSummary.shadow.trades < MIN_SHADOW_SAMPLES_HINT &&
                   ` Fewer than ${MIN_SHADOW_SAMPLES_HINT} resolved signals so far — too early to compare against the baseline with any confidence.`}
               </p>
 
@@ -275,7 +288,7 @@ export default function LearningPage() {
                   <p className="mt-2 text-sm text-bear">{shadowSummary.drift.reason}</p>
                 </div>
               )}
-              {!shadowSummary.drift && shadowSummary.shadow.trades >= MIN_SHADOW_SAMPLES_HINT && (
+              {BASELINE_COMPARABLE && !shadowSummary.drift && shadowSummary.shadow.trades >= MIN_SHADOW_SAMPLES_HINT && (
                 <p className="text-sm text-bull">
                   <Badge variant="bull">On track</Badge> Live performance is tracking the backtest
                   baseline — no drift detected.

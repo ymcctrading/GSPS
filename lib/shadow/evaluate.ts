@@ -1,82 +1,133 @@
 /**
- * Shadow-mode signal evaluation — walks a recorded shadow signal forward
- * against real subsequent bars to determine whether it would have hit its
- * target or stop, the same win/loss/timeout vocabulary
- * `lib/backtest/replay.ts` uses for a backtested trade. Deliberately
- * independent of `replay.ts`'s internals rather than sharing its bar-walk
- * loop: that loop is intraday-execution-timeframe shaped (STRAT pattern
- * triggers, ambiguous same-bar resolution tied to `costPerShare`), while a
- * shadow signal is evaluated on daily bars over a multi-day swing hold —
- * different enough inputs that sharing the loop would mean threading
- * intraday-only concepts through a daily-bar caller for no real reuse.
+ * Shadow-mode signal evaluation: walks a recorded Execute signal forward
+ * against the bars that came after it, the way production would have traded
+ * it (review finding R-032, 2026-10-21).
+ *
+ * It used to fill at the plan's entry the moment the signal was recorded and
+ * hold a fixed stop and the master target for ten days. Production does
+ * neither, so the forward test measured a rule no account trades. Now:
+ *
+ * - **Entry: the reaction, as production enters** (PLAN.md item 4,
+ *   never-failing rule 9). After the scan, a closed execution bar of the
+ *   signal's own session that trades into the buy zone (`tradedIntoBuyZone`)
+ *   makes the entry a market order at the next bar's open. A bar that closes
+ *   through the stop first calls the plan off (`retired`). A plan that sees
+ *   neither by the end of its session never filled (`expired`, Q17: a plan
+ *   lasts its session). The same reading the replay's `entryRule: "reaction"`
+ *   makes.
+ * - **Exit: Gann's, with no fixed target** (`LIVE_EXIT_RULE` "gann", Q14). The
+ *   trade is walked by the replay's own `walkGannExit` over the rest of the
+ *   session's execution bars and then the completed daily sessions, with the
+ *   crossed level read exactly as the live exit manager reads it
+ *   (`entryCrossedLevel`). Nothing sells at a target.
+ * - **R is measured on the plan's risk** (entry to stop), as the replay
+ *   measures it; a fill away from the entry moves the P&L, not the unit.
+ *
+ * A trade still open after `SHADOW_MAX_HOLD_DAYS` sessions is marked out at the
+ * last close (`timeout`), the replay's 10-session limit.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Bar } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { getInstrumentReference } from "@/lib/data/instrumentReference";
+import { walkGannExit } from "@/lib/backtest/replay";
+import { tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
+import { completedDailyBars, entryCrossedLevel } from "@/lib/trade/gann-exit-live";
+import { etDateKey } from "@/lib/market/session";
 
 /**
- * Trading days a shadow signal is held before being marked out at the last
- * close rather than left pending forever. Matches the swing-hold horizon
- * this codebase already uses elsewhere for a multi-day setup (see
- * `HOLD_PERIOD_DAYS` in `lib/scanTicker.ts` for the shorter event-risk
- * window; this is the outcome-resolution window, not an event gate, so it
- * is longer — engineering-chosen, not spec-derived).
+ * Sessions a filled shadow trade is held before being marked out at the last
+ * close: the replay's limit (`maxBarsHeld`, 10 sessions), so the two measure
+ * the same horizon. Engineering-chosen, not spec-derived.
  */
 export const SHADOW_MAX_HOLD_DAYS = 10;
 
+/** The execution bars the entry is read on, as production arms its plans. */
+const SHADOW_EXECUTION_TIMEFRAME = "15Min" as const;
+
 export interface ShadowOutcome {
-  outcome: "win" | "loss" | "timeout" | "pending";
+  /**
+   * `win`/`loss`/`timeout` are filled trades. `expired` never reacted into the
+   * zone in its session and `retired` closed through its stop first: neither
+   * is a trade, and neither counts in the summary. `pending` is not a result.
+   */
+  outcome: "win" | "loss" | "timeout" | "expired" | "retired" | "pending";
   rMultiple: number | null;
+  /** Sessions held, the fill's session included. */
   barsHeld: number | null;
+  fillPrice: number | null;
 }
 
-/**
- * Walks `barsAfterSignal` (daily bars strictly after the signal's own bar,
- * oldest first) looking for a stop or target touch. `pending` means fewer
- * than `SHADOW_MAX_HOLD_DAYS` bars have elapsed and neither has fired yet —
- * the caller should try again once more bars exist, not treat it as a
- * result. Same same-bar-ambiguity convention as `replay.ts`: both stop and
- * target touched on one bar counts as the loss.
- */
-export function walkShadowOutcome(
-  barsAfterSignal: Bar[],
-  direction: "bullish" | "bearish",
-  entry: number,
-  stopLoss: number,
-  target: number,
-  maxHoldDays: number = SHADOW_MAX_HOLD_DAYS,
-): ShadowOutcome {
+const PENDING: ShadowOutcome = { outcome: "pending", rMultiple: null, barsHeld: null, fillPrice: null };
+
+export interface ShadowWalkInput {
+  direction: "bullish" | "bearish";
+  entry: number;
+  stopLoss: number;
+  /** The signal session's execution bars that opened at or after the scan, oldest first. */
+  sessionBars: Bar[];
+  /** True once the signal's session has closed, so no more of its bars can come. */
+  sessionComplete: boolean;
+  /** Completed daily sessions, the history before the signal and the sessions after it. */
+  dailyBars: Bar[];
+  monthly?: Bar[];
+  sharesOutstanding?: number | null;
+  maxHoldDays?: number;
+}
+
+/** Pure: production's entry and exit over the bars after one shadow signal. */
+export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
+  const { direction, entry, stopLoss, sessionBars, sessionComplete, dailyBars, monthly = [] } = input;
+  const maxHoldDays = input.maxHoldDays ?? SHADOW_MAX_HOLD_DAYS;
   const long = direction === "bullish";
   const risk = Math.abs(entry - stopLoss);
-  if (!(risk > 0)) return { outcome: "timeout", rMultiple: 0, barsHeld: 0 };
+  // No risk to measure, or no bar after the scan: nothing can fill.
+  if (!(risk > 0) || sessionBars.length === 0) return sessionComplete ? { ...PENDING, outcome: "expired" } : PENDING;
 
-  const horizon = barsAfterSignal.slice(0, maxHoldDays);
-  for (let i = 0; i < horizon.length; i++) {
-    const b = horizon[i];
-    const hitStop = long ? b.l <= stopLoss : b.h >= stopLoss;
-    const hitTarget = long ? b.h >= target : b.l <= target;
-    if (!hitStop && !hitTarget) continue;
-    const outcome = hitStop ? "loss" : "win";
-    const gross = outcome === "win" ? Math.abs(target - entry) : -risk;
-    return { outcome, rMultiple: gross / risk, barsHeld: i + 1 };
+  const sessionDate = sessionBars[0].t.slice(0, 10);
+  const later = dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate);
+  const bars = [...sessionBars, ...later];
+
+  // The reaction: a closed bar into the zone, filled at the next bar's open.
+  let from = -1;
+  for (let k = 0; k < sessionBars.length; k++) {
+    const closed = sessionBars[k];
+    if (long ? closed.c <= stopLoss : closed.c >= stopLoss) return { ...PENDING, outcome: "retired" };
+    if (tradedIntoBuyZone(closed, direction, entry)) {
+      from = k + 1;
+      break;
+    }
   }
+  if (from < 0) return sessionComplete ? { ...PENDING, outcome: "expired" } : PENDING;
+  if (from >= bars.length) return PENDING;
 
-  if (horizon.length < maxHoldDays) {
-    // Not enough bars have happened yet to call this pending-timeout — the
-    // signal is still genuinely open.
-    return { outcome: "pending", rMultiple: null, barsHeld: null };
-  }
+  const fill = bars[from].o;
+  const maxBarsHeld = Math.max(0, sessionBars.length - from) + maxHoldDays;
+  const crossedLevel = entryCrossedLevel(long ? "long" : "short", fill, bars[from].t, dailyBars, monthly);
+  const walked = walkGannExit({
+    bars,
+    from,
+    maxBarsHeld,
+    long,
+    entry: fill,
+    stop: stopLoss,
+    dailyBars,
+    crossedLevel,
+    sharesOn: () => input.sharesOutstanding ?? null,
+    isStock: input.sharesOutstanding != null,
+  });
+  // Ran out of bars before an exit or the limit: still open.
+  if (walked.reason === "timeout" && bars.length < from + maxBarsHeld) return PENDING;
 
-  // Held the full window without touching either — marked out at the last
-  // available close, same convention as `replay.ts`'s timeout branch.
-  const lastClose = horizon[horizon.length - 1].c;
-  const dir = long ? 1 : -1;
+  const rMultiple = ((long ? 1 : -1) * (walked.exit - fill)) / risk;
+  const sessions = new Set(bars.slice(from, from + walked.barsHeld).map((b) => b.t.slice(0, 10))).size;
   return {
-    outcome: "timeout",
-    rMultiple: (dir * (lastClose - entry)) / risk,
-    barsHeld: horizon.length,
+    outcome: walked.reason === "timeout" ? "timeout" : rMultiple > 0 ? "win" : "loss",
+    rMultiple,
+    barsHeld: sessions,
+    fillPrice: fill,
   };
 }
 
@@ -86,18 +137,14 @@ interface PendingShadowRow {
   direction: "bullish" | "bearish";
   entry: number;
   stop_loss: number;
-  target: number;
   scanned_at: string;
 }
 
 /**
- * Evaluates every pending shadow signal old enough that its outcome might
- * now be determinable (at least one full trading day since it was
- * recorded), fetching each symbol's daily bars since the signal and
- * writing the outcome back. Best-effort per symbol: a provider failure for
- * one symbol is logged and skipped rather than aborting the whole pass —
- * the same posture as `mapWithConcurrency`'s callers elsewhere in the scan
- * pipeline.
+ * Evaluates every pending shadow signal old enough that its outcome might now
+ * be determinable (at least one full day since it was recorded), and writes
+ * the outcome back. Best-effort per symbol: a provider failure for one symbol
+ * is logged and skipped rather than aborting the whole pass.
  */
 export async function evaluatePendingShadowSignals(
   supabase: SupabaseClient,
@@ -106,7 +153,7 @@ export async function evaluatePendingShadowSignals(
   const cutoff = new Date(now.getTime() - 24 * 3600_000).toISOString();
   const { data, error } = await supabase
     .from("shadow_signals")
-    .select("id, symbol, direction, entry, stop_loss, target, scanned_at")
+    .select("id, symbol, direction, entry, stop_loss, scanned_at")
     .is("outcome", null)
     .lte("scanned_at", cutoff);
 
@@ -123,13 +170,34 @@ export async function evaluatePendingShadowSignals(
 
   for (const row of rows) {
     try {
-      const assetClass = isCryptoSymbol(row.symbol) ? "crypto" : "us_equity";
-      const signalDate = new Date(row.scanned_at);
-      const bars = await provider.fetchBars(row.symbol, "1Day", signalDate, now, assetClass);
-      // Only bars strictly after the signal's own session.
-      const after = bars.filter((b) => new Date(b.t).getTime() > signalDate.getTime());
+      const crypto = isCryptoSymbol(row.symbol);
+      const scannedAt = new Date(row.scanned_at);
+      const sessionDate = etDateKey(scannedAt);
+      const [execution, { bars: daily, monthly }, ref] = await Promise.all([
+        provider.fetchBars(
+          row.symbol,
+          SHADOW_EXECUTION_TIMEFRAME,
+          scannedAt,
+          new Date(scannedAt.getTime() + 24 * 3600_000),
+          crypto ? "crypto" : "us_equity",
+        ),
+        completedDailyBars(row.symbol, now),
+        crypto ? Promise.resolve(null) : getInstrumentReference(row.symbol),
+      ]);
+      const sessionBars = execution.filter(
+        (b) => new Date(b.t).getTime() >= scannedAt.getTime() && etDateKey(new Date(b.t)) === sessionDate,
+      );
 
-      const result = walkShadowOutcome(after, row.direction, row.entry, row.stop_loss, row.target);
+      const result = walkShadowTrade({
+        direction: row.direction,
+        entry: Number(row.entry),
+        stopLoss: Number(row.stop_loss),
+        sessionBars,
+        sessionComplete: etDateKey(now) > sessionDate,
+        dailyBars: daily,
+        monthly,
+        sharesOutstanding: ref?.sharesOutstanding ?? null,
+      });
       if (result.outcome === "pending") {
         stillPending++;
         continue;
@@ -141,6 +209,7 @@ export async function evaluatePendingShadowSignals(
           outcome: result.outcome,
           r_multiple: result.rMultiple,
           bars_held: result.barsHeld,
+          fill_price: result.fillPrice,
           evaluated_at: now.toISOString(),
         })
         .eq("id", row.id);

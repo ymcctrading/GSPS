@@ -29,9 +29,11 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
   compareToBacktest,
   summarizeShadowRows,
+  SHADOW_TRADE_OUTCOMES,
   type BacktestBaseline,
 } from "@/lib/shadow/compare";
 import { SHADOW_MAX_HOLD_DAYS } from "@/lib/shadow/evaluate";
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -54,10 +56,18 @@ export async function GET(req: NextRequest) {
 
   const [{ data: evaluated, error: evaluatedError }, { count: pendingCount, error: pendingError }] =
     await Promise.all([
-      service.from("shadow_signals").select("outcome, r_multiple").not("outcome", "is", null).gte("scanned_at", since),
+      // Trades on this strategy version only: a plan that never filled is not one,
+      // and a sample mixing versions measures no rule production runs (R-032).
+      service
+        .from("shadow_signals")
+        .select("outcome, r_multiple")
+        .eq("strategy_version", STRATEGY_VERSION)
+        .in("outcome", [...SHADOW_TRADE_OUTCOMES])
+        .gte("scanned_at", since),
       service
         .from("shadow_signals")
         .select("id", { count: "exact", head: true })
+        .eq("strategy_version", STRATEGY_VERSION)
         .is("outcome", null)
         .gte("scanned_at", since),
     ]);

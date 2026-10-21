@@ -25,11 +25,25 @@ export interface BacktestBaseline {
   trades: number;
   winRate: number;
   expectancyR: number;
+  /**
+   * The strategy version the baseline was measured on. A baseline from another
+   * version measured other rules, so the scheduled drift check withholds
+   * rather than compare across them (R-032). Absent: the caller vouches for it.
+   */
+  strategyVersion?: string;
 }
+
+/** The outcomes that are trades. `expired` and `retired` never filled (lib/shadow/evaluate.ts). */
+export const SHADOW_TRADE_OUTCOMES = ["win", "loss", "timeout"] as const;
 
 /**
  * The Execute-tier row from the latest committed `docs/REPLAY_RESULTS.md`
- * (generated 2026-08-27, `npm run backtest`). Hand-transcribed rather than
+ * (generated 2026-08-27, `npm run backtest`). It was measured on a stop entry
+ * and a fixed bracket, before the reaction entry and Gann's exits, so it is
+ * labelled with its own version and the scheduled check does not compare the
+ * forward test against it (R-032, 2026-10-21). Re-base it, with this
+ * version's `STRATEGY_VERSION`, from a production-faithful replay cell
+ * (`{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann"}`). Hand-transcribed rather than
  * read from the file at runtime — the report is markdown for humans, not a
  * machine-readable artifact, and re-parsing it on every scheduled-scan run
  * would be fragile for no real benefit. Update this constant whenever
@@ -43,6 +57,7 @@ export const EXECUTE_TIER_BACKTEST_BASELINE: BacktestBaseline = {
   trades: 31,
   winRate: 0.387,
   expectancyR: 0.151,
+  strategyVersion: "2026-08-27",
 };
 
 export interface DriftAlert {
@@ -134,6 +149,10 @@ export async function evaluateShadowDrift(
   windowDays = 60,
   now: Date = new Date(),
 ): Promise<DriftAlert | null> {
+  if (backtest.strategyVersion !== undefined && backtest.strategyVersion !== STRATEGY_VERSION) {
+    console.info(`shadow: drift check withheld — the baseline was measured on ${backtest.strategyVersion}, not ${STRATEGY_VERSION}`);
+    return null;
+  }
   const since = new Date(now.getTime() - windowDays * 24 * 3600_000).toISOString();
   const { data, error } = await supabase
     .from("shadow_signals")
@@ -141,7 +160,7 @@ export async function evaluateShadowDrift(
     // One version at a time: a sample that mixes strategy versions measures
     // no rule production runs.
     .eq("strategy_version", STRATEGY_VERSION)
-    .not("outcome", "is", null)
+    .in("outcome", [...SHADOW_TRADE_OUTCOMES])
     .gte("scanned_at", since);
 
   if (error) {
