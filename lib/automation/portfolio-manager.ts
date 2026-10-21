@@ -49,7 +49,6 @@ import {
   AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK,
 } from "@/lib/automation/autonomous-live-gate";
 import { armConfirmedPlansFromBars, planStopBroken } from "@/lib/lifecycle/armFromBars";
-import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
@@ -85,28 +84,56 @@ interface CandidatePlanRow {
   entry_trigger: number;
   invalidation: number;
   generated_at: string;
-  /** Signal & Regime Engine rollup recorded at plan-creation time (see
-   * lib/lifecycle/fromScanResult.ts). trade_plans carries no Gann 0-9 score
-   * column of its own -- every plan here already cleared the Gann Execute
-   * gate before a trade_plan was ever created (buildNewTradePlanFromScanResult
-   * runs only on a confirmed WATCH -> EXECUTE transition), so this tier is
-   * the one ranking signal actually available to pick the best of several
-   * armed candidates from. */
-  alignment: { tier: RulesAlignmentTier } | null;
 }
 
-/** Same ordinal lib/signals/publicSummary.ts#toPublicSignalSummary uses to
- * pick the strongest verdict across states -- kept in the same order here so
- * "best" means the same thing on every surface that ranks by tier. */
-const TIER_RANK: Record<RulesAlignmentTier, number> = {
-  watchlistOnly: 0,
-  qualified: 1,
-  aTier: 2,
-  aPlusTier: 3,
-};
+/**
+ * Gann's score (the nine pillars, out of 9) of each armed plan, read from the
+ * member's monitor of that symbol: the latest scan's reading, kept only when
+ * the monitor still reads the plan's direction. trade_plans carries no score
+ * of its own, and the monitor is the row every scan surface writes it to
+ * (migrations 0069/0074), so no migration is needed. Keyed `SYMBOL:direction`.
+ * A failed read ranks nothing and never stops the run.
+ */
+export async function readPlanScores(
+  supabase: SupabaseClient,
+  userId: string,
+  symbols: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (symbols.length === 0) return out;
+  const { data, error } = await supabase
+    .from("active_monitors")
+    .select("symbol, direction, score")
+    .eq("profile_id", userId)
+    .in("symbol", [...new Set(symbols.map((s) => s.toUpperCase()))]);
+  if (error) return out;
+  for (const row of (data ?? []) as { symbol: string; direction: string | null; score: number | null }[]) {
+    if (row.score == null || !Number.isFinite(Number(row.score)) || !row.direction) continue;
+    const key = `${row.symbol.toUpperCase()}:${row.direction}`;
+    out.set(key, Math.max(out.get(key) ?? -Infinity, Number(row.score)));
+  }
+  return out;
+}
 
-function tierRank(alignment: { tier: RulesAlignmentTier } | null): number {
-  return alignment ? TIER_RANK[alignment.tier] : -1;
+/**
+ * The armed plans, best first by Gann's score, so a capacity-limited run
+ * (Gann's five stocks, a partial activation failure) spends its slots on the
+ * strongest: Gann trades "the stocks that show the most strength" (*Wall
+ * Street Stock Selector* Ch. VII), and the scorecard is the count of his
+ * conditions each setup meets (AGENTS.md, "The scorecard's role"). The
+ * removed weighted grade (the Signal & Regime Engine's alignment tier) is no
+ * longer read. A plan with no score sorts after those with one; ties keep
+ * the query's order, the older, longer-armed plan first.
+ */
+export function rankPlansByScore<T extends { instrument: string; direction: string }>(
+  plans: T[],
+  scores: Map<string, number>,
+): T[] {
+  const scoreOf = (p: T) => scores.get(`${p.instrument.toUpperCase()}:${p.direction}`) ?? -1;
+  return plans
+    .map((plan, i) => ({ plan, i, score: scoreOf(plan) }))
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .map((x) => x.plan);
 }
 
 /** Fraction of paper equity risked per trade, by dial position. */
@@ -235,14 +262,10 @@ async function runForProfile(
   // once; without this the plan sat "automated" with no order until it expired.
   await placeRestingEntries(supabase, profile.user_id, openRows, (plans ?? []) as CandidatePlanRow[], result);
 
-  // Best tier first, so a capacity-limited run (the daily cap below, or a
-  // partial activation failure) spends its slots on the strongest candidates
-  // rather than whichever happened to sort first out of Postgres. Ties (same
-  // tier) keep the query's own order, which is insertion order -- the older,
-  // longer-armed plan first.
-  const candidates = ((plans ?? []) as CandidatePlanRow[])
-    .filter((plan) => !alreadyAutomated.has(plan.plan_id))
-    .sort((a, b) => tierRank(b.alignment) - tierRank(a.alignment));
+  // Gann's score first (`rankPlansByScore`).
+  const unranked = ((plans ?? []) as CandidatePlanRow[]).filter((plan) => !alreadyAutomated.has(plan.plan_id));
+  const scores = await readPlanScores(supabase, profile.user_id, unranked.map((p) => p.instrument));
+  const candidates = rankPlansByScore(unranked, scores);
 
   // A member's choice of "live" only ever becomes a live order once the
   // dedicated kill switch is off AND a sign-off is on record

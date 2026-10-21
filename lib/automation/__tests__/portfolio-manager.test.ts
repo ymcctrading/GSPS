@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { allocatedDollarRiskFor, matchesDirectionalBias, matchesVolatilityTrigger } from "@/lib/automation/portfolio-manager";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  allocatedDollarRiskFor,
+  matchesDirectionalBias,
+  matchesVolatilityTrigger,
+  rankPlansByScore,
+  readPlanScores,
+} from "@/lib/automation/portfolio-manager";
 
 describe("matchesDirectionalBias", () => {
   it("BOTH allows either direction", () => {
@@ -57,5 +64,54 @@ describe("allocatedDollarRiskFor: a tenth of the profits after large profits (A-
     expect(allocatedDollarRiskFor(200_000, "MODERATE")).toBe(2_000);
     expect(allocatedDollarRiskFor(200_000, "MODERATE", 1_500)).toBe(1_500);
     expect(allocatedDollarRiskFor(200_000, "MODERATE", 5_000)).toBe(2_000);
+  });
+});
+
+describe("rankPlansByScore: Gann's score first", () => {
+  const plan = (instrument: string, direction: string, id: string) => ({ instrument, direction, id });
+  it("puts the higher score first, unscored plans last, ties in query order", () => {
+    const plans = [plan("AAA", "bullish", "1"), plan("BBB", "bullish", "2"), plan("CCC", "bearish", "3"), plan("DDD", "bullish", "4")];
+    const scores = new Map([["BBB:bullish", 8], ["CCC:bearish", 6], ["AAA:bullish", 6]]);
+    expect(rankPlansByScore(plans, scores).map((p) => p.id)).toEqual(["2", "1", "3", "4"]);
+  });
+  it("does not lend one direction's score to the other", () => {
+    const plans = [plan("AAA", "bearish", "1"), plan("BBB", "bullish", "2")];
+    const scores = new Map([["AAA:bullish", 9], ["BBB:bullish", 5]]);
+    expect(rankPlansByScore(plans, scores).map((p) => p.id)).toEqual(["2", "1"]);
+  });
+});
+
+describe("readPlanScores", () => {
+  function client(result: { data: unknown; error: unknown }, seen: { symbols?: string[] } = {}) {
+    const q = {
+      select: () => q,
+      eq: () => q,
+      in: (_col: string, symbols: string[]) => {
+        seen.symbols = symbols;
+        return Promise.resolve(result);
+      },
+    };
+    return { from: () => q } as unknown as SupabaseClient;
+  }
+  it("keys each monitor's score by symbol and direction, skipping unscored rows", async () => {
+    const seen: { symbols?: string[] } = {};
+    const scores = await readPlanScores(
+      client({
+        data: [
+          { symbol: "aapl", direction: "bullish", score: 7 },
+          { symbol: "MSFT", direction: "bearish", score: null },
+          { symbol: "NVDA", direction: null, score: 8 },
+        ],
+        error: null,
+      }, seen),
+      "u1",
+      ["aapl", "AAPL", "MSFT"],
+    );
+    expect(seen.symbols).toEqual(["AAPL", "MSFT"]);
+    expect([...scores]).toEqual([["AAPL:bullish", 7]]);
+  });
+  it("reads nothing, and fails soft, on an error or no symbols", async () => {
+    expect((await readPlanScores(client({ data: null, error: { message: "x" } }), "u1", ["AAPL"])).size).toBe(0);
+    expect((await readPlanScores(client({ data: [], error: null }), "u1", [])).size).toBe(0);
   });
 });
