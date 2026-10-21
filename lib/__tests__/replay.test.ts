@@ -569,8 +569,10 @@ describe("replay continuation setups", () => {
    */
 
   // 301 sessions, not 300 (2026-10-21): at 300 a failed top at about 145
-  // stands between the entry and the first target that pays the risk, so
-  // A-LEVELS-04 refuses the long (pinned below). These tests are about arming.
+  // stood between the entry and the first target that pays the risk, so
+  // A-LEVELS-04 refused the long (pinned below, now at 295: since the Square
+  // of Nine's cross numbers joined the S/R list, 300's first target is the
+  // cross number short of that top). These tests are about arming.
   const rising = risingDaily(301, DAY);
   const ctx = buildMacroContext(rising, rising[rising.length - 1].c);
   const reversionDir = preferredEntryDirection(ctx.macroTrends);
@@ -661,10 +663,14 @@ describe("replay continuation setups", () => {
   });
 
   it("refuses the long when a failed top stands between the entry and the first target that pays the risk (A-LEVELS-04)", () => {
-    const at300 = risingDaily(300, DAY);
-    const U = computeGannEntryTrigger(at300, "bullish")!.triggerPrice;
+    // 295 sessions (300 until 2026-10-21, when the Square of Nine's cross
+    // numbers gave 300 a first target short of the failed top): the failed top
+    // near 142 (its 3-point line at 148) stands between the entry at
+    // 146.33 and the first target, and without A-LEVELS-04 the long is taken.
+    const at295 = risingDaily(295, DAY);
+    const U = computeGannEntryTrigger(at295, "bullish")!.triggerPrice;
     const shift = (b: { o: number; h: number; l: number; c: number }) => ({ o: b.o - T + U, h: b.h - T + U, l: b.l - T + U, c: b.c - T + U });
-    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after].map(shift)), { entryRule: "stop", targetR: 2, dailyBars: at300 });
+    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after].map(shift)), { entryRule: "stop", targetR: 2, dailyBars: at295 });
     expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
   });
 

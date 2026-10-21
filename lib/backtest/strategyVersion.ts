@@ -617,4 +617,11 @@
 // lows" and "down from highs" (Master Course Ch. 6-7), so the advance from the
 // low squaring out says a top is due, against a long. Verdicts move, live and
 // replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-square-against-move";
+// 2026-10-21-gann-nine-square-price: the Square of Nine's fixed numbers act
+// as price levels (C-LEVELS-15; Master Course Ch. 2 PDF 68, "great resistance
+// points", 73 as corrected in Ch. 15A). The nearest cardinal- or fixed-cross
+// number below and above price, read in Gann points, joins the S/R list
+// through gannMasterLevels (lib/gann/squareOfNinePrice.ts), live and replay
+// alike; the 22.5° lines are left out. historicalSR, stops and targets read
+// it, so verdicts and plans move.
+export const STRATEGY_VERSION = "2026-10-21-gann-nine-square-price";
