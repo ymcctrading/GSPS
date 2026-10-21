@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dispatchNotificationDelivery, getEnabledChannels, recordNotificationDelivery, sweepStuckDeliveries } from "@/lib/entitlements/delivery";
+import { dispatchNotificationDelivery, getEnabledChannels, preferenceHold, recordNotificationDelivery, sweepStuckDeliveries } from "@/lib/entitlements/delivery";
 
 const { sendAlertEmailMock, sendSetupInvalidatedEmailMock } = vi.hoisted(() => ({
   sendAlertEmailMock: vi.fn(),
   sendSetupInvalidatedEmailMock: vi.fn(),
+}));
+const { sendPushToProfileMock } = vi.hoisted(() => ({ sendPushToProfileMock: vi.fn() }));
+vi.mock("@/lib/notifications/web-push", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/notifications/web-push")>()),
+  sendPushToProfile: sendPushToProfileMock,
 }));
 vi.mock("@/lib/notifications/resend-handler", () => ({
   sendAlertEmail: sendAlertEmailMock,
@@ -14,6 +19,7 @@ vi.mock("@/lib/notifications/resend-handler", () => ({
 beforeEach(() => {
   sendAlertEmailMock.mockReset();
   sendSetupInvalidatedEmailMock.mockReset();
+  sendPushToProfileMock.mockReset();
 });
 
 function fakeInsertClient(result: { data: unknown; error: { code?: string; message: string } | null }) {
@@ -227,6 +233,28 @@ describe("dispatchNotificationDelivery", () => {
     expect(updates[0]).toMatchObject({ status: "sent", provider_ref: "resend-456", attempt_count: 1 });
   });
 
+  it("sends a push delivery to the member's browsers and marks it sent", async () => {
+    sendPushToProfileMock.mockResolvedValueOnce({ success: true, sent: 2 });
+    const { client, updates } = fakeDeliveryClient({ row: { id: "d1", status: "pending", channel: "push", payload: PAYLOAD, attempt_count: 0 } });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: true, status: "sent" });
+    expect(sendPushToProfileMock).toHaveBeenCalledWith(client, "p1", expect.objectContaining({ title: "AAPL: Execute (8/9)", url: "/ticker/AAPL" }));
+    expect(sendAlertEmailMock).not.toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({ status: "sent", attempt_count: 1 });
+  });
+
+  it("records a push skipped, not failed, while VAPID keys are unset or no browser is subscribed", async () => {
+    sendPushToProfileMock.mockResolvedValueOnce({ success: false, skipped: true, error: "Browser push is not configured (VAPID keys unset)." });
+    const { client, updates } = fakeDeliveryClient({ row: { id: "d1", status: "pending", channel: "push", payload: PAYLOAD, attempt_count: 0 } });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: true, status: "skipped" });
+    expect(updates[0]).toMatchObject({ status: "skipped", error: "Browser push is not configured (VAPID keys unset)." });
+  });
+
   it("never sends a real notification in preview, and leaves the row untouched", async () => {
     process.env.VERCEL_ENV = "preview";
     const { client, updates } = fakeDeliveryClient({ row: { id: "d1", status: "pending", channel: "email", payload: PAYLOAD } });
@@ -327,5 +355,51 @@ describe("sweepStuckDeliveries", () => {
 
     expect(summary).toEqual({ swept: 0, sent: 0, failed: 0, suppressed: 0 });
     expect(sendAlertEmailMock).not.toHaveBeenCalled();
+  });
+});
+
+function fakePrefsClient(prefs: { min_score: number | null; quiet_hours_enabled: boolean | null } | null, inQuiet = false) {
+  const rpcCalls: unknown[] = [];
+  const client = {
+    from() {
+      return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: prefs, error: null }) }) }) };
+    },
+    rpc(name: string, args: unknown) {
+      rpcCalls.push({ name, args });
+      return Promise.resolve({ data: inQuiet, error: null });
+    },
+  } as unknown as SupabaseClient;
+  return { client, rpcCalls };
+}
+
+describe("preferenceHold", () => {
+  it("holds nothing for a member with no saved preferences", async () => {
+    expect(await preferenceHold(fakePrefsClient(null).client, "p1", PAYLOAD)).toBeNull();
+  });
+
+  it("holds an alert below the member's minimum score", async () => {
+    const held = await preferenceHold(fakePrefsClient({ min_score: 9, quiet_hours_enabled: false }).client, "p1", PAYLOAD);
+    expect(held).toMatch(/minimum score/);
+  });
+
+  it("never holds an invalidation on the score floor", async () => {
+    const held = await preferenceHold(
+      fakePrefsClient({ min_score: 9, quiet_hours_enabled: false }).client,
+      "p1",
+      { symbol: "AAPL", verdict: "INVALIDATED" } as never,
+    );
+    expect(held).toBeNull();
+  });
+
+  it("holds anything inside quiet hours, read through the RPC", async () => {
+    const { client, rpcCalls } = fakePrefsClient({ min_score: 5, quiet_hours_enabled: true }, true);
+    expect(await preferenceHold(client, "p1", PAYLOAD)).toMatch(/quiet hours/);
+    expect(rpcCalls).toEqual([{ name: "is_in_quiet_hours", args: { user_id: "p1" } }]);
+  });
+
+  it("does not ask about quiet hours when the member has them off", async () => {
+    const { client, rpcCalls } = fakePrefsClient({ min_score: 5, quiet_hours_enabled: false }, true);
+    expect(await preferenceHold(client, "p1", PAYLOAD)).toBeNull();
+    expect(rpcCalls).toHaveLength(0);
   });
 });

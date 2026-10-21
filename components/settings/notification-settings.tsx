@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NotificationHistory } from "@/components/settings/notification-history";
+import { BrowserPushToggle } from "@/components/settings/browser-push-toggle";
 import { authorizedFetch } from "@/lib/supabase/authorized-fetch";
 import { Bell } from "lucide-react";
 
@@ -115,9 +116,9 @@ export function NotificationSettings() {
           <Bell className="h-4 w-4 text-accent" /> Notifications
         </CardTitle>
         <CardDescription>
-          Email alerts for high-confidence signals, with quiet hours and a minimum score filter. Only
-          email actually sends today — SMS and browser push are on the roadmap, so those toggles save
-          your preference but nothing delivers to them yet.
+          Alerts for high-confidence signals, with quiet hours and a minimum score filter. Email and
+          browser push send today. SMS is on the roadmap, so its toggle saves your preference but
+          nothing delivers to it yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -144,17 +145,7 @@ export function NotificationSettings() {
             </span>
             <Badge variant="muted">Coming soon</Badge>
           </label>
-          <label className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm">
-            <span className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={preferences.push_enabled}
-                onChange={(e) => update("push_enabled", e.target.checked)}
-              />
-              Browser push
-            </span>
-            <Badge variant="muted">Coming soon</Badge>
-          </label>
+          <BrowserPushToggle onEnabledChange={(enabled) => update("push_enabled", enabled)} />
         </div>
 
         {preferences.sms_enabled && (
