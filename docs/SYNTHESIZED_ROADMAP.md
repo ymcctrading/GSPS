@@ -140,8 +140,9 @@ session reading only this file still follows them.
   Modes (explain-only), custom scripts, scan history, saved setups, price
   alerts, the autonomous portfolio manager on paper.
 - Not working in production: 94% of emails fail (Resend sending domain), the
-  18 pg_cron jobs lack their vault secret, and GitHub's schedules run about
-  twice a day instead of every 15 minutes. Billing is inert (no Stripe prices),
+  scheduled jobs moved
+  from GitHub's best-effort schedules to Supabase pg_cron (#381, staggered in
+  PR #403). Billing is inert (no Stripe prices),
   so there are no paying users yet.
 - Security: the senior code review's P0 and P1 code findings are fixed and
   its migrations applied (`/mnt/project-files/senior-code-review/`). The repo
@@ -236,14 +237,14 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 8 | Indicators phase 1 | Done | Chart overlays, explain-only |
 | 9 | Paid tier (freemium, subscriptions) | Owner | Code built; Stripe prices must be created in Chuck's Stripe account |
 | 10 | Pay-your-way promotion checkout | Owner | Prices approved; same Stripe step |
-| 11 | Vercel Pro | Owner | Paid upgrade |
+| 11 | Vercel Pro | Owner (optional) | No longer needed for scheduling: jobs moved to Supabase pg_cron (#381), and Vercel's crons now run only two daily backups. Its one remaining use is the daily deploy cap |
 | 12 | Sentry error capture | Owner | Code done; needs a DSN from a Sentry account (free tier) |
 | 13 | Caching for scan results and portfolio snapshots | **Open** (snapshots) | Scan results are persisted (`daily_scans`). Paper accounts have no equity snapshots, so promotion's drawdown and the Sharpe ratio are approximations |
 | 14 | Rate-limit hardening | **Open** (route audit) | Blanket limiter on every route; the audit of which routes need their own tier was never done |
 | 15 | E2E tests | **Open** (alert delivery spec); Owner (CI) | No alert-delivery spec; CI needs a test Supabase project |
 | 16 | Novice risk engine reset checklist | **Open** | `validateResetChecklist` and `risk_reset_checklists` have no writer or screen |
 | 17 | Decision-gate metrics (retention, adoption, signal quality) | **Open** | No operator view reads the Q1 gate's numbers |
-| 18 | Scheduled jobs running on time | Owner / other thread | GitHub schedules are best effort; an external scheduler needs an account; the pg_cron vault secret is the senior-review thread's |
+| 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
 | 19 | Re-derive the 6/3.5 cutoffs | Other thread | Gann-rules thread, after 20:15 UTC |
 | 20 | Intraday alerts on Gann's primitives | Other thread | Intraday thread, PR #402 |
 | 21 | Trade plans by style and instrument | Other thread | Trade-style thread |
@@ -253,12 +254,11 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | Item | Kind | What it unlocks |
 |---|---|---|
 | Paid real-time market data | Paid feed | Equity Execute verdicts without the 15-minute lag hold |
-| Vercel Pro | Paid upgrade | More than 2 daily crons, longer functions, no deploy cap |
+| Vercel Pro (optional) | Paid upgrade | A higher daily deploy cap only; scheduling no longer needs it (pg_cron, #381) |
 | SMS provider (Twilio or similar) | Paid service | Text-message alerts |
 | Stripe prices | Chuck's account (Stripe charges per transaction, no fee to set up) | Subscriptions and pay-your-way checkout |
 | Sentry DSN | Chuck's account (free tier exists) | Production error capture |
 | Test Supabase project for CI | Chuck's account (free tier may suffice) | End-to-end tests in CI |
-| External scheduler | Chuck's account (free services exist) | The 15-minute portfolio-manager cadence |
 | Futures and forex bars and a broker | Paid feeds and accounts | Q2's non-equity scanners |
 | App Store and Google Play accounts | Paid accounts | Q3's native app |
 | SOC 2 and penetration testing | Paid services | Q2 to Q4 security |
