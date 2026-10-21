@@ -922,7 +922,10 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     label: "Trade plan priced (entry / stop / TP1 / master)",
     expectedSign: "unknown",
     evidence: "unmeasured",
-    note: "Appended only when a 7+ score has no priced plan, so it is absent from most trades and cannot be read as a fail elsewhere.",
+    note:
+      "Appended only when a 7+ score has no priced plan, so it is absent from most trades and cannot be read as a fail elsewhere. " +
+      "2026-10-21 (gann-one-plan-every-market): crypto plans now take the stocks' level plan instead of 1.5R/2.5-3R targets, " +
+      "so M-K5's even-money hold can fire on crypto where a fixed 1.5R TP1 never could; crypto measurements before that version do not transfer.",
   },
   {
     id: "reversionConfirmation",

@@ -20,19 +20,23 @@ describe("crypto plan levels below a dollar", () => {
     expect(l.masterProfit).toBeGreaterThan(l.takeProfit1);
   });
 
-  it("puts a short's master on an eighth of the entry, never below zero", () => {
+  // 2026-10-21: crypto takes the same level plan as stocks, so a short's
+  // targets are percentages of the entry (at most 30% away) and can no longer
+  // be projected below zero from the risk.
+  it("keeps a short's targets above zero, the master beyond TP1", () => {
     const short: EntrySource = { direction: "bearish", triggerPrice: 1, stopPrice: 1.35, gannReaction: true };
     const l = computeTradeLevels(short, prev(1.1, 0.9), [], undefined, undefined, "crypto");
     expect(l.takeProfit1).toBeGreaterThan(0);
     expect(l.masterProfit).toBeGreaterThan(0);
     expect(l.masterProfit).toBeLessThan(l.takeProfit1);
-    expect((l.masterProfit * 8) % 1).toBeCloseTo(0, 9);
   });
 
-  it("refuses a short with no eighth of the price left beyond its first target", () => {
-    // Risk 0.6 on a 1.00 entry: TP1 at 0.10 is already under the last eighth.
-    // The original probe: its master read -0.80.
+  it("prices the original probe above zero, with a first target short of the risk", () => {
+    // Risk 0.6 on a 1.00 entry: its master once read -0.80. No level in reach
+    // pays that risk, so TP1 sits inside it and M-K5 holds the plan from Execute.
     const short: EntrySource = { direction: "bearish", triggerPrice: 1, stopPrice: 1.6, gannReaction: true };
-    expect(() => computeTradeLevels(short, prev(1.1, 0.9), [], undefined, undefined, "crypto")).toThrow(/Invalid trade levels/);
+    const l = computeTradeLevels(short, prev(1.1, 0.9), [], undefined, undefined, "crypto");
+    expect(l.masterProfit).toBeGreaterThan(0);
+    expect(l.rewardToRiskTp1).toBeLessThan(1);
   });
 });

@@ -40,6 +40,7 @@
  */
 
 import { etDateKey } from "@/lib/market/session";
+import { parseTradeStyle, type TradeStyle } from "@/lib/trade/tradeStyle";
 
 export interface GannRulePrefs {
   roundNumberNotices: boolean;
@@ -49,6 +50,11 @@ export interface GannRulePrefs {
   restDismissedFor: string | null;
   /** YYYY-MM-DD the trader will be away from the market (A-EXIT-05), or null. */
   awayFrom: string | null;
+  /**
+   * The trade style the trader asks for (2026-10-21): Gann's swing method or
+   * his fast-market method (`lib/trade/tradeStyle.ts`). Default swing.
+   */
+  tradeStyle: TradeStyle;
 }
 
 export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
@@ -57,6 +63,7 @@ export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
   autoOrderRoundNumbers: false,
   restDismissedFor: null,
   awayFrom: null,
+  tradeStyle: "swing",
 };
 
 /** Days before an absence the close-out reminder opens (engineering choice). */
@@ -79,6 +86,7 @@ export function resolveGannRulePrefs(prefs: unknown): GannRulePrefs {
     autoOrderRoundNumbers: bool(raw.autoOrderRoundNumbers, DEFAULT_GANN_RULE_PREFS.autoOrderRoundNumbers),
     restDismissedFor: typeof raw.restDismissedFor === "string" ? raw.restDismissedFor : null,
     awayFrom: typeof raw.awayFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.awayFrom) ? raw.awayFrom : null,
+    tradeStyle: parseTradeStyle(raw.tradeStyle),
   };
 }
 

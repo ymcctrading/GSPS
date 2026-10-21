@@ -9,6 +9,7 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { OptionContract } from "@/lib/data/provider";
 import type { Moneyness } from "@/lib/options/contracts";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
+import { GANN_OPTION_RISK_NOTE } from "@/lib/options/gannOptionPlan";
 import type { TradeLevels } from "@/lib/types";
 import { toDateInput } from "@/lib/options/contracts";
 
@@ -350,12 +351,15 @@ export function StrikeOrderModal({
             ) : (
               <p className="text-sm text-muted">Enter a whole quantity and a valid price.</p>
             )}
+            {action === "buy" && (
+              <p className="mt-2 text-xs text-muted">{GANN_OPTION_RISK_NOTE}</p>
+            )}
             {stopReading && (
               <p className="mt-2 text-xs text-muted">
-                {formatUsd(stopReading.stopCost)} to the stop
+                A GSPS sizing check, not one of the method&apos;s rules: {formatUsd(stopReading.stopCost)} to the underlying&apos;s stop
                 {stopReading.decayCost > 0 &&
                   ` + ${formatUsd(stopReading.decayCost)} decay`}{" "}
-                per share, against a typical hold of under one session.
+                per share.
               </p>
             )}
             {stopReading?.warning && (

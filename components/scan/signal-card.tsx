@@ -12,6 +12,7 @@ import { formatScore } from "@/lib/scoring/display";
 import { structuralTriggerHeadline, tradeSideLabel } from "@/lib/scoring/direction-copy";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
+import { TRADE_STYLES } from "@/lib/trade/tradeStyle";
 import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
 
 /**
@@ -188,6 +189,21 @@ export function SignalCard({
               tone="bull"
             />
           </div>
+        )}
+
+        {levels && (
+          <p className="text-xs text-muted">
+            <span className="font-medium text-foreground">Swing</span> (the main method): expected hold{" "}
+            {TRADE_STYLES.swing.expectedHold.toLowerCase()}.
+            {result.fastLevels ? (
+              <>
+                {" "}
+                <span className="font-medium text-foreground">Fast</span> (the fast-market method): same entry, stop{" "}
+                {formatUsd(result.fastLevels.stopLoss)} ({TRADE_STYLES.fast.stopRule.split(",")[0]}), TP1{" "}
+                {formatUsd(result.fastLevels.takeProfit1)}, held {TRADE_STYLES.fast.expectedHold.toLowerCase()}.
+              </>
+            ) : null}
+          </p>
         )}
 
         {levels && !result.stopBreach && result.direction !== "none" && (

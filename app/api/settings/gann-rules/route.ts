@@ -24,6 +24,7 @@ const PatchSchema = z
     autoOrderRoundNumbers: z.boolean(),
     restDismissedFor: z.string().regex(/^\d{4}-(06|12)$/).nullable(),
     awayFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+    tradeStyle: z.enum(["swing", "fast"]),
   })
   .partial();
 

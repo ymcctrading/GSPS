@@ -9,7 +9,10 @@ describe("trader rule preferences", () => {
       autoOrderRoundNumbers: false,
       restDismissedFor: null,
       awayFrom: null,
+      tradeStyle: "swing",
     });
+    expect(resolveGannRulePrefs({ gannRules: { tradeStyle: "fast" } }).tradeStyle).toBe("fast");
+    expect(resolveGannRulePrefs({ gannRules: { tradeStyle: "scalp" } }).tradeStyle).toBe("swing");
     expect(resolveGannRulePrefs({ gannRules: { autoOrderRoundNumbers: true, restReminder: "x" } }).autoOrderRoundNumbers).toBe(true);
   });
 
