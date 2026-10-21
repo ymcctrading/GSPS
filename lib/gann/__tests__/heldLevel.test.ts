@@ -102,6 +102,7 @@ describe("historicalSR's pass rate on random walks", () => {
     for (const start of [20, 50, 150, 500]) {
       const held = { bullish: 0, bearish: 0 };
       const near = { bullish: 0, bearish: 0 };
+      const division = { bullish: 0, bearish: 0 };
       let n = 0;
       for (let w = 0; w < walks; w++) {
         const bars = walk(2000 + w, 520, start);
@@ -115,16 +116,21 @@ describe("historicalSR's pass rate on random walks", () => {
           if (ctx.pillarFacts.heldLevels.bearish) held.bearish++;
           if (ctx.srMatches.support) near.bullish++;
           if (ctx.srMatches.resistance) near.bearish++;
+          if (ctx.pillarFacts.rangeLevels.bullish) division.bullish++;
+          if (ctx.pillarFacts.rangeLevels.bearish) division.bearish++;
         }
       }
       const pct = (k: number) => `${((100 * k) / n).toFixed(1)}%`;
       report.push(
         `$${start}: ${n} readings a side; held long ${pct(held.bullish)}, short ${pct(held.bearish)}; ` +
-          `proximity (before) long ${pct(near.bullish)}, short ${pct(near.bearish)}`,
+          `proximity (before) long ${pct(near.bullish)}, short ${pct(near.bearish)}; ` +
+          `held range division long ${pct(division.bullish)}, short ${pct(division.bearish)}`,
       );
       for (const side of ["bullish", "bearish"] as const) {
         expect(held[side] / n).toBeGreaterThan(0.05);
         expect(held[side] / n).toBeLessThan(0.95);
+        // P5(b), held rather than near (census 2026-10-21: 56-92% when near).
+        expect(division[side] / n).toBeLessThan(0.7);
       }
     }
     if (process.env.SR_OUT) fs.writeFileSync(process.env.SR_OUT, report.join("\n"));

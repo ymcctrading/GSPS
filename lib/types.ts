@@ -298,9 +298,14 @@ export interface PublicScoreSummary {
   stateNote: string | null;
 }
 
+/** The PRD's decision states, derived from the verdict and direction (`lib/scoring/decisionState.ts`, D-06). */
+export type DecisionState = "qualifiedLong" | "qualifiedShort" | "watch" | "standDown";
+
 export interface ScanDecision {
   score: number; // 0–9
   outputState: "Execute" | "Watch" | "Reject";
+  /** Derived from `outputState` and the direction, never scored on its own. */
+  decisionState?: DecisionState;
   /**
    * Server-only. `redactDecision` empties this before a decision crosses an
    * API boundary — see lib/scoring/public-summary.ts.
@@ -325,6 +330,12 @@ export interface ScanResult {
   currentPrice: number;
   direction: Direction;
   setupKind: SetupKind;
+  /**
+   * The buying point the session armed on the other side and did not take:
+   * against the trend, when the with-trend point armed too (never-failing
+   * rule 5; `chooseSessionEntry`). Null when only one side armed.
+   */
+  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
   /** Recent range expansion against the trailing baseline — the momentum read. */
   momentumElevated: boolean;
   trends: TrendReading[];

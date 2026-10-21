@@ -63,6 +63,7 @@ import {
   computeScore,
   srMatchForSide,
 } from "@/lib/scoring/score";
+import { withDecisionState } from "@/lib/scoring/decisionState";
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
@@ -305,6 +306,7 @@ export async function scanTicker(
     // 2 of 9 Sell on its page at the same minute and price. When both sides
     // arm, the nearer buying point is the one (the no-trend rule, fork F4 a).
     let gannTrigger: GannEntryTrigger | null = null;
+    let setAsideEntry: ScanResult["setAsideEntry"] = null;
     if (preference) {
       gannTrigger = entryOf(preference.direction);
     } else if (entryDaily.length > 0) {
@@ -312,6 +314,7 @@ export async function scanTicker(
       if (chosen) {
         gannTrigger = chosen.trigger;
         setupKind = chosen.setupKind;
+        setAsideEntry = chosen.setAside;
       }
     }
     const preferredDirection = gannTrigger?.direction ?? preferredEntryDirection(macroTrends, preference);
@@ -504,7 +507,7 @@ export async function scanTicker(
       return windowTurnRead.turn;
     };
 
-    const decision = applyStandAsideHold(applyStopBreachHold(applyDataLagHold(
+    const decision = withDecisionState(applyStandAsideHold(applyStopBreachHold(applyDataLagHold(
       applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
@@ -547,7 +550,7 @@ export async function scanTicker(
         // A-LEVELS-08: the first and second times through a round number hold.
         figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,
-    ), stopBreach), standAside);
+    ), stopBreach), standAside), direction);
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
     // from the Gann/STRAT verdict above, never merged into it. This is a
@@ -684,6 +687,7 @@ export async function scanTicker(
       dataLag,
       executionBar: closedExecutionBars[closedExecutionBars.length - 1],
       decision,
+      setAsideEntry,
       // Read off the same daily bars the structure was computed from, so any
       // consumer can apply the platform-wide liquidity floor without a second
       // fetch — see lib/scan/liquidity.ts.

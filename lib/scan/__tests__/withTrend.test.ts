@@ -70,6 +70,13 @@ describe("the setup a scan with no direction asked of it shows", () => {
     expect(chooseSessionEntry(up, both, 103)?.setupKind).toBe("continuation");
   });
 
+  it("records the reversion it set aside when both sides armed (D-06), and none when one side did", () => {
+    const both = (d: "bullish" | "bearish") => (d === "bullish" ? fake("bullish", 104) : fake("bearish", 97));
+    expect(chooseSessionEntry(up, both, 98)?.setAside).toEqual({ setupKind: "reversion", direction: "bearish" });
+    const only = (d: "bullish" | "bearish") => (d === "bullish" ? fake("bullish", 104) : null);
+    expect(chooseSessionEntry(up, only, 98)?.setAside).toBeNull();
+  });
+
   it("shows the reversion when it is the only one that armed", () => {
     const only = (d: "bullish" | "bearish") => (d === "bearish" ? fake("bearish", 97) : null);
     expect(chooseSessionEntry(up, only, 98)?.setupKind).toBe("reversion");

@@ -24,6 +24,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient as createBaseClient } from "@supabase/supabase-js";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 const memberClients = new WeakSet<object>();
 
@@ -44,10 +45,10 @@ let service: SupabaseClient | null = null;
 export function ledgerWriter(client: SupabaseClient): SupabaseClient {
   if (!isMemberClient(client)) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vebhpmmzxixlhujlptue.supabase.co";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = serviceRoleKey();
   // Without the key the write cannot be made on the member's behalf, and the
   // member's own client no longer may: fail loudly rather than silently.
-  if (!key) throw new Error("ledger write needs SUPABASE_SERVICE_ROLE_KEY");
+  if (!key) throw new Error("ledger write needs SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY");
   service ??= createBaseClient(url, key, { auth: { persistSession: false } });
   return service;
 }

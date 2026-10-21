@@ -44,11 +44,12 @@ import type {
   Timeframe as LearningTimeframe,
 } from "@/lib/learning/types";
 import { normalizeOrderStatus } from "@/lib/portfolio/order-status";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 /** Whether the learning tables are reachable at all in this environment. */
 export function learningConfigured(): boolean {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL && serviceRoleKey(),
   );
 }
 

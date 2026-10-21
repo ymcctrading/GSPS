@@ -45,6 +45,7 @@ import { findPivots } from "@/lib/analysis/pivots";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 import { levelBandPct } from "@/lib/scoring/proximity";
 import { FIRST_TIER_RANK, HALF_RANK, SECOND_TIER_RANK, THIRD_TIER_RANK } from "@/lib/gann/retracement";
+import { readHeldLevel } from "@/lib/gann/heldLevel";
 
 /** Gann's "each campaign of one year or more" (Master Course Ch. 9, PDF 264). */
 export const MIN_CAMPAIGN_MONTHS = 12;
@@ -172,4 +173,31 @@ export function rangeDivisionMatch(
     if (!best || distancePct < best.distancePct - 1e-9) best = { ...l, role, distancePct };
   }
   return best;
+}
+
+/**
+ * P5(b) since 2026-10-21: the division the last reaction stopped at and held,
+ * read with `historicalSR`'s rule (`readHeldLevel`): the reaction's extreme
+ * printed from 3 points through the division to 1 point short of it, 2 or more
+ * sessions ago, with no close since 3 points through. Until then any division
+ * inside the 3-point allowance passed, and with a division about every 1/24 of
+ * each range and the allowance wide at low prices, it passed 56-92% of
+ * random-walk readings (`replay-diagnosis/2026-10-21-pillar-saturation-census.md`).
+ * Gann's own reviews judge a division by price acting there: November 1929
+ * "held 2½ above 193", and the 1937 top "not 3 points above 193" (Master
+ * Course Ch. 9, PDF 266-277), the same test as the old levels. Of divisions at
+ * one price, the more important basis and division wins (`levels` is in that
+ * order).
+ */
+export function heldRangeDivision(
+  sessions: Bar[],
+  levels: RangeDivisionLevel[],
+  price: number,
+  side: "bullish" | "bearish",
+): RangeDivisionMatch | null {
+  const held = readHeldLevel(sessions, levels.map((l) => ({ price: l.price, timeframe: "1Month" as const })), price, side);
+  if (!held) return null;
+  const level = levels.find((l) => l.price === held.price);
+  if (!level) return null;
+  return { ...level, role: side === "bullish" ? "support" : "resistance", distancePct: (Math.abs(price - level.price) / price) * 100 };
 }

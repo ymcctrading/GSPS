@@ -14,11 +14,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { isStripeEnabled, stripeClient, tierForPriceId } from "@/lib/billing/stripe";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 function serviceClient() {
   return createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    serviceRoleKey()!,
   );
 }
 

@@ -630,7 +630,17 @@ indefinitely"):** closed orders, positions and trade logs are never deleted by
 the app; they are hidden from the tabs (`lib/portfolio/prune.ts`) and leave only
 when the member's account is deleted (their foreign keys cascade from
 `auth.users`). Gann kept a record of every trade and his rules read it back
-(the series of losses, the profit peak), so nothing may prune them on a timer.
+(the series of losses, the profit peak), so nothing may prune them on a timer. **The service key (S-06, owner: "You
+figure it out"):** the server reads `serviceRoleKey()`
+(`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
+legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
+The readable legacy variable was removed from Vercel once production ran on
+the secret key. Read the key through that helper, never from `process.env`.
+**Breached passwords (S-11):** Supabase's leaked-password setting is a
+dashboard switch no tool here reaches, so sign-up, reset and the Settings
+password change refuse a password found in Have I Been Pwned
+(`lib/auth/breached-password.ts`, k-anonymity through
+`/api/auth/password-breach`; fails open). A new password form calls it too.
 
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops
@@ -822,8 +832,37 @@ a price, 440 readings a side), long/short before → after: $20 100/100 →
 43.0/50.0%, $50 99.8/100 → 39.5/47.7%, $150 99.8/99.1 → 34.5/42.5%, $500
 99.3/99.8 → 26.6/36.1%. `STRATEGY_VERSION` was `2026-10-21-gann-held-old-level`;
 P5, Execute and the 6/3.5 cutoffs need a fresh run on it. The review's second
-round merged onto it (no new rule): `STRATEGY_VERSION` is
+round merged onto it (no new rule): `STRATEGY_VERSION` was
 `2026-10-21-review-second-round-on-held-old-level`.
+
+**The held range division, same day (pillar census:
+`replay-diagnosis/2026-10-21-pillar-saturation-census.md`).** P5's other half,
+the percentage levels (`gannRetracementConfluence`), still passed on nearness:
+a division about every 1/24 of each range, each with the 3-point allowance,
+passed 56-92% of random-walk readings and carried P5 once `historicalSR` was
+fixed. Gann's Ch. 9 reviews judge a division the way they judge an old top, by
+price acting there ("held 2½ above 193", "not 3 points above 193"), so the
+division now has to be the one the last reaction stopped at and held, read
+with `historicalSR`'s rule (`heldRangeDivision`, `lib/gann/rangeDivisions.ts`),
+live and replay alike through `readPillarFacts`. Random walks, long/short: $20
+62.0/58.2%, $50 59.3/55.5%, $150 55.5/49.1%, $500 46.1/37.3%. Still denser at
+low prices (the allowance), held for the owner with the rest of the price
+scaling. `STRATEGY_VERSION` was `2026-10-21-gann-held-range-division`; P5,
+Execute and the 6/3.5 cutoffs need a fresh run on it.
+
+**P9's definite indication, same day (same census).** P9's trigger check
+passed 98-100% of random-walk readings because a plan is priced on almost
+every session, and 51-77% of those plans were crossings still waiting for the
+close 3 points past the old top. Gann buys after the definite indication, the
+crossing made (W006 p.20, Rules 3(b)-(c) pp.46-47), so P9 now reads
+`indicationShown` (`lib/scoring/score.ts`): a crossing counts once it is
+`held` (crossed by 3 points, not broken back, not yet bought), and the old
+bottom (Rule 1) and the held bottom count as they stand. Measured share of
+readings with the indication shown: $20 23%, $150 46%, $500 52%; P9 itself is
+about half of that once the reaction check is read (estimated, not measured).
+The `entryTriggerArmed` check, the plan and `tradePlanReady` are unchanged.
+`STRATEGY_VERSION` is `2026-10-21-gann-definite-indication`; Execute and the
+6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 

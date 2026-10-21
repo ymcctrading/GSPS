@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient as createBaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { markMemberClient } from "@/lib/supabase/ledger";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 // Public project values — env vars override when present.
 export const SUPABASE_URL =
@@ -33,7 +34,7 @@ export async function createClient() {
 
 /** Service-role client for cron jobs and server-only writes (bypasses RLS). */
 export function createServiceClient() {
-  return createBaseClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return createBaseClient(SUPABASE_URL, serviceRoleKey()!, {
     auth: { persistSession: false },
   });
 }

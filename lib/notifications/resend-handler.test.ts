@@ -14,7 +14,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendAlertEmail, type AlertEmailData } from "./resend-handler";
+import { sendAlertEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
 import { SCORE_MAX } from "@/lib/scoring/display";
 
 const BASE: AlertEmailData = {
@@ -101,5 +101,49 @@ describe("the sender (review finding S-04)", () => {
     const result = await sendAlertEmail(BASE);
     expect(result).toMatchObject({ success: true, id: "email-1" });
     expect(sendMock.mock.calls[0][0].from).toBe("GSPS Alerts <alerts@example.com>");
+  });
+});
+
+describe("sub-dollar prices (review: every email printed toFixed(2))", () => {
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_SANDBOX_RECIPIENTS = BASE.userEmail;
+    sendMock.mockReset();
+    sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+  });
+
+  afterEach(() => {
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_SANDBOX_RECIPIENTS;
+  });
+
+  it("prints a coin's entry, stop and target to the places the plan keeps, not two", async () => {
+    await sendAlertEmail({ ...BASE, symbol: "DOGE/USD", entry: 0.16123, stopLoss: 0.15478, takeProfit: 0.17412 });
+    const html = sendMock.mock.calls[0][0].html as string;
+    expect(html).toContain("$0.1612");
+    expect(html).toContain("$0.1548");
+    expect(html).toContain("$0.1741");
+    expect(html).not.toContain("$0.16<");
+  });
+
+  it("keeps cents at a dollar and above", async () => {
+    await sendAlertEmail(BASE);
+    const html = sendMock.mock.calls[0][0].html as string;
+    expect(html).toContain("$100.00");
+    expect(html).toContain("$95.00");
+  });
+
+  it("prints a sub-dollar price alert in its subject and body", async () => {
+    await sendPriceAlertEmail({ userEmail: BASE.userEmail, symbol: "SHIB/USD", targetPrice: 0.00001234, direction: "above", currentPrice: 0.00001251 });
+    const { subject, html } = sendMock.mock.calls[0][0] as { subject: string; html: string };
+    expect(subject).toBe("SHIB/USD rose above $0.00001234");
+    expect(html).toContain("$0.00001251");
+  });
+
+  it("prints a canceled sub-dollar order's limit and stop", async () => {
+    await sendOrderInvalidatedEmail({ userEmail: BASE.userEmail, symbol: "DOGE/USD", side: "buy", qty: 1000, limitPrice: 0.1612, stopPrice: 0.1548, reason: "test" });
+    const html = sendMock.mock.calls[0][0].html as string;
+    expect(html).toContain("at $0.1612 limit");
+    expect(html).toContain("stop $0.1548");
   });
 });

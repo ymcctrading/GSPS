@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { breachedPasswordError } from "@/lib/auth/breached-password";
 import { safeNextPath } from "@/lib/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           });
           if (error) setError(error.message);
           else setMessage("That email already has an account — we've sent a link to reset the password, since we can't email you the existing one.");
+          setLoading(false);
+          return;
+        }
+
+        const breached = await breachedPasswordError(password);
+        if (breached) {
+          setError(breached);
           setLoading(false);
           return;
         }

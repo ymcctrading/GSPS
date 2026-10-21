@@ -16,11 +16,12 @@ import type {
   VolumeStateFeature,
   VolatilityStateFeature,
 } from './types';
+import { serviceRoleKey } from '@/lib/supabase/service-key';
 
 export function createLearningClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    serviceRoleKey()!
   );
 }
 
