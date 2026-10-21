@@ -2738,7 +2738,7 @@ symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
 shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
-(pg_cron 22:00 UTC, migration 0098) reads the scan universe's daily bars in
+(pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in
 batches and stores the stocks primed for the next session
 (`lib/scanner/focusList.ts`, table `intraday_focus`): a plan within a day's
 range of its entry, a narrow range of 2-13 weeks (at its edge), a reverse
