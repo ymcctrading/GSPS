@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeTradeLevels,
+  EQUITY_MASTER_CAP_PCT,
   EQUITY_TP1_MAX_PCT,
   EQUITY_TP1_MIN_PCT,
   EQUITY_TP2_MAX_PCT,
@@ -20,8 +21,10 @@ import { EXECUTE_SCORE_THRESHOLD, TOTAL_POINTS } from "@/lib/scoring/weights";
 import {
   EXECUTE_RULE_DETAIL,
   EXECUTE_RULE_LABEL,
+  MASTER_RULE_DETAIL,
   MASTER_RULE_LABEL,
   STOP_RULE_DETAIL,
+  TP1_RULE_DETAIL,
   TP1_RULE_LABEL,
 } from "@/lib/trade/protocol-rules";
 import type { Bar, StratPattern } from "@/lib/types";
@@ -61,9 +64,19 @@ describe("the advertised targets match the priced ones", () => {
     const targetPct = (Math.abs(levels.takeProfit2 - levels.entry) / levels.entry) * 100;
     expect(targetPct).toBeGreaterThanOrEqual(EQUITY_TP2_MIN_PCT);
     expect(targetPct).toBeLessThanOrEqual(EQUITY_TP2_MAX_PCT);
-    expect(MASTER_RULE_LABEL).toContain(`${EQUITY_TP2_MIN_PCT}`);
-    expect(MASTER_RULE_LABEL).toContain(`${EQUITY_TP2_MAX_PCT}`);
+    expect(MASTER_RULE_DETAIL).toContain(`${EQUITY_TP2_MIN_PCT}`);
+    expect(MASTER_RULE_DETAIL).toContain(`${EQUITY_TP2_MAX_PCT}`);
+    expect(MASTER_RULE_LABEL).toContain(`${EQUITY_MASTER_CAP_PCT}`);
     expect(MASTER_RULE_LABEL).toContain(String(TP2_MULTIPLE_BY_ASSET.crypto));
+  });
+
+  // R-007 (2026-10-21): since Q14 nothing sells at a fixed target, and the
+  // equity TP1 is the first level past the risk, not a percent of entry.
+  it("says the targets are levels, not exits", () => {
+    expect(TP1_RULE_LABEL).toMatch(/pays more than the risk/);
+    expect(TP1_RULE_DETAIL).toMatch(/Nothing is sold there/);
+    expect(MASTER_RULE_DETAIL).toMatch(/Nothing is sold there/);
+    expect(TP1_RULE_DETAIL).not.toMatch(/of entry price, scaled/);
   });
 
   it("says the 12–18% band is about option premium, not share price", () => {
