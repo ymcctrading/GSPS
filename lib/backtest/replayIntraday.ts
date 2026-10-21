@@ -294,7 +294,7 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         largeCap,
         barsHeld: walked.barsHeld,
-        outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+        outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
         exitReason: walked.reason,
         rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
         ambiguous: false,

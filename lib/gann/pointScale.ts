@@ -24,8 +24,13 @@
  * the even-figure stop all read this figure; the 0.3% constant is gone. Gann
  * buys on crossing an old top by 3 points and sells short on breaking an old
  * bottom by 3 points, with stops 3 points beyond (W006 pp.20–24, 46–47). The
- * Master Course's "lost motion averages about 1⅞, never a full 3" is not yet
- * read in the collection; if it changes the crossing, it changes here.
+ * Master Course's "the average lost motion is 1-7/8 points" (Ch. 9, PDF
+ * p.268; *Commodities* p.38 has 1⅞¢) was read on 2026-10-16 and does not
+ * change the crossing: it is how far, on average, price runs past a level
+ * that then holds, which is why a level is only broken once price goes a full
+ * 3 points through it (his reviews on the following pages: the 1937 top at
+ * 195½, "not 3 points above 193"). The average overshoot sits inside the
+ * 3-point allowance, as it should (review D-02, 2026-10-21).
  *
  * Engineering choices, labelled as such: a step table on Gann's bands jumps
  * at every edge (a $10 stock would get 20%, a $9 one 11%), so the allowance is

@@ -559,6 +559,8 @@
 // places its size needs (0.1612, not 0.16), refuse a plan whose rounded levels
 // are not four distinct positive prices, and put a short's master on the
 // largest eighth of the entry beyond TP1 when the R projection passes zero
-// (F-02). Evening live verdicts and sub-dollar crypto plans move; equity plans
-// and the replay's equity trades do not.
+// (F-02). The replay holds a crypto trade ten 24-hour sessions (960 candles),
+// not 260 candles (F-06), and counts a win on the net, after-cost result its R
+// is measured on (F-07). Evening live verdicts, sub-dollar crypto plans, the
+// replay's crypto horizon and its win rates move; equity plans do not.
 export const STRATEGY_VERSION = "2026-10-21-review-session-clock-sub-dollar";

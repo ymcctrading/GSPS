@@ -40,11 +40,10 @@
  *
  * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
  * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
- * excluded early history the live scan does trade). One remaining difference
- * is stated rather than hidden: the replay reads weekly and monthly trends
- * from rollups of the daily bars, while the live scan fetches those
- * timeframes directly. On short daily history the rollups have fewer bars
- * than the live fetch would.
+ * excluded early history the live scan does trade). Since 2026-10-20 both
+ * read the provider's closed weeks and months, with the bar in progress built
+ * from completed sessions (`levelCharts`), so the weekly and monthly trends
+ * agree; `pillarParity.test.ts` compares all three.
  *
  * Deliberately pessimistic wherever a bar is ambiguous:
  *   - The trigger is a resting stop order. If a candle opens already beyond
@@ -133,6 +132,8 @@ import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** 6.5 hours of 15-minute candles. */
 export const BARS_PER_SESSION = 26;
+/** Crypto trades around the clock: 24 hours of 15-minute candles. */
+export const CRYPTO_BARS_PER_SESSION = 96;
 
 /**
  * Daily history needed before a session can arm. This is the live scan's own
@@ -838,7 +839,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const {
     targetR,
     costPerShare = DEFAULT_COST_PER_SHARE_USD,
-    maxBarsHeld = BARS_PER_SESSION * 10,
+    maxBarsHeld: maxBarsHeldOption,
     warmupBars = 40,
     dailyBars,
     monthlyBars,
@@ -862,6 +863,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // Ten sessions held on every asset (review finding F-06): ten equity
+  // sessions are 260 candles, but 260 candles of a coin that trades all day
+  // and night are under three days.
+  const maxBarsHeld = maxBarsHeldOption ?? (assetClass === "crypto" ? CRYPTO_BARS_PER_SESSION : BARS_PER_SESSION) * 10;
 
   const trades: ReplayTrade[] = [];
   // Entry-confirmation evidence per armed pivot, used only when
@@ -1257,7 +1262,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
           selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
           barsHeld: walked.barsHeld,
-          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+          // A win is a trade that made money after costs, on the same net basis
+          // as its R (review finding F-07).
+          outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
           exitReason: walked.reason,
           ...(pyramid ? { lots: walked.lots } : {}),
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
@@ -1499,7 +1506,7 @@ export function walkRebuy(input: {
       entry, stop: plan.stop, target,
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
-      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
       exitReason: walked.reason,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
       rebuy: true,
@@ -1573,7 +1580,7 @@ export function walkReversals(input: {
       entry, stop: plan.stop, target,
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
-      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
+      outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
       exitReason: walked.reason,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
       reversal: depth,
