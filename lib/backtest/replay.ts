@@ -1096,6 +1096,18 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // entry fills on the live candle, so it keeps the live session's plan.
   const sessionBars = bars.length > 1 && bars.every((b, j) => j === 0 || b.t.slice(0, 10) !== bars[j - 1].t.slice(0, 10));
   const closedBarRule = entryRule === "reaction" || entryRule === "confirmed";
+  // Whether the reaction rule below fires its entry on this closed bar, read
+  // without changing its state: crossed (or nothing to cross), a bar after
+  // the crossing, no close through the stop, and a candle into the zone.
+  const reactionFiresOn = (pivotKey: string, trigger: GannEntryTrigger, date: string, closed: Bar): boolean => {
+    const state = crossing.get(pivotKey);
+    const crossed = trigger.held || restsWithoutCrossing(trigger.kind) || state?.crossed === true;
+    if (!crossed) return false;
+    if (closed.t.slice(0, 10) < (state?.since ?? date) || !(closed.t > (state?.crossedAt ?? ""))) return false;
+    const long = trigger.direction === "bullish";
+    if (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop) return false;
+    return tradedIntoBuyZone(closed, trigger.direction, trigger.reactionEntry);
+  };
 
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(0, i);
@@ -1160,7 +1172,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           retiredSessionPlans.add(planKey);
         }
       }
-      if ((!firstRead || closedSession) && planStop !== null) {
+      // On daily bars the session's one closed bar is also the bar a reaction
+      // entry fires on: the candle traded into the zone (an order at the
+      // market, live, on a 15-minute bar) and may have reached the stop
+      // later the same day. Which came first cannot be told, so, as above,
+      // that bar's stop is left to the bracket walk rather than retiring the
+      // plan before the entry. Retiring it dropped exactly the trades stopped
+      // out the same day (review of #386: long 100, stop 97, bar o 101 /
+      // l 96.5 / c 98 left no trade, where live it is a loss).
+      const firesOnClosedBar =
+        closedSession && entryRule === "reaction" && breakawayVolume && reactionFiresOn(pivotKey, trigger, date, history[history.length - 1]);
+      if ((!firstRead || closedSession) && planStop !== null && !firesOnClosedBar) {
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) === date) {
           if (isStopBreachedByBar(trigger.direction, planStop, closed)) {

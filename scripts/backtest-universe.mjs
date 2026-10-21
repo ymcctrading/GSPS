@@ -195,7 +195,9 @@ export const isOpenAtEnd = (t) => t.exitReason === "open_at_end";
 
 /**
  * `describeCore`, plus how many trades were still open when the data ended and
- * the same stats on the closed trades alone (`closed`, halves included).
+ * the same stats without them (`closed`, halves included). Trades held to the
+ * 10-session limit stay in it, marked at that close, so it is "excluding
+ * data-end only", not a realised-only figure.
  * Gann's exits cut losers early, so the open trades are mostly winners and
  * the scope's own expectancy reads above what its closed trades realised.
  */

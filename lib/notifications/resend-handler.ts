@@ -50,13 +50,6 @@ export function sandboxBlockReason(toEmail: string): string | null {
   );
 }
 
-const TIER_LABEL: Record<PublicSignalSummary["tier"], string> = {
-  watchlistOnly: "Watchlist only",
-  qualified: "Qualified",
-  aTier: "A-tier",
-  aPlusTier: "A+ tier",
-};
-
 export interface AlertEmailData {
   userEmail: string;
   symbol: string;
@@ -133,7 +126,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
             ? `<div style="background: #f0f9ff; padding: 15px; border-left: 4px solid #0ea5e9; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0c4a6e; font-size: 14px; font-weight: 600;">Signal &amp; Regime Engine (separate read)</p>
           <p style="margin: 8px 0 0; color: #0c4a6e; font-size: 13px;">
-            ${SCANNER_STATE_META[data.signal.state].label} — ${TIER_LABEL[data.signal.tier]}${data.signal.tradeable ? " · Tradeable" : ""}
+            ${SCANNER_STATE_META[data.signal.state].label}${data.signal.tradeable ? " · Tradeable" : " · Not tradeable"}
           </p>
         </div>`
             : ""

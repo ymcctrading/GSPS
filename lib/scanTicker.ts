@@ -747,11 +747,7 @@ export async function scanTicker(
       pattern: null,
       armedPatterns: [],
       levels: null,
-      decision: {
-        score: 0,
-        outputState: "Reject",
-        breakdown: [],
-      },
+      decision: withDecisionState({ score: 0, outputState: "Reject", breakdown: [] }, "none"),
       error: view.message,
       errorCode: view.code,
     };

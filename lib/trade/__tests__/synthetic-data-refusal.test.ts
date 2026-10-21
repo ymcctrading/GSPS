@@ -59,7 +59,16 @@ describe("no order on synthetic market data in production", () => {
 
   it("does not refuse outside production", async () => {
     getOpenPosition.mockResolvedValue(null);
-    const r = await placeSimulatedOrder(supabase, "u1", { ...base, mode: "paper" } as OrderInput).catch(() => ({ status: 0, body: {} as Record<string, unknown> }));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    errors.mockClear();
+    // The stub database makes the order fail further on; that failure is
+    // expected here. What must not happen is the synthetic-data refusal,
+    // which always logs its reason before returning (lib/data/feed-mode.ts).
+    const r = await placeSimulatedOrder(supabase, "u1", { ...base, mode: "paper" } as OrderInput).catch(
+      (err: unknown) => ({ status: 0, body: { thrown: String(err) } as Record<string, unknown> }),
+    );
     expect(r.body.code).not.toBe("synthetic_market_data");
+    expect(String(r.body.thrown ?? "")).not.toMatch(/market data is coming from/);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/\[market-data\] Refused/);
   });
 });

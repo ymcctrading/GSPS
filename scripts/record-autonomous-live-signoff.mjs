@@ -38,6 +38,14 @@ function requireEnv(name) {
   return v;
 }
 
+// The server key: the Sensitive SUPABASE_SECRET_KEY first, then the legacy
+// SUPABASE_SERVICE_ROLE_KEY (review finding S-06, lib/supabase/service-key.ts).
+function serverKey() {
+  const v = process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!v) throw new Error("SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is not set");
+  return v;
+}
+
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -62,7 +70,7 @@ async function main() {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? requireEnv("SUPABASE_URL");
-  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleKey = serverKey();
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const { data: existing, error: checkError } = await supabase

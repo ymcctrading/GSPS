@@ -525,7 +525,7 @@ describe("computeScore", () => {
 
     // The square reads the move against the trade: for a long, the decline
     // from the last high balancing out (a bottom due), never the advance from
-    // the last low (a top due). Master Course Ch. 6-7, "up from lows, down
+    // the last low (a top due). Master Course Ch. 18 (PDF p.440), "up from lows, down
     // from highs".
     const withTradeOnly = computeScore({
       ...base,

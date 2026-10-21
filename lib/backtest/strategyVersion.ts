@@ -614,7 +614,7 @@
 // check and the timePriceSquare check) reads the move against the trade, the
 // decline from the last high for a long and the rally from the last low for a
 // short, not the trade's own anchor. A balance marks a turn, measured "up from
-// lows" and "down from highs" (Master Course Ch. 6-7), so the advance from the
+// lows" and "down from highs" (Master Course Ch. 18, PDF p.440), so the advance from the
 // low squaring out says a top is due, against a long. Verdicts move, live and
 // replay alike.
 // 2026-10-21-gann-nine-square-price: the Square of Nine's fixed numbers act
@@ -674,4 +674,12 @@
 // and M-K5 on crypto move, live and replay alike. Adds the fast-market plan
 // (`fastLevels`, Gann's day stop) beside the swing plan, and the replay's
 // `tradeStyle` option to walk it; the default replay is unchanged.
-export const STRATEGY_VERSION = "2026-10-21-gann-one-plan-every-market";
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar: two fixes from the
+// after-merge review of #386 and #389. The price and time square only counts a
+// move away from its pivot the way Gann measures it, up from a low or down
+// from a high (Master Course Ch. 18, PDF p.440), so a long no longer takes P7's
+// square when price has run above the last high. And on daily bars a reaction
+// entry whose firing bar also reached the stop is entered and left to the
+// bracket walk, not retired first, which had dropped every same-day stop-out.
+// Verdicts move (the square), live and replay alike; 1Day replay trades move.
+export const STRATEGY_VERSION = "2026-10-21-review-sweep-square-sign-daily-firing-bar";
