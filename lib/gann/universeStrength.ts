@@ -37,8 +37,10 @@
  *
  * Within the group (S4), 2026-10-21: the same reading ranks the stock among
  * the universe stocks of its industry group (`industryGroups.ts`, SEC's
- * industry codes), by the same measure and the same quarter. P3(c) passes on
- * either rank, as its design reads S6 ("among the strongest of its group or
+ * industry codes), by the same measure: among a quarter of its members
+ * (`groupTopCount`, at least one), and only in a group that is not itself in
+ * the universe's weakest quarter (strongest, for a short), since Gann ranks
+ * the groups first (review of #388). P3(c) passes on either rank, as its design reads S6 ("among the strongest of its group or
  * of the scanned universe").
  *
  * Three questions: 1. S6 and S4, Tier A, as cited. 2. No period is claimed, so
@@ -143,8 +145,27 @@ export interface GroupRankReading {
   label: string;
   percentile: number;
   peers: number;
+  /** The group's own standing: its members' median position ranked in the universe, 0 to 1. */
+  groupPercentile: number;
+  /**
+   * Among the strongest `topCount` of the group (no more peers above it than
+   * that less one), and the group itself not in the universe's weakest
+   * quarter: "buy the strong stocks in the strong groups" (TST Ch. XVII).
+   */
   strongest: boolean;
+  /** The mirror: among the weakest of a group not in the universe's strongest quarter. */
   weakest: boolean;
+}
+
+/**
+ * How many of a group's members make its strongest (or weakest) quarter: a
+ * quarter of them, rounded down, and at least one. With 4 peers (5 members)
+ * that is the one strongest; a percentile cut let the top 2 of 5 through
+ * (review of #388). An engineering reading of "the strongest", held for the
+ * owner like the universe's quarter.
+ */
+export function groupTopCount(members: number): number {
+  return Math.max(1, Math.floor(members * STRONGEST_FRACTION));
 }
 
 export interface UniverseRankReading {
@@ -163,7 +184,7 @@ export interface UniverseRankReading {
   group: GroupRankReading | null;
 }
 
-/** Fewer group peers than this and no group rank is read (a quarter of four is the one strongest). */
+/** Fewer group peers than this and no group rank is read. */
 export const MIN_GROUP_PEERS = 4;
 
 /** Each month's sorted positions per group, built once per group map, month and group. */
@@ -235,14 +256,27 @@ export function readUniverseRank(
   const g = groupOf(sym, groups);
   let group: GroupRankReading | null = null;
   if (g) {
-    const r = rankAmong(groupPositions(entry, g.key, groups), position, own);
+    const sorted = groupPositions(entry, g.key, groups);
+    const r = rankAmong(sorted, position, own);
     if (r.peers >= MIN_GROUP_PEERS) {
+      // Peers strictly above and below the stock, leaving its own reading out.
+      let above = sorted.length - upperBound(sorted, position);
+      let below = lowerBound(sorted, position);
+      if (own !== undefined && own > position) above -= 1;
+      if (own !== undefined && own < position) below -= 1;
+      const top = groupTopCount(r.peers + 1);
+      // Gann ranks the groups before the stocks in them (TST Ch. XVI, "Position of
+      // groups"; Ch. XVII, "always sell the weak stocks and buy the strong ones"):
+      // the best stock of a weak group is not a strong stock. The group's median
+      // position, ranked among the universe, is its standing.
+      const groupPercentile = rankAmong(entry.sorted, sorted[Math.floor((sorted.length - 1) / 2)], undefined).percentile;
       group = {
         key: g.key,
         label: g.label,
         ...r,
-        strongest: r.percentile >= 1 - STRONGEST_FRACTION,
-        weakest: r.percentile <= STRONGEST_FRACTION,
+        groupPercentile,
+        strongest: above < top && groupPercentile > STRONGEST_FRACTION,
+        weakest: below < top && groupPercentile < 1 - STRONGEST_FRACTION,
       };
     }
   }

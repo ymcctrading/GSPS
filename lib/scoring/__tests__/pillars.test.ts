@@ -133,7 +133,7 @@ describe("relative strength and leadership", () => {
   });
 
   it("counts the strongest of its industry group as strength when the universe rank does not", () => {
-    const group = { label: "MOTOR VEHICLES", percentile: 0.9, peers: 6, strongest: true, weakest: false };
+    const group = { key: "371", label: "SIC 371 (MOTOR VEHICLES)", percentile: 0.9, peers: 6, groupPercentile: 0.5, strongest: true, weakest: false };
     const rank = { percentile: 0.6, peers: 700, strongest: false, weakest: false, group };
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true }, universeRank: rank }), "bullish").passed).toBe(true);
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: rank }), "bearish").passed).toBe(false);

@@ -85,14 +85,24 @@ describe("the relative strength rank among the universe (S6)", () => {
     for (let k = 195; k < 200; k++) sics[`S${k}`] = { sic: "3711", description: "MOTOR VEHICLES" };
     for (let k = 0; k < 5; k++) sics[`S${k}`] = { sic: "2911", description: "PETROLEUM REFINING" };
     const groups = buildGroupMap(sics);
-    // The weakest of the strong group: strongest quarter of the universe, weakest of its group.
+    // The weakest of the strong group is no short: Gann ranks the group first (TST Ch. XVI-XVII).
     const r = readUniverseRank("S195", null, readAt, u, groups)!;
     expect(r.strongest).toBe(true);
-    expect(r.group).toMatchObject({ key: "371", peers: 4, percentile: 0, weakest: true, strongest: false });
-    // The strongest of the weak group.
+    expect(r.group).toMatchObject({ key: "371", peers: 4, percentile: 0, weakest: false, strongest: false });
+    expect(r.group!.groupPercentile).toBeGreaterThan(0.75);
+    // The strongest of the weak group is no long either (before the review of #388 it read strongest).
     const w = readUniverseRank("S4", null, readAt, u, groups)!;
     expect(w.weakest).toBe(true);
-    expect(w.group).toMatchObject({ key: "291", strongest: true });
+    expect(w.group).toMatchObject({ key: "291", strongest: false });
+    expect(w.group!.groupPercentile).toBeLessThan(0.25);
+    // In a group of middling standing the strongest of five is the strongest, and the second is not
+    // (a percentile cut let the top two of five through).
+    for (let k = 98; k < 103; k++) sics[`S${k}`] = { sic: "2834", description: "PHARMACEUTICAL PREPARATIONS" };
+    const mid = buildGroupMap(sics);
+    expect(readUniverseRank("S102", null, readAt, u, mid)!.group).toMatchObject({ key: "283", strongest: true, weakest: false });
+    expect(readUniverseRank("S101", null, readAt, u, mid)!.group).toMatchObject({ strongest: false, weakest: false });
+    expect(readUniverseRank("S98", null, readAt, u, mid)!.group).toMatchObject({ strongest: false, weakest: true });
+    expect(mid.get("S98")?.label).toBe("SIC 283 (PHARMACEUTICAL PREPARATIONS)");
     // No group, or too small a group: no group reading.
     expect(readUniverseRank("S100", null, readAt, u, groups)!.group).toBeNull();
     expect(buildGroupMap({ A: { sic: "3711", description: "" }, B: { sic: "3711", description: "" } }).size).toBe(0);
@@ -106,6 +116,15 @@ describe("the relative strength rank among the universe (S6)", () => {
     const g = buildGroupMap(sics);
     expect(g.get("A")?.key).toBe("37");
     expect(g.get("C")?.key).toBe("37");
+  });
+
+  it("counts the major group over the stocks left without an industry group", () => {
+    // Five 371s make an industry group; the lone 3720 is not a major group of one.
+    const sics: Record<string, { sic: string; description: string }> = { X: { sic: "3720", description: "" } };
+    for (const s of ["A", "B", "C", "D", "E"]) sics[s] = { sic: "3711", description: "" };
+    const g = buildGroupMap(sics);
+    expect(g.get("A")?.key).toBe("371");
+    expect(g.get("X")).toBeUndefined();
   });
 
   it("reads nothing on too few peers, or with no universe", () => {

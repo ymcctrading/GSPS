@@ -674,4 +674,12 @@
 // and M-K5 on crypto move, live and replay alike. Adds the fast-market plan
 // (`fastLevels`, Gann's day stop) beside the swing plan, and the replay's
 // `tradeStyle` option to walk it; the default replay is unchanged.
-export const STRATEGY_VERSION = "2026-10-21-gann-one-plan-every-market";
+// 2026-10-21-gann-group-rank-review: review of #388. The major-group fallback
+// counts only the stocks left without an industry group, so no group is under
+// five (762 symbols in 58 groups, was 778 in 65 with groups of one); a group's
+// strongest is a quarter of its members rounded down, at least one (a
+// percentile cut passed the top 2 of 5); and the group rank counts only in a
+// group not itself in the universe's weakest quarter (strongest, for a short),
+// since Gann ranks the groups before the stocks in them (TST Ch. XVI-XVII).
+// Scores and list order move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-group-rank-review";
