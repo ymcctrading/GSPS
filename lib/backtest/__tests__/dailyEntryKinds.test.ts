@@ -104,13 +104,39 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
         expect(t.direction === "bullish" ? fireBar.l <= t.stop : fireBar.h >= t.stop).toBe(false);
         if (t.barsHeld === 1 && t.closedAt === t.openedAt && t.ambiguous) {
           const bar = bars[at];
-          expect(t.direction === "bullish" ? bar.l <= t.stop : bar.h >= t.stop).toBe(true);
+          const long = t.direction === "bullish";
+          expect(long ? bar.l <= t.stop : bar.h >= t.stop).toBe(true);
+          // Filled no better than the open, on the right side of the stop.
+          expect(long ? t.entry > t.stop && t.entry <= bar.o : t.entry < t.stop && t.entry >= bar.o).toBe(true);
           expect(t.exitPrice).toBe(t.stop);
-          expect(t.rMultiple).toBeLessThanOrEqual(-1);
+          expect(t.outcome).toBe("loss");
+          expect(t.rMultiple).toBeLessThan(0);
           sameDay++;
         }
       }
     }
     expect(sameDay).toBeGreaterThanOrEqual(3);
+  }, 120_000);
+
+  // Review of #412: a close through the stop on the firing bar is that day's
+  // stop-out, not an entry called off, since live the order filled in the
+  // session before the close. The same bar, closed through the stop instead
+  // of back above it, still books the trade and its loss.
+  it("books the trade when the firing bar also closed through the stop", () => {
+    const bars = wickWalk(40, 260, 40);
+    const opts = { targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60 } as const;
+    const sameDay = replay("TEST", bars, opts).trades.find((t) => !t.derived && t.barsHeld === 1 && t.closedAt === t.openedAt && t.ambiguous);
+    expect(sameDay).toBeDefined();
+    const at = bars.findIndex((b) => b.t === sameDay!.openedAt);
+    const long = sameDay!.direction === "bullish";
+    const through = bars.map((b, j) => {
+      if (j !== at) return b;
+      const c = long ? sameDay!.stop - 0.01 : sameDay!.stop + 0.01;
+      return { ...b, c, l: Math.min(b.l, c), h: Math.max(b.h, c) };
+    });
+    const again = replay("TEST", through, { ...opts, dailyBars: through }).trades.find((t) => !t.derived && t.openedAt === sameDay!.openedAt);
+    expect(again).toBeDefined();
+    expect(again!.exitPrice).toBe(again!.stop);
+    expect(again!.outcome).toBe("loss");
   }, 120_000);
 });

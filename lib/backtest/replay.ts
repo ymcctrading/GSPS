@@ -1098,7 +1098,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const closedBarRule = entryRule === "reaction" || entryRule === "confirmed";
   // Whether the reaction rule below fires its entry on this closed bar, read
   // without changing its state: crossed (or nothing to cross), a bar after
-  // the crossing, no close through the stop, and this candle into the zone.
+  // the crossing, and this candle into the zone. Its close is not read: on a
+  // daily bar the close comes after a fill the live order made in the
+  // session, so a close through the stop is that trade's stop-out, not an
+  // entry called off (review of #412: o 101 / l 96.5 / c 96.8 against a stop
+  // of 97 is a loss live). Only daily bars are read here.
   // Only a touch on this bar counts: an entry carried from an earlier bar's
   // touch (`state.reacted`) keeps the usual breach reading, which retires the
   // plan when this bar broke the stop, the conservative side.
@@ -1107,8 +1111,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const crossed = trigger.held || restsWithoutCrossing(trigger.kind) || state?.crossed === true;
     if (!crossed) return false;
     if (closed.t.slice(0, 10) < (state?.since ?? date) || !(closed.t > (state?.crossedAt ?? ""))) return false;
-    const long = trigger.direction === "bullish";
-    if (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop) return false;
     return tradedIntoBuyZone(closed, trigger.direction, trigger.reactionEntry);
   };
 
@@ -1178,11 +1180,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // On daily bars the session's one closed bar is also the bar a reaction
       // entry fires on: the candle traded into the zone (an order at the
       // market, live, on a 15-minute bar) and may have reached the stop
-      // later the same day. Which came first cannot be told, so, as above,
-      // that bar's stop is left to the bracket walk rather than retiring the
-      // plan before the entry. Retiring it dropped exactly the trades stopped
-      // out the same day (review of #386: long 100, stop 97, bar o 101 /
-      // l 96.5 / c 98 left no trade, where live it is a loss).
+      // later the same day. The plan is not retired before the entry; the
+      // trade is booked and stopped on that bar below. Retiring it dropped
+      // exactly the trades stopped out the same day (review of #386: long
+      // 100, stop 97, bar o 101 / l 96.5 / c 98 left no trade, where live it
+      // is a loss).
       const firesOnClosedBar =
         closedSession && entryRule === "reaction" && breakawayVolume && reactionFiresOn(pivotKey, trigger, date, history[history.length - 1]);
       if ((!firstRead || closedSession) && planStop !== null && !firesOnClosedBar) {
@@ -1227,7 +1229,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           // After the crossing close: a close through the stop calls the
           // entry off, as `confirmationFromBars` reads it; a candle into the
           // zone makes it a market order.
-          if (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop) {
+          if (!firesOnClosedBar && (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop)) {
             consumedPivots.add(pivotKey);
             crossing.delete(pivotKey);
             continue;
@@ -1375,11 +1377,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // a loss of the whole risk plus costs, the conservative order when the
       // bar cannot say which came first. Filling it at the next open instead
       // dropped the stop the firing bar had already reached (review of #412).
-      // Intraday bars never take this path: the stop is walked from the
-      // candle after the zone touch, as live.
+      // A bar that opened inside the zone fills at its open; one that opened
+      // beyond the stop is refused, as production refuses a fill outside its
+      // bracket (`fill_outran_bracket`). Intraday bars never take this path:
+      // the stop is walked from the candle after the zone touch, as live.
       const firingBar = history[history.length - 1];
       if (firesOnClosedBar && isStopBreachedByBar(trigger.direction, stop, firingBar)) {
-        const fill = trigger.reactionEntry;
+        if (long ? firingBar.o <= stop : firingBar.o >= stop) {
+          refusedFills++;
+          continue;
+        }
+        const fill = long ? Math.min(firingBar.o, trigger.reactionEntry) : Math.max(firingBar.o, trigger.reactionEntry);
         trades.push({
           symbol, openedAt: firingBar.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
           entry: fill, stop, target,

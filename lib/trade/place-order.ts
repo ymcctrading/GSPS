@@ -393,7 +393,14 @@ export async function placeSimulatedOrder(
   // the synthetic quote, so it is refused.
   if (input.mode !== "live" || !isProtective) {
     const refused = syntheticDataRefusal(`place a ${input.mode === "live" ? "live" : "paper"} order for ${input.symbol.toUpperCase()}`);
-    if (refused) return { status: 503, body: { error: `${refused} Nothing was placed.`, code: "synthetic_market_data" } };
+    // The refusal's text names the server's configuration: it is logged, and
+    // the member gets a fixed message (S-14).
+    if (refused) {
+      return {
+        status: 503,
+        body: { error: "Market data is unavailable right now, so nothing was placed.", code: "synthetic_market_data" },
+      };
+    }
   }
 
   // A stop on every trade (A-STOP-01; owner, 2026-10-16, Q1): a new equity

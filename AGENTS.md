@@ -781,9 +781,12 @@ and time square counts only a move away from its pivot the way Gann measures it,
 and Space balance, the stock makes top or bottom", PDF p.202), so a long whose
 price has run above the last high no longer takes P7's square from it
 (`computeTimePriceSquare`, live and replay alike). (2) On daily bars a reaction
-entry whose firing bar also reached the stop is entered and its stop left to the
-bracket walk, as the replay already does for the bar an entry fires on; retiring
-the plan first dropped every same-day stop-out from 1Day runs. `STRATEGY_VERSION`
+entry whose firing bar traded into the zone and also reached the stop, whether it
+closed back or through it, is booked at the reaction entry (the open, if it opened
+inside the zone; refused if it opened beyond the stop) and stopped on that bar, a
+loss of the whole risk; retiring the plan first, or letting the day's close call
+off an entry live had already filled, dropped every same-day stop-out from 1Day
+runs. `STRATEGY_VERSION`
 is `2026-10-21-review-sweep-square-sign-daily-firing-bar`; P7 and the 6/3.5
 cutoffs need a fresh run.
 **Square of Nine in price, same day (C-LEVELS-15).** Gann lists the numbers on
