@@ -23,8 +23,9 @@ name: Monitor invalidation sweep
 # so this follows the same GitHub-Actions-external-scheduler pattern as
 # intraday-scan.yml rather than vercel.json.
 on:
-  schedule:
-    - cron: '15,45 13-21 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

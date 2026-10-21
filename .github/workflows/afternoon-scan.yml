@@ -13,8 +13,9 @@ name: Afternoon scan
 # already accepts, for the same reason: the route's output doesn't depend
 # on being called at exactly its nominal minute.
 on:
-  schedule:
-    - cron: '0 18 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:
