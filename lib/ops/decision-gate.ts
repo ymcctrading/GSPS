@@ -138,7 +138,7 @@ export async function buildDecisionGateReport(service: SupabaseClient, now: Date
       evaluated: rs.length,
       winRatePct: pct(rs.filter((r) => r > 0).length, rs.length),
       averageR: rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 1000) / 1000 : null,
-      note: "Forward test, 90 days: reaction entry and Gann's exits, not the roadmap's 5-day window. Too few signals to read as an edge until it holds hundreds.",
+      note: "Forward test, 90 days: reaction entry and the method's exits, not the roadmap's 5-day window. Too few signals to read as an edge until it holds hundreds.",
     },
     delivery: {
       recorded: recorded ?? 0,
