@@ -607,4 +607,8 @@
 // come from all 16 of its lines, one every 22.5° (Gann's plate, Vol. 3 p. 34;
 // source note B12), not the 8 every 45°. The nearest twelve that join the S/R
 // list are denser, so plan stops and targets move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-square-of-nine-16-lines";
+// 2026-10-21-gann-stand-aside-no-trend: with no trend on any chart and no
+// buying point armed, the live scan stood on the short side by default; it now
+// stands aside (Reject; never-failing rules 5 and 6, D-05). The replay scores
+// only armed triggers, so its trades do not move; live verdicts can.
+export const STRATEGY_VERSION = "2026-10-21-gann-stand-aside-no-trend";

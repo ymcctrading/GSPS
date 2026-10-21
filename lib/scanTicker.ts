@@ -60,6 +60,7 @@ import {
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
+  applyStandAsideHold,
   computeScore,
   srMatchForSide,
 } from "@/lib/scoring/score";
@@ -348,7 +349,10 @@ export async function scanTicker(
     // the one nearer the price (`selectGannEntry`).
 
     const direction: "bullish" | "bearish" | "none" = gannTrigger?.direction ?? "none";
-    const scoreDirection = gannTrigger?.direction ?? preferredDirection;
+    // No trigger and no trend: no side to take. The scorecard is read on the
+    // long side as a reading only, and the verdict stands aside (D-05).
+    const standAside = !gannTrigger && preferredDirection === null;
+    const scoreDirection = gannTrigger?.direction ?? preferredDirection ?? "bullish";
 
     // The label is what the invalidation copy calls this setup. It describes
     // what was crossed rather than naming a bar sequence, because that is what
@@ -511,7 +515,7 @@ export async function scanTicker(
       return windowTurnRead.turn;
     };
 
-    const decision = applyStopBreachHold(applyDataLagHold(
+    const decision = applyStandAsideHold(applyStopBreachHold(applyDataLagHold(
       applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
@@ -554,7 +558,7 @@ export async function scanTicker(
         // A-LEVELS-08: the first and second times through a round number hold.
         figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,
-    ), stopBreach);
+    ), stopBreach), standAside);
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
     // from the Gann/STRAT verdict above, never merged into it. This is a

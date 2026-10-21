@@ -227,17 +227,21 @@ export function armSessionEntries(
 
 /**
  * The direction the scan arms a reversion setup in when it has no buying
- * point to read it from: against Gann's weighted trend, and short when no
- * chart reads one. A caller hunting a continuation supplies its own
- * direction instead. Where buying points exist, `reversionEntry` decides.
+ * point to read it from: against Gann's weighted trend. With no trend on any
+ * chart there is no side to take, so null: "never buck the trend" and "when
+ * in doubt, get out" (the never-failing rules 5 and 6, Commodities pp. 43-45).
+ * Before 2026-10-21 it fell to the short side (review finding D-05). A caller
+ * hunting a continuation supplies its own direction instead. Where buying
+ * points exist, `reversionEntry` decides.
  */
 export function preferredEntryDirection(
   macroTrends: TrendReading[],
   preference?: { direction: EntryDirection },
-): EntryDirection {
+): EntryDirection | null {
   if (preference) return preference.direction;
-  const macroDir = weightedTrendAgreement(macroTrends, "bearish").agrees ? "bearish" : "bullish";
-  return macroDir === "bearish" ? "bullish" : "bearish";
+  const bearish = weightedTrendAgreement(macroTrends, "bearish").weightedScore;
+  if (bearish === 0) return null;
+  return bearish > 0 ? "bullish" : "bearish";
 }
 
 // Three-bar compound setups carry more context than a bare 2-2 (which arms on
@@ -268,7 +272,8 @@ export function rankArmedPatterns(input: {
   closedExecutionBars: Parameters<typeof detectPatterns>[0];
   currentPrice: number;
   executionAtr: number;
-  preferredDirection: EntryDirection;
+  /** Null ranks both sides alike: no trend, no side preferred. */
+  preferredDirection: EntryDirection | null;
   setupKind: SetupKind;
 }): StratPattern[] {
   const { closedExecutionBars, currentPrice, executionAtr, preferredDirection, setupKind } = input;
@@ -284,8 +289,8 @@ export function rankArmedPatterns(input: {
     setupKind === "continuation" && !CONTINUATION_PATTERNS.has(p.name) ? 1 : 0;
 
   return [...armed].sort((a, b) => {
-    const aRev = a.direction === preferredDirection ? 0 : 1;
-    const bRev = b.direction === preferredDirection ? 0 : 1;
+    const aRev = preferredDirection === null || a.direction === preferredDirection ? 0 : 1;
+    const bRev = preferredDirection === null || b.direction === preferredDirection ? 0 : 1;
     if (aRev !== bRev) return aRev - bRev;
     const kind = kindRank(a) - kindRank(b);
     if (kind !== 0) return kind;

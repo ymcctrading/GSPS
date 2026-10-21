@@ -1056,6 +1056,21 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "standAside",
+    family: "scoreHold",
+    source: "lib/scoring/score.ts",
+    label: "A trend to trade with",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Review finding D-05 (2026-10-21): with no trend on the monthly, weekly or daily chart and no buying point " +
+      "armed, the scan stood on the short side by default. The never-failing rules 5 and 6 (never buck the " +
+      "trend; when in doubt, get out; Commodities pp. 43-45) answer it: stand aside. Appended only then, which " +
+      "drops the verdict to Reject, so it is failed by construction whenever present. The replay scores only " +
+      "armed triggers, so it never reaches the factor tables.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "dataLag",
     family: "scoreHold",
     source: "lib/data/latency.ts",

@@ -104,7 +104,7 @@ export type PillarCheckKey = (typeof PILLAR_CHECK_KEYS)[number];
  * They carry no points and take no weight, but they are keyed too so the
  * replay's factor table and the UI can identify them without string matching.
  */
-export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag" | "breakaway" | "stopBreach" | "monthlyBreak" | "distributionBreakdown" | "failedTop" | "timeWindowTurn" | "queerActing" | "weakStock" | "figureCrossing";
+export type HoldKey = "tradePlanPriced" | "reversionConfirmation" | "dataLag" | "breakaway" | "stopBreach" | "monthlyBreak" | "distributionBreakdown" | "failedTop" | "timeWindowTurn" | "queerActing" | "weakStock" | "figureCrossing" | "standAside";
 
 export type BreakdownKey = CriterionKey | PillarCheckKey | HoldKey;
 

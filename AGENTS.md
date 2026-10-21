@@ -606,6 +606,17 @@ score rollup, never the breakdown, since production lets any role read it
 and display name, R-028) were applied to production the same day on the
 owner's go-ahead. `STRATEGY_VERSION` was
 `2026-10-21-review-fixes-on-major-range-levels`.
+**Second round, same day, answered from Gann rather than held (owner: fixes
+built in the review's own session):** the Square of Nine reads all 16 of its
+lines (R-033, Gann's plate); with no trend on any chart and no buying point the
+live scan stands aside instead of taking the short side by default
+(`applyStandAsideHold`, never-failing rules 5 and 6, D-05); and the forward
+test (`lib/shadow/evaluate.ts`) enters on the reaction and exits on Gann's
+rules as production does, with the 2026-08-27 baseline labelled as other rules
+and not compared (R-032). Migration 0094 (one-transaction paper fill, the
+strategy version on scans, orders and trades, the forward test's outcomes) is
+applied before the code that writes it merges. `STRATEGY_VERSION` is
+`2026-10-21-gann-stand-aside-no-trend`.
 
 **Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
 Gann counts the weeks a market has been held narrow before it crosses the tops
