@@ -103,6 +103,8 @@ function redactGannConfluence(result: GannConfluenceResult | null): GannConfluen
   if (!result) return result;
   return {
     ...result,
+    // A fan line's time target is a dated forward label with no measured record (R-024).
+    nearestFanLine: result.nearestFanLine ? { ...result.nearestFanLine, timeProjectionDate: null } : null,
     disclosedRules: redactDisclosedRules(result.disclosedRules),
     evidence: { ...result.evidence, inputs: {}, explanationTrace: [] },
   };

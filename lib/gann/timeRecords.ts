@@ -52,6 +52,7 @@ export type TimeLine =
   | "timeSquare"
   | "dayCircle"
   | "swingProjection"
+  | "angleTimeProjection"
   | "yearCycles";
 
 const BASE_RATES_2026_10_16 = "docs/replay-runs/2026-10-16-time-window-base-rates-736sym.json";
@@ -79,6 +80,8 @@ export const TIME_LINE_RECORDS: Record<TimeLine, MeasuredRecord | null> = {
   timeSquare: null,
   dayCircle: null,
   swingProjection: null,
+  // A fan line's time target (`fans.ts#timeProjectionDate`): no base-rate run scores it.
+  angleTimeProjection: null,
   // The yearly-cycle convergence badge (`timeCycles.ts#yearCycleConvergence`).
   // `timeWindowBaseRate.ts` now scores a `yearCycles` family, but the
   // 2026-10-16 run predates it, so the badge stays hidden until a run holds it.
