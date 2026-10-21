@@ -200,9 +200,17 @@ export function chooseSessionEntry(
   trends: Pick<TrendReading, "timeframe" | "direction">[],
   entryOf: EntryOf,
   price: number,
-): { setupKind: SetupKind; trigger: GannEntryTrigger } | null {
+): {
+  setupKind: SetupKind;
+  trigger: GannEntryTrigger;
+  /** The other side's buying point when both armed, set aside (D-06). */
+  setAside: { setupKind: SetupKind; direction: EntryDirection } | null;
+} | null {
   const armed = armSessionEntries(trends, entryOf, price);
-  return armed.find((a) => a.setupKind === "continuation") ?? armed[0] ?? null;
+  const chosen = armed.find((a) => a.setupKind === "continuation") ?? armed[0] ?? null;
+  if (!chosen) return null;
+  const other = armed.find((a) => a !== chosen && a.trigger.direction !== chosen.trigger.direction);
+  return { ...chosen, setAside: other ? { setupKind: other.setupKind, direction: other.trigger.direction } : null };
 }
 
 /**
