@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { SCANNER_STATE_META } from "@/lib/signals/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
-import { priceText } from "@/lib/strat/priceText";
+import { priceUsd } from "@/lib/strat/priceText";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -104,7 +104,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
             </div>
             <div>
               <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Entry</p>
-              <p style="margin: 5px 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">$${priceText(data.entry)}</p>
+              <p style="margin: 5px 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">${priceUsd(data.entry)}</p>
             </div>
             <div>
               <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Verdict</p>
@@ -116,8 +116,8 @@ export async function sendAlertEmail(data: AlertEmailData) {
         <div style="background: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #7c2d12; font-size: 14px; font-weight: 600;">Risk Management</p>
           <p style="margin: 8px 0 0; color: #7c2d12; font-size: 13px;">
-            Stop Loss: <strong>$${priceText(data.stopLoss)}</strong> |
-            Target: <strong>${data.takeProfit != null ? `$${priceText(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>
+            Stop Loss: <strong>${priceUsd(data.stopLoss)}</strong> |
+            Target: <strong>${data.takeProfit != null ? `${priceUsd(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>
           </p>
         </div>
 
@@ -357,8 +357,8 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
         </div>
         <p style="color: #475569; font-size: 13px;">
           ${data.side === "buy" ? "Buy" : "Sell"} ${data.qty} ${data.symbol}
-          ${data.limitPrice != null ? ` at $${priceText(data.limitPrice)} limit` : ""}
-          ${data.stopPrice != null ? ` · stop $${priceText(data.stopPrice)}` : ""}
+          ${data.limitPrice != null ? ` at ${priceUsd(data.limitPrice)} limit` : ""}
+          ${data.stopPrice != null ? ` · stop ${priceUsd(data.stopPrice)}` : ""}
         </p>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This order moved to Rejected in your Portfolio.
@@ -503,17 +503,17 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
 
   try {
     const verb = data.direction === "above" ? "rose above" : "fell below";
-    const subject = `${data.symbol} ${verb} $${priceText(data.targetPrice)}`;
+    const subject = `${data.symbol} ${verb} ${priceUsd(data.targetPrice)}`;
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${data.symbol} price alert</h1>
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0f172a; font-size: 16px;">
-            ${data.symbol} ${verb} your alert level of <strong>$${priceText(data.targetPrice)}</strong>.
+            ${data.symbol} ${verb} your alert level of <strong>${priceUsd(data.targetPrice)}</strong>.
           </p>
           <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
-            Last price checked: $${priceText(data.currentPrice)}
+            Last price checked: ${priceUsd(data.currentPrice)}
           </p>
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">

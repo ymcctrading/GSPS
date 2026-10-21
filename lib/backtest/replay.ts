@@ -1098,7 +1098,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const closedBarRule = entryRule === "reaction" || entryRule === "confirmed";
   // Whether the reaction rule below fires its entry on this closed bar, read
   // without changing its state: crossed (or nothing to cross), a bar after
-  // the crossing, no close through the stop, and a candle into the zone.
+  // the crossing, no close through the stop, and this candle into the zone.
+  // Only a touch on this bar counts: an entry carried from an earlier bar's
+  // touch (`state.reacted`) keeps the usual breach reading, which retires the
+  // plan when this bar broke the stop, the conservative side.
   const reactionFiresOn = (pivotKey: string, trigger: GannEntryTrigger, date: string, closed: Bar): boolean => {
     const state = crossing.get(pivotKey);
     const crossed = trigger.held || restsWithoutCrossing(trigger.kind) || state?.crossed === true;
@@ -1362,6 +1365,57 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // the reaction entry.
       if (planLevels && (long ? target <= planned : target >= planned)) {
         dropped.targetNotBeyondEntry++;
+        continue;
+      }
+
+      // The daily bar the reaction entry fired on also traded through the stop
+      // (`firesOnClosedBar` kept the plan for it). Live, the order filled in
+      // the zone during that session and its stop took it out the same day,
+      // so the trade is booked at the reaction entry and stopped on that bar:
+      // a loss of the whole risk plus costs, the conservative order when the
+      // bar cannot say which came first. Filling it at the next open instead
+      // dropped the stop the firing bar had already reached (review of #412).
+      // Intraday bars never take this path: the stop is walked from the
+      // candle after the zone touch, as live.
+      const firingBar = history[history.length - 1];
+      if (firesOnClosedBar && isStopBreachedByBar(trigger.direction, stop, firingBar)) {
+        const fill = trigger.reactionEntry;
+        trades.push({
+          symbol, openedAt: firingBar.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
+          entry: fill, stop, target,
+          atrMultiple: executionAtr > 0 ? Math.abs(fill - stop) / executionAtr : 0,
+          score: decision.score,
+          outputState: decision.outputState,
+          criteria: criteriaOf(decision),
+          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, fill, path?.takeProfit1, {
+            time: firingBar.t,
+            barMinutes: barMinutesAt(bars, i - 1),
+          }),
+          largeCap,
+          yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, firingBar.t, trigger.direction) : undefined,
+          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
+          barsHeld: 1,
+          closedAt: firingBar.t,
+          outcome: "loss",
+          ...(exitRule === "gann" || exitRule === "gann-runner" ? { exitReason: "initial" as const } : {}),
+          crossedLevel: trigger.kind === "hold" ? null : trigger.level,
+          exitPrice: stop,
+          rMultiple: (dir * (stop - fill) - costPerShare) / risk,
+          ambiguous: true,
+        });
+        if ((exitRule === "gann" || exitRule === "gann-runner") && reverseWhenCaught) {
+          const sharesOn = instrument ? (date: string) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined;
+          for (const r of walkReversals({
+            bars, dailyBars: dailyBars ?? [], caughtAt: i - 1, side: long ? "long" : "short",
+            cause: "initial", brokenLevel: stop, extreme: fill, maxBarsHeld,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled,
+          })) {
+            trades.push({
+              symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
+              largeCap, ambiguous: false, crossedLevel: null, derived: "reversal", ...r,
+            });
+          }
+        }
         continue;
       }
 

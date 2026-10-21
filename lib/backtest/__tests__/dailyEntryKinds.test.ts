@@ -84,11 +84,13 @@ function wickWalk(seed: number, n: number, start: number): Bar[] {
 // Review of #386: on daily bars the session's closed bar is also the bar a
 // reaction entry fires on. When it traded into the zone and through the stop
 // the same day, which came first cannot be told, so the plan is not retired
-// before the entry and the stop is left to the bracket walk. Retiring it
-// dropped exactly the trades stopped out the same day (on these seeds, 1 such
-// trade before the fix, 4 after).
+// before the entry. Retiring it dropped exactly the trades stopped out the
+// same day (on these seeds, 1 such trade before the fix, 4 after). Review of
+// #412: those trades are booked at the reaction entry on the firing bar and
+// stopped there, a full loss, never filled at the next open with the stop
+// already passed.
 describe("1Day reaction replay, a firing bar that also reached the stop", () => {
-  it("keeps the entry rather than retiring the plan first", () => {
+  it("books the entry and its stop on that bar, a loss of at least 1R", () => {
     let sameDay = 0;
     for (const seed of [40, 54, 67]) {
       const bars = wickWalk(seed, 260, 40);
@@ -96,8 +98,17 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
         targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60,
       }).trades.filter((t) => !t.derived && t.openedAt);
       for (const t of trades) {
-        const fireBar = bars[bars.findIndex((b) => b.t === t.openedAt) - 1];
-        if (t.direction === "bullish" ? fireBar.l <= t.stop : fireBar.h >= t.stop) sameDay++;
+        const at = bars.findIndex((b) => b.t === t.openedAt);
+        const fireBar = bars[at - 1];
+        // A trade filled at the next open whose firing bar had already reached its stop.
+        expect(t.direction === "bullish" ? fireBar.l <= t.stop : fireBar.h >= t.stop).toBe(false);
+        if (t.barsHeld === 1 && t.closedAt === t.openedAt && t.ambiguous) {
+          const bar = bars[at];
+          expect(t.direction === "bullish" ? bar.l <= t.stop : bar.h >= t.stop).toBe(true);
+          expect(t.exitPrice).toBe(t.stop);
+          expect(t.rMultiple).toBeLessThanOrEqual(-1);
+          sameDay++;
+        }
       }
     }
     expect(sameDay).toBeGreaterThanOrEqual(3);

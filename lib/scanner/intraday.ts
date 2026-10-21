@@ -1141,7 +1141,7 @@ function detectSpaceOverbalance(
     move: dayMove,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${current.toFixed(1)}%) larger than any reaction since it began (${greatest.toFixed(1)}%). In this method that over-balance says the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
+    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). In this method that over-balance says the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
 

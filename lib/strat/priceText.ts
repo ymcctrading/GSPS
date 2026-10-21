@@ -30,9 +30,15 @@ export function priceText(n: number | null | undefined): string {
   return places > 2 ? text.replace(/(\.\d{2}\d*?)0+$/, "$1") : text;
 }
 
-/** `priceText` with a dollar sign: "$0.1612", "$12.50", "-$0.50", or "—". */
+/**
+ * `priceText` with a dollar sign and thousands separators: "$0.1612",
+ * "$12.50", "$67,123.45", "-$0.50", or "—".
+ */
 export function priceUsd(n: number | null | undefined): string {
   const text = priceText(n);
   if (text === "—") return text;
-  return text.startsWith("-") ? `-$${text.slice(1)}` : `$${text}`;
+  const negative = text.startsWith("-");
+  const [whole, fraction] = (negative ? text.slice(1) : text).split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${negative ? "-" : ""}$${grouped}${fraction === undefined ? "" : `.${fraction}`}`;
 }
