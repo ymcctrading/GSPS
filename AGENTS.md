@@ -410,7 +410,8 @@ sessions narrow (`isNarrowRange`, at least `MIN_RANGE_SESSIONS`), the narrow the
 breakaway's volume rule already read: 12% and 3% held. Decision 5 itself is
 unchanged: inside a narrow range Execute still needs the breakaway. The width
 (`NARROW_RANGE_ALLOWANCES`, 3 allowances over 13 weeks) is an engineering figure,
-and a 2-6 week narrow range after a wide 13 weeks is not read yet; both held for
+and a 2-6 week narrow range after a wide 13 weeks is not read yet (built the same
+day, "Breakaway's 2-6 week range" below); both held for
 the owner. `STRATEGY_VERSION` was `2026-10-21-gann-narrow-range-breakaway`;
 Execute and the 6/3.5 cutoffs need a fresh run on it.
 **Replay accounting, 2026-10-21.** Three replay defects, fixed. (1) A fired entry
@@ -587,7 +588,29 @@ low prices keeps it loose there, held for the owner (50% points alone: 20%,
 the wanted role (`nearestLevelMatchByRole`, `srMatchForSide`), as score.ts
 said, not the nearest of either role then failed on its side; a level is
 support below price and resistance above it (W006 pp.19-24). `STRATEGY_VERSION`
-is `2026-10-21-gann-major-range-levels`; Execute and the 6/3.5 cutoffs need a
+was `2026-10-21-gann-major-range-levels`; Execute and the 6/3.5 cutoffs need a
+fresh run on it.
+
+**Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
+Gann counts the weeks a market has been held narrow before it crosses the tops
+or breaks the bottoms "of the previous weeks": "2-6 or 10-13 weeks in a narrow
+range ... the longer in range, the bigger the move" (Master Course pp. 246-248,
+Rails 1897's two 2-point ranges; *Commodities* p. 51, "Many Weeks in Narrow
+Range"); 3 points beyond the old top or bottom of a sideways move (*Truth of
+the Stock Tape*, Jewel Tea). So the range is the one the market is in now:
+`narrowRangeSessions` (`lib/gann/breakaway.ts`) counts back from the latest
+session while the span stays narrow, at least `MIN_RANGE_SESSIONS` and within
+the 13 weeks. A whole narrow quarter reads as before; after a wide quarter the
+last 2-6 narrow weeks are the range and their 3-Day Chart extremes are the
+breakaway. The 7-9 weeks between his bands are read too (his own 8- and 9-week
+examples, Rails 1911 and 1897). `readBreakaway`, the breakaway's volume
+(`breakawayVolumeMet`, `readBreakawayVolume`) and `capitalStock.ts` read the
+same run, live and replay alike (one function). Gann gives no width: his dated
+ranges are 2, 2½ and 4 points, inside `NARROW_RANGE_ALLOWANCES` (3 allowances,
+still an engineering figure, held for the owner). Random walks, armed entries
+held (before → after): trendless 13.1% → 16.3%, rising 0.2% a day 8.3% → 11.0%
+(at $20 26.1 → 26.6%, $500 0 → 1.4%). `STRATEGY_VERSION` is
+`2026-10-21-gann-narrow-weeks-breakaway`; Execute and the 6/3.5 cutoffs need a
 fresh run on it.
 
 ## WD Gann precedence — standing principle
