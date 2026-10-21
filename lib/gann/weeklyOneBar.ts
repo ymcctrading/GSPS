@@ -31,9 +31,12 @@
  *
  * Placement: a reading on the setup card and a measured context factor
  * (`contextFactors.ts#weeklyOneBarWithTrade`), read the same way on the live
- * scan and the replay through `readDisclosedRules`. Whether it should join
- * or replace the 7-day chart where the exits and the campaign ledger read the
- * weekly trend is the owner's call, held with the review B notes.
+ * scan and the replay through `readDisclosedRules`. Since 2026-10-21 it is
+ * also the weekly leg of the score's trend pillar (P2,
+ * `pillars.ts#trendPillar`), the chart Gann's "on the weekly, buy when the
+ * line turns green" names. Whether it should join or replace the 7-day chart
+ * where the exits and the campaign ledger read the weekly trend is the
+ * owner's call, held with the review B notes.
  *
  * Three-question basis:
  * 1. Gann: as cited above, Tier A.

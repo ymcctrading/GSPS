@@ -17,7 +17,7 @@
  *    reaction clock, that the time modules already carry;
  *    no new periodicity is claimed here, so Dewey's checklist is not re-run.
  * 3. Hermetic: Correspondence, in that each pillar asks one question on every
- *    timeframe the rule reads (P2's monthly, weekly and daily); and Polarity,
+ *    timeframe the rule reads (P2's monthly, weekly line and daily); and Polarity,
  *    in that every check has its short mirror (strongest for a long, weakest
  *    for a short; a reaction inside its limit with the trend, one outrunning
  *    it against the trend).
@@ -54,6 +54,11 @@ export interface PillarFacts {
   /** Yearly counts from major pivots landing on this month (closed months only). */
   yearCycle: { bullishHits: number; bearishHits: number } | null;
   decadeBias: "bullish" | "bearish" | "mixed" | null;
+  /**
+   * Gann's weekly green/red trend line (Master Course Ch. 8, p. 239,
+   * `weeklyOneBar.ts`): the weekly reading P2 asks for. Null before its first turn.
+   */
+  weeklyLine: "green" | "red" | null;
   /** The year's trend from its January (and July) ranges. */
   yearTrend: "up" | "down" | "inside" | null;
   leadership: {
@@ -158,6 +163,7 @@ export function readPillarFacts(input: {
   return {
     marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
     yearCycle: closedMonths.length >= 12 ? yearCycleConvergence(closedMonths, asOf) : null,
+    weeklyLine: rules.weeklyOneBar?.colour ?? null,
     decadeBias: rules.decadeCycle?.bias ?? null,
     yearTrend: rules.yearRanges?.yearTrend ?? null,
     leadership: leadership
@@ -201,21 +207,36 @@ export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side)
   };
 }
 
-/** P2 (C13, T1, T7): the weekly swing, and the 3-day swing or the Rule of Three; the monthly makes it a cinch. */
+/**
+ * P2 (C13, T1, T7): Gann's weekly trend line, and the 3-day swing or the Rule
+ * of Three; the monthly makes it a cinch.
+ *
+ * The weekly reading is the Master Course's green/red trend line (Ch. 8,
+ * p. 239: "buy when the red trend line changes to green"; `weeklyOneBar.ts`),
+ * the chart T1 cites and the design named (score-pillars-research.md §3, "the
+ * weekly swing (green/red line)"). Until 2026-10-21 it read the 1951
+ * Commodities 7-day chart's trend instead (`swingChart.ts`), a slower
+ * reading: the line turns on the first week with a higher top and a higher
+ * bottom (a lower bottom, short), the 7-day trend only once the last completed
+ * weekly swing top is crossed (bottom broken). That reading inverted on every
+ * replay since the pillars were built (2026-10-17, -20, -21: trades passing it
+ * did worse than trades failing it in 10 of 11 measured cells), while the
+ * green/red line, a measured context factor all along, came out ahead in 7.
+ */
 export function trendPillar(input: {
   side: Side;
-  weekly: Side | null | undefined;
+  weeklyLine: "green" | "red" | null | undefined;
   threeDay: Side | null | undefined;
   ruleOfThree: boolean;
   monthly: string | null | undefined;
 }): PillarResult {
-  const { side, weekly, threeDay, ruleOfThree, monthly } = input;
-  const weeklyWith = weekly === side;
+  const { side, weeklyLine, threeDay, ruleOfThree, monthly } = input;
+  const weeklyWith = weeklyLine === (side === "bullish" ? "green" : "red");
   const shortTerm = threeDay === side || ruleOfThree;
   const passed = weeklyWith && shortTerm;
   return {
     passed,
-    note: `Weekly swing with the setup: ${yes(weeklyWith)}. 3-day swing or three closes with it: ${yes(shortTerm)}.${passed && monthly === side ? " The monthly trend agrees too: every timeframe is in line." : ""}`,
+    note: `Weekly trend line ${side === "bullish" ? "green" : "red"}: ${yes(weeklyWith)}. 3-day swing or three closes with it: ${yes(shortTerm)}.${passed && monthly === side ? " The monthly trend agrees too: every timeframe is in line." : ""}`,
   };
 }
 

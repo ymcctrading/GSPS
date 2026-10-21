@@ -523,4 +523,9 @@
 // from (Master Course PDF 244-245, 249: the secondary rally after it is the
 // sale). P9, `readGannTrend`'s confirmation, the Gann exit's trend change and
 // the measured factors move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-overbalance-points-standing";
+// 2026-10-21-gann-weekly-line-trend: the trend pillar (P2) reads Gann's weekly
+// green/red trend line (Master Course Ch. 8, p. 239; `weeklyOneBar.ts`), the
+// chart its design and T1 name, instead of the 1951 7-day chart's trend, which
+// inverted on every nine-pillar replay. Scores and verdicts move, live and
+// replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-weekly-line-trend";
