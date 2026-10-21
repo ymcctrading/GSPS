@@ -57,6 +57,7 @@ import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
+import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
@@ -330,6 +331,17 @@ export async function GET(req: NextRequest) {
   // spam. Best-effort: a notification failure must not turn a scan that
   // already succeeded, and already persisted, into an error response.
   if (systemScan && output.alerts.length > 0) {
+    // The bell first (owner, 2026-10-21): it reaches a member while email is
+    // still held by the sandbox sender. Only members watching the symbol.
+    try {
+      await recordIntradayBells(supabase as ServiceSupabase, output.alerts, {
+        intervalBySymbol: new Map(resolved.map((i) => [i.symbol, i.barIntervalMinutes])),
+        cooldownMinutes: config.cooldownMinutes,
+        now,
+      });
+    } catch (err) {
+      console.error("[intraday-scan] bell notices failed:", err);
+    }
     try {
       await notifySubscribedUsers(supabase as ServiceSupabase, output.alerts);
     } catch (err) {

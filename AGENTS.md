@@ -2716,6 +2716,11 @@ its own intraday panel, labelled apart from the daily verdict. A monitor goes
 INVALIDATED only when the scan retired the plan for a broken stop; any other
 Reject is NO_SETUP and sends nothing (`evaluateMonitorsAndNotify`). The daily
 verdict and `STRATEGY_VERSION` are unchanged.
+Bell notices (owner, "Yes, build and apply it"): each new signal from the
+scheduled intraday scan writes an `in_app_notifications` row (verdict
+'Intraday', migration 0097, applied 2026-10-21) for every member with the
+symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
+shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 
