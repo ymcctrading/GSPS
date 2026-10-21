@@ -41,7 +41,7 @@ function stub(order: Record<string, unknown>) {
     from: (t: string) => tables[t],
     rpc: (fn: string, args: Record<string, unknown>) => {
       rpcs.push({ fn, args });
-      return Promise.resolve({ data: fn === "execute_position_fill" ? { positionId: "pos-1", closed: null } : null, error: null });
+      return Promise.resolve({ data: fn === "execute_position_fill" || fn === "execute_paper_fill" ? { positionId: "pos-1", closed: null } : null, error: null });
     },
   };
   return { client: client as never, orderUpdates, planInserts, rpcs };
@@ -59,7 +59,7 @@ describe("a resting bracket that fills (R-011)", () => {
     const { client, planInserts, rpcs, orderUpdates } = stub(bracket);
     const r = await evaluateRestingOrders(client, "u1");
     expect(r.filled).toBe(1);
-    const fill = rpcs.find((c) => c.fn === "execute_position_fill")!.args;
+    const fill = rpcs.find((c) => c.fn === "execute_paper_fill")!.args;
     expect(fill).toMatchObject({ p_stop_loss: 95, p_take_profit: 110 });
     expect(planInserts[0]).toMatchObject({ mode: "paper", entry_order_id: "order-1", entry_price: 99.5, stop_loss: 95, applied_stop: 95 });
     expect(orderUpdates.some((u) => u.exit_plan_id === "plan-1")).toBe(true);
@@ -71,7 +71,7 @@ describe("a resting bracket that fills (R-011)", () => {
     const { client, planInserts, rpcs, orderUpdates } = stub({ ...bracket, created_at: "2026-08-29T02:00:00Z" });
     const r = await evaluateRestingOrders(client, "u1");
     expect(r.filled).toBe(0);
-    expect(rpcs.some((c) => c.fn === "execute_position_fill")).toBe(false);
+    expect(rpcs.some((c) => c.fn === "execute_paper_fill" || c.fn === "execute_position_fill")).toBe(false);
     expect(planInserts).toHaveLength(0);
     expect(orderUpdates[0]).toMatchObject({ status: "rejected" });
   });

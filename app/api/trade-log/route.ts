@@ -11,6 +11,7 @@
  * anymore; it stays a live-trading concern for whichever endpoint drives that.
  */
 
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data, error } = await supabase.from("trade_logs").insert({
+      strategy_version: STRATEGY_VERSION,
       user_id: user.id,
       order_id: input.orderId ?? null,
       position_id: input.positionId ?? null,

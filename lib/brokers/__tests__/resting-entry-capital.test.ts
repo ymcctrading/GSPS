@@ -68,6 +68,7 @@ function fakeDb(seed: { orders: Row[]; positions: Row[]; cash: number }) {
       (db.paper_accounts[0].cash as number) += args.p_delta as number;
       return { error: null };
     }
+    if (name === "execute_paper_fill") (db.paper_accounts[0].cash as number) += args.p_cash_delta as number;
     db.positions.push({
       id: `pos-${db.positions.length + 1}`,
       user_id: "u1",

@@ -13,6 +13,7 @@
  * shape (parse, status codes); this owns what actually happens to the money.
  */
 
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
@@ -713,6 +714,8 @@ async function placeChecked(
   const ledgerRow = {
     user_id: userId,
     mode: "paper" as const,
+    // The rules this order was placed under (review finding P-02, migration 0094).
+    strategy_version: STRATEGY_VERSION,
     symbol: input.symbol.toUpperCase(),
     asset_class: isOption ? "option" : "us_equity",
     side: input.side,
@@ -1293,6 +1296,7 @@ async function placeLiveOrder(
       user_id: userId,
       connection_id: connection.connectionId,
       mode: "live",
+      strategy_version: STRATEGY_VERSION,
       broker_order_id: String(order.id),
       symbol: input.symbol.toUpperCase(),
       asset_class: "us_equity",

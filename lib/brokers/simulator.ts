@@ -36,6 +36,7 @@ import {
 } from "@/lib/trade/invalidate-pending";
 import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import { checkBracket } from "@/lib/trade/bracket";
+import { insertTradeLog, TRADE_LOG_ATTEMPTS } from "@/lib/portfolio/trade-log-insert";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { isProtectiveOrder } from "@/lib/trade/kill-switch";
 import type { createClient } from "@/lib/supabase/server";
@@ -389,10 +390,9 @@ export async function executeFill(
   const notional = input.price * input.qty;
   await getOrCreateAccount(supabase, userId); // ensures the row exists before the increment below
   const cashDelta = input.side === "buy" ? -notional : notional;
-  await adjustCash(supabase, userId, cashDelta);
 
   const assetClass = input.assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity";
-  const { data, error } = await supabase.rpc("execute_position_fill", {
+  const fill = {
     p_user_id: userId,
     p_symbol: symbol,
     p_asset_class: assetClass,
@@ -403,7 +403,16 @@ export async function executeFill(
     p_take_profit: input.takeProfit ?? null,
     p_master_profit: input.masterProfit ?? null,
     p_scan_result_id: input.scanResultId ?? null,
-  });
+  };
+  // The cash and the position move in one transaction (review finding S-08,
+  // migration 0094): before, the cash moved first, so a failed position write
+  // left cash spent with no position. Until 0094 is applied the function is
+  // missing and the two calls run as before.
+  let { data, error } = await supabase.rpc("execute_paper_fill", { ...fill, p_cash_delta: cashDelta });
+  if (error && isMissingFunction(error)) {
+    await adjustCash(supabase, userId, cashDelta);
+    ({ data, error } = await supabase.rpc("execute_position_fill", fill));
+  }
   if (error) throw new Error(`Position fill failed for ${symbol}: ${error.message}`);
 
   const result = data as { positionId: string | null; closed: (NonNullable<FillOutcome["closed"]> & { openedAt: string }) | null };
@@ -427,6 +436,11 @@ async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string
     .limit(1)
     .maybeSingle();
   return data != null;
+}
+
+/** PostgREST's "no such function" (PGRST202) or Postgres's undefined_function (42883). */
+function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || error.code === "42883";
 }
 
 function round2(n: number): number {
@@ -458,7 +472,7 @@ export async function logPlainClose(
   const perShare = closed.qty > 0 ? closed.realizedPl / closed.qty : 0;
   const percent = closed.entryPrice === 0 ? null : round2((perShare / closed.entryPrice) * 100);
 
-  const { error } = await supabase.from("trade_logs").insert({
+  const { error } = await insertTradeLog(supabase, {
     user_id: userId,
     symbol: symbol.toUpperCase(),
     asset_class: assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity",
@@ -474,7 +488,7 @@ export async function logPlainClose(
     exit_condition: "manual",
     signal_called: "manual order",
   });
-  if (error) console.error(`simulator: trade log for ${symbol} not written — ${error.message}`);
+  if (error) console.error(`simulator: trade log for ${symbol} not written after ${TRADE_LOG_ATTEMPTS} attempts — ${error.message}`);
 }
 
 /** Liquidate all (or `qty`) of an open position at the current market price. */

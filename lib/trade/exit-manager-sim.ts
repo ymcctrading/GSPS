@@ -24,6 +24,7 @@
  */
 
 import { executeFill, quotePrice, assetClassOf } from "@/lib/brokers/simulator";
+import { insertTradeLog } from "@/lib/portfolio/trade-log-insert";
 import {
   extendHighWater,
   LIVE_EXIT_RULE,
@@ -414,7 +415,7 @@ async function finish(
           ? "master_target"
           : "tp1";
 
-  const { error: logError } = await supabase.from("trade_logs").insert({
+  const { error: logError } = await insertTradeLog(supabase, {
     user_id: userId,
     symbol: plan.symbol.toUpperCase(),
     asset_class: assetClassOf(plan.symbol),
@@ -435,7 +436,7 @@ async function finish(
     // outcome to the order (review finding S-07).
     order_id: plan.entry_order_id,
   });
-  if (logError && !logError.message.includes("duplicate")) {
+  if (logError) {
     console.error(`exit-manager-sim: trade log for plan ${plan.id} not written — ${logError.message}`);
   }
 

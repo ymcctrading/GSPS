@@ -33,6 +33,7 @@
 import type { AlpacaCreds } from "@/lib/brokers/alpaca";
 import { getOrders } from "@/lib/brokers/alpaca";
 import { createClient } from "@/lib/supabase/server";
+import { insertTradeLog } from "@/lib/portfolio/trade-log-insert";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -265,7 +266,7 @@ async function recordClose(
   // failure on this exact retry, immediately after the first insert
   // succeeded, can in principle double-write the row; that is a visible,
   // auditable duplicate, which is the safer failure to risk.
-  const { error: logError } = await supabase.from("trade_logs").insert({
+  const { error: logError } = await insertTradeLog(supabase, {
     user_id: userId,
     position_id: openRow.id,
     symbol: openRow.symbol,
