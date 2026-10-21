@@ -29,6 +29,7 @@ import { sendPriceAlertEmail } from "@/lib/notifications/resend-handler";
 import { isPriceAlertFired } from "@/lib/trade/price-alert";
 import { priceAlertPushMessage, sendPushToProfile } from "@/lib/notifications/web-push";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { inQuietHours } from "@/lib/entitlements/delivery";
 
 export const maxDuration = 60;
 
@@ -141,6 +142,10 @@ export async function GET(req: NextRequest) {
       continue;
     }
     triggeredCount += 1;
+
+    // Quiet hours hold this send like every other alert's (preferenceHold).
+    // The alert still reads triggered on the member's price-alerts list.
+    if (await inQuietHours(service, alert.user_id)) continue;
 
     if (pushUserIds.has(alert.user_id)) {
       const pushed = await sendPushToProfile(

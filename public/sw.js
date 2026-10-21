@@ -29,12 +29,15 @@ self.addEventListener("notificationclick", (event) => {
   const url = (event.notification.data && event.notification.data.url) || "/dashboard";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      // navigate() rejects on a window this worker doesn't control, so a
+      // refused navigation falls back to opening a new window.
+      const open = () => self.clients.openWindow(url);
       for (const w of windows) {
         if ("focus" in w && "navigate" in w) {
-          return w.navigate(url).then((nav) => (nav || w).focus());
+          return w.navigate(url).then((nav) => (nav || w).focus()).catch(open);
         }
       }
-      return self.clients.openWindow(url);
+      return open();
     }),
   );
 });

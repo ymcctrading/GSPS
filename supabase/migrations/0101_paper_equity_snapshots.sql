@@ -16,7 +16,8 @@
 --
 -- Forward-only: no earlier migration is edited.
 --
--- Rollback: drop table public.paper_equity_snapshots;
+-- Rollback: drop function public.record_paper_equity_marks(jsonb);
+--           drop table public.paper_equity_snapshots;
 
 create table if not exists public.paper_equity_snapshots (
   profile_id uuid not null references auth.users (id) on delete cascade,
@@ -36,3 +37,36 @@ create policy "members read their own paper equity" on public.paper_equity_snaps
   for select using (auth.uid() = profile_id);
 
 revoke insert, update, delete on public.paper_equity_snapshots from anon, authenticated;
+
+-- One statement folds each mark into its day's high and low, so the scheduled
+-- pass and a member's portfolio poll writing the same row at once can't drop
+-- either one's high or low (a read-then-write in the app could).
+create or replace function public.record_paper_equity_marks(p_marks jsonb)
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  with input as (
+    select * from jsonb_to_recordset(p_marks) as x(
+      profile_id uuid, session_date date, equity numeric, cash numeric,
+      open_positions integer, recorded_at timestamptz)
+  ), written as (
+    insert into public.paper_equity_snapshots
+      (profile_id, session_date, equity, cash, high_equity, low_equity, open_positions, recorded_at)
+    select profile_id, session_date, equity, cash, equity, equity, open_positions, recorded_at
+    from input
+    on conflict (profile_id, session_date) do update set
+      equity = excluded.equity,
+      cash = excluded.cash,
+      high_equity = greatest(public.paper_equity_snapshots.high_equity, excluded.equity),
+      low_equity = least(public.paper_equity_snapshots.low_equity, excluded.equity),
+      open_positions = excluded.open_positions,
+      recorded_at = excluded.recorded_at
+    returning 1
+  )
+  select count(*)::integer from written;
+$$;
+
+revoke execute on function public.record_paper_equity_marks(jsonb) from public, anon, authenticated;
+grant execute on function public.record_paper_equity_marks(jsonb) to service_role;

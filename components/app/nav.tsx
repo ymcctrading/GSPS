@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { forgetThisBrowserPush } from "@/lib/notifications/push-client";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, GraduationCap, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
 import { SymbolSearch } from "@/components/search/symbol-search";
@@ -75,6 +76,7 @@ export function AppNav() {
   const router = useRouter();
 
   async function signOut() {
+    await forgetThisBrowserPush();
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");

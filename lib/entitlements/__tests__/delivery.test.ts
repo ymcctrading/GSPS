@@ -127,7 +127,7 @@ describe("getEnabledChannels", () => {
   });
 });
 
-type FakeRow = { id: string; status: string; channel: string; payload?: unknown; attempt_count?: number };
+type FakeRow = { id: string; status: string; channel: string; payload?: unknown; attempt_count?: number; created_at?: string };
 
 function fakeDeliveryClient(args: { row: FakeRow | null; email?: string | null }) {
   const updates: unknown[] = [];
@@ -253,6 +253,19 @@ describe("dispatchNotificationDelivery", () => {
 
     expect(result).toEqual({ dispatched: true, status: "skipped" });
     expect(updates[0]).toMatchObject({ status: "skipped", error: "Browser push is not configured (VAPID keys unset)." });
+  });
+
+  it("skips a push older than its session instead of sending it late", async () => {
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    const { client, updates } = fakeDeliveryClient({
+      row: { id: "d1", status: "pending", channel: "push", payload: PAYLOAD, attempt_count: 0, created_at: old },
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: true, status: "skipped" });
+    expect(sendPushToProfileMock).not.toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({ status: "skipped" });
   });
 
   it("never sends a real notification in preview, and leaves the row untouched", async () => {

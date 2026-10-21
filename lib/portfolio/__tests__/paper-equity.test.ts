@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { maxDrawdownPct, paperEquity, recordPaperEquityMarks } from "@/lib/portfolio/paper-equity";
+import { maxDrawdownPct, paperDrawdownPct, paperEquity, recordPaperEquityMarks } from "@/lib/portfolio/paper-equity";
 
 describe("paperEquity", () => {
   it("adds longs at their mark and takes shorts off, since a short's sale was credited to cash", () => {
@@ -31,23 +31,10 @@ describe("maxDrawdownPct", () => {
 });
 
 describe("recordPaperEquityMarks", () => {
-  it("folds a new mark into the day's high and low", async () => {
-    const upserts: unknown[] = [];
+  it("sends the marks to the database's fold in one call", async () => {
+    const calls: { fn: string; args: unknown }[] = [];
     const client = {
-      from() {
-        return {
-          select: () => ({
-            eq: () => ({
-              in: () =>
-                Promise.resolve({
-                  data: [{ profile_id: "p1", session_date: "2026-10-21", equity: 101_000, high_equity: 102_000, low_equity: 99_000 }],
-                  error: null,
-                }),
-            }),
-          }),
-          upsert: (rows: unknown) => (upserts.push(rows), Promise.resolve({ error: null })),
-        };
-      },
+      rpc: (fn: string, args: unknown) => (calls.push({ fn, args }), Promise.resolve({ data: 1, error: null })),
     } as unknown as SupabaseClient;
 
     const result = await recordPaperEquityMarks(
@@ -57,8 +44,47 @@ describe("recordPaperEquityMarks", () => {
     );
 
     expect(result).toEqual({ recorded: 1, error: null });
-    expect(upserts[0]).toEqual([
-      expect.objectContaining({ profile_id: "p1", session_date: "2026-10-21", equity: 98_000, high_equity: 102_000, low_equity: 98_000 }),
+    expect(calls).toEqual([
+      {
+        fn: "record_paper_equity_marks",
+        args: {
+          p_marks: [
+            expect.objectContaining({ profile_id: "p1", session_date: "2026-10-21", equity: 98_000, cash: 90_000, open_positions: 2 }),
+          ],
+        },
+      },
     ]);
+  });
+});
+
+describe("paperDrawdownPct", () => {
+  function client(inWindow: { session_date: string; high_equity: number; low_equity: number }[], before: { equity: number } | null, beforeError: unknown = null) {
+    let call = 0;
+    const chain = () => {
+      const self: Record<string, unknown> = {};
+      for (const k of ["select", "eq", "gte", "lt", "order", "limit"]) self[k] = () => self;
+      const n = call++;
+      self.then = (resolve: (v: unknown) => void) =>
+        resolve(n === 0 ? { data: inWindow, error: null } : { data: before, error: beforeError });
+      self.maybeSingle = () => Promise.resolve({ data: before, error: beforeError });
+      return self;
+    };
+    return { from: () => chain() } as unknown as SupabaseClient;
+  }
+
+  it("starts from the window's own first low when the record holds nothing earlier, not the starting balance", async () => {
+    // An account at $90k from losses before the window, flat since: no drawdown inside the window.
+    const dd = await paperDrawdownPct(client([{ session_date: "2026-10-21", high_equity: 90_200, low_equity: 90_000 }], null), "p1", new Date("2026-10-01T16:00:00Z"));
+    expect(dd).toBe(0);
+  });
+
+  it("reads from the last mark before the window when there is one", async () => {
+    const dd = await paperDrawdownPct(client([{ session_date: "2026-10-21", high_equity: 95_000, low_equity: 90_000 }], { equity: 100_000 }), "p1", new Date("2026-10-01T16:00:00Z"));
+    expect(dd).toBeCloseTo(10, 6);
+  });
+
+  it("is unread when the earlier record can't be read", async () => {
+    const dd = await paperDrawdownPct(client([{ session_date: "2026-10-21", high_equity: 95_000, low_equity: 90_000 }], null, { message: "down" }), "p1", new Date("2026-10-01T16:00:00Z"));
+    expect(dd).toBeNull();
   });
 });

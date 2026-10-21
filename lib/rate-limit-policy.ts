@@ -5,8 +5,7 @@
  *
  * | Bucket       | /min | Routes                                                                 | Why                                                                    |
  * |--------------|------|------------------------------------------------------------------------|------------------------------------------------------------------------|
- * | `credential` | 5    | connect-live, snaptrade/connect, username-login, account-status,       | A password or broker-key guess, or an account probe; also an outside   |
- * |              |      | password-breach                                                        | service (Have I Been Pwned) GSPS calls per request                     |
+ * | `credential` | 5    | connect-live, snaptrade/connect, username-login, account-status        | A password or broker-key guess, or an account probe                    |
  * | `outbound`   | 5    | notifications/send-test, push-subscription (writes), billing/checkout,  | Each sends an email or a push, or opens a Stripe session: GSPS's quota  |
  * |              |      | billing/portal, promotion upgrades (writes)                            | with an outside service, spent by one click                            |
  * | `order`      | 30   | orders, positions/*, portfolio/close, guided/execute, trade-plans,     | A write to the ledger; a person places a few a minute at most, and a   |
@@ -14,7 +13,9 @@
  * | `scan`       | 20   | scan, batch-scan, intraday-scan, market-scan, backtest, strategy       | Each reads bars from the market-data vendor, often many symbols        |
  * |              |      | levels, strategy-plugins/[id]/evaluate and /backtest, learning         |                                                                        |
  * |              |      | propose-weights                                                        |                                                                        |
- * | `api`        | 120  | everything else                                                        | Reads of the member's own rows and single quotes                       |
+ * | `api`        | 120  | everything else, including auth/password-breach                        | Reads of the member's own rows and single quotes. The breach check     |
+ * |              |      |                                                                        | stays here: it fails open, so a refusal would let a breached password  |
+ * |              |      |                                                                        | through, and people behind one office address share a budget           |
  *
  * A request carrying the scheduled jobs' `Authorization: Bearer CRON_SECRET`
  * draws from no bucket: every pg_cron call comes from Supabase's one address,
@@ -44,7 +45,6 @@ const CREDENTIAL_PREFIXES = [
   "/api/snaptrade/connect",
   "/api/auth/username-login",
   "/api/auth/account-status",
-  "/api/auth/password-breach",
 ];
 
 const SCAN_PREFIXES = [

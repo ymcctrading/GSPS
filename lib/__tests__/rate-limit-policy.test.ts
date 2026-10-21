@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import { RATE_LIMITS, rateLimitBucket } from "@/lib/rate-limit-policy";
 
 describe("rateLimitBucket", () => {
-  it("puts password and broker-key guesses, and the breach check, on the credential budget", () => {
-    for (const path of ["/api/auth/username-login", "/api/auth/account-status", "/api/auth/password-breach", "/api/alpaca/connect-live"]) {
+  it("puts password and broker-key guesses on the credential budget", () => {
+    for (const path of ["/api/auth/username-login", "/api/auth/account-status", "/api/alpaca/connect-live"]) {
       expect(rateLimitBucket(path, "POST")).toBe("credential");
     }
     expect(RATE_LIMITS.credential).toBe(5);
+  });
+
+  it("leaves the breach check on the default budget, since a refused check lets the password through", () => {
+    expect(rateLimitBucket("/api/auth/password-breach", "POST")).toBe("api");
   });
 
   it("puts sends and Stripe sessions on the outbound budget, but not reading push status", () => {
