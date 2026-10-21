@@ -902,19 +902,25 @@ answers it (design: `/mnt/project-files/trade-style/DESIGN.md`). He did not
 day-trade ("the big money … is made on the long swings and not by day to day
 trading", W036; *Commodities* pp. 4-7, 55), so the styles are his two speeds of
 one method (`lib/trade/tradeStyle.ts`): **Swing**, the default, and **Fast**,
-his fast-market method: the same entry and verdict, the stop on his day stop, 3
-points beyond the last completed day's low (high, short) and never looser than
-the swing stop (`lib/gann/dayStop.ts`; W006 Rule 2 p.46, "a 3-points stop … is
-the safest"; *Truth of the Stock Tape*; *Commodities* Selling Point 9), trailed
-under each day's low, never closed at the session's end. The scan prices both
-(`ScanResult.fastLevels`, `lib/trade/tradeStylePlan.ts#priceFastLevels`); the
-replay walks either (`tradeStyle`, `?tradeStyle=fast`). The style is a trader
-preference (`settings.prefs.gannRules.tradeStyle`), chosen on the order ticket,
-which then uses that style's levels; the ticker page's card shows both. The
-intraday alerts' "level held" stop calls the same `gannDayStop` (intraday
-thread). Not yet on the style, stated reasons: Guided Mode (Novice gets the main
-method), the portfolio manager (trades Fast only once the replay has measured
-it), the daily list cards and notifications (they show the swing plan).
+his fast-market method: the same plan, entry and stop as swing (Rule 3, W006
+pp.46-47), and once filled the stop trails 3 points under each completed day's
+low (over its high, short) from the fill's session, never lowered, never closed
+at the session's end (`readGannExit`'s "day_low", `lib/gann/dayStop.ts`; W006
+Rule 2 p.46; the 1940-41 soybean trade, W001 pp.134-137; *Truth of the Stock
+Tape*, "stop three points" from the day bought). The style is a trader
+preference (`settings.prefs.gannRules.tradeStyle`), chosen on the order ticket;
+each trade is managed in the style that stood when it filled (the server keeps
+`tradeStyleHistory`, read by `styleAt`), so switching never re-manages an open
+trade; the paper and live exit managers read it for the trader's own trades,
+counting from the fill (`lib/trade/exit-style.ts`), and the replay walks it under Gann's exits
+(`tradeStyle`, `?tradeStyle=fast`). Trades automation places stay on swing
+until the replay has measured Fast. The plan, verdict and every surface that
+shows levels are the same in both styles, so nothing else reads it. **Corrected
+the same day (review of #405):** the first build put the day stop on before the
+fill (`fastLevels`), which moved the crossing line confirmation reads and sat
+inside the reaction zone; it was Rule 2's trail read as an entry stop, and is
+gone. The intraday alerts' "level held" stop calls the same `gannDayStop`
+(intraday thread).
 One plan for every market: crypto and commodity targets were 1.5R and 2.5-3R,
 no Gann source; every named market now takes the level plan (`computeTradeLevels`).
 `lib/instruments/spec.ts` defines each market's unit, session, contract size and
@@ -923,7 +929,8 @@ Gann wrote nothing on currencies). Futures and forex have quotes only, no bars o
 broker, so they price nothing live yet. Options follow his course (Master Course
 Ch. 19A/B, `lib/options/gannOptionPlan.ts`): the premium is the risk, the
 ticket offers the first expiry 30 or more days out, strikes a few points out.
-`STRATEGY_VERSION` was `2026-10-21-gann-one-plan-every-market`.
+`STRATEGY_VERSION` was `2026-10-21-gann-one-plan-every-market`; every named
+market's rounded plan is now checked as F-02 checks the R model's.
 
 **Group rank reviewed, same day (owner's review mandate, run on #388 after its
 merge).** Three fixes. (1) The major-group fallback counted every stock with the
@@ -942,9 +949,10 @@ the owner). The best stock of a weak group is no longer a strong stock.
 Industry groups are labelled by their key and their members' commonest SEC
 description, major groups by their key alone.
 Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
-other's peers, in the universe and the group. `STRATEGY_VERSION` is
+other's peers, in the universe and the group. `STRATEGY_VERSION` was
 `2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh
-run on it.
+run on it. The Fast trail (review of #405, above) merged onto it:
+`STRATEGY_VERSION` is `2026-10-21-gann-fast-trail-after-fill`.
 
 ## WD Gann precedence — standing principle
 

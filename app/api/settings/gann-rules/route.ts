@@ -15,6 +15,7 @@ import {
   resolveGannRulePrefs,
   restReminderDue,
   REST_REMINDER_COPY,
+  withStyleChange,
 } from "@/lib/gann/traderPrefs";
 
 const PatchSchema = z
@@ -61,7 +62,11 @@ export async function PUT(req: NextRequest) {
 
   // Merge rather than replace: `prefs` is shared with other features.
   const prefs = await load(supabase, user.id);
-  const next = { ...resolveGannRulePrefs(prefs), ...parsed.data };
+  const current = resolveGannRulePrefs(prefs);
+  const next = { ...current, ...parsed.data };
+  // The style's history is the server's (a trade is managed in the style that
+  // stood at its fill, lib/trade/exit-style.ts); the client never writes it.
+  if (parsed.data.tradeStyle) next.tradeStyleHistory = withStyleChange(current, parsed.data.tradeStyle, new Date());
   const { error } = await supabase
     .from("settings")
     .upsert({ user_id: user.id, prefs: { ...prefs, gannRules: next }, updated_at: new Date().toISOString() }, { onConflict: "user_id" });

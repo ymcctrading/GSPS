@@ -95,7 +95,6 @@ import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBench
 import { evaluateSaraConfluence } from "@/lib/signals/confluence/sara";
 import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
 import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
-import { priceFastLevels } from "@/lib/trade/tradeStylePlan";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -430,11 +429,6 @@ export async function scanTicker(
         levelsError = err instanceof Error ? err.message : String(err);
       }
     }
-    // The fast-market plan (trade-style design, 2026-10-21): the same entry,
-    // the stop on Gann's day stop, priced by the same function.
-    const fastLevels = levels && entrySource ? priceFastLevels(levels, entrySource, sessions[sessions.length - 1] ?? null, (src) =>
-      computeTradeLevels(src, previousBar, gannTargets, optionPremium, executionAtr, assetClass, largeCap, allLevels.map((l) => l.price), atrPct),
-    ) : null;
     const srBandPct = levelBandPct(currentPrice);
     // The nearest in-band level on each side (support below, resistance
     // above); the score reads the one of its direction's role
@@ -685,7 +679,6 @@ export async function scanTicker(
       pattern,
       armedPatterns,
       levels,
-      fastLevels,
       levelsError,
       selectionStrength: selectionStrength(direction, leadership, weakStock, pillarFacts.universeRank),
       ...(stopBreach.breached
