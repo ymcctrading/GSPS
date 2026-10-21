@@ -719,6 +719,58 @@ export async function evaluateRestingOrders(
   return { filled, invalidated, refused, error: null };
 }
 
+/**
+ * Every account's resting paper orders, on the scheduled run (review,
+ * 2026-10-21). `evaluateRestingOrders` ran only when someone opened the
+ * orders page, so a resting entry whose price had come waited, unfilled, for
+ * its owner to look: the same shape the exits had before the scheduled run
+ * managed them (`manageAllSimulatedExits`). Called with the service-role
+ * client by `/api/automation/portfolio-manager/run`; each account is read on
+ * its own, as the page reads it.
+ */
+export async function evaluateAllRestingOrders(
+  supabase: Supabase,
+): Promise<{ accounts: number; filled: number; invalidated: number; refused: number; errors: string[] }> {
+  const out = { accounts: 0, filled: 0, invalidated: 0, refused: 0, errors: [] as string[] };
+  const { data, error } = await supabase
+    .from("orders")
+    .select("user_id")
+    .eq("mode", "paper")
+    .eq("status", "new")
+    .in("order_type", ["limit", "bracket"])
+    .limit(1000);
+  if (error) {
+    out.errors.push(`Could not list resting paper orders: ${error.message}`);
+    return out;
+  }
+  const users = [...new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id))];
+  for (const userId of users) {
+    out.accounts++;
+    const email = await accountEmail(supabase, userId);
+    const run = await evaluateRestingOrders(supabase, userId, email).catch((err: unknown) => ({
+      filled: 0,
+      invalidated: 0,
+      refused: 0,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    out.filled += run.filled;
+    out.invalidated += run.invalidated;
+    out.refused += run.refused;
+    if (run.error) out.errors.push(`${userId}: ${run.error}`);
+  }
+  return out;
+}
+
+/** The account's e-mail for the order-invalidated notice; null when it can't be read. */
+async function accountEmail(supabase: Supabase, userId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.admin.getUserById(userId);
+    return data?.user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface RestingBracket {
   stopLoss: number;
   takeProfit: number;

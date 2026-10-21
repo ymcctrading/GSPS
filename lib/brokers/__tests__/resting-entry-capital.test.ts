@@ -20,7 +20,7 @@ vi.mock("@/lib/risk/profitPeak", async (importOriginal) => ({
 }));
 vi.mock("@/lib/notifications/resend-handler", () => ({ sendOrderInvalidatedEmail: vi.fn() }));
 
-import { evaluateRestingOrders } from "@/lib/brokers/simulator";
+import { evaluateAllRestingOrders, evaluateRestingOrders } from "@/lib/brokers/simulator";
 
 type Row = Record<string, unknown>;
 
@@ -162,6 +162,15 @@ describe("evaluateRestingOrders: the capital rules at the fill", () => {
     const r = await evaluateRestingOrders(client, "u1");
 
     expect(r.refused).toBe(0);
+    expect(db.orders[0].status).toBe("filled");
+  });
+
+  it("fills the resting orders on the scheduled run, with nobody on the orders page", async () => {
+    const { client, db } = fakeDb({ orders: [resting("o-ko", "KO")], positions: [], cash: 100_000 });
+
+    const r = await evaluateAllRestingOrders(client);
+
+    expect(r).toMatchObject({ accounts: 1, filled: 1, errors: [] });
     expect(db.orders[0].status).toBe("filled");
   });
 });
