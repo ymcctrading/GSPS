@@ -15,6 +15,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasTradePlan } from "@/lib/marketScan";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
+import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import type { ScanResult } from "@/lib/types";
 
 export type Direction = "bullish" | "bearish";
@@ -102,9 +103,14 @@ export function buildScanRows(
       setupKind: r.setupKind,
       momentumElevated: r.momentumElevated,
       pattern: r.pattern,
-      armedPatterns: r.armedPatterns,
-      gann: r.gann,
-      breakdown: r.decision.breakdown,
+      // The per-pillar rollup, never the breakdown. `daily_scans` is read by
+      // anyone with the public key (production policy "daily_scans public
+      // read"), and the breakdown is the scoring model written out longhand:
+      // every check, its pillar and its note (`lib/scoring/public-summary.ts`
+      // keeps it server-side everywhere else). The Gann readings (fans, the
+      // square, cycles) were stored here too and read by nothing.
+      scoreSummary: r.decision.summary ?? toPublicScoreSummary(r.decision),
+      retired: r.decision.breakdown.some((b) => b.key === "stopBreach" && !b.passed),
       trends: r.trends.map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
       // The Signal and Regime Engine's rollup — computed by every scan
       // (scanTicker), but until now dropped on the daily/cron persistence

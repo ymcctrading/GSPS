@@ -64,6 +64,23 @@ describe("buildScanRows", () => {
     ]);
   });
 
+  it("publishes the score rollup, never the breakdown or the Gann readings", () => {
+    const [row] = buildScanRows("2026-08-05", "bullish", [
+      result({
+        decision: {
+          score: 8,
+          outputState: "Execute",
+          breakdown: [{ key: "historicalSR", criterion: "S/R", passed: true, note: "the model, longhand" }],
+        } as unknown as ScanResult["decision"],
+      }),
+    ]);
+    expect(row.detail).not.toHaveProperty("breakdown");
+    expect(row.detail).not.toHaveProperty("gann");
+    expect(JSON.stringify(row.detail)).not.toContain("the model, longhand");
+    expect(row.detail).toHaveProperty("scoreSummary");
+    expect(row.detail.retired).toBe(false);
+  });
+
   it("drops a result whose plan priced out non-finite", () => {
     const broken = { ...levels(100), masterProfit: Number.NaN };
     expect(buildScanRows("2026-08-05", "bullish", [result({ levels: broken })])).toEqual([]);

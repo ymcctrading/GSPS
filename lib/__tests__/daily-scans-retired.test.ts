@@ -10,6 +10,11 @@ describe("isRetiredByScan", () => {
     expect(isRetiredByScan(retired)).toBe(true);
   });
 
+  it("reads the retired flag rows have stored since the breakdown left the table", () => {
+    expect(isRetiredByScan({ detail: { retired: true } })).toBe(true);
+    expect(isRetiredByScan({ detail: { retired: false } })).toBe(false);
+  });
+
   it("keeps a row with no stop-breach entry, or none stored", () => {
     expect(isRetiredByScan({ detail: { breakdown: [{ key: "historicalSR", passed: false }] } })).toBe(false);
     expect(isRetiredByScan({ detail: null })).toBe(false);
