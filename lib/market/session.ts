@@ -37,16 +37,19 @@ export function etDateKey(date: Date = new Date()): string {
   return ET_DATE_KEY.format(date);
 }
 
+// One formatter for every call, as `ET_DATE_KEY` above: the intraday scan calls
+// this per bar, and building the formatter each time was most of its cost.
+const ET_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  weekday: "short",
+});
+
 /** Minutes-since-midnight and weekday (0=Sun…6=Sat) in America/New_York. */
 export function etParts(date: Date = new Date()): { minutes: number; weekday: number } {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    weekday: "short",
-  });
-  const parts = fmt.formatToParts(date);
+  const parts = ET_PARTS.formatToParts(date);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   let hour = Number(get("hour"));
   if (hour === 24) hour = 0; // some runtimes emit "24" for midnight

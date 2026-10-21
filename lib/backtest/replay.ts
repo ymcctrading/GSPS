@@ -412,6 +412,27 @@ export interface ReplayOptions {
    * them. Falls back to `longMonthlyBars`.
    */
   yearCountMonthlyBars?: Bar[];
+  /**
+   * Collect the daily plan each session stands on, as the daily scan prices it
+   * (`lib/backtest/replayIntradayAlerts.ts`): the session's chosen buying point
+   * (`chooseSessionEntry`'s rule, the with-trend point first), its plan levels
+   * and its verdict, read from the sessions before it. Keyed by date; null when
+   * the session arms nothing or prices no plan. Read once per session, on its
+   * first execution bar.
+   */
+  sessionPlans?: Map<string, SessionDailyPlan | null>;
+  /** With `sessionPlans`: collect the plans only, and trade nothing. */
+  plansOnly?: boolean;
+}
+
+/** One session's daily plan, as `ReplayOptions.sessionPlans` collects it. */
+export interface SessionDailyPlan {
+  direction: "up" | "down";
+  verdict: ScanDecision["outputState"];
+  entry: number;
+  stop: number;
+  tp1: number;
+  mtp: number;
 }
 
 /**
@@ -958,6 +979,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     longMonthlyBars,
     yearCountMonthlyBars,
     universeStrength,
+    sessionPlans,
+    plansOnly = false,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -1107,7 +1130,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
     const arm = sessionArm(date, armPrice);
-    if (!arm) continue;
+    if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, assetClass, weights) : null);
+    if (plansOnly || !arm) continue;
 
     for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
@@ -1922,6 +1946,39 @@ function priceTradeLevels(input: {
   } catch {
     return null;
   }
+}
+
+/**
+ * The daily plan a session stands on, as the daily scan shows it: the
+ * with-trend buying point when both armed, else the one that did
+ * (`chooseSessionEntry`), its levels and its verdict.
+ */
+function sessionDailyPlan(arm: SessionArm, history: Bar[], assetClass: AssetClass, weights?: CriterionWeights): SessionDailyPlan | null {
+  const chosen = arm.triggers.find((t) => t.setupKind === "continuation") ?? arm.triggers[0];
+  if (!chosen || history.length === 0) return null;
+  const executionAtr = atr(history.slice(-30), 14);
+  const { decision, levels } = scoreSetup({
+    context: arm.context,
+    pattern: null,
+    gannTrigger: chosen.trigger,
+    history,
+    executionAtr,
+    assetClass,
+    largeCap: arm.largeCap,
+    setupKind: chosen.setupKind,
+    breakaway: chosen.breakaway,
+    monthlyWarning: chosen.monthlyWarning,
+    weights,
+  });
+  if (!levels) return null;
+  return {
+    direction: chosen.trigger.direction === "bullish" ? "up" : "down",
+    verdict: decision.outputState,
+    entry: levels.entry,
+    stop: levels.stopLoss,
+    tp1: levels.takeProfit1,
+    mtp: levels.masterProfit,
+  };
 }
 
 /**

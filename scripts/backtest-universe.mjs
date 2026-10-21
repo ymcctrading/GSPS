@@ -556,6 +556,17 @@ async function main() {
     return;
   }
 
+  // The intraday alert replay rides it too (scripts/intraday-alerts.mjs); `since` is unused, `limit` caps the universe.
+  if (process.argv.includes("intraday-alerts")) {
+    const { runIntradayAlerts } = await import("./intraday-alerts.mjs");
+    const limitAt = process.argv.indexOf("--limit");
+    await runIntradayAlerts({ days: 60, limit: limitAt === -1 ? null : Number(process.argv[limitAt + 1]) });
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Intraday alert replay: see the job log.\n");
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Intraday alert replay: see the job log." }) + "\n");
+    return;
+  }
+
   const args = parseArgs(process.argv.slice(2));
   const cells = await loadCells(args.cells);
 
