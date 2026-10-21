@@ -384,14 +384,9 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     const { client, plans, automationProfiles, orders } = fakeSupabase({
       user_id: "user-1",
       is_automation_enabled: true,
-      // PASSIVE (0.5% of equity), not MODERATE (1%): at this fixture's $100
-      // entry / $3 stop, MODERATE's 1% sizing would put ~33% of paper equity
-      // into a single position — over lib/risk/config.ts's
-      // MAX_SINGLE_POSITION_ALLOCATION_PCT (25%), which lib/trade/place-
-      // order.ts now enforces (checkPositionLimits, wired 2026-09-17
-      // orphan-module audit). PASSIVE sizes to ~16.6%, comfortably under the
-      // ceiling, without changing what this test is actually checking (the
-      // pipeline reaches a filled order), so no other fixture value moves.
+      // PASSIVE (0.5% of equity) sizes to ~16.6% of paper equity, under
+      // Novice's 25% single-position ceiling (checkPositionLimits) for
+      // whichever tier this fixture resolves to.
       risk_profile: "PASSIVE",
       directional_bias: "BOTH",
       volatility_trigger_type: "DOLLAR_AMOUNT",
@@ -633,7 +628,7 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(orders).toHaveLength(0);
   });
 
-  it("activates the top three armed candidates by Signal Engine tier, best first, and skips the rest", async () => {
+  it("activates every armed candidate, best Signal Engine tier first", async () => {
     const { client, automationProfiles } = fakeSupabase({
       user_id: "user-1",
       is_automation_enabled: true,
@@ -645,9 +640,8 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     });
 
     // Inserted worst-tier-first, on purpose -- the manager must re-rank by
-    // tier rather than trust query/insertion order. Four candidates against
-    // MAX_NEW_POSITIONS_PER_DAY (3) means exactly one -- the worst one --
-    // must be left behind.
+    // tier rather than trust query/insertion order. There is no daily count
+    // (Q8; removed 2026-10-21), so all four go ahead.
     const watchlistPlan = await createArmedPlan(client, "user-1", {
       instrument: "AAA",
       signalId: "sig-watchlist",
@@ -690,17 +684,14 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
 
     const result = await runAutonomousPortfolioManager(client);
 
-    expect(result.plansActivated).toBe(3);
-    expect(result.plansSkipped).toBe(1);
+    expect(result.plansActivated).toBe(4);
+    expect(result.plansSkipped).toBe(0);
 
     const activatedPlanIds = automationProfiles.map((p) => p.plan_id);
-    expect(activatedPlanIds).toContain(aPlusPlan);
-    expect(activatedPlanIds).toContain(aTierPlan);
-    expect(activatedPlanIds).toContain(qualifiedPlan);
-    expect(activatedPlanIds).not.toContain(watchlistPlan);
+    expect(activatedPlanIds).toEqual([aPlusPlan, aTierPlan, qualifiedPlan, watchlistPlan]);
   });
 
-  it("stops activating once MAX_NEW_POSITIONS_PER_DAY new positions were already activated today", async () => {
+  it("keeps no daily count: a fourth activation the same day still goes ahead", async () => {
     const { client, automationProfiles } = fakeSupabase({
       user_id: "user-1",
       is_automation_enabled: true,
@@ -711,9 +702,8 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
       execution_mode: "paper",
     });
 
-    // Three prior activations today, from an earlier run -- not this run's
-    // own candidate. plan_id doesn't need to match a real trade_plans row for
-    // this count; countActivatedToday only reads automation_profiles.
+    // Three prior activations today, from an earlier run. The manager used to
+    // stop at three a day; Gann's capital rules now decide how many open.
     for (let i = 0; i < 3; i++) {
       automationProfiles.push({
         profile_id: `existing-${i}`,
@@ -731,10 +721,8 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
 
     const result = await runAutonomousPortfolioManager(client);
 
-    expect(result.plansActivated).toBe(0);
-    expect(result.plansSkipped).toBe(1);
-    expect(result.errors[0]?.reason).toMatch(/already activated 3 new position\(s\) today/);
-    // Only the three pre-seeded rows -- nothing new got activated.
-    expect(automationProfiles).toHaveLength(3);
+    expect(result.plansActivated).toBe(1);
+    expect(result.plansSkipped).toBe(0);
+    expect(automationProfiles).toHaveLength(4);
   });
 });

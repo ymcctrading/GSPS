@@ -132,11 +132,18 @@ export type EntitlementPolicy = {
    * $450", `lib/risk/config.ts#MAX_CORRELATED_RISK_GROUPS`). Until
    * 2026-10-16 it was applied to every tier, and because group membership is
    * approximated by the symbol itself, that limited every account, Wall
-   * Street included, to one open symbol at a time. Novice keeps the cap; the
-   * other tiers stay bounded by the single-position, aggregate and open-risk
-   * ceilings, which apply to every account.
+   * Street included, to one open symbol at a time. Novice keeps the cap.
    */
   maxCorrelatedRiskGroups: Limit;
+  /**
+   * Whether the percent-of-equity ceilings (25% in one position, 65%
+   * deployed, 2% open risk; `lib/risk/position-limits.ts`) apply. Novice only
+   * since 2026-10-21: those ceilings are GSPS's guard rails for a learner, not
+   * Gann's rules, and above Novice they refused the size Gann's own capital
+   * rules give (AAPL at 31% of equity on a 1% risk, 2026-10-20). Every tier is
+   * still held to Gann's capital rules (`lib/risk/gannCapital.ts`).
+   */
+  percentRiskCeilings: boolean;
   maxActiveWatchMonitors: Limit;
   maxAutomationWorkflows: Limit;
   maxCustomAlertRules: Limit;
@@ -180,6 +187,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     allowedStrategyModes: [],
     customScriptAuthoringEnabled: false,
     maxCorrelatedRiskGroups: MAX_CORRELATED_RISK_GROUPS,
+    percentRiskCeilings: true,
     maxActiveWatchMonitors: 15,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 10,
@@ -206,6 +214,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"],
     customScriptAuthoringEnabled: false,
     maxCorrelatedRiskGroups: "unlimited",
+    percentRiskCeilings: false,
     maxActiveWatchMonitors: 50,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 50,
@@ -232,6 +241,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     allowedStrategyModes: "all",
     customScriptAuthoringEnabled: false,
     maxCorrelatedRiskGroups: "unlimited",
+    percentRiskCeilings: false,
     maxActiveWatchMonitors: 150,
     maxAutomationWorkflows: 0,
     maxCustomAlertRules: 200,
@@ -258,6 +268,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     allowedStrategyModes: "all",
     customScriptAuthoringEnabled: true,
     maxCorrelatedRiskGroups: "unlimited",
+    percentRiskCeilings: false,
     maxActiveWatchMonitors: "unlimited",
     maxAutomationWorkflows: "unlimited",
     maxCustomAlertRules: "unlimited",

@@ -490,6 +490,23 @@ in `weeklyOneBar.ts` (owner's call). `STRATEGY_VERSION` is
 `2026-10-21-gann-weekly-line-trend`; P2 and the 6/3.5 cutoffs need a fresh run
 on it.
 
+**Gann's own sizing above Novice, 2026-10-21 (owner: "What would Gann do. And
+implement that answer", then "Make this change, if it's your recommendation, and
+aligns with the law of creation equation").** The 25% single-position, 65%
+deployed and 2% open-risk ceilings (`checkPositionLimits`) now hold Novice only
+(`EntitlementPolicy.percentRiskCeilings`), on paper and live; every tier above
+it is sized and refused by Gann's capital rules alone (`gannCapital.ts`: 30
+points a share, a tenth at risk, five stocks). Above Novice the ceilings had
+refused the size Gann's rules give (a 1% risk with his stop about 3% away is a
+third of the account). Law of Creation: novice ⊗ expert, two poles held apart
+on purpose, the guard rails a learner needs and the method itself. The
+portfolio manager keeps no daily count of new positions (Q8); the live circuit
+breaker's own daily pause is unchanged. On the symbol page and any surface
+without a preference, `chooseSessionEntry` now shows the with-trend
+(continuation) buying point first when both armed, the reversion only when it
+alone armed ("never buck the trend", *Wall Street Stock Selector* pp. 18-19,
+never-failing rule 5). `STRATEGY_VERSION` is `2026-10-21-gann-with-trend-first`.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

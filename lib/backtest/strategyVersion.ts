@@ -528,4 +528,11 @@
 // chart its design and T1 name, instead of the 1951 7-day chart's trend, which
 // inverted on every nine-pillar replay. Scores and verdicts move, live and
 // replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-weekly-line-trend";
+// 2026-10-21-gann-with-trend-first: a scan with no direction asked of it (the
+// symbol page, batch scans, Guided's recheck) shows the with-trend buying point
+// whenever it armed, the reversion only when it alone armed ("never buck the
+// trend", WSSS pp. 18-19 rule 5; owner: "What would Gann do"). Page verdicts
+// move; the list's continuation pass and the replay arm as before. Same day,
+// the percent-of-equity ceilings apply to Novice only and the portfolio
+// manager has no daily count: placement and sizing, not verdicts.
+export const STRATEGY_VERSION = "2026-10-21-gann-with-trend-first";
