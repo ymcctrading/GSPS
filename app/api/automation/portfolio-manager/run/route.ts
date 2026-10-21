@@ -22,6 +22,7 @@ import { runAutonomousPortfolioManager } from "@/lib/automation/portfolio-manage
 import { manageAllSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { evaluateAllRestingOrders } from "@/lib/brokers/simulator";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { markAllPaperEquity } from "@/lib/portfolio/paper-equity";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. This loop is per-user/per-plan database work with no external data
@@ -47,5 +48,13 @@ export async function GET(req: NextRequest) {
   // the book the manager reads before it opens anything new.
   const resting = await evaluateAllRestingOrders(supabase as unknown as Parameters<typeof evaluateAllRestingOrders>[0]);
   const result = await runAutonomousPortfolioManager(supabase);
-  return NextResponse.json({ ...result, exits, resting });
+  // Last, every paper account's equity is marked on the book as it now stands
+  // (lib/portfolio/paper-equity.ts).
+  const equityMarks = await markAllPaperEquity(supabase).catch((err: unknown) => ({
+    accounts: 0,
+    recorded: 0,
+    error: String(err),
+  }));
+  if (equityMarks.error) console.error(`automation/portfolio-manager/run: equity marks — ${equityMarks.error}`);
+  return NextResponse.json({ ...result, exits, resting, equityMarks });
 }

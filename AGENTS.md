@@ -8,7 +8,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Product Roadmap
 
-`ROADMAP.md` is the governing roadmap for this project. **Read it before
+**`docs/SYNTHESIZED_ROADMAP.md` is the governing plan from 2026-10-21**
+(owner: the roadmaps, parities, Gann files, Observation of Cycles, Hauck and
+the creation equation "coagulate together" into one roadmap "that we shall
+follow moving forward"). Read it first: its Part 5 is the current phase's
+item-by-item status and its Part 7 says which thread owns what.
+`ROADMAP.md` keeps each phase's detail and history. **Read it before
 proposing new work, scoping a feature, or prioritizing between options** — it
 decides what gets built and in what order, and it outranks `BACKLOG.md`, which
 is an unscheduled idea pool rather than a set of commitments.

@@ -12,9 +12,9 @@
  *
  * Two of these metrics are necessarily approximations, flagged inline:
  * there is no per-fill "did the user honor their plan" record, and there is
- * no historical paper-equity curve (unlike `risk_live_equity_snapshots`,
- * which only exists for live accounts). Both proxies are conservative and
- * documented rather than silently precise-looking.
+ * no historical paper-equity curve before 2026-10-21 (migration 0101 now
+ * records one; the drawdown reads it where it exists). Both proxies are
+ * conservative and documented rather than silently precise-looking.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -22,6 +22,7 @@ import { computeExecutionScore } from "@/lib/risk/execution-score";
 import { MAX_SINGLE_POSITION_ALLOCATION_PCT } from "@/lib/risk/config";
 import { STARTING_CASH } from "@/lib/brokers/simulator";
 import type { PromotionPolicy } from "@/lib/promotion/config";
+import { paperDrawdownPct } from "@/lib/portfolio/paper-equity";
 import type { PromotionReadinessInputs, TrackRecordInputs } from "@/lib/promotion/eligibility";
 import type { TrackRecordPolicy } from "@/lib/promotion/trackRecordPolicy";
 
@@ -108,7 +109,13 @@ export async function gatherPromotionReadinessInputs(
     0,
     -recentClosed.reduce((sum, p) => sum + (p.realized_pl ?? 0), 0) / STARTING_CASH,
   ) * 100;
-  const hadSevereRiskEventRecently = realizedLossPct >= policy.severeDrawdownPct;
+  // Since 2026-10-21 the account's own equity record (migration 0101) gives
+  // the high-water drawdown, open losses included. The worse of the two is
+  // read, so a window the record does not yet cover still counts its
+  // realized losses.
+  const markedDrawdownPct = await paperDrawdownPct(supabase, profileId, lookbackCutoff).catch(() => null);
+  const hadSevereRiskEventRecently =
+    Math.max(realizedLossPct, markedDrawdownPct ?? 0) >= policy.severeDrawdownPct;
 
   const executionScore = computeExecutionScore({
     stopDiscipline: stopAdherenceRatio,

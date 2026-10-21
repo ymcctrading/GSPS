@@ -37,6 +37,7 @@ import { tickerHref } from "@/lib/routes";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import { DEFAULT_GUIDED_POLICY, type GuidedCaps, type GuidedPolicy } from "@/lib/guided/config";
 import type { PublicScoreSummary } from "@/lib/types";
+import { paperEquity } from "@/lib/portfolio/paper-equity";
 
 export interface GuidedAccount {
   equity: number;
@@ -76,12 +77,15 @@ export async function readGuidedAccount(
     }),
   );
 
-  const marketValue = positions.reduce((sum, p, i) => sum + marks[i] * p.qty, 0);
   const openSymbols = new Map(
     positions.map((p) => [p.symbol.toUpperCase(), { qty: p.qty, avgEntry: p.avg_entry_price }]),
   );
 
-  const equity = account.cash + marketValue;
+  // A short is owed back, so it counts against the account (paperEquity).
+  const equity = paperEquity(
+    account.cash,
+    positions.map((p, i) => ({ side: p.side, qty: p.qty, price: marks[i] })),
+  );
   const riskCapital = run
     ? gannRiskCapital({ equity, startingCapital: STARTING_CASH, ...run }).capital
     : Math.min(equity, STARTING_CASH);
