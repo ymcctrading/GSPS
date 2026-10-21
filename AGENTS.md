@@ -592,7 +592,7 @@ as the paper exit manager fills at the market. `STRATEGY_VERSION` is
 `2026-10-21-review-gap-stop-fill`; replay losses on gaps move, live verdicts
 don't. Also from the review, not in the verdict: `daily_scans` stores only the
 score rollup, never the breakdown, since production lets any role read it
-(R-021; migration 0089 drops that policy, not applied).
+(R-021; migration 0090 drops that policy, not applied).
 
 ## WD Gann precedence — standing principle
 

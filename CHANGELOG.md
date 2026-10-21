@@ -14,7 +14,7 @@ date.
   A stop a candle opens through now fills at that open in every replay walk,
   not at the stop. Replay losses on gaps move; live verdicts do not.
 - **Daily lists keep the score breakdown server-side.** `daily_scans` rows
-  store only the per-pillar rollup. Migration 0089 (not applied) strips the
+  store only the per-pillar rollup. Migration 0090 (not applied) strips the
   breakdown from stored rows and drops a public read policy that no migration
   created.
 
