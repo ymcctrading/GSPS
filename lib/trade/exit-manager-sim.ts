@@ -275,8 +275,12 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
     }
     if (stopAction.kind === "close_all") {
       caught = gann?.exit && stopAction.atMarket ? gann.exit.reason : "stop";
-      // A Gann exit signal leaves at the market; a stop that was crossed fills at the stop.
-      const fillAt = stopAction.atMarket ? price : stopAction.stop;
+      // Every close here happens with the market already through the stop (or
+      // on a Gann signal), so it fills at the price seen now, as the broker
+      // exit manager's market close does. Filling a stop the price had already
+      // passed at the stop itself paid the trade a better price than the
+      // market offered (review finding R-010).
+      const fillAt = price;
       // Where the last of the position left, not the blended exit: after a
       // TP1 scale-out the blend is no price the position left at (2026-10-21).
       brokenLevel = fillAt;
@@ -373,6 +377,8 @@ async function finish(
   caught: ReversalCause | null = null,
   /** Where the last of the position left on a stop or signal; the blended price otherwise. */
   brokenLevel: number | null = null,
+  /** The person closed the position by hand: logged as such, and never reversed. */
+  manual = false,
 ): Promise<void> {
   const { price: exitPrice, qty: exitQty } = blendedExit(plan);
   const direction: "buy" | "sell" = plan.side === "long" ? "buy" : "sell";
@@ -385,8 +391,14 @@ async function finish(
   // close. Any of those means the *last* thing to happen was a stop-driven
   // close, whichever tranches it covered. No stop reason at all means the
   // plan finished purely on tranches reaching their own targets.
-  const exitCondition: "tp1" | "master_target" | "stop_loss" =
-    plan.applied_stop_reason === "master_reversal"
+  //
+  // A close by hand is "manual" whatever the stop had trailed to. Read from
+  // the stop reason alone, it logged as a stop-loss once the stop had moved
+  // even once, and an automated trade closed by hand (or by the close-all
+  // button) was then reversed as if caught (review finding R-009).
+  const exitCondition: "tp1" | "master_target" | "stop_loss" | "manual" = manual
+    ? "manual"
+    : plan.applied_stop_reason === "master_reversal"
       ? "master_target"
       : plan.applied_stop_reason === "trailing" ||
           plan.applied_stop_reason === "break_even" ||
@@ -400,7 +412,7 @@ async function finish(
   const { error: logError } = await supabase.from("trade_logs").insert({
     user_id: userId,
     symbol: plan.symbol.toUpperCase(),
-    asset_class: "us_equity",
+    asset_class: assetClassOf(plan.symbol),
     direction,
     quantity: exitQty,
     entry_timestamp: plan.created_at,
@@ -520,6 +532,6 @@ export async function closeSimPlanForSymbol(
   }
   const finalPlan = { ...plan, ...patch } as SimPlanRow;
   const run = idle();
-  await finish(supabase, userId, finalPlan, run);
+  await finish(supabase, userId, finalPlan, run, null, null, true);
   return finalPlan;
 }

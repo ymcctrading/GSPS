@@ -19,7 +19,8 @@ vi.mock("@/lib/automation/stop-out", async (importOriginal) => ({
   handleAutomatedStopOut: vi.fn(async () => undefined),
 }));
 
-import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
+import { closeSimPlanForSymbol, manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
+import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
 
 /** The AMD position from the report: long 3 at 476.08, stop moved up by hand to 618. */
 function amdPlan(overrides: Record<string, unknown> = {}) {
@@ -75,7 +76,8 @@ function stubSupabase(plan: Record<string, unknown>) {
         inserts.push({ table, row });
         return Promise.resolve({ error: null });
       },
-      maybeSingle: () => Promise.resolve({ data: mode === "update" ? { id: plan.id } : null }),
+      maybeSingle: () =>
+        Promise.resolve({ data: mode === "update" ? { id: plan.id } : table === "protocol_exits" ? plan : table === "orders" ? { source_plan_id: "tp-1" } : null }),
       then: (resolve: (v: unknown) => unknown) =>
         resolve(mode === "select" && table === "protocol_exits" ? { data: [plan], error: null } : { data: null, error: null }),
     });
@@ -166,5 +168,34 @@ describe("manageSimulatedExits — a stop already applied", () => {
     for (const [, , fill] of executeFill.mock.calls) {
       expect(fill).toMatchObject({ side: "buy", price: 112 });
     }
+  });
+});
+
+describe("a close by hand (review finding R-009)", () => {
+  beforeEach(() => {
+    vi.mocked(handleAutomatedStopOut).mockClear();
+    readLiveRebuy.mockReset().mockResolvedValue(null);
+  });
+
+  it("logs a manual close as manual, even after the stop has trailed, and reverses nothing", async () => {
+    const { client, inserts } = stubSupabase(amdPlan({ applied_stop_reason: "trailing", entry_order_id: "order-1" }));
+    await closeSimPlanForSymbol(client, "user-1", "AMD", 630);
+    const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
+    expect(log).toMatchObject({ exit_condition: "manual", exit_price: 630 });
+    expect(handleAutomatedStopOut).not.toHaveBeenCalled();
+    expect(readLiveRebuy).not.toHaveBeenCalled();
+  });
+});
+
+describe("a stop the price has already passed (review finding R-010)", () => {
+  it("fills at the market seen, not at the stop", async () => {
+    // No stop rests yet; the plan's stop is 600 and the first quote is 590.
+    // Every share leaves at 590, where the market is (it used to fill at 600).
+    quotePrice.mockReset().mockResolvedValue(590);
+    executeFill.mockReset();
+    const { client } = stubSupabase(amdPlan({ applied_stop: null, applied_stop_reason: null, stop_loss: 600 }));
+    const run = await manageSimulatedExits(client, "user-1");
+    expect(run.closed).toBe(1);
+    for (const [, , fill] of executeFill.mock.calls) expect(fill).toMatchObject({ price: 590 });
   });
 });
