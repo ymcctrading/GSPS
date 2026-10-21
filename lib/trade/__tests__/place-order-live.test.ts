@@ -9,6 +9,7 @@ const getPositions = vi.fn();
 const evaluateLiveCircuitBreaker = vi.fn();
 const recordOrderExecution = vi.fn();
 const killSwitchRefusal = vi.fn(() => null);
+const quotePrice = vi.fn();
 
 vi.mock("@/lib/brokers/simulator", () => ({
   assetClassOf: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock("@/lib/brokers/simulator", () => ({
   isTriggered: vi.fn(),
   logPlainClose: vi.fn(),
   quoteOptionPrice: vi.fn(),
-  quotePrice: vi.fn(),
+  quotePrice: (...args: unknown[]) => quotePrice(...args),
 }));
 vi.mock("@/lib/brokers/live-creds", () => ({
   readLiveAlpacaConnection: (...args: unknown[]) => readLiveAlpacaConnection(...args),
@@ -130,6 +131,8 @@ describe("placeSimulatedOrder — live branch", () => {
     evaluateLiveCircuitBreaker.mockReset();
     recordOrderExecution.mockReset();
     killSwitchRefusal.mockReset().mockReturnValue(null);
+    // The risk ceilings read the server's quote, never the ticket's price (F-01).
+    quotePrice.mockReset().mockResolvedValue(100);
     limits.bypass = false;
   });
 

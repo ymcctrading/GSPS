@@ -189,3 +189,53 @@ describe("rule 9 on paper: the protocol's entry goes at the market", () => {
     expect(row.limit_price).toBe(100);
   });
 });
+
+describe("the ceilings read the server's price (review finding F-01)", () => {
+  it("measures a market order's risk at the live quote, not the ticket's price", async () => {
+    // The ticket says 93 (risk $1 a share); the quote is 100 (risk $8).
+    const { supabase, ordersInsert } = stubSupabase();
+    const r = await placeSimulatedOrder(supabase, "u1", { ...now, qty: 1_300, referencePrice: 93 });
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ code: "risk_one_tenth" });
+    expect(ordersInsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses a market order when no price can be read, rather than skipping the ceilings", async () => {
+    quotePrice.mockResolvedValue(null);
+    const { supabase, ordersInsert } = stubSupabase();
+    const r = await placeSimulatedOrder(supabase, "u1", { ...now, referencePrice: undefined });
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ code: "no_reference_price" });
+    expect(ordersInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("rule 1 on a bought option: the premium is the risk (review finding F-04)", () => {
+  const option: OrderInput = {
+    symbol: "AAPL261120C00200000",
+    assetClass: "option",
+    side: "buy",
+    qty: 20,
+    mode: "paper",
+    entryMode: "now",
+    intradaySourced: false,
+    optionDetail: { strike: 200, type: "call", expiration: "2026-11-20", premium: 6 },
+  };
+
+  it("refuses premium over a tenth of the trading unit", async () => {
+    // 20 contracts × $6 × 100 = $12,000, over the $10,000 tenth.
+    const { supabase, ordersInsert } = stubSupabase();
+    const r = await placeSimulatedOrder(supabase, "u1", option);
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ code: "risk_one_tenth" });
+    expect(String(r.body.error)).toMatch(/16 AAPL/);
+    expect(ordersInsert).not.toHaveBeenCalled();
+  });
+
+  it("places premium within the tenth", async () => {
+    const { supabase, ordersInsert } = stubSupabase();
+    const r = await placeSimulatedOrder(supabase, "u1", { ...option, qty: 16 });
+    expect(r.status).toBe(200);
+    expect(ordersInsert).toHaveBeenCalledTimes(1);
+  });
+});
