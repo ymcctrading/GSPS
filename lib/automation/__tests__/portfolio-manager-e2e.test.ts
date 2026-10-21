@@ -301,7 +301,7 @@ function fakeSupabase(
       if (name === "protocol_exits") return protocolExitsTable();
       if (name === "active_monitors") {
         // The member's monitors and their Gann scores (none unless a test passes some).
-        const q = { select: () => q, eq: () => q, in: () => Promise.resolve({ data: monitors, error: null }) };
+        const q = { select: () => q, eq: () => q, in: () => q, order: () => Promise.resolve({ data: monitors, error: null }) };
         return q;
       }
       if (name === "settings") {

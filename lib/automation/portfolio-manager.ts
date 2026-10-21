@@ -88,31 +88,43 @@ interface CandidatePlanRow {
 
 /**
  * Gann's score (the nine pillars, out of 9) of each armed plan, read from the
- * member's monitor of that symbol: the latest scan's reading, kept only when
- * the monitor still reads the plan's direction. trade_plans carries no score
- * of its own, and the monitor is the row every scan surface writes it to
- * (migrations 0069/0074), so no migration is needed. Keyed `SYMBOL:direction`.
- * A failed read ranks nothing and never stops the run.
+ * member's open monitor of that symbol (WATCH or EXECUTE): the latest scan's
+ * reading, kept only when the monitor still reads the plan's direction. A
+ * terminal monitor (NO_SETUP, INVALIDATED, EXPIRED) keeps the score it last
+ * had, so it is not read: a symbol the scan has since rejected has no current
+ * score. Where older data holds more than one open row, the most recently
+ * evaluated wins. trade_plans carries no score of its own, and the monitor is
+ * the row every scan surface writes it to (migrations 0069/0074), so no
+ * migration is needed. Engineering choices, labelled: the current score
+ * rather than the one recorded at Execute (`execute_score`, 0085), since Gann
+ * reads a stock's position as it stands. Keyed `SYMBOL:direction`. A failed
+ * read returns the error and ranks nothing.
  */
 export async function readPlanScores(
   supabase: SupabaseClient,
   userId: string,
   symbols: string[],
-): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  if (symbols.length === 0) return out;
+): Promise<{ scores: Map<string, number>; error: string | null }> {
+  const scores = new Map<string, number>();
+  if (symbols.length === 0) return { scores, error: null };
   const { data, error } = await supabase
     .from("active_monitors")
-    .select("symbol, direction, score")
+    .select("symbol, direction, score, last_evaluated_at")
     .eq("profile_id", userId)
-    .in("symbol", [...new Set(symbols.map((s) => s.toUpperCase()))]);
-  if (error) return out;
+    .in("state", ["WATCH", "EXECUTE"])
+    .in("symbol", [...new Set(symbols.map((s) => s.toUpperCase()))])
+    .order("last_evaluated_at", { ascending: false });
+  if (error) return { scores, error: error.message };
+  const seen = new Set<string>();
   for (const row of (data ?? []) as { symbol: string; direction: string | null; score: number | null }[]) {
+    const symbol = row.symbol.toUpperCase();
+    // Newest first: the first open row for a symbol is its current reading.
+    if (seen.has(symbol)) continue;
+    seen.add(symbol);
     if (row.score == null || !Number.isFinite(Number(row.score)) || !row.direction) continue;
-    const key = `${row.symbol.toUpperCase()}:${row.direction}`;
-    out.set(key, Math.max(out.get(key) ?? -Infinity, Number(row.score)));
+    scores.set(`${symbol}:${row.direction}`, Number(row.score));
   }
-  return out;
+  return { scores, error: null };
 }
 
 /**
@@ -122,8 +134,9 @@ export async function readPlanScores(
  * Street Stock Selector* Ch. VII), and the scorecard is the count of his
  * conditions each setup meets (AGENTS.md, "The scorecard's role"). The
  * removed weighted grade (the Signal & Regime Engine's alignment tier) is no
- * longer read. A plan with no score sorts after those with one; ties keep
- * the query's order, the older, longer-armed plan first.
+ * longer read. A plan with no score sorts after those with one, and ties
+ * keep the query's order, the older, longer-armed plan first (both
+ * engineering choices: Gann gives no order among equals).
  */
 export function rankPlansByScore<T extends { instrument: string; direction: string }>(
   plans: T[],
@@ -264,7 +277,9 @@ async function runForProfile(
 
   // Gann's score first (`rankPlansByScore`).
   const unranked = ((plans ?? []) as CandidatePlanRow[]).filter((plan) => !alreadyAutomated.has(plan.plan_id));
-  const scores = await readPlanScores(supabase, profile.user_id, unranked.map((p) => p.instrument));
+  const { scores, error: scoresError } = await readPlanScores(supabase, profile.user_id, unranked.map((p) => p.instrument));
+  // Not fatal: the run goes ahead in the query's order, and says so.
+  if (scoresError) result.errors.push({ userId: profile.user_id, reason: `Could not read Gann scores to rank plans: ${scoresError}` });
   const candidates = rankPlansByScore(unranked, scores);
 
   // A member's choice of "live" only ever becomes a live order once the

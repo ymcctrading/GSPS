@@ -82,36 +82,68 @@ describe("rankPlansByScore: Gann's score first", () => {
 });
 
 describe("readPlanScores", () => {
-  function client(result: { data: unknown; error: unknown }, seen: { symbols?: string[] } = {}) {
+  type Row = { profile_id: string; symbol: string; state: string; direction: string | null; score: number | null; last_evaluated_at: string };
+  /** A fake that applies the filters and the order the reader asks for. */
+  function client(rows: Row[] | null, error: { message: string } | null = null) {
+    let out = rows ?? [];
     const q = {
       select: () => q,
-      eq: () => q,
-      in: (_col: string, symbols: string[]) => {
-        seen.symbols = symbols;
-        return Promise.resolve(result);
-      },
+      eq: (col: keyof Row, v: string) => ((out = out.filter((r) => r[col] === v)), q),
+      in: (col: keyof Row, vs: string[]) => ((out = out.filter((r) => vs.includes(String(r[col])))), q),
+      order: (col: keyof Row, o: { ascending: boolean }) =>
+        Promise.resolve({
+          data: error ? null : [...out].sort((a, b) => (String(a[col]) < String(b[col]) ? -1 : 1) * (o.ascending ? 1 : -1)),
+          error,
+        }),
     };
     return { from: () => q } as unknown as SupabaseClient;
   }
-  it("keys each monitor's score by symbol and direction, skipping unscored rows", async () => {
-    const seen: { symbols?: string[] } = {};
-    const scores = await readPlanScores(
-      client({
-        data: [
-          { symbol: "aapl", direction: "bullish", score: 7 },
-          { symbol: "MSFT", direction: "bearish", score: null },
-          { symbol: "NVDA", direction: null, score: 8 },
-        ],
-        error: null,
-      }, seen),
+  const row = (o: Partial<Row>): Row => ({
+    profile_id: "u1", symbol: "AAPL", state: "EXECUTE", direction: "bullish", score: 7, last_evaluated_at: "2026-10-21T15:00:00Z", ...o,
+  });
+
+  it("keys each open monitor's score by symbol and direction, skipping unscored rows and other members", async () => {
+    const { scores, error } = await readPlanScores(
+      client([
+        row({ symbol: "AAPL" }),
+        row({ symbol: "MSFT", direction: "bearish", score: null }),
+        row({ symbol: "NVDA", direction: null, score: 8 }),
+        row({ symbol: "AAPL", profile_id: "u2", score: 9, last_evaluated_at: "2026-10-21T16:00:00Z" }),
+      ]),
       "u1",
-      ["aapl", "AAPL", "MSFT"],
+      ["aapl", "AAPL", "MSFT", "NVDA"],
     );
-    expect(seen.symbols).toEqual(["AAPL", "MSFT"]);
+    expect(error).toBeNull();
     expect([...scores]).toEqual([["AAPL:bullish", 7]]);
   });
-  it("reads nothing, and fails soft, on an error or no symbols", async () => {
-    expect((await readPlanScores(client({ data: null, error: { message: "x" } }), "u1", ["AAPL"])).size).toBe(0);
-    expect((await readPlanScores(client({ data: [], error: null }), "u1", [])).size).toBe(0);
+
+  it("never reads a terminal monitor's stale score", async () => {
+    // AAA armed at 8, then the scan rejected it: its monitor went NO_SETUP still holding 8.
+    const { scores } = await readPlanScores(
+      client([row({ symbol: "AAA", state: "NO_SETUP", score: 8 }), row({ symbol: "BBB", score: 7 })]),
+      "u1",
+      ["AAA", "BBB"],
+    );
+    expect([...scores]).toEqual([["BBB:bullish", 7]]);
+    expect(rankPlansByScore([{ instrument: "AAA", direction: "bullish" }, { instrument: "BBB", direction: "bullish" }], scores).map((p) => p.instrument)).toEqual(["BBB", "AAA"]);
+  });
+
+  it("reads the most recently evaluated open row, not the highest", async () => {
+    const { scores } = await readPlanScores(
+      client([
+        row({ score: 9, last_evaluated_at: "2026-10-20T15:00:00Z" }),
+        row({ score: 6, last_evaluated_at: "2026-10-21T15:00:00Z" }),
+      ]),
+      "u1",
+      ["AAPL"],
+    );
+    expect(scores.get("AAPL:bullish")).toBe(6);
+  });
+
+  it("returns the error and no scores on a failed read, and reads nothing for no symbols", async () => {
+    const failed = await readPlanScores(client(null, { message: "boom" }), "u1", ["AAPL"]);
+    expect(failed.scores.size).toBe(0);
+    expect(failed.error).toBe("boom");
+    expect((await readPlanScores(client([]), "u1", [])).scores.size).toBe(0);
   });
 });
