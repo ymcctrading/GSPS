@@ -10,8 +10,9 @@ name: Notification delivery retry sweep
 # across both EDT and EST with margin on either side, without running
 # overnight when nothing is being evaluated.
 on:
-  schedule:
-    - cron: '0,30 10-23 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

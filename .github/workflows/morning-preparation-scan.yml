@@ -21,8 +21,9 @@ name: Morning Preparation scan
 # budget (FULL_UNIVERSE_TOP in lib/marketScan.ts) -- see that file's header
 # comment for the current budget and when to reintroduce a reduced one.
 on:
-  schedule:
-    - cron: '30 10 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

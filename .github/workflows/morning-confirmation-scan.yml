@@ -12,8 +12,9 @@ name: Morning confirmation scan
 # Reduced-budget scan -- see lib/entitlements/scheduled-scan.ts's header
 # comment for the full-capacity switch-over once a higher-tier plan lands.
 on:
-  schedule:
-    - cron: '15 13 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

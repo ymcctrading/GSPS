@@ -10,8 +10,9 @@ name: Pre-market scan
 # regardless of exactly when it's called — see docs/RUNBOOK.md on
 # `pricedBeforeSession`.
 on:
-  schedule:
-    - cron: '30 12 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

@@ -17,8 +17,9 @@ name: Price alert sweep
 # this follows the same GitHub-Actions-external-scheduler pattern as every
 # other sweep/scan job in this repo.
 on:
-  schedule:
-    - cron: '15,45 13-21 * * *'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:
