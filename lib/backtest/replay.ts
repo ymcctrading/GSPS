@@ -294,8 +294,8 @@ export interface ReplayOptions {
    *   order, as the bracket does). The replay's target is `targetR`, while live
    *   TP1 is a Gann level; the tranche split is the same.
    *
-   * All fill a stop at the stop price, so they are compared on the same
-   * convention.
+   * All fill a stop at the stop price, or at the open of a candle that opens
+   * through it (`stopFill`), so they are compared on the same convention.
    */
   exitRule?: "bracket" | "gann" | "gann-runner";
   /**
@@ -1359,24 +1359,28 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
  * continuation at.
  */
 export function bySetupKind(result: ReplayResult): { reversion: ReplayResult; continuation: ReplayResult } {
+  const armed = result.trades.filter((t) => !t.derived);
   return {
-    reversion: summarise(result.trades.filter((t) => t.setupKind === "reversion")),
-    continuation: summarise(result.trades.filter((t) => t.setupKind === "continuation")),
+    reversion: summarise(armed.filter((t) => t.setupKind === "reversion")),
+    continuation: summarise(armed.filter((t) => t.setupKind === "continuation")),
   };
 }
 
 /**
  * Split a run by the kind of buying point that priced each entry, so the
  * crossing, the double bottom and the held bottom can each be read on their own.
+ * Reversals and re-entries carry their parent's kind but were priced by
+ * neither, so these splits (and `bySetupKind`'s) read the armed trades only;
+ * `byDerived` reports the rest.
  */
 export function byEntryKind(result: ReplayResult): Record<GannEntryKind, ReplayResult> {
-  const of = (kind: GannEntryKind) => summarise(result.trades.filter((t) => (t.entryKind ?? "crossing") === kind));
+  const of = (kind: GannEntryKind) => summarise(result.trades.filter((t) => !t.derived && (t.entryKind ?? "crossing") === kind));
   return { crossing: of("crossing"), oldLevel: of("oldLevel"), hold: of("hold") };
 }
 
 /** The held entries split by the form of the hold that priced them. */
 export function byHoldBasis(result: ReplayResult): Record<GannHoldBasis, ReplayResult> {
-  const of = (basis: GannHoldBasis) => summarise(result.trades.filter((t) => t.entryKind === "hold" && t.holdBasis === basis));
+  const of = (basis: GannHoldBasis) => summarise(result.trades.filter((t) => !t.derived && t.entryKind === "hold" && t.holdBasis === basis));
   return { weeks: of("weeks"), days: of("days"), record: of("record"), rally: of("rally"), narrowWeek: of("narrowWeek") };
 }
 

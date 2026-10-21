@@ -55,6 +55,7 @@ import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
 import { monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
+import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** Verdict buckets, plus the trades the score could not reach. */
 export type Bucket = "Execute" | "Watch" | "Reject" | "unscored";
@@ -260,8 +261,8 @@ export interface BacktestReport {
    * over a bottom that held.
    */
   entryKindSplit: { crossing: RunSummary; oldLevel: RunSummary; hold: RunSummary };
-  /** The held entries by the form of the hold: weeks, days, record, or the bear-market rally sell. */
-  holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary };
+  /** The held entries by the form of the hold: weeks, days, record, the bear-market rally sell, or the narrow week's sale. */
+  holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary; narrowWeek: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
    * reason that was binding, a Gann exit signal, or the timeout), so each of
@@ -574,7 +575,7 @@ async function computeSlippageSensitivity(
   request: BacktestRequest,
   baseExpectancyR: number,
 ): Promise<SlippageSensitivity> {
-  const costPerShare = request.costPerShare ?? 0.02;
+  const costPerShare = request.costPerShare ?? DEFAULT_COST_PER_SHARE_USD;
   const multiplier = request.slippageMultiplier ?? 3;
   const elevatedCostPerShare = costPerShare * multiplier;
   const elevated = await collectRun({ ...request, costPerShare: elevatedCostPerShare });
@@ -682,6 +683,7 @@ export function buildReport(
       days: summarise(holdSplit.days),
       record: summarise(holdSplit.record),
       rally: summarise(holdSplit.rally),
+      narrowWeek: summarise(holdSplit.narrowWeek),
     },
     exitReasonSplit: Object.fromEntries(
       [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [
