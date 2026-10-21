@@ -217,6 +217,7 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null, pref
 
   function automationEventsTable() {
     return {
+      ...listTable(automationEvents),
       insert(row: Record<string, unknown>) {
         return {
           then(resolve: (v: { error: null }) => void) {
@@ -528,6 +529,50 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     try {
       await runAutonomousPortfolioManager(client);
       expect(orders).toHaveLength(0);
+    } finally {
+      confirmNow.ready = true;
+    }
+  });
+
+  it("places a resting entry on the later pass that finds it confirmed, and only once", async () => {
+    const { client, orders, automationProfiles, automationEvents } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    });
+    await createArmedPlan(client, "user-1");
+    vi.mocked(isTriggered).mockReturnValue(true);
+    confirmNow.ready = false;
+    try {
+      const first = await runAutonomousPortfolioManager(client);
+      expect(first.plansActivated).toBe(1);
+      expect(orders).toHaveLength(0);
+      expect(automationProfiles[0].status).toBe("active");
+      const refusals = () => automationEvents.filter((e) => e.kind === "broker_order_rejected").length;
+      expect(refusals()).toBe(1);
+
+      // Still waiting: nothing placed, and the same refusal isn't logged again.
+      const second = await runAutonomousPortfolioManager(client);
+      expect(second.plansActivated).toBe(0);
+      expect(second.restingOrdersPlaced).toBe(0);
+      expect(orders).toHaveLength(0);
+      expect(refusals()).toBe(1);
+
+      // The reaction came: the same activation's order goes in.
+      confirmNow.ready = true;
+      const third = await runAutonomousPortfolioManager(client);
+      expect(third.restingOrdersPlaced).toBe(1);
+      expect(orders).toHaveLength(1);
+      expect(automationEvents.some((e) => e.kind === "broker_order_submitted")).toBe(true);
+
+      // Never a second order from the same activation.
+      const fourth = await runAutonomousPortfolioManager(client);
+      expect(fourth.restingOrdersPlaced).toBe(0);
+      expect(orders).toHaveLength(1);
     } finally {
       confirmNow.ready = true;
     }

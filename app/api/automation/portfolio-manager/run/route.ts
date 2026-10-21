@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runAutonomousPortfolioManager } from "@/lib/automation/portfolio-manager";
+import { manageAllSimulatedExits } from "@/lib/trade/exit-manager-sim";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. This loop is per-user/per-plan database work with no external data
@@ -37,6 +38,9 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServiceClient();
+  // Exits first: a stop read this pass frees its capital and its market
+  // before the manager looks for anything new to open.
+  const exits = await manageAllSimulatedExits(supabase as unknown as Parameters<typeof manageAllSimulatedExits>[0]);
   const result = await runAutonomousPortfolioManager(supabase);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, exits });
 }

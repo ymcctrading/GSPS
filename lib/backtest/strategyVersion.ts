@@ -523,6 +523,11 @@
 // from (Master Course PDF 244-245, 249: the secondary rally after it is the
 // sale). P9, `readGannTrend`'s confirmation, the Gann exit's trend change and
 // the measured factors move, live and replay alike.
+// 2026-10-21-gann-weekly-line-trend: the trend pillar (P2) reads Gann's weekly
+// green/red trend line (Master Course Ch. 8, p. 239; `weeklyOneBar.ts`), the
+// chart its design and T1 name, instead of the 1951 7-day chart's trend, which
+// inverted on every nine-pillar replay. Scores and verdicts move, live and
+// replay alike.
 // 2026-10-21-gann-universe-strength-rank: P3(c) ranks the stock among the
 // scan universe (LARGE_CAP_UNIVERSE) by where its last monthly close sits in
 // its year of monthly highs and lows, and passes in the strongest quarter for

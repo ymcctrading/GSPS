@@ -471,6 +471,25 @@ exit rule's trend change reads the over-balancing reaction's own start.
 `STRATEGY_VERSION` is `2026-10-21-gann-overbalance-points-standing`; Execute
 and the 6/3.5 cutoffs need a fresh run on it.
 
+**Trend pillar's weekly leg, 2026-10-21 (diagnosis of P2's inversion).** One
+translation defect, fixed. P2's design (`score-pillars-research.md` §3) and
+its source T1 ("on the weekly, buy when the line turns green", Master Course
+Ch. 8, p. 239) name Gann's weekly green/red trend line, but `trendPillar` read
+the 1951 Commodities 7-day chart's trend (`swingChart.ts`), a slower reading
+that turns only when the last completed weekly swing top is crossed. Measured
+as the context factor `withWeeklyTrend`, that reading did worse passing than
+failing in 10 of 11 cells over the 2026-10-17, -20 and -21 runs (and
+`swingChartTrend`, which includes it, inverted on runs 12, 22 and the 6-year
+daily run), while `weeklyOneBarWithTrade`, the green/red line, came out ahead
+in 7 of 11 (pooled on 2026-10-21: +0.058 against −0.024). P2 now reads the
+line (`PillarFacts.weeklyLine`, from `readDisclosedRules`, so the live scan and
+the replay read it the same way); the 3-day leg, the Rule of Three and the
+monthly tier are unchanged. The `swingChartTrend` check, the exits, the
+campaign ledger and the regime engine still read the 7-day chart, as recorded
+in `weeklyOneBar.ts` (owner's call). `STRATEGY_VERSION` was
+`2026-10-21-gann-weekly-line-trend`; P2 and the 6/3.5 cutoffs need a fresh run
+on it.
+
 **Relative strength rank, 2026-10-21 (S6 built, replacing the P3(c) stand-in).**
 P3(c) now ranks the stock among the scan universe (`LARGE_CAP_UNIVERSE`, the
 766-symbol list the market scan rotates through) by where its last monthly
@@ -1052,6 +1071,14 @@ for the project owner** — do not fix it silently, and re-verify it first:
   counting session bars (`sessionBarsDeadline`, interim until #309 drops the
   clock) and arming from real closed bars in the manager's own run
   (`lib/lifecycle/armFromBars.ts`), which also skips any plan whose stop broke.
+  **Health check, 2026-10-21:** plans now arm (51 arms in two days), but no
+  paper order had been placed since 2026-10-09. Activation tried the order
+  once; an old-level or reaction entry is armed while it still waits for price,
+  so it was refused (`awaiting_confirmation`) and never tried again. Each
+  scheduled pass now retries active activations whose plan is still armed and
+  that have no `broker_order_submitted` event (`placeRestingEntries`), and the
+  same run manages every working paper exit (`manageAllSimulatedExits`), which
+  before moved only when the owner opened the portfolio or orders page.
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.

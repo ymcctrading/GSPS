@@ -583,7 +583,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   breakdown.push(
     point("marketCycle", "Market and cycle position", "timing", marketCyclePillar(pillarFacts, direction)),
     point("trendAllTimeframes", "Trend on every timeframe", "trend", trendPillar({
-      side: direction, weekly: swingChart?.weekly, threeDay: swingChart?.threeDay, ruleOfThree: ruleOfThreeHolding, monthly,
+      side: direction, weeklyLine: pillarFacts?.weeklyLine, threeDay: swingChart?.threeDay, ruleOfThree: ruleOfThreeHolding, monthly,
     })),
     point("relativeStrength", "Relative strength and leadership", "trend", relativeStrengthPillar(pillarFacts, direction)),
     point("activity", "Activity and character", "setup", activityPillar(pillarFacts)),
