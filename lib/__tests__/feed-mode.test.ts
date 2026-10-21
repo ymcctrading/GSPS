@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { activeFeedMode, feedModeOf } from "@/lib/data/feed-mode";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { activeFeedMode, assertLiveMarketData, feedModeOf, SyntheticMarketDataError, syntheticDataRefusal } from "@/lib/data/feed-mode";
+import { quotePrice } from "@/lib/brokers/simulator";
+import { runMarketScan } from "@/lib/marketScan";
 import type { MarketDataProvider } from "@/lib/data/provider";
 
 // Every Alpaca key spelling the provider seam accepts, so the auto-fallback
@@ -51,5 +53,62 @@ describe("activeFeedMode", () => {
   it("auto-falls back to 'simulated' with no provider set and no Alpaca keys", () => {
     for (const k of ENV_KEYS) delete process.env[k];
     expect(activeFeedMode()).toBe("simulated");
+  });
+});
+
+describe("syntheticDataRefusal (senior code review, lib/data)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  const clearAlpaca = () => {
+    for (const k of ALPACA_KEYS) delete process.env[k];
+    delete process.env.MARKET_DATA_PROVIDER;
+  };
+
+  it("refuses synthetic data in production, with the action and a fix in the reason, and logs it", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const reason = syntheticDataRefusal("run the market scan", provider(false, "synthetic"));
+    expect(reason).toMatch(/^Refused to run the market scan: market data is coming from the "synthetic" generator/);
+    expect(reason).toMatch(/Alpaca key and secret/);
+    expect(log).toHaveBeenCalledWith(`[market-data] ${reason}`);
+  });
+
+  it("allows a live provider in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(syntheticDataRefusal("run the market scan", provider(true, "alpaca"))).toBeNull();
+  });
+
+  it("allows synthetic data in tests and local development", () => {
+    expect(syntheticDataRefusal("run the market scan", provider(false, "synthetic"))).toBeNull();
+    vi.stubEnv("NODE_ENV", "development");
+    expect(syntheticDataRefusal("run the market scan", provider(false, "synthetic"))).toBeNull();
+  });
+
+  it("throws the same reason where a caller fails closed on a throw", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => assertLiveMarketData("arm a plan", provider(false, "synthetic"))).toThrow(SyntheticMarketDataError);
+  });
+
+  it("gives no paper quote on the synthetic fallback in production, so nothing fills or exits", async () => {
+    clearAlpaca();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await quotePrice("AAPL", "us_equity")).toBeNull();
+  });
+
+  it("still quotes the synthetic fallback outside production", async () => {
+    clearAlpaca();
+    expect(await quotePrice("AAPL", "us_equity")).toBeGreaterThan(0);
+  });
+
+  it("refuses to run (and so to publish) the market scan on the synthetic fallback in production", async () => {
+    clearAlpaca();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(runMarketScan(5)).rejects.toThrow(/Refused to run the market scan/);
   });
 });
