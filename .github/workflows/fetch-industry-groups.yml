@@ -1,0 +1,42 @@
+name: Fetch industry groups (manual)
+
+# Runs scripts/fetch-industry-groups.mjs, which reads each LARGE_CAP_UNIVERSE
+# stock's SEC industry code (SIC) for the relative strength rank's group map
+# (lib/gann/industryGroups.ts). Read-only: nothing is pushed. The file comes
+# back as the `industry-groups-<run id>` artifact and printed between
+# BEGIN/END markers in the log, to be reviewed and committed by hand.
+#
+# SEC asks for a User-Agent with a contact: set the SEC_USER_AGENT repository
+# secret to one ("Name contact@example.com"); without it the repository's
+# address is sent.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Fetch SIC codes
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'GSPS research https://github.com/ymcctrading/GSPS' }}
+        run: node scripts/fetch-industry-groups.mjs --out out/industryGroups.json
+      - name: Print the file
+        if: always()
+        run: |
+          echo "=== BEGIN industryGroups.json ==="
+          cat out/industryGroups.json || true
+          echo "=== END industryGroups.json ==="
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: industry-groups-${{ github.run_id }}
+          path: out/
