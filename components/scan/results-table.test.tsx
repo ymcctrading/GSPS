@@ -164,7 +164,6 @@ describe("ResultsTable", () => {
               regime: "trend",
               direction: "bullish",
               tier: "aTier",
-              alignmentScore: 82,
               tradeable: true,
               accountContextAssumed: true,
             },
@@ -174,7 +173,9 @@ describe("ResultsTable", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "AAPL" }));
-    expect(screen.getByText(/Rules alignment 82\/100 \(A-tier\)/)).toBeInTheDocument();
+    // One number on the card, Gann's score; the Signal Engine's weighted 0-100
+    // is not shown (owner's card, 2026-10-21): it ranks checks Gann never ranked.
+    expect(screen.queryByText(/\/100/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Show the full card/ }));
     expect(screen.getByText("Trend Pullback")).toBeInTheDocument();
     expect(screen.getAllByText("A-tier").length).toBeGreaterThan(0);

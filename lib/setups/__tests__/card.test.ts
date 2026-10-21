@@ -156,7 +156,6 @@ describe("buildDailyCardModel", () => {
       regime: "trend",
       direction: "bullish",
       tier: "aTier",
-      alignmentScore: 81.6,
       tradeable: true,
       accountContextAssumed: true,
     },
@@ -169,7 +168,6 @@ describe("buildDailyCardModel", () => {
     expect(model.price).toBe(99.5);
     expect(model.checks).toHaveLength(5);
     expect(model.continuation).toBe(true);
-    expect(model.alignmentScore).toBe(81.6);
     expect(model.signal).toEqual({ tierLabel: "A-tier", stateLabel: "Trend Pullback", tradeable: true });
     expect(model.higherTimeframes).toBe("Daily rising");
     expect(model.patternLabel).toBe("Failed-push reversal");

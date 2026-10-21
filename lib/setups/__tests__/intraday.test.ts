@@ -91,6 +91,6 @@ describe("buildIntradayCardModel", () => {
       { label: "Volume confirms", state: "missed", detail: "25 pts — 1.8× of normal." },
     ]);
     expect(model.tickerHref).toBe("/ticker/SPY");
-    expect(model.alignmentScore).toBeNull();
+    expect(model.signal).toBeNull();
   });
 });

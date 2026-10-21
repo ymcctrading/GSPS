@@ -68,8 +68,6 @@ export interface SetupCardModel {
   checks: SetupCheck[];
   /** Why the state sits below what the score alone implies, when the scan said so. */
   stateNote: string | null;
-  /** The Signal Engine's 0–100 Rules Alignment, when the scan carried one. */
-  alignmentScore: number | null;
   /** The Signal Engine's own read — a separate read from the score, never merged into it. */
   signal: { tierLabel: string; stateLabel: string; tradeable: boolean } | null;
   /** "Monthly rising, weekly rising, daily falling", or null. */
@@ -288,7 +286,6 @@ export function buildDailyCardModel(
     verdict: row.outputState,
     checks,
     stateNote: row.scoreSummary?.stateNote ?? null,
-    alignmentScore: row.signal?.alignmentScore ?? null,
     signal: row.signal
       ? {
           tierLabel: TIER_LABEL[row.signal.tier],

@@ -148,7 +148,7 @@ function ReviewRow({ entry, open, onToggle }: { entry: ReviewEntry; open: boolea
           </Badge>
         </div>
         <span className="text-xs text-muted">
-          Rules Alignment {review.alignment.score}/100 ({review.alignment.tier})
+          Rules Alignment {review.alignment.tier}
         </span>
       </button>
       {open && (
