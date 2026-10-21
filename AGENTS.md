@@ -887,9 +887,39 @@ live and replay alike). Random walks, 20 a price: no drift $20 16.0/21.8%
 the 3-bar chart as "3 months", its last swing as "the last bottom of the final
 run". Trap for later work: `majorAnglePivots` on weekly or monthly bars uses
 the 7-calendar-day chart, so every bar turns; give those timeframes the 3-bar
-chart. The squeeze still reads the daily angles. `STRATEGY_VERSION` is
+chart. The squeeze still reads the daily angles. `STRATEGY_VERSION` was
 `2026-10-21-gann-monthly-forty-five`; P6, Execute and the 6/3.5 cutoffs need a
 fresh run on it.
+
+**Trade style and instrument, 2026-10-21 (owner: "how can we make it possible
+that the trade plan aligns with the type of trade that the user is looking for.
+Swing, intraday", with futures, crypto, options, forex and commodities).** Gann
+answers it (design: `/mnt/project-files/trade-style/DESIGN.md`). He did not
+day-trade ("the big money … is made on the long swings and not by day to day
+trading", W036; *Commodities* pp. 4-7, 55), so the styles are his two speeds of
+one method (`lib/trade/tradeStyle.ts`): **Swing**, the default, and **Fast**,
+his fast-market method: the same entry and verdict, the stop on his day stop, 3
+points beyond the last completed day's low (high, short) and never looser than
+the swing stop (`lib/gann/dayStop.ts`; W006 Rule 2 p.46, "a 3-points stop … is
+the safest"; *Truth of the Stock Tape*; *Commodities* Selling Point 9), trailed
+under each day's low, never closed at the session's end. The scan prices both
+(`ScanResult.fastLevels`, `lib/trade/tradeStylePlan.ts#priceFastLevels`); the
+replay walks either (`tradeStyle`, `?tradeStyle=fast`). The style is a trader
+preference (`settings.prefs.gannRules.tradeStyle`), chosen on the order ticket,
+which then uses that style's levels; the ticker page's card shows both. The
+intraday alerts' "level held" stop calls the same `gannDayStop` (intraday
+thread). Not yet on the style, stated reasons: Guided Mode (Novice gets the main
+method), the portfolio manager (trades Fast only once the replay has measured
+it), the daily list cards and notifications (they show the swing plan).
+One plan for every market: crypto and commodity targets were 1.5R and 2.5-3R,
+no Gann source; every named market now takes the level plan (`computeTradeLevels`).
+`lib/instruments/spec.ts` defines each market's unit, session, contract size and
+risk (futures from the exchanges' specs, forex's pip an engineering choice;
+Gann wrote nothing on currencies). Futures and forex have quotes only, no bars or
+broker, so they price nothing live yet. Options follow his course (Master Course
+Ch. 19A/B, `lib/options/gannOptionPlan.ts`): the premium is the risk, the
+ticket offers the first expiry 30 or more days out, strikes a few points out.
+`STRATEGY_VERSION` is `2026-10-21-gann-one-plan-every-market`.
 
 ## WD Gann precedence — standing principle
 
@@ -917,6 +947,21 @@ product copy with no Gann content, or a figure Gann never gave (label that
 engineering choice as such). It is the owner's earlier "Determine how WD Gann
 would answer these questions, and those are your answers" (2026-10-21) made
 standing.
+
+**"This app is WD Gann re-manifested into a trading platform" (owner,
+2026-10-21).** That is the approach for every design question in a session:
+the first question is how Gann did it, and where he answers, his answer is
+the design.
+
+**This covers how the platform runs, not only trading rules (owner,
+2026-10-21: "when I say that gann's methodology should be completely infused
+into the platform, this is one of those instances").** What to scan, what to
+watch, how often to refresh, and which names get the scarce requests are
+questions Gann answers too: he chose his active stocks from the daily charts
+the night before and timed them in the session. A data-feed or budget limit
+is a reason to ask how Gann would choose, never the end of the answer. The
+intraday scan's fixed list was reported as "the feed's limit" until the owner
+asked; the evening focus list below is the answer the method already gave.
 
 This does not mean bypassing engineering judgment about *how* to translate
 a disclosed rule into working code, and it does not mean porting a raw
@@ -2694,6 +2739,51 @@ Standing facts for a session that touches any list of setups:
   15-minute bars at least; a plan lasts its session unless its stop breaks first, Q17, 2026-10-16); the
   trade is days to weeks (median about 5 to 7 sessions in the replay, and 60%
   of trades on the live exits were still open at its 10-session limit).
+
+**Intraday, 2026-10-21 (owner: SPY's daily plan filled in the first 45
+minutes and nothing intraday said so; TSLA's 6/6 signal read "Suppressed").**
+Gann trades the swing, not the day (*Annual Forecasts* p.24; "scalpers get
+scalped", *Stock Selector*), and uses the hourly and session charts to time an
+entry in an active market (Master Course Ch.13). So the intraday scanner now
+times the daily plan: "Daily plan's level held" (`plan_level_held`,
+`lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
+Watch plan's entry without trading its stop and the session's swing chart turns
+back through it; the stop is 3 Gann points under the day's low, never past the
+daily plan's stop, and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
+*Tunnel* p.198 for the re-buy). Not a session-swing stop: the six-year intraday
+replay (2026-10-21, `replay-diagnosis/2026-10-21-intraday-profile-verdict.md`)
+failed its test with every loss on the initial stop, so the panel says intraday
+signals carry no measured record yet. The route reads
+the plans from `daily_scans` and `active_monitors` (`loadDailyPlans`). Every
+intraday TP1 must pay more than the risk (`gannFirstTarget`'s `risk`,
+`targetPaysRisk`, M-K5), in the alert and the intraday replay; a plan with
+none says no trade and offers no "Trade this". Alerts carry a "With the daily
+trend" check. A signal inside its 30-minute cooldown stays on screen
+(`ScanOutput.heldAlerts`, `firstFlaggedAt`); only the repeat is not persisted
+or sent. The budget read returns today's scheduled-scan alerts (`recent`), so
+a metered panel shows them before a refresh is spent, and the ticker page has
+its own intraday panel, labelled apart from the daily verdict. A monitor goes
+INVALIDATED only when the scan retired the plan for a broken stop; any other
+Reject is NO_SETUP and sends nothing (`evaluateMonitorsAndNotify`). The daily
+verdict and `STRATEGY_VERSION` are unchanged.
+Bell notices (owner, "Yes, build and apply it"): each new signal from the
+scheduled intraday scan writes an `in_app_notifications` row (verdict
+'Intraday', migration 0100, applied 2026-10-21) for every member with the
+symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
+shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+**Focus list, same day (owner: "take the highly likely, and track those ...
+invalidate and replace them").** After the close, `/api/intraday-focus`
+(pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in
+batches and stores the stocks primed for the next session
+(`lib/scanner/focusList.ts`, table `intraday_focus`): a plan within a day's
+range of its entry, a narrow range of 2-13 weeks (at its edge), a reverse
+signal day or a wide day on heavy volume, or the close within 3 points of an
+old 3-Day Chart top or bottom. Ranked by how many reasons, then dollar volume
+(Gann ranks no reason above another). The scheduled intraday scan times the
+top `FOCUS_SIZE` with the index funds, crypto and members' watchlists in place
+of the fixed single stocks; a name whose daily plan's stop trades through is
+invalidated and the next takes its place. Both intraday scans now read bars
+in batches (100 symbols a request), not three requests a symbol.
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 

@@ -4,17 +4,11 @@
  * Settings and the marketing page both used to state "TP1: 2:1 reward-to-risk"
  * and "Master profit: 3:1". Neither number was ever what the engine computed.
  *
- * As of 2026-09-11 the two asset classes run genuinely different models, not
- * just different multiples of the same one — see lib/strat/levels.ts's own
- * comment for why. **Crypto** (and any other non-equity class) still prices
- * TP1 at 1.5R and the master target at the class's runner multiple (3R),
- * snapping to a Gann or harmonic level in range, up to the 5R cap — a
- * leveraged instrument's 1:1-payoff problem does not apply, so R:R stays the
- * model there. **US equities** price both targets and the stop as a
- * percentage of purchase price instead: an unlevered stock is a 1:1 payoff,
- * which makes demanding a 2:1 move structurally harder than on a levered
- * instrument, and R:R does not describe what a novice swing trader actually
- * experiences ("the stock is up 8%", not "I am up 1.6R").
+ * Since 2026-10-21 every market runs one model (lib/strat/levels.ts): the
+ * stop from Gann's rule, TP1 the first key level that pays more than the risk,
+ * the master the next level beyond it. Gann's rule is the same in every
+ * market; only the unit changes (*Commodities* pp.43-45). Crypto used to price
+ * TP1 at 1.5R and the master at 3R, an R-multiple model with no Gann source.
  *
  * A number on the Settings page that the engine does not use is not a
  * rounding error, it is a false statement about the user's risk, and Guided
@@ -31,9 +25,6 @@ import {
   EQUITY_TP1_MIN_PCT,
   EQUITY_TP2_MAX_PCT,
   EQUITY_TP2_MIN_PCT,
-  MASTER_CAP_R,
-  TP1_MULTIPLE_BY_ASSET,
-  TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levelConstants";
 
 const r = (n: number): string => `${n}R`;
@@ -49,25 +40,23 @@ const pctRange = (min: number, max: number): string => `${min}–${max}%`;
 const NO_FIXED_TARGET =
   "Nothing is sold there: the method never fixes a profit objective, so the whole position runs on the trailing stop and the protocol's exit signals.";
 
-/** "First level past the risk, 3-15% on stocks; 1.5R on crypto". */
+/** "First level past the risk, 3-15% from entry". The same on every market. */
 export const TP1_RULE_LABEL =
-  `First key price level that pays more than the risk, ${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} from entry on stocks; ${r(TP1_MULTIPLE_BY_ASSET.crypto)} on crypto`;
+  `First key price level that pays more than the risk, ${pctRange(EQUITY_TP1_MIN_PCT, EQUITY_TP1_MAX_PCT)} from entry`;
 
 export const TP1_RULE_DETAIL =
-  `Stocks: the first key price level (structural or clustered support/resistance) between ${EQUITY_TP1_MIN_PCT}% and ${EQUITY_TP1_MAX_PCT}% from entry that lies farther away than the stop. ` +
+  `Every market (stocks, crypto, and futures, forex and commodities as they arrive): the first key price level (structural or clustered support/resistance) between ${EQUITY_TP1_MIN_PCT}% and ${EQUITY_TP1_MAX_PCT}% from entry that lies farther away than the stop. ` +
   `When no level in that band does, the nearest one is shown and the setup is held from Execute, since a first target no farther than the risk pays even money at best. ` +
-  `With no level in the band at all, the target is set from the stock's own average daily range, inside the same band. ` +
-  `Crypto: ${r(TP1_MULTIPLE_BY_ASSET.crypto)} from entry, or the previous candle's high/low when that structural target is further away. ` +
+  `With no level in the band at all, the target is set from the market's own average daily range, inside the same band. ` +
   NO_FIXED_TARGET;
 
-/** "Next level beyond TP1, up to 25% on stocks; 3R on crypto". */
+/** "Next level beyond TP1, up to 30%". The same on every market. */
 export const MASTER_RULE_LABEL =
-  `Next key price level beyond TP1, up to ${EQUITY_MASTER_CAP_PCT}% on stocks; ${r(TP2_MULTIPLE_BY_ASSET.crypto)} on crypto`;
+  `Next key price level beyond TP1, up to ${EQUITY_MASTER_CAP_PCT}% from entry`;
 
 export const MASTER_RULE_DETAIL =
-  `Stocks: the next key price level at least ${EQUITY_TP1_MIN_PCT}% beyond TP1, up to a ${EQUITY_MASTER_CAP_PCT}% ceiling. ` +
-  `With none there, ${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} of entry, scaled by the stock's average daily range. ` +
-  `Crypto: ${r(TP2_MULTIPLE_BY_ASSET.crypto)}, stepped out to the nearest key price level in range, up to a ${r(MASTER_CAP_R)} ceiling. ` +
+  `Every market: the next key price level at least ${EQUITY_TP1_MIN_PCT}% beyond TP1, up to a ${EQUITY_MASTER_CAP_PCT}% ceiling. ` +
+  `With none there, ${pctRange(EQUITY_TP2_MIN_PCT, EQUITY_TP2_MAX_PCT)} of entry, scaled by the market's average daily range. ` +
   NO_FIXED_TARGET;
 
 /**

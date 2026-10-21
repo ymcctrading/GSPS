@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 interface InboxNotification {
   id: string;
   symbol: string;
-  verdict: "Execute" | "INVALIDATED";
+  verdict: "Execute" | "INVALIDATED" | "Intraday";
   title: string;
   body: string;
   read_at: string | null;
@@ -119,7 +119,7 @@ export function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted">
-                Nothing yet — an Execute setup or an invalidated one you were tracking shows up here.
+                Nothing yet — an Execute setup, an invalidated one you were tracking, or a new intraday signal on a symbol you watch shows up here.
               </p>
             ) : (
               notifications.map((n) => (
@@ -133,7 +133,12 @@ export function NotificationBell() {
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className={cn("font-medium", n.verdict === "INVALIDATED" ? "text-bear" : "text-bull")}>
+                    <span
+                      className={cn(
+                        "font-medium",
+                        n.verdict === "INVALIDATED" ? "text-bear" : n.verdict === "Intraday" ? "text-accent" : "text-bull",
+                      )}
+                    >
                       {n.title}
                     </span>
                     <span className="shrink-0 text-xs text-muted">{formatOpenedAt(n.created_at)}</span>

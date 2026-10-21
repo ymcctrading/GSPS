@@ -61,6 +61,8 @@
  */
 
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
+import { priceFastLevels } from "@/lib/trade/tradeStylePlan";
+import type { TradeStyle } from "@/lib/trade/tradeStyle";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
@@ -235,6 +237,15 @@ export interface ReplayOptions {
    * A setup with no valid plan is skipped, as production publishes none.
    */
   usePlanLevels?: boolean;
+  /**
+   * The trade style walked (`lib/trade/tradeStyle.ts`, 2026-10-21). "fast"
+   * trades Gann's fast-market plan: the same entry and verdict, the stop on
+   * his day stop (3 points beyond the last completed day's low, high for a
+   * short; `lib/gann/dayStop.ts`) and TP1 re-read against that risk, as the
+   * live scan's `fastLevels`. A setup with no tighter day stop trades its
+   * swing plan. Default "swing".
+   */
+  tradeStyle?: TradeStyle;
   /**
    * Skip entries the autonomous portfolio manager holds at a round number by
    * default (`lib/gann/evenFigures.ts#roundNumberEntryBlocked`): an entry just
@@ -932,6 +943,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     weights,
     useProductionStop = false,
     usePlanLevels = false,
+    tradeStyle = "swing",
     roundNumberHold = false,
     entryRule = "reaction",
     exitRule = "bracket",
@@ -1298,9 +1310,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         dropped.noLevels++;
         continue;
       }
-      const planLevels = usePlanLevels ? scored.levels : null;
+      const fastPlan = tradeStyle === "fast" ? scored.fastLevels : null;
+      const planLevels = usePlanLevels ? (fastPlan ?? scored.levels) : null;
       const planned = entryRule === "reaction" ? trigger.reactionEntry : trigger.triggerPrice;
-      const stop = entryRule === "reaction"
+      const stop = fastPlan
+        ? fastPlan.stopLoss
+        : entryRule === "reaction"
         ? trigger.reactionStop
         : planLevels
         ? planLevels.stopLoss
@@ -1929,7 +1944,7 @@ function scoreSetup(input: {
   breakaway: BreakawayReading;
   monthlyWarning: MonthlyBreakWarning | null;
   weights?: CriterionWeights;
-}): { decision: ScanDecision; levels: TradeLevels | null } {
+}): { decision: ScanDecision; levels: TradeLevels | null; fastLevels: TradeLevels | null } {
   const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
@@ -1938,6 +1953,14 @@ function scoreSetup(input: {
   const hourlyTrend = readTrend(hourlyBars, "1Hour");
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
+  // The fast-market plan, priced as the live scan prices `fastLevels`: the
+  // last completed session is the last bar of the daily chart.
+  const lastDay = context.dailyChart[context.dailyChart.length - 1] ?? null;
+  const fastLevels = levels
+    ? priceFastLevels(levels, gannEntrySource(gannTrigger), lastDay, (src) =>
+        computeTradeLevels(src, history[history.length - 2] ?? history[history.length - 1], gannTargetPool(context.gann), undefined, executionAtr, assetClass, largeCap, context.structuralLevels, context.atrPct),
+      )
+    : null;
 
   const decision = withDecisionState(applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
@@ -1971,7 +1994,7 @@ function scoreSetup(input: {
     context.disclosedRules.weakStock, gannTrigger.direction),
     // A-LEVELS-08: the first and second times through a round number hold, as live.
     figureCrossingOf(context.dailyChart, gannTrigger)), gannTrigger.direction);
-  return { decision, levels };
+  return { decision, levels, fastLevels };
 }
 
 /**

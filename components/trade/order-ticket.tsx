@@ -1,6 +1,8 @@
 "use client";
 
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
+import { TradeStylePicker } from "@/components/trade/trade-style-picker";
+import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,7 +77,12 @@ export function OrderTicket({
     scriptId: string | null;
   }) => void;
 }) {
-  const { levels, pattern, symbol } = result;
+  const { pattern, symbol } = result;
+  // The trader's trade style (lib/trade/tradeStyle.ts): Fast reads the same
+  // plan with Gann's day stop, where the scan priced one.
+  const { prefs: gannPrefs, save: saveGannPrefs } = useGannRulePrefs();
+  const tradeStyle = gannPrefs.tradeStyle;
+  const levels = tradeStyle === "fast" && result.fastLevels ? result.fastLevels : result.levels;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
   // `levels`/`result.direction` are Gann's swing-crossing entry trigger
@@ -609,6 +616,14 @@ export function OrderTicket({
           >
             Manual Override
           </button>
+        </div>
+        <div className="mt-2">
+          <TradeStylePicker value={tradeStyle} onChange={(s) => void saveGannPrefs({ tradeStyle: s })} />
+          {tradeStyle === "fast" && result.levels && !result.fastLevels && (
+            <p className="mt-1 text-xs text-muted">
+              The last day&apos;s low gives no tighter stop than the swing plan here, so the swing plan&apos;s levels stand.
+            </p>
+          )}
         </div>
         {belowExecute && (
           <p className="mt-2 text-xs text-muted">

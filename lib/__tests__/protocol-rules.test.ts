@@ -14,8 +14,6 @@ import {
   EQUITY_TP1_MIN_PCT,
   EQUITY_TP2_MAX_PCT,
   EQUITY_TP2_MIN_PCT,
-  TP1_MULTIPLE_BY_ASSET,
-  TP2_MULTIPLE_BY_ASSET,
 } from "@/lib/strat/levels";
 import { EXECUTE_SCORE_THRESHOLD, TOTAL_POINTS } from "@/lib/scoring/weights";
 import {
@@ -45,7 +43,15 @@ describe("the advertised targets match the priced ones", () => {
   // to express an R-multiple against — see lib/strat/levels.ts's own
   // comment), so these two now check the equity model's own claim against
   // the constants it's generated from, rather than an R-multiple. Crypto
-  // still prices a fixed R-multiple; that half of each label is unchanged.
+  // priced a fixed R-multiple until 2026-10-21; now every market takes the
+  // same level plan.
+  it("prices crypto on the same level plan as stocks, with no R-multiple", () => {
+    const stock = computeTradeLevels(pattern, previousBar, [], undefined, undefined, "us_equity");
+    const coin = computeTradeLevels(pattern, previousBar, [], undefined, undefined, "crypto");
+    expect(coin.takeProfit1).toBe(stock.takeProfit1);
+    expect(coin.masterProfit).toBe(stock.masterProfit);
+  });
+
   it("prices the stock TP1 inside the percentage range the copy names", () => {
     const levels = computeTradeLevels(pattern, previousBar, [], undefined, undefined, "us_equity");
     const targetPct = (Math.abs(levels.takeProfit1 - levels.entry) / levels.entry) * 100;
@@ -53,7 +59,8 @@ describe("the advertised targets match the priced ones", () => {
     expect(targetPct).toBeLessThanOrEqual(EQUITY_TP1_MAX_PCT);
     expect(TP1_RULE_LABEL).toContain(`${EQUITY_TP1_MIN_PCT}`);
     expect(TP1_RULE_LABEL).toContain(`${EQUITY_TP1_MAX_PCT}`);
-    expect(TP1_RULE_LABEL).toContain(String(TP1_MULTIPLE_BY_ASSET.crypto));
+    // 2026-10-21: no R-multiple on any market any more.
+    expect(TP1_RULE_LABEL).not.toMatch(/\dR\b/);
     // The fixed-R claim that was on the Settings page for a year, now wrong
     // for a different reason (equities don't price an R-multiple at all).
     expect(levels.rewardToRiskTp1).not.toBe(2);
@@ -67,7 +74,7 @@ describe("the advertised targets match the priced ones", () => {
     expect(MASTER_RULE_DETAIL).toContain(`${EQUITY_TP2_MIN_PCT}`);
     expect(MASTER_RULE_DETAIL).toContain(`${EQUITY_TP2_MAX_PCT}`);
     expect(MASTER_RULE_LABEL).toContain(`${EQUITY_MASTER_CAP_PCT}`);
-    expect(MASTER_RULE_LABEL).toContain(String(TP2_MULTIPLE_BY_ASSET.crypto));
+    expect(MASTER_RULE_LABEL).not.toMatch(/\dR\b/);
   });
 
   // R-007 (2026-10-21): since Q14 nothing sells at a fixed target, and the

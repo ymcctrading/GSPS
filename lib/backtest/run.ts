@@ -123,6 +123,8 @@ export interface BacktestRequest {
   usePlanLevels?: boolean;
   /** Add to winners on Gann's pyramiding rules. See `ReplayOptions.pyramid`. */
   pyramid?: boolean;
+  /** The trade style walked. See `ReplayOptions.tradeStyle`. Defaults to `"swing"`. */
+  tradeStyle?: ReplayOptions["tradeStyle"];
   /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"reaction"`, the production rule. */
   entryRule?: ReplayOptions["entryRule"];
   /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
@@ -246,6 +248,8 @@ export interface BacktestReport {
   usePlanLevels: boolean;
   /** Echoes the request: a report has to say which entry rule produced it. */
   entryRule: "stop" | "confirmed" | "reaction";
+  /** Echoes the request: a report has to say which trade style produced it. */
+  tradeStyle: "swing" | "fast";
   /** Echoes the request: a report has to say which exit rule produced it. */
   exitRule: "bracket" | "gann" | "gann-runner";
   /** Echoes the request: the Gann exit rules switched off for this cell (empty for production's rules). */
@@ -485,6 +489,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     disableExits,
     reclaimPoints,
     profile = "swing",
+    tradeStyle,
   } = request;
   // Rejected before any fetch, so a misspelt rule fails at once rather than
   // as every symbol skipped (replay() throws the same error per symbol).
@@ -506,6 +511,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
     ...(usePlanLevels !== undefined ? { usePlanLevels } : {}),
     ...(pyramid !== undefined ? { pyramid } : {}),
+    ...(tradeStyle !== undefined ? { tradeStyle } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
     ...(exitRule !== undefined ? { exitRule } : {}),
     ...(disableExits !== undefined ? { disableExits } : {}),
@@ -648,7 +654,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing" } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing" } = request;
 
   const split = byOutputState(run.overall);
   const derived = byDerived(run.overall);
@@ -689,6 +695,7 @@ export function buildReport(
     useProductionStop,
     usePlanLevels,
     entryRule,
+    tradeStyle,
     exitRule,
     disableExits: [...resolveDisableExits(disableExits)],
     reclaimPoints,
