@@ -981,13 +981,29 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     return arm;
   };
 
+  // One execution bar per session (a 1Day replay). The reaction and confirmed
+  // rules act on a closed bar and fill at the next bar's open, so the plan a
+  // closed bar is read against is the one its own session armed, priced from
+  // the sessions before it. On intraday bars that is the live candle's session
+  // too. On daily bars it is the session before the live candle's: reading the
+  // live session's plan instead tested the closed bar against a plan priced
+  // from that same bar, so a crossing or an old level it traded into was
+  // already spent and offered no plan, and a held bottom's entry, that bar's
+  // own close, was always traded into (2026-10-21, daily entry kinds). A stop
+  // entry fills on the live candle, so it keeps the live session's plan.
+  const sessionBars = bars.length > 1 && bars.every((b, j) => j === 0 || b.t.slice(0, 10) !== bars[j - 1].t.slice(0, 10));
+  const closedBarRule = entryRule === "reaction" || entryRule === "confirmed";
+
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(0, i);
     const live = bars[i]; // the candle a resting order may fill on
-    const date = live.t.slice(0, 10);
+    const closedSession = sessionBars && closedBarRule;
+    const date = closedSession ? history[history.length - 1].t.slice(0, 10) : live.t.slice(0, 10);
     const lastClose = history[history.length - 1].c;
+    // The price the session's scan read: the last close before the session.
+    const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
-    const arm = sessionArm(date, lastClose);
+    const arm = sessionArm(date, armPrice);
     if (!arm) continue;
 
     for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
@@ -1021,6 +1037,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // read: what it did first cannot be told, so its stop is left to the
       // bracket walk as before.
       let planStop = sessionPlanStops.get(planKey);
+      const firstRead = planStop === undefined;
       if (planStop === undefined) {
         const plan = priceTradeLevels({
           context: arm.context,
@@ -1033,11 +1050,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         planStop = plan?.stopLoss ?? null;
         sessionPlanStops.set(planKey, planStop);
         sessionPlanPaths.set(planKey, plan ? { entry: plan.entry, takeProfit1: plan.takeProfit1 } : null);
-        if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+        // On daily bars the scan's last close is the session before; the
+        // session's one closed bar is read by the bar test below.
+        if (!closedSession && planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
           brokenPlans.add(planKey);
           retiredSessionPlans.add(planKey);
         }
-      } else if (planStop !== null) {
+      }
+      if ((!firstRead || closedSession) && planStop !== null) {
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) === date) {
           if (isStopBreachedByBar(trigger.direction, planStop, closed)) {

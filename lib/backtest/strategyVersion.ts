@@ -574,4 +574,12 @@
 // year's digit) while the replay of the same session read the current one;
 // on 31 August 2026 that flipped P1 from bullish to mixed. Evening scans on a
 // month's last day move; the replay, which reads the session's noon, does not.
-export const STRATEGY_VERSION = "2026-10-21-gann-decade-month-et";
+// 2026-10-21-replay-daily-closed-session: on a 1Day replay the reaction and
+// confirmed rules read each closed bar against the plan its own session armed
+// (priced from the sessions before it) and fill at the next session's open.
+// Before, the closed bar was read against the next session's plan, priced from
+// that same bar, so a crossing or an old level it traded into was already
+// spent and never filled, and a held bottom's entry, that bar's own close, was
+// always traded into: the six-year 1Day run put all 4,479 trades under "hold".
+// 1Day replay trades move; intraday replays, the live scan and verdicts do not.
+export const STRATEGY_VERSION = "2026-10-21-replay-daily-closed-session";

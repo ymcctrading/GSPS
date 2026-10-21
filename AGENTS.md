@@ -661,6 +661,28 @@ row stores none) and stays in its list; saved setups are not bucketed by verdict
 and get the card's sentence only; the intraday alerts are not read (they are
 priced from the session in progress).
 
+**Daily replay entry kinds, 2026-10-21 (six-year 1Day universe run: all 4,479
+trades under "hold", crossing 0, oldLevel 0; the 15-minute run split 1,332,
+840 and 1,427).** One replay defect, fixed. The reaction and confirmed rules
+act on a closed bar and fill at the next bar's open, but the replay read that
+closed bar against the live bar's session plan. On intraday bars that is the
+closed bar's own session; on daily bars it is the next one, priced from the
+closed bar itself. So a crossing or an old level the bar traded into was
+already spent on that chart and offered no plan, and a held bottom's entry
+(that bar's own close) was always traded into. On a 1Day replay
+(`sessionBars`) the closed bar is now read against its own session's plan,
+priced from the sessions before it, and the next session's open fills it,
+as production's confirmation reads the bars after a plan is made. Random
+walks, before → after: 0 → 10 crossings, 0 → 20 old levels, 0 → 66 holds
+over six seeds (`dailyEntryKinds.test.ts`). Intraday replays, the live scan
+and verdicts are unchanged. The run's `armed` (1,730,892) is not fills: it
+counts each plan once per session it stood (about 1.4 a symbol-session over
+828 symbols and some 1,500 sessions, of at most 2: the reversion and the
+with-trend point),
+before the breach, distribution and failed-top checks and the zone test.
+`STRATEGY_VERSION` is `2026-10-21-replay-daily-closed-session`; the 1Day run
+needs repeating on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
