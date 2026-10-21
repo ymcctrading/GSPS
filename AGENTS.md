@@ -1953,6 +1953,25 @@ same session; it is kept as the concrete artifact rather than folded away,
 the same way `lib/gann/entryTrigger.ts` is a standing worked example rather
 than a paragraph summarizing it.
 
+## The Law of Creation — fourth question of the mandate (2026-10-21, project owner)
+
+"Add this to the same memory bank that our mandate, roadmaps, parities and
+memory [live in] so every session implements it by default." The owner's
+Multi-Dimensional Creation Equation is in
+`docs/memory-bank/LAW_OF_CREATION.md`, kept as he gave it: two complementary
+entities that truly interact produce a third neither contained
+(a ⊗ b = a + b + I(a,b)·ab, so 1 ⊗ 1 = 3), while a pair that does not interact
+is a mixture (1 + 1 = 2); the created third can interact again; substance is
+conserved, form is created. **Every session applies it by default** as a fourth
+question beside the three-question mandate above, while conceiving a concept:
+name the complementary pair, say whether the join is a creation or only a
+mixture, and where a created third exists, what it is and where it re-enters.
+Same discipline as the Hermetic lens: it shapes design and reasoning and is
+never evidence. It cannot move a threshold, weight, gate or verdict, and its
+counting results (2ⁿ − 1, the chain, 3ⁿ) are interpretive by the owner's own
+tier, never market numbers. Worked readings (price ⊗ time, level ⊗ close,
+novice ⊗ expert, live scan ⊗ replay) are in that file.
+
 ## Cycles as architecture, not only scoring — standing direction (2026-09-23, project owner)
 
 The Hermetic principle of Rhythm — everything flows, out and in; a cycle
