@@ -112,15 +112,6 @@ export function SetupCardPanel({
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         {headline}
-        {model.alignmentScore != null && (
-          <span
-            className="text-xs text-muted"
-            title="How closely this setup matches the platform's rules, 0 to 100"
-          >
-            Rules alignment {Math.round(model.alignmentScore)}/100
-            {model.signal ? ` (${model.signal.tierLabel})` : ""}
-          </span>
-        )}
         {model.resting && (
           <Badge variant="muted" title="The entry is more than a day's range from price: an order resting at its level, not a trade to take today.">
             Resting order
@@ -175,14 +166,6 @@ export function SetupCardPanel({
               </ul>
               {model.stateNote && <p className="text-xs text-muted">{model.stateNote}</p>}
             </div>
-          )}
-
-          {model.signal && (
-            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-              Signal Engine read:
-              <Badge variant={model.signal.tradeable ? "bull" : "muted"}>{model.signal.tierLabel}</Badge>
-              <span>{model.signal.stateLabel}</span>
-            </p>
           )}
 
           {(model.higherTimeframes || model.patternLabel) && (
