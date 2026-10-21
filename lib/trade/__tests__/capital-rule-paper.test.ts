@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const sim = vi.hoisted(() => ({
   cash: 10_000,
   open: [] as { symbol: string; asset_class: string; qty: number; avg_entry_price: number; stop_loss: number | null }[],
+  working: [] as { id: string; symbol: string; side: "buy" | "sell"; qty: number; price: number; stop: number | null }[],
 }));
 vi.mock("@/lib/brokers/simulator", async () => {
   const actual = await vi.importActual<typeof import("@/lib/brokers/simulator")>("@/lib/brokers/simulator");
@@ -16,6 +17,7 @@ vi.mock("@/lib/brokers/simulator", async () => {
     getOpenPosition: async () => null,
     getOrCreateAccount: async () => ({ cash: sim.cash }),
     listOpenPositions: async () => sim.open,
+    listWorkingPaperEntries: async () => sim.working,
   };
 });
 vi.mock("@/lib/trade/kill-switch", async () => {
@@ -59,6 +61,7 @@ describe("the capital rules on a paper order", () => {
   beforeEach(() => {
     sim.cash = 10_000;
     sim.open = [];
+    sim.working = [];
   });
 
   it("refuses a sixth stock and lets a held one add (A-RISK-08, never-failing rule 8)", async () => {
@@ -74,6 +77,28 @@ describe("the capital rules on a paper order", () => {
     const r = await place({ qty: 150 });
     expect(r.body.code).toBe("capital_per_share");
     expect((await place({ qty: 50 })).body.code).not.toBe("capital_per_share");
+  });
+
+  it("counts resting entries in the book: two resting limits can't open a sixth stock (review 2026-10-21)", async () => {
+    // Four stocks held and one limit resting in a fifth: a second resting
+    // limit in a sixth name is refused at placement, as it would be once the
+    // first had filled.
+    sim.open = [held("MSFT"), held("NVDA"), held("XOM"), held("JPM")];
+    sim.working = [{ id: "o1", symbol: "KO", side: "buy", qty: 1, price: 60, stop: 57 }];
+    expect((await place({ symbol: "PEP" })).body.code).toBe("max_open_symbols");
+    // Adding to the name already resting is not a new stock.
+    expect((await place({ symbol: "KO" })).body.code).not.toBe("max_open_symbols");
+    // Without the resting order the fifth stock is room left.
+    sim.working = [];
+    expect((await place({ symbol: "PEP" })).body.code).not.toBe("max_open_symbols");
+  });
+
+  it("counts resting entries' shares against the capital a share (A-RISK-01)", async () => {
+    // Equity 10,000, nothing held, about 49.77 of capital a share at 100: 150
+    // shares resting take about 7,465 of it, so 90 more is too many and 40 fits.
+    sim.working = [{ id: "o1", symbol: "MSFT", side: "buy", qty: 150, price: 100, stop: 95 }];
+    expect((await place({ qty: 90 })).body.code).toBe("capital_per_share");
+    expect((await place({ qty: 40 })).body.code).not.toBe("capital_per_share");
   });
 
   it("leaves an option order to the option rules", async () => {

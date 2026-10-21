@@ -52,7 +52,7 @@ function amdPlan(overrides: Record<string, unknown> = {}) {
 }
 
 /** A chainable stand-in for the Supabase query builder. */
-function stubSupabase(plan: Record<string, unknown>) {
+function stubSupabase(plan: Record<string, unknown>, sourcePlanId: string | null = null) {
   const updates: Record<string, unknown>[] = [];
   const inserts: { table: string; row: unknown }[] = [];
   const from = (table: string) => {
@@ -75,7 +75,10 @@ function stubSupabase(plan: Record<string, unknown>) {
         inserts.push({ table, row });
         return Promise.resolve({ error: null });
       },
-      maybeSingle: () => Promise.resolve({ data: mode === "update" ? { id: plan.id } : null }),
+      maybeSingle: () =>
+        Promise.resolve({
+          data: mode === "update" ? { id: plan.id } : table === "orders" && sourcePlanId ? { source_plan_id: sourcePlanId } : null,
+        }),
       then: (resolve: (v: unknown) => unknown) =>
         resolve(mode === "select" && table === "protocol_exits" ? { data: [plan], error: null } : { data: null, error: null }),
     });
@@ -107,10 +110,12 @@ describe("manageSimulatedExits — a stop already applied", () => {
     const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
     expect(log).toMatchObject({ exit_condition: "stop_loss", quantity: 3, exit_price: 601.6 });
     // A person placed this trade, so the reversal is offered, not placed (Q15).
-    expect(run.notes.some((n) => n.includes("reverse") && n.includes("sell short at 601.60") && n.includes("Nothing was placed"))).toBe(true);
+    // It enters at the stop that broke (618), not the quote that gapped through it.
+    expect(run.notes.some((n) => n.includes("reverse") && n.includes("sell short at 618.00") && n.includes("Nothing was placed"))).toBe(true);
+    expect(run.notes.some((n) => n.includes("sell short at 601.60"))).toBe(false);
   });
 
-  it("reverses at the price the last shares left at, not the blend with TP1 (2026-10-21)", async () => {
+  it("reverses at the stop, not the blend with TP1 (2026-10-21)", async () => {
     quotePrice.mockResolvedValue(601.6);
     // 2 shares already out at TP1 (650); the last share is stopped at the market.
     const { client, inserts } = stubSupabase(amdPlan({ scale_out_order_id: "sim-tp1", scale_out_fill_price: 650 }));
@@ -120,8 +125,24 @@ describe("manageSimulatedExits — a stop already applied", () => {
     const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
     // The trade log keeps the blended price for P&L: (2 × 650 + 601.6) / 3.
     expect(log.exit_price as number).toBeCloseTo((2 * 650 + 601.6) / 3, 6);
-    expect(run.notes.some((n) => n.includes("sell short at 601.60"))).toBe(true);
+    expect(run.notes.some((n) => n.includes("sell short at 618.00"))).toBe(true);
     expect(run.notes.some((n) => n.includes("sell short at 633.87"))).toBe(false);
+  });
+
+  it("reverses an automated trade at the stop when the quote gaps through it", async () => {
+    // Stop 618; the quote opens at 590, well through it. The fill is at the
+    // market, as a triggered stop-market's would be, but the reversal enters at
+    // the stop, as the replay and the broker exit manager do.
+    quotePrice.mockResolvedValue(590);
+    const { client } = stubSupabase(amdPlan({ entry_order_id: "ord-1" }), "tp-1");
+    const stopOut = vi.mocked((await import("@/lib/automation/stop-out")).handleAutomatedStopOut);
+    stopOut.mockClear();
+
+    await manageSimulatedExits(client, "user-1");
+
+    for (const [, , fill] of executeFill.mock.calls) expect(fill).toMatchObject({ price: 590 });
+    expect(stopOut).toHaveBeenCalledTimes(1);
+    expect(stopOut.mock.calls[0][2]).toMatchObject({ planId: "tp-1", cause: "stop", brokenLevel: 618, exitPrice: 590 });
   });
 
   it("offers to buy again on the reaction when the trend still runs up (A-PYRAMID-07)", async () => {

@@ -5,10 +5,10 @@ import {
   remainingSetupsDisplayable,
   type ProIntradayUsage,
 } from "@/lib/promotion/pro-intraday";
+import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 
 const CLEAN: ProIntradayUsage = {
   setupsDisplayedToday: 0,
-  entriesToday: 0,
   concurrentOpen: 0,
   consecutiveLosses: 0,
   dailyLossPct: 0,
@@ -47,10 +47,10 @@ describe("canEnterNewIntradayPosition", () => {
     expect(decision.reason).toMatch(/concurrent/i);
   });
 
-  it("blocks at today's entry ceiling", () => {
-    const decision = canEnterNewIntradayPosition({ ...CLEAN, entriesToday: 2 }, 10);
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toMatch(/entry-limit|entry limit|2-entry/i);
+  it("keeps no count of entries a day (Q8, R-019, 2026-10-21)", () => {
+    // Under the concurrent ceiling, a new entry goes ahead however many came before it today.
+    expect(canEnterNewIntradayPosition({ ...CLEAN, concurrentOpen: 1 }, 10).allowed).toBe(true);
+    expect(Object.keys(DEFAULT_PRO_INTRADAY_POLICY)).not.toContain("newEntriesPerDayDefault");
   });
 });
 
