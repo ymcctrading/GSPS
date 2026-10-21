@@ -36,6 +36,7 @@ import {
   parseCriterionWeights,
   type CriterionWeights,
 } from "@/lib/scoring/weights";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 /** Long enough that a batch scan makes one query; short enough that promoting a
  * model takes effect within a minute. */
@@ -127,7 +128,7 @@ async function load(now: number): Promise<Cached> {
 async function fetchLiveWeights(now: number): Promise<Cached> {
   const fallback: Cached = { weights: DEFAULT_CRITERION_WEIGHTS, version: null, at: now };
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !serviceRoleKey()) {
     return fallback;
   }
 
