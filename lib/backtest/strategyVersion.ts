@@ -488,4 +488,10 @@
 // Three were not production's. The yearly cycles count the same months on both
 // (`yearCycleMonths`: closed months, ten years back, at the session's noon).
 // Replay readings that touch the weekly chart move; the live verdict does not.
-export const STRATEGY_VERSION = "2026-10-20-gann-weekly-parity";
+// 2026-10-20-gann-time-pillar-no-window: P7 (time) scores price and time
+// squared AND the reaction inside its time limit; the dated window is no longer
+// one of its checks (it was open on 100% of random-walk turns). The pillar is
+// read in pillars.ts on the live scan and the replay alike;
+// `applyTimeWindowHold` still needs a window for a counter-trend Execute.
+// Pending the owner's choice. P7 and so some scores move.
+export const STRATEGY_VERSION = "2026-10-20-gann-time-pillar-no-window";

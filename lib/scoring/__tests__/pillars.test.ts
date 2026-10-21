@@ -1,11 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   MIN_ANNUAL_RANGE_POINTS,
+  TIME_PILLAR_COMBINE,
   activityPillar,
   anglesPillar,
   definiteIndicationPillar,
   marketCyclePillar,
   priceLevelsPillar,
+  reactionInTimeLimit,
   readAngleFacts,
   relativeStrengthPillar,
   timePillar,
@@ -159,22 +161,21 @@ describe("time", () => {
   const withTrend = (phase: "normal" | "secondMonth", inCounterMove = true) =>
     facts({ counterMove: { trend: "bullish", inCounterMove, phase } });
 
-  it("passes on price and time squared with the reaction in its limit, without reading the window", () => {
-    const windowTurn = vi.fn(() => null);
-    expect(timePillar({ side: "bullish", squared: true, facts: withTrend("normal"), windowTurn }).passed).toBe(true);
-    expect(windowTurn).not.toHaveBeenCalled();
+  it("needs both price and time squared and the reaction in its limit; the dated window is not a check", () => {
+    expect(TIME_PILLAR_COMBINE).toBe("and");
+    expect(timePillar({ side: "bullish", squared: true, facts: withTrend("normal") }).passed).toBe(true);
+    expect(timePillar({ side: "bullish", squared: false, facts: withTrend("normal") }).passed).toBe(false);
+    expect(timePillar({ side: "bullish", squared: true, facts: withTrend("secondMonth") }).passed).toBe(false);
+    const note = timePillar({ side: "bullish", squared: true, facts: withTrend("normal") }).note;
+    expect(note).toContain("Both are needed");
+    expect(note).not.toMatch(/window/i);
   });
 
-  it("reads the window only when it decides the point", () => {
-    const open = vi.fn(() => ({ kind: "bottom" as const, date: "2026-10-01", price: 1, windows: ["90 days"] }));
-    expect(timePillar({ side: "bullish", squared: true, facts: withTrend("secondMonth"), windowTurn: open }).passed).toBe(true);
-    expect(open).toHaveBeenCalledTimes(1);
-    const shut = vi.fn(() => null);
-    expect(timePillar({ side: "bullish", squared: false, facts: withTrend("normal"), windowTurn: shut }).passed).toBe(false);
-    expect(shut).toHaveBeenCalledTimes(1);
-    const none = vi.fn(() => null);
-    expect(timePillar({ side: "bullish", squared: false, facts: withTrend("secondMonth"), windowTurn: none }).passed).toBe(false);
-    expect(none).not.toHaveBeenCalled();
+  it("reads a counter-trend move that has outrun its limit as in time, mirrored for a short", () => {
+    const against = facts({ counterMove: { trend: "bearish", inCounterMove: true, phase: "secondMonth" } });
+    expect(reactionInTimeLimit("bullish", against)).toBe(true);
+    expect(reactionInTimeLimit("bearish", against)).toBe(false);
+    expect(reactionInTimeLimit("bullish", null)).toBe(false);
   });
 
   it("counts a with-trend reaction into its second month, or an abnormal one, as out of its limit", () => {

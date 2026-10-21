@@ -367,6 +367,17 @@ week in progress built from completed sessions (`levelCharts`). The yearly
 cycles count the same closed months on both (`yearCycleMonths`). The monthly
 chart already matched. `pillarParity.test.ts` compares all three trends.
 `STRATEGY_VERSION` is `2026-10-20-gann-weekly-parity`.
+**P7 without the dated window, 2026-10-20, pending the owner's choice.** The
+time pillar (`timePillar`, `lib/scoring/pillars.ts`) now needs price and time
+squared AND the reaction inside its time limit (`TIME_PILLAR_COMBINE`); the
+dated window is not one of its checks. On 400 random walks the window was open
+on 100% of turns, 99.2% with the Square of Nine's 22.5° lines and the Hexagon
+excluded, 93% when two different families had to converge, and 71% for three,
+so none made it selective (branch `p7cardinal` holds those builds, unshipped).
+"And" is the spec's "2 of 3" with one check gone; it passes on 11.6% of
+random-walk readings ("or" 59.5%, mostly the reaction clock alone).
+`applyTimeWindowHold` is unchanged: a counter-trend Execute still needs its turn
+on a window. `STRATEGY_VERSION` is `2026-10-20-gann-time-pillar-no-window`.
 
 ## WD Gann precedence — standing principle
 

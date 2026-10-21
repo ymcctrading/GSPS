@@ -1723,7 +1723,6 @@ function scoreSetup(input: {
       setupKind,
       atrPct: context.atrPct,
       pillarFacts: context.pillarFacts,
-      windowTurn: () => context.windowTurn(gannTrigger.direction),
       ...(weights ? { weights } : {}),
     }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
     context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),

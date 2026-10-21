@@ -219,8 +219,6 @@ export interface ScoreInputs {
    * scan and the replay. Absent, the pillars that need them fail.
    */
   pillarFacts?: PillarFacts | null;
-  /** The dated time window at the turn, read only when it decides the time point. */
-  windowTurn?: (() => WindowTurn | null) | null;
 }
 
 /** Plain-language read of Gann's volume rule at the anchor (see `lib/gann/volumeClimax.ts`). */
@@ -284,7 +282,6 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     setupKind = "reversion",
     weights = DEFAULT_CRITERION_WEIGHTS,
     pillarFacts = null,
-    windowTurn = null,
   } = inputs;
 
   // 2026-09-10: replaces macroTrend. macroTrend's monthly/weekly/daily
@@ -592,7 +589,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     point("activity", "Activity and character", "setup", activityPillar(pillarFacts)),
     point("priceLevels", "Price levels", "structure", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
     point("geometricAngles", "Angles", "structure", anglesPillar(pillarFacts, direction, angleHolding)),
-    point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts, windowTurn })),
+    point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts })),
     point("volumeAccumulation", "Volume and accumulation", "setup", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
     point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, patternValid, stopBehindOldLevel)),
   );
