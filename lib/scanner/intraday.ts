@@ -1334,7 +1334,9 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     : `${input.symbol} reacted to its daily plan's entry at ${plan.entry.toFixed(2)}, held, and the session's swing chart turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
   checks.push({ name, passed: true, detail: cause });
 
-  const move = measureMove(m.last, plan.entry, "plan_entry");
+  // Measured from the closed bar, as the plan's entry and its pays-the-risk
+  // test are: Gann's rules act on a close, not an intraday poke.
+  const move = measureMove(entry, plan.entry, "plan_entry");
   if (!move) return null;
   const factors: ConfidenceFactor[] = [
     {
@@ -1371,7 +1373,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     factors,
     invalidation: stop,
     plan: sessionPlan,
-    whyThisAppeared: `${cause} The stop goes one point ${up ? "under" : "over"} that ${up ? "bottom" : "top"}, at ${stop.toFixed(2)}, much closer than the daily stop; the targets stay the daily plan's${plan.tp1 != null ? `, ${plan.tp1.toFixed(2)}` : ""}${plan.mtp != null ? ` and ${plan.mtp.toFixed(2)}` : ""}, because the money is made on the swing, not the day.`,
+    whyThisAppeared: `${cause} The stop goes 3 points ${up ? "under" : "over"} the day's ${up ? "low" : "high"}, at ${stop.toFixed(2)}, never past the daily plan's own stop; the targets stay the daily plan's${plan.tp1 != null ? `, ${plan.tp1.toFixed(2)}` : ""}${plan.mtp != null ? ` and ${plan.mtp.toFixed(2)}` : ""}, because the money is made on the swing, not the day.`,
   });
 }
 

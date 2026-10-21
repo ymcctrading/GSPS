@@ -17,6 +17,12 @@ import type { DailyPlanLevels } from "@/lib/scanner/intraday";
  *
  * A Reject has no plan to time, so it is left out. A read failure leaves the
  * map empty, and "Daily plan's level held" simply doesn't fire.
+ *
+ * The lists are read from their latest scan date only (review, 2026-10-21):
+ * `daily_scans` keeps a row per scan date, so a plan an older day listed and
+ * the latest scan dropped is no longer the symbol's plan. In Gann's method a
+ * new reading of the swing structure replaces the old plan; it is never
+ * resumed from older levels (NSTD Rule 6; AGENTS.md, F3.7).
  */
 export async function loadDailyPlans(
   supabase: SupabaseClient,
@@ -37,15 +43,24 @@ export async function loadDailyPlans(
     .not("stop_loss", "is", null);
   if (userId) monitors = monitors.eq("profile_id", userId);
 
-  const [{ data: monitorRows }, { data: scanRows }] = await Promise.all([
-    monitors,
-    supabase
+  const latestScan = async () => {
+    const { data: latest } = await supabase
+      .from("daily_scans")
+      .select("scan_date")
+      .order("scan_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!latest?.scan_date) return { data: [] };
+    return supabase
       .from("daily_scans")
       .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at")
+      .eq("scan_date", latest.scan_date)
       .in("symbol", symbols)
       .in("output_state", ["Execute", "Watch"])
-      .gte("updated_at", since.toISOString()),
-  ]);
+      .gte("updated_at", since.toISOString());
+  };
+
+  const [{ data: monitorRows }, { data: scanRows }] = await Promise.all([monitors, latestScan()]);
 
   const consider = (row: {
     symbol: string;

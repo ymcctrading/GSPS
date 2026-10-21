@@ -674,6 +674,14 @@
 // and M-K5 on crypto move, live and replay alike. Adds the fast-market plan
 // (`fastLevels`, Gann's day stop) beside the swing plan, and the replay's
 // `tradeStyle` option to walk it; the default replay is unchanged.
+// 2026-10-21-gann-group-rank-review: review of #388. The major-group fallback
+// counts only the stocks left without an industry group, so no group is under
+// five (762 symbols in 58 groups, was 778 in 65 with groups of one); a group's
+// strongest is a quarter of its members rounded down, at least one (a
+// percentile cut passed the top 2 of 5); and the group rank counts only in a
+// group not itself in the universe's weakest quarter (strongest, for a short),
+// since Gann ranks the groups before the stocks in them (TST Ch. XVI-XVII).
+// Scores and list order move, live and replay alike.
 // 2026-10-21-gann-fast-trail-after-fill: review of #405. The Fast style
 // opens on the swing plan's entry and stop (Rule 3, W006 pp.46-47) and trails
 // 3 points under each completed day's low from the fill's session
@@ -681,5 +689,6 @@
 // alike; `fastLevels` and its day stop before the fill are gone. Every named
 // market's plan is now refused when its rounded levels are not a priced plan
 // (F-02's check, which crypto lost on the previous version). Swing verdicts
-// and trades are unchanged except plans that round onto themselves.
+// and trades are unchanged except plans that round onto themselves. Merged
+// onto 2026-10-21-gann-group-rank-review, whose rank it keeps.
 export const STRATEGY_VERSION = "2026-10-21-gann-fast-trail-after-fill";

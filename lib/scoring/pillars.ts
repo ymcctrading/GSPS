@@ -83,7 +83,7 @@ export interface PillarFacts {
     strongest: boolean;
     weakest: boolean;
     /** The same rank within its industry group (S4); null without a group read. */
-    group: { label: string; percentile: number; peers: number; strongest: boolean; weakest: boolean } | null;
+    group: { key: string; label: string; percentile: number; peers: number; groupPercentile: number; strongest: boolean; weakest: boolean } | null;
   } | null;
   /** Q24's queer-acting stock; null when too few rules resolved to say. */
   queer: boolean | null;
@@ -250,7 +250,7 @@ export function readPillarFacts(input: {
             strongest: r.strongest,
             weakest: r.weakest,
             group: r.group
-              ? { label: r.group.label, percentile: r.group.percentile, peers: r.group.peers, strongest: r.group.strongest, weakest: r.group.weakest }
+              ? { key: r.group.key, label: r.group.label, percentile: r.group.percentile, peers: r.group.peers, groupPercentile: r.group.groupPercentile, strongest: r.group.strongest, weakest: r.group.weakest }
               : null,
           }
         : null;
@@ -351,7 +351,7 @@ export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: 
   const passed = twoOf(led, firstYear, strength);
   return {
     passed,
-    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}` : ""})` : ""}. Two of three are needed.`,
+    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}, the group itself ${Math.round(r.group.groupPercentile * 100)} of 100 in the universe` : ""})` : ""}. Two of three are needed.`,
   };
 }
 
