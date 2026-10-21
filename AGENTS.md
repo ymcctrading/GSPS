@@ -571,10 +571,35 @@ allowance: on random walks it passes 71-79% for either side, because that swing
 is narrower than twice the allowance on 99% of readings at $20 and 41% at $500,
 so the divisions sit inside one allowance. Gann divides the major range ("on a
 basis of 100", Ch. 6; "50% of the highest price, then of the range", 45 Years
-Ch. IV); which range to divide is the owner's call. P5's failures are prices
+Ch. IV); answered the same day from Gann (next entry). P5's failures are prices
 clear of that swing, a market reading, not a mirror or bar fault.
 `STRATEGY_VERSION` was `2026-10-21-gann-decade-in-year-turns`; P1 and the 6/3.5
 cutoffs need a fresh run on it.
+
+**P5's percentage levels, 2026-10-21 (diagnosis: P5(b) passed on 64-74% of
+random walks whichever side was asked).** One translation defect, fixed: the
+check divided only the last daily swing (4-bar pivots), a minor move usually
+narrower than twice the 3-point allowance. Gann divides the major ranges, in
+this order: the extreme range, the highest price, then each campaign of a year
+or more, each by 8 and by 3 (Master Course Ch. 9, PDF 263-264; *Commodities*
+pp. 34-35: "the most important point is the 50% of the extreme range"), with
+50% first (45 Years Ch. IV; Master Course PDF 11: "50% of the highest price.
+Next: 50% of the range") and Ch. 6's tiers among the rest. Now
+`lib/gann/rangeDivisions.ts`, read once in `readPillarFacts`
+(`PillarFacts.rangeLevels`) for both surfaces, in the right role, within the
+3-point allowance. The last swing's divisions stay on the card. Engineering
+choices, labelled: the life range is the record both hold (the monthly level
+chart and the sessions), a campaign is two monthly swing extremes a year or more
+apart and only the latest is divided, and the 1/16 points (kept for "great
+ranges") are left out. Random walks, long/short: $20 82/76%, $50 70/71%, $150
+58/53%, $500 40/38% (before 72/74, 70/72, 68/67, 64/63); the wide allowance at
+low prices keeps it loose there, held for the owner (50% points alone: 20%,
+14%, 9%, 5%). Same day: `historicalSR` now reads the nearest in-band level of
+the wanted role (`nearestLevelMatchByRole`, `srMatchForSide`), as score.ts
+said, not the nearest of either role then failed on its side; a level is
+support below price and resistance above it (W006 pp.19-24). `STRATEGY_VERSION`
+was `2026-10-21-gann-major-range-levels`; Execute and the 6/3.5 cutoffs need a
+fresh run on it.
 
 **Senior code review fixes, 2026-10-21 (owner: "Fill known gaps as Gann
 would").** The live scan's dated reads take the session's noon UTC, as the
@@ -588,11 +613,13 @@ risks its premium under rule 1 (F-04). `STRATEGY_VERSION` was
 `2026-10-21-review-session-clock-sub-dollar`. The review itself is in
 `/mnt/project-files/senior-code-review/`. Later the same day: the replays fill
 a stop a candle opens through at that open, not the stop (`stopFill`, R-022),
-as the paper exit manager fills at the market. `STRATEGY_VERSION` is
+as the paper exit manager fills at the market. `STRATEGY_VERSION` was
 `2026-10-21-review-gap-stop-fill`; replay losses on gaps move, live verdicts
 don't. Also from the review, not in the verdict: `daily_scans` stores only the
 score rollup, never the breakdown, since production lets any role read it
-(R-021; migration 0090 drops that policy, not applied).
+(R-021; migration 0090 drops that policy, not applied). Merged onto the
+major-range levels above, `STRATEGY_VERSION` is
+`2026-10-21-review-fixes-on-major-range-levels`.
 
 ## WD Gann precedence — standing principle
 

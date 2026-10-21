@@ -78,7 +78,7 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
@@ -98,7 +98,7 @@ import { figureCrossingOf, roundNumberEntryBlocked } from "@/lib/gann/evenFigure
 import { selectionStrength } from "@/lib/gann/leadership";
 import {
   atrPercentOfPrice,
-  nearestLevelMatch,
+  nearestLevelMatchByRole,
   levelBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
@@ -633,8 +633,11 @@ export interface MacroContext {
   boilingPoint: BoilingPointReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
-  /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null;
+  /**
+   * The nearest in-band level on each side, with its role and test count; the
+   * score reads its direction's (`srMatchForSide`), as lib/scanTicker.ts does.
+   */
+  srMatches: Record<LevelRole, { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null>;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -742,7 +745,9 @@ export function buildMacroContext(
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
   const srBandPct = levelBandPct(price);
-  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
+  const srByRole = nearestLevelMatchByRole(price, allLevels, srBandPct);
+  const withTests = (m: (typeof allLevels)[number] | null) =>
+    m && { ...m, role: levelRole(price, m.price), testCount: countLevelTests(daily, m.price, srBandPct) };
 
   return {
     dailyChart: charts.daily,
@@ -776,12 +781,8 @@ export function buildMacroContext(
       })),
       digitalRootConfluences,
     },
-    nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && {
-      ...srMatch,
-      role: levelRole(price, srMatch.price),
-      testCount: countLevelTests(daily, srMatch.price, srBandPct),
-    },
+    nearSupportResistance: srByRole.support !== null || srByRole.resistance !== null,
+    srMatches: { support: withTests(srByRole.support), resistance: withTests(srByRole.resistance) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
@@ -1821,7 +1822,7 @@ function scoreSetup(input: {
       boilingPoint: context.boilingPoint,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
-      srMatch: context.srMatch,
+      srMatch: srMatchForSide(context.srMatches, gannTrigger.direction),
       pattern,
       gannTrigger,
       momentumElevated: context.momentumElevated,

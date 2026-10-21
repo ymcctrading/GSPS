@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { GannLevels, TrendReading } from "@/lib/types";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
+import type { PillarFacts } from "@/lib/scoring/pillars";
+import type { RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
+import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { entryChart } from "@/lib/scan/entrySelection";
 
@@ -187,52 +190,60 @@ describe("computeScore gannRetracementConfluence", () => {
     };
   }
 
-  it("never gates on digital-root/vortex confluence alone — a retracement match is also required", () => {
+  // P5(b) reads the major-range divisions from the pillar facts (2026-10-21),
+  // not the last daily swing's divisions in `gann.retracementLevels`.
+  const half: RangeDivisionMatch = {
+    price: 100, label: "1/2 of the extreme range (50.00-150.00)", basis: "extremeRange", importance: 1, role: "support", distancePct: 0.1,
+  };
+  const facts = (rangeLevels: PillarFacts["rangeLevels"]): PillarFacts => ({ ...passingPillarFacts("bullish"), rangeLevels });
+  const passedFor = (d: ReturnType<typeof computeScore>) => d.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed;
+
+  it("never gates on digital-root/vortex confluence alone: a range-division match is also required", () => {
     const decision = computeScore({
       ...baseInputs("bullish"),
-      gann: {
-        ...EMPTY_GANN,
-        retracementLevels: [],
-        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
-      },
+      gann: { ...EMPTY_GANN, digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }] },
+      pillarFacts: facts({ bullish: null, bearish: null }),
     });
-    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(false);
+    expect(passedFor(decision)).toBe(false);
   });
 
-  it("passes on the retracement match alone: the digital root is context, never a gate (FL5 a)", () => {
+  it("passes on the range-division match alone: the digital root is context, never a gate (FL5 a)", () => {
+    const decision = computeScore({
+      ...baseInputs("bullish"),
+      gann: { ...EMPTY_GANN, digitalRootConfluences: [{ anchorKind: "low", priceRoot: 2, timeRoot: 5, type: "NO_CONFLUENCE" }] },
+      pillarFacts: facts({ bullish: half, bearish: null }),
+    });
+    expect(passedFor(decision)).toBe(true);
+    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.note).toMatch(/1\/2 of the extreme range/);
+  });
+
+  it("passes when the role-matched division holds, with a digital-root reading on the card", () => {
+    const decision = computeScore({
+      ...baseInputs("bullish"),
+      gann: { ...EMPTY_GANN, digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }] },
+      pillarFacts: facts({ bullish: half, bearish: null }),
+    });
+    expect(passedFor(decision)).toBe(true);
+  });
+
+  it("ignores a division in the other role", () => {
+    const decision = computeScore({
+      ...baseInputs("bullish"),
+      pillarFacts: facts({ bullish: null, bearish: { ...half, role: "resistance" } }),
+    });
+    expect(passedFor(decision)).toBe(false);
+  });
+
+  it("no longer passes on a division of the last daily swing", () => {
     const decision = computeScore({
       ...baseInputs("bullish"),
       gann: {
         ...EMPTY_GANN,
         retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support", importance: 1 }],
-        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 2, timeRoot: 5, type: "NO_CONFLUENCE" }],
       },
+      pillarFacts: facts({ bullish: null, bearish: null }),
     });
-    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(true);
-  });
-
-  it("passes when the role-matched retracement zone holds, with a digital-root reading on the card", () => {
-    const decision = computeScore({
-      ...baseInputs("bullish"),
-      gann: {
-        ...EMPTY_GANN,
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "support", importance: 1 }],
-        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
-      },
-    });
-    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(true);
-  });
-
-  it("ignores a wrong-role retracement zone", () => {
-    const decision = computeScore({
-      ...baseInputs("bullish"),
-      gann: {
-        ...EMPTY_GANN,
-        retracementLevels: [{ fraction: 0.5, label: "1/2", price: 100, distancePct: 0.1, role: "resistance", importance: 1 }],
-        digitalRootConfluences: [{ anchorKind: "low", priceRoot: 1, timeRoot: 8, type: "COMPLEMENTARY_PAIR" }],
-      },
-    });
-    expect(decision.breakdown.find((b) => b.key === "gannRetracementConfluence")?.passed).toBe(false);
+    expect(passedFor(decision)).toBe(false);
   });
 });
 

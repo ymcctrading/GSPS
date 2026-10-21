@@ -1,4 +1,5 @@
 import { gannThreePointsPct } from "@/lib/gann/pointScale";
+import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 /**
  * How close is "near a level". (Superseded for levels by `levelBandPct`, 2026-10-16; the history below explains the ATR band it replaced.)
@@ -111,4 +112,24 @@ export function nearestLevelMatch<T extends { price: number }>(
     }
   }
   return best;
+}
+
+/**
+ * The closest in-band level on each side of `price`: below it (support) and
+ * above it (resistance). Gann's rule is that a level acts as support while
+ * price is above it and as resistance while price is below it (old tops
+ * become bottoms, W006 pp.19-24; `levelRole`), so a long asks for the nearest
+ * support and a short for the nearest resistance. Before 2026-10-21 the S/R
+ * check took the nearest level of either role and then failed when it sat on
+ * the wrong side, even with a level of the wanted role inside the band.
+ */
+export function nearestLevelMatchByRole<T extends { price: number }>(
+  price: number,
+  levels: T[],
+  bandPct: number,
+): Record<LevelRole, T | null> {
+  return {
+    support: nearestLevelMatch(price, levels.filter((l) => levelRole(price, l.price) === "support"), bandPct),
+    resistance: nearestLevelMatch(price, levels.filter((l) => levelRole(price, l.price) === "resistance"), bandPct),
+  };
 }
