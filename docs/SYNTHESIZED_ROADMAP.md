@@ -185,9 +185,12 @@ against Gann:
 3. **Advanced orders.** Gann's trailing stops already run in the exit
    managers. Remaining: broker-side OCO on live Alpaca orders, and automated
    pyramid adds (the exit managers must track more than one entry per plan).
-4. **Risk dashboard.** The engine is built (Q1). What remains is the screen:
-   Gann's capital rules (30 points a share, a tenth at risk, five stocks),
-   open risk, the loss-series pause and the profit ceiling, in one place.
+4. **Risk dashboard.** Built 2026-10-21 (the Risk card on the Portfolio page,
+   `lib/risk/dashboard.ts`, `/api/risk/dashboard`): Gann's capital rules (30
+   points a share, a tenth at risk, five stocks), open risk to each stop the
+   exit manager holds now, the loss-series pause, the profit ceiling, the
+   circuit breaker and the drawdown, read by the same functions placement
+   uses. Paper accounts; a live account's book is the broker's.
 5. **Performance replay UI.** Past scans compared across dates, and the
    forward test beside the replay.
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
