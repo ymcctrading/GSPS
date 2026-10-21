@@ -59,6 +59,29 @@ beforeEach(() => {
 });
 
 describe("evaluateMonitorsAndNotify", () => {
+  it("reads a resting Execute (entry more than a day's range away) as Watch, and a near one as Execute", async () => {
+    evaluateMonitorMock.mockResolvedValue({ outcome: "applied", monitorId: "m1", transitionId: "t1", notify: false });
+    const resting = fakeSetup("AMD", "Execute");
+    Object.assign(resting.value, { currentPrice: 547.91, dayRange: 20, levels: { entry: 480.46, stopLoss: 467.86, takeProfit1: 498.39 } });
+    const near = fakeSetup("MSFT", "Execute");
+    Object.assign(near.value, { dayRange: 8 });
+
+    await evaluateMonitorsAndNotify(insertOnlyClient(), {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [resting, near],
+      rejectedSymbols: new Set(),
+      maxActiveWatchMonitors: 15,
+    });
+
+    const calls = evaluateMonitorMock.mock.calls.map((c) => [c[1].symbol, c[1].candidateState]);
+    expect(calls).toEqual([
+      ["AMD", "WATCH"],
+      ["MSFT", "EXECUTE"],
+    ]);
+  });
+
   it("never arms a monitor for a Reject on the list, so a retired plan can't re-arm and re-invalidate every scan", async () => {
     evaluateMonitorMock.mockResolvedValue({ outcome: "applied", monitorId: "m1", transitionId: "t1", notify: false });
 

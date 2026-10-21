@@ -698,6 +698,8 @@ export async function scanTicker(
       dailyBars: daily,
       volatilityRead:
         baselineAtr > 0 ? { atr: recentAtr, regime: volatilityRegimeFromAtrRatio(recentAtr / baselineAtr) } : undefined,
+      // A day's range for the resting-order list (lib/setups/resting.ts).
+      dayRange: recentAtr > 0 ? recentAtr : null,
       volumeRead: { relativeVolumeIndex: relativeVolume(daily, 20) },
       optionPremium,
       signals: {

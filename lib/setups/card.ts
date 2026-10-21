@@ -36,6 +36,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { SCANNER_STATE_META } from "@/lib/signals/types";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
+import { readResting, restingNote, type RestingRead } from "@/lib/setups/resting";
 
 export type SetupSide = "buy" | "sell";
 
@@ -77,6 +78,12 @@ export interface SetupCardModel {
   patternLabel: string | null;
   /** True for a with-trend setup: it trades with the trend, where a reversion trades against it. */
   continuation: boolean;
+  /**
+   * Set when the entry sits more than a day's range from price: a resting
+   * order, not a trade to take today (`lib/setups/resting.ts`, owner
+   * 2026-10-21). Null when it is within range or the range is not known.
+   */
+  resting: RestingRead | null;
   synopsis: string;
   tickerHref: string;
 }
@@ -146,8 +153,10 @@ export function buildSetupSynopsis(args: {
   levels: SetupLevels;
   /** The price the card is read at, when known: says when it has run past the buying point. */
   price?: number | null;
+  /** The resting read, when the entry is more than a day's range from price. */
+  resting?: RestingRead | null;
 }): string {
-  const { side, verdict, scoreText, scoreMax, checks, levels, price } = args;
+  const { side, verdict, scoreText, scoreMax, checks, levels, price, resting } = args;
   const status = VERDICT_STATUS[verdict] ?? "not yet strong enough to act on";
   const noun = side === "buy" ? "buy" : "sell";
 
@@ -179,6 +188,9 @@ export function buildSetupSynopsis(args: {
   // beyond it has not missed the plan; it has not reached it. Said plainly,
   // since the levels alone read as a plan to take at the market (2026-10-16:
   // SHEL listed at $106.67 against a $96.49 entry).
+  // More than a day's range away it is a resting order (owner, 2026-10-21),
+  // and the targets beyond price are said to count only once it fills.
+  if (resting) return `${first} ${second} ${restingNote(resting, levels.entry!)}`;
   const ran = price != null && (side === "buy" ? price > levels.entry! : price < levels.entry!);
   const third = ran
     ? ` Price is already ${side === "buy" ? "above" : "below"} the entry at ${formatUsd(price)}: the plan waits for a reaction back to ${formatUsd(levels.entry!)} and is not taken here.`
@@ -235,6 +247,8 @@ export interface DailySetupInput {
   patternName?: string | null;
   setupKind?: "reversion" | "continuation";
   currentPrice?: number | null;
+  /** A day's range, for the resting-order read (`lib/setups/resting.ts`). */
+  dayRange?: number | null;
   signal?: PublicSignalSummary | null;
   scoreSummary?: PublicScoreSummary | null;
   trends?: { timeframe: string; direction: string }[] | null;
@@ -257,6 +271,14 @@ export function buildDailyCardModel(
     row.patternName && row.patternName in PATTERN_GLOSSARY_TERM
       ? PATTERN_GLOSSARY_TERM[row.patternName as StratPattern["name"]]
       : null;
+  const resting = readResting({
+    side,
+    price,
+    entry: levels.entry,
+    dayRange: row.dayRange,
+    tp1: levels.tp1,
+    mtp: levels.mtp,
+  });
 
   return {
     symbol: row.symbol,
@@ -277,6 +299,7 @@ export function buildDailyCardModel(
     higherTimeframes: describeTrends(row.trends),
     patternLabel,
     continuation: row.setupKind === "continuation",
+    resting,
     synopsis: buildSetupSynopsis({
       side,
       verdict: row.outputState,
@@ -285,6 +308,7 @@ export function buildDailyCardModel(
       checks,
       levels,
       price,
+      resting,
     }),
     tickerHref: tickerHref(row.symbol),
   };

@@ -636,6 +636,31 @@ module still refused a third intraday entry a day, a daily count R-019 removed
 everywhere else; the count is gone (`canEnterNewIntradayPosition` keeps the
 concurrent, consecutive-loss and daily-loss gates), with its spec line.
 
+**Resting orders, 2026-10-21 (owner's pick on the card, "Resting list"):**
+"Plans more than a day's range from their entry move to a separate 'Resting
+orders' list, out of Execute, with the distance shown." The case: AMD at $547.91
+read Execute with a buy entry of $480.46 (the reaction buy at a crossed old top)
+and its stop, TP1 and MTP all below price. `lib/setups/resting.ts` holds the one
+predicate: resting when |price − entry| is more than a day's range, read as the
+scan's 14-period daily ATR on completed sessions (`ScanResult.dayRange`, kept in
+`daily_scans.detail`), an engineering reading of the owner's words. The daily
+Buy/Sell lists (Dashboard and its full pages, the Scanner) and the tracked
+Execute list put such rows under "Resting orders" with the distance in dollars
+and percent, split on the scan-time price; the shared card says it waits for the
+reaction back and that a TP1 or MTP already behind price counts only once the
+entry fills. Guided Mode and the demo account do not offer it
+(`assessEligibility`), and the Novice home's Today's plan ranks it with Watch.
+Presentation and selection only: the scored verdict, the replay, plan arming and
+order placement are unchanged (automation's resting orders already wait for
+price to trade into the buy zone), so `STRATEGY_VERSION` stays. The scan's
+monitor reads a resting Execute as Watch (`isRestingScanResult` in
+`evaluateMonitorsAndNotify`), so the Execute alert, and the plan it creates,
+come once price is within a day's range of the entry. Gaps, labelled:
+a tracked symbol the daily scan does not cover has no range read (the monitor
+row stores none) and stays in its list; saved setups are not bucketed by verdict
+and get the card's sentence only; the intraday alerts are not read (they are
+priced from the session in progress).
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
