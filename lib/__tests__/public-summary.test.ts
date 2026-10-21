@@ -108,7 +108,7 @@ const allPass: ScoreInputs = {
   swingChart: { threeDay: "bullish", weekly: "bullish" },
   ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
   timePriceSquare: [
-    { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
+    { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
   ],
   volumeClimax: [
     { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },

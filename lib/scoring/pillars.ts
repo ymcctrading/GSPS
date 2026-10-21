@@ -364,10 +364,11 @@ export function reactionInTimeLimit(side: Side, f: PillarFacts | null | undefine
  * Measured on random walks (`lib/scoring/__tests__/timePillarRule.test.ts`,
  * 400 walks of 300 weekday sessions, every 5th session from the 60th, both
  * sides; 38,400 readings): squared 21.1%, the reaction in its limit 50.0%,
- * "and" 11.6%, "or" 59.5%. Neither is saturated (above 95%) or near-empty
+ * "and" 9.5%, "or" 61.6% (since 2026-10-21 the square reads the move against
+ * the trade; with the trade's own anchor they were 11.6% and 59.5%). Neither is saturated (above 95%) or near-empty
  * (below 5%), so the measurement does not decide between them, and the spec
  * does: "and" is its "2 of 3" with one check gone. "Or" would pass on the
- * reaction clock alone half the time (50.0% of the 59.5%), so time squared,
+ * reaction clock alone half the time (50.0% of the 61.6%), so time squared,
  * the pillar's first check, would decide little.
  *
  * Revert: put the window back as a third check in `timePillar` (the turn is
