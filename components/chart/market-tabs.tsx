@@ -6,6 +6,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strike-order-modal";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
+import { gannOptionExpiration } from "@/lib/options/gannOptionPlan";
 import { CompanyPanel } from "@/components/chart/company-panel";
 import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { ScanResult, TradeLevels } from "@/lib/types";
@@ -457,7 +458,9 @@ function OptionsPanel({
       underlyingPrice: spot,
       expirations,
       maxExpiration,
-      defaultExpiration: expirations[0] ?? chain.expiration,
+      // Gann's term: the nearest expiration at least 30 days out (Master
+      // Course Ch. 19A: "buying PUTS and CALLS good 30 days").
+      defaultExpiration: gannOptionExpiration(expirations) ?? chain.expiration,
     });
   };
 

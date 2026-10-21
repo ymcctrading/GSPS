@@ -18,6 +18,8 @@
  *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
  *   ?entryRule=confirmed   sequence instead of the reaction buy every path
  *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
+ *   ?tradeStyle=fast      Gann's fast-market plan (day stop). See
+ *                          ReplayOptions.tradeStyle. Default swing.
  *   ?exitRule=gann        how open trades leave: bracket (default), gann or
  *                          gann-runner. See ReplayOptions.exitRule
  *   ?disableExits=three_adverse_closes,prior_week
@@ -180,6 +182,13 @@ export async function GET(req: NextRequest) {
   }
   const exitRule = exitRuleRaw ?? undefined;
 
+  // The trade style walked (lib/trade/tradeStyle.ts): swing (default) or fast.
+  const tradeStyleRaw = searchParams.get("tradeStyle");
+  if (tradeStyleRaw !== null && tradeStyleRaw !== "swing" && tradeStyleRaw !== "fast") {
+    return NextResponse.json({ error: `Invalid tradeStyle '${tradeStyleRaw}' (swing | fast)` }, { status: 400 });
+  }
+  const tradeStyle = tradeStyleRaw ?? undefined;
+
   // Measurement only (ReplayOptions.disableExits). Every name is checked: a
   // misspelt rule would otherwise report a cell identical to its baseline.
   const disableExitsRaw = searchParams.get("disableExits");
@@ -265,6 +274,7 @@ export async function GET(req: NextRequest) {
         ...(since !== null ? { since } : {}),
         ...(entryRule ? { entryRule } : {}),
         ...(exitRule ? { exitRule } : {}),
+        ...(tradeStyle ? { tradeStyle } : {}),
         ...disableExitsOption,
         ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
         ...(profile ? { profile } : {}),
@@ -306,6 +316,7 @@ export async function GET(req: NextRequest) {
       ...(useProductionStop ? { useProductionStop } : {}),
       ...(entryRule ? { entryRule } : {}),
       ...(exitRule ? { exitRule } : {}),
+      ...(tradeStyle ? { tradeStyle } : {}),
       ...disableExitsOption,
       ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
       ...(profile ? { profile } : {}),

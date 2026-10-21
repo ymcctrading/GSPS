@@ -47,34 +47,10 @@ export const MAX_STOP_ATR_MULTIPLE = 2.5;
 export const LARGE_CAP_LEEWAY_ATR = 0.25;
 export const LARGE_CAP_MAX_STOP_ATR_MULTIPLE = 3.5;
 
-/**
- * Default TP1 R-multiple by asset class. Most strategies hit higher win rates
- * with moderate first targets (1.5R), scaling the runner (TP2) higher to keep
- * upside. Adjusted for market microstructure and typical move distribution.
- */
-export const TP1_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
-  us_equity: 1.5,
-  crypto: 1.5,
-  // Placeholder pending a real commodities feed (lib/data/commodity.ts) — no
-  // trade has ever been placed against this asset class, so there's nothing
-  // to derive a commodity-specific multiple from yet. Mirrors us_equity
-  // rather than inventing a number; revisit once real data/trades exist.
-  // Three-question mandate (AGENTS.md): a type-completeness filler with zero
-  // supporting data is not a design decision to reason through yet — the
-  // mandate applies once a real commodity multiple is actually chosen.
-  commodity: 1.5,
-};
-
-/**
- * Default TP2 (runner) R-multiple by asset class. Typically hit after TP1
- * is reached and stop is moved to breakeven or slightly better.
- */
-export const TP2_MULTIPLE_BY_ASSET: Record<AssetClass, number> = {
-  us_equity: 2.5,
-  crypto: 3.0,
-  // Same placeholder rationale as TP1_MULTIPLE_BY_ASSET above.
-  commodity: 2.5,
-};
+// TP1_MULTIPLE_BY_ASSET and TP2_MULTIPLE_BY_ASSET (1.5R, then 2.5R or 3.0R by
+// market) were removed 2026-10-21: every named market now takes Gann's level
+// plan (lib/strat/levels.ts#computeTradeLevels). An R-multiple target has no
+// Gann source.
 
 /**
  * Ceiling on how far a structural master target may sit from entry. A Gann or

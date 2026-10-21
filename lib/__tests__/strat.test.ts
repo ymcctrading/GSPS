@@ -344,7 +344,7 @@ describe("computeTradeLevels", () => {
       expect(largeCap.riskPerShare).toBeGreaterThan(ordinary.riskPerShare);
     });
 
-    it("ignores the large-cap flag for crypto (crypto still uses the R-based model)", () => {
+    it("ignores the large-cap flag for crypto", () => {
       const flaggedCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", true);
       const ordinaryCrypto = computeTradeLevels(pattern, prev, [], undefined, 1, "crypto", false);
       expect(flaggedCrypto.stopLoss).toBe(ordinaryCrypto.stopLoss);
