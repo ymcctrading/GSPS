@@ -46,7 +46,7 @@ export function TradeStylePicker({
       {!compact && (
         <p className="text-xs text-muted">
           {profile.summary} Stop: {profile.stopRule}. Once filled: {profile.trailRule.charAt(0).toLowerCase() + profile.trailRule.slice(1)}. Expected hold:{" "}
-          {profile.expectedHold.toLowerCase()}. Applies to trades you place from now on; trades already open keep the style they were filled in, and the portfolio manager's stay on Swing.
+          {profile.expectedHold.toLowerCase()}. Applies to trades you place from now on; trades already open keep the style they were filled in, and the portfolio manager&apos;s stay on Swing.
         </p>
       )}
     </div>
