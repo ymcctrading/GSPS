@@ -151,11 +151,12 @@ describe("an old-level entry inside a sideways range", () => {
   it("is not held to Watch by the breakaway rule", () => {
     // Bottoms alternate between 95 and a dip more than 3 points under it, so
     // the last bottom at 95 is a fresh level (a fourth test would not be a
-    // buy at all) inside the range.
+    // buy at all) inside the range. Tops at 100 and 99 keep the range narrow,
+    // so it is read as one (2026-10-21).
     const sideways: number[] = [];
     let from = 95;
     for (let k = 0; k < 6; k++) {
-      const top = k % 2 === 0 ? 105 : 103;
+      const top = k % 2 === 0 ? 100 : 99;
       const bottom = k % 2 === 0 ? 89 : 95;
       for (let i = 1; i <= 5; i++) sideways.push(from + ((top - from) * i) / 5);
       for (let i = 1; i <= 5; i++) sideways.push(top - ((top - bottom) * i) / 5);

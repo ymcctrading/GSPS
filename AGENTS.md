@@ -394,7 +394,23 @@ the owner, not changed: an over-balancing reaction drops out of the campaign
 ledger as soon as the 3-Day Chart turns back (it joins the greatest it is
 compared with), and swings in percent of their start make equal-point rallies
 in a bear campaign over-balance (`levelRole.test.ts`'s 1931 shape: 32% against
-27%, 29 points against 30). `STRATEGY_VERSION` is `2026-10-21-gann-first-target`;
+27%, 29 points against 30). `STRATEGY_VERSION` was `2026-10-21-gann-first-target`.
+
+**Breakaway diagnosis, 2026-10-21 (first-target run: `breakaway` held 261 of the
+727 trades scoring 6+ at +0.086R, Execute +0.005R).** One translation defect,
+fixed: decision 5's "range-bound" was any market whose trend was unconfirmed
+(`isGannRangeBound` alone), but Gann's sideways market is a narrow range held
+for weeks (Commodities pp. 51-52; Master Course "2-6 or 10-13 weeks in a narrow
+range"; *Truth of the Stock Tape*'s 3 points beyond the old top or bottom of a
+sideways move). Unconfirmed alone held 28% of armed triggers on trendless random
+walks and 18% on walks rising 0.2% a day, most of them in wide markets (39% and
+13% of the held were narrow). `readBreakaway` now also needs the 13-week range's
+sessions narrow (`isNarrowRange`, at least `MIN_RANGE_SESSIONS`), the narrow the
+breakaway's volume rule already read: 12% and 3% held. Decision 5 itself is
+unchanged: inside a narrow range Execute still needs the breakaway. The width
+(`NARROW_RANGE_ALLOWANCES`, 3 allowances over 13 weeks) is an engineering figure,
+and a 2-6 week narrow range after a wide 13 weeks is not read yet; both held for
+the owner. `STRATEGY_VERSION` is `2026-10-21-gann-narrow-range-breakaway`;
 Execute and the 6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
