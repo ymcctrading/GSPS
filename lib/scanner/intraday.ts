@@ -89,7 +89,8 @@ import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
-import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
+import { intradayPoint } from "@/lib/gann/pointScale";
+import { gannDayStop } from "@/lib/gann/dayStop";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 
@@ -1324,9 +1325,9 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   // p.46), so 3 Gann points beyond today's low (high), never past the daily
   // plan's own stop. A stop a single intraday point under the morning's low
   // is the stop the six-year intraday replay lost on (2026-10-21: every
-  // loss on the initial stop), and it is not Gann's for a daily trade.
-  const dayStop = up ? m.low - gannThreePoints(m.low) : m.high + gannThreePoints(m.high);
-  const stop = up ? Math.max(plan.stop, dayStop) : Math.min(plan.stop, dayStop);
+  // loss on the initial stop), and it is not Gann's for a daily trade. The
+  // platform's one day-stop rule (`gannDayStop`), shared with the Fast style.
+  const stop = gannDayStop({ extreme: up ? m.low : m.high, side: up ? "long" : "short", planStop: plan.stop }) ?? plan.stop;
   const entry = m.lastClose;
   const rebuy = up ? extreme > m.low + allowance : extreme < m.high - allowance;
   const cause = rebuy
