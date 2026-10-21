@@ -7,6 +7,7 @@
  */
 
 import type { AssetClass } from "@/lib/types";
+import { isMarketHoliday } from "@/lib/market/calendar";
 
 export type MarketSession = "pre" | "regular" | "post" | "closed";
 
@@ -54,10 +55,16 @@ export function etParts(date: Date = new Date()): { minutes: number; weekday: nu
   return { minutes: hour * 60 + minute, weekday: weekdayMap[get("weekday")] ?? 0 };
 }
 
-/** Classify a moment for US equities. */
+/**
+ * Classify a moment for US equities. A full-day market holiday is closed all
+ * day, as the scheduled scans already read it (`lib/market/calendar.ts`); an
+ * early-close day still reads as a full session, since the calendar holds no
+ * early closes yet.
+ */
 export function equitySession(date: Date = new Date()): MarketSession {
   const { minutes, weekday } = etParts(date);
   if (weekday === 0 || weekday === 6) return "closed";
+  if (isMarketHoliday(etDateKey(date))) return "closed";
   if (minutes >= OPEN && minutes < CLOSE) return "regular";
   if (minutes >= PRE_OPEN && minutes < OPEN) return "pre";
   if (minutes >= CLOSE && minutes < POST_CLOSE) return "post";
@@ -95,7 +102,7 @@ export function mostRecentClose(date: Date = new Date()): Date {
   const cursor = new Date(date);
   for (let daysBack = 0; daysBack < 10; daysBack++) {
     const { weekday } = etParts(cursor);
-    if (weekday !== 0 && weekday !== 6) {
+    if (weekday !== 0 && weekday !== 6 && !isMarketHoliday(etDateKey(cursor))) {
       const closeToday = closeInstantFor(cursor);
       if (closeToday.getTime() <= date.getTime()) return closeToday;
     }

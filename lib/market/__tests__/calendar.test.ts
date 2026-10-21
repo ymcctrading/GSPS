@@ -5,10 +5,10 @@ import { etDateKey } from "@/lib/market/session";
 const YEARS = [2022, 2023, 2024, 2025, 2026, 2027, 2030, 2035];
 
 describe("marketHolidays", () => {
-  it("returns exactly 10 holidays per year, in ascending order", () => {
+  it("returns 10 holidays per year (9 when New Year's Day is a Saturday), in ascending order", () => {
     for (const year of YEARS) {
       const holidays = marketHolidays(year);
-      expect(holidays).toHaveLength(10);
+      expect(holidays).toHaveLength(new Date(Date.UTC(year, 0, 1)).getUTCDay() === 6 ? 9 : 10);
       for (let i = 1; i < holidays.length; i++) {
         expect(holidays[i].getTime()).toBeGreaterThan(holidays[i - 1].getTime());
       }
@@ -24,7 +24,7 @@ describe("marketHolidays", () => {
   });
 
   it("computes the floating holidays on their defined weekday", () => {
-    for (const year of YEARS) {
+    for (const year of YEARS.filter((y) => new Date(Date.UTC(y, 0, 1)).getUTCDay() !== 6)) {
       const [newYears, mlk, presidents, goodFriday, memorial, juneteenth, july4, laborDay, thanksgiving, christmas] =
         marketHolidays(year);
 
@@ -49,7 +49,7 @@ describe("marketHolidays", () => {
     // Friday 2 calendar days earlier must fall on a Friday -- verified via
     // plain Date arithmetic rather than the module's own Easter formula.
     for (const year of YEARS) {
-      const [, , , goodFriday] = marketHolidays(year);
+      const goodFriday = marketHolidays(year).find((h) => h.getUTCMonth() <= 3 && h.getUTCDay() === 5 && h.getUTCMonth() >= 2)!;
       const easterSunday = new Date(goodFriday);
       easterSunday.setUTCDate(easterSunday.getUTCDate() + 2);
       expect(easterSunday.getUTCDay()).toBe(0);
@@ -59,9 +59,16 @@ describe("marketHolidays", () => {
 });
 
 describe("isMarketHoliday / isTradingDay", () => {
+  it("keeps Dec 31 open when New Year's Day falls on a Saturday (NYSE Rule 7.2)", () => {
+    expect(isMarketHoliday("2021-12-31")).toBe(false);
+    expect(isMarketHoliday("2027-12-31")).toBe(false);
+    expect(isTradingDay(new Date(Date.UTC(2027, 11, 31, 16)))).toBe(true);
+    expect(isMarketHoliday("2023-01-02")).toBe(true); // a Sunday New Year's still moves to Monday
+  });
+
   it("flags Christmas Day itself as a holiday even when isMarketHoliday is queried directly", () => {
     for (const year of YEARS) {
-      const christmas = marketHolidays(year)[9];
+      const christmas = marketHolidays(year).at(-1)!;
       expect(isMarketHoliday(etDateKey(christmas))).toBe(true);
       expect(isTradingDay(christmas)).toBe(false);
     }

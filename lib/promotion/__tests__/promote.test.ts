@@ -11,11 +11,17 @@ describe("nextMarketOpen", () => {
   });
 
   it("skips the weekend to Monday's open", () => {
-    const saturday = new Date("2026-09-05T15:00:00Z");
+    const saturday = new Date("2026-09-12T15:00:00Z");
     const open = nextMarketOpen(saturday);
     const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(open);
     expect(weekday).toBe("Mon");
     expect(equitySession(open)).toBe("regular");
+  });
+
+  it("skips a Monday holiday to Tuesday's open", () => {
+    const open = nextMarketOpen(new Date("2026-09-05T15:00:00Z")); // Saturday before Labor Day
+    const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(open);
+    expect(weekday).toBe("Tue");
   });
 
   it("finds the same-day open when called before the market opens", () => {
