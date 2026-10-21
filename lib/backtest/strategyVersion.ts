@@ -567,4 +567,11 @@
 // spell after a wide quarter is now a range, its own extremes the breakaway;
 // the breakaway's volume reads the same run. Verdicts move, live and replay
 // alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-narrow-weeks-breakaway";
+// 2026-10-21-gann-decade-month-et: the decade digit and its in-year turns
+// (`computeDecadeCycle`, P1 and `decadeYearWithTrade`) read the year and month
+// in New York time, not UTC. The live scan passes the wall clock, so from 8 PM
+// ET on a month's last day it read the next month (on 31 December the next
+// year's digit) while the replay of the same session read the current one;
+// on 31 August 2026 that flipped P1 from bullish to mixed. Evening scans on a
+// month's last day move; the replay, which reads the session's noon, does not.
+export const STRATEGY_VERSION = "2026-10-21-gann-decade-month-et";

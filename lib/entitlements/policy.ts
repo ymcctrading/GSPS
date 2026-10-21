@@ -51,7 +51,7 @@ export type EntitlementPolicy = {
    * ROADMAP.md. Deliberately not the same flag as `intradayScansEnabled`
    * (Expert+'s full, unrestricted intraday scans): Pro's module is capped
    * (fewer setups displayed, a narrower closed-bar confirmation window, and
-   * entry/day, concurrent-position, consecutive-loss, and daily-loss rules —
+   * concurrent-position, consecutive-loss, and daily-loss rules (no count a day, Q8) —
    * see lib/promotion/pro-intraday.ts) rather than a smaller slice of the
    * same unrestricted product. `intradayScansEnabled` stays `false` for
    * STANDARD; this flag is the only thing that changes for Pro.

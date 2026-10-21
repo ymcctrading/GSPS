@@ -277,9 +277,14 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       caught = gann?.exit && stopAction.atMarket ? gann.exit.reason : "stop";
       // A Gann exit signal leaves at the market; a stop that was crossed fills at the stop.
       const fillAt = stopAction.atMarket ? price : stopAction.stop;
-      // Where the last of the position left, not the blended exit: after a
-      // TP1 scale-out the blend is no price the position left at (2026-10-21).
-      brokenLevel = fillAt;
+      // The level that broke, for the reversal. A stop reverses at the stop
+      // itself, as the replay (`done(stop, ...)`) and the broker exit manager
+      // do, even when the quote gapped through it and the fill came at the
+      // market (lib/gann/reverse.ts: "the stop that was hit"). A Gann exit
+      // signal reverses where the last shares left. Never the blended exit:
+      // after a TP1 scale-out the blend is no price the position left at
+      // (2026-10-21).
+      brokenLevel = caught === "stop" ? stopAction.stop : fillAt;
       for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
     }
   }
