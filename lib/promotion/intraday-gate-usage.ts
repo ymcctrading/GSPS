@@ -14,6 +14,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { etDateKey } from "@/lib/market/session";
 import { STARTING_CASH } from "@/lib/brokers/simulator";
+import { paperEquity } from "@/lib/portfolio/paper-equity";
 import type { ProIntradayUsage } from "@/lib/promotion/pro-intraday";
 
 type Supabase = SupabaseClient;
@@ -37,7 +38,8 @@ function lookbackIso(): string {
 }
 
 /**
- * Rough paper-account equity: cash + cost basis of open positions. Not a
+ * Rough paper-account equity: cash + cost basis of open positions, a short
+ * counted against the account (`paperEquity`). Not a
  * live mark-to-market (that would require a quote per open symbol just to
  * evaluate an order gate), but adequate for turning today's realized loss
  * into a percentage — the daily-loss-lock gate only needs a rough sense of
@@ -48,17 +50,20 @@ async function estimatePaperEquity(supabase: Supabase, userId: string): Promise<
     supabase.from("paper_accounts").select("cash").eq("user_id", userId).maybeSingle(),
     supabase
       .from("positions")
-      .select("qty, avg_entry_price")
+      .select("side, qty, avg_entry_price")
       .eq("user_id", userId)
       .eq("mode", "paper")
       .eq("closed", false),
   ]);
   const cash = Number(account?.cash ?? STARTING_CASH);
-  const holdingsValue = (positions ?? []).reduce(
-    (sum, p: { qty: number; avg_entry_price: number }) => sum + Math.abs(Number(p.qty)) * Number(p.avg_entry_price),
-    0,
+  return paperEquity(
+    cash,
+    ((positions ?? []) as { side: string; qty: number; avg_entry_price: number }[]).map((p) => ({
+      side: p.side === "short" ? "short" : "long",
+      qty: Math.abs(Number(p.qty)),
+      price: Number(p.avg_entry_price),
+    })),
   );
-  return cash + holdingsValue;
 }
 
 /** Losses in a row from the newest trade back, stopping at the first winner. */

@@ -38,7 +38,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
-import { getOrCreateAccount, STARTING_CASH } from "@/lib/brokers/simulator";
+import { getOrCreateAccount, listOpenPositions, STARTING_CASH } from "@/lib/brokers/simulator";
+import { paperEquity } from "@/lib/portfolio/paper-equity";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
 import { activateAutomationProfile, authorizeAutomatedOrder } from "@/lib/automation/service";
@@ -296,7 +297,17 @@ async function runForProfile(
     }
     equityBasis = live.equity;
   } else {
-    equityBasis = (await getOrCreateAccount(supabase, profile.user_id)).cash;
+    // Cash alone holds a short's sale proceeds and leaves longs out, so the
+    // unit is sized on equity, a short counted against it (paperEquity), as
+    // placement and the resting-entry guard read it.
+    const [account, open] = await Promise.all([
+      getOrCreateAccount(supabase, profile.user_id),
+      listOpenPositions(supabase, profile.user_id),
+    ]);
+    equityBasis = Math.max(
+      paperEquity(account.cash, open.map((p) => ({ side: p.side, qty: p.qty, price: p.avg_entry_price }))),
+      0,
+    );
   }
   // Gann's trading unit (A-RISK-04, rule 24; owner, 2026-10-16, Q7): the
   // paper account steps up only once profits equal its starting capital, and

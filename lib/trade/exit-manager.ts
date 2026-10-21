@@ -75,6 +75,8 @@ import {
   type StopReason,
 } from "@/lib/trade/protocol-exit";
 import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
 import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
@@ -195,10 +197,11 @@ export async function manageProtocolExits(
 
   const bySymbol = new Map(positions.map((p) => [p.symbol.toUpperCase(), p]));
   const run: ManageRun = { ...idle(), managed: plans.length };
+  const styleHistory = await traderStyleHistory(supabase, userId);
 
   for (const plan of plans) {
     try {
-      await advance(supabase, creds, userId, normalizePlan(plan), bySymbol, run);
+      await advance(supabase, creds, userId, normalizePlan(plan), bySymbol, run, styleHistory);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`exit-manager: ${plan.symbol} plan ${plan.id} — ${detail}`);
@@ -231,6 +234,7 @@ async function advance(
   plan: PlanRow,
   bySymbol: Map<string, AlpacaPosition>,
   run: ManageRun,
+  styleHistory: readonly TradeStyleChange[] = [],
 ): Promise<void> {
   const position = bySymbol.get(plan.symbol.toUpperCase());
 
@@ -287,6 +291,10 @@ async function advance(
     return;
   }
 
+  // A live exit row is written when the order is placed; the fill is when its
+  // exits were attached. Gann's rules count from the day bought (*Truth of
+  // the Stock Tape*), so the day trail never reads a session before the fill.
+  const filledAt = plan.exits_attached_at ?? plan.created_at;
   const gann =
     LIVE_EXIT_RULE !== "bracket"
       ? await readLiveGannExit({
@@ -294,8 +302,9 @@ async function advance(
           side: plan.side,
           entryPrice,
           initialStop: plan.stop_loss,
-          openedAt: plan.created_at,
+          openedAt: filledAt,
           best: highWater,
+          style: await positionTradeStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id"),
         })
       : null;
   const action = planStopAdjustment({

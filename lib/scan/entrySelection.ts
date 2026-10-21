@@ -207,10 +207,20 @@ export function chooseSessionEntry(
   setAside: { setupKind: SetupKind; direction: EntryDirection } | null;
 } | null {
   const armed = armSessionEntries(trends, entryOf, price);
-  const chosen = armed.find((a) => a.setupKind === "continuation") ?? armed[0] ?? null;
+  const chosen = preferWithTrend(armed);
   if (!chosen) return null;
   const other = armed.find((a) => a !== chosen && a.trigger.direction !== chosen.trigger.direction);
   return { ...chosen, setAside: other ? { setupKind: other.setupKind, direction: other.trigger.direction } : null };
+}
+
+/**
+ * Of a session's armed buying points, the one shown: the with-trend
+ * (continuation) point when it armed, else the first ("never buck the trend",
+ * *Wall Street Stock Selector* pp. 18-19). Shared with the replay's rebuild of
+ * the session's daily plan (`lib/backtest/replay.ts#sessionDailyPlan`).
+ */
+export function preferWithTrend<T extends { setupKind: SetupKind }>(armed: readonly T[]): T | null {
+  return armed.find((a) => a.setupKind === "continuation") ?? armed[0] ?? null;
 }
 
 /**

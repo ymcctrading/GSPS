@@ -26,6 +26,11 @@
  * is an engineering choice made by Correspondence with his "one price unit"
  * rule.
  *
+ * Built ahead of the markets (owner, 2026-10-21: "if we can do so now, so be
+ * it"): no surface reads this module yet. Futures and forex have quotes only,
+ * no bars or broker, so nothing prices them; stocks and crypto still name
+ * their market by `AssetClass`. Wire it in where those markets arrive.
+ *
  * Three-question basis: 1. Gann, as cited (Tier A). 2. No periodicity claim;
  * Dewey's checklist does not apply. 3. Correspondence: "as above, so below",
  * one law read in every market's own unit. Law of Creation: rule ⊗ market,

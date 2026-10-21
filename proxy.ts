@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMITS, rateLimitBucket } from "@/lib/rate-limit-policy";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 // `/learning` joins the list because the endpoint behind it now requires a
 // session: left public it would render a page whose only button 401s.
@@ -19,31 +21,9 @@ const PROTECTED_PREFIXES = [
 ];
 
 // Per-minute budget for /api routes, keyed by signed-in user (falls back to
-// IP for anonymous callers, e.g. the auth routes). Scans hit market-data
-// providers per call, so they get a tighter budget than the rest of the API.
+// IP for anonymous callers, e.g. the auth routes). Which budget a route draws
+// from, and why, is lib/rate-limit-policy.ts (the 2026-10-21 route audit).
 const API_WINDOW_MS = 60_000;
-const SCAN_LIMIT = 20;
-const DEFAULT_LIMIT = 120;
-const SCAN_PREFIXES = ["/api/scan", "/api/batch-scan", "/api/intraday-scan", "/api/market-scan", "/api/backtest"];
-
-// Rate-limit hardening (BACKLOG.md): a route that submits a broker API
-// key/secret to be verified against the broker (Alpaca's `/v2/account`, in
-// `app/api/alpaca/connect-live`'s POST) is the one class of endpoint the
-// blanket 120/min DEFAULT_LIMIT is genuinely too loose for — it's exactly
-// the shape an attacker would hammer to test stolen or guessed credentials,
-// or to abuse Alpaca's API quota from GSPS's own IP. A real user submits
-// this at most a handful of times per session (typos aside), so a much
-// tighter budget costs a legitimate user nothing.
-const CREDENTIAL_LIMIT = 5;
-//
-// The two sign-in lookups join it (review findings S-01 and S-05,
-// 2026-10-21): a username sign-in is a password guess, and the account-status
-// check tells whether an email has an account, so both are the shape an
-// attacker scripts against. A person signing in or up sends each once or twice.
-const CREDENTIAL_PREFIXES = [
-  "/api/alpaca/connect-live", "/api/snaptrade/connect",
-  "/api/auth/username-login", "/api/auth/account-status",
-];
 
 function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -85,10 +65,11 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith("/api")) {
-    const isScan = SCAN_PREFIXES.some((p) => path.startsWith(p));
-    const isCredential = CREDENTIAL_PREFIXES.some((p) => path.startsWith(p));
-    const bucket = isCredential ? "credential" : isScan ? "scan" : "api";
-    const limit = isCredential ? CREDENTIAL_LIMIT : isScan ? SCAN_LIMIT : DEFAULT_LIMIT;
+    // The scheduled jobs all call from Supabase's one address; the secret's
+    // holder is the platform itself, so its calls draw from no budget.
+    if (isCronAuthorized(request.headers.get("authorization"))) return supabaseResponse;
+    const bucket = rateLimitBucket(path, request.method);
+    const limit = RATE_LIMITS[bucket];
     // Credential-verification abuse is exactly as real from an anonymous
     // caller hitting a signed-out 401 repeatedly as from a signed-in one —
     // keyed the same `user ?? ip` way as every other bucket rather than

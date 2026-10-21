@@ -6,7 +6,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { paperEquity, recordPaperEquityMarks } from "@/lib/portfolio/paper-equity";
 import {
   getOrCreateAccount,
   listOpenPositions,
@@ -58,8 +59,10 @@ export async function GET() {
     // One quote per held symbol (paper + live combined, so a symbol held in
     // both isn't fetched twice). Equity/crypto reads the live feed; an
     // option leg tries a live per-contract quote first (see
-    // lib/brokers/simulator.ts) and falls back to the underlying's spot,
-    // then its own entry price, when no live options data is available.
+    // lib/brokers/simulator.ts) and falls back to its own entry price when no
+    // live options data is available, as markAllPaperEquity does. Until
+    // 2026-10-21 it fell back to the underlying's spot, which values a $5
+    // call on a $500 stock at $500 and wrote that into the equity record.
     const quotes = await Promise.all(
       allPositionRows.map(async (p) => {
         const occ = parseOccSymbol(p.symbol);
@@ -69,8 +72,8 @@ export async function GET() {
     );
     const equityPriceMap = new Map(quotes.filter(([, price]) => price != null));
 
-    // The underlying's spot, as the option leg's fallback mark — bounded to
-    // just the underlyings actually held, not a market-wide call.
+    // The underlying's spot, for the blended view's underlying column only —
+    // bounded to the underlyings actually held, not a market-wide call.
     const optionUnderlyings = new Set(
       allPositionRows.map((p) => parseOccSymbol(p.symbol)?.underlying).filter((u): u is string => Boolean(u)),
     );
@@ -85,7 +88,7 @@ export async function GET() {
     // (RawPosition) are identical and this is the only other call site.
     function toRawPosition(p: (typeof positionRows)[number], mode: "paper" | "live"): RawPosition {
       const occ = parseOccSymbol(p.symbol);
-      const currentPrice = equityPriceMap.get(p.symbol) ?? (occ ? spotMap.get(occ.underlying) : null) ?? p.avg_entry_price;
+      const currentPrice = equityPriceMap.get(p.symbol) ?? p.avg_entry_price;
       const signedQty = p.side === "short" ? -p.qty : p.qty;
       const marketValue = currentPrice * p.qty;
       const perShare = p.side === "long" ? currentPrice - p.avg_entry_price : p.avg_entry_price - currentPrice;
@@ -114,7 +117,18 @@ export async function GET() {
     // Paper-only — `equity` below must never include a live leg's value.
     const rawPositions: RawPosition[] = positionRows.map((p) => toRawPosition(p, "paper"));
 
-    const equity = account.cash + rawPositions.reduce((sum, p) => sum + p.marketValue, 0);
+    // A short is owed back, so it counts against the account (paperEquity).
+    // Before 2026-10-21 this added a short's market value, so a short sale's
+    // credited cash was counted twice.
+    const equity = paperEquity(
+      account.cash,
+      rawPositions.map((p) => ({ side: p.side === "short" ? "short" : "long", qty: Math.abs(p.qty), price: p.currentPrice })),
+    );
+    // The account's record over time (migration 0101); never blocks the page.
+    await recordPaperEquityMarks(
+      createServiceClient(),
+      new Map([[user.id, { equity, cash: account.cash, openPositions: rawPositions.length }]]),
+    ).catch((err: unknown) => console.error(`portfolio: equity mark not recorded — ${String(err)}`));
 
     const openedBySymbol = new Map<string, OpenedAt>(
       allPositionRows.map((p) => [p.symbol.toUpperCase(), { openedAt: p.opened_at, reason: "derived" as const }]),

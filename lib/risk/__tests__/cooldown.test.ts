@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { gateAction, validateResetChecklist, requiresResetChecklist } from "@/lib/risk/cooldown";
+import { applyResetChecklistHold, gateAction, validateResetChecklist, requiresResetChecklist } from "@/lib/risk/cooldown";
+import { resolveState } from "@/lib/risk/circuit-breaker";
 
 describe("gateAction", () => {
   const hardCooldownInputs = { loss48hPct: 5, drawdown30dPct: 0 };
@@ -70,5 +71,30 @@ describe("requiresResetChecklist", () => {
     expect(requiresResetChecklist("critical_lock")).toBe(true);
     expect(requiresResetChecklist("emergency_lock")).toBe(true);
     expect(requiresResetChecklist("severe_override")).toBe(true);
+  });
+});
+
+describe("applyResetChecklistHold", () => {
+  const triggeredAt = new Date("2026-10-01T15:00:00Z");
+  const prior = { state: "hard_cooldown" as const, triggeredAt };
+  const released = resolveState({ loss48hPct: 0, drawdown30dPct: 0 });
+
+  it("keeps new entries closed once the hold's days run out, until a checklist is done", () => {
+    const held = applyResetChecklistHold(released, prior, null);
+    expect(held.state).toBe("hard_cooldown");
+    expect(held.newEntriesAllowed).toBe(false);
+    expect(held.reason).toMatch(/reset checklist/);
+  });
+
+  it("lets entries resume once a checklist was completed after the hold began", () => {
+    expect(applyResetChecklistHold(released, prior, new Date("2026-10-03T15:00:00Z"))).toBe(released);
+  });
+
+  it("does not count a checklist from before this hold began", () => {
+    expect(applyResetChecklistHold(released, prior, new Date("2026-09-20T15:00:00Z")).newEntriesAllowed).toBe(false);
+  });
+
+  it("leaves a soft cooldown, which needs no checklist, alone", () => {
+    expect(applyResetChecklistHold(released, { state: "soft_cooldown", triggeredAt }, null)).toBe(released);
   });
 });

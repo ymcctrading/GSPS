@@ -8,7 +8,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Product Roadmap
 
-`ROADMAP.md` is the governing roadmap for this project. **Read it before
+**`docs/SYNTHESIZED_ROADMAP.md` is the governing plan from 2026-10-21**
+(owner: the roadmaps, parities, Gann files, Observation of Cycles, Hauck and
+the creation equation "coagulate together" into one roadmap "that we shall
+follow moving forward"). Read it first: its Part 5 is the current phase's
+item-by-item status and its Part 7 says which thread owns what.
+`ROADMAP.md` keeps each phase's detail and history. **Read it before
 proposing new work, scoping a feature, or prioritizing between options** — it
 decides what gets built and in what order, and it outranks `BACKLOG.md`, which
 is an unscheduled idea pool rather than a set of commitments.
@@ -634,8 +639,12 @@ when the member's account is deleted (their foreign keys cascade from
 figure it out"):** the server reads `serviceRoleKey()`
 (`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
-The readable legacy variable was removed from Vercel once production ran on
-the secret key. Read the key through that helper, never from `process.env`.
+Correction, 2026-10-21: the readable legacy
+`SUPABASE_SERVICE_ROLE_KEY` is still in Vercel (production and preview,
+flagged a readable secret). Production does not need it, since it reads
+`SUPABASE_SECRET_KEY`; only preview deployments fell back to it, and those
+stop with `vercel.json`'s `*/**` rule. Removing it is the owner's step in the
+Vercel dashboard (this environment can't edit Vercel variables). Read the key through that helper, never from `process.env`.
 **Breached passwords (S-11):** Supabase's leaked-password setting is a
 dashboard switch no tool here reaches, so sign-up, reset and the Settings
 password change refuse a password found in Have I Been Pwned
@@ -893,19 +902,25 @@ answers it (design: `/mnt/project-files/trade-style/DESIGN.md`). He did not
 day-trade ("the big money … is made on the long swings and not by day to day
 trading", W036; *Commodities* pp. 4-7, 55), so the styles are his two speeds of
 one method (`lib/trade/tradeStyle.ts`): **Swing**, the default, and **Fast**,
-his fast-market method: the same entry and verdict, the stop on his day stop, 3
-points beyond the last completed day's low (high, short) and never looser than
-the swing stop (`lib/gann/dayStop.ts`; W006 Rule 2 p.46, "a 3-points stop … is
-the safest"; *Truth of the Stock Tape*; *Commodities* Selling Point 9), trailed
-under each day's low, never closed at the session's end. The scan prices both
-(`ScanResult.fastLevels`, `lib/trade/tradeStylePlan.ts#priceFastLevels`); the
-replay walks either (`tradeStyle`, `?tradeStyle=fast`). The style is a trader
-preference (`settings.prefs.gannRules.tradeStyle`), chosen on the order ticket,
-which then uses that style's levels; the ticker page's card shows both. The
-intraday alerts' "level held" stop calls the same `gannDayStop` (intraday
-thread). Not yet on the style, stated reasons: Guided Mode (Novice gets the main
-method), the portfolio manager (trades Fast only once the replay has measured
-it), the daily list cards and notifications (they show the swing plan).
+his fast-market method: the same plan, entry and stop as swing (Rule 3, W006
+pp.46-47), and once filled the stop trails 3 points under each completed day's
+low (over its high, short) from the fill's session, never lowered, never closed
+at the session's end (`readGannExit`'s "day_low", `lib/gann/dayStop.ts`; W006
+Rule 2 p.46; the 1940-41 soybean trade, W001 pp.134-137; *Truth of the Stock
+Tape*, "stop three points" from the day bought). The style is a trader
+preference (`settings.prefs.gannRules.tradeStyle`), chosen on the order ticket;
+each trade is managed in the style that stood when it filled (the server keeps
+`tradeStyleHistory`, read by `styleAt`), so switching never re-manages an open
+trade; the paper and live exit managers read it for the trader's own trades,
+counting from the fill (`lib/trade/exit-style.ts`), and the replay walks it under Gann's exits
+(`tradeStyle`, `?tradeStyle=fast`). Trades automation places stay on swing
+until the replay has measured Fast. The plan, verdict and every surface that
+shows levels are the same in both styles, so nothing else reads it. **Corrected
+the same day (review of #405):** the first build put the day stop on before the
+fill (`fastLevels`), which moved the crossing line confirmation reads and sat
+inside the reaction zone; it was Rule 2's trail read as an entry stop, and is
+gone. The intraday alerts' "level held" stop calls the same `gannDayStop`
+(intraday thread).
 One plan for every market: crypto and commodity targets were 1.5R and 2.5-3R,
 no Gann source; every named market now takes the level plan (`computeTradeLevels`).
 `lib/instruments/spec.ts` defines each market's unit, session, contract size and
@@ -914,7 +929,8 @@ Gann wrote nothing on currencies). Futures and forex have quotes only, no bars o
 broker, so they price nothing live yet. Options follow his course (Master Course
 Ch. 19A/B, `lib/options/gannOptionPlan.ts`): the premium is the risk, the
 ticket offers the first expiry 30 or more days out, strikes a few points out.
-`STRATEGY_VERSION` was `2026-10-21-gann-one-plan-every-market`.
+`STRATEGY_VERSION` was `2026-10-21-gann-one-plan-every-market`; every named
+market's rounded plan is now checked as F-02 checks the R model's.
 
 **Group rank reviewed, same day (owner's review mandate, run on #388 after its
 merge).** Three fixes. (1) The major-group fallback counted every stock with the
@@ -935,7 +951,8 @@ description, major groups by their key alone.
 Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
 other's peers, in the universe and the group. `STRATEGY_VERSION` was
 `2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh
-run on it.
+run on it. The Fast trail (review of #405, above) merged onto it:
+`STRATEGY_VERSION` was `2026-10-21-gann-fast-trail-after-fill`.
 
 **One entry a session in the replay, 2026-10-21 (review of #395 and #393).** The
 replay traded both of a session's buying points; it now trades the one the live
@@ -3058,7 +3075,7 @@ What that means for a session:
 ## Deployment (Vercel)
 
 - The project runs on the **Vercel Hobby (free) plan**. Cron jobs are capped at **2 per project**, each running **no more than once a day**. Before adding a new scheduled job, confirm the total stays at or under that cap — see `docs/THIRD_PARTY_LIMITS.md`. If something needs to run more often than daily, it does not belong in `vercel.json` crons; trigger it from an external scheduler instead.
-- `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
+- `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false, "*/**": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). The patterns are minimatch globs, and `*` never matches a `/`, so until 2026-10-21 every `claude/...` branch still built a preview and the account hit 100 deployments that day; `*/**` covers them. There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
 - A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
 

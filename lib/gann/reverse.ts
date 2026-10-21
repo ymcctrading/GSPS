@@ -41,6 +41,7 @@ const STOP_REASONS: ReadonlySet<string> = new Set<GannStopReason | "stop">([
   "prior_week",
   "prior_month",
   "final_stage",
+  "day_low",
 ]);
 
 /** Whether a trade that left for this reason is reversed. */

@@ -682,6 +682,15 @@
 // group not itself in the universe's weakest quarter (strongest, for a short),
 // since Gann ranks the groups before the stocks in them (TST Ch. XVI-XVII).
 // Scores and list order move, live and replay alike.
+// 2026-10-21-gann-fast-trail-after-fill: review of #405. The Fast style
+// opens on the swing plan's entry and stop (Rule 3, W006 pp.46-47) and trails
+// 3 points under each completed day's low from the fill's session
+// (`readGannExit`'s "day_low"; W006 Rule 2 p.46), live, paper and replay
+// alike; `fastLevels` and its day stop before the fill are gone. Every named
+// market's plan is now refused when its rounded levels are not a priced plan
+// (F-02's check, which crypto lost on the previous version). Swing verdicts
+// and trades are unchanged except plans that round onto themselves. Merged
+// onto 2026-10-21-gann-group-rank-review, whose rank it keeps.
 // 2026-10-21-cutoffs-seven-four-one-entry: the replay trades one buying point a
 // session, the one the live scan shows (`chooseSessionEntry`: the with-trend
 // continuation when it armed, else the reversion), and sets the other aside
@@ -691,5 +700,6 @@
 // leaves live verdicts unchanged; replay trade counts and buckets move.
 // The Execute and Watch cutoffs go back to the protocol's 7/4 (owner,
 // 2026-10-21): the 6/3.5 confirmation was read on the pre-fix 2026-09-23
-// trigger. Live verdicts move.
+// trigger. Live verdicts move. Merged onto
+// 2026-10-21-gann-fast-trail-after-fill, whose Fast trail it keeps.
 export const STRATEGY_VERSION = "2026-10-21-cutoffs-seven-four-one-entry";

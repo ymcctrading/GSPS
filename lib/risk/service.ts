@@ -30,6 +30,7 @@ import { resolveState, type CircuitDecision, type PriorState } from "@/lib/risk/
 import { buildAuditRecord, isTransition, type SourceDataConfidence } from "@/lib/risk/audit";
 import type { CircuitState } from "@/lib/risk/config";
 import { getRiskPolicy } from "@/lib/risk/policy";
+import { applyResetChecklistHold } from "@/lib/risk/cooldown";
 import { etDateKey, etParts } from "@/lib/market/session";
 
 /** Snapshots are throttled to at most one every this many minutes per user. */
@@ -143,6 +144,24 @@ export interface CircuitEvaluation {
  * paper/simulated mark passed here would apply these rules to paper trading,
  * which the spec explicitly excludes.
  */
+/** When the profile last completed a reset checklist, or null. */
+export async function lastResetChecklistAt(supabase: SupabaseClient, userId: string): Promise<Date | null> {
+  try {
+    const { data, error } = await supabase
+      .from("risk_reset_checklists")
+      .select("completed_at")
+      .eq("profile_id", userId)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return new Date((data as { completed_at: string }).completed_at);
+  } catch {
+    // Unreadable reads as none completed, so the hold stays: fail closed.
+    return null;
+  }
+}
+
 export async function evaluateLiveCircuitBreaker(
   supabase: SupabaseClient,
   userId: string,
@@ -173,12 +192,15 @@ export async function evaluateLiveCircuitBreaker(
     ? { state: stored.state, triggeredAt: new Date(stored.triggered_at) }
     : undefined;
 
-  const decision = resolveState(
+  const resolved = resolveState(
     { loss48hPct: loss48h.lossPct, drawdown30dPct: drawdown30d.lossPct },
     prior,
     (from) => tradingDaysElapsed(from, now),
     policy.circuit,
   );
+  // A hold that has run its days still waits for the reset checklist
+  // (lib/risk/cooldown.ts#applyResetChecklistHold).
+  const decision = applyResetChecklistHold(resolved, prior, await lastResetChecklistAt(supabase, userId));
 
   const sourceDataConfidence: SourceDataConfidence = !equityVerified || anyUnverified ? "estimate" : "verified";
   const priorState = stored?.state ?? null;

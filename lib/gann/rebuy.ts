@@ -32,7 +32,7 @@ import { gannPoint } from "./pointScale";
 
 export const REBUY_REACTION_POINTS = 12;
 
-const TRAILING_STOPS: ReadonlySet<string> = new Set(["stop", "break_even", "last_reaction", "prior_week", "prior_month", "final_stage"]);
+const TRAILING_STOPS: ReadonlySet<string> = new Set(["stop", "break_even", "last_reaction", "prior_week", "prior_month", "final_stage", "day_low"]);
 
 /** Whether a trade that left for this reason is re-bought on the reaction. */
 export function rebuysOn(cause: string | null | undefined): boolean {

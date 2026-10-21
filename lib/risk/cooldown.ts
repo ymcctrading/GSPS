@@ -144,3 +144,31 @@ export function requiresResetChecklist(state: CircuitState): boolean {
     state === "severe_override"
   );
 }
+
+/**
+ * Holds new entries after a checklist-requiring state's own duration has run
+ * out, until a reset checklist has been completed since that state began
+ * (docs/SYNTHESIZED_ROADMAP.md Part 5 item 16). Until 2026-10-21 nothing
+ * read a checklist: the hold simply expired. Gann's rule after a series of
+ * losses is to stop and study before trading again (*Commodities* pp. 12,
+ * 17, 29; *Stock Selector* Ch. III); the checklist is that study written
+ * down. A decision already at least as severe as the prior state, or a
+ * prior state that needs no checklist, passes through unchanged.
+ */
+export function applyResetChecklistHold(
+  decision: CircuitDecision,
+  prior: PriorState | undefined,
+  lastChecklistCompletedAt: Date | null,
+): CircuitDecision {
+  if (!prior || !requiresResetChecklist(prior.state)) return decision;
+  if (decision.state === prior.state || requiresResetChecklist(decision.state)) return decision;
+  if (lastChecklistCompletedAt && lastChecklistCompletedAt >= prior.triggeredAt) return decision;
+  return {
+    ...decision,
+    state: prior.state,
+    reason: `The ${prior.state.replace(/_/g, " ")} hold has ended. Complete the reset checklist in Settings before new entries resume.`,
+    newEntriesAllowed: false,
+    newEntryRequiresRiskReview: false,
+    blockedTradingDaysRemaining: 0,
+  };
+}
