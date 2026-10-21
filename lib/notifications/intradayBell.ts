@@ -32,6 +32,7 @@ import { SIGNAL_LABELS } from "@/lib/scanner/intradayDisplay";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry } from "@/lib/promotion/pro-intraday";
+import { etDateKey } from "@/lib/market/session";
 
 export interface IntradayBellRow {
   symbol: string;
@@ -106,6 +107,35 @@ async function loadWatchers(service: SupabaseClient, symbols: string[]): Promise
   return watchers;
 }
 
+/** The rows a Pro member may still be told about today, by symbol. */
+async function withinProDailyBound(
+  service: SupabaseClient,
+  profileId: string,
+  rows: IntradayBellRow[],
+  now: Date,
+): Promise<IntradayBellRow[]> {
+  const today = etDateKey(now);
+  const { data } = await service
+    .from("in_app_notifications")
+    .select("symbol, created_at")
+    .eq("profile_id", profileId)
+    .eq("verdict", "Intraday")
+    .gte("created_at", new Date(now.getTime() - 30 * 3600_000).toISOString());
+  const shown = new Set(
+    ((data ?? []) as { symbol: string; created_at: string }[])
+      .filter((r) => etDateKey(new Date(r.created_at)) === today)
+      .map((r) => r.symbol.toUpperCase()),
+  );
+  const max = DEFAULT_PRO_INTRADAY_POLICY.setupsDisplayedPerDayMax;
+  return rows.filter((r) => {
+    const symbol = r.symbol.toUpperCase();
+    if (shown.has(symbol)) return true;
+    if (shown.size >= max) return false;
+    shown.add(symbol);
+    return true;
+  });
+}
+
 /**
  * Writes a bell notice for each new alert to every member watching its
  * symbol. Best-effort: a failure is logged, never thrown into the scan.
@@ -133,7 +163,14 @@ export async function recordIntradayBells(
       );
       if (mine.length === 0) continue;
 
-      const rows = mine.map(buildIntradayBellRow);
+      let rows = mine.map(buildIntradayBellRow);
+      // Pro's module shows a bounded number of setups a day
+      // (`setupsDisplayedPerDayMax`); its notices keep to the same bound,
+      // counted by symbol over the New York day (review, 2026-10-21).
+      if (!policy.intradayScansEnabled) {
+        rows = await withinProDailyBound(service, profileId, rows, args.now);
+        if (rows.length === 0) continue;
+      }
       const { data: recent } = await service
         .from("in_app_notifications")
         .select("title")

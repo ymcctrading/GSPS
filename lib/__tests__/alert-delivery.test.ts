@@ -165,6 +165,33 @@ describe("intraday bell delivery", () => {
     expect(await recordIntradayBells(db.client, [alert("SPY", { direction: "down" })], args)).toBe(2);
   });
 
+  it("keeps Pro's notices within its daily bound of setups, by symbol", async () => {
+    const symbols = ["SPY", "QQQ", "IWM", "DIA", "TSLA", "NVDA", "AAPL"];
+    const db = fakeDb({
+      watchlists: [{ id: "wl-p", user_id: "pro-p" }],
+      watchlist_items: symbols.map((symbol) => ({ watchlist_id: "wl-p", symbol })),
+      active_monitors: [],
+      in_app_notifications: [],
+    });
+    const intervalBySymbol = new Map(symbols.map((s) => [s, 15]));
+    const written = await recordIntradayBells(db.client, symbols.map((s) => alert(s)), {
+      intervalBySymbol,
+      cooldownMinutes: 30,
+      now,
+    });
+    // DEFAULT_PRO_INTRADAY_POLICY.setupsDisplayedPerDayMax is 5.
+    expect(written).toBe(5);
+    // A new signal on a symbol already noticed today still reaches them; a sixth symbol does not.
+    now = new Date("2026-10-21T16:30:00Z");
+    expect(
+      await recordIntradayBells(db.client, [alert("SPY", { direction: "down" }), alert("AAPL")], {
+        intervalBySymbol,
+        cooldownMinutes: 30,
+        now,
+      }),
+    ).toBe(1);
+  });
+
   it("writes nothing when no member watches the symbol", async () => {
     const db = fakeDb(seed());
     const written = await recordIntradayBells(db.client, [alert("NVDA")], {
