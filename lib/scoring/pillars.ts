@@ -53,6 +53,7 @@ export interface PillarFacts {
   marketTrend: Side | null;
   /** Yearly counts from major pivots landing on this month (closed months only). */
   yearCycle: { bullishHits: number; bearishHits: number } | null;
+  /** The decade digit's character at this month (`DecadeCycleReading.currentBias`), not the year's label. */
   decadeBias: "bullish" | "bearish" | "mixed" | null;
   /**
    * Gann's weekly green/red trend line (Master Course Ch. 8, p. 239,
@@ -167,7 +168,7 @@ export function readPillarFacts(input: {
     marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
     yearCycle: closedMonths.length >= 12 ? yearCycleConvergence(closedMonths, asOf) : null,
     weeklyLine: rules.weeklyOneBar?.colour ?? null,
-    decadeBias: rules.decadeCycle?.bias ?? null,
+    decadeBias: rules.decadeCycle?.currentBias ?? null,
     yearTrend: rules.yearRanges?.yearTrend ?? null,
     leadership: leadership
       ? {

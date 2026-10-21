@@ -543,4 +543,12 @@
 // move; the list's continuation pass and the replay arm as before. Same day,
 // the percent-of-equity ceilings apply to Novice only and the portfolio
 // manager has no daily count: placement and sizing, not verdicts.
-export const STRATEGY_VERSION = "2026-10-21-gann-with-trend-first";
+// 2026-10-21-gann-decade-in-year-turns: P1's year check (and the measured
+// `decadeYearWithTrade`) reads the decade digit's character at the session's
+// month, not the year's label. Gann names turns inside four years (Master
+// Course Ch. 7, PDF 223-224): a '6' year's bull "ends in the Fall" (September
+// to November mixed, December bearish), a '9' year culminates September to
+// November, and '3' and '10' years rally to March/April before the bear year.
+// The fall of 2026 had read bullish, giving every long the point free. P1 and
+// so some scores move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-decade-in-year-turns";

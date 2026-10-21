@@ -532,7 +532,36 @@ breaker's own daily pause is unchanged. On the symbol page and any surface
 without a preference, `chooseSessionEntry` now shows the with-trend
 (continuation) buying point first when both armed, the reversion only when it
 alone armed ("never buck the trend", *Wall Street Stock Selector* pp. 18-19,
-never-failing rule 5). `STRATEGY_VERSION` is `2026-10-21-gann-with-trend-first`.
+never-failing rule 5). `STRATEGY_VERSION` was `2026-10-21-gann-with-trend-first`.
+
+**Pillar diagnosis P1 and P5, 2026-10-21 (766-symbol 15-minute run, 598 trades
+scoring 6+: `marketCycle` passes 91.5% at −0.307R, `priceLevels` 92.6% at
+−0.234R).** One translation defect, fixed: P1's year check read the decade
+digit's label for the whole year, but Gann names turns inside four years
+(Master Course Ch. 7, PDF 223-224): a '6' year's campaign "ends in the Fall,
+fast decline", a '9' year's final campaigns culminate and bear markets start
+September to November, and '3' and '10' years rally to March/April. 2026 is a
+'6' year and the run's window (2026-08-24 to 10-20) is its fall, so every long
+took the year point free and no short could from the digit: a long failed P1
+only with the market and a yearly count both against it, while a short needed
+two checks besides the digit, in the decline Gann expects there.
+`DecadeCycleReading.currentBias` (`lib/gann/decadeCycle.ts`) reads the month:
+the culmination months are "mixed" (neither side takes the point, as the '9'
+year as a whole always was), the months after them bearish. P1 and
+`decadeYearWithTrade` read it; `bias` stays the year's label for the card and
+CYC-52's pre-registered 1 July test. Held for the owner, not changed: P1's
+cycle check ("no yearly count due against it") passes whenever no count lands
+on the month, about 94% of trades (`yearCycleSplit`), so P1 is close to "market
+trend OR year's character". P5's retracement check divides the last daily swing
+(4-bar pivots) into twelve fractions and accepts any within Gann's 3-point
+allowance: on random walks it passes 71-79% for either side, because that swing
+is narrower than twice the allowance on 99% of readings at $20 and 41% at $500,
+so the divisions sit inside one allowance. Gann divides the major range ("on a
+basis of 100", Ch. 6; "50% of the highest price, then of the range", 45 Years
+Ch. IV); which range to divide is the owner's call. P5's failures are prices
+clear of that swing, a market reading, not a mirror or bar fault.
+`STRATEGY_VERSION` is `2026-10-21-gann-decade-in-year-turns`; P1 and the 6/3.5
+cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
