@@ -244,9 +244,12 @@ export interface ReplayOptions {
    *   (`lib/lifecycle/entryConfirmation.ts`: touch, a close beyond the
    *   trigger by the 3-point-rule buffer, a retest, then a close that holds).
    *   The trade fills at the open of the bar after the hold confirms. This is
-   *   how plan-scoped automation and the autonomous portfolio manager enter;
-   *   they act only on an `armed` plan. It uses the same state-machine
-   *   function the live plans use, so the two can't drift.
+   *   how plan-scoped automation and the autonomous portfolio manager entered
+   *   until item 4. It is no production path now: it arms from the crossing
+   *   alone (`computeGannEntryTrigger`, no old-level or held buys) and
+   *   measures R from the crossing price, 2 points past the reaction entry
+   *   the plan, its TP1 and M-K5 are priced from. A run meant to describe
+   *   production uses `"reaction"` (2026-10-21).
    *
    * Added 2026-09-26 (alignment audit F3.4). Before this the replay measured
    * only the stop entry, so nothing measured the rule automation trades on.
@@ -418,6 +421,14 @@ export interface ReplayTrade {
   reversal?: number;
   /** Set on a re-entry after a stop (`rebuyAfterStop`). */
   rebuy?: boolean;
+  /**
+   * Set on a trade the replay opened from another one rather than armed and
+   * scored: a reversal (`reverseWhenCaught`) or a re-entry after a stop
+   * (`rebuyAfterStop`). Nothing scored it, so it carries no `score`,
+   * `outputState` or `criteria`: it counts in the population totals but in no
+   * verdict bucket, score band or factor table (`byDerived` reports it).
+   */
+  derived?: "reversal" | "rebuy";
   /** Why the trade left, under `exitRule: "gann"` or the intraday profile. Undefined under the bracket. */
   exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "covered" | "timeout";
   /** Realised result in units of the trade's own risk, after costs. */
@@ -513,6 +524,19 @@ export interface ReplayResult {
    */
   refusedFills: number;
   /**
+   * Triggered entries dropped after they fired because no tradeable plan
+   * stood behind them, so no trade was recorded: the production plan was
+   * missing (`usePlanLevels`), the stop did not sit on the losing side of the
+   * entry, the plan's TP1 lay at or short of the entry the rule measures from,
+   * or the round-number hold refused it. Counted beside `refusedFills` so a
+   * run's fires add up: `triggered = trades from armed setups + refusedFills
+   * + droppedPlans` (2026-10-21; 392 of 1,475 fires vanished this way on the
+   * 2026-10-20 run, uncounted).
+   */
+  droppedPlans: number;
+  /** `droppedPlans` by reason. */
+  droppedPlanReasons: DroppedPlanReasons;
+  /**
    * Session plans retired by a breached stop (owner decision, 2026-09-30;
    * `lib/gann/stopBreach.ts`): the prior session's last close, or an earlier
    * candle of the session, had already traded through the plan's own stop. It
@@ -526,8 +550,24 @@ export interface ReplayResult {
   retiredPlans: number;
 }
 
-const EMPTY: Omit<ReplayResult, "trades"> = {
-  armed: 0, triggered: 0, refusedFills: 0, retiredPlans: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
+/** Why a fired entry was dropped with no trade recorded (`ReplayResult.droppedPlans`). */
+export interface DroppedPlanReasons {
+  /** `usePlanLevels` and the plan could not be priced. */
+  noLevels: number;
+  /** The stop was not on the losing side of the entry (no risk). */
+  invalidRisk: number;
+  /** The plan's TP1 lay at or short of the entry the rule measures from. */
+  targetNotBeyondEntry: number;
+  /** `roundNumberHold` refused the entry. */
+  roundNumberHold: number;
+}
+
+export function emptyDroppedPlanReasons(): DroppedPlanReasons {
+  return { noLevels: 0, invalidRisk: 0, targetNotBeyondEntry: 0, roundNumberHold: 0 };
+}
+
+const EMPTY: Omit<ReplayResult, "trades" | "droppedPlanReasons"> = {
+  armed: 0, triggered: 0, refusedFills: 0, droppedPlans: 0, retiredPlans: 0, wins: 0, losses: 0, timeouts: 0, ambiguous: 0,
   winRate: 0, expectancyR: 0, totalR: 0,
 };
 
@@ -828,6 +868,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const armedKeys = new Set<string>();
   let triggered = 0;
   let refusedFills = 0;
+  const dropped = emptyDroppedPlanReasons();
   // A swing top/bottom is crossed once per setup kind. Pivot indices are
   // stable across sessions because each session's daily history is a prefix
   // of the next.
@@ -1125,11 +1166,15 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         roundNumberHold &&
         roundNumberEntryBlocked({ entry: entryRule === "reaction" ? trigger.reactionEntry : trigger.triggerPrice, direction: trigger.direction, crossedLevel: trigger.pivot.price }).blocked
       ) {
+        dropped.roundNumberHold++;
         continue;
       }
 
       // The production plan (usePlanLevels): its own stop and TP1.
-      if (usePlanLevels && !scored.levels) continue;
+      if (usePlanLevels && !scored.levels) {
+        dropped.noLevels++;
+        continue;
+      }
       const planLevels = usePlanLevels ? scored.levels : null;
       const planned = entryRule === "reaction" ? trigger.reactionEntry : trigger.triggerPrice;
       const stop = entryRule === "reaction"
@@ -1146,9 +1191,19 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             })
           : trigger.stopPrice;
       const risk = Math.abs(planned - stop);
-      if (!(risk > 0) || (long ? stop >= planned : stop <= planned)) continue;
+      if (!(risk > 0) || (long ? stop >= planned : stop <= planned)) {
+        dropped.invalidRisk++;
+        continue;
+      }
       const target = planLevels ? planLevels.takeProfit1 : planned + dir * targetR * risk;
-      if (planLevels && (long ? target <= planned : target >= planned)) continue;
+      // Under `entryRule: "confirmed"` (and "stop") `planned` is the crossing
+      // price, 2 points past the reaction entry the plan's TP1 was priced from,
+      // so a TP1 inside those 2 points lands here. Under "reaction" both are
+      // the reaction entry.
+      if (planLevels && (long ? target <= planned : target >= planned)) {
+        dropped.targetNotBeyondEntry++;
+        continue;
+      }
 
       // Production refuses a fill at or beyond its own stop or target
       // (`fill_outran_bracket`). The setup is spent either way.
@@ -1203,13 +1258,13 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         if (reverseWhenCaught) {
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
-            cause: walked.reason, brokenLevel: walked.exit, extreme: walked.best ?? entry, maxBarsHeld,
+            cause: walked.reason, brokenLevel: walked.finalExit, extreme: walked.best ?? entry, maxBarsHeld,
             costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry,
           })) {
+            // Not scored: no verdict, score or criteria is inherited (see `derived`).
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
-              score: decision.score, outputState: decision.outputState, criteria: criteriaOf(decision),
-              largeCap, ambiguous: false, ...r,
+              largeCap, ambiguous: false, derived: "reversal", ...r,
             });
           }
         }
@@ -1218,8 +1273,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           if (r) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
-              score: decision.score, outputState: decision.outputState, criteria: criteriaOf(decision),
-              largeCap, ambiguous: false, ...r,
+              largeCap, ambiguous: false, derived: "rebuy", ...r,
             });
           }
         }
@@ -1276,7 +1330,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     }
   }
 
-  return summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size);
+  return summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped);
 }
 
 /**
@@ -1324,8 +1378,10 @@ export function summarise(
   triggered = 0,
   refusedFills = 0,
   retiredPlans = 0,
+  droppedPlanReasons: DroppedPlanReasons = emptyDroppedPlanReasons(),
 ): ReplayResult {
-  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills, retiredPlans };
+  const droppedPlans = Object.values(droppedPlanReasons).reduce((s, n) => s + n, 0);
+  if (trades.length === 0) return { trades, ...EMPTY, armed, triggered, refusedFills, droppedPlans, droppedPlanReasons, retiredPlans };
   const wins = trades.filter((t) => t.outcome === "win").length;
   const losses = trades.filter((t) => t.outcome === "loss").length;
   const timeouts = trades.filter((t) => t.outcome === "timeout").length;
@@ -1335,6 +1391,8 @@ export function summarise(
     armed,
     triggered,
     refusedFills,
+    droppedPlans,
+    droppedPlanReasons,
     retiredPlans,
     wins,
     losses,
@@ -1355,7 +1413,11 @@ export function combine(results: ReplayResult[]): ReplayResult {
   const triggered = results.reduce((s, r) => s + r.triggered, 0);
   const refusedFills = results.reduce((s, r) => s + (r.refusedFills ?? 0), 0);
   const retiredPlans = results.reduce((s, r) => s + (r.retiredPlans ?? 0), 0);
-  return summarise(trades, armed, triggered, refusedFills, retiredPlans);
+  const dropped = emptyDroppedPlanReasons();
+  for (const r of results) {
+    for (const k of Object.keys(dropped) as (keyof DroppedPlanReasons)[]) dropped[k] += r.droppedPlanReasons?.[k] ?? 0;
+  }
+  return summarise(trades, armed, triggered, refusedFills, retiredPlans, dropped);
 }
 
 /** How many reversals deep the replay follows a chain of caught trades. An engineering bound, not Gann's. */
@@ -1510,7 +1572,7 @@ export function walkReversals(input: {
     caughtAt = fillAt + walked.barsHeld - 1;
     side = plan.side;
     cause = walked.reason;
-    brokenLevel = walked.exit;
+    brokenLevel = walked.finalExit;
     extreme = walked.best ?? entry;
   }
   return out;
@@ -1527,7 +1589,7 @@ const RUNNER_SCALE_OUT = SCALE_OUT_PCT;
  * the stop moves if they tighten it, and an exit signal leaves at that bar's
  * open. A stop hit fills at the stop, the same convention as the bracket.
  */
-function walkGannExit(input: {
+export function walkGannExit(input: {
   bars: Bar[];
   from: number;
   maxBarsHeld: number;
@@ -1546,7 +1608,16 @@ function walkGannExit(input: {
   isStock?: boolean;
   /** Cover the whole position when price trades to this level (a re-buy rests there). */
   coverAt?: number;
-}): { exit: number; barsHeld: number; reason: GannStopReason | GannExitReason | "covered" | "timeout"; lots: number; best: number | null } {
+}): {
+  /** The single price that gives the whole exit's P&L per first-lot unit (scale-outs and adds blended in): for R only. */
+  exit: number;
+  /** Where the last of the position actually left: the stop, the signal's open, the cover or the timeout close. The level that broke, for a reversal. */
+  finalExit: number;
+  barsHeld: number;
+  reason: GannStopReason | GannExitReason | "covered" | "timeout";
+  lots: number;
+  best: number | null;
+} {
   const { bars, from, maxBarsHeld, long, entry, dailyBars, crossedLevel, sharesOn, scaleOut, pyramid, isStock = false, coverAt } = input;
   const dir = long ? 1 : -1;
   // Position accounting in units of the first lot (1.0). The result is
@@ -1559,6 +1630,7 @@ function walkGannExit(input: {
   const close = (price: number) => realized + dir * (openQty * price - cost);
   const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "covered" | "timeout") => ({
     exit: entry + dir * close(price),
+    finalExit: price,
     barsHeld: j,
     reason,
     lots: lots.length,
@@ -1737,6 +1809,8 @@ function scoreSetup(input: {
  * Split a run by the verdict the scanner would have shown. Trades with no
  * verdict — too little daily history, or none supplied — are reported under
  * `unscored` rather than folded into a bucket they were never assigned to.
+ * Reversals and re-entries (`derived`) were never scored and sit in none of
+ * these; `byDerived` reports them.
  */
 export function byOutputState(result: ReplayResult): {
   Execute: ReplayResult;
@@ -1744,13 +1818,28 @@ export function byOutputState(result: ReplayResult): {
   Reject: ReplayResult;
   unscored: ReplayResult;
 } {
+  const scored = result.trades.filter((t) => !t.derived);
   const pick = (state: ScanDecision["outputState"]) =>
-    summarise(result.trades.filter((t) => t.outputState === state));
+    summarise(scored.filter((t) => t.outputState === state));
   return {
     Execute: pick("Execute"),
     Watch: pick("Watch"),
     Reject: pick("Reject"),
-    unscored: summarise(result.trades.filter((t) => t.outputState === undefined)),
+    unscored: summarise(scored.filter((t) => t.outputState === undefined)),
+  };
+}
+
+/**
+ * Split a run into the trades its armed setups opened and the ones the replay
+ * opened from them (`ReplayTrade.derived`): reversals when caught and
+ * re-entries after a stop. Each is its own scope; only `armed` carries a
+ * verdict, a score and criteria.
+ */
+export function byDerived(result: ReplayResult): { armed: ReplayResult; reversal: ReplayResult; rebuy: ReplayResult } {
+  return {
+    armed: summarise(result.trades.filter((t) => !t.derived)),
+    reversal: summarise(result.trades.filter((t) => t.derived === "reversal")),
+    rebuy: summarise(result.trades.filter((t) => t.derived === "rebuy")),
   };
 }
 
@@ -1799,5 +1888,5 @@ export function byLargeCap(result: ReplayResult): { largeCap: ReplayResult; notL
  * than guessing.
  */
 export function byScoreRange(result: ReplayResult, min: number, max: number): ReplayResult {
-  return summarise(result.trades.filter((t) => t.score !== undefined && t.score >= min && t.score <= max));
+  return summarise(result.trades.filter((t) => !t.derived && t.score !== undefined && t.score >= min && t.score <= max));
 }

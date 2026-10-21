@@ -149,7 +149,8 @@ export function attributeFactors(
   options: AttributionOptions = {},
 ): FactorAttribution[] {
   const { minSamples = MIN_SAMPLES_PER_ARM, field = "criteria" } = options;
-  const map = (t: ReplayTrade): Record<string, boolean> | undefined => t[field];
+  // A reversal or re-entry (`derived`) was never scored, so it measures no factor.
+  const map = (t: ReplayTrade): Record<string, boolean> | undefined => (t.derived ? undefined : t[field]);
 
   const criteria = new Set<string>();
   for (const t of trades) {

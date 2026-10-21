@@ -5,15 +5,19 @@ import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { entryChartBars, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, reversionEntry } from "@/lib/scan/entrySelection";
 import { reclaimLevel } from "@/lib/gann/stopBreach";
+import { attributeFactors } from "@/lib/backtest/attribution";
+import { buildReport } from "@/lib/backtest/run";
 import {
   MIN_DAILY_BARS_FOR_SCORE,
   buildMacroContext,
+  byDerived,
   byOutputState,
   byScoreRange,
   bySetupKind,
   combine,
   replay,
   rollUp,
+  walkGannExit,
   summarise,
   type ReplayTrade,
 } from "@/lib/backtest/replay";
@@ -898,5 +902,125 @@ describe("replay stop breach retires the plan", () => {
     const a = replay("A", session([poke, crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
     const b = replay("B", session([poke, crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
     expect(combine([a, b]).retiredPlans).toBe(2);
+  });
+});
+
+describe("fill accounting (2026-10-21)", () => {
+  const accounted = (r: ReturnType<typeof replay>) =>
+    r.trades.filter((t) => !t.derived).length + r.refusedFills + r.droppedPlans;
+
+  it("accounts for every fired entry: a trade, a refused fill or a dropped plan", () => {
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    for (const entryRule of ["stop", "confirmed", "reaction"] as const) {
+      for (const usePlanLevels of [false, true]) {
+        const r = replay("TEST", session([crossing, quiet, run, quiet]), { targetR: 2, dailyBars: DAILY, entryRule, usePlanLevels, exitRule: "gann" });
+        expect(accounted(r)).toBe(r.triggered);
+        expect(r.droppedPlans).toBe(Object.values(r.droppedPlanReasons).reduce((a, b) => a + b, 0));
+      }
+    }
+  });
+
+  it("counts a fired entry the round-number hold refuses", () => {
+    const r = replay("TEST", session([crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, roundNumberHold: true });
+    expect(accounted(r)).toBe(r.triggered);
+  });
+
+  it("carries the dropped plans and their reasons through combine and the report", () => {
+    const a = summarise([trade()], 2, 3, 0, 0, { noLevels: 1, invalidRisk: 0, targetNotBeyondEntry: 1, roundNumberHold: 0 });
+    const b = summarise([], 1, 1, 0, 0, { noLevels: 0, invalidRisk: 0, targetNotBeyondEntry: 1, roundNumberHold: 0 });
+    expect(a.droppedPlans).toBe(2);
+    const both = combine([a, b]);
+    expect(both.droppedPlans).toBe(3);
+    expect(both.droppedPlanReasons).toEqual({ noLevels: 1, invalidRisk: 0, targetNotBeyondEntry: 2, roundNumberHold: 0 });
+    const report = buildReport(
+      { source: "synthetic", live: false, timeframe: "15Min", targetR: 2, symbols: ["A"], skipped: [], window: { from: null, to: null }, overall: both },
+      { symbols: ["A"] },
+    );
+    expect(report.droppedPlans).toBe(3);
+    expect(report.droppedPlanReasons.targetNotBeyondEntry).toBe(2);
+  });
+});
+
+describe("derived trades (reversals and re-entries)", () => {
+  const armedExecute = trade({ outputState: "Execute", score: 8, criteria: { p1: true }, rMultiple: 1 });
+  const armedWatch = trade({ outputState: "Watch", score: 5, criteria: { p1: false }, rMultiple: -1, outcome: "loss" });
+  const reversal = trade({ derived: "reversal", reversal: 1, rMultiple: 3 });
+  const rebuy = trade({ derived: "rebuy", rebuy: true, rMultiple: -1, outcome: "loss" });
+  // A record written before the fix, still carrying its parent's verdict.
+  const legacy = trade({ derived: "reversal", reversal: 1, outputState: "Execute", score: 8, criteria: { p1: true }, rMultiple: 5 });
+  const r = summarise([armedExecute, armedWatch, reversal, rebuy, legacy]);
+
+  it("counts in the population but in no verdict bucket or score band", () => {
+    expect(r.trades).toHaveLength(5);
+    const split = byOutputState(r);
+    expect(split.Execute.trades).toEqual([armedExecute]);
+    expect(split.Watch.trades).toEqual([armedWatch]);
+    expect(split.unscored.trades).toHaveLength(0);
+    expect(byScoreRange(r, 0, 9).trades).toEqual([armedExecute, armedWatch]);
+  });
+
+  it("measures no factor", () => {
+    const row = attributeFactors(r.trades, { minSamples: 1 }).find((f) => f.criterion === "p1")!;
+    expect(row.observed).toBe(2);
+  });
+
+  it("is reported as its own scope", () => {
+    const d = byDerived(r);
+    expect(d.armed.trades).toHaveLength(2);
+    expect(d.reversal.trades).toHaveLength(2);
+    expect(d.rebuy.trades).toEqual([rebuy]);
+    const report = buildReport(
+      { source: "synthetic", live: false, timeframe: "15Min", targetR: 2, symbols: ["TEST"], skipped: [], window: { from: null, to: null }, overall: r },
+      { symbols: ["TEST"], attributeWithin: "all" },
+    );
+    expect(report.overall.trades).toBe(5);
+    expect(report.derivedSplit.armed.trades).toBe(2);
+    expect(report.derivedSplit.reversal.trades).toBe(2);
+    expect(report.derivedSplit.rebuy.trades).toBe(1);
+    expect(report.buckets.find((b) => b.bucket === "Execute")!.trades).toBe(1);
+    expect(report.factors.find((f) => f.criterion === "p1")?.observed).toBe(2);
+    expect(report.executeByYear["2025"].trades).toBe(1);
+  });
+
+  it("is not given its parent's verdict, score or criteria by the replay", () => {
+    const src = fs.readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(src).toContain('derived: "reversal", ...r');
+    expect(src).toContain('derived: "rebuy", ...r');
+    expect(src).not.toMatch(/criteria: criteriaOf\(decision\),\s+largeCap, ambiguous: false, \.\.\.r/);
+  });
+});
+
+describe("walkGannExit's final exit (the level a reversal enters at)", () => {
+  const t0 = Date.UTC(2026, 2, 2, 14, 30);
+  const bar = (i: number, o: number, h: number, l: number, c: number): Bar => ({ t: new Date(t0 + i * 900_000).toISOString(), o, h, l, c, v: 1000 });
+
+  it("long: 60% out at 103, the rest stopped at 99, so R reads 101.4 and the reversal enters at 99", () => {
+    const bars = [bar(0, 100, 100.2, 99.8, 100), bar(1, 100.5, 103.2, 100.4, 102), bar(2, 101, 101.2, 98.8, 99)];
+    const w = walkGannExit({ bars, from: 0, maxBarsHeld: 10, long: true, entry: 100, stop: 99, dailyBars: [], crossedLevel: null, scaleOut: { price: 103, fraction: 0.6 } });
+    expect(w.reason).toBe("initial");
+    expect(w.exit).toBeCloseTo(101.4, 10);
+    expect(w.finalExit).toBe(99);
+  });
+
+  it("short mirror: 60% covered at 97, the rest stopped at 101", () => {
+    const bars = [bar(0, 100, 100.2, 99.8, 100), bar(1, 99.5, 99.6, 96.8, 98), bar(2, 99, 101.2, 98.8, 101)];
+    const w = walkGannExit({ bars, from: 0, maxBarsHeld: 10, long: false, entry: 100, stop: 101, dailyBars: [], crossedLevel: null, scaleOut: { price: 97, fraction: 0.6 } });
+    expect(w.exit).toBeCloseTo(98.6, 10);
+    expect(w.finalExit).toBe(101);
+  });
+
+  it("without a scale-out the two agree", () => {
+    const bars = [bar(0, 100, 100.2, 99.8, 100), bar(1, 100, 100.1, 98.5, 98.7)];
+    const w = walkGannExit({ bars, from: 0, maxBarsHeld: 10, long: true, entry: 100, stop: 99, dailyBars: [], crossedLevel: null });
+    expect(w.exit).toBe(99);
+    expect(w.finalExit).toBe(99);
+  });
+
+  it("is what the replay hands the reversal chain", () => {
+    const src = fs.readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(src).toContain("brokenLevel: walked.finalExit, extreme");
+    expect(src).toContain("brokenLevel = walked.finalExit;");
+    expect(src).not.toMatch(/brokenLevel: walked\.exit\b/);
   });
 });

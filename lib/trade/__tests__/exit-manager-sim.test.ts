@@ -110,6 +110,20 @@ describe("manageSimulatedExits — a stop already applied", () => {
     expect(run.notes.some((n) => n.includes("reverse") && n.includes("sell short at 601.60") && n.includes("Nothing was placed"))).toBe(true);
   });
 
+  it("reverses at the price the last shares left at, not the blend with TP1 (2026-10-21)", async () => {
+    quotePrice.mockResolvedValue(601.6);
+    // 2 shares already out at TP1 (650); the last share is stopped at the market.
+    const { client, inserts } = stubSupabase(amdPlan({ scale_out_order_id: "sim-tp1", scale_out_fill_price: 650 }));
+
+    const run = await manageSimulatedExits(client, "user-1");
+
+    const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
+    // The trade log keeps the blended price for P&L: (2 × 650 + 601.6) / 3.
+    expect(log.exit_price as number).toBeCloseTo((2 * 650 + 601.6) / 3, 6);
+    expect(run.notes.some((n) => n.includes("sell short at 601.60"))).toBe(true);
+    expect(run.notes.some((n) => n.includes("sell short at 633.87"))).toBe(false);
+  });
+
   it("offers to buy again on the reaction when the trend still runs up (A-PYRAMID-07)", async () => {
     quotePrice.mockResolvedValue(601.6);
     readLiveRebuy.mockResolvedValue({ side: "long", entry: 590, stop: 580, extreme: 620 });

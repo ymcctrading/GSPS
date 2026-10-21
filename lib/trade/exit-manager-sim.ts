@@ -200,6 +200,8 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   let stopAction: ReturnType<typeof planStopAdjustment> | null = null;
   // Why the trade is leaving this pass, for the reversal (lib/gann/reverse.ts).
   let caught: ReversalCause | null = null;
+  // The level that broke, for the reversal: the stop, or the price a signal left at.
+  let brokenLevel: number | null = null;
   if (remainingQty > 1e-9) {
     const gann =
       LIVE_EXIT_RULE !== "bracket"
@@ -241,6 +243,9 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       caught = gann?.exit && stopAction.atMarket ? gann.exit.reason : "stop";
       // A Gann exit signal leaves at the market; a stop that was crossed fills at the stop.
       const fillAt = stopAction.atMarket ? price : stopAction.stop;
+      // Where the last of the position left, not the blended exit: after a
+      // TP1 scale-out the blend is no price the position left at (2026-10-21).
+      brokenLevel = fillAt;
       for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
     }
   }
@@ -287,7 +292,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   const finalPlan = { ...plan, ...patch } as SimPlanRow;
   const done = tranches(finalPlan).every((t) => t.orderId);
   if (done) {
-    await finish(supabase, userId, finalPlan, run, caught);
+    await finish(supabase, userId, finalPlan, run, caught, brokenLevel);
   }
 }
 
@@ -332,6 +337,8 @@ async function finish(
   plan: SimPlanRow,
   run: SimManageRun,
   caught: ReversalCause | null = null,
+  /** Where the last of the position left on a stop or signal; the blended price otherwise. */
+  brokenLevel: number | null = null,
 ): Promise<void> {
   const { price: exitPrice, qty: exitQty } = blendedExit(plan);
   const direction: "buy" | "sell" = plan.side === "long" ? "buy" : "sell";
@@ -408,13 +415,13 @@ async function finish(
         stoppedAt: new Date().toISOString(),
         exitPrice,
         cause,
-        brokenLevel: exitPrice,
+        brokenLevel: brokenLevel ?? exitPrice,
         extreme,
       }).catch((err) => {
         console.error(`exit-manager-sim: stop-out handling for plan ${sourcePlanId} failed — ${String(err)}`);
       });
     } else {
-      const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel: exitPrice, extreme });
+      const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel: brokenLevel ?? exitPrice, extreme });
       if (offer) run.notes.push(offer);
     }
     // A-PYRAMID-07: a trailing stop while the trend still runs this way is
