@@ -682,4 +682,14 @@
 // group not itself in the universe's weakest quarter (strongest, for a short),
 // since Gann ranks the groups before the stocks in them (TST Ch. XVI-XVII).
 // Scores and list order move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-group-rank-review";
+// 2026-10-21-cutoffs-seven-four-one-entry: the replay trades one buying point a
+// session, the one the live scan shows (`chooseSessionEntry`: the with-trend
+// continuation when it armed, else the reversion), and sets the other aside
+// (never-failing rule 5, *Commodities* pp. 43-45; review of #395 finding 4).
+// It had traded both. The live scan records the set-aside point on its
+// preference path too, and its error path reads Reject/stand down. That part
+// leaves live verdicts unchanged; replay trade counts and buckets move.
+// The Execute and Watch cutoffs go back to the protocol's 7/4 (owner,
+// 2026-10-21): the 6/3.5 confirmation was read on the pre-fix 2026-09-23
+// trigger. Live verdicts move.
+export const STRATEGY_VERSION = "2026-10-21-cutoffs-seven-four-one-entry";

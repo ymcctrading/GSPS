@@ -209,6 +209,11 @@ describe("redaction at the API boundary", () => {
     expect(redacted.outputState).toBe(decision.outputState);
   });
 
+  it("keeps the decision state, which names no condition", () => {
+    const redacted = redactDecision({ ...decision, decisionState: "qualifiedLong" });
+    expect(redacted.decisionState).toBe("qualifiedLong");
+  });
+
   it("carries no criterion or note text into the serialised response", () => {
     const serialised = JSON.stringify(redactDecision(decision));
 

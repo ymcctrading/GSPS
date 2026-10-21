@@ -9,7 +9,7 @@ import { ScoreBadge } from "@/components/scan/score-badge";
 import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setups/setup-card";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
-import type { PublicScoreSummary } from "@/lib/types";
+import type { DecisionState, PublicScoreSummary, SetupKind } from "@/lib/types";
 import { buildDailyCardModel } from "@/lib/setups/card";
 import { readResting, restingDistanceLabel, restingInputOfRow, splitResting } from "@/lib/setups/resting";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
@@ -42,6 +42,10 @@ export interface ScanRow {
    * known, and the row stays where its verdict put it.
    */
   dayRange?: number | null;
+  /** The decision state (`lib/scoring/decisionState.ts`); the verdict badge already reads it one to one. */
+  decisionState?: DecisionState | null;
+  /** The buying point against the trend that also armed and was set aside (never-failing rule 5). */
+  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
   /**
    * The Signal and Regime Engine's own rollup — a separate read from
    * `score`/`outputState` above, never merged into them. `null` when no
@@ -106,21 +110,18 @@ export function ResultsTable({
   // "everything else that was scanned and didn't qualify" -- available on
   // request, never competing for the ranked list's attention.
   //
-  // Exception: the Signal and Regime Engine is a separate, non-merged read
-  // (see the column's own doc comment above) -- a row can score low on the
-  // Gann/STRAT criteria and still carry a real Watch/Qualified/tradeable
-  // rollup from that engine. That is a second, independent opportunity, not
-  // noise, so any row with a `signal` at all stays in the primary list
-  // regardless of its Gann score. Only a Reject row with nothing else going
-  // for it -- no signal rollup either -- gets collapsed.
+  // No exception for a Signal and Regime Engine read (2026-10-21, review of
+  // #393 finding 2): only Gann's score shows (owner), and Gann's verdict
+  // decides which setups are listed, so a row Gann rejected is collapsed
+  // whatever that engine read.
   const [showRejected, setShowRejected] = useState(false);
 
   if (rows.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">{emptyText ?? "No results yet."}</p>;
   }
 
-  const qualifying = rows.filter((r) => r.outputState !== "Reject" || r.signal != null);
-  const rejected = rows.filter((r) => r.outputState === "Reject" && r.signal == null);
+  const qualifying = rows.filter((r) => r.outputState !== "Reject");
+  const rejected = rows.filter((r) => r.outputState === "Reject");
 
   if (qualifying.length === 0 && rejected.length > 0) {
     return (

@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
       {
         error: timedOut ? "The scan took too long. Please try again." : "The scan could not be completed. Please try again.",
         direction: "none",
-        decision: { outputState: "Reject", score: 0 },
+        decision: { outputState: "Reject", score: 0, decisionState: "standDown" },
       } as ScanResult,
       { status: timedOut ? 504 : 502 }
     );

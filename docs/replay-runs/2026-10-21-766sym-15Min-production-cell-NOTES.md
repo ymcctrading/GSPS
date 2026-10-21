@@ -1,7 +1,9 @@
 # 2026-10-21 full large-cap universe run, 15-minute, production cell: notes
 
+The file name says 766 symbols, the list's size when the naming began; this run covered 832.
+
 Read this before the JSON beside it (`2026-10-21-766sym-15Min-production-cell.json`: summary
-and both reports). It is the first run on the production-faithful cell
+and both reports). It is the first valid run on the production-faithful cell
 (`entryRule: "reaction"`, `exitRule: "gann"`), with the intraday profile's 15-minute
 replication run in the same job on the same bars.
 
@@ -25,15 +27,16 @@ replication run in the same job on the same bars.
 | All | 3,482 | +0.048 [+0.018, +0.078] | +0.050, then +0.046 |
 | Execute | 271 | −0.037 [−0.146, +0.086] | +0.009, then −0.083 |
 | Watch | 1,223 | +0.005 [−0.039, +0.051] | +0.001, then +0.008 |
+| Reject | 1,220 | +0.092 | |
 | Derived (reversals, re-buys) | 768 | +0.076 [+0.019, +0.135] | |
 
-Execute does not beat Watch. The population figure rests on trades still open at the
-10-session limit: `timeout` 1,110 trades at +0.648R; every closed exit reason is at or below
+Execute does not beat Watch, and Reject is the best scored bucket. The population figure rests on trades still open at the
+10-session limit or the end of data: `timeout` 1,110 trades at +0.648R; every closed exit reason is at or below
 zero except `final_stage` (+0.059, 261). Initial stop 389 at −0.867.
 
 Score bands (whole score, n, R): 1 40 +0.37 · 2 505 +0.12 · 3 675 +0.05 · 4 614 −0.01 ·
-5 473 +0.02 · 6 270 −0.07 · 7 110 −0.03 · 8 25 +0.66 · 9 2 −0.06. The bands invert from 2
-through 7; only score 8 is positive, on 25 trades. The 6/3.5 cutoffs are held: two months
+5 473 +0.02 · 6 270 −0.07 · 7 110 −0.03 · 8 25 +0.66 · 9 2 −0.06. The bands broadly decline from 2
+through 7; only score 8 is positive, on 25 trades. The 6/3.5 cutoffs were held (they are 7/4 since `2026-10-21-cutoffs-seven-four-one-entry`): two months
 of one phase is not enough to move them, and the six-year daily rerun is the run that
 re-derives them.
 

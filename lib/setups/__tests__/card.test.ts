@@ -172,6 +172,17 @@ describe("buildDailyCardModel", () => {
     expect(model.higherTimeframes).toBe("Daily rising");
     expect(model.patternLabel).toBe("Failed-push reversal");
     expect(model.tickerHref).toBe("/ticker/MSFT");
+    expect(model.setAsideNote).toBeNull();
+  });
+
+  it("says when a point against the trend also armed and was set aside", () => {
+    const model = buildDailyCardModel(
+      { ...row, setAsideEntry: { setupKind: "reversion", direction: "bearish" } },
+      { scoreText: "6", scoreMax: 9 },
+    );
+    expect(model.setAsideNote).toBe(
+      "A sell point against the trend also armed and was set aside: the trade goes with the trend.",
+    );
   });
 
   it("prefers the live price over the scan-time one", () => {

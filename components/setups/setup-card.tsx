@@ -123,6 +123,7 @@ export function SetupCardPanel({
       </div>
 
       <p className="text-sm leading-relaxed">{model.synopsis}</p>
+      {model.setAsideNote && <p className="text-xs text-muted">{model.setAsideNote}</p>}
 
       {full && (
         <>

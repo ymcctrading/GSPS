@@ -699,7 +699,8 @@ const RETIRED: RegisteredCriterion[] = [
       "deliberately **not replaced with anything** — unlike every other entry in this list, which was " +
       "swapped for a successor criterion. The scored criteria went from ten back to nine; " +
       "EXECUTE_SCORE_THRESHOLD/WATCH_SCORE_THRESHOLD were rescaled 6.67/3.89 -> 6/3.5 to hold the same " +
-      "relative bar (66.7%/38.9% of TOTAL_POINTS), and DEFAULT_CRITERION_WEIGHTS lost its 0.5 entry.\n" +
+      "relative bar (66.7%/38.9% of TOTAL_POINTS), and DEFAULT_CRITERION_WEIGHTS lost its 0.5 entry. " +
+      "(2026-10-21, owner: the cutoffs went back to 7/4, version cutoffs-seven-four-one-entry.)\n" +
       "\n" +
       "**The reason is provenance, not the measurement — and the reason generalizes even though the " +
       "number does not.** adxTrendStrength was the one scored criterion with no lineage in the " +
@@ -925,7 +926,8 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     note:
       "Appended only when a 7+ score has no priced plan, so it is absent from most trades and cannot be read as a fail elsewhere. " +
       "2026-10-21 (gann-one-plan-every-market): crypto plans now take the stocks' level plan instead of 1.5R/2.5-3R targets, " +
-      "so M-K5's even-money hold can fire on crypto where a fixed 1.5R TP1 never could; crypto measurements before that version do not transfer.",
+      "so M-K5's even-money hold can fire on crypto where a fixed 1.5R TP1 never could; crypto measurements before that version do not transfer. " +
+      "2026-10-21 (cutoffs-seven-four-one-entry): the replay trades one buying point a session, as the live scan shows, so trade counts and every bucket's figures before that version do not transfer.",
   },
   {
     id: "reversionConfirmation",

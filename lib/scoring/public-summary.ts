@@ -127,6 +127,9 @@ export function redactDecision(decision: ScanDecision): ScanDecision {
   return {
     score: decision.score,
     outputState: decision.outputState,
+    // The state is derived from the verdict and direction and names no
+    // condition, so it crosses the boundary (D-06).
+    ...(decision.decisionState ? { decisionState: decision.decisionState } : {}),
     breakdown: [],
     summary: toPublicScoreSummary(decision),
   };
