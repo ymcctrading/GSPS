@@ -36,7 +36,7 @@ describe("checkPositionLimits", () => {
     expect(v.violations.some((m) => m.includes("open risk"))).toBe(true);
   });
 
-  it("holds an account above Novice to Gann's capital rules alone, not the percent ceilings", () => {
+  it("holds an account above Novice to the capital rules alone, not the percent ceilings", () => {
     const v = checkPositionLimits({
       ...base,
       newPositionNotionalUsd: 150, // ~33%
