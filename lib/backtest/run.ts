@@ -22,6 +22,8 @@
  * same number over three weeks and over three years are different claims.
  */
 
+import { fetchUniverseStrengthSince } from "@/lib/data/universeStrength";
+import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
@@ -410,7 +412,7 @@ type FetchedSeries = Awaited<ReturnType<typeof fetchSeries>>;
  * monthly series, and the market's (SPY) daily and monthly. One helper, so the
  * route and the universe runner read the same series (item 7e review M1).
  */
-export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries | undefined) {
+export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries | undefined, universeStrength?: UniverseStrength | null) {
   return {
     dailyBars: series.daily,
     weeklyBars: series.weekly,
@@ -419,7 +421,17 @@ export function replaySeriesOptions(series: FetchedSeries, market: FetchedSeries
     yearCountMonthlyBars: series.monthlyYearCount,
     marketDailyBars: market?.daily,
     marketMonthlyBars: market?.monthly,
+    universeStrength: universeStrength ?? null,
   };
+}
+
+/**
+ * The scan universe's monthly positions over every session a replay's daily
+ * window holds, read once per run, for Gann's relative strength rank (S6).
+ * Null when the read fails, and the rank is then unread.
+ */
+export function fetchReplayUniverseStrength(): Promise<UniverseStrength | null> {
+  return fetchUniverseStrengthSince(new Date(Date.now() - TF_LOOKBACK_DAYS["1Day"] * 86_400_000));
 }
 
 export interface RunOutcome {
@@ -493,6 +505,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // The market's daily bars (SPY) once, for Gann's early/late leaders (G25).
   // Its monthly bars too, to date the bull market for Gann's weak stocks.
   const market = await fetchSeries("SPY", timeframe, true).catch(() => undefined);
+  // The universe's monthly bars once, for Gann's relative strength rank (S6).
+  const universeStrength = profile === "intraday" ? null : await fetchReplayUniverseStrength();
 
   for (const symbol of symbols) {
     try {
@@ -530,7 +544,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               dailyBars: daily,
             })
-          : replay(symbol, bars, { ...options, ...replaySeriesOptions(series, market), instrument }),
+          : replay(symbol, bars, { ...options, ...replaySeriesOptions(series, market, universeStrength), instrument }),
       );
       used.push(symbol);
     } catch (err) {

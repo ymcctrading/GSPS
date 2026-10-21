@@ -57,6 +57,7 @@ import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { etDateKey } from "@/lib/market/session";
 import { yearCycleConvergence } from "@/lib/gann/timeCycles";
 import { yearCycleMonths } from "@/lib/scan/levelCharts";
+import { getMarketMonthlyBars } from "@/lib/data/marketBenchmark";
 
 describe("the nine pillars on the live scan and the replay", () => {
   const original = process.env.MARKET_DATA_PROVIDER;
@@ -81,8 +82,9 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(liveScore).toBeDefined();
     // The fixture reads the market comparisons, so the parity is not vacuous.
     expect(liveIn.marketDaily?.length ?? 0).toBeGreaterThan(0);
-    expect(liveIn.marketMonthly?.length ?? 0).toBeGreaterThan(0);
-    expect(liveFacts.monthlyStrength).not.toBeNull();
+    // The universe's months are read and the stock is ranked among them (S6).
+    expect(liveIn.universe?.strength?.size ?? 0).toBeGreaterThan(0);
+    expect(liveFacts.universeRank).not.toBeNull();
     expect(liveFacts.leadership).not.toBeNull();
 
     // The replay's context at the same moment, from the same bars.
@@ -93,7 +95,8 @@ describe("the nine pillars on the live scan and the replay", () => {
       marketDaily: liveIn.marketDaily,
       monthly: bars.monthly,
       monthlyLong: bars.monthlyLong ?? null,
-      marketMonthly: liveIn.marketMonthly,
+      marketMonthly: await getMarketMonthlyBars(),
+      universe: liveIn.universe,
     }, bars.weekly);
     const replayIn = seen.facts.at(-1)!.input as FactsInput;
     expect(replayIn.daily).toEqual(liveIn.daily);
@@ -145,7 +148,8 @@ describe("the nine pillars on the live scan and the replay", () => {
       marketDaily: liveIn.marketDaily,
       monthly: bars.monthly,
       monthlyLong: bars.monthlyLong ?? null,
-      marketMonthly: liveIn.marketMonthly,
+      marketMonthly: await getMarketMonthlyBars(),
+      universe: liveIn.universe,
     }, bars.weekly);
 
     // Each daily read the score takes, one by one, so a failure names it.
@@ -214,10 +218,14 @@ describe("the nine pillars on the live scan and the replay", () => {
 
   it("hands computeScore the pillar facts, and the window turn only to the time-window hold, on both surfaces", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
-    expect(src("scanTicker.ts")).toMatch(/marketMonthly: marketMonthly \?\? null,/);
+    expect(src("scanTicker.ts")).toMatch(/universe: assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
     expect(src("scanTicker.ts")).toMatch(/\n\s+pillarFacts,\n\s+\}\), breakaway\)/);
     expect(src("scanTicker.ts")).toMatch(/\n\s+setupKind,\n\s+windowTurn,\n/);
-    expect(src("backtest/replay.ts")).toMatch(/marketMonthly: instrument\?\.marketMonthly \?\? null, price, asOf \}\)/);
+    expect(src("backtest/replay.ts")).toMatch(/universe: instrument\?\.universe \?\? null, price, asOf \}\)/);
+    expect(src("backtest/replay.ts")).toMatch(/universe: universeStrength && assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
+    // Both replay paths hand the replay the universe's months (S6).
+    expect(src("backtest/run.ts")).toMatch(/replaySeriesOptions\(series, market, universeStrength\)/);
+    expect(src("../scripts/backtest-universe.mjs")).toMatch(/run\.replaySeriesOptions\(series, market, universeStrength\)/);
     expect(src("backtest/replay.ts")).toMatch(/pillarFacts: context\.pillarFacts,\n\s+\.\.\.\(weights/);
     expect(src("backtest/replay.ts")).toMatch(/setupKind, \(\) => context\.windowTurn\(gannTrigger\.direction\)\)/);
   });

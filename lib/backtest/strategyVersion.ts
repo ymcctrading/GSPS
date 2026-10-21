@@ -528,4 +528,12 @@
 // chart its design and T1 name, instead of the 1951 7-day chart's trend, which
 // inverted on every nine-pillar replay. Scores and verdicts move, live and
 // replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-weekly-line-trend";
+// 2026-10-21-gann-universe-strength-rank: P3(c) ranks the stock among the
+// scan universe (LARGE_CAP_UNIVERSE) by where its last monthly close sits in
+// its year of monthly highs and lows, and passes in the strongest quarter for
+// a long, the weakest for a short (S6: Commodities pp. 20, 47; Stock Selector
+// Ch. VII; lib/gann/universeStrength.ts). Completed months only, read the same
+// on the live scan and the replay. It replaces the stand-in against SPY alone.
+// The rank also adds a step to `selectionStrength`, so list order moves. P3
+// and so some scores move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-universe-strength-rank";

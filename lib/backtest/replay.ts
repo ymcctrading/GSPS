@@ -59,6 +59,7 @@
  * output as an upper bound on a strategy's quality, never a promise.
  */
 
+import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
@@ -355,6 +356,13 @@ export interface ReplayOptions {
    * own; the current month is built from the daily bars, as live.
    */
   marketMonthlyBars?: Bar[];
+  /**
+   * The scan universe's monthly positions (`fetchUniverseStrengthSince`), for
+   * Gann's relative strength rank (S6, P3(c)). Each session reads the
+   * positions of the months closed before its own. Omit it and the rank is
+   * unread. Not read for crypto, which has no peer list.
+   */
+  universeStrength?: UniverseStrength | null;
   /**
    * The stock's monthly bars over a longer span, for the class C long month
    * counts only (C-TIME-09's 144 months); each session reads the
@@ -775,7 +783,7 @@ export function buildMacroContext(
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules,
-    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, marketMonthly: instrument?.marketMonthly ?? null, price, asOf }),
+    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, price, asOf }),
     windowTurn: (direction) => {
       if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
@@ -850,6 +858,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     marketMonthlyBars,
     longMonthlyBars,
     yearCountMonthlyBars,
+    universeStrength,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -905,7 +914,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
       const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
       const facts: InstrumentFacts | null =
-        instrument || marketDailyBars
+        instrument || marketDailyBars || universeStrength
           ? {
               sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
               inception: instrument?.inception ?? null,
@@ -918,6 +927,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
                 ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
                 : null,
               marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
+              // The rank reads only the months closed before this session's (`readUniverseRank`).
+              universe: universeStrength && assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
             }
           : null;
       // Only weeks that began before this session's week; `levelCharts` builds
@@ -1244,7 +1255,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
-          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
+          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
           barsHeld: walked.barsHeld,
           outcome: walked.reason === "timeout" ? "timeout" : dir * (walked.exit - entry) > 0 ? "win" : "loss",
           exitReason: walked.reason,
@@ -1305,7 +1316,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
-        selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock),
+        selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
       };
 
       if (outcome === "timeout") {
