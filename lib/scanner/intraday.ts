@@ -1810,18 +1810,26 @@ export function firstFlaggedWithin(
  * Returns null rather than a number when fewer than two prior sessions are
  * available: a baseline drawn from one day is noise, and callers must be able
  * to tell "unavailable" from "normal".
+ *
+ * `regularOnly` (equities): only regular-session bars count, as in the
+ * numerator (`sessionMetrics` sums the session from the open). The feed's
+ * pre-market prints are not part of the auction the session measures, and
+ * counting them in the baseline alone read every equity's relative volume low
+ * (found 2026-10-21 by the PR #408 review).
  */
 export function volumeBaseline(
   bars: Bar[],
   throughEtMinute: number,
   todayEtDate: string,
   minSessions = 2,
+  regularOnly = false,
 ): number | null {
   const bySession = new Map<string, number>();
 
   for (const bar of bars) {
     if (!isUsableBar(bar)) continue;
     const at = new Date(bar.t);
+    if (regularOnly && !isRegularSession(at)) continue;
     const date = etDateKey(at);
     if (date === todayEtDate) continue;
     if (etParts(at).minutes > throughEtMinute) continue;

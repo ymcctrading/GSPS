@@ -72,6 +72,7 @@ import {
   armSessionEntries,
   entryChart,
   gannEntryOf,
+  preferWithTrend,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -1130,7 +1131,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
     const arm = sessionArm(date, armPrice);
-    if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, assetClass, weights) : null);
+    if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, armPrice, assetClass, weights) : null);
     if (plansOnly || !arm) continue;
 
     for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
@@ -1951,10 +1952,17 @@ function priceTradeLevels(input: {
 /**
  * The daily plan a session stands on, as the daily scan shows it: the
  * with-trend buying point when both armed, else the one that did
- * (`chooseSessionEntry`), its levels and its verdict.
+ * (`preferWithTrend`, as `chooseSessionEntry` picks it), its levels and its
+ * verdict. A plan whose stop the price the session's scan read has already
+ * reached is none: live, `applyStopBreachHold` makes it Reject, so the
+ * intraday route never serves it (`loadDailyPlans`).
+ *
+ * Not modelled, labelled: live plans re-scored during market hours on the
+ * delayed feed carry `applyDataLagHold` (Execute held to Watch), so the
+ * Execute/Watch split read here is the verdict without that hold.
  */
-function sessionDailyPlan(arm: SessionArm, history: Bar[], assetClass: AssetClass, weights?: CriterionWeights): SessionDailyPlan | null {
-  const chosen = arm.triggers.find((t) => t.setupKind === "continuation") ?? arm.triggers[0];
+function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, assetClass: AssetClass, weights?: CriterionWeights): SessionDailyPlan | null {
+  const chosen = preferWithTrend(arm.triggers);
   if (!chosen || history.length === 0) return null;
   const executionAtr = atr(history.slice(-30), 14);
   const { decision, levels } = scoreSetup({
@@ -1970,7 +1978,7 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], assetClass: AssetClas
     monthlyWarning: chosen.monthlyWarning,
     weights,
   });
-  if (!levels) return null;
+  if (!levels || isStopBreached(chosen.trigger.direction, levels.stopLoss, armPrice)) return null;
   return {
     direction: chosen.trigger.direction === "bullish" ? "up" : "down",
     verdict: decision.outputState,

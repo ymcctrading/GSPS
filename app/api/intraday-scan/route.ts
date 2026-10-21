@@ -1154,6 +1154,8 @@ async function buildInput(
         baselineBars,
         etParts(new Date(last.t)).minutes,
         sessionBars.sessionDate,
+        2,
+        assetClass === "us_equity",
       ),
       dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
       // Completed sessions only: the prior session's high and low are the old

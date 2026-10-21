@@ -21,27 +21,47 @@
  * **How a session is walked.** The scan runs on the bars closed so far, at
  * the live system scan's cadence (every 15 minutes), with the inputs the live
  * route builds (`app/api/intraday-scan/route.ts#buildInput`): the session's
- * bars, the prior close, the same-time-of-day volume baseline, the daily ATR,
- * the completed daily sessions, the recent five-minute bars for the hourly
- * chart, the day's plan and the alerts already fired this session (so the
- * scan's own cooldown applies). An alert the scan shows is entered at the
- * next bar's open, one position per symbol at a time. Its stop is the alert's
- * own exit level (`invalidation`), and R is measured on the distance from the
- * fill to that stop.
+ * bars, the prior close, the same-time-of-day volume baseline (regular session
+ * only, as the numerator), the daily ATR, the last 299 completed daily
+ * sessions (live fetches 300 daily bars, today's among them), the recent
+ * five-minute bars for the hourly chart, the day's plan and the alerts already
+ * fired this session (so the scan's own cooldown applies).
+ *
+ * **Which alerts are entered.** Every alert the panel offers as a trade.
+ * `reversal_risk` is not one: the card prices no levels for it and its own
+ * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
+ * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
+ * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
+ *
+ * **The fill.** A person sees an alert a feed delay after the bars it read
+ * (the system scan reads data ending 16 minutes before it runs), so the fill
+ * is the open `feedDelayBars` bars after the next one (3 by default), within
+ * the same session. Refused, and counted by reason: no fill left in the
+ * session, a stop that traded before the fill, a bad print, a fill through
+ * the stop or past the first target, and a risk smaller than the session's
+ * Gann point (`SessionMetrics.point`), which is inside the lost motion Gann
+ * allows any level. The floor is an engineering reading of that allowance.
+ * Its stop is the alert's own exit level (`invalidation`), and R is measured
+ * on the distance from the fill to that stop.
  *
  * **Exits.** An alert a person trades goes through the order ticket, and every
  * protected position is managed on `LIVE_EXIT_RULE`, which is "gann" since Q14
  * (no fixed target). So each trade is walked on `walkGannExit`, the same walk
- * the swing replay's `exitRule: "gann"` uses, held at most ten sessions.
+ * the swing replay's `exitRule: "gann"` uses, with the level the entry crossed
+ * (`entryCrossedLevel`, as `readGannExitFromBars` reads it live) and the share
+ * count (D2), held at most ten sessions. Reversals and re-buys are not walked:
+ * a manual trade gets them only as offers in the exit notes.
  *
  * **Engineering choices, labelled.** The bars are five-minute bars (the live
  * scan reads one-minute bars; the free feed's minute history is the binding
- * limit), and only the regular session is read. The fill is the next bar's
- * open with no feed delay. The focus list is the evening's top `FOCUS_SIZE`,
- * held for the whole session (live, a name whose daily stop breaks is
- * replaced through the day). The daily plan is the replay's rebuild: it reads
- * completed sessions only, where the live daily scan also sees the session in
- * progress.
+ * limit), and only the regular session is read. The daily ATR and average
+ * volume read completed sessions only, where live also reads today's partial
+ * bar. The focus list is the evening's top `FOCUS_SIZE`, held for the whole
+ * session (live, a name whose daily stop breaks is replaced through the day).
+ * The daily plan is the replay's rebuild: it reads completed sessions only,
+ * where the live daily scan also sees the session in progress, and it carries
+ * no data-lag hold (live, Execute is held to Watch during the session on the
+ * delayed feed).
  *
  * Three-question basis: 1. Gann, through the modules it replays (each cites
  * its own source); nothing new is decided here. 2. No periodicity claim, so
@@ -60,6 +80,7 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import {
   DEFAULT_CONFIG,
   scanIntraday,
+  sessionMetrics,
   volumeBaseline,
   type Alert,
   type AssetKind,
@@ -67,6 +88,8 @@ import {
   type SignalType,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
+import { isReversalRisk } from "@/lib/setups/intraday";
+import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import { isTimeoutReason, walkGannExit, type ReplayTrade, type SessionDailyPlan } from "./replay";
 
@@ -74,8 +97,16 @@ import { isTimeoutReason, walkGannExit, type ReplayTrade, type SessionDailyPlan 
 export const ALERT_BARS_PER_SESSION = 78;
 /** The live system scan's cadence, in minutes (`.github/workflows/intraday-scan.yml`). */
 export const ALERT_SCAN_MINUTES = 15;
+/**
+ * Five-minute bars between the bars a scan read and the first fill a person
+ * can get: the system scan reads data ending 16 minutes before it runs
+ * (`buildInput`'s `end`), so about three bars.
+ */
+export const ALERT_FEED_DELAY_BARS = 3;
 /** Sessions of five-minute bars the volume baseline reads (the route's `BASELINE_DAYS`, calendar days). */
 const BASELINE_DAYS = 12;
+/** Completed daily sessions the scan reads (the route fetches 300 daily bars, today's among them). */
+const PRIOR_DAILY_BARS = 299;
 /** Regular session, ET minutes after midnight. */
 const OPEN_MINUTE = 9 * 60 + 30;
 const CLOSE_MINUTE = 16 * 60;
@@ -88,6 +119,20 @@ export interface AlertTrade extends ReplayTrade {
   session: string;
 }
 
+/** Why an alert that was chosen for entry was not entered. */
+export type AlertRefusal =
+  | "session_ended"
+  | "stopped_before_fill"
+  | "bad_print"
+  | "through_stop"
+  | "past_target"
+  | "risk_under_point";
+
+export interface AlertReplayResult {
+  trades: AlertTrade[];
+  refused: Partial<Record<AlertRefusal, number>>;
+}
+
 export interface AlertReplayInput {
   symbol: string;
   kind: AssetKind;
@@ -95,12 +140,18 @@ export interface AlertReplayInput {
   bars: Bar[];
   /** Completed daily bars, oldest first. */
   dailyBars: Bar[];
+  /** Monthly bars, for the level the entry crossed (`entryCrossedLevel`). */
+  monthlyBars?: Bar[];
+  /** Split-adjusted shares outstanding on a date, for the D2 exit. */
+  sharesOn?: (date: string) => number | null;
   /** The daily plan each session stood on (`ReplayOptions.sessionPlans`), keyed by ET date. */
   plans: Map<string, SessionDailyPlan | null>;
   /** Sessions to walk (ET dates). Every session in the bars when absent. */
   sessions?: ReadonlySet<string>;
-  /** Alert types entered. Every type when absent. */
+  /** Alert types entered. Every tradeable type when absent. */
   signals?: ReadonlySet<SignalType>;
+  /** Bars between the next bar and the fill (`ALERT_FEED_DELAY_BARS` by default). */
+  feedDelayBars?: number;
   costPerShare?: number;
   maxBarsHeld?: number;
 }
@@ -125,16 +176,18 @@ const sessionOf = (b: Bar) => etDateKey(new Date(b.t));
 
 /**
  * Walk a symbol's sessions on the live intraday scan and enter each alert it
- * shows. Returns one trade per alert entered.
+ * offers as a trade. Returns one trade per alert entered, and the refusals.
  */
-export function replayIntradayAlerts(input: AlertReplayInput): AlertTrade[] {
+export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult {
   const { symbol, kind, dailyBars, plans, sessions, signals, costPerShare = DEFAULT_COST_PER_SHARE_USD } = input;
   const maxBarsHeld = input.maxBarsHeld ?? ALERT_BARS_PER_SESSION * 10;
+  const feedDelayBars = Math.max(0, input.feedDelayBars ?? ALERT_FEED_DELAY_BARS);
   const bars = input.bars.filter((b) => {
     const m = minuteOf(b);
     return m >= OPEN_MINUTE && m < CLOSE_MINUTE;
   });
   const trades: AlertTrade[] = [];
+  const refused: Partial<Record<AlertRefusal, number>> = {};
   let busyUntil = 0;
 
   // Index the session each bar starts and ends at.
@@ -150,13 +203,13 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertTrade[] {
     if (sessions && !sessions.has(date)) continue;
     const from = starts.get(date)!;
     const to = s + 1 < dates.length ? starts.get(dates[s + 1])! : bars.length;
-    const priorDaily = dailyBars.filter((b) => b.t.slice(0, 10) < date);
+    const priorDaily = dailyBars.filter((b) => b.t.slice(0, 10) < date).slice(-PRIOR_DAILY_BARS);
     if (priorDaily.length < 3) continue;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
     const dailyPlan = asDailyPlanLevels(plans.get(date));
     const liquidity = readLiquidity(priorDaily);
-    const dailyAtr = priorDaily.length > 2 ? atr(priorDaily.slice(-20), 14) : null;
+    const dailyAtr = atr(priorDaily.slice(-20), 14);
     const prevClose = priorDaily[priorDaily.length - 1].c;
     const fired: { type: SignalType; direction: "up" | "down"; at: string }[] = [];
 
@@ -172,7 +225,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertTrade[] {
         barIntervalMinutes: 5,
         prevClose,
         quote: { price: last.c, at: last.t },
-        volumeBaseline: volumeBaseline(bars.slice(Math.max(0, baselineStart), from), minuteOf(last), date),
+        volumeBaseline: volumeBaseline(bars.slice(Math.max(0, baselineStart), from), minuteOf(last), date, 2, kind !== "crypto"),
         dailyAtr,
         recentBars: bars.slice(Math.max(0, baselineStart), k + 1),
         priorDailyBars: priorDaily,
@@ -183,40 +236,67 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertTrade[] {
       };
       const { alerts } = scanIntraday([scanInput], DEFAULT_CONFIG, new Date(end));
       for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: new Date(end).toISOString() });
-      if (k + 1 < busyUntil) continue;
-      const alert = alerts.find((a) => !signals || signals.has(a.type));
+      const at = k + 1 + feedDelayBars;
+      if (at < busyUntil) continue;
+      const alert = alerts.find((a) => !isReversalRisk(a) && (!signals || signals.has(a.type)));
       if (!alert) continue;
-      const trade = enterAlert({ alert, bars, at: k + 1, dailyBars, maxBarsHeld, costPerShare, symbol, date, dailyPlan });
-      if (!trade) continue;
-      trades.push(trade);
-      busyUntil = k + 1 + trade.barsHeld;
+      const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
+      const entered = enterAlert({
+        alert, bars, from: k + 1, at, sessionEnd: to, point, dailyBars, monthlyBars: input.monthlyBars ?? [], sharesOn: input.sharesOn,
+        maxBarsHeld, costPerShare, symbol, date, dailyPlan,
+      });
+      if (typeof entered === "string") {
+        refused[entered] = (refused[entered] ?? 0) + 1;
+        continue;
+      }
+      trades.push(entered);
+      busyUntil = at + entered.barsHeld;
     }
   }
-  return trades;
+  return { trades, refused };
 }
 
 function enterAlert(input: {
   alert: Alert;
   bars: Bar[];
+  /** The first bar after the scan. */
+  from: number;
+  /** The fill bar. */
   at: number;
+  /** One past the session's last bar. */
+  sessionEnd: number;
+  point: number;
   dailyBars: Bar[];
+  monthlyBars: Bar[];
+  sharesOn?: (date: string) => number | null;
   maxBarsHeld: number;
   costPerShare: number;
   symbol: string;
   date: string;
   dailyPlan: DailyPlanLevels | null;
-}): AlertTrade | null {
-  const { alert, bars, at, dailyBars, maxBarsHeld, costPerShare, symbol, date, dailyPlan } = input;
+}): AlertTrade | AlertRefusal {
+  const { alert, bars, from, at, sessionEnd, point, dailyBars, monthlyBars, sharesOn, maxBarsHeld, costPerShare, symbol, date, dailyPlan } = input;
+  if (at >= sessionEnd) return "session_ended";
   const long = alert.direction === "up";
   const dir = long ? 1 : -1;
-  const entry = bars[at].o;
   const stop = alert.invalidation;
-  if (stop == null || !(stop > 0)) return null;
+  if (stop == null || !Number.isFinite(stop) || !(stop > 0)) return "bad_print";
+  // The plan is retired once its stop trades, before a person could fill it.
+  for (let j = from; j < at; j++) if (long ? bars[j].l <= stop : bars[j].h >= stop) return "stopped_before_fill";
+  const entry = bars[at].o;
+  if (!Number.isFinite(entry) || !(entry > 0)) return "bad_print";
+  // A fill that opened through the alert's own exit is no trade.
+  if (long ? entry <= stop : entry >= stop) return "through_stop";
+  const target = alert.continuationPlan.firstTarget;
+  if (target != null && Number.isFinite(target) && (long ? entry >= target : entry <= target)) return "past_target";
   const risk = Math.abs(entry - stop);
-  // A fill that opened through the alert's own exit is no trade (the scan
-  // retires such an alert before showing it; the gap to the next open can still cross it).
-  if (!(risk > 0) || (long ? entry <= stop : entry >= stop)) return null;
-  const walked = walkGannExit({ bars, from: at, maxBarsHeld, long, entry, stop, dailyBars, crossedLevel: null });
+  if (point > 0 && risk < point) return "risk_under_point";
+  const side = long ? "long" : "short";
+  const crossedLevel = entryCrossedLevel(side, entry, bars[at].t, dailyBars, monthlyBars);
+  const walked = walkGannExit({
+    bars, from: at, maxBarsHeld, long, entry, stop, dailyBars, crossedLevel,
+    sharesOn, isStock: sharesOn != null,
+  });
   const r = (dir * (walked.exit - entry) - costPerShare) / risk;
   const exitReason = walked.reason;
   return {
@@ -227,14 +307,14 @@ function enterAlert(input: {
     direction: long ? "bullish" : "bearish",
     entry,
     stop,
-    target: alert.continuationPlan.firstTarget ?? NaN,
+    target: target ?? NaN,
     atrMultiple: 0,
     largeCap: false,
     barsHeld: walked.barsHeld,
     closedAt: bars[Math.min(bars.length - 1, at + walked.barsHeld - 1)].t,
     outcome: isTimeoutReason(exitReason) ? "timeout" : r > 0 ? "win" : "loss",
     exitReason,
-    crossedLevel: null,
+    crossedLevel,
     exitPrice: walked.finalExit,
     rMultiple: r,
     ambiguous: false,

@@ -560,7 +560,14 @@ async function main() {
   if (process.argv.includes("intraday-alerts")) {
     const { runIntradayAlerts } = await import("./intraday-alerts.mjs");
     const limitAt = process.argv.indexOf("--limit");
-    await runIntradayAlerts({ days: 60, limit: limitAt === -1 ? null : Number(process.argv[limitAt + 1]) });
+    const paceAt = process.argv.indexOf("--symbolsPerMinute");
+    // The universe run's pacing is in symbols, about two vendor requests each.
+    const symbolsPerMinute = paceAt === -1 ? 30 : Number(process.argv[paceAt + 1]);
+    await runIntradayAlerts({
+      days: 60,
+      limit: limitAt === -1 ? null : Number(process.argv[limitAt + 1]),
+      requestsPerMinute: symbolsPerMinute > 0 ? symbolsPerMinute * 2 : 0,
+    });
     await mkdir(path.join(root, "out"), { recursive: true });
     await writeFile(path.join(root, "out", "summary.md"), "Intraday alert replay: see the job log.\n");
     await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Intraday alert replay: see the job log." }) + "\n");
