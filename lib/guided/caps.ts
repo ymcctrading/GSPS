@@ -12,7 +12,8 @@
  * the whole account's. Option legs are left out, as on the order path.
  *
  * Read immediately before a recommendation is rendered and again before an
- * order is submitted, so two tabs cannot both open a fourth market.
+ * order is submitted. Two orders at once are judged one after the other
+ * (`lib/trade/order-lock.ts`, F-05), so two tabs cannot both open a sixth.
  */
 
 import { capitalHeld, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";

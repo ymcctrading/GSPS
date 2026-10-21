@@ -46,6 +46,7 @@ import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
 import { capitalRuleRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { withOrderLock } from "@/lib/trade/order-lock";
 import { readProfitCeiling } from "@/lib/risk/profitPeak";
 import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
@@ -395,6 +396,20 @@ export async function placeSimulatedOrder(
     };
   }
 
+  // One new entry at a time per account (F-05, lib/trade/order-lock.ts): the
+  // capital checks below read the book and the write follows, so a second
+  // entry waits until the first is written. A protective order never waits.
+  if (isProtective) return placeChecked(supabase, userId, input, isProtective);
+  return withOrderLock(supabase, userId, () => placeChecked(supabase, userId, input, isProtective));
+}
+
+/** The rest of `placeSimulatedOrder`, once the halt and the stop are settled. */
+async function placeChecked(
+  supabase: SupabaseClient,
+  userId: string,
+  input: OrderInput,
+  isProtective: boolean,
+): Promise<PlacedOrder> {
   // A-EXIT-05: inside the trader's away window a new entry comes back with
   // the close-out reminder (lib/trade/away-notice.ts). Never on a protective order.
   const awayNotice = isProtective ? null : await readAwayNotice(supabase, userId);
