@@ -321,6 +321,32 @@ describe("the score out of nine", () => {
   });
 });
 
+describe("P9's definite indication is a crossing made, not one waiting (2026-10-21)", () => {
+  const score = (gannTrigger: Record<string, unknown>) =>
+    computeScore({
+      direction: "bullish",
+      macroTrends: [],
+      hourlyTrend: { timeframe: "1Hour", direction: "sideways", support: [], resistance: [] },
+      gann: { fanLines: [], squareOf9: [], timeCycleActive: false, angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+      nearSupportResistance: false,
+      pattern: null,
+      momentumElevated: false,
+      levels: { stopBehindOldLevel: true },
+      gannTrigger: { direction: "bullish", triggerPrice: 100.5, stopPrice: 96, ...gannTrigger },
+      pillarFacts: facts({ campaign: { trend: "bullish", spaceOverbalanced: false, timeOverbalanced: false } }),
+    } as unknown as Parameters<typeof computeScore>[0]).breakdown.find((b) => b.key === "definiteIndication");
+
+  it("fails while the old top is still to be crossed, though the plan is armed", () => {
+    expect(score({ kind: "crossing", held: false })?.passed).toBe(false);
+  });
+
+  it("passes once the close has crossed it by 3 points, and on an old bottom or a held bottom", () => {
+    expect(score({ kind: "crossing", held: true })?.passed).toBe(true);
+    expect(score({ kind: "oldLevel" })?.passed).toBe(true);
+    expect(score({ kind: "hold" })?.passed).toBe(true);
+  });
+});
+
 describe("P1's year check reads the decade digit at the session's month (2026-10-21)", () => {
   it("in the fall of a '6' year neither side takes the year point from the digit", async () => {
     const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");

@@ -847,8 +847,22 @@ with `historicalSR`'s rule (`heldRangeDivision`, `lib/gann/rangeDivisions.ts`),
 live and replay alike through `readPillarFacts`. Random walks, long/short: $20
 62.0/58.2%, $50 59.3/55.5%, $150 55.5/49.1%, $500 46.1/37.3%. Still denser at
 low prices (the allowance), held for the owner with the rest of the price
-scaling. `STRATEGY_VERSION` is `2026-10-21-gann-held-range-division`; P5,
+scaling. `STRATEGY_VERSION` was `2026-10-21-gann-held-range-division`; P5,
 Execute and the 6/3.5 cutoffs need a fresh run on it.
+
+**P9's definite indication, same day (same census).** P9's trigger check
+passed 98-100% of random-walk readings because a plan is priced on almost
+every session, and 51-77% of those plans were crossings still waiting for the
+close 3 points past the old top. Gann buys after the definite indication, the
+crossing made (W006 p.20, Rules 3(b)-(c) pp.46-47), so P9 now reads
+`indicationShown` (`lib/scoring/score.ts`): a crossing counts once it is
+`held` (crossed by 3 points, not broken back, not yet bought), and the old
+bottom (Rule 1) and the held bottom count as they stand. Measured share of
+readings with the indication shown: $20 23%, $150 46%, $500 52%; P9 itself is
+about half of that once the reaction check is read (estimated, not measured).
+The `entryTriggerArmed` check, the plan and `tradePlanReady` are unchanged.
+`STRATEGY_VERSION` is `2026-10-21-gann-definite-indication`; Execute and the
+6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 

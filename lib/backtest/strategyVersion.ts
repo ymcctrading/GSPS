@@ -652,4 +652,11 @@
 // rule), not on one inside the 3-point allowance (Master Course Ch. 9, PDF
 // 266-277: "held 2½ above 193"). Random walks: 56-92% before, 37-62% after.
 // Scores and verdicts move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-held-range-division";
+// 2026-10-21-gann-definite-indication: P9 counts the definite indication
+// only once it has shown: a crossing scores once the close is 3 points past
+// the old top (GannEntryTrigger.held), not while the plan waits for it; the
+// old-bottom and held-bottom buying points score as they stand (W006 p.20,
+// Rules 1 and 3(b)-(c)). On random walks 51-77% of armed triggers were
+// crossings not yet made. The plan and tradePlanReady are unchanged; scores
+// and verdicts move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-definite-indication";

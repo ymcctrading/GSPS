@@ -170,6 +170,8 @@ export interface ScoreInputs {
     stopPrice: number;
     direction: "bullish" | "bearish";
     kind?: "crossing" | "oldLevel" | "hold";
+    /** `crossing` only: the old level has been crossed by 3 points (`GannEntryTrigger.held`). */
+    held?: boolean;
     level?: number;
     tests?: number;
     /** `hold` only: which of Gann's hold rules found the bottom. */
@@ -460,6 +462,15 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // bar-sequence pattern until 2026-09-17; now the swing-crossing trigger.
   // See `lib/gann/entryTrigger.ts` and AGENTS.md's gate-1 status.
   const patternValid = gannTrigger !== null && gannTrigger.direction === direction;
+  // P9's definite indication (2026-10-21, pillar census): the crossing has
+  // happened, not merely a level to cross. A crossing armed in advance waits
+  // for the close 3 points past the old top ("wait for a definite indication",
+  // W006 p.20, Rules 3(b)-(c) pp.46-47), so it scores no indication until that
+  // close; the old level (a double or triple bottom bought at the bottom with
+  // the stop under it, Rule 1) and the held bottom are Gann's buying points as
+  // they stand. On random walks 51-77% of armed triggers were crossings not yet
+  // made. `tradePlanReady` still reads `patternValid`: the plan is priced either way.
+  const indicationShown = patternValid && (gannTrigger!.kind !== "crossing" || gannTrigger!.held === true);
 
   // Confluence/context only — never changes swingChartAligned itself. See
   // ScoreInputs.campaignLeg's own doc comment for why this stays out of the
@@ -630,7 +641,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     point("geometricAngles", "Angles", "structure", anglesPillar(pillarFacts, direction, angleHolding)),
     point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts })),
     point("volumeAccumulation", "Volume and accumulation", "setup", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
-    point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, patternValid, stopBehindOldLevel)),
+    point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, indicationShown, stopBehindOldLevel)),
   );
 
   // Points, not criteria met: every criterion is worth one point under the
