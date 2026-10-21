@@ -152,7 +152,7 @@ describe("ResultsTable", () => {
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
   });
 
-  it("shows only Gann's score on the card: no Rules Alignment number and no Signal Engine grade", async () => {
+  it("shows only the score on the card: no Rules Alignment number and no Signal Engine grade", async () => {
     const user = userEvent.setup();
     render(
       <ResultsTable
