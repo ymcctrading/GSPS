@@ -41,7 +41,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { getOrCreateAccount, STARTING_CASH } from "@/lib/brokers/simulator";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { readLiveAccountValue } from "@/lib/risk/live-account";
-import { activateAutomationProfile } from "@/lib/automation/service";
+import { activateAutomationProfile, authorizeAutomatedOrder } from "@/lib/automation/service";
 import {
   checkAutonomousLiveTradingAuthorized,
   AUTONOMOUS_PROVING_PERIOD,
@@ -138,6 +138,8 @@ export interface PortfolioManagerRunResult {
   profilesEnabled: number;
   plansActivated: number;
   plansSkipped: number;
+  /** Activated plans whose resting entry was placed on a later pass. */
+  restingOrdersPlaced: number;
   errors: { userId: string; planId?: string; reason: string }[];
 }
 
@@ -160,6 +162,7 @@ export async function runAutonomousPortfolioManager(
     profilesEnabled: 0,
     plansActivated: 0,
     plansSkipped: 0,
+    restingOrdersPlaced: 0,
     errors: [],
   };
 
@@ -204,10 +207,11 @@ async function runForProfile(
 
   const { data: openProfiles } = await supabase
     .from("automation_profiles")
-    .select("plan_id")
+    .select("profile_id, plan_id, status")
     .eq("user_id", profile.user_id)
     .in("status", ["active", "paused"]);
-  const alreadyAutomated = new Set((openProfiles ?? []).map((r) => r.plan_id as string));
+  const openRows = (openProfiles ?? []) as { profile_id: string; plan_id: string; status: string }[];
+  const alreadyAutomated = new Set(openRows.map((r) => r.plan_id));
 
   // Arm whatever has confirmed on the closed bars since it was generated,
   // before reading the armed plans (lib/lifecycle/armFromBars.ts).
@@ -226,6 +230,12 @@ async function runForProfile(
     result.errors.push({ userId: profile.user_id, reason: `Could not load plans: ${plansError.message}` });
     return;
   }
+
+  // An activated plan whose entry was still waiting when it was activated
+  // (an old level resting for its second test, a crossing waiting for the
+  // reaction) is placed on the pass that finds it confirmed. Activation tries
+  // once; without this the plan sat "automated" with no order until it expired.
+  await placeRestingEntries(supabase, profile.user_id, openRows, (plans ?? []) as CandidatePlanRow[], result);
 
   // Best tier first, so a capacity-limited run (the daily cap below, or a
   // partial activation failure) spends its slots on the strongest candidates
@@ -433,6 +443,53 @@ async function runForProfile(
         reason: activation.error ?? "Activation failed for an unknown reason.",
       });
     }
+  }
+}
+
+/**
+ * Retries the placement of every active activation whose plan is still armed
+ * and that has never had an order submitted. Placement re-reads the closed
+ * bars (`lib/trade/place-order.ts`), so an entry still waiting is refused and
+ * logged once, and one whose reaction has come goes at the market. "Never had
+ * an order" is read from the activation's own audit trail, not `orders`, whose
+ * closed rows are pruned: a trade that already ran and closed is never
+ * re-entered from the same activation. The away window (A-EXIT-05) holds these
+ * too, as it holds new activations.
+ */
+async function placeRestingEntries(
+  supabase: SupabaseClient,
+  userId: string,
+  openRows: { profile_id: string; plan_id: string; status: string }[],
+  armedPlans: CandidatePlanRow[],
+  result: PortfolioManagerRunResult,
+): Promise<void> {
+  const armedIds = new Set(armedPlans.map((p) => p.plan_id));
+  const waiting = openRows.filter((r) => r.status === "active" && armedIds.has(r.plan_id));
+  if (waiting.length === 0) return;
+
+  const { data: submitted, error } = await supabase
+    .from("automation_events")
+    .select("profile_id")
+    .eq("user_id", userId)
+    .eq("kind", "broker_order_submitted")
+    .in(
+      "profile_id",
+      waiting.map((r) => r.profile_id),
+    );
+  if (error) {
+    // Fails closed: an unreadable trail could hide an order already placed.
+    result.errors.push({ userId, reason: `Could not read automation history: ${error.message}` });
+    return;
+  }
+  const placed = new Set(((submitted ?? []) as { profile_id: string }[]).map((r) => r.profile_id));
+
+  const { data: settingsRow } = await supabase.from("settings").select("prefs").eq("user_id", userId).maybeSingle();
+  if (awayReminderDue(resolveGannRulePrefs((settingsRow as { prefs?: unknown } | null)?.prefs ?? null))) return;
+
+  for (const row of waiting) {
+    if (placed.has(row.profile_id)) continue;
+    const outcome = await authorizeAutomatedOrder(supabase, userId, row.profile_id, { retry: true });
+    if (outcome.authorized) result.restingOrdersPlaced++;
   }
 }
 

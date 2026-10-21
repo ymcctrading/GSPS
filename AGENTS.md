@@ -1024,6 +1024,14 @@ for the project owner** — do not fix it silently, and re-verify it first:
   counting session bars (`sessionBarsDeadline`, interim until #309 drops the
   clock) and arming from real closed bars in the manager's own run
   (`lib/lifecycle/armFromBars.ts`), which also skips any plan whose stop broke.
+  **Health check, 2026-10-21:** plans now arm (51 arms in two days), but no
+  paper order had been placed since 2026-10-09. Activation tried the order
+  once; an old-level or reaction entry is armed while it still waits for price,
+  so it was refused (`awaiting_confirmation`) and never tried again. Each
+  scheduled pass now retries active activations whose plan is still armed and
+  that have no `broker_order_submitted` event (`placeRestingEntries`), and the
+  same run manages every working paper exit (`manageAllSimulatedExits`), which
+  before moved only when the owner opened the portfolio or orders page.
 - **Entry confirmation isn't uniform (F3.4).** Guided execute, the demo
   auto-trader and the manual ticket place orders without it. Only plan-scoped
   automation requires an `armed` plan.

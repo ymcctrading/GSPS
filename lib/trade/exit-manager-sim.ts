@@ -118,6 +118,40 @@ export async function manageSimulatedExits(supabase: Supabase, userId: string): 
   return run;
 }
 
+/**
+ * One pass of `manageSimulatedExits` for every account with a working paper
+ * exit plan. Until 2026-10-21 the simulator's exits only moved when their
+ * owner opened the portfolio or orders page, so a paper stop or Gann exit
+ * could go unread for days (NEE's plan was last managed 2026-10-16). The
+ * scheduled portfolio-manager run calls this every pass, before it opens
+ * anything new, so a stop is read on the same cadence an entry is.
+ */
+export async function manageAllSimulatedExits(supabase: Supabase): Promise<{ accounts: number; filled: number; closed: number; errors: string[] }> {
+  const out = { accounts: 0, filled: 0, closed: 0, errors: [] as string[] };
+  const { data, error } = await supabase
+    .from("protocol_exits")
+    .select("user_id")
+    .eq("mode", "paper")
+    .eq("status", "working")
+    .limit(500);
+  if (error) {
+    out.errors.push(`Could not list working paper exits: ${error.message}`);
+    return out;
+  }
+  const users = [...new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id))];
+  for (const userId of users) {
+    out.accounts++;
+    const run = await manageSimulatedExits(supabase, userId).catch((err: unknown) => ({
+      ...idle(),
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    out.filled += run.filled;
+    out.closed += run.closed;
+    if (run.error) out.errors.push(`${userId}: ${run.error}`);
+  }
+  return out;
+}
+
 function normalizePlan(row: Record<string, unknown>): SimPlanRow {
   const num = (v: unknown): number => Number(v);
   const numOrNull = (v: unknown): number | null => (v == null ? null : Number(v));

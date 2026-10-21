@@ -216,6 +216,7 @@ export async function authorizeAutomatedOrder(
   supabase: SupabaseClient,
   userId: string,
   profileId: string,
+  options: { retry?: boolean } = {},
 ): Promise<AuthorizeAutomatedOrderResult> {
   const { data: profileRow, error: profileErr } = await supabase
     .from("automation_profiles")
@@ -252,20 +253,41 @@ export async function authorizeAutomatedOrder(
     return { authorized: false, reason: order.error };
   }
 
-  await recordAutomationEvent(supabase, userId, profileId, "order_authorized", { symbol: plan.instrument });
+  // A retry of a resting entry (the portfolio manager's later passes) logs a
+  // refusal only when it differs from the last one, so a plan waiting all
+  // session for its reaction doesn't log the same sentence every pass.
+  const quiet = options.retry === true;
+  if (!quiet) await recordAutomationEvent(supabase, userId, profileId, "order_authorized", { symbol: plan.instrument });
 
   const result = await placeSimulatedOrder(supabase, userId, order.input);
   const succeeded = result.status >= 200 && result.status < 300;
   if (!succeeded) {
     const reason = typeof result.body.error === "string" ? result.body.error : `Order rejected (HTTP ${result.status}).`;
+    if (quiet && (await lastRejectionReason(supabase, profileId)) === reason) return { authorized: false, reason };
+    if (quiet) await recordAutomationEvent(supabase, userId, profileId, "order_authorized", { symbol: plan.instrument });
     await recordAutomationEvent(supabase, userId, profileId, "broker_order_rejected", { reason, status: result.status });
     return { authorized: false, reason };
   }
 
+  if (quiet) await recordAutomationEvent(supabase, userId, profileId, "order_authorized", { symbol: plan.instrument });
   await recordAutomationEvent(supabase, userId, profileId, "broker_order_submitted", {
     orderId: result.orderId ?? null,
   });
   return { authorized: true, orderId: result.orderId ?? undefined };
+}
+
+/** The reason on this profile's latest refused placement, or null. */
+async function lastRejectionReason(supabase: SupabaseClient, profileId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("automation_events")
+    .select("detail")
+    .eq("profile_id", profileId)
+    .eq("kind", "broker_order_rejected")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const detail = (data as { detail?: { reason?: unknown } } | null)?.detail;
+  return typeof detail?.reason === "string" ? detail.reason : null;
 }
 
 function deriveOrderInputFromPlan(
