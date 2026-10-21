@@ -559,4 +559,12 @@
 // S/R check reads the nearest level of the wanted role (support below price
 // for a long, resistance above it for a short; `srMatchForSide`) instead of
 // the nearest of either role. Scores and verdicts move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-major-range-levels";
+// 2026-10-21-gann-narrow-weeks-breakaway: the breakaway's range is the narrow
+// run of sessions counted back from the latest, 2 to 13 weeks
+// (`narrowRangeSessions`), not the whole 13 weeks: Gann's "2-6 or 10-13 weeks
+// in a narrow range, then crossing the tops or breaking the bottoms of the
+// previous weeks" (Master Course pp. 246-248; Commodities p. 51). A narrow
+// spell after a wide quarter is now a range, its own extremes the breakaway;
+// the breakaway's volume reads the same run. Verdicts move, live and replay
+// alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-narrow-weeks-breakaway";

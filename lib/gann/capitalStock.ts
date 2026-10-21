@@ -31,8 +31,9 @@
  * - "Almost equalling" is read as at least 90% of the stock in one week.
  * - A heavy week counts for 4 weeks (about a month) after it prints, so the
  *   warning stays visible while the top forms.
- * - The range for the third rule is `readBreakaway`'s: the 13-week 3-Day
- *   Chart range, only when the market is range-bound. Volume is summed back
+ * - The range for the third rule is `readBreakaway`'s: the 3-Day Chart
+ *   range of the narrow run of 2 to 13 weeks, only when the market is
+ *   range-bound. Volume is summed back
  *   from the latest bar for as long as bars stay inside it. Gann's range is
  *   10 points on 1934 prices, which doesn't port literally.
  * - Companies with several share classes are read against all classes

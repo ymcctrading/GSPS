@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { breakawayVolumeMet, readBreakaway, readBreakawayVolume } from "../breakaway";
+import { MIN_RANGE_SESSIONS, breakawayVolumeMet, isNarrowRange, narrowRangeSessions, readBreakaway, readBreakawayVolume } from "../breakaway";
+import { gannThreePoints } from "../pointScale";
 import { computeGannEntryTrigger } from "../entryTrigger";
 import { applyBreakawayHold } from "@/lib/scoring/score";
 import type { ScanDecision } from "@/lib/types";
@@ -303,5 +304,92 @@ describe("the breakaway waits for a session that closes past the range on volume
     const trend = daily(steppingAdvance(10));
     expect(breakawayVolumeMet(trend, "bullish", 500)).toBe(true);
     expect(breakawayVolumeMet([], "bullish", 110)).toBe(true);
+  });
+});
+
+// Master Course pp. 246-248 and Commodities p. 51: "2-6 or 10-13 weeks in a
+// narrow range, then crossing the tops or breaking the bottoms of the previous
+// weeks". The weeks are counted back from now, so a narrow spell after a wide
+// quarter is a range too, and its own extremes are the breakaway (2026-10-21).
+describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () => {
+  /** Swings between 70 and 130: no confirmed trend, far wider than narrow. */
+  function wideSwings(cycles: number): number[] {
+    const out: number[] = [];
+    for (let k = 0; k < cycles; k++) {
+      const top = k % 2 === 0 ? 130 : 126;
+      for (let i = 1; i <= 5; i++) out.push(70 + ((top - 70) * i) / 5);
+      for (let i = 1; i <= 5; i++) out.push(top - ((top - 70) * i) / 5);
+    }
+    return out;
+  }
+  /** About four weeks swinging 97 to 103 (tops 103 then 102), then a leg to 100. */
+  const narrowTail = [98, 100, 102, 103, 101, 99, 97, 99, 101, 102, 100, 98, 97, 99, 101, 103, 101, 99, 97, 98, 99, 100, 99, 98, 97];
+  const bars = () => daily([...wideSwings(6), 100, ...narrowTail]);
+  const flip = (xs: number[]) => xs.map((x) => 200 - x);
+  const execute = { outputState: "Execute", breakdown: [] } as unknown as ScanDecision;
+
+  it("counts the narrow sessions back from the latest, and only those", () => {
+    const window = bars().slice(-80);
+    const run = narrowRangeSessions(window)!;
+    expect(run).not.toBeNull();
+    expect(run.length).toBeGreaterThanOrEqual(narrowTail.length);
+    expect(run.length).toBeLessThan(window.length);
+    expect(isNarrowRange(run)).toBe(true);
+    expect(isNarrowRange(window.slice(-run.length - 1))).toBe(false);
+    // Fewer than two weeks of narrow sessions is not a range.
+    expect(narrowRangeSessions(window.slice(-(MIN_RANGE_SESSIONS - 1)))).toBeNull();
+    // A whole quarter narrow is all of it: the 10-13 week case, as before.
+    const quarter = daily(sideways(9));
+    expect(narrowRangeSessions(quarter)).toEqual(quarter);
+  });
+
+  /** An entry crossing at `price`, read the day it arms (no crossing held yet). */
+  const arming = (b: Bar[], direction: "bullish" | "bearish", price: number) => ({
+    ...computeGannEntryTrigger(b, direction)!,
+    kind: "crossing" as const,
+    held: false,
+    crossedAt: null,
+    triggerPrice: price,
+  });
+
+  it("holds a long inside the narrow spell, with the spell's own top as the range high", () => {
+    const b = bars();
+    const r = readBreakaway(b, arming(b, "bullish", 102.5));
+    expect(r.rangeBound).toBe(true);
+    expect(r.rangeHigh).toBe(103.5);
+    expect(r.rangeLow).toBe(96.5);
+    expect(r.breaksAway).toBe(false);
+    expect(applyBreakawayHold(execute, r).outputState).toBe("Watch");
+  });
+
+  it("lets the entry that crosses the spell's top by 3 points through, though the quarter's top is higher", () => {
+    const b = bars();
+    const r = readBreakaway(b, arming(b, "bullish", 103.5 + gannThreePoints(103.5) + 0.01));
+    expect(r.rangeBound).toBe(true);
+    expect(r.breaksAway).toBe(true);
+    expect(r.rangeHigh!).toBeLessThan(130);
+  });
+
+  it("is the mirror for a short", () => {
+    const b = daily(flip([...wideSwings(6), 100, ...narrowTail]));
+    const r = readBreakaway(b, arming(b, "bearish", 97.5));
+    expect(r.rangeBound).toBe(true);
+    expect(r.rangeLow).toBe(96.5);
+    expect(r.rangeHigh).toBe(103.5);
+    expect(r.breaksAway).toBe(false);
+    expect(readBreakaway(b, arming(b, "bearish", 96.5 - gannThreePoints(96.5) - 0.01)).breaksAway).toBe(true);
+  });
+
+  it("waits for the spell's breakout to come on more than the spell's average volume", () => {
+    const vol = bars().map((b, i, all) => ({ ...b, v: i < all.length - narrowTail.length ? 9000 : i % 2 ? 1500 : 500 }));
+    const line = 103.5 + gannThreePoints(103.5);
+    const out = (v: number): Bar[] => [...vol, { ...vol[vol.length - 1], t: new Date(Date.parse(vol[vol.length - 1].t) + 86_400_000).toISOString(), o: line + 1, h: line + 1.5, l: line + 0.5, c: line + 1, v }];
+    expect(breakawayVolumeMet(out(3000), "bullish", line)).toBe(true);
+    expect(breakawayVolumeMet(out(1200), "bullish", line)).toBe(false);
+    const leaving = out(3000);
+    const read = readBreakawayVolume(leaving, new Date(Date.parse(leaving[leaving.length - 1].t) + 2 * 86_400_000));
+    expect(read?.direction).toBe("bullish");
+    // Against the spell's average, not the wide quarter's heavier sessions.
+    expect(read?.ratio).toBeGreaterThan(2);
   });
 });
