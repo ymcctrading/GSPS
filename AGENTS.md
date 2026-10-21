@@ -2676,8 +2676,12 @@ entry in an active market (Master Course Ch.13). So the intraday scanner now
 times the daily plan: "Daily plan's level held" (`plan_level_held`,
 `lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
 Watch plan's entry without trading its stop and the session's swing chart turns
-back through it; the stop sits under the reaction's low, TP1 and MTP are the
-daily plan's (NSTD pp.20, 46; *Tunnel* p.198 for the re-buy). The route reads
+back through it; the stop is 3 Gann points under the day's low, never past the
+daily plan's stop, and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
+*Tunnel* p.198 for the re-buy). Not a session-swing stop: the six-year intraday
+replay (2026-10-21, `replay-diagnosis/2026-10-21-intraday-profile-verdict.md`)
+failed its test with every loss on the initial stop, so the panel says intraday
+signals carry no measured record yet. The route reads
 the plans from `daily_scans` and `active_monitors` (`loadDailyPlans`). Every
 intraday TP1 must pay more than the risk (`gannFirstTarget`'s `risk`,
 `targetPaysRisk`, M-K5), in the alert and the intraday replay; a plan with

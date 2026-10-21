@@ -161,7 +161,8 @@ export function IntradayAlerts({
             <CardDescription>
               Confirmation of moves that have already happened, with the evidence attached — not a
               forecast. Every alert names what it measured the move against and the price that would
-              say it is wrong.
+              say it is wrong. Intraday signals are not yet backed by a measured record: read them as timing
+              for a daily plan, not as a system of their own.
             </CardDescription>
           </div>
           {!locked && (
@@ -457,8 +458,9 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
 
               {!isRisk && alert.type === "plan_level_held" && (
                 <p className="text-xs text-muted">
-                  This is the daily plan entered on today&apos;s chart: the stop sits under the reaction&apos;s low on
-                  the intraday chart, and TP1 and MTP are the daily plan&apos;s own targets.
+                  This is the daily plan entered on today&apos;s chart: the intraday chart times the entry, the stop is
+                  3 points under the day&apos;s low (never past the daily plan&apos;s stop), and TP1 and MTP are the daily
+                  plan&apos;s own targets.
                 </p>
               )}
               {!isRisk && alert.type !== "plan_level_held" && (

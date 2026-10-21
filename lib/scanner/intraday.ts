@@ -89,7 +89,7 @@ import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
-import { intradayPoint } from "@/lib/gann/pointScale";
+import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 
@@ -1255,16 +1255,19 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
  *   So: price has traded into the plan's entry this session (within one
  *   intraday point), the session's 3-bar swing chart runs the plan's way, and
  *   the last bar closed back beyond the entry.
- * - The stop goes under the reaction's low, "the lowest day" of the reaction
- *   in active markets (*New Stock Trend Detector* p. 46), here the session's
- *   latest completed swing bottom (top, for a short) less one intraday point.
+ * - The stop is the daily trade's: 3 Gann points under the lowest day, here
+ *   today's low (high, for a short), in active markets (*New Stock Trend
+ *   Detector* p. 20, Rule 3(b) p. 46), never past the daily plan's own stop.
+ *   Not one intraday point under the session swing: the intraday chart times
+ *   the entry, the daily rule places the stop (the six-year intraday replay,
+ *   2026-10-21, lost all of its expectancy on stops that tight).
  * - The targets are the daily plan's TP1 and MTP: "the big money in the
  *   markets is made on the long swings and not by day to day trading"
  *   (*Annual Forecasts 1919-1922* p. 24).
  * - Missed it? The next higher bottom is the next buying point while the plan
- *   stands (re-buy on the reaction, *Tunnel Thru the Air* p. 198): a later
- *   swing bottom above the first moves the stop up to it and the alert fires
- *   again once the cooldown clears.
+ *   stands (re-buy on the reaction, *Tunnel Thru the Air* p. 198): the alert
+ *   fires again on a later higher bottom once the cooldown clears, with the
+ *   stop still under the day's low.
  * Not fired when the plan's stop broke this session (the plan is retired,
  * `lib/gann/stopBreach.ts`) or price is already at the plan's TP1.
  *
@@ -1316,7 +1319,14 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   const pivots = m.sessionPivots.filter((p) => p.kind === (up ? "bottom" : "top"));
   const extreme = pivots.length > 0 ? pivots[pivots.length - 1].price : up ? m.low : m.high;
   const allowance = m.point > 0 ? m.point : m.intradayAtr;
-  const stop = up ? extreme - allowance : extreme + allowance;
+  // The stop is the daily plan's rule, not the session chart's: "a stop 3
+  // points under the lowest day" in an active market (NSTD p.20, Rule 3(b)
+  // p.46), so 3 Gann points beyond today's low (high), never past the daily
+  // plan's own stop. A stop a single intraday point under the morning's low
+  // is the stop the six-year intraday replay lost on (2026-10-21: every
+  // loss on the initial stop), and it is not Gann's for a daily trade.
+  const dayStop = up ? m.low - gannThreePoints(m.low) : m.high + gannThreePoints(m.high);
+  const stop = up ? Math.max(plan.stop, dayStop) : Math.min(plan.stop, dayStop);
   const entry = m.lastClose;
   const rebuy = up ? extreme > m.low + allowance : extreme < m.high - allowance;
   const cause = rebuy
