@@ -564,7 +564,10 @@ describe("replay continuation setups", () => {
    * continuation pass would call scanTicker for this symbol.
    */
 
-  const rising = risingDaily(300, DAY);
+  // 301 sessions, not 300 (2026-10-21): at 300 a failed top at about 145
+  // stands between the entry and the first target that pays the risk, so
+  // A-LEVELS-04 refuses the long (pinned below). These tests are about arming.
+  const rising = risingDaily(301, DAY);
   const ctx = buildMacroContext(rising, rising[rising.length - 1].c);
   const reversionDir = preferredEntryDirection(ctx.macroTrends);
   const continuationDir = reversionDir === "bullish" ? "bearish" : "bullish";
@@ -651,6 +654,14 @@ describe("replay continuation setups", () => {
     expect(cont[0].direction).toBe("bullish");
     // At the market once the test candle closed (never-failing rule 9): the next open.
     expect(cont[0].entry).toBeCloseTo(L + 1, 8);
+  });
+
+  it("refuses the long when a failed top stands between the entry and the first target that pays the risk (A-LEVELS-04)", () => {
+    const at300 = risingDaily(300, DAY);
+    const U = computeGannEntryTrigger(at300, "bullish")!.triggerPrice;
+    const shift = (b: { o: number; h: number; l: number; c: number }) => ({ o: b.o - T + U, h: b.h - T + U, l: b.l - T + U, c: b.c - T + U });
+    const r = replay("TEST", intraday([...warm, twoUp, inside, breakout, after].map(shift)), { entryRule: "stop", targetR: 2, dailyBars: at300 });
+    expect(r.trades.filter((t) => t.setupKind === "continuation")).toHaveLength(0);
   });
 
   it("splits a run by setup kind without losing a trade", () => {

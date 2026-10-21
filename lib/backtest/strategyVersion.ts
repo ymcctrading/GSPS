@@ -494,4 +494,11 @@
 // read in pillars.ts on the live scan and the replay alike;
 // `applyTimeWindowHold` still needs a window for a counter-trend Execute.
 // Pending the owner's choice. P7 and so some scores move.
-export const STRATEGY_VERSION = "2026-10-20-gann-time-pillar-no-window";
+// 2026-10-21-gann-first-target: the equity TP1 is the first Gann or S/R level
+// that pays more than the risk, not the nearest past a fixed 3% floor
+// (lib/strat/levels.ts). Against Gann's 4-point reaction stop that level sat
+// inside the risk on most stocks under about $250, so M-K5's even-money hold
+// read as a price filter (526 of 701 trades at 6+ on the 2026-10-20 run).
+// M-K5 itself is unchanged. Verdicts, plan targets and A-LEVELS-04's
+// failed-top-in-path refusal (it reads TP1) move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-first-target";

@@ -377,7 +377,25 @@ so none made it selective (branch `p7cardinal` holds those builds, unshipped).
 "And" is the spec's "2 of 3" with one check gone; it passes on 11.6% of
 random-walk readings ("or" 59.5%, mostly the reaction clock alone).
 `applyTimeWindowHold` is unchanged: a counter-trend Execute still needs its turn
-on a window. `STRATEGY_VERSION` is `2026-10-20-gann-time-pillar-no-window`.
+on a window. `STRATEGY_VERSION` was `2026-10-20-gann-time-pillar-no-window`.
+
+**Even-money diagnosis, 2026-10-21 (2026-10-20 score-band run: `tradePlanPriced`
+held 526 of the 701 trades scoring 6+, and they beat Execute).** Every one was
+M-K5's even-money test: the replay never scores a trade without levels or an
+armed trigger. The defect: the equity TP1 was the nearest level past a fixed 3%
+floor, while Gann's reaction stop is 4 price-scaled points (about 12% at $30,
+2% at $700), so the hold fired on nearly every cheap stock and almost no dear
+one, with Gann levels beyond the risk (synthetic census: 71% held, and 92% of
+those had a level beyond the risk inside the band). TP1 is now the first level
+that pays more than the risk ("profits must exceed losses", WSSS Ch. II); with
+none in the band the nearest stays and M-K5 holds, unchanged. A farther TP1
+also widens A-LEVELS-04's failed-top-in-path refusal, which reads it. Held for
+the owner, not changed: an over-balancing reaction drops out of the campaign
+ledger as soon as the 3-Day Chart turns back (it joins the greatest it is
+compared with), and swings in percent of their start make equal-point rallies
+in a bear campaign over-balance (`levelRole.test.ts`'s 1931 shape: 32% against
+27%, 29 points against 30). `STRATEGY_VERSION` is `2026-10-21-gann-first-target`;
+Execute and the 6/3.5 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
