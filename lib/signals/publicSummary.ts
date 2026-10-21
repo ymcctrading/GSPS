@@ -107,6 +107,18 @@ function redactGannConfluence(result: GannConfluenceResult | null): GannConfluen
   if (!result) return result;
   return {
     ...result,
+    // The Square of Nine root, the vortex and slope readings, the coordinate
+    // ledger and the dated time-count lists are the method's working: no
+    // screen draws them (the card reads only the counts' active flags), and
+    // the dates have no measured record (R-024).
+    root: null,
+    timeCycleDates: [],
+    timeCycleFixedCalendarDates: [],
+    squareOf52: { ...result.squareOf52, dates: [] },
+    angleMonthCounts: { ...result.angleMonthCounts, dates: [] },
+    vortexContext: { priceDisplacement: null, timeDisplacement: null, priceVortexClass: null, timeVortexClass: null, relationship: null, transition: null },
+    angleSlope: null,
+    coordinateLedger: [],
     // A fan line's time target is a dated forward label with no measured record (R-024).
     nearestFanLine: result.nearestFanLine ? { ...result.nearestFanLine, timeProjectionDate: null } : null,
     disclosedRules: redactDisclosedRules(result.disclosedRules),

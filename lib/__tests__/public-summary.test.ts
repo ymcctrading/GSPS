@@ -406,3 +406,34 @@ describe("the Gann rule readings at the API boundary (R-024)", () => {
     for (const leak of ["123.45", "hexagon count", "2026-11-02", "2026-11-09"]) expect(serialised).not.toContain(leak);
   });
 });
+
+describe("the Gann confluence's working at the API boundary (R-024)", () => {
+  it("drops the root, the dated counts, the vortex and the ledger", async () => {
+    const { redactScanSignals } = await import("@/lib/signals/publicSummary");
+    const gann = {
+      root: 12.34,
+      timeCycleDates: ["2026-11-03"],
+      timeCycleFixedCalendarDates: ["2026-11-08"],
+      squareOf52: { active: true, dates: ["2026-11-10"] },
+      angleMonthCounts: { active: false, dates: ["2026-12-01"] },
+      vortexContext: { priceDisplacement: 3, timeDisplacement: 6, priceVortexClass: "x", timeVortexClass: "y", relationship: "z", transition: "w" },
+      angleSlope: { slope: 1.1, nearestAngle: null },
+      coordinateLedger: [{ price: 1 }],
+      nearestFanLine: null,
+      disclosedRules: EMPTY_DISCLOSED_RULES,
+      evidence: { calculationVersion: "1", inputs: {}, sourceTimestamp: "x", explanationTrace: ["t"] },
+    };
+    const out = redactScanSignals({
+      regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
+      trendPullback: null,
+      trendBreakout: null,
+      confirmedReversal: null,
+      rangeReversion: null,
+      gannConfluence: gann as never,
+      saraConfluence: null,
+    })!.gannConfluence!;
+    expect(out.squareOf52.active).toBe(true);
+    const serialised = JSON.stringify(out);
+    for (const leak of ["12.34", "2026-11-03", "2026-11-08", "2026-11-10", "2026-12-01", "1.1", "\"price\":1"]) expect(serialised).not.toContain(leak);
+  });
+});
