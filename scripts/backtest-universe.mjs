@@ -455,6 +455,10 @@ async function main() {
     } catch {
       market = undefined;
     }
+    // The scan universe's monthly bars once, for Gann's relative strength rank
+    // (S6, P3(c)). Older refs have no loader; the rank is then unread.
+    const universeStrength = typeof run.fetchReplayUniverseStrength === "function" ? await run.fetchReplayUniverseStrength() : null;
+    process.stderr.write(`Universe strength rank: ${universeStrength ? `${universeStrength.size} months` : "unread"}.\n`);
 
     for (let i = 0; i < universe.length; i++) {
       const symbol = universe[i];
@@ -481,7 +485,7 @@ async function main() {
                     ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),
                     dailyBars: series.daily,
                   })
-                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market), instrument }),
+                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market, universeStrength), instrument }),
             );
           });
           used.push(symbol);

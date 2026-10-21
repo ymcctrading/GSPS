@@ -29,7 +29,13 @@ describe("replay series options", () => {
       longMonthlyBars: monthlyLong,
       marketDailyBars: marketDaily,
       marketMonthlyBars: marketMonthly,
+      universeStrength: null,
     });
+  });
+
+  it("hands the replay the universe's months for the S6 rank when the run read them", () => {
+    const universe = new Map([["2026-01", { sorted: [0.5], bySymbol: new Map([["AAA", 0.5]]) }]]);
+    expect(replaySeriesOptions({ bars: [], daily: [] }, undefined, universe).universeStrength).toBe(universe);
   });
 
   it("leaves the market's series out when SPY could not be fetched", () => {
@@ -40,7 +46,8 @@ describe("replay series options", () => {
 
   it("is what the universe runner passes to every replay", () => {
     const src = readFileSync(path.resolve(__dirname, "../../../scripts/backtest-universe.mjs"), "utf8");
-    expect(src).toMatch(/replay\(symbol, bars, \{.*\.\.\.run\.replaySeriesOptions\(series, market\)/);
+    expect(src).toMatch(/replay\(symbol, bars, \{.*\.\.\.run\.replaySeriesOptions\(series, market, universeStrength\)/);
+    expect(src).toMatch(/const universeStrength = typeof run\.fetchReplayUniverseStrength === "function" \? await run\.fetchReplayUniverseStrength\(\) : null;/);
     expect(src).toMatch(/market = await run\.fetchSeries\("SPY", args\.timeframe, true\)/);
   });
 });

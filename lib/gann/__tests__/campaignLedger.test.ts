@@ -187,7 +187,7 @@ describe("over-balance of time reads the reaction to its extreme", () => {
     const held = bars([...CAMPAIGN, ...leg(120, 113, 15), ...Array.from({ length: 15 }, () => 113)]);
     const price = held[held.length - 1].c;
     const asOf = new Date(Date.parse(held[held.length - 1].t) + DAY);
-    const facts = readPillarFacts({ rules: readDisclosedRules(held, price, null, asOf), daily: held, monthly: [], marketDaily: null, marketMonthly: null, price, asOf });
+    const facts = readPillarFacts({ rules: readDisclosedRules(held, price, null, asOf), daily: held, monthly: [], marketDaily: null, universe: null, price, asOf });
     expect(definiteIndicationPillar(facts, "bullish", true, true).passed).toBe(true);
     expect(definiteIndicationPillar(facts, "bearish", true, true).passed).toBe(false);
   });
@@ -239,13 +239,13 @@ describe("an over-balancing reaction stands until the trend resumes past its top
   it("fails the definite-indication pillar for a long bought on that rally, and passes the short", () => {
     const price = completed[completed.length - 1].c;
     const asOf = new Date(Date.parse(completed[completed.length - 1].t) + DAY);
-    const facts = readPillarFacts({ rules: readDisclosedRules(completed, price, null, asOf), daily: completed, monthly: [], marketDaily: null, marketMonthly: null, price, asOf });
+    const facts = readPillarFacts({ rules: readDisclosedRules(completed, price, null, asOf), daily: completed, monthly: [], marketDaily: null, universe: null, price, asOf });
     expect(definiteIndicationPillar(facts, "bullish", true, true).passed).toBe(false);
     expect(definiteIndicationPillar(facts, "bearish", true, true).passed).toBe(true);
     // The bear mirror: the short fails it on the secondary reaction, the long passes.
     const m = mirror(completed);
     const mp = m[m.length - 1].c;
-    const mFacts = readPillarFacts({ rules: readDisclosedRules(m, mp, null, asOf), daily: m, monthly: [], marketDaily: null, marketMonthly: null, price: mp, asOf });
+    const mFacts = readPillarFacts({ rules: readDisclosedRules(m, mp, null, asOf), daily: m, monthly: [], marketDaily: null, universe: null, price: mp, asOf });
     expect(definiteIndicationPillar(mFacts, "bearish", true, true).passed).toBe(false);
     expect(definiteIndicationPillar(mFacts, "bullish", true, true).passed).toBe(true);
   });

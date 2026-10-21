@@ -77,6 +77,7 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfwayRetest";
 import { readNarrowRangeBreak, type NarrowRangeBreakReading } from "@/lib/gann/narrowRange";
 import { readNarrowWeekBreak, type NarrowWeekBreakReading } from "@/lib/gann/narrowWeek";
@@ -721,6 +722,8 @@ export interface InstrumentFacts {
   monthlyYearCount?: Bar[] | null;
   /** The market's monthly bars (SPY), to date its bull market (`readWeakStock`). */
   marketMonthly?: Bar[] | null;
+  /** The scan universe's monthly positions and this stock's symbol, for the S6 rank (P3(c) only; `lib/gann/universeStrength.ts`). */
+  universe?: { symbol: string; strength: UniverseStrength | null } | null;
 }
 
 export const EMPTY_DISCLOSED_RULES: DisclosedRulesContext = {
