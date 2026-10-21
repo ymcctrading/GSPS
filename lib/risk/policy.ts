@@ -119,8 +119,8 @@ function toBandThresholds(v: RiskPolicyValues): RiskBandThresholds {
 /**
  * Resolves the effective risk policy: code defaults with any valid
  * `policy_values` (domain "risk") override applied on top, split back into
- * the two shapes `resolveState`/`resolveRiskBand`/`computePermittedRisk`
- * accept. `supabase` should be a service-role client.
+ * the circuit thresholds `resolveState` accepts and the band thresholds (no
+ * consumer since the band policy was removed, R-004). `supabase` should be a service-role client.
  */
 export async function getRiskPolicy(supabase: SupabaseClient): Promise<ResolvedRiskPolicy> {
   const values = await getPolicyOverrides(supabase, RISK_POLICY_DOMAIN, DEFAULT_RISK_POLICY_VALUES, RISK_POLICY_KEYS, RISK_POLICY_DIRECTIONS);
