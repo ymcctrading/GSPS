@@ -13,7 +13,7 @@ re-deriving this from scratch each time.
 
 | Doctrine requirement | Where |
 |---|---|
-| Decision states — Qualified Long/Short, Watch, Conflict/Wait, Stand Down; score is never itself an instruction | `lib/types.ts` (`ScanDecision.outputState`), `lib/guided` near-miss handling (deliberately separate from recommendations) |
+| Decision states — Qualified Long/Short, Watch, Conflict/Wait, Stand Down; score is never itself an instruction | `lib/scoring/decisionState.ts` (`ScanDecision.decisionState`, typed and derived from the verdict and direction, live and replay alike; D-06, 2026-10-21). Conflict/Wait is answered by Gann's rules rather than held as a state: when both sides arm, the with-trend side is the trade and the other is recorded as `ScanResult.setAsideEntry` (never-failing rule 5); with no trend and nothing armed, the scan stands down (`applyStandAsideHold`, rule 6). `lib/guided` near-miss handling stays separate from recommendations |
 | Trade Map contract — outlook, entry zone, targets, risk level, pivot plan, setup strength, timeframe, generated time, plain-language next action | `lib/types.ts` (`TradeLevels`), `lib/constants/gspsTerminology.ts` (approved public labels) |
 | Counter-scenario / pivot plan ("what to watch if the outlook fails") | `pivotPlan` terminology + the opposite-direction pivot plan tested in `lib/__tests__/intraday-scanner.test.ts` and `components/scan/intraday-alerts.test.tsx` |
 | Reversal-triggered stop adjustment ("if a stock reverses, GSPS recommends the adjustment") | `lib/trade/protocol-rules.ts` / `lib/trade/protocol-exit.ts` — Rule 3's `master_reversal` state; `exit-manager.ts` pushes the recomputed stop to the broker |
