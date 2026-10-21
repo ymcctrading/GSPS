@@ -168,14 +168,6 @@ export function SetupCardPanel({
             </div>
           )}
 
-          {model.signal && (
-            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-              Signal Engine read:
-              <Badge variant={model.signal.tradeable ? "bull" : "muted"}>{model.signal.tierLabel}</Badge>
-              <span>{model.signal.stateLabel}</span>
-            </p>
-          )}
-
           {(model.higherTimeframes || model.patternLabel) && (
             <div className="flex flex-col gap-1 text-xs text-muted">
               {model.higherTimeframes && <p>Higher timeframes: {model.higherTimeframes}.</p>}

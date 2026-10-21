@@ -86,7 +86,6 @@ export function buildIntradayCardModel(alert: Alert): SetupCardModel {
     verdict: SIGNAL_LABELS[alert.type],
     checks: intradayChecks(alert),
     stateNote: null,
-    signal: null,
     higherTimeframes: null,
     patternLabel: null,
     continuation: false,

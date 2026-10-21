@@ -147,9 +147,6 @@ function ReviewRow({ entry, open, onToggle }: { entry: ReviewEntry; open: boolea
             {review.planAdherence.replace("_", " ")}
           </Badge>
         </div>
-        <span className="text-xs text-muted">
-          Rules Alignment {review.alignment.tier}
-        </span>
       </button>
       {open && (
         <div className="flex flex-col gap-3 border-t border-border p-3">

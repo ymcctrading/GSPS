@@ -33,7 +33,6 @@ import { SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import type { PublicScoreSummary, ScorePillar, StratPattern } from "@/lib/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
-import { SCANNER_STATE_META } from "@/lib/signals/types";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 import { readResting, restingNote, type RestingRead } from "@/lib/setups/resting";
@@ -68,8 +67,6 @@ export interface SetupCardModel {
   checks: SetupCheck[];
   /** Why the state sits below what the score alone implies, when the scan said so. */
   stateNote: string | null;
-  /** The Signal Engine's own read — a separate read from the score, never merged into it. */
-  signal: { tierLabel: string; stateLabel: string; tradeable: boolean } | null;
   /** "Monthly rising, weekly rising, daily falling", or null. */
   higherTimeframes: string | null;
   /** The approved plain-English name of the reversal pattern, or null. */
@@ -225,13 +222,6 @@ export function describeTrends(trends: { timeframe: string; direction: string }[
 // Daily scan rows
 // ---------------------------------------------------------------------------
 
-const TIER_LABEL: Record<PublicSignalSummary["tier"], string> = {
-  watchlistOnly: "Watchlist",
-  qualified: "Qualified",
-  aTier: "A-tier",
-  aPlusTier: "A+",
-};
-
 /** The fields of a scan row the card reads — structural, so `ScanRow` satisfies it without this module importing a component. */
 export interface DailySetupInput {
   symbol: string;
@@ -286,13 +276,6 @@ export function buildDailyCardModel(
     verdict: row.outputState,
     checks,
     stateNote: row.scoreSummary?.stateNote ?? null,
-    signal: row.signal
-      ? {
-          tierLabel: TIER_LABEL[row.signal.tier],
-          stateLabel: SCANNER_STATE_META[row.signal.state].label,
-          tradeable: row.signal.tradeable,
-        }
-      : null,
     higherTimeframes: describeTrends(row.trends),
     patternLabel,
     continuation: row.setupKind === "continuation",

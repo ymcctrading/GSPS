@@ -152,7 +152,7 @@ describe("ResultsTable", () => {
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
   });
 
-  it("shows the Rules Alignment score and the Signal Engine read on the card, separate from the score", async () => {
+  it("shows only Gann's score on the card: no Rules Alignment number and no Signal Engine grade", async () => {
     const user = userEvent.setup();
     render(
       <ResultsTable
@@ -173,12 +173,13 @@ describe("ResultsTable", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "AAPL" }));
-    // One number on the card, Gann's score; the Signal Engine's weighted 0-100
-    // is not shown (owner's card, 2026-10-21): it ranks checks Gann never ranked.
+    // Only Gann's score shows (owner, 2026-10-21). The Signal Engine's weighted
+    // 0-100 ranks checks Gann never ranked, and its grade has no measured
+    // record of how often the graded setup works.
     expect(screen.queryByText(/\/100/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Show the full card/ }));
-    expect(screen.getByText("Trend Pullback")).toBeInTheDocument();
-    expect(screen.getAllByText("A-tier").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Trend Pullback")).not.toBeInTheDocument();
+    expect(screen.queryByText("A-tier")).not.toBeInTheDocument();
   });
 
   it("never lets a watchlist-only, non-tradeable rollup read as an executable score", async () => {
@@ -205,8 +206,7 @@ describe("ResultsTable", () => {
 
     await user.click(screen.getByRole("button", { name: "AAPL" }));
     await user.click(screen.getByRole("button", { name: /Show the full card/ }));
-    expect(screen.getByText("Watchlist")).toBeInTheDocument();
-    expect(screen.getByText("Range Reversion")).toBeInTheDocument();
+    expect(screen.queryByText("Watchlist")).not.toBeInTheDocument();
     expect(screen.getByText(/A buy setup not yet strong enough to act on/)).toBeInTheDocument();
   });
 

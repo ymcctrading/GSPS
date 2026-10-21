@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SCANNER_STATE_META, type RulesAlignmentTier, type ScannerStateName, type SignalVerdict } from "@/lib/signals/types";
+import { SCANNER_STATE_META, type ScannerStateName, type SignalVerdict } from "@/lib/signals/types";
 import type { ScanResult } from "@/lib/types";
 
 const STATE_ORDER: ScannerStateName[] = [
@@ -9,20 +9,6 @@ const STATE_ORDER: ScannerStateName[] = [
   "confirmedReversal",
   "rangeReversion",
 ];
-
-const TIER_LABEL: Record<RulesAlignmentTier, string> = {
-  watchlistOnly: "Watchlist only",
-  qualified: "Qualified",
-  aTier: "A-tier",
-  aPlusTier: "A+ tier",
-};
-
-const TIER_BADGE_VARIANT: Record<RulesAlignmentTier, "muted" | "default" | "bull"> = {
-  watchlistOnly: "muted",
-  qualified: "default",
-  aTier: "bull",
-  aPlusTier: "bull",
-};
 
 const REGIME_LABEL: Record<string, string> = {
   trend: "Trend",
@@ -109,7 +95,6 @@ function StateStatusBadge({ verdict }: { verdict: SignalVerdict | null }) {
   return (
     <div className="flex items-center gap-1.5">
       {verdict.tradeable && <Badge variant="bull">Tradeable</Badge>}
-      <Badge variant={TIER_BADGE_VARIANT[verdict.alignment.tier]}>{TIER_LABEL[verdict.alignment.tier]}</Badge>
     </div>
   );
 }

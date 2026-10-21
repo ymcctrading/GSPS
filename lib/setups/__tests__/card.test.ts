@@ -168,7 +168,7 @@ describe("buildDailyCardModel", () => {
     expect(model.price).toBe(99.5);
     expect(model.checks).toHaveLength(5);
     expect(model.continuation).toBe(true);
-    expect(model.signal).toEqual({ tierLabel: "A-tier", stateLabel: "Trend Pullback", tradeable: true });
+    expect(model).not.toHaveProperty("signal");
     expect(model.higherTimeframes).toBe("Daily rising");
     expect(model.patternLabel).toBe("Failed-push reversal");
     expect(model.tickerHref).toBe("/ticker/MSFT");
@@ -185,7 +185,6 @@ describe("buildDailyCardModel", () => {
     );
     expect(model.side).toBe("sell");
     expect(model.patternLabel).toBeNull();
-    expect(model.signal).toBeNull();
     expect(model.checks).toEqual([]);
     expect(model.higherTimeframes).toBeNull();
   });
