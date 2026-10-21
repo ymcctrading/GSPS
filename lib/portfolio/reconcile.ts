@@ -122,6 +122,12 @@ export async function reconcilePositions(
     .from("positions")
     .select("*")
     .eq("user_id", userId)
+    // Live rows only: this diffs against the live broker's positions, and a
+    // paper position is never held there. Unfiltered, the first live sync
+    // marked every open paper position closed with no trade log, and a live
+    // position in a name also held on paper was never recorded (review
+    // finding R-013).
+    .eq("mode", "live")
     .eq("closed", false);
 
   if (readError) {
@@ -167,6 +173,7 @@ async function recordOpen(supabase: Supabase, userId: string, live: LivePosition
     .from("orders")
     .select("*")
     .eq("user_id", userId)
+    .eq("mode", "live")
     .eq("symbol", live.symbol)
     .eq("side", live.side === "long" ? "buy" : "sell")
     .order("created_at", { ascending: false })
@@ -185,7 +192,7 @@ async function recordOpen(supabase: Supabase, userId: string, live: LivePosition
   const { error } = await supabase.from("positions").insert({
     user_id: userId,
     connection_id: order?.connection_id ?? null,
-    mode: order?.mode ?? "paper",
+    mode: "live",
     symbol: live.symbol,
     asset_class: order?.asset_class ?? "us_equity",
     side: live.side,

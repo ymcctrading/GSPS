@@ -183,7 +183,7 @@ export default function PortfolioPage() {
           <div className="flex flex-col gap-3">
             {blendedPositions.map((group) => (
               <BlendedPositionGroup
-                key={group.underlying}
+                key={`${(group.equity ?? group.options[0])?.mode ?? "paper"}:${group.underlying}`}
                 group={group}
                 onClose={setClosing}
                 onProtect={setProtecting}
