@@ -2,9 +2,11 @@ name: Fetch industry groups (manual)
 
 # Runs scripts/fetch-industry-groups.mjs, which reads each LARGE_CAP_UNIVERSE
 # stock's SEC industry code (SIC) for the relative strength rank's group map
-# (lib/gann/industryGroups.ts). Read-only: nothing is pushed. The file comes
-# back as the `industry-groups-<run id>` artifact and printed between
-# BEGIN/END markers in the log, to be reviewed and committed by hand.
+# (lib/gann/industryGroups.ts). The file comes back as the
+# `industry-groups-<run id>` artifact and printed between BEGIN/END markers in
+# the log. With the `commit` input set, it is also committed to
+# lib/gann/industryGroups.json on the branch the run was started on (never
+# main by default: start it on a feature branch and review the diff in the PR).
 #
 # SEC asks for a User-Agent with a contact email and refuses one without
 # (HTTP 403). The SEC_USER_AGENT repository secret ("Name contact@example.com")
@@ -13,9 +15,14 @@ name: Fetch industry groups (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit the file to the branch the run was started on"
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   fetch:
@@ -41,3 +48,12 @@ jobs:
         with:
           name: industry-groups-${{ github.run_id }}
           path: out/
+      - name: Commit the file
+        if: inputs.commit && github.ref != 'refs/heads/main'
+        run: |
+          cp out/industryGroups.json lib/gann/industryGroups.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/gann/industryGroups.json
+          git diff --cached --quiet || git commit -m "Industry groups from SEC (run ${{ github.run_id }}) (N/A)"
+          git push

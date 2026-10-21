@@ -524,8 +524,7 @@ Measured: the rank read is about 0.005-0.009 ms a symbol, building the table
 is logged by the market scan's "universe strength read" breadcrumb and was
 not measurable from this session. Engineering choices, labelled: the quarter,
 `MIN_PEERS` 100, position in range as the comparison, and today's list carried
-back in time (survivorship). US equities only; a group map (Gann's "within a
-group") stays open. A failed universe read leaves P3(c) unread, which fails as
+back in time (survivorship). US equities only. A failed universe read leaves P3(c) unread, which fails as
 an unread check does. `STRATEGY_VERSION` was
 `2026-10-21-gann-universe-strength-rank` (since moved on); Execute and the 6/3.5 cutoffs need a
 fresh run on it.
@@ -663,7 +662,7 @@ Live working orders are not counted yet. (3) The decade digit and its in-year
 turns read the year and month in UTC while the live scan passes the wall clock,
 so from 8 PM ET on a month's last day live read the next month and the replay
 the current one. `computeDecadeCycle` reads them in New York time.
-`STRATEGY_VERSION` is `2026-10-21-gann-decade-month-et`. (4) Pro's intraday
+`STRATEGY_VERSION` was `2026-10-21-gann-decade-month-et`. (4) Pro's intraday
 module still refused a third intraday entry a day, a daily count R-019 removed
 everywhere else; the count is gone (`canEnterNewIntradayPosition` keeps the
 concurrent, consecutive-loss and daily-loss gates), with its spec line.
@@ -718,8 +717,28 @@ needs repeating on it.
 **The review fixes merged onto the above, same day.** The paper exit manager
 fills a crossed stop at the market quote (R-010) and reverses the trade at the
 stop itself (review fix 1 above), so the fill and the reversal level differ
-when the quote gapped through. `STRATEGY_VERSION` is
+when the quote gapped through. `STRATEGY_VERSION` was
 `2026-10-21-review-fixes-on-replay-daily-closed-session`; no new rule.
+
+**Group rank, same day (owner: "Yes I want this next").** The rank is also
+read within the stock's industry group, Gann's "buy the strongest stocks in the
+group and sell short the ones in the weakest position" (S4, *Stock Selector*
+Ch. VII; *Truth of the Stock Tape* Ch. XVI-XIX). Groups are SEC industry codes
+(SIC), fetched once by `scripts/fetch-industry-groups.mjs` through the manual
+workflow `fetch-industry-groups.yml` (this sandbox can't reach sec.gov) and
+checked in as `lib/gann/industryGroups.json`, so every surface reads the same
+map and nothing at runtime calls SEC. Re-run it when `LARGE_CAP_UNIVERSE`
+changes, on a feature branch with `commit` set (it commits the file there).
+SEC refused GitHub's runners until the repository secret `SEC_USER_AGENT`
+(a real name and email) was set; the noreply fallback alone is refused. The
+first map (2026-10-21) coded 830 of 831 symbols (ARCC has none) and put 778 in
+65 groups. Engineering choices, labelled in `lib/gann/industryGroups.ts`: the
+three-digit SIC industry group when at least 5 universe stocks share it, else
+the two-digit major group, else none; a group rank needs 4 peers. P3(c) passes
+on the strongest quarter of the group or of the universe (the weakest, short),
+as its design reads S6, and `selectionStrength` counts either. No new fetch;
+the group read adds a filter of the month's positions once per group and month.
+`STRATEGY_VERSION` is `2026-10-21-gann-group-strength-rank`.
 
 ## WD Gann precedence — standing principle
 

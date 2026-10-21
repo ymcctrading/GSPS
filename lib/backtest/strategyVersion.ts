@@ -603,4 +603,11 @@
 // 2026-10-21-review-fixes-on-replay-daily-closed-session: the review fixes
 // above merged onto main's narrow-weeks breakaway, decade month in ET and
 // closed-session daily replay; no new rule.
-export const STRATEGY_VERSION = "2026-10-21-review-fixes-on-replay-daily-closed-session";
+// 2026-10-21-gann-group-strength-rank: the same rank is also read within the
+// stock's industry group (S4, "buy the strongest stocks in the group", Stock
+// Selector Ch. VII), groups from SEC industry codes checked in
+// (lib/gann/industryGroups.json). P3(c) passes on the strongest quarter of its
+// group or of the universe (the weakest, short), as its design reads S6, and
+// `selectionStrength` counts either. Scores and list order move, live and
+// replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-group-strength-rank";

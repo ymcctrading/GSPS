@@ -32,9 +32,14 @@
  * year's range is how the highs and lows are compared, as the stand-in did;
  * a quarter is "the strongest" (Gann names the strongest few, never a
  * fraction); a reading needs `MIN_PEERS` peers, so a fetch that came back thin
- * reads nothing rather than a rank among a handful. Gann ranks within a group
- * as well; GSPS has no group map yet, and S6's "across markets" is the
- * universe. US equities only: crypto has no peer list here.
+ * reads nothing rather than a rank among a handful. US equities only: crypto
+ * has no peer list here.
+ *
+ * Within the group (S4), 2026-10-21: the same reading ranks the stock among
+ * the universe stocks of its industry group (`industryGroups.ts`, SEC's
+ * industry codes), by the same measure and the same quarter. P3(c) passes on
+ * either rank, as its design reads S6 ("among the strongest of its group or
+ * of the scanned universe").
  *
  * Three questions: 1. S6 and S4, Tier A, as cited. 2. No period is claimed, so
  * Dewey does not apply; the rank is a cross-series comparison of where each
@@ -46,6 +51,7 @@
 
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
+import { INDUSTRY_GROUPS, groupOf, type IndustryGroup } from "@/lib/gann/industryGroups";
 
 export const STRENGTH_MONTHS = 12;
 /** "Among the strongest": the top quarter (bottom quarter for the weakest). */
@@ -131,6 +137,16 @@ function upperBound(xs: number[], v: number): number {
   return lo;
 }
 
+export interface GroupRankReading {
+  /** The group's key (SIC industry or major group) and a label for display. */
+  key: string;
+  label: string;
+  percentile: number;
+  peers: number;
+  strongest: boolean;
+  weakest: boolean;
+}
+
 export interface UniverseRankReading {
   /** The stock's own position in its year's range. */
   position: number;
@@ -139,6 +155,56 @@ export interface UniverseRankReading {
   peers: number;
   strongest: boolean;
   weakest: boolean;
+  /**
+   * Its rank within its industry group (S4, `industryGroups.ts`), by the same
+   * measure and cutoff. Null when it has no group or fewer than
+   * `MIN_GROUP_PEERS` group peers were read this month.
+   */
+  group: GroupRankReading | null;
+}
+
+/** Fewer group peers than this and no group rank is read (a quarter of four is the one strongest). */
+export const MIN_GROUP_PEERS = 4;
+
+/** Each month's sorted positions per group, built once per group map, month and group. */
+const groupSorted = new WeakMap<Map<string, IndustryGroup>, WeakMap<StrengthMonth, Map<string, number[]>>>();
+
+function groupPositions(entry: StrengthMonth, key: string, groups: Map<string, IndustryGroup>): number[] {
+  let byMonth = groupSorted.get(groups);
+  if (!byMonth) {
+    byMonth = new WeakMap();
+    groupSorted.set(groups, byMonth);
+  }
+  let byGroup = byMonth.get(entry);
+  if (!byGroup) {
+    byGroup = new Map();
+    byMonth.set(entry, byGroup);
+  }
+  let sorted = byGroup.get(key);
+  if (!sorted) {
+    sorted = [];
+    for (const [sym, pos] of entry.bySymbol) if (groups.get(sym)?.key === key) sorted.push(pos);
+    sorted.sort((a, b) => a - b);
+    byGroup.set(key, sorted);
+  }
+  return sorted;
+}
+
+/** The rank of `position` among `sorted`, leaving out the stock's own reading `own`. */
+function rankAmong(sorted: number[], position: number, own: number | undefined): { percentile: number; peers: number } {
+  let n = sorted.length;
+  let below = lowerBound(sorted, position);
+  let atOrBelow = upperBound(sorted, position);
+  if (own !== undefined) {
+    n -= 1;
+    if (own < position) {
+      below -= 1;
+      atOrBelow -= 1;
+    } else if (own === position) {
+      atOrBelow -= 1;
+    }
+  }
+  return { percentile: n > 0 ? (below + (atOrBelow - below) / 2) / n : 0, peers: n };
 }
 
 /**
@@ -152,6 +218,8 @@ export function readUniverseRank(
   stockMonthly: Bar[] | null | undefined,
   asOf: Date,
   universe: UniverseStrength | null | undefined,
+  /** The group map; the checked-in SEC map unless a test hands its own. */
+  groups: Map<string, IndustryGroup> = INDUSTRY_GROUPS,
 ): UniverseRankReading | null {
   if (!universe) return null;
   // The New York month, so a scan after 8 PM ET on a month's last day reads that month, as the replay's session does.
@@ -162,25 +230,28 @@ export function readUniverseRank(
   const own = entry.bySymbol.get(sym);
   const position = stockMonthly ? strengthPosition(stockMonthly.filter((b) => b.t.slice(0, 7) < month)) : own ?? null;
   if (position === null || position === undefined) return null;
-  let n = entry.sorted.length;
-  let below = lowerBound(entry.sorted, position);
-  let atOrBelow = upperBound(entry.sorted, position);
-  if (own !== undefined) {
-    n -= 1;
-    if (own < position) {
-      below -= 1;
-      atOrBelow -= 1;
-    } else if (own === position) {
-      atOrBelow -= 1;
+  const { percentile, peers } = rankAmong(entry.sorted, position, own);
+  if (peers < MIN_PEERS) return null;
+  const g = groupOf(sym, groups);
+  let group: GroupRankReading | null = null;
+  if (g) {
+    const r = rankAmong(groupPositions(entry, g.key, groups), position, own);
+    if (r.peers >= MIN_GROUP_PEERS) {
+      group = {
+        key: g.key,
+        label: g.label,
+        ...r,
+        strongest: r.percentile >= 1 - STRONGEST_FRACTION,
+        weakest: r.percentile <= STRONGEST_FRACTION,
+      };
     }
   }
-  if (n < MIN_PEERS) return null;
-  const percentile = (below + (atOrBelow - below) / 2) / n;
   return {
     position,
     percentile,
-    peers: n,
+    peers,
     strongest: percentile >= 1 - STRONGEST_FRACTION,
     weakest: percentile <= STRONGEST_FRACTION,
+    group,
   };
 }
