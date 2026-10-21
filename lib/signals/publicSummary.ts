@@ -10,7 +10,8 @@
 import type { Regime, RulesAlignmentTier, ScannerStateName, SignalVerdict } from "./types";
 import type { Direction, ScanResult } from "@/lib/types";
 import type { GannConfluenceResult, SaraConfluenceResult } from "./confluence/types";
-import { EMPTY_DISCLOSED_RULES, type DisclosedRulesContext } from "@/lib/gann/disclosedRules";
+import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRulesEmpty";
+import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 
 export interface PublicSignalSummary {
   state: ScannerStateName;

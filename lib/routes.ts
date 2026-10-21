@@ -13,3 +13,15 @@ export function tickerHref(symbol: string): string {
 export function intradayTradeHref(symbol: string, side: "buy" | "sell"): string {
   return `${tickerHref(symbol)}?intraday=1&side=${side}`;
 }
+
+/**
+ * The in-app path to send someone to after signing in, from a `?next=`
+ * value they could have been handed by anyone. Only a same-origin path
+ * passes: "/x" yes; "//evil.com", "/\\evil.com", "https://evil.com" and
+ * "@evil.com" (which `${origin}${next}` turns into a userinfo URL on
+ * evil.com) fall back to the dashboard.
+ */
+export function safeNextPath(next: string | null | undefined, fallback = "/dashboard"): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return fallback;
+  return next;
+}

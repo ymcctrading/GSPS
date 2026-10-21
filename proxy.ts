@@ -4,10 +4,14 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 // `/learning` joins the list because the endpoint behind it now requires a
 // session: left public it would render a page whose only button 401s.
-// `/automation` is absent on purpose — that page authenticates and tier-gates
-// itself in the server component.
+// `/automation` also authenticates and tier-gates itself in the server
+// component; it is listed so a visitor with no session gets the same login
+// redirect as every other page in the signed-in shell. So are `/guided`,
+// `/school` and `/promotion`, which rendered an empty shell whose every
+// request 401s.
 const PROTECTED_PREFIXES = [
   "/dashboard", "/scanner", "/ticker", "/portfolio", "/glossary", "/settings", "/learning",
+  "/guided", "/school", "/promotion", "/automation",
   // `/welcome` holds no user data, but it renders inside the signed-in shell —
   // nav, sign-out and all — so serving it to a visitor with no session would
   // show them a header they cannot use.

@@ -25,6 +25,7 @@
  * consequences.
  */
 
+import { NO_GUARANTEE_DISCLAIMER } from "@/lib/school/disclaimer";
 import type { PlatformTier } from "@/lib/tiers";
 import type { QuizQuestion } from "@/lib/school/content";
 import { OLD_LEVEL_BUYS_IN_RANGE } from "@/lib/gann/breakaway";
@@ -32,9 +33,8 @@ import { OLD_LEVEL_BUYS_IN_RANGE } from "@/lib/gann/breakaway";
 export const SCHOOL_CURRICULUM_PROGRAM_ID = "gsps-school-curriculum";
 export const CURRICULUM_VERSION = "2026.09.1";
 
-/** Every lesson requiring "no guarantee of outcome" language carries this exact disclaimer. */
-export const NO_GUARANTEE_DISCLAIMER =
-  "No signal, pattern, backtest, or exercise in GSPS School is a guarantee of any trading outcome. This is capability-verification education, not investment advice.";
+/** Every lesson requiring "no guarantee of outcome" language carries this exact disclaimer (`./disclaimer`). */
+export { NO_GUARANTEE_DISCLAIMER };
 
 export type SchoolProgramId =
   | "foundations"
