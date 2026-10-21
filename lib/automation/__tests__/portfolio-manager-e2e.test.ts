@@ -59,6 +59,7 @@ vi.mock("@/lib/brokers/simulator", () => ({
   getOrCreateAccount: vi.fn().mockResolvedValue({ cash: 100_000 }),
   getOpenPosition: vi.fn().mockResolvedValue(null),
   listOpenPositions: vi.fn().mockResolvedValue([]),
+  listWorkingPaperEntries: vi.fn().mockResolvedValue([]),
   quotePrice: vi.fn().mockResolvedValue(100.5),
   quoteOptionPrice: vi.fn(),
   executeFill: vi.fn().mockResolvedValue({ price: 100.5, qty: 10, positionId: "pos-1", closed: null }),

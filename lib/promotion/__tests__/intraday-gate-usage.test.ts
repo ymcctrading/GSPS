@@ -53,7 +53,6 @@ describe("loadProIntradayUsage", () => {
     const usage = await loadProIntradayUsage(supabase, "u1");
     expect(usage.consecutiveLosses).toBe(0);
     expect(usage.dailyLossPct).toBe(0);
-    expect(usage.entriesToday).toBe(0);
   });
 
   it("counts today's streak", async () => {

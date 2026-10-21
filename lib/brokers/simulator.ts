@@ -37,6 +37,7 @@ import {
 import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { isProtectiveOrder } from "@/lib/trade/kill-switch";
 import type { createClient } from "@/lib/supabase/server";
 import type { AssetClass } from "@/lib/types";
 
@@ -145,6 +146,55 @@ export async function listOpenPositions(supabase: Supabase, userId: string): Pro
     .eq("closed", false)
     .order("opened_at", { ascending: false });
   return (data ?? []).map(normalizePosition);
+}
+
+/** A resting paper entry: an order the market has not reached yet. */
+export interface WorkingPaperEntry {
+  id: string;
+  symbol: string;
+  side: "buy" | "sell";
+  qty: number;
+  /** The limit it rests at. */
+  price: number;
+  stop: number | null;
+}
+
+/**
+ * The paper account's resting entry orders (`status = 'new'`), the capital
+ * they will take once they fill (review 2026-10-21, #376). Gann's capital
+ * rules read the book an order joins, and a resting entry is part of it
+ * before it fills: two resting limits placed one after the other must not
+ * each pass alone and open a sixth stock together. A resting order that only
+ * reduces a position held now is protective and left out, as are options.
+ * Null when the orders can't be read, so the caller can fail closed.
+ */
+export async function listWorkingPaperEntries(
+  supabase: Supabase,
+  userId: string,
+  open: SimPosition[],
+): Promise<WorkingPaperEntry[] | null> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, symbol, side, qty, limit_price, stop_price, asset_class")
+    .eq("user_id", userId)
+    .eq("mode", "paper")
+    .eq("status", "new")
+    .in("order_type", ["limit", "bracket"]);
+  if (error) return null;
+  const out: WorkingPaperEntry[] = [];
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const symbol = String(row.symbol).toUpperCase();
+    if (row.asset_class === "option" || isOption(symbol)) continue;
+    const price = Number(row.limit_price);
+    const qty = Number(row.qty);
+    if (!Number.isFinite(price) || !(price > 0) || !(qty > 0)) continue;
+    const side = row.side === "sell" ? "sell" : "buy";
+    const held = open.find((p) => p.symbol.toUpperCase() === symbol);
+    if (isProtectiveOrder(held?.side ?? null, side, qty, held?.qty ?? 0)) continue;
+    const stop = row.stop_price == null ? NaN : Number(row.stop_price);
+    out.push({ id: String(row.id), symbol, side, qty, price, stop: Number.isFinite(stop) ? stop : null });
+  }
+  return out;
 }
 
 /**
@@ -510,7 +560,7 @@ export async function evaluateRestingOrders(
   supabase: Supabase,
   userId: string,
   userEmail?: string | null,
-): Promise<{ filled: number; invalidated: number; error: string | null }> {
+): Promise<{ filled: number; invalidated: number; refused: number; error: string | null }> {
   const { data, error } = await supabase
     .from("orders")
     .select("id, symbol, side, qty, order_type, limit_price, stop_price, take_profit, master_profit, asset_class, created_at")
@@ -518,10 +568,11 @@ export async function evaluateRestingOrders(
     .eq("mode", "paper")
     .eq("status", "new")
     .in("order_type", ["limit", "bracket"]);
-  if (error) return { filled: 0, invalidated: 0, error: error.message };
+  if (error) return { filled: 0, invalidated: 0, refused: 0, error: error.message };
 
   let filled = 0;
   let invalidated = 0;
+  let refused = 0;
   for (const row of data ?? []) {
     const symbol = String(row.symbol);
     if (isOption(symbol)) continue;
@@ -535,7 +586,9 @@ export async function evaluateRestingOrders(
     // The market has hit the planned stop before the entry filled —
     // the setup is broken. Cancel rather than leave it resting indefinitely;
     // see lib/trade/invalidate-pending.ts.
-    const stopPrice = Number(row.stop_price);
+    // A row with no stop has none: `Number(null)` is 0, which read a resting
+    // sell with no stop as already through a stop at zero.
+    const stopPrice = row.stop_price == null ? NaN : Number(row.stop_price);
     const invalidatable: InvalidatableOrder = {
       side,
       limit_price: limitPrice,
@@ -579,7 +632,7 @@ export async function evaluateRestingOrders(
         const check = bracket ? checkBracket({ side, basePrice: market, stopLoss: bracket.stopLoss, takeProfit: bracket.takeProfit }) : null;
         if (!check?.ok) {
           const reason = `The market reached ${market} before this order filled, past its own stop or target. ${check?.reason ?? "Its levels couldn't be read."} Refresh the setup and resubmit.`;
-          const { data: refused } = await supabase
+          const { data: rejected } = await supabase
             .from("orders")
             .update({ status: "rejected", reject_reason: reason, updated_at: new Date().toISOString() })
             .eq("id", row.id)
@@ -587,9 +640,37 @@ export async function evaluateRestingOrders(
             .eq("status", "new")
             .select("id")
             .maybeSingle();
-          if (refused) invalidated++;
+          if (rejected) invalidated++;
           continue;
         }
+      }
+
+      // Gann's capital rules are read again on the book as it stands now
+      // (review 2026-10-21, #376): five stocks, 30 points of capital a share
+      // and a tenth of the unit at risk. The book can have changed since the
+      // order was placed, and orders resting from before working entries were
+      // counted at placement were never checked against each other. A refused
+      // entry is cancelled, never filled. A resting order that only reduces a
+      // position is protective and is never refused.
+      const { restingEntryRefusal } = await import("@/lib/trade/resting-entry-guard");
+      const refusal = await restingEntryRefusal(supabase, userId, {
+        symbol,
+        side,
+        qty: Number(row.qty),
+        stop: invalidatable.stop_price,
+        price: market,
+      });
+      if (refusal) {
+        const { data: cancelled } = await supabase
+          .from("orders")
+          .update({ status: "rejected", reject_reason: refusal.error, updated_at: new Date().toISOString() })
+          .eq("id", row.id)
+          .eq("user_id", userId)
+          .eq("status", "new")
+          .select("id")
+          .maybeSingle();
+        if (cancelled) refused++;
+        continue;
       }
 
       // Claim before executing, same reasoning as the exit manager's tranche
@@ -621,7 +702,7 @@ export async function evaluateRestingOrders(
       filled++;
     }
   }
-  return { filled, invalidated, error: null };
+  return { filled, invalidated, refused, error: null };
 }
 
 interface RestingBracket {

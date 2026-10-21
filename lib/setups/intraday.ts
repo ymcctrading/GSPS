@@ -91,6 +91,10 @@ export function buildIntradayCardModel(alert: Alert): SetupCardModel {
     higherTimeframes: null,
     patternLabel: null,
     continuation: false,
+    // Not read here, deliberately: an intraday alert is priced from the
+    // session in progress and carries no daily range; the resting-order read
+    // (lib/setups/resting.ts) covers the daily plans.
+    resting: null,
     synopsis: buildIntradaySynopsis(alert),
     tickerHref: tickerHref(alert.symbol),
   };

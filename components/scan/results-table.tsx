@@ -11,6 +11,7 @@ import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setu
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { PublicScoreSummary } from "@/lib/types";
 import { buildDailyCardModel } from "@/lib/setups/card";
+import { readResting, restingDistanceLabel, restingInputOfRow, splitResting } from "@/lib/setups/resting";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { formatUsd, cn } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
@@ -34,6 +35,13 @@ export interface ScanRow {
    * field existed.
    */
   currentPrice?: number | null;
+  /**
+   * A day's range (the daily average true range, `ScanResult.dayRange`). An
+   * Execute row whose entry sits further than this from price is a resting
+   * order and is listed apart (`lib/setups/resting.ts`). Null or absent: not
+   * known, and the row stays where its verdict put it.
+   */
+  dayRange?: number | null;
   /**
    * The Signal and Regime Engine's own rollup — a separate read from
    * `score`/`outputState` above, never merged into them. `null` when no
@@ -124,11 +132,17 @@ export function ResultsTable({
     );
   }
 
-  const live = qualifying.filter((r) => !invalidated[rowKey(r)]);
+  const stillLive = qualifying.filter((r) => !invalidated[rowKey(r)]);
   const dead = qualifying.filter((r) => invalidated[rowKey(r)]);
+  // An Execute plan whose entry is more than a day's range from price is a
+  // resting order, listed apart and out of Execute (owner, 2026-10-21;
+  // lib/setups/resting.ts). Split on the scan-time price, so the list a row
+  // sits in does not move with every quote; its card reads the live price.
+  const { now: live, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
 
   return (
     <>
+    {(live.length > 0 || dead.length > 0) && (
     <Table>
       <THead>
         <TR>
@@ -176,6 +190,42 @@ export function ResultsTable({
         ))}
       </TBody>
     </Table>
+    )}
+    {resting.length > 0 && (
+      <div className={cn(live.length > 0 || dead.length > 0 ? "mt-4" : undefined)} data-testid="resting-orders">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
+        <p className="mb-1 text-xs text-muted">
+          Plans the scan rates Execute whose entry is more than a day&apos;s range from price. Each waits at its
+          level for price to come back; none is a trade to take today.
+        </p>
+        <Table>
+          <THead>
+            <TR>
+              <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+              <TH className="text-right">Price</TH>
+              <TH className="text-right">Entry</TH>
+              <TH className="text-right">Exit (S/L)</TH>
+              <TH className="text-right">TP1</TH>
+              <TH className="text-right">MTP</TH>
+              <TH className="w-8" aria-label="Save" />
+              {onRemove && <TH className="w-8" aria-label="Remove" />}
+            </TR>
+          </THead>
+          <TBody>
+            {resting.map((r) => (
+              <ResultsRow
+                key={rowKey(r)}
+                row={r}
+                resting
+                onInvalidatedChange={handleInvalidatedChange}
+                onRemove={onRemove}
+                exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+              />
+            ))}
+          </TBody>
+        </Table>
+      </div>
+    )}
     {rejected.length > 0 && (
       <div className="mt-2">
         <RejectedToggle count={rejected.length} open={showRejected} onToggle={() => setShowRejected((v) => !v)} />
@@ -257,11 +307,14 @@ function RejectedTable({
  */
 function ResultsRow({
   row: r,
+  resting = false,
   onInvalidatedChange,
   onRemove,
   exactScoreDisplayEnabled,
 }: {
   row: ScanRow;
+  /** Listed under "Resting orders": the row shows its distance from price to entry. */
+  resting?: boolean;
   onInvalidatedChange?: (key: string, value: boolean) => void;
   onRemove?: (symbol: string) => void;
   exactScoreDisplayEnabled: boolean;
@@ -310,6 +363,9 @@ function ResultsRow({
     livePrice: quote?.price ?? null,
   });
   const columns = onRemove ? BASE_COLUMNS + 1 : BASE_COLUMNS;
+  // The distance is read at the scan-time price, the same price the list
+  // was split on, so the row's figure and its place agree.
+  const restingRead = resting ? readResting(restingInputOfRow(r)) : null;
 
   return (
     <Fragment>
@@ -331,6 +387,11 @@ function ResultsRow({
               )}
               {invalidated && <Badge variant="bear">Invalidated</Badge>}
             </span>
+            {restingRead && (
+              <span className="text-xs text-muted" title="Distance from the scan-time price to the entry">
+                Entry {restingDistanceLabel(restingRead)}
+              </span>
+            )}
           </div>
         </TD>
         <TD className="text-right font-mono">

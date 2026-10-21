@@ -28,7 +28,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SavedSetupRow } from "@/components/dashboard/saved-setups-list";
 import type { ScanRow } from "@/components/scan/results-table";
 
-type SavedSetupJoinRow = Omit<SavedSetupRow, "folderName" | "currentScore" | "currentOutputState" | "monitorState"> & {
+type SavedSetupJoinRow = Omit<
+  SavedSetupRow,
+  "folderName" | "currentScore" | "currentOutputState" | "monitorState" | "currentPrice" | "dayRange"
+> & {
   setup_folders: { name: string } | null;
 };
 
@@ -78,6 +81,8 @@ export async function getSavedSetupRows(
       folderName: r.setup_folders?.name ?? "Saved setups",
       currentScore: current?.score ?? null,
       currentOutputState: current?.outputState ?? null,
+      currentPrice: current?.currentPrice ?? null,
+      dayRange: current?.dayRange ?? null,
       monitorState: monitorStateBySymbol.get(r.symbol) ?? null,
     };
   });

@@ -51,7 +51,6 @@ export const DEFAULT_PROMOTION_POLICY: PromotionPolicy = {
 export interface ProIntradayPolicy {
   setupsDisplayedPerDayMin: number;
   setupsDisplayedPerDayMax: number;
-  newEntriesPerDayDefault: number;
   concurrentPositionsMin: number;
   concurrentPositionsMax: number;
   consecutiveLossPauseCount: number;
@@ -62,7 +61,6 @@ export interface ProIntradayPolicy {
 export const DEFAULT_PRO_INTRADAY_POLICY: ProIntradayPolicy = {
   setupsDisplayedPerDayMin: 3,
   setupsDisplayedPerDayMax: 5,
-  newEntriesPerDayDefault: 2,
   concurrentPositionsMin: 1,
   concurrentPositionsMax: 2,
   consecutiveLossPauseCount: 2,

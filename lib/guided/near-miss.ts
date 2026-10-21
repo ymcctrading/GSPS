@@ -28,6 +28,8 @@ import type { ScanResult } from "@/lib/types";
 import { tickerHref } from "@/lib/routes";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
+import { restingReadOf } from "@/lib/guided/eligibility";
+import { formatUsd } from "@/lib/utils";
 
 export interface NearMiss {
   symbol: string;
@@ -77,6 +79,14 @@ export function missingFor(result: ScanResult, score: number): string[] {
   }
   if (result.direction === "bearish") {
     missing.push("Betting against a price also needs shares available to borrow, which is not guaranteed.");
+  }
+  // An Execute plan resting at a level more than a day's range away
+  // (lib/setups/resting.ts): the plan is sound, price is just not there.
+  const resting = restingReadOf(result);
+  if (resting && result.levels) {
+    missing.push(
+      `Price is ${resting.pct.toFixed(1)}% ${resting.entryIs === "below" ? "above" : "below"} the entry. The plan waits for price to come back to ${formatUsd(result.levels.entry)}, so it is a resting order rather than today's trade.`,
+    );
   }
 
   // Never return an empty list. A card headed "what it's missing" that lists

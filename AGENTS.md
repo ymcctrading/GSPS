@@ -410,7 +410,8 @@ sessions narrow (`isNarrowRange`, at least `MIN_RANGE_SESSIONS`), the narrow the
 breakaway's volume rule already read: 12% and 3% held. Decision 5 itself is
 unchanged: inside a narrow range Execute still needs the breakaway. The width
 (`NARROW_RANGE_ALLOWANCES`, 3 allowances over 13 weeks) is an engineering figure,
-and a 2-6 week narrow range after a wide 13 weeks is not read yet; both held for
+and a 2-6 week narrow range after a wide 13 weeks is not read yet (built the same
+day, "Breakaway's 2-6 week range" below); both held for
 the owner. `STRATEGY_VERSION` was `2026-10-21-gann-narrow-range-breakaway`;
 Execute and the 6/3.5 cutoffs need a fresh run on it.
 **Replay accounting, 2026-10-21.** Three replay defects, fixed. (1) A fired entry
@@ -617,9 +618,108 @@ as the paper exit manager fills at the market. `STRATEGY_VERSION` was
 `2026-10-21-review-gap-stop-fill`; replay losses on gaps move, live verdicts
 don't. Also from the review, not in the verdict: `daily_scans` stores only the
 score rollup, never the breakdown, since production lets any role read it
-(R-021; migration 0090 drops that policy, not applied). Merged onto the
-major-range levels above, `STRATEGY_VERSION` is
+(R-021). Migrations 0090, 0092 and 0093 (members update only their username
+and display name, R-028) were applied to production the same day on the
+owner's go-ahead. `STRATEGY_VERSION` was
 `2026-10-21-review-fixes-on-major-range-levels`.
+
+**Breakaway's 2-6 week range, 2026-10-21 (the narrow range held open above).**
+Gann counts the weeks a market has been held narrow before it crosses the tops
+or breaks the bottoms "of the previous weeks": "2-6 or 10-13 weeks in a narrow
+range ... the longer in range, the bigger the move" (Master Course pp. 246-248,
+Rails 1897's two 2-point ranges; *Commodities* p. 51, "Many Weeks in Narrow
+Range"); 3 points beyond the old top or bottom of a sideways move (*Truth of
+the Stock Tape*, Jewel Tea). So the range is the one the market is in now:
+`narrowRangeSessions` (`lib/gann/breakaway.ts`) counts back from the latest
+session while the span stays narrow, at least `MIN_RANGE_SESSIONS` and within
+the 13 weeks. A whole narrow quarter reads as before; after a wide quarter the
+last 2-6 narrow weeks are the range and their 3-Day Chart extremes are the
+breakaway. The 7-9 weeks between his bands are read too (his own 8- and 9-week
+examples, Rails 1911 and 1897). `readBreakaway`, the breakaway's volume
+(`breakawayVolumeMet`, `readBreakawayVolume`) and `capitalStock.ts` read the
+same run, live and replay alike (one function). Gann gives no width: his dated
+ranges are 2, 2½ and 4 points, inside `NARROW_RANGE_ALLOWANCES` (3 allowances,
+still an engineering figure, held for the owner). Random walks, armed entries
+held (before → after): trendless 13.1% → 16.3%, rising 0.2% a day 8.3% → 11.0%
+(at $20 26.1 → 26.6%, $500 0 → 1.4%). `STRATEGY_VERSION` was
+`2026-10-21-gann-narrow-weeks-breakaway`; Execute and the 6/3.5 cutoffs need a
+fresh run on it.
+
+**Review fixes, 2026-10-21 (four defects found reviewing the day's merges).**
+(1) The paper exit manager reversed a stop-caught trade at the market quote
+that gapped through the stop; the replay and the broker exit manager reverse
+at the stop, "the stop that was hit" (`reverse.ts`). `exit-manager-sim.ts` now
+reverses at the stop, and a Gann exit signal still at the price the last
+shares left at. (2) Gann's capital rules read open positions only, so a limit
+entry resting as a `new` order was not in the book, and `evaluateRestingOrders`
+filled it unchecked: two resting limits could each pass alone and together open
+a sixth stock or breach 30 points of capital a share. Paper placement now counts
+resting entries (`listWorkingPaperEntries`) in the five stocks, the capital a
+share and the percent ceilings, and fails closed when they can't be read; a
+resting entry is checked again on the book as it stands when it fills
+(`lib/trade/resting-entry-guard.ts`: the five stocks, 30 points a share and a
+tenth at risk) and cancelled on refusal. Protective orders are never refused.
+Live working orders are not counted yet. (3) The decade digit and its in-year
+turns read the year and month in UTC while the live scan passes the wall clock,
+so from 8 PM ET on a month's last day live read the next month and the replay
+the current one. `computeDecadeCycle` reads them in New York time.
+`STRATEGY_VERSION` is `2026-10-21-gann-decade-month-et`. (4) Pro's intraday
+module still refused a third intraday entry a day, a daily count R-019 removed
+everywhere else; the count is gone (`canEnterNewIntradayPosition` keeps the
+concurrent, consecutive-loss and daily-loss gates), with its spec line.
+
+**Resting orders, 2026-10-21 (owner's pick on the card, "Resting list"):**
+"Plans more than a day's range from their entry move to a separate 'Resting
+orders' list, out of Execute, with the distance shown." The case: AMD at $547.91
+read Execute with a buy entry of $480.46 (the reaction buy at a crossed old top)
+and its stop, TP1 and MTP all below price. `lib/setups/resting.ts` holds the one
+predicate: resting when |price − entry| is more than a day's range, read as the
+scan's 14-period daily ATR on completed sessions (`ScanResult.dayRange`, kept in
+`daily_scans.detail`), an engineering reading of the owner's words. The daily
+Buy/Sell lists (Dashboard and its full pages, the Scanner) and the tracked
+Execute list put such rows under "Resting orders" with the distance in dollars
+and percent, split on the scan-time price; the shared card says it waits for the
+reaction back and that a TP1 or MTP already behind price counts only once the
+entry fills. Guided Mode and the demo account do not offer it
+(`assessEligibility`), and the Novice home's Today's plan ranks it with Watch.
+Presentation and selection only: the scored verdict, the replay, plan arming and
+order placement are unchanged (automation's resting orders already wait for
+price to trade into the buy zone), so `STRATEGY_VERSION` stays. The scan's
+monitor reads a resting Execute as Watch (`isRestingScanResult` in
+`evaluateMonitorsAndNotify`), so the Execute alert, and the plan it creates,
+come once price is within a day's range of the entry. Gaps, labelled:
+a tracked symbol the daily scan does not cover has no range read (the monitor
+row stores none) and stays in its list; saved setups are not bucketed by verdict
+and get the card's sentence only; the intraday alerts are not read (they are
+priced from the session in progress).
+
+**Daily replay entry kinds, 2026-10-21 (six-year 1Day universe run: all 4,479
+trades under "hold", crossing 0, oldLevel 0; the 15-minute run split 1,332,
+840 and 1,427).** One replay defect, fixed. The reaction and confirmed rules
+act on a closed bar and fill at the next bar's open, but the replay read that
+closed bar against the live bar's session plan. On intraday bars that is the
+closed bar's own session; on daily bars it is the next one, priced from the
+closed bar itself. So a crossing or an old level the bar traded into was
+already spent on that chart and offered no plan, and a held bottom's entry
+(that bar's own close) was always traded into. On a 1Day replay
+(`sessionBars`) the closed bar is now read against its own session's plan,
+priced from the sessions before it, and the next session's open fills it,
+as production's confirmation reads the bars after a plan is made. Random
+walks, before → after: 0 → 10 crossings, 0 → 20 old levels, 0 → 66 holds
+over six seeds (`dailyEntryKinds.test.ts`). Intraday replays, the live scan
+and verdicts are unchanged. The run's `armed` (1,730,892) is not fills: it
+counts each plan once per session it stood (about 1.4 a symbol-session over
+828 symbols and some 1,500 sessions, of at most 2: the reversion and the
+with-trend point),
+before the breach, distribution and failed-top checks and the zone test.
+`STRATEGY_VERSION` was `2026-10-21-replay-daily-closed-session`; the 1Day run
+needs repeating on it.
+
+**The review fixes merged onto the above, same day.** The paper exit manager
+fills a crossed stop at the market quote (R-010) and reverses the trade at the
+stop itself (review fix 1 above), so the fill and the reversal level differ
+when the quote gapped through. `STRATEGY_VERSION` is
+`2026-10-21-review-fixes-on-replay-daily-closed-session`; no new rule.
 
 ## WD Gann precedence — standing principle
 

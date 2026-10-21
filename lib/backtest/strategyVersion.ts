@@ -577,4 +577,30 @@
 // (review finding R-022). Replay losses on gaps move; live verdicts do not.
 // 2026-10-21-review-fixes-on-major-range-levels: the two lines above joined
 // (the review fixes merged onto the major-range levels); no new rule.
-export const STRATEGY_VERSION = "2026-10-21-review-fixes-on-major-range-levels";
+// 2026-10-21-gann-narrow-weeks-breakaway: the breakaway's range is the narrow
+// run of sessions counted back from the latest, 2 to 13 weeks
+// (`narrowRangeSessions`), not the whole 13 weeks: Gann's "2-6 or 10-13 weeks
+// in a narrow range, then crossing the tops or breaking the bottoms of the
+// previous weeks" (Master Course pp. 246-248; Commodities p. 51). A narrow
+// spell after a wide quarter is now a range, its own extremes the breakaway;
+// the breakaway's volume reads the same run. Verdicts move, live and replay
+// alike.
+// 2026-10-21-gann-decade-month-et: the decade digit and its in-year turns
+// (`computeDecadeCycle`, P1 and `decadeYearWithTrade`) read the year and month
+// in New York time, not UTC. The live scan passes the wall clock, so from 8 PM
+// ET on a month's last day it read the next month (on 31 December the next
+// year's digit) while the replay of the same session read the current one;
+// on 31 August 2026 that flipped P1 from bullish to mixed. Evening scans on a
+// month's last day move; the replay, which reads the session's noon, does not.
+// 2026-10-21-replay-daily-closed-session: on a 1Day replay the reaction and
+// confirmed rules read each closed bar against the plan its own session armed
+// (priced from the sessions before it) and fill at the next session's open.
+// Before, the closed bar was read against the next session's plan, priced from
+// that same bar, so a crossing or an old level it traded into was already
+// spent and never filled, and a held bottom's entry, that bar's own close, was
+// always traded into: the six-year 1Day run put all 4,479 trades under "hold".
+// 1Day replay trades move; intraday replays, the live scan and verdicts do not.
+// 2026-10-21-review-fixes-on-replay-daily-closed-session: the review fixes
+// above merged onto main's narrow-weeks breakaway, decade month in ET and
+// closed-session daily replay; no new rule.
+export const STRATEGY_VERSION = "2026-10-21-review-fixes-on-replay-daily-closed-session";

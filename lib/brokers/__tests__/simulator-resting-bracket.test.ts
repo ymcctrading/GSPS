@@ -7,6 +7,11 @@ import { describe, expect, it, vi } from "vitest";
 const price = vi.fn();
 vi.mock("@/lib/data/provider", () => ({ getMarketDataProvider: () => ({ fetchLatestPrice: (...a: unknown[]) => price(...a) }) }));
 vi.mock("@/lib/data/alpaca", () => ({ isCryptoSymbol: () => false, fetchOptionLatestTrade: vi.fn() }));
+// The capital rules at the fill have their own tests (resting-entry-capital.test.ts).
+vi.mock("@/lib/trade/resting-entry-guard", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/trade/resting-entry-guard")>()),
+  restingEntryRefusal: async () => null,
+}));
 vi.mock("@/lib/notifications/resend-handler", () => ({ sendOrderInvalidatedEmail: vi.fn(async () => undefined) }));
 
 import { evaluateRestingOrders } from "@/lib/brokers/simulator";

@@ -89,4 +89,12 @@ describe("the turns named inside a year (Master Course Ch. 7, PDF 223-224)", () 
       expect(at(`2025-${m}-15T12:00:00Z`).currentBias).toBe("bullish");
     }
   });
+
+  it("reads the month and year in New York time, as the replay's session does (review 2026-10-21)", () => {
+    // 2026-09-01T01:00Z is 9 PM on 31 August in New York: still August, bullish.
+    expect(at("2026-09-01T01:00:00Z").currentBias).toBe("bullish");
+    expect(at("2026-09-01T05:00:00Z").currentBias).toBe("mixed");
+    // 2027-01-01T03:00Z is still 31 December 2026 in New York: the '6' year's December.
+    expect(at("2027-01-01T03:00:00Z")).toMatchObject({ yearDigit: 6, currentBias: "bearish" });
+  });
 });

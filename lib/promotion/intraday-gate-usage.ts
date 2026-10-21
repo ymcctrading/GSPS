@@ -91,9 +91,6 @@ export async function loadProIntradayUsage(
 
   const orders = (recentOrders ?? []) as { id: string; symbol: string; status: string; created_at: string }[];
 
-  const todaysOrders = orders.filter((o) => etDateKey(new Date(o.created_at)) === today);
-  const entriesToday = todaysOrders.filter((o) => o.status !== "rejected").length;
-
   // Concurrent-position count: of the symbols that have an intraday-sourced
   // filled order, how many still have an open position. An approximation —
   // it can't distinguish "still open from that entry" from "closed and
@@ -149,5 +146,5 @@ export async function loadProIntradayUsage(
 
   const dailyLossPct = equity > 0 && realizedPnlTodayUsd < 0 ? (Math.abs(realizedPnlTodayUsd) / equity) * 100 : 0;
 
-  return { entriesToday, concurrentOpen, consecutiveLosses, dailyLossPct };
+  return { concurrentOpen, consecutiveLosses, dailyLossPct };
 }

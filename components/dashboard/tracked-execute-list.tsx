@@ -9,6 +9,7 @@ import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setu
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { buildDailyCardModel } from "@/lib/setups/card";
+import { readResting, restingDistanceLabel, restingInputOfRow, splitResting } from "@/lib/setups/resting";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { cn, formatUsd } from "@/lib/utils";
 import type { TrackedExecuteRow } from "@/lib/dashboard/trackedExecute";
@@ -66,8 +67,12 @@ export function TrackedExecuteList({
     return <p className="py-8 text-center text-sm text-muted">Nothing tracked right now.</p>;
   }
 
-  const live = rows.filter((row) => !invalidated[row.symbol]);
+  const stillLive = rows.filter((row) => !invalidated[row.symbol]);
   const dead = rows.filter((row) => invalidated[row.symbol]);
+  // A plan whose entry is more than a day's range from today's scan price is a
+  // resting order, listed apart and out of Execute (owner, 2026-10-21;
+  // lib/setups/resting.ts). Only rows the daily scan covers carry the range.
+  const { now: live, resting } = splitResting(stillLive, (row) => restingInputOfRow(row));
 
   const renderRow = (row: TrackedExecuteRow) => (
     <TrackedRow
@@ -86,10 +91,22 @@ export function TrackedExecuteList({
         <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
           {live.map(renderRow)}
         </div>
-      ) : (
+      ) : resting.length > 0 ? null : (
         <p className="py-4 text-center text-sm text-muted">
           None of your tracked setups is still live — each has broken its stop.
         </p>
+      )}
+      {resting.length > 0 && (
+        <div className="flex flex-col gap-1" data-testid="tracked-resting-orders">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
+          <p className="text-xs text-muted">
+            Entry more than a day&apos;s range from price. Each waits at its level for price to come back; none is a
+            trade to take today.
+          </p>
+          <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
+            {resting.map(renderRow)}
+          </div>
+        </div>
       )}
       {dead.length > 0 && (
         <CollapsibleSection title="Setups that broke their stop" count={dead.length} quiet>
@@ -137,6 +154,8 @@ function TrackedRow({
     onInvalidatedChange(row.symbol, invalidated);
   }, [invalidated, onInvalidatedChange, row.symbol]);
 
+  // Read at today's scan price, the price the list was split on.
+  const restingRead = readResting(restingInputOfRow(row));
   const { stage, setStage, toggleName } = useCardStage();
   const cardId = `tracked-card-${row.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
   const model = buildDailyCardModel(
@@ -150,6 +169,8 @@ function TrackedRow({
       takeProfit1: row.takeProfit1,
       masterProfit: row.masterProfit,
       patternName: row.patternName,
+      currentPrice: row.currentPrice ?? null,
+      dayRange: row.dayRange ?? null,
     },
     { scoreText: formatScore(row.score, exactScoreDisplayEnabled), scoreMax: SCORE_MAX, livePrice: quote?.price ?? null },
   );
@@ -162,6 +183,7 @@ function TrackedRow({
         <span className={bullish ? "text-xs text-bull" : "text-xs text-bear"}>{bullish ? "Buy" : "Sell"}</span>
         {row.patternName && <span className="text-xs text-muted">{row.patternName}</span>}
         {invalidated && <Badge variant="bear">Invalidated</Badge>}
+        {restingRead && <span className="text-xs text-muted">Entry {restingDistanceLabel(restingRead)}</span>}
       </div>
 
       <span className="flex items-center gap-1.5 text-xs">

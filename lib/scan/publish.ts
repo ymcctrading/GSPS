@@ -93,6 +93,9 @@ export function buildScanRows(
     master_profit: r.levels!.masterProfit,
     detail: {
       currentPrice: r.currentPrice,
+      // A day's range, so the lists can tell a plan to take today from a
+      // resting order (lib/setups/resting.ts, owner 2026-10-21).
+      dayRange: r.dayRange ?? null,
       // When the plan was priced, not just which day it is filed under. The
       // pre-open cron reads the previous session's closed bars, and the date
       // alone cannot show that — see pricedBeforeSession in scan/freshness.

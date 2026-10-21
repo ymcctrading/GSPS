@@ -49,6 +49,41 @@ describe("ResultsTable", () => {
     expect(screen.getByText("$120.00")).toBeInTheDocument();
   });
 
+  it("lists an Execute plan more than a day's range from its entry under Resting orders, with the distance", () => {
+    render(
+      <ResultsTable
+        rows={[
+          { ...BASE_ROW, symbol: "NEAR", currentPrice: 101, dayRange: 4 },
+          // The owner's AMD case: price $547.91, entry $480.46.
+          {
+            ...BASE_ROW,
+            symbol: "AMD",
+            entry: 480.46,
+            stopLoss: 467.86,
+            takeProfit1: 498.39,
+            masterProfit: 516.23,
+            currentPrice: 547.91,
+            dayRange: 18,
+          },
+          // A Watch row far from its entry is not an Execute trade; it stays put.
+          { ...BASE_ROW, symbol: "WATCHFAR", outputState: "Watch", score: 5, currentPrice: 150, dayRange: 4 },
+        ]}
+      />,
+    );
+    const restingSection = screen.getByTestId("resting-orders");
+    expect(restingSection).toHaveTextContent("Resting orders");
+    expect(restingSection).toHaveTextContent("AMD");
+    expect(restingSection).toHaveTextContent("Entry $67.45 (12.3%) below price");
+    expect(restingSection).not.toHaveTextContent("NEAR");
+    expect(restingSection).not.toHaveTextContent("WATCHFAR");
+    expect(screen.getAllByRole("table")).toHaveLength(2);
+  });
+
+  it("shows no Resting orders list when no plan is far from its entry, or the range is unknown", () => {
+    render(<ResultsTable rows={[{ ...BASE_ROW, currentPrice: 150 }]} />);
+    expect(screen.queryByTestId("resting-orders")).toBeNull();
+  });
+
   it("opens a card halfway from the name — the score and a short synopsis — then expands and collapses", async () => {
     const user = userEvent.setup();
     render(

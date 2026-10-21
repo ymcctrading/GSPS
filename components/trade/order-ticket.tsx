@@ -566,7 +566,7 @@ export function OrderTicket({
         <CardTitle>Order ticket · paper</CardTitle>
         {intradaySourced && (
           <p className="text-xs font-medium text-warn">
-            Intraday-sourced — subject to the intraday entry/day, concurrent-position,
+            Intraday-sourced — subject to the intraday concurrent-position,
             consecutive-loss, and daily-loss-lock gates.
           </p>
         )}

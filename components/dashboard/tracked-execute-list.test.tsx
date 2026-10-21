@@ -45,6 +45,22 @@ describe("TrackedExecuteList", () => {
     expect(screen.queryByText("Invalidated")).not.toBeInTheDocument();
   });
 
+  it("lists a tracked plan more than a day's range from today's scan price under Resting orders", async () => {
+    stubQuote(27);
+    render(
+      <TrackedExecuteList
+        initialRows={[
+          { ...hdb, currentPrice: 27, dayRange: 0.8 },
+          { ...hdb, symbol: "NEAR", currentPrice: 24, dayRange: 0.8 },
+        ]}
+      />,
+    );
+    const section = await screen.findByTestId("tracked-resting-orders");
+    expect(section).toHaveTextContent("HDB");
+    expect(section).toHaveTextContent("Entry $3.19 (11.8%) below price");
+    expect(section).not.toHaveTextContent("NEAR");
+  });
+
   it("opens the setup card from the symbol, with the current score and a short synopsis", async () => {
     const user = userEvent.setup();
     stubQuote(23.95);

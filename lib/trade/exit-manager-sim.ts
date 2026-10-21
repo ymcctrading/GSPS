@@ -281,9 +281,14 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       // passed at the stop itself paid the trade a better price than the
       // market offered (review finding R-010).
       const fillAt = price;
-      // Where the last of the position left, not the blended exit: after a
-      // TP1 scale-out the blend is no price the position left at (2026-10-21).
-      brokenLevel = fillAt;
+      // The level that broke, for the reversal. A stop reverses at the stop
+      // itself, as the replay (`done(stop, ...)`) and the broker exit manager
+      // do, even when the quote gapped through it and the fill came at the
+      // market (lib/gann/reverse.ts: "the stop that was hit"). A Gann exit
+      // signal reverses where the last shares left. Never the blended exit:
+      // after a TP1 scale-out the blend is no price the position left at
+      // (2026-10-21).
+      brokenLevel = caught === "stop" ? stopAction.stop : fillAt;
       for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
     }
   }

@@ -67,6 +67,18 @@ describe("assessEligibility", () => {
     expect(verdict.reasons[0]).toMatch(/plan is retired/i);
   });
 
+  it("refuses a resting order: an entry more than a day's range from price (owner, 2026-10-21)", () => {
+    // Price $112 against a $100 entry and a $5 day's range.
+    const verdict = assessEligibility(scan({ currentPrice: 112, dayRange: 5 }));
+    expect(verdict.eligible).toBe(false);
+    expect(verdict.reasons).toHaveLength(1);
+    expect(verdict.reasons[0]).toContain("resting order");
+    expect(verdict.reasons[0]).toContain("$12.00 (10.7%) below price");
+    // Within a day's range, or with no range read, the gate does not fire.
+    expect(assessEligibility(scan({ currentPrice: 104, dayRange: 5 })).eligible).toBe(true);
+    expect(assessEligibility(scan({ currentPrice: 112, dayRange: null })).eligible).toBe(true);
+  });
+
   it("refuses a Watch-tier setup", () => {
     const verdict = assessEligibility(
       scan({ decision: { score: 7, outputState: "Watch", breakdown: [] } }),

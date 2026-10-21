@@ -16,18 +16,35 @@
  * (breakaway, stop breach) are Gann's and are read, not re-weighed. 2. No
  * periodicity claim. 3. Cause and Effect: the card names the setup the verdict
  * caused, not the one whose score happened to be highest.
+ *
+ * A resting order (an Execute plan whose entry is more than a day's range from
+ * price, owner 2026-10-21, `lib/setups/resting.ts`) is not today's trade, so it
+ * ranks with Watch, behind every Execute plan price is near.
  */
 
+import { isRestingExecuteRow, type RestingRowFields } from "@/lib/setups/resting";
+
 const STATE_RANK: Record<string, number> = { Execute: 0, Watch: 1 };
+
+type RankableRow = { outputState: string; score: number } & Partial<Omit<RestingRowFields, "outputState">>;
+
+function rankOf(r: RankableRow): number {
+  const resting = isRestingExecuteRow({
+    outputState: r.outputState,
+    direction: r.direction ?? "",
+    entry: r.entry ?? null,
+    takeProfit1: r.takeProfit1 ?? null,
+    masterProfit: r.masterProfit ?? null,
+    currentPrice: r.currentPrice,
+    dayRange: r.dayRange,
+  });
+  return resting ? STATE_RANK.Watch : STATE_RANK[r.outputState];
+}
 
 export function isQualifiedSetup(r: { outputState: string }): boolean {
   return r.outputState in STATE_RANK;
 }
 
-export function bestQualifiedSetup<T extends { outputState: string; score: number }>(rows: T[]): T | null {
-  return (
-    rows
-      .filter(isQualifiedSetup)
-      .sort((a, b) => STATE_RANK[a.outputState] - STATE_RANK[b.outputState] || b.score - a.score)[0] ?? null
-  );
+export function bestQualifiedSetup<T extends RankableRow>(rows: T[]): T | null {
+  return rows.filter(isQualifiedSetup).sort((a, b) => rankOf(a) - rankOf(b) || b.score - a.score)[0] ?? null;
 }

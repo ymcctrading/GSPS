@@ -31,6 +31,7 @@ import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult"
 import { applyEventAndPersist, createOrGetIdempotentTradePlan } from "@/lib/lifecycle/store";
 import { advanceEntryConfirmationForSymbol } from "@/lib/lifecycle/advanceConfirmation";
 import { retirePlansForBrokenStops, type RetiredPlanSignal } from "@/lib/lifecycle/retire";
+import { isRestingScanResult } from "@/lib/setups/resting";
 
 export type FanOutOutcome = {
   visibleCount: number;
@@ -170,7 +171,14 @@ export async function evaluateMonitorsAndNotify(
         profileId: args.profileId,
         symbol: setup.value.symbol,
         source: args.source,
-        candidateState: setup.value.decision.outputState === "Execute" ? "EXECUTE" : "WATCH",
+        // A resting Execute (its entry more than a day's range from price,
+        // `lib/setups/resting.ts`) is out of Execute on every list, so its
+        // monitor reads it as Watch: the Execute alert, and the plan it
+        // creates, come once price is within a day's range of the entry.
+        candidateState:
+          setup.value.decision.outputState === "Execute" && !isRestingScanResult(setup.value, setup.side)
+            ? "EXECUTE"
+            : "WATCH",
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,
         score: setup.value.decision.score,
