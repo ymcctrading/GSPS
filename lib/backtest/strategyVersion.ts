@@ -610,4 +610,11 @@
 // group or of the universe (the weakest, short), as its design reads S6, and
 // `selectionStrength` counts either. Scores and list order move, live and
 // replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-group-strength-rank";
+// 2026-10-21-gann-square-against-move: the price and time square (P7's first
+// check and the timePriceSquare check) reads the move against the trade, the
+// decline from the last high for a long and the rally from the last low for a
+// short, not the trade's own anchor. A balance marks a turn, measured "up from
+// lows" and "down from highs" (Master Course Ch. 6-7), so the advance from the
+// low squaring out says a top is due, against a long. Verdicts move, live and
+// replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-square-against-move";

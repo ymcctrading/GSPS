@@ -277,7 +277,7 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       swingChart: { threeDay: "bullish", weekly: "bullish" },
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
+        { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
       ],
       volumeClimax: [
         { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
@@ -346,7 +346,7 @@ describe("computeScore", () => {
       hourlyTrend: trend("1Hour", "bullish"),
       swingChart: { threeDay: "bullish", weekly: "bullish" },
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
+        { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
       ],
       volumeClimax: [
         { anchorKind: "low", anchorPrice: 90, anchorIndex: 0, relativeVolume: 2, bestRecentRelativeVolume: 2, climax: true, dryingUp: false, retestOnLowerVolume: false, confirms: true },
@@ -498,13 +498,13 @@ describe("computeScore", () => {
     const squared = computeScore({
       ...base,
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
+        { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
       ],
     });
     const notSquared = computeScore({
       ...base,
       timePriceSquare: [
-        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 40, priceMovePoints: 40, squared: false },
+        { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 40, priceMovePoints: 40, squared: false },
       ],
     });
 
@@ -512,6 +512,20 @@ describe("computeScore", () => {
     expect(squared.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(true);
     expect(squared.breakdown.filter((b) => b.pillar || b.checkOf)).toHaveLength(18);
     expect(squared.breakdown.some((b) => /earnings/i.test(b.criterion))).toBe(false);
+
+    // The square reads the move against the trade: for a long, the decline
+    // from the last high balancing out (a bottom due), never the advance from
+    // the last low (a top due). Master Course Ch. 6-7, "up from lows, down
+    // from highs".
+    const withTradeOnly = computeScore({
+      ...base,
+      timePriceSquare: [
+        { anchorKind: "low", anchorPrice: 90, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
+        { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 40, priceMovePoints: 40, squared: false },
+      ],
+    });
+    expect(withTradeOnly.breakdown.find((b) => b.criterion === "Price and time squared")?.passed).toBe(false);
+    expect(withTradeOnly.score).toBe(notSquared.score);
   });
 
 });

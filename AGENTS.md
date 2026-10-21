@@ -738,7 +738,22 @@ the two-digit major group, else none; a group rank needs 4 peers. P3(c) passes
 on the strongest quarter of the group or of the universe (the weakest, short),
 as its design reads S6, and `selectionStrength` counts either. No new fetch;
 the group read adds a filter of the month's positions once per group and month.
-`STRATEGY_VERSION` is `2026-10-21-gann-group-strength-rank`.
+`STRATEGY_VERSION` was `2026-10-21-gann-group-strength-rank`.
+
+**Price and time squared against the move, 2026-10-21 (diagnosis of run 73's P7
+inversion: the check −0.188R, P7 −0.150R, negative in both halves).** One translation
+defect, fixed: the square shared the angle's anchor, the low for a long, so it passed
+when the advance from the low had balanced time and price, which by Gann marks a top
+due. Gann measures the balance "up from lows" and "down from highs" (Master Course
+Ch. 6-7: low 50, price 102, up 52 = 1 year; high 182, now 130, down 52 = 1 year), and
+for a long the buy is the decline from the high squaring out. `computeScore` now reads
+the square from the last high for a long and the last low for a short
+(`squareAnchorKind`, `lib/scoring/score.ts`); the angle, the climax and the boiling
+point keep the trade's own anchor. Random walks (`timePillarRule.test.ts`, 38,400
+readings): squared 21.1% either way, P7 "and" 11.6% → 9.5%. The same diagnosis found
+the population figure carried by trades still open at the window's end, which the
+replay reported as `timeout`; that is being split out separately. `STRATEGY_VERSION`
+is `2026-10-21-gann-square-against-move`; P7 and the 6/3.5 cutoffs need a fresh run.
 
 ## WD Gann precedence — standing principle
 
