@@ -81,3 +81,65 @@ export function computeRequiredMetrics(trades: ReplayTrade[]): RequiredMetrics {
     medianBarsHeld: median(barsHeld),
   };
 }
+
+/** Deterministic PRNG, so a report's CIs are reproducible (the same one `scripts/backtest-universe.mjs` uses). */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Percentile bootstrap 95% CI for the mean of `values`, null below 2 samples.
+ * Same resamples and seed as `scripts/backtest-universe.mjs#bootstrapMeanCI`,
+ * so the report and the universe summary agree on the same trades.
+ */
+export function bootstrapMeanCI95(values: number[], resamples = 5000, seed = 20260925): [number, number] | null {
+  if (values.length < 2) return null;
+  const rand = mulberry32(seed);
+  const means = new Float64Array(resamples);
+  for (let r = 0; r < resamples; r++) {
+    let sum = 0;
+    for (let i = 0; i < values.length; i++) sum += values[Math.floor(rand() * values.length)];
+    means[r] = sum / values.length;
+  }
+  means.sort();
+  return [means[Math.floor(0.025 * resamples)], means[Math.min(resamples - 1, Math.ceil(0.975 * resamples) - 1)]];
+}
+
+/**
+ * A scope's trades without the ones still open when the data ended
+ * (`exitReason: "open_at_end"`), whose R is marked to market rather than
+ * realised (2026-10-21). Gann's exits cut losers early, so the open trades
+ * are mostly winners and the scope's own expectancy reads higher than its
+ * closed trades do: on the 2026-10-21 15-minute run the 1,110 timeouts
+ * averaged +0.648R while every closed exit was at or below zero.
+ */
+export interface ClosedSummary {
+  n: number;
+  expectancyR: number;
+  expectancyCI95: [number, number] | null;
+  winRate: number;
+  /** Gross profit / gross loss, outcome-based as in `RequiredMetrics`. `null` with no losing R. */
+  profitFactor: number | null;
+  totalR: number;
+}
+
+export function computeClosedSummary(trades: ReplayTrade[]): ClosedSummary {
+  const closed = trades.filter((t) => t.exitReason !== "open_at_end");
+  const rs = closed.map((t) => t.rMultiple);
+  const totalR = rs.reduce((s, r) => s + r, 0);
+  return {
+    n: closed.length,
+    expectancyR: closed.length > 0 ? totalR / closed.length : 0,
+    expectancyCI95: bootstrapMeanCI95(rs),
+    winRate: closed.length > 0 ? closed.filter((t) => t.outcome === "win").length / closed.length : 0,
+    profitFactor: computeRequiredMetrics(closed).profitFactor,
+    totalR,
+  };
+}

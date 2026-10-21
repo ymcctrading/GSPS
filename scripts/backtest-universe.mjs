@@ -44,6 +44,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { gzipSync } from "node:zlib";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -159,7 +160,7 @@ export function bootstrapDiffCI(a, b, { resamples = 5000, alpha = 0.05, seed = 2
 }
 
 /** n, expectancy with CI, win rate, profit factor, and both time halves. */
-export function describeTrades(trades) {
+function describeCore(trades) {
   const rs = trades.map((t) => t.rMultiple);
   const wins = rs.filter((r) => r > 0);
   const losses = rs.filter((r) => r <= 0);
@@ -180,6 +181,23 @@ export function describeTrades(trades) {
       first: { n: firstHalf.length, expectancyR: mean(firstHalf), from: sorted[0]?.openedAt ?? null },
       second: { n: secondHalf.length, expectancyR: mean(secondHalf), from: sorted[half]?.openedAt ?? null },
     },
+  };
+}
+
+/** A trade still open when the data ended (`exitReason: "open_at_end"`): its R is marked to market, not realised. */
+export const isOpenAtEnd = (t) => t.exitReason === "open_at_end";
+
+/**
+ * `describeCore`, plus how many trades were still open when the data ended and
+ * the same stats on the closed trades alone (`closed`, halves included).
+ * Gann's exits cut losers early, so the open trades are mostly winners and
+ * the scope's own expectancy reads above what its closed trades realised.
+ */
+export function describeTrades(trades) {
+  return {
+    ...describeCore(trades),
+    openAtEnd: trades.filter(isOpenAtEnd).length,
+    closed: describeCore(trades.filter((t) => !isOpenAtEnd(t))),
   };
 }
 
@@ -229,7 +247,17 @@ export function summarizeCells(cellResults) {
       Object.entries(SCOPES).map(([k, f]) => {
         const a = trades.filter(f).map((t) => t.rMultiple);
         const b = reference.trades.filter(f).map((t) => t.rMultiple);
-        return [k, { diffR: mean(a) - mean(b), diffCI95: bootstrapDiffCI(a, b) }];
+        const closed = (ts) => ts.filter((t) => f(t) && !isOpenAtEnd(t)).map((t) => t.rMultiple);
+        const ca = closed(trades);
+        const cb = closed(reference.trades);
+        return [
+          k,
+          {
+            diffR: mean(a) - mean(b),
+            diffCI95: bootstrapDiffCI(a, b),
+            closed: { diffR: mean(ca) - mean(cb), diffCI95: bootstrapDiffCI(ca, cb) },
+          },
+        ];
       }),
     ),
   }));
@@ -254,6 +282,86 @@ export function summarizeCells(cellResults) {
 const fmtR = (x) => (x === null || x === undefined || Number.isNaN(x) ? "—" : `${x >= 0 ? "+" : ""}${x.toFixed(3)}R`);
 const fmtCI = (ci) => (ci ? `[${fmtR(ci[0])}, ${fmtR(ci[1])}]` : "—");
 const fmtPct = (x) => `${(x * 100).toFixed(1)}%`;
+const fmtPF = (x) => (x === null ? "∞" : x.toFixed(2));
+
+/** Columns of the per-trade CSV printed to the job log (`tradesCsv`). */
+export const TRADE_CSV_COLUMNS = [
+  "cell",
+  "symbol",
+  "entryTime",
+  "exitTime",
+  "side",
+  "score",
+  "bucket",
+  "setupKind",
+  "entryKind",
+  "exitReason",
+  "barsHeld",
+  "R",
+  "derived",
+];
+
+const csvField = (v) => {
+  const text = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
+/**
+ * One row per trade for every cell, so a session that can read only the job
+ * log can still run exact splits. `bucket` is the verdict (`unscored` for an
+ * armed trade the score could not reach, empty for a derived one). A trade
+ * that left on the bracket's stop or target has no `exitReason` of its own,
+ * so it reads `bracket_stop` or `bracket_target`.
+ */
+export function tradesCsv(cellResults) {
+  const rows = [TRADE_CSV_COLUMNS.join(",")];
+  for (const { cell, trades } of cellResults) {
+    for (const t of trades) {
+      const exitReason = t.exitReason ?? (t.outcome === "win" ? "bracket_target" : t.outcome === "loss" ? "bracket_stop" : "");
+      rows.push(
+        [
+          cell.label,
+          t.symbol,
+          t.openedAt,
+          t.closedAt ?? "",
+          t.direction === "bearish" ? "short" : "long",
+          typeof t.score === "number" ? t.score : "",
+          t.derived ? "" : (t.outputState ?? "unscored"),
+          t.setupKind ?? "",
+          t.entryKind ?? "",
+          exitReason,
+          t.barsHeld,
+          Number.isFinite(t.rMultiple) ? t.rMultiple.toFixed(4) : "",
+          t.derived ?? "",
+        ]
+          .map(csvField)
+          .join(","),
+      );
+    }
+  }
+  return rows.join("\n") + "\n";
+}
+
+/** Above this the CSV is printed gzipped and base64-encoded, so the job log stays usable. */
+export const TRADE_CSV_LOG_LIMIT_BYTES = 2_000_000;
+const BASE64_LINE = 1000;
+
+/**
+ * The CSV as a block for the job log, between BEGIN/END markers like the
+ * workflow's summary.json. Over `limitBytes` it is gzipped and base64-encoded
+ * in lines of 1,000 characters, and the marker says so
+ * (`trades.csv.gz.base64`: strip each line's log prefix, join, base64-decode,
+ * gunzip).
+ */
+export function tradesCsvLogBlock(csv, limitBytes = TRADE_CSV_LOG_LIMIT_BYTES) {
+  if (Buffer.byteLength(csv, "utf8") <= limitBytes) {
+    return `=== BEGIN trades.csv ===\n${csv}=== END trades.csv ===\n`;
+  }
+  const encoded = gzipSync(Buffer.from(csv, "utf8")).toString("base64");
+  const lines = [];
+  for (let i = 0; i < encoded.length; i += BASE64_LINE) lines.push(encoded.slice(i, i + BASE64_LINE));
+  return `=== BEGIN trades.csv.gz.base64 ===\n${lines.join("\n")}\n=== END trades.csv.gz.base64 ===\n`;
+}
 
 export function summaryMarkdown(meta, summary) {
   const lines = [];
@@ -281,27 +389,45 @@ export function summaryMarkdown(meta, summary) {
       const s = c.scopes[scope];
       lines.push(
         `| ${c.label} | ${s.n} | ${fmtR(s.expectancyR)} | ${fmtCI(s.expectancyCI95)} | ${fmtPct(s.winRate)} | ` +
-          `${s.profitFactor === null ? "∞" : s.profitFactor.toFixed(2)} | ${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ` +
+          `${fmtPF(s.profitFactor)} | ${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ` +
           `${fmtR(s.halves.second.expectancyR)} (n=${s.halves.second.n}) |`,
+      );
+    }
+    lines.push("");
+    // The same scope without the trades still open when the data ended: what was realised.
+    lines.push("Closed trades only (still open at the data's end left out; their R is marked to market):");
+    lines.push("");
+    lines.push("| Cell | Open at end | Closed n | Expectancy | 95% CI | Win rate | PF | 1st half | 2nd half |");
+    lines.push("|---|---:|---:|---:|---|---:|---:|---:|---:|");
+    for (const c of summary.cells) {
+      const s = c.scopes[scope];
+      const k = s.closed;
+      if (!k) continue;
+      lines.push(
+        `| ${c.label} | ${s.openAtEnd ?? 0} | ${k.n} | ${fmtR(k.expectancyR)} | ${fmtCI(k.expectancyCI95)} | ${fmtPct(k.winRate)} | ` +
+          `${fmtPF(k.profitFactor)} | ${fmtR(k.halves.first.expectancyR)} (n=${k.halves.first.n}) | ` +
+          `${fmtR(k.halves.second.expectancyR)} (n=${k.halves.second.n}) |`,
       );
     }
     for (const d of summary.differencesVsFirst) {
       const s = d.scopes[scope];
       lines.push("");
       lines.push(`${d.label} − ${d.against}: ${fmtR(s.diffR)}, 95% CI ${fmtCI(s.diffCI95)}`);
+      if (s.closed) lines.push(`${d.label} − ${d.against}, closed only: ${fmtR(s.closed.diffR)}, 95% CI ${fmtCI(s.closed.diffCI95)}`);
     }
     lines.push("");
   }
   if (summary.cells.some((c) => (c.scoreBands ?? []).length > 0)) {
     lines.push("## Score bands (scored trades by whole score)");
     lines.push("");
-    lines.push("| Cell | Score | n | Expectancy | 95% CI | Win rate | 1st half | 2nd half |");
-    lines.push("|---|---:|---:|---:|---|---:|---:|---:|");
+    lines.push("| Cell | Score | n | Expectancy | 95% CI | Win rate | 1st half | 2nd half | Open at end | Closed n | Closed expectancy | Closed 95% CI |");
+    lines.push("|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---|");
     for (const c of summary.cells) {
       for (const s of c.scoreBands ?? []) {
         lines.push(
           `| ${c.label} | ${s.score} | ${s.n} | ${fmtR(s.expectancyR)} | ${fmtCI(s.expectancyCI95)} | ${fmtPct(s.winRate)} | ` +
-            `${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ${fmtR(s.halves.second.expectancyR)} (n=${s.halves.second.n}) |`,
+            `${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ${fmtR(s.halves.second.expectancyR)} (n=${s.halves.second.n}) | ` +
+            `${s.openAtEnd ?? 0} | ${s.closed?.n ?? "—"} | ${fmtR(s.closed?.expectancyR)} | ${fmtCI(s.closed?.expectancyCI95)} |`,
         );
       }
     }
@@ -589,6 +715,10 @@ async function main() {
     const md = summaryMarkdown(meta, summary);
     await writeFile(path.resolve(root, args.out, "summary.md"), md);
     process.stdout.write(md);
+    // The per-trade rows, for exact splits from the job log alone.
+    const csv = tradesCsv(cellResults);
+    await writeFile(path.resolve(root, args.out, "trades.csv"), csv);
+    process.stdout.write(`\n${tradesCsvLogBlock(csv)}`);
     for (const w of summary.warnings) process.stderr.write(`WARNING: ${w}\n`);
   } finally {
     await server.close();

@@ -50,7 +50,7 @@ import {
   type ReplayResult,
 } from "./replay";
 import { attributeByAtrMultiple, attributeFactors, type FactorAttribution } from "./attribution";
-import { computeRequiredMetrics, type RequiredMetrics } from "./metrics";
+import { computeClosedSummary, computeRequiredMetrics, type ClosedSummary, type RequiredMetrics } from "./metrics";
 import { STRATEGY_VERSION } from "./strategyVersion";
 import type { CriterionWeights } from "@/lib/scoring/weights";
 import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
@@ -166,6 +166,10 @@ export interface RunSummary {
    * drawdown, and time-in-trade — the metric set the Validation, Backtesting,
    * Audit & Compliance spec pack requires alongside win rate/expectancy. */
   required: RequiredMetrics;
+  /** Trades still open when the data ended (`exitReason: "open_at_end"`), marked to market at the last close. */
+  openAtEnd: number;
+  /** The same scope without the `open_at_end` trades: what the closed trades realised. */
+  closed: ClosedSummary;
 }
 
 /** Expectancy at the base cost vs. at an elevated one, and how much of the edge that ate. */
@@ -256,8 +260,10 @@ export interface BacktestReport {
   holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary; narrowWeek: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
-   * reason that was binding, a Gann exit signal, or the timeout), so each of
-   * Gann's exit rules can be read on its own. Empty under the bracket.
+   * reason that was binding, a Gann exit signal, or the timeout: held to the
+   * session limit, `held_to_limit`, or still open when the data ended,
+   * `open_at_end`), so each of Gann's exit rules can be read on its own. Under
+   * the bracket only the two timeouts appear.
    */
   exitReasonSplit: Record<string, RunSummary>;
   /**
@@ -311,8 +317,8 @@ export interface BacktestReport {
    * evidence of anything.
    */
   halves: {
-    early: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
-    late: { factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+    early: { summary: RunSummary; factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
+    late: { summary: RunSummary; factors: FactorAttribution[]; contextFactors: FactorAttribution[] };
   };
   atrBands: Array<{ from: number; to: number | null; trades: number; winRate: number; expectancyR: number }>;
   /**
@@ -348,6 +354,8 @@ function summarise(r: ReplayResult): RunSummary {
     totalR: r.totalR,
     profitable: r.trades.length > 0 && r.expectancyR > 0,
     required: computeRequiredMetrics(r.trades),
+    openAtEnd: r.trades.filter((t) => t.exitReason === "open_at_end").length,
+    closed: computeClosedSummary(r.trades),
   };
 }
 
@@ -612,6 +620,7 @@ function chronologicalHalves(trades: ReplayResult["trades"]): BacktestReport["ha
   const sorted = [...trades].sort((a, b) => a.openedAt.localeCompare(b.openedAt));
   const mid = Math.floor(sorted.length / 2);
   const table = (ts: typeof sorted) => ({
+    summary: summarise(summariseTrades(ts)),
     factors: attributeFactors(ts),
     contextFactors: attributeFactors(ts, { field: "contextFactors" }),
   });

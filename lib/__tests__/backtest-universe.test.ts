@@ -14,8 +14,12 @@ import {
   parseArgs,
   summarizeCells,
   summaryMarkdown,
+  TRADE_CSV_COLUMNS,
+  tradesCsv,
+  tradesCsvLogBlock,
   validateCells,
 } from "../../scripts/backtest-universe.mjs";
+import { gunzipSync } from "node:zlib";
 
 const trade = (over: Record<string, unknown>) => ({
   symbol: "AAA",
@@ -154,5 +158,73 @@ describe("summarizeCells", () => {
     );
     expect(md).toContain("Reversals and re-entries (derived, unscored)");
     expect(md).toContain("| base | 5 | 1 | 2 | 0 | 0 | 2 | 0 |");
+  });
+});
+
+describe("closed trades (open_at_end left out, 2026-10-21)", () => {
+  const meta = {
+    universe: "mega-12", symbolsUsed: 2, symbolsRequested: 2, ref: "r", sha: "s", timeframe: "15Min",
+    targetR: 2, source: "synthetic", live: false, window: { from: null, to: null }, generatedAt: "t", skipped: [],
+  };
+  const trades = [
+    trade({ openedAt: "2026-09-01T14:00:00Z", rMultiple: -1, outcome: "loss", score: 7 }),
+    trade({ openedAt: "2026-09-02T14:00:00Z", rMultiple: 0.5, outcome: "timeout", exitReason: "held_to_limit", score: 7 }),
+    trade({ openedAt: "2026-09-03T14:00:00Z", rMultiple: 3, outcome: "timeout", exitReason: "open_at_end", score: 7 }),
+    trade({ openedAt: "2026-09-04T14:00:00Z", rMultiple: 2, outcome: "timeout", exitReason: "open_at_end", score: 7 }),
+  ];
+
+  it("describes the closed trades alone beside the whole scope", () => {
+    const d = describeTrades(trades);
+    expect(d.n).toBe(4);
+    expect(d.openAtEnd).toBe(2);
+    expect(d.closed.n).toBe(2);
+    expect(d.closed.expectancyR).toBeCloseTo(-0.25);
+    expect(d.closed.halves.first.n + d.closed.halves.second.n).toBe(2);
+    expect(d.closed.profitFactor).toBeCloseTo(0.5);
+  });
+
+  it("carries the closed stats in every scope, score band and diff, and prints them", () => {
+    const s = summarizeCells([
+      { cell: { label: "base", options: {} }, trades },
+      { cell: { label: "other", options: { x: 1 } }, trades: trades.slice(0, 2) },
+    ]);
+    expect(s.cells[0].scopes.Execute.closed.n).toBe(2);
+    expect(s.cells[0].scopes.all.openAtEnd).toBe(2);
+    expect(s.cells[0].scoreBands[0].closed.n).toBe(2);
+    expect(s.differencesVsFirst[0].scopes.Execute.closed.diffR).toBeCloseTo(0);
+    const md = summaryMarkdown(meta, s);
+    expect(md).toContain("Closed trades only");
+    expect(md).toContain("| base | 2 | 2 | -0.250R |");
+    expect(md).toContain("other − base, closed only: +0.000R");
+  });
+});
+
+describe("per-trade CSV for the job log", () => {
+  const cellResults = [
+    {
+      cell: { label: "base" },
+      trades: [
+        trade({ closedAt: "2026-09-01T15:00:00Z", direction: "bearish", score: 6, setupKind: "reversion", entryKind: "crossing", exitReason: "open_at_end", outcome: "timeout", barsHeld: 4, rMultiple: 0.5 }),
+        trade({ direction: "bullish", outcome: "loss", rMultiple: -1, barsHeld: 2, derived: "reversal", outputState: undefined }),
+      ],
+    },
+  ];
+
+  it("writes one row per trade with the named columns", () => {
+    const csv = tradesCsv(cellResults);
+    const rows = csv.trim().split("\n");
+    expect(rows[0]).toBe(TRADE_CSV_COLUMNS.join(","));
+    expect(rows[1]).toBe("base,AAA,2026-09-01T14:00:00Z,2026-09-01T15:00:00Z,short,6,Execute,reversion,crossing,open_at_end,4,0.5000,");
+    expect(rows[2]).toBe("base,AAA,2026-09-01T14:00:00Z,,long,,,,,bracket_stop,2,-1.0000,reversal");
+  });
+
+  it("prints it plain between markers, and gzipped base64 when over the limit", () => {
+    const csv = tradesCsv(cellResults);
+    expect(tradesCsvLogBlock(csv)).toBe(`=== BEGIN trades.csv ===\n${csv}=== END trades.csv ===\n`);
+    const block = tradesCsvLogBlock(csv, 10);
+    const lines = block.trim().split("\n");
+    expect(lines[0]).toBe("=== BEGIN trades.csv.gz.base64 ===");
+    expect(lines.at(-1)).toBe("=== END trades.csv.gz.base64 ===");
+    expect(gunzipSync(Buffer.from(lines.slice(1, -1).join(""), "base64")).toString("utf8")).toBe(csv);
   });
 });
