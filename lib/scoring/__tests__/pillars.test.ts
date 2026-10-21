@@ -1,3 +1,6 @@
+import { walkWeeklyOneBar } from "@/lib/gann/weeklyOneBar";
+import { toWeeklyBars } from "@/lib/gann/disclosedRules";
+import { computeSwingChart } from "@/lib/gann/swingChart";
 import { describe, expect, it } from "vitest";
 import {
   MIN_ANNUAL_RANGE_POINTS,
@@ -25,6 +28,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
   return {
     marketTrend: null,
     yearCycle: null,
+    weeklyLine: null,
     decadeBias: null,
     yearTrend: null,
     leadership: null,
@@ -66,16 +70,56 @@ describe("market and cycle position", () => {
 });
 
 describe("trend on every timeframe", () => {
-  it("needs the weekly and one of the 3-day or the Rule of Three", () => {
-    expect(trendPillar({ side: "bullish", weekly: "bullish", threeDay: "bullish", ruleOfThree: false, monthly: null }).passed).toBe(true);
-    expect(trendPillar({ side: "bullish", weekly: "bullish", threeDay: "bearish", ruleOfThree: true, monthly: null }).passed).toBe(true);
-    expect(trendPillar({ side: "bullish", weekly: "bullish", threeDay: "bearish", ruleOfThree: false, monthly: null }).passed).toBe(false);
-    expect(trendPillar({ side: "bullish", weekly: "bearish", threeDay: "bullish", ruleOfThree: true, monthly: null }).passed).toBe(false);
+  it("needs the weekly line and one of the 3-day or the Rule of Three", () => {
+    expect(trendPillar({ side: "bullish", weeklyLine: "green", threeDay: "bullish", ruleOfThree: false, monthly: null }).passed).toBe(true);
+    expect(trendPillar({ side: "bullish", weeklyLine: "green", threeDay: "bearish", ruleOfThree: true, monthly: null }).passed).toBe(true);
+    expect(trendPillar({ side: "bullish", weeklyLine: "green", threeDay: "bearish", ruleOfThree: false, monthly: null }).passed).toBe(false);
+    expect(trendPillar({ side: "bullish", weeklyLine: "red", threeDay: "bullish", ruleOfThree: true, monthly: null }).passed).toBe(false);
+    expect(trendPillar({ side: "bullish", weeklyLine: null, threeDay: "bullish", ruleOfThree: true, monthly: null }).passed).toBe(false);
+  });
+
+  it("mirrors for a short: the red line, and the 3-day or three lower closes", () => {
+    expect(trendPillar({ side: "bearish", weeklyLine: "red", threeDay: "bearish", ruleOfThree: false, monthly: null }).passed).toBe(true);
+    expect(trendPillar({ side: "bearish", weeklyLine: "red", threeDay: "bullish", ruleOfThree: true, monthly: null }).passed).toBe(true);
+    expect(trendPillar({ side: "bearish", weeklyLine: "red", threeDay: "bullish", ruleOfThree: false, monthly: null }).passed).toBe(false);
+    expect(trendPillar({ side: "bearish", weeklyLine: "green", threeDay: "bearish", ruleOfThree: true, monthly: null }).passed).toBe(false);
   });
 
   it("names the monthly agreeing as every timeframe in line", () => {
-    expect(trendPillar({ side: "bearish", weekly: "bearish", threeDay: "bearish", ruleOfThree: false, monthly: "bearish" }).note).toMatch(/every timeframe/);
-    expect(trendPillar({ side: "bearish", weekly: "bearish", threeDay: "bearish", ruleOfThree: false, monthly: "bullish" }).note).not.toMatch(/every timeframe/);
+    expect(trendPillar({ side: "bearish", weeklyLine: "red", threeDay: "bearish", ruleOfThree: false, monthly: "bearish" }).note).toMatch(/every timeframe/);
+    expect(trendPillar({ side: "bearish", weeklyLine: "red", threeDay: "bearish", ruleOfThree: false, monthly: "bullish" }).note).not.toMatch(/every timeframe/);
+  });
+
+  // The defect fixed 2026-10-21: the weekly reading was the 7-day chart's
+  // trend, which stays against a long until the last weekly swing top is
+  // crossed. Gann's weekly line turns green on the first week with a higher
+  // top and bottom, before that.
+  const day = (i: number, h: number, l: number) => ({
+    t: new Date(Date.UTC(2026, 0, 5 + i)).toISOString(), o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1000,
+  });
+  const turn = (long: boolean) => {
+    // Weeks of a decline to a low, then two weeks of higher tops and bottoms
+    // that stay under the top the decline started from.
+    const path = [100, 96, 92, 88, 84, 80, 84, 88];
+    const bars = [];
+    for (let w = 0; w < path.length; w++) {
+      for (let d = 0; d < 5; d++) {
+        const mid = path[w] + ((w + 1 < path.length ? path[w + 1] : path[w]) - path[w]) * (d / 5);
+        const m = long ? mid : 200 - mid;
+        bars.push(day(w * 7 + d, m + 1, m - 1));
+      }
+    }
+    return bars;
+  };
+  it("reads the green line where the 7-day chart still reads the old trend (long and short)", () => {
+    for (const long of [true, false]) {
+      const bars = turn(long);
+      const line = walkWeeklyOneBar(toWeeklyBars(bars)).colour;
+      expect(line).toBe(long ? "green" : "red");
+      expect(computeSwingChart(bars).weekly).toBe(long ? "bearish" : "bullish");
+      const side = long ? "bullish" : "bearish";
+      expect(trendPillar({ side, weeklyLine: line, threeDay: side, ruleOfThree: false, monthly: null }).passed).toBe(true);
+    }
   });
 });
 
