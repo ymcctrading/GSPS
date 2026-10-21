@@ -19,8 +19,9 @@ interface RiskRow {
   side: "long" | "short";
   qty: number;
   entry: number;
-  stop: number | null;
+  stops: number[];
   stopPastEntry: boolean;
+  unprotectedQty: number;
   riskUsd: number | null;
   riskPctOfUnit: number | null;
   resting: boolean;
@@ -31,16 +32,22 @@ interface RiskData {
   equity: number;
   unit: number;
   maxRiskPerTrade: number;
-  profitCeilingGoverns: boolean;
+  maxRiskSetBy: "unit" | "profits" | "novice_open_risk";
   capitalHeld: number;
   capitalRoom: number;
   markets: { stocks: number; maxStocks: number; other: number; maxOther: number };
   openRiskUsd: number;
   openRiskPctOfUnit: number;
   unprotected: number;
+  novice: {
+    maxPositionUsd: number;
+    deployedRoomUsd: number;
+    openRiskRoomUsd: number;
+    symbolsOpen: number;
+    maxSymbols: number | "unlimited";
+  } | null;
   positions: RiskRow[];
   lossSeries: { consecutiveLosses: number; paused: boolean; note: string | null } | null;
-  circuit: { state: string; reason: string | null; resetChecklistDue: boolean };
   drawdown30dPct: number | null;
 }
 
@@ -78,11 +85,6 @@ export function RiskPanel() {
 
   const holds: string[] = [];
   if (data?.lossSeries?.paused && data.lossSeries.note) holds.push(data.lossSeries.note);
-  if (data && data.circuit.state !== "normal") {
-    holds.push(
-      `${data.circuit.reason ?? "Your account is in a cooldown."}${data.circuit.resetChecklistDue ? " Complete the reset checklist in Settings before new entries resume." : ""}`,
-    );
-  }
 
   return (
     <Card>
@@ -113,9 +115,11 @@ export function RiskPanel() {
                 label="Most one trade may risk"
                 value={formatUsd(data.maxRiskPerTrade)}
                 note={
-                  data.profitCeilingGoverns
+                  data.maxRiskSetBy === "profits"
                     ? "A tenth of your profits, which is less than a tenth of your trading capital"
-                    : `A tenth of your trading capital, ${formatUsd(data.unit, 0)}`
+                    : data.maxRiskSetBy === "novice_open_risk"
+                      ? "The room left under your 2% open-risk limit"
+                      : `A tenth of your trading capital, ${formatUsd(data.unit, 0)}`
                 }
               />
               <Figure
@@ -124,23 +128,41 @@ export function RiskPanel() {
                 note={`${formatUsd(data.capitalRoom, 0)} of ${formatUsd(Math.max(data.equity, 0), 0)} still free`}
                 tone={data.capitalRoom <= 0 ? "warn" : undefined}
               />
-              <Figure
-                label="Markets open"
-                value={`${data.markets.stocks} of ${data.markets.maxStocks} stocks`}
-                note={`${data.markets.other} of ${data.markets.maxOther} crypto pairs`}
-                tone={data.markets.stocks >= data.markets.maxStocks ? "warn" : undefined}
-              />
+              {data.novice && data.novice.maxSymbols !== "unlimited" ? (
+                <Figure
+                  label="Symbols open"
+                  value={`${data.novice.symbolsOpen} of ${data.novice.maxSymbols}`}
+                  note="Novice accounts hold one symbol at a time"
+                  tone={data.novice.symbolsOpen >= data.novice.maxSymbols ? "warn" : undefined}
+                />
+              ) : (
+                <Figure
+                  label="Markets open"
+                  value={`${data.markets.stocks} of ${data.markets.maxStocks} stocks`}
+                  note={`${data.markets.other} of ${data.markets.maxOther} crypto pairs`}
+                  tone={data.markets.stocks >= data.markets.maxStocks ? "warn" : undefined}
+                />
+              )}
               <Figure
                 label="Lost if every stop fills"
                 value={formatUsd(data.openRiskUsd)}
                 note={
                   data.unprotected > 0
-                    ? `${data.unprotected} without a stop, not counted`
+                    ? `${data.unprotected} with shares no stop covers, not counted`
                     : `${data.openRiskPctOfUnit.toFixed(1)}% of your trading capital`
                 }
                 tone={data.unprotected > 0 ? "bear" : undefined}
               />
             </div>
+
+            {data.novice && (
+              <p className="text-xs text-muted">
+                Novice limits: one position up to {formatUsd(data.novice.maxPositionUsd, 0)},{" "}
+                {formatUsd(data.novice.deployedRoomUsd, 0)} more can be invested, and{" "}
+                {formatUsd(data.novice.openRiskRoomUsd, 0)} more can be put at risk (read from each position&apos;s
+                opening stop).
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant={data.lossSeries?.paused ? "warn" : "muted"}>
@@ -179,9 +201,20 @@ export function RiskPanel() {
                           </td>
                           <td className="py-1.5 pr-3">{p.side === "long" ? "Long" : "Short"} {p.qty}</td>
                           <td className="py-1.5 pr-3 text-right">{formatUsd(p.entry)}</td>
-                          <td className="py-1.5 pr-3 text-right">{p.stop == null ? <span className="text-bear">None</span> : formatUsd(p.stop)}</td>
+                          <td className="py-1.5 pr-3 text-right">
+                            {p.option ? (
+                              <span className="text-muted">{p.side === "long" ? "Premium" : "None"}</span>
+                            ) : p.stops.length === 0 ? (
+                              <span className="text-bear">None</span>
+                            ) : (
+                              p.stops.map((st) => formatUsd(st)).join(", ")
+                            )}
+                            {!p.option && p.stops.length > 0 && p.unprotectedQty > 0 && (
+                              <span className="block text-xs text-bear">{p.unprotectedQty} not covered</span>
+                            )}
+                          </td>
                           <td className={cn("py-1.5 pr-3 text-right", overTenth && "text-bear")}>
-                            {p.riskUsd == null ? "Unknown" : p.stopPastEntry ? "None, stop past entry" : formatUsd(p.riskUsd)}
+                            {p.riskUsd == null ? "Not covered" : p.stopPastEntry ? "None, stop past entry" : formatUsd(p.riskUsd)}
                           </td>
                           <td className="py-1.5 text-right">
                             {p.riskPctOfUnit == null ? "–" : `${p.riskPctOfUnit.toFixed(1)}%`}
