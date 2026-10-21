@@ -362,7 +362,8 @@ describe("redaction at the API boundary", () => {
       expect(redacted.signals.trendPullback.alignment.score).toBe(88);
       expect(redacted.signals.trendPullback.alignment.tier).toBe("aTier");
       expect(redacted.signals.trendPullback.tradeable).toBe(true);
-      expect(redacted.signals.trendPullback.plan?.entryTrigger).toBe(101);
+      // The engine's own plan is not Gann's and stays on the server (R-025).
+      expect(redacted.signals.trendPullback.plan).toBeNull();
     }
     // The caller's own copy keeps its breakdown server-side.
     if (result.signals?.trendPullback?.status === "evaluated") {

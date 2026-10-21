@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SCANNER_STATE_META, type RulesAlignmentTier, type ScannerStateName, type SignalVerdict } from "@/lib/signals/types";
-import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 
 const STATE_ORDER: ScannerStateName[] = [
@@ -36,8 +35,9 @@ const REGIME_LABEL: Record<string, string> = {
  * The Signal and Regime Engine's own read — a separate decision layer from
  * the Protocol signal above, never combined with it or across its own four
  * states into a single verdict. Renders only what `redactScanResult` lets
- * cross the API boundary: score/tier/tradeable/plan, never the per-criterion
- * breakdown that decided them.
+ * cross the API boundary: score/tier/tradeable, never the per-criterion
+ * breakdown that decided them, and never the engine's own entry, stop and
+ * target, which are not Gann's (R-025): the Gann plan above is the plan.
  */
 export function SignalRegimeCard({ result }: { result: ScanResult }) {
   const { signals } = result;
@@ -82,14 +82,6 @@ function StateRow({ name, verdict }: { name: ScannerStateName; verdict: SignalVe
         <StateStatusBadge verdict={verdict} />
       </div>
 
-      {verdict?.status === "evaluated" && verdict.plan && (
-        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-          <PlanStat label="Entry" value={formatUsd(verdict.plan.entryTrigger)} tone="accent" />
-          <PlanStat label="Stop" value={formatUsd(verdict.plan.stop)} tone="bear" />
-          <PlanStat label="Target" value={formatUsd(verdict.plan.target)} tone="bull" />
-        </div>
-      )}
-
       {verdict?.status === "evaluated" && verdict.accountContextAssumed && (
         <p className="mt-2 text-xs text-muted">
           Market context only — account-specific checks (sizing, correlation, cooldown) aren&apos;t applied here.
@@ -118,16 +110,6 @@ function StateStatusBadge({ verdict }: { verdict: SignalVerdict | null }) {
     <div className="flex items-center gap-1.5">
       {verdict.tradeable && <Badge variant="bull">Tradeable</Badge>}
       <Badge variant={TIER_BADGE_VARIANT[verdict.alignment.tier]}>{TIER_LABEL[verdict.alignment.tier]}</Badge>
-    </div>
-  );
-}
-
-function PlanStat({ label, value, tone }: { label: string; value: string; tone: "accent" | "bull" | "bear" }) {
-  const color = tone === "accent" ? "text-accent" : tone === "bull" ? "text-bull" : "text-bear";
-  return (
-    <div className="rounded-md border border-border bg-surface p-2">
-      <p className="text-muted">{label}</p>
-      <p className={cn("font-mono font-semibold", color)}>{value}</p>
     </div>
   );
 }

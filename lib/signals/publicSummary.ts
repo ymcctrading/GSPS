@@ -90,6 +90,10 @@ export function redactSignalVerdict(verdict: SignalVerdict | null): SignalVerdic
     ...verdict,
     regime: { ...verdict.regime, reasons: [], disqualifiers: [] },
     alignment: { ...verdict.alignment, breakdown: [] },
+    // The engine's own plan (an entry a cent past the last bar, a target at
+    // the nearest cluster or 2R) is not Gann's: the Gann plan is the only plan
+    // a person is shown (review finding R-025, 2026-10-21).
+    plan: null,
   };
 }
 
