@@ -753,7 +753,34 @@ point keep the trade's own anchor. Random walks (`timePillarRule.test.ts`, 38,40
 readings): squared 21.1% either way, P7 "and" 11.6% → 9.5%. The same diagnosis found
 the population figure carried by trades still open at the window's end, which the
 replay reported as `timeout`; that is being split out separately. `STRATEGY_VERSION`
-is `2026-10-21-gann-square-against-move`; P7 and the 6/3.5 cutoffs need a fresh run.
+was `2026-10-21-gann-square-against-move`; P7 and the 6/3.5 cutoffs need a fresh run.
+**Square of Nine in price, same day (C-LEVELS-15).** Gann lists the numbers on
+the Square of Nine's diagonals (3, 13, 31, 57, 91 … and 7, 21, 43, 73, 111 …,
+with 8, 23, 46, 77 … and 4, 15, 34, 61 …) as "great resistance points and
+measuring out important time factors" (Master Course Ch. 2, PDF 68, per the
+memory-bank read of A2.1; Ch. 15A, PDF 393-395, corrects the printed 75 to 73),
+and ranks the cardinal and fixed crosses as the strongest angles (Ch. 2 PDF
+57-58, Ch. 4 PDF 152-153). The time half was built 2026-09-30
+(`squareOfNineTime.ts`); this is the price half. `lib/gann/squareOfNinePrice.ts`
+reads the cross numbers (0/90/180/270 and 45/135/225/315, the 22.5° lines and
+numbers below 10 left out) as prices in Gann points, and the nearest below and
+above price join the S/R list as support and resistance through
+`masterLevels.ts`, on the live scan and the replay alike. `squareOf9.ts` (the
+anchor spiral) is unchanged. Density, held for the owner: on 400 random walks a
+cross number lay inside the 3-point band on 95.8/94.0% (long/short) of
+readings at $20, 89.8/89.3% at $50, 70.8/67.0% at $150 and 52.5/56.3% at $500,
+because ring k spaces the cross numbers k points apart and the band is 3
+points, so a stock reading under about 49 points (ring 3, most stocks under
+~$100) nearly always has one in band (the unit is fixed from the bars' gravity
+centre, the band from today's price, so not quite always). `historicalSR` itself was already near saturation on the same walks
+(before → after, long/short: $20 99.8/100 → 100/100%, $50 99.8/99.8 →
+100/99.8%, $150 99.5/99.3 → 99.5/99.5%, $500 97.8/98.5 → 98.8/99.3%); P5(b)
+reads the range divisions, not the S/R list, and is unchanged. Stops and
+targets read the list too, so plans move: `replay.test.ts`'s A-LEVELS-04
+fixture moved from 300 to 295 sessions, because 300's first target became the
+cross number short of the failed top. `STRATEGY_VERSION` is
+`2026-10-21-gann-nine-square-price`; Execute and the 6/3.5 cutoffs need a
+fresh run on it.
 
 ## WD Gann precedence — standing principle
 

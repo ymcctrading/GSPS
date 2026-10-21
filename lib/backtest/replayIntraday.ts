@@ -297,6 +297,8 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         closedAt: bars[i + walked.barsHeld - 1].t,
         outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
         exitReason: walked.reason,
+        crossedLevel: null,
+        exitPrice: walked.finalExit,
         rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
         ambiguous: false,
       });
@@ -323,7 +325,7 @@ function walkIntradayExit(input: {
   stop: number;
   point: number;
   firstTarget: number | null;
-}): { exit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
+}): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
   const { bars, from, maxBarsHeld, long, entry, point, firstTarget } = input;
   const dir = long ? 1 : -1;
   let stop = input.stop;
@@ -336,6 +338,7 @@ function walkIntradayExit(input: {
   const equivalent = (price: number) => entry + dir * (realized + openQty * dir * (price - entry));
   const done = (price: number, held: number, reason: IntradayExitReason | TimeoutReason) => ({
     exit: equivalent(price),
+    finalExit: price,
     barsHeld: held,
     reason,
   });

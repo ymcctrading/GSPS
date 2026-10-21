@@ -18,6 +18,13 @@
  *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
  *   ?entryRule=confirmed   sequence instead of the reaction buy every path
  *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
+ *   ?exitRule=gann        how open trades leave: bracket (default), gann or
+ *                          gann-runner. See ReplayOptions.exitRule
+ *   ?disableExits=three_adverse_closes,prior_week
+ *                          measurement only: switch named Gann exit rules off
+ *                          inside the replay walk (needs exitRule gann or
+ *                          gann-runner). An unknown name is a 400. See
+ *                          ReplayOptions.disableExits
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
  *                          stop by for the plan to stand again: 3 (default, the
  *                          live scan's figure), 5 (the stricter reading) or 1
@@ -55,7 +62,7 @@ import {
   runBacktest,
   type Bucket,
 } from "@/lib/backtest/run";
-import { byOutputState, byScoreRange } from "@/lib/backtest/replay";
+import { byOutputState, byScoreRange, resolveDisableExits } from "@/lib/backtest/replay";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { replayOvernightForUniverse } from "@/lib/backtest/replayOvernight";
 import { isTimeframe } from "@/lib/timeframe";
@@ -167,6 +174,28 @@ export async function GET(req: NextRequest) {
   }
   const reclaimPoints = reclaimPointsRaw === null ? undefined : Number(reclaimPointsRaw);
 
+  const exitRuleRaw = searchParams.get("exitRule");
+  if (exitRuleRaw !== null && exitRuleRaw !== "bracket" && exitRuleRaw !== "gann" && exitRuleRaw !== "gann-runner") {
+    return NextResponse.json({ error: `Invalid exitRule '${exitRuleRaw}' (bracket | gann | gann-runner)` }, { status: 400 });
+  }
+  const exitRule = exitRuleRaw ?? undefined;
+
+  // Measurement only (ReplayOptions.disableExits). Every name is checked: a
+  // misspelt rule would otherwise report a cell identical to its baseline.
+  const disableExitsRaw = searchParams.get("disableExits");
+  let disableExits: ReturnType<typeof resolveDisableExits> | undefined;
+  if (disableExitsRaw !== null) {
+    try {
+      disableExits = resolveDisableExits(
+        disableExitsRaw.split(",").map((n) => n.trim()).filter((n) => n.length > 0),
+        exitRule ?? "bracket",
+      );
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
+    }
+  }
+  const disableExitsOption = disableExits && disableExits.size > 0 ? { disableExits: [...disableExits] } : {};
+
   const profileRaw = searchParams.get("profile");
   if (profileRaw !== null && profileRaw !== "swing" && profileRaw !== "intraday") {
     return NextResponse.json({ error: `Invalid profile '${profileRaw}' (swing | intraday)` }, { status: 400 });
@@ -235,6 +264,8 @@ export async function GET(req: NextRequest) {
         targetR,
         ...(since !== null ? { since } : {}),
         ...(entryRule ? { entryRule } : {}),
+        ...(exitRule ? { exitRule } : {}),
+        ...disableExitsOption,
         ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
         ...(profile ? { profile } : {}),
       });
@@ -274,6 +305,8 @@ export async function GET(req: NextRequest) {
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
       ...(entryRule ? { entryRule } : {}),
+      ...(exitRule ? { exitRule } : {}),
+      ...disableExitsOption,
       ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
       ...(profile ? { profile } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
