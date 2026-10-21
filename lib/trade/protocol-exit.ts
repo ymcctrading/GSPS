@@ -36,9 +36,10 @@
  *     level, not an R multiple (the runner option, owner-approved).
  *   - No master-target order is placed: Gann never fixes a profit objective,
  *     so everything after TP1 is the runner.
- *   - The stop moves on Gann's structure: break-even once the trade has gone
- *     one risk unit its way, then under each higher bottom, under the prior
- *     month's low, and tighter in a campaign's final stage.
+ *   - The stop moves on Gann's structure: break-even once the trade is 3
+ *     price-scaled points ahead (M-E6, since 2026-10-16), then under each
+ *     higher bottom, under the prior week's and month's extremes, and tighter
+ *     in a campaign's final stage.
  *   - A Gann exit signal (failed hold test, three adverse closes, a trend
  *     change, a distribution week) closes the remainder at market.
  * The caller reads Gann's rules (`lib/trade/gann-exit-live.ts`) and passes the
@@ -463,7 +464,7 @@ function explainGann(reason: GannStopReason | null, stop: number): string {
     n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
   switch (reason) {
     case "break_even":
-      return `The trade has gone as far in its favour as it risked, so the stop moves to the entry (${usd(stop)}).`;
+      return `The trade is 3 points ahead, so the stop moves to the entry (${usd(stop)}).`;
     case "last_reaction":
       return `The stop moves under the latest higher bottom, to ${usd(stop)}.`;
     case "prior_week":

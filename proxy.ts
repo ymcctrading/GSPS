@@ -4,10 +4,14 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 // `/learning` joins the list because the endpoint behind it now requires a
 // session: left public it would render a page whose only button 401s.
-// `/automation` is absent on purpose — that page authenticates and tier-gates
-// itself in the server component.
+// `/automation` also authenticates and tier-gates itself in the server
+// component; it is listed so a visitor with no session gets the same login
+// redirect as every other page in the signed-in shell. So are `/guided`,
+// `/school` and `/promotion`, which rendered an empty shell whose every
+// request 401s.
 const PROTECTED_PREFIXES = [
   "/dashboard", "/scanner", "/ticker", "/portfolio", "/glossary", "/settings", "/learning",
+  "/guided", "/school", "/promotion", "/automation",
   // `/welcome` holds no user data, but it renders inside the signed-in shell —
   // nav, sign-out and all — so serving it to a visitor with no session would
   // show them a header they cannot use.
@@ -31,7 +35,15 @@ const SCAN_PREFIXES = ["/api/scan", "/api/batch-scan", "/api/intraday-scan", "/a
 // this at most a handful of times per session (typos aside), so a much
 // tighter budget costs a legitimate user nothing.
 const CREDENTIAL_LIMIT = 5;
-const CREDENTIAL_PREFIXES = ["/api/alpaca/connect-live", "/api/snaptrade/connect"];
+//
+// The two sign-in lookups join it (review findings S-01 and S-05,
+// 2026-10-21): a username sign-in is a password guess, and the account-status
+// check tells whether an email has an account, so both are the shape an
+// attacker scripts against. A person signing in or up sends each once or twice.
+const CREDENTIAL_PREFIXES = [
+  "/api/alpaca/connect-live", "/api/snaptrade/connect",
+  "/api/auth/username-login", "/api/auth/account-status",
+];
 
 function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");

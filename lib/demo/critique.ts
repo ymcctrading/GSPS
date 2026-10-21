@@ -21,6 +21,8 @@ import Anthropic from "@anthropic-ai/sdk";
 const MODEL = "claude-opus-5";
 /** How many un-critiqued trades one sweep writes. Bounded so a backlog can't turn one cron run into dozens of API calls. */
 const MAX_PER_SWEEP = 5;
+/** Closed trades read per page while looking for uncritiqued ones. */
+const CRITIQUE_PAGE = 200;
 
 interface TradeForCritique {
   id: string;
@@ -105,29 +107,37 @@ export async function generateMissingCritiques(
 ): Promise<{ generated: number; errors: number }> {
   if (!getClient()) return { generated: 0, errors: 0 };
 
-  const { data: closedTrades } = await supabase
-    .from("trade_logs")
-    .select(
-      "id, symbol, direction, quantity, entry_price, entry_timestamp, exit_price, exit_timestamp, outcome, profit_loss_dollars, profit_loss_percent, exit_condition, signal_called, signal_adherence",
-    )
-    .eq("user_id", userId)
-    .neq("outcome", "pending")
-    .order("exit_timestamp", { ascending: true })
-    .limit(200);
+  // Paged, oldest first, until a sweep's worth of uncritiqued trades is found.
+  // A single page of the 200 oldest stopped finding anything once those 200
+  // were critiqued, so every later trade went without one.
+  const pending: TradeForCritique[] = [];
+  for (let from = 0; pending.length < MAX_PER_SWEEP; from += CRITIQUE_PAGE) {
+    const { data: closedTrades } = await supabase
+      .from("trade_logs")
+      .select(
+        "id, symbol, direction, quantity, entry_price, entry_timestamp, exit_price, exit_timestamp, outcome, profit_loss_dollars, profit_loss_percent, exit_condition, signal_called, signal_adherence",
+      )
+      .eq("user_id", userId)
+      .neq("outcome", "pending")
+      .order("exit_timestamp", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + CRITIQUE_PAGE - 1);
 
-  const trades = (closedTrades ?? []) as TradeForCritique[];
-  if (trades.length === 0) return { generated: 0, errors: 0 };
+    const trades = (closedTrades ?? []) as TradeForCritique[];
+    if (trades.length === 0) break;
 
-  const { data: existing } = await supabase
-    .from("trade_critiques")
-    .select("trade_log_id")
-    .in(
-      "trade_log_id",
-      trades.map((t) => t.id),
-    );
-  const critiqued = new Set(((existing ?? []) as { trade_log_id: string }[]).map((r) => r.trade_log_id));
-
-  const pending = trades.filter((t) => !critiqued.has(t.id)).slice(0, MAX_PER_SWEEP);
+    const { data: existing } = await supabase
+      .from("trade_critiques")
+      .select("trade_log_id")
+      .in(
+        "trade_log_id",
+        trades.map((t) => t.id),
+      );
+    const critiqued = new Set(((existing ?? []) as { trade_log_id: string }[]).map((r) => r.trade_log_id));
+    pending.push(...trades.filter((t) => !critiqued.has(t.id)).slice(0, MAX_PER_SWEEP - pending.length));
+    if (trades.length < CRITIQUE_PAGE) break;
+  }
+  if (pending.length === 0) return { generated: 0, errors: 0 };
 
   let generated = 0;
   let errors = 0;

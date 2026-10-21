@@ -465,10 +465,12 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         }`
       : "";
 
-  // "TP1 ≥ 2R" could never fail, and so was never a criterion. computeTradeLevels
-  // sets TP1 to max(2R, previous candle's extreme), which puts the ratio at 2 or
-  // better on every well-formed pattern — a free point on all nine-criteria
-  // scores, inflating every verdict by one and discriminating nothing.
+  // "TP1 ≥ 2R" could never fail, and so was never a criterion. When this was
+  // written computeTradeLevels set TP1 to max(2R, previous candle's extreme);
+  // since 2026-10-21 an equity TP1 is the first level paying more than the risk
+  // (M-K5's even-money hold refuses the rest) and a crypto TP1 is 1.5R or the
+  // previous candle's extreme, so the ratio still always clears 1 — still a
+  // point nobody could lose, discriminating nothing.
   //
   // Scoring TP1's structural branch instead is no better: it is unreachable in
   // practice (zero of 6,362 armed setups) and only mirrors the defect, turning

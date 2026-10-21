@@ -48,8 +48,12 @@
  * 2. Dewey: an annual, eight-phase periodicity claim. Regularity of timing
  *    and constancy of period hold by construction (it is the solar year).
  *    Dominance, repetition count against a base rate, wave-shape identity
- *    and cross-series clustering are untested anywhere in Gann's text, which
- *    is why this stays display-only and unscored until it is measured.
+ *    and cross-series clustering are untested anywhere in Gann's text. Under
+ *    the owner's 2026-10-01 "every Gann method acts" it acts where Gann says
+ *    a time window acts: as one of the dated windows a counter-trend turn
+ *    may sit on (`timeWindowsAt` in `lib/gann/timeWindow.ts`, read by the
+ *    time-window hold), never as a scored point or a setup on its own. Its
+ *    hit rate against a base rate is still owed (review D-03, 2026-10-21).
  * 3. Hermetic: Rhythm. The windows sit on the equinoxes and solstices and
  *    the cross-quarter points between them, i.e. the solar year divided into
  *    eighths. That is our observation, not Gann's wording, and it is a

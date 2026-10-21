@@ -72,6 +72,7 @@ import { getUniversePolicy } from "@/lib/universe/policy";
 import { recordShadowSignals } from "@/lib/shadow/record";
 import { evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
 import { evaluateShadowDrift, EXECUTE_TIER_BACKTEST_BASELINE } from "@/lib/shadow/compare";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export type ScheduledScanSource =
   | "scheduled_morning_scan"
@@ -90,7 +91,7 @@ function unauthorized(): NextResponse {
  * authorized the same way as every other trusted job in this codebase.
  */
 function isAuthorized(authorizationHeader: string | null): boolean {
-  return Boolean(process.env.CRON_SECRET) && authorizationHeader === `Bearer ${process.env.CRON_SECRET}`;
+  return isCronAuthorized(authorizationHeader);
 }
 
 const UNIQUE_VIOLATION = "23505";

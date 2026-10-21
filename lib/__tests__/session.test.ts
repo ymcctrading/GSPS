@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { equitySession, marketSession, isExtended, barSession, mostRecentClose } from "@/lib/market/session";
+import { equitySession, marketSession, isExtended, barSession, mostRecentClose, etDateKey } from "@/lib/market/session";
 
 // Helper: build a Date at a given America/New_York wall-clock time by picking a
 // UTC instant. EDT is UTC−4 (summer). These dates are all in July (EDT).
@@ -63,17 +63,27 @@ describe("mostRecentClose (EDT)", () => {
     expect(close.getTime()).toBe(etDate(6, 16, 0).getTime());
   });
   it("previous trading day's close when asked before today's close", () => {
-    // 2026-07-06 10:00 ET, before today's 16:00 close — falls back to Friday 7/3.
+    // 2026-07-06 10:00 ET, before today's 16:00 close. Friday 7/3 is the
+    // observed Independence Day holiday, so it falls back to Thursday 7/2.
     const close = mostRecentClose(etDate(6, 10, 0));
-    expect(close.getTime()).toBe(etDate(3, 16, 0).getTime());
+    expect(close.getTime()).toBe(etDate(2, 16, 0).getTime());
   });
   it("skips the weekend: Monday's close is Friday's, not Saturday's or Sunday's", () => {
-    // Sunday 2026-07-05 mid-afternoon.
+    // Sunday 2026-07-05 mid-afternoon; Friday 7/3 is a holiday, so Thursday's.
     const close = mostRecentClose(etDate(5, 14, 0));
-    expect(close.getTime()).toBe(etDate(3, 16, 0).getTime());
+    expect(close.getTime()).toBe(etDate(2, 16, 0).getTime());
   });
   it("exactly at the close counts as reached", () => {
     const close = mostRecentClose(etDate(6, 16, 0));
     expect(close.getTime()).toBe(etDate(6, 16, 0).getTime());
+  });
+});
+
+describe("equitySession on a market holiday", () => {
+  it("is closed all day on a full-day holiday, and the last close is the session before it", () => {
+    const thanksgivingNoon = new Date("2026-11-26T17:00:00Z"); // Thu 12:00 ET
+    expect(equitySession(thanksgivingNoon)).toBe("closed");
+    expect(etDateKey(mostRecentClose(thanksgivingNoon))).toBe("2026-11-25");
+    expect(equitySession(new Date("2026-11-27T15:00:00Z"))).toBe("regular"); // the day after trades
   });
 });

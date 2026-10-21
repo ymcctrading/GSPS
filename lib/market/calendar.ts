@@ -82,8 +82,13 @@ function goodFriday(year: number): Date {
 
 /** All NYSE/Nasdaq full-day market holidays for a given (Gregorian) year. */
 export function marketHolidays(year: number): Date[] {
+  // New Year's Day on a Saturday is not observed: NYSE Rule 7.2 keeps the
+  // preceding Friday open when it ends a yearly accounting period (Dec 31,
+  // 2021 traded; Dec 31, 2027 will). Every other Saturday holiday moves to
+  // the Friday before.
+  const newYears = utcNoon(year, 0, 1).getUTCDay() === 6 ? [] : [observedFixedDate(year, 0, 1)];
   const holidays = [
-    observedFixedDate(year, 0, 1), // New Year's Day
+    ...newYears,
     nthWeekdayOfMonth(year, 0, 1, 3), // MLK Day: 3rd Monday of January
     nthWeekdayOfMonth(year, 1, 1, 3), // Washington's Birthday: 3rd Monday of February
     goodFriday(year),

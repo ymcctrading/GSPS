@@ -37,7 +37,7 @@ import {
   MAX_STOP_ATR_MULTIPLE,
   TP1_MULTIPLE_BY_ASSET,
   TP2_MULTIPLE_BY_ASSET,
-} from "@/lib/strat/levels";
+} from "@/lib/strat/levelConstants";
 
 const r = (n: number): string => `${n}R`;
 const pctRange = (min: number, max: number): string => `${min}–${max}%`;

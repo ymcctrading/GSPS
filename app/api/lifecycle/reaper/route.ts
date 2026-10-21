@@ -18,13 +18,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runLifecycleReaper } from "@/lib/lifecycle/reaper";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
     console.error("lifecycle/reaper: CRON_SECRET is not set — the scheduled run cannot execute");
     return NextResponse.json({ error: "CRON_SECRET is not configured on this deployment" }, { status: 503 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

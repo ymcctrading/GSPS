@@ -28,7 +28,8 @@
  * scanner itself advises against.
  */
 
-import { SIGNAL_LABELS, SIGNAL_DESCRIPTIONS, type Alert } from "@/lib/scanner/intraday";
+import { SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
+import type { Alert } from "@/lib/scanner/intraday";
 import { tickerHref } from "@/lib/routes";
 import { rewardToRisk, type SetupCardModel, type SetupCheck, type SetupLevels } from "@/lib/setups/card";
 import { formatUsd } from "@/lib/utils";

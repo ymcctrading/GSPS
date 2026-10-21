@@ -49,3 +49,22 @@ describe("computeRealizedPl", () => {
     expect(computeRealizedPl(100, 115, 10, "short")).toBeCloseTo(-150);
   });
 });
+
+describe("reconcilePositions reads live rows only (review finding R-013)", () => {
+  it("never closes a paper position the live broker doesn't hold", async () => {
+    const { reconcilePositions } = await import("@/lib/portfolio/reconcile");
+    const filters: [string, unknown][] = [];
+    const updates: unknown[] = [];
+    const paperRow = { id: "p1", symbol: "AAPL", mode: "paper", closed: false, side: "long", qty: 10, avg_entry_price: 100, opened_at: "2026-10-01T00:00:00Z" };
+    const q: Record<string, unknown> = {};
+    q.select = () => q;
+    q.eq = (col: string, val: unknown) => { filters.push([col, val]); return q; };
+    q.update = (row: unknown) => { updates.push(row); return q; };
+    q.then = (ok: (v: unknown) => unknown) =>
+      Promise.resolve({ data: filters.some(([c, v]) => c === "mode" && v === "live") ? [] : [paperRow], error: null }).then(ok);
+    const supabase = { from: () => q } as never;
+    const r = await reconcilePositions(supabase, { key: "k", secret: "s", mode: "live" }, "u1", []);
+    expect(r).toMatchObject({ opened: 0, closed: 0, error: null });
+    expect(updates).toHaveLength(0);
+  });
+});

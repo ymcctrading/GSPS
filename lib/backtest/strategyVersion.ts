@@ -559,6 +559,24 @@
 // S/R check reads the nearest level of the wanted role (support below price
 // for a long, resistance above it for a short; `srMatchForSide`) instead of
 // the nearest of either role. Scores and verdicts move, live and replay alike.
+// 2026-10-21-review-session-clock-sub-dollar: the live scan reads its dated
+// reads (pillar facts, disclosed rules, volume, campaign bottoms, master
+// levels, distribution) at the session's noon UTC, as the replay always has,
+// instead of the wall clock, whose UTC date runs a day ahead after 8 PM New
+// York time (review finding F-03). Non-equity plans round each price to the
+// places its size needs (0.1612, not 0.16), refuse a plan whose rounded levels
+// are not four distinct positive prices, and put a short's master on the
+// largest eighth of the entry beyond TP1 when the R projection passes zero
+// (F-02). The replay holds a crypto trade ten 24-hour sessions (960 candles),
+// not 260 candles (F-06), and counts a win on the net, after-cost result its R
+// is measured on (F-07). Evening live verdicts, sub-dollar crypto plans, the
+// replay's crypto horizon and its win rates move; equity plans do not.
+// 2026-10-21-review-gap-stop-fill: a stop a candle opens through fills at that
+// open in the replays (the daily, the intraday profile and every reversal and
+// re-buy walk), not at the stop, as the paper exit manager fills at the market
+// (review finding R-022). Replay losses on gaps move; live verdicts do not.
+// 2026-10-21-review-fixes-on-major-range-levels: the two lines above joined
+// (the review fixes merged onto the major-range levels); no new rule.
 // 2026-10-21-gann-narrow-weeks-breakaway: the breakaway's range is the narrow
 // run of sessions counted back from the latest, 2 to 13 weeks
 // (`narrowRangeSessions`), not the whole 13 weeks: Gann's "2-6 or 10-13 weeks
@@ -582,6 +600,9 @@
 // spent and never filled, and a held bottom's entry, that bar's own close, was
 // always traded into: the six-year 1Day run put all 4,479 trades under "hold".
 // 1Day replay trades move; intraday replays, the live scan and verdicts do not.
+// 2026-10-21-review-fixes-on-replay-daily-closed-session: the review fixes
+// above merged onto main's narrow-weeks breakaway, decade month in ET and
+// closed-session daily replay; no new rule.
 // 2026-10-21-gann-group-strength-rank: the same rank is also read within the
 // stock's industry group (S4, "buy the strongest stocks in the group", Stock
 // Selector Ch. VII), groups from SEC industry codes checked in

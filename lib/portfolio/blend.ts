@@ -143,11 +143,15 @@ export function buildBlendedPositions(
   const openedFor = (symbol: string): LegOpenedAt =>
     openedAtFor?.(symbol.toUpperCase()) ?? UNRESOLVED;
 
-  const getGroup = (underlying: string): BlendedPosition => {
-    let g = groups.get(underlying);
+  // Grouped per account as well as per underlying: a paper and a live
+  // position in the same name are two holdings, and keyed by the name alone
+  // the second one's equity leg overwrote the first (review finding R-012).
+  const getGroup = (underlying: string, mode: "paper" | "live"): BlendedPosition => {
+    const key = `${mode}:${underlying}`;
+    let g = groups.get(key);
     if (!g) {
       g = { underlying, equity: null, options: [], totalMarketValue: 0, totalPl: 0 };
-      groups.set(underlying, g);
+      groups.set(key, g);
     }
     return g;
   };
@@ -156,7 +160,7 @@ export function buildBlendedPositions(
     const assetType = classify(p);
 
     if (assetType === "EQUITY") {
-      const g = getGroup(p.symbol.toUpperCase());
+      const g = getGroup(p.symbol.toUpperCase(), p.mode ?? "paper");
       g.equity = {
         assetType: "EQUITY",
         symbol: p.symbol.toUpperCase(),
@@ -178,7 +182,7 @@ export function buildBlendedPositions(
 
     const parsed = parseOccSymbol(p.symbol);
     if (!parsed) continue; // unrecognized option symbol shape — skip rather than misclassify
-    const g = getGroup(parsed.underlying);
+    const g = getGroup(parsed.underlying, p.mode ?? "paper");
 
     const spot = spotFor(parsed.underlying);
     let greeks: Greeks = { delta: 0, gamma: 0, theta: 0, vega: 0 };
@@ -224,5 +228,8 @@ export function buildBlendedPositions(
     g.options.sort((a, b) => a.expiration.localeCompare(b.expiration) || a.strike - b.strike);
   }
 
-  return [...groups.values()].sort((a, b) => a.underlying.localeCompare(b.underlying));
+  const modeOf = (g: BlendedPosition) => (g.equity ?? g.options[0])?.mode ?? "paper";
+  return [...groups.values()].sort(
+    (a, b) => a.underlying.localeCompare(b.underlying) || modeOf(a).localeCompare(modeOf(b)),
+  );
 }

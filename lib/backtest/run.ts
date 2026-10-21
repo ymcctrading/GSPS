@@ -22,6 +22,7 @@
  * same number over three weeks and over three years are different claims.
  */
 
+import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import { fetchUniverseStrengthSince } from "@/lib/data/universeStrength";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
@@ -56,25 +57,15 @@ import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
 import { monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
+import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 
 /** Verdict buckets, plus the trades the score could not reach. */
 export type Bucket = "Execute" | "Watch" | "Reject" | "unscored";
 
 export const BUCKETS: Bucket[] = ["Execute", "Watch", "Reject", "unscored"];
 
-/**
- * Attribute over every trade instead of one verdict bucket.
- *
- * Every `Bucket` is a slice the score itself selected, which makes all four
- * useless for one specific question: whether a criterion is *saturated* — true
- * for so many setups that it carries no information while still contributing
- * its weight. Inside a bucket defined by those criteria passing, saturation is
- * the bucket's definition rather than a defect, so measuring it there would
- * flag correct criteria and, worse, launder real saturation as expected
- * selection. Only an unconditioned population can answer it, and until this
- * existed the API could not produce one — see `lib/validation/health.ts`.
- */
-export const UNCONDITIONED_ATTRIBUTION = "all";
+/** Attribute over every trade instead of one verdict bucket (`./scope`). */
+export { UNCONDITIONED_ATTRIBUTION };
 
 /** Where factor attribution is computed: one verdict bucket, or every trade. */
 export type AttributionScope = Bucket | typeof UNCONDITIONED_ATTRIBUTION;
@@ -261,8 +252,8 @@ export interface BacktestReport {
    * over a bottom that held.
    */
   entryKindSplit: { crossing: RunSummary; oldLevel: RunSummary; hold: RunSummary };
-  /** The held entries by the form of the hold: weeks, days, record, or the bear-market rally sell. */
-  holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary };
+  /** The held entries by the form of the hold: weeks, days, record, the bear-market rally sell, or the narrow week's sale. */
+  holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary; narrowWeek: RunSummary };
   /**
    * Under `exitRule: "gann"`, the run split by why each trade left (the stop
    * reason that was binding, a Gann exit signal, or the timeout), so each of
@@ -582,7 +573,7 @@ async function computeSlippageSensitivity(
   request: BacktestRequest,
   baseExpectancyR: number,
 ): Promise<SlippageSensitivity> {
-  const costPerShare = request.costPerShare ?? 0.02;
+  const costPerShare = request.costPerShare ?? DEFAULT_COST_PER_SHARE_USD;
   const multiplier = request.slippageMultiplier ?? 3;
   const elevatedCostPerShare = costPerShare * multiplier;
   const elevated = await collectRun({ ...request, costPerShare: elevatedCostPerShare });
@@ -690,6 +681,7 @@ export function buildReport(
       days: summarise(holdSplit.days),
       record: summarise(holdSplit.record),
       rally: summarise(holdSplit.rally),
+      narrowWeek: summarise(holdSplit.narrowWeek),
     },
     exitReasonSplit: Object.fromEntries(
       [...new Set(run.overall.trades.flatMap((t) => (t.exitReason ? [t.exitReason] : [])))].map((reason) => [

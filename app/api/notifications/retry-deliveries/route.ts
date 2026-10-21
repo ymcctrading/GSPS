@@ -20,12 +20,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sweepStuckDeliveries } from "@/lib/entitlements/delivery";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 /** Rows younger than this are left alone -- the inline dispatch on the original evaluation path may still be in flight. */
 const RETRY_AFTER_MS = 5 * 60 * 1000;
 
 function isAuthorized(authorizationHeader: string | null): boolean {
-  return Boolean(process.env.CRON_SECRET) && authorizationHeader === `Bearer ${process.env.CRON_SECRET}`;
+  return isCronAuthorized(authorizationHeader);
 }
 
 export async function GET(req: NextRequest) {

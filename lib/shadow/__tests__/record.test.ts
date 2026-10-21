@@ -105,6 +105,32 @@ describe("recordShadowSignals", () => {
     expect(outcome.recorded).toBe(0);
   });
 
+  it("records a plan still being walked once, not once per scan", async () => {
+    const upserted: { symbol: string }[] = [];
+    const first = buildShadowSignal(baseResult({ symbol: "AAPL" }), "x")!;
+    const chain = {
+      eq: () => chain,
+      is: () => chain,
+      in: () =>
+        Promise.resolve({
+          data: [{ symbol: "AAPL", direction: first.direction, entry: String(first.entry), stop_loss: String(first.stopLoss) }],
+          error: null,
+        }),
+    };
+    const client = {
+      from: () => ({
+        select: () => chain,
+        upsert: (rows: { symbol: string }[]) => {
+          upserted.push(...rows);
+          return Promise.resolve({ error: null });
+        },
+      }),
+    } as unknown as SupabaseClient;
+    const outcome = await recordShadowSignals(client, [baseResult({ symbol: "AAPL" }), baseResult({ symbol: "MSFT" })], "x");
+    expect(outcome.recorded).toBe(1);
+    expect(upserted.map((r) => r.symbol)).toEqual(["MSFT"]);
+  });
+
   it("swallows a write failure and reports zero recorded", async () => {
     const client = {
       from: () => ({ upsert: () => Promise.resolve({ error: { message: "boom" } }) }),

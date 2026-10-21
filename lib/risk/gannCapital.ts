@@ -195,3 +195,31 @@ export function riskTenthRefusal(input: RiskTenthInput): CapitalRuleRefusal | nu
     error: `That trade risks ${risk.toFixed(2)}, more than a tenth of this account's trading capital (${maxRiskForTrade(input.capital).toFixed(2)}). At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
   };
 }
+
+/** Shares an equity option contract controls, for the premium at risk. */
+export const OPTION_CONTRACT_MULTIPLIER = 100;
+
+/**
+ * Never-failing rule 1 on a bought option (review finding F-04, 2026-10-21).
+ * The Q31 broker exception exempts options from the stop requirement, because
+ * no staged exit is placed on them; it never exempted them from rule 1. A
+ * bought option can lose its whole premium, so the premium paid is the risk,
+ * held to the same tenth of the trading unit (or of the profits) as a share.
+ */
+export function optionPremiumRefusal(input: {
+  capital: number;
+  symbol: string;
+  premium: number;
+  contracts: number;
+  profitCeiling?: number | null;
+}): CapitalRuleRefusal | null {
+  const perContract = Math.abs(input.premium) * OPTION_CONTRACT_MULTIPLIER;
+  const risk = Math.abs(input.contracts) * perContract;
+  const allowed = maxRiskForTrade(input.capital, input.profitCeiling ?? null);
+  if (risk <= allowed + 0.01) return null;
+  const room = perContract > 0 ? Math.floor(allowed / perContract + 1e-9) : 0;
+  return {
+    code: "risk_one_tenth",
+    error: `That option costs ${risk.toFixed(2)} in premium, all of it at risk, which is more than a tenth of this account's trading capital (${allowed.toFixed(2)}). At this premium at most ${room} ${input.symbol.toUpperCase()} contracts can be bought. Nothing was placed.`,
+  };
+}

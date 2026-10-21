@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { ScanRow } from "@/components/scan/results-table";
-import type { ScanDecision, ScoreBreakdownItem } from "@/lib/types";
+import type { PublicScoreSummary, ScanDecision, ScoreBreakdownItem } from "@/lib/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 
@@ -30,7 +30,10 @@ interface DailyScanRow {
     scannedAt?: string | null;
     currentPrice?: number | null;
     dayRange?: number | null;
+    /** Rows written before 2026-10-21 only; see `lib/scan/publish.ts`. */
     breakdown?: ScoreBreakdownItem[] | null;
+    scoreSummary?: PublicScoreSummary | null;
+    retired?: boolean | null;
     trends?: { timeframe: string; direction: string }[] | null;
     signal?: PublicSignalSummary | null;
   } | null;
@@ -72,7 +75,10 @@ function isInvalidated(r: DailyScanRow): boolean {
  * Rows published before `hasTradePlan` refused retired plans are still in the
  * table; this keeps them off every list that reads it.
  */
-export function isRetiredByScan(r: { detail?: { breakdown?: { key?: string; passed: boolean }[] | null } | null }): boolean {
+export function isRetiredByScan(r: {
+  detail?: { retired?: boolean | null; breakdown?: { key?: string; passed: boolean }[] | null } | null;
+}): boolean {
+  if (r.detail?.retired === true) return true;
   const breakdown = r.detail?.breakdown;
   return Array.isArray(breakdown) && breakdown.some((b) => b.key === "stopBreach" && !b.passed);
 }
@@ -85,6 +91,8 @@ export function isRetiredByScan(r: { detail?: { breakdown?: { key?: string; pass
  * was kept, or one whose stored breakdown carries no pillars.
  */
 function toScoreSummary(r: DailyScanRow): ScanRow["scoreSummary"] {
+  const stored = r.detail?.scoreSummary;
+  if (stored && Array.isArray(stored.pillars)) return stored.pillars.length > 0 ? stored : null;
   const breakdown = r.detail?.breakdown;
   if (!Array.isArray(breakdown) || breakdown.length === 0) return null;
   const decision: ScanDecision = {

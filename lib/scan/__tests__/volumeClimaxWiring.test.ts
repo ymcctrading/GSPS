@@ -51,7 +51,7 @@ describe("the scored volume rule's inputs", () => {
     expect(seen.opts.some((o) => o.asOf === asOf && o.monthly === monthly)).toBe(true);
   });
 
-  it("the live scan passes the scan's time and the monthly bars", async () => {
+  it("the live scan passes the session's noon and the monthly bars, as the replay does", async () => {
     process.env.MARKET_DATA_PROVIDER = "synthetic";
     await scanTicker("AAPL");
     expect(seen.opts.length).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe("the scored volume rule's inputs", () => {
     expect(seen.opts.every((o) => o.asOf instanceof Date)).toBe(true);
     expect(seen.opts.some((o) => Array.isArray(o.monthly) && o.monthly.length > 0)).toBe(true);
     // The scored reading is the scan's own; the confluence card's call carries the monthly bars too.
-    expect(readFileSync(path.resolve(__dirname, "../../scanTicker.ts"), "utf8")).toMatch(/computeVolumeClimax\(sessions, undefined, \{ asOf: new Date\(scannedAt\), monthly \}\)/);
+    expect(readFileSync(path.resolve(__dirname, "../../scanTicker.ts"), "utf8")).toMatch(/computeVolumeClimax\(sessions, undefined, \{ asOf: sessionNoon, monthly \}\)/);
   }, 30_000);
 
   it("the coarse pass, the confluence card and the context reading pass the session being read", () => {
@@ -73,7 +73,7 @@ describe("the scored volume rule's inputs", () => {
 
   it("holds a long on a standing breakdown after a lower top on the live scan and in the replay (A-VOLUME-03)", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
-    expect(src("scanTicker.ts")).toMatch(/const distributionStanding = readDistributionStanding\(sessions, new Date\(scannedAt\)\)/);
+    expect(src("scanTicker.ts")).toMatch(/const distributionStanding = readDistributionStanding\(sessions, sessionNoon\)/);
     expect(src("scanTicker.ts")).toMatch(/applyDistributionBreakdownHold\(applyMonthlyBreakHold\(/);
     expect(src("scanTicker.ts")).toMatch(/monthlyWarning, scoreDirection\), distributionStanding, scoreDirection\)/);
     expect(src("backtest/replay.ts")).toMatch(/applyDistributionBreakdownHold\(applyMonthlyBreakHold\(/);

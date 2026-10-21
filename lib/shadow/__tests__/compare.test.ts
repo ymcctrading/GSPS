@@ -72,8 +72,10 @@ describe("evaluateShadowDrift", () => {
         if (table === "shadow_signals") {
           return {
             select: () => ({
-              not: () => ({
-                gte: () => Promise.resolve({ data: rows, error: null }),
+              eq: () => ({
+                not: () => ({
+                  gte: () => Promise.resolve({ data: rows, error: null }),
+                }),
               }),
             }),
           };
@@ -114,8 +116,10 @@ describe("evaluateShadowDrift", () => {
     const client = {
       from: () => ({
         select: () => ({
-          not: () => ({
-            gte: () => Promise.resolve({ data: null, error: { message: "boom" } }),
+          eq: () => ({
+            not: () => ({
+              gte: () => Promise.resolve({ data: null, error: { message: "boom" } }),
+            }),
           }),
         }),
       }),

@@ -93,7 +93,7 @@ gsps/
    - Fetches historical bars (1m, 5m, timeframes)
    - Runs structural analysis (fans, geometric price levels, time cycles)
    - Runs pattern analysis (patterns, levels)
-   - Scores patterns (0-100 scale)
+   - Scores setups out of 9, one point per pillar of Gann's selection checks (`lib/scoring/pillars.ts`)
    - Returns signal with score and details
 5. **Database Storage**:
    - Scan results stored in Supabase
@@ -198,7 +198,7 @@ gsps/
 ### Scoring System
 
 **Signal Scoring** (`lib/scoring/score.ts`):
-- Scores patterns from 0-100
+- Scores setups out of 9 (nine pillars)
 - Weights by pattern type
 - Adjusts for trend alignment
 - Calculates risk/reward ratio

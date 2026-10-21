@@ -18,13 +18,14 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { buildJournalWorkbook, closedTrades, type JournalTrade } from "@/lib/journal/build-workbook";
 import { sendJournalEmail } from "@/lib/notifications/resend-handler";
 import { etDateKey } from "@/lib/market/session";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
     console.error("trade-journal: CRON_SECRET is not set — the scheduled digest cannot run");
     return NextResponse.json({ error: "CRON_SECRET is not configured on this deployment" }, { status: 503 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return sendDailyJournals();

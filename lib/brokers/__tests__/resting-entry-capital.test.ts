@@ -45,7 +45,15 @@ function fakeDb(seed: { orders: Row[]; positions: Row[]; cash: number }) {
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
       in: (c: string, v: unknown[]) => (filters.push((r) => v.includes(r[c])), q),
       update: (p: Row) => ((patch = p), q),
-      insert: async () => ({ error: null }),
+      insert: () => {
+        const done = { data: { id: `${table}-1` }, error: null };
+        const ins: Record<string, unknown> = {
+          select: () => ins,
+          maybeSingle: async () => done,
+          then: (ok: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(ok),
+        };
+        return ins;
+      },
       maybeSingle: async () => {
         const hit = rows()[0] ?? null;
         if (patch && hit) Object.assign(hit, patch);
@@ -100,6 +108,7 @@ const resting = (id: string, symbol: string, qty = 10): Row => ({
   qty,
   limit_price: 100,
   stop_price: 95,
+  take_profit: 110,
   asset_class: "us_equity",
   created_at: "2026-10-21T14:00:00Z",
 });
@@ -142,7 +151,7 @@ describe("evaluateRestingOrders: the capital rules at the fill", () => {
 
   it("never refuses a resting order that only reduces a position", async () => {
     prices.map = { MSFT: 101 };
-    const sell: Row = { ...resting("o-sell", "MSFT"), side: "sell", stop_price: null };
+    const sell: Row = { ...resting("o-sell", "MSFT"), order_type: "limit", side: "sell", stop_price: null, take_profit: null };
     const { client, db } = fakeDb({
       orders: [sell],
       positions: [position("MSFT"), position("NVDA"), position("XOM"), position("JPM"), position("KO")],

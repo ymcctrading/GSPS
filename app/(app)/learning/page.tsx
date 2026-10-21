@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { AttributionScope, BacktestReport } from "@/lib/backtest/run";
-import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/run";
+import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import type { WeightProposal } from "@/lib/backtest/propose-weights";
 import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
 

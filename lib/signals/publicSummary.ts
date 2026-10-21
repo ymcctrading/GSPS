@@ -10,6 +10,8 @@
 import type { Regime, RulesAlignmentTier, ScannerStateName, SignalVerdict } from "./types";
 import type { Direction, ScanResult } from "@/lib/types";
 import type { GannConfluenceResult, SaraConfluenceResult } from "./confluence/types";
+import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRulesEmpty";
+import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 
 export interface PublicSignalSummary {
   state: ScannerStateName;
@@ -89,6 +91,10 @@ export function redactSignalVerdict(verdict: SignalVerdict | null): SignalVerdic
     ...verdict,
     regime: { ...verdict.regime, reasons: [], disqualifiers: [] },
     alignment: { ...verdict.alignment, breakdown: [] },
+    // The engine's own plan (an entry a cent past the last bar, a target at
+    // the nearest cluster or 2R) is not Gann's: the Gann plan is the only plan
+    // a person is shown (review finding R-025, 2026-10-21).
+    plan: null,
   };
 }
 
@@ -100,7 +106,69 @@ export function redactSignalVerdict(verdict: SignalVerdict | null): SignalVerdic
  */
 function redactGannConfluence(result: GannConfluenceResult | null): GannConfluenceResult | null {
   if (!result) return result;
-  return { ...result, evidence: { ...result.evidence, inputs: {}, explanationTrace: [] } };
+  return {
+    ...result,
+    // The Square of Nine root, the vortex and slope readings, the coordinate
+    // ledger and the dated time-count lists are the method's working: no
+    // screen draws them (the card reads only the counts' active flags), and
+    // the dates have no measured record (R-024).
+    root: null,
+    timeCycleDates: [],
+    timeCycleFixedCalendarDates: [],
+    squareOf52: { ...result.squareOf52, dates: [] },
+    angleMonthCounts: { ...result.angleMonthCounts, dates: [] },
+    vortexContext: { priceDisplacement: null, timeDisplacement: null, priceVortexClass: null, timeVortexClass: null, relationship: null, transition: null },
+    angleSlope: null,
+    coordinateLedger: [],
+    // A fan line's time target is a dated forward label with no measured record (R-024).
+    nearestFanLine: result.nearestFanLine ? { ...result.nearestFanLine, timeProjectionDate: null } : null,
+    disclosedRules: redactDisclosedRules(result.disclosedRules),
+    evidence: { ...result.evidence, inputs: {}, explanationTrace: [] },
+  };
+}
+
+/**
+ * The readings the confluence card draws (`components/scan/confluence-card.tsx`,
+ * `DisclosedRuleTiles`). Every other reading stays on the server: the
+ * astrology and Jensen readings, the time counts and grids no tile shows, and
+ * the dated forward labels (the next change date and the swing projection),
+ * which have no measured record ("Forward-looking claims"; review finding
+ * R-024, 2026-10-21). A key added here is a reading sent to the browser.
+ */
+const CARD_RULE_KEYS = [
+  "accumulation",
+  "barMidpoint",
+  "campaign",
+  "circle",
+  "counterMove",
+  "cycleRangeBreak",
+  "dayCircle",
+  "dayCountBands",
+  "extremes",
+  "firstRally",
+  "leadership",
+  "levelTests",
+  "masterCalculator",
+  "multipleTops",
+  "planetary",
+  "pricePercentages",
+  "ruleOfThree",
+  "seasonal",
+  "sharesPerPoint",
+  "squareOfNineTime",
+  "timeAngle",
+  "timeRules",
+  "yearFraction",
+  "zone",
+] as const satisfies readonly (keyof DisclosedRulesContext)[];
+
+export function redactDisclosedRules(rules: DisclosedRulesContext | undefined): DisclosedRulesContext {
+  if (!rules) return EMPTY_DISCLOSED_RULES;
+  const out: DisclosedRulesContext = { ...EMPTY_DISCLOSED_RULES, asOf: rules.asOf };
+  const write = out as unknown as Record<string, unknown>;
+  for (const key of CARD_RULE_KEYS) write[key] = rules[key];
+  out.timing = { alternation: rules.timing?.alternation ?? null, square144: rules.timing?.square144 ?? null, projection: null, changeDates: null };
+  return out;
 }
 
 function redactSaraConfluence(result: SaraConfluenceResult | null): SaraConfluenceResult | null {

@@ -18,7 +18,6 @@ import {
 import { buildBlendedPositions, type RawPosition } from "@/lib/portfolio/blend";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import type { OpenedAt } from "@/lib/portfolio/opened-at";
-import { pruneClosedPositions } from "@/lib/portfolio/prune";
 import { manageSimulatedExits } from "@/lib/trade/exit-manager-sim";
 
 export async function GET() {
@@ -45,16 +44,6 @@ export async function GET() {
       }),
     );
     if (exits.error) console.error(`portfolio: exit management — ${exits.error}`);
-
-    // A closed position has nothing left to show once it's more than 24
-    // hours old — see lib/portfolio/prune.ts.
-    const prune = await pruneClosedPositions(supabase, user.id).catch(
-      (err): { deleted: number; error: string | null } => ({
-        deleted: 0,
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
-    if (prune.error) console.error(`portfolio: closed-position prune — ${prune.error}`);
 
     const [account, positionRows, livePositionRows] = await Promise.all([
       getOrCreateAccount(supabase, user.id),

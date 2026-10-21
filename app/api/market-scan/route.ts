@@ -20,6 +20,7 @@ import type { ScanResult } from "@/lib/types";
 import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 /**
  * scan_executions.source for this route's own per-profile monitor fan-out.
@@ -280,7 +281,7 @@ export async function GET(req: NextRequest) {
       { status: 503 },
     );
   }
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return runAndPersist({ fanOutToProfiles: true });

@@ -16,10 +16,8 @@ import {
   formatAge,
   formatRvol,
   formatVolume,
-  type Alert,
-  type ScanOutput,
-  type SymbolAudit,
-} from "@/lib/scanner/intraday";
+} from "@/lib/scanner/intradayDisplay";
+import type { Alert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
 import { buildIntradayCardModel, isReversalRisk } from "@/lib/setups/intraday";
 import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";

@@ -25,8 +25,10 @@ import { formatUsd } from "@/lib/utils";
  * card matches what they can see on the chart.
  */
 export function reasonLine(result: ScanResult): string {
-  const { pattern, levels, setupKind, momentumElevated } = result;
-  if (!pattern || !levels) return "A setup is armed, but its trade plan hasn't priced yet.";
+  const { levels, setupKind, momentumElevated } = result;
+  // The plan's levels come from Gann's trigger alone since 2026-09-17; the
+  // bar-sequence pattern is display only and is often null on a priced plan.
+  if (!levels) return "A setup is armed, but its trade plan hasn't priced yet.";
 
   const trigger = formatUsd(levels.entry);
   // Four sentences rather than one with the direction words swapped: a short

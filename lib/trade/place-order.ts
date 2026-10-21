@@ -45,7 +45,7 @@ import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
-import { capitalRuleRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { capitalRuleRefusal, optionPremiumRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
 import { withOrderLock } from "@/lib/trade/order-lock";
 import { readProfitCeiling } from "@/lib/risk/profitPeak";
 import { paperTradingUnit } from "@/lib/trade/resting-entry-guard";
@@ -515,8 +515,26 @@ async function placeChecked(
     const bookSymbols = new Set([...openPositions.map((p) => p.symbol.toUpperCase()), ...working.map((w) => w.symbol)]);
     const candidateJoinsExistingGroup = bookSymbols.has(candidateSymbol);
     const correlatedGroups = bookSymbols.size;
-    const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
-    if (equity > 0 && referencePrice != null) {
+    // The ceilings read a price the server knows (review finding F-01,
+    // 2026-10-21). A limit is the most the order pays; a market order is
+    // read at the live quote it will fill at, never the price the browser
+    // sent, and is refused when no quote can be read, so no ceiling is ever
+    // skipped for want of a price.
+    const referencePrice =
+      input.limitPrice ??
+      (input.assetClass === "option"
+        ? input.optionDetail?.premium ?? (await quoteOptionPrice(input.symbol)) ?? null
+        : await quotePrice(input.symbol, assetClassOf(input.symbol)));
+    if (referencePrice == null || !(referencePrice > 0)) {
+      return {
+        status: 503,
+        body: {
+          error: `No live price for ${input.symbol.toUpperCase()} right now, so the risk limits can't be checked. Nothing was placed.`,
+          code: "no_reference_price",
+        },
+      };
+    }
+    if (equity > 0) {
       const newPositionNotionalUsd = referencePrice * input.qty;
       const newPositionRiskUsd = input.attachLevels
         ? Math.abs(referencePrice - input.attachLevels.stopLoss) * input.qty
@@ -548,8 +566,8 @@ async function placeChecked(
       const refusal = capitalRuleRefusal({
         capital: equity > 0 ? equity : 0,
         symbol: candidateSymbol,
-        price: referencePrice ?? 0,
-        qty: referencePrice == null ? 0 : input.qty,
+        price: referencePrice,
+        qty: input.qty,
         open: [
           ...openPositions
             .filter((p) => p.asset_class !== "option")
@@ -568,6 +586,18 @@ async function placeChecked(
       const ceiling = await readProfitCeiling(supabase, userId, "paper", Math.max(equity, 0));
       const tenth = tenthRefusal(unit, candidateSymbol, referencePrice, input, ceiling);
       if (tenth) return tenth;
+    } else if (input.side === "buy") {
+      // A bought option risks its premium (`optionPremiumRefusal`).
+      const unit = paperTradingUnit(equity, run);
+      const ceiling = await readProfitCeiling(supabase, userId, "paper", Math.max(equity, 0));
+      const refusal = optionPremiumRefusal({
+        capital: unit,
+        symbol: candidateSymbol,
+        premium: referencePrice,
+        contracts: input.qty,
+        profitCeiling: ceiling,
+      });
+      if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
     }
   }
 
@@ -1101,8 +1131,18 @@ async function placeLiveOrder(
     const deployedUsd = brokerPositions.reduce((sum, p) => sum + Math.abs(Number(p.market_value) || 0), 0);
     const heldSymbols = new Set(brokerPositions.map((p) => p.symbol.toUpperCase()));
     const candidateJoinsExistingGroup = heldSymbols.has(input.symbol.toUpperCase());
-    const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
-    if (referencePrice != null) {
+    // A price the server knows, as on paper (review finding F-01).
+    const referencePrice = input.limitPrice ?? (await quotePrice(input.symbol, assetClassOf(input.symbol)));
+    if (referencePrice == null || !(referencePrice > 0)) {
+      return {
+        status: 503,
+        body: {
+          error: `No live price for ${input.symbol.toUpperCase()} right now, so the risk limits can't be checked. Nothing was placed.`,
+          code: "no_reference_price",
+        },
+      };
+    }
+    {
       const entitlements = await getUserEntitlementPolicy(supabase, userId);
       const verdict = checkPositionLimits({
         equity,
@@ -1128,8 +1168,8 @@ async function placeLiveOrder(
     const refusal = capitalRuleRefusal({
       capital: equity > 0 ? equity : 0,
       symbol: input.symbol,
-      price: referencePrice ?? 0,
-      qty: referencePrice == null ? 0 : input.qty,
+      price: referencePrice,
+      qty: input.qty,
       open: brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
     });
     if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };

@@ -229,4 +229,17 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("backtest/replay.ts")).toMatch(/pillarFacts: context\.pillarFacts,\n\s+\.\.\.\(weights/);
     expect(src("backtest/replay.ts")).toMatch(/setupKind, \(\) => context\.windowTurn\(gannTrigger\.direction\)\)/);
   });
+
+  it("reads every dated read at the session's noon UTC on the live scan, as the replay does (F-03)", () => {
+    // After 8 PM New York time the wall clock's UTC date is tomorrow, and on a
+    // month's last evening it reads the month in progress as closed.
+    const src = readFileSync(path.resolve(__dirname, "../../", "scanTicker.ts"), "utf8");
+    expect(src).toMatch(/const sessionNoon = new Date\(`\$\{sessionDay\}T12:00:00Z`\);/);
+    expect(src).not.toMatch(/asOf: new Date\(scannedAt\)/);
+    expect(src).toMatch(/readDisclosedRules\(charts\.daily, currentPrice, instrumentFacts, sessionNoon, new Date\(\)\)/);
+    for (const read of ["readCampaignBottoms", "gannMasterLevels", "readDistributionStanding"]) {
+      const call = src.slice(src.indexOf(`${read}(`), src.indexOf(`${read}(`) + 160);
+      expect(call).toMatch(/sessionNoon\)/);
+    }
+  });
 });

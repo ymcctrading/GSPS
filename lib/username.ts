@@ -1,6 +1,6 @@
 /**
  * Username format, shared between the username-login lookup
- * (`app/api/auth/resolve-username`) and `profiles.username`'s own check
+ * (`app/api/auth/username-login`) and `profiles.username`'s own check
  * constraint (migration `0020`). Kept as one source rather than two so they
  * can't drift — a route that accepts something the database constraint
  * would reject just means every real username still passes and nothing was

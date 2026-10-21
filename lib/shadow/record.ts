@@ -90,12 +90,34 @@ export async function recordShadowSignals(
 
   if (rows.length === 0) return { recorded: 0 };
 
+  // The scheduled scans run several times a day and re-find the same plan,
+  // so a plan still being walked is recorded once: a repeat on the same
+  // version, symbol, side, entry and stop is the same call, not a new one
+  // (MU's 900.05/1003 short was counted four times on 2026-10-12). Best
+  // effort: if the read fails, record as before.
+  const open = new Set<string>();
+  const key = (r: { symbol: string; direction: string; entry: number; stop_loss: number }) =>
+    `${r.symbol}|${r.direction}|${Number(r.entry)}|${Number(r.stop_loss)}`;
+  try {
+    const { data } = await supabase
+      .from("shadow_signals")
+      .select("symbol, direction, entry, stop_loss")
+      .eq("strategy_version", STRATEGY_VERSION)
+      .is("outcome", null)
+      .in("symbol", [...new Set(rows.map((r) => r.symbol))]);
+    for (const r of (data ?? []) as { symbol: string; direction: string; entry: number; stop_loss: number }[]) open.add(key(r));
+  } catch {
+    // Read failed or unsupported: fall through and rely on the unique index.
+  }
+  const fresh = rows.filter((r) => !open.has(key(r)));
+  if (fresh.length === 0) return { recorded: 0 };
+
   const { error } = await supabase
     .from("shadow_signals")
-    .upsert(rows, { onConflict: "symbol,scanned_at", ignoreDuplicates: true });
+    .upsert(fresh, { onConflict: "symbol,scanned_at", ignoreDuplicates: true });
   if (error) {
     console.error(`shadow: signal recording failed — ${error.message}`);
     return { recorded: 0 };
   }
-  return { recorded: rows.length };
+  return { recorded: fresh.length };
 }

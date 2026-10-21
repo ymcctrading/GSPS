@@ -197,7 +197,7 @@ export async function updateProtocolExit(
 
   const { data: existing } = await supabase
     .from("protocol_exits")
-    .select("id, stop_loss, take_profit_1, master_profit, qty")
+    .select("id, stop_loss, applied_stop, take_profit_1, master_profit, qty")
     .eq("user_id", userId)
     .eq("symbol", symbol)
     .eq("mode", "paper")
@@ -232,7 +232,11 @@ export async function updateProtocolExit(
         body: { error: "The stop-loss can only be adjusted once the trade is in profit." },
       };
     }
-    const currentStop = existing.stop_loss as number | null;
+    // The stop in force is the one the exit manager has trailed to
+    // (`applied_stop`), not the plan's first stop: a new stop is measured
+    // against it, so an edit can never loosen a stop the rules already moved
+    // up (review finding R-008).
+    const currentStop = (existing.applied_stop as number | null) ?? (existing.stop_loss as number | null);
     if (currentStop != null) {
       const tightened = isLong ? input.stopLoss >= currentStop : input.stopLoss <= currentStop;
       if (!tightened) {
@@ -306,8 +310,9 @@ export async function updateProtocolExit(
       scale_out_qty: exitPlan.scaleOutQty,
       master_qty: exitPlan.masterQty,
       runner_qty: exitPlan.runnerQty,
-      applied_stop: newStop,
-      applied_stop_reason: input.stopLoss != null ? "manual" : undefined,
+      // Only a new stop moves the stop in force; editing a target alone
+      // leaves the trailed stop where the rules put it (R-008).
+      ...(input.stopLoss != null ? { applied_stop: newStop, applied_stop_reason: "manual" } : {}),
     })
     .eq("id", existing.id);
   if (error) {
