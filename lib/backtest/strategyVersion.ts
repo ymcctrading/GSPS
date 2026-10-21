@@ -624,4 +624,15 @@
 // through gannMasterLevels (lib/gann/squareOfNinePrice.ts), live and replay
 // alike; the 22.5° lines are left out. historicalSR, stops and targets read
 // it, so verdicts and plans move.
-export const STRATEGY_VERSION = "2026-10-21-gann-nine-square-price";
+// 2026-10-21-gann-held-old-level: the historicalSR check (P5's old-level
+// half) passes when the last reaction stopped at an old level and held, not
+// when a level sits near price (W006 p.20, Rule 3(b)-(c); *Truth of the Stock
+// Tape*). For a long, the lowest low of the last 10 completed sessions printed
+// from 3 Gann points under an old support to 1 over it, at least 2 sessions
+// ago, with no close since 3 points through it; the short mirrors it. Old
+// levels are the weekly and monthly pivots, the percentage levels, the
+// campaign bottoms and the secondary turn (lib/gann/heldLevel.ts,
+// lib/scan/structuralLevels.ts, one builder for both surfaces). The S/R list,
+// stops, TP1 and MTP are unchanged. Random walks: 98-100% passing before,
+// 27-50% after. Scores and verdicts move, live and replay alike.
+export const STRATEGY_VERSION = "2026-10-21-gann-held-old-level";

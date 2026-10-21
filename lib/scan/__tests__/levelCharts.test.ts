@@ -94,8 +94,10 @@ describe("both surfaces read their levels from the level charts", () => {
       expect(src).toMatch(/computeFanLines\(charts\.daily, /);
       expect(src).toMatch(/recentSquareOf9Levels\(charts\.daily, /);
       expect(src).toMatch(/computeRetracementLevels\(charts\.daily, /);
-      expect(src).toMatch(/majorPricePercentageLevels\(\[\.\.\.(charts\.)?monthly, \.\.\.charts\.daily\]\)/);
+      // The percentage levels are read inside buildStructuralLevels (below) since 2026-10-21.
+      expect(src).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,/);
     }
+    expect(fs.readFileSync("lib/scan/structuralLevels.ts", "utf8")).toMatch(/majorPricePercentageLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\]\)/);
     expect(live).toMatch(/readTrend\(charts\.monthly, "1Month"\)/);
     expect(live).toMatch(/readTrend\(charts\.weekly, "1Week"\)/);
     expect(live).toMatch(/dailyBars: charts\.daily,/);

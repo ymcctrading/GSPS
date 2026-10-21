@@ -101,11 +101,15 @@ describe("the nine pillars on the live scan and the replay", () => {
     const replayIn = seen.facts.at(-1)!.input as FactsInput;
     expect(replayIn.daily).toEqual(liveIn.daily);
     expect(replayIn.monthly).toEqual(liveIn.monthly);
+    // historicalSR's old levels (2026-10-21): the same pool, from the one builder.
+    expect(liveIn.oldLevels.length).toBeGreaterThan(0);
+    expect(replayIn.oldLevels).toEqual(liveIn.oldLevels);
     // The weekly and monthly trends, read off the same charts (2026-10-20).
     const liveScoreIn = liveScore!.input as ScoreInputs;
     expect(context.macroTrends).toEqual(liveScoreIn.macroTrends.slice(0, 3));
     expect(context.ruleOfThreeWeekly).toEqual(liveScoreIn.ruleOfThreeWeekly);
     expect(context.ruleOfThreeMonthly).toEqual(liveScoreIn.ruleOfThreeMonthly);
+    expect(context.pillarFacts.heldLevels).toEqual(liveFacts.heldLevels);
     expect(context.pillarFacts).toEqual(liveFacts);
 
     // The same score from either surface's facts.
@@ -171,7 +175,12 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(input.atrPct).toBe(context.atrPct);
     expect(input.nearSupportResistance).toBe(context.nearSupportResistance);
     // The S/R level of the score's own role, picked the same way (2026-10-21).
-    expect(input.srMatch).toEqual(srMatchForSide(context.srMatches, input.direction));    // The monthly, weekly and daily trends are read off the same level charts
+    expect(input.srMatch).toEqual(srMatchForSide(context.srMatches, input.direction));
+    // historicalSR's held level (2026-10-21), on the completed sessions only:
+    // the unclosed bar's wide low does not count as the reaction's low.
+    expect((liveFacts.output as PillarFacts).heldLevels).toEqual(context.pillarFacts.heldLevels);
+    expect(liveIn.oldLevels).toEqual((seen.facts.at(-1)!.input as FactsInput).oldLevels);
+    // The monthly, weekly and daily trends are read off the same level charts
     // on both: the provider's closed months and weeks, with the bar in
     // progress built from completed sessions (2026-10-20). Before this the
     // replay rolled its weeks up from daily bars and read a different chart.
@@ -221,7 +230,8 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("scanTicker.ts")).toMatch(/universe: assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
     expect(src("scanTicker.ts")).toMatch(/\n\s+pillarFacts,\n\s+\}\), breakaway\)/);
     expect(src("scanTicker.ts")).toMatch(/\n\s+setupKind,\n\s+windowTurn,\n/);
-    expect(src("backtest/replay.ts")).toMatch(/universe: instrument\?\.universe \?\? null, price, asOf \}\)/);
+    expect(src("backtest/replay.ts")).toMatch(/universe: instrument\?\.universe \?\? null, oldLevels: structural\.old, price, asOf \}\)/);
+    expect(src("scanTicker.ts")).toMatch(/\n\s+oldLevels: structural\.old,\n\s+price: currentPrice,/);
     expect(src("backtest/replay.ts")).toMatch(/universe: universeStrength && assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
     // Both replay paths hand the replay the universe's months (S6).
     expect(src("backtest/run.ts")).toMatch(/replaySeriesOptions\(series, market, universeStrength\)/);
@@ -232,11 +242,14 @@ describe("the nine pillars on the live scan and the replay", () => {
 
   it("puts gannMasterLevels (the 144 square, planetary, angles, Jensen, nine-square crosses) into the S/R list on both surfaces", () => {
     // The Square of Nine's cross numbers (C-LEVELS-15, 2026-10-21) are added
-    // inside gannMasterLevels, so one call on each surface carries them.
+    // inside gannMasterLevels, so one call carries them. Since 2026-10-21 both
+    // surfaces build the list through buildStructuralLevels (one call each).
     const live = readFileSync(path.resolve(__dirname, "../../", "scanTicker.ts"), "utf8");
     const replay = readFileSync(path.resolve(__dirname, "../../", "backtest/replay.ts"), "utf8");
-    expect(live).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, currentPrice, sessionNoon\)/);
-    expect(replay).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf\)/);
+    const shared = readFileSync(path.resolve(__dirname, "../../", "scan/structuralLevels.ts"), "utf8");
+    expect(shared).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf\)/);
+    expect(live).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: campaignLedger,\n\s+price: currentPrice,\n\s+asOf: sessionNoon,/);
+    expect(replay).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: disclosedRules\.campaign,\n\s+price,\n\s+asOf,/);
     const master = readFileSync(path.resolve(__dirname, "../../", "gann/masterLevels.ts"), "utf8");
     expect(master).toMatch(/squareOfNinePriceLevels\(price, unit\)/);
   });
@@ -248,7 +261,8 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src).toMatch(/const sessionNoon = new Date\(`\$\{sessionDay\}T12:00:00Z`\);/);
     expect(src).not.toMatch(/asOf: new Date\(scannedAt\)/);
     expect(src).toMatch(/readDisclosedRules\(charts\.daily, currentPrice, instrumentFacts, sessionNoon, new Date\(\)\)/);
-    for (const read of ["readCampaignBottoms", "gannMasterLevels", "readDistributionStanding"]) {
+    // readCampaignBottoms and gannMasterLevels run inside buildStructuralLevels, handed sessionNoon (above).
+    for (const read of ["readDistributionStanding"]) {
       const call = src.slice(src.indexOf(`${read}(`), src.indexOf(`${read}(`) + 160);
       expect(call).toMatch(/sessionNoon\)/);
     }

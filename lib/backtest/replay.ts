@@ -64,7 +64,6 @@ import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
-import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
@@ -78,11 +77,12 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
+import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
-import { readMonthlyBreakWarning, secondaryTurnLevels, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import {
   GANN_EXIT_RULE_NAMES,
@@ -124,12 +124,10 @@ import { computeRetracementLevels } from "@/lib/gann/retracement";
 import { priceTimeConfluence } from "@/lib/gann/digitalRoot";
 import { computeCampaignLeg, computeSwingChart, type CampaignLegReading, type SwingChartReading } from "@/lib/gann/swingChart";
 import {
-  majorPricePercentageLevels,
   readDisclosedRules,
   type DisclosedRulesContext,
   type InstrumentFacts,
 } from "@/lib/gann/disclosedRules";
-import { gannMasterLevels } from "@/lib/gann/masterLevels";
 import { splitAdjustedSharesAsOf, type SharesPoint } from "@/lib/data/instrumentReference";
 import type { Inception } from "@/lib/gann/incorporationCycle";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
@@ -811,25 +809,15 @@ export function buildMacroContext(
 
   // Read before the levels: its campaign ledger supplies the secondary turn.
   const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
-  const allLevels = [
-    ...dailyTrend.support.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
-    ...dailyTrend.resistance.map((p) => ({ price: p, timeframe: dailyTrend.timeframe })),
-    ...weeklyTrend.support.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
-    ...weeklyTrend.resistance.map((p) => ({ price: p, timeframe: weeklyTrend.timeframe })),
-    ...monthlyTrend.support.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
-    ...monthlyTrend.resistance.map((p) => ({ price: p, timeframe: monthlyTrend.timeframe })),
-    // Mirrors lib/scanTicker.ts: Gann's major percentage-of-price levels.
-    ...majorPricePercentageLevels([...monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
-    // Mirrors lib/scanTicker.ts: the old campaign bottoms (A-LEVELS-03).
-    ...campaignSupportLevels(readCampaignBottoms(charts.monthly, charts.daily, asOf), price).map((p) => ({ price: p, timeframe: "1Month" as const })),
-    // Mirrors lib/scanTicker.ts: the campaign's secondary turn (A-LEVELS-02).
-    ...secondaryTurnLevels(disclosedRules.campaign).map((p) => ({ price: p, timeframe: "1Week" as const })),
-    // Mirrors lib/scanTicker.ts: the Square of 144 squares and the planetary averages.
-    ...gannMasterLevels([...monthly, ...charts.daily], charts.daily, price, asOf).map((l) => ({
-      price: l.price,
-      timeframe: "1Month" as const,
-    })),
-  ];
+  // Mirrors lib/scanTicker.ts: one builder (lib/scan/structuralLevels.ts).
+  const structural = buildStructuralLevels({
+    trends: { daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend },
+    charts,
+    campaign: disclosedRules.campaign,
+    price,
+    asOf,
+  });
+  const allLevels = structural.all;
   const recentAtr = atr(daily.slice(-20), 14);
   const baselineAtr = atr(daily.slice(-100, -20), 14);
   const atrPct = atrPercentOfPrice(recentAtr, price);
@@ -880,7 +868,7 @@ export function buildMacroContext(
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules,
-    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, price, asOf }),
+    pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, oldLevels: structural.old, price, asOf }),
     windowTurn: (direction) => {
       if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
       return windowTurns.get(direction) ?? null;
