@@ -64,7 +64,8 @@ async function secGet(url) {
       await sleep(2000 * 2 ** attempt);
       continue;
     }
-    throw new Error(`${url}: HTTP ${res.status}`);
+    const why = (await res.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+    throw new Error(`${url}: HTTP ${res.status}: ${why}`);
   }
   throw new Error(`${url}: gave up after retries`);
 }

@@ -6,6 +6,7 @@ import {
   readUniverseRank,
   strengthPosition,
 } from "@/lib/gann/universeStrength";
+import { buildGroupMap } from "@/lib/gann/industryGroups";
 import type { Bar } from "@/lib/types";
 
 /** Monthly bars from Jan 2025, each a 2-point range around `mid(i)`, closing at `close(i)`. */
@@ -75,6 +76,36 @@ describe("the relative strength rank among the universe (S6)", () => {
     const short = new Map([...full].map(([s, bars]) => [s, bars.slice(6)]));
     const month = new Date(Date.UTC(2025, n + 6, 15)).toISOString().slice(0, 7);
     expect(buildUniverseStrength(short).get(month)).toEqual(buildUniverseStrength(full).get(month));
+  });
+
+  it("ranks a stock within its industry group as well (S4)", () => {
+    const u = buildUniverseStrength(universe(200, n));
+    // Five members of one group, S195..S199 (the universe's strongest), and five of another, S0..S4.
+    const sics: Record<string, { sic: string; description: string }> = {};
+    for (let k = 195; k < 200; k++) sics[`S${k}`] = { sic: "3711", description: "MOTOR VEHICLES" };
+    for (let k = 0; k < 5; k++) sics[`S${k}`] = { sic: "2911", description: "PETROLEUM REFINING" };
+    const groups = buildGroupMap(sics);
+    // The weakest of the strong group: strongest quarter of the universe, weakest of its group.
+    const r = readUniverseRank("S195", null, readAt, u, groups)!;
+    expect(r.strongest).toBe(true);
+    expect(r.group).toMatchObject({ key: "371", peers: 4, percentile: 0, weakest: true, strongest: false });
+    // The strongest of the weak group.
+    const w = readUniverseRank("S4", null, readAt, u, groups)!;
+    expect(w.weakest).toBe(true);
+    expect(w.group).toMatchObject({ key: "291", strongest: true });
+    // No group, or too small a group: no group reading.
+    expect(readUniverseRank("S100", null, readAt, u, groups)!.group).toBeNull();
+    expect(buildGroupMap({ A: { sic: "3711", description: "" }, B: { sic: "3711", description: "" } }).size).toBe(0);
+  });
+
+  it("falls back to the two-digit major group when the industry group is small", () => {
+    const sics: Record<string, { sic: string; description: string }> = {
+      A: { sic: "3711", description: "" }, B: { sic: "3713", description: "" }, C: { sic: "3720", description: "" },
+      D: { sic: "3730", description: "" }, E: { sic: "3740", description: "" },
+    };
+    const g = buildGroupMap(sics);
+    expect(g.get("A")?.key).toBe("37");
+    expect(g.get("C")?.key).toBe("37");
   });
 
   it("reads nothing on too few peers, or with no universe", () => {
