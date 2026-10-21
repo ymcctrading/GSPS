@@ -6,9 +6,10 @@ name: Fetch industry groups (manual)
 # back as the `industry-groups-<run id>` artifact and printed between
 # BEGIN/END markers in the log, to be reviewed and committed by hand.
 #
-# SEC asks for a User-Agent with a contact: set the SEC_USER_AGENT repository
-# secret to one ("Name contact@example.com"); without it the repository's
-# address is sent.
+# SEC asks for a User-Agent with a contact email and refuses one without
+# (HTTP 403). The SEC_USER_AGENT repository secret ("Name contact@example.com")
+# is used when set; otherwise the repository owner's public GitHub noreply
+# address.
 
 on:
   workflow_dispatch:
@@ -27,7 +28,7 @@ jobs:
           node-version: '20'
       - name: Fetch SIC codes
         env:
-          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'GSPS research https://github.com/ymcctrading/GSPS' }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'GSPS research 304179280+ymcctrading@users.noreply.github.com' }}
         run: node scripts/fetch-industry-groups.mjs --out out/industryGroups.json
       - name: Print the file
         if: always()
