@@ -19,8 +19,9 @@ name: Autonomous Portfolio Manager
 # (lib/lifecycle/armFromBars.ts), then activates them. Four looks a day missed
 # most plans: a plan's window is only a few session bars long.
 on:
-  schedule:
-    - cron: '*/15 13-21 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

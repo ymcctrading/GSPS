@@ -27,17 +27,17 @@ import {
   getOrCreateAccount,
   isTriggered,
   listOpenPositions,
+  listWorkingPaperEntries,
   logPlainClose,
   quoteOptionPrice,
   quotePrice,
-  STARTING_CASH,
 } from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
-import { evaluateLiveCircuitBreaker, countLiveEntriesOpenedToday } from "@/lib/risk/service";
+import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
 import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
@@ -46,7 +46,9 @@ import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
 import { capitalRuleRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { withOrderLock } from "@/lib/trade/order-lock";
 import { readProfitCeiling } from "@/lib/risk/profitPeak";
+import { paperTradingUnit } from "@/lib/trade/resting-entry-guard";
 import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
@@ -395,6 +397,20 @@ export async function placeSimulatedOrder(
     };
   }
 
+  // One new entry at a time per account (F-05, lib/trade/order-lock.ts): the
+  // capital checks below read the book and the write follows, so a second
+  // entry waits until the first is written. A protective order never waits.
+  if (isProtective) return placeChecked(supabase, userId, input, isProtective);
+  return withOrderLock(supabase, userId, () => placeChecked(supabase, userId, input, isProtective));
+}
+
+/** The rest of `placeSimulatedOrder`, once the halt and the stop are settled. */
+async function placeChecked(
+  supabase: SupabaseClient,
+  userId: string,
+  input: OrderInput,
+  isProtective: boolean,
+): Promise<PlacedOrder> {
   // A-EXIT-05: inside the trader's away window a new entry comes back with
   // the close-out reminder (lib/trade/away-notice.ts). Never on a protective order.
   const awayNotice = isProtective ? null : await readAwayNotice(supabase, userId);
@@ -404,7 +420,7 @@ export async function placeSimulatedOrder(
   }
 
   // Pro intraday module entry gates (lib/promotion/pro-intraday.ts's
-  // `canEnterNewIntradayPosition`): entry/day, concurrent-position,
+  // `canEnterNewIntradayPosition`): concurrent-position (no count a day, Q8),
   // consecutive-loss, and daily-loss-lock. That function has existed since
   // the Novice-to-Pro tier promotion work with no caller — nothing tagged an
   // order as intraday-sourced. `intradaySourced` (set only by the intraday
@@ -475,15 +491,30 @@ export async function placeSimulatedOrder(
       getUserEntitlementPolicy(supabase, userId),
       readWinningRun(supabase, userId),
     ]);
-    const deployedUsd = openPositions.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
-    const openRiskUsd = openPositions.reduce(
-      (sum, p) => sum + (p.stop_loss == null ? 0 : Math.abs(p.avg_entry_price - p.stop_loss) * p.qty),
-      0,
-    );
-    const equity = account.cash + deployedUsd;
+    // Resting entries the market has not reached are part of the book they
+    // will join (review 2026-10-21, #376): without them two resting limits
+    // each passed alone and together could open a sixth stock. They add to
+    // the deployed and at-risk figures, not to the equity, since their cash
+    // is still in the account. Fails closed when they can't be read.
+    const working = await listWorkingPaperEntries(supabase, userId, openPositions);
+    if (working == null) {
+      return {
+        status: 503,
+        body: { error: "This account's resting orders couldn't be read, so the order wasn't checked. Nothing was placed.", code: "book_unreadable" },
+      };
+    }
+    const positionsUsd = openPositions.reduce((sum, p) => sum + p.qty * p.avg_entry_price, 0);
+    const deployedUsd = positionsUsd + working.reduce((sum, w) => sum + w.qty * w.price, 0);
+    const openRiskUsd =
+      openPositions.reduce(
+        (sum, p) => sum + (p.stop_loss == null ? 0 : Math.abs(p.avg_entry_price - p.stop_loss) * p.qty),
+        0,
+      ) + working.reduce((sum, w) => sum + (w.stop == null ? 0 : Math.abs(w.price - w.stop) * w.qty), 0);
+    const equity = account.cash + positionsUsd;
     const candidateSymbol = input.symbol.toUpperCase();
-    const candidateJoinsExistingGroup = openPositions.some((p) => p.symbol === candidateSymbol);
-    const correlatedGroups = new Set(openPositions.map((p) => p.symbol)).size;
+    const bookSymbols = new Set([...openPositions.map((p) => p.symbol.toUpperCase()), ...working.map((w) => w.symbol)]);
+    const candidateJoinsExistingGroup = bookSymbols.has(candidateSymbol);
+    const correlatedGroups = bookSymbols.size;
     const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
     if (equity > 0 && referencePrice != null) {
       const newPositionNotionalUsd = referencePrice * input.qty;
@@ -519,18 +550,19 @@ export async function placeSimulatedOrder(
         symbol: candidateSymbol,
         price: referencePrice ?? 0,
         qty: referencePrice == null ? 0 : input.qty,
-        open: openPositions
-          .filter((p) => p.asset_class !== "option")
-          .map((p) => ({ symbol: p.symbol, qty: p.qty, price: p.avg_entry_price })),
+        open: [
+          ...openPositions
+            .filter((p) => p.asset_class !== "option")
+            .map((p) => ({ symbol: p.symbol, qty: p.qty, price: p.avg_entry_price })),
+          ...working.map((w) => ({ symbol: w.symbol, qty: w.qty, price: w.price })),
+        ],
       });
       if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
       // Never-failing rule 1: at most a tenth of the trading unit at risk on
       // this trade (lib/risk/gannCapital.ts). The unit is the capital the risk
       // rate reads (A-RISK-04); with no win history readable, the starting
       // capital or the equity, whichever is less, as Guided reads it.
-      const unit = run
-        ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: STARTING_CASH, ...run }).capital
-        : Math.min(Math.max(equity, 0), STARTING_CASH);
+      const unit = paperTradingUnit(equity, run);
       // A-RISK-07: after large profits, a tenth of the profits at most too,
       // still after a loss (lib/risk/profitPeak.ts).
       const ceiling = await readProfitCeiling(supabase, userId, "paper", Math.max(equity, 0));
@@ -997,14 +1029,7 @@ async function placeLiveOrder(
     };
   }
 
-  const newPositionsOpenedToday = await countLiveEntriesOpenedToday(supabase, userId);
-  const gate = await evaluateLiveCircuitBreaker(
-    supabase,
-    userId,
-    equity,
-    true,
-    newPositionsOpenedToday,
-  );
+  const gate = await evaluateLiveCircuitBreaker(supabase, userId, equity, true);
   // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
   // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
   // already-resolved decision above, without a second, potentially

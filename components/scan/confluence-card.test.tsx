@@ -59,7 +59,7 @@ function makeResult(): ScanResult {
         timeCycleDates: [],
         timeCycleFixedCalendarActive: false,
         timeCycleFixedCalendarDates: [],
-        decadeCycle: { yearDigit: 5, bias: "bullish", label: "Year of Ascension", note: "" },
+        decadeCycle: { yearDigit: 5, bias: "bullish", currentBias: "bullish", label: "Year of Ascension", note: "" },
         macroCycle: {
           active: false,
           majorActive: false,

@@ -77,7 +77,7 @@ import { readLiquidity } from "@/lib/scan/liquidity";
 import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
@@ -97,7 +97,7 @@ import { figureCrossingOf, roundNumberEntryBlocked } from "@/lib/gann/evenFigure
 import { selectionStrength } from "@/lib/gann/leadership";
 import {
   atrPercentOfPrice,
-  nearestLevelMatch,
+  nearestLevelMatchByRole,
   levelBandPct,
 } from "@/lib/scoring/proximity";
 import type { CriterionWeights } from "@/lib/scoring/weights";
@@ -630,8 +630,11 @@ export interface MacroContext {
   boilingPoint: BoilingPointReading[];
   gann: GannLevels;
   nearSupportResistance: boolean;
-  /** The matched level and its role, when one is in range — see lib/scanTicker.ts's srMatch. */
-  srMatch: { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null;
+  /**
+   * The nearest in-band level on each side, with its role and test count; the
+   * score reads its direction's (`srMatchForSide`), as lib/scanTicker.ts does.
+   */
+  srMatches: Record<LevelRole, { price: number; timeframe: Timeframe; role: LevelRole; testCount: number } | null>;
   momentumElevated: boolean;
   /**
    * Daily ATR as a percentage of price on the day being traded. The structural
@@ -739,7 +742,9 @@ export function buildMacroContext(
   // current price) rather than just a boolean, so the score can tell whether
   // it's on the trade's side or not.
   const srBandPct = levelBandPct(price);
-  const srMatch = nearestLevelMatch(price, allLevels, srBandPct);
+  const srByRole = nearestLevelMatchByRole(price, allLevels, srBandPct);
+  const withTests = (m: (typeof allLevels)[number] | null) =>
+    m && { ...m, role: levelRole(price, m.price), testCount: countLevelTests(daily, m.price, srBandPct) };
 
   return {
     dailyChart: charts.daily,
@@ -773,12 +778,8 @@ export function buildMacroContext(
       })),
       digitalRootConfluences,
     },
-    nearSupportResistance: srMatch !== null,
-    srMatch: srMatch && {
-      ...srMatch,
-      role: levelRole(price, srMatch.price),
-      testCount: countLevelTests(daily, srMatch.price, srBandPct),
-    },
+    nearSupportResistance: srByRole.support !== null || srByRole.resistance !== null,
+    srMatches: { support: withTests(srByRole.support), resistance: withTests(srByRole.resistance) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
     structuralLevels: allLevels.map((l) => l.price),
@@ -980,13 +981,29 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     return arm;
   };
 
+  // One execution bar per session (a 1Day replay). The reaction and confirmed
+  // rules act on a closed bar and fill at the next bar's open, so the plan a
+  // closed bar is read against is the one its own session armed, priced from
+  // the sessions before it. On intraday bars that is the live candle's session
+  // too. On daily bars it is the session before the live candle's: reading the
+  // live session's plan instead tested the closed bar against a plan priced
+  // from that same bar, so a crossing or an old level it traded into was
+  // already spent and offered no plan, and a held bottom's entry, that bar's
+  // own close, was always traded into (2026-10-21, daily entry kinds). A stop
+  // entry fills on the live candle, so it keeps the live session's plan.
+  const sessionBars = bars.length > 1 && bars.every((b, j) => j === 0 || b.t.slice(0, 10) !== bars[j - 1].t.slice(0, 10));
+  const closedBarRule = entryRule === "reaction" || entryRule === "confirmed";
+
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(0, i);
     const live = bars[i]; // the candle a resting order may fill on
-    const date = live.t.slice(0, 10);
+    const closedSession = sessionBars && closedBarRule;
+    const date = closedSession ? history[history.length - 1].t.slice(0, 10) : live.t.slice(0, 10);
     const lastClose = history[history.length - 1].c;
+    // The price the session's scan read: the last close before the session.
+    const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
-    const arm = sessionArm(date, lastClose);
+    const arm = sessionArm(date, armPrice);
     if (!arm) continue;
 
     for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
@@ -1020,6 +1037,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // read: what it did first cannot be told, so its stop is left to the
       // bracket walk as before.
       let planStop = sessionPlanStops.get(planKey);
+      const firstRead = planStop === undefined;
       if (planStop === undefined) {
         const plan = priceTradeLevels({
           context: arm.context,
@@ -1032,11 +1050,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         planStop = plan?.stopLoss ?? null;
         sessionPlanStops.set(planKey, planStop);
         sessionPlanPaths.set(planKey, plan ? { entry: plan.entry, takeProfit1: plan.takeProfit1 } : null);
-        if (planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
+        // On daily bars the scan's last close is the session before; the
+        // session's one closed bar is read by the bar test below.
+        if (!closedSession && planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
           brokenPlans.add(planKey);
           retiredSessionPlans.add(planKey);
         }
-      } else if (planStop !== null) {
+      }
+      if ((!firstRead || closedSession) && planStop !== null) {
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) === date) {
           if (isStopBreachedByBar(trigger.direction, planStop, closed)) {
@@ -1796,7 +1817,7 @@ function scoreSetup(input: {
       boilingPoint: context.boilingPoint,
       gann: context.gann,
       nearSupportResistance: context.nearSupportResistance,
-      srMatch: context.srMatch,
+      srMatch: srMatchForSide(context.srMatches, gannTrigger.direction),
       pattern,
       gannTrigger,
       momentumElevated: context.momentumElevated,

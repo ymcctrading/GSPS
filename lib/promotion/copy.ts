@@ -38,9 +38,16 @@ export const PROMOTION_FORBIDDEN_PHRASES = [
  */
 export const NEUTRAL_UPGRADE_PROMPT = "You may be eligible to review additional educational tools.";
 
-/** Novice homepage: phrased as a ceiling, never a target, per the spec pack. */
-export function noviceEntriesAvailableTodayLabel(count: number): string {
-  return `${count} new entr${count === 1 ? "y" : "ies"} available today (maximum)`;
+/**
+ * Novice homepage: the room left under Gann's open-market count (five stocks,
+ * three other markets; `lib/risk/gannCapital.ts`), phrased as a ceiling, never
+ * a target, per the spec pack. It replaced a daily entry count (Q8, R-019):
+ * Gann sets no daily count.
+ */
+export function noviceOpenRoomLabel(stocks: number, otherMarkets: number): string {
+  const s = `${stocks} more stock${stocks === 1 ? "" : "s"}`;
+  const o = `${otherMarkets} more crypto pair${otherMarkets === 1 ? "" : "s"}`;
+  return `Room for ${s} and ${o} (maximum)`;
 }
 
 export const NOT_OPERATIONALLY_VIABLE_LABEL = "Not operationally viable for this account configuration";

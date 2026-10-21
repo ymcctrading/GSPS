@@ -101,6 +101,9 @@ export function SetupCardPanel({
 }) {
   const full = stage === "full";
   const { levels } = model;
+  // A target already behind price on a resting order counts only once the
+  // entry fills (lib/setups/resting.ts), so it is not shown as reachable now.
+  const behind = (t: "TP1" | "MTP") => model.resting?.targetsBehindPrice.includes(t) ?? false;
 
   return (
     <div
@@ -117,6 +120,11 @@ export function SetupCardPanel({
             Rules alignment {Math.round(model.alignmentScore)}/100
             {model.signal ? ` (${model.signal.tierLabel})` : ""}
           </span>
+        )}
+        {model.resting && (
+          <Badge variant="muted" title="The entry is more than a day's range from price: an order resting at its level, not a trade to take today.">
+            Resting order
+          </Badge>
         )}
         {model.continuation && (
           <span className="text-xs text-muted">With the trend: taken on the trend, however far it has run</span>
@@ -141,6 +149,7 @@ export function SetupCardPanel({
               tone="bull"
               hint="First take-profit."
               multiple={rewardToRisk(levels, levels.tp1)}
+              note={behind("TP1") ? "after the entry fills" : null}
             />
             <Level
               label="MTP"
@@ -148,6 +157,7 @@ export function SetupCardPanel({
               tone="bull"
               hint="Master take profit: the further target the runner works toward."
               multiple={rewardToRisk(levels, levels.mtp)}
+              note={behind("MTP") ? "after the entry fills" : null}
             />
           </dl>
           <PlanReadingLine
@@ -213,12 +223,15 @@ function Level({
   tone,
   hint,
   multiple,
+  note,
 }: {
   label: string;
   value: number | null;
   tone: "accent" | "bull" | "bear";
   hint: string;
   multiple?: number | null;
+  /** A short qualifier under the value, such as a target that counts only once the entry fills. */
+  note?: string | null;
 }) {
   return (
     <div title={hint}>
@@ -234,6 +247,7 @@ function Level({
         {value != null ? formatUsd(value) : "—"}
         {multiple != null && <span className="ml-1.5 text-[11px] text-muted">{multiple.toFixed(1)}× risk</span>}
       </dd>
+      {note && <dd className="text-[11px] text-muted">{note}</dd>}
     </div>
   );
 }

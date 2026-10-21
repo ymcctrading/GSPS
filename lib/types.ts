@@ -393,6 +393,13 @@ export interface ScanResult {
    */
   volatilityRead?: { atr: number; regime: "low" | "normal" | "elevated" | "extreme" };
   /**
+   * A day's range: the 14-period average true range of the completed daily
+   * sessions, in price. What `lib/setups/resting.ts` reads to call a plan a
+   * resting order (owner, 2026-10-21). Null when the history is too short.
+   * Presentation and selection only; nothing scored reads it.
+   */
+  dayRange?: number | null;
+  /**
    * Latest daily bar's volume relative to its own trailing 20-bar average
    * (`lib/signals/indicators.ts`'s `relativeVolume`). Backs the
    * `volume_state` table (migration 0064). `null` when there isn't enough

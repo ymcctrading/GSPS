@@ -35,6 +35,7 @@ import { patternAngleLines } from "@/lib/gann/patternAngles";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
+import { majorRangeDivisions, rangeDivisionMatch, type RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
 
 type Side = "bullish" | "bearish";
 
@@ -53,6 +54,7 @@ export interface PillarFacts {
   marketTrend: Side | null;
   /** Yearly counts from major pivots landing on this month (closed months only). */
   yearCycle: { bullishHits: number; bearishHits: number } | null;
+  /** The decade digit's character at this month (`DecadeCycleReading.currentBias`), not the year's label. */
   decadeBias: "bullish" | "bearish" | "mixed" | null;
   /**
    * Gann's weekly green/red trend line (Master Course Ch. 8, p. 239,
@@ -96,6 +98,13 @@ export interface PillarFacts {
   counterMove: { trend: Side; inCounterMove: boolean; phase: "normal" | "extended" | "secondMonth" | "thirdMonth" | null } | null;
   reactionAbnormal: boolean;
   campaign: { trend: Side; spaceOverbalanced: boolean; timeOverbalanced: boolean } | null;
+  /**
+   * P5(b): the division of the extreme range, the highest price or the latest
+   * campaign of a year or more (`lib/gann/rangeDivisions.ts`) inside Gann's
+   * 3-point allowance, below price for a long (support) and above it for a
+   * short (resistance). Null on a side with none.
+   */
+  rangeLevels: Record<Side, RangeDivisionMatch | null>;
 }
 
 export interface PillarResult {
@@ -170,11 +179,14 @@ export function readPillarFacts(input: {
   const leadership = rules.leadership;
   const counterMove = rules.counterMove;
   const campaign = rules.campaign;
+  // The record both surfaces hold: the monthly level chart and the sessions,
+  // as Gann's percentage-of-price levels read it (`majorPricePercentageLevels`).
+  const divisions = majorRangeDivisions([...monthly, ...daily], monthly);
   return {
     marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
     yearCycle: closedMonths.length >= 12 ? yearCycleConvergence(closedMonths, asOf) : null,
     weeklyLine: rules.weeklyOneBar?.colour ?? null,
-    decadeBias: rules.decadeCycle?.bias ?? null,
+    decadeBias: rules.decadeCycle?.currentBias ?? null,
     yearTrend: rules.yearRanges?.yearTrend ?? null,
     leadership: leadership
       ? {
@@ -211,6 +223,10 @@ export function readPillarFacts(input: {
     campaign: campaign
       ? { trend: campaign.trend, spaceOverbalanced: campaign.spaceOverbalanced, timeOverbalanced: campaign.timeOverbalanced }
       : null,
+    rangeLevels: {
+      bullish: rangeDivisionMatch(divisions, price, "support"),
+      bearish: rangeDivisionMatch(divisions, price, "resistance"),
+    },
   };
 }
 
@@ -297,7 +313,12 @@ export function activityPillar(f: PillarFacts | null | undefined): PillarResult 
   };
 }
 
-/** P5 (C6, T2, T4): an old top or bottom in the right role, or a percentage level. */
+/**
+ * P5 (C6, T2, T4): an old top or bottom in the right role, or a percentage
+ * level in the right role: a division of the extreme range, the highest price
+ * or the latest campaign of a year or more (Master Course Ch. 9, PDF 263-264;
+ * `PillarFacts.rangeLevels`).
+ */
 export function priceLevelsPillar(oldLevel: boolean, percentage: boolean): PillarResult {
   return {
     passed: oldLevel || percentage,

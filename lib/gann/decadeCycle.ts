@@ -30,12 +30,21 @@
  * `docs/GANN_HISTORICAL_SOURCES.md` C6), which nothing has attempted yet.
  */
 
+import { etDateKey } from "@/lib/market/session";
+
 export type DecadeBias = "bullish" | "bearish" | "mixed";
 
 export interface DecadeCycleReading {
   /** The calendar year's position in its decade, 1-10 ("0" read as "10", per Gann's own numbering). */
   yearDigit: number;
   bias: DecadeBias;
+  /**
+   * The character at `asOf`'s month (2026-10-21): the year's `bias`, except in
+   * the months Gann names a turn inside the year (`IN_YEAR_TURNS`). The pillar
+   * and the context factor read this; `bias` stays the whole year's label (the
+   * card's heading and the pre-registered CYC-52 test, which reads 1 July).
+   */
+  currentBias: DecadeBias;
   label: string;
   note: string;
   /** In an '8' year only: the decade's 90th month (YYYY-MM) and whether `asOf` is in it. */
@@ -101,14 +110,59 @@ const DECADE_CHARACTER: Record<number, DecadeCharacter> = {
   },
 };
 
+/**
+ * The months inside a year where Gann's own character for the digit turns
+ * (Master Course Ch. 7, PDF 223-224; `docs/memory-bank/sources/A2_1_master_stock_market_course.md`,
+ * "Bull and bear calendar years"). Months are 1-12, inclusive.
+ *
+ * - 3: "a 2nd-year rally may run to Mar/Apr, or a decline bottoms Feb/Mar",
+ *   so January to April is mixed and the bear year reads from May.
+ * - 6: "campaign begun in year 4 ends in the Fall, fast decline": the bull
+ *   year runs to August, September to November is the culmination (mixed),
+ *   and December follows it down.
+ * - 9: "strongest bull; final campaigns culminate; bear markets start
+ *   Sep-Nov": bullish to August, mixed September to November, bearish after.
+ * - 10: "rally to Mar/Apr, severe decline to Nov/Dec": mixed January to April,
+ *   bearish from May.
+ *
+ * Until 2026-10-21 the pillar read only the year's label, so the fall of a '6'
+ * year (the whole 2026-08-24 to 2026-10-20 replay window) read bullish: every
+ * long took P1's year point free and no short could, the opposite of the
+ * decline Gann expects there. The culmination months read "mixed", as the '9'
+ * year as a whole always has: Gann names the turn's window, not its day, so
+ * neither side takes the point inside it.
+ */
+const IN_YEAR_TURNS: Partial<Record<number, { from: number; to: number; bias: DecadeBias }[]>> = {
+  3: [{ from: 1, to: 4, bias: "mixed" }, { from: 5, to: 12, bias: "bearish" }],
+  6: [{ from: 1, to: 8, bias: "bullish" }, { from: 9, to: 11, bias: "mixed" }, { from: 12, to: 12, bias: "bearish" }],
+  9: [{ from: 1, to: 8, bias: "bullish" }, { from: 9, to: 11, bias: "mixed" }, { from: 12, to: 12, bias: "bearish" }],
+  10: [{ from: 1, to: 4, bias: "mixed" }, { from: 5, to: 12, bias: "bearish" }],
+};
+
+/** The digit's character in `month` (1-12), from `IN_YEAR_TURNS` or the year's label. */
+function biasInMonth(yearDigit: number, month: number): DecadeBias {
+  const turn = IN_YEAR_TURNS[yearDigit]?.find((t) => month >= t.from && month <= t.to);
+  return turn?.bias ?? DECADE_CHARACTER[yearDigit].bias;
+}
+
+/**
+ * The year and month are read in New York time (review 2026-10-21): the live
+ * scan passes the wall clock and the replay the session's noon UTC, so read in
+ * UTC a scan from 8 PM ET on a month's last day took the next month (and on 31
+ * December the next year's digit) while the replay of that session took the
+ * current one. The session's calendar is New York's, as the universe rank keys
+ * its months (`etDateKey`).
+ */
 export function computeDecadeCycle(asOf: Date = new Date()): DecadeCycleReading {
-  const yearMod = asOf.getUTCFullYear() % 10;
+  const [year, monthOfYear] = etDateKey(asOf).split("-").map(Number);
+  const yearMod = year % 10;
   const yearDigit = yearMod === 0 ? 10 : yearMod;
-  const character = DECADE_CHARACTER[yearDigit];
+  const character = { ...DECADE_CHARACTER[yearDigit], currentBias: biasInMonth(yearDigit, monthOfYear) };
   if (yearDigit !== 8) return { yearDigit, ...character };
   // Month 90 from January of the '1' year (month 1): 7 years and 5 months on, June of the '8' year.
-  const start = asOf.getUTCFullYear() - 7;
+  const start = year - 7;
   const m = start * 12 + 89;
   const month = `${Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, "0")}`;
-  return { yearDigit, ...character, ninetiethMonth: { month, active: asOf.toISOString().slice(0, 7) === month } };
+  const current = `${year}-${String(monthOfYear).padStart(2, "0")}`;
+  return { yearDigit, ...character, ninetiethMonth: { month, active: current === month } };
 }

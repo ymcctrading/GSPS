@@ -24,12 +24,12 @@
  * restriction in `docs/GSPS_TIER_ENTITLEMENT_SPEC.md` that only Expert+ gets
  * full, unrestricted intraday scanning. See that doc's 2026-08-29 correction
  * note and ROADMAP.md for the product decision behind widening Pro this far
- * and no further: entries/day, concurrent-position, consecutive-loss, and
- * daily-loss gating live here (pure) but are not yet called from an
- * order-placement path — nothing in this codebase tags an order as
- * "intraday-sourced" today, for any tier, so those four gates currently have
- * no live caller. The route wires only what it can enforce on the scan side:
- * setups-displayed and entry-confirmation.
+ * and no further: concurrent-position, consecutive-loss, and daily-loss
+ * gating live here (pure) and are enforced at placement for intraday-sourced
+ * orders (`lib/trade/place-order.ts`). The route wires what it can enforce on
+ * the scan side: setups-displayed and entry-confirmation. The spec pack's
+ * entries-per-day count was removed on 2026-10-21 (Q8, R-019: Gann sets no
+ * daily count, and no surface keeps one).
  */
 
 import { DEFAULT_PRO_INTRADAY_POLICY, type ProIntradayPolicy } from "@/lib/promotion/config";
@@ -37,8 +37,6 @@ import { DEFAULT_PRO_INTRADAY_POLICY, type ProIntradayPolicy } from "@/lib/promo
 export interface ProIntradayUsage {
   /** Distinct setups already shown today, across all calls. */
   setupsDisplayedToday: number;
-  /** New intraday positions already opened today. */
-  entriesToday: number;
   /** Intraday positions currently open. */
   concurrentOpen: number;
   /** Consecutive stopped-out intraday trades since the last winner (or session start). */
@@ -86,9 +84,9 @@ export function canEnterNewIntradayPosition(
   if (usage.concurrentOpen >= policy.concurrentPositionsMax) {
     return { allowed: false, reason: `Already at the ${policy.concurrentPositionsMax}-position concurrent-intraday limit.` };
   }
-  if (usage.entriesToday >= policy.newEntriesPerDayDefault) {
-    return { allowed: false, reason: `Already at today's ${policy.newEntriesPerDayDefault}-entry intraday limit.` };
-  }
+  // No count of entries a day (Q8, R-019, 2026-10-21): Gann sets none, and no
+  // surface keeps one. The concurrent, consecutive-loss and daily-loss gates
+  // above stay.
   return { allowed: true, reason: null };
 }
 

@@ -20,7 +20,6 @@ const RISK_POLICY_DOMAIN = "risk";
 
 /** Flat, `policy_values`-shaped view of every risk-domain threshold. */
 export interface RiskPolicyValues {
-  maxNewPositionsPerDay: number;
   warning48hLossPct: number;
   softCooldown48hLossPct: number;
   hardCooldown48hLossPct: number;
@@ -40,7 +39,6 @@ export interface RiskPolicyValues {
 }
 
 export const DEFAULT_RISK_POLICY_VALUES: RiskPolicyValues = {
-  maxNewPositionsPerDay: DEFAULT_CIRCUIT_THRESHOLDS.maxNewPositionsPerDay,
   warning48hLossPct: DEFAULT_CIRCUIT_THRESHOLDS.warning48hLossPct,
   softCooldown48hLossPct: DEFAULT_CIRCUIT_THRESHOLDS.softCooldown48hLossPct,
   hardCooldown48hLossPct: DEFAULT_CIRCUIT_THRESHOLDS.hardCooldown48hLossPct,
@@ -63,12 +61,10 @@ export const RISK_POLICY_KEYS = Object.keys(DEFAULT_RISK_POLICY_VALUES) as (keyo
 
 /**
  * Which way each key tightens (Q13, owner 2026-10-16): a `policy_values` row
- * may only tighten a risk limit. Loss and drawdown triggers, the position cap
- * and the risk rates tighten downward; the blocked days and the trade counts
+ * may only tighten a risk limit. Loss and drawdown triggers and the risk rates tighten downward; the blocked days and the trade counts
  * needed before risk rises tighten upward.
  */
 export const RISK_POLICY_DIRECTIONS: Record<keyof RiskPolicyValues, PolicyDirection> = {
-  maxNewPositionsPerDay: "atMost",
   warning48hLossPct: "atMost",
   softCooldown48hLossPct: "atMost",
   hardCooldown48hLossPct: "atMost",
@@ -94,7 +90,6 @@ export interface ResolvedRiskPolicy {
 
 function toCircuitThresholds(v: RiskPolicyValues): CircuitThresholds {
   return {
-    maxNewPositionsPerDay: v.maxNewPositionsPerDay,
     warning48hLossPct: v.warning48hLossPct,
     softCooldown48hLossPct: v.softCooldown48hLossPct,
     hardCooldown48hLossPct: v.hardCooldown48hLossPct,

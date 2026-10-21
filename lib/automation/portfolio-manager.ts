@@ -321,7 +321,7 @@ async function runForProfile(
 
   // No daily count of new positions (Q8, Gann sets none; owner 2026-10-21,
   // "What would Gann do"). Until then this loop stopped at three a day
-  // (MAX_NEW_POSITIONS_PER_DAY). Gann's capital rules bound it instead, at
+  // (the old MAX_NEW_POSITIONS_PER_DAY, removed with R-019). Gann's capital rules bound it instead, at
   // placement: at most five stocks, 30 points of capital a share and a tenth
   // of the capital at risk (lib/risk/gannCapital.ts). Candidates still go
   // best tier first, so the strongest take the room.

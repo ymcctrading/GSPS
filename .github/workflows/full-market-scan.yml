@@ -58,8 +58,9 @@ name: Full market scan (intraday cadence)
 # no-op-in-substance (a fresh scan just overwrites the same day's rows
 # again), not a reason to remove it.
 on:
-  schedule:
-    - cron: '*/15 13-21 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

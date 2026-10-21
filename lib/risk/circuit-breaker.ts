@@ -2,7 +2,7 @@
  * Circuit-breaker state machine.
  *
  * Evaluated fresh on every call from the three independent loss/drawdown
- * metrics plus today's new-position count — it is never read from a stored
+ * metrics (no daily new-position count: Q8, R-019) — it is never read from a stored
  * "current state" field and incremented, because a metric can improve (a
  * loss ages out of the 48h window) as well as worsen, and the state must
  * track that in both directions. The one exception is duration-gated states
@@ -19,7 +19,6 @@ import {
   type CircuitState,
   CIRCUIT_STATE_ORDER,
   EXISTING_POSITIONS_RESTRICTED,
-  MAX_NEW_POSITIONS_PER_DAY,
   WARNING_48H_LOSS_PCT,
   SOFT_COOLDOWN_48H_LOSS_PCT,
   HARD_COOLDOWN_48H_LOSS_PCT,
@@ -32,7 +31,6 @@ import {
 } from "@/lib/risk/config";
 
 export interface CircuitInputs {
-  newPositionsOpenedToday: number;
   loss48hPct: number;
   drawdown30dPct: number;
 }
@@ -46,7 +44,6 @@ export interface CircuitInputs {
  * used, so every existing call site is unaffected.
  */
 export interface CircuitThresholds {
-  maxNewPositionsPerDay: number;
   warning48hLossPct: number;
   softCooldown48hLossPct: number;
   hardCooldown48hLossPct: number;
@@ -59,7 +56,6 @@ export interface CircuitThresholds {
 }
 
 export const DEFAULT_CIRCUIT_THRESHOLDS: CircuitThresholds = {
-  maxNewPositionsPerDay: MAX_NEW_POSITIONS_PER_DAY,
   warning48hLossPct: WARNING_48H_LOSS_PCT,
   softCooldown48hLossPct: SOFT_COOLDOWN_48H_LOSS_PCT,
   hardCooldown48hLossPct: HARD_COOLDOWN_48H_LOSS_PCT,
@@ -113,9 +109,6 @@ function stateFromMetrics(inputs: CircuitInputs, t: CircuitThresholds): { state:
   }
   if (inputs.loss48hPct >= t.warning48hLossPct) {
     return { state: "warning", reason: `48h loss reached ${inputs.loss48hPct.toFixed(1)}% (>= ${t.warning48hLossPct}%).` };
-  }
-  if (inputs.newPositionsOpenedToday >= t.maxNewPositionsPerDay) {
-    return { state: "entry_pause", reason: `${inputs.newPositionsOpenedToday} new positions opened today (>= ${t.maxNewPositionsPerDay}).` };
   }
   return { state: "normal", reason: "No trigger." };
 }

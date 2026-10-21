@@ -15,22 +15,35 @@
  *
  * Engineering choices, labelled as such:
  * - "Range-bound" is `isGannRangeBound` (the weekly swing chart's trend is
- *   not confirmed by stepping 3-day swings, `trendStrength.ts`) AND the
- *   range's sessions are narrow (`isNarrowRange`, at least
- *   `MIN_RANGE_SESSIONS` of them). Until 2026-10-21 it was the first alone,
+ *   not confirmed by stepping 3-day swings, `trendStrength.ts`) AND a narrow
+ *   range (`narrowRangeSessions`). Until 2026-10-21 it was the first alone,
  *   which is true of about half the readings of a steadily rising random walk
  *   (46% at +0.2% a day) and of most turns; Gann's rule is for a market held
  *   in a narrow range for weeks, and this module's volume half already read
  *   it that way. The width is `NARROW_RANGE_ALLOWANCES`, an engineering
- *   figure; Gann gives none.
- * - The range is the completed 3-Day Chart tops and bottoms from the last
- *   91 calendar days, Gann's upper bound of 13 weeks. The same chart arms the
- *   entry trigger, so the comparison is like for like.
+ *   figure; Gann gives none (his dated ranges, 2 points on the 1897 Rails,
+ *   2½ on the 1911 Rails, 56-60 in 1898, all sit inside it).
+ * - The narrow range is counted back from the latest session (2026-10-21,
+ *   the 2-6 week case): Gann's "2 to 6 weeks or 10 to 13 weeks in a narrow
+ *   range, then crossing the tops or breaking the bottoms of the previous
+ *   weeks" (Master Course pp. 246-248; *Commodities* p. 51, "Many Weeks in
+ *   Narrow Range") measures the range the market is in now, however wide it
+ *   was before. So the range is the longest run of sessions ending at the
+ *   latest that stays narrow, at least `MIN_RANGE_SESSIONS` (Gann's two
+ *   weeks) and at most `BREAKAWAY_RANGE_DAYS` (his 13). When the whole 13
+ *   weeks are narrow that is all of them, as before; after a wide 13 weeks it
+ *   is the 2-6 weeks of narrow sessions at the end. The 7-9 weeks between
+ *   his two bands are read too: his own examples include 8 and 9 weeks
+ *   (Rails 1911, 1897), so the bands are what he saw, not a rule against
+ *   the weeks between.
+ * - Its extremes are the completed 3-Day Chart tops and bottoms inside that
+ *   run. The same chart arms the entry trigger, so the comparison is like for
+ *   like.
  *
  * Three-question basis:
  * 1. Gann: as cited above, Tier A.
  * 2. Cycles: the 2-6 and 10-13 week durations are Gann's observed lengths of
- *    accumulation, used here only as the lookback bound. No periodicity claim
+ *    accumulation, used here only as the shortest and longest range read. No periodicity claim
  *    is made, so Dewey's checklist does not apply.
  * 3. Hermetic: Polarity. A range is the market held between two poles, and
  *    the rule acts only once one pole gives way. Rhythm also fits: the range
@@ -93,17 +106,21 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   // Gann's sideways market is a narrow range held for weeks (Commodities
   // pp. 51-52; Master Course: "2-6 or 10-13 weeks in a narrow range"), not
   // any market whose trend is unconfirmed (2026-10-21): the same narrow
-  // sessions `breakawayVolumeMet` reads, at least Gann's two weeks of them.
-  const sessions = daily.filter((b) => {
-    const t = Date.parse(b.t);
-    return t >= cutoff && t < end;
-  });
-  if (sessions.length < MIN_RANGE_SESSIONS || !isNarrowRange(sessions)) {
+  // sessions `breakawayVolumeMet` reads, counted back from the latest, at
+  // least Gann's two weeks of them.
+  const range = narrowRangeSessions(
+    daily.filter((b) => {
+      const t = Date.parse(b.t);
+      return t >= cutoff && t < end;
+    }),
+  );
+  if (!range) {
     return { rangeBound: false, rangeHigh: null, rangeLow: null, breaksAway: true };
   }
+  const from = Date.parse(range[0].t);
   const pivots = swingPivots(daily, trigger?.swingDays ?? 3).filter((p) => {
     const t = Date.parse(daily[p.index].t);
-    return t >= cutoff && t < end;
+    return t >= from && t < end;
   });
   const tops = pivots.filter((p) => p.kind === "top").map((p) => p.price);
   const bottoms = pivots.filter((p) => p.kind === "bottom").map((p) => p.price);
@@ -129,7 +146,7 @@ export const BREAKAWAY_VOLUME_SESSIONS = 240;
 export interface BreakawayVolumeReading {
   /** The way the last completed session left the range. */
   direction: "bullish" | "bearish";
-  /** That session's volume over the mean volume of the range's sessions (the 91 days before it). */
+  /** That session's volume over the mean volume of the narrow range's sessions before it (`narrowRangeSessions`). */
   ratio: number;
 }
 
@@ -144,7 +161,7 @@ export interface BreakawayVolumeReading {
  * (`readBreakaway`, whose range is null outside one) and the last closed beyond the range's top or bottom by
  * the 3-point allowance, the ratio of its volume to the range sessions' mean.
  * Null otherwise. Engineering choices, labelled: the mean is over the
- * sessions of the 91-day range window; the last `BREAKAWAY_VOLUME_SESSIONS`
+ * narrow range's sessions (`narrowRangeSessions`); the last `BREAKAWAY_VOLUME_SESSIONS`
  * are read, which bounds the cost on the replay's longer history.
  */
 export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeReading | null {
@@ -164,9 +181,9 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
         : null;
   if (!direction) return null;
   const cutoff = Date.parse(prior[prior.length - 1].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
-  const sessions = prior.filter((b) => Date.parse(b.t) >= cutoff);
-  // The same "narrow" the confirmation reads (review 20): a wide range is not one.
-  if (!isNarrowRange(sessions)) return null;
+  // The same narrow range `readBreakaway` read (review 20): a wide one is not one.
+  const sessions = narrowRangeSessions(prior.filter((b) => Date.parse(b.t) >= cutoff));
+  if (!sessions) return null;
   const mean = sessions.reduce((s, b) => s + b.v, 0) / sessions.length;
   if (!(mean > 0)) return null;
   return { direction, ratio: last.v / mean };
@@ -187,8 +204,9 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
  * none has closed past yet) are range-bound (`isGannRangeBound`, the same
  * reading `readBreakaway` holds a range-bound Execute on), the entry is
  * ready only once that session has closed past the line on more than the
- * mean volume of the 91 days before it. A market that is not range-bound has
- * no volume condition, nor does a range wider than `NARROW_RANGE_ALLOWANCES`.
+ * mean volume of the narrow range before it (`narrowRangeSessions`, 2 to 13
+ * weeks). A market that is not range-bound has no volume condition, nor does
+ * one with no narrow run of at least two weeks before the crossing.
  * Engineering choices, labelled: "on volume" is above the range sessions'
  * mean; the search window is the 91-day range bound; the width limit.
  */
@@ -209,6 +227,33 @@ export function isNarrowRange(range: Bar[]): boolean {
   return Math.max(...range.map((b) => b.h)) - low <= NARROW_RANGE_ALLOWANCES * gannThreePoints(low);
 }
 
+/**
+ * The narrow range the market is in now: the longest run of `sessions` ending
+ * at the last one whose span stays within `NARROW_RANGE_ALLOWANCES` 3-point
+ * allowances at its low, or null when it is shorter than `MIN_RANGE_SESSIONS`
+ * (Gann's two weeks). Pass the sessions of the `BREAKAWAY_RANGE_DAYS` window
+ * (his 13 weeks), so the run is 2 to 13 weeks long. Gann counts the weeks a
+ * market has been held narrow before it crosses the tops or breaks the
+ * bottoms of the previous weeks (Master Course pp. 246-248: "2-6 or 10-13
+ * weeks in a narrow range"; *Commodities* p. 51), so a narrow spell after a
+ * wide quarter is a range too. Widening the run only widens the span and
+ * lowers its low, so the first session that breaks it ends the count.
+ */
+export function narrowRangeSessions(sessions: Bar[]): Bar[] | null {
+  let high = -Infinity;
+  let low = Infinity;
+  let start = sessions.length;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const h = Math.max(high, sessions[i].h);
+    const l = Math.min(low, sessions[i].l);
+    if (h - l > NARROW_RANGE_ALLOWANCES * gannThreePoints(l)) break;
+    high = h;
+    low = l;
+    start = i;
+  }
+  return sessions.length - start >= MIN_RANGE_SESSIONS ? sessions.slice(start) : null;
+}
+
 export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish", line: number): boolean {
   const up = direction === "bullish";
   const beyond = (b: Bar) => (up ? b.c >= line : b.c <= line);
@@ -227,9 +272,10 @@ export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish
   // not read as a range (an engineering floor, labelled).
   if (prior.length < MIN_RANGE_SESSIONS || !isGannRangeBound(prior)) return true;
   const from = Date.parse((k === -1 ? chart[end - 1] : chart[k]).t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
-  const range = prior.filter((b) => Date.parse(b.t) >= from);
-  // Gann's rule is for long, narrow ranges: a wide one has no volume condition.
-  if (!isNarrowRange(range)) return true;
+  // Gann's rule is for narrow ranges held for weeks: a wide one has no volume
+  // condition. The range is `readBreakaway`'s, counted back from the crossing.
+  const range = narrowRangeSessions(prior.filter((b) => Date.parse(b.t) >= from));
+  if (!range) return true;
   if (k === -1) return false;
   const mean = range.reduce((s, b) => s + b.v, 0) / range.length;
   return mean > 0 && chart[k].v > mean;

@@ -543,6 +543,45 @@
 // move; the list's continuation pass and the replay arm as before. Same day,
 // the percent-of-equity ceilings apply to Novice only and the portfolio
 // manager has no daily count: placement and sizing, not verdicts.
+// 2026-10-21-gann-decade-in-year-turns: P1's year check (and the measured
+// `decadeYearWithTrade`) reads the decade digit's character at the session's
+// month, not the year's label. Gann names turns inside four years (Master
+// Course Ch. 7, PDF 223-224): a '6' year's bull "ends in the Fall" (September
+// to November mixed, December bearish), a '9' year culminates September to
+// November, and '3' and '10' years rally to March/April before the bear year.
+// The fall of 2026 had read bullish, giving every long the point free. P1 and
+// so some scores move, live and replay alike.
+// 2026-10-21-gann-major-range-levels: P5's percentage check divides the major
+// ranges by 8 and by 3, in Gann's order (the extreme range, the highest price,
+// the latest campaign of a year or more: Master Course Ch. 9, PDF 263-264;
+// Commodities pp. 34-35; 50% first, 45 Years Ch. IV), instead of the last
+// daily swing (`lib/gann/rangeDivisions.ts`, read in `readPillarFacts`). The
+// S/R check reads the nearest level of the wanted role (support below price
+// for a long, resistance above it for a short; `srMatchForSide`) instead of
+// the nearest of either role. Scores and verdicts move, live and replay alike.
+// 2026-10-21-gann-narrow-weeks-breakaway: the breakaway's range is the narrow
+// run of sessions counted back from the latest, 2 to 13 weeks
+// (`narrowRangeSessions`), not the whole 13 weeks: Gann's "2-6 or 10-13 weeks
+// in a narrow range, then crossing the tops or breaking the bottoms of the
+// previous weeks" (Master Course pp. 246-248; Commodities p. 51). A narrow
+// spell after a wide quarter is now a range, its own extremes the breakaway;
+// the breakaway's volume reads the same run. Verdicts move, live and replay
+// alike.
+// 2026-10-21-gann-decade-month-et: the decade digit and its in-year turns
+// (`computeDecadeCycle`, P1 and `decadeYearWithTrade`) read the year and month
+// in New York time, not UTC. The live scan passes the wall clock, so from 8 PM
+// ET on a month's last day it read the next month (on 31 December the next
+// year's digit) while the replay of the same session read the current one;
+// on 31 August 2026 that flipped P1 from bullish to mixed. Evening scans on a
+// month's last day move; the replay, which reads the session's noon, does not.
+// 2026-10-21-replay-daily-closed-session: on a 1Day replay the reaction and
+// confirmed rules read each closed bar against the plan its own session armed
+// (priced from the sessions before it) and fill at the next session's open.
+// Before, the closed bar was read against the next session's plan, priced from
+// that same bar, so a crossing or an old level it traded into was already
+// spent and never filled, and a held bottom's entry, that bar's own close, was
+// always traded into: the six-year 1Day run put all 4,479 trades under "hold".
+// 1Day replay trades move; intraday replays, the live scan and verdicts do not.
 // 2026-10-21-gann-group-strength-rank: the same rank is also read within the
 // stock's industry group (S4, "buy the strongest stocks in the group", Stock
 // Selector Ch. VII), groups from SEC industry codes checked in

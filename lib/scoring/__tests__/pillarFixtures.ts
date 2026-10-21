@@ -27,5 +27,9 @@ export function passingPillarFacts(side: "bullish" | "bearish" = "bullish"): Pil
     counterMove: { trend: side, inCounterMove: false, phase: null },
     reactionAbnormal: false,
     campaign: { trend: side, spaceOverbalanced: false, timeOverbalanced: false },
+    rangeLevels: {
+      bullish: long ? { price: 99, label: "1/2 of the extreme range (48.00-150.00)", basis: "extremeRange", importance: 1, role: "support", distancePct: 1 } : null,
+      bearish: long ? null : { price: 101, label: "1/2 of the extreme range (52.00-150.00)", basis: "extremeRange", importance: 1, role: "resistance", distancePct: 1 },
+    },
   };
 }

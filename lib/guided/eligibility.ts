@@ -27,6 +27,12 @@
  *                     market is not a plan to act on; `scanTicker` already holds
  *                     those at Watch, so this is belt and braces rather than a
  *                     second opinion.
+ *   Not resting     — an Execute plan whose entry is more than a day's range
+ *                     from price is a resting order at its level, not a trade
+ *                     to take today (owner, 2026-10-21; lib/setups/resting.ts).
+ *                     Offering it as a one-tap Buy would place an order that
+ *                     waits days for a reaction the person was not told about.
+ *                     The verdict itself stays Execute; only the offer is held.
  *   Novice universe — `result.noviceUniverse`, the Market Universe, Data
  *                     Quality & Account Constraints engine's `novice_eligible`
  *                     read (lib/universe/eligibility.ts), computed by
@@ -49,6 +55,24 @@
 import type { ScanResult } from "@/lib/types";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
+import { readResting, restingDistanceLabel } from "@/lib/setups/resting";
+
+/**
+ * The resting read of a scan: its entry more than a day's range from price
+ * (`lib/setups/resting.ts`, owner 2026-10-21). Null when within range or not
+ * known. Shared by the gate below and the near-miss card.
+ */
+export function restingReadOf(result: ScanResult) {
+  if (!result.levels) return null;
+  return readResting({
+    side: result.direction === "bearish" ? "sell" : "buy",
+    price: result.currentPrice,
+    entry: result.levels.entry,
+    dayRange: result.dayRange,
+    tp1: result.levels.takeProfit1,
+    mtp: result.levels.masterProfit,
+  });
+}
 
 export interface EligibilityVerdict {
   eligible: boolean;
@@ -111,6 +135,13 @@ export function assessEligibility(
 
   if (!(result.currentPrice > 0)) {
     reasons.push("No current price available.");
+  }
+
+  const resting = restingReadOf(result);
+  if (resting) {
+    reasons.push(
+      `This is a resting order, not today's trade: its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it waits for price to come back to it.`,
+    );
   }
 
   const floor = meetsLiquidityFloor(result.liquidity ?? null, result.assetClass);

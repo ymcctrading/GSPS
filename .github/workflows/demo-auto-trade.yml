@@ -19,10 +19,9 @@ name: Demo profile auto-trade
 # 17:00 UTC / 19:30 UTC: two more looks through the session, wide enough to
 # tolerate GitHub Actions' looser cron timing under both EST and EDT.
 on:
-  schedule:
-    - cron: '35 12 * * 1-5'
-    - cron: '0 17 * * 1-5'
-    - cron: '30 19 * * 1-5'
+  # Scheduled from the database since 2026-10-21 (pg_cron, migration
+  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
+  # Run by hand from the Actions tab if needed.
   workflow_dispatch:
 
 jobs:

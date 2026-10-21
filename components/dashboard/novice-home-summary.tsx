@@ -4,13 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { GraduationCap, ShieldCheck, TimerReset, Compass } from "lucide-react";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
+import { readResting, restingNote, restingInputOfRow } from "@/lib/setups/resting";
 import type { ScanRow } from "@/components/scan/results-table";
 import type { MarketRegimeSummary } from "@/lib/promotion/market-regime";
 import type { NoviceHomeSummary as NoviceHomeData } from "@/lib/promotion/novice-home";
 import {
   cooldownStatusLabel,
   NO_QUALIFIED_SETUP_LABEL,
-  noviceEntriesAvailableTodayLabel,
+  noviceOpenRoomLabel,
 } from "@/lib/promotion/copy";
 
 /**
@@ -37,7 +38,7 @@ export function NoviceHomeSummary({
       <Card>
         <CardHeader>
           <CardTitle>Today, at a glance</CardTitle>
-          <CardDescription>{noviceEntriesAvailableTodayLabel(home.entriesAvailableToday)}</CardDescription>
+          <CardDescription>{noviceOpenRoomLabel(home.openRoom.stocks, home.openRoom.otherMarkets)}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm">
           <div className="flex items-center justify-between">
@@ -80,6 +81,7 @@ export function NoviceHomeSummary({
                 <span>Risk Level {bestPlan.stopLoss != null ? formatUsd(bestPlan.stopLoss) : "—"}</span>
                 <span>First Target {bestPlan.takeProfit1 != null ? formatUsd(bestPlan.takeProfit1) : "—"}</span>
               </div>
+              <RestingLine plan={bestPlan} />
             </Link>
           ) : (
             <p className="text-sm text-muted">{NO_QUALIFIED_SETUP_LABEL}</p>
@@ -104,4 +106,11 @@ export function NoviceHomeSummary({
       </Card>
     </div>
   );
+}
+
+/** Says so when Today's plan is a resting order (lib/setups/resting.ts): ranked behind every plan price is near. */
+function RestingLine({ plan }: { plan: ScanRow }) {
+  const read = readResting(restingInputOfRow(plan));
+  if (!read || plan.entry == null) return null;
+  return <p className="text-xs text-muted">{restingNote(read, plan.entry)}</p>;
 }

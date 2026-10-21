@@ -43,6 +43,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
     counterMove: null,
     reactionAbnormal: false,
     campaign: null,
+    rangeLevels: { bullish: null, bearish: null },
     ...over,
   };
 }
@@ -314,5 +315,31 @@ describe("the score out of nine", () => {
     const summary = toPublicScoreSummary(decision);
     expect(summary.max).toBe(9);
     expect(summary.stateNote).toBeNull();
+  });
+});
+
+describe("P1's year check reads the decade digit at the session's month (2026-10-21)", () => {
+  it("in the fall of a '6' year neither side takes the year point from the digit", async () => {
+    const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { readPillarFacts } = await import("@/lib/scoring/pillars");
+    const bars: Bar[] = Array.from({ length: 80 }, (_, i) => {
+      const c = 50 + (i % 10);
+      return { t: new Date(Date.UTC(2026, 6, 1) + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1_000_000 };
+    });
+    const read = (iso: string) => {
+      const asOf = new Date(iso);
+      const daily = bars.filter((b) => b.t < iso);
+      const rules = readDisclosedRules(daily, daily[daily.length - 1].c, null, asOf);
+      return readPillarFacts({ rules, daily, monthly: [], marketDaily: null, universe: null, price: daily[daily.length - 1].c, asOf });
+    };
+    // July 2026: the bull year; the digit gives a long its point.
+    expect(read("2026-07-25T12:00:00Z").decadeBias).toBe("bullish");
+    // September 2026: the fall culmination. Before the fix this read
+    // "bullish", so every long took the point free and no short could.
+    const fall = read("2026-09-15T12:00:00Z");
+    expect(fall.decadeBias).toBe("mixed");
+    const long = marketCyclePillar({ ...fall, marketTrend: "bullish", yearTrend: "inside" }, "bullish");
+    const short = marketCyclePillar({ ...fall, marketTrend: "bearish", yearTrend: "inside" }, "bearish");
+    expect(long.passed).toBe(short.passed);
   });
 });

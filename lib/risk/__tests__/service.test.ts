@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { evaluateLiveCircuitBreaker, countLiveEntriesOpenedToday } from "@/lib/risk/service";
+import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
 
 interface Snapshot {
   equity: number;
@@ -95,7 +95,6 @@ describe("evaluateLiveCircuitBreaker", () => {
       "u1",
       450,
       true,
-      0,
       new Date("2026-08-28T14:00:00Z"),
     );
     expect(result.decision.state).toBe("normal");
@@ -114,7 +113,7 @@ describe("evaluateLiveCircuitBreaker", () => {
       priorState: { state: "normal", triggered_at: "2026-08-15T14:00:00Z" },
     });
     // 450 -> 436.5 is a 3% loss over the trailing 48h — soft_cooldown territory.
-    const result = await evaluateLiveCircuitBreaker(s.client, "u1", 436.5, true, 0, now);
+    const result = await evaluateLiveCircuitBreaker(s.client, "u1", 436.5, true, now);
     expect(result.loss48hPct).toBeCloseTo(3, 6);
     expect(result.decision.state).toBe("soft_cooldown");
     expect(s.stateUpserts[0]).toMatchObject({ state: "soft_cooldown" });
@@ -127,7 +126,7 @@ describe("evaluateLiveCircuitBreaker", () => {
       snapshots: [{ equity: 450, verified: true, recorded_at: "2026-08-21T14:00:00Z" }],
       priorState: { state: "normal", triggered_at: "2026-08-15T14:00:00Z" },
     });
-    const result = await evaluateLiveCircuitBreaker(s.client, "u1", 455, true, 0, now);
+    const result = await evaluateLiveCircuitBreaker(s.client, "u1", 455, true, now);
     expect(result.decision.state).toBe("normal");
     expect(s.stateUpserts).toHaveLength(0);
     expect(s.auditInserts).toHaveLength(0);
@@ -136,46 +135,7 @@ describe("evaluateLiveCircuitBreaker", () => {
 
   it("marks source-data confidence as estimate when the equity read wasn't verified", async () => {
     const s = makeSupabase({ snapshots: [], priorState: null });
-    const result = await evaluateLiveCircuitBreaker(s.client, "u1", 450, false, 0, new Date("2026-08-28T14:00:00Z"));
+    const result = await evaluateLiveCircuitBreaker(s.client, "u1", 450, false, new Date("2026-08-28T14:00:00Z"));
     expect(result.sourceDataConfidence).toBe("estimate");
-  });
-});
-
-describe("countLiveEntriesOpenedToday", () => {
-  function makePositionsClient(count: number | null, error: { message: string } | null = null) {
-    const gteFilters: Record<string, unknown>[] = [];
-    const client = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              gte: (col: string, val: unknown) => {
-                gteFilters.push({ [col]: val });
-                return Promise.resolve({ count, error });
-              },
-            }),
-          }),
-        }),
-      }),
-    } as unknown as SupabaseClient;
-    return { client, gteFilters };
-  }
-
-  it("returns the row count from a live, today-scoped positions query", async () => {
-    const { client } = makePositionsClient(2);
-    const result = await countLiveEntriesOpenedToday(client, "u1", new Date("2026-09-23T18:00:00Z"));
-    expect(result).toBe(2);
-  });
-
-  it("returns 0 (fails closed) rather than throwing when the query errors", async () => {
-    const { client } = makePositionsClient(null, { message: "db down" });
-    const result = await countLiveEntriesOpenedToday(client, "u1", new Date("2026-09-23T18:00:00Z"));
-    expect(result).toBe(0);
-  });
-
-  it("treats a null count (query succeeded, no rows) as 0", async () => {
-    const { client } = makePositionsClient(null);
-    const result = await countLiveEntriesOpenedToday(client, "u1", new Date("2026-09-23T18:00:00Z"));
-    expect(result).toBe(0);
   });
 });

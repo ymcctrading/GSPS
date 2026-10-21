@@ -61,6 +61,7 @@ import {
   applyDataLagHold,
   applyStopBreachHold,
   computeScore,
+  srMatchForSide,
 } from "@/lib/scoring/score";
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { buildCampaignLedger, readMonthlyBreakWarning, secondaryTurnLevels } from "@/lib/gann/campaignLedger";
@@ -72,7 +73,7 @@ import { etDateKey, marketSession } from "@/lib/market/session";
 import { levelCharts, yearCycleMonths } from "@/lib/scan/levelCharts";
 import {
   atrPercentOfPrice,
-  nearestLevelMatch,
+  nearestLevelMatchByRole,
   levelBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
@@ -434,8 +435,11 @@ export async function scanTicker(
       }
     }
     const srBandPct = levelBandPct(currentPrice);
-    const srMatch = nearestLevelMatch(currentPrice, allLevels, srBandPct);
-    const nearSupportResistance = srMatch !== null;
+    // The nearest in-band level on each side (support below, resistance
+    // above); the score reads the one of its direction's role
+    // (`srMatchForSide`), as the replay does.
+    const srMatches = nearestLevelMatchByRole(currentPrice, allLevels, srBandPct);
+    const nearSupportResistance = srMatches.support !== null || srMatches.resistance !== null;
 
     // The bars above are what the verdict is computed on, and on the free feed
     // they are ~15 minutes old — a full candle on the 15-minute execution
@@ -520,11 +524,10 @@ export async function scanTicker(
           boilingPoint,
           gann,
           nearSupportResistance,
-          srMatch: srMatch && {
-            ...srMatch,
-            role: levelRole(currentPrice, srMatch.price),
-            testCount: countLevelTests(sessions, srMatch.price, srBandPct),
-          },
+          srMatch: (() => {
+            const m = srMatchForSide(srMatches, scoreDirection);
+            return m && { ...m, role: levelRole(currentPrice, m.price), testCount: countLevelTests(sessions, m.price, srBandPct) };
+          })(),
           pattern,
           gannTrigger,
           momentumElevated,
@@ -695,6 +698,8 @@ export async function scanTicker(
       dailyBars: daily,
       volatilityRead:
         baselineAtr > 0 ? { atr: recentAtr, regime: volatilityRegimeFromAtrRatio(recentAtr / baselineAtr) } : undefined,
+      // A day's range for the resting-order list (lib/setups/resting.ts).
+      dayRange: recentAtr > 0 ? recentAtr : null,
       volumeRead: { relativeVolumeIndex: relativeVolume(daily, 20) },
       optionPremium,
       signals: {
