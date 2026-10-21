@@ -55,3 +55,38 @@ describe("the decade digit reaches the live scan and the replay alike (M-T17, C-
     expect(contextFactorsFor(ctx, "bullish", 55).decadeNinetiethMonth).toBe(true);
   });
 });
+
+describe("the turns named inside a year (Master Course Ch. 7, PDF 223-224)", () => {
+  const at = (iso: string) => computeDecadeCycle(new Date(iso));
+
+  it("a '6' year is bullish to August, its fall culmination mixed, and December bearish", () => {
+    expect(at("2026-06-15T12:00:00Z")).toMatchObject({ bias: "bullish", currentBias: "bullish" });
+    // The 2026-08-24 to 2026-10-20 replay window: the campaign "ends in the Fall".
+    expect(at("2026-09-01T12:00:00Z").currentBias).toBe("mixed");
+    expect(at("2026-10-20T12:00:00Z").currentBias).toBe("mixed");
+    expect(at("2026-11-30T12:00:00Z").currentBias).toBe("mixed");
+    expect(at("2026-12-15T12:00:00Z").currentBias).toBe("bearish");
+    // The year's label is unchanged (the card heading, CYC-52's 1 July read).
+    expect(at("2026-10-20T12:00:00Z").bias).toBe("bullish");
+  });
+
+  it("a '9' year is bullish to August, mixed September to November, bearish in December", () => {
+    expect(at("2029-03-15T12:00:00Z")).toMatchObject({ bias: "mixed", currentBias: "bullish" });
+    expect(at("2029-10-15T12:00:00Z").currentBias).toBe("mixed");
+    expect(at("2029-12-15T12:00:00Z").currentBias).toBe("bearish");
+  });
+
+  it("'3' and '10' years rally to March/April (mixed) and read bearish from May", () => {
+    expect(at("2033-02-15T12:00:00Z").currentBias).toBe("mixed");
+    expect(at("2033-05-01T12:00:00Z").currentBias).toBe("bearish");
+    expect(at("2030-04-30T12:00:00Z").currentBias).toBe("mixed");
+    expect(at("2030-05-01T12:00:00Z").currentBias).toBe("bearish");
+  });
+
+  it("digits with no named turn read the year's label every month", () => {
+    for (const m of ["01", "06", "12"]) {
+      expect(at(`2027-${m}-15T12:00:00Z`).currentBias).toBe("bearish");
+      expect(at(`2025-${m}-15T12:00:00Z`).currentBias).toBe("bullish");
+    }
+  });
+});

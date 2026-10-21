@@ -522,7 +522,7 @@ export function contextFactorsFor(
   // The square of 52 (M-T6, C-TIME-46) and the decade digit (M-T17, C-TIME-24), as the card reads them.
   if (ctx.squareOf52) f.squareOf52Window = ctx.squareOf52.active;
   const dc = ctx.decadeCycle;
-  if (dc && dc.bias !== "mixed") f.decadeYearWithTrade = dc.bias === (bull ? "bullish" : "bearish");
+  if (dc && dc.currentBias !== "mixed") f.decadeYearWithTrade = dc.currentBias === (bull ? "bullish" : "bearish");
   if (dc?.ninetiethMonth) f.decadeNinetiethMonth = dc.ninetiethMonth.active;
   // A-TIME-07: the market's bull campaign at the prior one's length. No direction in the text.
   const cl = ctx.campaignLength;
