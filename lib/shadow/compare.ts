@@ -12,6 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { sendOperatorDriftAlertEmail } from "@/lib/notifications/resend-handler";
 
 export interface ShadowSummary {
@@ -137,6 +138,9 @@ export async function evaluateShadowDrift(
   const { data, error } = await supabase
     .from("shadow_signals")
     .select("outcome, r_multiple")
+    // One version at a time: a sample that mixes strategy versions measures
+    // no rule production runs.
+    .eq("strategy_version", STRATEGY_VERSION)
     .not("outcome", "is", null)
     .gte("scanned_at", since);
 
