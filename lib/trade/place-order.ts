@@ -501,6 +501,7 @@ export async function placeSimulatedOrder(
           : correlatedGroups,
         candidateJoinsExistingGroup,
         maxCorrelatedRiskGroups: entitlements.maxCorrelatedRiskGroups,
+        percentRiskCeilings: entitlements.percentRiskCeilings,
       });
       if (!verdict.ok) {
         return {
@@ -1077,6 +1078,7 @@ async function placeLiveOrder(
     const candidateJoinsExistingGroup = heldSymbols.has(input.symbol.toUpperCase());
     const referencePrice = input.limitPrice ?? input.referencePrice ?? null;
     if (referencePrice != null) {
+      const entitlements = await getUserEntitlementPolicy(supabase, userId);
       const verdict = checkPositionLimits({
         equity,
         newPositionNotionalUsd: referencePrice * input.qty,
@@ -1087,7 +1089,8 @@ async function placeLiveOrder(
           : 0,
         openCorrelatedGroupsExcludingThis: candidateJoinsExistingGroup ? heldSymbols.size - 1 : heldSymbols.size,
         candidateJoinsExistingGroup,
-        maxCorrelatedRiskGroups: (await getUserEntitlementPolicy(supabase, userId)).maxCorrelatedRiskGroups,
+        maxCorrelatedRiskGroups: entitlements.maxCorrelatedRiskGroups,
+        percentRiskCeilings: entitlements.percentRiskCeilings,
       });
       if (!verdict.ok) {
         return {

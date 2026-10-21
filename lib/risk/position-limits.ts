@@ -4,6 +4,15 @@
  * buying-power/fractional-share limits, which are already enforced
  * elsewhere (lib/guided/sizing.ts, lib/brokers/simulator.ts) and are not
  * duplicated here.
+ *
+ * Since 2026-10-21 the three percent ceilings apply to Novice only
+ * (`percentRiskCeilings`; owner: "What would Gann do. And implement that
+ * answer."). They are GSPS's guard rails for a learner, Gann's 10% rule
+ * restated as percents of equity. Above Novice they refused the size Gann's
+ * own rules give: a 1% risk with his stop about 3% away is a third of the
+ * account (AAPL, 2026-10-20). Every tier stays under Gann's capital rules
+ * (`lib/risk/gannCapital.ts`: 30 points of capital a share, a tenth of the
+ * capital at risk, at most five stocks).
  */
 
 import type { Limit } from "@/lib/entitlements/policy";
@@ -28,9 +37,15 @@ export interface PositionLimitInputs {
   /**
    * The account tier's cap on open correlated groups
    * (`EntitlementPolicy.maxCorrelatedRiskGroups`): 1 for Novice, unlimited
-   * otherwise. The three percentage ceilings apply to every tier.
+   * otherwise.
    */
   maxCorrelatedRiskGroups: Limit;
+  /**
+   * The tier's `EntitlementPolicy.percentRiskCeilings`: whether the three
+   * percentage ceilings apply. Novice only since 2026-10-21; every other tier
+   * is held to Gann's capital rules alone (`lib/risk/gannCapital.ts`).
+   */
+  percentRiskCeilings: boolean;
 }
 
 export interface PositionLimitVerdict {
@@ -41,8 +56,25 @@ export interface PositionLimitVerdict {
 
 export function checkPositionLimits(input: PositionLimitInputs): PositionLimitVerdict {
   const violations: string[] = [];
+  if (input.percentRiskCeilings) checkPercentCeilings(input, violations);
+
+  const groupsAfter =
+    input.openCorrelatedGroupsExcludingThis + (input.candidateJoinsExistingGroup ? 0 : 1);
+  const maxGroups = input.maxCorrelatedRiskGroups;
+  if (maxGroups !== "unlimited" && !input.candidateJoinsExistingGroup && groupsAfter > maxGroups) {
+    violations.push(
+      `This would open a new correlated risk group; Novice accounts may hold only ${maxGroups} at a time.`,
+    );
+  }
+
+  return { ok: violations.length === 0, violations };
+}
+
+/** Novice's guard rails: one position, the deployed total and the open risk, as percents of equity. */
+function checkPercentCeilings(input: PositionLimitInputs, violations: string[]): void {
   if (!(input.equity > 0)) {
-    return { ok: false, violations: ["No equity to size a position against."] };
+    violations.push("No equity to size a position against.");
+    return;
   }
 
   const singlePositionPct = (input.newPositionNotionalUsd / input.equity) * 100;
@@ -65,15 +97,4 @@ export function checkPositionLimits(input: PositionLimitInputs): PositionLimitVe
       `Total planned open risk would be ${totalOpenRiskPct.toFixed(2)}% of equity, over the ${MAX_TOTAL_OPEN_RISK_PCT}% ceiling.`,
     );
   }
-
-  const groupsAfter =
-    input.openCorrelatedGroupsExcludingThis + (input.candidateJoinsExistingGroup ? 0 : 1);
-  const maxGroups = input.maxCorrelatedRiskGroups;
-  if (maxGroups !== "unlimited" && !input.candidateJoinsExistingGroup && groupsAfter > maxGroups) {
-    violations.push(
-      `This would open a new correlated risk group; Novice accounts may hold only ${maxGroups} at a time.`,
-    );
-  }
-
-  return { ok: violations.length === 0, violations };
 }

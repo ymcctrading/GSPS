@@ -179,19 +179,22 @@ export function reversionEntry(
 }
 
 /**
- * What one session arms, on the live scan's two passes and in the replay
- * alike: the reversion (`reversionEntry`) and, when the charts read a trend,
- * the buying point with it (`isWithGannTrend`). Each is the nearer of that
- * side's crossing, old level and hold (`selectGannEntry`, via `entryOf`).
- */
-/**
  * The one setup a scan with no direction asked of it shows (the symbol page,
- * a batch scan, Guided Mode's recheck): whichever of the session's buying
- * points armed, and when both did, the nearer to `price` (the no-trend rule,
- * fork F4 a). Until 2026-10-20 such a scan read only the reversion, so a
- * symbol the daily list carried from the continuation pass opened on its own
- * page scored against the trend on a side that armed nothing (SHEL,
- * 2026-10-16: 8 of 9 Buy on the list, 2 of 9 Sell on its page, same minute).
+ * a batch scan, Guided Mode's recheck): the buying point with the trend when
+ * it armed, else the reversion. "Never buck the trend" (*Wall Street Stock
+ * Selector* pp. 18-19, never-failing rule 5; *New Stock Trend Detector*): the
+ * with-trend point is the trade, the counter-trend point only when it is the
+ * one that armed. With no
+ * trend on any chart only the reversion arms, and it is the nearer of the two
+ * sides (`reversionEntry`, fork F4 a).
+ *
+ * History: until 2026-10-20 such a scan read only the reversion, so SHEL was
+ * 8 of 9 Buy on the list and 2 of 9 Sell on its page (2026-10-16). #360 then
+ * showed the nearer of the two when both armed, which still flipped AAPL (7 of
+ * 9 Buy on the list, 1 of 9 Sell on its page), HPE and CMCSA on 2026-10-21,
+ * whenever the counter-trend point sat closer. Owner, 2026-10-21: "What would
+ * Gann do. And implement that answer." The list's continuation pass reads the
+ * same with-trend point, so the page and the list now show one setup.
  */
 export function chooseSessionEntry(
   trends: Pick<TrendReading, "timeframe" | "direction">[],
@@ -199,11 +202,15 @@ export function chooseSessionEntry(
   price: number,
 ): { setupKind: SetupKind; trigger: GannEntryTrigger } | null {
   const armed = armSessionEntries(trends, entryOf, price);
-  if (armed.length < 2) return armed[0] ?? null;
-  const nearer = nearerBuyingPoint(armed[0].trigger, armed[1].trigger, price);
-  return armed.find((a) => a.trigger === nearer) ?? armed[0];
+  return armed.find((a) => a.setupKind === "continuation") ?? armed[0] ?? null;
 }
 
+/**
+ * What one session arms, on the live scan's two passes and in the replay
+ * alike: the reversion (`reversionEntry`) and, when the charts read a trend,
+ * the buying point with it (`isWithGannTrend`). Each is the nearer of that
+ * side's crossing, old level and hold (`selectGannEntry`, via `entryOf`).
+ */
 export function armSessionEntries(
   trends: Pick<TrendReading, "timeframe" | "direction">[],
   entryOf: EntryOf,

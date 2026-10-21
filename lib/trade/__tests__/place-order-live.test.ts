@@ -283,13 +283,14 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
-  it("does not cap correlated groups for a Wall Street account", async () => {
+  it("holds a Wall Street account to neither the group cap nor the percent ceilings", async () => {
     tier.value = "SYSTEM_MASTERY";
     try {
       readLiveAlpacaConnection.mockResolvedValue(connection);
       getAccount.mockResolvedValue({ equity: "10000" });
       evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
       getPositions.mockResolvedValue([{ symbol: "MSFT", market_value: "3000" }]);
+      placeOrder.mockResolvedValue({ id: "alpaca-order-ws", status: "accepted" });
 
       const result = await placeSimulatedOrder(
         stubSupabase({ workingPlans: [{ qty: 30, entry_price: 100, stop_loss: 95 }] }),
@@ -303,10 +304,10 @@ describe("placeSimulatedOrder — live branch", () => {
         },
       );
 
-      expect(result.status).toBe(409);
-      const violations = (result.body as { violations: string[] }).violations;
-      expect(violations.some((v) => v.includes("open risk"))).toBe(true);
-      expect(violations.some((v) => v.includes("correlated risk group"))).toBe(false);
+      // Above Novice only Gann's capital rules apply (2026-10-21): neither the
+      // group cap nor the 2% open-risk ceiling refuses it.
+      expect((result.body as { code?: string }).code).not.toBe("position_limit");
+      expect(placeOrder).toHaveBeenCalledTimes(1);
     } finally {
       tier.value = "PRACTICE";
     }

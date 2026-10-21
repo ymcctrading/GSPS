@@ -48,9 +48,7 @@ import {
   AUTONOMOUS_LIVE_MAX_DOLLAR_RISK_PER_TRADE,
   AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK,
 } from "@/lib/automation/autonomous-live-gate";
-import { MAX_NEW_POSITIONS_PER_DAY } from "@/lib/risk/config";
 import { armConfirmedPlansFromBars, planStopBroken } from "@/lib/lifecycle/armFromBars";
-import { etDateKey } from "@/lib/market/session";
 import type { RulesAlignmentTier } from "@/lib/signals/types";
 import { roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
@@ -321,26 +319,12 @@ async function runForProfile(
     return;
   }
 
-  // "Take the top three setups" — MAX_NEW_POSITIONS_PER_DAY (lib/risk/config.ts,
-  // = 3) is the platform's existing per-day new-position ceiling, enforced for
-  // live trading by the Novice Risk & Cooldown Engine's circuit breaker
-  // (lib/risk/circuit-breaker.ts) — but that engine only ever gates real money
-  // (see lib/risk/service.ts's own header), so nothing capped this loop's
-  // paper activations, which is the mode it runs in almost exclusively today.
-  // Re-derived from automation_profiles on every run rather than tracked in
-  // memory, same reasoning as everything else here: a run that already spent
-  // the day's budget on an earlier pass must see that, not just this pass's
-  // own activations.
-  const activatedToday = await countActivatedToday(supabase, profile.user_id);
-  let remainingToday = Math.max(0, MAX_NEW_POSITIONS_PER_DAY - activatedToday);
-  if (remainingToday === 0 && candidates.length > 0) {
-    result.plansSkipped += candidates.length;
-    result.errors.push({
-      userId: profile.user_id,
-      reason: `Skipped ${candidates.length} candidate(s) — already activated ${activatedToday} new position(s) today (cap ${MAX_NEW_POSITIONS_PER_DAY}).`,
-    });
-    return;
-  }
+  // No daily count of new positions (Q8, Gann sets none; owner 2026-10-21,
+  // "What would Gann do"). Until then this loop stopped at three a day
+  // (MAX_NEW_POSITIONS_PER_DAY). Gann's capital rules bound it instead, at
+  // placement: at most five stocks, 30 points of capital a share and a tenth
+  // of the capital at risk (lib/risk/gannCapital.ts). Candidates still go
+  // best tier first, so the strongest take the room.
 
   // Gann's even figures (owner, 2026-09-28): with auto-ordering at round
   // numbers off (the default), an entry just short of a round number is not
@@ -361,10 +345,6 @@ async function runForProfile(
   }
 
   for (const plan of candidates) {
-    if (remainingToday <= 0) {
-      result.plansSkipped++;
-      continue;
-    }
     if (!matchesDirectionalBias(plan.direction, profile.directional_bias)) {
       result.plansSkipped++;
       continue;
@@ -433,7 +413,6 @@ async function runForProfile(
     });
     if (activation.ok) {
       result.plansActivated++;
-      remainingToday--;
       if (executionMode === "live") liveDollarRiskSpentToday += tradeDollarRisk;
     } else {
       result.plansSkipped++;
@@ -503,33 +482,6 @@ async function placeRestingEntries(
  * separately reviewed, separately capped risk (`MAX_ALLOCATED_DOLLAR_RISK`
  * in `lib/automation/service.ts`), not this loop's budget to spend.
  */
-/**
- * Counts this member's autonomous-loop activations (any execution mode --
- * paper counts against the same daily headline as live) whose `activated_at`
- * falls on today's US/Eastern trading date. Bounded to the last two days by
- * `created_at` before the precise ET-day filter, same pattern
- * lib/promotion/novice-home.ts uses for "positions opened today" -- cheap to
- * fetch, exact to filter, no server-side timezone arithmetic to get wrong.
- */
-async function countActivatedToday(supabase: SupabaseClient, userId: string): Promise<number> {
-  const { data, error } = await supabase
-    .from("automation_profiles")
-    .select("activated_at")
-    .eq("user_id", userId)
-    .eq("automation_mode", "system_plan")
-    .gte("created_at", new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString());
-  if (error) {
-    console.error(`countActivatedToday: query failed for ${userId} — ${error.message}`);
-    // Fails closed: an unreadable activation history reads as the day's cap
-    // already spent, never as room to activate more.
-    return MAX_NEW_POSITIONS_PER_DAY;
-  }
-  const today = etDateKey(new Date());
-  return ((data ?? []) as { activated_at: string }[]).filter(
-    (row) => etDateKey(new Date(row.activated_at)) === today,
-  ).length;
-}
-
 async function sumLiveDollarRiskActivatedSince(
   supabase: SupabaseClient,
   userId: string,

@@ -11,6 +11,7 @@ describe("checkPositionLimits", () => {
     openCorrelatedGroupsExcludingThis: 0,
     candidateJoinsExistingGroup: false,
     maxCorrelatedRiskGroups: 1 as const,
+    percentRiskCeilings: true,
   };
 
   it("passes a well-sized single position with no correlated exposure", () => {
@@ -33,6 +34,19 @@ describe("checkPositionLimits", () => {
     const v = checkPositionLimits({ ...base, currentOpenRiskUsd: 5, newPositionRiskUsd: 5 });
     expect(v.ok).toBe(false);
     expect(v.violations.some((m) => m.includes("open risk"))).toBe(true);
+  });
+
+  it("holds an account above Novice to the capital rules alone, not the percent ceilings", () => {
+    const v = checkPositionLimits({
+      ...base,
+      newPositionNotionalUsd: 150, // ~33%
+      currentlyDeployedUsd: 250,
+      currentOpenRiskUsd: 5,
+      newPositionRiskUsd: 5,
+      maxCorrelatedRiskGroups: "unlimited",
+      percentRiskCeilings: false,
+    });
+    expect(v).toEqual({ ok: true, violations: [] });
   });
 
   it("blocks a second correlated risk group at low equity", () => {

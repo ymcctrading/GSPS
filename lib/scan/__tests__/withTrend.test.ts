@@ -64,10 +64,15 @@ describe("the setup a scan with no direction asked of it shows", () => {
     expect(chosen?.trigger.direction).toBe("bullish");
   });
 
-  it("shows the nearer buying point when both sides armed", () => {
+  it("shows the with-trend buying point when both sides armed, however near the reversion (never buck the trend)", () => {
     const both = (d: "bullish" | "bearish") => (d === "bullish" ? fake("bullish", 104) : fake("bearish", 97));
-    expect(chooseSessionEntry(up, both, 98)?.setupKind).toBe("reversion");
+    expect(chooseSessionEntry(up, both, 98)?.setupKind).toBe("continuation");
     expect(chooseSessionEntry(up, both, 103)?.setupKind).toBe("continuation");
+  });
+
+  it("shows the reversion when it is the only one that armed", () => {
+    const only = (d: "bullish" | "bearish") => (d === "bearish" ? fake("bearish", 97) : null);
+    expect(chooseSessionEntry(up, only, 98)?.setupKind).toBe("reversion");
   });
 
   it("shows nothing when neither side armed", () => {

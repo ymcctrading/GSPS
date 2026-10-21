@@ -536,4 +536,11 @@
 // on the live scan and the replay. It replaces the stand-in against SPY alone.
 // The rank also adds a step to `selectionStrength`, so list order moves. P3
 // and so some scores move, live and replay alike.
-export const STRATEGY_VERSION = "2026-10-21-gann-universe-strength-rank";
+// 2026-10-21-gann-with-trend-first (on top of the universe rank): a scan with no direction asked of it (the
+// symbol page, batch scans, Guided's recheck) shows the with-trend buying point
+// whenever it armed, the reversion only when it alone armed ("never buck the
+// trend", WSSS pp. 18-19 rule 5; owner: "What would Gann do"). Page verdicts
+// move; the list's continuation pass and the replay arm as before. Same day,
+// the percent-of-equity ceilings apply to Novice only and the portfolio
+// manager has no daily count: placement and sizing, not verdicts.
+export const STRATEGY_VERSION = "2026-10-21-gann-with-trend-first";
