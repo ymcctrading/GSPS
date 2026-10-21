@@ -913,6 +913,21 @@ engineering choice as such). It is the owner's earlier "Determine how WD Gann
 would answer these questions, and those are your answers" (2026-10-21) made
 standing.
 
+**"This app is WD Gann re-manifested into a trading platform" (owner,
+2026-10-21).** That is the approach for every design question in a session:
+the first question is how Gann did it, and where he answers, his answer is
+the design.
+
+**This covers how the platform runs, not only trading rules (owner,
+2026-10-21: "when I say that gann's methodology should be completely infused
+into the platform, this is one of those instances").** What to scan, what to
+watch, how often to refresh, and which names get the scarce requests are
+questions Gann answers too: he chose his active stocks from the daily charts
+the night before and timed them in the session. A data-feed or budget limit
+is a reason to ask how Gann would choose, never the end of the answer. The
+intraday scan's fixed list was reported as "the feed's limit" until the owner
+asked; the evening focus list below is the answer the method already gave.
+
 This does not mean bypassing engineering judgment about *how* to translate
 a disclosed rule into working code, and it does not mean porting a raw
 historical number (a 1930s dollar/cents figure, a commodity-specific unit)
@@ -2721,6 +2736,19 @@ scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0097, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
 shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+**Focus list, same day (owner: "take the highly likely, and track those ...
+invalidate and replace them").** After the close, `/api/intraday-focus`
+(pg_cron 22:00 UTC, migration 0098) reads the scan universe's daily bars in
+batches and stores the stocks primed for the next session
+(`lib/scanner/focusList.ts`, table `intraday_focus`): a plan within a day's
+range of its entry, a narrow range of 2-13 weeks (at its edge), a reverse
+signal day or a wide day on heavy volume, or the close within 3 points of an
+old 3-Day Chart top or bottom. Ranked by how many reasons, then dollar volume
+(Gann ranks no reason above another). The scheduled intraday scan times the
+top `FOCUS_SIZE` with the index funds, crypto and members' watchlists in place
+of the fixed single stocks; a name whose daily plan's stop trades through is
+invalidated and the next takes its place. Both intraday scans now read bars
+in batches (100 symbols a request), not three requests a symbol.
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 

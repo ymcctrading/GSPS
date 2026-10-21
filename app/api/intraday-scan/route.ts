@@ -52,12 +52,14 @@ import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry, remainingSetupsDisplayable } from "@/lib/promotion/pro-intraday";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
-import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
+import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
+import { FOCUS_SIZE, FOCUS_STORED } from "@/lib/scanner/focusList";
 import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
@@ -228,9 +230,23 @@ export async function GET(req: NextRequest) {
     return new Map<string, DailyPlanLevels>();
   });
 
+  // Every symbol's bars in a few batched requests (100 symbols each) instead
+  // of three per symbol: the per-symbol reads ran the free feed into its rate
+  // limit at about 20 symbols (2026-10-21). A batch that fails leaves those
+  // symbols to the per-symbol reads, as before.
+  const prefetched = await prefetchBars(provider, universe, now);
+
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
     withTimeout(
-      buildInput(entry, todayEt, provider, priorAlerts.get(entry.symbol) ?? [], now, dailyPlans.get(entry.symbol) ?? null),
+      buildInput(
+        entry,
+        todayEt,
+        provider,
+        priorAlerts.get(entry.symbol) ?? [],
+        now,
+        dailyPlans.get(entry.symbol) ?? null,
+        prefetched.get(entry.symbol) ?? null,
+      ),
       15_000,
       `buildInput for ${entry.symbol}`
     ).catch((err) => {
@@ -245,6 +261,8 @@ export async function GET(req: NextRequest) {
     .map((u) => u.symbol);
 
   let output = scanIntraday(resolved, config, now);
+
+  if (systemScan) await invalidateBrokenFocus(supabase as ServiceSupabase, resolved, now).catch(() => undefined);
 
   // Pro's bounded module (docs/GSPS_TIER_ENTITLEMENT_SPEC.md correction,
   // 2026-08-29): a separately defined, more conservative slice of the same
@@ -373,6 +391,8 @@ export async function GET(req: NextRequest) {
  * see the `maxDuration` comment at the top of this file.
  */
 const MAX_SYSTEM_UNIVERSE = 50;
+/** An evening focus list older than this (calendar days) is not read: it spans a weekend and a holiday. */
+const FOCUS_MAX_AGE_DAYS = 5;
 
 /**
  * System-scan universe: the curated watchlist plus whatever symbols users
@@ -404,12 +424,72 @@ async function resolveSystemUniverse(
 ): Promise<{ symbol: string; kind: AssetKind }[]> {
   if (universeParam === "crypto") return WATCHLIST.filter((entry) => entry.kind === "crypto");
 
-  const watched = await loadWatchedSymbols(supabase);
-  const known = new Set(WATCHLIST.map((w) => w.symbol));
-  const additional = watched
-    .filter((w) => !known.has(w.symbol))
-    .slice(0, Math.max(0, MAX_SYSTEM_UNIVERSE - WATCHLIST.length));
-  return [...WATCHLIST, ...additional];
+  // The evening's focus list (owner, 2026-10-21): when one stands, the fixed
+  // single stocks give way to the names the daily charts read as primed, and
+  // the index funds, crypto and members' watchlists stay on. With no list
+  // (a missed evening), the core list as before.
+  const [watched, focus] = await Promise.all([loadWatchedSymbols(supabase), loadFocusSymbols(supabase)]);
+  const core = focus.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
+  const seen = new Set(core.map((w) => w.symbol));
+  const out = [...core];
+  for (const entry of [...watched, ...focus.slice(0, FOCUS_SIZE).map((symbol) => ({ symbol, kind: kindFor(symbol) }))]) {
+    if (out.length >= MAX_SYSTEM_UNIVERSE) break;
+    if (seen.has(entry.symbol)) continue;
+    seen.add(entry.symbol);
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * The latest evening focus list's live names, best rank first: those not yet
+ * invalidated today, so a broken name is replaced by the next one on each
+ * scan. A list older than `FOCUS_MAX_AGE_DAYS` is not read. A read failure
+ * returns none, and the scan falls back to its core list.
+ */
+async function loadFocusSymbols(supabase: ServiceSupabase): Promise<string[]> {
+  const since = etDateKey(new Date(Date.now() - FOCUS_MAX_AGE_DAYS * 86_400_000));
+  const { data: latest } = await supabase
+    .from("intraday_focus")
+    .select("basis_date")
+    .gte("basis_date", since)
+    .order("basis_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!latest?.basis_date) return [];
+  const { data, error } = await supabase
+    .from("intraday_focus")
+    .select("symbol")
+    .eq("basis_date", latest.basis_date)
+    .is("invalidated_at", null)
+    .order("rank", { ascending: true })
+    .limit(FOCUS_STORED);
+  if (error || !data) return [];
+  return data.map((r) => String(r.symbol).toUpperCase());
+}
+
+/**
+ * A focus name whose daily plan's stop the session has traded through is
+ * spent for the day (a breach retires the plan, owner 2026-09-30): it is
+ * marked invalidated, and the next scan takes the next name on the list.
+ * Best-effort; a failed write leaves the name on for another scan.
+ */
+async function invalidateBrokenFocus(supabase: ServiceSupabase, inputs: SymbolInput[], now: Date): Promise<void> {
+  const broken = inputs.filter((i) => {
+    const plan = i.dailyPlan;
+    if (!plan || i.bars.length === 0) return false;
+    return plan.direction === "up"
+      ? Math.min(...i.bars.map((b) => b.l)) <= plan.stop
+      : Math.max(...i.bars.map((b) => b.h)) >= plan.stop;
+  });
+  if (broken.length === 0) return;
+  const { error } = await supabase
+    .from("intraday_focus")
+    .update({ invalidated_at: now.toISOString(), invalidated_reason: "daily plan's stop traded through" })
+    .in("symbol", broken.map((i) => i.symbol))
+    .is("invalidated_at", null)
+    .gte("basis_date", etDateKey(new Date(now.getTime() - FOCUS_MAX_AGE_DAYS * 86_400_000)));
+  if (error) console.error("[intraday-scan] focus invalidation not written:", error.message);
 }
 
 /**
@@ -753,86 +833,6 @@ async function persistSystemAlerts(
 }
 
 /**
- * The daily plan standing on each symbol: the freshest Execute or Watch plan
- * with an entry and a stop, from the daily lists (`daily_scans`) or a monitor
- * (`active_monitors`, which the symbol page's own scan keeps current). An
- * on-demand scan reads the caller's own monitors; a system scan reads any,
- * since the plan is the symbol's, priced the same for everyone.
- *
- * A Reject has no plan to time, so it is left out. A read failure leaves the
- * map empty, and "Daily plan's level held" simply doesn't fire.
- */
-async function loadDailyPlans(
-  supabase: ServiceSupabase,
-  symbols: string[],
-  userId: string | null,
-): Promise<Map<string, DailyPlanLevels>> {
-  const plans = new Map<string, { plan: DailyPlanLevels; at: number }>();
-  if (symbols.length === 0) return new Map();
-  const since = new Date(Date.now() - 4 * 86_400_000);
-
-  let monitors = supabase
-    .from("active_monitors")
-    .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, last_evaluated_at")
-    .in("symbol", symbols)
-    .in("state", ["WATCH", "EXECUTE"])
-    .gte("last_evaluated_at", since.toISOString())
-    .not("entry", "is", null)
-    .not("stop_loss", "is", null);
-  if (userId) monitors = monitors.eq("profile_id", userId);
-
-  const [{ data: monitorRows }, { data: scanRows }] = await Promise.all([
-    monitors,
-    supabase
-      .from("daily_scans")
-      .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at")
-      .in("symbol", symbols)
-      .in("output_state", ["Execute", "Watch"])
-      .gte("updated_at", since.toISOString()),
-  ]);
-
-  const consider = (row: {
-    symbol: string;
-    direction: string | null;
-    entry: number | string | null;
-    stop_loss: number | string | null;
-    take_profit_1: number | string | null;
-    master_profit: number | string | null;
-    output_state: string | null;
-    at: string | null;
-  }) => {
-    const direction = row.direction === "bullish" ? "up" : row.direction === "bearish" ? "down" : null;
-    const verdict = row.output_state === "Execute" ? "Execute" : row.output_state === "Watch" ? "Watch" : null;
-    const entry = Number(row.entry);
-    const stop = Number(row.stop_loss);
-    const at = row.at ? Date.parse(row.at) : NaN;
-    if (!direction || !verdict || !(entry > 0) || !(stop > 0) || Number.isNaN(at)) return;
-    // A plan whose stop sits on the wrong side of its entry is not a plan.
-    if (direction === "up" ? stop >= entry : stop <= entry) return;
-    const prior = plans.get(row.symbol);
-    if (prior && prior.at >= at) return;
-    const tp1 = row.take_profit_1 == null ? null : Number(row.take_profit_1);
-    const mtp = row.master_profit == null ? null : Number(row.master_profit);
-    plans.set(row.symbol, {
-      plan: {
-        direction,
-        verdict,
-        entry,
-        stop,
-        tp1: tp1 != null && tp1 > 0 ? tp1 : null,
-        mtp: mtp != null && mtp > 0 ? mtp : null,
-      },
-      at,
-    });
-  };
-
-  for (const r of monitorRows ?? []) consider({ ...r, at: r.last_evaluated_at });
-  for (const r of scanRows ?? []) consider({ ...r, at: r.updated_at });
-
-  return new Map([...plans].map(([symbol, { plan }]) => [symbol, plan]));
-}
-
-/**
  * Today's scheduled-scan alerts, latest first and one per symbol and signal,
  * read from `intraday_system_alerts`. Pro's bounded module sees only the
  * closed-bar lengths it allows, as on a scan it runs itself.
@@ -1031,6 +1031,57 @@ async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[])
   }
 }
 
+interface PrefetchedBars {
+  minute: Bar[];
+  baseline: Bar[];
+  daily: Bar[];
+}
+
+/**
+ * The three bar series every symbol needs, read per asset class in batched
+ * requests. Uses the same windows `buildInput` asks for one symbol at a time.
+ * A symbol missing from a successful batch is read as having no bars, as a
+ * per-symbol read would; a batch that throws is left to the per-symbol reads.
+ */
+async function prefetchBars(
+  provider: Provider,
+  universe: { symbol: string; kind: AssetKind }[],
+  now: Date,
+): Promise<Map<string, PrefetchedBars>> {
+  const out = new Map<string, PrefetchedBars>();
+  if (!provider.fetchBarsBatch) return out;
+  const groups: { assetClass: "crypto" | "us_equity"; symbols: string[] }[] = [
+    { assetClass: "us_equity", symbols: universe.filter((u) => u.kind !== "crypto").map((u) => u.symbol) },
+    { assetClass: "crypto", symbols: universe.filter((u) => u.kind === "crypto").map((u) => u.symbol) },
+  ];
+  await Promise.all(
+    groups
+      .filter((g) => g.symbols.length > 0)
+      .map(async ({ assetClass, symbols }) => {
+        const marketClosed = assetClass === "us_equity" && equitySession(now) === "closed";
+        const end = assetClass === "crypto" || !provider.isLive ? null : new Date(Date.now() - 16 * 60 * 1000);
+        try {
+          const [minute, baseline, daily] = await Promise.all([
+            provider.fetchBarsBatch!(symbols, "1Min", daysAgo(marketClosed ? 6 : 2), end, assetClass),
+            provider.fetchBarsBatch!(symbols, "5Min", daysAgo(BASELINE_DAYS), end, assetClass),
+            provider.fetchBarsBatch!(symbols, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass),
+          ]);
+          const key = (s: string) => (assetClass === "crypto" ? normalizeCryptoSymbol(s) : s.toUpperCase());
+          for (const symbol of symbols) {
+            out.set(symbol, {
+              minute: minute.get(key(symbol)) ?? [],
+              baseline: baseline.get(key(symbol)) ?? [],
+              daily: daily.get(key(symbol)) ?? [],
+            });
+          }
+        } catch (err) {
+          console.error(`[intraday-scan] batched ${assetClass} bars failed, reading per symbol:`, err);
+        }
+      }),
+  );
+  return out;
+}
+
 /**
  * Assemble one symbol's scan input from three bar series.
  *
@@ -1049,6 +1100,7 @@ async function buildInput(
   lastAlerts: PriorAlert[],
   now: Date,
   dailyPlan: DailyPlanLevels | null = null,
+  prefetched: PrefetchedBars | null = null,
 ): Promise<SymbolInput | null> {
   const { symbol, kind } = entry;
   const assetClass = kind === "crypto" ? "crypto" : "us_equity";
@@ -1071,11 +1123,13 @@ async function buildInput(
   const minuteLookbackDays = marketClosed ? 6 : 2;
 
   try {
-    const [minuteBars, baselineBars, dailyBars] = await Promise.all([
-      provider.fetchBars(symbol, "1Min", daysAgo(minuteLookbackDays), end, assetClass, 2000),
-      provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
-      provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, 300),
-    ]);
+    const [minuteBars, baselineBars, dailyBars] = prefetched
+      ? [prefetched.minute.slice(-2000), prefetched.baseline.slice(-5000), prefetched.daily.slice(-300)]
+      : await Promise.all([
+          provider.fetchBars(symbol, "1Min", daysAgo(minuteLookbackDays), end, assetClass, 2000),
+          provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
+          provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, 300),
+        ]);
 
     const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt, marketClosed);
     if (sessionBars.bars.length === 0) return null;
