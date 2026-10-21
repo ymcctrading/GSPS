@@ -32,6 +32,7 @@ import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { yearCycleConvergence } from "@/lib/gann/timeCycles";
 import { patternAngleLines } from "@/lib/gann/patternAngles";
+import { swingPivots, THREE_DAY_CHART } from "@/lib/gann/swingChart";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
@@ -150,6 +151,38 @@ export function readAngleFacts(bars: Bar[], price: number, unit: number): Pillar
   };
 }
 
+/**
+ * P6(a) since 2026-10-21 (diagnosis: `replay-diagnosis/2026-10-21-p6-angle-scale.md`):
+ * the monthly 45° at 1 Gann point a month from the last bottom of the 3-month
+ * swing chart (the last top for a short), held unless broken by 1 point. Gann's
+ * trend test is the monthly and weekly angle, not the daily: the monthly chart
+ * is "the most important chart of all in determining the main trend" (Master
+ * Course GA-2/3), "monthly/weekly angles > daily" and "first weakness = breaking
+ * the first important angle up from the last bottom of the final run"
+ * (GA-21-23), angles start after 3 months (GA-7/9), and "a stock cannot
+ * maintain a gain of more than one point per month" for long (printed p. 199).
+ * The daily 45° at 1 point a day, read here before, ran 15-65% a month and
+ * passed 1-13% of random-walk readings with no difference between an uptrend
+ * and none; this passes 19-64% with no drift, and in a mild uptrend longs
+ * 41-85% against shorts 18-40%. The daily 45° stays the cinch buying point in
+ * the S/R list (`patternAngleLevels`). Engineering choices, labelled: the 3-bar
+ * chart as Gann's "3 months", its last swing as "the last bottom of the final
+ * run", and `gannPointForBars` as the point. `months` are closed months; the
+ * month in progress is the line's current month.
+ */
+export function readMonthlyFortyFive(months: Bar[], price: number, unit: number): Record<Side, boolean> | null {
+  if (!(price > 0) || !(unit > 0) || months.length < 2) return null;
+  const pivots = swingPivots(months, THREE_DAY_CHART);
+  const now = months.length;
+  const at = (kind: "bottom" | "top"): boolean => {
+    const p = pivots.filter((x) => x.kind === kind).at(-1);
+    if (!p) return false;
+    const line = p.price + (kind === "bottom" ? 1 : -1) * unit * (now - p.index);
+    return kind === "bottom" ? price >= line - unit : price <= line + unit;
+  };
+  return { bullish: at("bottom"), bearish: at("top") };
+}
+
 function median(xs: number[]): number | null {
   if (xs.length === 0) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -226,7 +259,12 @@ export function readPillarFacts(input: {
     volumeActivity: volumeActivity(daily),
     annualRangePoints: rules.annualRange && unit > 0 ? rules.annualRange.medianPoints / unit : null,
     zoneActivity: rules.zone?.activity ?? null,
-    angles: readAngleFacts(daily, price, unit),
+    angles: (() => {
+      const daily45 = readAngleFacts(daily, price, unit);
+      const monthly45 = readMonthlyFortyFive(closedMonths, price, unit);
+      // The squeeze stays on the daily angles; the 45° test is the monthly one.
+      return daily45 && monthly45 ? { ...daily45, holds45: monthly45 } : null;
+    })(),
     base: rules.accumulation ? { long: rules.accumulation.long, breakout: rules.accumulation.breakout } : null,
     capitalWarning: rules.capitalStock?.distributionSignal === true || rules.sharesPerPoint?.topWarning === true,
     counterMove: counterMove ? { trend: counterMove.trend, inCounterMove: counterMove.inCounterMove, phase: counterMove.phase } : null,
@@ -351,7 +389,7 @@ export function anglesPillar(f: PillarFacts | null | undefined, side: Side, stee
   const passed = holds && free;
   return {
     passed,
-    note: `${side === "bullish" ? "On or above the 45° from the last major bottom" : "On or below the 45° from the last major top"}: ${yes(holds)}. Not squeezed between two important angles: ${yes(free)}.${passed && steepTrend ? " The trend runs at the 1x2 or steeper." : ""}`,
+    note: `${side === "bullish" ? "On or above the monthly 45° from the last monthly bottom" : "On or below the monthly 45° from the last monthly top"}: ${yes(holds)}. Not squeezed between two important angles: ${yes(free)}.${passed && steepTrend ? " The trend runs at the 1x2 or steeper." : ""}`,
   };
 }
 
