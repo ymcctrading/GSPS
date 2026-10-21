@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { breachedPasswordError } from "@/lib/auth/breached-password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,6 +25,11 @@ export function ResetPasswordForm() {
     }
     setLoading(true);
     try {
+      const breached = await breachedPasswordError(password);
+      if (breached) {
+        setError(breached);
+        return;
+      }
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
       if (error) setError(error.message);

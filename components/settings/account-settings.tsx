@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { breachedPasswordError } from "@/lib/auth/breached-password";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,11 @@ export function AccountSettings() {
     }
     setPasswordLoading(true);
     try {
+      const breached = await breachedPasswordError(newPassword);
+      if (breached) {
+        setPasswordStatus({ error: breached });
+        return;
+      }
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) setPasswordStatus({ error: error.message });
