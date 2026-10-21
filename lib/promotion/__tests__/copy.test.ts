@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   containsForbiddenPromotionPhrase,
   NEUTRAL_UPGRADE_PROMPT,
-  noviceEntriesAvailableTodayLabel,
+  noviceOpenRoomLabel,
   PROMOTION_FORBIDDEN_PHRASES,
 } from "@/lib/promotion/copy";
 
@@ -22,9 +22,9 @@ describe("promotion copy", () => {
     }
   });
 
-  it("phrases the Novice entry count as a maximum, never a target", () => {
-    expect(noviceEntriesAvailableTodayLabel(0)).toContain("maximum");
-    expect(noviceEntriesAvailableTodayLabel(3)).toBe("3 new entries available today (maximum)");
-    expect(noviceEntriesAvailableTodayLabel(1)).toBe("1 new entry available today (maximum)");
+  it("phrases the Novice open room as a maximum, never a target", () => {
+    expect(noviceOpenRoomLabel(0, 0)).toContain("maximum");
+    expect(noviceOpenRoomLabel(5, 3)).toBe("Room for 5 more stocks and 3 more crypto pairs (maximum)");
+    expect(noviceOpenRoomLabel(1, 1)).toBe("Room for 1 more stock and 1 more crypto pair (maximum)");
   });
 });

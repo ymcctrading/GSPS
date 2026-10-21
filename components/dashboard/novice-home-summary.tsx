@@ -10,7 +10,7 @@ import type { NoviceHomeSummary as NoviceHomeData } from "@/lib/promotion/novice
 import {
   cooldownStatusLabel,
   NO_QUALIFIED_SETUP_LABEL,
-  noviceEntriesAvailableTodayLabel,
+  noviceOpenRoomLabel,
 } from "@/lib/promotion/copy";
 
 /**
@@ -37,7 +37,7 @@ export function NoviceHomeSummary({
       <Card>
         <CardHeader>
           <CardTitle>Today, at a glance</CardTitle>
-          <CardDescription>{noviceEntriesAvailableTodayLabel(home.entriesAvailableToday)}</CardDescription>
+          <CardDescription>{noviceOpenRoomLabel(home.openRoom.stocks, home.openRoom.otherMarkets)}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm">
           <div className="flex items-center justify-between">

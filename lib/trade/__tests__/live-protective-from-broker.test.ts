@@ -7,7 +7,6 @@ const getAccount = vi.fn();
 const placeOrder = vi.fn();
 const getPositions = vi.fn();
 const evaluateLiveCircuitBreaker = vi.fn();
-const countLiveEntriesOpenedToday = vi.fn();
 const recordOrderExecution = vi.fn();
 const killSwitchRefusal = vi.fn(() => null);
 
@@ -30,7 +29,6 @@ vi.mock("@/lib/brokers/alpaca", () => ({
 }));
 vi.mock("@/lib/risk/service", () => ({
   evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
-  countLiveEntriesOpenedToday: (...args: unknown[]) => countLiveEntriesOpenedToday(...args),
 }));
 vi.mock("@/lib/risk/live-trade-loss", () => ({
   isLiveTradingRestricted: vi.fn(() => Promise.resolve(false)),
@@ -105,7 +103,6 @@ describe("a live order is judged against the live account's own position", () =>
     readLiveAlpacaConnection.mockReset().mockResolvedValue(connection);
     getAccount.mockReset().mockResolvedValue({ equity: "10000" });
     evaluateLiveCircuitBreaker.mockReset().mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
-    countLiveEntriesOpenedToday.mockReset().mockResolvedValue(0);
     placeOrder.mockReset().mockResolvedValue({ id: "x", status: "accepted" });
     killSwitchRefusal.mockReset().mockReturnValue(null);
   });
