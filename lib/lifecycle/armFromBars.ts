@@ -26,7 +26,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
-import { assertLiveMarketData } from "@/lib/data/feed-mode";
+import { assertLiveMarketData, MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { closedSessionBars } from "./confirmNow";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
@@ -151,7 +151,12 @@ export async function armConfirmedPlansFromBars(
       if (armed.ok) result.armed.push(plan.planId);
       else result.errors.push({ planId: plan.planId, reason: armed.error });
     } catch (err) {
-      result.errors.push({ planId: plan.planId, reason: err instanceof Error ? err.message : String(err) });
+      // The refusal's own text names the provider and its settings; it is
+      // already in the log (`syntheticDataRefusal`), so the run's response
+      // carries the fixed message instead (S-14).
+      const reason =
+        err instanceof SyntheticMarketDataError ? MARKET_DATA_UNAVAILABLE : err instanceof Error ? err.message : String(err);
+      result.errors.push({ planId: plan.planId, reason });
     }
   }
   return result;
