@@ -2887,11 +2887,14 @@ this" and no bell, email or push, until a run on the current stop reads
 otherwise; presume a translation defect first. Diagnosed the same day (owner:
 "if it is a Gann method ... determine how and why we are getting negative
 results, and correct it"): the alert fired on plans whose entry was a crossing
-still to be made, its touch test passing all session with price under the
-3-point line, so it bought the first intraday bar through an old top before the
-daily close gave the indication (W006 Rule 3(b)-(c)). It now needs the prior
-session to have closed on the plan's side of the entry, so the touch is a
-reaction. The hold stays until a run on the fix reads positive.
+still to be made: with price under the entry (the reaction buy 1 point past the
+old top), its touch test passed all session, so it bought the first intraday
+bar through the top before a daily close 3 points past it gave the indication
+(W006 Rule 3(b)-(c)). It now needs the prior session to have closed at or
+beyond the entry (a held bottom's entry is that close), so the touch is a
+reaction. Known gap: a crossing closed past the entry but not yet 3 points past
+it still passes, until the plan's entry kind and held state are carried onto
+the stored plan. The hold stays until a run on the fix reads positive.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in

@@ -558,6 +558,26 @@ describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () =>
     expect(check?.detail).toContain("no reaction to it yet");
   });
 
+  it("reads a held bottom whose entry is the prior close itself as a reaction", () => {
+    const output = scanIntraday([input({ prevClose: 499.8, dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeDefined();
+  });
+
+  it("stays quiet with no prior close to read", () => {
+    const output = scanIntraday([input({ prevClose: null, dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("No prior close");
+  });
+
+  it("mirrors the side test for a short: a prior close under the entry is no reaction to a short's entry", () => {
+    const short = { direction: "down" as const, entry: 499.8, stop: 510, tp1: 490, mtp: 480, verdict: "Execute" as const };
+    const output = scanIntraday([input({ dailyPlan: short })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("closed over the plan's entry");
+  });
+
   it("stays quiet with no daily plan", () => {
     const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
     expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();

@@ -1294,21 +1294,31 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     return null;
   }
   // A reaction comes back to the level from the plan's side: the prior
-  // session closed beyond the entry, and today traded back to it. A plan whose
-  // entry price has not yet closed on its side is a crossing still to be made
-  // (a buy-stop 3 points over an old top, price below it): Gann's buy there is
-  // the daily close past the line, then the reaction (W006 Rule 3(b)-(c),
-  // pp. 46-47; NSTD p. 20), never the first intraday bar through it ("don't
-  // try to get ahead of the market", Master Course Ch. 8 p. 251). Until
-  // 2026-10-22 the touch test passed all session on such a plan, so the alert
-  // bought the first poke into resistance as a held level (run 80 measured
-  // the signal losing, replay-diagnosis/2026-10-22-intraday-alerts-replay.md).
-  const fromPlanSide = input.prevClose != null && (up ? input.prevClose > plan.entry : input.prevClose < plan.entry);
+  // session closed at or beyond the entry, and today traded back to it. A
+  // crossing's entry is the reaction buy 1 point past the old top (bottom),
+  // and the crossing is made by a daily close 3 points past it (W006 Rule
+  // 3(b)-(c), pp. 46-47; NSTD p. 20). With price still under the entry, the
+  // crossing is not made, and Gann's buy is never the first intraday bar
+  // through it ("don't try to get ahead of the market", Master Course Ch. 8
+  // p. 251). Until 2026-10-22 the touch test passed all session on such a
+  // plan, so the alert bought the first poke into resistance as a held level
+  // (run 80 measured the signal losing,
+  // replay-diagnosis/2026-10-22-intraday-alerts-replay.md). A held bottom's
+  // entry is the prior close itself, so the prior close may equal it.
+  // Known gap, held with the signal: a crossing whose prior close sits between
+  // the entry and the 3-point line (crossed, not yet confirmed) still passes;
+  // telling it apart needs the plan's entry kind and held state carried onto
+  // the stored plan, which `DailyPlanLevels` does not hold yet.
+  const prev = input.prevClose;
+  const fromPlanSide = prev != null && (up ? prev >= plan.entry : prev <= plan.entry);
   if (!fromPlanSide) {
     checks.push({
       name,
       passed: false,
-      detail: `The prior session closed ${up ? "under" : "over"} the plan's entry (${priceText(plan.entry)}), so there is no reaction to it yet: the level is crossed on a daily close first.`,
+      detail:
+        prev == null
+          ? "No prior close to read, so a reaction to the plan's entry cannot be told from a first crossing."
+          : `The prior session closed ${up ? "under" : "over"} the plan's entry (${priceText(plan.entry)}), so there is no reaction to it yet: the level is crossed on a daily close first.`,
     });
     return null;
   }
