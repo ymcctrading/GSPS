@@ -78,6 +78,7 @@ import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
+import { completedDailyBars, priorDailyClose } from "@/lib/scanner/priorClose";
 import {
   DEFAULT_CONFIG,
   INTRADAY_DAILY_HISTORY_DAYS,
@@ -207,8 +208,10 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     if (sessions && !sessions.has(date)) continue;
     const from = starts.get(date)!;
     const to = s + 1 < dates.length ? starts.get(dates[s + 1])! : bars.length;
+    // The live route's window: the completed sessions of the days it fetches,
+    // keyed by market as it keys them (lib/scanner/priorClose.ts).
     const dailyFrom = new Date(Date.parse(`${date}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
-    const priorDaily = dailyBars.filter((b) => b.t.slice(0, 10) >= dailyFrom && b.t.slice(0, 10) < date);
+    const priorDaily = completedDailyBars(dailyBars, date, kind === "crypto", dailyFrom);
     if (priorDaily.length < 3) continue;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
@@ -216,7 +219,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     const dailyPlan = asDailyPlanLevels(sessionPlan);
     const liquidity = readLiquidity(priorDaily);
     const dailyAtr = atr(priorDaily.slice(-20), 14);
-    const prevClose = priorDaily[priorDaily.length - 1].c;
+    // A non-positive prior close reads as none, as on the live scan.
+    const prevClose = priorDailyClose(priorDaily, date, kind === "crypto");
     const fired: { type: SignalType; direction: "up" | "down"; at: string }[] = [];
 
     // The last bar of the session cannot be entered on: its fill is the next session.

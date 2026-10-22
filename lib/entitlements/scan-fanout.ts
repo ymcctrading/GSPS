@@ -287,6 +287,7 @@ export async function evaluateMonitorsAndNotify(
         const outcome = await dispatchNotificationDelivery(service, {
           deliveryId: recorded.deliveryId,
           profileId: args.profileId,
+          enabledChannels: channels,
         });
         if (outcome.dispatched && outcome.status === "sent") sentCount += 1;
       } catch (err) {
@@ -313,6 +314,7 @@ export async function evaluateMonitorsAndNotify(
         const outcome = await dispatchNotificationDelivery(service, {
           deliveryId: recorded.deliveryId,
           profileId: args.profileId,
+          enabledChannels: channels,
         });
         if (outcome.dispatched && outcome.status === "sent") sentCount += 1;
       } catch (err) {

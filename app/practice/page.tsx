@@ -160,7 +160,8 @@ export default async function PracticePage({ searchParams }: { searchParams: Pro
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <TrendingUp className="h-5 w-5 text-accent" /> GSPS
           </Link>
-          <Link href="/signup">
+          {/* Not prefetched: opening /signup ends a practice session (proxy.ts). */}
+          <Link href="/signup" prefetch={false}>
             <Button size="sm">Create your own account</Button>
           </Link>
         </div>

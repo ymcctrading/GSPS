@@ -96,6 +96,9 @@ export function NoviceHomeSummary({
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 text-sm">
+          <Link href="/school" className="inline-flex items-center gap-1.5 text-accent hover:underline">
+            <GraduationCap className="h-4 w-4" /> GSPS School
+          </Link>
           <Link href="/welcome" className="inline-flex items-center gap-1.5 text-accent hover:underline">
             <Compass className="h-4 w-4" /> Plain-English walkthrough
           </Link>

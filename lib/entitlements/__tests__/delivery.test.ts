@@ -129,9 +129,17 @@ describe("getEnabledChannels", () => {
 
 type FakeRow = { id: string; status: string; channel: string; payload?: unknown; attempt_count?: number; created_at?: string };
 
-function fakeDeliveryClient(args: { row: FakeRow | null; email?: string | null }) {
+function fakeDeliveryClient(args: { row: FakeRow | null; email?: string | null; channels?: string[] | "error" }) {
   const updates: unknown[] = [];
   const client = {
+    rpc: (fn: string) =>
+      fn === "get_enabled_notification_channels"
+        ? Promise.resolve(
+            args.channels === "error"
+              ? { data: null, error: { message: "rpc down" } }
+              : { data: args.channels ?? ["email", "push"], error: null },
+          )
+        : Promise.resolve({ data: null, error: null }),
     from(_table: string) {
       return {
         select() {
@@ -268,6 +276,57 @@ describe("dispatchNotificationDelivery", () => {
     expect(updates[0]).toMatchObject({ status: "skipped" });
   });
 
+  it("skips an email older than its session instead of re-sending it from the retry sweep", async () => {
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    const { client, updates } = fakeDeliveryClient({
+      row: { id: "d1", status: "failed", channel: "email", payload: PAYLOAD, attempt_count: 2, created_at: old },
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: true, status: "skipped" });
+    expect(sendAlertEmailMock).not.toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({ status: "skipped", attempt_count: 3 });
+  });
+
+  it("skips a delivery on a channel the member has since turned off (opt-in, migration 0109)", async () => {
+    const { client, updates } = fakeDeliveryClient({
+      row: { id: "d1", status: "failed", channel: "email", payload: PAYLOAD, attempt_count: 1 },
+      channels: ["push"],
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: true, status: "skipped" });
+    expect(sendAlertEmailMock).not.toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({ status: "skipped", error: "The member has this channel turned off." });
+  });
+
+  it("leaves the row for the next sweep, unsent, when the member's channels can't be read", async () => {
+    const { client, updates } = fakeDeliveryClient({
+      row: { id: "d1", status: "pending", channel: "email", payload: PAYLOAD, attempt_count: 0 },
+      channels: "error",
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1" });
+
+    expect(result).toEqual({ dispatched: false, reason: "channels_unread" });
+    expect(sendAlertEmailMock).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(0);
+  });
+
+  it("uses the channel list the inline dispatch passes, without reading it again", async () => {
+    sendAlertEmailMock.mockResolvedValueOnce({ success: true, id: "r1" });
+    const { client } = fakeDeliveryClient({
+      row: { id: "d1", status: "pending", channel: "email", payload: PAYLOAD, attempt_count: 0 },
+      channels: "error",
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1", enabledChannels: ["email"] });
+
+    expect(result).toEqual({ dispatched: true, status: "sent" });
+  });
+
   it("never sends a real notification in preview, and leaves the row untouched", async () => {
     process.env.VERCEL_ENV = "preview";
     const { client, updates } = fakeDeliveryClient({ row: { id: "d1", status: "pending", channel: "email", payload: PAYLOAD } });
@@ -289,6 +348,7 @@ describe("dispatchNotificationDelivery", () => {
 function fakeSweepClient(rows: FakeRow[]) {
   const store = rows.map((r) => ({ ...r, profile_id: "p1" }));
   const client = {
+    rpc: () => Promise.resolve({ data: ["email", "push"], error: null }),
     from(_table: string) {
       const chain = {
         _filters: [] as ((r: Record<string, unknown>) => boolean)[],
@@ -313,12 +373,27 @@ function fakeSweepClient(rows: FakeRow[]) {
         limit() {
           return chain;
         },
+        order() {
+          return chain;
+        },
         single() {
           const found = store.find((r) => chain._filters.every((f) => f(r)));
           return Promise.resolve({ data: found ?? null, error: found ? null : { message: "not found" } });
         },
         update(patch: Record<string, unknown>) {
           return {
+            // The sweep's bulk close of rows past their session.
+            in(col: string, vals: unknown[]) {
+              return {
+                lt(col2: string, before: string) {
+                  for (const r of store as Record<string, unknown>[]) {
+                    const at = r[col2] as string | undefined;
+                    if (vals.includes(r[col]) && at !== undefined && at < before) Object.assign(r, patch);
+                  }
+                  return Promise.resolve({ data: null, error: null });
+                },
+              };
+            },
             eq(col: string, val: unknown) {
               return {
                 in(col2: string, vals2: unknown[]) {
@@ -356,7 +431,23 @@ describe("sweepStuckDeliveries", () => {
 
     const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
 
-    expect(summary).toEqual({ swept: 2, sent: 1, failed: 1, suppressed: 0 });
+    expect(summary).toEqual({ swept: 2, sent: 1, failed: 1, suppressed: 0, unread: 0 });
+  });
+
+  it("closes rows past their session in one write first, so they never crowd today's sends out of the batch", async () => {
+    sendAlertEmailMock.mockResolvedValue({ success: true, id: "r" });
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { client, store } = fakeSweepClient([
+      { id: "old", status: "failed", channel: "email", payload: PAYLOAD, attempt_count: 1, created_at: old },
+      { id: "new", status: "failed", channel: "email", payload: PAYLOAD, attempt_count: 1, created_at: recent },
+    ]);
+
+    const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
+
+    expect(summary).toMatchObject({ swept: 1, sent: 1 });
+    expect(store.find((r) => r.id === "old")).toMatchObject({ status: "skipped" });
+    expect(sendAlertEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry a row already past the attempt ceiling", async () => {
@@ -366,7 +457,7 @@ describe("sweepStuckDeliveries", () => {
 
     const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
 
-    expect(summary).toEqual({ swept: 0, sent: 0, failed: 0, suppressed: 0 });
+    expect(summary).toEqual({ swept: 0, sent: 0, failed: 0, suppressed: 0, unread: 0 });
     expect(sendAlertEmailMock).not.toHaveBeenCalled();
   });
 });
