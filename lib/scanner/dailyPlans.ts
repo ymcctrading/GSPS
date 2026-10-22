@@ -53,7 +53,7 @@ export async function loadDailyPlans(
     if (!latest?.scan_date) return { data: [] };
     return supabase
       .from("daily_scans")
-      .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at, detail")
+      .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at, awaits:detail->entryAwaitsCrossing")
       .eq("scan_date", latest.scan_date)
       .in("symbol", symbols)
       .in("output_state", ["Execute", "Watch"])
@@ -101,7 +101,7 @@ export async function loadDailyPlans(
 
   for (const r of monitorRows ?? []) consider({ ...r, at: r.last_evaluated_at, awaitsCrossing: r.entry_awaits_crossing ?? null });
   for (const r of scanRows ?? []) {
-    const flag = (r.detail as { entryAwaitsCrossing?: unknown } | null)?.entryAwaitsCrossing;
+    const flag = (r as { awaits?: unknown }).awaits;
     consider({ ...r, at: r.updated_at, awaitsCrossing: typeof flag === "boolean" ? flag : null });
   }
 
