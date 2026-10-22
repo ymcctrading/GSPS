@@ -14,7 +14,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { parseSenderAddress, sandboxBlockReason, sendAlertEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
+import { parseSenderAddress, sandboxBlockReason, sendAlertEmail, sendTestEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
 import { SCORE_MAX } from "@/lib/scoring/display";
 
 const BASE: AlertEmailData = {
@@ -126,6 +126,38 @@ describe("the sender (review finding S-04)", () => {
   it("reads the sandbox sender whatever its case", () => {
     process.env.RESEND_FROM = "GSPS <Onboarding@resend.dev>";
     expect(sandboxBlockReason(BASE.userEmail)).toMatch(/sandbox sender/);
+  });
+});
+
+describe("sendTestEmail", () => {
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "test-key";
+    sendMock.mockReset();
+    sendMock.mockResolvedValue({ data: { id: "email-9" }, error: null });
+  });
+
+  afterEach(() => {
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_FROM;
+  });
+
+  it("sends from the verified address and names it", async () => {
+    process.env.RESEND_FROM = "GSPS <alerts@example.com>";
+    const result = await sendTestEmail("ops@example.org");
+    expect(result).toMatchObject({ success: true, id: "email-9", from: "alerts@example.com" });
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ from: "GSPS Ops <alerts@example.com>", to: "ops@example.org" });
+  });
+
+  it("passes Resend's refusal back", async () => {
+    process.env.RESEND_FROM = "alerts@example.com";
+    sendMock.mockResolvedValue({ data: null, error: { message: "Invalid `from` field" } });
+    expect(await sendTestEmail("ops@example.org")).toMatchObject({ success: false, error: "Invalid `from` field" });
+  });
+
+  it("is skipped under the sandbox sender for an address it cannot reach", async () => {
+    const result = await sendTestEmail("ops@example.org");
+    expect(result).toMatchObject({ success: false, skipped: true });
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });
 

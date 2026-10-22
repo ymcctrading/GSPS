@@ -16,7 +16,7 @@ import {
   type ScannerConfig,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
-import { gannPoint, gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
+import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -524,7 +524,10 @@ describe("scanIntraday — suppression", () => {
 });
 
 describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () => {
-  const plan = { direction: "up" as const, entry: 500.5, stop: 495, tp1: 510, mtp: 520, verdict: "Execute" as const };
+  // The plan's entry sits under the prior close, so the session's dip to it
+  // is a reaction from above. (Corrected 2026-10-22: the entry was 500.5 over
+  // a 500 close, a crossing still to be made, which the alert bought.)
+  const plan = { direction: "up" as const, entry: 499.8, stop: 495, tp1: 510, mtp: 520, verdict: "Execute" as const };
 
   it("alerts when price reacts to the daily plan's entry and the session turns back up through it", () => {
     const output = scanIntraday([input({ dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
@@ -539,10 +542,40 @@ describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () =>
     expect(held!.continuationPlan.masterTarget).toBe(520);
   });
 
-  it("puts the stop 3 Gann points under the day's low when the daily stop is farther (NSTD Rule 3(b))", () => {
+  // Corrected 2026-10-21 with #411: the entry opens on the daily plan's own
+  // stop (W006 Rule 3); a day stop under today's low is the Fast style's
+  // trail after the fill, not the stop at entry (it read 500 - 3 points).
+  it("opens on the daily plan's own stop, even when it is far below the day's low (W006 Rule 3)", () => {
     const output = scanIntraday([input({ dailyPlan: { ...plan, stop: 450 } })], DEFAULT_CONFIG, AT_1133);
     const held = output.alerts.find((a) => a.type === "plan_level_held");
-    expect(held!.invalidation!).toBeCloseTo(500 - gannThreePoints(500), 6);
+    expect(held!.invalidation!).toBe(450);
+  });
+
+  it("stays quiet on a crossing not yet made: the prior session closed under the entry (W006 Rule 3(b))", () => {
+    const output = scanIntraday([input({ dailyPlan: { ...plan, entry: 500.5 } })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("no reaction to it yet");
+  });
+
+  it("reads a held bottom whose entry is the prior close itself as a reaction", () => {
+    const output = scanIntraday([input({ prevClose: 499.8, dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeDefined();
+  });
+
+  it("stays quiet with no prior close to read", () => {
+    const output = scanIntraday([input({ prevClose: null, dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("No prior close");
+  });
+
+  it("mirrors the side test for a short: a prior close under the entry is no reaction to a short's entry", () => {
+    const short = { direction: "down" as const, entry: 499.8, stop: 510, tp1: 490, mtp: 480, verdict: "Execute" as const };
+    const output = scanIntraday([input({ dailyPlan: short })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("closed over the plan's entry");
   });
 
   it("stays quiet with no daily plan", () => {

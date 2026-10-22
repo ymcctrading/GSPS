@@ -11,7 +11,7 @@ const PLAN = planFromLevels("buy", {
   mtp: 120,
 });
 
-function mockFetch(mode: string, allowed: string[]) {
+function mockFetch(mode: string, allowed: string[], extra: Record<string, unknown> = {}) {
   const fetchMock = vi.fn(async (url: string) => {
     if (url.startsWith("/api/strategy-mode-preference")) {
       return new Response(JSON.stringify({ mode, allowedModes: allowed }));
@@ -31,6 +31,7 @@ function mockFetch(mode: string, allowed: string[]) {
             },
           ],
         },
+        ...extra,
       }),
     );
   });
@@ -55,6 +56,24 @@ describe("PlanReadingLine", () => {
     expect(url).toContain("stop=95");
     await userEvent.click(screen.getByRole("button", { name: "By level" }));
     expect(screen.getByText(/RSI would read 55.0/)).toBeInTheDocument();
+  });
+
+  it("shows a technique's own entry, stop and TP1, and no MTP, when it doesn't align", async () => {
+    mockFetch("macdMomentum", ["macdMomentum"], {
+      aligned: false,
+      levels: { direction: "bearish", entry: 99, stopLoss: 103, takeProfit1: 93, rationale: "r" },
+    });
+    render(<PlanReadingLine symbol="AAPL" plan={PLAN} />);
+    expect(
+      await screen.findByText(/own short: entry \$99\.00, stop \$103\.00, TP1 \$93\.00\. No MTP/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no levels of its own for a technique that aligns", async () => {
+    mockFetch("rsiReversal", ["rsiReversal"], { aligned: true, levels: null });
+    render(<PlanReadingLine symbol="AAPL" plan={PLAN} />);
+    expect(await screen.findByText(/leans bullish/)).toBeInTheDocument();
+    expect(screen.queryByText(/No MTP/)).toBeNull();
   });
 
   it("shows nothing when the saved technique is GSPS's own plan", async () => {

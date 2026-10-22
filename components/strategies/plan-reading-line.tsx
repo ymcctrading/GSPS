@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { planQuery } from "@/lib/strategies/explain/params";
 import type { PlanInput, PlanReading } from "@/lib/strategies/explain/types";
+import type { OwnTechniqueLevels } from "@/lib/strategies/compare";
 import type { StrategyModeId } from "@/lib/strategies/types";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import { cn } from "@/lib/utils";
 
 /**
- * One line explaining GSPS's plan in the person's saved default technique
- * (owner decisions 2026-10-16: explain-only, shown on the setup card and on
- * every other surface that shows a plan's levels). Renders nothing when the
- * person has no default technique, their tier has none, or there is no plan.
- * The levels it reads are the plan's own; it shows no others.
+ * One line reading GSPS's plan in the person's saved default technique, shown
+ * on the setup card and on every other surface that shows a plan's levels.
+ * Renders nothing when the person has no default technique, their tier has
+ * none, or there is no plan. Since 2026-10-22 (owner): when the technique
+ * doesn't align with the plan, the line also shows the technique's own entry,
+ * stop and TP1, never an MTP (`lib/strategies/compare.ts`); when it aligns,
+ * it trades the plan and shows no levels of its own.
  */
 
 let preference: Promise<StrategyModeId | null> | null = null;
@@ -45,6 +48,7 @@ export function PlanReadingLine({
   className?: string;
 }) {
   const [reading, setReading] = useState<PlanReading | null>(null);
+  const [own, setOwn] = useState<OwnTechniqueLevels | null>(null);
   const [open, setOpen] = useState(false);
   const key = plan ? `${symbol}?${planQuery(plan)}` : null;
 
@@ -57,9 +61,13 @@ export function PlanReadingLine({
         `/api/strategy-levels?symbol=${encodeURIComponent(symbol)}&mode=${mode}&timeframe=${EXECUTION_TIMEFRAME}&${key.split("?")[1]}`,
       )
         .then((r) => (r.ok ? r.json() : null))
-        .then((b: { reading?: PlanReading | null } | null) => {
-          if (!cancelled) setReading(b?.reading ?? null);
-        })
+        .then(
+          (b: { reading?: PlanReading | null; levels?: OwnTechniqueLevels | null } | null) => {
+            if (cancelled) return;
+            setReading(b?.reading ?? null);
+            setOwn(b?.levels ?? null);
+          },
+        )
         .catch(() => {
           /* no reading: the line stays hidden */
         });
@@ -85,6 +93,7 @@ export function PlanReadingLine({
           </button>
         )}
       </p>
+      {own && <OwnLevelsLine label={reading.label} own={own} />}
       {open && (
         <ul className="flex flex-col gap-0.5 text-muted">
           {reading.levels.map((l) => (
@@ -93,5 +102,18 @@ export function PlanReadingLine({
         </ul>
       )}
     </div>
+  );
+}
+
+const usd = (n: number) => `$${n.toFixed(2)}`;
+
+/** A technique's own trade when it doesn't align with GSPS's plan: entry, stop, TP1, no MTP. */
+export function OwnLevelsLine({ label, own }: { label: string; own: OwnTechniqueLevels }) {
+  return (
+    <p className="text-muted">
+      {label}&apos;s own {own.direction === "bullish" ? "long" : "short"}: entry {usd(own.entry)}, stop{" "}
+      {usd(own.stopLoss)}, TP1 {usd(own.takeProfit1)}. No MTP, since it doesn&apos;t align with
+      GSPS&apos;s plan. Your choice to trade it, from the order ticket.
+    </p>
   );
 }

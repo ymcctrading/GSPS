@@ -84,11 +84,36 @@ describe("GuidedCard", () => {
     await user.click(screen.getByRole("button", { name: /Why this one/ }));
 
     expect(screen.getByText("8 of 9")).toBeInTheDocument();
+    // Labelled, not the raw key.
+    expect(screen.getByText("Trend")).toBeInTheDocument();
     expect(screen.getByText("$508.00")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open the full scan/ })).toHaveAttribute(
       "href",
       "/ticker/META",
     );
+  });
+
+  it("labels the nine points in plain English (2026-10-22)", async () => {
+    const user = userEvent.setup();
+    const nine: typeof rec = {
+      ...rec,
+      why: {
+        ...rec.why,
+        score: {
+          ...rec.why.score,
+          pillars: [
+            { pillar: "geometricAngles", met: 1, total: 1 },
+            { pillar: "volumeAccumulation", met: 0, total: 1 },
+          ],
+        },
+      },
+    };
+    render(<GuidedCard rec={nine} onConfirm={noop} onDismiss={noop} busy={false} />);
+    await user.click(screen.getByRole("button", { name: /Why this one/ }));
+
+    expect(screen.getByText("Angles")).toBeInTheDocument();
+    expect(screen.getByText("Volume")).toBeInTheDocument();
+    expect(screen.queryByText("geometricAngles")).not.toBeInTheDocument();
   });
 
   it("asks for confirmation rather than placing the order itself", async () => {

@@ -19,6 +19,18 @@ narrow, project-owner-authorized exception to the "no non-Gann indicator may
 feed an entry/stop/target" boundary that otherwise governs this codebase.
 Read that section before touching anything under `lib/strategies/`.
 
+**Reversed 2026-10-22 (project owner): aligned first, the rest with their
+own levels.** Every technique is read against GSPS's plan
+(`lib/strategies/compare.ts`, `/api/strategy-levels/compare`). The ones that
+align (armed the plan's way, or leaning its way with nothing armed) are listed
+first and trade GSPS's plan, MTP included. Every other technique offers its own
+entry, stop and TP1, never an MTP, and a person may choose to trade those as a
+Manual Override from the order ticket ("Trade these levels"). Owner: "We can
+guide users to the water, but we can NEVER force them to drink." See AGENTS.md's
+Strategy Modes section for his full wording. The paragraphs below that say a
+technique only explains, or that no level reaches the ticket, describe the
+2026-10-16 to 2026-10-22 rule.
+
 **Explain-only since 2026-10-16 (project owner).** Gann's method sets the
 entry, stop and targets; a chosen mode or custom script only explains the
 setup in that technique's terms. The order ticket shows its reading next to

@@ -721,6 +721,20 @@
 // counter-trend short Execute held to Watch for want of a window can now act. Merged onto
 // 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
 // firing-bar fixes it keeps.
+// 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
+// mass-pressure curve not against the trade (A-OTHER-05, Master Course Ch. 7,
+// PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in
+// every decade back to 70 years, as the 1936 forecast laid them, on Shiller's
+// monthly S&P composite from 1871 (`lib/gann/massPressure.ts`,
+// `marketHistory.json`), read from the session's date for a stock on both
+// surfaces. The replay no longer hands crypto the stock market's bars (the
+// live scan never fetched them), so a crypto replay reads no market trend,
+// leaders, campaign length or mass pressure, as live. Live stock verdicts move;
+// replay buckets move. Context only: `massPressureWithTrade`, the 84-year count
+// (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`). Merged onto
+// 2026-10-22-gann-eclipse-break-window, whose eclipse window and the fixes
+// before it it keeps.
+// (was STRATEGY_VERSION "2026-10-22-gann-mass-pressure")
 // 2026-10-22-first-trade-chart-window: C-ASTRO-09 acts (Chuck, 2026-10-22:
 // "Search for, confirm and ultimately use these dates"). For the 288 stocks
 // whose first trade is confirmed by two sources (`firstTradeDates.json`), a
@@ -728,4 +742,8 @@
 // before a turn and exact within 3 days of it, is a dated window in the
 // time-window hold (`firstTradeWindows`), live and replay alike. A
 // counter-trend Execute held for want of a window can now act on those stocks.
-export const STRATEGY_VERSION = "2026-10-22-first-trade-chart-window";
+// (was "2026-10-22-first-trade-chart-window" on its own branch)
+// 2026-10-22-first-trade-on-mass-pressure: the first-trade chart window above,
+// merged onto 2026-10-22-gann-mass-pressure, whose mass-pressure check and
+// crypto parity fix it keeps. No new rule.
+export const STRATEGY_VERSION = "2026-10-22-first-trade-on-mass-pressure";

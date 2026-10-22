@@ -1051,7 +1051,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           ? {
               sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
               inception: instrument?.inception ?? null,
-              marketDaily: marketDailyBars ?? null,
+              // The stock market is read for a stock only, as the live scan
+              // fetches it (`scanTicker.ts`); crypto had read SPY here.
+              marketDaily: assetClass === "us_equity" ? (marketDailyBars ?? null) : null,
               monthly: monthlyBars ? priorMonthly : null,
               monthlyLong: longMonthlyBars
                 ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
@@ -1059,7 +1061,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               monthlyYearCount: yearCountMonthlyBars
                 ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
                 : null,
-              marketMonthly: marketMonthlyBars ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
+              marketMonthly: marketMonthlyBars && assetClass === "us_equity" ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
               // The rank reads only the months closed before this session's (`readUniverseRank`).
               universe: universeStrength && assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
               firstTrade: confirmedFirstTrade(symbol),

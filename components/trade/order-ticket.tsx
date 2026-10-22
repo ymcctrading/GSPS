@@ -21,12 +21,9 @@ import {
 import { formatUsd, cn } from "@/lib/utils";
 import type { ScanResult } from "@/lib/types";
 import type { AssetTradability } from "@/app/api/assets/route";
-import {
-  STRATEGY_MODE_LABELS,
-  type StrategyModeId,
-} from "@/lib/strategies/types";
+import type { StrategyModeId } from "@/lib/strategies/types";
 import { planQuery } from "@/lib/strategies/explain/params";
-import type { PlanReading } from "@/lib/strategies/explain/types";
+import type { OwnTechniqueLevels, TechniqueRead } from "@/lib/strategies/compare";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 
 type EntryMode = "advised" | "now";
@@ -125,37 +122,34 @@ export function OrderTicket({
   const [attachLevels, setAttachLevels] = useState(true);
   const [manualStop, setManualStop] = useState("");
   const [manualTarget, setManualTarget] = useState("");
-  // Strategy Modes (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md):
-  // explain-only since 2026-10-16 (owner: Gann's method is how we plot the
-  // chart; the indicator of choice only explains the math). A chosen mode
-  // shows how that technique reads the setup next to Gann's plan. It never
-  // fills the stop/target fields and never touches `levels`/`result.direction`.
+  // Strategy Modes (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md).
+  // Since 2026-10-22 (owner: "we can guide users to the water, but we can
+  // NEVER force them to drink"): every technique the person may use is read
+  // against GSPS's plan, the ones that align first. An aligned technique
+  // trades GSPS's plan; any other offers its own entry, stop and TP1, never
+  // an MTP, and the person may choose to trade it as a Manual Override
+  // (lib/strategies/compare.ts). Nothing here touches `levels` or
+  // `result.direction`.
+  // `strategyMode` / `selectedScriptId` pick the technique drawn on the chart.
   const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gann");
   // Server-resolved (`lib/entitlements/policy.ts#allowedStrategyModes`) —
   // null while loading, [] for a tier with no Strategy Mode access at all
   // (Novice). Never computed client-side.
   const [allowedStrategyModes, setAllowedStrategyModes] = useState<StrategyModeId[] | null>(null);
-  const [strategyReading, setStrategyReading] = useState<PlanReading | null>(null);
-  const [strategyStatus, setStrategyStatus] = useState<"idle" | "loading" | "ready" | "error">(
-    "idle",
-  );
-  const [strategyError, setStrategyError] = useState("");
-  // Custom-script Strategy Modes (lib/strategies/custom/,
-  // docs/STRATEGY_MODES.md's "Custom-script / plugin system" section,
-  // AGENTS.md's "Strategy Modes" section). Same status as the built-in
-  // Strategy Mode block above: explain-only, never a source of the order's
-  // levels. `customScripts` is server-resolved and private to the
-  // signed-in user (`/api/strategy-plugins` is RLS- and tier-scoped to the
-  // author); an empty list here means either no saved scripts or a tier
-  // that can't author them, and the section renders nothing either way —
-  // no client-side tier guess.
+  // The person's own active scripts (`/api/strategy-plugins`, RLS- and
+  // tier-scoped to the author); empty for no scripts or a tier without them.
   const [customScripts, setCustomScripts] = useState<
     { id: string; name: string; author: string; version: number; active: boolean }[] | null
   >(null);
   const [selectedScriptId, setSelectedScriptId] = useState("");
-  const [scriptReading, setScriptReading] = useState<PlanReading | null>(null);
-  const [scriptStatus, setScriptStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [scriptError, setScriptError] = useState("");
+  const [techniques, setTechniques] = useState<TechniqueRead[] | null>(null);
+  const [techniqueStatus, setTechniqueStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [techniqueError, setTechniqueError] = useState("");
+  // A non-aligned technique's own levels the person chose to trade: its entry
+  // becomes the Manual Override's limit, its stop and TP1 the manual exit.
+  const [techniqueTrade, setTechniqueTrade] = useState<
+    (OwnTechniqueLevels & { source: string; label: string }) | null
+  >(null);
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     onExplainChange?.({ mode: strategyMode, scriptId: selectedScriptId || null });
@@ -189,6 +183,15 @@ export function OrderTicket({
   }>({ symbol: "", value: null });
   const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
 
+  // Another symbol's techniques and levels never carry over.
+  const [techniquesFor, setTechniquesFor] = useState(symbol);
+  if (techniquesFor !== symbol) {
+    setTechniquesFor(symbol);
+    setTechniques(null);
+    setTechniqueStatus("idle");
+    setTechniqueTrade(null);
+  }
+
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/assets?symbol=${encodeURIComponent(symbol)}`)
@@ -203,8 +206,8 @@ export function OrderTicket({
   }, [symbol]);
 
   // Load the user's saved default Strategy Mode once (Settings ->
-  // "Strategy mode"). Only pre-selects the dropdown above — it never
-  // auto-fetches its reading, and never fills the manual stop/target.
+  // "Strategy mode"). It only picks the technique drawn on the chart; it
+  // never fills the manual stop/target.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/strategy-mode-preference")
@@ -222,9 +225,8 @@ export function OrderTicket({
     };
   }, []);
 
-  // Load the signed-in user's own saved custom scripts, if any. Only
-  // populates the picker below — never auto-fetches its reading and never
-  // fills the manual stop/target fields, same as the built-in Strategy Mode block.
+  // Load the signed-in user's own saved custom scripts, if any. Only decides
+  // whether the techniques panel shows for a tier without built-in modes.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/strategy-plugins")
@@ -240,9 +242,21 @@ export function OrderTicket({
     };
   }, []);
 
-  const advised = levels?.entry ?? currentPrice ?? 0;
-  // GSPS's plan, sent to the explain routes so a chosen technique reads these
-  // levels and nothing else (explain-only, AGENTS.md "Strategy Modes").
+  // A technique's own entry is the reference limit only in Manual Override,
+  // and only once the person chose to trade that technique's levels.
+  // It lapses once the person changes the side, the stop or the target: the
+  // order is then their own, priced from their own fields.
+  const techniqueEntry =
+    executionMode === "manual" &&
+    techniqueTrade &&
+    side === (techniqueTrade.direction === "bearish" ? "sell" : "buy") &&
+    manualStop === priceField(techniqueTrade.stopLoss) &&
+    manualTarget === priceField(techniqueTrade.takeProfit1)
+      ? techniqueTrade
+      : null;
+  const advised = techniqueEntry?.entry ?? levels?.entry ?? currentPrice ?? 0;
+  // GSPS's plan, sent to the techniques route so each technique is read
+  // against these levels and ranked by whether it aligns with them.
   const explainPlan =
     hasProtocolSignal && levels && result.direction !== "none"
       ? {
@@ -253,7 +267,6 @@ export function OrderTicket({
           masterTarget: levels.masterProfit,
         }
       : null;
-  const planParam = explainPlan ? `&${planQuery(explainPlan)}` : "";
 
   // Only a definitive `false` blocks the short side; a lookup that didn't
   // resolve leaves the button enabled and defers to the broker.
@@ -371,6 +384,52 @@ export function OrderTicket({
         isInvalidatedByStop({ side: signalSide, stop_price: levels.stopLoss }, currentPrice)));
   const explainable = planRetired ? null : explainPlan;
 
+  // Every technique against the plan, aligned first (lib/strategies/compare.ts).
+  // A retired plan sends no plan, so nothing aligns and each armed technique
+  // offers its own levels.
+  async function readTechniques() {
+    setTechniqueStatus("loading");
+    setTechniqueError("");
+    try {
+      const q = explainable ? `&${planQuery(explainable)}` : "";
+      const res = await fetch(
+        `/api/strategy-levels/compare?symbol=${encodeURIComponent(symbol)}&timeframe=${EXECUTION_TIMEFRAME}${q}`,
+      );
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Couldn't read the techniques.");
+      setTechniques(body.techniques ?? []);
+      setTechniqueStatus("ready");
+    } catch (err) {
+      setTechniqueError(err instanceof Error ? err.message : String(err));
+      setTechniqueStatus("error");
+    }
+  }
+
+  /** Draw a technique on the chart: a built-in mode, or `custom:<scriptId>`. */
+  function showTechnique(source: string) {
+    if (source.startsWith("custom:")) {
+      setStrategyMode("gann");
+      setSelectedScriptId(source.slice("custom:".length));
+    } else {
+      setSelectedScriptId("");
+      setStrategyMode(source as StrategyModeId);
+    }
+  }
+
+  /** The person chose a non-aligned technique's own levels: a Manual Override. */
+  function tradeTechnique(t: TechniqueRead) {
+    if (!t.ownLevels) return;
+    const own = t.ownLevels;
+    setTechniqueTrade({ ...own, source: t.source, label: t.label });
+    setExecutionMode("manual");
+    setAssetType("shares");
+    setSide(own.direction === "bearish" ? "sell" : "buy");
+    setEntryMode("advised");
+    setManualStop(priceField(own.stopLoss));
+    setManualTarget(priceField(own.takeProfit1));
+    showTechnique(t.source);
+  }
+
   // The price Alpaca measures the bracket legs against: the limit on an advised
   // entry, the live quote on a market entry. Choosing "buy now" below the
   // advised entry is what puts the protocol stop on the wrong side of the fill.
@@ -479,22 +538,26 @@ export function OrderTicket({
               entryMode,
               limitPrice: entryMode === "advised" ? advised : undefined,
               // The protocol's stop, so the server reads Gann's crossing line
+              // (never on a technique's own entry, which is the person's own limit)
               // from the protocol's entry and stop even when no levels are
               // attached or a Manual Override stop was typed. Only on the
               // plan's own side: against it, the stop is on the wrong side
               // and the order is the person's own limit.
               entryStop:
-                entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                !techniqueEntry && entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
                   ? levels.stopLoss
                   : undefined,
               entryKind:
-                entryMode === "advised" && levels?.entryKind && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                !techniqueEntry && entryMode === "advised" && levels?.entryKind && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
                   ? levels.entryKind
                   : undefined,
+              // A technique's own levels the person chose: their own limit,
+              // with no crossing line to wait for (lib/strategies/compare.ts).
+              techniqueSource: techniqueEntry?.source,
               // The protocol's first target, for the failed-top check; a
               // Manual Override target doesn't replace it.
               entryTarget:
-                entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
+                !techniqueEntry && entryMode === "advised" && levels && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
                   ? levels.takeProfit1
                   : undefined,
               // The server re-validates and re-rounds; sending the mode keeps
@@ -594,7 +657,10 @@ export function OrderTicket({
         <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">
           <span className="text-xs font-semibold text-muted">Mode:</span>
           <button
-            onClick={() => setExecutionMode("protocol")}
+            onClick={() => {
+              setExecutionMode("protocol");
+              setTechniqueTrade(null);
+            }}
             disabled={!hasProtocolSignal}
             className={cn(
               "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
@@ -704,7 +770,13 @@ export function OrderTicket({
               <ModeButton
                 active={entryMode === "advised"}
                 onClick={() => setEntryMode("advised")}
-                title={useProtocolLevels ? "At advised price" : "At reference price"}
+                title={
+                  useProtocolLevels
+                    ? "At advised price"
+                    : techniqueEntry
+                      ? `At ${techniqueEntry.label}'s entry`
+                      : "At reference price"
+                }
                 subtitle={formatUsd(advised)}
               />
               <ModeButton
@@ -807,6 +879,21 @@ export function OrderTicket({
                     />
                   </label>
                 </div>
+                {techniqueEntry && (
+                  <p className="text-xs text-muted">
+                    Trading {techniqueEntry.label}&apos;s own levels: entry{" "}
+                    {formatUsd(techniqueEntry.entry)}, stop {formatUsd(techniqueEntry.stopLoss)}, TP1{" "}
+                    {formatUsd(techniqueEntry.takeProfit1)}. It doesn&apos;t align with GSPS&apos;s plan,
+                    so it has no MTP.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setTechniqueTrade(null)}
+                      className="cursor-pointer font-medium underline underline-offset-2"
+                    >
+                      Clear
+                    </button>
+                  </p>
+                )}
                 {manualLevelsBlocked && (
                   <p className="text-xs text-warn">{manualBracketCheck.reason}</p>
                 )}
@@ -842,145 +929,49 @@ export function OrderTicket({
             {planRetired && explainPlan &&
               ((allowedStrategyModes?.length ?? 0) > 0 || (customScripts?.length ?? 0) > 0) && (
               <p className="rounded-lg border border-border p-3 text-xs text-muted">
-                This plan is retired, so there are no levels for a technique to explain. A new
-                scan will either confirm it or replace it with a new plan.
+                This plan is retired, so no technique can align with it. A new scan will either
+                confirm it or replace it with a new plan.
               </p>
             )}
-            {explainable && allowedStrategyModes && allowedStrategyModes.length > 0 && (
-            <div className="rounded-lg border border-border p-3 text-xs">
-              <label className="flex flex-col gap-1 text-muted">
-                Explain with (optional) — see how another technique reads this setup. GSPS&apos;s
-                plan still sets the entry, stop and targets
-                <select
-                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
-                  value={strategyMode}
-                  onChange={(e) => {
-                    setStrategyMode(e.target.value as StrategyModeId);
-                    setStrategyReading(null);
-                    setStrategyStatus("idle");
-                    setStrategyError("");
-                  }}
+            {((allowedStrategyModes?.length ?? 0) > 0 || (customScripts?.length ?? 0) > 0) && (
+              <div className="flex flex-col gap-2 rounded-lg border border-border p-3 text-xs">
+                <p className="text-muted">
+                  Other techniques (optional). The ones that align with GSPS&apos;s plan come first
+                  and trade that plan. The others offer their own entry, stop and TP1, with no
+                  MTP; trading one is your choice.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
+                  disabled={techniqueStatus === "loading"}
+                  onClick={readTechniques}
                 >
-                  <option value="gann">{STRATEGY_MODE_LABELS.gann} only</option>
-                  {allowedStrategyModes.map((m) => (
-                    <option key={m} value={m}>
-                      {STRATEGY_MODE_LABELS[m]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {strategyMode !== "gann" && (
-                <div className="mt-2 flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-fit"
-                    disabled={strategyStatus === "loading"}
-                    onClick={async () => {
-                      setStrategyStatus("loading");
-                      setStrategyError("");
-                      try {
-                        const res = await fetch(
-                          `/api/strategy-levels?symbol=${encodeURIComponent(symbol)}&mode=${strategyMode}&timeframe=${EXECUTION_TIMEFRAME}${planParam}`,
-                        );
-                        const body = await res.json();
-                        if (!res.ok) throw new Error(body.error ?? "Couldn't read this setup.");
-                        setStrategyReading(body.reading ?? null);
-                        setStrategyStatus("ready");
-                      } catch (err) {
-                        setStrategyError(err instanceof Error ? err.message : String(err));
-                        setStrategyStatus("error");
-                      }
-                    }}
-                  >
-                    {strategyStatus === "loading" ? "Reading…" : "Explain"}
-                  </Button>
-
-                  {strategyStatus === "error" && (
-                    <p className="text-warn">{strategyError}</p>
-                  )}
-                  {strategyStatus === "ready" && !strategyReading && (
-                    <p className="text-muted">
-                      {explainPlan
-                        ? `${STRATEGY_MODE_LABELS[strategyMode]} has no reading on this setup right now.`
-                        : "There's no plan on this setup for it to explain."}
-                    </p>
-                  )}
-                  {strategyReading && <ModeReading reading={strategyReading} />}
-                </div>
-              )}
-            </div>
+                  {techniqueStatus === "loading"
+                    ? "Reading…"
+                    : techniques
+                      ? "Read again"
+                      : "Read every technique"}
+                </Button>
+                {techniqueStatus === "error" && <p className="text-warn">{techniqueError}</p>}
+                {techniqueStatus === "ready" && techniques?.length === 0 && (
+                  <p className="text-muted">No technique has a reading on this symbol right now.</p>
+                )}
+                {techniques && techniques.length > 0 && (
+                  <ul className="flex flex-col gap-2">
+                    {techniques.map((t) => (
+                      <TechniqueRow
+                        key={t.source}
+                        technique={t}
+                        onShow={() => showTechnique(t.source)}
+                        onTrade={() => tradeTechnique(t)}
+                        trading={techniqueEntry?.source === t.source}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
-
-            {/* Empty list means either no saved scripts or a tier that
-                can't author them — server-resolved either way, no
-                client-side tier guess. */}
-            {explainable && customScripts && customScripts.length > 0 && (
-            <div className="rounded-lg border border-border p-3 text-xs">
-              <label className="flex flex-col gap-1 text-muted">
-                Explain with your script (optional) — see how one of your saved scripts reads
-                this setup. GSPS&apos;s plan still sets the levels
-                <select
-                  className="mt-1 w-full rounded-md border px-2 py-1.5 text-xs bg-background"
-                  value={selectedScriptId}
-                  onChange={(e) => {
-                    setSelectedScriptId(e.target.value);
-                    setScriptReading(null);
-                    setScriptStatus("idle");
-                    setScriptError("");
-                  }}
-                >
-                  <option value="">None</option>
-                  {customScripts.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (v{s.version}) — {s.author}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {selectedScriptId && (
-                <div className="mt-2 flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-fit"
-                    disabled={scriptStatus === "loading"}
-                    onClick={async () => {
-                      setScriptStatus("loading");
-                      setScriptError("");
-                      try {
-                        const res = await fetch(
-                          `/api/strategy-plugins/${selectedScriptId}/evaluate?symbol=${encodeURIComponent(symbol)}&timeframe=${EXECUTION_TIMEFRAME}${planParam}`,
-                        );
-                        const body = await res.json();
-                        if (!res.ok) throw new Error(body.error ?? "Couldn't read this setup.");
-                        setScriptReading(body.reading ?? null);
-                        setScriptStatus("ready");
-                      } catch (err) {
-                        setScriptError(err instanceof Error ? err.message : String(err));
-                        setScriptStatus("error");
-                      }
-                    }}
-                  >
-                    {scriptStatus === "loading" ? "Reading…" : "Explain"}
-                  </Button>
-
-                  {scriptStatus === "error" && <p className="text-warn">{scriptError}</p>}
-                  {scriptStatus === "ready" && !scriptReading && (
-                    <p className="text-muted">
-                      {explainPlan
-                        ? "Your script has no reading on this setup right now."
-                        : "There's no plan on this setup for it to explain."}
-                    </p>
-                  )}
-                  {scriptReading && <ModeReading reading={scriptReading} />}
-                </div>
-              )}
-            </div>
-            )}
-
           </>
         ) : (
           <OptionsPicker
@@ -1075,25 +1066,85 @@ export function OrderTicket({
   );
 }
 
+/** A technique's price for the manual fields: cents, or four places under $1. */
+function priceField(n: number): string {
+  return n >= 1 ? n.toFixed(2) : n.toFixed(4);
+}
+
 /**
- * How a chosen Strategy Mode or custom script reads GSPS's plan. Explain-only
- * (owner, 2026-10-16: Gann's method is how we plot the chart; the indicator of
- * choice only explains the math): whether the technique leans the plan's way,
- * then what it reads at each of the plan's own levels. Nothing here can write
- * a level into the order.
+ * One technique against GSPS's plan (lib/strategies/compare.ts). An aligned
+ * technique trades the plan, so it shows its reading of the plan's levels. Any
+ * other shows its own entry, stop and TP1, never an MTP, with a button the
+ * person may use to trade it as a Manual Override.
  */
-function ModeReading({ reading }: { reading: PlanReading }) {
+function TechniqueRow({
+  technique: t,
+  onShow,
+  onTrade,
+  trading,
+}: {
+  technique: TechniqueRead;
+  onShow: () => void;
+  onTrade: () => void;
+  trading: boolean;
+}) {
+  const own = t.ownLevels;
   return (
-    <div className="flex flex-col gap-1 rounded-md bg-surface-alt p-2">
-      <p className={reading.agrees === false ? "text-warn" : undefined}>{reading.summary}</p>
-      {reading.levels.length > 0 && (
-        <ul className="flex flex-col gap-1 text-muted">
-          {reading.levels.map((l) => (
+    <li
+      className={cn(
+        "flex flex-col gap-1 rounded-md p-2",
+        t.aligned ? "border border-bull/40 bg-bull-soft" : "bg-surface-alt",
+      )}
+    >
+      <p className="font-medium">
+        {t.label}{" "}
+        <span className={t.aligned ? "text-bull" : "text-muted"}>
+          {t.aligned
+            ? "· aligns with GSPS's plan"
+            : own
+              ? `· its own ${own.direction === "bullish" ? "long" : "short"}`
+              : "· nothing armed"}
+        </span>
+      </p>
+      {t.reading && (
+        <p className={t.reading.agrees === false ? "text-warn" : "text-muted"}>{t.reading.summary}</p>
+      )}
+      {t.aligned && t.reading && t.reading.levels.length > 0 && (
+        <ul className="flex flex-col gap-0.5 text-muted">
+          {t.reading.levels.map((l) => (
             <li key={l.level}>{l.text}</li>
           ))}
         </ul>
       )}
-    </div>
+      {own && (
+        <>
+          <p>
+            Entry {formatUsd(own.entry)} · Stop {formatUsd(own.stopLoss)} · TP1{" "}
+            {formatUsd(own.takeProfit1)} · no MTP
+          </p>
+          <p className="text-muted">{own.rationale}</p>
+        </>
+      )}
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onShow}
+          className="min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
+        >
+          Show on chart
+        </button>
+        {own && (
+          <button
+            type="button"
+            onClick={onTrade}
+            disabled={trading}
+            className="min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2 disabled:cursor-default disabled:no-underline disabled:text-muted"
+          >
+            {trading ? "Trading these levels" : "Trade these levels"}
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
 

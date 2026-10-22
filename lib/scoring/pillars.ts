@@ -31,6 +31,7 @@ import type { Bar } from "@/lib/types";
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { yearCycleConvergence } from "@/lib/gann/timeCycles";
+import { readMassPressure } from "@/lib/gann/massPressure";
 import { patternAngleLines } from "@/lib/gann/patternAngles";
 import { swingPivots, THREE_DAY_CHART } from "@/lib/gann/swingChart";
 import { gannPointForBars } from "@/lib/gann/pointScale";
@@ -57,6 +58,13 @@ export interface PillarFacts {
   marketTrend: Side | null;
   /** Yearly counts from major pivots landing on this month (closed months only). */
   yearCycle: { bullishHits: number; bearishHits: number } | null;
+  /**
+   * A-OTHER-05, Gann's mass pressure: the market's cycle from the years 10, 20,
+   * 30 and 60 back at this month (`massPressure.ts`). Market-wide, read from
+   * the checked-in long record on both surfaces. Null outside its reach, and
+   * for an instrument with no stock-market read (crypto).
+   */
+  massPressure: Side | null;
   /** The decade digit's character at this month (`DecadeCycleReading.currentBias`), not the year's label. */
   decadeBias: "bullish" | "bearish" | "mixed" | null;
   /**
@@ -229,6 +237,8 @@ export function readPillarFacts(input: {
   return {
     marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
     yearCycle: closedMonths.length >= 12 ? yearCycleConvergence(closedMonths, asOf) : null,
+    // The stock market's curve, for a stock: crypto has no market read here (`marketDaily` null).
+    massPressure: marketDaily ? (readMassPressure(asOf)?.direction ?? null) : null,
     weeklyLine: rules.weeklyOneBar?.colour ?? null,
     decadeBias: rules.decadeCycle?.currentBias ?? null,
     yearTrend: rules.yearRanges?.yearTrend ?? null,
@@ -285,16 +295,24 @@ export function readPillarFacts(input: {
   };
 }
 
-/** P1 (C1, C2, S22, S23): two of the market's trend, the stock's own cycle and the year's character. */
+/**
+ * P1 (C1, C2, S22, S23): two of the market's trend, the cycle and the year's
+ * character. The cycle check needs no yearly count due against the trade and,
+ * since 2026-10-22, the market's mass-pressure curve not running against it
+ * (A-OTHER-05, Master Course Ch. 7, PDF 224-226): Gann forecast the year from
+ * the market's cycle before the stock's. With no reading in reach it does not
+ * count against the trade.
+ */
 export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const market = f?.marketTrend === side;
   const against = side === "bullish" ? f?.yearCycle?.bearishHits : f?.yearCycle?.bullishHits;
-  const cycle = against === 0;
+  const pressureAgainst = f?.massPressure != null && f.massPressure !== side;
+  const cycle = against === 0 && !pressureAgainst;
   const year = f != null && (f.decadeBias === side || f.yearTrend === (side === "bullish" ? "up" : "down"));
   const passed = twoOf(market, cycle, year);
   return {
     passed,
-    note: `Market trend with the setup: ${yes(market)}. No yearly count due against it: ${yes(cycle)}. The year's character with it: ${yes(year)}. Two of three are needed${market && cycle && year ? "; all three agree" : ""}.`,
+    note: `Market trend with the setup: ${yes(market)}. No yearly count due against it and the market's cycle not against it: ${yes(cycle)}. The year's character with it: ${yes(year)}. Two of three are needed${market && cycle && year ? "; all three agree" : ""}.`,
   };
 }
 

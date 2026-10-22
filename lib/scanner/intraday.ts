@@ -90,7 +90,7 @@ import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
-import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
+import { intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 
@@ -1256,19 +1256,20 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
  *   So: price has traded into the plan's entry this session (within one
  *   intraday point), the session's 3-bar swing chart runs the plan's way, and
  *   the last bar closed back beyond the entry.
- * - The stop is the daily trade's: 3 Gann points under the lowest day, here
- *   today's low (high, for a short), in active markets (*New Stock Trend
- *   Detector* p. 20, Rule 3(b) p. 46), never past the daily plan's own stop.
- *   Not one intraday point under the session swing: the intraday chart times
- *   the entry, the daily rule places the stop (the six-year intraday replay,
- *   2026-10-21, lost all of its expectancy on stops that tight).
+ * - The stop at entry is the daily plan's own (W006 Rule 3, pp. 46-47): the
+ *   intraday chart times the entry, the daily rule places the stop. Once
+ *   filled, the trade's style moves it (Fast trails 3 points under each
+ *   completed day's low, `readGannExit`'s "day_low"; #411, 2026-10-21). Not
+ *   a stop under the session swing or today's low: the six-year intraday
+ *   replay (2026-10-21) lost all of its expectancy on stops that tight, and
+ *   the review of #405 found a day stop at entry misreads Rule 3.
  * - The targets are the daily plan's TP1 and MTP: "the big money in the
  *   markets is made on the long swings and not by day to day trading"
  *   (*Annual Forecasts 1919-1922* p. 24).
  * - Missed it? The next higher bottom is the next buying point while the plan
  *   stands (re-buy on the reaction, *Tunnel Thru the Air* p. 198): the alert
  *   fires again on a later higher bottom once the cooldown clears, with the
- *   stop still under the day's low.
+ *   daily plan's stop.
  * Not fired when the plan's stop broke this session (the plan is retired,
  * `lib/gann/stopBreach.ts`) or price is already at the plan's TP1.
  *
@@ -1290,6 +1291,35 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   const broke = up ? m.low <= plan.stop : m.high >= plan.stop;
   if (broke) {
     checks.push({ name, passed: false, detail: `The daily plan's stop (${priceText(plan.stop)}) traded this session, so the plan is retired.` });
+    return null;
+  }
+  // A reaction comes back to the level from the plan's side: the prior
+  // session closed at or beyond the entry, and today traded back to it. A
+  // crossing's entry is the reaction buy 1 point past the old top (bottom),
+  // and the crossing is made by a daily close 3 points past it (W006 Rule
+  // 3(b)-(c), pp. 46-47; NSTD p. 20). With price still under the entry, the
+  // crossing is not made, and Gann's buy is never the first intraday bar
+  // through it ("don't try to get ahead of the market", Master Course Ch. 8
+  // p. 251). Until 2026-10-22 the touch test passed all session on such a
+  // plan, so the alert bought the first poke into resistance as a held level
+  // (run 80 measured the signal losing,
+  // replay-diagnosis/2026-10-22-intraday-alerts-replay.md). A held bottom's
+  // entry is the prior close itself, so the prior close may equal it.
+  // Known gap, held with the signal: a crossing whose prior close sits between
+  // the entry and the 3-point line (crossed, not yet confirmed) still passes;
+  // telling it apart needs the plan's entry kind and held state carried onto
+  // the stored plan, which `DailyPlanLevels` does not hold yet.
+  const prev = input.prevClose;
+  const fromPlanSide = prev != null && (up ? prev >= plan.entry : prev <= plan.entry);
+  if (!fromPlanSide) {
+    checks.push({
+      name,
+      passed: false,
+      detail:
+        prev == null
+          ? "No prior close to read, so a reaction to the plan's entry cannot be told from a first crossing."
+          : `The prior session closed ${up ? "under" : "over"} the plan's entry (${priceText(plan.entry)}), so there is no reaction to it yet: the level is crossed on a daily close first.`,
+    });
     return null;
   }
   const touched = up ? m.low <= plan.entry + m.point : m.high >= plan.entry - m.point;
@@ -1320,14 +1350,9 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   const pivots = m.sessionPivots.filter((p) => p.kind === (up ? "bottom" : "top"));
   const extreme = pivots.length > 0 ? pivots[pivots.length - 1].price : up ? m.low : m.high;
   const allowance = m.point > 0 ? m.point : m.intradayAtr;
-  // The stop is the daily plan's rule, not the session chart's: "a stop 3
-  // points under the lowest day" in an active market (NSTD p.20, Rule 3(b)
-  // p.46), so 3 Gann points beyond today's low (high), never past the daily
-  // plan's own stop. A stop a single intraday point under the morning's low
-  // is the stop the six-year intraday replay lost on (2026-10-21: every
-  // loss on the initial stop), and it is not Gann's for a daily trade.
-  const dayStop = up ? m.low - gannThreePoints(m.low) : m.high + gannThreePoints(m.high);
-  const stop = up ? Math.max(plan.stop, dayStop) : Math.min(plan.stop, dayStop);
+  // The stop at entry is the daily plan's own (Rule 3), the same stop the
+  // Swing and Fast styles open on (#411); the style trails it after the fill.
+  const stop = plan.stop;
   const entry = m.lastClose;
   const rebuy = up ? extreme > m.low + allowance : extreme < m.high - allowance;
   const cause = rebuy
@@ -1362,7 +1387,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     firstTarget: plan.tp1,
     masterTarget: plan.mtp,
     paysRisk: targetPaysRisk(entry, stop, plan.tp1),
-    cancelIf: `A bar closes ${up ? "below" : "above"} ${priceText(stop)}, or the daily plan's stop at ${priceText(plan.stop)} trades.`,
+    cancelIf: `The daily plan's stop at ${priceText(stop)} trades.`,
   };
   return buildAlert({
     now,
@@ -1374,7 +1399,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     factors,
     invalidation: stop,
     plan: sessionPlan,
-    whyThisAppeared: `${cause} The stop goes 3 points ${up ? "under" : "over"} the day's ${up ? "low" : "high"}, at ${priceText(stop)}, never past the daily plan's own stop; the targets stay the daily plan's${plan.tp1 != null ? `, ${priceText(plan.tp1)}` : ""}${plan.mtp != null ? ` and ${priceText(plan.mtp)}` : ""}, because the money is made on the swing, not the day.`,
+    whyThisAppeared: `${cause} The stop is the daily plan's own, at ${priceText(stop)}, and your trade style moves it once filled; the targets stay the daily plan's${plan.tp1 != null ? `, ${priceText(plan.tp1)}` : ""}${plan.mtp != null ? ` and ${priceText(plan.mtp)}` : ""}, because the money is made on the swing, not the day.`,
   });
 }
 

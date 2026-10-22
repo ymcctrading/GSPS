@@ -10,6 +10,7 @@ import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setu
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import {
   ASSET_KIND_LABELS,
+  MEASURED_LOSING,
   MOVE_BASIS_LABELS,
   SIGNAL_DESCRIPTIONS,
   SIGNAL_LABELS,
@@ -355,6 +356,8 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   // A first target that pays no more than the risk is no trade (M-K5;
   // "profits must exceed losses", *Wall Street Stock Selector* Ch. II).
   const unpaid = alert.continuationPlan.paysRisk === false;
+  // A signal the replay measured losing is shown for study, never offered.
+  const measuredLosing = MEASURED_LOSING[alert.type];
   const model = buildIntradayCardModel(alert);
   const cardId = `intraday-card-${alert.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
   const { levels } = model;
@@ -412,6 +415,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
           <Field label="MTP" value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
         </dl>
       )}
+      {measuredLosing && <p className="mt-1 text-xs text-warn">{measuredLosing}</p>}
       {!isRisk && unpaid && (
         <p className="mt-1 text-xs text-muted">
           The first target pays no more than the risk, so this is no trade: profits must exceed losses.
@@ -431,7 +435,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
             </Badge>
           }
           actions={
-            !isRisk && !unpaid && (
+            !isRisk && !unpaid && !measuredLosing && (
               <Link
                 href={intradayTradeHref(alert.symbol, up ? "buy" : "sell")}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
@@ -459,7 +463,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               {!isRisk && alert.type === "plan_level_held" && (
                 <p className="text-xs text-muted">
                   This is the daily plan entered on today&apos;s chart: the intraday chart times the entry, the stop is
-                  3 points under the day&apos;s low (never past the daily plan&apos;s stop), and TP1 and MTP are the daily
+                  the daily plan&apos;s own (your trade style moves it once filled), and TP1 and MTP are the daily
                   plan&apos;s own targets.
                 </p>
               )}

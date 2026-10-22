@@ -1027,7 +1027,37 @@ alike (`readWindowTurn`'s `firstTrade`; `InstrumentFacts.firstTrade` in the
 replay). Not Gann's (Tier C), included on the owner's word. About 116 ms the
 first time a stock is read and under 0.1 ms after (transits cached by planet,
 day and year), only when a counter-trend Execute needs a window.
-`STRATEGY_VERSION` is `2026-10-22-first-trade-chart-window`.
+`STRATEGY_VERSION` was `2026-10-22-first-trade-chart-window`.
+
+**Mass pressure, 2026-10-22 (owner: "Build these: 10 can be filled from Gann's
+own pages. Mass pressure ... written out in the Master Course (Ch. 7)").** Gann
+forecast the year by laying the years back over it on his Master 20-Year
+Forecasting Chart of the averages ("for the 1929 forecast, I compared 1919 …
+1909 … 1899 … and 1869", Ch. 7 PDF 224-225; for 1936 every decade back to 1866,
+expecting 1896 to repeat, PDF 227-228; *Commodities* pp. 11-12, his fifth
+factor). `lib/gann/massPressure.ts` averages the month's move in every decade
+back to 70 years (the 1936 lesson, the fuller one) and reads its sign; P1's
+cycle check now needs it not against the trade, as well as no yearly count due
+against it. The record is Shiller's monthly S&P composite from 1871, checked in
+(`lib/gann/marketHistory.json`, `scripts/fetch-market-history.mjs`, ODC-PDDL),
+an engineering stand-in for the Dow, read from the session's New York month for
+a stock on both surfaces, so no request. Engineering choices, labelled: equal
+weights, the sign as the direction, the month's move read centred (the figures
+are monthly averages). On 1941-2026 its sign agreed with the month's move 57.0%
+of the time against a 54.3% chance rate: weak, measured in the replay as
+`massPressureWithTrade`. Same change, a parity fix: the replay handed crypto
+SPY's bars, which the live scan never fetches, so crypto replays read a market
+trend, leaders and campaign length live never did; now neither does. Context
+only: Gann's 84-year count (Ch. 7 PDF 219) on the same record, a major market
+turn 84 years back to the month, judged on the record before the month read
+(`eightyFourYear.ts`; April 2026 is 84 years from the April 1942 low), and the
+Dollar Trend (A-OTHER-06, his 1954 course: the market's value crossing old
+highs or breaking old lows, `dollarTrend.ts`, SPY's months on the 3-bar chart
+standing in for the NYSE's total value). `STRATEGY_VERSION` was
+`2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
+window it keeps. The first-trade chart window above merged onto it (no new
+rule): `STRATEGY_VERSION` is `2026-10-22-first-trade-on-mass-pressure`; the
+six-year daily rerun that measures 7/4 runs on it.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the
@@ -2158,6 +2188,44 @@ owed.
 
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 
+> **Explain-only reversed 2026-10-22 (owner, Chuck): techniques that align
+> first, the rest with their own levels.** In his words: "Highlight all the
+> strategies that align with gsps first. All other strategies can get their own
+> s/l, entry and tp1 (no mtp for anything that doesnt align with Gann trade
+> plan)." His reasoning, given when told it overrules the 2026-10-16 rule below:
+> "if an indicator is misaligned from a Gann method, and a user chooses to
+> trust it, that would be a user choice. But to say that the indicator doesn't
+> align with Gann, and then force them to align with Gann, isn't appropriate.
+> We can guide users to the water, but we can NEVER force them to drink. Which
+> is why that indicator feature is available. For anyone who wants the chance
+> to create for themselves." So GSPS guides (Gann's plan is the default, and
+> the techniques that agree with it are listed first) and never forces.
+> Built in `lib/strategies/compare.ts`: a technique **aligns** when it has
+> armed in the plan's direction, or, armed in neither, its lean agrees with
+> the plan; armed against the plan never aligns, and with no Gann plan nothing
+> does. An aligned technique trades GSPS's plan (entry, stop, TP1, MTP) and
+> shows its reading of those levels. Every other technique offers its own
+> entry, stop and TP1, **never an MTP**: the master take profit belongs to
+> Gann's plan alone. `/api/strategy-levels/compare` reads every mode the tier
+> allows plus the person's active scripts on one bar fetch, ranked aligned
+> first; `/api/strategy-levels` returns `aligned` and the mode's own `levels`
+> (no MTP) when it doesn't align. The order ticket lists them ("Read every
+> technique"), and "Trade these levels" puts a non-aligned technique's entry
+> (as the limit), stop and TP1 into a Manual Override, without the plan's
+> crossing line, `entryKind` or failed-top target, and names the technique
+> (`techniqueSource`), so placement waits for no Gann crossing on it
+> (`confirmEntry`) and judges it as the person's own order. The risk rules
+> still apply, as to any order: the 5-point stop cap, Gann's capital rules,
+> the tenth at risk and the series of losses. The technique's levels lapse
+> once the person changes the side, stop or target. The saved default
+> technique's line (`plan-reading-line.tsx`: setup card, signal card, Guided,
+> plan-scoped Automation) shows the technique's own levels when it doesn't
+> align. Unchanged: nothing here reaches the scan, the score, the gates,
+> GSPS's plan or any automated order; the tier gating; the script editor's
+> rule test, which still shows every line the author wrote (`mtpr` included)
+> because it tests the script, not a trade. The 2026-10-16 note below is
+> history where it says "explain-only" or that no level reaches the ticket.
+
 > **Narrowed 2026-10-16 (owner, confirming his 2026-10-01 note): explain-only.**
 > "Gann's method is still how we plot the chart; the indicator of choice will
 > just [be] how we explain the math on the front end." Asked whether that means
@@ -2869,8 +2937,8 @@ entry in an active market (Master Course Ch.13). So the intraday scanner now
 times the daily plan: "Daily plan's level held" (`plan_level_held`,
 `lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
 Watch plan's entry without trading its stop and the session's swing chart turns
-back through it; the stop is 3 Gann points under the day's low, never past the
-daily plan's stop, and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
+back through it; the stop at entry is the daily plan's own (Rule 3, aligned with
+#411's styles, which move it after the fill), and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
 *Tunnel* p.198 for the re-buy). Not a session-swing stop: the six-year intraday
 replay (2026-10-21, `replay-diagnosis/2026-10-21-intraday-profile-verdict.md`)
 failed its test with every loss on the initial stop, so the panel says intraday
@@ -2892,6 +2960,28 @@ scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
 shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+Email and browser push for the same signals (`lib/notifications/intradayDelivery.ts`,
+2026-10-21, after #404) go to every member by their settings (push off until
+turned on), score floor and quiet hours, each channel deduped on its own, and
+now by tier as the bell is: before, email reached every member whatever their
+plan.
+**Measured losing, 2026-10-22 (run 80,
+`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`):** "Daily plan's level
+held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
+both halves), on the earlier stop. It stays on the panel labelled with that
+record (`MEASURED_LOSING`, `lib/scanner/intradayDisplay.ts`), with no "Trade
+this" and no bell, email or push, until a run on the current stop reads
+otherwise; presume a translation defect first. Diagnosed the same day (owner:
+"if it is a Gann method ... determine how and why we are getting negative
+results, and correct it"): the alert fired on plans whose entry was a crossing
+still to be made: with price under the entry (the reaction buy 1 point past the
+old top), its touch test passed all session, so it bought the first intraday
+bar through the top before a daily close 3 points past it gave the indication
+(W006 Rule 3(b)-(c)). It now needs the prior session to have closed at or
+beyond the entry (a held bottom's entry is that close), so the touch is a
+reaction. Known gap: a crossing closed past the entry but not yet 3 points past
+it still passes, until the plan's entry kind and held state are carried onto
+the stored plan. The hold stays until a run on the fix reads positive.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in

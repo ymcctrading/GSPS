@@ -37,7 +37,7 @@ describe("buildIntradayBellRow", () => {
 });
 
 describe("alertsForTier", () => {
-  const alerts = [alert({ symbol: "SPY" }), alert({ symbol: "TSLA" })];
+  const alerts = [alert({ symbol: "SPY", type: "old_level_cross" }), alert({ symbol: "TSLA", type: "old_level_cross" })];
   const intervals = new Map([
     ["SPY", 15],
     ["TSLA", 1],
@@ -51,5 +51,11 @@ describe("alertsForTier", () => {
   it("gives Pro's bounded module its confirmed entries only", () => {
     const pro = alertsForTier(alerts, { intradayScansEnabled: false, proIntradayModuleEnabled: true }, intervals);
     expect(pro.map((a) => a.symbol)).toEqual(["SPY"]);
+  });
+
+  it("sends no one a signal the replay measured losing (run 80, plan_level_held)", () => {
+    const held = [alert({ symbol: "SPY" }), alert({ symbol: "TSLA", type: "old_level_cross" })];
+    const out = alertsForTier(held, { intradayScansEnabled: true, proIntradayModuleEnabled: false }, intervals);
+    expect(out.map((a) => a.type)).toEqual(["old_level_cross"]);
   });
 });
