@@ -713,4 +713,12 @@
 // and replay alike; 1Day replay trades move. Merged onto
 // 2026-10-21-cutoffs-seven-four-one-entry, whose one-entry replay and 7/4
 // cutoffs it keeps.
-export const STRATEGY_VERSION = "2026-10-21-review-sweep-square-sign-daily-firing-bar";
+// 2026-10-22-gann-eclipse-break-window: M-S4 acts (Chuck, 2026-10-22, astrology
+// "no longer research only"). A fast planet crossing, within a day, the
+// longitude of an eclipse that fell within 10 sessions of a 3-Day Chart top is
+// a dated window for a top in the shared time-window hold (`eclipseBreakOn`,
+// Mikula W012 pp. 32-35, labelled reconstruction), live and replay alike. A
+// counter-trend short Execute held to Watch for want of a window can now act. Merged onto
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
+// firing-bar fixes it keeps.
+export const STRATEGY_VERSION = "2026-10-22-gann-eclipse-break-window";

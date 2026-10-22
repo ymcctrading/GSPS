@@ -20,6 +20,14 @@
  *   1927, the Major Motors campaign; Tier A as fiction, corroborating).
  * - Cycle lengths are `MAJOR_CYCLE_YEARS`, his Ch. 7 hierarchy.
  *
+ * A-TIME-35, a labelled reconstruction (2026-10-21, Chuck: "build the 11 that
+ * can be filled with a labelled reconstruction"): *Tunnel Thru the Air* p.199
+ * says stocks "make fast moves up or down at certain ages" and never says
+ * which. GSPS reads those ages as Gann's own cycle years (`MAJOR_CYCLE_YEARS`,
+ * Ch. 7) counted from the company's birth, the count he works on U.S. Steel.
+ * That pairing is ours, not his: the ages are his cycles, the claim that they
+ * are the ages *Tunnel* means is the reconstruction. Context only, measured.
+ *
  * Engineering choices, labelled as such:
  * - The date is Wikidata's "inception" (P571), matched by SEC CIK. For most
  *   companies that is the founding date, which may differ from the
