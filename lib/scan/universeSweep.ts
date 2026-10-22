@@ -36,6 +36,10 @@
  * then score). Gann ranks no pillar above another and gives no count.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { etDateKey } from "@/lib/market/session";
+import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
+
 export interface SweepRow {
   basis_date: string;
   symbol: string;
@@ -122,26 +126,22 @@ export function mergeSweptIntoShortlist<C extends { symbol: string }>(
 }
 
 /**
- * The latest night's swept setups, best first (`sweptCandidates`). Best
+ * The latest usable night's swept setups, best first (`sweptCandidates`). Best
  * effort: a read failure returns none, and the market scan runs on the coarse
  * shortlist alone, as it did before the sweep.
  */
 export async function loadSweptCandidates(
-  service: import("@supabase/supabase-js").SupabaseClient,
+  service: SupabaseClient,
   slots: number = SWEEP_SLOTS,
+  now: Date = new Date(),
 ): Promise<string[]> {
   try {
-    const { data: latest, error: latestError } = await service
-      .from("universe_sweep")
-      .select("basis_date")
-      .order("basis_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (latestError || !latest) return [];
+    const basis = await chooseSweepBasis(service, now);
+    if (!basis) return [];
     const { data, error } = await service
       .from("universe_sweep")
       .select("basis_date, symbol, direction, score, output_state")
-      .eq("basis_date", (latest as { basis_date: string }).basis_date)
+      .eq("basis_date", basis)
       .in("output_state", ["Execute", "Watch"]);
     if (error || !data) return [];
     return sweptCandidates(
@@ -151,4 +151,47 @@ export async function loadSweptCandidates(
   } catch {
     return [];
   }
+}
+
+/** A night older than this is not read: a stopped sweep must not steer the scan for long. */
+export const SWEEP_MAX_AGE_DAYS = 4;
+/** Share of the universe a night must have scored to be preferred over the one before. */
+export const SWEEP_MIN_COVERAGE = 0.5;
+
+/**
+ * Which stored night to read, from each recent night's stored count: the
+ * newest that scored at least `SWEEP_MIN_COVERAGE` of the universe, else the
+ * newest at all. Nights older than `SWEEP_MAX_AGE_DAYS` before `today` (a New
+ * York date) are never read.
+ */
+export function pickSweepBasis(
+  counts: readonly { basis_date: string; count: number }[],
+  universeSize: number,
+  today: string,
+): string | null {
+  const floor = new Date(`${today}T12:00:00Z`).getTime() - SWEEP_MAX_AGE_DAYS * 86_400_000;
+  const recent = counts
+    .filter((c) => new Date(`${c.basis_date}T12:00:00Z`).getTime() >= floor)
+    .sort((a, b) => (a.basis_date < b.basis_date ? 1 : -1));
+  if (recent.length === 0) return null;
+  return (recent.find((c) => c.count >= universeSize * SWEEP_MIN_COVERAGE) ?? recent[0]).basis_date;
+}
+
+async function chooseSweepBasis(
+  service: SupabaseClient,
+  now: Date,
+): Promise<string | null> {
+  const today = etDateKey(now);
+  const counts: { basis_date: string; count: number }[] = [];
+  for (let back = 0; back <= SWEEP_MAX_AGE_DAYS; back++) {
+    const day = etDateKey(new Date(now.getTime() - back * 86_400_000));
+    const { count, error } = await service
+      .from("universe_sweep")
+      .select("symbol", { count: "exact", head: true })
+      .eq("basis_date", day);
+    if (error) return null;
+    if (count) counts.push({ basis_date: day, count });
+    if (count && count >= LARGE_CAP_UNIVERSE.length * SWEEP_MIN_COVERAGE) break;
+  }
+  return pickSweepBasis(counts, LARGE_CAP_UNIVERSE.length, today);
 }

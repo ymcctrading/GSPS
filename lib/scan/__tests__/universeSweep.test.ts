@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeSweptIntoShortlist, nextUnswept, sweptCandidates, type SweepRow } from "@/lib/scan/universeSweep";
+import { mergeSweptIntoShortlist, nextUnswept, pickSweepBasis, sweptCandidates, type SweepRow } from "@/lib/scan/universeSweep";
 
 const row = (symbol: string, output_state: string | null, score: number | null, direction: string | null = "bullish"): SweepRow => ({
   basis_date: "2026-10-23",
@@ -48,5 +48,21 @@ describe("mergeSweptIntoShortlist", () => {
   it("is the coarse shortlist unchanged with nothing swept", () => {
     const coarse = [c("A"), c("B")];
     expect(mergeSweptIntoShortlist([], coarse, 5, (s) => ({ symbol: s, coarseScore: 0 }))).toEqual(coarse);
+  });
+});
+
+describe("pickSweepBasis", () => {
+  it("prefers the newest night that scored at least half the universe", () => {
+    const counts = [
+      { basis_date: "2026-10-23", count: 120 },
+      { basis_date: "2026-10-22", count: 832 },
+    ];
+    expect(pickSweepBasis(counts, 832, "2026-10-23")).toBe("2026-10-22");
+  });
+  it("falls back to the newest night when none is half done", () => {
+    expect(pickSweepBasis([{ basis_date: "2026-10-23", count: 50 }, { basis_date: "2026-10-22", count: 60 }], 832, "2026-10-23")).toBe("2026-10-23");
+  });
+  it("never reads a night older than the age limit", () => {
+    expect(pickSweepBasis([{ basis_date: "2026-10-10", count: 832 }], 832, "2026-10-23")).toBeNull();
   });
 });

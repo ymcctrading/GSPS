@@ -1064,9 +1064,10 @@ export async function runMarketScan(
   mark("yearly-cycle re-rank", yearHits ? `read=${yearHits.size}` : "skipped");
   // Last night's swept setups first (owner, 2026-10-22: Execute setups are
   // pushed first), then the coarse shortlist, same total.
+  const coarseShortlist = rankShortlist(rerankPool, shortlistSize, yearHits, selection);
   const shortlist = mergeSweptIntoShortlist(
     sweptSymbols.slice(0, SWEEP_SLOTS),
-    rankShortlist(rerankPool, shortlistSize, yearHits, selection),
+    coarseShortlist,
     shortlistSize,
     (symbol) => ({ symbol, direction: "bullish", kind: "reversion", coarseScore: 0 }),
   );
@@ -1170,7 +1171,13 @@ export async function runMarketScan(
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
-  const shortlistedSymbols = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
+  // The coarse filter's own picks that kept a full-pass slot, so the column
+  // still reads "the coarse filter shortlisted it"; a swept symbol the filter
+  // rejected is not counted as one.
+  const kept = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
+  const shortlistedSymbols = new Set(
+    coarseShortlist.map((c) => c.symbol.toUpperCase()).filter((sym) => kept.has(sym)),
+  );
   const fullScanResults = new Map(
     [...valid, ...continuationScanResults.filter((r) => !r.error)].map((r) => [r.symbol, r]),
   );

@@ -36,6 +36,10 @@ export const maxDuration = 60;
 const SWEEP_DEADLINE_MS = 35_000;
 /** The sweep runs before 4 AM New York time, when pre-market opens. */
 const SWEEP_LATEST_ET_MINUTES = 4 * 60;
+/** A failed read is tried again after this long. */
+const RETRY_AFTER_MS = 20 * 60_000;
+/** Days of sweep rows kept. */
+const KEEP_DAYS = 30;
 
 export async function GET(req: NextRequest) {
   if (!isCronAuthorized(req.headers.get("authorization"))) {
@@ -55,17 +59,26 @@ export async function GET(req: NextRequest) {
   const service = createServiceClient();
   const { data: done, error: readError } = await service
     .from("universe_sweep")
-    .select("symbol")
-    .eq("basis_date", basisDate);
+    .select("symbol, error, swept_at")
+    .eq("basis_date", basisDate)
+    .limit(5000);
   if (readError) return NextResponse.json({ error: `Sweep rows not read: ${readError.message}` }, { status: 500 });
-  const swept = new Set((done ?? []).map((r: { symbol: string }) => r.symbol.toUpperCase()));
+  // A stock whose read failed (a rate limit, a feed gap) is tried again once
+  // the rest are scored, at most every `RETRY_AFTER_MS`, until the window ends.
+  const retryBefore = now.getTime() - RETRY_AFTER_MS;
+  const doneRows = (done ?? []) as { symbol: string; error: string | null; swept_at: string }[];
+  const swept = new Set(doneRows.map((r) => r.symbol.toUpperCase()));
+  const retry = doneRows
+    .filter((r) => r.error && new Date(r.swept_at).getTime() < retryBefore)
+    .map((r) => r.symbol.toUpperCase());
   const { universe } = await getUniversePolicy(service);
 
   let scored = 0;
   let errors = 0;
   const batchMs: number[] = [];
   while (Date.now() - startedAt < SWEEP_DEADLINE_MS) {
-    const batch = nextUnswept(LARGE_CAP_UNIVERSE, swept, SWEEP_BATCH);
+    let batch = nextUnswept(LARGE_CAP_UNIVERSE, swept, SWEEP_BATCH);
+    if (batch.length === 0) batch = retry.splice(0, SWEEP_BATCH);
     if (batch.length === 0) break;
     const batchStarted = Date.now();
     const bars = await fetchAllTimeframesBatch(batch, EXECUTION_TIMEFRAME);
@@ -98,6 +111,11 @@ export async function GET(req: NextRequest) {
     errors += rows.filter((r) => r.error).length;
     batchMs.push(Date.now() - batchStarted);
   }
+
+  // Kept for a month, enough to compare nights; older rows go.
+  const cutoff = etDateKey(new Date(now.getTime() - KEEP_DAYS * 86_400_000));
+  const { error: pruneError } = await service.from("universe_sweep").delete().lt("basis_date", cutoff);
+  if (pruneError) console.warn("[universe-sweep] old rows not pruned:", pruneError.message);
 
   const remaining = nextUnswept(LARGE_CAP_UNIVERSE, swept, LARGE_CAP_UNIVERSE.length).length;
   const ms = Date.now() - startedAt;
