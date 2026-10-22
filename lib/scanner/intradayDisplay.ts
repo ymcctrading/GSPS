@@ -50,6 +50,27 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
 };
 
+/**
+ * A signal the intraday replay measured losing, with its record. Shown on the
+ * card, and the signal is held back from action: no "Trade this", no bell,
+ * email or push (`alertsForTier`), until a run on the current rule reads
+ * otherwise. Visible, labelled, and never offered as a trade: an inverted
+ * reading is presumed a translation defect to find, not a trade to take
+ * (AGENTS.md, "Gann-derived AND measured").
+ *
+ * plan_level_held: backtest-universe run 80 (2026-10-22, 832 symbols,
+ * 2026-08-26 to 2026-10-21, five-minute bars, Gann exits): 152 trades,
+ * −0.107R, 95% CI [−0.185, −0.028], both halves losing
+ * (`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`). That run used
+ * the earlier stop (3 points beyond the day's low); most of its trades left
+ * on Gann's exit signals, not the stop, so the current stop is not expected
+ * to change the sign. Re-run before lifting the hold.
+ */
+export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
+  plan_level_held:
+    "Measured losing: the replay of Aug 26 to Oct 21, 2026 lost on this signal (152 trades, −0.11R a trade, with an earlier stop). Shown for study only; it is not offered as a trade until a new run reads otherwise.",
+};
+
 export function formatAge(seconds: number): string {
   if (!Number.isFinite(seconds)) return "an unknown amount of time";
   if (seconds < 90) return `${Math.round(seconds)}s`;

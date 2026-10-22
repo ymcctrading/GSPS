@@ -2809,6 +2809,13 @@ Email and browser push for the same signals (`lib/notifications/intradayDelivery
 turned on), score floor and quiet hours, each channel deduped on its own, and
 now by tier as the bell is: before, email reached every member whatever their
 plan.
+**Measured losing, 2026-10-22 (run 80,
+`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`):** "Daily plan's level
+held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
+both halves), on the earlier stop. It stays on the panel labelled with that
+record (`MEASURED_LOSING`, `lib/scanner/intradayDisplay.ts`), with no "Trade
+this" and no bell, email or push, until a run on the current stop reads
+otherwise; presume a translation defect first.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in
