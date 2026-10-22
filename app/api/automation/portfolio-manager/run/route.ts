@@ -23,6 +23,7 @@ import { manageAllSimulatedExits } from "@/lib/trade/exit-manager-sim";
 import { evaluateAllRestingOrders } from "@/lib/brokers/simulator";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { markAllPaperEquity } from "@/lib/portfolio/paper-equity";
+import { placeAutomatedPyramidAdds } from "@/lib/automation/pyramid-adds";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. This loop is per-user/per-plan database work with no external data
@@ -47,6 +48,12 @@ export async function GET(req: NextRequest) {
   // Then the resting entries whose price has come, so a fill this pass is in
   // the book the manager reads before it opens anything new.
   const resting = await evaluateAllRestingOrders(supabase as unknown as Parameters<typeof evaluateAllRestingOrders>[0]);
+  // Then Gann's pyramid adds on the lines automation opened
+  // (lib/automation/pyramid-adds.ts), after the exits so a stopped line takes
+  // no add, and before the manager so an add counts in the book it reads.
+  const pyramid = await placeAutomatedPyramidAdds(supabase as unknown as Parameters<typeof placeAutomatedPyramidAdds>[0]).catch(
+    (err: unknown) => ({ lines: 0, placed: 0, notes: [] as string[], errors: [String(err)] }),
+  );
   const result = await runAutonomousPortfolioManager(supabase);
   // Last, every paper account's equity is marked on the book as it now stands
   // (lib/portfolio/paper-equity.ts).
@@ -56,5 +63,5 @@ export async function GET(req: NextRequest) {
     error: String(err),
   }));
   if (equityMarks.error) console.error(`automation/portfolio-manager/run: equity marks — ${equityMarks.error}`);
-  return NextResponse.json({ ...result, exits, resting, equityMarks });
+  return NextResponse.json({ ...result, exits, resting, pyramid, equityMarks });
 }

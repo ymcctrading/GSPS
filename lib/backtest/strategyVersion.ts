@@ -781,4 +781,13 @@
 // (`hourlyChart`), the intraday replay's trend and the Intraday style's
 // hourly-turn exit, live and replay alike. Intraday alerts, intraday replay
 // trades and intraday exits move; the daily verdict doesn't.
-export const STRATEGY_VERSION = "2026-10-22-gann-hourly-exchange-hours";
+// (was STRATEGY_VERSION "2026-10-22-gann-hourly-exchange-hours")
+// 2026-10-22-gann-pyramid-adds-placed: the portfolio manager places Gann's
+// pyramid adds on the paper lines it opened (lib/automation/pyramid-adds.ts),
+// each add merged into its line's one exit row as the replay walks one
+// position (migration 0111). The whole line's stop after an add goes 5 points
+// under the add's own fill or to break-even (A-STOP-06, W022 p.198), live and
+// replay alike; the replay had measured it from the trigger, so an add filled
+// on a gap past it kept a looser stop. Pyramided replay trades move; verdicts
+// and unpyramided trades don't.
+export const STRATEGY_VERSION = "2026-10-22-gann-pyramid-adds-placed";

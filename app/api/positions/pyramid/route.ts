@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
   // needs them all, as the replay walks them.
   const { data: plans } = await supabase
     .from("protocol_exits")
-    .select("side, mode, qty, entry_price, stop_loss, applied_stop, created_at")
+    .select("side, mode, qty, entry_price, stop_loss, applied_stop, created_at, lots")
+    .is("merged_into", null)
     .eq("user_id", user.id)
     .eq("symbol", symbol)
     .eq("status", "working")

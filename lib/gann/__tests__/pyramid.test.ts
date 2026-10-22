@@ -251,3 +251,21 @@ describe("pyramidLineFromRows (the Portfolio suggestion's open line)", () => {
     expect(pyramidLineFromRows([], key)).toBeNull();
   });
 });
+
+describe("pyramidLineFromRows on a line automation pyramided (migration 0111)", () => {
+  const key = (d: Date) => d.toISOString().slice(0, 10);
+  it("reads the stored lots in place of the row, and a bad lots value as one lot", () => {
+    const lots = [
+      { qty: 100, price: 101.8, date: "2026-06-03" },
+      { qty: 50, price: 115.88, date: "2026-06-15" },
+    ];
+    const row = { side: "long" as const, mode: "paper", qty: 150, entry_price: 106.49, stop_loss: 98.3, applied_stop: 107, created_at: "2026-06-03T14:00:00Z" };
+    const line = pyramidLineFromRows([{ ...row, lots }], key)!;
+    expect(line.lots).toEqual(lots);
+    expect(line.initialStop).toBe(98.3);
+    expect(line.stop).toBe(107);
+    expect(pyramidLineFromRows([{ ...row, lots: [{ qty: 0, price: 1, date: "x" }] }], key)!.lots).toEqual([
+      { qty: 150, price: 106.49, date: "2026-06-03" },
+    ]);
+  });
+});
