@@ -138,7 +138,6 @@ describe("computeEquityTradeLevels", () => {
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
     expect(result.tp1FromStructure).toBe(true);
     expect(result.takeProfit1).toBe(112);
-    expect(result.masterFromStructure).toBe(true);
     expect(result.takeProfit2).toBe(120);
   });
 
@@ -171,7 +170,6 @@ describe("computeEquityTradeLevels", () => {
     const atrPct = 3;
     const structuralLevels = [95, 200]; // 200 is far beyond the 30% cap (130)
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct, evenFigures: false });
-    expect(result.masterFromStructure).toBe(false);
     expect(result.takeProfit2).toBeCloseTo(entry * 1.105, 5);
   });
 
@@ -223,7 +221,6 @@ describe("computeEquityTradeLevels", () => {
     });
     expect(result.stopFromStructure).toBe(false);
     expect(result.takeProfit1).toBe(112);
-    expect(result.masterFromStructure).toBe(true);
     expect(result.takeProfit2).toBe(120);
   });
 
@@ -234,7 +231,6 @@ describe("computeEquityTradeLevels", () => {
     const result = computeEquityTradeLevels({ direction: "bullish", entry, structuralLevels, atrPct });
     expect(result.stopFromStructure).toBe(true);
     expect(result.tp1FromStructure).toBe(true);
-    expect(result.masterFromStructure).toBe(true);
     expect(result.takeProfit2).toBe(120);
   });
 

@@ -42,7 +42,7 @@ function trend(
  * levels. gannAngleSlope and gannRetracementConfluence both read off `gann`
  * alone (not the computed trade `levels`), so only `patternArmed` needs an
  * armed pattern to pass — unlike the old `masterStructural` it replaced,
- * which needed `levels.masterFromStructure`. `ruleOfThree` (added
+ * which needed a structural master target. `ruleOfThree` (added
  * 2026-09-16) is deliberately left unsupplied in `inputs()` below — it
  * always fails here, so every score in this file is one point lower than a
  * literal "all nine pass" run would read; the exact numbers below already
@@ -89,7 +89,6 @@ const levels: TradeLevels = {
   rewardToRiskTp1: 2,
   rewardToRiskTp2: 3,
   rewardToRiskMaster: 3,
-  masterFromStructure: true,
   stopPctOfPrice: 1,
   stopBandWarning: null,
 };

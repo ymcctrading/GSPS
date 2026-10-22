@@ -12,7 +12,6 @@ const levels: TradeLevels = {
   rewardToRiskTp1: 1.67,
   rewardToRiskTp2: 2.67,
   rewardToRiskMaster: 3.33,
-  masterFromStructure: true,
   stopPctOfPrice: 3,
   stopBandWarning: null,
 };
