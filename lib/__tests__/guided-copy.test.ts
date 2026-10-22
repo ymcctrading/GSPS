@@ -12,7 +12,7 @@ import { exitSentence, reasonLine, riskRewardSentence } from "@/lib/guided/copy"
 const longLevels: TradeLevels = {
   entry: 100, stopLoss: 98, takeProfit1: 103, takeProfit2: 105, masterProfit: 105,
   riskPerShare: 2, rewardToRiskTp1: 1.5, rewardToRiskTp2: 2.5, rewardToRiskMaster: 2.5,
-  masterFromStructure: true, stopPctOfPrice: 2, stopBandWarning: null,
+  stopPctOfPrice: 2, stopBandWarning: null,
 };
 
 function scan(overrides: Partial<ScanResult> = {}): ScanResult {

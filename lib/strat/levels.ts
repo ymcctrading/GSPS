@@ -72,7 +72,6 @@ export interface EquityTradeLevels {
   stopBehindOldLevel: boolean;
   /** TP1 sits on a Gann or S/R level (parity C4) rather than the ATR fallback. */
   tp1FromStructure: boolean;
-  masterFromStructure: boolean;
 }
 
 /**
@@ -316,7 +315,6 @@ export function computeEquityTradeLevels(params: {
   const structuralExtension = ascending.find(
     (l) => dir * (l - takeProfit1) > 0 && pctFrom(l) - pctFrom(takeProfit1) >= EQUITY_TP1_MIN_PCT && dir * (l - capTarget) <= 0,
   );
-  const masterFromStructure = structuralExtension !== undefined;
   const takeProfit2 = structuralExtension ?? tp2Floor;
 
   return {
@@ -328,7 +326,6 @@ export function computeEquityTradeLevels(params: {
     // by construction; any other stop is checked against the S/R list.
     stopBehindOldLevel: params.stopLoss != null || oldLevelBehindStop(direction, entry, stopLoss, structuralLevels) !== null,
     tp1FromStructure,
-    masterFromStructure,
   };
 }
 
@@ -584,7 +581,6 @@ export function computeTradeLevels(
       rewardToRiskTp1: equityRisk > 0 ? Math.abs(equity.takeProfit1 - entry) / equityRisk : 0,
       rewardToRiskTp2: equityRisk > 0 ? Math.abs(equity.takeProfit2 - entry) / equityRisk : 0,
       rewardToRiskMaster: equityRisk > 0 ? Math.abs(equity.takeProfit2 - entry) / equityRisk : 0,
-      masterFromStructure: equity.masterFromStructure,
       stopFromStructure: equity.stopFromStructure,
       stopBehindOldLevel: equity.stopBehindOldLevel,
       stopPctOfPrice: (Math.abs(entry - equity.stopLoss) / entry) * 100,
@@ -651,7 +647,6 @@ export function computeTradeLevels(
   const structuralExtension = combineNearbyLevels(gannTargets)
     .filter((g) => dir * (g - masterFloor) > 0 && dir * (g - masterCap) <= 0)
     .sort((a, b) => dir * (a - b))[0];
-  const masterFromStructure = structuralExtension !== undefined;
   let masterProfit = structuralExtension ?? steppedMaster;
   if (dir < 0 && masterProfit <= 0) {
     const eighth = takeProfit1 > 0 ? eighthBelow(entry, takeProfit1) : null;
@@ -685,7 +680,10 @@ export function computeTradeLevels(
     const atrMultiple = structuralRisk / executionAtr;
     const effectiveMaxStopAtrMultiple = effectiveLargeCap ? LARGE_CAP_MAX_STOP_ATR_MULTIPLE : MAX_STOP_ATR_MULTIPLE;
     if (atrMultiple > effectiveMaxStopAtrMultiple) {
-      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. Reduce size, or wait for a tighter trigger.`;
+      // The size itself is Gann's capital rules' to set (a tenth of capital
+      // at risk, 30 points a share: lib/risk/gannCapital.ts), so the note
+      // names that rule instead of advising a smaller size (it had no source).
+      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. The capital rules size the trade to this stop, so it buys fewer shares.`;
     }
   }
 
@@ -731,7 +729,6 @@ export function computeTradeLevels(
     rewardToRiskTp1: risk > 0 ? Math.abs(takeProfit1 - entry) / risk : 0,
     rewardToRiskTp2: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
     rewardToRiskMaster: risk > 0 ? Math.abs(masterProfit - entry) / risk : 0,
-    masterFromStructure,
     // Only meaningful for the equities percent-model above — the R-based
     // model here has no notion of "structural vs. fallback" stop, so this is
     // always false rather than a claim about this stop's own quality.
