@@ -749,6 +749,12 @@ describe("replay exitRule: gann-runner (the live rule)", () => {
     expect(src).toMatch(/isStock: assetClass === "us_equity"/);
   });
 
+  it("sizes a pyramid add from the first lot on Gann's 100/50/30/20/10, as live does", () => {
+    const src = fs.readFileSync("lib/backtest/replay.ts", "utf8");
+    expect(src).toMatch(/const fraction = nextLotFraction\(lots\.length\);/);
+    expect(src).toMatch(/qty: lots\[0\]\.qty \* fraction/);
+  });
+
   it("records lots under pyramiding and never adds to a trade that stopped out", () => {
     const through = TRIGGER.stopPrice - SIDE * 0.5;
     const fall = { o: past(0.2), h: SIDE > 0 ? past(0.3) : through, l: SIDE > 0 ? through : past(0.3), c: through };

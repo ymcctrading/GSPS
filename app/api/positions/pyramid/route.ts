@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
-import { readPyramidAdd } from "@/lib/gann/pyramid";
+import { pyramidLineFromRows, readPyramidAdd, type WorkingLotRow } from "@/lib/gann/pyramid";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { etDateKey } from "@/lib/market/session";
 
@@ -25,16 +25,18 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const { data: plan } = await supabase
+  // Every working lot of the symbol, oldest first: Gann's lots are sized
+  // from the first (100/50/30/20/10, lib/gann/pyramid.ts), so the reading
+  // needs them all, as the replay walks them.
+  const { data: plans } = await supabase
     .from("protocol_exits")
-    .select("side, qty, entry_price, stop_loss, applied_stop, created_at")
+    .select("side, mode, qty, entry_price, stop_loss, applied_stop, created_at")
     .eq("user_id", user.id)
     .eq("symbol", symbol)
     .eq("status", "working")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!plan) return NextResponse.json({ add: null, reason: null });
+    .order("created_at", { ascending: true });
+  const line = pyramidLineFromRows((plans ?? []) as WorkingLotRow[], etDateKey);
+  if (!line) return NextResponse.json({ add: null, reason: null });
 
   try {
     const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -46,19 +48,8 @@ export async function GET(req: NextRequest) {
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
     ]);
     const today = etDateKey(now);
-    const row = plan as {
-      side: "long" | "short";
-      qty: number;
-      entry_price: number;
-      stop_loss: number;
-      applied_stop: number | null;
-      created_at: string;
-    };
     const reading = readPyramidAdd({
-      side: row.side,
-      lots: [{ qty: Number(row.qty), price: Number(row.entry_price), date: etDateKey(new Date(row.created_at)) }],
-      stop: Number(row.applied_stop ?? row.stop_loss),
-      initialStop: Number(row.stop_loss),
+      ...line,
       daily: bars.filter((b) => b.t.slice(0, 10) < today),
       price,
       // Rule 21: the stored share count picks which side a stock is added to on.
