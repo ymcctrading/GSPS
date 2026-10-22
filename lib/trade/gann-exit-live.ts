@@ -170,6 +170,7 @@ export function readIntradayExitFromBars(
     bars: session,
     now,
     closeAtSessionEnd: input.closeAtSessionEnd ?? false,
+    crypto: input.crypto === true,
   });
 }
 

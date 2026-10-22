@@ -3008,6 +3008,14 @@ its own intraday panel, labelled apart from the daily verdict. A monitor goes
 INVALIDATED only when the scan retired the plan for a broken stop; any other
 Reject is NO_SETUP and sends nothing (`evaluateMonitorsAndNotify`). The daily
 verdict and `STRATEGY_VERSION` are unchanged.
+**Hourly chart on exchange hours, 2026-10-22.** Gann's hourly chart is read
+on exchange hours (Master Course PDF 378): a US equity's hours count from the
+9:30 ET open, crypto's stay on the clock. One key, `exchangeHourKey`
+(`lib/gann/intradayExit.ts`), serves the intraday alerts' hourly chart, the
+intraday replay and the Intraday style's hourly-turn exit. It had bucketed bars
+by UTC hour, so an equity's first hour was 9:30-9:59 alone. The live scan's
+display-only hourly trend still reads the vendor's clock-hour bars (it feeds
+no score). `STRATEGY_VERSION` is `2026-10-22-gann-hourly-exchange-hours`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the

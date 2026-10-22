@@ -79,7 +79,7 @@ import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
-import { INTRADAY_SWING_BARS, INTRADAY_WINDOW_BARS, intradayWalker, isRegularSessionBar, isSessionLastBar } from "@/lib/gann/intradayExit";
+import { INTRADAY_SWING_BARS, INTRADAY_WINDOW_BARS, exchangeHourKey, intradayWalker, isRegularSessionBar, isSessionLastBar } from "@/lib/gann/intradayExit";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import { BARS_PER_SESSION, isTimeoutReason, rollUp, stopFill, summarise, timeoutReasonAt, type IntradayExitReason, type ReplayResult, type ReplayTrade, type TimeoutReason } from "./replay";
 
@@ -142,7 +142,6 @@ interface Plan {
   bufferPct: number;
 }
 
-const hourKey = (b: Bar) => b.t.slice(0, 13);
 const dateOf = (b: Bar) => b.t.slice(0, 10);
 
 
@@ -210,7 +209,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
     const date = dateOf(live);
     const closed = history[history.length - 1];
 
-    const direction = walkSwingChart(rollUp(history, hourKey), SWING_BARS).trend;
+    const direction = walkSwingChart(rollUp(history, (b) => exchangeHourKey(b, assetClass === "crypto")), SWING_BARS).trend;
     const { dailyAtr, prevClose, largeCap } = factsFor(date);
     const executionAtr = atr(history.slice(-30), 14);
     const point = intradayPoint(closed.c, executionAtr, dailyAtr);
@@ -317,6 +316,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
         point,
         firstTarget: scaleOut ? firstTarget : null,
         sessionClose: sessionClose && assetClass !== "crypto",
+        crypto: assetClass === "crypto",
       });
       busyUntil = i + walked.barsHeld;
       trades.push({
@@ -367,10 +367,12 @@ export function walkIntradayExit(input: {
   point: number;
   firstTarget: number | null;
   sessionClose?: boolean;
+  /** Crypto reads the hourly chart on the clock's hours, a US equity on exchange hours. */
+  crypto: boolean;
 }): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
   const { bars, from, maxBarsHeld, long, entry, point, firstTarget } = input;
   const dir = long ? 1 : -1;
-  const walker = intradayWalker({ long, stop: input.stop, point });
+  const walker = intradayWalker({ long, stop: input.stop, point, crypto: input.crypto });
   // Position in units of the first lot: the result is reported as the single
   // exit price that gives the same P&L per unit, so R arithmetic is unchanged.
   let openQty = 1;
