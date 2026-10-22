@@ -255,10 +255,19 @@ export async function fetchAllTimeframesBatch(
   symbols: string[],
   executionTimeframe: Timeframe = "15Min",
   assetClass: AssetClass = "us_equity",
+  /** Called as each timeframe's request settles, with its wall time, so a slow chart can be named. */
+  onTimeframe?: (timeframe: Timeframe, ms: number) => void,
 ): Promise<Map<string, AllTimeframeBars>> {
   const provider = getMarketDataProvider();
   const out = new Map<string, AllTimeframeBars>();
   if (!provider.fetchBarsBatch || symbols.length === 0) return out;
+  const fetchBatch = provider.fetchBarsBatch.bind(provider);
+  const timed = (timeframe: Timeframe, start: Date) => {
+    const began = Date.now();
+    return fetchBatch(symbols, timeframe, start, end, assetClass).finally(() =>
+      onTimeframe?.(timeframe, Date.now() - began),
+    );
+  };
 
   const now = Date.now();
   const yearsAgo = (n: number) => new Date(now - n * 365.25 * 24 * 3600 * 1000);
@@ -275,19 +284,13 @@ export async function fetchAllTimeframesBatch(
     : 30;
 
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
-    provider.fetchBarsBatch(symbols, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, assetClass),
-    provider.fetchBarsBatch(symbols, "1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000), end, assetClass),
-    provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, assetClass),
-    provider.fetchBarsBatch(symbols, "1Hour", daysAgo(hourlyLookbackDays), end, assetClass),
+    timed("1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS)),
+    timed("1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000)),
+    timed("1Day", yearsAgo(1)),
+    timed("1Hour", daysAgo(hourlyLookbackDays)),
     executionIsHourly
       ? Promise.resolve(null)
-      : provider.fetchBarsBatch(
-          symbols,
-          executionTimeframe,
-          daysAgo(executionLookbackDays(executionTimeframe)),
-          end,
-          assetClass,
-        ),
+      : timed(executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe))),
   ]);
 
   for (const symbol of symbols) {

@@ -59,7 +59,7 @@ import { loadSweptCandidates } from "@/lib/scan/universeSweep";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
-import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
+import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 import { etDateKey, etParts } from "@/lib/market/session";
@@ -230,6 +230,16 @@ export async function runScheduledScan(
     console.error(`${source}: market scan failed — ${String(err)}`);
     logRunOutcome({ runId, source, marketDateEt, outcome: "upstream_unavailable", environment });
     return NextResponse.json({ error: "Upstream market data unavailable", source, runId }, { status: 503 });
+  }
+
+  // Stock bars not read by the deadline: crypto and funds alone would replace
+  // the stock lists, and recording the run would make a retry return
+  // already_run with no stock scan for this slot. Fail closed the same way.
+  const refusal = publishRefusal(output);
+  if (refusal) {
+    console.error(`${source}: ${refusal}`);
+    logRunOutcome({ runId, source, marketDateEt, outcome: "upstream_unavailable", environment });
+    return NextResponse.json({ error: "Upstream market data unavailable", reason: refusal, source, runId }, { status: 503 });
   }
 
   const qualifying: RankedSetup<ScanResult>[] = [

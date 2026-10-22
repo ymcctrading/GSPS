@@ -656,6 +656,14 @@ export interface MarketScanOutput {
    */
   continuationSkipped: boolean;
   /**
+   * False when the full pass's stock bars missed `FULL_PASS_FETCH_DEADLINE_MS`
+   * and no stock was scored. The lists may still hold crypto and fund rows;
+   * publishing them would overwrite and prune the day's stock rows, so the
+   * callers (`app/api/market-scan`, `lib/entitlements/scheduled-scan.ts`)
+   * publish nothing (`publishRefusal`).
+   */
+  equitiesRead: boolean;
+  /**
    * Every symbol that received a full multi-timeframe `scanTicker` pass this
    * run (the reversion shortlist plus any continuation top-up candidates),
    * regardless of whether it made `bullish`/`bearish` — including symbols
@@ -954,6 +962,21 @@ export function compareForList(a: ScanResult, b: ScanResult): number {
 const CONTINUATION_DEADLINE_MS = 42_000;
 
 /**
+ * Past this, in ms from the start of the scan, the full pass stops waiting for
+ * its shortlist's bars. On 2026-10-22, 27 scheduled scan calls from 12:57 to
+ * 18:45 UTC ran into the 60 s limit (pg_net's `_http_response`); at 18:45 the
+ * fetch alone ran from +18 s to +48 s and the run was killed at 60 s. Scoring
+ * the shortlist takes about 2 s (18:03, +48.1 s to +50.1 s), so 40 s leaves the
+ * scoring, the shortable read, the other markets' join and the route's writes
+ * the rest of the budget. An engineering figure, as the continuation deadline
+ * is.
+ */
+const FULL_PASS_FETCH_DEADLINE_MS = 40_000;
+
+/** The continuation pass's own bar fetch stops being waited for here (see above). */
+const CONTINUATION_FETCH_DEADLINE_MS = 48_000;
+
+/**
  * `universeTop` defaults to `FULL_UNIVERSE_TOP` — see that constant's own
  * comment for the full history (including the 2026-09-22 production timeout
  * that corrected it from an untested 700/900 down to a measured-safe 250).
@@ -1180,11 +1203,29 @@ export async function runMarketScan(
   // Full multi-timeframe pass — batch-fetch all five timeframes for the whole
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
-  const shortlistBars = await fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME);
-  mark("full-pass batch bar fetch done", `shortlist=${shortlist.length}`);
-  const full = await mapWithConcurrency(shortlist, 5, (c) =>
-    scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
+  // Bounded (`FULL_PASS_FETCH_DEADLINE_MS`): a fetch still running then is
+  // left behind and no stock is scored, since a symbol without its prefetched
+  // bars would fetch its own five charts one by one. The crypto and fund
+  // passes may still join the lists, so the run reports `equitiesRead: false`
+  // and its callers publish nothing: a list without its stocks would
+  // overwrite and prune the day's stock rows (`persistDailyScans`).
+  const shortlistBars = await settleBy(
+    fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME, "us_equity", (tf, ms) =>
+      mark(`full-pass ${tf} bars`, `${ms}ms`),
+    ),
+    startedAt + FULL_PASS_FETCH_DEADLINE_MS,
   );
+  mark("full-pass batch bar fetch done", shortlistBars ? `shortlist=${shortlist.length}` : "not done by the deadline");
+  if (shortlistBars === null) {
+    console.warn(
+      `market-scan: ${scanDate} full-pass bars not fetched by ${FULL_PASS_FETCH_DEADLINE_MS}ms; nothing scored this run`,
+    );
+  }
+  const full = shortlistBars
+    ? await mapWithConcurrency(shortlist, 5, (c) =>
+        scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
+      )
+    : [];
   mark("full-pass scanTicker scoring done");
   const valid = full.filter((r) => !r.error);
   const scanErrors = full.length - valid.length;
@@ -1217,7 +1258,11 @@ export async function runMarketScan(
   let continuationSkipped = false;
 
   const elapsedBeforeContinuation = Date.now() - startedAt;
-  if (elapsedBeforeContinuation >= CONTINUATION_DEADLINE_MS) {
+  if (shortlistBars === null) {
+    // The feed couldn't serve the shortlist in time; a second fetch for the
+    // top-up would only run into the same wait.
+    continuationSkipped = true;
+  } else if (elapsedBeforeContinuation >= CONTINUATION_DEADLINE_MS) {
     continuationSkipped = true;
     console.warn(
       `market-scan: ${scanDate} skipping continuation pass — ${elapsedBeforeContinuation}ms ` +
@@ -1247,16 +1292,27 @@ export async function runMarketScan(
         .slice(0, perSideBudget),
     );
 
-    const fillBars = await fetchAllTimeframesBatch(fills.map((c) => c.symbol), EXECUTION_TIMEFRAME);
-    const scans = await mapWithConcurrency(fills, 5, (c) =>
-      scanTicker(
-        c.symbol,
-        undefined,
-        { direction: c.direction, kind: "continuation" },
-        fillBars.get(c.symbol.toUpperCase()),
-        universeThresholds,
-      ),
+    // Bounded as the full pass's fetch is, a little later: past it the top-up
+    // is skipped and the reversion lists publish as they stand.
+    const fillBars = await settleBy(
+      fetchAllTimeframesBatch(fills.map((c) => c.symbol), EXECUTION_TIMEFRAME),
+      startedAt + CONTINUATION_FETCH_DEADLINE_MS,
     );
+    if (fillBars === null) {
+      console.warn(`market-scan: ${scanDate} continuation bars not fetched by the deadline; top-up skipped`);
+    }
+    const scans =
+      fillBars === null
+        ? []
+        : await mapWithConcurrency(fills, 5, (c) =>
+            scanTicker(
+              c.symbol,
+              undefined,
+              { direction: c.direction, kind: "continuation" },
+              fillBars.get(c.symbol.toUpperCase()),
+              universeThresholds,
+            ),
+          );
     continuationScanResults = scans;
     mark("continuation pass scoring done", `scanned=${scans.length}`);
 
@@ -1335,6 +1391,7 @@ export async function runMarketScan(
     scanErrors,
     coarseTelemetry,
     continuationSkipped,
+    equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
   };
 }
