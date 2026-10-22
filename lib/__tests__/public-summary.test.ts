@@ -188,6 +188,39 @@ describe("toPublicScoreSummary", () => {
     expect(toPublicScoreSummary(computeScore(allFail)).stateNote).toBeNull();
   });
 
+  it("re-reads a breakdown stored with the old groups as the nine points", () => {
+    // daily_scans rows written before the rollup was stored keep the
+    // breakdown, whose points named the old group (2026-10-17 to 10-21).
+    const stored = computeScore(allPass);
+    const old: Record<string, "trend" | "structure" | "setup" | "timing" | "riskReward"> = {
+      marketCycle: "timing", trendAllTimeframes: "trend", relativeStrength: "trend",
+      activity: "setup", priceLevels: "structure", geometricAngles: "structure",
+      timeFactors: "timing", volumeAccumulation: "setup", definiteIndication: "riskReward",
+    };
+    const legacy: ScanDecision = {
+      ...stored,
+      breakdown: stored.breakdown.map((b) => (b.pillar ? { ...b, pillar: old[b.key as string] } : b)),
+    };
+    const summary = toPublicScoreSummary(legacy);
+    expect(summary.pillars.map((p) => p.pillar)).toEqual(SCORE_PILLARS);
+    expect(summary.max).toBe(9);
+  });
+
+  it("keeps an old group whose points carry no key, after the nine", () => {
+    const legacy: ScanDecision = {
+      score: 1,
+      outputState: "Watch",
+      breakdown: [
+        { criterion: "a", pillar: "trend", passed: true, note: "" },
+        { criterion: "b", pillar: "structure", passed: false, note: "" },
+      ],
+    };
+    expect(toPublicScoreSummary(legacy).pillars).toEqual([
+      { pillar: "trend", met: 1, total: 1 },
+      { pillar: "structure", met: 0, total: 1 },
+    ]);
+  });
+
   it("survives a decision with no breakdown at all", () => {
     const empty: ScanDecision = { score: 0, outputState: "Reject", breakdown: [] };
     const summary = toPublicScoreSummary(empty);

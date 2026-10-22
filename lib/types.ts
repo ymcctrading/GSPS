@@ -240,18 +240,15 @@ export interface PivotPlan {
 }
 
 /**
- * The public grouping a scored criterion rolls up into.
+ * The public grouping a scored point rolls up into.
  *
- * The individual criteria — what each one tests, and at what threshold — are
+ * The individual checks — what each one tests, and at what threshold — are
  * the scoring model, and the model does not leave the server. The pillar is
- * the coarse, publishable half: it says which part of the analysis earned or
- * lost a point without naming the condition that decided it.
- */
-/**
- * A scored pillar: one of the nine points (`CRITERION_KEYS`, 2026-10-17), each
- * shown as its own row since 2026-10-22. The five display groups before it
- * ("trend" … "riskReward") stay in the type only because summaries stored
- * before that date carry them; nothing new is grouped that way.
+ * the publishable half: it says which point was earned or lost without naming
+ * the conditions that decided it. Since 2026-10-22 each of the nine points
+ * (`CRITERION_KEYS`, 2026-10-17) is its own pillar. The five display groups
+ * before it ("trend" … "riskReward") stay in the type only because rows
+ * stored before that date carry them; nothing new is grouped that way.
  */
 export type ScorePillar = CriterionKey | LegacyScorePillar;
 

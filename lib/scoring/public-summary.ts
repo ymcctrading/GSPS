@@ -15,6 +15,7 @@
  */
 
 import type {
+  LegacyScorePillar,
   PublicScoreSummary,
   ScanDecision,
   ScanResult,
@@ -22,7 +23,7 @@ import type {
   ScorePillarSummary,
 } from "@/lib/types";
 import { redactScanSignals } from "@/lib/signals/publicSummary";
-import { CRITERION_KEYS } from "@/lib/scoring/weights";
+import { CRITERION_KEYS, type CriterionKey } from "@/lib/scoring/weights";
 
 /**
  * Display order: the nine points in the order they are scored
@@ -32,6 +33,13 @@ import { CRITERION_KEYS } from "@/lib/scoring/weights";
  * server-side, as before.
  */
 export const SCORE_PILLARS: ScorePillar[] = [...CRITERION_KEYS];
+
+/** The old groups, after the nine, for a stored breakdown whose points carry no key. */
+const LEGACY_SCORE_PILLARS: LegacyScorePillar[] = ["trend", "structure", "setup", "timing", "riskReward"];
+
+function isCriterionKey(key: string | undefined): key is CriterionKey {
+  return key !== undefined && (CRITERION_KEYS as readonly string[]).includes(key);
+}
 
 export const SCORE_PILLAR_LABELS: Record<ScorePillar, string> = {
   marketCycle: "Market and cycle",
@@ -57,8 +65,8 @@ export const SCORE_PILLAR_LABELS: Record<ScorePillar, string> = {
  */
 export const SCORE_PILLAR_DESCRIPTIONS: Record<ScorePillar, string> = {
   marketCycle: "Whether the broad market and the stock's place in its cycles favour a move this way.",
-  trendAllTimeframes: "Whether the trend runs this way on the daily, weekly and monthly charts.",
-  relativeStrength: "Whether this stock leads its group and the market (lags them, for a short).",
+  trendAllTimeframes: "Whether the trend runs this way on the weekly and daily charts.",
+  relativeStrength: "Whether this stock is stronger than its group or the market (weaker, for a short).",
   activity: "Whether the stock is active and trades normally enough to act on.",
   priceLevels: "Whether price is holding at a level that has mattered before.",
   geometricAngles: "Whether the stock's trend angle is still holding.",
@@ -103,14 +111,17 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
     // Items appended after scoring carry no pillar and no point. They explain a
     // capped state, which the note covers, so they must not inflate a total.
     if (!item.pillar) continue;
-    // A check feeds a point; only the point counts.
-    const entry = counts.get(item.pillar) ?? { pillar: item.pillar, met: 0, total: 0 };
+    // A check feeds a point; only the point counts. A breakdown stored before
+    // 2026-10-22 names the old group as its pillar: a point is counted under
+    // its own key whenever it has one, so those rows show the nine rows too.
+    const pillar: ScorePillar = isCriterionKey(item.key) ? item.key : item.pillar;
+    const entry = counts.get(pillar) ?? { pillar, met: 0, total: 0 };
     entry.total += 1;
     if (item.passed) entry.met += 1;
-    counts.set(item.pillar, entry);
+    counts.set(pillar, entry);
   }
 
-  const pillars = SCORE_PILLARS.map((p) => counts.get(p)).filter(
+  const pillars = [...SCORE_PILLARS, ...LEGACY_SCORE_PILLARS].map((p) => counts.get(p)).filter(
     (p): p is ScorePillarSummary => p !== undefined,
   );
 
