@@ -977,6 +977,21 @@ conditions, so this is the owner's display decision. Live verdicts move.
 daily rerun that measures 7/4 runs on it, after #412 (same-day stop-outs, the
 square from highs).
 
+**Eclipse crossings act, 2026-10-22 (Chuck: astrology is "no longer research
+only ... replicate said methodology into GSPS 1 for 1").** M-S4 (Mikula, W012
+PDF pp. 32-35, a labelled reconstruction): a planet (Mercury, Venus or Mars)
+crossing, within a day, the longitude of an eclipse that fell within 10
+sessions of a 3-Day Chart top is a dated window for a top in the time-window
+hold (`lib/gann/eclipseLongitude.ts#eclipseBreakOn`, read by `timeWindowsAt`),
+live and replay alike; no mirror for a bottom. It reproduces Mikula's 1907 and
+1901 cases. About 6 ms, read only when a counter-trend short Execute needs a
+window. Not acting, with the reason: Bucholtz's first-trade chart
+(C-ASTRO-09, `lib/research/firstTradeChart.ts`) needs a true first-trade date
+GSPS does not hold, and it is not Gann's; Jensen's aspects measured against
+Gann's own 1919-1921 malefic stretches showed no lift (A-ASTRO-11,
+`lib/research/maleficCycles.ts`), so they are not Gann's malefic cycle.
+`STRATEGY_VERSION` is `2026-10-22-gann-eclipse-break-window`.
+
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the
 weighted grade the scorecard no longer uses. It now ranks them by Gann's score,
