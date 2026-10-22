@@ -105,3 +105,9 @@ order by total_exec_time desc limit 25;
 select relname, n_live_tup, seq_scan, idx_scan, pg_size_pretty(pg_total_relation_size(relid))
 from pg_stat_user_tables where schemaname='public' order by seq_scan*n_live_tup desc nulls last limit 20;
 ```
+
+## Applied, 2026-10-22
+
+0114 and 0115 were applied to production on 2026-10-22 (about 17:15 UTC
+for 0115). Afterwards: 170 policies wrapped, 0 calling `auth.*` per row, and
+the new indexes present.
