@@ -226,3 +226,76 @@ describe("a stop the price has already passed (review finding R-010)", () => {
     for (const [, , fill] of executeFill.mock.calls) expect(fill).toMatchObject({ price: 590 });
   });
 });
+
+describe("a line pyramided by automation (lib/automation/pyramid-adds.ts)", () => {
+  // 100 at 101.8, then 50 at 115.88: one row, the whole quantity, the blended
+  // cost, the stop raised to break-even or better by the add.
+  const lots = [
+    { qty: 100, price: 101.8, date: "2026-06-03" },
+    { qty: 50, price: 115.88, date: "2026-06-15" },
+  ];
+  const blended = (100 * 101.8 + 50 * 115.88) / 150;
+  const line = (overrides: Record<string, unknown> = {}) =>
+    amdPlan({
+      symbol: "AAPL",
+      qty: 150,
+      entry_price: blended,
+      stop_loss: 98.3,
+      take_profit_1: 140,
+      master_profit: null,
+      scale_out_qty: 0,
+      master_qty: 0,
+      runner_qty: 150,
+      high_water: 118,
+      applied_stop: 107,
+      applied_stop_reason: "break_even",
+      entry_order_id: "ord-1",
+      lots,
+      ...overrides,
+    });
+
+  beforeEach(() => {
+    quotePrice.mockReset();
+    executeFill.mockReset();
+    readLiveRebuy.mockReset().mockResolvedValue(null);
+    vi.mocked(handleAutomatedStopOut).mockClear();
+  });
+
+  it("sells the whole line at the stop, logs it at the blended cost, and hands the stop-out the first lot's entry", async () => {
+    quotePrice.mockResolvedValue(106.5);
+    const { client, inserts } = stubSupabase(line(), "tp-1");
+    const run = await manageSimulatedExits(client, "user-1");
+    expect(run.closed).toBe(1);
+    expect(executeFill).toHaveBeenCalledTimes(1);
+    expect(executeFill.mock.calls[0][2]).toMatchObject({ side: "sell", qty: 150, price: 106.5 });
+    const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
+    expect(log).toMatchObject({ exit_condition: "stop_loss", quantity: 150 });
+    expect(log.entry_price as number).toBeCloseTo(blended, 6);
+    expect(log.profit_loss_dollars as number).toBeCloseTo(Math.round((106.5 - blended) * 150 * 100) / 100, 2);
+    expect(vi.mocked(handleAutomatedStopOut).mock.calls[0][2]).toMatchObject({ entryFillPrice: 101.8, brokenLevel: 107 });
+  });
+
+  it("claims only the line it read, so an add that joined since makes this pass lose", async () => {
+    quotePrice.mockResolvedValue(106.5);
+    const eqs: [string, unknown][] = [];
+    const { client } = stubSupabase(line());
+    const from = (client as unknown as { from: (t: string) => Record<string, unknown> }).from;
+    (client as unknown as { from: (t: string) => unknown }).from = (t: string) => {
+      const q = from(t);
+      const eq = q.eq as (c: string, v: unknown) => unknown;
+      q.eq = (c: string, v: unknown) => (eqs.push([c, v]), eq(c, v));
+      return q;
+    };
+    await manageSimulatedExits(client, "user-1");
+    expect(eqs).toContainEqual(["qty", 150]);
+  });
+
+  it("reads the exit rules from the first lot, as the replay does", async () => {
+    quotePrice.mockResolvedValue(117);
+    const gannExit = vi.mocked((await import("@/lib/trade/gann-exit-live")).readLiveGannExit);
+    gannExit.mockClear();
+    const { client } = stubSupabase(line());
+    await manageSimulatedExits(client, "user-1");
+    expect(gannExit).toHaveBeenCalledWith(expect.objectContaining({ entryPrice: 101.8, initialStop: 98.3 }));
+  });
+});
