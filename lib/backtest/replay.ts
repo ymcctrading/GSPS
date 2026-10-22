@@ -103,10 +103,10 @@ import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse
 import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
-import { readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
+import { nextLotFraction, readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
 import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 
-/** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so four halvings stay whole). */
+/** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so a tenth of it stays whole). */
 const PYRAMID_SHARE_SCALE = 1024;
 import { figureCrossingOf, roundNumberEntryBlocked } from "@/lib/gann/evenFigures";
 import { selectionStrength } from "@/lib/gann/leadership";
@@ -370,7 +370,7 @@ export interface ReplayOptions {
   reclaimPoints?: number;
   /**
    * Under a Gann exit rule, add to winning trades on Gann's pyramiding rules
-   * (`lib/gann/pyramid.ts`): half the last lot at each crossed swing top made
+   * (`lib/gann/pyramid.ts`): the next of 100/50/30/20/10 at each crossed swing top made
    * since it, once it shows a full risk unit of profit, with the whole
    * position's stop lifted to at least its combined break-even. R stays in
    * units of the first lot's risk. Ignored under the bracket.
@@ -1997,7 +1997,8 @@ export function walkGannExit(input: {
           ...(isStock ? { capitalStock: sharesOn?.(date) ?? null } : {}),
         }).add;
         // Lots are fractions of the first here, so the size rule is applied directly.
-        if (add) pendingAdd = { qty: lots[lots.length - 1].qty / 2, trigger: add.trigger, newStop: add.newStop };
+        const fraction = nextLotFraction(lots.length);
+        if (add && fraction !== null) pendingAdd = { qty: lots[0].qty * fraction, trigger: add.trigger, newStop: add.newStop };
       }
     }
     if (long ? b.l <= stop : b.h >= stop) return done(stopFill(long, stop, b.o), j - from + 1, stopReason);

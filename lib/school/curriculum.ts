@@ -1084,15 +1084,15 @@ const ACADEMY_6: Academy = {
           estimatedMinutes: 13,
           instruction: [
             "Adding to a position is earned, never hoped for. The last lot must already show a profit at least as large as the risk the trade started with, and the market must prove the trend again by crossing a new swing top (a new swing bottom, for a short) made since that last lot. Adding to a losing trade to improve the average price is the one thing this rule exists to prevent.",
-            "Each addition is smaller than the one before, about half. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. Adding ends when the next half would be less than one share, because by then the move is getting old.",
+            "Each addition is smaller than the one before. Out of 100 shares first, the additions are 50, then 30, then 20, then 10. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. After the fifth, any further lot stays at that smallest size, because by then the move is getting old.",
             "With every addition, the stop on the whole position moves up to at least the combined break-even, so that a reversal can cost profit but not capital. A full stop-out of everything together should never cost more than a tenth of the account.",
             "GSPS shows an add on the Portfolio when a position has earned one. It is a suggestion: you place it through the order ticket, and nothing is added automatically.",
           ],
           application:
-            "Take a trend you know. Mark where the first entry would have been, the first swing top made after it, and the combined break-even after a half-size addition there.",
+            "Take a trend you know. Mark where the first entry would have been, the first swing top made after it, and the combined break-even after a half-size second lot there.",
           quiz: [
             q("A position may be added to when:", ["It is losing and the price is cheaper", "The last lot shows a full risk unit of profit and a new swing top is crossed", "Any day of the week", "Volume rises once"], 1),
-            q("Each addition should be:", ["Larger than the last", "The same size", "About half the last", "Random"], 2),
+            q("After a first lot of 100 shares, the additions are:", ["100, 100, 100", "150, 200, 250", "50, 30, 20, 10", "Random"], 2),
             q("After an addition, the stop on the whole position moves to at least:", ["The first entry's stop", "The combined break-even", "A round number above price", "Nowhere"], 1),
           ],
           reviewMeta: AUTHOR,
