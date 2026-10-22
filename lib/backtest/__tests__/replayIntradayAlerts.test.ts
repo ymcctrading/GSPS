@@ -147,6 +147,7 @@ describe("replay sessionPlans", () => {
     expect(priced.filter(([, p]) => p.verdict === "Execute" || p.verdict === "Watch").length).toBeGreaterThan(10);
     for (const [, p] of priced) {
       expect(p.direction === "up" ? p.stop < p.entry : p.stop > p.entry).toBe(true);
+      expect(["crossing", "oldLevel", "hold"]).toContain(p.entryKind);
     }
   }, 60_000);
 
@@ -301,6 +302,9 @@ describe("plan_level_held, replayed", () => {
     expect(s.byPlanEntryKind.oldLevel.n).toBe(run.trades.length);
     // A plan with no recorded kind reads "unknown", never a guessed kind.
     expect(Object.keys(summariseAlertTrades(trades).byPlanEntryKind)).toEqual(["unknown"]);
+    // Other signals stay out of the split, even with a kind recorded.
+    const other = { ...run.trades[0], signal: "trend_continuation" as const };
+    expect(summariseAlertTrades([...run.trades, other]).byPlanEntryKind.oldLevel.n).toBe(run.trades.length);
   });
 });
 
