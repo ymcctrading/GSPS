@@ -23,7 +23,9 @@
  * that say the trend has changed: a change of trend, a failed top or bottom
  * ("failing to pass an old top is a top"), and distribution at a top. The hold
  * test and three adverse closes say "you are wrong" about this entry, not that
- * the trend has turned, so they only take the trade off.
+ * the trend has turned, so they only take the trade off, as does an exhaust
+ * gap: a culmination that Gann confirms as a turn only with over-balanced
+ * price and time (`trend_change`).
  */
 
 import { gannThreePoints } from "./pointScale";
@@ -51,6 +53,8 @@ const STOP_REASONS: ReadonlySet<string> = new Set<GannStopReason | "stop">([
   "prior_month",
   "final_stage",
   "day_low",
+  "reverse_signal",
+  "boiling_point",
 ]);
 
 /** Whether a trade that left for this reason is reversed. */

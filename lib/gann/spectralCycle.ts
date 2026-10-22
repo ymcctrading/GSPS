@@ -124,6 +124,13 @@ export interface SpectralCycleReading {
     /** Pre-registered reading: positive correlation and `nullP` at or under 0.05. */
     carriedForward: boolean;
   } | null;
+  /**
+   * CYC-46 (Dewey: homogeneity first): whether the series kept one scale of
+   * movement across its two halves (`readHomogeneity`). A cycle is never
+   * credited on a series that changed scale, the same rule `validateCycle`
+   * applies. Null when the window is too short to read.
+   */
+  homogeneity: { varianceRatio: number; homogeneous: boolean } | null;
   /** Always true — see module header. Never independently scored or gated regardless of this reading's values. */
   hypothesisOnly: true;
   note: string;
@@ -363,7 +370,7 @@ function cosinor(values: number[], period: number): SpectralCycleReading["cosino
 }
 
 const NOT_COMPUTED_NOTE =
-  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: dominance (with Schuster's and the cosinor zero-amplitude tests), repetition count, constancy of period and persistence on unseen data (a 70/30 hold-out) are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
+  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: homogeneity of the series, dominance (with Schuster's and the cosinor zero-amplitude tests), repetition count, constancy of period and persistence on unseen data (a 70/30 hold-out) are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
 
 export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   const n = dailyBars.length;
@@ -379,6 +386,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       atBandEdge: null,
       windowStable: null,
       holdout: null,
+      homogeneity: null,
       hypothesisOnly: true,
       note: `Insufficient bar history (${n} < ${MIN_BARS}) for spectral cycle detection.`,
     };
@@ -393,6 +401,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   // can produce a spuriously large dominance *ratio* even though no real
   // cyclical amplitude exists.
   const detrendedVariance = detrended.reduce((a, v) => a + v * v, 0) / n;
+  const homogeneity = readHomogeneity(dailyBars);
   const maxPeriod = Math.floor(n * MAX_PERIOD_FRACTION);
   const result = detrendedVariance > 1e-6 ? dominantPeriod(detrended, maxPeriod) : null;
 
@@ -408,6 +417,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
       atBandEdge: null,
       windowStable: null,
       holdout: null,
+      homogeneity,
       hypothesisOnly: true,
       note: "No usable spectral candidates in this window.",
     };
@@ -427,7 +437,9 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   // length (CYC-04/27).
   const significant = schusterP <= schusterAlpha(result.period);
   const enoughRepetitions = n / result.period >= MIN_REPETITIONS;
-  const active = dominant && significant && enoughRepetitions;
+  // CYC-46: a series that changed scale between its halves is not one
+  // population, so no cycle in it is credited (Dewey checks this first).
+  const active = dominant && significant && enoughRepetitions && homogeneity.homogeneous;
 
   let periodConsistent: boolean | null = null;
   if (n >= MIN_BARS * 2) {
@@ -513,13 +525,20 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
     atBandEdge,
     windowStable,
     holdout,
+    homogeneity,
     hypothesisOnly: true,
     note: active
       ? `Dominant candidate cycle ~${result.period} bars (${dominance.toFixed(2)}x mean spectral power, ~${repetitionCount} repetitions in window; Schuster p ≈ ${schusterP < 0.001 ? "<0.001" : schusterP.toFixed(3)}${schusterP < 0.05 ? ", significant against white noise" : ", not significant"}).${consistencyNote}${guardNote} ${NOT_COMPUTED_NOTE}`
       : atBandEdge
         ? `The strongest peak (~${result.period} bars) sits at the longest period scanned: leftover trend, not a cycle. ${NOT_COMPUTED_NOTE}`
         : dominant
-          ? `A peak ~${result.period} bars stands out (${dominance.toFixed(2)}x mean power) but is not credited: ${significant ? "" : `chance not ruled out (Schuster p ≈ ${schusterP.toFixed(3)}, needs ${+schusterAlpha(result.period).toFixed(4)} or less)${enoughRepetitions ? "" : "; "}`}${enoughRepetitions ? "" : `too few repetitions (~${repetitionCount}, needs ${MIN_REPETITIONS})`}. ${NOT_COMPUTED_NOTE}`
+          ? `A peak ~${result.period} bars stands out (${dominance.toFixed(2)}x mean power) but is not credited: ${[
+              significant ? null : `chance not ruled out (Schuster p ≈ ${schusterP.toFixed(3)}, needs ${+schusterAlpha(result.period).toFixed(4)} or less)`,
+              enoughRepetitions ? null : `too few repetitions (~${repetitionCount}, needs ${MIN_REPETITIONS})`,
+              homogeneity.homogeneous ? null : `the series changed scale between its halves (ratio ${homogeneity.varianceRatio}, at most ${HOMOGENEITY_MAX_RATIO})`,
+            ]
+              .filter(Boolean)
+              .join("; ")}. ${NOT_COMPUTED_NOTE}`
         : `No candidate cycle cleared the dominance threshold (best: ~${result.period} bars at ${dominance.toFixed(2)}x mean power, threshold ${DOMINANCE_THRESHOLD}x). ${NOT_COMPUTED_NOTE}`,
   };
 }
@@ -645,6 +664,24 @@ export function forcedOrFree(persists: boolean, resumed: boolean): "forced" | "f
   return persists && resumed ? "forced" : "free";
 }
 
+/**
+ * CYC-46: whether the series kept one scale of movement across its two
+ * halves. Squared median absolute log return per half, so a single jump (the
+ * shock CYC-06 looks for) doesn't count as a change of scale; homogeneous at a
+ * ratio of `HOMOGENEITY_MAX_RATIO` or less (an engineering figure). Read by
+ * the live `detectSpectralCycle` and the research `validateCycle` alike.
+ */
+export function readHomogeneity(dailyBars: Bar[]): { varianceRatio: number; homogeneous: boolean } {
+  const logs = dailyBars.map((b) => Math.log(Math.max(b.c, 1e-9)));
+  const returns = logs.slice(1).map((v, i) => v - logs[i]);
+  const half = Math.floor(returns.length / 2);
+  const scale = (xs: number[]) => (xs.length > 0 ? median(xs.map(Math.abs)) ** 2 : 0);
+  const s1 = scale(returns.slice(0, half));
+  const s2 = scale(returns.slice(half));
+  const varianceRatio = Math.min(s1, s2) > 0 ? Math.max(s1, s2) / Math.min(s1, s2) : s1 === s2 ? 1 : Infinity;
+  return { varianceRatio: Math.round(varianceRatio * 100) / 100, homogeneous: varianceRatio <= HOMOGENEITY_MAX_RATIO };
+}
+
 export function validateCycle(dailyBars: Bar[], seed = 1): CycleValidation {
   const empty = (homogeneity: CycleValidation["homogeneity"], period: number | null = null): CycleValidation => ({
     period,
@@ -664,14 +701,8 @@ export function validateCycle(dailyBars: Bar[], seed = 1): CycleValidation {
   const returns = logs.slice(1).map((v, i) => v - logs[i]);
   if (n < MIN_BARS) return empty({ varianceRatio: 1, homogeneous: false });
 
-  // CYC-46: homogeneity first. Squared median absolute return per half, so a
-  // single jump (the shock CYC-06 looks for) doesn't count as a change of scale.
-  const half = Math.floor(returns.length / 2);
-  const scale = (xs: number[]) => median(xs.map(Math.abs)) ** 2;
-  const s1 = scale(returns.slice(0, half));
-  const s2 = scale(returns.slice(half));
-  const varianceRatio = Math.min(s1, s2) > 0 ? Math.max(s1, s2) / Math.min(s1, s2) : s1 === s2 ? 1 : Infinity;
-  const homogeneity = { varianceRatio: Math.round(varianceRatio * 100) / 100, homogeneous: varianceRatio <= HOMOGENEITY_MAX_RATIO };
+  // CYC-46: homogeneity first.
+  const homogeneity = readHomogeneity(dailyBars);
   if (!homogeneity.homogeneous) return empty(homogeneity);
 
   const detrended = linearDetrend(logs);

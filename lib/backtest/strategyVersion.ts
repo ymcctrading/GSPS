@@ -782,7 +782,23 @@
 // hourly-turn exit, live and replay alike. Intraday alerts, intraday replay
 // trades and intraday exits move; the daily verdict doesn't.
 // (was STRATEGY_VERSION "2026-10-22-gann-hourly-exchange-hours")
-// 2026-10-22-gann-rule-recheck-fixes: the 2026-10-22 rule recheck's nine
+// 2026-10-22-gann-extremes-boiling-sun-act: four rules the 2026-10-22 recheck
+// found built but context only, now acting where Gann says they act, live and
+// replay alike (`readGannExit` is the one exit reader; `gannMasterLevels` the
+// one level list). M-E11: a reverse signal day or 7-10 Day Rule day against
+// the trade since the fill puts the stop 3 points beyond that day's extreme
+// ("reverse_signal"; Commodities pp.318, 324). M-E12: an exhaust gap against
+// the trade on a session after the fill's takes it off ("exhaust_gap", pp.319-320), without
+// reversing. M-T10: once the weekly chart's run with the trade has lasted 6
+// weeks, the stop trails 10 Gann points from the best price ("boiling_point";
+// Stock Selector Ch. V). A-ASTRO-03: the Sun's travel added to the low joins
+// the S/R list (`sunTravelLevel`). M-P4: the intraday first target averages
+// old levels within 1% before it is read, as the daily plan does
+// (`lib/gann/nearbyLevels.ts`). Plans, verdicts, replay trades and intraday
+// targets move.
+// (was STRATEGY_VERSION "2026-10-22-gann-extremes-boiling-sun-act")
+// 2026-10-22-gann-rule-recheck-fixes (merged onto the version above, whose
+// rules it keeps): the 2026-10-22 rule recheck's nine
 // defects (gann-feature-map/review/2026-10-22-recheck.md). Verdicts move from
 // (1) the 7-day chart on weekly and monthly bars turning only on a bar that
 // breaks the previous bar's low or high, never on an inside bar (Commodities

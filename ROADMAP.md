@@ -6,7 +6,8 @@
 governs what is built and in what order. It joins this roadmap with the parity
 documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
 This file keeps each phase's detail and history.
-**Last updated:** 2026-10-22 (two stale Q1 notes corrected: the
+**Last updated:** 2026-10-22 (Q2's Performance replay UI built as the
+Scanner's "Past scans" tab). Earlier the same day (two stale Q1 notes corrected: the
 pay-your-way pricing is approved, and `patternArmed` was closed 2026-09-17;
 carried over from PR #295). Previously 2026-10-21 (pointer to the synthesized
 roadmap). Previously
@@ -1178,7 +1179,8 @@ Portfolio analytics drives retention and trust.
 - **Risk dashboard** — position-sizing calculator, max daily loss enforcement,
   correlation-based position warnings, VIX tracking.
 - **Performance replay UI** — replay past scans, compare alerts across dates,
-  see what would have been caught.
+  see what would have been caught. **Built 2026-10-22** as the Scanner's
+  "Past scans" tab; see `docs/SYNTHESIZED_ROADMAP.md` Part 5, Q2 item 5.
 - **Expanded indicator library for self-directed strategy testing** — broaden
   the charting indicator set well beyond today's SMA/EMA/Bollinger/RSI/MACD
   (`lib/indicators.ts`, `/api/indicators`, `components/chart/candles.tsx`) so
