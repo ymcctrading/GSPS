@@ -796,8 +796,8 @@ inside the zone; refused if it opened beyond the stop) and stopped on that bar, 
 loss of the whole risk; retiring the plan first, or letting the day's close call
 off an entry live had already filled, dropped every same-day stop-out from 1Day
 runs. `STRATEGY_VERSION`
-is `2026-10-21-review-sweep-square-sign-daily-firing-bar`; P7 and the 6/3.5
-cutoffs need a fresh run.
+is `2026-10-21-review-sweep-square-sign-daily-firing-bar` (merged onto the 7/4
+version below); P7 and the 7/4 cutoffs need a fresh run.
 **Square of Nine in price, same day (C-LEVELS-15).** Gann lists the numbers on
 the Square of Nine's diagonals (3, 13, 31, 57, 91 … and 7, 21, 43, 73, 111 …,
 with 8, 23, 46, 77 … and 4, 15, 34, 61 …) as "great resistance points and
@@ -988,9 +988,10 @@ only on the 2026-09-23 run, which measured the pre-fix 15-minute trigger
 (F3.1-F3.3) and none of the nine pillars, and no later commit moved them. Every
 "6/3.5 cutoffs" above is history. Gann gives no cutoff on a count of his
 conditions, so this is the owner's display decision. Live verdicts move.
-`STRATEGY_VERSION` is `2026-10-21-cutoffs-seven-four-one-entry`; the six-year
-daily rerun that measures 7/4 runs on it, after #412 (same-day stop-outs, the
-square from highs).
+`STRATEGY_VERSION` was `2026-10-21-cutoffs-seven-four-one-entry`; #412 (same-day
+stop-outs, the square from highs) merged onto it, so it is now
+`2026-10-21-review-sweep-square-sign-daily-firing-bar`, and the six-year daily
+rerun that measures 7/4 runs on that.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the
