@@ -11,12 +11,12 @@
  * fetch, matching the design sketch's "reuse the existing overlay-series
  * rendering path" instruction rather than adding a second data path.
  *
- * Those levels are the script's own rule test, shown only in the script
- * editor (they are null for a signal-only rule). The order ticket reads
- * `reading`, the script's explanation of GSPS's plan, and never these
- * levels (explain-only, 2026-10-16). Unlike `/api/strategy-levels`, which
- * sends no prices of a built-in mode's own, the author's own lines come back
- * here because the author wrote them and tests them.
+ * Those levels are the script's own rule test, shown in the script editor
+ * (null for a signal-only rule), where the author tests every line they
+ * wrote, `mtpr` included. On a trading surface a script is read by
+ * `/api/strategy-levels/compare` instead (2026-10-22): aligned with GSPS's
+ * plan it trades that plan, otherwise it offers its entry, stop and TP1 and
+ * never an MTP (`lib/strategies/compare.ts`).
  *
  * Never wired into scanning, scoring, `SignalGates`, or Automation. Private
  * to the authoring user: the plugin lookup is scoped to `user_id = auth

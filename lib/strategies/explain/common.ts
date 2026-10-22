@@ -95,7 +95,7 @@ export function summaryLine(
   if (agrees === true)
     return `${state} ${label} leans ${lean}, the same way as GSPS's plan.`;
   if (agrees === false)
-    return `${state} ${label} leans ${lean}, against GSPS's plan. The order still follows GSPS's plan.`;
+    return `${state} ${label} leans ${lean}, against GSPS's plan.`;
   return `${state} ${label} has no clear lean right now.`;
 }
 
