@@ -23,8 +23,9 @@
  *   trading day of the third loss and the next day. Gann names no length.
  *   Protective orders (stops, closes, reductions) are never blocked, the same
  *   rule `lib/risk/cooldown.ts` encodes.
- * - The count reads `trade_logs`, which carries both paper and live closes;
- *   a series is a series whichever account it happened in.
+ * - The count reads `trade_logs`' paper and live closes; a series is a series
+ *   whichever account it happened in. Journal entries (typed by hand, never
+ *   checked) are left out, since a typed win would end a series (R-002).
  *
  * Three-question basis:
  * 1. Gann: as cited above, Tier A.
@@ -110,6 +111,9 @@ export async function readUserLossSeries(
     .from("trade_logs")
     .select("outcome, exit_timestamp")
     .eq("user_id", userId)
+    // Trades GSPS placed, paper or live. A journal entry is typed by hand and
+    // unchecked, and one "profit" dated now would end a series (R-002).
+    .in("mode", ["paper", "live"])
     .in("outcome", ["profit", "loss"])
     .not("exit_timestamp", "is", null)
     .order("exit_timestamp", { ascending: false })

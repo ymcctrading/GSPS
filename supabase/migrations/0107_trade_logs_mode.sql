@@ -8,7 +8,14 @@
 -- rules about the trader's judgment, whichever account it showed in.
 --
 -- 'paper' and 'live' are written by the fill and exit paths, 'journal' by a
--- trade a person records through POST /api/trade-log. Backfill: every row
+-- trade a person records through POST /api/trade-log. The series of losses
+-- and the winning run read paper and live but not journal: a typed entry is
+-- unchecked, and one typed win would end a series.
+--
+-- Default 'paper': this is applied before the code that names the mode is
+-- deployed, and every row the code already running writes is a paper close
+-- (no live broker has ever been connected). Every writer names its mode now,
+-- so the default only covers that window. Backfill: every row
 -- before this is paper. Production has never had a live order, position,
 -- exit plan or equity snapshot (checked 2026-10-22), and nothing in the app
 -- has ever posted a journal entry.
@@ -17,7 +24,7 @@
 --   alter table public.trade_logs drop column if exists mode;
 
 alter table public.trade_logs
-  add column if not exists mode text check (mode in ('paper', 'live', 'journal'));
+  add column if not exists mode text default 'paper' check (mode in ('paper', 'live', 'journal'));
 
 update public.trade_logs set mode = 'paper' where mode is null;
 

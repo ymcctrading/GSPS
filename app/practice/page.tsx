@@ -45,7 +45,7 @@ async function readRecords(): Promise<Map<string, PracticeRecord>> {
         const [cashRes, tradesRes, openRes, markRes] = await Promise.all([
           service.from("paper_accounts").select("cash").eq("user_id", userId).maybeSingle(),
           // Every closed trade: a pending row is still open.
-          service.from("trade_logs").select("outcome, profit_loss_dollars").eq("user_id", userId).not("outcome", "is", null).neq("outcome", "pending"),
+          service.from("trade_logs").select("outcome, profit_loss_dollars").eq("user_id", userId).eq("mode", "paper").not("outcome", "is", null).neq("outcome", "pending"),
           service.from("positions").select("id", { count: "exact", head: true }).eq("user_id", userId),
           service
             .from("paper_equity_snapshots")
