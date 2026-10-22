@@ -1034,7 +1034,11 @@ turn 84 years back to the month, judged on the record before the month read
 (`eightyFourYear.ts`; April 2026 is 84 years from the April 1942 low), and the
 Dollar Trend (A-OTHER-06, his 1954 course: the market's value crossing old
 highs or breaking old lows, `dollarTrend.ts`, SPY's months on the 3-bar chart
-standing in for the NYSE's total value). `STRATEGY_VERSION` is
+standing in for the NYSE's total value). Also context, a labelled
+reconstruction: Gann's three curves (A-TIME-13, the 1922 forecast: "the
+commodity curve, money curve and curve of stocks. Sometimes one of these curves
+will cause a change of trend"), each read as the curve of stocks is, on the
+long rate and the price index (`threeCurves.ts`, `curvesDisagree`). `STRATEGY_VERSION` is
 `2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
 window it keeps; the six-year daily rerun that measures 7/4 runs on it.
 
