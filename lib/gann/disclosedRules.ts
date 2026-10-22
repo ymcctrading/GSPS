@@ -748,6 +748,8 @@ export interface InstrumentFacts {
   marketMonthly?: Bar[] | null;
   /** The scan universe's monthly positions and this stock's symbol, for the S6 rank (P3(c) only; `lib/gann/universeStrength.ts`). */
   universe?: { symbol: string; strength: UniverseStrength | null } | null;
+  /** The stock's confirmed first-trade date, for C-ASTRO-09's window (`firstTradeDates.ts`). */
+  firstTrade?: string | null;
 }
 
 export { EMPTY_DISCLOSED_RULES };

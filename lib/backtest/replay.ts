@@ -85,6 +85,7 @@ import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { withDecisionState } from "@/lib/scoring/decisionState";
+import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
@@ -913,7 +914,7 @@ export function buildMacroContext(
     disclosedRules,
     pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, oldLevels: structural.old, price, asOf }),
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly, undefined, instrument ? { inception: instrument.inception, name: instrument.name ?? null } : null));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly, undefined, instrument ? { inception: instrument.inception, name: instrument.name ?? null, firstTrade: instrument.firstTrade ?? null } : null));
       return windowTurns.get(direction) ?? null;
     },
   };
@@ -1051,7 +1052,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
       const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
       const facts: InstrumentFacts | null =
-        instrument || marketDailyBars || universeStrength
+        instrument || marketDailyBars || universeStrength || confirmedFirstTrade(symbol)
           ? {
               sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
               inception: instrument?.inception ?? null,
@@ -1069,6 +1070,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               marketMonthly: marketMonthlyBars && assetClass === "us_equity" ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
               // The rank reads only the months closed before this session's (`readUniverseRank`).
               universe: universeStrength && assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
+              firstTrade: confirmedFirstTrade(symbol),
             }
           : null;
       // Only weeks that began before this session's week; `levelCharts` builds

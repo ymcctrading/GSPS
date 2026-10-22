@@ -734,6 +734,19 @@
 // (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`). Merged onto
 // 2026-10-22-gann-eclipse-break-window, whose eclipse window and the fixes
 // before it it keeps.
+// (was STRATEGY_VERSION "2026-10-22-gann-mass-pressure")
+// 2026-10-22-first-trade-chart-window: C-ASTRO-09 acts (Chuck, 2026-10-22:
+// "Search for, confirm and ultimately use these dates"). For the 288 stocks
+// whose first trade is confirmed by two sources (`firstTradeDates.json`), a
+// Bucholtz transit to the first-trade chart, chosen on the 3-Day Chart swings
+// before a turn and exact within 3 days of it, is a dated window in the
+// time-window hold (`firstTradeWindows`), live and replay alike. A
+// counter-trend Execute held for want of a window can now act on those stocks.
+// (was "2026-10-22-first-trade-chart-window" on its own branch)
+// 2026-10-22-first-trade-on-mass-pressure: the first-trade chart window above,
+// merged onto 2026-10-22-gann-mass-pressure, whose mass-pressure check and
+// crypto parity fix it keeps. No new rule.
+// (was "2026-10-22-first-trade-on-mass-pressure" on its own branch)
 // 2026-10-22-gann-name-chart-great-cycles: A-OTHER-08 and A-TIME-24. The
 // company name's square (Master Course Ch. 15A: letters counted, a Square of
 // N², its multiples and half-squares) puts its nearest key number above and
@@ -744,4 +757,9 @@
 // plans and counter-trend verdicts move. Merged onto
 // 2026-10-22-gann-mass-pressure, whose mass-pressure check, eclipse window,
 // square sign and firing-bar fixes it keeps.
-export const STRATEGY_VERSION = "2026-10-22-gann-name-chart-great-cycles";
+// (was STRATEGY_VERSION "2026-10-22-gann-name-chart-great-cycles")
+// 2026-10-22-first-trade-on-name-chart: the first-trade chart window above,
+// merged onto 2026-10-22-gann-name-chart-great-cycles, whose name chart and
+// great-cycle windows it keeps (the first-trade date rides in the same
+// `WindowAnchors`). No new rule.
+export const STRATEGY_VERSION = "2026-10-22-first-trade-on-name-chart";

@@ -65,6 +65,7 @@ import { isNameNumber, nameSquare } from "@/lib/gann/nameNumerology";
 import { jensenWindows } from "@/lib/gann/jensen";
 import { readAstroRules } from "@/lib/gann/astroRules";
 import { eclipseBreakOn } from "@/lib/gann/eclipseLongitude";
+import { firstTradeWindows } from "@/lib/gann/firstTradeChart";
 import { readSquareOfNineTime } from "@/lib/gann/squareOfNineTime";
 import { readHexagonTime } from "@/lib/gann/hexagonTime";
 import { readMasterChartTime } from "@/lib/gann/masterChartTime";
@@ -96,6 +97,8 @@ export interface WindowAnchors {
   inception: Inception | null;
   /** The stored company name, for its name chart. */
   name: string | null;
+  /** The stock's confirmed first-trade date (`firstTradeDates.ts`), for C-ASTRO-09. */
+  firstTrade?: string | null;
 }
 
 /**
@@ -172,6 +175,10 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => 
       out.push(`${crossing.planet} crossing the ${eclipse.peak.slice(0, 10)} ${eclipse.kind} eclipse's longitude`);
     }
   }
+  // C-ASTRO-09: a transit to the first-trade chart, chosen on the swings before the turn.
+  for (const w of firstTradeWindows(bars, date, anchors?.firstTrade ?? null)) {
+    out.push(`${w.combo.transit} at ${w.combo.angle}° to the first-trade ${w.combo.natal} on ${w.exact}`);
+  }
   return out;
 };
 
@@ -189,7 +196,7 @@ export function readWindowTurn(
    */
   monthly: Bar[] | null = null,
   windowsAt: WindowsAt = timeWindowsAt,
-  /** The company's inception and name (A-TIME-24, A-OTHER-08); both surfaces pass the stored reference. */
+  /** The company's inception and name (A-TIME-24, A-OTHER-08) and its confirmed first trade (C-ASTRO-09); both surfaces pass the stored reference. */
   anchors: WindowAnchors | null = null,
 ): WindowTurn | null {
   const kind = direction === "bullish" ? "bottom" : "top";

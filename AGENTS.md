@@ -1007,6 +1007,25 @@ Gann's own 1919-1921 malefic stretches showed no lift (A-ASTRO-11,
 `lib/research/maleficCycles.ts`), so they are not Gann's malefic cycle.
 `STRATEGY_VERSION` was `2026-10-22-gann-eclipse-break-window`, merged onto
 `2026-10-21-review-sweep-square-sign-daily-firing-bar`, whose fixes it keeps.
+**First-trade dates and chart, same day (Chuck: "Search for, confirm and
+ultimately use these dates").** `scripts/fetch-first-trade-dates.mjs` (run by
+`fetch-first-trade-dates.yml`, since this sandbox can't reach the sources)
+reads each universe stock's Wikidata listing on a New York exchange (P414/P580,
+by CIK), its first IPO prospectus on SEC EDGAR (424B1/424B4) and Yahoo's first
+daily bar, and keeps Yahoo's date only where it agrees within 3 days with one
+of the other two (`lib/gann/firstTradeDates.json`; `confirmedFirstTrade` reads
+only those). First run: 288 of 832 confirmed, 282 in conflict, 251 single, 11
+none. Listings before EDGAR (mid-1990s) with no Wikidata date, such as AAPL, KO
+and JPM, stay unconfirmed; Wikidata often dates a ticker change, not the first
+trade; a SPAC's date is the shell's first trade. C-ASTRO-09 moved to
+`lib/gann/firstTradeChart.ts` and acts: Bucholtz's transits (Mars to Uranus to
+the natal Sun-Pluto), chosen on the 3-Day Chart swings before a turn and exact
+within 3 days of it, are a window in the time-window hold, live and replay
+alike (`readWindowTurn`'s `firstTrade`; `InstrumentFacts.firstTrade` in the
+replay). Not Gann's (Tier C), included on the owner's word. About 116 ms the
+first time a stock is read and under 0.1 ms after (transits cached by planet,
+day and year), only when a counter-trend Execute needs a window.
+`STRATEGY_VERSION` was `2026-10-22-first-trade-chart-window`.
 
 **Mass pressure, 2026-10-22 (owner: "Build these: 10 can be filled from Gann's
 own pages. Mass pressure ... written out in the Master Course (Ch. 7)").** Gann
@@ -1038,7 +1057,8 @@ commodity curve, money curve and curve of stocks. Sometimes one of these curves
 will cause a change of trend"), each read as the curve of stocks is, on the
 long rate and the price index (`threeCurves.ts`, `curvesDisagree`). `STRATEGY_VERSION` was
 `2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
-window it keeps; the six-year daily rerun that measures 7/4 runs on it.
+window it keeps. The first-trade chart window above merged onto it (no new
+rule): `STRATEGY_VERSION` was `2026-10-22-first-trade-on-mass-pressure`.
 
 **Change-date rank and swing eighths, 2026-10-22 (A-TIME-17, A-OTHER-12).**
 W036 p.13's "dates marked X are the most important" is read through Master
@@ -1093,9 +1113,12 @@ lengths per lesson: 20 years 1931, 60 years 1935, 20,736 days 1953, 90 years
 inception and from the monthly chart's major pivots for the counts
 `MAJOR_CYCLE_YEARS` lacks (`greatCycleHits`). Both surfaces read the same
 reference (732 equities have a name and a profile row). Dewey's repetition count
-fails for both; measured by the replay's window hold. `STRATEGY_VERSION` is
+fails for both; measured by the replay's window hold. `STRATEGY_VERSION` was
 `2026-10-22-gann-name-chart-great-cycles` (merged onto the mass-pressure
-version above); Execute and the 7/4 cutoffs need a fresh run on it.
+version above). The first-trade chart window merged onto it, its date carried
+in the same `WindowAnchors` (no new rule): `STRATEGY_VERSION` is
+`2026-10-22-first-trade-on-name-chart`; Execute and the 7/4 cutoffs need a
+fresh run on it.
 
 ## WD Gann precedence — standing principle
 
