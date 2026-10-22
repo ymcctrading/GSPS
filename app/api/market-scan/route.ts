@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
-import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
+import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUniversePolicy } from "@/lib/universe/policy";
@@ -136,10 +136,15 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
       ...buildScanRows(output.scanDate, "bullish", output.bullish),
       ...buildScanRows(output.scanDate, "bearish", output.bearish),
     ];
-    const outcome = await persistDailyScans(service, output.scanDate, rows);
-    persisted = outcome.persisted;
-    persistedCount = outcome.count;
-    persistError = outcome.error;
+    const refusal = publishRefusal(output);
+    if (refusal) {
+      persistError = refusal;
+    } else {
+      const outcome = await persistDailyScans(service, output.scanDate, rows);
+      persisted = outcome.persisted;
+      persistedCount = outcome.count;
+      persistError = outcome.error;
+    }
   } catch (err) {
     // A throw here is the client itself failing to build — a missing service
     // role key, most likely — rather than the write being rejected.
@@ -240,6 +245,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     scanErrors: output.scanErrors,
     continuationFills: output.continuationFills,
     continuationSkipped: output.continuationSkipped,
+    equitiesRead: output.equitiesRead,
     bullish: output.bullish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     bearish: output.bearish.map((r) => ({ symbol: r.symbol, score: r.decision.score, state: r.decision.outputState })),
     persisted,

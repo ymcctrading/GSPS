@@ -146,6 +146,16 @@ export function buildScanRows(
   }));
 }
 
+/**
+ * Why a scan's lists must not be published, or null when they may. A run whose
+ * stock bars never arrived scored no stock (`MarketScanOutput.equitiesRead`);
+ * its lists hold only crypto and funds, and writing them would overwrite and
+ * prune the day's stock rows, which share the (scan_date, direction, rank) key.
+ */
+export function publishRefusal(output: { equitiesRead: boolean }): string | null {
+  return output.equitiesRead ? null : "stock bars not read by the deadline; the earlier lists stand";
+}
+
 export interface PersistOutcome {
   persisted: boolean;
   /** Rows now published for the day. */

@@ -656,6 +656,14 @@ export interface MarketScanOutput {
    */
   continuationSkipped: boolean;
   /**
+   * False when the full pass's stock bars missed `FULL_PASS_FETCH_DEADLINE_MS`
+   * and no stock was scored. The lists may still hold crypto and fund rows;
+   * publishing them would overwrite and prune the day's stock rows, so the
+   * callers (`app/api/market-scan`, `lib/entitlements/scheduled-scan.ts`)
+   * publish nothing (`shouldPublishScan`).
+   */
+  equitiesRead: boolean;
+  /**
    * Every symbol that received a full multi-timeframe `scanTicker` pass this
    * run (the reversion shortlist plus any continuation top-up candidates),
    * regardless of whether it made `bullish`/`bearish` — including symbols
@@ -1196,9 +1204,11 @@ export async function runMarketScan(
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
   // Bounded (`FULL_PASS_FETCH_DEADLINE_MS`): a fetch still running then is
-  // left behind and nothing is scored, since a symbol without its prefetched
-  // bars would fetch its own five charts one by one. An empty run publishes
-  // nothing and leaves the earlier lists standing (`persistDailyScans`).
+  // left behind and no stock is scored, since a symbol without its prefetched
+  // bars would fetch its own five charts one by one. The crypto and fund
+  // passes may still join the lists, so the run reports `equitiesRead: false`
+  // and its callers publish nothing: a list without its stocks would
+  // overwrite and prune the day's stock rows (`persistDailyScans`).
   const shortlistBars = await settleBy(
     fetchAllTimeframesBatch(shortlist.map((c) => c.symbol), EXECUTION_TIMEFRAME, "us_equity", (tf, ms) =>
       mark(`full-pass ${tf} bars`, `${ms}ms`),
@@ -1381,6 +1391,7 @@ export async function runMarketScan(
     scanErrors,
     coarseTelemetry,
     continuationSkipped,
+    equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
   };
 }

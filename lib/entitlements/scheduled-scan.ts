@@ -59,7 +59,7 @@ import { loadSweptCandidates } from "@/lib/scan/universeSweep";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
-import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
+import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 import { etDateKey, etParts } from "@/lib/market/session";
@@ -248,7 +248,8 @@ export async function runScheduledScan(
       ...buildScanRows(output.scanDate, "bullish", output.bullish),
       ...buildScanRows(output.scanDate, "bearish", output.bearish),
     ];
-    const outcome = await persistDailyScans(service, output.scanDate, rows);
+    const refusal = publishRefusal(output);
+    const outcome = refusal ? { error: refusal } : await persistDailyScans(service, output.scanDate, rows);
     if (outcome.error) {
       console.error(`${source}: daily_scans not saved — ${outcome.error}`);
     }
