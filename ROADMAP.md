@@ -6,7 +6,10 @@
 governs what is built and in what order. It joins this roadmap with the parity
 documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
 This file keeps each phase's detail and history.
-**Last updated:** 2026-10-21 (pointer to the synthesized roadmap). Previously
+**Last updated:** 2026-10-22 (two stale Q1 notes corrected: the
+pay-your-way pricing is approved, and `patternArmed` was closed 2026-09-17;
+carried over from PR #295). Previously 2026-10-21 (pointer to the synthesized
+roadmap). Previously
 2026-10-16 (Strategy Modes and custom scripts became
 explain-only by owner decision: GSPS's plan sets every level and a chosen
 technique explains it. See the note on the "Strategy Modes" entry under Q1.)
@@ -341,8 +344,9 @@ both signal discovery and execution.
   was found and fixed where a stale, superseded `learning_models` database
   row was silently overriding the uniform `DEFAULT_CRITERION_WEIGHTS`
   decision in production. `patternArmed` (the STRAT taxonomy's remaining
-  scored-criterion use) is the one open item from this audit — see AGENTS.md
-  "Gann-derived AND measured" for its status. This entry exists specifically
+  scored-criterion use) was the one open item from this audit; it was closed
+  the same day, renamed `entryTriggerArmed` and moved onto
+  `lib/gann/entryTrigger.ts` (AGENTS.md, "Gann-derived AND measured"). This entry exists specifically
   because AGENTS.md's "update ROADMAP.md in the same PR" rule was not
   followed at the time; nothing here reflects new work done today.)*
 - **Portfolio analytics dashboard** *(shipped 2026-08-18, PR #83 — carried
@@ -871,8 +875,10 @@ both signal discovery and execution.
     R-multiple) deliberately kept separate from
     `lib/risk/execution-score.ts`'s behavior-only score, per that module's
     own "P&L must never feed execution scoring" rule.
-  - `lib/billing/promotionPricing.ts` — proposed (not yet approved or
-    Stripe-activated) pay-your-way pricing, sized so it is always the worse
+  - `lib/billing/promotionPricing.ts` — pay-your-way pricing, approved by
+    the owner 2026-09-25 (`APPROVED_PROMOTION_PRICING`) and not yet
+    Stripe-activated (`isPromotionBillingEnabled()` stays false until the
+    `STRIPE_PRICE_PROMOTION_*` prices exist), sized so it is always the worse
     deal than earning a tier for free: Novice→Pro $49 one-time; Pro→Expert
     $499 one-time + the standard subscription; Expert→Wall Street $1,499
     one-time + the standard subscription.

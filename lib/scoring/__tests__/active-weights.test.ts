@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { isWeightSetAddressedToCurrentCriteria } from "@/lib/scoring/active-weights";
+import { isUniformWeightSet, isWeightSetAddressedToCurrentCriteria } from "@/lib/scoring/active-weights";
 import { CRITERION_KEYS, parseCriterionWeights, TOTAL_POINTS } from "@/lib/scoring/weights";
 
 const uniform = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1]));
@@ -81,5 +81,23 @@ describe("why the guard is needed at all", () => {
 
     // And it is not uniform, so adopting it overrides the repo's decision.
     expect(CRITERION_KEYS.every((k) => reshaped[k] === 1)).toBe(false);
+  });
+});
+
+describe("isUniformWeightSet (F4.2)", () => {
+  it("adopts a uniform set", () => {
+    expect(isUniformWeightSet(parseCriterionWeights(uniform))).toBe(true);
+  });
+
+  it("refuses a set addressed to the current pillars that ranks one above another", () => {
+    const ranked = { ...uniform, [CRITERION_KEYS[0]]: 2 };
+    expect(isWeightSetAddressedToCurrentCriteria(ranked)).toBe(true);
+    expect(isUniformWeightSet(parseCriterionWeights(ranked))).toBe(false);
+  });
+
+  it("refuses a set with a non-finite weight", () => {
+    const broken = Object.fromEntries(CRITERION_KEYS.map((k) => [k, 1])) as Record<string, number>;
+    broken[CRITERION_KEYS[1]] = Number.NaN;
+    expect(isUniformWeightSet(broken as never)).toBe(false);
   });
 });

@@ -1768,11 +1768,15 @@ for the project owner** — do not fix it silently, and re-verify it first:
   name failed `novice_eligible`'s market-cap check and Guided Mode could never
   show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
   the Alpaca validation pass). The $10B floor is the only cap rule.
-- Lesser items: the weight-promotion path can still promote non-uniform
-  weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
+- Lesser items: `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
+  **F4.2 closed 2026-10-22:** a promoted `learning_models` weight row is
+  adopted only when it is uniform (`isUniformWeightSet`,
+  `lib/scoring/active-weights.ts`), since nothing in Gann's sources ranks one
+  pillar above another ("The scorecard's role"). No live row exists, so
+  scores are unchanged and `STRATEGY_VERSION` stays.
   `quantityFromPermittedRisk`/`plannedRiskDollars` and the rest of the risk-band
   policy were removed 2026-10-21 (R-004): Gann's capital rules size every order.
 - **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The
@@ -3212,6 +3216,33 @@ What that means for a session:
 - `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false, "*/**": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). The patterns are minimatch globs, and `*` never matches a `/`, so until 2026-10-21 every `claude/...` branch still built a preview and the account hit 100 deployments that day; `*/**` covers them. There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
 - A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
+
+## Verify before you report — standing rule (2026-10-22, project owner)
+
+Chuck's correction, after the same failure three times: the book reading
+reported works as read or unread that weren't; a session reported 47 lines of
+Gann code unusable when 6 were; and a "waiting on you" list named a Resend step
+he had already done. Each time a count or a status was reported from memory or
+an earlier note instead of from the source as it stands. Project memory is off,
+so this file is the only place the rule carries between sessions.
+
+- **Every count, status or "done / not done" you tell the owner is read fresh
+  from its primary source in the same turn:** the file, the grep, the test
+  run, the database row, the PR's checks, the other thread's latest message.
+  A note, a summary, a checklist or your own earlier reply is a lead, never
+  the evidence.
+- **Say what you checked and when** ("grep at 01:30 UTC found 6"), so the
+  owner can tell a measured figure from a remembered one. If you could not
+  check, say that, and don't give the number.
+- **A count is recounted, not carried.** When a figure came from a subagent,
+  an earlier session or a document, re-derive it before repeating it, and
+  report any difference from the earlier figure plainly.
+- **What is waiting on the owner** lives in
+  `/mnt/project-files/owner/waiting-on-chuck.md`. Add an item the moment it
+  starts waiting on him and strike it the moment it is done. Before telling
+  him what needs him, re-read that file and each item's own thread.
+- **Reading coverage** ("read", "inspected", "complete") is claimed only from
+  the work's own coverage record, page by page, never from a summary.
 
 ## Code review before every merge — standing mandate (2026-10-21, project owner)
 
