@@ -15,6 +15,8 @@ describe("gannContractMonth (A-SELECTION-08)", () => {
     expect(front("ZW", on(2027, 8, 1))).toBe("ZWU27");
     expect(front("ZW", on(2027, 10, 1))).toBe("ZWZ27");
     expect(front("ZW", on(2027, 12, 20))).toBe("ZWK28");
+    expect(front("ZW", on(2027, 12, 31))).toBe("ZWK28");
+    expect(front("ZW", on(2028, 1, 1))).toBe("ZWK28");
     expect(front("/ZW", on(2027, 3, 1), "short")).toBe("ZWK27");
   });
 
@@ -25,6 +27,10 @@ describe("gannContractMonth (A-SELECTION-08)", () => {
     expect(gannContractMonth("CT", on(2027, 10, 15), "short")?.months.map((m) => m.symbol)).toEqual(["CTZ27"]);
     expect(front("CT", on(2027, 11, 15))).toBe("CTH28");
     expect(front("CT", on(2028, 2, 1))).toBe("CTH28");
+    expect(front("CT", on(2028, 3, 10))).toBe("CTH28");
+    expect(front("CT", on(2028, 3, 11))).toBe("CTN28");
+    expect(front("CT", on(2027, 9, 30))).toBe("CTV27");
+    expect(front("CT", on(2027, 10, 1))).toBe("CTZ27");
   });
 
   it("soybeans: May and July for long account only (Commodities p.326)", () => {
@@ -38,6 +44,10 @@ describe("gannContractMonth (A-SELECTION-08)", () => {
     for (const root of ["ES", "CL", "GC", "ZC", "KC", "6E", "ZB"]) {
       expect(gannContractMonth(root, on(2027, 3, 1), "long")).toBeNull();
     }
+  });
+
+  it("returns null for an invalid date", () => {
+    expect(gannContractMonth("ZW", new Date(NaN), "long")).toBeNull();
   });
 
   it("reads the date in New York time", () => {

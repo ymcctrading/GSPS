@@ -19,7 +19,9 @@
  *
  * Engineering choices, labelled: Gann's "until May 10" is the only roll date
  * he gives, and it is carried to every delivery month he names (a month is
- * left on the 10th of its own month), by Correspondence. Cotton's January to
+ * left on the 10th of its own month), by Correspondence, except where his own
+ * season moves first: cotton's October gives way to December when September
+ * ends ("December and January after September"). Cotton's January to
  * early March, which his forecast (dated April 25) does not reach, carries his
  * November-December choice, March, until it rolls. A month the exchange no
  * longer lists (January cotton) is left out. When two months are named, the
@@ -124,6 +126,7 @@ export function gannContractMonth(root: string, asOf: Date, side: "long" | "shor
   const r = root.toUpperCase().replace(/^\//, "");
   const rule = RULES[r];
   if (!rule || (rule.side === "long" && side !== "long")) return null;
+  if (Number.isNaN(asOf.getTime())) return null;
   const [year, month, day] = etDateKey(asOf).split("-").map(Number);
   const today = key(month, day);
   const window = rule.windows.find((w) => today >= key(...w.from) && today <= key(...w.through));
