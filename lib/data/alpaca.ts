@@ -244,6 +244,57 @@ function chunk<T>(items: T[], size: number): T[][] {
 const BATCH_CHUNK = 100;
 
 /**
+ * Bars a symbol prints per calendar day, by timeframe: US equities on IEX
+ * trade 4 AM-8 PM New York (16 hours, extended hours included) five days in
+ * seven, crypto all day every day. Only an estimate for sizing chunks, never a
+ * count anything relies on: a chunk that needs more than one page still drains
+ * its `next_page_token`.
+ */
+const BARS_PER_DAY: Record<Timeframe, { equity: number; crypto: number }> = {
+  "1Year": { equity: 1 / 365, crypto: 1 / 365 },
+  "1Month": { equity: 1 / 30.4, crypto: 1 / 30.4 },
+  "1Week": { equity: 1 / 7, crypto: 1 / 7 },
+  "1Day": { equity: 5 / 7, crypto: 1 },
+  "4Hour": { equity: (4 * 5) / 7, crypto: 6 },
+  "2Hour": { equity: (8 * 5) / 7, crypto: 12 },
+  "1Hour": { equity: (16 * 5) / 7, crypto: 24 },
+  "15Min": { equity: (64 * 5) / 7, crypto: 96 },
+  "5Min": { equity: (192 * 5) / 7, crypto: 288 },
+  "1Min": { equity: (960 * 5) / 7, crypto: 1440 },
+};
+
+/** Alpaca's bars history starts in 2016; a window reaching further back adds no bars. */
+const HISTORY_START_MS = Date.UTC(2016, 0, 1);
+
+/**
+ * Symbols per request so each chunk's bars fit one page. Pages of one chunk
+ * run one after another (each needs the last one's token), while chunks run
+ * side by side, so a shortlist whose window filled two pages waited for two
+ * round trips; split in two it waits for one. Alpaca answered the market
+ * scan's requests in 5-12 s each on 2026-10-22, so the full pass's two
+ * sequential pages per timeframe were most of its 30 s fetch. The request count
+ * is about the same either way.
+ */
+export function batchChunkSize(
+  timeframe: Timeframe,
+  start: Date,
+  end: Date | null,
+  assetClass: AssetClass,
+  limit: number,
+  now: number = Date.now(),
+): number {
+  const from = Math.max(start.getTime(), HISTORY_START_MS);
+  const to = end ? end.getTime() : now;
+  const days = Math.max(1, (to - from) / 86_400_000);
+  const rate = BARS_PER_DAY[timeframe] ?? BARS_PER_DAY["1Day"];
+  const perSymbol = Math.max(1, Math.ceil(days * (assetClass === "crypto" ? rate.crypto : rate.equity)));
+  // A tenth of headroom, so a symbol with a few more bars than the estimate
+  // doesn't spill a chunk onto a second page.
+  const fit = Math.floor((Math.min(limit, PAGE_LIMIT) * 0.9) / perSymbol);
+  return Math.min(BATCH_CHUNK, Math.max(1, fit));
+}
+
+/**
  * How many chunk requests (and their page-token follow-ups) run at once.
  * Unbounded `Promise.all` across every chunk was fine at the ~500-symbol
  * universe this was built for, but the 2026-09-20 large-cap refresh (~765
@@ -303,7 +354,8 @@ export async function fetchBarsBatch(
   const result = new Map<string, Bar[]>();
   if (syms.length === 0) return result;
 
-  await mapWithConcurrency(chunk(syms, BATCH_CHUNK), CHUNK_CONCURRENCY, async (group) => {
+  const size = batchChunkSize(timeframe, start, end, assetClass, limit);
+  await mapWithConcurrency(chunk(syms, size), CHUNK_CONCURRENCY, async (group) => {
     const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
     let pageToken: string | undefined;
 

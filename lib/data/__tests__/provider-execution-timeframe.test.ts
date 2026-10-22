@@ -86,3 +86,37 @@ describe("fetchAllTimeframesBatch — same guarantee for the batched path", () =
     expect(out.size).toBe(0);
   });
 });
+
+describe("fetchAllTimeframesBatch — per-timeframe timing", () => {
+  const saved = { p: process.env.MARKET_DATA_PROVIDER, k: process.env.ALPACA_API_KEY, s: process.env.ALPACA_API_SECRET };
+  beforeEach(() => {
+    process.env.MARKET_DATA_PROVIDER = "alpaca";
+    process.env.ALPACA_API_KEY = "test-key";
+    process.env.ALPACA_API_SECRET = "test-secret";
+  });
+  afterEach(() => {
+    for (const [k, v] of [
+      ["MARKET_DATA_PROVIDER", saved.p],
+      ["ALPACA_API_KEY", saved.k],
+      ["ALPACA_API_SECRET", saved.s],
+    ] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("reports each timeframe's wall time, so the market scan can name a slow chart", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ bars: {}, next_page_token: null }), { status: 200 })),
+    );
+    const seen: string[] = [];
+    await fetchAllTimeframesBatch(["AAPL"], "15Min", "us_equity", (tf, ms) => {
+      expect(ms).toBeGreaterThanOrEqual(0);
+      seen.push(tf);
+    });
+    expect(seen.sort()).toEqual(["15Min", "1Day", "1Hour", "1Month", "1Week"]);
+  });
+});
