@@ -1056,6 +1056,11 @@ item on the symbol since the prior 4 PM close gets an offer to cover in the
 paper and broker exit notes (`lib/gann/badNews.ts`, `readLiveBadNews`, Alpaca's
 news API, `fetchNews`; one read per symbol a day, equities only). Nothing
 closes on it, and the replay holds no news, so it is unmeasured.
+Q9 and Q34 re-asked under "Gann answers it": the pyramid keeps decreasing lots
+(A-PYRAMID-02; his course's Rule 5 and *Tunnel* p.198 against W006 p.47's
+halving after the 4th or 5th lot), and "a day for a year" (A-TIME-31, *Tunnel*
+pp.371, 373) stays research-only (`lib/research/dayForYear.ts`, no consumer):
+no Gann method says where it acts.
 Verdicts unchanged, so `STRATEGY_VERSION` stays.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
