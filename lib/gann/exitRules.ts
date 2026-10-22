@@ -72,7 +72,7 @@
  *   culmination of the swing: the trade leaves ("exhaust_gap", *Commodities*
  *   pp.319-320). It takes the trade off without reversing it.
  * - **M-T10 boiling point** (added 2026-10-22). Once the weekly chart's run in
- *   the trade's direction is in its 6th week, the stop trails 10 Gann points
+ *   the trade's direction has run 6 weeks, the stop trails 10 Gann points
  *   from the best price (*Stock Selector* Ch. V). Reported as "boiling_point".
  *
  * Engineering choices, labelled as such:
@@ -355,22 +355,6 @@ export function readGannExit(
     }
   }
 
-  // M-E12: an exhaust gap against the trade since the fill, "the culmination
-  // of a major swing" (Commodities p.319: after a prolonged advance a final
-  // one-day gap and a reverse signal day; mirrored p.320). The gap must print
-  // after the fill (`firstAfter`): one at entry was part of the setup.
-  if (!exit && on("exhaust_gap")) {
-    const against = long ? "top" : "bottom";
-    for (let g = daily.length - 1; g >= Math.max(1, firstAfter); g--) {
-      if (exhaustGapAt(daily, g) !== against) continue;
-      exit = {
-        reason: "exhaust_gap",
-        note: `An exhaust gap ${long ? "up" : "down"} on ${day(daily[g])} with a reverse signal day: the move has culminated.`,
-      };
-      break;
-    }
-  }
-
   // C4: a change of trend after entry.
   const weekly = walkSwingChart(daily, WEEKLY_SWING_CHART);
   if (!exit && on("trend_change")) {
@@ -417,6 +401,25 @@ export function readGannExit(
           ? "The reaction is still making new extremes in its third month: the trend is changing."
           : "A month broke the one before it and the reaction went past the previous section's top: the trend is changing.",
       };
+    }
+  }
+
+  // M-E12: an exhaust gap against the trade since the fill, "the culmination
+  // of a major swing" (Commodities p.319: after a prolonged advance a final
+  // one-day gap and a reverse signal day; mirrored p.320). The gap must print
+  // on a session after the fill's (`firstAfter` + 1): a gap on the fill day,
+  // or one before it, was part of the setup. Read after the trend-change
+  // calls, so a trade that changed trend on the same reading still reverses
+  // (Q15) rather than being taken off flat.
+  if (!exit && on("exhaust_gap")) {
+    const against = long ? "top" : "bottom";
+    for (let g = daily.length - 1; g >= Math.max(1, firstAfter + 1); g--) {
+      if (exhaustGapAt(daily, g) !== against) continue;
+      exit = {
+        reason: "exhaust_gap",
+        note: `An exhaust gap ${long ? "up" : "down"} on ${day(daily[g])} with a reverse signal day: the move has culminated.`,
+      };
+      break;
     }
   }
 
@@ -510,8 +513,9 @@ export function readGannExit(
     adopt(gannDayStop({ extreme: long ? last.l : last.h, side: pos.side }), "day_low");
   }
 
-  // M-E11: a reverse signal day or a 7-10 Day Rule day against the trade, since
-  // the fill, is "an indication for a change in trend" (Commodities p.318,
+  // M-E11 (APPROXIMATED: the day is Gann's, the stop beyond it is his daily
+  // time rule's). A reverse signal day or a 7-10 Day Rule day against the
+  // trade, since the fill, is "an indication for a change in trend" (Commodities p.318,
   // the 7-10 Day Rule p.324), so the stop goes 3 points beyond that day's
   // extreme: under its low when the signal is a top against a long, over its
   // high when it is a bottom against a short (the daily time rule's stop "3
@@ -532,10 +536,14 @@ export function readGannExit(
   // final fast advance lasts 6-7 weeks (sometimes 10)", with a 10-point
   // trailing stop (*Wall Street Stock Selector* Ch. V; the 6-7 week panic
   // that ends a bear campaign is the mirror). Once the weekly swing chart's
-  // run in the trade's direction is in its 6th week, the stop trails 10 Gann
+  // run in the trade's direction has run 6 weeks (`CLASSIC_MIN_WEEKS`, the
+  // start of his 6-7 week window), the stop trails 10 Gann
   // points from the best price. Engineering choice, labelled: the run is the
   // weekly chart's from its last swing extreme (`computeRunBoilingPoint`),
-  // whether or not it was fast; Gann gives no speed for "fast".
+  // whether or not it was fast; Gann gives no speed for "fast". His Rumely
+  // example trails a raw 10 points at about $100; it is read here as 10 Gann
+  // points (`pointScale.ts`), where A-STOP-04's final-stage trail reads his
+  // "10 at high levels" as 5. Both price-scaled, both engineering readings.
   if (best !== null) {
     const run = runBoilingPointFromPivots(daily, weekly.pivots);
     if (run && run.run === (long ? "up" : "down") && run.weeksSinceStart >= CLASSIC_MIN_WEEKS) {

@@ -107,6 +107,12 @@ describe("M-E12: an exhaust gap against the trade takes it off", () => {
     expect(reversesOn("exhaust_gap")).toBe(false);
   });
 
+  it("does not count a gap printed on the fill day: it was part of the setup", () => {
+    const bars = exhaust();
+    const r = readGannExit(long(bars, bars.length - 1), bars, bars[bars.length - 1].h);
+    expect(r.exit?.reason).not.toBe("exhaust_gap");
+  });
+
   it("does not fire on a short (the gap runs its way), nor when switched off", () => {
     const bars = exhaust();
     const short: GannExitPosition = { ...long(bars, bars.length - 8), side: "short", initialStop: 999 };
@@ -115,7 +121,7 @@ describe("M-E12: an exhaust gap against the trade takes it off", () => {
   });
 });
 
-describe("M-T10: the boiling point trails 10 points from the best once the run is in its 6th week", () => {
+describe("M-T10: the boiling point trails 10 points from the best once the run has lasted 6 weeks", () => {
   /** A decline into a low, then a steady advance whose reactions never turn the weekly chart. */
   function run(advanceCycles: number): Bar[] {
     const decline = Array.from({ length: 30 }, (_, i) => 130 - i);
@@ -133,11 +139,28 @@ describe("M-T10: the boiling point trails 10 points from the best once the run i
     expect(r.stop).toBeCloseTo(best - 10 * gannPoint(best), 9);
   });
 
-  it("does nothing before the 6th week", () => {
+  it("does nothing before 6 weeks", () => {
     const bars = run(3); // 27 sessions: under 4 weeks
     expect(computeRunBoilingPoint(bars)!.weeksSinceStart).toBeLessThan(6);
     const best = Math.max(...bars.map((b) => b.h));
     expect(readGannExit(long(bars, bars.length - 5), bars, best, null, only("boiling_point")).stopReason).toBe("initial");
+  });
+
+  it("starts exactly when the run has lasted 6 weeks", () => {
+    const full = run(6);
+    let seenOn = false;
+    let seenOff = false;
+    for (let n = full.length - 20; n <= full.length; n++) {
+      const bars = full.slice(0, n);
+      const reading = computeRunBoilingPoint(bars)!;
+      const on = reading.run === "up" && reading.weeksSinceStart >= 6;
+      const best = Math.max(...bars.slice(n - 5).map((b) => b.h));
+      const r = readGannExit(long(bars, n - 5), bars, bars[n - 1].c, null, only("boiling_point"));
+      expect(r.stopReason === "boiling_point").toBe(on && best - 10 * gannPoint(best) > bars[n - 5].c - 20);
+      if (on) seenOn = true;
+      else seenOff = true;
+    }
+    expect(seenOn && seenOff).toBe(true);
   });
 
   it("does not trail a short riding against the run", () => {

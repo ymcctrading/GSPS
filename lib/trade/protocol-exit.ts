@@ -479,7 +479,7 @@ function explainGann(reason: GannStopReason | IntradayStopReason | null, stop: n
     case "reverse_signal":
       return `A reverse signal day marked a possible turn, so the stop moves 3 points beyond that day's extreme, to ${usd(stop)}.`;
     case "boiling_point":
-      return `The run is in its sixth week, when the end of the move is watched for, so the stop trails 10 points from the best price, to ${usd(stop)}.`;
+      return `The run has lasted six weeks, when the end of the move is watched for, so the stop trails 10 points from the best price, to ${usd(stop)}.`;
     case "intraday_swing":
       return `Intraday trade: the stop follows the last completed 15-minute swing, one intraday point beyond it, to ${usd(stop)}.`;
     default:
