@@ -5,6 +5,7 @@ import {
   DEFAULT_CONFIG,
   cooldownUntil,
   gannFirstTarget,
+  gannMasterTarget,
   gannOldLevels,
   measureMove,
   scanIntraday,
@@ -1059,3 +1060,35 @@ describe("isThroughInvalidation", () => {
     expect(isThroughInvalidation({ direction: "up", invalidation: null, move: move(50) })).toBe(false);
   });
 });
+
+describe("gannMasterTarget", () => {
+  const base = {
+    direction: "up" as const,
+    last: 480,
+    sessionHigh: 480.05,
+    sessionLow: 470,
+    prevClose: 471,
+    dailyAtr: 6,
+    intradayAtr: 0.3,
+  };
+
+  it("names the next old level beyond the first target", () => {
+    expect(gannMasterTarget({ ...base, firstTarget: 483, oldLevels: [483, 486.5, 490] })).toBe(486.5);
+  });
+
+  it("skips a level too close to the first target to be a different one", () => {
+    expect(gannMasterTarget({ ...base, firstTarget: 483, oldLevels: [483.1, 487] })).toBe(487);
+  });
+
+  it("mirrors for a short", () => {
+    expect(
+      gannMasterTarget({ ...base, direction: "down", last: 480, sessionHigh: 482, sessionLow: 479.95, prevClose: 485, firstTarget: 476, oldLevels: [476, 473.5] }),
+    ).toBe(473.5);
+  });
+
+  it("is null with no first target, or with nothing beyond it", () => {
+    expect(gannMasterTarget({ ...base, firstTarget: null, oldLevels: [490] })).toBeNull();
+    expect(gannMasterTarget({ ...base, last: 497.2, sessionHigh: 497.25, sessionLow: 495, prevClose: 496, dailyAtr: 0.5, firstTarget: 497.6, oldLevels: [] })).toBeNull();
+  });
+});
+

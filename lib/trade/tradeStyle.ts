@@ -64,7 +64,7 @@
  * matter of seconds, mins, or hours. And ideally closed by the end of the day
  * (although not mandatory)"). Not a preference: it is the style of a trade
  * taken from an intraday alert's "Trade this" (`orders.intraday_sourced`).
- * The plan is the alert's own (its stop and its first target, no MTP), and
+ * The plan is the alert's own (its stop, first target and MTP), and
  * the exits are Gann's rules read on the session's bars
  * (`lib/gann/intradayExit.ts`): no sale at the first target (Gann's "never
  * fix a target price"), the stop one

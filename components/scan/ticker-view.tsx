@@ -65,7 +65,7 @@ export function TickerView({ symbol }: { symbol: string }) {
   const sideParam = mounted ? searchParams.get("side") : null;
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
   // The alert's own stop and first target (the Intraday style), from the same link.
-  const intradayPlan = intradaySourced ? intradayPlanFromQuery(searchParams.get("stop"), searchParams.get("tp1")) : null;
+  const intradayPlan = intradaySourced ? intradayPlanFromQuery(searchParams.get("stop"), searchParams.get("tp1"), searchParams.get("mtp")) : null;
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
   useLayoutEffect(() => {

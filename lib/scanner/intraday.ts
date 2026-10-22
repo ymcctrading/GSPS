@@ -551,8 +551,9 @@ export interface TradePlan {
    */
   paysRisk?: boolean | null;
   /**
-   * The master target, only where the alert carries a daily plan's
-   * (`plan_level_held`). The session's own alerts price none.
+   * The master target (MTP): the daily plan's where the alert carries one
+   * (`plan_level_held`), else the next level beyond the first target
+   * (`gannMasterTarget`). Shown and recorded; nothing sells there.
    */
   masterTarget?: number | null;
   /** Conditions that cancel the setup before it triggers. */
@@ -1689,6 +1690,52 @@ export function gannFirstTarget(input: {
 }
 
 /**
+ * The master target (MTP) of a session alert: the next old top or bottom, or
+ * round number just short of one, beyond the first target (owner, 2026-10-22:
+ * "Include a mtp for intraday trades"). The daily plan's rule read at the
+ * session's scale (`lib/strat/levels.ts`, "the next level beyond TP1, so the
+ * two are not the same resistance"): Gann's next resistance after the first
+ * (*Truth of the Stock Tape*; W006 pp.19-24, a level is resistance above price
+ * and support below it). It is where the move is measured to, never an order:
+ * nothing sells there (Q14, "never fix a target price"), so the trade still
+ * exits on the session's stop, the hourly turn or the close, as the daily plan's
+ * MTP sells nothing either.
+ *
+ * Engineering choices, labelled as such: the master must lie at least one
+ * intraday ATR beyond the first target (the first target's own floor, so the
+ * two are different levels), and a round number counts within two daily ATRs
+ * of the price (the first target's window doubled), since a session rarely
+ * travels farther. Null with no first target, or with no level beyond it.
+ */
+export function gannMasterTarget(input: {
+  direction: Direction;
+  last: number;
+  firstTarget: number | null;
+  sessionHigh: number;
+  sessionLow: number;
+  prevClose: number | null;
+  dailyAtr: number | null;
+  intradayAtr: number;
+  oldLevels?: number[];
+}): number | null {
+  const { direction, last, firstTarget, sessionHigh, sessionLow, prevClose, dailyAtr, intradayAtr, oldLevels = [] } = input;
+  if (firstTarget == null || !Number.isFinite(firstTarget)) return null;
+  const up = direction === "up";
+  const floor = Math.max(0, intradayAtr);
+  const beyond = (p: number) => (up ? p - firstTarget : firstTarget - p) >= floor && (up ? p > firstTarget : p < firstTarget);
+  const window = 2 * (dailyAtr != null && dailyAtr > 0 ? dailyAtr : last * (APPROACH_WINDOW_PCT / 100));
+  const limit = up ? last + window : last - window;
+  const candidates = [
+    up ? sessionHigh : sessionLow,
+    ...(prevClose != null && prevClose > 0 ? [prevClose] : []),
+    ...oldLevels,
+    ...targetCandidates(firstTarget, limit, up ? "bullish" : "bearish"),
+  ].filter((p) => Number.isFinite(p) && beyond(p));
+  if (candidates.length === 0) return null;
+  return candidates.reduce((nearest, p) => (Math.abs(p - firstTarget) < Math.abs(nearest - firstTarget) ? p : nearest));
+}
+
+/**
  * Whether a first target pays more than the risk taken to reach it (M-K5;
  * *Wall Street Stock Selector* Ch. II, "profits must exceed losses"). Null when
  * either is missing: no fixed target (the stop trails) or no stop to measure.
@@ -1718,11 +1765,23 @@ function continuationPlan(
     oldLevels: m.oldLevels,
     risk: invalidation != null ? Math.abs(m.last - invalidation) : null,
   });
+  const masterTarget = gannMasterTarget({
+    direction,
+    last: m.last,
+    firstTarget: target,
+    sessionHigh: m.high,
+    sessionLow: m.low,
+    prevClose,
+    dailyAtr,
+    intradayAtr: m.intradayAtr,
+    oldLevels: m.oldLevels,
+  });
   return {
     confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${priceText(m.last)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
     invalidation,
     firstTarget: target,
     paysRisk: targetPaysRisk(m.last, invalidation, target),
+    masterTarget,
     cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's 50% point at ${priceText(m.midpoint)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
   };
 }
