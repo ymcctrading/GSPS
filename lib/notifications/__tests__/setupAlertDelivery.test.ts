@@ -89,6 +89,8 @@ describe("setup alert delivery", () => {
       ["push", "t1:push"],
     ]);
     expect(dispatchMock.mock.calls.map((c) => c[1].deliveryId)).toEqual(["d1", "d2"]);
+    // The send re-checks the channel against the list read once for this member.
+    expect(dispatchMock.mock.calls.map((c) => c[1].enabledChannels)).toEqual([["email", "push"], ["email", "push"]]);
   });
 
   it("sends push alone to a member who turned only push on", async () => {

@@ -183,7 +183,7 @@ const DISPATCHABLE_STATUSES = ["pending", "failed"];
  */
 export async function dispatchNotificationDelivery(
   service: SupabaseClient,
-  args: { deliveryId: string; profileId: string },
+  args: { deliveryId: string; profileId: string; enabledChannels?: DeliveryChannel[] },
 ): Promise<DispatchOutcome> {
   if (isPreviewEnvironment()) {
     return { dispatched: false, reason: "preview_suppressed" };
@@ -208,9 +208,10 @@ export async function dispatchNotificationDelivery(
   const stale = Number.isFinite(createdAt) && Date.now() - createdAt > DELIVERY_MAX_AGE_MS;
   let held: string | null = stale ? "Older than its session: the plan is read again on the next scan." : null;
   if (!held) {
+    // The inline dispatch passes the list it read a moment ago; the sweep reads it.
     let enabled: DeliveryChannel[];
     try {
-      enabled = await getEnabledChannels(service, args.profileId);
+      enabled = args.enabledChannels ?? (await getEnabledChannels(service, args.profileId));
     } catch {
       return { dispatched: false, reason: "channels_unread" };
     }
@@ -372,7 +373,7 @@ export async function recordInAppNotification(
 export async function sweepStuckDeliveries(
   service: SupabaseClient,
   args: { olderThanMs: number; limit?: number },
-): Promise<{ swept: number; sent: number; failed: number; suppressed: number }> {
+): Promise<{ swept: number; sent: number; failed: number; suppressed: number; unread: number }> {
   const cutoff = new Date(Date.now() - args.olderThanMs).toISOString();
   const { data: rows, error } = await service
     .from("notification_deliveries")
@@ -387,16 +388,18 @@ export async function sweepStuckDeliveries(
   let sent = 0;
   let failed = 0;
   let suppressed = 0;
+  let unread = 0;
   for (const row of (rows ?? []) as { id: string; profile_id: string }[]) {
     try {
       const outcome = await dispatchNotificationDelivery(service, { deliveryId: row.id, profileId: row.profile_id });
       if (outcome.dispatched && outcome.status === "sent") sent += 1;
       else if (outcome.dispatched && outcome.status === "failed") failed += 1;
+      else if (!outcome.dispatched && outcome.reason === "channels_unread") unread += 1;
       else if (!outcome.dispatched) suppressed += 1;
     } catch (err) {
       console.error(`sweepStuckDeliveries: dispatch failed for delivery ${row.id} — ${String(err)}`);
     }
   }
 
-  return { swept: (rows ?? []).length, sent, failed, suppressed };
+  return { swept: (rows ?? []).length, sent, failed, suppressed, unread };
 }

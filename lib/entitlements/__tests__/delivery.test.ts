@@ -315,6 +315,18 @@ describe("dispatchNotificationDelivery", () => {
     expect(updates).toHaveLength(0);
   });
 
+  it("uses the channel list the inline dispatch passes, without reading it again", async () => {
+    sendAlertEmailMock.mockResolvedValueOnce({ success: true, id: "r1" });
+    const { client } = fakeDeliveryClient({
+      row: { id: "d1", status: "pending", channel: "email", payload: PAYLOAD, attempt_count: 0 },
+      channels: "error",
+    });
+
+    const result = await dispatchNotificationDelivery(client, { deliveryId: "d1", profileId: "p1", enabledChannels: ["email"] });
+
+    expect(result).toEqual({ dispatched: true, status: "sent" });
+  });
+
   it("never sends a real notification in preview, and leaves the row untouched", async () => {
     process.env.VERCEL_ENV = "preview";
     const { client, updates } = fakeDeliveryClient({ row: { id: "d1", status: "pending", channel: "email", payload: PAYLOAD } });
@@ -404,7 +416,7 @@ describe("sweepStuckDeliveries", () => {
 
     const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
 
-    expect(summary).toEqual({ swept: 2, sent: 1, failed: 1, suppressed: 0 });
+    expect(summary).toEqual({ swept: 2, sent: 1, failed: 1, suppressed: 0, unread: 0 });
   });
 
   it("does not retry a row already past the attempt ceiling", async () => {
@@ -414,7 +426,7 @@ describe("sweepStuckDeliveries", () => {
 
     const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
 
-    expect(summary).toEqual({ swept: 0, sent: 0, failed: 0, suppressed: 0 });
+    expect(summary).toEqual({ swept: 0, sent: 0, failed: 0, suppressed: 0, unread: 0 });
     expect(sendAlertEmailMock).not.toHaveBeenCalled();
   });
 });
