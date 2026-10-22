@@ -198,6 +198,29 @@ describe("runScheduledScan", () => {
     expect(inserted).toHaveLength(0);
   });
 
+  it("fails closed (503) when the stock bars were not read, without recording the run or fanning out", async () => {
+    const { client, inserted } = fakeService({ existingRun: null, profiles: [{ id: "p1", tier: "PRACTICE" }] });
+    createServiceClientMock.mockReturnValue(client);
+    runMarketScanMock.mockResolvedValueOnce({
+      scanDate: "2026-08-26",
+      bullish: [{ symbol: "BTC/USD", decision: { score: 8, outputState: "Execute" }, direction: "bullish" }],
+      bearish: [],
+      universeSize: 20,
+      shortlisted: 5,
+      scanErrors: 0,
+      equitiesRead: false,
+      fullScanResults: [],
+    });
+
+    const res = await runScheduledScan(AUTH, "scheduled_morning_scan");
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.error).toBe("Upstream market data unavailable");
+    expect(inserted).toHaveLength(0);
+    expect(fanOutForProfileMock).not.toHaveBeenCalled();
+  });
+
   it("treats a racing duplicate insert (23505) the same as an already-run skip", async () => {
     const { client } = fakeService({ existingRun: null, insertError: { code: "23505", message: "duplicate" } });
     createServiceClientMock.mockReturnValue(client);
@@ -208,6 +231,7 @@ describe("runScheduledScan", () => {
       universeSize: 20,
       shortlisted: 5,
       scanErrors: 0,
+      equitiesRead: true,
       fullScanResults: [],
     });
 
@@ -235,6 +259,7 @@ describe("runScheduledScan", () => {
       universeSize: 20,
       shortlisted: 5,
       scanErrors: 0,
+      equitiesRead: true,
       fullScanResults: [
         { symbol: "AAPL", decision: { score: 8, outputState: "Execute" }, direction: "bullish", error: undefined },
         { symbol: "TSLA", decision: { score: 2, outputState: "Reject" }, direction: "none", error: undefined },
@@ -277,6 +302,7 @@ describe("runScheduledScan", () => {
       universeSize: 20,
       shortlisted: 0,
       scanErrors: 0,
+      equitiesRead: true,
       fullScanResults: [],
     });
 

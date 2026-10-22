@@ -232,6 +232,16 @@ export async function runScheduledScan(
     return NextResponse.json({ error: "Upstream market data unavailable", source, runId }, { status: 503 });
   }
 
+  // Stock bars not read by the deadline: crypto and funds alone would replace
+  // the stock lists, and recording the run would make a retry return
+  // already_run with no stock scan for this slot. Fail closed the same way.
+  const refusal = publishRefusal(output);
+  if (refusal) {
+    console.error(`${source}: ${refusal}`);
+    logRunOutcome({ runId, source, marketDateEt, outcome: "upstream_unavailable", environment });
+    return NextResponse.json({ error: "Upstream market data unavailable", reason: refusal, source, runId }, { status: 503 });
+  }
+
   const qualifying: RankedSetup<ScanResult>[] = [
     ...output.bullish.map((r) => ({ side: "buy" as const, rank: r.decision.score, value: r })),
     ...output.bearish.map((r) => ({ side: "sell" as const, rank: r.decision.score, value: r })),
@@ -248,8 +258,7 @@ export async function runScheduledScan(
       ...buildScanRows(output.scanDate, "bullish", output.bullish),
       ...buildScanRows(output.scanDate, "bearish", output.bearish),
     ];
-    const refusal = publishRefusal(output);
-    const outcome = refusal ? { error: refusal } : await persistDailyScans(service, output.scanDate, rows);
+    const outcome = await persistDailyScans(service, output.scanDate, rows);
     if (outcome.error) {
       console.error(`${source}: daily_scans not saved — ${outcome.error}`);
     }

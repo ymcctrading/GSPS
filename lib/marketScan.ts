@@ -660,7 +660,7 @@ export interface MarketScanOutput {
    * and no stock was scored. The lists may still hold crypto and fund rows;
    * publishing them would overwrite and prune the day's stock rows, so the
    * callers (`app/api/market-scan`, `lib/entitlements/scheduled-scan.ts`)
-   * publish nothing (`shouldPublishScan`).
+   * publish nothing (`publishRefusal`).
    */
   equitiesRead: boolean;
   /**
