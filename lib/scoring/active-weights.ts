@@ -16,8 +16,9 @@
  * conditions matter more. AGENTS.md's "Gann-derived AND measured" gives
  * measurement a narrower job — verifying that our translation of a Gann rule
  * into code is faithful — and "The scorecard's role" explains why a non-equal
- * weight is a substantive claim the scorecard has no source for. A promoted
- * weight set should be correcting a translation, not ranking the criteria.
+ * weight is a substantive claim the scorecard has no source for. Since
+ * 2026-10-22 (F4.2) only a uniform promoted set is adopted
+ * (`isUniformWeightSet`); a mistranslated pillar is fixed in its own code.
  *
  * Three properties this has to hold, because it sits in the path of every scan:
  *
@@ -182,7 +183,7 @@ async function fetchLiveWeights(now: number): Promise<Cached> {
     }
 
     // F4.2: a promoted set that ranks Gann's conditions is not adopted.
-    // See `isUniformWeightSet` below.
+    // See `isUniformWeightSet` above.
     const weights = parseCriterionWeights(stored);
     if (!isUniformWeightSet(weights)) {
       console.warn(

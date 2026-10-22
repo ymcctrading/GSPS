@@ -28,7 +28,8 @@
  *      keep meaning what they meant.
  *
  * A proposal is a proposal. It is written as a `draft` model and changes no
- * score until a human promotes it — see `lib/scoring/active-weights.ts`.
+ * score until a human promotes it, and then only if it is uniform (F4.2) — see
+ * `lib/scoring/active-weights.ts#isUniformWeightSet`.
  */
 
 import { attributeFactors, type FactorAttribution } from "./attribution";
