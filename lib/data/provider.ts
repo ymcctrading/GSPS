@@ -58,6 +58,12 @@ export interface MarketDataProvider {
 
   fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number>;
 
+  /**
+   * Optional batch form of `fetchLatestPrice`: many symbols in a few requests.
+   * A symbol missing from the map is read with `fetchLatestPrice`.
+   */
+  fetchLatestPrices?(symbols: string[], assetClass: AssetClass): Promise<Map<string, number>>;
+
   fetchMostActives(top?: number): Promise<string[]>;
 
   /**
