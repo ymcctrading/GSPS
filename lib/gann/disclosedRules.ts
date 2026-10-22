@@ -707,6 +707,8 @@ export interface DisclosedRulesContext {
 export interface InstrumentFacts {
   sharesOutstanding: number | null;
   inception: Inception | null;
+  /** The stored company name, for Gann's name chart (A-OTHER-08, `nameNumerology.ts`). */
+  name?: string | null;
   /** The market's daily bars (SPY), for early and late leaders (G25). See `leadership.ts`. */
   marketDaily?: Bar[] | null;
   /** The stock's monthly bars, for the weak-stock readings (`readWeakStock`). */

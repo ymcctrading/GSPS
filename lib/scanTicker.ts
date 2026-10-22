@@ -399,6 +399,7 @@ export async function scanTicker(
       campaign: campaignLedger,
       price: currentPrice,
       asOf: sessionNoon,
+      companyName: instrumentReference?.name ?? null,
     });
     const allLevels = structural.all;
     const recentAtr = atr(sessions.slice(-20), 14);
@@ -503,7 +504,7 @@ export async function scanTicker(
     });
     let windowTurnRead: { turn: ReturnType<typeof readWindowTurn> } | null = null;
     const windowTurn = () => {
-      windowTurnRead ??= { turn: readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly) };
+      windowTurnRead ??= { turn: readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly, undefined, instrumentReference ? { inception: instrumentReference.inception, name: instrumentReference.name } : null) };
       return windowTurnRead.turn;
     };
 

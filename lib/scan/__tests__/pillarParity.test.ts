@@ -247,7 +247,10 @@ describe("the nine pillars on the live scan and the replay", () => {
     const live = readFileSync(path.resolve(__dirname, "../../", "scanTicker.ts"), "utf8");
     const replay = readFileSync(path.resolve(__dirname, "../../", "backtest/replay.ts"), "utf8");
     const shared = readFileSync(path.resolve(__dirname, "../../", "scan/structuralLevels.ts"), "utf8");
-    expect(shared).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf\)/);
+    expect(shared).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf, companyName\)/);
+    // The name chart (A-OTHER-08) reads the same stored name on both surfaces.
+    expect(live).toMatch(/companyName: instrumentReference\?\.name \?\? null/);
+    expect(replay).toMatch(/companyName: instrument\?\.name \?\? null/);
     expect(live).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: campaignLedger,\n\s+price: currentPrice,\n\s+asOf: sessionNoon,/);
     expect(replay).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: disclosedRules\.campaign,\n\s+price,\n\s+asOf,/);
     const master = readFileSync(path.resolve(__dirname, "../../", "gann/masterLevels.ts"), "utf8");

@@ -380,7 +380,7 @@ export interface ReplayOptions {
    * incorporation readings are null, as they are for symbols with no stored
    * row.
    */
-  instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null };
+  instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null; name?: string | null };
   /**
    * The market's daily bars (SPY), for Gann's early and late leaders (G25).
    * Each session reads only the bars before it. Omit it and the leadership
@@ -851,6 +851,7 @@ export function buildMacroContext(
     campaign: disclosedRules.campaign,
     price,
     asOf,
+    companyName: instrument?.name ?? null,
   });
   const allLevels = structural.all;
   const recentAtr = atr(daily.slice(-20), 14);
@@ -905,7 +906,7 @@ export function buildMacroContext(
     disclosedRules,
     pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, oldLevels: structural.old, price, asOf }),
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly, undefined, instrument ? { inception: instrument.inception, name: instrument.name ?? null } : null));
       return windowTurns.get(direction) ?? null;
     },
   };
@@ -1047,6 +1048,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           ? {
               sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
               inception: instrument?.inception ?? null,
+              name: instrument?.name ?? null,
               marketDaily: marketDailyBars ?? null,
               monthly: monthlyBars ? priorMonthly : null,
               monthlyLong: longMonthlyBars
