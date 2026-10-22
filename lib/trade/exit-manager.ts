@@ -74,7 +74,8 @@ import {
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
-import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { badNewsOffer } from "@/lib/gann/badNews";
 import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
@@ -340,6 +341,12 @@ async function advance(
     run.closed++;
     run.notes.push(`${plan.symbol}: ${action.explanation}`);
     return;
+  }
+
+  // Cover shorts on bad news (A-EXIT-04): offered while the short stays open.
+  if (plan.side === "short") {
+    const news = await readLiveBadNews({ symbol: plan.symbol, side: plan.side, entryPrice });
+    if (news) run.notes.push(badNewsOffer(plan.symbol, news));
   }
 
   if (action.kind === "replace_stop") {

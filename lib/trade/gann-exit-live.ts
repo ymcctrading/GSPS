@@ -26,7 +26,8 @@ import type { Bar } from "@/lib/types";
 import { monthlyWithCurrent } from "@/lib/gann/leadership";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { assertLiveMarketData } from "@/lib/data/feed-mode";
-import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { alpacaConfigured, fetchNews, isCryptoSymbol } from "@/lib/data/alpaca";
+import { readBadNews, type BadNewsReading } from "@/lib/gann/badNews";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { readGannExit, type GannExitReading } from "@/lib/gann/exitRules";
@@ -165,6 +166,63 @@ export async function readLiveRebuy(input: {
     return gannRebuy({ side: input.side, extreme: input.extreme, trend: readGannTrend(daily).direction, entryPrice: input.entryPrice });
   } catch (err) {
     console.error(`gann-exit-live: re-buy ${input.symbol} — ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+/** A week back is enough to reach the prior session across a weekend or holiday. */
+const NEWS_LOOKBACK_DAYS = 7;
+const ET_STAMP = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+/** A timestamp as New York "YYYY-MM-DD HH:MM". */
+function etStamp(iso: string): string {
+  const p = Object.fromEntries(ET_STAMP.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+const newsCache = new Map<string, { day: string; reading: BadNewsReading | null }>();
+
+/**
+ * Cover shorts on bad news (A-EXIT-04, `lib/gann/badNews.ts`), read once per
+ * symbol and New York day on the completed sessions and the symbol's news.
+ * Null for a long, for crypto, without a news feed, or when either read fails: the offer
+ * is a note, so a failed read only leaves it out.
+ */
+export async function readLiveBadNews(input: {
+  symbol: string;
+  side: "long" | "short";
+  entryPrice: number;
+  now?: Date;
+}): Promise<BadNewsReading | null> {
+  // Equities only: the window is read from the 4 PM New York close.
+  if (input.side !== "short" || isCryptoSymbol(input.symbol) || !alpacaConfigured()) return null;
+  const now = input.now ?? new Date();
+  const day = etDateKey(now);
+  const key = `${input.symbol.toUpperCase()}:${input.entryPrice}`;
+  const hit = newsCache.get(key);
+  if (hit && hit.day === day) return hit.reading;
+  try {
+    const { bars: daily } = await completedDailyBars(input.symbol, now);
+    const news = await fetchNews(input.symbol, new Date(now.getTime() - NEWS_LOOKBACK_DAYS * 86_400_000));
+    const reading = readBadNews({
+      side: input.side,
+      entryPrice: input.entryPrice,
+      daily,
+      news,
+      etStamp: etStamp,
+    });
+    newsCache.set(key, { day, reading });
+    return reading;
+  } catch (err) {
+    console.error(`gann-exit-live: bad news ${input.symbol} — ${err instanceof Error ? err.message : String(err)}`);
+    // Read again tomorrow, not on every pass of today's.
+    newsCache.set(key, { day, reading: null });
     return null;
   }
 }
