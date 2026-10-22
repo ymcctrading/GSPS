@@ -18,6 +18,8 @@
  * that — see `StopCheck`.
  */
 
+import { priceUsd } from "@/lib/strat/priceText";
+
 /**
  * The minimal shape `isInvalidatedByStop` actually needs: a direction and the
  * stop it's staked on. Deliberately smaller than `InvalidatableOrder` below —
@@ -66,7 +68,7 @@ export function invalidationReason(order: InvalidatableOrder, market: number): s
   );
 }
 
+// A sub-dollar order keeps its own places (review of #399): $0.1612, not $0.16.
 function formatUsd(n: number | null): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return `$${n.toFixed(2)}`;
+  return priceUsd(n);
 }

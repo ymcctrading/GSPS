@@ -160,8 +160,19 @@ export const TOTAL_POINTS = CRITERION_KEYS.length;
  * one. See AGENTS.md's git history for the retired "Execute collapse
  * stopgap" section this closes out.
  */
-export const EXECUTE_SCORE_THRESHOLD = 6;
-export const WATCH_SCORE_THRESHOLD = 3.5;
+/*
+ * Restored to 7/4, 2026-10-21 (owner: "we should be using 7/4 as the cut
+ * offs"). The 6/3.5 confirmation above was read on the 2026-09-23 run, which
+ * measured the old 15-minute STRAT-candidate trigger (F3.1-F3.3, fixed
+ * 2026-09-25) and none of the nine pillars, so nothing measured since backs
+ * 6/3.5 over the protocol's own 7/4: the 2026-10-20 score-band run put band 7
+ * at -0.009R (267) and 8-9 at +0.068R (106), with the even-money hold since
+ * fixed. Gann gives no cutoff on a count of his conditions; this is a display
+ * decision (AGENTS.md, "The scorecard's role"). The six-year daily rerun on
+ * the current version measures it.
+ */
+export const EXECUTE_SCORE_THRESHOLD = 7;
+export const WATCH_SCORE_THRESHOLD = 4;
 
 /**
  * Floor and ceiling for one criterion's weight. A criterion may end up worth

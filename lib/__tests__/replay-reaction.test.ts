@@ -16,6 +16,12 @@ vi.mock("@/lib/scan/entrySelection", async () => {
     ...actual,
     armSessionEntries: (...args: Parameters<typeof actual.armSessionEntries>) =>
       actual.armSessionEntries(...args).filter((a) => a.setupKind === "reversion"),
+    // The replay takes one entry a session (`chooseSessionEntry`); here it is
+    // always the reversion, so the reaction rule is read on that side alone.
+    chooseSessionEntry: (...args: Parameters<typeof actual.chooseSessionEntry>) => {
+      const reversion = actual.armSessionEntries(...args).find((a) => a.setupKind === "reversion");
+      return reversion ? { ...reversion, setAside: null } : null;
+    },
   };
 });
 import {

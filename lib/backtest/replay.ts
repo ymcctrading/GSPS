@@ -37,6 +37,9 @@
  *     properties of one symbol's setup.
  *   - With no trend on any chart, one reversion: the nearer of the two
  *     sides' buying points (fork F4 a), as `scanTicker` arms it.
+ *   - One a session, as the live scan shows (`chooseSessionEntry`, since
+ *     2026-10-21): the continuation when it armed, else the reversion. The
+ *     other side is set aside, not traded.
  *
  * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
  * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
@@ -68,7 +71,7 @@ import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetP
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  armSessionEntries,
+  chooseSessionEntry,
   entryChart,
   gannEntryOf,
   preferWithTrend,
@@ -1092,12 +1095,16 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           breakawayVolumeMet(entryDaily, trigger.direction, gannBreakLine(trigger.reactionEntry, trigger.reactionStop)),
         pivotAt: trigger.formedAt,
       });
-      // The reversion against the trend, and the buying point with it on the
-      // trend alone (PLAN.md item 6 step 11), the scan's two passes.
+      // The one buying point the live scan shows for the session
+      // (`chooseSessionEntry`): the one with the trend when it armed, else the
+      // reversion. Before 2026-10-21 the replay traded every entry that armed
+      // (`armSessionEntries`), so when both sides armed it also traded the
+      // reversion against the trend, which the live scan sets aside: "never
+      // buck the trend" (never-failing rule 5, Commodities pp. 43-45; review of
+      // #395, finding 4).
       if (entryDaily.length > 0) {
-        for (const { setupKind, trigger } of armSessionEntries(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)) {
-          triggers.push(sessionTrigger(setupKind, trigger));
-        }
+        const chosen = chooseSessionEntry(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
+        if (chosen) triggers.push(sessionTrigger(chosen.setupKind, chosen.trigger));
       }
       arm = {
         context,
@@ -1121,6 +1128,23 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // entry fills on the live candle, so it keeps the live session's plan.
   const sessionBars = bars.length > 1 && bars.every((b, j) => j === 0 || b.t.slice(0, 10) !== bars[j - 1].t.slice(0, 10));
   const closedBarRule = entryRule === "reaction" || entryRule === "confirmed";
+  // Whether the reaction rule below fires its entry on this closed bar, read
+  // without changing its state: crossed (or nothing to cross), a bar after
+  // the crossing, and this candle into the zone. Its close is not read: on a
+  // daily bar the close comes after a fill the live order made in the
+  // session, so a close through the stop is that trade's stop-out, not an
+  // entry called off (review of #412: o 101 / l 96.5 / c 96.8 against a stop
+  // of 97 is a loss live). Only daily bars are read here.
+  // Only a touch on this bar counts: an entry carried from an earlier bar's
+  // touch (`state.reacted`) keeps the usual breach reading, which retires the
+  // plan when this bar broke the stop, the conservative side.
+  const reactionFiresOn = (pivotKey: string, trigger: GannEntryTrigger, date: string, closed: Bar): boolean => {
+    const state = crossing.get(pivotKey);
+    const crossed = trigger.held || restsWithoutCrossing(trigger.kind) || state?.crossed === true;
+    if (!crossed) return false;
+    if (closed.t.slice(0, 10) < (state?.since ?? date) || !(closed.t > (state?.crossedAt ?? ""))) return false;
+    return tradedIntoBuyZone(closed, trigger.direction, trigger.reactionEntry);
+  };
 
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(0, i);
@@ -1186,7 +1210,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           retiredSessionPlans.add(planKey);
         }
       }
-      if ((!firstRead || closedSession) && planStop !== null) {
+      // On daily bars the session's one closed bar is also the bar a reaction
+      // entry fires on: the candle traded into the zone (an order at the
+      // market, live, on a 15-minute bar) and may have reached the stop
+      // later the same day. The plan is not retired before the entry; the
+      // trade is booked and stopped on that bar below. Retiring it dropped
+      // exactly the trades stopped out the same day (review of #386: long
+      // 100, stop 97, bar o 101 / l 96.5 / c 98 left no trade, where live it
+      // is a loss).
+      const firesOnClosedBar =
+        closedSession && entryRule === "reaction" && breakawayVolume && reactionFiresOn(pivotKey, trigger, date, history[history.length - 1]);
+      if ((!firstRead || closedSession) && planStop !== null && !firesOnClosedBar) {
         const closed = history[history.length - 1];
         if (closed.t.slice(0, 10) === date) {
           if (isStopBreachedByBar(trigger.direction, planStop, closed)) {
@@ -1228,7 +1262,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           // After the crossing close: a close through the stop calls the
           // entry off, as `confirmationFromBars` reads it; a candle into the
           // zone makes it a market order.
-          if (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop) {
+          if (!firesOnClosedBar && (long ? closed.c <= trigger.reactionStop : closed.c >= trigger.reactionStop)) {
             consumedPivots.add(pivotKey);
             crossing.delete(pivotKey);
             continue;
@@ -1363,6 +1397,63 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // the reaction entry.
       if (planLevels && (long ? target <= planned : target >= planned)) {
         dropped.targetNotBeyondEntry++;
+        continue;
+      }
+
+      // The daily bar the reaction entry fired on also traded through the stop
+      // (`firesOnClosedBar` kept the plan for it). Live, the order filled in
+      // the zone during that session and its stop took it out the same day,
+      // so the trade is booked at the reaction entry and stopped on that bar:
+      // a loss of the whole risk plus costs, the conservative order when the
+      // bar cannot say which came first. Filling it at the next open instead
+      // dropped the stop the firing bar had already reached (review of #412).
+      // A bar that opened inside the zone fills at its open; one that opened
+      // beyond the stop is refused, as production refuses a fill outside its
+      // bracket (`fill_outran_bracket`). Intraday bars never take this path:
+      // the stop is walked from the candle after the zone touch, as live.
+      const firingBar = history[history.length - 1];
+      if (firesOnClosedBar && isStopBreachedByBar(trigger.direction, stop, firingBar)) {
+        if (long ? firingBar.o <= stop : firingBar.o >= stop) {
+          refusedFills++;
+          continue;
+        }
+        const fill = long ? Math.min(firingBar.o, trigger.reactionEntry) : Math.max(firingBar.o, trigger.reactionEntry);
+        trades.push({
+          symbol, openedAt: firingBar.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
+          entry: fill, stop, target,
+          atrMultiple: executionAtr > 0 ? Math.abs(fill - stop) / executionAtr : 0,
+          score: decision.score,
+          outputState: decision.outputState,
+          criteria: criteriaOf(decision),
+          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, fill, path?.takeProfit1, {
+            time: firingBar.t,
+            barMinutes: barMinutesAt(bars, i - 1),
+          }),
+          largeCap,
+          yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, firingBar.t, trigger.direction) : undefined,
+          selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
+          barsHeld: 1,
+          closedAt: firingBar.t,
+          outcome: "loss",
+          ...(exitRule === "gann" || exitRule === "gann-runner" ? { exitReason: "initial" as const } : {}),
+          crossedLevel: trigger.kind === "hold" ? null : trigger.level,
+          exitPrice: stop,
+          rMultiple: (dir * (stop - fill) - costPerShare) / risk,
+          ambiguous: true,
+        });
+        if ((exitRule === "gann" || exitRule === "gann-runner") && reverseWhenCaught) {
+          const sharesOn = instrument ? (date: string) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined;
+          for (const r of walkReversals({
+            bars, dailyBars: dailyBars ?? [], caughtAt: i - 1, side: long ? "long" : "short",
+            cause: "initial", brokenLevel: stop, extreme: fill, maxBarsHeld,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled,
+          })) {
+            trades.push({
+              symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
+              largeCap, ambiguous: false, crossedLevel: null, derived: "reversal", ...r,
+            });
+          }
+        }
         continue;
       }
 

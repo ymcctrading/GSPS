@@ -14,10 +14,17 @@
  * one ATR from 2026-09-14, and one raw dollar before that; see
  * `SQUARE_TOLERANCE_BARS` below.
  *
- * Shares `lib/analysis/pivots.ts`'s pivot detection and the dual-anchor
- * convention `computeAngleSlopes` already uses (a low anchor for the bullish
- * reading, a high anchor for the bearish one), so a bullish setup is judged
- * against the swing that actually bears on it.
+ * Shares `lib/analysis/pivots.ts`'s pivot detection and returns one reading
+ * from the last swing low and one from the last swing high. The score reads
+ * the one against the trade (the high for a long, the low for a short;
+ * `lib/scoring/score.ts`, 2026-10-21).
+ *
+ * Each reading is signed the way Gann measures it: "up from lows" and "down
+ * from highs" (Master Course Ch. 18, PDF p.440: low 50, price 102, up 52 =
+ * 1 year, "a Time and Price Balance"; high 182, now 130, down 52 = 1 year;
+ * "when Time and Space balance, the stock makes top or bottom", PDF p.202).
+ * A price above the last high has not come down from it, and a price below
+ * the last low has not come up from it, so neither squares (review of #389).
  */
 
 import { findPivots } from "@/lib/analysis/pivots";
@@ -55,7 +62,11 @@ export interface TimePriceSquareReading {
   priceMove: number;
   /** `priceMove` in Gann points — the quantity actually compared against `barsSinceAnchor`. */
   priceMovePoints: number;
-  /** Whether elapsed bars and the price move in points land within `SQUARE_TOLERANCE_BARS` of each other. */
+  /**
+   * Whether price has moved away from the anchor the way Gann measures it (up
+   * from a low, down from a high) and elapsed bars and that move in points
+   * land within `SQUARE_TOLERANCE_BARS` of each other.
+   */
   squared: boolean;
 }
 
@@ -77,13 +88,16 @@ export function computeTimePriceSquare(bars: Bar[], currentPrice: number): TimeP
     if (elapsed <= 0) continue;
     const priceMove = Math.abs(currentPrice - anchor.price);
     const priceMovePoints = priceMove / unit;
+    // Up from the low, down from the high: a move beyond the anchor the other
+    // way is not the swing this pivot measures.
+    const awayFromAnchor = anchor.kind === "low" ? currentPrice >= anchor.price : currentPrice <= anchor.price;
     readings.push({
       anchorKind: anchor.kind,
       anchorPrice: anchor.price,
       barsSinceAnchor: elapsed,
       priceMove,
       priceMovePoints,
-      squared: Math.abs(elapsed - priceMovePoints) <= SQUARE_TOLERANCE_BARS,
+      squared: awayFromAnchor && Math.abs(elapsed - priceMovePoints) <= SQUARE_TOLERANCE_BARS,
     });
   }
   return readings;

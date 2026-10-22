@@ -28,6 +28,8 @@ function toRow(r: ScanResult): ScanRow {
     setupKind: r.setupKind,
     currentPrice: r.currentPrice,
     dayRange: r.dayRange ?? null,
+    decisionState: r.decision.decisionState ?? null,
+    setAsideEntry: r.setAsideEntry ?? null,
     signal: toPublicSignalSummary(
       r.signals?.trendPullback,
       r.signals?.trendBreakout,

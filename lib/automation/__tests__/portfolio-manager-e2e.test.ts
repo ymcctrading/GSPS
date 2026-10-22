@@ -81,7 +81,11 @@ import { isTriggered } from "@/lib/brokers/simulator";
  * query), automation_profiles/automation_events (lib/automation/service.ts),
  * and orders/protocol_exits (lib/trade/place-order.ts's paper ledger write).
  */
-function fakeSupabase(automationProfileRow: Record<string, unknown> | null, prefs: unknown = null) {
+function fakeSupabase(
+  automationProfileRow: Record<string, unknown> | null,
+  prefs: unknown = null,
+  monitors: { symbol: string; direction: string; score: number | null }[] = [],
+) {
   const plans: Record<string, unknown>[] = [];
   const audit: Record<string, unknown>[] = [];
   const automationProfiles: Record<string, unknown>[] = [];
@@ -295,6 +299,11 @@ function fakeSupabase(automationProfileRow: Record<string, unknown> | null, pref
       if (name === "automation_events") return automationEventsTable();
       if (name === "orders") return ordersTable();
       if (name === "protocol_exits") return protocolExitsTable();
+      if (name === "active_monitors") {
+        // The member's monitors and their Gann scores (none unless a test passes some).
+        const q = { select: () => q, eq: () => q, in: () => q, order: () => Promise.resolve({ data: monitors, error: null }) };
+        return q;
+      }
       if (name === "settings") {
         // No stored preferences unless a test passes some: rule defaults apply.
         const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: prefs ? { prefs } : null, error: null }) };
@@ -635,8 +644,9 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(orders).toHaveLength(0);
   });
 
-  it("activates every armed candidate, best Signal Engine tier first", async () => {
-    const { client, automationProfiles } = fakeSupabase({
+  it("activates every armed candidate, best score first, never by the old tier", async () => {
+    const { client, automationProfiles } = fakeSupabase(
+      {
       user_id: "user-1",
       is_automation_enabled: true,
       risk_profile: "PASSIVE",
@@ -644,11 +654,22 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
       volatility_trigger_type: "DOLLAR_AMOUNT",
       volatility_trigger_value: 1,
       execution_mode: "paper",
-    });
+      },
+      null,
+      // Gann's scores run against the old tiers on purpose: the weighted grade
+      // is no longer read. DDD's monitor reads the other direction, so its
+      // score is not lent to the plan and it goes last.
+      [
+        { symbol: "AAA", direction: "bullish", score: 8 },
+        { symbol: "BBB", direction: "bullish", score: 6 },
+        { symbol: "CCC", direction: "bullish", score: 7 },
+        { symbol: "DDD", direction: "bearish", score: 9 },
+      ],
+    );
 
-    // Inserted worst-tier-first, on purpose -- the manager must re-rank by
-    // tier rather than trust query/insertion order. There is no daily count
-    // (Q8; removed 2026-10-21), so all four go ahead.
+    // Inserted in query order AAA, BBB, CCC, DDD; the manager must re-rank by
+    // Gann's score. There is no daily count (Q8; removed 2026-10-21), so all
+    // four go ahead.
     const watchlistPlan = await createArmedPlan(client, "user-1", {
       instrument: "AAA",
       signalId: "sig-watchlist",
@@ -695,7 +716,7 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(result.plansSkipped).toBe(0);
 
     const activatedPlanIds = automationProfiles.map((p) => p.plan_id);
-    expect(activatedPlanIds).toEqual([aPlusPlan, aTierPlan, qualifiedPlan, watchlistPlan]);
+    expect(activatedPlanIds).toEqual([watchlistPlan, aTierPlan, qualifiedPlan, aPlusPlan]);
   });
 
   it("keeps no daily count: a fourth activation the same day still goes ahead", async () => {

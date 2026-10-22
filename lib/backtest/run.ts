@@ -93,7 +93,7 @@ export interface BacktestRequest {
    * Attribute factors within a score band instead of a verdict bucket —
    * `[5, 5]` for "one point short of Execute", say. Takes precedence over
    * `attributeWithin` when set, because a verdict bucket cannot express a
-   * band narrower than itself (Watch is 3.5 up to 6 in one bucket).
+   * band narrower than itself (Watch is 4 up to 7 in one bucket).
    */
   attributeScoreRange?: [number, number];
   /** Criterion weights to score with. Defaults to one point each. */
@@ -177,7 +177,11 @@ export interface RunSummary {
   required: RequiredMetrics;
   /** Trades still open when the data ended (`exitReason: "open_at_end"`), marked to market at the last close. */
   openAtEnd: number;
-  /** The same scope without the `open_at_end` trades: what the closed trades realised. */
+  /**
+   * The same scope without the `open_at_end` trades. Trades held to the
+   * 10-session limit stay in, marked at that close, so this is not a
+   * realised-only figure (`ClosedSummary`).
+   */
   closed: ClosedSummary;
 }
 

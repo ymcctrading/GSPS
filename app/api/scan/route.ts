@@ -21,6 +21,7 @@ import { withTimeout } from "@/lib/utils";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import type { ScanResult } from "@/lib/types";
+import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 
 // Without this, the route falls back to Vercel's default function duration
 // (10s on Hobby), which is shorter than the 30s `withTimeout` below —
@@ -56,7 +57,11 @@ export async function GET(req: NextRequest) {
     // rows are per-user and RLS-scoped, so an anonymous scan has no row to own.
     // Failures are swallowed inside the recorder — a scan that produced an answer
     // must not 500 because telemetry could not be stored.
-    if (userId) {
+    // A single-ticker scan stays readable on synthetic data, like the public
+    // chart, but in production nothing it found is recorded, monitored or
+    // alerted on (review of #399; lib/data/feed-mode.ts).
+    const syntheticRefusal = userId ? syntheticDataRefusal(`record or alert on a scan of ${ticker}`) : null;
+    if (userId && !syntheticRefusal) {
       await recordScanVerdict(userId, result, {
         // The bar this scan actually ran on — `EXECUTION_TIMEFRAME`
         // (lib/timeframe.ts), not a hardcoded "15Min" that would mislabel
@@ -103,7 +108,7 @@ export async function GET(req: NextRequest) {
       {
         error: timedOut ? "The scan took too long. Please try again." : "The scan could not be completed. Please try again.",
         direction: "none",
-        decision: { outputState: "Reject", score: 0 },
+        decision: { outputState: "Reject", score: 0, decisionState: "standDown" },
       } as ScanResult,
       { status: timedOut ? 504 : 502 }
     );

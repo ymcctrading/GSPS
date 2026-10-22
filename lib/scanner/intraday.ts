@@ -73,6 +73,7 @@
  * problems, and until now there was no way to tell them apart.
  */
 
+import { priceText } from "@/lib/strat/priceText";
 import {
   ASSET_KIND_LABELS,
   MOVE_BASIS_LABELS,
@@ -803,8 +804,8 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     passed: floor.ok,
     detail: floor.ok
       ? avgVolume != null
-        ? `Trades at ${metrics.last.toFixed(2)} on ${formatVolume(avgVolume, volumeUnit)} a day.`
-        : `Trades at ${metrics.last.toFixed(2)}; no daily-volume history was supplied, so only the price floor was applied.`
+        ? `Trades at ${priceText(metrics.last)} on ${formatVolume(avgVolume, volumeUnit)} a day.`
+        : `Trades at ${priceText(metrics.last)}; no daily-volume history was supplied, so only the price floor was applied.`
       : floor.reason!,
   });
   if (!floor.ok) {
@@ -826,7 +827,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   checks.push({
     name: "Reference price",
     passed: true,
-    detail: `Measured from ${MOVE_BASIS_LABELS[dayMove.basis]} at ${dayMove.reference.toFixed(2)}.`,
+    detail: `Measured from ${MOVE_BASIS_LABELS[dayMove.basis]} at ${priceText(dayMove.reference)}.`,
   });
 
   const candidates = [
@@ -930,7 +931,7 @@ function detectOldLevelCross(
     checks.push({
       name: "Old top or bottom crossed",
       passed: false,
-      detail: `No bar has closed beyond yesterday's range (${m.priorLow.toFixed(2)}–${m.priorHigh.toFixed(2)}) by the allowance of ${m.point.toFixed(2)}.`,
+      detail: `No bar has closed beyond yesterday's range (${priceText(m.priorLow)}–${priceText(m.priorHigh)}) by the allowance of ${priceText(m.point)}.`,
     });
     return null;
   }
@@ -945,7 +946,7 @@ function detectOldLevelCross(
   checks.push({
     name: "Old top or bottom crossed",
     passed: true,
-    detail: `Closed ${Math.abs(move.absolute).toFixed(2)} ${direction === "up" ? "above yesterday's high" : "below yesterday's low"} at ${level.toFixed(2)}; relative volume ${formatRvol(m.relativeVolume)}.`,
+    detail: `Closed ${priceText(Math.abs(move.absolute))} ${direction === "up" ? "above yesterday's high" : "below yesterday's low"} at ${priceText(level)}; relative volume ${formatRvol(m.relativeVolume)}.`,
   });
 
   const factors: ConfidenceFactor[] = [
@@ -953,7 +954,7 @@ function detectOldLevelCross(
       label: direction === "up" ? "Yesterday's high crossed on a close" : "Yesterday's low broken on a close",
       passed: true,
       weight: 30,
-      detail: `The last bar closed at ${m.lastClose.toFixed(2)}, beyond ${level.toFixed(2)} by more than the allowance of ${m.point.toFixed(2)}.`,
+      detail: `The last bar closed at ${priceText(m.lastClose)}, beyond ${priceText(level)} by more than the allowance of ${priceText(m.point)}.`,
     },
     {
       label: "Volume confirms",
@@ -979,7 +980,7 @@ function detectOldLevelCross(
     move,
     factors,
     invalidation: direction === "up" ? level - m.point : level + m.point,
-    whyThisAppeared: `${input.symbol} closed ${direction === "up" ? "above yesterday's high" : "below yesterday's low"} at ${level.toFixed(2)}, by more than the method's allowance. An old top that is crossed tends to become a floor, and an old bottom that is broken tends to become a ceiling, so the level that would say this is wrong is a close back ${direction === "up" ? "under" : "over"} it by the same allowance — ${volumeConfirmed ? "and the extra volume behind it says the move has participation" : "though volume has not confirmed it, which makes the cross less reliable"}.`,
+    whyThisAppeared: `${input.symbol} closed ${direction === "up" ? "above yesterday's high" : "below yesterday's low"} at ${priceText(level)}, by more than the method's allowance. An old top that is crossed tends to become a floor, and an old bottom that is broken tends to become a ceiling, so the level that would say this is wrong is a close back ${direction === "up" ? "under" : "over"} it by the same allowance — ${volumeConfirmed ? "and the extra volume behind it says the move has participation" : "though volume has not confirmed it, which makes the cross less reliable"}.`,
   });
 }
 
@@ -1015,7 +1016,7 @@ function detectTrendContinuation(
     passed: beyondMidpoint,
     detail: beyondMidpoint
       ? `The swing chart is ${direction === "up" ? "up" : "down"} and price is on that side of the day's 50% point.`
-      : `The swing chart is ${direction === "up" ? "up" : "down"}, but price is not ${direction === "up" ? "above" : "below"} the day's 50% point (${m.midpoint.toFixed(2)}).`,
+      : `The swing chart is ${direction === "up" ? "up" : "down"}, but price is not ${direction === "up" ? "above" : "below"} the day's 50% point (${priceText(m.midpoint)}).`,
   });
   if (!beyondMidpoint) return null;
 
@@ -1025,7 +1026,7 @@ function detectTrendContinuation(
   const factors: ConfidenceFactor[] = [
     { ...swingFactor(m, direction), weight: 30 },
     ...hourlyFactors(m, direction),
-    { label: "On the right side of the day's 50% point", passed: true, weight: 20, detail: `The middle of today's range is ${m.midpoint.toFixed(2)}.` },
+    { label: "On the right side of the day's 50% point", passed: true, weight: 20, detail: `The middle of today's range is ${priceText(m.midpoint)}.` },
     {
       label: direction === "up" ? "Above yesterday's high" : "Below yesterday's low",
       passed:
@@ -1036,7 +1037,7 @@ function detectTrendContinuation(
       detail:
         m.priorHigh === null || m.priorLow === null
           ? "No prior session to compare with."
-          : `Yesterday's range was ${m.priorLow.toFixed(2)}–${m.priorHigh.toFixed(2)}.`,
+          : `Yesterday's range was ${priceText(m.priorLow)}–${priceText(m.priorHigh)}.`,
     },
     {
       label: "Volume sustained",
@@ -1059,7 +1060,7 @@ function detectTrendContinuation(
     move,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${m.midpoint.toFixed(2)}.`,
+    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}.`,
   });
 }
 
@@ -1102,7 +1103,7 @@ function detectSpaceOverbalance(
   checks.push({
     name: "Over-balance of space",
     passed: qualifies,
-    detail: `The ${ledger.trend} campaign's current reaction is ${current.toFixed(2)} points (${currentPct.toFixed(1)}%) against its greatest of ${greatest.toFixed(2)} points${qualifies ? ", and today's move made the difference" : ""}.`,
+    detail: `The ${ledger.trend} campaign's current reaction is ${priceText(current)} points (${currentPct.toFixed(1)}%) against its greatest of ${priceText(greatest)} points${qualifies ? ", and today's move made the difference" : ""}.`,
   });
   if (!qualifies) return null;
 
@@ -1111,7 +1112,7 @@ function detectSpaceOverbalance(
       label: "Greatest reaction of the campaign exceeded",
       passed: true,
       weight: 35,
-      detail: `${current.toFixed(2)} points (${currentPct.toFixed(1)}%) against the trend, more than any reaction since the campaign began on ${ledger.campaignStartDate.slice(0, 10)} (largest ${greatest.toFixed(2)} points).`,
+      detail: `${priceText(current)} points (${currentPct.toFixed(1)}%) against the trend, more than any reaction since the campaign began on ${ledger.campaignStartDate.slice(0, 10)} (largest ${priceText(greatest)} points).`,
     },
     {
       label: "Volume supports it",
@@ -1140,7 +1141,7 @@ function detectSpaceOverbalance(
     move: dayMove,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${current.toFixed(1)}%) larger than any reaction since it began (${greatest.toFixed(1)}%). In this method that over-balance says the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
+    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). In this method that over-balance says the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
 
@@ -1180,8 +1181,8 @@ function detectOvernightTurn(
   const anchor = direction === "up" ? r.lastBottom : r.lastTop;
   const cause =
     direction === "up"
-      ? `Today's low held above yesterday's bottom: the Overnight Chart turned up${anchor !== null ? ` from its last bottom at ${anchor.toFixed(2)}` : ""}.`
-      : `Today's low broke yesterday's bottom by more than ¼ point: the Overnight Chart turned down${anchor !== null ? ` from its last top at ${anchor.toFixed(2)}` : ""}.`;
+      ? `Today's low held above yesterday's bottom: the Overnight Chart turned up${anchor !== null ? ` from its last bottom at ${priceText(anchor)}` : ""}.`
+      : `Today's low broke yesterday's bottom by more than ¼ point: the Overnight Chart turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
   checks.push({ name: "Overnight Chart", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
     { label: "The Overnight Chart turned today", passed: true, weight: 30, detail: cause },
@@ -1198,7 +1199,7 @@ function detectOvernightTurn(
     move: dayMove,
     factors,
     invalidation: stop ?? m.midpoint,
-    whyThisAppeared: `${cause} The method trades with the line and keeps its stop 1 point beyond the last Overnight ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${stop.toFixed(2)}` : ""}; when that stop is caught the line has reversed.`,
+    whyThisAppeared: `${cause} The method trades with the line and keeps its stop 1 point beyond the last Overnight ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${priceText(stop)}` : ""}; when that stop is caught the line has reversed.`,
   });
 }
 
@@ -1236,7 +1237,7 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
     move,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${m.midpoint.toFixed(2)} undoes it.`,
+    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${priceText(m.midpoint)} undoes it.`,
   });
 }
 
@@ -1289,7 +1290,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   const up = plan.direction === "up";
   const broke = up ? m.low <= plan.stop : m.high >= plan.stop;
   if (broke) {
-    checks.push({ name, passed: false, detail: `The daily plan's stop (${plan.stop.toFixed(2)}) traded this session, so the plan is retired.` });
+    checks.push({ name, passed: false, detail: `The daily plan's stop (${priceText(plan.stop)}) traded this session, so the plan is retired.` });
     return null;
   }
   const touched = up ? m.low <= plan.entry + m.point : m.high >= plan.entry - m.point;
@@ -1297,12 +1298,12 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     checks.push({
       name,
       passed: false,
-      detail: `Price has not reacted to the plan's entry (${plan.entry.toFixed(2)}) this session; the session's ${up ? "low" : "high"} is ${(up ? m.low : m.high).toFixed(2)}.`,
+      detail: `Price has not reacted to the plan's entry (${priceText(plan.entry)}) this session; the session's ${up ? "low" : "high"} is ${priceText(up ? m.low : m.high)}.`,
     });
     return null;
   }
   if (plan.tp1 != null && (up ? m.last >= plan.tp1 : m.last <= plan.tp1)) {
-    checks.push({ name, passed: false, detail: `Price is already at the plan's first target (${plan.tp1.toFixed(2)}).` });
+    checks.push({ name, passed: false, detail: `Price is already at the plan's first target (${priceText(plan.tp1)}).` });
     return null;
   }
   const turned = m.swingTrend === plan.direction && (up ? m.lastClose > plan.entry : m.lastClose < plan.entry);
@@ -1310,7 +1311,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     checks.push({
       name,
       passed: false,
-      detail: `Price reacted to the plan's entry (${plan.entry.toFixed(2)}), but the session's swing chart has not turned ${plan.direction} with a close back ${up ? "above" : "below"} it yet.`,
+      detail: `Price reacted to the plan's entry (${priceText(plan.entry)}), but the session's swing chart has not turned ${plan.direction} with a close back ${up ? "above" : "below"} it yet.`,
     });
     return null;
   }
@@ -1326,8 +1327,8 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   const entry = m.lastClose;
   const rebuy = up ? extreme > m.low + allowance : extreme < m.high - allowance;
   const cause = rebuy
-    ? `${input.symbol} reacted to its daily plan's entry at ${plan.entry.toFixed(2)} earlier, and has now made a ${up ? "higher bottom" : "lower top"} at ${extreme.toFixed(2)} and turned ${plan.direction} again: the next buying point while the plan stands.`
-    : `${input.symbol} reacted to its daily plan's entry at ${plan.entry.toFixed(2)}, held, and the session's swing chart turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
+    ? `${input.symbol} reacted to its daily plan's entry at ${priceText(plan.entry)} earlier, and has now made a ${up ? "higher bottom" : "lower top"} at ${priceText(extreme)} and turned ${plan.direction} again: the next buying point while the plan stands.`
+    : `${input.symbol} reacted to its daily plan's entry at ${priceText(plan.entry)}, held, and the session's swing chart turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
   checks.push({ name, passed: true, detail: cause });
 
   // Measured from the closed bar, as the plan's entry and its pays-the-risk
@@ -1339,7 +1340,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
       label: "The daily plan's level held",
       passed: true,
       weight: 30,
-      detail: `Daily plan (${plan.verdict}): entry ${plan.entry.toFixed(2)}, stop ${plan.stop.toFixed(2)}.`,
+      detail: `Daily plan (${plan.verdict}): entry ${priceText(plan.entry)}, stop ${priceText(plan.stop)}.`,
     },
     {
       label: "The daily verdict is Execute",
@@ -1352,12 +1353,12 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     midpointFactor(m, plan.direction),
   ];
   const sessionPlan: TradePlan = {
-    confirmation: `Done: a bar closed back ${up ? "above" : "below"} the plan's entry after the reaction. Enter near ${entry.toFixed(2)}; don't chase a bar that has run away from the stop.`,
+    confirmation: `Done: a bar closed back ${up ? "above" : "below"} the plan's entry after the reaction. Enter near ${priceText(entry)}; don't chase a bar that has run away from the stop.`,
     invalidation: stop,
     firstTarget: plan.tp1,
     masterTarget: plan.mtp,
     paysRisk: targetPaysRisk(entry, stop, plan.tp1),
-    cancelIf: `The daily plan's stop at ${stop.toFixed(2)} trades.`,
+    cancelIf: `The daily plan's stop at ${priceText(stop)} trades.`,
   };
   return buildAlert({
     now,
@@ -1369,7 +1370,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     factors,
     invalidation: stop,
     plan: sessionPlan,
-    whyThisAppeared: `${cause} The stop is the daily plan's own, at ${stop.toFixed(2)}, and your trade style moves it once filled; the targets stay the daily plan's${plan.tp1 != null ? `, ${plan.tp1.toFixed(2)}` : ""}${plan.mtp != null ? ` and ${plan.mtp.toFixed(2)}` : ""}, because the money is made on the swing, not the day.`,
+    whyThisAppeared: `${cause} The stop is the daily plan's own, at ${priceText(stop)}, and your trade style moves it once filled; the targets stay the daily plan's${plan.tp1 != null ? `, ${priceText(plan.tp1)}` : ""}${plan.mtp != null ? ` and ${priceText(plan.mtp)}` : ""}, because the money is made on the swing, not the day.`,
   });
 }
 
@@ -1407,10 +1408,10 @@ function detectReversalRisk(
   if (!move) return null;
 
   const cause = failedUp
-    ? `Price traded up through yesterday's high at ${m.priorHigh!.toFixed(2)} and has closed back below it by more than the allowance.`
+    ? `Price traded up through yesterday's high at ${priceText(m.priorHigh!)} and has closed back below it by more than the allowance.`
     : failedDown
-      ? `Price traded down through yesterday's low at ${m.priorLow!.toFixed(2)} and has closed back above it by more than the allowance.`
-      : `The day was ${dayMove.direction === "up" ? "up" : "down"} but price has crossed back through the middle of today's range at ${m.midpoint.toFixed(2)}.`;
+      ? `Price traded down through yesterday's low at ${priceText(m.priorLow!)} and has closed back above it by more than the allowance.`
+      : `The day was ${dayMove.direction === "up" ? "up" : "down"} but price has crossed back through the middle of today's range at ${priceText(m.midpoint)}.`;
 
   checks.push({ name: "Reversal risk", passed: true, detail: cause });
 
@@ -1501,7 +1502,7 @@ function midpointFactor(m: SessionMetrics, direction: Direction): ConfidenceFact
     label: "Price on the right side of the day's 50% point",
     passed: onside,
     weight: 15,
-    detail: `Last ${m.last.toFixed(2)} against the day's 50% point ${m.midpoint.toFixed(2)}.`,
+    detail: `Last ${priceText(m.last)} against the day's 50% point ${priceText(m.midpoint)}.`,
   };
 }
 
@@ -1685,11 +1686,11 @@ function continuationPlan(
     risk: invalidation != null ? Math.abs(m.last - invalidation) : null,
   });
   return {
-    confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${m.last.toFixed(2)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
+    confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${priceText(m.last)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
     invalidation,
     firstTarget: target,
     paysRisk: targetPaysRisk(m.last, invalidation, target),
-    cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's 50% point at ${m.midpoint.toFixed(2)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
+    cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's 50% point at ${priceText(m.midpoint)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
   };
 }
 
@@ -1701,7 +1702,7 @@ function continuationPlan(
 function pivotPlan(m: SessionMetrics, direction: Direction, invalidation: number | null): TradePlan {
   const opposite: Direction = direction === "up" ? "down" : "up";
   return {
-    confirmation: `The continuation thesis fails if price closes back ${direction === "up" ? "below" : "above"} ${invalidation != null ? invalidation.toFixed(2) : m.midpoint.toFixed(2)}. Even then, a ${opposite === "up" ? "long" : "short"} needs its own evidence: a close through the day's 50% point in the new direction and a failure to reclaim the level that broke.`,
+    confirmation: `The continuation thesis fails if price closes back ${direction === "up" ? "below" : "above"} ${invalidation != null ? priceText(invalidation) : priceText(m.midpoint)}. Even then, a ${opposite === "up" ? "long" : "short"} needs its own evidence: a close through the day's 50% point in the new direction and a failure to reclaim the level that broke.`,
     invalidation: direction === "up" ? m.high : m.low,
     firstTarget: m.midpoint,
     cancelIf: `Price chops around the day's 50% point without holding either side, or volume drops off. Neither direction is worth trading in that state — standing aside is a position.`,

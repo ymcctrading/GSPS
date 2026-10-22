@@ -46,7 +46,7 @@
  * (now / resting), and it re-enters as the list a plan is shown in.
  */
 
-import { formatUsd } from "@/lib/utils";
+import { priceUsd } from "@/lib/strat/priceText";
 
 export type RestingSide = "buy" | "sell";
 
@@ -111,7 +111,7 @@ export function isResting(input: RestingInput): boolean {
 
 /** "$67.45 (12.3%) below price", for a list row. */
 export function restingDistanceLabel(read: RestingRead): string {
-  return `${formatUsd(read.distance)} (${read.pct.toFixed(1)}%) ${read.entryIs} price`;
+  return `${priceUsd(read.distance)} (${read.pct.toFixed(1)}%) ${read.entryIs} price`;
 }
 
 /**
@@ -121,8 +121,8 @@ export function restingDistanceLabel(read: RestingRead): string {
  */
 export function restingNote(read: RestingRead, entry: number): string {
   const wait = read.reaction
-    ? `waits for a reaction back to ${formatUsd(entry)}`
-    : `waits for price to reach ${formatUsd(entry)}`;
+    ? `waits for a reaction back to ${priceUsd(entry)}`
+    : `waits for price to reach ${priceUsd(entry)}`;
   let note = `Resting order: it ${wait}, ${read.pct.toFixed(1)}% ${read.entryIs} price, more than a day's range away, so it is not a trade to take today.`;
   const t = read.targetsBehindPrice;
   if (t.length > 0) {
