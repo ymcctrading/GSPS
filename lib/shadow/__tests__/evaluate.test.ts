@@ -199,11 +199,11 @@ describe("evaluatePendingShadowSignals", () => {
     expect(fetchBarsMock).not.toHaveBeenCalled();
   });
 
-  it("reads sessions begun by today, least recently checked first, a bounded number a pass", async () => {
+  it("reads sessions over before today, least recently checked first, a bounded number a pass", async () => {
     bars({ "15Min": [], "1Day": [] });
     const { client, read } = makeSupabase([]);
     await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
-    expect(read.or).toBe("session_date.lte.2026-09-04,and(session_date.is.null,scanned_at.lte.2026-09-04T00:00:00.000Z)");
+    expect(read.or).toBe('session_date.lt.2026-09-04,and(session_date.is.null,scanned_at.lte."2026-09-04T00:00:00.000Z")');
     expect(read.order).toEqual([
       ["checked_at", { ascending: true, nullsFirst: true }],
       ["scanned_at", { ascending: true }],

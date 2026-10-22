@@ -16,38 +16,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
-import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
-import { etDateKey, etParts } from "@/lib/market/session";
-import { isEarlyClose, isTradingDay } from "@/lib/market/calendar";
+import { shadowSessionComplete, shadowTradeSession } from "@/lib/shadow/session";
+import { walkShadowRows, type PendingShadowRow } from "@/lib/shadow/evaluate";
 
-/** 4:00 PM and an early close's 1:00 PM, New York time, in minutes since midnight. */
-const CLOSE_MINUTES = 16 * 60;
-const EARLY_CLOSE_MINUTES = 13 * 60;
+export { shadowSessionComplete, shadowTradeSession };
 
 /**
- * The New York session a signal trades. Gann chose his active stocks from the
- * completed daily charts the night before and timed them in the next session
- * (Master Course Ch. 13; AGENTS.md, "This covers how the platform runs"), and
- * a plan lasts its session (Q17). So a signal recorded before the
- * close trades that day's session (a pre-market scan included), and one
- * recorded after the close, on a weekend or on a market holiday trades the
- * next trading session. Crypto never closes: it trades the New York day it was
- * recorded in, from the scan on.
+ * Earlier rows the recorder walks itself in one run before deciding whether a
+ * re-found plan is a new call. Bounded for the 60-second scan it rides in; an
+ * engineering choice.
  */
-export function shadowTradeSession(scannedAt: string, symbol: string): string {
-  const at = new Date(scannedAt);
-  const today = etDateKey(at);
-  if (isCryptoSymbol(symbol)) return today;
-  const close = isEarlyClose(today) ? EARLY_CLOSE_MINUTES : CLOSE_MINUTES;
-  if (isTradingDay(at) && etParts(at).minutes < close) return today;
-  // Noon UTC is the same New York date whatever the season.
-  const cursor = new Date(`${today}T12:00:00Z`);
-  for (let i = 0; i < 10; i++) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-    if (isTradingDay(cursor)) return etDateKey(cursor);
-  }
-  return etDateKey(cursor);
-}
+export const MAX_WALKS_ON_RECORD = 6;
 
 export interface ShadowSignalInsert {
   symbol: string;
@@ -62,20 +41,6 @@ export interface ShadowSignalInsert {
   scannedAt: string;
   /** The New York session the signal trades (`shadowTradeSession`). */
   sessionDate: string;
-}
-
-/**
- * Whether the session a signal trades is over: an earlier New York day, or
- * today once a US equity's session has closed (1:00 PM on an early close, and
- * all day on a weekend or holiday). Crypto's day is over only when the New
- * York day is.
- */
-export function shadowSessionComplete(sessionDate: string, symbol: string, now: Date): boolean {
-  const today = etDateKey(now);
-  if (sessionDate !== today) return sessionDate < today;
-  if (isCryptoSymbol(symbol)) return false;
-  const close = isEarlyClose(today) ? EARLY_CLOSE_MINUTES : CLOSE_MINUTES;
-  return !isTradingDay(now) || etParts(now).minutes >= close;
 }
 
 /**
@@ -146,19 +111,20 @@ export async function recordShadowSignals(
   // A plan whose trade is on (filled and still held) is the same trade, not a
   // new call, whatever session re-finds it. A plan from an earlier session
   // that never filled lasted its session (Q17), so the next session's is a new
-  // call. An earlier row not yet read since its session ended can't be told
-  // apart; it is read before the scheduled scans record (scheduled-scan.ts),
-  // so only the 15-minute scan can meet one, and it records the new call.
-  // Best effort: if the read fails, the unique index still holds a session to
-  // one row.
-  type OpenRow = { symbol: string; direction: string; entry: number; stop_loss: number; session_date: string | null; fill_price: number | null };
+  // call. An earlier row whose session has ended but that no pass has read yet
+  // (the 15-minute scan records after the close, when no evaluation pass
+  // runs) is walked here first, at most `MAX_WALKS_ON_RECORD` a run; one that
+  // can't be read is taken as the same trade, so a fill is never counted
+  // twice. Best effort: if the read fails, the unique index still holds a
+  // session to one row.
+  type OpenRow = PendingShadowRow & { session_date: string | null };
   const open = new Map<string, OpenRow[]>();
   const key = (r: { symbol: string; direction: string; entry: number; stop_loss: number }) =>
     `${r.symbol}|${r.direction}|${Number(r.entry)}|${Number(r.stop_loss)}`;
   try {
     const { data } = await supabase
       .from("shadow_signals")
-      .select("symbol, direction, entry, stop_loss, session_date, fill_price")
+      .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price")
       .eq("strategy_version", STRATEGY_VERSION)
       .is("outcome", null)
       .in("symbol", [...new Set(rows.map((r) => r.symbol))]);
@@ -166,8 +132,27 @@ export async function recordShadowSignals(
   } catch {
     // Read failed or unsupported: fall through and rely on the unique index.
   }
-  const sameTrade = (r: { session_date: string }, earlier: OpenRow) =>
-    earlier.fill_price != null || earlier.session_date == null || earlier.session_date >= r.session_date;
+
+  const now = new Date();
+  const unread = (r: { session_date: string }, e: OpenRow) =>
+    e.fill_price == null &&
+    e.session_date != null &&
+    e.session_date < r.session_date &&
+    shadowSessionComplete(e.session_date, e.symbol, now);
+  const toWalk = new Map<string, OpenRow>();
+  for (const r of rows) for (const e of open.get(key(r)) ?? []) if (unread(r, e)) toWalk.set(e.id, e);
+  const walkable = [...toWalk.values()].slice(0, MAX_WALKS_ON_RECORD);
+  const walked = walkable.length > 0 ? await walkShadowRows(supabase, walkable, now) : new Map();
+
+  const sameTrade = (r: { session_date: string }, e: OpenRow) => {
+    if (unread(r, e)) {
+      if (!walked.has(e.id)) return true; // over the cap: not read, so held back
+      const result = walked.get(e.id);
+      if (result == null) return true; // couldn't be read
+      return result.outcome === "pending" && (result.filled === true || result.fillPrice != null);
+    }
+    return e.fill_price != null || e.session_date == null || e.session_date >= r.session_date;
+  };
   const seen = new Set<string>();
   const fresh = rows.filter((r) => {
     const k = `${key(r)}|${r.session_date}`;
