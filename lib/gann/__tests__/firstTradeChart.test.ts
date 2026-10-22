@@ -54,7 +54,7 @@ describe("C-ASTRO-09: the first-trade chart with its aspects chosen on a hold-ou
       }
     }
     expect(found).not.toBeNull();
-    const labels = timeWindowsAt(found!.through, found!.date, "top", null, "2000-01-03");
+    const labels = timeWindowsAt(found!.through, found!.date, "top", null, { inception: null, name: null, firstTrade: "2000-01-03" });
     expect(labels.some((l) => l.includes("first-trade"))).toBe(true);
     expect(timeWindowsAt(found!.through, found!.date, "top", null, null).some((l) => l.includes("first-trade"))).toBe(false);
   });

@@ -22,6 +22,8 @@ export interface InstrumentReference {
   sharesOutstanding: number | null;
   sharesAsOf: string | null;
   inception: Inception | null;
+  /** The stored company name (`instrument.name`, the SEC title), for Gann's name chart (`nameNumerology.ts`). */
+  name: string | null;
 }
 
 /** One reported share count, as stored in `instrument_shares_outstanding`. */
@@ -48,7 +50,7 @@ interface ProfileRow {
   inception_precision: InceptionPrecision | null;
 }
 
-function toReference(symbol: string, p: ProfileRow | null): InstrumentReference {
+function toReference(symbol: string, p: ProfileRow | null, name: unknown = null): InstrumentReference {
   const shares = p?.shares_outstanding != null ? Number(p.shares_outstanding) : null;
   return {
     symbol,
@@ -56,6 +58,7 @@ function toReference(symbol: string, p: ProfileRow | null): InstrumentReference 
     sharesAsOf: p?.shares_outstanding_as_of ?? null,
     inception:
       p?.inception_date && p.inception_precision ? { date: p.inception_date, precision: p.inception_precision } : null,
+    name: typeof name === "string" && name.trim().length > 0 ? name.trim() : null,
   };
 }
 
@@ -66,7 +69,7 @@ async function loadAll(client: SupabaseClient): Promise<Map<string, InstrumentRe
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await client
       .from("instrument")
-      .select(`symbol, instrument_profile!inner(${PROFILE_COLUMNS})`)
+      .select(`symbol, name, instrument_profile!inner(${PROFILE_COLUMNS})`)
       .eq("asset_class", "us_equity")
       .order("symbol")
       .range(from, from + PAGE - 1);
@@ -75,7 +78,7 @@ async function loadAll(client: SupabaseClient): Promise<Map<string, InstrumentRe
       const profile = (Array.isArray(row.instrument_profile) ? row.instrument_profile[0] : row.instrument_profile) as
         | ProfileRow
         | undefined;
-      out.set(String(row.symbol).toUpperCase(), toReference(String(row.symbol).toUpperCase(), profile ?? null));
+      out.set(String(row.symbol).toUpperCase(), toReference(String(row.symbol).toUpperCase(), profile ?? null, row.name));
     }
     if (!data || data.length < PAGE) break;
   }
@@ -119,7 +122,7 @@ export async function loadInstrumentReferenceHistory(
     const upper = symbols.map((s) => s.toUpperCase());
     const { data, error } = await client
       .from("instrument")
-      .select(`id, symbol, instrument_profile(${PROFILE_COLUMNS})`)
+      .select(`id, symbol, name, instrument_profile(${PROFILE_COLUMNS})`)
       .eq("asset_class", "us_equity")
       .in("symbol", upper);
     if (error) throw new Error(error.message);
@@ -129,7 +132,7 @@ export async function loadInstrumentReferenceHistory(
       const profile = (Array.isArray(row.instrument_profile) ? row.instrument_profile[0] : row.instrument_profile) as
         | ProfileRow
         | undefined;
-      out.set(symbol, { reference: toReference(symbol, profile ?? null), history: [] });
+      out.set(symbol, { reference: toReference(symbol, profile ?? null, row.name), history: [] });
       bySymbolId.set(String(row.id), symbol);
     }
     const ids = [...bySymbolId.keys()];

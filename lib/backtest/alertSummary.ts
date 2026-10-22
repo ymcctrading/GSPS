@@ -25,6 +25,8 @@ export interface AlertCellSummary {
   medianBarsHeld: number | null;
   byExit: Record<string, { n: number; expectancyR: number | null }>;
   bySignal: Record<string, { n: number; expectancyR: number | null }>;
+  /** `plan_level_held` trades by how their daily plan was armed (crossing, oldLevel, hold). */
+  byPlanEntryKind: Record<string, { n: number; expectancyR: number | null }>;
 }
 
 const mean = (xs: number[]) => (xs.length > 0 ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
@@ -74,5 +76,6 @@ export function summariseAlertTrades(trades: AlertTrade[]): AlertCellSummary {
     medianBarsHeld: median(sorted.map((t) => t.barsHeld)),
     byExit: groupBy(sorted, (t) => String(t.exitReason)),
     bySignal: groupBy(sorted, (t) => t.signal),
+    byPlanEntryKind: groupBy(sorted.filter((t) => t.signal === "plan_level_held"), (t) => t.entryKind ?? "unknown"),
   };
 }

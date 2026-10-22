@@ -31,6 +31,16 @@
  * 2026-10-16 on the owner's decision that the 20-year count acts here: the
  * scans' year of daily bars holds no anchor old enough for them.
  *
+ * The company's own counts (added 2026-10-21, `inceptionWindows`): the end
+ * of a great time cycle (A-TIME-24, `timeCycles.ts#GREAT_CYCLES`) and the
+ * name's numbers in years (A-OTHER-08, `nameNumerology.ts`), both counted
+ * from the stored inception date, open a window in the month they complete.
+ * The great cycles also count from the monthly chart's major pivots
+ * (`greatCycleHits`). An inception known only to the year opens none: a
+ * year-long window would say nothing. Neither has a polarity in Gann's text
+ * (Steel's February turns went both ways), so they open for a bottom and a
+ * top alike.
+ *
  * Three-question basis:
  * 1. Gann: as cited, class A. Jensen's and the planetary readings are the
  *    owner's 2026-10-16 decisions to let them act through this mechanism.
@@ -49,7 +59,9 @@
  */
 import type { Bar, SetupKind } from "@/lib/types";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { timeCycles, yearCycleHits } from "@/lib/gann/timeCycles";
+import { GREAT_CYCLES, greatCycleEndMonth, greatCycleHits, timeCycles, yearCycleHits } from "@/lib/gann/timeCycles";
+import type { Inception } from "@/lib/gann/incorporationCycle";
+import { isNameNumber, nameSquare } from "@/lib/gann/nameNumerology";
 import { jensenWindows } from "@/lib/gann/jensen";
 import { readAstroRules } from "@/lib/gann/astroRules";
 import { eclipseBreakOn } from "@/lib/gann/eclipseLongitude";
@@ -72,12 +84,56 @@ export interface WindowTurn {
  * The windows open on `date` for a turn of `kind`, read on `bars` (which end at
  * the turn) and on the monthly chart closed before the turn's month, when held.
  */
-export type WindowsAt = (bars: Bar[], date: string, kind: "bottom" | "top", monthly?: Bar[] | null, firstTrade?: string | null) => string[];
+export type WindowsAt = (
+  bars: Bar[],
+  date: string,
+  kind: "bottom" | "top",
+  monthly?: Bar[] | null,
+  anchors?: WindowAnchors | null,
+) => string[];
+
+/** The company's own count origins, from the stored reference (`lib/data/instrumentReference.ts`). */
+export interface WindowAnchors {
+  inception: Inception | null;
+  /** The stored company name, for its name chart. */
+  name: string | null;
+  /** The stock's confirmed first-trade date (`firstTradeDates.ts`), for C-ASTRO-09. */
+  firstTrade?: string | null;
+}
+
+/**
+ * The windows the company's inception opens in `asOf`'s month: the end of a
+ * great time cycle (A-TIME-24) and the name's numbers counted in years
+ * (A-OTHER-08). Day or month precision only.
+ */
+export function inceptionWindows(anchors: WindowAnchors | null | undefined, asOf: Date): string[] {
+  const inception = anchors?.inception;
+  if (!inception || inception.precision === "year") return [];
+  const birthMonth = inception.date.slice(0, 7);
+  const month = asOf.toISOString().slice(0, 7);
+  if (!(birthMonth < month)) return [];
+  const out: string[] = [];
+  const anchor = inception.precision === "day" ? inception.date.slice(0, 10) : birthMonth;
+  for (const cycle of GREAT_CYCLES) {
+    if (greatCycleEndMonth(anchor, cycle) === month) {
+      out.push(`the end of a ${cycle.label} great cycle from the company's ${birthMonth} inception`);
+    }
+  }
+  const sq = nameSquare(anchors?.name);
+  if (sq) {
+    const ageMonths =
+      asOf.getUTCFullYear() * 12 + asOf.getUTCMonth() - (Number(birthMonth.slice(0, 4)) * 12 + Number(birthMonth.slice(5, 7)) - 1);
+    if (isNameNumber(sq, ageMonths / 12)) {
+      out.push(`${ageMonths / 12} years from the company's ${birthMonth} inception, a number of its ${sq.letters}-letter name`);
+    }
+  }
+  return out;
+}
 
 const DAY_MS = 86_400_000;
 
 /** Every dated reading open on the turn's date, polarity respected where the source has one. */
-export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, firstTrade) => {
+export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => {
   const asOf = new Date(`${date}T12:00:00Z`);
   const low = kind === "bottom";
   const out: string[] = [];
@@ -88,6 +144,12 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, firstTrade) 
   for (const h of yearCycleHits(monthly ?? [], asOf)) {
     if (h.kind === (low ? "low" : "high")) out.push(`${h.years} year${h.years === 1 ? "" : "s"} from the ${h.pivotMonth} major ${h.kind}`);
   }
+  // The great cycles the yearly list lacks (A-TIME-24), from the same pivots.
+  for (const h of greatCycleHits(monthly ?? [], asOf)) {
+    if (h.kind === (low ? "low" : "high")) out.push(`the end of a ${h.cycle.label} great cycle from the ${h.pivotMonth} major ${h.kind}`);
+  }
+  // The company's own counts: great cycles and the name's numbers from its inception.
+  out.push(...inceptionWindows(anchors, asOf));
   if (cycles.fixedCalendarActive) out.push("a fixed seasonal date");
   // Gann's time counts from the extreme high and low, landing on the turn.
   for (const h of readSquareOfNineTime(bars)) out.push(`${Math.round(h.count)} ${h.unit} from the ${h.pivotDate} ${h.pivot}, a squared time count`);
@@ -114,7 +176,7 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, firstTrade) 
     }
   }
   // C-ASTRO-09: a transit to the first-trade chart, chosen on the swings before the turn.
-  for (const w of firstTradeWindows(bars, date, firstTrade)) {
+  for (const w of firstTradeWindows(bars, date, anchors?.firstTrade ?? null)) {
     out.push(`${w.combo.transit} at ${w.combo.angle}° to the first-trade ${w.combo.natal} on ${w.exact}`);
   }
   return out;
@@ -134,8 +196,8 @@ export function readWindowTurn(
    */
   monthly: Bar[] | null = null,
   windowsAt: WindowsAt = timeWindowsAt,
-  /** The stock's confirmed first-trade date (`firstTradeDates.ts`), for C-ASTRO-09. */
-  firstTrade: string | null = null,
+  /** The company's inception and name (A-TIME-24, A-OTHER-08) and its confirmed first trade (C-ASTRO-09); both surfaces pass the stored reference. */
+  anchors: WindowAnchors | null = null,
 ): WindowTurn | null {
   const kind = direction === "bullish" ? "bottom" : "top";
   const pivot = [...walkSwingChart(daily, THREE_DAY_CHART).pivots].reverse().find((p) => p.kind === kind);
@@ -143,7 +205,7 @@ export function readWindowTurn(
   const through = daily.slice(0, pivot.index + 1);
   const date = daily[pivot.index].t.slice(0, 10);
   const monthlyThrough = monthly ? monthly.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null;
-  const windows = windowsAt(through, date, kind, monthlyThrough, firstTrade);
+  const windows = windowsAt(through, date, kind, monthlyThrough, anchors);
   return windows.length > 0 ? { kind, date, price: pivot.price, windows } : null;
 }
 

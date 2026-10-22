@@ -746,4 +746,20 @@
 // 2026-10-22-first-trade-on-mass-pressure: the first-trade chart window above,
 // merged onto 2026-10-22-gann-mass-pressure, whose mass-pressure check and
 // crypto parity fix it keeps. No new rule.
-export const STRATEGY_VERSION = "2026-10-22-first-trade-on-mass-pressure";
+// (was "2026-10-22-first-trade-on-mass-pressure" on its own branch)
+// 2026-10-22-gann-name-chart-great-cycles: A-OTHER-08 and A-TIME-24. The
+// company name's square (Master Course Ch. 15A: letters counted, a Square of
+// N², its multiples and half-squares) puts its nearest key number above and
+// below price in the S/R list, in Gann points; the same numbers counted in
+// years from inception, and the end of a great cycle (20 years 1931, 60 years
+// 1935, 20,736 days 1953, 90 years 1955) from inception or a major monthly
+// pivot, open dated windows in the time-window hold. Live and replay alike;
+// plans and counter-trend verdicts move. Merged onto
+// 2026-10-22-gann-mass-pressure, whose mass-pressure check, eclipse window,
+// square sign and firing-bar fixes it keeps.
+// (was STRATEGY_VERSION "2026-10-22-gann-name-chart-great-cycles")
+// 2026-10-22-first-trade-on-name-chart: the first-trade chart window above,
+// merged onto 2026-10-22-gann-name-chart-great-cycles, whose name chart and
+// great-cycle windows it keeps (the first-trade date rides in the same
+// `WindowAnchors`). No new rule.
+export const STRATEGY_VERSION = "2026-10-22-first-trade-on-name-chart";
