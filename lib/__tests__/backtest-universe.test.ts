@@ -47,6 +47,13 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--out", "x", "--nope", "1"])).toThrow(/Unknown flag/);
     expect(() => parseArgs(["--out", "x", "--targetR", "0"])).toThrow(/targetR/);
   });
+
+  it("takes an --offset to split a long run, 0 by default", () => {
+    expect(parseArgs(["--out", "x"]).offset).toBe(0);
+    expect(parseArgs(["--out", "x", "--offset", "383", "--limit", "383"])).toMatchObject({ offset: 383, limit: 383 });
+    expect(() => parseArgs(["--out", "x", "--offset", "-1"])).toThrow(/offset/);
+    expect(() => parseArgs(["--out", "x", "--offset", "1.5"])).toThrow(/offset/);
+  });
 });
 
 describe("validateCells", () => {
@@ -135,6 +142,16 @@ describe("summarizeCells", () => {
     );
     expect(md).toContain("SYNTHETIC — do not publish");
     expect(md).toContain("confirmed − base");
+    expect(md).not.toContain("Partial:");
+    const partial = summaryMarkdown(
+      {
+        universe: "mega-12", symbolsUsed: 2, symbolsRequested: 766, ref: "r", sha: "s", timeframe: "1Day",
+        targetR: 2, source: "synthetic", live: false, window: { from: null, to: null }, generatedAt: "t", skipped: [],
+        partial: true, symbolsDone: 50,
+      },
+      s,
+    );
+    expect(partial).toContain("Partial: a checkpoint after 50 of 766 symbols.");
   });
 
   it("keeps reversals and re-entries out of the buckets, and prints the fill accounting", () => {

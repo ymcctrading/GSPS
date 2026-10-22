@@ -49,13 +49,16 @@ import { createServer } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The 12 mega-cap names behind the 2026-09-23 committed run. */
 export const MEGA_12 = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA", "GOOGL", "META", "AMZN", "NFLX", "AVGO", "CRM"];
+
+/** Symbols between partial write-outs (see `writeResults`). */
+export const CHECKPOINT_EVERY = 50;
 
 export const DEFAULT_CELLS = [{ label: "baseline", options: { useProductionStop: true } }];
 
@@ -68,6 +71,7 @@ export function parseArgs(argv) {
     targetR: 2,
     since: null,
     limit: null,
+    offset: 0,
     symbolsPerMinute: 30,
     allowSynthetic: false,
   };
@@ -88,6 +92,7 @@ export function parseArgs(argv) {
       case "--targetR": args.targetR = Number(value); break;
       case "--since": args.since = value; break;
       case "--limit": args.limit = Number(value); break;
+      case "--offset": args.offset = Number(value); break;
       case "--symbolsPerMinute": args.symbolsPerMinute = Number(value); break;
       default: throw new Error(`Unknown flag ${flag}`);
     }
@@ -95,6 +100,7 @@ export function parseArgs(argv) {
   if (!args.out) throw new Error("--out <dir> is required");
   if (!(args.targetR > 0)) throw new Error("--targetR must be positive");
   if (args.limit !== null && !(args.limit > 0)) throw new Error("--limit must be positive");
+  if (!(Number.isInteger(args.offset) && args.offset >= 0)) throw new Error("--offset must be a whole number >= 0");
   if (!(args.symbolsPerMinute >= 0)) throw new Error("--symbolsPerMinute must be >= 0 (0 = unpaced)");
   return args;
 }
@@ -395,6 +401,13 @@ export function summaryMarkdown(meta, summary) {
       `window ${meta.window.from ?? "—"} → ${meta.window.to ?? "—"} · generated ${meta.generatedAt}`,
   );
   lines.push("");
+  if (meta.partial) {
+    lines.push(
+      `**Partial: a checkpoint after ${meta.symbolsDone} of ${meta.symbolsRequested} symbols.** ` +
+        "The job stopped before the end, so these figures cover only the symbols replayed so far.",
+    );
+    lines.push("");
+  }
   if (summary.warnings.length > 0) {
     lines.push("## Warnings");
     for (const w of summary.warnings) lines.push(`- ${w}`);
@@ -623,7 +636,9 @@ async function main() {
     }
 
     let universe = await resolveUniverse(server, args.universe);
-    if (args.limit !== null) universe = universe.slice(0, args.limit);
+    // --offset and --limit take a slice of the universe, so a run too long
+    // for one job can be split across several (0-382, then 383-765).
+    universe = universe.slice(args.offset, args.limit === null ? undefined : args.offset + args.limit);
     if (provider.isLive && isRegularSessionNow() && args.symbolsPerMinute > 30) {
       process.stderr.write(
         `WARNING: US market is open and pacing is ${args.symbolsPerMinute} symbols/min. The live scans share ` +
@@ -670,6 +685,88 @@ async function main() {
     const universeStrength = typeof run.fetchReplayUniverseStrength === "function" ? await run.fetchReplayUniverseStrength() : null;
     process.stderr.write(`Universe strength rank: ${universeStrength ? `${universeStrength.size} months` : "unread"}.\n`);
 
+    // Writes every result file. Called as a checkpoint every
+    // CHECKPOINT_EVERY symbols (marked partial) as well as at the end, so a
+    // job that reaches its time limit still leaves the symbols it finished
+    // in out/ for the always() steps to print and upload.
+    const writeResults = async (partial, done) => {
+      await mkdir(path.resolve(root, args.out), { recursive: true });
+      const window = { from, to };
+      const cellResults = [];
+      for (let c = 0; c < cells.length; c++) {
+        const cell = cells[c];
+        const overall = combine(perCell[c]);
+        const outcome = {
+          source: provider.name,
+          live: provider.isLive,
+          timeframe: args.timeframe,
+          targetR: args.targetR,
+          symbols: used,
+          skipped,
+          window,
+          overall,
+        };
+        const report = run.buildReport(outcome, {
+          symbols: used,
+          timeframe: args.timeframe,
+          targetR: args.targetR,
+          attributeWithin: cell.within ?? "Execute",
+          ...(cell.options ?? {}),
+        });
+        await writeFile(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
+        await writeFile(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
+        cellResults.push({
+          cell,
+          trades: overall.trades,
+          accounting: {
+            triggered: overall.triggered,
+            refusedFills: overall.refusedFills ?? 0,
+            droppedPlans: overall.droppedPlans ?? 0,
+            droppedPlanReasons: overall.droppedPlanReasons ?? null,
+          },
+        });
+      }
+
+      const { sha, ref } = gitInfo();
+      const meta = {
+        universe: args.universe,
+        symbolsRequested: universe.length,
+        symbolsUsed: used.length,
+        skipped,
+        ref,
+        sha,
+        timeframe: args.timeframe,
+        targetR: args.targetR,
+        since: args.since,
+        source: provider.name,
+        live: provider.isLive,
+        window,
+        partial,
+        symbolsDone: done,
+        generatedAt: new Date().toISOString(),
+        durationMinutes: (Date.now() - started) / 60_000,
+      };
+      const summary = summarizeCells(cellResults);
+      await writeFile(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
+      const md = summaryMarkdown(meta, summary);
+      await writeFile(path.resolve(root, args.out, "summary.md"), md);
+      // The per-trade rows, for exact splits from the job log alone. A
+      // checkpoint keeps the log block on disk (the "Print results" step
+      // prints it when the job stops early); the final write prints it here.
+      const csv = tradesCsv(cellResults);
+      await writeFile(path.resolve(root, args.out, "trades.csv"), csv);
+      const block = tradesCsvLogBlock(csv);
+      const blockFile = path.resolve(root, args.out, "trades.partial-log.txt");
+      if (partial) {
+        await writeFile(blockFile, block);
+        return;
+      }
+      await rm(blockFile, { force: true });
+      process.stdout.write(md);
+      process.stdout.write(`\n${block}`);
+      for (const w of summary.warnings) process.stderr.write(`WARNING: ${w}\n`);
+    };
+
     for (let i = 0; i < universe.length; i++) {
       const symbol = universe[i];
       const tickStart = Date.now();
@@ -707,76 +804,13 @@ async function main() {
         const mins = ((Date.now() - started) / 60_000).toFixed(1);
         process.stderr.write(`[${i + 1}/${universe.length}] ${symbol} — ${used.length} used, ${skipped.length} skipped, ${mins} min\n`);
       }
+      if ((i + 1) % CHECKPOINT_EVERY === 0 && i < universe.length - 1 && used.length > 0) await writeResults(true, i + 1);
       const wait = paceMs - (Date.now() - tickStart);
       if (wait > 0 && i < universe.length - 1) await new Promise((r) => setTimeout(r, wait));
     }
 
     if (used.length === 0) throw new Error(`No symbol produced bars (${skipped.length} skipped). Nothing written.`);
-
-    await mkdir(path.resolve(root, args.out), { recursive: true });
-    const window = { from, to };
-    const cellResults = [];
-    for (let c = 0; c < cells.length; c++) {
-      const cell = cells[c];
-      const overall = combine(perCell[c]);
-      const outcome = {
-        source: provider.name,
-        live: provider.isLive,
-        timeframe: args.timeframe,
-        targetR: args.targetR,
-        symbols: used,
-        skipped,
-        window,
-        overall,
-      };
-      const report = run.buildReport(outcome, {
-        symbols: used,
-        timeframe: args.timeframe,
-        targetR: args.targetR,
-        attributeWithin: cell.within ?? "Execute",
-        ...(cell.options ?? {}),
-      });
-      await writeFile(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
-      await writeFile(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
-      cellResults.push({
-        cell,
-        trades: overall.trades,
-        accounting: {
-          triggered: overall.triggered,
-          refusedFills: overall.refusedFills ?? 0,
-          droppedPlans: overall.droppedPlans ?? 0,
-          droppedPlanReasons: overall.droppedPlanReasons ?? null,
-        },
-      });
-    }
-
-    const { sha, ref } = gitInfo();
-    const meta = {
-      universe: args.universe,
-      symbolsRequested: universe.length,
-      symbolsUsed: used.length,
-      skipped,
-      ref,
-      sha,
-      timeframe: args.timeframe,
-      targetR: args.targetR,
-      since: args.since,
-      source: provider.name,
-      live: provider.isLive,
-      window,
-      generatedAt: new Date().toISOString(),
-      durationMinutes: (Date.now() - started) / 60_000,
-    };
-    const summary = summarizeCells(cellResults);
-    await writeFile(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
-    const md = summaryMarkdown(meta, summary);
-    await writeFile(path.resolve(root, args.out, "summary.md"), md);
-    process.stdout.write(md);
-    // The per-trade rows, for exact splits from the job log alone.
-    const csv = tradesCsv(cellResults);
-    await writeFile(path.resolve(root, args.out, "trades.csv"), csv);
-    process.stdout.write(`\n${tradesCsvLogBlock(csv)}`);
-    for (const w of summary.warnings) process.stderr.write(`WARNING: ${w}\n`);
+    await writeResults(false, universe.length);
   } finally {
     await server.close();
   }
