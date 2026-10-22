@@ -289,6 +289,19 @@ describe("plan_level_held, replayed", () => {
     const sessionLow = Math.min(...bars.filter((b) => etDateKey(new Date(b.t)) === date && b.t < t.openedAt).map((b) => b.l));
     expect(t.stop).toBeCloseTo(Math.max(97, sessionLow - gannThreePoints(sessionLow)), 9);
   });
+
+  it("records how the daily plan was armed, and the summary splits on it", () => {
+    const held = new Map<string, SessionDailyPlan | null>([[date, plan({ entry: 100.2, stop: 97, tp1: 108, mtp: 115, entryKind: "oldLevel" })]]);
+    const run = replayIntradayAlerts({
+      symbol: "TEST", kind: "equity", bars, dailyBars, plans: held, sessions: new Set([date]), signals: new Set(["plan_level_held"]), feedDelayBars: 0,
+    });
+    expect(run.trades.length).toBeGreaterThan(0);
+    expect(run.trades.every((x) => x.entryKind === "oldLevel")).toBe(true);
+    const s = summariseAlertTrades(run.trades);
+    expect(s.byPlanEntryKind.oldLevel.n).toBe(run.trades.length);
+    // A plan with no recorded kind reads "unknown", never a guessed kind.
+    expect(Object.keys(summariseAlertTrades(trades).byPlanEntryKind)).toEqual(["unknown"]);
+  });
 });
 
 describe("volumeBaseline, regular session only", () => {

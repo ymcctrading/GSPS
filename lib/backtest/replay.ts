@@ -438,6 +438,8 @@ export interface SessionDailyPlan {
   stop: number;
   tp1: number;
   mtp: number;
+  /** How the plan's entry was armed (crossing, old level, hold), for the intraday alert replay's split. */
+  entryKind?: GannEntryKind;
 }
 
 /**
@@ -2086,6 +2088,7 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     stop: levels.stopLoss,
     tp1: levels.takeProfit1,
     mtp: levels.masterProfit,
+    entryKind: chosen.trigger.kind,
   };
 }
 
