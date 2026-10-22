@@ -3092,6 +3092,33 @@ What that means for a session:
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
 - A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
 
+## Verify before you report — standing rule (2026-10-22, project owner)
+
+Chuck's correction, after the same failure three times: the book reading
+reported works as read or unread that weren't; a session reported 47 lines of
+Gann code unusable when 6 were; and a "waiting on you" list named a Resend step
+he had already done. Each time a count or a status was reported from memory or
+an earlier note instead of from the source as it stands. Project memory is off,
+so this file is the only place the rule carries between sessions.
+
+- **Every count, status or "done / not done" you tell the owner is read fresh
+  from its primary source in the same turn:** the file, the grep, the test
+  run, the database row, the PR's checks, the other thread's latest message.
+  A note, a summary, a checklist or your own earlier reply is a lead, never
+  the evidence.
+- **Say what you checked and when** ("grep at 01:30 UTC found 6"), so the
+  owner can tell a measured figure from a remembered one. If you could not
+  check, say that, and don't give the number.
+- **A count is recounted, not carried.** When a figure came from a subagent,
+  an earlier session or a document, re-derive it before repeating it, and
+  report any difference from the earlier figure plainly.
+- **What is waiting on the owner** lives in
+  `/mnt/project-files/owner/waiting-on-chuck.md`. Add an item the moment it
+  starts waiting on him and strike it the moment it is done. Before telling
+  him what needs him, re-read that file and each item's own thread.
+- **Reading coverage** ("read", "inspected", "complete") is claimed only from
+  the work's own coverage record, page by page, never from a summary.
+
 ## Code review before every merge — standing mandate (2026-10-21, project owner)
 
 In the owner's words: "1. code reviewer checks all code to make sure it is
