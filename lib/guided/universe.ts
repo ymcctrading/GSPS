@@ -26,6 +26,7 @@
  * behalf.
  */
 
+import { isFundMarket } from "@/lib/market/otherMarkets";
 import { SECTORS } from "@/lib/sectors";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 
@@ -76,6 +77,8 @@ export function fallbackUniverse(): string[] {
     // mag7 watchlist. The pair separator is the reliable test, so it is applied
     // to every symbol rather than trusting the sector it arrived in.
     if (upper.includes("/")) return;
+    // Funds count as commodities, not stocks (`lib/market/otherMarkets.ts`).
+    if (isFundMarket(upper)) return;
     if (seen.has(upper)) return;
     seen.add(upper);
     out.push(upper);

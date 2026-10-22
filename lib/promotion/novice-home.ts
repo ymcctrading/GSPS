@@ -14,7 +14,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
+import { isOtherMarket } from "@/lib/market/otherMarkets";
 import { MAX_OPEN_OTHER_MARKETS, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { getCurrentCircuitState } from "@/lib/risk/status";
 import type { CircuitState } from "@/lib/risk/config";
@@ -56,8 +56,8 @@ export async function getNoviceHomeSummary(
 
   const open = (openRaw ?? []) as OpenPositionRow[];
   // One market per symbol, as Gann's count reads it.
-  const marketsOf = (crypto: boolean) =>
-    new Set(open.filter((p) => isCryptoSymbol(p.symbol) === crypto).map((p) => p.symbol.toUpperCase().replace("/", ""))).size;
+  const marketsOf = (other: boolean) =>
+    new Set(open.filter((p) => isOtherMarket(p.symbol) === other).map((p) => p.symbol.toUpperCase().replace("/", ""))).size;
   const protectedCount = open.filter((p) => p.stop_loss != null).length;
 
   return {

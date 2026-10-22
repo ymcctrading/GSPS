@@ -34,7 +34,7 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { toPublicSignalSummary, type PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { tickerHref } from "@/lib/routes";
-import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
+import { isOtherMarket } from "@/lib/market/otherMarkets";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import { DEFAULT_GUIDED_POLICY, type GuidedCaps, type GuidedPolicy } from "@/lib/guided/config";
 import type { PublicScoreSummary } from "@/lib/types";
@@ -147,10 +147,11 @@ export async function candidateSymbols(supabase: SupabaseClient): Promise<string
     .eq("scan_date", scanDate)
     .order("rank");
 
-  // Guided trades stocks only (`universe.ts`, the crypto deferral), and the buy
-  // list now carries crypto pairs too (`lib/scan/cryptoUniverse.ts`).
+  // Guided trades stocks only (`universe.ts`, the crypto deferral), and the
+  // lists now carry crypto pairs and commodity and currency funds too
+  // (`lib/market/otherMarkets.ts`).
   const rows = ((data ?? []) as { symbol: string; rank: number; direction: string }[]).filter(
-    (r) => !isCryptoSymbol(r.symbol),
+    (r) => !isOtherMarket(r.symbol),
   );
   const bullish = rows.filter((r) => r.direction === "bullish");
   const bearish = rows.filter((r) => r.direction === "bearish");

@@ -154,7 +154,7 @@ export function RiskPanel({ refreshKey }: { refreshKey?: unknown }) {
                 <Figure
                   label="Markets open"
                   value={`${data.markets.stocks} of ${data.markets.maxStocks} stocks`}
-                  note={`${data.markets.other} of ${data.markets.maxOther} crypto pairs`}
+                  note={`${data.markets.other} of ${data.markets.maxOther} other markets (crypto and funds)`}
                   tone={
                     data.markets.stocks >= data.markets.maxStocks || data.markets.other >= data.markets.maxOther
                       ? "warn"
