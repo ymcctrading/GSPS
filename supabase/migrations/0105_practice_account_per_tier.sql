@@ -60,6 +60,7 @@ select cron.schedule('gsps-demo-auto-trade-expert-3',   '49 19 * * 1-5', $$selec
 do $$
 declare
   t text;
+  c text;
   guard constant text := $g$(coalesce(auth.jwt() -> 'app_metadata' ->> 'practice_tier', '') = '')$g$;
 begin
   foreach t in array array[
@@ -78,15 +79,24 @@ begin
     if to_regclass('public.' || t) is null then
       continue;
     end if;
-    execute format('drop policy if exists %I on public.%I', 'practice sessions do not insert', t);
-    execute format('drop policy if exists %I on public.%I', 'practice sessions do not update', t);
-    execute format('drop policy if exists %I on public.%I', 'practice sessions do not delete', t);
-    execute format('create policy %I on public.%I as restrictive for insert to authenticated with check %s',
-      'practice sessions do not insert', t, guard);
-    execute format('create policy %I on public.%I as restrictive for update to authenticated using %s with check %s',
-      'practice sessions do not update', t, guard, guard);
-    execute format('create policy %I on public.%I as restrictive for delete to authenticated using %s',
-      'practice sessions do not delete', t, guard);
+    -- Created only where missing, so a rerun is a no-op and drops nothing.
+    foreach c in array array['insert', 'update', 'delete'] loop
+      if exists (select 1 from pg_policies
+                 where schemaname = 'public' and tablename = t
+                   and policyname = 'practice sessions do not ' || c) then
+        continue;
+      end if;
+      if c = 'insert' then
+        execute format('create policy %I on public.%I as restrictive for insert to authenticated with check %s',
+          'practice sessions do not insert', t, guard);
+      elsif c = 'update' then
+        execute format('create policy %I on public.%I as restrictive for update to authenticated using %s with check %s',
+          'practice sessions do not update', t, guard, guard);
+      else
+        execute format('create policy %I on public.%I as restrictive for delete to authenticated using %s',
+          'practice sessions do not delete', t, guard);
+      end if;
+    end loop;
   end loop;
 end
 $$;
