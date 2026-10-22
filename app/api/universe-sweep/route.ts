@@ -1,11 +1,11 @@
 /**
- * GSPS — /api/universe-sweep: the evening sweep (`lib/scan/universeSweep.ts`).
+ * GSPS — /api/universe-sweep: the overnight sweep (`lib/scan/universeSweep.ts`).
  *
  * Run by the database's scheduler every five minutes in the small hours of New
- * York time, Tuesday to Saturday (migration 0109). Each call fully scores the next stocks in the scan universe that have
- * no row for tonight yet, with `scanTicker` (the same score a manual scan
- * gives), batch by batch until its time is nearly spent, and stores each
- * verdict in `universe_sweep`. The next day's market scan re-scores the best
+ * York time, Tuesday to Saturday (migration 0110). Each call fully scores the
+ * next stocks in the scan universe with no row for the day yet, with
+ * `scanTicker` (the same score a manual scan gives), batch by batch until its
+ * time is nearly spent, and stores each verdict in `universe_sweep`. The next day's market scan re-scores the best
  * of them first. Off every person's path: nobody waits on it.
  *
  * Only between midnight and 4 AM New York time: the

@@ -1,4 +1,4 @@
--- GSPS — 0109: the overnight universe sweep
+-- GSPS — 0110: the overnight universe sweep
 --
 -- Owner, 2026-10-22: "executable setups are what we want to push FIRST." DE
 -- read 7 of 9, Execute, on its own page and never reached the Dashboard: the

@@ -1,5 +1,5 @@
 /**
- * GSPS — the evening sweep: every stock in the scan universe fully scored once
+ * GSPS — the overnight sweep: every stock in the scan universe fully scored once
  * a night, so the next day's market scan can't miss an Execute.
  *
  * Why it exists (owner, 2026-10-22: "executable setups are what we want to
