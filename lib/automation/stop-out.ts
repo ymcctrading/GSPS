@@ -29,6 +29,15 @@
  *    requires (owner decision 4) before it can arm; the hold test and three
  *    adverse closes only take a trade off, they do not reverse it.
  *
+ * 3. When the stop was a trailing one and Gann's swing chart still runs the
+ *    trade's way, a re-buy plan on the same side is seeded at his reaction
+ *    (A-PYRAMID-07, *Tunnel* p.198; lib/lifecycle/fromRebuy.ts), as the
+ *    replay's `rebuyAfterStop` walks it. Until 2026-10-22 automation's trades
+ *    got only a note. A trailing stop reverses too, so both plans can stand:
+ *    the reversal is covered at the re-buy's entry by the exit managers
+ *    (lib/automation/rebuy-cover.ts), and the re-buy is not placed while the
+ *    reversal is still open.
+ *
  * Scoped to `market === "us_equity"`: that is the only market
  * lib/automation/service.ts's `activateAutomationProfile` supports today
  * (see its explicit check), so a pivot plan for any other market/asset
@@ -38,8 +47,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getTradePlan, applyEventAndPersist, createOrGetIdempotentTradePlan } from "@/lib/lifecycle/store";
 import { ACTIVE_STATES, type TradePlan } from "@/lib/lifecycle/types";
-import { buildPivotTradePlanFromStoppedPlan } from "@/lib/lifecycle/fromPivot";
+import { buildPivotTradePlanFromStoppedPlan, isPivotSignal } from "@/lib/lifecycle/fromPivot";
+import { buildRebuyTradePlanFromStoppedPlan, isRebuySignal } from "@/lib/lifecycle/fromRebuy";
+import type { NewTradePlan } from "@/lib/lifecycle/store";
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
+import { rebuysOn } from "@/lib/gann/rebuy";
+import { readLiveRebuy } from "@/lib/trade/gann-exit-live";
 
 export interface StopOutArgs {
   planId: string;
@@ -103,9 +116,13 @@ export async function handleAutomatedStopOut(
   if (!invalidated.ok) return;
 
   if (invalidated.plan.market !== "us_equity") return;
-  if (!reversesOn(args.cause === undefined ? "stop" : args.cause)) return;
-
-  await seedPivotTradePlan(supabase, userId, invalidated.plan, args);
+  const cause = args.cause === undefined ? "stop" : args.cause;
+  if (reversesOn(cause)) await seedPivotTradePlan(supabase, userId, invalidated.plan, args);
+  // Only the original trade re-buys, as the replay reads it (`rebuyPlanAt` on
+  // the first trade only): a reversal or a re-buy that is itself stopped reverses
+  // under Q15 but rests no further re-entry.
+  const derived = isPivotSignal(invalidated.plan.signalId) || isRebuySignal(invalidated.plan.signalId);
+  if (!derived && rebuysOn(cause)) await seedRebuyTradePlan(supabase, userId, invalidated.plan, args, cause);
 }
 
 async function seedPivotTradePlan(
@@ -120,7 +137,49 @@ async function seedPivotTradePlan(
     extreme: args.extreme ?? null,
   });
   if (!input) return;
+  await seedPlan(supabase, userId, input, {
+    marked: `Auto-created from ${stoppedPlan.instrument}'s Pivot Plan after its ${stoppedPlan.direction} counterpart was caught (reverse when caught).`,
+    qualified: "Opposite-direction contingency from a stopped-out automated plan.",
+  });
+}
 
+/**
+ * The re-buy after a trailing stop (A-PYRAMID-07). Read on the completed
+ * sessions before the stop with Gann's swing chart, as the replay's
+ * `rebuyPlanAt` reads it; null (no plan) when the trend no longer runs the
+ * trade's way or the re-entry would not sit past the trade's own entry.
+ */
+async function seedRebuyTradePlan(
+  supabase: SupabaseClient,
+  userId: string,
+  stoppedPlan: TradePlan,
+  args: StopOutArgs,
+  cause: ReversalCause | null,
+): Promise<void> {
+  const side = stoppedPlan.direction === "bullish" ? "long" : "short";
+  const rebuy = await readLiveRebuy({
+    symbol: stoppedPlan.instrument,
+    side,
+    cause,
+    extreme: args.extreme ?? args.entryFillPrice,
+    entryPrice: stoppedPlan.actualEntryPrice ?? args.entryFillPrice,
+    now: new Date(args.stoppedAt),
+  });
+  if (!rebuy) return;
+  const input = buildRebuyTradePlanFromStoppedPlan(stoppedPlan, { generatedAt: args.stoppedAt, rebuy });
+  if (!input) return;
+  await seedPlan(supabase, userId, input, {
+    marked: `Auto-created after ${stoppedPlan.instrument}'s ${stoppedPlan.direction} trade left on a trailing stop with the trend still its way (re-buy on the reaction).`,
+    qualified: "Same-direction re-entry on the reaction after a trailing stop.",
+  });
+}
+
+async function seedPlan(
+  supabase: SupabaseClient,
+  userId: string,
+  input: NewTradePlan,
+  reasons: { marked: string; qualified: string },
+): Promise<void> {
   const { plan: seeded, created } = await createOrGetIdempotentTradePlan(supabase, userId, input);
   if (!created) return; // already seeded for this exact stop-out
 
@@ -128,13 +187,13 @@ async function seedPivotTradePlan(
   const marked = await applyEventAndPersist(supabase, userId, seeded.planId, {
     type: "mark_auto_created",
     at,
-    reason: `Auto-created from ${stoppedPlan.instrument}'s Pivot Plan after its ${stoppedPlan.direction} counterpart was caught (reverse when caught).`,
+    reason: reasons.marked,
   });
   if (!marked.ok) return;
   const qualified = await applyEventAndPersist(supabase, userId, seeded.planId, {
     type: "qualify",
     at,
-    reason: "Opposite-direction contingency from a stopped-out automated plan.",
+    reason: reasons.qualified,
   });
   if (!qualified.ok) return;
   await applyEventAndPersist(supabase, userId, seeded.planId, {

@@ -30,7 +30,11 @@ import { gannThreePoints } from "./pointScale";
 import type { GannExitReason, GannStopReason } from "./exitRules";
 
 /** "stop" is any stop that was hit, when the exit manager knows no finer reason. */
-export type ReversalCause = GannStopReason | GannExitReason | "stop";
+/**
+ * "covered": an automated reversal closed at the re-buy's level
+ * (lib/automation/rebuy-cover.ts). It neither reverses nor re-buys.
+ */
+export type ReversalCause = GannStopReason | GannExitReason | "stop" | "covered";
 
 const REVERSING_EXITS: ReadonlySet<GannExitReason> = new Set(["trend_change", "failed_top", "distribution"]);
 const STOP_REASONS: ReadonlySet<string> = new Set<GannStopReason | "stop">([
@@ -45,7 +49,7 @@ const STOP_REASONS: ReadonlySet<string> = new Set<GannStopReason | "stop">([
 ]);
 
 /** Whether a trade that left for this reason is reversed. */
-export function reversesOn(cause: ReversalCause | "covered" | "held_to_limit" | "open_at_end" | null | undefined): boolean {
+export function reversesOn(cause: ReversalCause | "held_to_limit" | "open_at_end" | null | undefined): boolean {
   if (!cause) return false;
   return STOP_REASONS.has(cause) || REVERSING_EXITS.has(cause as GannExitReason);
 }
