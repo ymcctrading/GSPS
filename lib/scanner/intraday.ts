@@ -93,6 +93,7 @@ import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
+import { hourlyBars } from "@/lib/gann/intradayExit";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -334,7 +335,8 @@ const toDirection = (d: "bullish" | "bearish" | null): Direction | null =>
 /**
  * The 3-bar swing chart on hourly bars rolled up from `recentBars`, the same
  * hourly chart the intraday replay trades on (`lib/backtest/replayIntraday.ts`).
- * Hours are bucketed by the bar's UTC hour, as there.
+ * Hours are read on exchange hours, as there (`exchangeHourKey`: a US equity's
+ * from the 9:30 ET open, crypto's on the clock).
  */
 export function hourlyChart(
   input: Pick<SymbolInput, "recentBars">,
@@ -344,21 +346,8 @@ export function hourlyChart(
   const recent = (input.recentBars ?? [])
     .filter(isUsableBar)
     .filter((b) => b.t <= asOf && (!regularOnly || isRegularSession(new Date(b.t))));
-  const hours: Bar[] = [];
-  let key = "";
-  for (const b of recent) {
-    const k = b.t.slice(0, 13);
-    const cur = hours[hours.length - 1];
-    if (k !== key || !cur) {
-      hours.push({ ...b });
-      key = k;
-    } else {
-      cur.h = Math.max(cur.h, b.h);
-      cur.l = Math.min(cur.l, b.l);
-      cur.c = b.c;
-      cur.v += b.v;
-    }
-  }
+  // `regularOnly` is the equity case; crypto keeps every bar and the clock's hours.
+  const hours = hourlyBars(recent, !regularOnly);
   if (hours.length < MIN_HOURLY_BARS) return null;
   const walk = walkSwingChart(hours, SWING_BARS);
   return { trend: toDirection(walk.trend), turned: walk.trendChanges.includes(hours.length - 1) };

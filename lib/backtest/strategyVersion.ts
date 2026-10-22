@@ -771,4 +771,14 @@
 // re-buy plan live, and the reversal is covered at it. Re-buy replay trades
 // move; verdicts don't. Merged onto 2026-10-22-first-trade-on-name-chart,
 // whose rules it keeps.
-export const STRATEGY_VERSION = "2026-10-22-gann-rebuy-rule-nine";
+// (was STRATEGY_VERSION "2026-10-22-gann-rebuy-rule-nine")
+// 2026-10-22-gann-hourly-exchange-hours: Gann's hourly chart is read on
+// exchange hours (Master Course PDF 378): a US equity's hours count from the
+// 9:30 ET open (9:30-10:29, ..., the last half hour from 15:30), crypto's stay
+// on the clock (`exchangeHourKey`, lib/gann/intradayExit.ts). It had bucketed
+// every bar by its UTC hour, so an equity's first hour was 9:30-9:59 alone.
+// One key for the intraday alerts' hourly chart and its confidence factor
+// (`hourlyChart`), the intraday replay's trend and the Intraday style's
+// hourly-turn exit, live and replay alike. Intraday alerts, intraday replay
+// trades and intraday exits move; the daily verdict doesn't.
+export const STRATEGY_VERSION = "2026-10-22-gann-hourly-exchange-hours";

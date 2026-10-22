@@ -95,12 +95,28 @@ export function regularSessionBars(bars: Bar[], crypto: boolean): Bar[] {
   return crypto ? bars : bars.filter(isRegularSessionBar);
 }
 
-/** Roll bars up to the hour, keyed on the bar's UTC hour (as the intraday alerts and replay always have). */
-export function hourlyBars(bars: Bar[]): Bar[] {
+/** 9:30 AM ET, the NYSE open: a US equity's hours count from it. */
+const SESSION_OPEN_MINUTES = 9 * 60 + 30;
+
+/**
+ * The hour a bar belongs to on Gann's hourly chart, read on exchange hours
+ * (Master Course PDF 378, "Hourly charts: 24 h; exchange hours"). A US equity's
+ * hours count from the 9:30 ET open (9:30-10:29, 10:30-11:29, ..., the last
+ * half hour from 15:30), as his hourly chart counted from the opening; crypto
+ * trades around the clock, so its hours are the clock's (UTC).
+ */
+export function exchangeHourKey(bar: Bar, crypto: boolean): string {
+  if (crypto) return bar.t.slice(0, 13);
+  const at = new Date(bar.t);
+  return `${etDateKey(at)}#${Math.floor((etParts(at).minutes - SESSION_OPEN_MINUTES) / 60)}`;
+}
+
+/** Roll bars up to the hour on exchange hours (`exchangeHourKey`), as the intraday alerts, the replay and the exits read the hourly chart. */
+export function hourlyBars(bars: Bar[], crypto: boolean): Bar[] {
   const out: Bar[] = [];
   let key = "";
   for (const b of bars) {
-    const k = b.t.slice(0, 13);
+    const k = exchangeHourKey(b, crypto);
     const cur = out[out.length - 1];
     if (k !== key || !cur) {
       out.push({ ...b });
@@ -132,8 +148,8 @@ export function intradayTrail(window: Bar[], long: boolean, stop: number, point:
 }
 
 /** Whether the 3-bar swing chart on the hourly roll-up of `window` reads against the trade. */
-export function hourlyTurnedAgainst(window: Bar[], long: boolean): boolean {
-  const trend = walkSwingChart(hourlyBars(window), INTRADAY_SWING_BARS).trend;
+export function hourlyTurnedAgainst(window: Bar[], long: boolean, crypto: boolean): boolean {
+  const trend = walkSwingChart(hourlyBars(window, crypto), INTRADAY_SWING_BARS).trend;
   return trend !== null && trend !== (long ? "bullish" : "bearish");
 }
 
@@ -167,7 +183,7 @@ export function isSessionLastBar(bars: Bar[], index: number): boolean {
  * and the replay so the two read the stop and the turn the same way. `step`
  * takes the window of bars up to and including the bar just closed.
  */
-export function intradayWalker(input: { long: boolean; stop: number; point: number }) {
+export function intradayWalker(input: { long: boolean; stop: number; point: number; crypto: boolean }) {
   let stop = input.stop;
   let trailed = false;
   // The first change in trend after the fill: an alert can fire against the
@@ -177,7 +193,7 @@ export function intradayWalker(input: { long: boolean; stop: number; point: numb
   return {
     /** Read the trend at the fill from the bars before it. */
     start(before: Bar[]) {
-      if (wasAgainst === null) wasAgainst = before.length > 0 && hourlyTurnedAgainst(before, input.long);
+      if (wasAgainst === null) wasAgainst = before.length > 0 && hourlyTurnedAgainst(before, input.long, input.crypto);
     },
     /** Walk one closed bar; true when the hourly chart has turned against the trade on it. */
     step(window: Bar[]): boolean {
@@ -188,7 +204,7 @@ export function intradayWalker(input: { long: boolean; stop: number; point: numb
           trailed = true;
         }
       }
-      const against = hourlyTurnedAgainst(window, input.long);
+      const against = hourlyTurnedAgainst(window, input.long, input.crypto);
       const turned = against && wasAgainst === false;
       wasAgainst = against;
       return turned;
@@ -231,8 +247,10 @@ export function readIntradayExit(input: {
   now: Date;
   /** False when the trader chose to hold the trade overnight, and for crypto. */
   closeAtSessionEnd: boolean;
+  /** Crypto reads the hourly chart on the clock's hours, a US equity on exchange hours. */
+  crypto: boolean;
 }): IntradayExitReading {
-  const walker = intradayWalker({ long: input.side === "long", stop: input.initialStop, point: input.point });
+  const walker = intradayWalker({ long: input.side === "long", stop: input.initialStop, point: input.point, crypto: input.crypto });
   let turned = false;
   for (let j = 0; j < input.bars.length; j++) {
     if (input.bars[j].t < input.filledAt) continue;
