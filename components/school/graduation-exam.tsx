@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { GuidePair } from "@/components/guides/guide-avatar";
 
 type Trend = "up" | "down" | "sideways";
 type Decision = "trade" | "wait";
@@ -147,6 +148,9 @@ export function GraduationExam({ transition }: { transition: string }) {
     <div className="flex min-w-0 flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold sm:text-2xl">{TITLE[transition]}</h1>
+        <div className="mt-2">
+          <GuidePair size="md" />
+        </div>
         <p className="text-sm text-muted">
           Mr. Bull and Mrs. Bear hand you five real charts, each stopped at a date in the past. Read the
           trend, decide whether there&apos;s a trade{pro ? ", pick the entry" : ""}, place the stop and size the

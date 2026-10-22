@@ -19,6 +19,20 @@
   --bear-soft: #fef2f2;
   --warn: #d97706;
   --warn-soft: #fffbeb;
+  /*
+   * Mr. Bull and Mrs. Bear (components/guides/guide-avatar.tsx). Chuck's art
+   * direction, 2026-10-22: Bull is green, Bear is red, in every state, and no
+   * green, teal or olive ever sits on or near Mrs. Bear. Darker than --bull and
+   * --bear so the guide's name reads as text on the surface and on its soft tint
+   * (WCAG AA 4.5:1, pinned in lib/guides/__tests__/tokens.test.ts).
+   */
+  --guide-bull: #047857;
+  --guide-bull-soft: #ecfdf5;
+  --guide-bear: #b91c1c;
+  --guide-bear-soft: #fef2f2;
+  --guide-navy: #0f1b3d;
+  --guide-gold: #c9a227;
+  --guide-warm-gray: #a8a29e;
 }
 
 .dark {
@@ -37,6 +51,13 @@
   --bear-soft: #3b1212;
   --warn: #d97706;
   --warn-soft: #3b2c07;
+  --guide-bull: #34d399;
+  --guide-bull-soft: #052e21;
+  --guide-bear: #f87171;
+  --guide-bear-soft: #3b1212;
+  --guide-navy: #0f1b3d;
+  --guide-gold: #d4af37;
+  --guide-warm-gray: #a8a29e;
 }
 
 /**
@@ -73,6 +94,13 @@
   --color-bear-soft: var(--bear-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-guide-bull: var(--guide-bull);
+  --color-guide-bull-soft: var(--guide-bull-soft);
+  --color-guide-bear: var(--guide-bear);
+  --color-guide-bear-soft: var(--guide-bear-soft);
+  --color-guide-navy: var(--guide-navy);
+  --color-guide-gold: var(--guide-gold);
+  --color-guide-warm-gray: var(--guide-warm-gray);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
