@@ -17,7 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { shadowSessionComplete, shadowTradeSession } from "@/lib/shadow/session";
-import { walkShadowRows, type PendingShadowRow } from "@/lib/shadow/evaluate";
+import { walkShadowRows, type PendingShadowRow, type ShadowOutcome } from "@/lib/shadow/evaluate";
 
 export { shadowSessionComplete, shadowTradeSession };
 
@@ -27,6 +27,9 @@ export { shadowSessionComplete, shadowTradeSession };
  * engineering choice.
  */
 export const MAX_WALKS_ON_RECORD = 6;
+
+/** How long the recorder waits on those walks before holding the plans back. Engineering choice. */
+export const WALK_ON_RECORD_TIMEOUT_MS = 4_000;
 
 export interface ShadowSignalInsert {
   symbol: string;
@@ -88,6 +91,7 @@ export async function recordShadowSignals(
   supabase: SupabaseClient,
   results: ScanResult[],
   source: string,
+  now: Date = new Date(),
 ): Promise<{ recorded: number }> {
   const rows = results
     .map((r) => buildShadowSignal(r, source))
@@ -117,14 +121,14 @@ export async function recordShadowSignals(
   // can't be read is taken as the same trade, so a fill is never counted
   // twice. Best effort: if the read fails, the unique index still holds a
   // session to one row.
-  type OpenRow = PendingShadowRow & { session_date: string | null };
+  type OpenRow = PendingShadowRow & { session_date: string | null; checked_at: string | null };
   const open = new Map<string, OpenRow[]>();
   const key = (r: { symbol: string; direction: string; entry: number; stop_loss: number }) =>
     `${r.symbol}|${r.direction}|${Number(r.entry)}|${Number(r.stop_loss)}`;
   try {
     const { data } = await supabase
       .from("shadow_signals")
-      .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price")
+      .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price, checked_at")
       .eq("strategy_version", STRATEGY_VERSION)
       .is("outcome", null)
       .in("symbol", [...new Set(rows.map((r) => r.symbol))]);
@@ -133,7 +137,6 @@ export async function recordShadowSignals(
     // Read failed or unsupported: fall through and rely on the unique index.
   }
 
-  const now = new Date();
   const unread = (r: { session_date: string }, e: OpenRow) =>
     e.fill_price == null &&
     e.session_date != null &&
@@ -141,8 +144,24 @@ export async function recordShadowSignals(
     shadowSessionComplete(e.session_date, e.symbol, now);
   const toWalk = new Map<string, OpenRow>();
   for (const r of rows) for (const e of open.get(key(r)) ?? []) if (unread(r, e)) toWalk.set(e.id, e);
-  const walkable = [...toWalk.values()].slice(0, MAX_WALKS_ON_RECORD);
-  const walked = walkable.length > 0 ? await walkShadowRows(supabase, walkable, now) : new Map();
+  // Least recently checked first, so a row that keeps failing doesn't take
+  // the same slot every run (the walk stamps `checked_at`).
+  const walkable = [...toWalk.values()]
+    .sort((a, b) => (a.checked_at ?? "").localeCompare(b.checked_at ?? ""))
+    .slice(0, MAX_WALKS_ON_RECORD);
+  let walked = new Map<string, ShadowOutcome | null>();
+  if (walkable.length > 0) {
+    // Bounded: a slow provider holds these plans back (as unread) rather
+    // than eat the scan's fan-out time.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), WALK_ON_RECORD_TIMEOUT_MS);
+    });
+    const startedAt = Date.now();
+    walked = (await Promise.race([walkShadowRows(supabase, walkable, now), timeout])) ?? new Map();
+    clearTimeout(timer);
+    console.log(`shadow: walked ${walkable.length} earlier row(s) before recording in ${Date.now() - startedAt}ms`);
+  }
 
   const sameTrade = (r: { session_date: string }, e: OpenRow) => {
     if (unread(r, e)) {

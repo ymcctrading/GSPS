@@ -80,6 +80,16 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
     expect(done.rMultiple!).toBeGreaterThan(0);
   });
 
+  it("marks a fill on the session's last bar as filled, its price still to come", () => {
+    const out = walkShadowTrade({
+      ...base,
+      sessionBars: session("2026-08-25", [[101, 102, 101, 101.5], [101, 101.5, 99.8, 100.2]]),
+      sessionComplete: true,
+      dailyBars: history("2026-08-25"),
+    });
+    expect(out).toMatchObject({ outcome: "pending", filled: true, fillPrice: null });
+  });
+
   it("mirrors the reaction for a short", () => {
     const sessionBars = session("2026-08-25", [
       [99, 100.3, 98.8, 99.9],

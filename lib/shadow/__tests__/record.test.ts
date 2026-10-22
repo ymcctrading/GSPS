@@ -5,7 +5,7 @@ import type { ShadowOutcome } from "@/lib/shadow/evaluate";
 const { walkShadowRowsMock } = vi.hoisted(() => ({ walkShadowRowsMock: vi.fn() }));
 vi.mock("@/lib/shadow/evaluate", () => ({ walkShadowRows: walkShadowRowsMock }));
 
-import { MAX_WALKS_ON_RECORD, buildShadowSignal, recordShadowSignals, shadowTradeSession } from "@/lib/shadow/record";
+import { MAX_WALKS_ON_RECORD, WALK_ON_RECORD_TIMEOUT_MS, buildShadowSignal, recordShadowSignals, shadowTradeSession } from "@/lib/shadow/record";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { ScanResult } from "@/lib/types";
 
@@ -242,7 +242,9 @@ describe("recordShadowSignals: a later session's call against an earlier row", (
   const plan = { id: "e1", symbol: "AAPL", direction: "bullish", entry: "200", stop_loss: "195", scanned_at: "2026-10-19T15:00:00Z" };
   const outcome = (o: Partial<ShadowOutcome>): ShadowOutcome => ({ outcome: "pending", rMultiple: null, barsHeld: null, fillPrice: null, ...o });
 
-  beforeEach(() => walkShadowRowsMock.mockReset());
+  beforeEach(() => {
+    walkShadowRowsMock.mockReset();
+  });
 
   it("walks an unread earlier row first, and records the next session's call when it never filled (a plan lasts its session)", async () => {
     walkShadowRowsMock.mockResolvedValue(new Map([["e1", outcome({ outcome: "expired" })]]));
@@ -300,73 +302,38 @@ describe("recordShadowSignals: a later session's call against an earlier row", (
     expect(walkShadowRowsMock.mock.calls[0][1]).toHaveLength(MAX_WALKS_ON_RECORD);
     expect(upserted).toHaveLength(MAX_WALKS_ON_RECORD);
   });
-});
 
-describe("shadowTradeSession (Gann chose at night and traded the next session)", () => {
-  it("trades the same session when recorded before the close, a pre-market scan included", () => {
-    expect(shadowTradeSession("2026-10-22T10:30:20Z", "BP")).toBe("2026-10-22"); // 6:30 AM ET
-    expect(shadowTradeSession("2026-10-22T19:59:00Z", "BP")).toBe("2026-10-22"); // 3:59 PM ET
+  it("holds the plans back when the walk outlasts its time, rather than wait on it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      walkShadowRowsMock.mockReturnValue(new Promise(() => {}));
+      const { client, upserted } = withOpen([{ ...plan, session_date: "2026-10-19", fill_price: null }]);
+      const pending = recordShadowSignals(client, [evening], "x", new Date("2026-10-19T22:00:00Z"));
+      await vi.advanceTimersByTimeAsync(WALK_ON_RECORD_TIMEOUT_MS + 1);
+      expect((await pending).recorded).toBe(0);
+      expect(upserted).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("trades the next session when recorded at or after the close", () => {
-    expect(shadowTradeSession("2026-10-22T20:00:00Z", "BP")).toBe("2026-10-23"); // 4:00 PM ET
-    expect(shadowTradeSession("2026-10-20T00:36:00Z", "BP")).toBe("2026-10-20"); // 8:36 PM ET on the 19th
-  });
-
-  it("skips the weekend and a market holiday", () => {
-    expect(shadowTradeSession("2026-10-16T20:29:17Z", "IWM")).toBe("2026-10-19"); // Friday evening
-    expect(shadowTradeSession("2026-10-17T15:00:00Z", "IWM")).toBe("2026-10-19"); // Saturday
-    expect(shadowTradeSession("2026-11-25T22:00:00Z", "IWM")).toBe("2026-11-27"); // over Thanksgiving
-  });
-
-  it("reads an early close at 1:00 PM", () => {
-    expect(shadowTradeSession("2026-11-27T17:30:00Z", "IWM")).toBe("2026-11-27"); // 12:30 PM ET
-    expect(shadowTradeSession("2026-11-27T18:30:00Z", "IWM")).toBe("2026-11-30"); // 1:30 PM ET
-  });
-
-  it("keeps crypto on the New York day it was recorded in", () => {
-    expect(shadowTradeSession("2026-10-17T23:00:00Z", "BTC/USD")).toBe("2026-10-17");
-  });
-});
-
-describe("recordShadowSignals: a later session's call against an earlier row", () => {
-  function withOpen(openRow: Record<string, unknown>) {
-    const upserted: { symbol: string }[] = [];
-    const chain = {
-      eq: () => chain,
-      is: () => chain,
-      in: () => Promise.resolve({ data: [openRow], error: null }),
-    };
-    const client = {
-      from: () => ({
-        select: () => chain,
-        upsert: (rows: { symbol: string }[]) => {
-          upserted.push(...rows);
-          return { select: () => Promise.resolve({ data: rows.map((_, i) => ({ id: `r${i}` })), error: null }) };
-        },
-      }),
-    } as unknown as SupabaseClient;
-    return { client, upserted };
-  }
-  // Monday evening's scan: the plan trades Tuesday 2026-10-20.
-  const evening = baseResult({ scannedAt: "2026-10-19T21:58:59Z" });
-  const plan = { symbol: "AAPL", direction: "bullish", entry: "200", stop_loss: "195" };
-
-  it("records the next session's call when the earlier session ended unfilled (a plan lasts its session)", async () => {
-    const { client, upserted } = withOpen({ ...plan, session_date: "2026-10-19", fill_price: null });
-    expect((await recordShadowSignals(client, [evening], "x")).recorded).toBe(1);
-    expect(upserted).toHaveLength(1);
-  });
-
-  it("does not record a trade that is on as a new call", async () => {
-    const { client, upserted } = withOpen({ ...plan, session_date: "2026-10-19", fill_price: "199.5" });
-    expect((await recordShadowSignals(client, [evening], "x")).recorded).toBe(0);
-    expect(upserted).toHaveLength(0);
-  });
-
-  it("does not record again for a session already recorded", async () => {
-    const { client, upserted } = withOpen({ ...plan, session_date: "2026-10-20", fill_price: null });
-    await recordShadowSignals(client, [evening], "x");
-    expect(upserted).toHaveLength(0);
+  it("walks the least recently checked rows first", async () => {
+    const symbols = Array.from({ length: MAX_WALKS_ON_RECORD + 1 }, (_, i) => `S${i}`);
+    walkShadowRowsMock.mockResolvedValue(new Map());
+    const { client } = withOpen(
+      symbols.map((symbol, i) => ({
+        ...plan,
+        id: symbol,
+        symbol,
+        session_date: "2026-10-19",
+        fill_price: null,
+        // S0 was checked most recently; the rest never or earlier.
+        checked_at: i === 0 ? "2026-10-19T23:59:00Z" : i === 1 ? null : `2026-10-19T1${i}:00:00Z`,
+      })),
+    );
+    await recordShadowSignals(client, symbols.map((symbol) => baseResult({ symbol, scannedAt: "2026-10-19T21:58:59Z" })), "x");
+    const ids = (walkShadowRowsMock.mock.calls[0][1] as { id: string }[]).map((r) => r.id);
+    expect(ids).not.toContain("S0");
+    expect(ids[0]).toBe("S1");
   });
 });

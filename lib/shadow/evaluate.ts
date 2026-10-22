@@ -299,6 +299,15 @@ export async function walkShadowRows(
       return result;
     } catch (err) {
       console.error(`shadow: evaluation failed for ${row.symbol} — ${String(err)}`);
+      // Checked, so a row that keeps failing goes to the back of the queue.
+      await supabase
+        .from("shadow_signals")
+        .update({ checked_at: now.toISOString() })
+        .eq("id", row.id)
+        .then(
+          () => undefined,
+          () => undefined,
+        );
       return null;
     }
   }
