@@ -973,9 +973,29 @@ only on the 2026-09-23 run, which measured the pre-fix 15-minute trigger
 (F3.1-F3.3) and none of the nine pillars, and no later commit moved them. Every
 "6/3.5 cutoffs" above is history. Gann gives no cutoff on a count of his
 conditions, so this is the owner's display decision. Live verdicts move.
-`STRATEGY_VERSION` is `2026-10-21-cutoffs-seven-four-one-entry`; the six-year
-daily rerun that measures 7/4 runs on it, after #412 (same-day stop-outs, the
-square from highs).
+`STRATEGY_VERSION` was `2026-10-21-cutoffs-seven-four-one-entry`.
+
+**Mass pressure, 2026-10-22 (owner: "Build these: 10 can be filled from Gann's
+own pages. Mass pressure ... written out in the Master Course (Ch. 7)").** Gann
+forecast the year by laying the years 10, 20, 30 and 60 back over it on his
+Master 20-Year Forecasting Chart of the averages ("for the 1929 forecast, I
+compared 1919 … 1909 … 1899 … and 1869", Ch. 7 PDF 224-225; 1936 from 1896, PDF
+227-228; *Commodities* pp. 11-12, his fifth factor). `lib/gann/massPressure.ts`
+averages the month's move in those four years and reads its sign; P1's cycle
+check now needs it not against the trade (a long fails it in a month the curve
+falls), as well as no yearly count due against it. The record is Shiller's
+monthly S&P composite from 1871, checked in (`lib/gann/marketHistory.json`,
+`scripts/fetch-market-history.mjs`, ODC-PDDL), an engineering stand-in for the
+Dow, read from the session's New York month on both surfaces, so no request.
+Engineering choices, labelled: equal weights, the sign as the direction, the
+month's move read centred (the figures are monthly averages). On 1931-2026 its
+sign agreed with the month's move 55.5% of the time against a 53.9% chance
+rate: weak, measured in the replay as `massPressureWithTrade`. Also context:
+Gann's 84-year count (Ch. 7 PDF 219) on the same record, a major market turn 84
+years back to the month (`eightyFourYear.ts`, `eightyFourYearCountWithTrade`;
+April 2026 is 84 years from the April 1942 low). `STRATEGY_VERSION` is
+`2026-10-22-gann-mass-pressure`; the six-year daily rerun that measures 7/4
+runs on it, after #412 (same-day stop-outs, the square from highs).
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the

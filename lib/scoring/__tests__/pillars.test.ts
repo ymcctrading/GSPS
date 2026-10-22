@@ -28,6 +28,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
   return {
     marketTrend: null,
     yearCycle: null,
+    massPressure: null,
     weeklyLine: null,
     decadeBias: null,
     yearTrend: null,
@@ -64,6 +65,16 @@ describe("market and cycle position", () => {
     expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: { bullishHits: 1, bearishHits: 0 } }), "bearish").passed).toBe(false);
     expect(marketCyclePillar(facts({ marketTrend: "bearish", yearTrend: "down" }), "bearish").passed).toBe(true);
     expect(marketCyclePillar(facts({ marketTrend: "bearish", yearTrend: "up" }), "bearish").passed).toBe(false);
+  });
+
+  it("fails the cycle when the market's mass-pressure curve runs against the side", () => {
+    const counts = { bullishHits: 0, bearishHits: 0 };
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, massPressure: "bearish" }), "bullish").passed).toBe(false);
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, massPressure: "bullish" }), "bullish").passed).toBe(true);
+    expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: counts, massPressure: "bullish" }), "bearish").passed).toBe(false);
+    expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: counts, massPressure: "bearish" }), "bearish").passed).toBe(true);
+    // Out of the record's reach, it does not count against the trade.
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, massPressure: null }), "bullish").passed).toBe(true);
   });
 
   it("fails with nothing read", () => {
@@ -370,5 +381,22 @@ describe("P1's year check reads the decade digit at the session's month (2026-10
     const long = marketCyclePillar({ ...fall, marketTrend: "bullish", yearTrend: "inside" }, "bullish");
     const short = marketCyclePillar({ ...fall, marketTrend: "bearish", yearTrend: "inside" }, "bearish");
     expect(long.passed).toBe(short.passed);
+  });
+});
+
+describe("P1 reads the market's mass pressure for a stock only (2026-10-22)", () => {
+  it("reads the curve when the stock market is read, and not for an instrument without one", async () => {
+    const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { readPillarFacts } = await import("@/lib/scoring/pillars");
+    const { readMassPressure } = await import("@/lib/gann/massPressure");
+    const daily: Bar[] = Array.from({ length: 60 }, (_, i) => {
+      const c = 50 + (i % 7);
+      return { t: new Date(Date.UTC(2026, 7, 1) + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1_000_000 };
+    });
+    const asOf = new Date("2026-10-15T16:00:00Z");
+    const rules = readDisclosedRules(daily, daily[daily.length - 1].c, null, asOf);
+    const input = { rules, daily, monthly: [], universe: null, oldLevels: [], price: daily[daily.length - 1].c, asOf };
+    expect(readPillarFacts({ ...input, marketDaily: daily }).massPressure).toBe(readMassPressure(asOf)!.direction);
+    expect(readPillarFacts({ ...input, marketDaily: null }).massPressure).toBeNull();
   });
 });

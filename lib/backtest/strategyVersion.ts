@@ -702,4 +702,11 @@
 // 2026-10-21): the 6/3.5 confirmation was read on the pre-fix 2026-09-23
 // trigger. Live verdicts move. Merged onto
 // 2026-10-21-gann-fast-trail-after-fill, whose Fast trail it keeps.
-export const STRATEGY_VERSION = "2026-10-21-cutoffs-seven-four-one-entry";
+// 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
+// mass-pressure curve not against the trade (A-OTHER-05, Master Course Ch. 7,
+// PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in the
+// years 10, 20, 30 and 60 back, on Shiller's monthly S&P composite from 1871
+// (`lib/gann/massPressure.ts`, `marketHistory.json`), read from the session's
+// date on both surfaces. Live verdicts move; replay buckets move. Context only:
+// `massPressureWithTrade` and the 84-year count (`eightyFourYear.ts`).
+export const STRATEGY_VERSION = "2026-10-22-gann-mass-pressure";
