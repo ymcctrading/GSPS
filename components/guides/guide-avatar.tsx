@@ -131,7 +131,7 @@ export function GuideTip({ speaker, children }: { speaker: GuideSpeaker; childre
           <span className="w-1/2 bg-guide-bull" />
           <span className="w-1/2 bg-guide-bear" />
         </div>
-        <div className="flex items-center justify-between gap-2 px-3 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-2">
           <span className="flex items-center gap-2">
             <GuideAvatar guide="bull" size="sm" decorative />
             <SpeakerLabel guide="bull" />
@@ -166,9 +166,21 @@ export function GuideTip({ speaker, children }: { speaker: GuideSpeaker; childre
 }
 
 /** The two guides side by side at equal size, for a page that introduces them together. */
-export function GuidePair({ size = "md" }: { size?: keyof typeof SIZES }) {
+export function GuidePair({
+  size = "md",
+  decorative = false,
+}: {
+  size?: keyof typeof SIZES;
+  /** True where the text beside it already names both guides. */
+  decorative?: boolean;
+}) {
   return (
-    <span className="inline-flex items-center gap-2" role="img" aria-label={`${GUIDE_NAMES.bull} and ${GUIDE_NAMES.bear}`}>
+    <span
+      className="inline-flex items-center gap-2"
+      role={decorative ? undefined : "img"}
+      aria-hidden={decorative ? true : undefined}
+      aria-label={decorative ? undefined : `${GUIDE_NAMES.bull} and ${GUIDE_NAMES.bear}`}
+    >
       <GuideAvatar guide="bull" size={size} decorative />
       <GuideAvatar guide="bear" size={size} decorative />
     </span>

@@ -149,7 +149,7 @@ export function GraduationExam({ transition }: { transition: string }) {
       <div>
         <h1 className="text-xl font-semibold sm:text-2xl">{TITLE[transition]}</h1>
         <div className="mt-2">
-          <GuidePair size="md" />
+          <GuidePair size="md" decorative />
         </div>
         <p className="text-sm text-muted">
           Mr. Bull and Mrs. Bear hand you five real charts, each stopped at a date in the past. Read the
