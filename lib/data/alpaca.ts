@@ -162,6 +162,20 @@ const PAGE_LIMIT = 10000;
  * the chart's "Extended hours" checkbox (`components/chart/candles.tsx`)
  * filters them client-side after the fact.
  */
+/**
+ * A request window's edge, floored to the minute. Callers build `start` and
+ * `end` from `Date.now()`, so to the millisecond no two requests shared a URL
+ * and the bar cache in ./http (`ttlFor`, 15 s) could only coalesce identical
+ * concurrent calls. Floored, every chart load and scan of one symbol and
+ * timeframe inside a minute shares one upstream read (Q2 "Scale safely",
+ * 2026-10-22). The window starts up to a minute earlier, which only adds an
+ * old bar the limit trims (pages run newest first), and ends up to a minute
+ * earlier, inside the feed's own delay.
+ */
+function minuteFloor(d: Date): string {
+  return new Date(Math.floor(d.getTime() / 60_000) * 60_000).toISOString();
+}
+
 /** Shared param-building for the bars endpoint — one or many symbols. */
 function barsRequest(
   symbols: string,
@@ -178,11 +192,11 @@ function barsRequest(
 
   const params: Record<string, string> = {
     timeframe: ALPACA_TIMEFRAME[timeframe] ?? timeframe,
-    start: start.toISOString(),
+    start: minuteFloor(start),
     symbols,
     sort: "desc",
   };
-  if (end) params.end = end.toISOString();
+  if (end) params.end = minuteFloor(end);
   if (!crypto) {
     params.adjustment = "split";
     params.feed = "iex";

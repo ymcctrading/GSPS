@@ -13,6 +13,8 @@ import { TF_LOOKBACK_DAYS, TF_MAX_BARS, isTimeframe } from "@/lib/timeframe";
 // backoff on a 429/5xx alone can exceed 10s.
 export const maxDuration = 60;
 
+const BARS_CACHE_CONTROL = "public, s-maxage=15, stale-while-revalidate=60";
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
@@ -52,13 +54,21 @@ export async function GET(req: NextRequest) {
       TF_MAX_BARS[timeframe],
       true,
     );
-    return NextResponse.json({
-      symbol: symbol.toUpperCase(),
-      timeframe,
-      assetClass,
-      bars,
-      source: provider.name,
-    });
+    return NextResponse.json(
+      {
+        symbol: symbol.toUpperCase(),
+        timeframe,
+        assetClass,
+        bars,
+        source: provider.name,
+      },
+      // The same bars for every caller, so Vercel's CDN may answer a repeat
+      // (another member, another tab, a timeframe switched back) without
+      // running this function: fresh for the bar cache's own 15 s, then served
+      // stale for up to a minute while one request refreshes it (Q2 "Scale
+      // safely", 2026-10-22). An error is never cached.
+      { headers: { "Cache-Control": BARS_CACHE_CONTROL } },
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
