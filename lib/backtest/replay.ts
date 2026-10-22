@@ -103,7 +103,7 @@ import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse
 import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { LIVE_EXIT_RULE, SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
-import { nextLotFraction, readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
+import { nextLotFraction, readPyramidAdd, wholeLineStop, type PyramidLot } from "@/lib/gann/pyramid";
 import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 
 /** Whole-share scale for fractional replay lots (1 lot = 1024 shares, so a tenth of it stays whole). */
@@ -2016,7 +2016,10 @@ export function walkGannExit(input: {
       cost += pendingAdd.qty * fill;
       lots.push({ qty: pendingAdd.qty, price: fill, date });
       const avg = cost / openQty;
-      const floor = long ? Math.max(pendingAdd.newStop, avg) : Math.min(pendingAdd.newStop, avg);
+      // The whole line's stop: break-even, or 5 points under the add's own
+      // fill (A-STOP-06, W022 p.198), as the live add places it
+      // (lib/automation/pyramid-adds.ts); never looser than the reading's.
+      const floor = wholeLineStop(long ? "long" : "short", avg, fill, pendingAdd.newStop);
       if (long ? floor > stop : floor < stop) {
         stop = floor;
         stopReason = "break_even";

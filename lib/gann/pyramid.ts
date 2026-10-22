@@ -43,10 +43,10 @@
  *
  * How GSPS applies it: `readPyramidAdd` says whether the position has earned
  * an add now, how large, at what trigger, and where the whole position's stop
- * goes. The Portfolio shows it as a suggestion; the replay measures it
- * (`pyramid: true`). Automated adds are not placed yet: the exit managers
- * track one entry per plan, and an add changes the position they manage. That
- * is recorded in the parity roadmap as the remaining step.
+ * goes. The Portfolio shows it as a suggestion, the replay measures it
+ * (`pyramid: true`), and since 2026-10-22 the portfolio manager places it on
+ * the lines it opened (lib/automation/pyramid-adds.ts, paper), merging each
+ * add into the line's one exit row as the replay walks one position.
  *
  * - **Add at fixed steps** (A-PYRAMID-01, W006 p.47 Rule 5: every 5 points
  *   for stocks at $20-50, every 10 at $80-200; A-PYRAMID-06, W022 pp.196-199:
@@ -174,6 +174,27 @@ export interface WorkingLotRow {
   stop_loss: number;
   applied_stop: number | null;
   created_at: string;
+  /**
+   * The lots of a line pyramided by automation (migration 0111), oldest
+   * first; null or absent on a row of one lot. When present the row's `qty`
+   * and `entry_price` are the whole line's, and the lots are read instead.
+   */
+  lots?: unknown;
+}
+
+/** A stored `lots` value, or null when it isn't a list of priced lots. */
+export function readStoredLots(value: unknown): PyramidLot[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const lots: PyramidLot[] = [];
+  for (const v of value) {
+    const lot = v as Record<string, unknown>;
+    const qty = Number(lot?.qty);
+    const price = Number(lot?.price);
+    const date = typeof lot?.date === "string" ? lot.date : null;
+    if (!(qty > 0) || !(price > 0) || !date) return null;
+    lots.push({ qty, price, date });
+  }
+  return lots;
 }
 
 /**
@@ -184,7 +205,8 @@ export interface WorkingLotRow {
  * the lots' stops, since an add never loosens it. A row with no fill price
  * yet is not a lot. Null with no lots. Live rows carry the broker's blended
  * entry price once filled, so a live line's step check reads the blend: a
- * known gap, latent while no live broker is connected.
+ * known gap, latent while no live broker is connected. A paper line pyramided
+ * by automation carries its lots (`lots`), which are read in its place.
  */
 export function pyramidLineFromRows(
   rows: WorkingLotRow[],
@@ -197,7 +219,10 @@ export function pyramidLineFromRows(
   const stops = same.map((r) => Number(r.applied_stop ?? r.stop_loss));
   return {
     side,
-    lots: same.map((r) => ({ qty: Number(r.qty), price: Number(r.entry_price), date: dateKey(new Date(r.created_at)) })),
+    lots: same.flatMap((r) =>
+      readStoredLots(r.lots) ??
+      [{ qty: Number(r.qty), price: Number(r.entry_price), date: dateKey(new Date(r.created_at)) }],
+    ),
     stop: side === "long" ? Math.max(...stops) : Math.min(...stops),
     initialStop: Number(same[0].stop_loss),
   };

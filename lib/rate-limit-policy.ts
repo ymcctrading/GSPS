@@ -21,7 +21,9 @@
  * draws from no bucket: every pg_cron call comes from Supabase's one address,
  * so an IP budget would throttle the schedule itself, and the secret's holder
  * is the platform. Admin routes keep their own bearer check and the default
- * budget. Keys stay `user ?? ip`, per instance (lib/rate-limit.ts).
+ * budget. Keys stay `user ?? ip`. The four heavy buckets count in Postgres,
+ * one count across every instance (`SHARED_BUCKETS`, lib/rate-limit.ts,
+ * 2026-10-22); `api` counts per instance.
  *
  * Three-question basis: 1. Gann: none; access control. 2. Cycles: no
  * periodicity claim; the one-minute window is an engineering figure.
@@ -39,6 +41,13 @@ export const RATE_LIMITS: Record<RateLimitBucket, number> = {
   scan: 20,
   api: 120,
 };
+
+/**
+ * The buckets counted once across every server instance. `api` is left per
+ * instance: it is most of the traffic, a read of the member's own rows, and a
+ * shared count would add a database round trip to every page.
+ */
+export const SHARED_BUCKETS: ReadonlySet<RateLimitBucket> = new Set(["credential", "outbound", "order", "scan"]);
 
 const CREDENTIAL_PREFIXES = [
   "/api/alpaca/connect-live",

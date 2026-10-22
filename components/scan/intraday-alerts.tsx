@@ -358,12 +358,16 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   const unpaid = alert.continuationPlan.paysRisk === false;
   // A signal the replay measured losing is shown for study, never offered.
   const measuredLosing = MEASURED_LOSING[alert.type];
-  // The plan "Trade this" carries into the ticket: the alert's own stop and
-  // first target (the Intraday style). With no target fixed there is nothing
+  // The plan "Trade this" carries into the ticket: the alert's own stop, first
+  // target and MTP (the Intraday style). With no target fixed there is nothing
   // to check the risk against (M-K5), so no trade is offered.
   const tradePlan =
     alert.continuationPlan.invalidation != null && alert.continuationPlan.firstTarget != null
-      ? { stop: alert.continuationPlan.invalidation, target: alert.continuationPlan.firstTarget }
+      ? {
+          stop: alert.continuationPlan.invalidation,
+          target: alert.continuationPlan.firstTarget,
+          master: alert.continuationPlan.masterTarget ?? null,
+        }
       : null;
   const model = buildIntradayCardModel(alert);
   const cardId = `intraday-card-${alert.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
@@ -476,10 +480,10 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               )}
               {!isRisk && alert.type !== "plan_level_held" && (
                 <p className="text-xs text-muted">
-                  Intraday setups price an exit and a first target only — there is no MTP (master take profit) on
-                  one. TP1 here is the first old high or low beyond the price, or a round number just short of
-                  one, that pays more than the risk. When there is none ahead, no target is fixed and the stop
-                  trails under each higher bottom (a lower top for a sell) instead.
+                  TP1 here is the first old high or low beyond the price, or a round number just short of one,
+                  that pays more than the risk. The MTP (master take profit) is the next such level beyond TP1:
+                  where the move is measured to, and nothing sells there. When there is none ahead, no target is
+                  fixed and the stop trails under each higher bottom (a lower top for a sell) instead.
                 </p>
               )}
 

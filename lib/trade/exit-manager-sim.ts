@@ -41,6 +41,7 @@ import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { readStoredLots, type PyramidLot } from "@/lib/gann/pyramid";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -69,6 +70,20 @@ export interface SimPlanRow {
   applied_stop_reason: StopReason | null;
   status: "working" | "closed";
   created_at: string;
+  /**
+   * The lots on a pyramided line, oldest first (migration 0111,
+   * lib/automation/pyramid-adds.ts). Null on a line of one lot. On a pyramided
+   * line `qty` is every lot and `entry_price` their blended cost, as the
+   * position reads it; Gann's exit rules read the first lot's entry, as the
+   * replay's `walkGannExit` does (`firstEntry`).
+   */
+  lots: PyramidLot[] | null;
+}
+
+/** The first lot's entry: what Gann's exit rules measure from, as the replay does. */
+export function firstEntry(plan: Pick<SimPlanRow, "entry_price" | "lots">): number {
+  const first = plan.lots?.[0]?.price;
+  return first != null && first > 0 ? first : plan.entry_price;
 }
 
 export interface SimManageRun {
@@ -186,8 +201,10 @@ function normalizePlan(row: Record<string, unknown>): SimPlanRow {
     applied_stop_reason: (row.applied_stop_reason as StopReason | null) ?? null,
     status: row.status === "closed" ? "closed" : "working",
     created_at: String(row.created_at),
+    lots: readStoredLots(row.lots),
   };
 }
+
 
 interface Tranche {
   key: "scale_out" | "master" | "runner";
@@ -249,7 +266,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
         ? await readLiveGannExit({
             symbol: plan.symbol,
             side: plan.side,
-            entryPrice: plan.entry_price,
+            entryPrice: firstEntry(plan),
             initialStop: plan.stop_loss,
             openedAt: plan.created_at,
             best: highWater,
@@ -329,7 +346,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
 
   // Cover shorts on bad news (A-EXIT-04): offered while the short stays open.
   if (remainingQty > 1e-9 && !caught && plan.side === "short") {
-    const news = await readLiveBadNews({ symbol: plan.symbol, side: plan.side, entryPrice: plan.entry_price });
+    const news = await readLiveBadNews({ symbol: plan.symbol, side: plan.side, entryPrice: firstEntry(plan) });
     if (news) run.notes.push(badNewsOffer(plan.symbol, news));
   }
 
@@ -352,7 +369,11 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
     .update({ ...patch, last_managed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", plan.id)
     .eq("user_id", userId)
-    .eq("status", "working");
+    .eq("status", "working")
+    // A pyramid add joined the line after this pass read it
+    // (lib/automation/pyramid-adds.ts): the quantity and stop read here are
+    // stale, so this pass loses and the next reassesses the whole line.
+    .eq("qty", plan.qty);
   for (const f of toFill) query = query.is(`${f.key}_order_id`, null);
 
   const { data: claimed } = await query.select("id").maybeSingle();
@@ -492,7 +513,7 @@ async function finish(
   // trade automation placed, offered in a note for one a person placed.
   if (exitCondition === "stop_loss") {
     const cause: ReversalCause = caught ?? "stop";
-    const extreme = plan.high_water ?? plan.entry_price;
+    const extreme = plan.high_water ?? firstEntry(plan);
     let sourcePlanId: string | null = null;
     // An intraday trade (lib/gann/intradayExit.ts) ends on the session's
     // rules: it is neither reversed nor re-bought at the daily geometry.
@@ -511,7 +532,7 @@ async function finish(
     } else if (sourcePlanId) {
       await handleAutomatedStopOut(supabase, userId, {
         planId: sourcePlanId,
-        entryFillPrice: plan.entry_price,
+        entryFillPrice: firstEntry(plan),
         stoppedAt: new Date().toISOString(),
         exitPrice,
         cause,
@@ -527,7 +548,7 @@ async function finish(
       // bought again on the reaction (lib/gann/rebuy.ts). A person's trade is
       // offered it in a note; automation's is seeded a plan by the stop-out
       // handling above (since 2026-10-22).
-      const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: plan.entry_price });
+      const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: firstEntry(plan) });
       if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
     }
   }
@@ -566,6 +587,9 @@ export async function closeSimPlanForSymbol(
     .eq("user_id", userId)
     .eq("symbol", symbol.toUpperCase())
     .eq("mode", "paper")
+    // An add merged into its line (lib/automation/pyramid-adds.ts) is closed
+    // and newer than the line; the line is the one to close.
+    .is("merged_into", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

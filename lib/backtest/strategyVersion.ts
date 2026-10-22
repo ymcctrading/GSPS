@@ -812,4 +812,14 @@
 // A-EXIT-02), refuses an add to a position not in profit (rule 13), sizes on
 // the trading unit from the first verified equity (A-RISK-04); automation
 // opens nothing in the rest window (M-K4).
-export const STRATEGY_VERSION = "2026-10-22-gann-rule-recheck-fixes";
+// (was STRATEGY_VERSION "2026-10-22-gann-rule-recheck-fixes")
+// 2026-10-22-gann-pyramid-adds-placed (merged onto the version above, whose
+// rules it keeps): the portfolio manager places Gann's
+// pyramid adds on the paper lines it opened (lib/automation/pyramid-adds.ts),
+// each add merged into its line's one exit row as the replay walks one
+// position (migration 0111). The whole line's stop after an add goes 5 points
+// under the add's own fill or to break-even (A-STOP-06, W022 p.198), live and
+// replay alike; the replay had measured it from the trigger, so an add filled
+// on a gap past it kept a looser stop. Pyramided replay trades move; verdicts
+// and unpyramided trades don't.
+export const STRATEGY_VERSION = "2026-10-22-gann-pyramid-adds-placed";

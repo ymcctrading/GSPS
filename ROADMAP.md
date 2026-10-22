@@ -6,8 +6,11 @@
 governs what is built and in what order. It joins this roadmap with the parity
 documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
 This file keeps each phase's detail and history.
-**Last updated:** 2026-10-22 (Q2 crypto scanner started on Alpaca's free data;
-Q2's Performance replay UI built as the Scanner's "Past scans" tab). Earlier the same day (two stale Q1 notes corrected: the
+**Last updated:** 2026-10-22 (Q2 advanced orders: automated pyramid adds on
+paper, OCO answered by Gann's no-fixed-target rule; see
+`docs/SYNTHESIZED_ROADMAP.md` Part 5 item 3. Also Q2's crypto scanner started
+on Alpaca's free data, and Q2's Performance replay UI built as the Scanner's
+"Past scans" tab). Earlier the same day (two stale Q1 notes corrected: the
 pay-your-way pricing is approved, and `patternArmed` was closed 2026-09-17;
 carried over from PR #295). Previously 2026-10-21 (pointer to the synthesized
 roadmap). Previously

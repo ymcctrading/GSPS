@@ -1096,6 +1096,25 @@ score goes last and ties keep the older plan first (engineering choices). A
 failed read ranks nothing, is logged in the run's errors, and never stops the run. There is no migration. Verdicts and the replay are
 unchanged, so `STRATEGY_VERSION` stays.
 
+**Automated pyramid adds, same day (Q2 item 3, advanced orders).** The
+portfolio manager's scheduled run places Gann's pyramid add
+(`lib/gann/pyramid.ts`: 100/50/30/20/10 of the first lot at each crossed swing
+top) on the paper lines it opened (`lib/automation/pyramid-adds.ts`): an entry
+from an automated plan, the manager on, the line running whole on Gann's rules,
+the only working exit on its symbol, not intraday, not in the away window. The
+reading is taken on completed sessions, the add fills at the market once it
+crosses the trigger, through `placeSimulatedOrder` like any entry. Its exit row
+is merged into the line's (migration 0111: `lots`, `merged_into`,
+`add_claimed_at`): one row, the whole quantity, `entry_price` the blended cost,
+and the stop the tighter of break-even and 5 points under the add's own fill
+(A-STOP-06, W022 p.198), as the replay walks one position. Gann's exit rules
+read the first lot (`firstEntry`), as the replay does. The replay now measures
+that stop from the fill too, not the trigger: `STRATEGY_VERSION` is
+`2026-10-22-gann-pyramid-adds-placed` (pyramided replay trades move, verdicts
+don't). Broker-side OCO needs nothing: under Q14 there is no target to pair
+with the stop, and the bracket rule's tranches already rest as OCO. Live adds
+wait for the end of the proving period.
+
 **Name charts and great cycles, 2026-10-22 (A-OTHER-08, A-TIME-24; owner:
 "Build these: ... name numerology [is] written out in the Master Course").**
 Gann's name chart (Master Course Ch. 15A, PDF 401-402): "United States Steel"
@@ -2972,9 +2991,13 @@ Standing facts for a session that touches any list of setups:
   "Master" in the lists; it is **MTP** (master take profit) wherever a person
   reads it. Guided Mode and the onboarding walkthrough keep their plain-English
   "next level" and add "(MTP)". The internal field stays `masterProfit`.
-- **Intraday has no MTP, and its TP1 is a Gann level or nothing.** The
+- **Intraday's TP1 and MTP are Gann levels or nothing.** The
   intraday scanner prices an exit (the session's 50% point or a point beyond the crossed prior-session
-  extreme) and a first target, and no master take profit. The first target was
+  extreme), a first target and, since 2026-10-22 (owner: "Include a mtp for
+  intraday trades"), a master take profit: the next old level or round number
+  beyond the first target (`gannMasterTarget`, the daily plan's "next level
+  beyond TP1" at the session's scale). It rides into the ticket and the order
+  record; nothing sells there (Q14), as with the daily MTP. The first target was
   twice the risk, an R-multiple with no Gann source; on 2026-09-30 the owner
   ("everything must align with Gann") had it replaced by `gannFirstTarget`
   (`lib/scanner/intraday.ts`): the nearest old top or bottom beyond the price,
@@ -3115,9 +3138,9 @@ in batches (100 symbols a request), not three requests a symbol.
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and
 "Trade this" on an intraday alert opened the ticket on the daily plan's levels,
-not the alert's. Now the link carries the alert's own stop and first target
-(`intradayTradeHref`), and the ticket opens on them as a market entry with no
-MTP, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
+not the alert's. Now the link carries the alert's own stop, first target and
+MTP (`intradayTradeHref`; the MTP since the same day, sold at by nothing), and
+the ticket opens on them as a market entry, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
 `orders.intraday_sourced`, not a picked preference). Once filled, the paper and
 live exit managers walk it on the session's bars with the intraday replay's own
 rules, now one module (`lib/gann/intradayExit.ts`), on regular-session bars

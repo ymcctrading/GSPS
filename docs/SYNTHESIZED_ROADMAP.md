@@ -118,7 +118,7 @@ session reading only this file still follows them.
   (`review/tally.md`). Of the other 47, 43 are declined or blocked by recorded
   owner decisions or missing data, and the rest are in review or fix.
 - The parity matrix (`GANN_PARITY_ROADMAP.md`) has every buildable row built.
-  Open there: automated pyramid adds, the shared time-window mechanism that
+  Open there: the shared time-window mechanism that
   astro and Jensen time readings act through, the dated-forecast teaching
   example (`macroCycle.ts`), and the Square of 67, which no source in the
   collection holds. (The Square of 52 is Master Course Ch. 14 and is built;
@@ -194,9 +194,15 @@ against Gann:
    (`/mnt/project-files/trade-style/DESIGN.md`, owned by the trade-style
    thread). Crypto first, since its data and broker exist. Forex and futures
    need a bars feed and a broker.
-3. **Advanced orders.** Gann's trailing stops already run in the exit
-   managers. Remaining: broker-side OCO on live Alpaca orders, and automated
-   pyramid adds (the exit managers must track more than one entry per plan).
+3. **Advanced orders.** Built 2026-10-22. Gann's trailing stops already ran
+   in the exit managers. Broker-side OCO is answered by Gann: under Q14 there
+   is no fixed target, so the live entry carries one stop and nothing pairs
+   with it; the bracket rule's profit tranches already rest as OCO orders
+   (`lib/trade/exit-manager.ts`). Automated pyramid adds now run on paper
+   (`lib/automation/pyramid-adds.ts`, migration 0111): the portfolio manager
+   adds Gann's 100/50/30/20/10 lots to the lines it opened and merges each add
+   into the line's one exit row, as the replay walks one position. Live adds
+   wait for the end of the proving period and a live broker.
 4. **Risk dashboard.** Built 2026-10-21 (the Risk card on the Portfolio page,
    `lib/risk/dashboard.ts`, `/api/risk/dashboard`): Gann's capital rules (30
    points a share, a tenth at risk, five stocks), open risk to each stop the
@@ -221,7 +227,15 @@ against Gann:
    offers its own entry, stop and TP1 (never an MTP), as AGENTS.md's
    "Strategy Modes" records.
 7. **Scale safely.** Database index audit and query baselines; a shared rate
-   limit store; caching for chart and scan reads.
+   limit store; caching for chart and scan reads. **First pass built
+   2026-10-22** (`docs/SCALE_AUDIT.md`):
+   - Migration 0115 adds 20 indexes and has all 170 security policies read
+     the user once per query.
+   - The heavy rate-limit buckets count once across instances, in Postgres
+     (0114, the owner's pick).
+   - Chart bars share one vendor read and the CDN caches them.
+   - Scan lists stay uncached, since they vary by member.
+   - Left for a later pass: re-reading the baselines after a week of traffic.
 8. **Track M:** the shared time-window mechanism (so the astro, Jensen,
    hexagon and Master Chart time readings act where Gann says they act); the
    dated-forecast example with its documented record; the remaining review

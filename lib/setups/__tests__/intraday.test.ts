@@ -27,8 +27,13 @@ const alert: Alert = {
 };
 
 describe("intradayLevels", () => {
-  it("waits on the price the move had reached, exits at the invalidation, targets the plan's first target, and has no MTP", () => {
+  it("waits on the price the move had reached, exits at the invalidation, targets the plan's first target, and has no MTP when none lies beyond it", () => {
     expect(intradayLevels(alert)).toEqual({ entry: 504.5, stop: 500, tp1: 513.5, mtp: null });
+  });
+
+  it("carries the plan's MTP when a level lies beyond the first target", () => {
+    const withMaster: Alert = { ...alert, continuationPlan: { ...alert.continuationPlan, masterTarget: 520 } };
+    expect(intradayLevels(withMaster).mtp).toBe(520);
   });
 
   it("prices nothing for a reversal-risk warning", () => {
