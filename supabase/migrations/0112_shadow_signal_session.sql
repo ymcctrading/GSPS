@@ -23,8 +23,9 @@
 --   drop index if exists public.shadow_signals_plan_session_idx;
 --   alter table public.shadow_signals drop column if exists checked_at;
 --   alter table public.shadow_signals drop column if exists session_date;
--- (the duplicate rows removed below are not restored; they were copied to
--- /mnt/project-files/shadow/ before this was applied).
+--   update public.shadow_signals set strategy_version = split_part(strategy_version, ':duplicate', 1)
+--     where strategy_version like '%:duplicate-%';
+-- (all rows were also copied to /mnt/project-files/shadow/ before this ran).
 
 -- No scan inserts between the backfill, the dedupe and the index.
 lock table public.shadow_signals in share row exclusive mode;
@@ -52,16 +53,20 @@ set session_date = case
 end
 where s.session_date is null;
 
--- One row a plan a session: keep the first recorded, drop the repeats.
-delete from public.shadow_signals s
-using public.shadow_signals k
-where s.strategy_version = k.strategy_version
-  and s.symbol = k.symbol
-  and s.direction = k.direction
-  and s.entry = k.entry
-  and s.stop_loss = k.stop_loss
-  and s.session_date = k.session_date
-  and (k.created_at, k.id) < (s.created_at, s.id);
+-- One row a plan a session: the first recorded keeps its version, and each
+-- repeat is moved under "<version>:duplicate-<n>" so it leaves the forward
+-- test's comparisons (which read the current version) but stays on record
+-- (owner, 2026-10-22: "Number them"; 14 rows in production).
+with r as (
+  select s.id, row_number() over (
+    partition by s.strategy_version, s.symbol, s.direction, s.entry, s.stop_loss, s.session_date
+    order by s.created_at, s.id) n
+  from public.shadow_signals s
+)
+update public.shadow_signals s
+set strategy_version = s.strategy_version || ':duplicate-' || (r.n - 1)
+from r
+where r.id = s.id and r.n > 1;
 
 -- The recorder's upsert conflict target. Not partial, so PostgREST can name
 -- it; a row with no session (none after this migration) never conflicts.
