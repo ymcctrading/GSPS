@@ -187,7 +187,7 @@ async function fetchLiveWeights(now: number): Promise<Cached> {
     if (!isUniformWeightSet(weights)) {
       console.warn(
         `[active-weights] Ignoring live ${SCORE_WEIGHT_MODEL_TYPE} v${row.version}: ` +
-          `its weights are not uniform, and nothing in Gann's sources ranks one ` +
+          `its weights are not uniform, and no source ranks one ` +
           `pillar above another. Scoring with the uniform default.`,
       );
       return fallback;
