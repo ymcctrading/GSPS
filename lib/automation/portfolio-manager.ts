@@ -362,7 +362,9 @@ async function runForProfile(
   const profitCeiling = await readProfitCeiling(supabase, profile.user_id, executionMode === "live" ? "live" : "paper", equityBasis);
   equityBasis =
     executionMode === "live"
-      ? gannRiskCapital({ equity: equityBasis, startingCapital: liveStart ?? 0, ...(run ?? { consecutiveWins: 0, streakProfitUsd: 0 }) }).capital
+      ? run
+        ? gannRiskCapital({ equity: equityBasis, startingCapital: liveStart ?? 0, ...run }).capital
+        : Math.min(equityBasis, liveStart ?? Infinity)
       : run
         ? gannRiskCapital({ equity: equityBasis, startingCapital: STARTING_CASH, ...run }).capital
         : Math.min(equityBasis, STARTING_CASH);

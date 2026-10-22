@@ -202,6 +202,11 @@ describe("day-count bands and fractions of the year (A09 Rule 8; Master Course C
     expect(daysFromAnniversary("2024-03-10T00:00:00Z", "2026-03-12T00:00:00Z")).toBe(2);
     // Inside the first year it is the distance to the first anniversary ahead.
     expect(daysFromAnniversary("2026-03-10T00:00:00Z", "2026-12-10T00:00:00Z")).toBe(90);
+    // Across a February 29 the anniversary is 366 days on, not 365.
+    expect(daysFromAnniversary("2028-01-30T00:00:00Z", "2029-01-30T00:00:00Z")).toBe(0);
+    // A date that doesn't parse reads nothing, never a false anniversary.
+    expect(daysFromAnniversary("not a date", "2029-01-30T00:00:00Z")).toBeNull();
+    expect(daysFromAnniversary("2028-01-30T00:00:00Z", "")).toBeNull();
     expect(daysFromAnniversary("2026-03-10T00:00:00Z", "2026-03-11T00:00:00Z")).toBe(364);
   });
 });

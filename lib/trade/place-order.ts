@@ -1380,11 +1380,12 @@ async function placeLiveOrder(
     // as A-RISK-07 reads it; until 2026-10-22 it was taken as none, so the
     // live unit was the whole equity and grew with every profit.
     const [run, startingCapital] = await Promise.all([readWinningRun(supabase, userId), readLiveStartingCapital(supabase, userId)]);
-    const unit = gannRiskCapital({
-      equity: Math.max(equity, 0),
-      startingCapital: startingCapital ?? 0,
-      ...(run ?? { consecutiveWins: 0, streakProfitUsd: 0 }),
-    }).capital;
+    // With the win history unread, no step-up is taken (readWinningRun's
+    // contract, as paperTradingUnit reads it): the unit is the equity, never
+    // above the starting capital.
+    const unit = run
+      ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: startingCapital ?? 0, ...run }).capital
+      : Math.min(Math.max(equity, 0), startingCapital ?? Infinity);
     const ceiling = await readProfitCeiling(supabase, userId, "live", Math.max(equity, 0));
     const tenth = tenthRefusal(unit, input.symbol, referencePrice, input, ceiling);
     if (tenth) return tenth;

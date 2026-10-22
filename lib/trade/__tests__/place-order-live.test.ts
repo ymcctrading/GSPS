@@ -108,6 +108,15 @@ function stubSupabase(overrides: Partial<Record<string, unknown>> = {}) {
       q.then = (resolve: (v: unknown) => unknown) => resolve({ data: overrides.snapshots ?? [], error: null });
       return q;
     })(),
+    // The win history (readWinningRun): no trades by default; an error when
+    // `tradeLogsError` is set, which callers read as "unread".
+    trade_logs: (() => {
+      const q: Record<string, unknown> = {};
+      for (const k of ["select", "eq", "in", "not", "order", "limit"]) q[k] = () => q;
+      q.then = (resolve: (v: unknown) => unknown) =>
+        resolve(overrides.tradeLogsError ? { data: null, error: { message: "unreadable" } } : { data: [], error: null });
+      return q;
+    })(),
   };
   return { from: (t: string) => tables[t] } as unknown as SupabaseClient;
 }
@@ -450,6 +459,35 @@ describe("placeSimulatedOrder — live branch", () => {
     const result = await placeSimulatedOrder(stubSupabase({ snapshots }), "u1", input);
     expect(result.status).toBe(409);
     expect((result.body as { code: string }).code).toBe("risk_tenth_of_profits");
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("takes no step-up when the win history can't be read: the unit stays at the first verified equity", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "25000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    // Started at 10,000, now 25,000: read, the unit doubles to 20,000 (a tenth
+    // 2,000), so 200 shares at $8 (1,600) pass the unit. Unread, no step-up:
+    // the unit stays 10,000, a tenth 1,000, and the same order is refused.
+    const snapshots = [{ equity: 10_000 }, { equity: 25_000 }];
+    const input = { ...baseInput, qty: 200, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 92, takeProfit: 110 } };
+    const unread = await placeSimulatedOrder(stubSupabase({ snapshots, tradeLogsError: true }), "u1", input);
+    expect((unread.body as { code: string }).code).toBe("risk_one_tenth");
+    const read = await placeSimulatedOrder(stubSupabase({ snapshots }), "u1", input);
+    expect((read.body as { code?: string }).code).not.toBe("risk_one_tenth");
+  });
+
+  it("refuses a live add to a position not in profit (never-failing rule 13)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "100000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    getPositions.mockResolvedValue([{ symbol: "AAPL", qty: "10", side: "long", avg_entry_price: "110", market_value: "1000" }]);
+    const input = { ...baseInput, qty: 5, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 97, takeProfit: 110 } };
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", input);
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("average_a_loss");
     expect(placeOrder).not.toHaveBeenCalled();
   });
 

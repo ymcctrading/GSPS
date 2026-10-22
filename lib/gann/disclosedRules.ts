@@ -362,11 +362,12 @@ export function readDayCountBands(bars: Bar[]): DayCountBandReading[] {
  * Days from `toIso` to the nearest calendar anniversary of `fromIso` a whole
  * number of years (one or more) on, the first one ahead included. A February
  * 29 pivot's anniversary falls on February 28 in a common year (UTC dates).
- * Null only for a date before the pivot's own year.
+ * Null for a date before the pivot's own year, or a date that doesn't parse.
  */
 export function daysFromAnniversary(fromIso: string, toIso: string): number | null {
   const from = new Date(Date.parse(fromIso));
   const to = Date.parse(toIso);
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to)) return null;
   let best: number | null = null;
   for (const dy of [-1, 0, 1]) {
     const years = new Date(to).getUTCFullYear() - from.getUTCFullYear() + dy;

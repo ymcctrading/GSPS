@@ -68,6 +68,19 @@ describe("timeWindowsAt", () => {
     expect(lows.some((w) => /low/.test(w))).toBe(true);
     expect(highs.every((w) => !/time window from a major low/.test(w))).toBe(true);
   });
+
+  it("opens a day count from a low for a top as well as a bottom (W006 pp. 14, 44: from any important top or bottom)", () => {
+    const t0 = Date.parse("2025-10-01T00:00:00Z");
+    const series: Bar[] = Array.from({ length: 200 }, (_, i) => {
+      const c = 100 + 10 * Math.sin(i / 8) - (i === 60 ? 15 : 0);
+      return { t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 };
+    });
+    const turnAt = series.slice(0, 151);
+    const date = turnAt[150].t.slice(0, 10);
+    const both = "a time window from a major top or bottom";
+    expect(timeWindowsAt(turnAt, date, "bottom")).toContain(both);
+    expect(timeWindowsAt(turnAt, date, "top")).toContain(both);
+  });
 });
 
 describe("applyTimeWindowHold", () => {

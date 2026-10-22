@@ -49,8 +49,8 @@ function zigzag(days: number, legs: [number, number][], start = 100, firstDay = 
  * entered under it has a first target that pays more than its risk: the
  * replay, like the live alert, takes no trade without one (M-K5).
  */
-function dailyFor(bars: Bar[]): Bar[] {
-  const peak = [96, 99, 102, 105, 107, 104, 101, 98, 96];
+function dailyFor(bars: Bar[], withTop = true): Bar[] {
+  const peak = withTop ? [96, 99, 102, 105, 107, 104, 101, 98, 96] : [];
   const before: Bar[] = Array.from({ length: 30 }, (_, i) => {
     const p = peak[i];
     return {
@@ -135,6 +135,13 @@ describe("replayIntraday", () => {
     // Every trade is unscored, so it lands in the unscored bucket and nowhere else.
     expect(byOutputState(r).unscored.trades).toHaveLength(r.trades.length);
     expect(byOutputState(r).Execute.trades).toHaveLength(0);
+  });
+
+  it("takes no trade whose first target doesn't pay the risk, as the live alert offers none (M-K5)", () => {
+    const bars = zigzag(12, UP);
+    const r = replayIntraday("TEST", bars, { dailyBars: dailyFor(bars, false) });
+    expect(r.refusedFills).toBeGreaterThan(0);
+    expect(r.trades.length).toBeLessThan(run(bars).trades.length);
   });
 
   it("mirrors for a short (Polarity)", () => {

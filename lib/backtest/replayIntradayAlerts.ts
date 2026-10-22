@@ -266,7 +266,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
   return { trades, refused };
 }
 
-function enterAlert(input: {
+/** One alert's fill or refusal, exported for its tests. */
+export function enterAlert(input: {
   alert: Alert;
   bars: Bar[];
   /** The first bar after the scan. */

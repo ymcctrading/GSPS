@@ -55,11 +55,13 @@ describe("the card's pattern-angle reading uses the same price-scaled point as t
 });
 
 describe("the portfolio manager takes no step-up when the run of wins can't be read", () => {
-  it("falls back to the starting capital on paper and equity on live", () => {
+  it("falls back to the starting capital on paper and on live, the equity when live has none", () => {
     const pm = readFileSync("lib/automation/portfolio-manager.ts", "utf8");
     expect(pm).toMatch(/: Math\.min\(equityBasis, STARTING_CASH\);/);
-    // Live reads the first verified equity as its starting capital; with none
-    // on record (`liveStart` null) the unit is the equity (A-RISK-04).
-    expect(pm).toMatch(/startingCapital: liveStart \?\? 0, \.\.\.\(run \?\? \{ consecutiveWins: 0, streakProfitUsd: 0 \}\)/);
+    // Live reads the first verified equity as its starting capital (A-RISK-04);
+    // with the run unread it takes no step-up, as paper and placement don't,
+    // and with no starting capital on record (`liveStart` null) the unit is the equity.
+    expect(pm).toMatch(/startingCapital: liveStart \?\? 0, \.\.\.run \}\)\.capital/);
+    expect(pm).toMatch(/: Math\.min\(equityBasis, liveStart \?\? Infinity\)/);
   });
 });
