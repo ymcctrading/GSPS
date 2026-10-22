@@ -102,7 +102,7 @@ beforeEach(() => {
 });
 
 describe("runFanOutQueue", () => {
-  it("serves the newest job of a source, supersedes older ones and expires stale ones", async () => {
+  it("serves the newest job, supersedes older ones and expires stale ones", async () => {
     const jobs = [
       job("new", "scheduled_full_universe_scan", minutesAgo(1)),
       job("old", "scheduled_full_universe_scan", minutesAgo(16)),
@@ -116,20 +116,34 @@ describe("runFanOutQueue", () => {
     expect(fanOutToProfilesMock).toHaveBeenCalledTimes(1);
     const args = fanOutToProfilesMock.mock.calls[0][1];
     expect(args).toMatchObject({ scanExecutionId: "se-new", source: "scheduled_full_universe_scan", replaceVisible: true });
+    // Stamped with the job's own time, so a stale evaluation is refused.
+    expect(args.evaluatedAt).toEqual(new Date(minutesAgo(1)));
     expect(args.rejectedSymbols).toEqual(new Set(["TSLA"]));
     expect(jobs.map((j) => [j.id, j.outcome])).toEqual([
       ["new", "completed"],
       ["old", "superseded"],
       ["stale", "expired"],
     ]);
+    // Closed jobs keep no payload.
+    expect(jobs.every((j) => JSON.stringify(j.payload) === "{}")).toBe(true);
   });
 
-  it("serves one job per source, each in turn", async () => {
-    const jobs = [job("a", "scheduled_full_universe_scan", minutesAgo(1)), job("b", "scheduled_midday_scan", minutesAgo(2))];
+  it("supersedes an older job of another source too, so its verdicts never land on top of the newer scan's", async () => {
+    // The market scan queues at 13:15 UTC and the confirmation scan at 13:18.
+    const jobs = [job("confirm", "scheduled_morning_confirmation_scan", minutesAgo(1)), job("market", "scheduled_full_universe_scan", minutesAgo(4))];
     fanOutToProfilesMock.mockResolvedValue({ profilesFannedOut: 3, profilesDeferred: 0, profilesFailed: 0 });
     const out = await runFanOutQueue(fakeQueue(jobs), { deadlineAt: Date.now() + 30_000, now: NOW });
-    expect(out.jobsCompleted).toBe(2);
-    expect(fanOutToProfilesMock.mock.calls.map((c) => c[1].scanExecutionId)).toEqual(["se-a", "se-b"]);
+    expect(out).toMatchObject({ jobsCompleted: 1, jobsSuperseded: 1 });
+    expect(fanOutToProfilesMock.mock.calls.map((c) => c[1].scanExecutionId)).toEqual(["se-confirm"]);
+    expect(jobs[1].outcome).toBe("superseded");
+  });
+
+  it("leaves a job open when its members could not be listed", async () => {
+    const jobs = [job("j", "scheduled_full_universe_scan", minutesAgo(1))];
+    fanOutToProfilesMock.mockResolvedValue({ profilesFannedOut: 0, profilesDeferred: 0, profilesFailed: 0, listFailed: true });
+    const out = await runFanOutQueue(fakeQueue(jobs), { deadlineAt: Date.now() + 30_000, now: NOW });
+    expect(out.jobsCompleted).toBe(0);
+    expect(jobs[0]).toMatchObject({ completed_at: null, claimed_until: null });
   });
 
   it("skips the members an earlier call served, records each one done, and leaves a cut-off job open for the next call", async () => {

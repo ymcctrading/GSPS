@@ -68,6 +68,12 @@ export async function fanOutForProfile(
      * served again by the next, and must not be listed twice.
      */
     replaceVisible?: boolean;
+    /**
+     * When the scan read the market. Stamped on every monitor evaluation, so
+     * a queued fan-out served after a newer one is refused as stale
+     * (`decideTransition`) instead of overwriting it. Omit for now.
+     */
+    evaluatedAt?: Date;
   },
 ): Promise<FanOutOutcome> {
   const { visible } = selectVisibleResults(args.qualifying, {
@@ -76,6 +82,7 @@ export async function fanOutForProfile(
     isTopTier: args.maxDashboardSetupsPerScan === 30,
   });
 
+  let visibleCleared = true;
   if (args.replaceVisible) {
     const { error } = await service
       .from("visible_scan_results")
@@ -83,11 +90,13 @@ export async function fanOutForProfile(
       .eq("scan_execution_id", args.scanExecutionId)
       .eq("profile_id", args.profileId);
     if (error) {
+      // Not written again either: a retried profile would be listed twice.
+      visibleCleared = false;
       console.error(`fanOutForProfile: earlier visible scan results not cleared for ${args.profileId} — ${error.message}`);
     }
   }
 
-  if (visible.length > 0) {
+  if (visible.length > 0 && visibleCleared) {
     const rows = visible.map((v, i) => ({
       scan_execution_id: args.scanExecutionId,
       profile_id: args.profileId,
@@ -109,6 +118,7 @@ export async function fanOutForProfile(
     rejectedSymbols: args.rejectedSymbols,
     retired: args.retired,
     maxActiveWatchMonitors: args.maxActiveWatchMonitors,
+    evaluatedAt: args.evaluatedAt,
   });
 
   return { visibleCount: visible.length, notifiedCount };
@@ -156,6 +166,8 @@ export async function evaluateMonitorsAndNotify(
     rejectedSymbols: Set<string>;
     retired?: readonly RetiredPlanSignal[];
     maxActiveWatchMonitors: Limit;
+    /** See `fanOutForProfile`. */
+    evaluatedAt?: Date;
   },
 ): Promise<number> {
   const notifyWorthy: { transitionId: string; setup: RankedSetup<ScanResult> }[] = [];
@@ -200,6 +212,7 @@ export async function evaluateMonitorsAndNotify(
         profileId: args.profileId,
         symbol: setup.value.symbol,
         source: args.source,
+        now: args.evaluatedAt,
         // A resting Execute (its entry more than a day's range from price,
         // `lib/setups/resting.ts`) is out of Execute on every list, so its
         // monitor reads it as Watch: the Execute alert, and the plan it
@@ -249,6 +262,7 @@ export async function evaluateMonitorsAndNotify(
         profileId: args.profileId,
         symbol,
         source: args.source,
+        now: args.evaluatedAt,
         candidateState: brokenStops.has(symbol) ? "INVALIDATED" : "NO_SETUP",
         evaluationId: args.scanExecutionId,
         maxActiveWatchMonitors: args.maxActiveWatchMonitors,

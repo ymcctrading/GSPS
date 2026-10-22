@@ -12,8 +12,12 @@
  * `scan_fanout_jobs`, migration 0116) and returns. `/api/scan-fanout`, called
  * every minute from the database, works through the newest job of each source
  * (`runFanOutQueue`) and records each member served, so a call that runs out
- * of time leaves the rest to the next. An older job of the same source is
- * superseded: the newer scan read the same members' symbols later.
+ * of time leaves the rest to the next. Only the newest job is served, of
+ * whatever source: an older one is superseded, since the newer scan read the
+ * market later and serving the older after it would put its verdicts back on
+ * top (the market scan at 13:15 UTC and the confirmation scan at 13:18 both
+ * queue). Each evaluation is also stamped with its job's time, so a stale one
+ * that slips through is refused (`decideTransition`'s stale-evaluation rule).
  *
  * Three-question mandate (AGENTS.md):
  * 1. Gann source: none. Delivery plumbing, not a market technique.
@@ -123,8 +127,9 @@ async function closeJobs(service: SupabaseClient, ids: string[], outcome: "super
   if (ids.length === 0) return;
   const { error } = await service
     .from("scan_fanout_jobs")
-    .update({ completed_at: now.toISOString(), outcome, claimed_until: null })
-    .in("id", ids);
+    .update({ completed_at: now.toISOString(), outcome, claimed_until: null, payload: {} })
+    .in("id", ids)
+    .is("completed_at", null);
   if (error) console.error(`scan-fanout: ${outcome} jobs not closed — ${error.message}`);
 }
 
@@ -162,14 +167,12 @@ export async function runFanOutQueue(
   const expired: string[] = [];
   const superseded: string[] = [];
   const live: PendingJob[] = [];
-  const seenSources = new Set<string>();
   for (const job of pending) {
     if (now.getTime() - new Date(job.created_at).getTime() > JOB_MAX_AGE_MS) {
       expired.push(job.id);
-    } else if (seenSources.has(job.source)) {
+    } else if (live.length > 0) {
       superseded.push(job.id);
     } else {
-      seenSources.add(job.source);
       live.push(job);
     }
   }
@@ -223,21 +226,25 @@ export async function runFanOutQueue(
         if (markError) throw new Error(markError.message);
       },
       replaceVisible: true,
+      evaluatedAt: new Date(job.created_at),
     });
 
     outcome.jobsServed += 1;
     outcome.profilesFannedOut += result.profilesFannedOut;
     outcome.profilesDeferred += result.profilesDeferred;
 
-    const finished = result.profilesDeferred === 0;
+    // A job whose members could not be listed stays open for the next call.
+    // A closed job's payload is cleared: nothing reads it again.
+    const finished = result.profilesDeferred === 0 && !result.listFailed;
     const { error: closeError } = await service
       .from("scan_fanout_jobs")
       .update(
         finished
-          ? { completed_at: new Date().toISOString(), outcome: "completed", claimed_until: null }
+          ? { completed_at: new Date().toISOString(), outcome: "completed", claimed_until: null, payload: {} }
           : { claimed_until: null },
       )
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .is("completed_at", null);
     if (closeError) console.error(`scan-fanout: job ${job.id} not updated — ${closeError.message}`);
     if (finished) outcome.jobsCompleted += 1;
   }

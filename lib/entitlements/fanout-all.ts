@@ -61,6 +61,8 @@ export interface FanOutAllOutcome {
   elapsedMs: number;
   /** The longest one profile took, for sizing the worker's deadline. */
   slowestProfileMs?: number;
+  /** The members could not be listed, so nobody was served or deferred. */
+  listFailed?: boolean;
 }
 
 /** Stable order, rotated by a time-anchored offset so the start point moves every run. */
@@ -92,6 +94,8 @@ export async function fanOutToProfiles(
     onProfileDone?: (profileId: string) => Promise<void>;
     /** Passed to `fanOutForProfile`: clear this profile's visible rows first, for a retried profile. */
     replaceVisible?: boolean;
+    /** Passed to `fanOutForProfile`: when the scan read the market. */
+    evaluatedAt?: Date;
   },
 ): Promise<FanOutAllOutcome> {
   const startedAt = Date.now();
@@ -106,7 +110,7 @@ export async function fanOutToProfiles(
   const { data: profiles, error } = await service.from("profiles").select("id, tier");
   if (error || !profiles) {
     console.error(`${args.source}: could not list profiles for fan-out — ${error?.message}`);
-    return { ...outcome, elapsedMs: Date.now() - startedAt };
+    return { ...outcome, listFailed: true, elapsedMs: Date.now() - startedAt };
   }
 
   const eligible = rotateProfiles(
@@ -138,6 +142,7 @@ export async function fanOutToProfiles(
           maxDashboardSetupsPerScan: profile.policy.maxDashboardSetupsPerScan,
           maxActiveWatchMonitors: profile.policy.maxActiveWatchMonitors,
           replaceVisible: args.replaceVisible,
+          evaluatedAt: args.evaluatedAt,
         });
         outcome.profilesFannedOut += 1;
         outcome.totalNotified += result.notifiedCount;
