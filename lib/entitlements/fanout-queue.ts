@@ -65,7 +65,10 @@ export const JOB_LEASE_MS = 70_000;
  * inline (`scheduled-scan.ts`, `/api/market-scan`). The 9:45 AM, ~11:00 AM
  * and ~2:00 PM jobs share `morningConfirmationScanEnabled` with the 9:15 AM
  * one rather than each getting a policy field: every flag is `true` for every
- * tier today (policy.ts), so more fields would change nothing.
+ * tier today (policy.ts), so more fields would change nothing. That is also
+ * why the newest job supersedes an older one of any source (`runFanOutQueue`):
+ * if the flags ever split, an older job's members the newer one doesn't serve
+ * would be dropped, so supersede only between jobs serving the same members.
  */
 export function fanOutEnabledFor(source: string): (policy: EntitlementPolicy) => boolean {
   return source === "scheduled_morning_scan"
