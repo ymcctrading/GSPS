@@ -1,7 +1,5746 @@
 {
  "source": "Wikidata P414/P580 (by SEC CIK) and Yahoo Finance firstTradeDate, via scripts/fetch-first-trade-dates.mjs",
- "fetched": null,
+ "fetched": "2026-10-22",
  "agreeDays": 3,
- "counts": { "confirmed": 0, "single": 0, "conflict": 0, "none": 0 },
- "dates": {}
+ "counts": {
+  "confirmed": 123,
+  "single": 542,
+  "conflict": 154,
+  "none": 13
+ },
+ "dates": {
+  "A": {
+   "date": "1999-11-18",
+   "status": "confirmed",
+   "wikidata": "1999-11-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1999-11-18"
+  },
+  "AA": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "AAPL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-12-12"
+  },
+  "ABBV": {
+   "date": "2013-01-02",
+   "status": "confirmed",
+   "wikidata": "2013-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2013-01-02"
+  },
+  "ABEV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-03-05"
+  },
+  "ABNB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-12-10"
+  },
+  "ABT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ACGL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-09-14"
+  },
+  "ACN": {
+   "date": "2001-07-19",
+   "status": "confirmed",
+   "wikidata": "2001-07-19",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2001-07-19"
+  },
+  "ADBE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-08-13"
+  },
+  "ADI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ADM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ADP": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1980-03-17"
+  },
+  "ADSK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1985-06-28"
+  },
+  "AEE": {
+   "date": "1998-01-02",
+   "status": "confirmed",
+   "wikidata": "1998-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1998-01-02"
+  },
+  "AEIS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-11-17"
+  },
+  "AEM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "AEP": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "AER": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-11-21"
+  },
+  "AES": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1996-10-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1991-06-26"
+  },
+  "AFG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "AFL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "AFRM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-01-13"
+  },
+  "AGNC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-05-15"
+  },
+  "AHR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-02-07"
+  },
+  "AIG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-01-02"
+  },
+  "AIT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "AIZ": {
+   "date": "2004-02-05",
+   "status": "confirmed",
+   "wikidata": "2004-02-05",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2004-02-05"
+  },
+  "AJG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-06-20"
+  },
+  "AKAM": {
+   "date": "1999-10-29",
+   "status": "confirmed",
+   "wikidata": "1999-10-29",
+   "exchange": "Nasdaq",
+   "yahoo": "1999-10-29"
+  },
+  "ALAB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-03-20"
+  },
+  "ALB": {
+   "date": "1994-02-22",
+   "status": "confirmed",
+   "wikidata": "1994-02-22",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1994-02-22"
+  },
+  "ALC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-04-09"
+  },
+  "ALGN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-01-30"
+  },
+  "ALL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-06-03"
+  },
+  "ALLY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-01-28"
+  },
+  "ALNY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-06-01"
+  },
+  "ALSN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-03-15"
+  },
+  "AM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-05-04"
+  },
+  "AMAT": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1973-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1980-03-17"
+  },
+  "AMD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "AME": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1984-07-19"
+  },
+  "AMGN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1983-06-17"
+  },
+  "AMH": {
+   "date": "2013-08-01",
+   "status": "confirmed",
+   "wikidata": "2013-08-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2013-08-01"
+  },
+  "AMKR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-05-01"
+  },
+  "AMP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-09-15"
+  },
+  "AMRZ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-06-23"
+  },
+  "AMT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-02-27"
+  },
+  "AMX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-02-12"
+  },
+  "AMZN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-05-15"
+  },
+  "ANET": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-06-06"
+  },
+  "AON": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-06-02"
+  },
+  "APA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1979-05-15"
+  },
+  "APD": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "APG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-04-29"
+  },
+  "APH": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1991-11-08"
+  },
+  "APO": {
+   "date": "2011-03-30",
+   "status": "confirmed",
+   "wikidata": "2011-03-30",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2011-03-30"
+  },
+  "APP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-04-15"
+  },
+  "AR": {
+   "date": "2013-10-10",
+   "status": "confirmed",
+   "wikidata": "2013-10-10",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2013-10-10"
+  },
+  "ARCC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-10-05"
+  },
+  "ARES": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-05-02"
+  },
+  "ARGX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-05-18"
+  },
+  "ARMK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2013-12-12"
+  },
+  "ARW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ARWR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-12-16"
+  },
+  "ARXS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-04-16"
+  },
+  "ASML": {
+   "date": "1995-03-15",
+   "status": "confirmed",
+   "wikidata": "1995-03-16",
+   "exchange": "Nasdaq",
+   "yahoo": "1995-03-15"
+  },
+  "ASTS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-11-01"
+  },
+  "ASX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-10-02"
+  },
+  "ATI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-11-29"
+  },
+  "ATO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-12-28"
+  },
+  "AU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-08-05"
+  },
+  "AUR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2021-05-06",
+   "exchange": "Nasdaq",
+   "yahoo": "2021-05-10"
+  },
+  "AVGO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2009-08-06"
+  },
+  "AVTR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-05-17"
+  },
+  "AVY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "AWK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-04-23"
+  },
+  "AXON": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-06-19"
+  },
+  "AXP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "AXSM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-11-19"
+  },
+  "AZN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1999-04-06",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1993-05-12"
+  },
+  "AZO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-04-02"
+  },
+  "B": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1985-02-13"
+  },
+  "BABA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-09-19"
+  },
+  "BAC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "BALL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "BAM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-12-01"
+  },
+  "BAP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-10-25"
+  },
+  "BAX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-10-27"
+  },
+  "BBD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-08-02"
+  },
+  "BBIO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-06-27"
+  },
+  "BBVA": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1988-12-15"
+  },
+  "BBY": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1985-04-18"
+  },
+  "BCS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-09-09"
+  },
+  "BDX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "BE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-07-25"
+  },
+  "BEN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1983-09-23"
+  },
+  "BEP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-11-15"
+  },
+  "BF.A": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-03"
+  },
+  "BG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-08-02"
+  },
+  "BIDU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-08-05"
+  },
+  "BIIB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-09-17"
+  },
+  "BIO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-02-27"
+  },
+  "BJ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-06-28"
+  },
+  "BKNG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-03-31"
+  },
+  "BKR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2017-06-30",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1987-04-06"
+  },
+  "BLK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-10-01"
+  },
+  "BMNR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-06-05"
+  },
+  "BMO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-10-27"
+  },
+  "BMRN": {
+   "date": "1999-07-26",
+   "status": "confirmed",
+   "wikidata": "1999-07-23",
+   "exchange": "Nasdaq",
+   "yahoo": "1999-07-26"
+  },
+  "BMY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "BN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1983-12-30"
+  },
+  "BNS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-06-07"
+  },
+  "BNTX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-10-10"
+  },
+  "BNY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-03"
+  },
+  "BP": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "BPOP": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1980-03-17"
+  },
+  "BR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-03-22"
+  },
+  "BRK.B": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-05-09"
+  },
+  "BRO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-02-11"
+  },
+  "BSP": {
+   "date": "2026-07-01",
+   "status": "confirmed",
+   "wikidata": "2026-07-01",
+   "exchange": "Nasdaq",
+   "yahoo": "2026-07-01"
+  },
+  "BSX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1992-05-19"
+  },
+  "BTI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-04-14"
+  },
+  "BTSG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-01-26"
+  },
+  "BUD": {
+   "date": "2009-07-01",
+   "status": "confirmed",
+   "wikidata": "2009-07-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2009-07-01"
+  },
+  "BURL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2013-10-02"
+  },
+  "BWA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-08-13"
+  },
+  "BWXT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-08-02"
+  },
+  "BX": {
+   "date": "2007-06-22",
+   "status": "confirmed",
+   "wikidata": "2007-06-22",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2007-06-22"
+  },
+  "BXP": {
+   "date": "1997-06-18",
+   "status": "confirmed",
+   "wikidata": "1997-06-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-06-18"
+  },
+  "C": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1977-01-03"
+  },
+  "CACI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2002-08-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "CAH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-08-04"
+  },
+  "CARR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2020-04-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2020-03-19"
+  },
+  "CART": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-09-19"
+  },
+  "CASY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-10-20"
+  },
+  "CB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-03-25"
+  },
+  "CBOE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-06-15"
+  },
+  "CBRE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-06-10"
+  },
+  "CBRS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-05-14"
+  },
+  "CCEP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-11-24"
+  },
+  "CCI": {
+   "date": "1998-08-18",
+   "status": "confirmed",
+   "wikidata": "1998-08-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1998-08-18"
+  },
+  "CCJ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-03-14"
+  },
+  "CCK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "CCL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1987-07-24"
+  },
+  "CDE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "CDNS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2005-10-31",
+   "exchange": "Nasdaq",
+   "yahoo": "1987-06-10"
+  },
+  "CDW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2013-06-27"
+  },
+  "CEG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-01-19"
+  },
+  "CF": {
+   "date": "2005-08-11",
+   "status": "confirmed",
+   "wikidata": "2005-08-11",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2005-08-11"
+  },
+  "CFG": {
+   "date": "2014-09-24",
+   "status": "confirmed",
+   "wikidata": "2014-09-24",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2014-09-24"
+  },
+  "CFR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "CG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-05-03"
+  },
+  "CGNX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1989-07-20"
+  },
+  "CHD": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "CHRW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-10-16"
+  },
+  "CHT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2003-07-18"
+  },
+  "CHTR": {
+   "date": "2010-01-05",
+   "status": "confirmed",
+   "wikidata": "2010-01-05",
+   "exchange": "Nasdaq",
+   "yahoo": "2010-01-05"
+  },
+  "CHYM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-06-12"
+  },
+  "CI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1982-03-31"
+  },
+  "CIB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-07-26"
+  },
+  "CIEN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-02-07"
+  },
+  "CINF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "CL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-05-02"
+  },
+  "CLH": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-03-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1987-11-24"
+  },
+  "CLS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-06-30"
+  },
+  "CLX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "CM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-11-13"
+  },
+  "CMCSA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "CME": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-12-06"
+  },
+  "CMG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-01-26"
+  },
+  "CMI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "CMS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "CNA": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "CNC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-12-13"
+  },
+  "CNI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1995-11-17",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1996-11-26"
+  },
+  "CNQ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-07-31"
+  },
+  "COF": {
+   "date": "1994-11-16",
+   "status": "confirmed",
+   "wikidata": "1994-11-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1994-11-16"
+  },
+  "COHR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1987-10-02"
+  },
+  "COIN": {
+   "date": "2021-04-14",
+   "status": "confirmed",
+   "wikidata": "2021-04-14",
+   "exchange": "Nasdaq",
+   "yahoo": "2021-04-14"
+  },
+  "COKE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "COO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-01-21"
+  },
+  "COP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "COR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1996-05-28",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-04-04"
+  },
+  "CORT": {
+   "date": "2004-04-14",
+   "status": "confirmed",
+   "wikidata": "2004-04-14",
+   "exchange": "Nasdaq",
+   "yahoo": "2004-04-14"
+  },
+  "COST": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1986-07-09"
+  },
+  "CP": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2001-10-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1983-12-30"
+  },
+  "CPAY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-12-15"
+  },
+  "CPNG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-03-11"
+  },
+  "CPRT": {
+   "date": "1994-03-17",
+   "status": "confirmed",
+   "wikidata": "1994-03-17",
+   "exchange": "Nasdaq",
+   "yahoo": "1994-03-17"
+  },
+  "CPT": {
+   "date": "1993-07-22",
+   "status": "confirmed",
+   "wikidata": "1993-07-22",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1993-07-22"
+  },
+  "CQP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-03-21"
+  },
+  "CR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-03-29"
+  },
+  "CRBG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-09-16"
+  },
+  "CRCL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-06-05"
+  },
+  "CRDO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-01-27"
+  },
+  "CRH": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-06-13",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1989-07-13"
+  },
+  "CRL": {
+   "date": "2000-06-23",
+   "status": "confirmed",
+   "wikidata": "2000-06-23",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-06-23"
+  },
+  "CRM": {
+   "date": "2004-06-23",
+   "status": "confirmed",
+   "wikidata": "2004-06-23",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2004-06-23"
+  },
+  "CRS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "CRWD": {
+   "date": "2019-06-12",
+   "status": "confirmed",
+   "wikidata": "2019-06-12",
+   "exchange": "Nasdaq",
+   "yahoo": "2019-06-12"
+  },
+  "CRWV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-03-28"
+  },
+  "CSCO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1990-02-16"
+  },
+  "CSGP": {
+   "date": "1998-07-01",
+   "status": "confirmed",
+   "wikidata": "1998-07-01",
+   "exchange": "Nasdaq",
+   "yahoo": "1998-07-01"
+  },
+  "CSL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "CSX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-11-03"
+  },
+  "CTAS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-08-19"
+  },
+  "CTSH": {
+   "date": "1998-06-19",
+   "status": "confirmed",
+   "wikidata": "1998-06-19",
+   "exchange": "Nasdaq",
+   "yahoo": "1998-06-19"
+  },
+  "CTVA": {
+   "date": "2019-05-24",
+   "status": "confirmed",
+   "wikidata": "2019-05-24",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2019-05-24"
+  },
+  "CVE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2009-11-17"
+  },
+  "CVNA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-04-28"
+  },
+  "CVS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "CW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "CYTK": {
+   "date": "2004-04-30",
+   "status": "confirmed",
+   "wikidata": "2004-04-29",
+   "exchange": "Nasdaq",
+   "yahoo": "2004-04-30"
+  },
+  "D": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "DAL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-05-03"
+  },
+  "DAR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-09-09"
+  },
+  "DASH": {
+   "date": "2020-12-09",
+   "status": "confirmed",
+   "wikidata": "2020-12-09",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2020-12-09"
+  },
+  "DB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-11-18"
+  },
+  "DCI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "DD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "DDOG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-09-19"
+  },
+  "DE": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "DECK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-10-15"
+  },
+  "DEO": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1997-12-17",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1991-03-14"
+  },
+  "DG": {
+   "date": "2009-11-13",
+   "status": "confirmed",
+   "wikidata": "2009-11-13",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2009-11-13"
+  },
+  "DGX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1996-12-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1996-12-17"
+  },
+  "DHI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1995-12-19",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1992-06-05"
+  },
+  "DHR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1978-12-29"
+  },
+  "DINO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "DIS": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1940-04-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "DKNG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-07-25"
+  },
+  "DKS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-10-16"
+  },
+  "DLR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-10-29"
+  },
+  "DLTR": {
+   "date": "1995-03-07",
+   "status": "confirmed",
+   "wikidata": "1995-03-09",
+   "exchange": "Nasdaq",
+   "yahoo": "1995-03-07"
+  },
+  "DOC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2024-03-04",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1985-05-23"
+  },
+  "DOCN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-03-24"
+  },
+  "DOCU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-04-27"
+  },
+  "DOV": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "DOW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-03-20"
+  },
+  "DPZ": {
+   "date": "2004-07-13",
+   "status": "confirmed",
+   "wikidata": "2004-07-13",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2004-07-13"
+  },
+  "DRI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1998-11-06",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-05-09"
+  },
+  "DT": {
+   "date": "2019-08-01",
+   "status": "confirmed",
+   "wikidata": "2019-08-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2019-08-01"
+  },
+  "DTE": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "DTM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-07-01"
+  },
+  "DUK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "DVA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-10-31"
+  },
+  "DVN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1985-07-22"
+  },
+  "DXCM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-04-14"
+  },
+  "E": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-11-28"
+  },
+  "EBAY": {
+   "date": "1998-09-24",
+   "status": "confirmed",
+   "wikidata": "1998-09-24",
+   "exchange": "Nasdaq",
+   "yahoo": "1998-09-24"
+  },
+  "EC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-09-18"
+  },
+  "ECHO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-01-02"
+  },
+  "ECL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "ED": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "EFX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1971-05-11",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "EGP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "EHC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-09-24"
+  },
+  "EIX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-03"
+  },
+  "EL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-11-17"
+  },
+  "ELAN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-09-20"
+  },
+  "ELS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-02-25"
+  },
+  "ELV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-10-30"
+  },
+  "EME": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-01-10"
+  },
+  "EMR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "ENB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-03-15"
+  },
+  "ENSG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-11-09"
+  },
+  "ENTG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-07-11"
+  },
+  "EOG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1989-10-04"
+  },
+  "EPD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-07-28"
+  },
+  "EQH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-05-10"
+  },
+  "EQIX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-08-11"
+  },
+  "EQNR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-06-18"
+  },
+  "EQT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ERIC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1981-08-24"
+  },
+  "ERIE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-10-02"
+  },
+  "ES": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "ESLT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-11-27"
+  },
+  "ESS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-06-07"
+  },
+  "ET": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-02-03"
+  },
+  "ETN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "ETR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "EVR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-08-14"
+  },
+  "EVRG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "EW": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2000-04-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-03-27"
+  },
+  "EWBC": {
+   "date": "1999-02-03",
+   "status": "confirmed",
+   "wikidata": "1999-02-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1999-02-03"
+  },
+  "EXC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-02"
+  },
+  "EXE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-02-10"
+  },
+  "EXEL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-04-17"
+  },
+  "EXPD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-09-26"
+  },
+  "EXPE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-07-21"
+  },
+  "EXR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2004-08-12",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2004-08-16"
+  },
+  "F": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1956-01-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "FANG": {
+   "date": "2012-10-12",
+   "status": "confirmed",
+   "wikidata": "2012-10-12",
+   "exchange": "Nasdaq",
+   "yahoo": "2012-10-12"
+  },
+  "FAST": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1987-08-20"
+  },
+  "FCNCA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-10-22"
+  },
+  "FCX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1995-11-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-07-10"
+  },
+  "FDX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1978-04-12"
+  },
+  "FDXF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-05-27"
+  },
+  "FE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-11-10"
+  },
+  "FERG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-01-05"
+  },
+  "FFIV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-06-04"
+  },
+  "FHN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2004-04-21",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "FICO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1987-07-22"
+  },
+  "FIG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-07-31"
+  },
+  "FIS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-06-20"
+  },
+  "FISV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-09-25"
+  },
+  "FITB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "FIVE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-07-19"
+  },
+  "FIX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-06-27"
+  },
+  "FLEX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1998-11-06",
+   "exchange": "Nasdaq",
+   "yahoo": "1994-03-18"
+  },
+  "FMX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-05-11"
+  },
+  "FNF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-10-14"
+  },
+  "FNV": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2011-09-08",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2007-12-07"
+  },
+  "FOX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2019-03-19",
+   "exchange": "Nasdaq",
+   "yahoo": "2019-03-13"
+  },
+  "FROG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-09-16"
+  },
+  "FRT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-03"
+  },
+  "FSLR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-11-17"
+  },
+  "FTAI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-05-14"
+  },
+  "FTI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2017-01-17",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2001-06-15"
+  },
+  "FTNT": {
+   "date": "2009-11-18",
+   "status": "confirmed",
+   "wikidata": "2009-11-18",
+   "exchange": "Nasdaq",
+   "yahoo": "2009-11-18"
+  },
+  "FTS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-01-05"
+  },
+  "FTV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-07-05"
+  },
+  "FWONK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-07-08"
+  },
+  "GDDY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-03-31"
+  },
+  "GE": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "GEHC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-12-15"
+  },
+  "GEN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1989-06-23"
+  },
+  "GFI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "GFS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-10-28"
+  },
+  "GGG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "GH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-10-04"
+  },
+  "GILD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1992-01-22"
+  },
+  "GIS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "GKOS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-06-25"
+  },
+  "GL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-10-01"
+  },
+  "GLPI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2013-10-14"
+  },
+  "GLW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "GM": {
+   "date": "2010-11-18",
+   "status": "confirmed",
+   "wikidata": "2010-11-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2010-11-18"
+  },
+  "GMED": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-08-03"
+  },
+  "GNRC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-02-11"
+  },
+  "GOOG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-08-19"
+  },
+  "GOOGL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-08-19"
+  },
+  "GPC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "GPN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-01-16"
+  },
+  "GRMN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2021-12-07",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-12-08"
+  },
+  "GS": {
+   "date": "1999-05-04",
+   "status": "confirmed",
+   "wikidata": "1999-05-04",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1999-05-04"
+  },
+  "GSAT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-11-02"
+  },
+  "GSK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-28"
+  },
+  "GWRE": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2012-01-30",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2012-01-25"
+  },
+  "GWW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "H": {
+   "date": "2009-11-05",
+   "status": "confirmed",
+   "wikidata": "2009-11-04",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2009-11-05"
+  },
+  "HAL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "HALO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2004-03-16"
+  },
+  "HAS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "HBAN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1980-03-17"
+  },
+  "HCA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2011-03-10"
+  },
+  "HD": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1981-09-22"
+  },
+  "HDB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-07-20"
+  },
+  "HEI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "HIG": {
+   "date": "1995-12-15",
+   "status": "confirmed",
+   "wikidata": "1995-12-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-12-15"
+  },
+  "HII": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2011-03-31",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2011-03-22"
+  },
+  "HL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "HLN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-07-25"
+  },
+  "HLT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2013-12-12"
+  },
+  "HMC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "HON": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "HONA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-06-15"
+  },
+  "HOOD": {
+   "date": "2021-07-29",
+   "status": "confirmed",
+   "wikidata": "2021-07-29",
+   "exchange": "Nasdaq",
+   "yahoo": "2021-07-29"
+  },
+  "HPE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-10-19"
+  },
+  "HRL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "HSBC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-07-16"
+  },
+  "HST": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "HSY": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "HUBB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-05"
+  },
+  "HUBS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-10-09"
+  },
+  "HUM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "HWM": {
+   "date": "2016-11-01",
+   "status": "confirmed",
+   "wikidata": "2016-11-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2016-11-01"
+  },
+  "IBKR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-05-04"
+  },
+  "IBN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-03-28"
+  },
+  "ICE": {
+   "date": "2005-11-16",
+   "status": "confirmed",
+   "wikidata": "2005-11-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2005-11-16"
+  },
+  "IDXX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-06-21"
+  },
+  "IESC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2006-05-15",
+   "exchange": "Nasdaq",
+   "yahoo": "1998-01-28"
+  },
+  "IEX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1989-06-02"
+  },
+  "IFF": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1974-12-17"
+  },
+  "IHG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2016-05-09",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2003-04-10"
+  },
+  "ILMN": {
+   "date": "2000-07-28",
+   "status": "confirmed",
+   "wikidata": "2000-07-28",
+   "exchange": "Nasdaq",
+   "yahoo": "2000-07-28"
+  },
+  "IMO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "INCY": {
+   "date": "1993-11-04",
+   "status": "confirmed",
+   "wikidata": "1993-11-04",
+   "exchange": "Nasdaq",
+   "yahoo": "1993-11-04"
+  },
+  "INFY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-03-11"
+  },
+  "ING": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1997-06-13",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1994-05-18"
+  },
+  "INSM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-06-01"
+  },
+  "INTC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "INTU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-03-12"
+  },
+  "INVH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-02-01"
+  },
+  "IONQ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-01-04"
+  },
+  "IOT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-12-15"
+  },
+  "IP": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "IQV": {
+   "date": "2013-05-09",
+   "status": "confirmed",
+   "wikidata": "2013-05-09",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2013-05-09"
+  },
+  "IR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-05-12"
+  },
+  "IRM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1999-04-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1996-02-01"
+  },
+  "ISRG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-06-16"
+  },
+  "IT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-10-05"
+  },
+  "ITT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-12-15"
+  },
+  "ITUB": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2009-05-20",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2002-02-25"
+  },
+  "ITW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-03-13"
+  },
+  "IVZ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-08-25"
+  },
+  "IX": {
+   "date": "1998-09-16",
+   "status": "confirmed",
+   "wikidata": "1998-09-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1998-09-16"
+  },
+  "J": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1989-12-14",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "JBHT": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1983-11-22"
+  },
+  "JBL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-05-03"
+  },
+  "JCI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1987-09-28"
+  },
+  "JD": {
+   "date": "2014-05-22",
+   "status": "confirmed",
+   "wikidata": "2014-05-22",
+   "exchange": "Nasdaq",
+   "yahoo": "2014-05-22"
+  },
+  "JEF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "JKHY": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "Nasdaq",
+   "yahoo": "1985-11-20"
+  },
+  "JLL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1999-03-12",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-07-17"
+  },
+  "JPM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "KB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-11-13"
+  },
+  "KDP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-05-07"
+  },
+  "KEY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1987-11-05"
+  },
+  "KEYS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-10-20"
+  },
+  "KGC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-10-19",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1981-03-17"
+  },
+  "KHC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-07-06"
+  },
+  "KIM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1994-01-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1991-11-22"
+  },
+  "KKR": {
+   "date": "2010-07-15",
+   "status": "confirmed",
+   "wikidata": "2010-07-15",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2010-07-15"
+  },
+  "KLAC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1985-01-01",
+   "exchange": "Nasdaq",
+   "yahoo": "1980-10-08"
+  },
+  "KMB": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "KMI": {
+   "date": "2011-02-11",
+   "status": "confirmed",
+   "wikidata": "2011-02-11",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2011-02-11"
+  },
+  "KNX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-10-25"
+  },
+  "KO": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1929-02-20",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "KOF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-09-14"
+  },
+  "KRYS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-09-20"
+  },
+  "KVUE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-05-04"
+  },
+  "L": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "LAMR": {
+   "date": "1996-08-02",
+   "status": "confirmed",
+   "wikidata": "1996-08-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1996-08-02"
+  },
+  "LDOS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-10-17"
+  },
+  "LECO": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1995-06-13",
+   "exchange": "Nasdaq",
+   "yahoo": "1994-04-07"
+  },
+  "LEN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "LFUS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1992-09-22"
+  },
+  "LH": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1995-05-09",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1990-03-29"
+  },
+  "LHX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2019-07-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1981-12-31"
+  },
+  "LII": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-07-29"
+  },
+  "LIN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1992-06-17"
+  },
+  "LITE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-07-23"
+  },
+  "LLY": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "LMT": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "LNG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-04-04"
+  },
+  "LNT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "LOW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "LPLA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-11-18"
+  },
+  "LRCX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-05-04"
+  },
+  "LSCC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-03-26",
+   "exchange": "Nasdaq",
+   "yahoo": "1989-11-09"
+  },
+  "LUV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-01-02"
+  },
+  "LVS": {
+   "date": "2004-12-15",
+   "status": "confirmed",
+   "wikidata": "2004-12-15",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2004-12-15"
+  },
+  "LYB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-04-28"
+  },
+  "LYG": {
+   "date": "2001-11-28",
+   "status": "confirmed",
+   "wikidata": "2001-11-27",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2001-11-28"
+  },
+  "LYV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-12-21"
+  },
+  "MA": {
+   "date": "2006-05-25",
+   "status": "confirmed",
+   "wikidata": "2006-05-25",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2006-05-25"
+  },
+  "MAA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-01-28"
+  },
+  "MAIR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-04-16"
+  },
+  "MANH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-04-23"
+  },
+  "MAR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-03-23"
+  },
+  "MAS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "MCD": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1970-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1966-07-05"
+  },
+  "MCHP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-03-19"
+  },
+  "MCK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-11-10"
+  },
+  "MCO": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2000-10-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1994-10-31"
+  },
+  "MDB": {
+   "date": "2017-10-19",
+   "status": "confirmed",
+   "wikidata": "2017-10-19",
+   "exchange": "Nasdaq",
+   "yahoo": "2017-10-19"
+  },
+  "MDGL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-02-06"
+  },
+  "MDLN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-12-17"
+  },
+  "MDLZ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-06-13"
+  },
+  "MDT": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-05-02"
+  },
+  "MEDP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-08-11"
+  },
+  "MELI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-08-10"
+  },
+  "MET": {
+   "date": "2000-04-05",
+   "status": "confirmed",
+   "wikidata": "2000-04-05",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-04-05"
+  },
+  "META": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2022-06-09",
+   "exchange": "Nasdaq",
+   "yahoo": "2012-05-18"
+  },
+  "MFC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-09-24"
+  },
+  "MFG": {
+   "date": "2006-11-08",
+   "status": "confirmed",
+   "wikidata": "2006-11-08",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2006-11-08"
+  },
+  "MGM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-12",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1988-05-02"
+  },
+  "MKC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "MKL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-12-12"
+  },
+  "MKSI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-03-30"
+  },
+  "MLI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-02-25"
+  },
+  "MLM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-02-17"
+  },
+  "MNST": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1985-12-09"
+  },
+  "MOH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2003-07-02"
+  },
+  "MPC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2011-06-24"
+  },
+  "MPLX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-10-26"
+  },
+  "MPWR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2005-05-16",
+   "exchange": "Nasdaq",
+   "yahoo": "2004-11-19"
+  },
+  "MRK": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "MRNA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-12-07"
+  },
+  "MRSH": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "MS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-02-23"
+  },
+  "MSCI": {
+   "date": "2007-11-15",
+   "status": "confirmed",
+   "wikidata": "2007-11-15",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2007-11-15"
+  },
+  "MSFT": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1987-09-17",
+   "exchange": "Nasdaq",
+   "yahoo": "1986-03-13"
+  },
+  "MSI": {
+   "date": null,
+   "status": "single",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": null
+  },
+  "MSTR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-06-11"
+  },
+  "MT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-08-07"
+  },
+  "MTB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "MTD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-11-14"
+  },
+  "MTSI": {
+   "date": "2012-03-15",
+   "status": "confirmed",
+   "wikidata": "2012-03-15",
+   "exchange": "Nasdaq",
+   "yahoo": "2012-03-15"
+  },
+  "MTZ": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1997-02-14",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "MU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-06-01"
+  },
+  "NBIS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2011-05-24",
+   "exchange": "Nasdaq",
+   "yahoo": "2024-10-21"
+  },
+  "NBIX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-05-23"
+  },
+  "NDAQ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-07-01"
+  },
+  "NDSN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-18"
+  },
+  "NEE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "NEM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "NET": {
+   "date": "2019-09-13",
+   "status": "confirmed",
+   "wikidata": "2019-09-13",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2019-09-13"
+  },
+  "NFLX": {
+   "date": "2002-05-23",
+   "status": "confirmed",
+   "wikidata": "2002-05-23",
+   "exchange": "Nasdaq",
+   "yahoo": "2002-05-23"
+  },
+  "NGG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-08-10"
+  },
+  "NI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "NKE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-12-02"
+  },
+  "NLY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-10-08"
+  },
+  "NMR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-12-17"
+  },
+  "NOC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "NOK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-07-01"
+  },
+  "NOW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-06-29"
+  },
+  "NRG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2003-12-02"
+  },
+  "NSC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1982-06-02"
+  },
+  "NTAP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-11-21"
+  },
+  "NTES": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-06-30"
+  },
+  "NTNX": {
+   "date": "2016-09-30",
+   "status": "confirmed",
+   "wikidata": "2016-09-30",
+   "exchange": "Nasdaq",
+   "yahoo": "2016-09-30"
+  },
+  "NTR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-01-02"
+  },
+  "NTRA": {
+   "date": "2015-07-01",
+   "status": "confirmed",
+   "wikidata": "2015-07-02",
+   "exchange": "Nasdaq",
+   "yahoo": "2015-07-01"
+  },
+  "NTRS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "NU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-12-09"
+  },
+  "NUE": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "NVDA": {
+   "date": "1999-01-22",
+   "status": "confirmed",
+   "wikidata": "1999-01-22",
+   "exchange": "Nasdaq",
+   "yahoo": "1999-01-22"
+  },
+  "NVR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1985-07-22"
+  },
+  "NVS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2000-05-11",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1996-11-07"
+  },
+  "NVT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-04-24"
+  },
+  "NWG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-10-18"
+  },
+  "NWS": {
+   "date": "2013-06-19",
+   "status": "confirmed",
+   "wikidata": "2013-06-19",
+   "exchange": "Nasdaq",
+   "yahoo": "2013-06-19"
+  },
+  "NXPI": {
+   "date": "2010-08-06",
+   "status": "confirmed",
+   "wikidata": "2010-08-06",
+   "exchange": "Nasdaq",
+   "yahoo": "2010-08-06"
+  },
+  "NXT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-02-09"
+  },
+  "NYT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-03"
+  },
+  "O": {
+   "date": "1994-10-18",
+   "status": "confirmed",
+   "wikidata": "1994-10-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1994-10-18"
+  },
+  "OC": {
+   "date": "2006-11-01",
+   "status": "confirmed",
+   "wikidata": "2006-11-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2006-11-01"
+  },
+  "ODFL": {
+   "date": "1991-10-24",
+   "status": "confirmed",
+   "wikidata": "1991-10-24",
+   "exchange": "Nasdaq",
+   "yahoo": "1991-10-24"
+  },
+  "OHI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1992-08-07"
+  },
+  "OKE": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-10-01"
+  },
+  "OKTA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-04-07"
+  },
+  "OMC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ON": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2000-04-28",
+   "exchange": "Nasdaq",
+   "yahoo": "2000-05-02"
+  },
+  "ONC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-02-03"
+  },
+  "ONTO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-10-28"
+  },
+  "ORCL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-03-12"
+  },
+  "ORLY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-04-23"
+  },
+  "OTIS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-03-19"
+  },
+  "OVV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-04-08"
+  },
+  "OWL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-12-14"
+  },
+  "OXY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "P": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-10-06"
+  },
+  "PAA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-11-18"
+  },
+  "PAG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-10-23"
+  },
+  "PANW": {
+   "date": "2012-07-20",
+   "status": "confirmed",
+   "wikidata": "2012-07-20",
+   "exchange": "Nasdaq",
+   "yahoo": "2012-07-20"
+  },
+  "PAYX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-03-26",
+   "exchange": "Nasdaq",
+   "yahoo": "1983-08-26"
+  },
+  "PBA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-10-06"
+  },
+  "PBR": {
+   "date": "2000-08-10",
+   "status": "confirmed",
+   "wikidata": "2000-08-11",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-08-10"
+  },
+  "PCAR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "PCG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "PDD": {
+   "date": "2018-07-26",
+   "status": "confirmed",
+   "wikidata": "2018-07-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2018-07-26"
+  },
+  "PEG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-01-02"
+  },
+  "PEN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-09-18"
+  },
+  "PEP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "PFE": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1972-06-01"
+  },
+  "PFG": {
+   "date": "2001-10-23",
+   "status": "confirmed",
+   "wikidata": "2001-10-23",
+   "exchange": "Nasdaq",
+   "yahoo": "2001-10-23"
+  },
+  "PFGC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-09-30"
+  },
+  "PGR": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "PH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "PHG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "PHM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "PINS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-04-18"
+  },
+  "PKG": {
+   "date": "2000-01-28",
+   "status": "confirmed",
+   "wikidata": "2000-01-28",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-01-28"
+  },
+  "PLD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-11-21"
+  },
+  "PLTR": {
+   "date": "2020-09-30",
+   "status": "confirmed",
+   "wikidata": "2020-09-30",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2020-09-30"
+  },
+  "PM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-03-17"
+  },
+  "PNC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1975-11-17"
+  },
+  "PNFP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-08-22"
+  },
+  "PNW": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "PPG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "PPL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "PR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-04-15"
+  },
+  "PRU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-12-13"
+  },
+  "PS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-04-29"
+  },
+  "PSA": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-11-18"
+  },
+  "PSKY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-07-17"
+  },
+  "PSX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2012-04-30",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2012-04-12"
+  },
+  "PTC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1989-12-08"
+  },
+  "PUK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-06-29"
+  },
+  "PWR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-02-12"
+  },
+  "PYPL": {
+   "date": "2015-07-06",
+   "status": "confirmed",
+   "wikidata": "2015-07-06",
+   "exchange": "Nasdaq",
+   "yahoo": "2015-07-06"
+  },
+  "Q": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-10-27"
+  },
+  "QCOM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-12-13"
+  },
+  "QNT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-06-04"
+  },
+  "QSR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-12-11"
+  },
+  "QXO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-04-17"
+  },
+  "RACE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-10-21"
+  },
+  "RBC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-08-10"
+  },
+  "RBLX": {
+   "date": "2021-03-10",
+   "status": "confirmed",
+   "wikidata": "2021-03-10",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2021-03-10"
+  },
+  "RBRK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-04-25"
+  },
+  "RCL": {
+   "date": "1993-04-28",
+   "status": "confirmed",
+   "wikidata": "1993-04-28",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1993-04-28"
+  },
+  "RDDT": {
+   "date": "2024-03-21",
+   "status": "confirmed",
+   "wikidata": "2024-03-21",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2024-03-21"
+  },
+  "REG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-10-29"
+  },
+  "REGN": {
+   "date": "1991-04-02",
+   "status": "confirmed",
+   "wikidata": "1991-04-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1991-04-02"
+  },
+  "RELX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-10-06"
+  },
+  "RF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "RGA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-09-12"
+  },
+  "RGLD": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-03-26",
+   "exchange": "Nasdaq",
+   "yahoo": "1981-06-09"
+  },
+  "RIO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1990-06-28"
+  },
+  "RIVN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-11-10"
+  },
+  "RJF": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1983-07-01"
+  },
+  "RKLB": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2025-05-23",
+   "exchange": "Nasdaq",
+   "yahoo": "2020-11-24"
+  },
+  "RKT": {
+   "date": "2020-08-06",
+   "status": "confirmed",
+   "wikidata": "2020-08-06",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2020-08-06"
+  },
+  "RL": {
+   "date": "1997-06-12",
+   "status": "confirmed",
+   "wikidata": "1997-06-12",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-06-12"
+  },
+  "RMD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1995-06-02"
+  },
+  "ROIV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-12-08"
+  },
+  "ROK": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1981-12-31"
+  },
+  "ROKU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2017-09-28"
+  },
+  "ROL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "ROP": {
+   "date": "1992-02-13",
+   "status": "confirmed",
+   "wikidata": "1992-02-13",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1992-02-13"
+  },
+  "ROST": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1985-08-08"
+  },
+  "RPM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "RPRX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-06-16"
+  },
+  "RRX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "RS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-09-16"
+  },
+  "RSG": {
+   "date": "1998-07-01",
+   "status": "confirmed",
+   "wikidata": "1998-07-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1998-07-01"
+  },
+  "RTX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2020-04-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1962-04-02"
+  },
+  "RVMD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-02-13"
+  },
+  "RVTY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "RY": {
+   "date": "1995-10-16",
+   "status": "confirmed",
+   "wikidata": "1995-10-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-10-16"
+  },
+  "RYAAY": {
+   "date": "1997-05-29",
+   "status": "confirmed",
+   "wikidata": "1997-05-28",
+   "exchange": "Nasdaq",
+   "yahoo": "1997-05-29"
+  },
+  "RYAN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-07-22"
+  },
+  "SANM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1993-06-22",
+   "exchange": "Nasdaq",
+   "yahoo": "1993-04-14"
+  },
+  "SAP": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1998-08-03",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-09-18"
+  },
+  "SBAC": {
+   "date": "1999-06-16",
+   "status": "confirmed",
+   "wikidata": "1999-06-16",
+   "exchange": "Nasdaq",
+   "yahoo": "1999-06-16"
+  },
+  "SBUX": {
+   "date": "1992-06-26",
+   "status": "confirmed",
+   "wikidata": "1992-06-26",
+   "exchange": "Nasdaq",
+   "yahoo": "1992-06-26"
+  },
+  "SCCO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1996-01-05"
+  },
+  "SCHW": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1987-09-22"
+  },
+  "SCI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1981-05-22",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "SE": {
+   "date": "2017-10-20",
+   "status": "confirmed",
+   "wikidata": "2017-10-20",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2017-10-20"
+  },
+  "SEIC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-03-25"
+  },
+  "SF": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1986-11-24",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1983-07-19"
+  },
+  "SGI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2003-12-18"
+  },
+  "SHEL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2005-07-20",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1984-03-12"
+  },
+  "SHG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2003-09-17"
+  },
+  "SHOP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-05-20"
+  },
+  "SHW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "SITM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-11-20"
+  },
+  "SJM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-10-31"
+  },
+  "SLB": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1962-02-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1981-12-31"
+  },
+  "SLF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-03-23"
+  },
+  "SMCI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-03-29"
+  },
+  "SMFG": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2010-11-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2006-01-27"
+  },
+  "SMTC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "SN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-07-31"
+  },
+  "SNA": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "SNOW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-09-16"
+  },
+  "SNPS": {
+   "date": "1992-02-26",
+   "status": "confirmed",
+   "wikidata": "1992-02-26",
+   "exchange": "Nasdaq",
+   "yahoo": "1992-02-26"
+  },
+  "SNX": {
+   "date": "2003-11-25",
+   "status": "confirmed",
+   "wikidata": "2003-11-25",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2003-11-25"
+  },
+  "SNY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-07-01"
+  },
+  "SO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "SOFI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-01-04"
+  },
+  "SOLS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-10-20"
+  },
+  "SOLV": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2024-04-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2024-03-26"
+  },
+  "SONY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "SPG": {
+   "date": "1993-12-14",
+   "status": "confirmed",
+   "wikidata": "1993-12-14",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1993-12-14"
+  },
+  "SPGI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2016-04-28",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "SPOT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-04-03"
+  },
+  "SRE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-06-29"
+  },
+  "SSB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-01-28"
+  },
+  "SSNC": {
+   "date": "2010-03-31",
+   "status": "confirmed",
+   "wikidata": "2010-03-31",
+   "exchange": "Nasdaq",
+   "yahoo": "2010-03-31"
+  },
+  "STE": {
+   "date": "1992-06-01",
+   "status": "confirmed",
+   "wikidata": "1992-06-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1992-06-01"
+  },
+  "STLD": {
+   "date": "1996-11-22",
+   "status": "confirmed",
+   "wikidata": "1996-11-22",
+   "exchange": "Nasdaq",
+   "yahoo": "1996-11-22"
+  },
+  "STM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1994-12-08"
+  },
+  "STRL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-07-12"
+  },
+  "STT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "STZ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1992-03-17"
+  },
+  "SU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "SUI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-12-09"
+  },
+  "SUN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-09-20"
+  },
+  "SUNB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-03-02"
+  },
+  "SW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-06-17"
+  },
+  "SWK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "SWKS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1984-09-07"
+  },
+  "SYF": {
+   "date": "2014-07-31",
+   "status": "confirmed",
+   "wikidata": "2014-07-31",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2014-07-31"
+  },
+  "SYK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "SYM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-03-09"
+  },
+  "SYY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-08"
+  },
+  "T": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1983-11-21"
+  },
+  "TAK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-01-05"
+  },
+  "TCOM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2003-12-09"
+  },
+  "TDG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-03-15"
+  },
+  "TDY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-11-23"
+  },
+  "TEAM": {
+   "date": "2015-12-09",
+   "status": "confirmed",
+   "wikidata": "2015-12-10",
+   "exchange": "Nasdaq",
+   "yahoo": "2015-12-09"
+  },
+  "TECH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1989-02-09"
+  },
+  "TECK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-07-18"
+  },
+  "TEL": {
+   "date": "2007-06-14",
+   "status": "confirmed",
+   "wikidata": "2007-06-14",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2007-06-14"
+  },
+  "TEM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-06-14"
+  },
+  "TER": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "TEVA": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-03-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1982-02-16"
+  },
+  "TFC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-18"
+  },
+  "TGT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-02-21"
+  },
+  "THC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "TJX": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1987-06-26"
+  },
+  "TKO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-10-19"
+  },
+  "TLN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-06-02"
+  },
+  "TM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1999-09-29",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "TMO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "TMUS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2013-05-01",
+   "exchange": "Nasdaq",
+   "yahoo": "2007-04-19"
+  },
+  "TOL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-07-08"
+  },
+  "TOST": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2021-09-22"
+  },
+  "TPG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2022-01-13"
+  },
+  "TPL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "TPR": {
+   "date": "2000-10-06",
+   "status": "confirmed",
+   "wikidata": "2000-10-05",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-10-06"
+  },
+  "TRGP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2010-12-07"
+  },
+  "TRI": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2008-04-17",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2002-06-12"
+  },
+  "TRMB": {
+   "date": "1990-07-20",
+   "status": "confirmed",
+   "wikidata": "1990-07-20",
+   "exchange": "Nasdaq",
+   "yahoo": "1990-07-20"
+  },
+  "TROW": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1986-04-02"
+  },
+  "TRP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1982-09-20"
+  },
+  "TRU": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2015-06-25"
+  },
+  "TRV": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1975-11-17"
+  },
+  "TS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-12-16"
+  },
+  "TSCO": {
+   "date": "1994-02-17",
+   "status": "confirmed",
+   "wikidata": "1994-02-18",
+   "exchange": "Nasdaq",
+   "yahoo": "1994-02-17"
+  },
+  "TSEM": {
+   "date": "1994-10-26",
+   "status": "confirmed",
+   "wikidata": "1994-10-26",
+   "exchange": "Nasdaq",
+   "yahoo": "1994-10-26"
+  },
+  "TSLA": {
+   "date": "2010-06-29",
+   "status": "confirmed",
+   "wikidata": "2010-06-29",
+   "exchange": "Nasdaq",
+   "yahoo": "2010-06-29"
+  },
+  "TSM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1997-10-20",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-10-09"
+  },
+  "TSN": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1980-03-17"
+  },
+  "TT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "TTMI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-09-25"
+  },
+  "TTWO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1997-04-15"
+  },
+  "TW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2019-04-04"
+  },
+  "TWLO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-06-23"
+  },
+  "TXN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "TXRH": {
+   "date": "2004-10-05",
+   "status": "confirmed",
+   "wikidata": "2004-10-05",
+   "exchange": "Nasdaq",
+   "yahoo": "2004-10-05"
+  },
+  "TXT": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1947-12-22",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "TYL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "U": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-09-18"
+  },
+  "UAL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2006-02-06"
+  },
+  "UBER": {
+   "date": "2019-05-10",
+   "status": "confirmed",
+   "wikidata": "2019-05-10",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2019-05-10"
+  },
+  "UBS": {
+   "date": "2000-05-16",
+   "status": "confirmed",
+   "wikidata": "2000-05-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2000-05-16"
+  },
+  "UDR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "UHAL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2022-12-19",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1994-11-04"
+  },
+  "UHS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-03-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1981-07-09"
+  },
+  "UI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2011-10-14"
+  },
+  "UL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-25"
+  },
+  "ULS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-04-12"
+  },
+  "ULTA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2007-10-25"
+  },
+  "UMBF": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "UMC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2000-09-19"
+  },
+  "UNH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-10-17"
+  },
+  "UNM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1986-11-06"
+  },
+  "UNP": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-01-02"
+  },
+  "UPS": {
+   "date": "1999-11-10",
+   "status": "confirmed",
+   "wikidata": "1999-11-10",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1999-11-10"
+  },
+  "URI": {
+   "date": "1997-12-18",
+   "status": "confirmed",
+   "wikidata": "1997-12-18",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-12-18"
+  },
+  "USB": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-05-03"
+  },
+  "USFD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-05-26"
+  },
+  "UTHR": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-06-17"
+  },
+  "V": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2008-03-19"
+  },
+  "VALE": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2002-03-21"
+  },
+  "VEEV": {
+   "date": "2013-10-16",
+   "status": "confirmed",
+   "wikidata": "2013-10-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2013-10-16"
+  },
+  "VG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2025-01-24"
+  },
+  "VICI": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-01-02"
+  },
+  "VIK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2024-05-01"
+  },
+  "VLO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1982-01-04"
+  },
+  "VLTO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2023-10-04"
+  },
+  "VMC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1973-02-21"
+  },
+  "VMRK": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1993-08-12"
+  },
+  "VNOM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-06-18"
+  },
+  "VOD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1988-11-02"
+  },
+  "VRSK": {
+   "date": "2009-10-07",
+   "status": "confirmed",
+   "wikidata": "2009-10-07",
+   "exchange": "Nasdaq",
+   "yahoo": "2009-10-07"
+  },
+  "VRSN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-01-30"
+  },
+  "VRT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-08-02"
+  },
+  "VRTX": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-07-24"
+  },
+  "VST": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2016-10-05"
+  },
+  "VTR": {
+   "date": "1997-05-05",
+   "status": "confirmed",
+   "wikidata": "1997-05-05",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-05-05"
+  },
+  "VTRS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "VZ": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-11-21"
+  },
+  "W": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2014-10-02"
+  },
+  "WAB": {
+   "date": "1995-06-16",
+   "status": "confirmed",
+   "wikidata": "1995-06-16",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-06-16"
+  },
+  "WAT": {
+   "date": "1995-11-17",
+   "status": "confirmed",
+   "wikidata": "1995-11-17",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1995-11-17"
+  },
+  "WBD": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2026-07-17"
+  },
+  "WCC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1999-05-12"
+  },
+  "WCN": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-05-22"
+  },
+  "WDAY": {
+   "date": "2012-10-12",
+   "status": "confirmed",
+   "wikidata": "2012-10-12",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2012-10-12"
+  },
+  "WDC": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1990-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1978-10-31"
+  },
+  "WDS": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2022-06-02",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1996-11-18"
+  },
+  "WEC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "WELL": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-19"
+  },
+  "WES": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2012-12-10"
+  },
+  "WFC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-06-01"
+  },
+  "WM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1988-06-22"
+  },
+  "WMB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1981-12-31"
+  },
+  "WMG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2020-06-03"
+  },
+  "WMT": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1972-08-25"
+  },
+  "WPC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-01-21"
+  },
+  "WPM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2005-07-06"
+  },
+  "WRB": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-10-23"
+  },
+  "WSM": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1983-07-07"
+  },
+  "WSO": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1984-06-07"
+  },
+  "WST": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "WTFC": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1998-04-16"
+  },
+  "WTRG": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1980-03-17"
+  },
+  "WTS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1986-08-21"
+  },
+  "WTW": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-06-12"
+  },
+  "WWD": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1996-05-31",
+   "exchange": "Nasdaq",
+   "yahoo": "1994-04-04"
+  },
+  "WY": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1973-05-03"
+  },
+  "XEL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2018-01-02",
+   "exchange": "Nasdaq",
+   "yahoo": "1973-02-21"
+  },
+  "XPO": {
+   "date": "2003-10-07",
+   "status": "confirmed",
+   "wikidata": "2003-10-07",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2003-10-07"
+  },
+  "XYL": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "2011-11-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2011-10-13"
+  },
+  "XYZ": {
+   "date": "2015-11-19",
+   "status": "confirmed",
+   "wikidata": "2015-11-19",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2015-11-19"
+  },
+  "YUM": {
+   "date": null,
+   "status": "conflict",
+   "wikidata": "1997-09-26",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "1997-09-17"
+  },
+  "ZBH": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2001-07-25"
+  },
+  "ZBRA": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "1991-08-15"
+  },
+  "ZM": {
+   "date": "2019-04-18",
+   "status": "confirmed",
+   "wikidata": "2019-04-18",
+   "exchange": "Nasdaq",
+   "yahoo": "2019-04-18"
+  },
+  "ZS": {
+   "date": null,
+   "status": "single",
+   "wikidata": null,
+   "exchange": null,
+   "yahoo": "2018-03-16"
+  },
+  "ZTS": {
+   "date": "2013-02-01",
+   "status": "confirmed",
+   "wikidata": "2013-02-01",
+   "exchange": "New York Stock Exchange",
+   "yahoo": "2013-02-01"
+  }
+ }
 }
