@@ -1794,14 +1794,19 @@ function continuationPlan(
     intradayAtr: m.intradayAtr,
     oldLevels: m.oldLevels,
   });
+  // Rounded to the places the price needs (F-02); a master that rounds onto
+  // or inside TP1 (an intraday ATR of 0 on a sub-dollar pair) is no second level.
+  const roundedMaster =
+    masterTarget != null && target != null &&
+    (direction === "up" ? roundPrice(masterTarget) > roundPrice(target) : roundPrice(masterTarget) < roundPrice(target))
+      ? roundPrice(masterTarget)
+      : null;
   return {
     confirmation: `Wait for a bar to close ${direction === "up" ? "above" : "below"} ${priceText(m.last)} rather than entering into the move. Chasing an extended price is how a good read becomes a bad fill.`,
     invalidation,
     firstTarget: target,
     paysRisk: targetPaysRisk(m.last, invalidation, target),
-    // Rounded to the places the price needs (F-02) before it reaches the
-    // ticket's link and `orders.master_profit`.
-    masterTarget: masterTarget != null ? roundPrice(masterTarget) : null,
+    masterTarget: roundedMaster,
     cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's 50% point at ${priceText(m.midpoint)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
   };
 }

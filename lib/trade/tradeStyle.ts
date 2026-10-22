@@ -128,7 +128,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
   intraday: {
     style: "intraday",
     label: "Intraday",
-    summary: "In and out within the session: the intraday alert's own stop and first target, managed on the session's bars, and closed by the session's end unless you choose to hold it overnight.",
+    summary: "In and out within the session: the intraday alert's own stop, first target and MTP (where the move is measured to; nothing sells there), managed on the session's bars, and closed by the session's end unless you choose to hold it overnight.",
     trendCharts: "The daily trend, with the hourly chart for the first change in trend",
     entryTiming: "At the market, when the intraday alert fires",
     stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",

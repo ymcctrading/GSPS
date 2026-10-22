@@ -3119,9 +3119,9 @@ in batches (100 symbols a request), not three requests a symbol.
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and
 "Trade this" on an intraday alert opened the ticket on the daily plan's levels,
-not the alert's. Now the link carries the alert's own stop and first target
-(`intradayTradeHref`), and the ticket opens on them as a market entry with no
-MTP, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
+not the alert's. Now the link carries the alert's own stop, first target and
+MTP (`intradayTradeHref`; the MTP since the same day, sold at by nothing), and
+the ticket opens on them as a market entry, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
 `orders.intraday_sourced`, not a picked preference). Once filled, the paper and
 live exit managers walk it on the session's bars with the intraday replay's own
 rules, now one module (`lib/gann/intradayExit.ts`), on regular-session bars
