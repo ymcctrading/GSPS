@@ -125,18 +125,26 @@ export async function getEnabledChannels(service: SupabaseClient, profileId: str
 
 export type DispatchOutcome =
   | { dispatched: true; status: "sent" | "failed" | "skipped" }
-  | { dispatched: false; reason: "not_pending" | "channel_unsupported" | "no_email" | "preview_suppressed" | "max_attempts" };
+  | {
+      dispatched: false;
+      reason: "not_pending" | "channel_unsupported" | "no_email" | "preview_suppressed" | "max_attempts" | "channels_unread";
+    };
 
 /** Attempt ceiling for a stuck `pending`/`failed` delivery the retry sweep will pick back up. */
 export const MAX_DISPATCH_ATTEMPTS = 5;
 
 /**
- * A push older than this is skipped, never sent: an alert is about the
+ * A delivery older than this is skipped, never sent: an alert is about the
  * session it was made in (a plan lasts its session, Q17), and a burst of old
- * pushes, such as rows left pending while push had no sender, would open
- * plans the scan has since moved past. Email keeps its own retry rule.
+ * sends, such as rows left pending while push had no sender, would open plans
+ * the scan has since moved past. Push only until 2026-10-22; email had no age
+ * limit, so the retry sweep kept re-sending failed setup emails from as far
+ * back as 2026-09-28 (7,643 retryable rows), spending Resend's daily quota on
+ * plans weeks dead and failing the day's live alerts behind them.
  */
-export const PUSH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+export const DELIVERY_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+/** @deprecated Every channel now ages out; kept for callers that named push. */
+export const PUSH_MAX_AGE_MS = DELIVERY_MAX_AGE_MS;
 
 /** Statuses this function will still attempt to send for. `sent` (and `bounced`) are terminal -- never re-dispatched. */
 const DISPATCHABLE_STATUSES = ["pending", "failed"];
@@ -167,10 +175,15 @@ const DISPATCHABLE_STATUSES = ["pending", "failed"];
  * sent outside quiet hours, since it tells the member a tracked setup broke).
  * A held send is `skipped` with the reason, never retried. The intraday email
  * path (`notifySubscribedUsers`) already applied both; this path now does too.
+ *
+ * The channel is read again at send time (2026-10-22): a row recorded before
+ * the member turned the channel off (or before opt-in, migration 0109) is
+ * skipped, not retried into their inbox. When the channel list can't be read
+ * the row is left as it is for the next sweep, never sent unchecked.
  */
 export async function dispatchNotificationDelivery(
   service: SupabaseClient,
-  args: { deliveryId: string; profileId: string },
+  args: { deliveryId: string; profileId: string; enabledChannels?: DeliveryChannel[] },
 ): Promise<DispatchOutcome> {
   if (isPreviewEnvironment()) {
     return { dispatched: false, reason: "preview_suppressed" };
@@ -192,10 +205,20 @@ export async function dispatchNotificationDelivery(
   const payload = current.payload as NotificationPayload;
   let result: { success: boolean; id?: string | null; error?: string; skipped?: boolean };
   const createdAt = Date.parse((current as { created_at?: string }).created_at ?? "");
-  const stale = current.channel === "push" && Number.isFinite(createdAt) && Date.now() - createdAt > PUSH_MAX_AGE_MS;
-  const held = stale
-    ? "Older than a push is worth sending: the plan is read again on the next scan."
-    : await preferenceHold(service, args.profileId, payload);
+  const stale = Number.isFinite(createdAt) && Date.now() - createdAt > DELIVERY_MAX_AGE_MS;
+  let held: string | null = stale ? "Older than its session: the plan is read again on the next scan." : null;
+  if (!held) {
+    // The inline dispatch passes the list it read a moment ago; the sweep reads it.
+    let enabled: DeliveryChannel[];
+    try {
+      enabled = args.enabledChannels ?? (await getEnabledChannels(service, args.profileId));
+    } catch {
+      return { dispatched: false, reason: "channels_unread" };
+    }
+    held = enabled.includes(current.channel)
+      ? await preferenceHold(service, args.profileId, payload)
+      : "The member has this channel turned off.";
+  }
   if (held) {
     result = { success: false, skipped: true, error: held };
   } else if (current.channel === "push") {
@@ -350,7 +373,23 @@ export async function recordInAppNotification(
 export async function sweepStuckDeliveries(
   service: SupabaseClient,
   args: { olderThanMs: number; limit?: number },
-): Promise<{ swept: number; sent: number; failed: number; suppressed: number }> {
+): Promise<{ swept: number; sent: number; failed: number; suppressed: number; unread: number }> {
+  // Rows past their session are closed in one write before the batch is
+  // picked, so a backlog of old rows can't hold today's failed sends out of
+  // the batch until they too age out unsent. Best-effort: the dispatch below
+  // skips an old row anyway.
+  const staleBefore = new Date(Date.now() - DELIVERY_MAX_AGE_MS).toISOString();
+  const { error: staleError } = await service
+    .from("notification_deliveries")
+    .update({
+      status: "skipped",
+      error: "Older than its session: the plan is read again on the next scan.",
+      updated_at: new Date().toISOString(),
+    })
+    .in("status", DISPATCHABLE_STATUSES)
+    .lt("created_at", staleBefore);
+  if (staleError) console.error(`sweepStuckDeliveries: stale rows not closed — ${staleError.message}`);
+
   const cutoff = new Date(Date.now() - args.olderThanMs).toISOString();
   const { data: rows, error } = await service
     .from("notification_deliveries")
@@ -358,6 +397,7 @@ export async function sweepStuckDeliveries(
     .in("status", ["pending", "failed"])
     .lt("attempt_count", MAX_DISPATCH_ATTEMPTS)
     .lt("created_at", cutoff)
+    .order("created_at", { ascending: false })
     .limit(args.limit ?? 200);
 
   if (error) throw new Error(`sweepStuckDeliveries: ${error.message}`);
@@ -365,16 +405,18 @@ export async function sweepStuckDeliveries(
   let sent = 0;
   let failed = 0;
   let suppressed = 0;
+  let unread = 0;
   for (const row of (rows ?? []) as { id: string; profile_id: string }[]) {
     try {
       const outcome = await dispatchNotificationDelivery(service, { deliveryId: row.id, profileId: row.profile_id });
       if (outcome.dispatched && outcome.status === "sent") sent += 1;
       else if (outcome.dispatched && outcome.status === "failed") failed += 1;
+      else if (!outcome.dispatched && outcome.reason === "channels_unread") unread += 1;
       else if (!outcome.dispatched) suppressed += 1;
     } catch (err) {
       console.error(`sweepStuckDeliveries: dispatch failed for delivery ${row.id} — ${String(err)}`);
     }
   }
 
-  return { swept: (rows ?? []).length, sent, failed, suppressed };
+  return { swept: (rows ?? []).length, sent, failed, suppressed, unread };
 }
