@@ -533,7 +533,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     const subject = rule ? `Alert: ${rule.condition}` : `${data.symbol} ${verb} $${priceText(data.targetPrice)}`;
     const headline = rule
       ? `Your alert <strong>${escapeHtml(rule.condition)}</strong> fired.`
-      : `${data.symbol} ${verb} your alert level of <strong>$${priceText(data.targetPrice)}</strong>.`;
+      : `${escapeHtml(data.symbol)} ${verb} your alert level of <strong>$${priceText(data.targetPrice)}</strong>.`;
     const checked = rule
       ? `Read at the check: ${escapeHtml(rule.reading)}${rule.source ? `. Level: ${escapeHtml(rule.source)}` : ""}`
       : `Last price checked: $${priceText(data.currentPrice)}`;
@@ -543,7 +543,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${data.symbol} price alert</h1>
+        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${escapeHtml(data.symbol)} price alert</h1>
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0f172a; font-size: 16px;">
             ${headline}

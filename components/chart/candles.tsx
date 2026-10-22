@@ -1430,6 +1430,15 @@ export function CandleChart({
           chartLevels={alertLevels}
           fallbackPrice={livePrice ?? readoutBars[readoutBars.length - 1]?.close ?? null}
           onAlertsChanged={setRuleAlerts}
+          onChartLineRemoved={() => {
+            setAlertPrice(null);
+            setAlertHit(null);
+            try {
+              localStorage.removeItem(`gsps.alert.${symbol.toUpperCase()}`);
+            } catch {
+              /* ignore */
+            }
+          }}
         />
       )}
       {alertHit && (

@@ -21,7 +21,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { quotePrice, assetClassOf } from "@/lib/brokers/simulator";
-import { EditorAlertSchema, directionOf, roundThreshold, thresholdProblem } from "@/lib/alerts/rules";
+import { EditorAlertSchema, dayExpiry, directionOf, roundThreshold, thresholdProblem } from "@/lib/alerts/rules";
 import { nextClose } from "@/lib/market/session";
 
 const ChartAlertSchema = z.object({
@@ -123,11 +123,13 @@ export async function POST(req: NextRequest) {
   try {
     const policy = await getUserEntitlementPolicy(supabase, user.id);
     if (policy.maxCustomAlertRules !== "unlimited") {
+      // A day alert past its close is gone in effect, even before the sweep removes it.
       const { count: open, error: countError } = await supabase
         .from("custom_price_alerts")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
-        .eq("triggered", false);
+        .eq("triggered", false)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
       if (countError) throw countError;
       // Moving the chart line replaces its own row, so that row doesn't count.
       let replaced = 0;
@@ -156,6 +158,11 @@ export async function POST(req: NextRequest) {
 
     if (editor?.data) {
       const d = editor.data;
+      // Only a symbol the feed can price is stored: an unknown one would only
+      // sit in every sweep's request.
+      if ((await quotePrice(symbol, assetClassOf(symbol))) == null) {
+        return NextResponse.json({ error: `Couldn't read a price for ${symbol}.` }, { status: 400 });
+      }
       const { data, error } = await supabase
         .from("custom_price_alerts")
         .insert({
@@ -168,7 +175,7 @@ export async function POST(req: NextRequest) {
           origin: "editor",
           level_source: d.levelSource || null,
           note: d.note || null,
-          expires_at: d.expiry === "day" ? nextClose(new Date()).toISOString() : null,
+          expires_at: d.expiry === "day" ? dayExpiry(d.field, nextClose(new Date())).toISOString() : null,
         })
         .select("*")
         .single();

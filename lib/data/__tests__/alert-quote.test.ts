@@ -35,6 +35,23 @@ describe("alertQuoteFromSnapshot", () => {
     expect(q.dayVolume).toBeNull();
   });
 
+  it("on a weekend: the completed close is Friday's and the change is Friday's own", () => {
+    const friday = { t: "2026-10-23T04:00:00Z", h: 51, l: 49, c: 50.5, v: 900_000 };
+    const q = alertQuoteFromSnapshot(
+      { latestTrade: { p: 50.6 }, dailyBar: friday, prevDailyBar: { c: 49.5 } },
+      "us_equity",
+      new Date("2026-10-24T16:00:00Z"),
+    );
+    expect(q.completedClose).toBe(50.5);
+    expect(q.changeFrom).toBe(49.5);
+    expect(q.dayHigh).toBeNull();
+  });
+
+  it("reads Last from a trade, never from a daily bar's close", () => {
+    const q = alertQuoteFromSnapshot({ dailyBar: yesterday, prevDailyBar: { c: 49 } }, "us_equity", PRE);
+    expect(q.last).toBeNull();
+  });
+
   it("drops an empty side of the book; crypto's daily bar is always forming", () => {
     const q = alertQuoteFromSnapshot(
       { latestTrade: { p: 60000 }, latestQuote: { bp: 0, ap: 60010 }, dailyBar: today, prevDailyBar: { c: 59000 } },

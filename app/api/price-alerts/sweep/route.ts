@@ -34,8 +34,8 @@ import {
   comparatorOf,
   describeAlertRule,
   formatThreshold,
+  isAlertRuleFired,
   readAlertField,
-  compareAlert,
   type AlertComparator,
   type AlertField,
   type AlertQuote,
@@ -178,10 +178,9 @@ export async function GET(req: NextRequest) {
     if (!quote) continue;
     const comparator = comparatorOf(alert);
     const field: AlertField = alert.field ?? "last";
-    const value = readAlertField(field, quote);
-    if (value == null || !Number.isFinite(value)) continue;
     const threshold = Number(alert.target_price);
-    if (!compareAlert(comparator, value, threshold)) continue;
+    if (!isAlertRuleFired({ field, comparator, threshold }, quote)) continue;
+    const value = readAlertField(field, quote)!;
 
     const firedAt = new Date().toISOString();
     const { data: marked, error: updateError } = await service

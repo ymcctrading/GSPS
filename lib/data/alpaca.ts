@@ -371,7 +371,9 @@ const num = (x: unknown): number | null => (typeof x === "number" && Number.isFi
  * Crypto's daily bar (UTC day) is always forming.
  */
 export function alertQuoteFromSnapshot(snap: RawSnapshot, assetClass: AssetClass, now: Date = new Date()): AlertQuote {
-  const last = num(snap.latestTrade?.p) ?? num(snap.minuteBar?.c) ?? num(snap.dailyBar?.c);
+  // The last trade only: a daily bar's close could be yesterday's and fire a
+  // Last alert on a stale price.
+  const last = num(snap.latestTrade?.p) ?? num(snap.minuteBar?.c);
   const dailyClose = num(snap.dailyBar?.c);
   const prevClose = num(snap.prevDailyBar?.c);
   const barIsToday = snap.dailyBar?.t != null && etDateKey(new Date(snap.dailyBar.t)) === etDateKey(now);
@@ -388,7 +390,10 @@ export function alertQuoteFromSnapshot(snap: RawSnapshot, assetClass: AssetClass
     dayLow: today ? num(snap.dailyBar?.l) : null,
     dayVolume: today ? num(snap.dailyBar?.v) : null,
     completedClose: forming ? prevClose : dailyClose,
-    changeFrom: today ? prevClose : dailyClose,
+    // Before today's first bar the change runs from yesterday's close, except
+    // when no session is running (overnight, a weekend or holiday): then it is
+    // the last session's own change, as the quote header shows it.
+    changeFrom: today || session === "closed" ? prevClose : dailyClose,
   };
 }
 
@@ -409,12 +414,21 @@ export async function fetchAlertQuotes(
   for (let i = 0; i < unique.length; i += 100) {
     const chunk = unique.slice(i, i + 100);
     const keyOf = new Map(chunk.map((s) => [crypto ? normalizeCryptoSymbol(s) : s, s]));
-    const data = crypto
-      ? (await get(`/v1beta3/crypto/us/snapshots`, { symbols: [...keyOf.keys()].join(",") })).snapshots ?? {}
-      : await get(`/v2/stocks/snapshots`, { symbols: [...keyOf.keys()].join(","), feed: "iex" });
-    for (const [key, original] of keyOf) {
-      const snap = data?.[key] as RawSnapshot | undefined;
-      if (snap) out.set(original, alertQuoteFromSnapshot(snap, assetClass, now));
+    const read = async (keys: string[]) => {
+      const data = crypto
+        ? (await get(`/v1beta3/crypto/us/snapshots`, { symbols: keys.join(",") })).snapshots ?? {}
+        : await get(`/v2/stocks/snapshots`, { symbols: keys.join(","), feed: "iex" });
+      for (const key of keys) {
+        const snap = data?.[key] as RawSnapshot | undefined;
+        if (snap) out.set(keyOf.get(key)!, alertQuoteFromSnapshot(snap, assetClass, now));
+      }
+    };
+    try {
+      await read([...keyOf.keys()]);
+    } catch {
+      // One bad symbol must not cost the rest of the batch: read one by one,
+      // and leave out any the feed refuses.
+      for (const key of keyOf.keys()) await read([key]).catch(() => undefined);
     }
   }
   return out;

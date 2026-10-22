@@ -9,7 +9,7 @@
  * fired alert on the bell and sends push and email by the member's settings.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
   type StoredAlert,
 } from "@/lib/alerts/rules";
 import { cn, parseJsonResponse } from "@/lib/utils";
+import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 
 const SELECT = "h-10 w-full rounded-lg border border-border bg-surface px-2 text-sm sm:w-56";
 
@@ -49,6 +50,7 @@ export function AlertEditor({
   chartLevels,
   fallbackPrice,
   onAlertsChanged,
+  onChartLineRemoved,
 }: {
   open: boolean;
   onClose: () => void;
@@ -58,6 +60,8 @@ export function AlertEditor({
   /** The chart's last close, used until the live quote arrives. */
   fallbackPrice: number | null;
   onAlertsChanged?: (alerts: StoredAlert[]) => void;
+  /** The chart line's own alert was removed here: the chart drops its line. */
+  onChartLineRemoved?: () => void;
 }) {
   const sym = symbol.toUpperCase();
   const live = useLiveQuote(open ? sym : null);
@@ -104,7 +108,8 @@ export function AlertEditor({
     if (open) void load();
   }, [open, load]);
 
-  // Seed the threshold with the field's current value, as a broker's editor does.
+  // Seed the threshold with the field's current value, as a broker's editor
+  // does: once each time the editor opens, so clearing the box stays clear.
   const seed = useCallback(
     (f: AlertField) => {
       const v = quote ? readAlertField(f, quote) : null;
@@ -112,10 +117,16 @@ export function AlertEditor({
     },
     [quote],
   );
+  const seeded = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (open && thresholdText === "" && quote) seed(field);
-  }, [open, quote, field, seed, thresholdText]);
+    if (!open) {
+      seeded.current = false;
+      return;
+    }
+    if (seeded.current || !quote) return;
+    seeded.current = true;
+    seed(field);
+  }, [open, quote, field, seed]);
 
   function chooseField(f: AlertField) {
     setField(f);
@@ -164,8 +175,11 @@ export function AlertEditor({
 
   function step(sign: 1 | -1) {
     const base = Number.isFinite(threshold) && thresholdText.trim() !== "" ? threshold : (current ?? 0);
-    const next = roundThreshold(field, base + sign * thresholdStep(field, current ?? base));
+    const next = roundThreshold(field, base + sign * thresholdStep(field, last ?? base));
     setThresholdText(String(next));
+    // A stepped threshold is no longer the level it came from.
+    setSourceId("");
+    setCloseBeyond(false);
   }
 
   async function create() {
@@ -198,12 +212,15 @@ export function AlertEditor({
     }
   }
 
-  async function remove(id: string) {
-    const res = await fetch(`/api/price-alerts/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!res.ok) {
+  async function remove(alert: StoredAlert) {
+    try {
+      const res = await fetch(`/api/price-alerts/${encodeURIComponent(alert.id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
       setMessage({ tone: "error", text: "That alert wasn't removed. Try again." });
       return;
     }
+    if (alert.origin === "chart" && !alert.triggered) onChartLineRemoved?.();
     await load();
   }
 
@@ -323,7 +340,12 @@ export function AlertEditor({
             <Row label="Expires">
               <select className={SELECT} value={expiry} onChange={(e) => setExpiry(e.target.value as AlertExpiry)} aria-label="Expires">
                 <option value="gtc">When it fires or you remove it</option>
-                <option value="day">At the next 4 PM ET close</option>
+                {/* Crypto trades around the clock: a stock market close means nothing to it. */}
+                {!isCryptoSymbol(sym) && (
+                  <option value="day">
+                    {field === "close" ? "After the next 4 PM ET close is read" : "At the next 4 PM ET close"}
+                  </option>
+                )}
               </select>
             </Row>
             <Row label="Note">
@@ -378,7 +400,7 @@ export function AlertEditor({
                 </div>
                 <button
                   type="button"
-                  onClick={() => remove(a.id)}
+                  onClick={() => remove(a)}
                   aria-label={`Remove alert ${describeAlertRule({ symbol: a.symbol, field: f, comparator: comparatorOf(a), threshold: Number(a.target_price) })}`}
                   className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-background hover:text-bear"
                 >

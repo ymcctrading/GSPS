@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EditorAlertSchema,
+  dayExpiry,
   closeBeyondThreshold,
   comparatorOf,
   describeAlertRule,
@@ -79,6 +80,8 @@ describe("thresholds", () => {
     expect(thresholdStep("last", 0.2)).toBe(0.01);
     expect(thresholdStep("pct_change", 50)).toBe(0.1);
     expect(thresholdStep("volume", 1e6)).toBe(1000);
+    // Net change steps by the stock's price, not by the size of the change.
+    expect(thresholdStep("net_change", 500)).toBe(thresholdStep("last", 500));
   });
 
   it("rounds to what the field is quoted in", () => {
@@ -139,5 +142,22 @@ describe("rows and bodies", () => {
     expect(EditorAlertSchema.safeParse({ symbol: "TFC", field: "sizzle", comparator: ">", threshold: 1 }).success).toBe(false);
     expect(EditorAlertSchema.safeParse({ symbol: "TFC", field: "last", comparator: "=", threshold: 1 }).success).toBe(false);
     expect(EditorAlertSchema.safeParse({ symbol: "TFC", field: "last", comparator: ">", threshold: 1, note: "x".repeat(141) }).success).toBe(false);
+  });
+
+  it("takes tickers and crypto pairs, uppercased, and refuses anything else as a symbol", () => {
+    const parse = (symbol: string) => EditorAlertSchema.safeParse({ symbol, field: "last", comparator: ">", threshold: 1 });
+    const brk = parse(" brk.b ");
+    expect(brk.success && brk.data.symbol).toBe("BRK.B");
+    expect(parse("BTC/USD").success).toBe(true);
+    expect(parse("<b>x</b>").success).toBe(false);
+    expect(parse("A,B").success).toBe(false);
+    expect(parse("").success).toBe(false);
+    expect(parse("X".repeat(21)).success).toBe(false);
+  });
+
+  it("keeps a day Close alert past the close so the checks after the bell can read that close", () => {
+    const close = new Date("2026-10-22T20:00:00Z");
+    expect(dayExpiry("last", close)).toEqual(close);
+    expect(dayExpiry("close", close).toISOString()).toBe("2026-10-22T22:00:00.000Z");
   });
 });

@@ -83,12 +83,12 @@ export const FIELD_HELP: Record<AlertField, string> = {
   bid: "The best bid on the free IEX feed.",
   ask: "The best ask on the free IEX feed.",
   mark: "Halfway between the bid and the ask (the last trade when either is missing).",
-  close: "The last completed session's close: a level counts once a session closes beyond it.",
+  close: "The last completed session's close (IEX feed): a level counts once a session closes beyond it.",
   net_change: "Last trade against the prior session's close, in dollars.",
   pct_change: "Last trade against the prior session's close, in percent.",
-  day_high: "Today's high so far: catches a touch between checks.",
-  day_low: "Today's low so far: catches a touch between checks.",
-  volume: "Shares traded today.",
+  day_high: "Today's high so far on the free IEX feed: catches a touch between checks.",
+  day_low: "Today's low so far on the free IEX feed: catches a touch between checks.",
+  volume: "Shares traded today on the free IEX feed, a small part of all trading: set it from this figure, not a broker's.",
 };
 
 /** Fields measured in price, which can be drawn on the chart. */
@@ -187,11 +187,12 @@ export function thresholdProblem(field: AlertField, threshold: number): string |
  * at this price for price fields, at least a cent; a tenth of a percent for
  * % change; a thousand shares for volume.
  */
-export function thresholdStep(field: AlertField, reference: number): number {
+export function thresholdStep(field: AlertField, price: number): number {
   if (field === "pct_change") return 0.1;
   if (field === "volume") return 1000;
-  const ref = Math.abs(reference) > 0 ? Math.abs(reference) : 1;
-  const step = gannPoint(field === "net_change" ? Math.max(ref, 1) : ref) / 8;
+  // Net change steps by the stock's price, like every other price figure.
+  const ref = Number.isFinite(price) && Math.abs(price) > 0 ? Math.abs(price) : 1;
+  const step = gannPoint(ref) / 8;
   return Math.max(0.01, Math.round(step * 100) / 100);
 }
 
@@ -291,12 +292,23 @@ export function closeBeyondThreshold(level: number, comparator: AlertComparator)
 }
 
 export const ALERT_NOTE_MAX = 140;
+/** A ticker or a crypto pair: letters, digits, ".", "/" and "-", up to 20. */
+export const ALERT_SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9./-]{0,19}$/;
+
+/**
+ * When a "day" alert lapses: the next 4 PM ET close, or for a Close alert two
+ * hours after it, so the checks after the bell read that day's close before
+ * the alert goes (a Close alert set for the day is about today's close).
+ */
+export function dayExpiry(field: AlertField, close: Date): Date {
+  return field === "close" ? new Date(close.getTime() + 2 * 3600_000) : close;
+}
 export const ALERT_EXPIRIES = ["gtc", "day"] as const;
 export type AlertExpiry = (typeof ALERT_EXPIRIES)[number];
 
 /** The body the editor posts. */
 export const EditorAlertSchema = z.object({
-  symbol: z.string().trim().min(1).max(20),
+  symbol: z.string().trim().toUpperCase().regex(ALERT_SYMBOL_PATTERN),
   field: z.enum(ALERT_FIELDS),
   comparator: z.enum(ALERT_COMPARATORS),
   threshold: z.number(),
