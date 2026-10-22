@@ -4,7 +4,7 @@
 paritys, WD Gann files, observation of cycles, William Hauck book and multi
 dimensional documents/creation equation, should coagulate together and create
 a synthesized roadmap. that we shall follow moving forward").
-**Last updated:** 2026-10-21.
+**Last updated:** 2026-10-22.
 **Copy for threads outside the repo:** `/mnt/project-files/roadmap/SYNTHESIZED_ROADMAP.md`.
 
 This document joins six bodies of work that until now lived apart. It decides
@@ -200,9 +200,10 @@ against Gann:
 4. **Risk dashboard.** Built 2026-10-21 (the Risk card on the Portfolio page,
    `lib/risk/dashboard.ts`, `/api/risk/dashboard`): Gann's capital rules (30
    points a share, a tenth at risk, five stocks), open risk to each stop the
-   exit manager holds now, the loss-series pause, the profit ceiling, the
-   circuit breaker and the drawdown, read by the same functions placement
-   uses. Paper accounts; a live account's book is the broker's.
+   exit manager holds now, the loss-series pause, the profit ceiling and the
+   drawdown, read by the same functions placement uses. Paper accounts; a
+   live account's book is the broker's, and the circuit breaker, which is the
+   live account's, is not shown.
 5. **Performance replay UI.** Past scans compared across dates, and the
    forward test beside the replay.
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
@@ -260,7 +261,7 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 16 | Novice risk engine reset checklist | **Done** (PR #404) | `/api/risk/reset-checklist`, a Settings card, and the circuit breaker holds new entries until it is completed |
 | 17 | Decision-gate metrics (retention, adoption, signal quality) | **Done** (PR #404) | `/api/admin/decision-gate` (operator secret only). Read 2026-10-21: 20 members, 3 active in 30 days, first-cohort retention 1 of 18 (6%), 0 paying, forward test 19 of 30 winners (+0.82R average), alerts 714 of 12,974 sent |
 | 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
-| 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Other thread | Gann-rules thread, after 20:15 UTC |
+| 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Restored (PR #414); measurement owed | Gann-rules thread |
 | 20 | Intraday alerts on Gann's primitives | Other thread | Intraday thread, PR #402 |
 | 21 | Trade plans by style and instrument | Other thread | Trade-style thread |
 

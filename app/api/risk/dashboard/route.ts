@@ -2,8 +2,9 @@
  * GSPS — /api/risk/dashboard
  * GET: the signed-in member's paper risk book (lib/risk/dashboard.ts): the
  * trading unit and the most one trade may risk, capital held, markets open,
- * open risk by position, the series of losses, the circuit breaker and the
- * drawdown. Read on the member's own client; every table it reads lets a
+ * open risk by position, the series of losses and the drawdown. The
+ * circuit breaker is the live account's and is not shown (see the module
+ * header). Read on the member's own client; every table it reads lets a
  * member read only their own rows. Display only: placement enforces.
  */
 
