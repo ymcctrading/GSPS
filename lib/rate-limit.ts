@@ -71,9 +71,13 @@ let sharedClient: SupabaseClient | null | undefined;
 
 function shared(): SupabaseClient | null {
   if (sharedClient !== undefined) return sharedClient;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // The same URL fallback as proxy.ts and lib/supabase/server.ts.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vebhpmmzxixlhujlptue.supabase.co";
   const key = serviceRoleKey();
-  sharedClient = url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+  sharedClient = key
+    ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+    : null;
+  if (!sharedClient) console.warn("[rate-limit] no server key: heavy buckets count per instance");
   return sharedClient;
 }
 
