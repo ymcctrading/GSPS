@@ -6,7 +6,9 @@
  * course's Ch. 1, PDF 20-24 and 29-31, per the W023 reading notes).
  *
  * Built: the market's monthly chart (`marketMonthly`, SPY's months with the
- * month in progress from its sessions, as `campaignLength.ts` reads it), its
+ * month in progress built from its completed sessions, as `campaignLength.ts`
+ * reads it, so the chart can turn on an unfinished month, the same on both
+ * surfaces), its
  * trend turning on crossing the last completed swing top or breaking the last
  * swing bottom, the 3-bar swing chart read on months. Context and a measured
  * factor (`dollarTrendWithTrade`); nothing here moves a score, gate, plan or

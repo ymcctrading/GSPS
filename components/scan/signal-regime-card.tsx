@@ -92,9 +92,15 @@ function StateStatusBadge({ verdict }: { verdict: SignalVerdict | null }) {
     return <Badge variant="muted">Disqualified</Badge>;
   }
 
+  // Only Gann's score is graded on the card (review of #393), so an
+  // evaluated state shows whether it is tradeable and nothing else.
   return (
     <div className="flex items-center gap-1.5">
-      {verdict.tradeable && <Badge variant="bull">Tradeable</Badge>}
+      {verdict.tradeable ? (
+        <Badge variant="bull">Tradeable</Badge>
+      ) : (
+        <Badge variant="muted">Not tradeable</Badge>
+      )}
     </div>
   );
 }

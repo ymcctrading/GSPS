@@ -614,7 +614,7 @@
 // check and the timePriceSquare check) reads the move against the trade, the
 // decline from the last high for a long and the rally from the last low for a
 // short, not the trade's own anchor. A balance marks a turn, measured "up from
-// lows" and "down from highs" (Master Course Ch. 6-7), so the advance from the
+// lows" and "down from highs" (Master Course Ch. 18, PDF p.440), so the advance from the
 // low squaring out says a top is due, against a long. Verdicts move, live and
 // replay alike.
 // 2026-10-21-gann-nine-square-price: the Square of Nine's fixed numbers act
@@ -702,6 +702,17 @@
 // 2026-10-21): the 6/3.5 confirmation was read on the pre-fix 2026-09-23
 // trigger. Live verdicts move. Merged onto
 // 2026-10-21-gann-fast-trail-after-fill, whose Fast trail it keeps.
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar: two fixes from the
+// after-merge review of #386 and #389. The price and time square only counts a
+// move away from its pivot the way Gann measures it, up from a low or down
+// from a high (Master Course Ch. 18, PDF p.440), so a long no longer takes P7's
+// square when price has run above the last high. And on daily bars a reaction
+// entry whose firing bar traded into the zone and also reached the stop (closing
+// back or through it) is booked and stopped on that bar, not retired first,
+// which had dropped every same-day stop-out. Verdicts move (the square), live
+// and replay alike; 1Day replay trades move. Merged onto
+// 2026-10-21-cutoffs-seven-four-one-entry, whose one-entry replay and 7/4
+// cutoffs it keeps.
 // 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
 // mass-pressure curve not against the trade (A-OTHER-05, Master Course Ch. 7,
 // PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in
@@ -712,5 +723,6 @@
 // live scan never fetched them), so a crypto replay reads no market trend,
 // leaders, campaign length or mass pressure, as live. Live stock verdicts move;
 // replay buckets move. Context only: `massPressureWithTrade`, the 84-year count
-// (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`).
+// (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`). Merged onto
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose fixes it keeps.
 export const STRATEGY_VERSION = "2026-10-22-gann-mass-pressure";

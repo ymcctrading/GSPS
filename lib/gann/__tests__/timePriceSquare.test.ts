@@ -51,4 +51,20 @@ describe("computeTimePriceSquare", () => {
     const low = readings.find((r) => r.anchorKind === "low");
     expect(low?.squared).toBe(true);
   });
+
+  // Up from lows, down from highs (Master Course Ch. 18, PDF p.440): the same
+  // distance on the far side of the anchor is not the swing it measures.
+  it("squares a high only on the way down and a low only on the way up", () => {
+    const unit = angleUnit(bars());
+    // High anchor at index 15 (price 130), 9 bars elapsed.
+    const below = computeTimePriceSquare(bars(), 130 - 9 * unit).find((r) => r.anchorKind === "high");
+    const above = computeTimePriceSquare(bars(), 130 + 9 * unit).find((r) => r.anchorKind === "high");
+    expect(below?.squared).toBe(true);
+    expect(above?.priceMovePoints).toBeCloseTo(9, 5);
+    expect(above?.squared).toBe(false);
+    // Low anchor at index 5 (price 90), 19 bars elapsed: 19 points under it does not square.
+    const under = computeTimePriceSquare(bars(), 90 - 19 * unit).find((r) => r.anchorKind === "low");
+    expect(under?.priceMovePoints).toBeCloseTo(19, 5);
+    expect(under?.squared).toBe(false);
+  });
 });

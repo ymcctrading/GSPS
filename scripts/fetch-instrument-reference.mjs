@@ -252,13 +252,13 @@ on conflict (instrument_id, as_of, filed) do update set shares = excluded.shares
 }
 
 // Plain PostgREST calls rather than supabase-js, so this works both with the
-// key in SUPABASE_SERVICE_ROLE_KEY and in a Claude Code environment where the
+// key in SUPABASE_SECRET_KEY (or the legacy SUPABASE_SERVICE_ROLE_KEY) and in a Claude Code environment where the
 // key is an API credential the sandbox attaches to requests for the Supabase
 // host (the script then sends no key of its own).
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vebhpmmzxixlhujlptue.supabase.co";
 
 async function rest(method, pathAndQuery, body, prefer) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   const headers = { "Content-Type": "application/json", Accept: "application/json" };
   if (prefer) headers.Prefer = prefer;
   if (key) {
