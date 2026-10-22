@@ -110,23 +110,8 @@ export interface SquareOf52Result {
  */
 export function squareOf52Windows(dailyBars: Bar[], asOf: Date = new Date(), windowDays = 2): SquareOf52Result {
   if (dailyBars.length < 30) return { active: false, dates: [] };
-
-  const pivots = findPivots(dailyBars, 5);
-  const anchors = majorPivots(pivots).slice(-12);
-  const firstYear = SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.weeks);
-  const disclosed = [...firstYear, ...firstYear.map((w) => w + SQUARE_OF_52_WEEKS)]
-    .filter((w) => w < SQUARE_OF_52_SPAN_WEEKS)
-    .map((w) => ({ weeks: w }));
-
   const dayMs = 24 * 3600 * 1000;
-  const dates: Date[] = [];
-  for (const anchor of anchors) {
-    const anchorDate = new Date(anchor.bar.t);
-    for (const { weeks: wk } of disclosed) {
-      dates.push(new Date(anchorDate.getTime() + wk * 7 * dayMs));
-    }
-  }
-
+  const dates = squareOf52Projections(dailyBars).map((p) => p.date);
   const nearby = dates.filter((d) => Math.abs(d.getTime() - asOf.getTime()) <= windowDays * dayMs);
   const upcoming = dates
     .filter((d) => d.getTime() >= asOf.getTime() && d.getTime() <= asOf.getTime() + 30 * dayMs)
@@ -135,4 +120,38 @@ export function squareOf52Windows(dailyBars: Bar[], asOf: Date = new Date(), win
     .map((d) => d.toISOString().slice(0, 10));
 
   return { active: nearby.length > 0, dates: upcoming };
+}
+
+/** The disclosed week counts over the 104-week span, projected from each major pivot. */
+function squareOf52Projections(dailyBars: Bar[]): { date: Date; weeks: number; pivotDate: string; pivotKind: "high" | "low" }[] {
+  const anchors = majorPivots(findPivots(dailyBars, 5)).slice(-12);
+  const firstYear = SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.weeks);
+  const disclosed = [...firstYear, ...firstYear.map((w) => w + SQUARE_OF_52_WEEKS)].filter((w) => w < SQUARE_OF_52_SPAN_WEEKS);
+  const dayMs = 24 * 3600 * 1000;
+  const out: { date: Date; weeks: number; pivotDate: string; pivotKind: "high" | "low" }[] = [];
+  for (const anchor of anchors) {
+    const at = Date.parse(anchor.bar.t);
+    for (const wk of disclosed) {
+      out.push({ date: new Date(at + wk * 7 * dayMs), weeks: wk, pivotDate: anchor.bar.t.slice(0, 10), pivotKind: anchor.kind });
+    }
+  }
+  return out;
+}
+
+/**
+ * M-T16, C-TIME-13: the Square of 52's week counts open within `windowDays`
+ * of `asOf`, each with the major pivot it is counted from, for the shared
+ * time-window mechanism (`countWindows.ts`). Same anchors and projections as
+ * `squareOf52Windows`.
+ */
+export function squareOf52Hits(
+  dailyBars: Bar[],
+  asOf: Date,
+  windowDays = 2,
+): { weeks: number; pivotDate: string; pivotKind: "high" | "low" }[] {
+  if (dailyBars.length < 30) return [];
+  const dayMs = 24 * 3600 * 1000;
+  return squareOf52Projections(dailyBars)
+    .filter((p) => Math.abs(p.date.getTime() - asOf.getTime()) <= windowDays * dayMs)
+    .map(({ weeks: w, pivotDate, pivotKind }) => ({ weeks: w, pivotDate, pivotKind }));
 }
