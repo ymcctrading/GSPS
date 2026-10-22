@@ -564,7 +564,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
 
       const reference = references.get(symbol.toUpperCase());
       const instrument = reference
-        ? { sharesHistory: reference.history, inception: reference.reference.inception }
+        ? { sharesHistory: reference.history, inception: reference.reference.inception, name: reference.reference.name }
         : undefined;
       results.push(
         profile === "intraday"

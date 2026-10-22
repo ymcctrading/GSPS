@@ -681,7 +681,7 @@ async function main() {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
           const ref = references.get(symbol.toUpperCase());
-          const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception } : undefined;
+          const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception, name: ref.reference.name ?? null } : undefined;
           cells.forEach((cell, c) => {
             // `profile: "intraday"` is the replay-only intraday profile
             // (lib/backtest/replayIntraday.ts); every other cell is the production method.

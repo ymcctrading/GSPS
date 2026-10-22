@@ -702,4 +702,14 @@
 // 2026-10-21): the 6/3.5 confirmation was read on the pre-fix 2026-09-23
 // trigger. Live verdicts move. Merged onto
 // 2026-10-21-gann-fast-trail-after-fill, whose Fast trail it keeps.
-export const STRATEGY_VERSION = "2026-10-21-cutoffs-seven-four-one-entry";
+// 2026-10-22-gann-name-chart-great-cycles: A-OTHER-08 and A-TIME-24. The
+// company name's square (Master Course Ch. 15A: letters counted, a Square of
+// N², its multiples and half-squares) puts its nearest key number above and
+// below price in the S/R list, in Gann points; the same numbers counted in
+// years from inception, and the end of a great cycle (20 years 1931, 60 years
+// 1935, 20,736 days 1953, 90 years 1955) from inception or a major monthly
+// pivot, open dated windows in the time-window hold. Live and replay alike;
+// plans and counter-trend verdicts move. Merged onto
+// 2026-10-21-cutoffs-seven-four-one-entry, whose 7/4 cutoffs and one entry
+// a session it keeps.
+export const STRATEGY_VERSION = "2026-10-22-gann-name-chart-great-cycles";

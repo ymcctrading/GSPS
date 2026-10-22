@@ -31,7 +31,10 @@
  * - the Square of Nine's cardinal and fixed crosses contribute their nearest
  *   number above and below price, read in Gann points (Master Course Ch. 2,
  *   "great resistance points"; `squareOfNinePrice.ts`, C-LEVELS-15,
- *   2026-10-21).
+ *   2026-10-21);
+ * - the company name's square contributes its nearest key number above and
+ *   below price, read in Gann points (Master Course Ch. 15A, the United
+ *   States Steel Name Chart; `nameNumerology.ts`, A-OTHER-08, 2026-10-21).
  *
  * The Gann point is fixed from the daily bars' extremes, and the extremes
  * are the longest history supplied (monthly plus daily), which Gann ranks
@@ -50,14 +53,22 @@ import { activeAngleLevels } from "@/lib/gann/astroRules";
 import { jensenLevels } from "@/lib/gann/jensen";
 import { patternAngleLevels } from "@/lib/gann/patternAngles";
 import { squareOfNinePriceLevels } from "@/lib/gann/squareOfNinePrice";
+import { nameNumberLevels, nameSquare } from "@/lib/gann/nameNumerology";
 
 export interface MasterLevel {
   price: number;
   label: string;
-  source: "squareOf144" | "planetary" | "activeAngle" | "jensen" | "patternAngle" | "squareOfNine";
+  source: "squareOf144" | "planetary" | "activeAngle" | "jensen" | "patternAngle" | "squareOfNine" | "name";
 }
 
-export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number, asOf: Date): MasterLevel[] {
+export function gannMasterLevels(
+  longHistory: Bar[],
+  daily: Bar[],
+  price: number,
+  asOf: Date,
+  /** The stored company name, for its name chart; null leaves it out. */
+  companyName: string | null = null,
+): MasterLevel[] {
   if (!(price > 0) || daily.length === 0) return [];
   const unit = gannPointForBars(daily);
   if (!(unit > 0)) return [];
@@ -77,5 +88,6 @@ export function gannMasterLevels(longHistory: Bar[], daily: Bar[], price: number
   for (const l of jensenLevels(daily, price, unit)) out.push({ ...l, source: "jensen" });
   for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });
   for (const l of squareOfNinePriceLevels(price, unit)) out.push({ price: l.price, label: l.label, source: "squareOfNine" });
+  for (const l of nameNumberLevels(nameSquare(companyName), price, unit)) out.push({ ...l, source: "name" });
   return out;
 }
