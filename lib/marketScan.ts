@@ -692,12 +692,42 @@ export async function scanEveryChart(
   scan: typeof scanTicker = scanTicker,
 ): Promise<ScanResult[]> {
   if (symbols.length === 0) return [];
-  const bars = await fetchAllTimeframesBatch([...symbols], EXECUTION_TIMEFRAME, assetClass);
+  const [bars, prices] = await Promise.all([
+    fetchAllTimeframesBatch([...symbols], EXECUTION_TIMEFRAME, assetClass),
+    latestPrices(symbols, assetClass),
+  ]);
   return mapWithConcurrency([...symbols], 4, (symbol) =>
-    scan(symbol, undefined, undefined, bars.get(symbol.toUpperCase()), universeThresholds).catch(
+    scan(
+      symbol,
+      undefined,
+      undefined,
+      bars.get(symbol.toUpperCase()),
+      universeThresholds,
+      prices.get(symbol.toUpperCase()),
+    ).catch(
       (err: unknown) => ({ symbol, error: String(err) }) as ScanResult,
     ),
   );
+}
+
+/**
+ * The latest prices of `symbols` in one batched read (`fetchLatestPrices`), so
+ * the scans that follow spend no rate-limit token each on their price: the
+ * full pass's 56 single reads queued behind the shared limiter until the run
+ * passed its 60 s budget (2026-10-22, 19:45-20:15 UTC). Empty when the provider
+ * has no batch form or the read fails; `scanTicker` then reads a missing
+ * symbol's price itself, as it always did.
+ */
+export async function latestPrices(
+  symbols: readonly string[],
+  assetClass: "crypto" | "us_equity",
+): Promise<Map<string, number>> {
+  const provider = getMarketDataProvider();
+  if (!provider.fetchLatestPrices || symbols.length === 0) return new Map();
+  return provider.fetchLatestPrices([...symbols], assetClass).catch((err: unknown) => {
+    console.warn(`market-scan: batched ${assetClass} latest prices failed, read one by one — ${String(err)}`);
+    return new Map<string, number>();
+  });
 }
 
 /** The commodity and currency funds' setups with a priced plan, each side in the lists' own order. */
@@ -1205,6 +1235,12 @@ export async function runMarketScan(
     .filter((c): c is CoarseCandidate => c !== null)
     .sort(byCoarseScore);
 
+  // The shortlist's latest prices, read in one request beside the bars.
+  const shortlistPricesP = latestPrices(
+    shortlist.map((c) => c.symbol),
+    "us_equity",
+  );
+
   // Full multi-timeframe pass — batch-fetch all five timeframes for the whole
   // shortlist up front (five requests total) so each scanTicker call below is
   // just scoring, not a fresh five-request fetch per symbol.
@@ -1226,9 +1262,20 @@ export async function runMarketScan(
       `market-scan: ${scanDate} full-pass bars not fetched by ${FULL_PASS_FETCH_DEADLINE_MS}ms; nothing scored this run`,
     );
   }
+  const shortlistPrices = shortlistBars
+    ? ((await settleBy(shortlistPricesP, startedAt + FULL_PASS_FETCH_DEADLINE_MS)) ?? new Map<string, number>())
+    : new Map<string, number>();
+  mark("full-pass latest prices", `${shortlistPrices.size} of ${shortlist.length} batched`);
   const full = shortlistBars
     ? await mapWithConcurrency(shortlist, 5, (c) =>
-        scanTicker(c.symbol, undefined, undefined, shortlistBars.get(c.symbol.toUpperCase()), universeThresholds),
+        scanTicker(
+          c.symbol,
+          undefined,
+          undefined,
+          shortlistBars.get(c.symbol.toUpperCase()),
+          universeThresholds,
+          shortlistPrices.get(c.symbol.toUpperCase()),
+        ),
       )
     : [];
   mark("full-pass scanTicker scoring done");
@@ -1299,10 +1346,18 @@ export async function runMarketScan(
 
     // Bounded as the full pass's fetch is, a little later: past it the top-up
     // is skipped and the reversion lists publish as they stand.
+    const fillPricesP = latestPrices(
+      fills.map((c) => c.symbol),
+      "us_equity",
+    );
     const fillBars = await settleBy(
       fetchAllTimeframesBatch(fills.map((c) => c.symbol), EXECUTION_TIMEFRAME),
       startedAt + CONTINUATION_FETCH_DEADLINE_MS,
     );
+    const fillPrices =
+      fillBars === null
+        ? new Map<string, number>()
+        : ((await settleBy(fillPricesP, startedAt + CONTINUATION_FETCH_DEADLINE_MS)) ?? new Map<string, number>());
     if (fillBars === null) {
       console.warn(`market-scan: ${scanDate} continuation bars not fetched by the deadline; top-up skipped`);
     }
@@ -1316,6 +1371,7 @@ export async function runMarketScan(
               { direction: c.direction, kind: "continuation" },
               fillBars.get(c.symbol.toUpperCase()),
               universeThresholds,
+              fillPrices.get(c.symbol.toUpperCase()),
             ),
           );
     continuationScanResults = scans;

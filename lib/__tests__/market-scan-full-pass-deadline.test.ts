@@ -8,14 +8,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar, Timeframe } from "@/lib/types";
 
-const { fetchBarsBatchMock, fetchAllMock, scanTickerMock } = vi.hoisted(() => ({
+const { fetchBarsBatchMock, fetchAllMock, scanTickerMock, latestPricesMock } = vi.hoisted(() => ({
+  latestPricesMock: vi.fn(),
   fetchBarsBatchMock: vi.fn(),
   fetchAllMock: vi.fn(),
   scanTickerMock: vi.fn(),
 }));
 
 vi.mock("@/lib/data/provider", () => ({
-  getMarketDataProvider: () => ({ fetchBars: vi.fn(), fetchBarsBatch: fetchBarsBatchMock }),
+  getMarketDataProvider: () => ({
+    fetchBars: vi.fn(),
+    fetchBarsBatch: fetchBarsBatchMock,
+    fetchLatestPrices: latestPricesMock,
+  }),
   fetchAllTimeframesBatch: fetchAllMock,
 }));
 vi.mock("@/lib/data/alpaca", () => ({ fetchMostActives: vi.fn(async () => []) }));
@@ -41,6 +46,7 @@ beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   scanTickerMock.mockImplementation(async (symbol: string) => ({ symbol, error: "not under test" }));
+  latestPricesMock.mockImplementation(async () => new Map());
   fetchBarsBatchMock.mockImplementation(async (symbols: string[], timeframe: Timeframe) => {
     const bars = timeframe === "1Day" ? daily() : [];
     return new Map(symbols.map((s) => [s.toUpperCase(), bars]));
@@ -53,6 +59,7 @@ afterEach(() => {
   fetchBarsBatchMock.mockReset();
   fetchAllMock.mockReset();
   scanTickerMock.mockReset();
+  latestPricesMock.mockReset();
 });
 
 const scoredAapl = () => scanTickerMock.mock.calls.some((c) => c[0] === "AAPL");
@@ -64,6 +71,36 @@ describe("runMarketScan full-pass fetch deadline", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await run;
     expect(scoredAapl()).toBe(true);
+  });
+
+  it("reads the latest prices in one batch per market and hands each scan its price", async () => {
+    // 2026-10-22 20:15 UTC: 56 single price reads queued behind the shared
+    // rate limiter during scoring until the run passed 60 s.
+    fetchAllMock.mockImplementation(async () => new Map());
+    latestPricesMock.mockImplementation(async (symbols: string[], assetClass: string) =>
+      new Map(symbols.map((s) => [s.toUpperCase(), assetClass === "crypto" ? 67_000 : 230.5])),
+    );
+    const run = runMarketScan(1, 15, undefined, ["AAPL"]);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await run;
+    const priceOf = (symbol: string) => scanTickerMock.mock.calls.find((c) => c[0] === symbol)?.[5];
+    expect(priceOf("AAPL")).toBe(230.5);
+    expect(priceOf("BTC/USD")).toBe(67_000);
+    const stockReads = latestPricesMock.mock.calls.filter((c) => c[1] === "us_equity");
+    expect(stockReads.some((c) => c[0].includes("AAPL"))).toBe(true);
+  });
+
+  it("lets each scan read its own price when the batched read fails", async () => {
+    fetchAllMock.mockImplementation(async () => new Map());
+    latestPricesMock.mockImplementation(async () => {
+      throw new Error("429");
+    });
+    const run = runMarketScan(1, 15, undefined, ["AAPL"]);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await run;
+    const aapl = scanTickerMock.mock.calls.find((c) => c[0] === "AAPL");
+    expect(aapl).toBeDefined();
+    expect(aapl?.[5]).toBeUndefined();
   });
 
   it("never asks the stock endpoints for a tracked crypto pair", async () => {

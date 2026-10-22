@@ -148,6 +148,12 @@ export async function scanTicker(
    * the code constants, so every existing caller is unaffected.
    */
   universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+  /**
+   * The latest price already read by the caller's batched request
+   * (`runMarketScan`), so this call spends no rate-limit token of its own on
+   * it. Undefined reads it here.
+   */
+  prefetchedPrice?: number,
 ): Promise<ScanResult> {
   const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const scannedAt = new Date().toISOString();
@@ -160,7 +166,7 @@ export async function scanTicker(
     // instance and cached, so after the first symbol this resolves at once.
     const [{ monthly, monthlyLong, monthlyYearCount, weekly, daily, hourly, execution }, currentPrice, instrumentReference, marketDaily, marketMonthly, universeStrength] = await Promise.all([
       prefetched ?? fetchAllTimeframes(symbol, assetClass, EXECUTION_TIMEFRAME),
-      provider.fetchLatestPrice(symbol, assetClass),
+      prefetchedPrice ?? provider.fetchLatestPrice(symbol, assetClass),
       assetClass === "us_equity" ? getInstrumentReference(symbol) : Promise.resolve(null),
       // The market's daily bars for Gann's early/late leaders; read once a day.
       assetClass === "us_equity" ? getMarketDailyBars() : Promise.resolve(null),

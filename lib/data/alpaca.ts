@@ -409,6 +409,40 @@ export async function fetchLatestPrice(symbol: string, assetClass: AssetClass): 
   return p;
 }
 
+/**
+ * Latest trade prices for many symbols of one asset class, one request per
+ * 100 symbols, so a scan of 56 stocks spends one rate-limit token on prices
+ * rather than 56 (the market scan's full pass queued for tokens past its 60 s
+ * budget on 2026-10-22). A symbol the feed has no trade for is left out of the
+ * map, and the caller reads it one at a time. A refused batch (400/422, one
+ * bad symbol) is read one by one, as `fetchAlertQuotes` does.
+ */
+export async function fetchLatestPrices(symbols: string[], assetClass: AssetClass): Promise<Map<string, number>> {
+  assertAlpacaSupports(assetClass);
+  const out = new Map<string, number>();
+  const crypto = assetClass === "crypto";
+  const unique = [...new Set(symbols.map((s) => s.toUpperCase()))];
+  for (let i = 0; i < unique.length; i += 100) {
+    const keyOf = new Map(unique.slice(i, i + 100).map((s) => [crypto ? normalizeCryptoSymbol(s) : s, s]));
+    const read = async (keys: string[]) => {
+      const data = crypto
+        ? await get(`/v1beta3/crypto/us/latest/trades`, { symbols: keys.join(",") })
+        : await get(`/v2/stocks/trades/latest`, { symbols: keys.join(","), feed: "iex" });
+      for (const key of keys) {
+        const p = data?.trades?.[key]?.p;
+        if (typeof p === "number" && Number.isFinite(p)) out.set(keyOf.get(key)!, p);
+      }
+    };
+    try {
+      await read([...keyOf.keys()]);
+    } catch (err) {
+      if (!(err instanceof MarketDataError) || (err.status !== 400 && err.status !== 422)) throw err;
+      for (const key of keyOf.keys()) await read([key]).catch(() => undefined);
+    }
+  }
+  return out;
+}
+
 export interface Snapshot {
   /** Most recent trade — reflects extended-hours prints on IEX / 24-7 crypto. */
   price: number;
@@ -574,6 +608,7 @@ export const alpacaProvider: MarketDataProvider = {
   fetchBars,
   fetchBarsBatch,
   fetchLatestPrice,
+  fetchLatestPrices,
   fetchMostActives,
   fetchAlertQuotes,
 };

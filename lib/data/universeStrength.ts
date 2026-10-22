@@ -54,7 +54,13 @@ export function getUniverseStrength(now: Date = new Date()): Promise<UniverseStr
   const day = etDateKey(now);
   if (cached && cached.day === day) return cached.strength;
   const strength = fetchUniverseStrengthSince(now);
-  cached = { day, strength };
+  const entry = { day, strength };
+  cached = entry;
+  // A failed read (a throttled request, say) is not kept for the day: the
+  // next scan reads again rather than leaving the rank unread until midnight.
+  void strength.then((u) => {
+    if (u === null && cached === entry) cached = null;
+  });
   return strength;
 }
 
