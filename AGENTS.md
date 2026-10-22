@@ -977,6 +977,19 @@ conditions, so this is the owner's display decision. Live verdicts move.
 daily rerun that measures 7/4 runs on it, after #412 (same-day stop-outs, the
 square from highs).
 
+**The portfolio manager ranks by Gann's score, same day (review sweep).** It
+ranked armed plans by the Signal & Regime Engine's alignment tier, the
+weighted grade the scorecard no longer uses. It now ranks them by Gann's score,
+the nine pillars out of 9 (`rankPlansByScore`, `lib/automation/portfolio-manager.ts`),
+read from the member's open monitor of the symbol (`active_monitors.score`, the
+latest scan's reading; a terminal monitor's stale score is never read) and only
+when the monitor still reads the plan's direction. That
+way a capacity-limited run spends Gann's five stocks on the strongest ("the
+stocks that show the most strength", *Stock Selector* Ch. VII). A plan with no
+score goes last and ties keep the older plan first (engineering choices). A
+failed read ranks nothing, is logged in the run's errors, and never stops the run. There is no migration. Verdicts and the replay are
+unchanged, so `STRATEGY_VERSION` stays.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
