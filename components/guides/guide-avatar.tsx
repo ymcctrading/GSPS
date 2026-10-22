@@ -1,7 +1,7 @@
 /**
  * The <GuideAvatar/> layer: every picture of Mr. Bull and Mrs. Bear, and every
- * tip in their voice, is drawn here and nowhere else, so approved art replaces
- * the placeholders below in one place (Chuck's art direction, 2026-10-22,
+ * tip in their voice, is drawn here and nowhere else, so new art replaces
+ * them in one place (Chuck's art direction, 2026-10-22,
  * /mnt/project-files/design/guide-avatar-art-direction.md). Design basis:
  * `lib/guides/speaker.ts`.
  *
@@ -12,10 +12,10 @@
  *   ring, bubble and border use her red, navy, warm gray and charcoal only.
  * - Colour is never the only cue: every tip names its speaker and carries an
  *   icon (a rising line for Bull, a shield for Bear).
- * - Flat vector on deep navy, warm gray and soft gold supporting; no emoji.
+ * - On deep navy; no emoji.
  *
- * The SVGs are placeholders (simple shapes in the right palette), not the
- * finished characters. Swap `BullArt` and `BearArt` for the approved files.
+ * The pictures are Chuck's own portraits (`PORTRAITS`, in public/guides/). To
+ * change them, replace those two files.
  */
 
 import { useId, type ReactNode } from "react";
@@ -24,40 +24,18 @@ import { GUIDE_NAMES, GUIDE_ROLES, type GuideId, type GuideSpeaker } from "@/lib
 
 const SIZES = { sm: 28, md: 40, lg: 64 } as const;
 
-/** Placeholder: a bull's head in a white open collar and an emerald vest. */
-function BullArt() {
-  return (
-    <>
-      <path d="M14 50 L32 40 L50 50 L50 64 L14 64 Z" fill="var(--guide-bull)" />
-      <path d="M26 42 L32 52 L38 42 Z" fill="#ffffff" />
-      <path d="M17 20 Q12 10 20 8 Q18 14 24 18 Z" fill="#f5f5f4" />
-      <path d="M47 20 Q52 10 44 8 Q46 14 40 18 Z" fill="#f5f5f4" />
-      <ellipse cx="32" cy="27" rx="13" ry="14" fill="var(--guide-warm-gray)" />
-      <ellipse cx="32" cy="35" rx="8" ry="5" fill="#d6d3d1" />
-      <circle cx="27" cy="24" r="1.8" fill="var(--guide-navy)" />
-      <circle cx="37" cy="24" r="1.8" fill="var(--guide-navy)" />
-    </>
-  );
-}
-
-/** Placeholder: a bear's head in reading glasses, a charcoal blazer and a crimson scarf. */
-function BearArt() {
-  return (
-    <>
-      <path d="M14 50 L32 42 L50 50 L50 64 L14 64 Z" fill="#374151" />
-      <path d="M22 44 Q32 52 42 44 L40 49 Q32 55 24 49 Z" fill="var(--guide-bear)" />
-      <path d="M43 54 L47 54 L46 57 L43 57 Z" fill="var(--guide-bear)" />
-      <circle cx="21" cy="15" r="5" fill="var(--guide-warm-gray)" />
-      <circle cx="43" cy="15" r="5" fill="var(--guide-warm-gray)" />
-      <circle cx="32" cy="27" r="14" fill="var(--guide-warm-gray)" />
-      <ellipse cx="32" cy="33" rx="6" ry="4.5" fill="#d6d3d1" />
-      <circle cx="32" cy="31" r="1.6" fill="var(--guide-navy)" />
-      <circle cx="27" cy="24" r="3.4" fill="none" stroke="var(--guide-navy)" strokeWidth="1.2" />
-      <circle cx="37" cy="24" r="3.4" fill="none" stroke="var(--guide-navy)" strokeWidth="1.2" />
-      <path d="M30.4 24 L33.6 24" stroke="var(--guide-navy)" strokeWidth="1.2" />
-    </>
-  );
-}
+/**
+ * Chuck's own portraits of the guides, cropped from the reference picture he
+ * sent with the welcome-message request
+ * (/mnt/project-files/design/mr-bull-mrs-bear-reference.png). He chose them
+ * over the placeholders on 2026-10-22: "i'd much rather use those". Each file
+ * is 256 px square with the face centred, so the 64-unit circle below shows
+ * the head and shoulders.
+ */
+const PORTRAITS: Record<GuideId, string> = {
+  bull: "/guides/mr-bull.webp",
+  bear: "/guides/mrs-bear.webp",
+};
 
 export function GuideAvatar({
   guide,
@@ -89,7 +67,7 @@ export function GuideAvatar({
         </clipPath>
       </defs>
       <circle cx="32" cy="32" r="30" fill="var(--guide-navy)" />
-      <g clipPath={`url(#${clipId})`}>{guide === "bull" ? <BullArt /> : <BearArt />}</g>
+      <image href={PORTRAITS[guide]} x="0" y="0" width="64" height="64" clipPath={`url(#${clipId})`} preserveAspectRatio="xMidYMid slice" />
       <circle cx="32" cy="32" r="30" fill="none" stroke={ring} strokeWidth="3" />
     </svg>
   );
