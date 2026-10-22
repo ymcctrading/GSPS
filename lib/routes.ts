@@ -1,3 +1,15 @@
+/**
+ * The site's base URL as configured in `NEXT_PUBLIC_APP_URL`, trimmed and
+ * without a trailing slash, or null when it is unset or empty
+ * (`.env.example` ships it empty). Emails fall back to www.gsps.world,
+ * billing to the request's own origin; both read the variable here so an
+ * empty value or a trailing slash can't break one and not the other.
+ */
+export function configuredAppUrl(): string | null {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  return raw ? raw : null;
+}
+
 /** Builds an href to a ticker page, safely encoding symbols that contain a "/" (e.g. "BTC/USD"). */
 export function tickerHref(symbol: string): string {
   return `/ticker/${symbol.split("/").map(encodeURIComponent).join("/")}`;

@@ -81,3 +81,40 @@ export async function finalizeUsageReservation(
   if (error) throw new Error(`finalizeUsageReservation: ${error.message}`);
   return data as boolean;
 }
+
+/**
+ * How long a reservation may stay `reserved` before it is treated as
+ * abandoned. Every route that reserves (`/api/guided`, `/api/batch-scan`) runs
+ * inside a 60-second function, so a row still reserved well past that was
+ * left by a run that died before it could finalize or release it (review
+ * finding S-12: one such row since 2026-08-26). An engineering figure, set at
+ * fifteen times the budget so no live run is ever touched.
+ */
+export const STALE_RESERVATION_MS = 15 * 60_000;
+
+/**
+ * Releases every reservation older than `olderThanMs` that was never
+ * finalized or released. Released, not finalized: the run died before it
+ * could say it completed, so the member is not charged, the same reading
+ * `finalizeUsageReservation`'s "released" gives a failed attempt (a batch
+ * scan killed after writing its results but before finalizing goes
+ * uncharged too, as its own error path already allows). The row stays for
+ * audit. Returns how many rows it released.
+ */
+export async function releaseStaleReservations(
+  supabase: SupabaseClient,
+  now: Date = new Date(),
+  olderThanMs: number = STALE_RESERVATION_MS,
+): Promise<number> {
+  const nowIso = now.toISOString();
+  const cutoff = new Date(now.getTime() - olderThanMs).toISOString();
+  const { data, error } = await supabase
+    .from("usage_ledger")
+    .update({ status: "released", finalized_at: nowIso, updated_at: nowIso })
+    .eq("status", "reserved")
+    .lt("reserved_at", cutoff)
+    .select("id");
+
+  if (error) throw new Error(`releaseStaleReservations: ${error.message}`);
+  return data?.length ?? 0;
+}

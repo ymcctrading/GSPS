@@ -254,12 +254,14 @@ describe("trade level messages", () => {
   it("phrases every stop advisory in plain language", () => {
     const p = { ...pattern, triggerPrice: 100, stopPrice: 99 };
     const prev = bar(98, 101, 96, 99);
+    // A bought option has no premium band to warn about (R-006: the premium
+    // paid is the stop, Master Course Ch. 19A), so the volatility advisory is
+    // the one stop message left.
     const warnings = [
-      computeTradeLevels(p, prev, [], 10).stopBandWarning, // under the premium band
-      computeTradeLevels(p, prev, [], 4).stopBandWarning, // over the premium band
       computeTradeLevels(p, prev, [], undefined, 0.2).stopBandWarning, // wide vs volatility
     ];
     expect(warnings.every((w) => typeof w === "string")).toBe(true);
+    expect(computeTradeLevels(p, prev, [], 10).stopBandWarning).toBeNull();
     expectPlainLanguage(warnings as string[]);
   });
 

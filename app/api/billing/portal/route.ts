@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isStripeEnabled, stripeClient } from "@/lib/billing/stripe";
+import { configuredAppUrl } from "@/lib/routes";
 
 export async function POST(req: NextRequest) {
   if (!isStripeEnabled()) {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   const stripe = stripeClient();
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  const origin = configuredAppUrl() ?? new URL(req.url).origin;
   const session = await stripe.billingPortal.sessions.create({
     customer: profile.stripe_customer_id,
     return_url: `${origin}/settings`,

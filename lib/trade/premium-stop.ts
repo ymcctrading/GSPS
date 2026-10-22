@@ -1,22 +1,22 @@
 /**
- * How much of the premium paid a structural stop would consume.
+ * How much of the premium paid the underlying's Gann stop would consume:
+ * information for the trader, never a rule.
  *
- * The band is a sizing discipline for long contracts: pay too little premium
- * and an ordinary stop eats most of it, pay too much and the trade is
- * inefficient. It is deliberately tighter than the 25–50%-of-premium max-loss
- * heuristic common for long options, because it is written for high-delta
- * contracts held as leveraged stock rather than for cheap out-of-the-money
- * premium.
+ * Gann's rule for a bought put or call (Master Course Ch. 19A, PDF 444,
+ * 449-450): the option is the stop. The premium paid is the most it can lose,
+ * so the premium is the risk, and the position is sized on it by his capital
+ * rules (a tenth of the unit at risk, F-04 in `lib/trade/place-order.ts`).
+ * Until 2026-10-22 this module also judged the reading against a 12-18% of
+ * premium "band" and told the trader to increase size below it or reduce
+ * size above it (review finding R-006). The band had no Gann source and
+ * contradicted his rule, so it is gone: no verdict, no sizing advice. The
+ * figures stay, labelled on the ticket as a GSPS reading.
  *
  * Two callers share this so their answers cannot drift:
- *   - lib/strat/levels.ts, from a premium passed to the scan, with no delta
- *     available — approximate (see `exact`).
  *   - the strike order ticket, which knows the contract's delta and the
- *     premium actually being paid — exact.
+ *     premium actually being paid (exact);
+ *   - none other today: the scan's levels no longer read it (R-006).
  */
-
-export const STOP_BAND_MIN_PCT_OF_PREMIUM = 12;
-export const STOP_BAND_MAX_PCT_OF_PREMIUM = 18;
 
 /**
  * How long a triggered setup is assumed to stay open, in days, for the purpose
@@ -64,11 +64,8 @@ export interface PremiumStopReading {
   decayCost: number;
   /** The hold the decay figure was charged over. */
   holdingDays: number;
-  verdict: "tight" | "in-band" | "wide";
   /** True when a delta was supplied, so the figure is not an approximation. */
   exact: boolean;
-  /** Null while the reading sits inside the band. */
-  warning: string | null;
 }
 
 /**
@@ -88,7 +85,7 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
   // of the two.
   // Both of these are clamped rather than trusted. A negative or non-finite
   // hold would subtract decay from the risk, and NaN compares false against
-  // both band edges — so a bad input would read as "in-band, no warning".
+  // any comparison, so a bad input would read as a small figure.
   // Every way this can fail understates risk, which is the direction that
   // matters on a measure a trader sizes against.
   const requested = input.holdingDays ?? TYPICAL_HOLDING_DAYS;
@@ -102,30 +99,12 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
   // multiplier cancels and never enters the ratio.
   const pctOfPremium = ((stopCost + decayCost) / premium) * 100;
 
-  const verdict =
-    pctOfPremium < STOP_BAND_MIN_PCT_OF_PREMIUM
-      ? "tight"
-      : pctOfPremium > STOP_BAND_MAX_PCT_OF_PREMIUM
-        ? "wide"
-        : "in-band";
-
-  const band = `${STOP_BAND_MIN_PCT_OF_PREMIUM}–${STOP_BAND_MAX_PCT_OF_PREMIUM}% band`;
-  const measured = `Stop and decay put ${pctOfPremium.toFixed(1)}% of the premium at risk`;
-
-  const warning =
-    verdict === "tight"
-      ? `${measured} — tighter than the ${band}. Size can be increased, or a cheaper contract carries the same stop for less.`
-      : verdict === "wide"
-        ? `${measured} — wider than the ${band}. Reduce size or skip.`
-        : null;
 
   return {
     pctOfPremium,
     stopCost,
     decayCost,
     holdingDays,
-    verdict,
     exact: delta !== null,
-    warning,
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { finalizeUsageReservation, reserveUsageSlot } from "@/lib/entitlements/quota";
+import { finalizeUsageReservation, releaseStaleReservations, reserveUsageSlot, STALE_RESERVATION_MS } from "@/lib/entitlements/quota";
 
 /** Records the RPC name + args each call makes, and returns a scripted result. */
 function fakeRpcClient(result: { data: unknown; error: { message: string } | null }) {
@@ -99,5 +99,58 @@ describe("finalizeUsageReservation", () => {
     await expect(
       finalizeUsageReservation(client, { profileId: "u1", reservationId: "r1", status: "released" }),
     ).rejects.toThrow("not found");
+  });
+});
+
+describe("releaseStaleReservations (review finding S-12)", () => {
+  /** Records the update and its filters, and returns the scripted rows. */
+  function fakeUpdateClient(result: { data: unknown; error: { message: string } | null }) {
+    const seen: { table?: string; patch?: unknown; filters: [string, string, unknown][] } = { filters: [] };
+    const chain = {
+      update(patch: unknown) {
+        seen.patch = patch;
+        return chain;
+      },
+      eq(col: string, val: unknown) {
+        seen.filters.push(["eq", col, val]);
+        return chain;
+      },
+      lt(col: string, val: unknown) {
+        seen.filters.push(["lt", col, val]);
+        return chain;
+      },
+      select() {
+        return Promise.resolve(result);
+      },
+    };
+    const client = {
+      from(table: string) {
+        seen.table = table;
+        return chain;
+      },
+    } as unknown as SupabaseClient;
+    return { client, seen };
+  }
+
+  it("releases only reservations still reserved past the cutoff, and counts them", async () => {
+    const now = new Date("2026-10-22T02:00:00Z");
+    const { client, seen } = fakeUpdateClient({ data: [{ id: "a" }, { id: "b" }], error: null });
+
+    expect(await releaseStaleReservations(client, now)).toBe(2);
+    expect(seen.table).toBe("usage_ledger");
+    expect(seen.patch).toEqual({ status: "released", finalized_at: now.toISOString(), updated_at: now.toISOString() });
+    expect(seen.filters).toEqual([
+      ["eq", "status", "reserved"],
+      ["lt", "reserved_at", new Date(now.getTime() - STALE_RESERVATION_MS).toISOString()],
+    ]);
+  });
+
+  it("leaves every reservation a live 60-second run could still hold", () => {
+    expect(STALE_RESERVATION_MS).toBeGreaterThan(60_000 * 10);
+  });
+
+  it("throws on a database error so the reaper can report it", async () => {
+    const { client } = fakeUpdateClient({ data: null, error: { message: "boom" } });
+    await expect(releaseStaleReservations(client)).rejects.toThrow("releaseStaleReservations: boom");
   });
 });

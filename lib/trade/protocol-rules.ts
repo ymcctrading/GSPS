@@ -74,7 +74,7 @@ export const STOP_RULE_DETAIL =
   "At a double or triple bottom the buy rests at the old bottom itself, with the stop 3 points under it. " +
   "Once a low has held into its second week, the buy is at the last close, with the stop 3 points under the low, and only while that risks no more than 5 points. " +
   "So a crossing risks 4 points, a double or triple bottom 3, and a buy over a low that held up to 5, the limit. Points grow with the price: 3 points is about 7% of a $40 stock, 5% at $100 and under 4% at $200. " +
-  "A short is the mirror: after a close 3 points under an old bottom, sell 1 point below it, with the stop 3 points above. The 12–18% band applies to option premium, not to share price.";
+  "A short is the mirror: after a close 3 points under an old bottom, sell 1 point below it, with the stop 3 points above. On a bought put or call the premium paid is the stop: it is the most the option can lose.";
 
 /**
  * The Execute threshold, stated in full.

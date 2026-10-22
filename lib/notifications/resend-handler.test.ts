@@ -218,8 +218,13 @@ describe("sub-dollar prices (review: every email printed toFixed(2))", () => {
 });
 
 describe("appUrl (email links)", () => {
+  beforeEach(() => {
+    // The default holds whatever the shell exports.
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+  });
+
   afterEach(() => {
-    delete process.env.NEXT_PUBLIC_APP_URL;
+    vi.unstubAllEnvs();
   });
 
   it("points at the live site, never the unused gsps.app", () => {
@@ -228,20 +233,28 @@ describe("appUrl (email links)", () => {
   });
 
   it("follows NEXT_PUBLIC_APP_URL, without a doubled slash", () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://staging.example.com/";
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", " https://staging.example.com/ ");
     expect(appUrl("/ticker/AAPL")).toBe("https://staging.example.com/ticker/AAPL");
   });
 
   it("links the alert email's chart to the site", async () => {
-    process.env.RESEND_API_KEY = "test-key";
-    process.env.RESEND_FROM = "alerts@example.com";
+    vi.stubEnv("RESEND_API_KEY", "test-key");
+    vi.stubEnv("RESEND_FROM", "alerts@example.com");
     sendMock.mockReset();
     sendMock.mockResolvedValue({ data: { id: "e" }, error: null });
     await sendAlertEmail(BASE);
     const html: string = sendMock.mock.calls[0][0].html;
     expect(html).not.toContain("gsps.app");
     expect(html).toContain("https://www.gsps.world");
-    delete process.env.RESEND_API_KEY;
-    delete process.env.RESEND_FROM;
+  });
+
+  it("links a crypto price alert to the pair's page as the push and bell do", async () => {
+    vi.stubEnv("RESEND_API_KEY", "test-key");
+    vi.stubEnv("RESEND_FROM", "alerts@example.com");
+    sendMock.mockReset();
+    sendMock.mockResolvedValue({ data: { id: "e" }, error: null });
+    await sendPriceAlertEmail({ userEmail: BASE.userEmail, symbol: "BTC/USD", targetPrice: 100000, direction: "above", currentPrice: 100100 });
+    const html: string = sendMock.mock.calls[0][0].html;
+    expect(html).toContain('href="https://www.gsps.world/ticker/BTC/USD"');
   });
 });

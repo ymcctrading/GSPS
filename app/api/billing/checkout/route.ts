@@ -10,9 +10,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isStripeEnabled, stripeClient, priceIdFor, type BillableTier, type BillingInterval } from "@/lib/billing/stripe";
 import { isWallStreetSchoolCompleted } from "@/lib/school/curriculum-service";
+import { configuredAppUrl } from "@/lib/routes";
 
 function appUrl(req: NextRequest): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  return configuredAppUrl() ?? new URL(req.url).origin;
 }
 
 export async function POST(req: NextRequest) {
