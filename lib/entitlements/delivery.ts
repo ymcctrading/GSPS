@@ -374,6 +374,22 @@ export async function sweepStuckDeliveries(
   service: SupabaseClient,
   args: { olderThanMs: number; limit?: number },
 ): Promise<{ swept: number; sent: number; failed: number; suppressed: number; unread: number }> {
+  // Rows past their session are closed in one write before the batch is
+  // picked, so a backlog of old rows can't hold today's failed sends out of
+  // the batch until they too age out unsent. Best-effort: the dispatch below
+  // skips an old row anyway.
+  const staleBefore = new Date(Date.now() - DELIVERY_MAX_AGE_MS).toISOString();
+  const { error: staleError } = await service
+    .from("notification_deliveries")
+    .update({
+      status: "skipped",
+      error: "Older than its session: the plan is read again on the next scan.",
+      updated_at: new Date().toISOString(),
+    })
+    .in("status", DISPATCHABLE_STATUSES)
+    .lt("created_at", staleBefore);
+  if (staleError) console.error(`sweepStuckDeliveries: stale rows not closed — ${staleError.message}`);
+
   const cutoff = new Date(Date.now() - args.olderThanMs).toISOString();
   const { data: rows, error } = await service
     .from("notification_deliveries")
@@ -381,6 +397,7 @@ export async function sweepStuckDeliveries(
     .in("status", ["pending", "failed"])
     .lt("attempt_count", MAX_DISPATCH_ATTEMPTS)
     .lt("created_at", cutoff)
+    .order("created_at", { ascending: false })
     .limit(args.limit ?? 200);
 
   if (error) throw new Error(`sweepStuckDeliveries: ${error.message}`);

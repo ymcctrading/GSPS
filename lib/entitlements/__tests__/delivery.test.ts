@@ -373,12 +373,27 @@ function fakeSweepClient(rows: FakeRow[]) {
         limit() {
           return chain;
         },
+        order() {
+          return chain;
+        },
         single() {
           const found = store.find((r) => chain._filters.every((f) => f(r)));
           return Promise.resolve({ data: found ?? null, error: found ? null : { message: "not found" } });
         },
         update(patch: Record<string, unknown>) {
           return {
+            // The sweep's bulk close of rows past their session.
+            in(col: string, vals: unknown[]) {
+              return {
+                lt(col2: string, before: string) {
+                  for (const r of store as Record<string, unknown>[]) {
+                    const at = r[col2] as string | undefined;
+                    if (vals.includes(r[col]) && at !== undefined && at < before) Object.assign(r, patch);
+                  }
+                  return Promise.resolve({ data: null, error: null });
+                },
+              };
+            },
             eq(col: string, val: unknown) {
               return {
                 in(col2: string, vals2: unknown[]) {
@@ -417,6 +432,22 @@ describe("sweepStuckDeliveries", () => {
     const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
 
     expect(summary).toEqual({ swept: 2, sent: 1, failed: 1, suppressed: 0, unread: 0 });
+  });
+
+  it("closes rows past their session in one write first, so they never crowd today's sends out of the batch", async () => {
+    sendAlertEmailMock.mockResolvedValue({ success: true, id: "r" });
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { client, store } = fakeSweepClient([
+      { id: "old", status: "failed", channel: "email", payload: PAYLOAD, attempt_count: 1, created_at: old },
+      { id: "new", status: "failed", channel: "email", payload: PAYLOAD, attempt_count: 1, created_at: recent },
+    ]);
+
+    const summary = await sweepStuckDeliveries(client, { olderThanMs: 0 });
+
+    expect(summary).toMatchObject({ swept: 1, sent: 1 });
+    expect(store.find((r) => r.id === "old")).toMatchObject({ status: "skipped" });
+    expect(sendAlertEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry a row already past the attempt ceiling", async () => {
