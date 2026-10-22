@@ -17,7 +17,13 @@ const { evaluateMonitorMock, recordMock, dispatchMock, channelsMock, inAppMock, 
   inAppMock: vi.fn(),
   policyMock: vi.fn(),
 }));
-vi.mock("@/lib/lifecycle/retire", () => ({ retirePlansForBrokenStops: vi.fn() }));
+vi.mock("@/lib/lifecycle/retire", () => ({ retirePlansForBrokenStops: vi.fn().mockResolvedValue({ authorized: true, retired: 0 }) }));
+vi.mock("@/lib/lifecycle/advanceConfirmation", () => ({ advanceEntryConfirmationForSymbol: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/lifecycle/fromScanResult", () => ({ buildNewTradePlanFromScanResult: vi.fn().mockReturnValue(null) }));
+vi.mock("@/lib/lifecycle/store", () => ({
+  createOrGetIdempotentTradePlan: vi.fn().mockResolvedValue({ plan: null, created: false }),
+  applyEventAndPersist: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/entitlements/monitor-store", () => ({ evaluateMonitor: evaluateMonitorMock }));
 vi.mock("@/lib/entitlements/delivery", () => ({
   recordNotificationDelivery: recordMock,
@@ -134,6 +140,26 @@ describe("setup alert delivery", () => {
     channelsMock.mockResolvedValue(["email", "push"]);
     dispatchMock.mockRejectedValueOnce(new Error("resend down")).mockResolvedValueOnce({ dispatched: true, status: "sent" });
     expect(await run()).toBe(1);
+  });
+
+  it("sends a broken setup's notice on the member's channels only, one delivery per channel", async () => {
+    evaluateMonitorMock.mockImplementation((_s: unknown, a: { candidateState: string }) =>
+      Promise.resolve({ outcome: "applied", monitorId: "m1", transitionId: "t9", notify: a.candidateState === "INVALIDATED" }),
+    );
+    channelsMock.mockResolvedValue(["push"]);
+    const sent = await evaluateMonitorsAndNotify(client, {
+      profileId: "p1",
+      source: "scheduled_morning_scan",
+      scanExecutionId: "se1",
+      visible: [],
+      rejectedSymbols: new Set(["MSFT"]),
+      retired: [{ symbol: "MSFT", direction: "bullish", stop: 400, price: 390, reclaimAt: 410 }],
+      maxActiveWatchMonitors: 15,
+    });
+    expect(sent).toBe(1);
+    expect(recordMock.mock.calls.map((c) => [c[1].channel, c[1].idempotencyKey, c[1].payload])).toEqual([
+      ["push", "t9:push", { symbol: "MSFT", verdict: "INVALIDATED" }],
+    ]);
   });
 
   it("notifies nothing for a transition that does not notify", async () => {

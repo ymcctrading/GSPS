@@ -93,7 +93,11 @@ function fakeService(opts: {
         const q = {
           select: () => q,
           eq: (col: string, v: string) => ((filters[col] = v), q),
-          gte: (_col: string, v: string) => ((since = v), q),
+          gte: (col: string, v: string) => {
+            if (col !== "triggered_at") throw new Error(`window read on ${col}`);
+            since = v;
+            return q;
+          },
           limit: () =>
             Promise.resolve({
               data: log
@@ -315,6 +319,19 @@ describe("notifySubscribedUsers: dedupe and the log", () => {
     const { client, inserted } = fakeService({ users: [{ id: "u1", email: "a@x.test" }], prefs });
     expect(await run(client, [alert()])).toEqual({ email: 0, push: 1 });
     expect(inserted[0]).toMatchObject({ channel: "email", status: "failed", error_message: "daily quota", sent_at: null });
+    // A refused send is not retried on the next 15-minute run: it would only fail again.
+    sendAlertEmailMock.mockResolvedValue({ success: true });
+    expect(await run(client, [alert()])).toEqual({ email: 0, push: 0 });
+  });
+
+  it("still counts a send made exactly at the window's edge", async () => {
+    const edge = new Date(NOW.getTime() - NOTIFICATION_DEDUP_HOURS * 3600_000).toISOString();
+    const { client } = fakeService({
+      users: [{ id: "u1", email: "a@x.test" }],
+      prefs,
+      log: [{ user_id: "u1", channel: "email", signal_hash: hash, triggered_at: edge }],
+    });
+    expect(await run(client, [alert()])).toEqual({ email: 0, push: 1 });
   });
 
   it("logs nothing for a push with no subscribed browser", async () => {

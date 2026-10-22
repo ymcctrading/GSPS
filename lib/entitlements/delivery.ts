@@ -125,18 +125,26 @@ export async function getEnabledChannels(service: SupabaseClient, profileId: str
 
 export type DispatchOutcome =
   | { dispatched: true; status: "sent" | "failed" | "skipped" }
-  | { dispatched: false; reason: "not_pending" | "channel_unsupported" | "no_email" | "preview_suppressed" | "max_attempts" };
+  | {
+      dispatched: false;
+      reason: "not_pending" | "channel_unsupported" | "no_email" | "preview_suppressed" | "max_attempts" | "channels_unread";
+    };
 
 /** Attempt ceiling for a stuck `pending`/`failed` delivery the retry sweep will pick back up. */
 export const MAX_DISPATCH_ATTEMPTS = 5;
 
 /**
- * A push older than this is skipped, never sent: an alert is about the
+ * A delivery older than this is skipped, never sent: an alert is about the
  * session it was made in (a plan lasts its session, Q17), and a burst of old
- * pushes, such as rows left pending while push had no sender, would open
- * plans the scan has since moved past. Email keeps its own retry rule.
+ * sends, such as rows left pending while push had no sender, would open plans
+ * the scan has since moved past. Push only until 2026-10-22; email had no age
+ * limit, so the retry sweep kept re-sending failed setup emails from as far
+ * back as 2026-09-28 (7,643 retryable rows), spending Resend's daily quota on
+ * plans weeks dead and failing the day's live alerts behind them.
  */
-export const PUSH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+export const DELIVERY_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+/** @deprecated Every channel now ages out; kept for callers that named push. */
+export const PUSH_MAX_AGE_MS = DELIVERY_MAX_AGE_MS;
 
 /** Statuses this function will still attempt to send for. `sent` (and `bounced`) are terminal -- never re-dispatched. */
 const DISPATCHABLE_STATUSES = ["pending", "failed"];
@@ -167,6 +175,11 @@ const DISPATCHABLE_STATUSES = ["pending", "failed"];
  * sent outside quiet hours, since it tells the member a tracked setup broke).
  * A held send is `skipped` with the reason, never retried. The intraday email
  * path (`notifySubscribedUsers`) already applied both; this path now does too.
+ *
+ * The channel is read again at send time (2026-10-22): a row recorded before
+ * the member turned the channel off (or before opt-in, migration 0109) is
+ * skipped, not retried into their inbox. When the channel list can't be read
+ * the row is left as it is for the next sweep, never sent unchecked.
  */
 export async function dispatchNotificationDelivery(
   service: SupabaseClient,
@@ -192,10 +205,19 @@ export async function dispatchNotificationDelivery(
   const payload = current.payload as NotificationPayload;
   let result: { success: boolean; id?: string | null; error?: string; skipped?: boolean };
   const createdAt = Date.parse((current as { created_at?: string }).created_at ?? "");
-  const stale = current.channel === "push" && Number.isFinite(createdAt) && Date.now() - createdAt > PUSH_MAX_AGE_MS;
-  const held = stale
-    ? "Older than a push is worth sending: the plan is read again on the next scan."
-    : await preferenceHold(service, args.profileId, payload);
+  const stale = Number.isFinite(createdAt) && Date.now() - createdAt > DELIVERY_MAX_AGE_MS;
+  let held: string | null = stale ? "Older than its session: the plan is read again on the next scan." : null;
+  if (!held) {
+    let enabled: DeliveryChannel[];
+    try {
+      enabled = await getEnabledChannels(service, args.profileId);
+    } catch {
+      return { dispatched: false, reason: "channels_unread" };
+    }
+    held = enabled.includes(current.channel)
+      ? await preferenceHold(service, args.profileId, payload)
+      : "The member has this channel turned off.";
+  }
   if (held) {
     result = { success: false, skipped: true, error: held };
   } else if (current.channel === "push") {
