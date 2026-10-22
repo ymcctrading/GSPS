@@ -190,7 +190,7 @@ describe("recordShadowSignals: one call a plan a session", () => {
   });
 });
 
-describe("shadowTradeSession (Gann chose at night and traded the next session)", () => {
+describe("shadowTradeSession (chosen at night, traded the next session)", () => {
   it("trades the same session when recorded before the close, a pre-market scan included", () => {
     expect(shadowTradeSession("2026-10-22T10:30:20Z", "BP")).toBe("2026-10-22"); // 6:30 AM ET
     expect(shadowTradeSession("2026-10-22T19:59:00Z", "BP")).toBe("2026-10-22"); // 3:59 PM ET
