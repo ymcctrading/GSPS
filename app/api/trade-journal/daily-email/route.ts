@@ -19,6 +19,7 @@ import { buildJournalWorkbook, closedTrades, type JournalTrade } from "@/lib/jou
 import { sendJournalEmail } from "@/lib/notifications/resend-handler";
 import { etDateKey } from "@/lib/market/session";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { emailOptedIn } from "@/lib/notifications/email-opt-in";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
@@ -57,7 +58,13 @@ async function sendDailyJournals(): Promise<NextResponse> {
   // pending domain verification".
   const sandboxBlocked: string[] = [];
 
+  let optedOut = 0;
   for (const user of users) {
+    // Email is opt-in (2026-10-22): only a member who turned it on in Settings.
+    if (!(await emailOptedIn(supabase, user.id))) {
+      optedOut++;
+      continue;
+    }
     const { data: rows, error } = await supabase
       .from("trade_logs")
       .select(
@@ -109,6 +116,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
     usersChecked: users.length,
     sent,
     skipped,
+    optedOut,
     sandboxBlocked: sandboxBlocked.length,
     sandboxBlockedUsers: sandboxBlocked,
     failed: failures.length,

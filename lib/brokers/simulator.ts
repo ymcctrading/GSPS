@@ -36,6 +36,7 @@ import {
   type InvalidatableOrder,
 } from "@/lib/trade/invalidate-pending";
 import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
+import { emailOptedIn } from "@/lib/notifications/email-opt-in";
 import { checkBracket } from "@/lib/trade/bracket";
 import { insertTradeLog, TRADE_LOG_ATTEMPTS } from "@/lib/portfolio/trade-log-insert";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -627,7 +628,8 @@ export async function evaluateRestingOrders(
       if (!claimed) continue;
       invalidated++;
 
-      if (userEmail) {
+      // Email is opt-in (2026-10-22): only a member who turned it on in Settings.
+      if (userEmail && (await emailOptedIn(supabase, userId))) {
         await sendOrderInvalidatedEmail({
           userEmail,
           symbol,

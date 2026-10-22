@@ -160,17 +160,22 @@ export async function GET(req: NextRequest) {
     if (userPage.users.length < 200) break;
   }
 
-  // Browser push goes only to members who turned it on (lib/notifications/web-push.ts).
+  // Browser push and email go only to members who turned them on in Settings
+  // (lib/notifications/web-push.ts; email is opt-in since 2026-10-22,
+  // lib/notifications/email-opt-in.ts). The bell gets every triggered alert.
   const pushUserIds = new Set<string>();
+  const emailUserIds = new Set<string>();
   const alertUserIds = [...new Set(openAlerts.map((a) => a.user_id))];
   if (alertUserIds.length > 0) {
-    const { data: pushPrefs, error: pushPrefError } = await service
+    const { data: prefs, error: prefError } = await service
       .from("notification_preferences")
-      .select("user_id")
-      .eq("push_enabled", true)
+      .select("user_id, push_enabled, email_enabled")
       .in("user_id", alertUserIds);
-    if (pushPrefError) console.error(`price-alerts/sweep: push preferences not read — ${pushPrefError.message}`);
-    for (const row of (pushPrefs ?? []) as { user_id: string }[]) pushUserIds.add(row.user_id);
+    if (prefError) console.error(`price-alerts/sweep: notification preferences not read — ${prefError.message}`);
+    for (const row of (prefs ?? []) as { user_id: string; push_enabled: boolean | null; email_enabled: boolean | null }[]) {
+      if (row.push_enabled === true) pushUserIds.add(row.user_id);
+      if (row.email_enabled === true) emailUserIds.add(row.user_id);
+    }
   }
 
   let triggeredCount = 0;
@@ -244,7 +249,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const userEmail = emailByUserId.get(alert.user_id);
+    const userEmail = emailUserIds.has(alert.user_id) ? emailByUserId.get(alert.user_id) : undefined;
     if (!userEmail) continue;
     try {
       await sendPriceAlertEmail({

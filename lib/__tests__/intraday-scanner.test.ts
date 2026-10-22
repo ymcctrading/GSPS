@@ -597,6 +597,30 @@ describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () =>
     expect(check?.detail).toContain("closed over the plan's entry");
   });
 
+  // Polarity: the long case reflected through 500 (every price p becomes
+  // 1000 - p, highs and lows swapped), so the session rallies up to a short
+  // plan's entry from under it and turns back down through it.
+  const mirror = (b: Bar): Bar => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c });
+  const mirroredInput = (overrides: Partial<SymbolInput> = {}) =>
+    input({ bars: trendingUpBars().map(mirror), priorDailyBars: campaignDaily().map(mirror), ...overrides });
+  const short = { direction: "down" as const, entry: 500.2, stop: 505, tp1: 490, mtp: 480, verdict: "Execute" as const };
+
+  it("fires for a short, mirrored: a rally to the entry from under it that turns back down", () => {
+    const output = scanIntraday([mirroredInput({ dailyPlan: short })], DEFAULT_CONFIG, AT_1133);
+    const held = output.alerts.find((a) => a.type === "plan_level_held");
+    expect(held).toBeDefined();
+    expect(held!.direction).toBe("down");
+    expect(held!.invalidation!).toBeGreaterThan(500);
+    expect(held!.invalidation!).toBeLessThanOrEqual(short.stop);
+    expect(held!.continuationPlan.firstTarget).toBe(490);
+    expect(held!.continuationPlan.masterTarget).toBe(480);
+  });
+
+  it("stays quiet for a short whose crossing waits on its daily 3-point close", () => {
+    const output = scanIntraday([mirroredInput({ dailyPlan: { ...short, awaitsCrossing: true } })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+  });
+
   it("stays quiet with no daily plan", () => {
     const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
     expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
