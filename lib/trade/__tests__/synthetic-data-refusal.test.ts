@@ -39,14 +39,16 @@ describe("no order on synthetic market data in production", () => {
 
   it("refuses a new paper entry and a new live entry", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     getOpenPosition.mockResolvedValue(null);
     for (const mode of ["paper", "live"] as const) {
       const r = await placeSimulatedOrder(supabase, "u1", { ...base, mode } as OrderInput);
       expect(r.status).toBe(503);
       expect(r.body.code).toBe("synthetic_market_data");
-      expect(String(r.body.error)).toMatch(/Nothing was placed\.$/);
+      // A fixed message to the member; the configuration detail goes to the log only.
+      expect(r.body.error).toBe("Market data is unavailable right now, so nothing was placed.");
     }
+    expect(log.mock.calls.some((c) => String(c[0]).includes("[market-data] Refused"))).toBe(true);
   });
 
   it("refuses a paper close too, since it would fill at the synthetic quote", async () => {
@@ -59,7 +61,16 @@ describe("no order on synthetic market data in production", () => {
 
   it("does not refuse outside production", async () => {
     getOpenPosition.mockResolvedValue(null);
-    const r = await placeSimulatedOrder(supabase, "u1", { ...base, mode: "paper" } as OrderInput).catch(() => ({ status: 0, body: {} as Record<string, unknown> }));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    errors.mockClear();
+    // The stub database makes the order fail further on; that failure is
+    // expected here. What must not happen is the synthetic-data refusal,
+    // which always logs its reason before returning (lib/data/feed-mode.ts).
+    const r = await placeSimulatedOrder(supabase, "u1", { ...base, mode: "paper" } as OrderInput).catch(
+      (err: unknown) => ({ status: 0, body: { thrown: String(err) } as Record<string, unknown> }),
+    );
     expect(r.body.code).not.toBe("synthetic_market_data");
+    expect(String(r.body.thrown ?? "")).not.toMatch(/market data is coming from/);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/\[market-data\] Refused/);
   });
 });

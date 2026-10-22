@@ -154,13 +154,14 @@ export async function getEarningsFromYahoo(symbol: string): Promise<LiveEarnings
 
 ```typescript
 import { createClient } from "@supabase/supabase-js";
+import { serviceRoleKey } from "@/lib/supabase/service-key";
 
 const CACHE_TTL = 24 * 60 * 60 * 1000;  // 24 hours
 
 export async function getCachedEarningsDate(symbol: string): Promise<string | null> {
   const client = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    serviceRoleKey()!
   );
 
   // 1. Check Supabase cache

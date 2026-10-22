@@ -47,7 +47,12 @@ export function breachCountInRange(body: string, suffix: string): number {
 export type RangeFetcher = (prefix: string) => Promise<string | null>;
 
 const fetchRangeViaApp: RangeFetcher = async (prefix) => {
-  const res = await fetch(`/api/auth/password-breach?prefix=${prefix}`);
+  // The route gives up on the upstream service after 5 s; this bounds the
+  // browser's own wait on GSPS, so a stalled request never leaves the form
+  // spinning. A timeout throws, and the check fails open below.
+  const res = await fetch(`/api/auth/password-breach?prefix=${prefix}`, {
+    signal: AbortSignal.timeout(6_000),
+  });
   return res.ok ? res.text() : null;
 };
 
