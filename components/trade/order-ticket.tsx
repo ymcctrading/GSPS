@@ -738,7 +738,7 @@ export function OrderTicket({
                 </label>
               )}
               <p className="text-warn">
-                Intraday trades have no measured record yet: the method's replay at intraday scale has not shown an edge.
+                Intraday trades have no measured record yet: the method&apos;s replay at intraday scale has not shown an edge.
               </p>
             </div>
           ) : (
