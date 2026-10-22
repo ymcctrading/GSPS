@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { RATE_LIMITS, rateLimitBucket } from "@/lib/rate-limit-policy";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { PRACTICE_WRITE_REFUSAL, practiceTierOfUser, practiceWriteRefused } from "@/lib/demo/practice";
+import { isPrefetchRequest, PRACTICE_WRITE_REFUSAL, practiceTierOfUser, practiceWriteRefused } from "@/lib/demo/practice";
 
 // `/learning` joins the list because the endpoint behind it now requires a
 // session: left public it would render a page whose only button 401s.
@@ -108,8 +108,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // Leaving a practice account to sign in or sign up as oneself: end the
-  // practice session here rather than bouncing back to its dashboard.
-  if (practice && (path === "/login" || path === "/signup")) {
+  // practice session here rather than bouncing back to its dashboard. Only on
+  // a real visit: the router prefetches every visible link, and the banner's
+  // "create your own account" link is on every page, so ending the session on
+  // a prefetch signed the visitor out moments after the account opened.
+  if (practice && (path === "/login" || path === "/signup") && !isPrefetchRequest(request.headers)) {
     await supabase.auth.signOut({ scope: "local" });
     return supabaseResponse;
   }

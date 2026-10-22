@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  isPrefetchRequest,
   PRACTICE_TIERS,
   practiceTierFrom,
   practiceTierOfUser,
@@ -68,3 +70,21 @@ describe("practiceWriteRefused", () => {
     expect(practiceWriteRefused("/api/market-scan/extra", "POST")).toBe(true);
   });
 });
+
+describe("prefetches never end a practice session", () => {
+  const h = (entries: Record<string, string>) => new Headers(entries);
+  it("reads Next's router prefetch and the browser's purpose header", () => {
+    expect(isPrefetchRequest(h({ "next-router-prefetch": "1", rsc: "1" }))).toBe(true);
+    expect(isPrefetchRequest(h({ "sec-purpose": "prefetch;prerender" }))).toBe(true);
+    expect(isPrefetchRequest(h({ purpose: "prefetch" }))).toBe(true);
+  });
+  it("a visit, including a client navigation, is not a prefetch", () => {
+    expect(isPrefetchRequest(h({}))).toBe(false);
+    expect(isPrefetchRequest(h({ rsc: "1" }))).toBe(false);
+  });
+  it("the proxy checks it before signing a practice visitor out", () => {
+    const proxy = readFileSync("proxy.ts", "utf8");
+    expect(proxy).toMatch(/practice && \(path === "\/login" \|\| path === "\/signup"\) && !isPrefetchRequest\(request\.headers\)/);
+  });
+});
+

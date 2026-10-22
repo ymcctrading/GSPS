@@ -24,6 +24,9 @@ import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import { getMarketRegimeSummary } from "@/lib/promotion/market-regime";
 import { getNoviceHomeSummary } from "@/lib/promotion/novice-home";
 import { NoviceHomeSummary } from "@/components/dashboard/novice-home-summary";
+import { SchoolNudge, type SchoolNudgeData } from "@/components/dashboard/school-nudge";
+import { getCurriculumMap } from "@/lib/school/curriculum-service";
+import { practiceTierOfUser } from "@/lib/demo/practice";
 import { bestQualifiedSetup } from "@/lib/dashboard/bestPlan";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { RestReminder } from "@/components/dashboard/rest-reminder";
@@ -50,9 +53,9 @@ export default async function DashboardPage() {
   const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = scans;
   const user = userResult.data.user;
 
-  const [noviceSummary, trackedExecute, savedSetups, watchlist] = user
+  const [tierSummary, trackedExecute, savedSetups, watchlist] = user
     ? await Promise.all([
-        getNoviceSummaryIfApplicable(user.id, bullish, bearish),
+        getTierSummaries(user.id, Boolean(practiceTierOfUser(user)), bullish, bearish),
         // Today's price and day's range, where the daily scan has the symbol,
         // so a resting order is listed apart (lib/setups/resting.ts).
         getTrackedExecuteSetups(supabase, user.id).then((rows) => withDailyScanRange(rows, [...bullish, ...bearish])),
@@ -60,6 +63,8 @@ export default async function DashboardPage() {
         getDashboardWatchlist(supabase, user.id),
       ])
     : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }];
+  const noviceSummary = tierSummary?.novice ?? null;
+  const schoolNudge = tierSummary?.school ?? null;
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -82,6 +87,8 @@ export default async function DashboardPage() {
       {noviceSummary && (
         <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
       )}
+
+      {schoolNudge && <SchoolNudge data={schoolNudge} />}
 
       {/*
         A quiet, permanent way back to the walkthrough. It sits on the Dashboard
@@ -196,18 +203,52 @@ export default async function DashboardPage() {
  * Only Novice (PRACTICE tier) accounts get the summary card — everyone else
  * already has the full dashboard below, and the spec pack's "Novice user
  * experience" section is explicitly about a simplified first view for new
- * accounts, not a redesign of the whole page.
+ * accounts, not a redesign of the whole page. Novice and Pro both get the
+ * School nudge.
  */
-async function getNoviceSummaryIfApplicable(userId: string, bullish: ScanRow[], bearish: ScanRow[]) {
+async function getTierSummaries(userId: string, practice: boolean, bullish: ScanRow[], bearish: ScanRow[]) {
   const service = createServiceClient();
   const tier = await getUserTier(service, userId);
-  if (tier !== "PRACTICE") return null;
+  if (tier !== "PRACTICE" && tier !== "STANDARD") return { novice: null, school: null };
 
-  const [regime, home] = await Promise.all([getMarketRegimeSummary(), getNoviceHomeSummary(service, userId)]);
+  const [novice, school] = await Promise.all([
+    tier === "PRACTICE"
+      ? Promise.all([getMarketRegimeSummary(), getNoviceHomeSummary(service, userId)]).then(([regime, home]) => ({
+          regime,
+          home,
+          bestPlan: bestQualifiedSetup([...bullish, ...bearish]),
+        }))
+      : null,
+    getSchoolNudge(service, userId, tier, practice),
+  ]);
+  return { novice, school };
+}
 
-  const bestPlan = bestQualifiedSetup([...bullish, ...bearish]);
-
-  return { regime, home, bestPlan };
+/**
+ * Novice and Pro get a nudge toward School (components/dashboard/school-nudge.tsx)
+ * naming the next academy they haven't finished. A failed progress read still
+ * shows the nudge, pointing at School itself.
+ */
+async function getSchoolNudge(
+  service: ReturnType<typeof createServiceClient>,
+  userId: string,
+  tier: SchoolNudgeData["tier"],
+  practice: boolean,
+): Promise<SchoolNudgeData> {
+  const map = await getCurriculumMap(service, userId).catch(() => null);
+  const next = map?.find((a) => a.unlocked && !a.complete) ?? null;
+  return {
+    tier,
+    practice,
+    next: next
+      ? {
+          title: next.academy.title,
+          slug: next.academy.slug,
+          passedLessons: next.passedLessons,
+          totalLessons: next.totalLessons,
+        }
+      : null,
+  };
 }
 
 function ReversionPreview({
