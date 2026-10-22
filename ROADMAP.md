@@ -6,7 +6,7 @@
 governs what is built and in what order. It joins this roadmap with the parity
 documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
 This file keeps each phase's detail and history.
-**Last updated:** 2026-10-22 (two stale Q1 notes corrected: the
+**Last updated:** 2026-10-22 (Q2 crypto scanner started on Alpaca's free data). Previously 2026-10-22 (two stale Q1 notes corrected: the
 pay-your-way pricing is approved, and `patternArmed` was closed 2026-09-17;
 carried over from PR #295). Previously 2026-10-21 (pointer to the synthesized
 roadmap). Previously
@@ -1173,6 +1173,13 @@ Portfolio analytics drives retention and trust.
   stops, one-cancels-other (OCO), with live paper-trading support.
 - **Crypto scanner** — separate scan queue for BTC, ETH, and major alts.
   Adapted timeframes (4h, 1d focus) on Binance data.
+  *(Started 2026-10-22, on Alpaca's free crypto data rather than Binance: the
+  daily market scan now scores every pair in `lib/scan/cryptoUniverse.ts` in
+  full on each run, beside the stocks, and lists their buy setups under their
+  own "Crypto" heading on the Buy list. Spot crypto can't be sold short at
+  the broker, so sell setups are not listed. Still open: a weekend run (the
+  market scan runs on weekdays), Guided Mode (its execute path hardcodes the
+  equity asset class), and a 4h chart.)*
 - **Forex scanner** — major pairs (EURUSD, GBPUSD, …) with structural analysis
   on Oanda data.
 - **Risk dashboard** — position-sizing calculator, max daily loss enforcement,

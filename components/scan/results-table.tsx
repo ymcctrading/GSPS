@@ -17,6 +17,7 @@ import { formatUsd, cn } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
+import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 
 export interface ScanRow {
   symbol: string;
@@ -139,7 +140,12 @@ export function ResultsTable({
   // resting order, listed apart and out of Execute (owner, 2026-10-21;
   // lib/setups/resting.ts). Split on the scan-time price, so the list a row
   // sits in does not move with every quote; its card reads the live price.
-  const { now: live, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
+  const { now: liveAll, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
+  // Crypto pairs are their own market (SYNTHESIZED_ROADMAP Q2 item 2, a
+  // separate crypto scanner; Gann's capital rules count them apart, three
+  // markets beside five stocks), so they are listed under their own heading.
+  const live = liveAll.filter((r) => !isCryptoSymbol(r.symbol));
+  const crypto = liveAll.filter((r) => isCryptoSymbol(r.symbol));
 
   return (
     <>
@@ -192,8 +198,42 @@ export function ResultsTable({
       </TBody>
     </Table>
     )}
+    {crypto.length > 0 && (
+      <div className={cn(live.length > 0 || dead.length > 0 ? "mt-4" : undefined)} data-testid="crypto-setups">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">Crypto</p>
+        <p className="mb-1 text-xs text-muted">
+          The same method read on crypto pairs, which trade every day of the week. The broker trades them spot,
+          so a sell setup can&apos;t be placed as a short.
+        </p>
+        <Table>
+          <THead>
+            <TR>
+              <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+              <TH className="text-right">Price</TH>
+              <TH className="text-right">Entry</TH>
+              <TH className="text-right">Exit (S/L)</TH>
+              <TH className="text-right">TP1</TH>
+              <TH className="text-right">MTP</TH>
+              <TH className="w-8" aria-label="Save" />
+              {onRemove && <TH className="w-8" aria-label="Remove" />}
+            </TR>
+          </THead>
+          <TBody>
+            {crypto.map((r) => (
+              <ResultsRow
+                key={rowKey(r)}
+                row={r}
+                onInvalidatedChange={handleInvalidatedChange}
+                onRemove={onRemove}
+                exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+              />
+            ))}
+          </TBody>
+        </Table>
+      </div>
+    )}
     {resting.length > 0 && (
-      <div className={cn(live.length > 0 || dead.length > 0 ? "mt-4" : undefined)} data-testid="resting-orders">
+      <div className={cn(live.length > 0 || dead.length > 0 || crypto.length > 0 ? "mt-4" : undefined)} data-testid="resting-orders">
         <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
         <p className="mb-1 text-xs text-muted">
           Plans the scan rates Execute whose entry is more than a day&apos;s range from price. Each waits at its

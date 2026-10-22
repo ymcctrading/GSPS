@@ -245,14 +245,16 @@ export interface AllTimeframeBars {
  * five per symbol. Falls back to an empty map when the active provider has
  * no batch support (e.g. the synthetic demo provider); callers should treat
  * a missing entry as "fetch this symbol individually" rather than an error.
- * Scoped to equities, matching the only current caller (`runMarketScan`'s
- * equities-only universe). `executionTimeframe` — see `fetchAllTimeframes`'s
+ * One asset class a call: equities by default, crypto for the market scan's
+ * crypto pass (`lib/scan/cryptoUniverse.ts`), which has no feed delay to
+ * hold back for. `executionTimeframe` — see `fetchAllTimeframes`'s
  * own comment; the caller must pass the same value it will detect patterns
  * against, or this prefetch silently hands `scanTicker` the wrong bar.
  */
 export async function fetchAllTimeframesBatch(
   symbols: string[],
   executionTimeframe: Timeframe = "15Min",
+  assetClass: AssetClass = "us_equity",
 ): Promise<Map<string, AllTimeframeBars>> {
   const provider = getMarketDataProvider();
   const out = new Map<string, AllTimeframeBars>();
@@ -261,7 +263,7 @@ export async function fetchAllTimeframesBatch(
   const now = Date.now();
   const yearsAgo = (n: number) => new Date(now - n * 365.25 * 24 * 3600 * 1000);
   const daysAgo = (n: number) => new Date(now - n * 24 * 3600 * 1000);
-  const end = provider.isLive ? new Date(now - 16 * 60 * 1000) : null;
+  const end = assetClass === "crypto" || !provider.isLive ? null : new Date(now - 16 * 60 * 1000);
 
   // See the matching comment in `fetchAllTimeframes` above -- same
   // deduplication, batched form. A widened universe makes this one
@@ -273,10 +275,10 @@ export async function fetchAllTimeframesBatch(
     : 30;
 
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
-    provider.fetchBarsBatch(symbols, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, "us_equity"),
-    provider.fetchBarsBatch(symbols, "1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000), end, "us_equity"),
-    provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, "us_equity"),
-    provider.fetchBarsBatch(symbols, "1Hour", daysAgo(hourlyLookbackDays), end, "us_equity"),
+    provider.fetchBarsBatch(symbols, "1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end, assetClass),
+    provider.fetchBarsBatch(symbols, "1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000), end, assetClass),
+    provider.fetchBarsBatch(symbols, "1Day", yearsAgo(1), end, assetClass),
+    provider.fetchBarsBatch(symbols, "1Hour", daysAgo(hourlyLookbackDays), end, assetClass),
     executionIsHourly
       ? Promise.resolve(null)
       : provider.fetchBarsBatch(
@@ -284,7 +286,7 @@ export async function fetchAllTimeframesBatch(
           executionTimeframe,
           daysAgo(executionLookbackDays(executionTimeframe)),
           end,
-          "us_equity",
+          assetClass,
         ),
   ]);
 
