@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cryptoBuyList, fundLists, joinOtherMarkets, scanEveryChart, settleBy, withoutFundMarkets } from "@/lib/marketScan";
+import { cryptoBuyList, fundLists, joinOtherMarkets, scanEveryChart, settleBy, stocksOnly } from "@/lib/marketScan";
 import { FUND_MARKETS, isFundMarket, isOtherMarket } from "@/lib/market/otherMarkets";
 import { CRYPTO_UNIVERSE } from "@/lib/scan/cryptoUniverse";
 import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
@@ -71,8 +71,8 @@ describe("other markets passes", () => {
     expect(lists.bearish.map((r) => r.symbol)).toEqual(["USO"]);
   });
 
-  it("leaves the funds out of the actives, so the funds pass alone scores them", () => {
-    expect(withoutFundMarkets(["AAPL", "GLD", "uso", "MSFT", "FXE"])).toEqual(["AAPL", "MSFT"]);
+  it("leaves the funds and pairs out of the stocks, so their own passes alone score them", () => {
+    expect(stocksOnly(["AAPL", "GLD", "uso", "BCH/USD", "MSFT", "FXE", "BTC/USD"])).toEqual(["AAPL", "MSFT"]);
   });
 
   it("joins crypto buys and fund setups in the lists' order, fund shorts through the borrow check", async () => {

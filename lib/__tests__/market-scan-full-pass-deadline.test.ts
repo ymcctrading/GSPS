@@ -66,6 +66,22 @@ describe("runMarketScan full-pass fetch deadline", () => {
     expect(scoredAapl()).toBe(true);
   });
 
+  it("never asks the stock endpoints for a tracked crypto pair", async () => {
+    // 2026-10-22 19:45 UTC: a tracked BCH/USD reached the stock batch and
+    // Alpaca's stock bars refused the whole request, failing the scan.
+    fetchAllMock.mockImplementation(async () => new Map());
+    const run = runMarketScan(1, 15, undefined, ["BCH/USD", "AAPL"], ["BTC/USD"]);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await run;
+    for (const [symbols] of fetchBarsBatchMock.mock.calls) {
+      expect(symbols.filter((s: string) => s.includes("/"))).toEqual([]);
+    }
+    for (const [symbols, , assetClass] of fetchAllMock.mock.calls) {
+      if (assetClass !== "crypto") expect(symbols.filter((s: string) => s.includes("/"))).toEqual([]);
+    }
+    expect(scoredAapl()).toBe(true);
+  });
+
   it("scores nothing and returns once the fetch outruns 40 s", async () => {
     // Equities never answer; the side passes' crypto and funds calls hang too.
     fetchAllMock.mockImplementation(() => new Promise(() => {}));
