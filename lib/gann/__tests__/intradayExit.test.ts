@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { exchangeHourKey, hourlyBars, hourlyTurnedAgainst, intradayTrail, isSessionLastBar, readIntradayExit, sessionCloseDue } from "@/lib/gann/intradayExit";
+import { exchangeHourKey, hourlyBars, hourlyTurnedAgainst, intradayTrail, isRegularSessionBar, isSessionLastBar, readIntradayExit, sessionCloseDue } from "@/lib/gann/intradayExit";
 import { readIntradayExitFromBars } from "@/lib/trade/gann-exit-live";
 import { walkIntradayExit } from "@/lib/backtest/replayIntraday";
 import { isEarlyClose } from "@/lib/market/calendar";
@@ -189,6 +189,12 @@ describe("the hourly chart on exchange hours (Master Course PDF 378)", () => {
     // The session's last half hour, 15:30-16:00, is its own hour.
     expect(exchangeHourKey(bar("2026-10-21T19:30:00Z"), false)).toBe(exchangeHourKey(bar("2026-10-21T19:45:00Z"), false));
     expect(exchangeHourKey(bar("2026-10-21T19:30:00Z"), false)).not.toBe(exchangeHourKey(bar("2026-10-21T19:15:00Z"), false));
+  });
+  it("ends an early close's session on its 12:30 half hour, and the alerts' hourly chart drops the prints after it", () => {
+    expect(exchangeHourKey(bar("2026-11-27T17:30:00Z"), false)).toBe(exchangeHourKey(bar("2026-11-27T17:45:00Z"), false));
+    expect(exchangeHourKey(bar("2026-11-27T17:30:00Z"), false)).not.toBe(exchangeHourKey(bar("2026-11-27T17:15:00Z"), false));
+    expect(isRegularSessionBar(bar("2026-11-27T17:45:00Z"))).toBe(true); // 12:45 PM
+    expect(isRegularSessionBar(bar("2026-11-27T18:00:00Z"))).toBe(false); // 1:00 PM, after the close
   });
   it("keeps crypto on the clock's hours", () => {
     expect(exchangeHourKey(bar("2026-10-21T13:30:00Z"), true)).toBe(exchangeHourKey(bar("2026-10-21T13:45:00Z"), true));

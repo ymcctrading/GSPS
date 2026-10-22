@@ -93,7 +93,7 @@ import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
-import { hourlyBars } from "@/lib/gann/intradayExit";
+import { hourlyBars, isRegularSessionBar } from "@/lib/gann/intradayExit";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -345,7 +345,8 @@ export function hourlyChart(
 ): { trend: Direction | null; turned: boolean } | null {
   const recent = (input.recentBars ?? [])
     .filter(isUsableBar)
-    .filter((b) => b.t <= asOf && (!regularOnly || isRegularSession(new Date(b.t))));
+    // The exits' and the replay's regular session, early closes included.
+    .filter((b) => b.t <= asOf && (!regularOnly || isRegularSessionBar(b)));
   // `regularOnly` is the equity case; crypto keeps every bar and the clock's hours.
   const hours = hourlyBars(recent, !regularOnly);
   if (hours.length < MIN_HOURLY_BARS) return null;

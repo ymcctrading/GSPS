@@ -100,10 +100,12 @@ const SESSION_OPEN_MINUTES = 9 * 60 + 30;
 
 /**
  * The hour a bar belongs to on Gann's hourly chart, read on exchange hours
- * (Master Course PDF 378, "Hourly charts: 24 h; exchange hours"). A US equity's
- * hours count from the 9:30 ET open (9:30-10:29, 10:30-11:29, ..., the last
- * half hour from 15:30), as his hourly chart counted from the opening; crypto
- * trades around the clock, so its hours are the clock's (UTC).
+ * (Master Course PDF 378, "Hourly charts: 24 h; exchange hours"). The note says
+ * which hours count, not where an hour starts: counting a US equity's hours
+ * from the 9:30 ET open (9:30-10:29, 10:30-11:29, ..., the last half hour from
+ * 15:30, or 12:30 on an early close) is our reading of "exchange hours",
+ * labelled as such. Crypto trades around the clock, so its hours are the
+ * clock's (UTC).
  */
 export function exchangeHourKey(bar: Bar, crypto: boolean): string {
   if (crypto) return bar.t.slice(0, 13);
