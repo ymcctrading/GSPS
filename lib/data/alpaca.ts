@@ -369,13 +369,21 @@ export async function fetchBarsBatch(
   if (syms.length === 0) return result;
 
   const size = batchChunkSize(timeframe, start, end, assetClass, limit);
-  await mapWithConcurrency(chunk(syms, size), CHUNK_CONCURRENCY, async (group) => {
+  const chunks = chunk(syms, size);
+  // Pages and bars read, logged when the reads took more pages than chunks:
+  // the market scan's 21:15 UTC run (2026-10-22) spent 85 tokens on monthly
+  // bars and 45 on 12 crypto pairs' hourly bars, where the chunk sizes
+  // expected one page a chunk.
+  let pages = 0;
+  let barsRead = 0;
+  await mapWithConcurrency(chunks, CHUNK_CONCURRENCY, async (group) => {
     const collected = new Map<string, Bar[]>(group.map((s) => [s, []]));
     let pageToken: string | undefined;
 
     do {
       const { path, params } = barsRequest(group.join(","), timeframe, start, end, assetClass, limit, pageToken);
       const data = await get(path, params);
+      pages += 1;
 
       let pageBarCount = 0;
       for (const sym of group) {
@@ -383,6 +391,7 @@ export async function fetchBarsBatch(
         if (page.length > 0) collected.get(sym)!.push(...page);
         pageBarCount += page.length;
       }
+      barsRead += pageBarCount;
       pageToken = data.next_page_token ?? undefined;
       // An empty page means the window is exhausted even if a token came back.
       if (pageBarCount === 0) break;
@@ -391,6 +400,12 @@ export async function fetchBarsBatch(
     for (const sym of group) result.set(sym, collected.get(sym)!.reverse());
   });
 
+  if (pages > chunks.length) {
+    console.log(
+      `[market-data] ${assetClass} ${timeframe} bars: ${syms.length} symbols in ${chunks.length} chunks of ` +
+        `${size} took ${pages} pages, ${barsRead} bars (${Math.round(barsRead / pages)} a page)`,
+    );
+  }
   return result;
 }
 
