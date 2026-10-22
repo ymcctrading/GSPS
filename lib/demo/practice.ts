@@ -103,6 +103,19 @@ export function practiceWriteRefused(path: string, method: string): boolean {
   return !PRACTICE_WRITE_ALLOWED.some((re) => re.test(path));
 }
 
+/**
+ * A router or browser prefetch rather than a visit: Next's
+ * `next-router-prefetch` header, or the browser's `Sec-Purpose`/`Purpose:
+ * prefetch`. Opening /login or /signup ends a practice session (proxy.ts), and
+ * a prefetch of either must not. Next 16 sends `next-router-prefetch` on every
+ * prefetch but the full one (`<Link prefetch={true}>`, dynamic-on-hover),
+ * which reads as a navigation; no link to /login or /signup uses it.
+ */
+export function isPrefetchRequest(headers: Pick<Headers, "get">): boolean {
+  if (headers.get("next-router-prefetch")) return true;
+  return /prefetch/i.test(headers.get("sec-purpose") ?? headers.get("purpose") ?? "");
+}
+
 export const PRACTICE_WRITE_REFUSAL =
   "This is a practice account, shown so you can preview the tier. It trades on GSPS's own signals only, so orders, settings and account changes are off. Create your own account to trade.";
 
