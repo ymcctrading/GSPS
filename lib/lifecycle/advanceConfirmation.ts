@@ -49,10 +49,15 @@ export async function advanceEntryConfirmationForSymbol(
   service: SupabaseClient,
   profileId: string,
   tick: ConfirmationScanTick,
+  /**
+   * The profile's awaiting-confirmation plans, read once by a caller that
+   * advances many symbols in one pass (the scan fan-out). Omit to read them here.
+   */
+  preloaded?: Awaited<ReturnType<typeof listTradePlans>>,
 ): Promise<void> {
   let plans;
   try {
-    plans = await listTradePlans(service, profileId, { state: "awaiting_entry_confirmation" });
+    plans = preloaded ?? (await listTradePlans(service, profileId, { state: "awaiting_entry_confirmation" }));
   } catch (err) {
     console.error(`advanceEntryConfirmationForSymbol: plan lookup failed — ${String(err)}`);
     return;

@@ -51,8 +51,17 @@ function fakeService(args: {
   profiles?: { id: string; tier: string | null }[];
 }) {
   const inserted: unknown[] = [];
+  const queued: { scan_execution_id: string; source: string; payload: { rejectedSymbols: string[]; qualifying: unknown[] } }[] = [];
   const client = {
     from(table: string) {
+      if (table === "scan_fanout_jobs") {
+        return {
+          insert(row: (typeof queued)[number]) {
+            queued.push(row);
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
       if (table === "scan_executions") {
         return {
           select() {
@@ -112,7 +121,7 @@ function fakeService(args: {
       throw new Error(`fakeService: unexpected table ${table}`);
     },
   } as unknown as SupabaseClient;
-  return { client, inserted };
+  return { client, inserted, queued };
 }
 
 beforeEach(() => {
@@ -242,8 +251,8 @@ describe("runScheduledScan", () => {
     expect(fanOutForProfileMock).not.toHaveBeenCalled();
   });
 
-  it("builds rejectedSymbols from fullScanResults and fans out to every eligible profile", async () => {
-    const { client, inserted } = fakeService({
+  it("builds rejectedSymbols from fullScanResults and queues the fan-out for the worker", async () => {
+    const { client, inserted, queued } = fakeService({
       existingRun: null,
       insertedId: "se-new",
       profiles: [
@@ -281,15 +290,17 @@ describe("runScheduledScan", () => {
     // TSLA: no error, Reject/no-direction -> invalidation-eligible.
     // MSFT: has `.error` set -> a provider failure, not a clean reject; excluded.
     // AAPL: qualifying, not rejected.
-    expect(fanOutForProfileMock).toHaveBeenCalledTimes(2);
-    for (const call of fanOutForProfileMock.mock.calls) {
-      const args = call[1] as { rejectedSymbols: Set<string> };
-      expect(args.rejectedSymbols).toEqual(new Set(["TSLA"]));
-    }
+    // Queued, not run in this request (lib/entitlements/fanout-queue.ts).
+    expect(fanOutForProfileMock).not.toHaveBeenCalled();
+    expect(body.fanOutQueued).toBe(true);
+    expect(queued).toHaveLength(1);
+    expect(queued[0]).toMatchObject({ scan_execution_id: "se-new", source: "scheduled_morning_scan" });
+    expect(queued[0].payload.rejectedSymbols).toEqual(["TSLA"]);
+    expect(queued[0].payload.qualifying).toHaveLength(1);
   });
 
-  it("runs and fans out under the new scheduled_first_90min_scan source, distinct from the 9:15 job", async () => {
-    const { client, inserted } = fakeService({
+  it("runs and queues its fan-out under the new scheduled_first_90min_scan source, distinct from the 9:15 job", async () => {
+    const { client, inserted, queued } = fakeService({
       existingRun: null,
       insertedId: "se-945",
       profiles: [{ id: "p1", tier: "PRACTICE" }],
@@ -314,6 +325,6 @@ describe("runScheduledScan", () => {
     // Its own source string, not the 9:15 job's -- the idempotency index
     // (migration 0040/0068) keys on this, so the two must never collide.
     expect(inserted[0]).toMatchObject({ source: "scheduled_first_90min_scan", market_date_et: "2026-08-26" });
-    expect(fanOutForProfileMock).toHaveBeenCalledTimes(1);
+    expect(queued).toEqual([expect.objectContaining({ scan_execution_id: "se-945", source: "scheduled_first_90min_scan" })]);
   });
 });

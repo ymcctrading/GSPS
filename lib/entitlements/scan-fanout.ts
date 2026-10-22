@@ -28,7 +28,7 @@ import { SCORE_MAX } from "@/lib/scoring/display";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { buildNewTradePlanFromScanResult } from "@/lib/lifecycle/fromScanResult";
-import { applyEventAndPersist, createOrGetIdempotentTradePlan } from "@/lib/lifecycle/store";
+import { applyEventAndPersist, createOrGetIdempotentTradePlan, listTradePlans } from "@/lib/lifecycle/store";
 import { advanceEntryConfirmationForSymbol } from "@/lib/lifecycle/advanceConfirmation";
 import { retirePlansForBrokenStops, type RetiredPlanSignal } from "@/lib/lifecycle/retire";
 import { isRestingScanResult } from "@/lib/setups/resting";
@@ -62,6 +62,12 @@ export async function fanOutForProfile(
     retired?: readonly RetiredPlanSignal[];
     maxDashboardSetupsPerScan: number;
     maxActiveWatchMonitors: Limit;
+    /**
+     * Delete this profile's rows for the execution before writing them. The
+     * fan-out queue sets it: a profile cut off mid-way by a timed-out call is
+     * served again by the next, and must not be listed twice.
+     */
+    replaceVisible?: boolean;
   },
 ): Promise<FanOutOutcome> {
   const { visible } = selectVisibleResults(args.qualifying, {
@@ -69,6 +75,17 @@ export async function fanOutForProfile(
     noviceDirectionalBackfill: args.maxDashboardSetupsPerScan === 6,
     isTopTier: args.maxDashboardSetupsPerScan === 30,
   });
+
+  if (args.replaceVisible) {
+    const { error } = await service
+      .from("visible_scan_results")
+      .delete()
+      .eq("scan_execution_id", args.scanExecutionId)
+      .eq("profile_id", args.profileId);
+    if (error) {
+      console.error(`fanOutForProfile: earlier visible scan results not cleared for ${args.profileId} — ${error.message}`);
+    }
+  }
 
   if (visible.length > 0) {
     const rows = visible.map((v, i) => ({
@@ -143,6 +160,17 @@ export async function evaluateMonitorsAndNotify(
 ): Promise<number> {
   const notifyWorthy: { transitionId: string; setup: RankedSetup<ScanResult> }[] = [];
 
+  // Read the profile's awaiting-confirmation plans once for the whole pass,
+  // not once per visible setup: each setup only advances its own symbol's
+  // plans, so one read serves them all. A failed read falls back to each
+  // setup reading its own, as before.
+  let awaitingPlans: Awaited<ReturnType<typeof listTradePlans>> | undefined;
+  try {
+    awaitingPlans = await listTradePlans(service, args.profileId, { state: "awaiting_entry_confirmation" });
+  } catch {
+    awaitingPlans = undefined;
+  }
+
   for (const setup of args.visible) {
     // Only a qualified setup (Execute or Watch) arms a monitor. A Reject on a
     // published list, a retired plan (its stop broke) above all, used to be
@@ -162,7 +190,7 @@ export async function evaluateMonitorsAndNotify(
         direction: setup.value.direction,
         currentPrice: setup.value.currentPrice,
         scannedAt: setup.value.scannedAt,
-      }).catch((err) => {
+      }, awaitingPlans).catch((err) => {
         console.error(`evaluateMonitorsAndNotify: confirmation advance failed for ${setup.value.symbol} — ${String(err)}`);
       });
     }

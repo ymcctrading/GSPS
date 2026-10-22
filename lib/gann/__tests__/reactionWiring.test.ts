@@ -247,6 +247,14 @@ describe("plans advance on the 3-point crossing as price ticks", () => {
     expect(types).toEqual(["record_confirmation_evidence", "arm"]);
   });
 
+  it("uses plans the caller read once instead of reading them again", async () => {
+    await advanceEntryConfirmationForSymbol({} as never, "u1", {
+      symbol: "AAPL", direction: "bullish", currentPrice: 103.1, scannedAt: "2026-10-15T15:00:00Z",
+    }, [plan("sig-1")] as never);
+    expect(listTradePlans).not.toHaveBeenCalled();
+    expect(applyEventAndPersist.mock.calls.map((c) => c[3].type)).toEqual(["record_confirmation_evidence", "arm"]);
+  });
+
   it("does not arm a stop-and-reverse plan on a single tick", async () => {
     listTradePlans.mockResolvedValue([plan("pivot:old")]);
     await advanceEntryConfirmationForSymbol({} as never, "u1", {

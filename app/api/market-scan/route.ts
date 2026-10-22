@@ -15,7 +15,7 @@ import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { etDateKey } from "@/lib/market/session";
-import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
+import { enqueueFanOut, toFanOutPayload } from "@/lib/entitlements/fanout-queue";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
@@ -96,7 +96,6 @@ async function resolveExtraSymbols(service: ReturnType<typeof createServiceClien
  * "untracked" even after becoming a real Execute setup.
  */
 async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutToProfiles: false }) {
-  const requestStartedAt = Date.now();
   const service = createServiceClient();
   const { universe } = await getUniversePolicy(service);
   const scanDate = etDateKey(new Date());
@@ -174,7 +173,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   // deliberately outside every try/catch above: a fan-out failure must
   // never be mistaken for the scan or the daily_scans publish itself
   // failing, and must never block either.
-  let profilesFannedOut: number | null = null;
+  let fanOutQueued = false;
   if (options.fanOutToProfiles) {
     // The forward test records the Execute calls this run publishes. This
     // scan is what fills the daily lists every 15 minutes, so a day the
@@ -222,19 +221,22 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
       if (insertError || !inserted) {
         console.error(`market-scan: scan execution not recorded for fan-out — ${insertError?.message}`);
       } else {
-        const fanOut = await fanOutToProfiles(service, {
+        // Queued, not run here: the scan finishes at about +42s to +48s, so
+        // the inline fan-out reached at most 6 of 24 members a run and none on
+        // most (2026-10-22). /api/scan-fanout serves it within the minute,
+        // with its own budget (lib/entitlements/fanout-queue.ts).
+        fanOutQueued = await enqueueFanOut(service, {
           scanExecutionId: (inserted as { id: string }).id,
           source: FAN_OUT_SOURCE,
-          qualifying,
-          rejectedSymbols,
-          retired: retiredSignalsFrom(output.fullScanResults),
-          isEnabled: (policy) => policy.morningConfirmationScanEnabled,
-          deadlineAt: requestStartedAt + FAN_OUT_DEADLINE_MS,
+          payload: toFanOutPayload({
+            qualifying,
+            rejectedSymbols,
+            retired: retiredSignalsFrom(output.fullScanResults),
+          }),
         });
-        profilesFannedOut = fanOut.profilesFannedOut;
       }
     } catch (err) {
-      console.error(`market-scan: profile fan-out failed — ${String(err)}`);
+      console.error(`market-scan: profile fan-out not queued — ${String(err)}`);
     }
   }
 
@@ -251,7 +253,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     persisted,
     persistedCount,
     persistError,
-    profilesFannedOut,
+    fanOutQueued,
   });
 }
 

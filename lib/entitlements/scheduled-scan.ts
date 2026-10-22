@@ -63,8 +63,7 @@ import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } fro
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 import { etDateKey, etParts } from "@/lib/market/session";
-import type { EntitlementPolicy } from "@/lib/entitlements/policy";
-import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
+import { enqueueFanOut, toFanOutPayload } from "@/lib/entitlements/fanout-queue";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import type { ScanResult } from "@/lib/types";
 import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
@@ -98,18 +97,6 @@ function isAuthorized(authorizationHeader: string | null): boolean {
 const UNIQUE_VIOLATION = "23505";
 
 /**
- * Which tiers each scheduled job serves. The 9:45 AM, ~11:00 AM and ~2:00 PM
- * jobs share `morningConfirmationScanEnabled` with the 9:15 AM one rather
- * than each getting a policy field — every flag is `true` for every tier
- * today (policy.ts), so more fields would change nothing.
- */
-function scheduleEnabled(source: ScheduledScanSource): (policy: EntitlementPolicy) => boolean {
-  return source === "scheduled_morning_scan"
-    ? (policy) => policy.morningPreparationScanEnabled
-    : (policy) => policy.morningConfirmationScanEnabled;
-}
-
-/**
  * Single structured log line per invocation, emitted at every exit path --
  * covers the "Add observability" requirement (run identifier, job type,
  * intended ET market date, branch/environment, outcome, failure reason,
@@ -124,10 +111,7 @@ function logRunOutcome(args: {
   outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "outside_scheduled_window" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
   environment: string;
   eligibleCount?: number;
-  profilesFannedOut?: number;
-  profilesFailed?: number;
-  profilesDeferred?: number;
-  totalNotified?: number;
+  fanOutQueued?: boolean;
 }): void {
   console.log(
     JSON.stringify({
@@ -138,10 +122,7 @@ function logRunOutcome(args: {
       environment: args.environment,
       outcome: args.outcome,
       eligibleCount: args.eligibleCount,
-      profilesFannedOut: args.profilesFannedOut,
-      profilesFailed: args.profilesFailed,
-      profilesDeferred: args.profilesDeferred,
-      totalNotified: args.totalNotified,
+      fanOutQueued: args.fanOutQueued,
     }),
   );
 }
@@ -345,14 +326,16 @@ export async function runScheduledScan(
   // A symbol this run actually gave a full pass and found clean is an
   // invalidation for any open monitor on it; a symbol it never looked at is
   // not in `rejectedSymbols` and is left alone. See fanOutForProfile.
-  const fanOut = await fanOutToProfiles(service, {
+  // Queued for /api/scan-fanout rather than run inside this request, which the
+  // scan itself mostly spends (lib/entitlements/fanout-queue.ts, 2026-10-22).
+  const fanOutQueued = await enqueueFanOut(service, {
     scanExecutionId,
     source,
-    qualifying,
-    rejectedSymbols,
-    retired: retiredSignalsFrom(output.fullScanResults),
-    isEnabled: scheduleEnabled(source),
-    deadlineAt: now.getTime() + FAN_OUT_DEADLINE_MS,
+    payload: toFanOutPayload({
+      qualifying,
+      rejectedSymbols,
+      retired: retiredSignalsFrom(output.fullScanResults),
+    }),
   });
 
   logRunOutcome({
@@ -362,10 +345,7 @@ export async function runScheduledScan(
     outcome: "completed",
     environment,
     eligibleCount,
-    profilesFannedOut: fanOut.profilesFannedOut,
-    profilesFailed: fanOut.profilesFailed,
-    profilesDeferred: fanOut.profilesDeferred,
-    totalNotified: fanOut.totalNotified,
+    fanOutQueued,
   });
 
   return NextResponse.json({
@@ -378,9 +358,6 @@ export async function runScheduledScan(
     scanErrors: output.scanErrors,
     eligibleCount,
     scanExecutionId,
-    profilesFannedOut: fanOut.profilesFannedOut,
-    profilesFailed: fanOut.profilesFailed,
-    profilesDeferred: fanOut.profilesDeferred,
-    totalNotified: fanOut.totalNotified,
+    fanOutQueued,
   });
 }
