@@ -34,7 +34,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
 import { getMarketDataProvider } from "@/lib/data/provider";
-import { syntheticDataRefusal } from "@/lib/data/feed-mode";
+import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
@@ -134,8 +134,9 @@ export async function GET(req: NextRequest) {
   }
 
   const provider = getMarketDataProvider();
-  const refused = syntheticDataRefusal("invalidate monitors from a quote", provider);
-  if (refused) return NextResponse.json({ error: refused, code: "synthetic_market_data" }, { status: 503 });
+  if (syntheticDataRefusal("invalidate monitors from a quote", provider)) {
+    return NextResponse.json({ error: MARKET_DATA_UNAVAILABLE, code: "synthetic_market_data" }, { status: 503 });
+  }
   const priceBySymbol = new Map<string, number | null>();
   await mapWithConcurrency(symbols, 6, async (symbol) => {
     try {

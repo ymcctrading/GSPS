@@ -398,3 +398,89 @@ export function yearCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): Year
   }
   return out;
 }
+
+/**
+ * A-TIME-24 (built 2026-10-21; owner: "Build these"): "the greatest
+ * opportunities come at the end of great time cycles" (W001 pp. 7, 11, 13-14).
+ * The booklet names the cycles without their lengths; Gann's lessons give
+ * them, each in its own year (cite the lesson and year, AGENTS.md):
+ * - 20 years, the master time period of the January 1931 lesson (Master
+ *   Course Ch. 2, PDF 50);
+ * - 60 years, the 1935 lesson's greatest cycle (Ch. 7, PDF 218);
+ * - 20,736 days (the Square of 144 in days, 56 years 9 months 23 days), the
+ *   1953 Master Calculator's great cycle (Ch. 13, PDF 375);
+ * - 90 years, "the Great Cycle" of the January 1955 lesson (Ch. 14, PDF 387).
+ *
+ * How it acts: the month a great cycle ends is a dated window in the
+ * time-window hold (`timeWindow.ts`), as every yearly count is. Counted from
+ * two anchors: the monthly chart's major pivots (`greatCycleHits`, the counts
+ * `MAJOR_CYCLE_YEARS` lacks; 20 and 60 years are already there), and the
+ * company's inception (`timeWindow.ts#inceptionWindows`), Gann's other count
+ * origin ("the date of incorporation", Ch. 7). The 90-year count needs history
+ * older than any stored monthly chart, so in practice it acts from inception
+ * only.
+ *
+ * Three-question basis:
+ * 1. Gann: as cited, Tier A; the lengths are his, per lesson.
+ * 2. Cycles: a recurrence claim at very long periods. Dewey's repetition count
+ *    fails by construction (a 60- or 90-year cycle repeats once or twice in
+ *    the US record; `FEW_REPETITION_CYCLE_YEARS`), so nothing here is
+ *    validated; it acts on the owner's 2026-10-01 decision and is measured by
+ *    the replay's window hold.
+ * 3. Hermetic: Rhythm (the great cycle returns) and Cause and Effect (time
+ *    ripens the turn; price still has to turn on it).
+ */
+export interface GreatCycle {
+  label: string;
+  lesson: "1931" | "1935" | "1953" | "1955";
+  /** Length in whole months, or ... */
+  months?: number;
+  /** ... in days (the 1953 count). */
+  days?: number;
+}
+
+export const GREAT_CYCLES: readonly GreatCycle[] = [
+  { label: "20-year", lesson: "1931", months: 240 },
+  { label: "20,736-day", lesson: "1953", days: 20736 },
+  { label: "60-year", lesson: "1935", months: 720 },
+  { label: "90-year", lesson: "1955", months: 1080 },
+];
+
+/** The month (YYYY-MM) a great cycle started on `anchor` (YYYY-MM or YYYY-MM-DD) ends. */
+export function greatCycleEndMonth(anchor: string, cycle: GreatCycle): string | null {
+  const start = new Date(`${anchor.length === 7 ? `${anchor}-01` : anchor.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) return null;
+  const end =
+    cycle.days !== undefined
+      ? new Date(start.getTime() + cycle.days * 86_400_000)
+      : new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + (cycle.months ?? 0), 1));
+  return end.toISOString().slice(0, 7);
+}
+
+export interface GreatCycleHit {
+  cycle: GreatCycle;
+  kind: "high" | "low";
+  /** The anchor's month (YYYY-MM). */
+  pivotMonth: string;
+}
+
+/**
+ * The great cycles `MAJOR_CYCLE_YEARS` does not already count, ending in
+ * `asOf`'s month from a major monthly pivot: `yearCycleHits`' anchors and
+ * exact-month rule.
+ */
+export function greatCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): GreatCycleHit[] {
+  if (monthlyBars.length < 24) return [];
+  const month = asOf.toISOString().slice(0, 7);
+  const counted = new Set(MAJOR_CYCLE_YEARS.map((y) => y * 12));
+  const extra = GREAT_CYCLES.filter((c) => c.months === undefined || !counted.has(c.months));
+  const out: GreatCycleHit[] = [];
+  for (const anchor of majorPivots(findPivots(monthlyBars, 3))) {
+    for (const cycle of extra) {
+      if (greatCycleEndMonth(anchor.bar.t.slice(0, 7), cycle) === month) {
+        out.push({ cycle, kind: anchor.kind, pivotMonth: anchor.bar.t.slice(0, 7) });
+      }
+    }
+  }
+  return out;
+}

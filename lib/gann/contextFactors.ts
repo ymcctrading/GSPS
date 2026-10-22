@@ -25,6 +25,7 @@ import { readMassPressure } from "@/lib/gann/massPressure";
 import { marketCountHit } from "@/lib/gann/eightyFourYear";
 import { readThreeCurves } from "@/lib/gann/threeCurves";
 import { readDayCircle } from "@/lib/gann/dayCircle";
+import { inSwingEighth } from "@/lib/gann/swingEighths";
 
 export type ContextFactors = Record<string, boolean>;
 
@@ -51,6 +52,8 @@ export function contextFactorsFor(
   f.dayCountBandActive = ctx.dayCountBands.length > 0;
   f.yearFractionActive = ctx.yearFraction !== null;
   f.yearFractionMajor = ctx.yearFraction !== null && ctx.yearFraction.rank <= 2;
+  // A-OTHER-12 (a labelled reconstruction): the entry in the bottom eighth of the last swing for a long, the top eighth for a short.
+  if (ctx.swingEighths) f.entryInSwingEighth = inSwingEighth(ctx.swingEighths, direction, price);
 
   if (ctx.counterMove) {
     f.counterMoveNormal = ctx.counterMove.inCounterMove && ctx.counterMove.phase === "normal";

@@ -16,7 +16,6 @@ import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
-import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { roundPrice as round, priceText } from "./priceText";
 
@@ -430,6 +429,8 @@ export interface EntrySource {
   entryLevelYear?: number;
   /** A crossing that regained an old level after a break (`TradeLevels.entryRegained`). */
   entryRegained?: true;
+  /** A crossing not yet made by a daily close 3 points past (`TradeLevels.entryAwaitsCrossing`). */
+  entryAwaitsCrossing?: true;
   /** A held bottom's rule (`TradeLevels.holdBasis`). */
   holdBasis?: "weeks" | "days" | "record" | "rally" | "narrowWeek";
   /**
@@ -489,6 +490,7 @@ export function gannEntrySource(trigger: GannEntryTrigger): EntrySource {
     ...(trigger.kind === "crossing" && trigger.source !== "swing" ? { entrySource: trigger.source } : {}),
     ...(trigger.kind === "crossing" && trigger.source === "priorYear" && trigger.levelYear !== undefined ? { entryLevelYear: trigger.levelYear } : {}),
     ...(trigger.kind === "crossing" && trigger.regained ? { entryRegained: true as const } : {}),
+    ...(trigger.kind === "crossing" && !trigger.held ? { entryAwaitsCrossing: true as const } : {}),
     ...(trigger.kind === "hold" && trigger.holdBasis ? { holdBasis: trigger.holdBasis } : {}),
     gannReaction: true,
   };
@@ -571,6 +573,7 @@ export function computeTradeLevels(
       ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
       ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
       ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
+      ...(pattern.entryAwaitsCrossing ? { entryAwaitsCrossing: true as const } : {}),
       ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
       entry: round(entry),
       stopLoss: equity.stopLoss,
@@ -668,13 +671,12 @@ export function computeTradeLevels(
   const stopPctOfPrice = (structuralRisk / entry) * 100;
   let stopBandWarning: string | null = null;
 
-  if (optionPremium && optionPremium > 0) {
-    // The scan has a premium but never a delta, so this reading assumes the
-    // contract moves point-for-point with the underlying. The strike ticket
-    // knows the contract's delta and reports the exact figure — same rule,
-    // same wording, from lib/trade/premium-stop.ts.
-    stopBandWarning = readPremiumStop({ risk: structuralRisk, premium: optionPremium })?.warning ?? null;
-  } else if (executionAtr && executionAtr > 0) {
+  // A bought option: the premium is the stop and the risk (Gann, Master
+  // Course Ch. 19A, PDF 444, 449-450), so no stop band is judged for it
+  // (review finding R-006; the 12-18% of premium band had no source). The
+  // strike ticket shows what the underlying's stop would cost, as information.
+  const optionPriced = optionPremium != null && optionPremium > 0;
+  if (!optionPriced && executionAtr && executionAtr > 0) {
     // No premium: the honest question is whether the stop is sane for how much
     // this instrument moves, not what fraction of the notional it represents.
     // Measuring against share price puts every intraday structural stop at
@@ -718,6 +720,7 @@ export function computeTradeLevels(
     ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),
     ...(pattern.entryLevelYear !== undefined ? { entryLevelYear: pattern.entryLevelYear } : {}),
     ...(pattern.entryRegained ? { entryRegained: true as const } : {}),
+    ...(pattern.entryAwaitsCrossing ? { entryAwaitsCrossing: true as const } : {}),
     ...(pattern.holdBasis ? { holdBasis: pattern.holdBasis } : {}),
     entry: round(entry),
     stopLoss: round(stopLoss),

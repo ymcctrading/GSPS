@@ -45,6 +45,13 @@ export function syntheticDataRefusal(action: string, provider: MarketDataProvide
   return reason;
 }
 
+/**
+ * What a response body says when `syntheticDataRefusal` refuses. The refusal's
+ * own text names the server's configuration (the provider, the env variables
+ * it reads), so it stays in the log and never reaches a member (S-14).
+ */
+export const MARKET_DATA_UNAVAILABLE = "Market data is unavailable right now, so nothing was run.";
+
 /** Thrown where a caller already fails closed on a thrown error. */
 export class SyntheticMarketDataError extends Error {
   constructor(message: string) {

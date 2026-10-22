@@ -1,19 +1,12 @@
 import { describe, expect, it } from "vitest";
-import {
-  STOP_BAND_MAX_PCT_OF_PREMIUM,
-  STOP_BAND_MIN_PCT_OF_PREMIUM,
-  TYPICAL_HOLDING_DAYS,
-  readPremiumStop,
-} from "@/lib/trade/premium-stop";
+import { TYPICAL_HOLDING_DAYS, readPremiumStop } from "@/lib/trade/premium-stop";
 
 describe("readPremiumStop", () => {
   it("assumes point-for-point movement when no delta is known", () => {
-    // $1 of stop against $6.50 of premium = 15.4%, mid-band.
+    // $1 of stop against $6.50 of premium = 15.4%.
     const reading = readPremiumStop({ risk: 1, premium: 6.5 })!;
     expect(reading.pctOfPremium).toBeCloseTo(15.38, 2);
-    expect(reading.verdict).toBe("in-band");
     expect(reading.exact).toBe(false);
-    expect(reading.warning).toBeNull();
   });
 
   it("scales by delta when the contract is known, and says so", () => {
@@ -21,20 +14,15 @@ describe("readPremiumStop", () => {
     // because the option gives up 55c for each dollar the underlying moves.
     const reading = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55 })!;
     expect(reading.pctOfPremium).toBeCloseTo(8.46, 2);
-    expect(reading.verdict).toBe("tight");
     expect(reading.exact).toBe(true);
-    expect(reading.warning).toContain("tighter");
   });
 
-  it("changes the verdict where the approximation would have misjudged it", () => {
-    // Assuming delta 1 this reads 20% — "wider than the band, reduce size or
-    // skip". At the contract's real delta of 0.6 it is 12%, inside the band.
-    // This is the case the ticket exists to get right.
+  it("reads the contract's delta where the approximation would overstate it", () => {
+    // Assuming delta 1 this reads 20%; at the contract's real delta of 0.6 it is 12%.
     const approximate = readPremiumStop({ risk: 1, premium: 5 })!;
     const exact = readPremiumStop({ risk: 1, premium: 5, delta: 0.6 })!;
-    expect(approximate.verdict).toBe("wide");
-    expect(exact.verdict).toBe("in-band");
-    expect(exact.warning).toBeNull();
+    expect(approximate.pctOfPremium).toBeCloseTo(20, 6);
+    expect(exact.pctOfPremium).toBeCloseTo(12, 6);
   });
 
   it("treats a put's negative delta as exposure, not a discount", () => {
@@ -43,11 +31,12 @@ describe("readPremiumStop", () => {
     expect(put.pctOfPremium).toBeCloseTo(call.pctOfPremium, 10);
   });
 
-  it("counts the band edges as inside it", () => {
-    const atFloor = readPremiumStop({ risk: STOP_BAND_MIN_PCT_OF_PREMIUM, premium: 100 })!;
-    const atCeiling = readPremiumStop({ risk: STOP_BAND_MAX_PCT_OF_PREMIUM, premium: 100 })!;
-    expect(atFloor.verdict).toBe("in-band");
-    expect(atCeiling.verdict).toBe("in-band");
+  it("judges nothing and advises no size: the premium is the risk (R-006)", () => {
+    // Gann, Master Course Ch. 19A: the option is the stop. The 12-18% band and
+    // its "increase size" / "reduce size" advice had no source.
+    const reading = readPremiumStop({ risk: 1, premium: 100 })! as unknown as Record<string, unknown>;
+    expect(reading).not.toHaveProperty("verdict");
+    expect(reading).not.toHaveProperty("warning");
   });
 
   it("declines to read what the inputs cannot support", () => {
@@ -88,10 +77,10 @@ describe("readPremiumStop", () => {
     expect(overnight.holdingDays).toBe(3);
   });
 
-  it("moves a near-band contract across the line — the NVDA 210 call", () => {
+  it("charges decay on a near-dated contract — the NVDA 210 call", () => {
     // Live chain: $3.53 ask, delta 0.424, theta -0.134/day, against the scan's
-    // $0.83 structural stop. The stop alone reads 10.0% and is dismissed as
-    // over-priced; charging half a session of decay puts it inside the band.
+    // $0.83 structural stop. The stop alone reads 10.0% of the premium;
+    // charging half a session of decay adds to it.
     const stopOnly = readPremiumStop({ risk: 0.83, premium: 3.5341, delta: 0.4241 })!;
     const withDecay = readPremiumStop({
       risk: 0.83,
@@ -100,18 +89,14 @@ describe("readPremiumStop", () => {
       theta: -0.1342,
     })!;
     expect(stopOnly.pctOfPremium).toBeCloseTo(9.96, 1);
-    expect(stopOnly.verdict).toBe("tight");
     expect(withDecay.pctOfPremium).toBeCloseTo(11.86, 1);
-    expect(withDecay.verdict).toBe("tight");
     // Decay is a fifth of the total risk on this contract, not a rounding error.
     expect(withDecay.decayCost / (withDecay.stopCost + withDecay.decayCost)).toBeGreaterThan(0.15);
   });
 
   it("never lets a bad hold or theta understate the risk", () => {
     // Each of these would otherwise subtract decay or produce NaN — and NaN
-    // compares false against both band edges, so it would read as a silent
-    // "in-band, no warning" on a measure the trader sizes against.
-    const baseline = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55, theta: -0.2 })!;
+    // compares false everywhere, so it would read as a silent small figure.
     for (const holdingDays of [-5, Number.NaN, Number.POSITIVE_INFINITY]) {
       const reading = readPremiumStop({
         risk: 1,
@@ -131,7 +116,6 @@ describe("readPremiumStop", () => {
       expect(Number.isFinite(reading.pctOfPremium)).toBe(true);
       expect(reading.decayCost).toBe(0);
     }
-    expect(baseline.verdict).toBe("tight");
   });
 
   it("treats a positive theta quote as decay all the same", () => {

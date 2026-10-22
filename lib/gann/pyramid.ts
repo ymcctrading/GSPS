@@ -15,7 +15,11 @@
  *   the 2nd, the 4th half the 3rd (Master Course Rule 5). The owner chose this
  *   reading over *New Stock Trend Detector*'s equal lots halved after the 4th
  *   or 5th (Q9, 2026-10-16), so there is no fixed lot count: the pyramid ends
- *   when the next half-lot would be under one share.
+ *   when the next half-lot would be under one share. Re-asked 2026-10-22
+ *   under "Gann answers it" (A-PYRAMID-02): Gann's own texts disagree, and two
+ *   of the three, his course (Rule 5) and *Tunnel* p.198, give the
+ *   decreasing lots, so Q9 stands; W006 p.47's halving after the 4th or 5th
+ *   equal lot is the one not followed.
  * - **Move the stop so the combined position can't lose** (*New Stock Trend
  *   Detector* Rule 5), with a full stop-out losing no more than 10% of capital
  *   (Master Course).

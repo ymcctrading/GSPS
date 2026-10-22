@@ -85,6 +85,7 @@ import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
 import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { withDecisionState } from "@/lib/scoring/decisionState";
+import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
@@ -383,7 +384,7 @@ export interface ReplayOptions {
    * incorporation readings are null, as they are for symbols with no stored
    * row.
    */
-  instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null };
+  instrument?: { sharesHistory: SharesPoint[]; inception: Inception | null; name?: string | null };
   /**
    * The market's daily bars (SPY), for Gann's early and late leaders (G25).
    * Each session reads only the bars before it. Omit it and the leadership
@@ -438,6 +439,10 @@ export interface SessionDailyPlan {
   stop: number;
   tp1: number;
   mtp: number;
+  /** The crossing still waits on its daily 3-point close (`TradeLevels.entryAwaitsCrossing`). */
+  awaitsCrossing: boolean;
+  /** How the plan's entry was armed (crossing, old level, hold), for the intraday alert replay's split. */
+  entryKind?: GannEntryKind;
 }
 
 /**
@@ -854,6 +859,7 @@ export function buildMacroContext(
     campaign: disclosedRules.campaign,
     price,
     asOf,
+    companyName: instrument?.name ?? null,
   });
   const allLevels = structural.all;
   const recentAtr = atr(daily.slice(-20), 14);
@@ -908,7 +914,7 @@ export function buildMacroContext(
     disclosedRules,
     pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, oldLevels: structural.old, price, asOf }),
     windowTurn: (direction) => {
-      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly));
+      if (!windowTurns.has(direction)) windowTurns.set(direction, readWindowTurn(charts.daily, direction, instrument?.monthlyYearCount ?? instrument?.monthlyLong ?? charts.monthly, undefined, instrument ? { inception: instrument.inception, name: instrument.name ?? null, firstTrade: instrument.firstTrade ?? null } : null));
       return windowTurns.get(direction) ?? null;
     },
   };
@@ -1046,10 +1052,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
       const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
       const facts: InstrumentFacts | null =
-        instrument || marketDailyBars || universeStrength
+        instrument || marketDailyBars || universeStrength || confirmedFirstTrade(symbol)
           ? {
               sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
               inception: instrument?.inception ?? null,
+              name: instrument?.name ?? null,
               // The stock market is read for a stock only, as the live scan
               // fetches it (`scanTicker.ts`); crypto had read SPY here.
               marketDaily: assetClass === "us_equity" ? (marketDailyBars ?? null) : null,
@@ -1063,6 +1070,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
               marketMonthly: marketMonthlyBars && assetClass === "us_equity" ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
               // The rank reads only the months closed before this session's (`readUniverseRank`).
               universe: universeStrength && assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
+              firstTrade: confirmedFirstTrade(symbol),
             }
           : null;
       // Only weeks that began before this session's week; `levelCharts` builds
@@ -2086,6 +2094,8 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     stop: levels.stopLoss,
     tp1: levels.takeProfit1,
     mtp: levels.masterProfit,
+    awaitsCrossing: levels.entryAwaitsCrossing === true,
+    entryKind: chosen.trigger.kind,
   };
 }
 

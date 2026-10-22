@@ -124,6 +124,7 @@ const plan = (over: Partial<SessionDailyPlan> = {}): SessionDailyPlan => ({
   stop: 95,
   tp1: 110,
   mtp: 120,
+  awaitsCrossing: false,
   ...over,
 });
 
@@ -147,6 +148,7 @@ describe("replay sessionPlans", () => {
     expect(priced.filter(([, p]) => p.verdict === "Execute" || p.verdict === "Watch").length).toBeGreaterThan(10);
     for (const [, p] of priced) {
       expect(p.direction === "up" ? p.stop < p.entry : p.stop > p.entry).toBe(true);
+      expect(["crossing", "oldLevel", "hold"]).toContain(p.entryKind);
     }
   }, 60_000);
 
@@ -288,6 +290,22 @@ describe("plan_level_held, replayed", () => {
     expect(t.planVerdict).toBe("Execute");
     const sessionLow = Math.min(...bars.filter((b) => etDateKey(new Date(b.t)) === date && b.t < t.openedAt).map((b) => b.l));
     expect(t.stop).toBeCloseTo(Math.max(97, sessionLow - gannThreePoints(sessionLow)), 9);
+  });
+
+  it("records how the daily plan was armed, and the summary splits on it", () => {
+    const held = new Map<string, SessionDailyPlan | null>([[date, plan({ entry: 100.2, stop: 97, tp1: 108, mtp: 115, entryKind: "oldLevel" })]]);
+    const run = replayIntradayAlerts({
+      symbol: "TEST", kind: "equity", bars, dailyBars, plans: held, sessions: new Set([date]), signals: new Set(["plan_level_held"]), feedDelayBars: 0,
+    });
+    expect(run.trades.length).toBeGreaterThan(0);
+    expect(run.trades.every((x) => x.entryKind === "oldLevel")).toBe(true);
+    const s = summariseAlertTrades(run.trades);
+    expect(s.byPlanEntryKind.oldLevel.n).toBe(run.trades.length);
+    // A plan with no recorded kind reads "unknown", never a guessed kind.
+    expect(Object.keys(summariseAlertTrades(trades).byPlanEntryKind)).toEqual(["unknown"]);
+    // Other signals stay out of the split, even with a kind recorded.
+    const other = { ...run.trades[0], signal: "trend_continuation" as const };
+    expect(summariseAlertTrades([...run.trades, other]).byPlanEntryKind.oldLevel.n).toBe(run.trades.length);
   });
 });
 

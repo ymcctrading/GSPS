@@ -23,7 +23,7 @@ the technical credibility; the voice carries the emotion.
 | 5 | 0:18–0:22 | Portfolio screen: paper P&L ticking up green, small "+" numbers | **"Practice with real prices. Zero real risk."** | "Practice with real market prices, in a paper account — so you learn the moves before you risk a dollar." |
 | 6 | 0:22–0:25 | Quick human beat: a person smiling at their phone (stock/UGC-style footage, casual setting — coffee shop, couch) | **"Built for people just getting started."** | "This is trading built for people just getting started — not Wall Street." |
 | 7 | 0:25–0:28 | Logo lockup on clean background, tagline | **GSPS — Trade the reversion, not the noise.** | "GSPS." |
-| 8 | 0:28–0:30 | CTA card: app icon + "Sign up free" button, QR code or link | **"Sign up free — gsps.app"** | "Sign up free today." |
+| 8 | 0:28–0:30 | CTA card: app icon + "Sign up free" button, QR code or link | **"Sign up free — gsps.world"** | "Sign up free today." |
 
 ---
 

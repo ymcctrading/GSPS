@@ -3,6 +3,7 @@ import { SCANNER_STATE_META } from "@/lib/signals/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { priceUsd } from "@/lib/strat/priceText";
+import { configuredAppUrl, tickerHref } from "@/lib/routes";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -29,11 +30,10 @@ const BARE_ADDRESS = /^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/;
  * Where the emails' links point. The templates linked to https://gsps.app, a
  * domain GSPS has never used, so every "View in app" link in a member's alert
  * led nowhere. The site is www.gsps.world (2026-10-21);
- * `NEXT_PUBLIC_APP_URL` overrides it, as it does for billing's return URLs.
+ * `NEXT_PUBLIC_APP_URL` overrides it (`configuredAppUrl`, which billing reads too).
  */
 export function appUrl(path = ""): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.gsps.world").replace(/\/+$/, "");
-  return `${base}${path}`;
+  return `${configuredAppUrl() ?? "https://www.gsps.world"}${path}`;
 }
 
 /**
@@ -579,7 +579,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This alert has now fired and won't repeat. Set a new one from the chart if you want another.
-          <a href="${appUrl(`/ticker/${encodeURIComponent(data.symbol)}`)}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
+          <a href="${appUrl(tickerHref(data.symbol))}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
           </p>
         </div>
       </div>

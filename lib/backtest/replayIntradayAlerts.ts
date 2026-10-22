@@ -93,6 +93,7 @@ import {
 import { isReversalRisk } from "@/lib/setups/intraday";
 import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
+import type { GannEntryKind } from "@/lib/gann/entryKind";
 import { isTimeoutReason, walkGannExit, type ReplayTrade, type SessionDailyPlan } from "./replay";
 
 /** Five-minute bars in a regular session. */
@@ -168,6 +169,7 @@ export function asDailyPlanLevels(plan: SessionDailyPlan | null | undefined): Da
     stop: plan.stop,
     tp1: plan.tp1 > 0 ? plan.tp1 : null,
     mtp: plan.mtp > 0 ? plan.mtp : null,
+    awaitsCrossing: plan.awaitsCrossing,
   };
 }
 
@@ -208,7 +210,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     if (priorDaily.length < 3) continue;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
-    const dailyPlan = asDailyPlanLevels(plans.get(date));
+    const sessionPlan = plans.get(date);
+    const dailyPlan = asDailyPlanLevels(sessionPlan);
     const liquidity = readLiquidity(priorDaily);
     const dailyAtr = atr(priorDaily.slice(-20), 14);
     const prevClose = priorDaily[priorDaily.length - 1].c;
@@ -244,7 +247,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
       const entered = enterAlert({
         alert, bars, from: k + 1, at, sessionEnd: to, point, dailyBars, monthlyBars: input.monthlyBars ?? [], sharesOn: input.sharesOn,
-        maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan,
+        maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan, planEntryKind: sessionPlan?.entryKind,
       });
       if (typeof entered === "string") {
         refused[entered] = (refused[entered] ?? 0) + 1;
@@ -276,8 +279,10 @@ function enterAlert(input: {
   kind: AssetKind;
   date: string;
   dailyPlan: DailyPlanLevels | null;
+  /** How the session's daily plan was armed; recorded on a `plan_level_held` trade only. */
+  planEntryKind?: GannEntryKind;
 }): AlertTrade | AlertRefusal {
-  const { alert, bars, from, at, sessionEnd, point, dailyBars, monthlyBars, sharesOn, maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan } = input;
+  const { alert, bars, from, at, sessionEnd, point, dailyBars, monthlyBars, sharesOn, maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan, planEntryKind } = input;
   if (at >= sessionEnd) return "session_ended";
   const long = alert.direction === "up";
   const dir = long ? 1 : -1;
@@ -322,6 +327,7 @@ function enterAlert(input: {
     ambiguous: false,
     signal: alert.type,
     planVerdict: alert.type === "plan_level_held" && dailyPlan ? dailyPlan.verdict : null,
+    ...(alert.type === "plan_level_held" && dailyPlan && planEntryKind ? { entryKind: planEntryKind } : {}),
     session: date,
   };
 }

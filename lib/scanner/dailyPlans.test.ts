@@ -57,4 +57,25 @@ describe("loadDailyPlans", () => {
     expect([...plans.keys()]).toEqual(["SPY"]);
     expect(plans.get("SPY")).toMatchObject({ direction: "up", verdict: "Execute", entry: 670, stop: 660 });
   });
+
+  it("carries whether the plan's crossing is made, from either source, and null when the row does not say", async () => {
+    const db = fakeDb({
+      daily_scans: [
+        { ...plan("2026-10-21", "SPY", 670), awaits: true },
+        { ...plan("2026-10-21", "QQQ", 600), awaits: false },
+        plan("2026-10-21", "IWM", 250),
+      ],
+      active_monitors: [
+        {
+          symbol: "DIA", direction: "bearish", entry: 450, stop_loss: 460, take_profit_1: 430, master_profit: 410,
+          output_state: "Watch", last_evaluated_at: today, entry_awaits_crossing: true, state: "WATCH",
+        },
+      ],
+    });
+    const plans = await loadDailyPlans(db, ["SPY", "QQQ", "IWM", "DIA"], null);
+    expect(plans.get("SPY")?.awaitsCrossing).toBe(true);
+    expect(plans.get("QQQ")?.awaitsCrossing).toBe(false);
+    expect(plans.get("IWM")?.awaitsCrossing).toBeNull();
+    expect(plans.get("DIA")?.awaitsCrossing).toBe(true);
+  });
 });

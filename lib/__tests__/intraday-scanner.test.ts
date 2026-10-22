@@ -558,6 +558,25 @@ describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () =>
     expect(check?.detail).toContain("no reaction to it yet");
   });
 
+  it("stays quiet while the plan's crossing waits on its daily 3-point close, even with the prior close past the entry", () => {
+    const output = scanIntraday([input({ dailyPlan: { ...plan, awaitsCrossing: true } })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("crossing is not made yet");
+    // Once made, the same plan fires on the reaction.
+    const made = scanIntraday([input({ dailyPlan: { ...plan, awaitsCrossing: false } })], DEFAULT_CONFIG, AT_1133);
+    expect(made.alerts.find((a) => a.type === "plan_level_held")).toBeDefined();
+  });
+
+  it("passes a short's side test when the prior close sits under its entry", () => {
+    // The session fixture runs up, so the short is refused later (its swing
+    // runs the wrong way); only the side test is asserted here.
+    const short = { direction: "down" as const, entry: 500.6, stop: 510, tp1: 490, mtp: 480, verdict: "Execute" as const };
+    const output = scanIntraday([input({ dailyPlan: short })], DEFAULT_CONFIG, AT_1133);
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail ?? "").not.toContain("no reaction to it yet");
+  });
+
   it("reads a held bottom whose entry is the prior close itself as a reaction", () => {
     const output = scanIntraday([input({ prevClose: 499.8, dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
     expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeDefined();

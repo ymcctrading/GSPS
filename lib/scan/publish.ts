@@ -101,6 +101,10 @@ export function buildScanRows(
       // A day's range, so the lists can tell a plan to take today from a
       // resting order (lib/setups/resting.ts, owner 2026-10-21).
       dayRange: r.dayRange ?? null,
+      // Whether the plan's crossing still waits on its daily close 3 points
+      // past the level (W006 Rule 3(b)), so the intraday scan times only a
+      // reaction to a crossing made (lib/scanner/intraday.ts, plan_level_held).
+      entryAwaitsCrossing: r.levels?.entryAwaitsCrossing === true,
       // The decision state, and the buying point set aside against the trend
       // (never-failing rule 5), so the lists can say so (D-06).
       decisionState: r.decision.decisionState ?? null,

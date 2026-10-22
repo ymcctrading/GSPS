@@ -1,7 +1,12 @@
 /**
  * C-ASTRO-09, the first-trade chart (Bucholtz, *The Bull, the Bear and the
- * Planets*, W013 pp. 96-99, 103). A labelled reconstruction, research only:
- * no criterion, gate, plan, entry or order reads this (CYC-41).
+ * Planets*, W013 pp. 96-99, 103). A labelled reconstruction, and it acts
+ * (Chuck, 2026-10-22: "Search for, confirm and ultimately use these dates"):
+ * where a stock's first-trade date is confirmed by two sources
+ * (`firstTradeDates.ts`), a transit chosen on the swings before a turn and
+ * exact within `WINDOW_DAYS` of it is a dated window in the shared time-window
+ * hold (`firstTradeWindows`, read by `timeWindow.ts`), live and replay alike.
+ * Like every astro window it counts only on a 3-Day Chart turn (C-ASTRO-15).
  *
  * Bucholtz's method: cast a chart for the first trade (the exchange's city,
  * 9:30 am), keep the transits to it that most often lined up with past
@@ -25,14 +30,14 @@
  * - The selection keeps the `KEEP` (5) combinations with the highest hit
  *   rate on the training swings, with at least `MIN_EVENTS` (3) events
  *   there. Engineering choices.
- * - GSPS holds an inception date per symbol (Wikidata), which is often the
- *   founding, not the first trade. A true first-trade date has to be supplied
- *   by the caller; the inception date is not a stand-in.
- *
- * Why it does not act (2026-10-22, when Chuck moved the astrology from research
- * to acting): it needs a true first-trade date per symbol, which GSPS does not
- * hold, and Bucholtz's method is his own, not Gann's. It acts once those dates
- * are held and the hold-out beats its base rate.
+ * - The first-trade date is the confirmed one (`firstTradeDates.ts`: Wikidata's
+ *   listing and Yahoo's first bar agreeing within 3 days). The inception date
+ *   GSPS also holds is often the founding, so it is never a stand-in.
+ * - Acting: the training swings are the 3-Day Chart's completed tops and
+ *   bottoms before the turn, so nothing after the turn decides; a window
+ *   needs a kept combination exact within `WINDOW_DAYS` of the turn's date.
+ *   Bucholtz gives no direction for a transit, so it is read for both a top
+ *   and a bottom.
  *
  * Three-question basis:
  * 1. Gann: none. Bucholtz, Tier C, not sourced to Gann.
@@ -42,7 +47,11 @@
  *    held as a hypothesis.
  */
 import { Body, Ecliptic, GeoVector } from "astronomy-engine";
-import { BUCHOLTZ_ASPECTS } from "@/lib/research/aspects";
+import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import type { Bar } from "@/lib/types";
+
+/** Bucholtz's aspects (W013), the angles only; the timing is the exact day. */
+const BUCHOLTZ_ASPECTS = [0, 30, 45, 60, 90, 120, 150, 180].map((angle) => ({ angle }));
 
 const DAY = 86_400_000;
 export const NATAL_BODIES = ["Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"] as const;
@@ -55,6 +64,20 @@ type Natal = (typeof NATAL_BODIES)[number];
 type Transit = (typeof TRANSIT_BODIES)[number];
 
 const lon = (b: Natal | Transit, t: Date) => Ecliptic(GeoVector(Body[b], t, true)).elon;
+
+// A transit's noon longitude is the same for every symbol and session, so it
+// is computed once per planet and day (about 30 ms a turn uncached, live and
+// replay alike).
+const transitLonCache = new Map<string, number>();
+function transitLon(b: Transit, t: number): number {
+  const key = `${b}:${t}`;
+  let v = transitLonCache.get(key);
+  if (v === undefined) {
+    v = lon(b, new Date(t));
+    transitLonCache.set(key, v);
+  }
+  return v;
+}
 
 /** UTC instant of 9:30 am New York time on `isoDate` (DST from the time-zone database). */
 export function newYorkOpen(isoDate: string): Date {
@@ -84,9 +107,9 @@ export function transitEvents(chart: Record<Natal, number>, fromMs: number, toMs
   const out = new Map<string, { combo: TransitCombo; days: number[] }>();
   const start = Math.floor(fromMs / DAY) * DAY + DAY / 2;
   for (const transit of TRANSIT_BODIES) {
-    let prev = lon(transit, new Date(start - DAY));
+    let prev = transitLon(transit, start - DAY);
     for (let t = start; t <= toMs; t += DAY) {
-      const cur = lon(transit, new Date(t));
+      const cur = transitLon(transit, t);
       for (const natal of NATAL_BODIES) {
         for (const { angle } of BUCHOLTZ_ASPECTS) {
           for (const target of angle === 0 || angle === 180 ? [angle] : [angle, -angle]) {
@@ -143,4 +166,65 @@ export function scoreHoldOut(
   for (let d = testStartDay + 1; d <= testEndDay; d++) if (testPivotDays.some((p) => Math.abs(p - d) <= WINDOW_DAYS)) near++;
   const span = testEndDay - testStartDay;
   return { events: days.length, hits: hits(days, testPivotDays), baseRate: span > 0 ? near / span : 0 };
+}
+
+const chartCache = new Map<string, Record<Natal, number>>();
+// One stock's transit events by calendar year, so consecutive sessions in the
+// replay and the day's scans reuse them.
+const yearEventsCache = new Map<string, Map<string, { combo: TransitCombo; days: number[] }>>();
+
+function cachedEvents(firstTrade: string, chart: Record<Natal, number>, fromMs: number, toMs: number) {
+  const out = new Map<string, { combo: TransitCombo; days: number[] }>();
+  const fromDay = Math.floor(fromMs / DAY);
+  const toDay = Math.floor(toMs / DAY);
+  for (let y = new Date(fromMs).getUTCFullYear(); y <= new Date(toMs).getUTCFullYear(); y++) {
+    const key = `${firstTrade}:${y}`;
+    let year = yearEventsCache.get(key);
+    if (!year) {
+      year = transitEvents(chart, Date.UTC(y, 0, 1), Date.UTC(y, 11, 31, 12));
+      yearEventsCache.set(key, year);
+    }
+    for (const [k, e] of year) {
+      const days = e.days.filter((d) => d >= fromDay && d <= toDay);
+      if (days.length === 0) continue;
+      const prev = out.get(k);
+      if (prev) prev.days.push(...days);
+      else out.set(k, { combo: e.combo, days });
+    }
+  }
+  return out;
+}
+
+export interface FirstTradeWindow {
+  combo: TransitCombo;
+  /** YYYY-MM-DD the transit is exact. */
+  exact: string;
+}
+
+/**
+ * The window on a turn's date: Bucholtz's kept transits to the first-trade
+ * chart, chosen on the 3-Day Chart swings in `bars` before the turn (`bars`
+ * end at the turn), exact within `WINDOW_DAYS` of `date`. Empty without a
+ * confirmed first-trade date or with too few swings to choose from.
+ */
+export function firstTradeWindows(bars: Bar[], date: string, firstTrade: string | null | undefined): FirstTradeWindow[] {
+  if (!firstTrade || bars.length < 2) return [];
+  let chart = chartCache.get(firstTrade);
+  if (!chart) {
+    chart = firstTradeChart(firstTrade);
+    chartCache.set(firstTrade, chart);
+  }
+  const day = (iso: string) => Math.floor(Date.parse(iso.slice(0, 10) + "T00:00:00Z") / DAY);
+  const turnDay = day(date);
+  const pivots = walkSwingChart(bars, THREE_DAY_CHART).pivots.map((p) => day(bars[p.index].t)).filter((d) => d < turnDay);
+  if (pivots.length < MIN_EVENTS) return [];
+  const events = cachedEvents(firstTrade, chart, Date.parse(bars[0].t), (turnDay + WINDOW_DAYS + 1) * DAY);
+  const kept = selectAspects(events, pivots, turnDay - 1);
+  const out: FirstTradeWindow[] = [];
+  for (const c of kept) {
+    for (const d of events.get(comboKey(c))?.days ?? []) {
+      if (Math.abs(d - turnDay) <= WINDOW_DAYS) out.push({ combo: c, exact: new Date(d * DAY).toISOString().slice(0, 10) });
+    }
+  }
+  return out;
 }
