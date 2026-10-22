@@ -286,6 +286,7 @@ async function addToLine(
     .eq("user_id", line.user_id)
     .eq("status", "working")
     .eq("qty", line.qty)
+    .is("runner_order_id", null)
     .or(`add_claimed_at.is.null,add_claimed_at.lt.${stale}`)
     .select("id")
     .maybeSingle();
@@ -378,7 +379,7 @@ async function addToLine(
     run.errors.push(`${symbol}: the add's own exit closed before it could join the line.`);
     return;
   }
-  const { data: joined } = await ledgerWriter(supabase)
+  const join = ledgerWriter(supabase)
     .from("protocol_exits")
     .update({
       qty: merged.qty,
@@ -393,8 +394,14 @@ async function addToLine(
     .eq("user_id", line.user_id)
     .eq("status", "working")
     .eq("qty", line.qty)
-    .select("id")
-    .maybeSingle();
+    // Not while an exit pass is selling the line, and not over a stop it
+    // trailed since this pass read it: the whole line's stop only rises
+    // (A-STOP-06). Either way the add goes back to its own row and stop.
+    .is("scale_out_order_id", null)
+    .is("master_order_id", null)
+    .is("runner_order_id", null);
+  const joinedQuery = line.applied_stop == null ? join.is("applied_stop", null) : join.eq("applied_stop", line.applied_stop);
+  const { data: joined } = await joinedQuery.select("id").maybeSingle();
   if (!joined) {
     // The line closed or changed under this pass: the add keeps its own row and stop.
     await ledgerWriter(supabase)

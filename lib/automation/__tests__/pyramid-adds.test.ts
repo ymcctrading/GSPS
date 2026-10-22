@@ -91,6 +91,9 @@ function fakeDb(tables: Record<string, Row[]>, onInsert?: (table: string, row: R
       order: () => api,
       limit: () => api,
       match: () => rowsOf(name).filter((r) => filters.every((f) => f(r))),
+      // What a read hands back: copies, as Postgres does, so a later write
+      // by another pass never shows through a row already read.
+      read: () => rowsOf(name).filter((r) => filters.every((f) => f(r))).map((r) => ({ ...r })),
     };
     return api;
   }
@@ -111,9 +114,9 @@ function fakeDb(tables: Record<string, Row[]>, onInsert?: (table: string, row: R
             or: (e: string) => (q.or(e), out),
             order: () => out,
             limit: () => out,
-            maybeSingle: async () => ({ data: q.match()[0] ?? null, error: null }),
-            single: async () => (q.match()[0] ? { data: q.match()[0], error: null } : { data: null, error: { message: "not found" } }),
-            then: (res: (v: { data: Row[]; error: null }) => void) => res({ data: q.match(), error: null }),
+            maybeSingle: async () => ({ data: q.read()[0] ?? null, error: null }),
+            single: async () => (q.read()[0] ? { data: q.read()[0], error: null } : { data: null, error: { message: "not found" } }),
+            then: (res: (v: { data: Row[]; error: null }) => void) => res({ data: q.read(), error: null }),
           };
           return out;
         },
@@ -364,6 +367,25 @@ describe("an add that races an exit pass", () => {
     const line = tables.protocol_exits.find((r) => r.id === "line-1")!;
     expect(line.qty).toBe(100);
     expect(line.lots).toBeNull();
+  });
+
+  it("puts the add back when an exit pass starts selling the line before the join", async () => {
+    const { client, tables } = seed({}, race((_addRow, line) => Object.assign(line, { runner_order_id: "sim_2" })));
+    const run = await placeAutomatedPyramidAdds(client, market(), NOW);
+    expect(run.errors.join(" ")).toMatch(/line changed/);
+    const addRow = tables.protocol_exits.find((r) => r.id !== "line-1")!;
+    expect(addRow.status).toBe("working");
+    expect(tables.protocol_exits.find((r) => r.id === "line-1")!.qty).toBe(100);
+  });
+
+  it("never writes over a stop an exit pass trailed since the line was read", async () => {
+    const { client, tables } = seed({}, race((_addRow, line) => Object.assign(line, { applied_stop: 112, applied_stop_reason: "trailing" })));
+    const run = await placeAutomatedPyramidAdds(client, market(), NOW);
+    expect(run.errors.join(" ")).toMatch(/line changed/);
+    const line = tables.protocol_exits.find((r) => r.id === "line-1")!;
+    expect(line.applied_stop).toBe(112);
+    expect(line.qty).toBe(100);
+    expect(tables.protocol_exits.find((r) => r.id !== "line-1")!.status).toBe("working");
   });
 
   it("says so when the add's own exit row can't be found", async () => {
