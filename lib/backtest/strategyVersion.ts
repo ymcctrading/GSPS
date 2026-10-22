@@ -721,4 +721,11 @@
 // counter-trend short Execute held to Watch for want of a window can now act. Merged onto
 // 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
 // firing-bar fixes it keeps.
-export const STRATEGY_VERSION = "2026-10-22-gann-eclipse-break-window";
+// 2026-10-22-first-trade-chart-window: C-ASTRO-09 acts (Chuck, 2026-10-22:
+// "Search for, confirm and ultimately use these dates"). For the 288 stocks
+// whose first trade is confirmed by two sources (`firstTradeDates.json`), a
+// Bucholtz transit to the first-trade chart, chosen on the 3-Day Chart swings
+// before a turn and exact within 3 days of it, is a dated window in the
+// time-window hold (`firstTradeWindows`), live and replay alike. A
+// counter-trend Execute held for want of a window can now act on those stocks.
+export const STRATEGY_VERSION = "2026-10-22-first-trade-chart-window";

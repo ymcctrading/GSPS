@@ -1007,8 +1007,27 @@ window. Not acting, with the reason: Bucholtz's first-trade chart
 GSPS does not hold, and it is not Gann's; Jensen's aspects measured against
 Gann's own 1919-1921 malefic stretches showed no lift (A-ASTRO-11,
 `lib/research/maleficCycles.ts`), so they are not Gann's malefic cycle.
-`STRATEGY_VERSION` is `2026-10-22-gann-eclipse-break-window`, merged onto
+`STRATEGY_VERSION` was `2026-10-22-gann-eclipse-break-window`, merged onto
 `2026-10-21-review-sweep-square-sign-daily-firing-bar`, whose fixes it keeps.
+**First-trade dates and chart, same day (Chuck: "Search for, confirm and
+ultimately use these dates").** `scripts/fetch-first-trade-dates.mjs` (run by
+`fetch-first-trade-dates.yml`, since this sandbox can't reach the sources)
+reads each universe stock's Wikidata listing on a New York exchange (P414/P580,
+by CIK), its first IPO prospectus on SEC EDGAR (424B1/424B4) and Yahoo's first
+daily bar, and keeps Yahoo's date only where it agrees within 3 days with one
+of the other two (`lib/gann/firstTradeDates.json`; `confirmedFirstTrade` reads
+only those). First run: 288 of 832 confirmed, 282 in conflict, 251 single, 11
+none. Listings before EDGAR (mid-1990s) with no Wikidata date, such as AAPL, KO
+and JPM, stay unconfirmed; Wikidata often dates a ticker change, not the first
+trade; a SPAC's date is the shell's first trade. C-ASTRO-09 moved to
+`lib/gann/firstTradeChart.ts` and acts: Bucholtz's transits (Mars to Uranus to
+the natal Sun-Pluto), chosen on the 3-Day Chart swings before a turn and exact
+within 3 days of it, are a window in the time-window hold, live and replay
+alike (`readWindowTurn`'s `firstTrade`; `InstrumentFacts.firstTrade` in the
+replay). Not Gann's (Tier C), included on the owner's word. About 116 ms the
+first time a stock is read and under 0.1 ms after (transits cached by planet,
+day and year), only when a counter-trend Execute needs a window.
+`STRATEGY_VERSION` is `2026-10-22-first-trade-chart-window`.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the

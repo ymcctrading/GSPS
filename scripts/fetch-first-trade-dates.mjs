@@ -19,7 +19,8 @@
  *   statement (P414) on a New York exchange (NYSE, Nasdaq, NYSE American,
  *   NYSE Arca) with a start time (P580) at day precision. The earliest wins.
  * - SEC EDGAR: the company's first final IPO prospectus (form 424B1 or 424B4),
- *   filed on the pricing day, so the first trade is that day or the next few.
+ *   filed on or up to two business days after the pricing day, so the first
+ *   trade lies within a few days of it either way.
  *   EDGAR's filings start in the mid-1990s, so this covers later listings.
  * - Yahoo Finance's chart record: `meta.firstTradeDate`, the first daily bar
  *   it holds. Yahoo's history starts in 1962, 1973 or 1980 for the oldest
@@ -156,8 +157,9 @@ for (const symbol of symbols) {
   let y = await yahooFirst(symbol);
   if (y && y <= YAHOO_FLOOR) y = null;
   await sleep(250);
-  // The trade is on or after the prospectus, never before it.
-  const agreesSec = sec && y && y >= sec && dayGap(sec, y) <= AGREE_DAYS;
+  // A 424B4 may be filed up to two business days after pricing (Rule 424(b)),
+  // so the trade can fall either side of it.
+  const agreesSec = sec && y && dayGap(sec, y) <= AGREE_DAYS;
   const agreesWiki = w && y && dayGap(w.date, y) <= AGREE_DAYS;
   const sources = [w, sec, y].filter(Boolean).length;
   let row;

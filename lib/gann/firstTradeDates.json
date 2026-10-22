@@ -3,9 +3,9 @@
  "fetched": "2026-10-22",
  "agreeDays": 3,
  "counts": {
-  "confirmed": 225,
+  "confirmed": 288,
   "single": 251,
-  "conflict": 345,
+  "conflict": 282,
   "none": 11
  },
  "dates": {
@@ -57,12 +57,15 @@
    "yahoo": "1997-03-05"
   },
   "ABNB": {
-   "date": null,
-   "status": "conflict",
+   "date": "2020-12-10",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2020-12-11",
-   "yahoo": "2020-12-10"
+   "yahoo": "2020-12-10",
+   "by": [
+    "sec"
+   ]
   },
   "ABT": {
    "date": null,
@@ -202,28 +205,37 @@
    "yahoo": "1980-03-17"
   },
   "AFRM": {
-   "date": null,
-   "status": "conflict",
+   "date": "2021-01-13",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2021-01-14",
-   "yahoo": "2021-01-13"
+   "yahoo": "2021-01-13",
+   "by": [
+    "sec"
+   ]
   },
   "AGNC": {
-   "date": null,
-   "status": "conflict",
+   "date": "2008-05-15",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2008-05-16",
-   "yahoo": "2008-05-15"
+   "yahoo": "2008-05-15",
+   "by": [
+    "sec"
+   ]
   },
   "AHR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2024-02-07",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2024-02-08",
-   "yahoo": "2024-02-07"
+   "yahoo": "2024-02-07",
+   "by": [
+    "sec"
+   ]
   },
   "AIG": {
    "date": null,
@@ -274,12 +286,15 @@
    "yahoo": "1999-10-29"
   },
   "ALAB": {
-   "date": null,
-   "status": "conflict",
+   "date": "2024-03-20",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2024-03-21",
-   "yahoo": "2024-03-20"
+   "yahoo": "2024-03-20",
+   "by": [
+    "sec"
+   ]
   },
   "ALB": {
    "date": "1994-02-22",
@@ -344,12 +359,15 @@
    "yahoo": "2012-03-15"
   },
   "AM": {
-   "date": null,
-   "status": "conflict",
+   "date": "2017-05-04",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2017-05-05",
-   "yahoo": "2017-05-04"
+   "yahoo": "2017-05-04",
+   "by": [
+    "sec"
+   ]
   },
   "AMAT": {
    "date": null,
@@ -387,7 +405,8 @@
    "date": "2013-08-01",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2013-08-01",
    "exchange": "New York Stock Exchange",
@@ -542,20 +561,26 @@
    "yahoo": "2004-10-05"
   },
   "ARES": {
-   "date": null,
-   "status": "conflict",
+   "date": "2014-05-02",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2014-05-05",
-   "yahoo": "2014-05-02"
+   "yahoo": "2014-05-02",
+   "by": [
+    "sec"
+   ]
   },
   "ARGX": {
-   "date": null,
-   "status": "conflict",
+   "date": "2017-05-18",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2017-05-19",
-   "yahoo": "2017-05-18"
+   "yahoo": "2017-05-18",
+   "by": [
+    "sec"
+   ]
   },
   "ARMK": {
    "date": "2013-12-12",
@@ -663,12 +688,15 @@
    "yahoo": "2009-08-06"
   },
   "AVTR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2019-05-17",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2019-05-20",
-   "yahoo": "2019-05-17"
+   "yahoo": "2019-05-17",
+   "by": [
+    "sec"
+   ]
   },
   "AVY": {
    "date": null,
@@ -679,12 +707,15 @@
    "yahoo": "1973-02-21"
   },
   "AWK": {
-   "date": null,
-   "status": "conflict",
+   "date": "2008-04-23",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2008-04-24",
-   "yahoo": "2008-04-23"
+   "yahoo": "2008-04-23",
+   "by": [
+    "sec"
+   ]
   },
   "AXON": {
    "date": null,
@@ -738,12 +769,15 @@
    "yahoo": "1985-02-13"
   },
   "BABA": {
-   "date": null,
-   "status": "conflict",
+   "date": "2014-09-19",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2014-09-22",
-   "yahoo": "2014-09-19"
+   "yahoo": "2014-09-19",
+   "by": [
+    "sec"
+   ]
   },
   "BAC": {
    "date": null,
@@ -794,12 +828,15 @@
    "yahoo": "2002-08-02"
   },
   "BBIO": {
-   "date": null,
-   "status": "conflict",
+   "date": "2019-06-27",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2019-06-28",
-   "yahoo": "2019-06-27"
+   "yahoo": "2019-06-27",
+   "by": [
+    "sec"
+   ]
   },
   "BBVA": {
    "date": null,
@@ -834,12 +871,15 @@
    "yahoo": "1973-02-21"
   },
   "BE": {
-   "date": null,
-   "status": "conflict",
+   "date": "2018-07-25",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2018-07-26",
-   "yahoo": "2018-07-25"
+   "yahoo": "2018-07-25",
+   "by": [
+    "sec"
+   ]
   },
   "BEN": {
    "date": null,
@@ -939,12 +979,15 @@
    "yahoo": "1999-10-01"
   },
   "BMNR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2025-06-05",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2025-06-06",
-   "yahoo": "2025-06-05"
+   "yahoo": "2025-06-05",
+   "by": [
+    "sec"
+   ]
   },
   "BMO": {
    "date": null,
@@ -991,12 +1034,15 @@
    "yahoo": "2002-06-07"
   },
   "BNTX": {
-   "date": null,
-   "status": "conflict",
+   "date": "2019-10-10",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2019-10-11",
-   "yahoo": "2019-10-10"
+   "yahoo": "2019-10-10",
+   "by": [
+    "sec"
+   ]
   },
   "BNY": {
    "date": null,
@@ -1097,12 +1143,15 @@
    "yahoo": "2009-07-01"
   },
   "BURL": {
-   "date": null,
-   "status": "conflict",
+   "date": "2013-10-02",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2013-10-03",
-   "yahoo": "2013-10-02"
+   "yahoo": "2013-10-02",
+   "by": [
+    "sec"
+   ]
   },
   "BWA": {
    "date": null,
@@ -1124,7 +1173,8 @@
    "date": "2007-06-22",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2007-06-22",
    "exchange": "New York Stock Exchange",
@@ -1135,7 +1185,8 @@
    "date": "1997-06-18",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "1997-06-18",
    "exchange": "New York Stock Exchange",
@@ -1175,12 +1226,15 @@
    "yahoo": "2020-03-19"
   },
   "CART": {
-   "date": null,
-   "status": "conflict",
+   "date": "2023-09-19",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2023-09-20",
-   "yahoo": "2023-09-19"
+   "yahoo": "2023-09-19",
+   "by": [
+    "sec"
+   ]
   },
   "CASY": {
    "date": null,
@@ -1291,12 +1345,15 @@
    "yahoo": "1987-06-10"
   },
   "CDW": {
-   "date": null,
-   "status": "conflict",
+   "date": "2013-06-27",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2013-06-28",
-   "yahoo": "2013-06-27"
+   "yahoo": "2013-06-27",
+   "by": [
+    "sec"
+   ]
   },
   "CEG": {
    "date": null,
@@ -1322,7 +1379,8 @@
    "date": "2014-09-24",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2014-09-24",
    "exchange": "New York Stock Exchange",
@@ -1338,12 +1396,15 @@
    "yahoo": "1980-03-17"
   },
   "CG": {
-   "date": null,
-   "status": "conflict",
+   "date": "2012-05-03",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2012-05-04",
-   "yahoo": "2012-05-03"
+   "yahoo": "2012-05-03",
+   "by": [
+    "sec"
+   ]
   },
   "CGNX": {
    "date": null,
@@ -1622,7 +1683,8 @@
    "date": "2004-04-14",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2004-04-14",
    "exchange": "Nasdaq",
@@ -1753,7 +1815,8 @@
    "date": "2000-06-23",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2000-06-23",
    "exchange": "New York Stock Exchange",
@@ -1784,7 +1847,8 @@
    "date": "2019-06-12",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2019-06-12",
    "exchange": "Nasdaq",
@@ -1792,12 +1856,15 @@
    "yahoo": "2019-06-12"
   },
   "CRWV": {
-   "date": null,
-   "status": "conflict",
+   "date": "2025-03-28",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2025-03-31",
-   "yahoo": "2025-03-28"
+   "yahoo": "2025-03-28",
+   "by": [
+    "sec"
+   ]
   },
   "CSCO": {
    "date": null,
@@ -1811,7 +1878,8 @@
    "date": "1998-07-01",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "1998-07-01",
    "exchange": "Nasdaq",
@@ -2078,12 +2146,15 @@
    "yahoo": "2002-10-16"
   },
   "DLR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2004-10-29",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2004-11-01",
-   "yahoo": "2004-10-29"
+   "yahoo": "2004-10-29",
+   "by": [
+    "sec"
+   ]
   },
   "DLTR": {
    "date": "1995-03-07",
@@ -2146,7 +2217,8 @@
    "date": "2004-07-13",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2004-07-13",
    "exchange": "New York Stock Exchange",
@@ -2236,7 +2308,8 @@
    "date": "1998-09-24",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "1998-09-24",
    "exchange": "Nasdaq",
@@ -2316,12 +2389,15 @@
    "yahoo": "1995-11-17"
   },
   "ELAN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2018-09-20",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2018-09-21",
-   "yahoo": "2018-09-20"
+   "yahoo": "2018-09-20",
+   "by": [
+    "sec"
+   ]
   },
   "ELS": {
    "date": null,
@@ -2408,12 +2484,15 @@
    "yahoo": "1998-07-28"
   },
   "EQH": {
-   "date": null,
-   "status": "conflict",
+   "date": "2018-05-10",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2018-05-11",
-   "yahoo": "2018-05-10"
+   "yahoo": "2018-05-10",
+   "by": [
+    "sec"
+   ]
   },
   "EQIX": {
    "date": "2000-08-11",
@@ -2607,7 +2686,8 @@
    "date": "2012-10-12",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2012-10-12",
    "exchange": "Nasdaq",
@@ -2814,12 +2894,15 @@
    "yahoo": "1973-05-03"
   },
   "FSLR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2006-11-17",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2006-11-20",
-   "yahoo": "2006-11-17"
+   "yahoo": "2006-11-17",
+   "by": [
+    "sec"
+   ]
   },
   "FTAI": {
    "date": null,
@@ -2882,12 +2965,15 @@
    "yahoo": null
   },
   "GDDY": {
-   "date": null,
-   "status": "conflict",
+   "date": "2015-03-31",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2015-04-01",
-   "yahoo": "2015-03-31"
+   "yahoo": "2015-03-31",
+   "by": [
+    "sec"
+   ]
   },
   "GE": {
    "date": null,
@@ -2922,12 +3008,15 @@
    "yahoo": "1980-03-17"
   },
   "GFS": {
-   "date": null,
-   "status": "conflict",
+   "date": "2021-10-28",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2021-10-29",
-   "yahoo": "2021-10-28"
+   "yahoo": "2021-10-28",
+   "by": [
+    "sec"
+   ]
   },
   "GGG": {
    "date": null,
@@ -2938,12 +3027,15 @@
    "yahoo": "1980-03-17"
   },
   "GH": {
-   "date": null,
-   "status": "conflict",
+   "date": "2018-10-04",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2018-10-05",
-   "yahoo": "2018-10-04"
+   "yahoo": "2018-10-04",
+   "by": [
+    "sec"
+   ]
   },
   "GILD": {
    "date": null,
@@ -3063,12 +3155,15 @@
    "yahoo": "2001-01-16"
   },
   "GRMN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2000-12-08",
+   "status": "confirmed",
    "wikidata": "2021-12-07",
    "exchange": "New York Stock Exchange",
    "sec": "2000-12-11",
-   "yahoo": "2000-12-08"
+   "yahoo": "2000-12-08",
+   "by": [
+    "sec"
+   ]
   },
   "GS": {
    "date": "1999-05-04",
@@ -3083,12 +3178,15 @@
    "yahoo": "1999-05-04"
   },
   "GSAT": {
-   "date": null,
-   "status": "conflict",
+   "date": "2006-11-02",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2006-11-03",
-   "yahoo": "2006-11-02"
+   "yahoo": "2006-11-02",
+   "by": [
+    "sec"
+   ]
   },
   "GSK": {
    "date": null,
@@ -3229,12 +3327,15 @@
    "yahoo": "2022-07-25"
   },
   "HLT": {
-   "date": null,
-   "status": "conflict",
+   "date": "2013-12-12",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2013-12-13",
-   "yahoo": "2013-12-12"
+   "yahoo": "2013-12-12",
+   "by": [
+    "sec"
+   ]
   },
   "HMC": {
    "date": null,
@@ -3264,7 +3365,8 @@
    "date": "2021-07-29",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2021-07-29",
    "exchange": "Nasdaq",
@@ -3369,12 +3471,15 @@
    "yahoo": "2007-05-04"
   },
   "IBN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2000-03-28",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2000-03-29",
-   "yahoo": "2000-03-28"
+   "yahoo": "2000-03-28",
+   "by": [
+    "sec"
+   ]
   },
   "ICE": {
    "date": "2005-11-16",
@@ -3505,12 +3610,15 @@
    "yahoo": "1993-03-12"
   },
   "INVH": {
-   "date": null,
-   "status": "conflict",
+   "date": "2017-02-01",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2017-02-02",
-   "yahoo": "2017-02-01"
+   "yahoo": "2017-02-01",
+   "by": [
+    "sec"
+   ]
   },
   "IONQ": {
    "date": null,
@@ -3552,12 +3660,15 @@
    "yahoo": "2013-05-09"
   },
   "IR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2017-05-12",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2017-05-15",
-   "yahoo": "2017-05-12"
+   "yahoo": "2017-05-12",
+   "by": [
+    "sec"
+   ]
   },
   "IRM": {
    "date": null,
@@ -3690,12 +3801,15 @@
    "yahoo": "1985-11-20"
   },
   "JLL": {
-   "date": null,
-   "status": "conflict",
+   "date": "1997-07-17",
+   "status": "confirmed",
    "wikidata": "1999-03-12",
    "exchange": "New York Stock Exchange",
    "sec": "1997-07-18",
-   "yahoo": "1997-07-17"
+   "yahoo": "1997-07-17",
+   "by": [
+    "sec"
+   ]
   },
   "JPM": {
    "date": null,
@@ -4075,20 +4189,26 @@
    "yahoo": "1994-01-28"
   },
   "MAIR": {
-   "date": null,
-   "status": "conflict",
+   "date": "2026-04-16",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2026-04-17",
-   "yahoo": "2026-04-16"
+   "yahoo": "2026-04-16",
+   "by": [
+    "sec"
+   ]
   },
   "MANH": {
-   "date": null,
-   "status": "conflict",
+   "date": "1998-04-23",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "1998-04-24",
-   "yahoo": "1998-04-23"
+   "yahoo": "1998-04-23",
+   "by": [
+    "sec"
+   ]
   },
   "MAR": {
    "date": null,
@@ -4151,20 +4271,26 @@
    "yahoo": "2017-10-19"
   },
   "MDGL": {
-   "date": null,
-   "status": "conflict",
+   "date": "2007-02-06",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2007-02-07",
-   "yahoo": "2007-02-06"
+   "yahoo": "2007-02-06",
+   "by": [
+    "sec"
+   ]
   },
   "MDLN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2025-12-17",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2025-12-18",
-   "yahoo": "2025-12-17"
+   "yahoo": "2025-12-17",
+   "by": [
+    "sec"
+   ]
   },
   "MDLZ": {
    "date": "2001-06-13",
@@ -4211,7 +4337,8 @@
    "date": "2000-04-05",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2000-04-05",
    "exchange": "New York Stock Exchange",
@@ -4327,12 +4454,15 @@
    "yahoo": "2011-06-24"
   },
   "MPLX": {
-   "date": null,
-   "status": "conflict",
+   "date": "2012-10-26",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2012-10-29",
-   "yahoo": "2012-10-26"
+   "yahoo": "2012-10-26",
+   "by": [
+    "sec"
+   ]
   },
   "MPWR": {
    "date": "2004-11-19",
@@ -4433,12 +4563,15 @@
    "yahoo": "1980-03-17"
   },
   "MTD": {
-   "date": null,
-   "status": "conflict",
+   "date": "1997-11-14",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "1997-11-17",
-   "yahoo": "1997-11-14"
+   "yahoo": "1997-11-14",
+   "by": [
+    "sec"
+   ]
   },
   "MTSI": {
    "date": "2012-03-15",
@@ -4477,12 +4610,15 @@
    "yahoo": "2024-10-21"
   },
   "NBIX": {
-   "date": null,
-   "status": "conflict",
+   "date": "1996-05-23",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "1996-05-24",
-   "yahoo": "1996-05-23"
+   "yahoo": "1996-05-23",
+   "by": [
+    "sec"
+   ]
   },
   "NDAQ": {
    "date": null,
@@ -4663,7 +4799,8 @@
    "date": "2015-07-01",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2015-07-02",
    "exchange": "Nasdaq",
@@ -4765,12 +4902,15 @@
    "yahoo": "2010-08-06"
   },
   "NXT": {
-   "date": null,
-   "status": "conflict",
+   "date": "2023-02-09",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2023-02-10",
-   "yahoo": "2023-02-09"
+   "yahoo": "2023-02-09",
+   "by": [
+    "sec"
+   ]
   },
   "NYT": {
    "date": null,
@@ -4925,12 +5065,15 @@
    "yahoo": "1981-12-31"
   },
   "P": {
-   "date": null,
-   "status": "conflict",
+   "date": "2015-10-06",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2015-10-07",
-   "yahoo": "2015-10-06"
+   "yahoo": "2015-10-06",
+   "by": [
+    "sec"
+   ]
   },
   "PAA": {
    "date": "1998-11-18",
@@ -5069,12 +5212,15 @@
    "yahoo": "2001-10-23"
   },
   "PFGC": {
-   "date": null,
-   "status": "conflict",
+   "date": "2015-09-30",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2015-10-02",
-   "yahoo": "2015-09-30"
+   "yahoo": "2015-09-30",
+   "by": [
+    "sec"
+   ]
   },
   "PGR": {
    "date": null,
@@ -5132,12 +5278,15 @@
    "yahoo": "2000-01-28"
   },
   "PLD": {
-   "date": null,
-   "status": "conflict",
+   "date": "1997-11-21",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "1997-11-24",
-   "yahoo": "1997-11-21"
+   "yahoo": "1997-11-21",
+   "by": [
+    "sec"
+   ]
   },
   "PLTR": {
    "date": "2020-09-30",
@@ -5219,12 +5368,15 @@
    "yahoo": "2001-12-13"
   },
   "PS": {
-   "date": null,
-   "status": "conflict",
+   "date": "2026-04-29",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2026-04-30",
-   "yahoo": "2026-04-29"
+   "yahoo": "2026-04-29",
+   "by": [
+    "sec"
+   ]
   },
   "PSA": {
    "date": null,
@@ -5305,12 +5457,15 @@
    "yahoo": "1991-12-13"
   },
   "QNT": {
-   "date": null,
-   "status": "conflict",
+   "date": "2026-06-04",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2026-06-05",
-   "yahoo": "2026-06-04"
+   "yahoo": "2026-06-04",
+   "by": [
+    "sec"
+   ]
   },
   "QSR": {
    "date": null,
@@ -5340,12 +5495,15 @@
    "yahoo": "2015-10-21"
   },
   "RBC": {
-   "date": null,
-   "status": "conflict",
+   "date": "2005-08-10",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2005-08-11",
-   "yahoo": "2005-08-10"
+   "yahoo": "2005-08-10",
+   "by": [
+    "sec"
+   ]
   },
   "RBLX": {
    "date": "2021-03-10",
@@ -5360,12 +5518,15 @@
    "yahoo": "2021-03-10"
   },
   "RBRK": {
-   "date": null,
-   "status": "conflict",
+   "date": "2024-04-25",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2024-04-26",
-   "yahoo": "2024-04-25"
+   "yahoo": "2024-04-25",
+   "by": [
+    "sec"
+   ]
   },
   "RCL": {
    "date": "1993-04-28",
@@ -5450,12 +5611,15 @@
    "yahoo": "1990-06-28"
   },
   "RIVN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2021-11-10",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2021-11-12",
-   "yahoo": "2021-11-10"
+   "yahoo": "2021-11-10",
+   "by": [
+    "sec"
+   ]
   },
   "RJF": {
    "date": null,
@@ -5477,7 +5641,8 @@
    "date": "2020-08-06",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2020-08-06",
    "exchange": "New York Stock Exchange",
@@ -5567,12 +5732,15 @@
    "yahoo": "1980-03-17"
   },
   "RPRX": {
-   "date": null,
-   "status": "conflict",
+   "date": "2020-06-16",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2020-06-17",
-   "yahoo": "2020-06-16"
+   "yahoo": "2020-06-16",
+   "by": [
+    "sec"
+   ]
   },
   "RRX": {
    "date": null,
@@ -5652,12 +5820,15 @@
    "yahoo": "1997-05-29"
   },
   "RYAN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2021-07-22",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2021-07-23",
-   "yahoo": "2021-07-22"
+   "yahoo": "2021-07-22",
+   "by": [
+    "sec"
+   ]
   },
   "SANM": {
    "date": null,
@@ -5679,7 +5850,8 @@
    "date": "1999-06-16",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "1999-06-16",
    "exchange": "Nasdaq",
@@ -5750,12 +5922,15 @@
    "yahoo": "1983-07-19"
   },
   "SGI": {
-   "date": null,
-   "status": "conflict",
+   "date": "2003-12-18",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2003-12-19",
-   "yahoo": "2003-12-18"
+   "yahoo": "2003-12-18",
+   "by": [
+    "sec"
+   ]
   },
   "SHEL": {
    "date": null,
@@ -5774,12 +5949,15 @@
    "yahoo": "2003-09-17"
   },
   "SHOP": {
-   "date": null,
-   "status": "conflict",
+   "date": "2015-05-20",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2015-05-21",
-   "yahoo": "2015-05-20"
+   "yahoo": "2015-05-20",
+   "by": [
+    "sec"
+   ]
   },
   "SHW": {
    "date": null,
@@ -5790,12 +5968,15 @@
    "yahoo": "1980-03-17"
   },
   "SITM": {
-   "date": null,
-   "status": "conflict",
+   "date": "2019-11-20",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2019-11-21",
-   "yahoo": "2019-11-20"
+   "yahoo": "2019-11-20",
+   "by": [
+    "sec"
+   ]
   },
   "SJM": {
    "date": null,
@@ -6075,12 +6256,15 @@
    "yahoo": "1993-12-09"
   },
   "SUN": {
-   "date": null,
-   "status": "conflict",
+   "date": "2012-09-20",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2012-09-21",
-   "yahoo": "2012-09-20"
+   "yahoo": "2012-09-20",
+   "by": [
+    "sec"
+   ]
   },
   "SUNB": {
    "date": null,
@@ -6135,12 +6319,15 @@
    "yahoo": "1980-03-17"
   },
   "SYM": {
-   "date": null,
-   "status": "conflict",
+   "date": "2021-03-09",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2021-03-10",
-   "yahoo": "2021-03-09"
+   "yahoo": "2021-03-09",
+   "by": [
+    "sec"
+   ]
   },
   "SYY": {
    "date": null,
@@ -6200,7 +6387,8 @@
    "date": "2015-12-09",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2015-12-10",
    "exchange": "Nasdaq",
@@ -6235,12 +6423,15 @@
    "yahoo": "2007-06-14"
   },
   "TEM": {
-   "date": null,
-   "status": "conflict",
+   "date": "2024-06-14",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2024-06-17",
-   "yahoo": "2024-06-14"
+   "yahoo": "2024-06-14",
+   "by": [
+    "sec"
+   ]
   },
   "TER": {
    "date": null,
@@ -6353,12 +6544,15 @@
    "yahoo": "2021-09-22"
   },
   "TPG": {
-   "date": null,
-   "status": "conflict",
+   "date": "2022-01-13",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2022-01-14",
-   "yahoo": "2022-01-13"
+   "yahoo": "2022-01-13",
+   "by": [
+    "sec"
+   ]
   },
   "TPL": {
    "date": null,
@@ -6528,12 +6722,15 @@
    "yahoo": "1997-04-15"
   },
   "TW": {
-   "date": null,
-   "status": "conflict",
+   "date": "2019-04-04",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2019-04-05",
-   "yahoo": "2019-04-04"
+   "yahoo": "2019-04-04",
+   "by": [
+    "sec"
+   ]
   },
   "TWLO": {
    "date": "2016-06-23",
@@ -6605,7 +6802,8 @@
    "date": "2019-05-10",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2019-05-10",
    "exchange": "New York Stock Exchange",
@@ -6670,12 +6868,15 @@
    "yahoo": "1980-03-25"
   },
   "ULS": {
-   "date": null,
-   "status": "conflict",
+   "date": "2024-04-12",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2024-04-15",
-   "yahoo": "2024-04-12"
+   "yahoo": "2024-04-12",
+   "by": [
+    "sec"
+   ]
   },
   "ULTA": {
    "date": "2007-10-25",
@@ -6760,12 +6961,15 @@
    "yahoo": "1973-05-03"
   },
   "USFD": {
-   "date": null,
-   "status": "conflict",
+   "date": "2016-05-26",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2016-05-27",
-   "yahoo": "2016-05-26"
+   "yahoo": "2016-05-26",
+   "by": [
+    "sec"
+   ]
   },
   "UTHR": {
    "date": null,
@@ -6829,12 +7033,15 @@
    "yahoo": "2018-01-02"
   },
   "VIK": {
-   "date": null,
-   "status": "conflict",
+   "date": "2024-05-01",
+   "status": "confirmed",
    "wikidata": null,
    "exchange": null,
    "sec": "2024-05-02",
-   "yahoo": "2024-05-01"
+   "yahoo": "2024-05-01",
+   "by": [
+    "sec"
+   ]
   },
   "VLO": {
    "date": null,
@@ -6888,7 +7095,8 @@
    "date": "2009-10-07",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2009-10-07",
    "exchange": "Nasdaq",
@@ -7018,7 +7226,8 @@
    "date": "2012-10-12",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2012-10-12",
    "exchange": "Nasdaq",
@@ -7297,7 +7506,8 @@
    "date": "2013-02-01",
    "status": "confirmed",
    "by": [
-    "wikidata"
+    "wikidata",
+    "sec"
    ],
    "wikidata": "2013-02-01",
    "exchange": "New York Stock Exchange",
