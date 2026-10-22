@@ -26,7 +26,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getMarketDataProvider } from "@/lib/data/provider";
-import { syntheticDataRefusal } from "@/lib/data/feed-mode";
+import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { sendPriceAlertEmail } from "@/lib/notifications/resend-handler";
 import {
@@ -118,8 +118,9 @@ export async function GET(req: NextRequest) {
 
   const symbols = [...new Set(openAlerts.map((a) => a.symbol))];
   const provider = getMarketDataProvider();
-  const refused = syntheticDataRefusal("check price alerts", provider);
-  if (refused) return NextResponse.json({ error: refused, code: "synthetic_market_data" }, { status: 503 });
+  if (syntheticDataRefusal("check price alerts", provider)) {
+    return NextResponse.json({ error: MARKET_DATA_UNAVAILABLE, code: "synthetic_market_data" }, { status: 503 });
+  }
   const quoteBySymbol = new Map<string, AlertQuote>();
   const byClass = new Map<AssetClass, string[]>();
   for (const symbol of symbols) {

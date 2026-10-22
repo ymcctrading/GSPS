@@ -51,7 +51,7 @@ import {
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry, remainingSetupsDisplayable } from "@/lib/promotion/pro-intraday";
 import { getMarketDataProvider } from "@/lib/data/provider";
-import { syntheticDataRefusal } from "@/lib/data/feed-mode";
+import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
@@ -205,8 +205,9 @@ export async function GET(req: NextRequest) {
     : resolveUniverse(params.get("symbols"));
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
-  const refused = syntheticDataRefusal("run the intraday scan and send its alerts", provider);
-  if (refused) return NextResponse.json({ error: refused, code: "synthetic_market_data" }, { status: 503 });
+  if (syntheticDataRefusal("run the intraday scan and send its alerts", provider)) {
+    return NextResponse.json({ error: MARKET_DATA_UNAVAILABLE, code: "synthetic_market_data" }, { status: 503 });
+  }
 
   const todayEt = etDateKey(now);
   const nowEtMinute = etParts(now).minutes;
