@@ -22,6 +22,7 @@ import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { loadSweptCandidates } from "@/lib/scan/universeSweep";
 
 /**
  * scan_executions.source for this route's own per-profile monitor fan-out.
@@ -98,7 +99,10 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   const service = createServiceClient();
   const { universe } = await getUniversePolicy(service);
   const scanDate = etDateKey(new Date());
-  const extraSymbols = await resolveExtraSymbols(service, scanDate);
+  const [extraSymbols, sweptSymbols] = await Promise.all([
+    resolveExtraSymbols(service, scanDate),
+    loadSweptCandidates(service),
+  ]);
 
   // `runMarketScan` itself was previously uncaught here: a thrown
   // MarketDataError (e.g. Alpaca's free-tier rate limit, hit more easily now
@@ -110,7 +114,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   // other failure mode this route already handles below.
   let output: Awaited<ReturnType<typeof runMarketScan>>;
   try {
-    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, extraSymbols);
+    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, extraSymbols, sweptSymbols);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`market-scan: scan itself failed — ${message}`);

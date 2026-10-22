@@ -463,11 +463,29 @@ export function readLevelTests(bars: Bar[], currentPrice: number): LevelTestsRea
 // ---------------------------------------------------------------------------
 // 7. The Rule of Three on weekly and monthly bars
 
+// The replay reads every session's whole history, so the same bar timestamps
+// are keyed many times over; a bar's week and month never change, so each key
+// is worked out once (bounded, cleared when full). Speed only: same output.
+const KEY_CACHE_LIMIT = 200_000;
+const keyCaches = new Map<(d: Date) => string, Map<string, string>>();
+
+function cachedKey(key: (d: Date) => string, t: string): string {
+  let cache = keyCaches.get(key);
+  if (!cache) keyCaches.set(key, (cache = new Map()));
+  let k = cache.get(t);
+  if (k === undefined) {
+    if (cache.size >= KEY_CACHE_LIMIT) cache.clear();
+    k = key(new Date(t));
+    cache.set(t, k);
+  }
+  return k;
+}
+
 function resample(bars: Bar[], key: (d: Date) => string): Bar[] {
   const out: Bar[] = [];
   let currentKey: string | null = null;
   for (const b of bars) {
-    const k = key(new Date(b.t));
+    const k = cachedKey(key, b.t);
     if (k !== currentKey) {
       out.push({ ...b });
       currentKey = k;

@@ -56,6 +56,10 @@ on:
         description: Optional — only the first N symbols (smoke test)
         required: false
         default: ''
+      offset:
+        description: Optional — skip the first N symbols (split a long run across jobs with limit)
+        required: false
+        default: ''
       symbols_per_minute:
         description: Pacing (30 ≈ 60 vendor requests/min). Keep ≤30 during market hours.
         required: true
@@ -102,6 +106,8 @@ jobs:
       - run: npm ci
 
       - name: Run backtest
+        # Under the job's 330 so the print and upload steps always get their turn.
+        timeout-minutes: 320
         env:
           MARKET_DATA_PROVIDER: alpaca
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
@@ -114,6 +120,7 @@ jobs:
           TARGET_R: ${{ inputs.target_r }}
           SINCE: ${{ inputs.since }}
           LIMIT: ${{ inputs.limit }}
+          OFFSET: ${{ inputs.offset }}
           PACE: ${{ inputs.symbols_per_minute }}
         # Inputs arrive through env vars, never interpolated into the script,
         # so a crafted input cannot inject shell.
@@ -122,6 +129,7 @@ jobs:
           args=(--universe "$UNIVERSE" --cells "$CELLS" --timeframe "$TIMEFRAME" --targetR "$TARGET_R" --symbolsPerMinute "$PACE" --out out)
           if [ -n "$SINCE" ]; then args+=(--since "$SINCE"); fi
           if [ -n "$LIMIT" ]; then args+=(--limit "$LIMIT"); fi
+          if [ -n "$OFFSET" ]; then args+=(--offset "$OFFSET"); fi
           node scripts/backtest-universe.mjs "${args[@]}"
           cat out/summary.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -135,6 +143,11 @@ jobs:
             echo
             echo "=== END $(basename "$f") ==="
           done
+          # A job stopped at its time limit leaves its last checkpoint's trades here.
+          if [ -f out/trades.partial-log.txt ]; then
+            cat out/trades.partial-log.txt
+            if [ -f out/summary.md ]; then cat out/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -171,9 +171,9 @@ describe("intraday email and push", () => {
     expect(db.tables.notification_log).toHaveLength(0);
   });
 
-  it("keeps push off for a member who never saved settings, and email on", async () => {
+  it("sends nothing to a member who never saved settings (email and push are opt-in)", async () => {
     const db = fakeDb({ notification_preferences: [], notification_log: [] }, ["expert-a"]);
     const sent = await notifySubscribedUsers(db.client, [alert("SPY")], { intervalBySymbol: new Map(), now });
-    expect(sent).toEqual({ email: 1, push: 0 });
+    expect(sent).toEqual({ email: 0, push: 0 });
   });
 });

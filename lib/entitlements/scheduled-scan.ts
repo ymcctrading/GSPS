@@ -55,6 +55,7 @@
  * and a setup that no longer ranks simply drops off on the next write.
  */
 
+import { loadSweptCandidates } from "@/lib/scan/universeSweep";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
@@ -220,7 +221,9 @@ export async function runScheduledScan(
   let output;
   try {
     const { universe } = await getUniversePolicy(service);
-    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe);
+    // Last night's swept setups take the full pass's first slots, as on
+    // /api/market-scan (lib/scan/universeSweep.ts).
+    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, [], await loadSweptCandidates(service));
   } catch (err) {
     // Fail closed: an upstream provider failure must not grant access to a
     // stale/partial signal or silently record an empty successful run.

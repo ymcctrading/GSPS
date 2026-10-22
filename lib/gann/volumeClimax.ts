@@ -233,10 +233,17 @@ function driedUp(bars: Bar[], index: number, lookback: number): boolean {
 
 /** Monday (UTC midnight, ms) of the calendar week holding `t`. */
 function weekOf(t: string): number {
+  const hit = WEEKS.get(t);
+  if (hit !== undefined) return hit;
   // Whole UTC days since the epoch (a Thursday), back to that week's Monday.
   const day = Math.floor(Date.parse(t) / 86_400_000);
-  return (day - ((day + 3) % 7)) * 86_400_000;
+  const week = (day - ((day + 3) % 7)) * 86_400_000;
+  if (WEEKS.size > 200_000) WEEKS.clear();
+  WEEKS.set(t, week);
+  return week;
 }
+/** Timestamps already resolved: the replay reads the same sessions on every day it walks. */
+const WEEKS = new Map<string, number>();
 
 /** Total volume of the calendar week holding bar `index`. */
 function weekVolume(bars: Bar[], index: number): number {

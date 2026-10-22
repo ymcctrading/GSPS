@@ -33,8 +33,21 @@ const ET_DATE_KEY = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+// Formatting is still the cost once the formatter is shared, and the replay
+// keys the same bar instants over and over; each instant is formatted once
+// (bounded, cleared when full). Speed only: same output.
+const ET_DATE_KEY_CACHE_LIMIT = 200_000;
+const etDateKeys = new Map<number, string>();
+
 export function etDateKey(date: Date = new Date()): string {
-  return ET_DATE_KEY.format(date);
+  const ms = date.getTime();
+  let key = etDateKeys.get(ms);
+  if (key === undefined) {
+    if (etDateKeys.size >= ET_DATE_KEY_CACHE_LIMIT) etDateKeys.clear();
+    key = ET_DATE_KEY.format(date);
+    etDateKeys.set(ms, key);
+  }
+  return key;
 }
 
 // One formatter for every call, as `ET_DATE_KEY` above: the intraday scan calls

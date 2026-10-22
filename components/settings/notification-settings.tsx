@@ -117,7 +117,7 @@ export function NotificationSettings() {
         </CardTitle>
         <CardDescription>
           Alerts for high-confidence signals, with quiet hours and a minimum score filter. Email and
-          browser push send today. SMS is on the roadmap, so its toggle saves your preference but
+          browser push send today, and only once you turn them on here. SMS is on the roadmap, so its toggle saves your preference but
           nothing delivers to it yet.
         </CardDescription>
       </CardHeader>

@@ -5,9 +5,9 @@
  * added (#404 shipped the subscriptions and `sendPushToProfile`), so both
  * channels go through one loop and one set of checks, and can be tested.
  *
- * Who receives a signal: every member, unless a saved row turns a channel off
- * (`app/api/notifications/preferences` answers a member with no row as email
- * on, push off). Then, per member and channel:
+ * Who receives a signal: a member who turned the channel on in Settings
+ * (email and push are opt-in since 2026-10-22, migration 0109; a member with no
+ * row gets neither). Then, per member and channel:
  * - the member's tier lets the signal through, as the panel and the bell do
  *   (`alertsForTier`: no intraday access, nothing; Pro's module, only its
  *   confirmed bar lengths). Before 2026-10-21 email went to every member
@@ -42,9 +42,10 @@ export const NOTIFICATION_DEDUP_HOURS = 24;
 
 /**
  * What `app/api/notifications/preferences` (GET) promises a member who has
- * never saved a row: email on, push off, score floor 5, no quiet hours.
+ * never saved a row: email off, push off (opt-in, 2026-10-22), score floor 5,
+ * no quiet hours.
  */
-const DEFAULT_PREFS = { email_enabled: true, push_enabled: false, min_score: 5, quiet_hours_enabled: false };
+const DEFAULT_PREFS = { email_enabled: false, push_enabled: false, min_score: 5, quiet_hours_enabled: false };
 
 type Channel = "email" | "push";
 

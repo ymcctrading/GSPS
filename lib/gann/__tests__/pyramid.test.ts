@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { capitalSize, LARGE_CAPITAL_MIN_SHARES, PYRAMID_STEP_POINTS, readPyramidAdd, wholeLineStop } from "@/lib/gann/pyramid";
+import { capitalSize, LARGE_CAPITAL_MIN_SHARES, nextLotFraction, PYRAMID_LOTS, pyramidLineFromRows, PYRAMID_STEP_POINTS, readPyramidAdd, wholeLineStop } from "@/lib/gann/pyramid";
 import { gannPoint } from "@/lib/gann/pointScale";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
@@ -25,7 +25,7 @@ describe("readPyramidAdd", () => {
     daily,
   };
 
-  it("adds half the last lot at the crossed swing top and lifts the stop to break-even", () => {
+  it("adds the second lot, half the first, at the crossed swing top and lifts the stop to break-even", () => {
     const r = readPyramidAdd({ ...base, price: 111 });
     expect(r.add).not.toBeNull();
     expect(r.add!.qty).toBe(50);
@@ -47,19 +47,33 @@ describe("readPyramidAdd", () => {
     }
   });
 
-  // Q9 (owner: W022 and the Master Course): the largest lot first, each add
-  // half the last, with no fixed count; the pyramid ends when the next lot
-  // would be under one share.
-  it("keeps adding smaller lots past the fourth", () => {
-    const lots = Array.from({ length: 4 }, (_, i) => ({ qty: 100 >> i, price: 101.8, date: "2026-06-03" }));
-    expect(readPyramidAdd({ ...base, lots, price: 111 }).add?.qty).toBe(6);
+  // Gann's lots (Truth of the Stock Tape Ch. IX; Master Course, "safest
+  // pyramiding rule"): 100, 50, 30, 20, 10, and on at 10 (W006 p.47).
+  const lotsOf = (sizes: number[]) => sizes.map((qty) => ({ qty, price: 101.8, date: "2026-06-03" }));
+
+  it("sizes each add from the first lot: 50, 30, 20, then 10", () => {
+    expect(PYRAMID_LOTS).toEqual([1, 0.5, 0.3, 0.2, 0.1]);
+    expect(readPyramidAdd({ ...base, lots: lotsOf([100, 50]), price: 111 }).add?.qty).toBe(30);
+    expect(readPyramidAdd({ ...base, lots: lotsOf([100, 50, 30]), price: 111 }).add?.qty).toBe(20);
+    expect(readPyramidAdd({ ...base, lots: lotsOf([100, 50, 30, 20]), price: 111 }).add?.qty).toBe(10);
+  });
+
+  it("keeps adding at the fifth lot's size after it", () => {
+    expect(readPyramidAdd({ ...base, lots: lotsOf([100, 50, 30, 20, 10]), price: 111 }).add?.qty).toBe(10);
+    expect(readPyramidAdd({ ...base, lots: lotsOf([100, 50, 30, 20, 10, 10, 10]), price: 111 }).add?.qty).toBe(10);
   });
 
   it("stops adding once the next lot would be under one share", () => {
-    const lots = Array.from({ length: 7 }, (_, i) => ({ qty: 100 >> i, price: 101.8, date: "2026-06-03" }));
-    const r = readPyramidAdd({ ...base, lots, price: 111 });
+    const r = readPyramidAdd({ ...base, lots: lotsOf([3, 1]), price: 111 });
     expect(r.add).toBeNull();
     expect(r.reason).toMatch(/less than one share/);
+  });
+
+  it("names no next lot before the first, and a tenth from the fifth on", () => {
+    expect(nextLotFraction(0)).toBeNull();
+    expect(nextLotFraction(1)).toBe(0.5);
+    expect(nextLotFraction(4)).toBe(0.1);
+    expect(nextLotFraction(9)).toBe(0.1);
   });
 });
 
@@ -175,7 +189,7 @@ describe("fixed steps and the whole-line stop (A-PYRAMID-01, A-PYRAMID-06, A-STO
 // re-entry after a stop (lib/gann/rebuy.ts).
 describe("adding to a short on the decline (A-PYRAMID-08)", () => {
   const fall = days(closes.map((c) => 200 - c));
-  it("adds half the last lot at the crossed swing bottom and lowers the stop to break-even", () => {
+  it("adds the second lot, half the first, at the crossed swing bottom and lowers the stop to break-even", () => {
     const r = readPyramidAdd({
       side: "short",
       lots: [{ qty: 100, price: 98.2, date: "2026-06-03" }],
@@ -188,5 +202,52 @@ describe("adding to a short on the decline (A-PYRAMID-08)", () => {
     expect(r.add!.qty).toBe(50);
     expect(r.add!.trigger).toBeLessThan(98.2);
     expect(r.add!.newStop).toBeLessThanOrEqual(101.7);
+  });
+});
+
+describe("pyramidLineFromRows (the Portfolio suggestion's open line)", () => {
+  const key = (d: Date) => d.toISOString().slice(0, 10);
+  const row = (side: "long" | "short", qty: number, stop: number, applied: number | null, at: string) => ({
+    side,
+    qty,
+    entry_price: 100,
+    stop_loss: stop,
+    applied_stop: applied,
+    created_at: at,
+  });
+
+  it("reads every lot oldest first, so the third add is 30 of a 100 first lot", () => {
+    const line = pyramidLineFromRows(
+      [row("long", 100, 96, 99, "2026-06-01T15:00:00Z"), row("long", 50, 101, null, "2026-06-05T15:00:00Z")],
+      key,
+    )!;
+    expect(line.lots.map((l) => l.qty)).toEqual([100, 50]);
+    expect(line.initialStop).toBe(96);
+    // The tightest stop on the line, never looser.
+    expect(line.stop).toBe(101);
+    expect(nextLotFraction(line.lots.length)! * line.lots[0].qty).toBe(30);
+  });
+
+  it("keeps only the newest lot's side, and mirrors the stop for shorts", () => {
+    const line = pyramidLineFromRows(
+      [row("long", 100, 96, null, "2026-06-01T15:00:00Z"), row("short", 80, 106, 104, "2026-06-02T15:00:00Z"), row("short", 40, 103, null, "2026-06-04T15:00:00Z")],
+      key,
+    )!;
+    expect(line.side).toBe("short");
+    expect(line.lots.map((l) => l.qty)).toEqual([80, 40]);
+    expect(line.stop).toBe(103);
+    expect(line.initialStop).toBe(106);
+  });
+
+  it("keeps paper and live lines apart, and skips a lot with no fill price", () => {
+    const paper = { ...row("long", 100, 96, null, "2026-06-01T15:00:00Z"), mode: "paper" };
+    const live = { ...row("long", 40, 95, null, "2026-06-02T15:00:00Z"), mode: "live" };
+    const unfilled = { ...row("long", 20, 97, null, "2026-06-03T15:00:00Z"), mode: "live", entry_price: 0 };
+    const line = pyramidLineFromRows([paper, live, unfilled], key)!;
+    expect(line.lots.map((l) => l.qty)).toEqual([40]);
+  });
+
+  it("is null with no lots", () => {
+    expect(pyramidLineFromRows([], key)).toBeNull();
   });
 });

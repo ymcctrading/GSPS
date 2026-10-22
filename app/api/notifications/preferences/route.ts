@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       data || {
         user_id: user.id,
-        email_enabled: true,
+        email_enabled: false,
         sms_enabled: false,
         push_enabled: false,
         min_score: 5,

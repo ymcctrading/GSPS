@@ -10,16 +10,18 @@
  * - **Add where the trend proves itself:** on each crossing of an old top (a
  *   bottom, for shorts) (*How to Make Profits in Commodities*; *45 Years in
  *   Wall Street*: "pyramid only after resistance is crossed").
- * - **Each lot smaller than the last:** "buy the largest amount first and then
- *   gradually decrease" (*Tunnel Thru the Air*, W022 p.198); the 3rd lot half
- *   the 2nd, the 4th half the 3rd (Master Course Rule 5). The owner chose this
- *   reading over *New Stock Trend Detector*'s equal lots halved after the 4th
- *   or 5th (Q9, 2026-10-16), so there is no fixed lot count: the pyramid ends
- *   when the next half-lot would be under one share. Re-asked 2026-10-22
- *   under "Gann answers it" (A-PYRAMID-02): Gann's own texts disagree, and two
- *   of the three, his course (Rule 5) and *Tunnel* p.198, give the
- *   decreasing lots, so Q9 stands; W006 p.47's halving after the 4th or 5th
- *   equal lot is the one not followed.
+ * - **Each lot smaller than the last, then on at the smallest:** "the first risk
+ *   should be the greatest", 100, 50, 30, 20 and 10 shares (*Truth of the
+ *   Stock Tape*, 1923, Ch. IX), the Master Course's "safest pyramiding rule"
+ *   100/50/30/20 (How to Trade, Nov. 1935, PDF 234-238), and "buy the largest
+ *   amount first and then gradually decrease" (*Tunnel Thru the Air*, W022
+ *   p.198). `PYRAMID_LOTS` holds the sequence as fractions of the first lot.
+ *   None of them says to stop at the fifth, and *New Stock Trend Detector*
+ *   Rule 5 (W006 p.47) goes on adding "after the fourth or fifth lot" at a
+ *   cut unit, so lots after the fifth stay at the fifth's size, a tenth of
+ *   the first; the adds end as the trend and the steps stop giving them.
+ *   Owner, 2026-10-22: "Just follow Gann's method." Until then each add was
+ *   half the last (Q9, 2026-10-16), which no book states past the second.
  * - **Move the stop so the combined position can't lose** (*New Stock Trend
  *   Detector* Rule 5), with a full stop-out losing no more than 10% of capital
  *   (Master Course).
@@ -132,6 +134,19 @@ export interface PyramidReading {
  */
 export const LARGE_CAPITAL_MIN_SHARES = 500_000_000;
 
+/**
+ * Each lot as a fraction of the first: 100, 50, 30, 20, 10 shares (*Truth of
+ * the Stock Tape* Ch. IX; the Master Course's 100/50/30/20). Lots after the
+ * fifth stay at its size (W006 p.47 keeps adding at the cut unit).
+ */
+export const PYRAMID_LOTS = [1, 0.5, 0.3, 0.2, 0.1] as const;
+
+/** The next lot's size as a fraction of the first, given the lots already on (null with none). */
+export function nextLotFraction(lotsOn: number): number | null {
+  if (!(lotsOn >= 1)) return null;
+  return PYRAMID_LOTS[Math.min(lotsOn, PYRAMID_LOTS.length - 1)];
+}
+
 /** Gann points of profit between lots, and between an add and the whole line's stop. */
 export const PYRAMID_STEP_POINTS = 5;
 
@@ -148,6 +163,44 @@ export function wholeLineStop(side: "long" | "short", avg: number, trigger: numb
 export function capitalSize(shares: number | null | undefined): "small" | "large" | null {
   if (shares == null || !(shares > 0)) return null;
   return shares >= LARGE_CAPITAL_MIN_SHARES ? "large" : "small";
+}
+
+/** A working `protocol_exits` row: one lot of an open, protocol-managed position. */
+export interface WorkingLotRow {
+  side: "long" | "short";
+  mode?: string | null;
+  qty: number;
+  entry_price: number;
+  stop_loss: number;
+  applied_stop: number | null;
+  created_at: string;
+}
+
+/**
+ * The open line as `readPyramidAdd` reads it, from the symbol's working lots
+ * oldest first: every lot on the newest lot's side and account mode (paper and
+ * live are separate lines; Gann's lots are sized from the first), the risk
+ * unit from the first lot's initial stop, and the line's stop the tightest of
+ * the lots' stops, since an add never loosens it. A row with no fill price
+ * yet is not a lot. Null with no lots. Live rows carry the broker's blended
+ * entry price once filled, so a live line's step check reads the blend: a
+ * known gap, latent while no live broker is connected.
+ */
+export function pyramidLineFromRows(
+  rows: WorkingLotRow[],
+  dateKey: (d: Date) => string,
+): Pick<PyramidInput, "side" | "lots" | "stop" | "initialStop"> | null {
+  const priced = rows.filter((r) => Number(r.entry_price) > 0);
+  if (priced.length === 0) return null;
+  const { side, mode } = priced[priced.length - 1];
+  const same = priced.filter((r) => r.side === side && (r.mode ?? null) === (mode ?? null));
+  const stops = same.map((r) => Number(r.applied_stop ?? r.stop_loss));
+  return {
+    side,
+    lots: same.map((r) => ({ qty: Number(r.qty), price: Number(r.entry_price), date: dateKey(new Date(r.created_at)) })),
+    stop: side === "long" ? Math.max(...stops) : Math.min(...stops),
+    initialStop: Number(same[0].stop_loss),
+  };
 }
 
 export function readPyramidAdd(input: PyramidInput): PyramidReading {
@@ -208,7 +261,9 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   if (!pivot) return { add: null, reason: "No swing top has formed since the last lot to cross." };
   const trigger = beyondByThreePoints(pivot.price, long ? 1 : -1);
 
-  const qty = Math.floor(last.qty / 2);
+  const fraction = nextLotFraction(lots.length);
+  if (fraction === null) return { add: null, reason: "No position." };
+  const qty = Math.floor(first.qty * fraction + 1e-9);
   if (qty < 1) return { add: null, reason: "The next lot would be less than one share." };
 
   // The whole position's stop: never where the combined position could lose.

@@ -45,10 +45,17 @@ export interface FalseBreakoutReading {
 }
 
 function mondayKey(date: string): string {
+  const hit = MONDAYS.get(date);
+  if (hit) return hit;
   const t = Date.parse(`${date}T00:00:00Z`);
   const back = (new Date(t).getUTCDay() + 6) % 7;
-  return new Date(t - back * 86_400_000).toISOString().slice(0, 10);
+  const monday = new Date(t - back * 86_400_000).toISOString().slice(0, 10);
+  if (MONDAYS.size > 20_000) MONDAYS.clear();
+  MONDAYS.set(date, monday);
+  return monday;
 }
+/** Dates already resolved: the replay reads the same sessions on every day it walks. */
+const MONDAYS = new Map<string, string>();
 
 /** Completed Monday-to-Friday weeks before the week holding `asOf`. */
 function completedWeeks(daily: Bar[], asOf: Date): { key: string; h: number; l: number; c: number }[] {
