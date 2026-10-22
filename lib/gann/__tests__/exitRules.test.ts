@@ -309,7 +309,7 @@ describe("readGannExit: rules switched off by name (the replay's disableExits on
   });
 
   it("names every rule but the initial stop", () => {
-    expect(GANN_EXIT_RULE_NAMES).toHaveLength(11);
+    expect(GANN_EXIT_RULE_NAMES).toHaveLength(14);
     expect(isGannExitRuleName("prior_week")).toBe(true);
     expect(isGannExitRuleName("day_low")).toBe(true);
     expect(isGannExitRuleName("three_adverse_closes")).toBe(true);

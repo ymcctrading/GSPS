@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Body, Ecliptic, GeoVector, SunPosition } from "astronomy-engine";
 import type { Bar } from "@/lib/types";
-import { activeAngleLevels, jensenLevels, readAstroRules } from "../astroRules";
+import { activeAngleLevels, jensenLevels, readAstroRules, sunTravelLevel } from "../astroRules";
 import { gannMasterLevels } from "../masterLevels";
 import { planetLongitudes } from "../planetaryAverages";
 
@@ -142,6 +142,24 @@ describe("readAstroRules: the Sun's travel and Mars's half return (A-ASTRO-03, A
     const exact = mod(SunPosition(asOf).elon - SunPosition(noon("2000-01-10")).elon);
     expect(r.sunTravel!.level).toBeCloseTo(435 + 22 * 360 + exact, 6);
     expect(Math.abs(r.sunTravel!.level - 8688)).toBeLessThan(3);
+  });
+
+  it("puts the Sun's travel on the S/R list as one level, the factor's own (A-ASTRO-03 acting)", () => {
+    const asOf = noon("2022-12-13");
+    const series = lowThen("2000-01-10", 435, "2022-11-10", "2022-12-13", 500);
+    const unit = 1;
+    const level = sunTravelLevel(series, asOf, unit)!;
+    expect(level.price).toBeCloseTo(readAstroRules(series, asOf, unit)!.sunTravel!.level, 9);
+    expect(level.label).toContain("2000-01-10");
+    const listed = gannMasterLevels([], series, 500, asOf).filter((l) => l.source === "sunTravel");
+    expect(listed).toHaveLength(1);
+    // gannMasterLevels prices in the daily bars' own Gann point; the rule is the same.
+    expect(listed[0].label).toBe(level.label);
+  });
+
+  it("leaves the Sun's travel off when the low is not before the date read", () => {
+    const series = lowThen("2022-12-13", 435, "2022-12-14", "2022-12-13", 500);
+    expect(sunTravelLevel(series, noon("2022-12-13"), 1)).toBeNull();
   });
 
   const marsAt = (d: Date) => Ecliptic(GeoVector(Body.Mars, d, true)).elon;
