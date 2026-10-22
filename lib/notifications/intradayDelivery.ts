@@ -1,0 +1,205 @@
+/**
+ * GSPS — email and browser push for the scheduled intraday scan's new signals.
+ *
+ * Moved out of `app/api/intraday-scan/route.ts` (2026-10-21) when push was
+ * added (#404 shipped the subscriptions and `sendPushToProfile`), so both
+ * channels go through one loop and one set of checks, and can be tested.
+ *
+ * Who receives a signal: every member, unless a saved row turns a channel off
+ * (`app/api/notifications/preferences` answers a member with no row as email
+ * on, push off). Then, per member and channel:
+ * - the member's tier lets the signal through, as the panel and the bell do
+ *   (`alertsForTier`: no intraday access, nothing; Pro's module, only its
+ *   confirmed bar lengths). Before 2026-10-21 email went to every member
+ *   whatever their tier, so a Novice could be emailed a signal their plan
+ *   does not show;
+ * - the alert's 0-9 confidence reaches the member's `min_score`;
+ * - the member is not inside quiet hours they turned on (`inQuietHours`);
+ * - the same symbol, direction and score was not sent on that channel in the
+ *   last 24 hours (`notification_log`, per channel, so an email does not hold
+ *   back the push or the reverse).
+ * Best-effort per member: one bad address or failed write never stops the rest.
+ *
+ * The message says what Gann's method uses an intraday signal for: timing a
+ * daily plan, with no measured record yet (`buildIntradayBellRow`).
+ *
+ * Mandate: no Gann content of its own (a delivery channel), Dewey N/A. Cause
+ * and Effect: a notice is written only when the scheduled scan saw the move.
+ * Law of Creation: alert ⊗ member's settings; the send is neither alone.
+ */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Alert } from "@/lib/scanner/intraday";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { inQuietHours } from "@/lib/entitlements/delivery";
+import { sendAlertEmail } from "@/lib/notifications/resend-handler";
+import { sendPushToProfile, vapidConfig, type PushMessage } from "@/lib/notifications/web-push";
+import { alertsForTier, buildIntradayBellRow } from "@/lib/notifications/intradayBell";
+import { tickerHref } from "@/lib/routes";
+
+/** How far back a notification_log row still counts as "already sent this". */
+export const NOTIFICATION_DEDUP_HOURS = 24;
+
+/**
+ * What `app/api/notifications/preferences` (GET) promises a member who has
+ * never saved a row: email on, push off, score floor 5, no quiet hours.
+ */
+const DEFAULT_PREFS = { email_enabled: true, push_enabled: false, min_score: 5, quiet_hours_enabled: false };
+
+type Channel = "email" | "push";
+
+interface SavedRow {
+  user_id: string;
+  email_enabled: boolean | null;
+  push_enabled: boolean | null;
+  min_score: number | null;
+  quiet_hours_enabled: boolean | null;
+}
+
+/**
+ * Every member's id, paginating through the admin API rather than trusting a
+ * single page: a member with no saved preferences is still a recipient, so a
+ * short page would silently drop real recipients.
+ */
+async function listAllUserIds(service: SupabaseClient): Promise<string[]> {
+  const ids: string[] = [];
+  const perPage = 200;
+  for (let page = 1; ; page++) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage });
+    if (error || !data?.users?.length) break;
+    ids.push(...data.users.map((u) => u.id));
+    if (data.users.length < perPage) break;
+  }
+  return ids;
+}
+
+/** The alert's own 0-9 confidence, a whole number. */
+export function alertScore(alert: Alert): number {
+  return Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9)));
+}
+
+/** The push for an intraday signal, worded as the bell notice is. */
+export function intradayPushMessage(alert: Alert): PushMessage {
+  const row = buildIntradayBellRow(alert);
+  return { title: row.title, body: row.body, url: tickerHref(alert.symbol), tag: `intraday-${alert.symbol}` };
+}
+
+async function alreadySent(
+  service: SupabaseClient,
+  userId: string,
+  channel: Channel,
+  signalHash: string,
+  now: Date,
+): Promise<boolean> {
+  const since = new Date(now.getTime() - NOTIFICATION_DEDUP_HOURS * 3600_000).toISOString();
+  const { data } = await service
+    .from("notification_log")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("channel", channel)
+    .eq("signal_hash", signalHash)
+    .gte("triggered_at", since)
+    .limit(1);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Emails and pushes each new system-scan alert to the members whose tier and
+ * settings let it through. Returns how many sends succeeded, per channel.
+ */
+export async function notifySubscribedUsers(
+  service: SupabaseClient,
+  alerts: Alert[],
+  args: { intervalBySymbol: Map<string, number>; now?: Date },
+): Promise<{ email: number; push: number }> {
+  const sent = { email: 0, push: 0 };
+  if (alerts.length === 0) return sent;
+  const emailOn = Boolean(process.env.RESEND_API_KEY);
+  const pushOn = vapidConfig() !== null;
+  if (!emailOn && !pushOn) return sent;
+  const now = args.now ?? new Date();
+
+  const { data: saved, error } = await service
+    .from("notification_preferences")
+    .select("user_id, email_enabled, push_enabled, min_score, quiet_hours_enabled");
+  if (error) return sent;
+  const savedByUser = new Map(((saved ?? []) as SavedRow[]).map((p) => [p.user_id, p]));
+
+  for (const userId of await listAllUserIds(service)) {
+    try {
+      const row = savedByUser.get(userId);
+      const channels: Channel[] = [];
+      if (emailOn && (row?.email_enabled ?? DEFAULT_PREFS.email_enabled)) channels.push("email");
+      if (pushOn && (row?.push_enabled ?? DEFAULT_PREFS.push_enabled)) channels.push("push");
+      if (channels.length === 0) continue;
+
+      const minScore = row?.min_score ?? DEFAULT_PREFS.min_score;
+      const policy = await getUserEntitlementPolicy(service, userId);
+      const mine = alertsForTier(alerts, policy, args.intervalBySymbol).filter((a) => alertScore(a) >= minScore);
+      if (mine.length === 0) continue;
+      if ((row?.quiet_hours_enabled ?? DEFAULT_PREFS.quiet_hours_enabled) && (await inQuietHours(service, userId))) {
+        continue;
+      }
+
+      let email: string | null | undefined;
+      for (const alert of mine) {
+        const direction = alert.direction === "up" ? "bullish" : "bearish";
+        const score = alertScore(alert);
+        const signalHash = `${alert.symbol}-${direction}-${score}`;
+        for (const channel of channels) {
+          if (await alreadySent(service, userId, channel, signalHash, now)) continue;
+
+          let result: { success: boolean; skipped?: boolean; error?: string };
+          let recipient: string | null = null;
+          if (channel === "email") {
+            if (email === undefined) {
+              const { data: user } = await service.auth.admin.getUserById(userId);
+              email = user?.user?.email ?? null;
+            }
+            if (!email) continue;
+            recipient = email;
+            result = await sendAlertEmail({
+              userEmail: email,
+              symbol: alert.symbol,
+              direction,
+              score,
+              // The alert's own 0-9 confidence, already a whole number, so
+              // the protocol score's tier rounding does not apply.
+              exactScoreDisplayEnabled: true,
+              entry: alert.move.current,
+              stopLoss: alert.invalidation ?? alert.move.current,
+              takeProfit: alert.continuationPlan.firstTarget,
+              verdict: "Execute",
+              confidence: alert.confidence / 100,
+            });
+          } else {
+            result = await sendPushToProfile(service, userId, intradayPushMessage(alert));
+            // No subscribed browser is not a send: nothing to log or retry.
+            if (!result.success && result.skipped) continue;
+          }
+
+          if (result.success) sent[channel] += 1;
+          const stamp = now.toISOString();
+          const { error: logError } = await service.from("notification_log").insert({
+            user_id: userId,
+            symbol: alert.symbol,
+            direction,
+            score,
+            channel,
+            status: result.success ? "sent" : "failed",
+            recipient,
+            triggered_at: stamp,
+            sent_at: result.success ? stamp : null,
+            failed_at: result.success ? null : stamp,
+            error_message: result.success ? null : (result.error ?? null),
+            signal_hash: signalHash,
+          });
+          if (logError) console.error("[intraday-notify] could not log notification:", logError.message);
+        }
+      }
+    } catch (err) {
+      console.error("[intraday-notify] member skipped:", err);
+    }
+  }
+  return sent;
+}

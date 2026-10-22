@@ -28,3 +28,14 @@ describe("ET windows against the dual-hour UTC schedules", () => {
     }
   }
 });
+
+describe("nextClose", () => {
+  it("is today's 4 PM ET before the close, the next weekday's after it, Monday's from a Friday evening", async () => {
+    const { nextClose } = await import("@/lib/market/session");
+    expect(nextClose(new Date("2026-10-22T15:00:00Z")).toISOString()).toBe("2026-10-22T20:00:00.000Z");
+    expect(nextClose(new Date("2026-10-22T21:00:00Z")).toISOString()).toBe("2026-10-23T20:00:00.000Z");
+    expect(nextClose(new Date("2026-10-23T22:00:00Z")).toISOString()).toBe("2026-10-26T20:00:00.000Z");
+    // After the November DST change, 4 PM ET is 21:00 UTC.
+    expect(nextClose(new Date("2026-11-02T15:00:00Z")).toISOString()).toBe("2026-11-02T21:00:00.000Z");
+  });
+});

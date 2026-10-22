@@ -639,12 +639,10 @@ when the member's account is deleted (their foreign keys cascade from
 figure it out"):** the server reads `serviceRoleKey()`
 (`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
-Correction, 2026-10-21: the readable legacy
-`SUPABASE_SERVICE_ROLE_KEY` is still in Vercel (production and preview,
-flagged a readable secret). Production does not need it, since it reads
-`SUPABASE_SECRET_KEY`; only preview deployments fell back to it, and those
-stop with `vercel.json`'s `*/**` rule. Removing it is the owner's step in the
-Vercel dashboard (this environment can't edit Vercel variables). Read the key through that helper, never from `process.env`.
+The readable legacy `SUPABASE_SERVICE_ROLE_KEY` was removed from Vercel by
+the owner on 2026-10-22 (gone from the project's env list at 01:35 UTC), so
+production and every deployment read `SUPABASE_SECRET_KEY` alone. Read the key
+through that helper, never from `process.env`.
 **Breached passwords (S-11):** Supabase's leaked-password setting is a
 dashboard switch no tool here reaches, so sign-up, reset and the Settings
 password change refuse a password found in Have I Been Pwned
@@ -1034,7 +1032,11 @@ turn 84 years back to the month, judged on the record before the month read
 (`eightyFourYear.ts`; April 2026 is 84 years from the April 1942 low), and the
 Dollar Trend (A-OTHER-06, his 1954 course: the market's value crossing old
 highs or breaking old lows, `dollarTrend.ts`, SPY's months on the 3-bar chart
-standing in for the NYSE's total value). `STRATEGY_VERSION` was
+standing in for the NYSE's total value). Also context, a labelled
+reconstruction: Gann's three curves (A-TIME-13, the 1922 forecast: "the
+commodity curve, money curve and curve of stocks. Sometimes one of these curves
+will cause a change of trend"), each read as the curve of stocks is, on the
+long rate and the price index (`threeCurves.ts`, `curvesDisagree`). `STRATEGY_VERSION` was
 `2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
 window it keeps; the six-year daily rerun that measures 7/4 runs on it.
 
@@ -1789,11 +1791,15 @@ for the project owner** — do not fix it silently, and re-verify it first:
   name failed `novice_eligible`'s market-cap check and Guided Mode could never
   show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
   the Alpaca validation pass). The $10B floor is the only cap rule.
-- Lesser items: the weight-promotion path can still promote non-uniform
-  weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
+- Lesser items: `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
+  **F4.2 closed 2026-10-22:** a promoted `learning_models` weight row is
+  adopted only when it is uniform (`isUniformWeightSet`,
+  `lib/scoring/active-weights.ts`), since nothing in Gann's sources ranks one
+  pillar above another ("The scorecard's role"). No live row exists, so
+  scores are unchanged and `STRATEGY_VERSION` stays.
   `quantityFromPermittedRisk`/`plannedRiskDollars` and the rest of the risk-band
   policy were removed 2026-10-21 (R-004): Gann's capital rules size every order.
 - **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The
@@ -2937,8 +2943,8 @@ entry in an active market (Master Course Ch.13). So the intraday scanner now
 times the daily plan: "Daily plan's level held" (`plan_level_held`,
 `lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
 Watch plan's entry without trading its stop and the session's swing chart turns
-back through it; the stop is 3 Gann points under the day's low, never past the
-daily plan's stop, and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
+back through it; the stop at entry is the daily plan's own (Rule 3, aligned with
+#411's styles, which move it after the fill), and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
 *Tunnel* p.198 for the re-buy). Not a session-swing stop: the six-year intraday
 replay (2026-10-21, `replay-diagnosis/2026-10-21-intraday-profile-verdict.md`)
 failed its test with every loss on the initial stop, so the panel says intraday
@@ -2960,6 +2966,28 @@ scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
 shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+Email and browser push for the same signals (`lib/notifications/intradayDelivery.ts`,
+2026-10-21, after #404) go to every member by their settings (push off until
+turned on), score floor and quiet hours, each channel deduped on its own, and
+now by tier as the bell is: before, email reached every member whatever their
+plan.
+**Measured losing, 2026-10-22 (run 80,
+`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`):** "Daily plan's level
+held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
+both halves), on the earlier stop. It stays on the panel labelled with that
+record (`MEASURED_LOSING`, `lib/scanner/intradayDisplay.ts`), with no "Trade
+this" and no bell, email or push, until a run on the current stop reads
+otherwise; presume a translation defect first. Diagnosed the same day (owner:
+"if it is a Gann method ... determine how and why we are getting negative
+results, and correct it"): the alert fired on plans whose entry was a crossing
+still to be made: with price under the entry (the reaction buy 1 point past the
+old top), its touch test passed all session, so it bought the first intraday
+bar through the top before a daily close 3 points past it gave the indication
+(W006 Rule 3(b)-(c)). It now needs the prior session to have closed at or
+beyond the entry (a held bottom's entry is that close), so the touch is a
+reaction. Known gap: a crossing closed past the entry but not yet 3 points past
+it still passes, until the plan's entry kind and held state are carried onto
+the stored plan. The hold stays until a run on the fix reads positive.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in
@@ -3211,6 +3239,33 @@ What that means for a session:
 - `vercel.json` sets `"git": {"deploymentEnabled": {"main": true, "*": false, "*/**": false}}`: **only `main` builds**, and **merging to `main` deploys straight to production**. Pushing any other branch builds nothing and gets no preview URL (owner, 2026-10-16: previews were using up the Hobby plan's daily deployment limit, which failed every PR's Vercel check). The patterns are minimatch globs, and `*` never matches a `/`, so until 2026-10-21 every `claude/...` branch still built a preview and the account hit 100 deployments that day; `*/**` covers them. There is no manual gate in between. Treat a merge as a release: it is live for users within a couple of minutes.
 - **Never trigger a Vercel deployment unless explicitly asked.** The user will say which environment — preview or production — when they want one. Don't assume. Because merges auto-deploy, this also means **don't merge to `main` unless asked** — merging is deploying.
 - A branch push builds nothing on Vercel, so verify a change with the repo's own checks before merging. A preview is a manual deployment, made only when asked.
+
+## Verify before you report — standing rule (2026-10-22, project owner)
+
+Chuck's correction, after the same failure three times: the book reading
+reported works as read or unread that weren't; a session reported 47 lines of
+Gann code unusable when 6 were; and a "waiting on you" list named a Resend step
+he had already done. Each time a count or a status was reported from memory or
+an earlier note instead of from the source as it stands. Project memory is off,
+so this file is the only place the rule carries between sessions.
+
+- **Every count, status or "done / not done" you tell the owner is read fresh
+  from its primary source in the same turn:** the file, the grep, the test
+  run, the database row, the PR's checks, the other thread's latest message.
+  A note, a summary, a checklist or your own earlier reply is a lead, never
+  the evidence.
+- **Say what you checked and when** ("grep at 01:30 UTC found 6"), so the
+  owner can tell a measured figure from a remembered one. If you could not
+  check, say that, and don't give the number.
+- **A count is recounted, not carried.** When a figure came from a subagent,
+  an earlier session or a document, re-derive it before repeating it, and
+  report any difference from the earlier figure plainly.
+- **What is waiting on the owner** lives in
+  `/mnt/project-files/owner/waiting-on-chuck.md`. Add an item the moment it
+  starts waiting on him and strike it the moment it is done. Before telling
+  him what needs him, re-read that file and each item's own thread.
+- **Reading coverage** ("read", "inspected", "complete") is claimed only from
+  the work's own coverage record, page by page, never from a summary.
 
 ## Code review before every merge — standing mandate (2026-10-21, project owner)
 

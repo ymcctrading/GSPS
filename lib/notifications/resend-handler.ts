@@ -26,6 +26,17 @@ export const SANDBOX_SENDER = "onboarding@resend.dev";
 const BARE_ADDRESS = /^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/;
 
 /**
+ * Where the emails' links point. The templates linked to https://gsps.app, a
+ * domain GSPS has never used, so every "View in app" link in a member's alert
+ * led nowhere. The site is www.gsps.world (2026-10-21);
+ * `NEXT_PUBLIC_APP_URL` overrides it, as it does for billing's return URLs.
+ */
+export function appUrl(path = ""): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.gsps.world").replace(/\/+$/, "");
+  return `${base}${path}`;
+}
+
+/**
  * The bare address in `RESEND_FROM`, which may be set as "alerts@example.com"
  * or "GSPS <alerts@example.com>". `fromHeader` adds its own display name, so a
  * value that already carried one produced "Name <GSPS <alerts@...>>", which
@@ -167,14 +178,12 @@ export async function sendAlertEmail(data: AlertEmailData) {
 
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This is an automated alert from GSPS.
-          <a href="https://gsps.app" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl()}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
     `;
 
-    // Use Resend's default "onboarding" domain until gsps.app is verified
-    // Format: from@resend.dev or your verified domain
     const result = await getResendClient().emails.send({
       from: fromHeader("GSPS Alerts"),
       to: data.userEmail,
@@ -233,7 +242,7 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This is an automated alert from GSPS.
-          <a href="https://gsps.app" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl()}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
@@ -311,7 +320,7 @@ export async function sendJournalEmail(data: JournalEmailData) {
         </table>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">Sent automatically, 2 hours after the close, from GSPS.
-          <a href="https://gsps.app/portfolio" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl("/portfolio")}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
@@ -385,7 +394,7 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
         </p>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This order moved to Rejected in your Portfolio.
-          <a href="https://gsps.app/portfolio" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl("/portfolio")}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
@@ -474,7 +483,7 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This is an internal operational alert — it was not sent to any user.
-          <a href="https://gsps.app/learning" style="color: #0ea5e9; text-decoration: none;">View shadow summary</a>
+          <a href="${appUrl("/learning")}" style="color: #0ea5e9; text-decoration: none;">View shadow summary</a>
           </p>
         </div>
       </div>
@@ -504,6 +513,25 @@ export interface PriceAlertEmailData {
   direction: "above" | "below";
   /** The price that confirmed the crossing, at sweep time. */
   currentPrice: number;
+  /**
+   * An alert-editor rule (migration 0103): what was watched and what it read.
+   * Absent for the chart line, which keeps the wording above.
+   */
+  rule?: AlertRuleText;
+}
+
+/** How a fired alert-editor rule is worded in an email or a push. */
+export interface AlertRuleText {
+  /** "TFC Bid >= $47.73" */
+  condition: string;
+  /** "Bid $47.80" */
+  reading: string;
+  note?: string | null;
+  source?: string | null;
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 /**
@@ -526,22 +554,32 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
 
   try {
     const verb = data.direction === "above" ? "rose above" : "fell below";
-    const subject = `${data.symbol} ${verb} ${priceUsd(data.targetPrice)}`;
+    const rule = data.rule;
+    const subject = rule ? `Alert: ${rule.condition}` : `${data.symbol} ${verb} ${priceUsd(data.targetPrice)}`;
+    const headline = rule
+      ? `Your alert <strong>${escapeHtml(rule.condition)}</strong> fired.`
+      : `${escapeHtml(data.symbol)} ${verb} your alert level of <strong>${priceUsd(data.targetPrice)}</strong>.`;
+    const checked = rule
+      ? `Read at the check: ${escapeHtml(rule.reading)}${rule.source ? `. Level: ${escapeHtml(rule.source)}` : ""}`
+      : `Last price checked: ${priceUsd(data.currentPrice)}`;
+    const noteLine = rule?.note
+      ? `<p style="margin: 10px 0 0; color: #0f172a; font-size: 14px;">Your note: ${escapeHtml(rule.note)}</p>`
+      : "";
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${data.symbol} price alert</h1>
+        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${escapeHtml(data.symbol)} price alert</h1>
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0f172a; font-size: 16px;">
-            ${data.symbol} ${verb} your alert level of <strong>${priceUsd(data.targetPrice)}</strong>.
+            ${headline}
           </p>
           <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
-            Last price checked: ${priceUsd(data.currentPrice)}
-          </p>
+            ${checked}
+          </p>${noteLine}
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This alert has now fired and won't repeat. Set a new one from the chart if you want another.
-          <a href="https://gsps.app/ticker/${encodeURIComponent(data.symbol)}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
+          <a href="${appUrl(`/ticker/${encodeURIComponent(data.symbol)}`)}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
           </p>
         </div>
       </div>

@@ -33,6 +33,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationPayload } from "@/lib/entitlements/delivery";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { priceText } from "@/lib/strat/priceText";
+import type { AlertRuleText } from "@/lib/notifications/resend-handler";
 import { tickerHref } from "@/lib/routes";
 
 export interface PushMessage {
@@ -85,8 +86,19 @@ export function priceAlertPushMessage(args: {
   direction: "above" | "below";
   targetPrice: number;
   currentPrice: number;
+  /** An alert-editor rule (migration 0103); the chart line leaves it out. */
+  rule?: AlertRuleText;
 }): PushMessage {
   const verb = args.direction === "above" ? "rose above" : "fell below";
+  if (args.rule) {
+    const extra = [args.rule.reading, args.rule.note].filter(Boolean).join(". ");
+    return {
+      title: `Alert: ${args.rule.condition}`,
+      body: `${extra}.`,
+      url: tickerHref(args.symbol),
+      tag: `price-${args.symbol}`,
+    };
+  }
   return {
     title: `${args.symbol} ${verb} $${priceText(args.targetPrice)}`,
     body: `${args.symbol} ${verb} your alert level of $${priceText(args.targetPrice)}. Last price checked: $${priceText(args.currentPrice)}.`,

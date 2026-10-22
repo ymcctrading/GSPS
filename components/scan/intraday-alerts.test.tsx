@@ -342,6 +342,20 @@ describe("IntradayAlerts — reversal risk", () => {
   });
 });
 
+describe("IntradayAlerts — a signal measured losing", () => {
+  it("labels plan_level_held with its record and offers no trade", async () => {
+    mockScan({ alerts: [{ ...spyAlert, type: "plan_level_held" }] });
+    render(<IntradayAlerts />);
+
+    const user = userEvent.setup();
+    const name = await screen.findByRole("button", { name: "SPY" });
+    const card = name.closest("div.rounded-lg") as HTMLElement;
+    expect(within(card).getByText(/Measured losing/)).toBeInTheDocument();
+    await user.click(name);
+    expect(within(card).queryByText(/Trade this/)).not.toBeInTheDocument();
+  });
+});
+
 describe("IntradayAlerts — the setup card", () => {
   it("prices the alert in the same order as the daily lists, with no MTP", async () => {
     mockScan();

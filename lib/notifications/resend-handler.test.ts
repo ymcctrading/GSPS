@@ -14,7 +14,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { parseSenderAddress, sandboxBlockReason, sendAlertEmail, sendTestEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
+import { appUrl, parseSenderAddress, sandboxBlockReason, sendAlertEmail, sendTestEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
 import { SCORE_MAX } from "@/lib/scoring/display";
 
 const BASE: AlertEmailData = {
@@ -214,5 +214,34 @@ describe("sub-dollar prices (review: every email printed toFixed(2))", () => {
     const html = sendMock.mock.calls[0][0].html as string;
     expect(html).toContain("at $0.1612 limit");
     expect(html).toContain("stop $0.1548");
+  });
+});
+
+describe("appUrl (email links)", () => {
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+  });
+
+  it("points at the live site, never the unused gsps.app", () => {
+    expect(appUrl()).toBe("https://www.gsps.world");
+    expect(appUrl("/portfolio")).toBe("https://www.gsps.world/portfolio");
+  });
+
+  it("follows NEXT_PUBLIC_APP_URL, without a doubled slash", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://staging.example.com/";
+    expect(appUrl("/ticker/AAPL")).toBe("https://staging.example.com/ticker/AAPL");
+  });
+
+  it("links the alert email's chart to the site", async () => {
+    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_FROM = "alerts@example.com";
+    sendMock.mockReset();
+    sendMock.mockResolvedValue({ data: { id: "e" }, error: null });
+    await sendAlertEmail(BASE);
+    const html: string = sendMock.mock.calls[0][0].html;
+    expect(html).not.toContain("gsps.app");
+    expect(html).toContain("https://www.gsps.world");
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_FROM;
   });
 });
