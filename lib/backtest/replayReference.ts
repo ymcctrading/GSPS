@@ -8,7 +8,8 @@
  * other rules measured something no account trades. Hand-transcribed from
  * the run's JSON in `docs/replay-runs/`, the same manual discipline as
  * `lib/shadow/compare.ts`'s baseline: a person adds a row when a run is
- * committed. Client-safe (no imports), so the page can read it directly.
+ * committed. Read on the server (`/api/past-scans` returns it), since a client
+ * file must not import from lib/backtest (client-bundle-boundary test).
  */
 
 export interface ReplayScope {
@@ -42,8 +43,3 @@ export const PRODUCTION_REPLAY_RUNS: readonly ReplayReference[] = [
     all: { trades: 3482, expectancyR: 0.048, ci95: [0.018, 0.078], winRate: 0.128 },
   },
 ];
-
-/** The newest committed production-faithful run, or null when none is committed. */
-export function latestProductionReplay(): ReplayReference | null {
-  return [...PRODUCTION_REPLAY_RUNS].sort((a, b) => b.window.to.localeCompare(a.window.to))[0] ?? null;
-}

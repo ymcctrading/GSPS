@@ -13,7 +13,7 @@ import type {
   PastScanRow,
 } from "@/lib/scanner/pastScans";
 import { walkedOnEarlierRules } from "@/lib/scanner/pastScans";
-import { latestProductionReplay, PRODUCTION_REPLAY_RUNS, type ReplayReference } from "@/lib/backtest/replayReference";
+import type { ReplayReference } from "@/lib/backtest/replayReference";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 
@@ -29,6 +29,8 @@ interface PastScansResponse {
   later: string | null;
   rows: PastScanCompared[];
   forwardByVersion: ForwardTestByVersion[] | null;
+  /** The committed production-faithful replay runs (`lib/backtest/replayReference.ts`). */
+  replay: ReplayReference[];
   exactScoreDisplayEnabled: boolean;
   note?: string;
 }
@@ -164,7 +166,7 @@ export function PastScans() {
         </CardContent>
       </Card>
 
-      {data && <ForwardBesideReplay forward={data.forwardByVersion} />}
+      {data && <ForwardBesideReplay forward={data.forwardByVersion} replay={data.replay ?? []} />}
     </div>
   );
 }
@@ -321,10 +323,16 @@ function ForwardLine({ forward }: { forward: ForwardTestRow | null }) {
  * production's rules on the same version where one exists. Versions measure
  * different rules, so nothing is pooled across them (R-032).
  */
-function ForwardBesideReplay({ forward }: { forward: ForwardTestByVersion[] | null }) {
-  const latest = latestProductionReplay();
+function ForwardBesideReplay({
+  forward,
+  replay: runs,
+}: {
+  forward: ForwardTestByVersion[] | null;
+  replay: ReplayReference[];
+}) {
+  const latest = [...runs].sort((a, b) => b.window.to.localeCompare(a.window.to))[0] ?? null;
   const replayFor = (version: string): ReplayReference | null =>
-    PRODUCTION_REPLAY_RUNS.find((r) => r.strategyVersion === version) ?? null;
+    runs.find((r) => r.strategyVersion === version) ?? null;
   return (
     <Card>
       <CardHeader>

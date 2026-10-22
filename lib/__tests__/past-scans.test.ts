@@ -31,6 +31,7 @@ function fwd(overrides: Partial<ForwardTestRow> = {}): ForwardTestRow {
     direction: "bullish",
     sessionDate: "2026-10-20",
     scannedAt: "2026-10-20T13:00:00Z",
+    entry: 100,
     outcome: "win",
     rMultiple: 1.5,
     barsHeld: 3,
@@ -52,11 +53,13 @@ describe("changeBetween", () => {
 });
 
 describe("forwardFor", () => {
-  it("reads only an Execute, on its own session and direction, earliest first", () => {
-    const later = fwd({ scannedAt: "2026-10-20T15:00:00Z", rMultiple: -1 });
+  it("reads only an Execute, on its own session and direction, the recording with the list's entry", () => {
+    const later = fwd({ scannedAt: "2026-10-20T15:00:00Z", entry: 101, rMultiple: -1 });
     const first = fwd({ scannedAt: "2026-10-20T13:00:00Z" });
     const execute = row({ state: "Execute" });
     expect(forwardFor(execute, "2026-10-20", [later, first])).toBe(first);
+    // No recording with the list's entry: the session's latest, as the list is its last run.
+    expect(forwardFor(row({ state: "Execute", entry: 99 }), "2026-10-20", [first, later])).toBe(later);
     expect(forwardFor(row(), "2026-10-20", [first])).toBeNull();
     expect(forwardFor(execute, "2026-10-21", [first])).toBeNull();
     expect(forwardFor(execute, "2026-10-20", [fwd({ direction: "bearish" })])).toBeNull();
@@ -78,7 +81,8 @@ describe("comparePastScans", () => {
       between: [
         { date: "2026-10-20", rows: [row({ symbol: "AAPL", state: "Execute" })] },
         { date: "2026-10-21", rows: [row({ symbol: "AAPL", state: "Execute" }), row({ symbol: "XOM", state: "Execute" })] },
-        { date: "2026-10-22", rows: [row({ symbol: "AAPL", state: "Watch" })] },
+        // The later session itself is not "caught later": it shows as Now Execute.
+        { date: "2026-10-22", rows: [row({ symbol: "XOM", direction: "bearish", state: "Execute" })] },
       ],
       forward: [fwd({ symbol: "MSFT" })],
     });

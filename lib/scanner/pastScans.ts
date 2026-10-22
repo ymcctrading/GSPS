@@ -51,6 +51,8 @@ export interface ForwardTestRow {
   /** The New York session the signal was recorded in, YYYY-MM-DD. */
   sessionDate: string;
   scannedAt: string;
+  /** The plan's entry as recorded, used to match the list's row. */
+  entry: number | null;
   outcome: ForwardOutcome | null;
   rMultiple: number | null;
   barsHeld: number | null;
@@ -126,8 +128,10 @@ export function changeBetween(earlier: PastScanRow | null, later: PastScanRow | 
 /**
  * The forward-test walk for one published Execute: the same symbol and
  * direction recorded in the same New York session. A session can record the
- * same symbol more than once (two scheduled runs); the earliest is the one
- * the morning list priced, so it is the one shown.
+ * same symbol more than once (two scheduled runs), and each run rewrites the
+ * day's list (`daily_scans` is upserted on scan_date, direction and rank), so
+ * the list shows the session's last run. The recording whose entry is the
+ * list's entry is the one shown; with none, the latest.
  */
 export function forwardFor(
   row: PastScanRow | null,
@@ -137,14 +141,18 @@ export function forwardFor(
   if (!row || row.state !== "Execute") return null;
   const matches = forward
     .filter((f) => f.symbol === row.symbol && f.direction === row.direction && f.sessionDate === sessionDate)
-    .sort((a, b) => Date.parse(a.scannedAt) - Date.parse(b.scannedAt));
-  return matches[0] ?? null;
+    .sort((a, b) => Date.parse(b.scannedAt) - Date.parse(a.scannedAt));
+  const sameEntry = matches.find(
+    (f) => f.entry != null && row.entry != null && Math.abs(f.entry - row.entry) < 1e-6,
+  );
+  return sameEntry ?? matches[0] ?? null;
 }
 
 /**
- * Lines up two sessions' published lists. `between` holds every published row
- * on the sessions after `earlierDate` (the later session's included), keyed by
- * its date, and is read only for "caught later". Ordered by direction, then
+ * Lines up two sessions' published lists. `between` holds the published
+ * Execute rows of the sessions strictly between the two, keyed by date, and
+ * is read only for "caught later": an Execute on the later session itself
+ * already shows as "Now Execute". Ordered by direction, then
  * the later session's verdict and rank, then the earlier's.
  */
 export function comparePastScans(args: {
@@ -162,7 +170,7 @@ export function comparePastScans(args: {
 
   const firstExecute = new Map<string, string>();
   for (const { date, rows } of [...between].sort((a, b) => a.date.localeCompare(b.date))) {
-    if (date <= earlierDate) continue;
+    if (date <= earlierDate || date >= laterDate) continue;
     for (const r of rows) {
       const k = key(r.symbol, r.direction);
       if (r.state === "Execute" && !firstExecute.has(k)) firstExecute.set(k, date);
@@ -225,9 +233,9 @@ export interface ForwardTestByVersion {
 export function forwardTestByVersion(rows: ForwardTestRow[]): ForwardTestByVersion[] {
   // One call per symbol, direction and session: a session scanned twice
   // records the same plan twice, and counting both would count one call twice.
-  // The earliest stands, as `forwardFor` reads it.
+  // The latest stands, as `forwardFor` reads it when no entry matches.
   const calls = new Map<string, ForwardTestRow>();
-  for (const r of [...rows].sort((a, b) => Date.parse(a.scannedAt) - Date.parse(b.scannedAt))) {
+  for (const r of [...rows].sort((a, b) => Date.parse(b.scannedAt) - Date.parse(a.scannedAt))) {
     const k = `${r.strategyVersion}|${r.symbol}|${r.direction}|${r.sessionDate}`;
     if (!calls.has(k)) calls.set(k, r);
   }
