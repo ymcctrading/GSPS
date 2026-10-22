@@ -44,14 +44,6 @@ import type { RetiredPlanSignal } from "@/lib/lifecycle/retire";
 /** Profiles processed at once. Supabase handles this comfortably; engineering choice. */
 export const FAN_OUT_CONCURRENCY = 6;
 
-/**
- * Callers pass `deadlineAt` as their request's start plus this: past it, no
- * new profile starts. Leaves headroom inside the 60s budget (AGENTS.md,
- * "Speed is a product requirement") for profiles already running to finish
- * and the response to go out. Engineering choice, not sourced.
- */
-export const FAN_OUT_DEADLINE_MS = 45_000;
-
 export interface FanOutAllOutcome {
   profilesFannedOut: number;
   profilesFailed: number;

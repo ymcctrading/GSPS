@@ -225,6 +225,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
         // the inline fan-out reached at most 6 of 24 members a run and none on
         // most (2026-10-22). /api/scan-fanout serves it within the minute,
         // with its own budget (lib/entitlements/fanout-queue.ts).
+        const queueStartedAt = Date.now();
         fanOutQueued = await enqueueFanOut(service, {
           scanExecutionId: (inserted as { id: string }).id,
           source: FAN_OUT_SOURCE,
@@ -234,6 +235,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
             retired: retiredSignalsFrom(output.fullScanResults),
           }),
         });
+        console.log(`market-scan: fan-out queued=${fanOutQueued} in ${Date.now() - queueStartedAt}ms`);
       }
     } catch (err) {
       console.error(`market-scan: profile fan-out not queued — ${String(err)}`);
