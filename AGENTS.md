@@ -639,12 +639,10 @@ when the member's account is deleted (their foreign keys cascade from
 figure it out"):** the server reads `serviceRoleKey()`
 (`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
-Correction, 2026-10-21: the readable legacy
-`SUPABASE_SERVICE_ROLE_KEY` is still in Vercel (production and preview,
-flagged a readable secret). Production does not need it, since it reads
-`SUPABASE_SECRET_KEY`; only preview deployments fell back to it, and those
-stop with `vercel.json`'s `*/**` rule. Removing it is the owner's step in the
-Vercel dashboard (this environment can't edit Vercel variables). Read the key through that helper, never from `process.env`.
+The readable legacy `SUPABASE_SERVICE_ROLE_KEY` was removed from Vercel by
+the owner on 2026-10-22 (gone from the project's env list at 01:35 UTC), so
+production and every deployment read `SUPABASE_SECRET_KEY` alone. Read the key
+through that helper, never from `process.env`.
 **Breached passwords (S-11):** Supabase's leaked-password setting is a
 dashboard switch no tool here reaches, so sign-up, reset and the Settings
 password change refuse a password found in Have I Been Pwned
