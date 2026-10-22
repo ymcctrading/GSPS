@@ -26,6 +26,17 @@ export const SANDBOX_SENDER = "onboarding@resend.dev";
 const BARE_ADDRESS = /^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/;
 
 /**
+ * Where the emails' links point. The templates linked to https://gsps.app, a
+ * domain GSPS has never used, so every "View in app" link in a member's alert
+ * led nowhere. The site is www.gsps.world (2026-10-21);
+ * `NEXT_PUBLIC_APP_URL` overrides it, as it does for billing's return URLs.
+ */
+export function appUrl(path = ""): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.gsps.world").replace(/\/+$/, "");
+  return `${base}${path}`;
+}
+
+/**
  * The bare address in `RESEND_FROM`, which may be set as "alerts@example.com"
  * or "GSPS <alerts@example.com>". `fromHeader` adds its own display name, so a
  * value that already carried one produced "Name <GSPS <alerts@...>>", which
@@ -167,14 +178,12 @@ export async function sendAlertEmail(data: AlertEmailData) {
 
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This is an automated alert from GSPS.
-          <a href="https://gsps.app" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl()}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
     `;
 
-    // Use Resend's default "onboarding" domain until gsps.app is verified
-    // Format: from@resend.dev or your verified domain
     const result = await getResendClient().emails.send({
       from: fromHeader("GSPS Alerts"),
       to: data.userEmail,
@@ -233,7 +242,7 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This is an automated alert from GSPS.
-          <a href="https://gsps.app" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl()}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
@@ -311,7 +320,7 @@ export async function sendJournalEmail(data: JournalEmailData) {
         </table>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">Sent automatically, 2 hours after the close, from GSPS.
-          <a href="https://gsps.app/portfolio" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl("/portfolio")}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
@@ -385,7 +394,7 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
         </p>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This order moved to Rejected in your Portfolio.
-          <a href="https://gsps.app/portfolio" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          <a href="${appUrl("/portfolio")}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
           </p>
         </div>
       </div>
@@ -474,7 +483,7 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This is an internal operational alert — it was not sent to any user.
-          <a href="https://gsps.app/learning" style="color: #0ea5e9; text-decoration: none;">View shadow summary</a>
+          <a href="${appUrl("/learning")}" style="color: #0ea5e9; text-decoration: none;">View shadow summary</a>
           </p>
         </div>
       </div>
@@ -541,7 +550,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This alert has now fired and won't repeat. Set a new one from the chart if you want another.
-          <a href="https://gsps.app/ticker/${encodeURIComponent(data.symbol)}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
+          <a href="${appUrl(`/ticker/${encodeURIComponent(data.symbol)}`)}" style="color: #0ea5e9; text-decoration: none;">View chart</a>
           </p>
         </div>
       </div>
