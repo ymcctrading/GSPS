@@ -47,7 +47,7 @@ interface DailyScanRow {
  * otherwise keep rendering as scored setups with four empty price columns —
  * so the reader drops them too, rather than waiting for the next daily run.
  */
-function isComplete(r: DailyScanRow): boolean {
+export function isComplete(r: Pick<DailyScanRow, "entry" | "stop_loss" | "take_profit_1" | "master_profit">): boolean {
   return [r.entry, r.stop_loss, r.take_profit_1, r.master_profit].every(
     // Coerced rather than typeof-checked: a driver that hands back `numeric`
     // as a string must not empty the whole dashboard.
@@ -62,7 +62,15 @@ function isComplete(r: DailyScanRow): boolean {
  * price, since that's all this reader has; a setup that breaks its stop
  * intraday after the scan runs is still caught on the next run.
  */
-function isInvalidated(r: DailyScanRow): boolean {
+export function isInvalidated(
+  r: Pick<DailyScanRow, "direction" | "stop_loss"> & {
+    detail?: {
+      retired?: boolean | null;
+      currentPrice?: number | null;
+      breakdown?: { key?: string; passed: boolean }[] | null;
+    } | null;
+  },
+): boolean {
   if (isRetiredByScan(r)) return true;
   const price = r.detail?.currentPrice;
   if (price == null || !Number.isFinite(price)) return false;

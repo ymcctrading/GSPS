@@ -257,6 +257,8 @@ export interface CampaignLedger {
   timeRatioInverted: boolean;
   /** Dates when the current move will have lasted as long as the matching prior leg. */
   timeBalanceDates: string[];
+  /** The turn the open leg balances into: an up leg at a top, a down leg at a bottom. */
+  timeBalanceTurn: "top" | "bottom" | null;
   firstYearHigh: { price: number; crossed: boolean } | null;
   /**
    * The top of the secondary rally (A-LEVELS-02, W006 p.13: after the 1929
@@ -573,6 +575,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     const date = new Date(Date.parse(bars[lastPoint.index].t) + matching.days * DAY_MS);
     timeBalanceDates.push(date.toISOString().slice(0, 10));
   }
+  const timeBalanceTurn: CampaignLedger["timeBalanceTurn"] = matching ? (openDirection === "up" ? "top" : "bottom") : null;
 
   let firstYearHigh: CampaignLedger["firstYearHigh"] = null;
   if (bull && days(bars[start], last) >= 365) {
@@ -619,6 +622,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     counterDays,
     timeRatioInverted: counterDays > trendDays,
     timeBalanceDates,
+    timeBalanceTurn,
     firstYearHigh,
     secondaryTurn,
   };

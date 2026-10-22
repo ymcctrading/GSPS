@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  isPrefetchRequest,
   PRACTICE_TIERS,
   practiceTierFrom,
   practiceTierOfUser,
@@ -66,5 +68,27 @@ describe("practiceWriteRefused", () => {
     expect(practiceWriteRefused("/api/notifications/inbox/read-all", "POST")).toBe(false);
     expect(practiceWriteRefused("/api/demo/open", "POST")).toBe(false);
     expect(practiceWriteRefused("/api/market-scan/extra", "POST")).toBe(true);
+  });
+});
+
+describe("prefetches never end a practice session", () => {
+  const h = (entries: Record<string, string>) => new Headers(entries);
+  it("reads Next's router prefetch and the browser's purpose header", () => {
+    expect(isPrefetchRequest(h({ "next-router-prefetch": "1", rsc: "1" }))).toBe(true);
+    expect(isPrefetchRequest(h({ "sec-purpose": "prefetch;prerender" }))).toBe(true);
+    expect(isPrefetchRequest(h({ purpose: "prefetch" }))).toBe(true);
+  });
+  it("a visit, including a client navigation, is not a prefetch", () => {
+    expect(isPrefetchRequest(h({}))).toBe(false);
+    expect(isPrefetchRequest(h({ rsc: "1" }))).toBe(false);
+  });
+  it("the proxy signs out only on a visit, and never redirects a practice prefetch", () => {
+    const proxy = readFileSync("proxy.ts", "utf8");
+    const block = proxy.match(/if \(practice && \(path === "\/login" \|\| path === "\/signup"\)\) \{([\s\S]*?)\n  \}/);
+    expect(block).not.toBeNull();
+    expect(block![1]).toMatch(/if \(!isPrefetchRequest\(request\.headers\)\) await supabase\.auth\.signOut/);
+    expect(block![1]).toMatch(/return supabaseResponse;/);
+    // The practice branch comes before the signed-in redirect to /dashboard.
+    expect(proxy.indexOf("practice && (path === \"/login\"")).toBeLessThan(proxy.indexOf("user && (path === \"/login\""));
   });
 });

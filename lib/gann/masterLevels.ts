@@ -22,6 +22,11 @@
  * - each of Jupiter, Saturn and Uranus contributes only its nearest active
  *   angle above and below price (`astroRules.ts#activeAngleLevels`; added
  *   2026-10-16 under the owner's "every Gann method acts");
+ * - the Sun's travel since the major low, added to the low at 1 point a
+ *   degree, contributes its one level, which Gann calls a resistance angle
+ *   (the 1954 coffee letter; `astroRules.ts#sunTravelLevel`, A-ASTRO-03,
+ *   2026-10-22). The low is the daily bars' lowest, as `readAstroRules` reads
+ *   it, so the level and the factor are one rule;
  * - Jensen's square of 90 contributes its nearest point above and below price,
  *   counted up from the daily bars' low and down from their high, across
  *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16);
@@ -49,7 +54,7 @@ import type { Bar } from "@/lib/types";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { squareBoundaryLevels } from "@/lib/gann/masterCalculator";
 import { planetaryLevels } from "@/lib/gann/planetaryAverages";
-import { activeAngleLevels } from "@/lib/gann/astroRules";
+import { activeAngleLevels, sunTravelLevel } from "@/lib/gann/astroRules";
 import { jensenLevels } from "@/lib/gann/jensen";
 import { patternAngleLevels } from "@/lib/gann/patternAngles";
 import { squareOfNinePriceLevels } from "@/lib/gann/squareOfNinePrice";
@@ -58,7 +63,7 @@ import { nameNumberLevels, nameSquare } from "@/lib/gann/nameNumerology";
 export interface MasterLevel {
   price: number;
   label: string;
-  source: "squareOf144" | "planetary" | "activeAngle" | "jensen" | "patternAngle" | "squareOfNine" | "name";
+  source: "squareOf144" | "planetary" | "activeAngle" | "sunTravel" | "jensen" | "patternAngle" | "squareOfNine" | "name";
 }
 
 export function gannMasterLevels(
@@ -85,6 +90,8 @@ export function gannMasterLevels(
   }
   for (const l of planetaryLevels(asOf, price, unit)) out.push({ ...l, source: "planetary" });
   for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
+  const sun = sunTravelLevel(daily, asOf, unit);
+  if (sun) out.push({ ...sun, source: "sunTravel" });
   for (const l of jensenLevels(daily, price, unit)) out.push({ ...l, source: "jensen" });
   for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });
   for (const l of squareOfNinePriceLevels(price, unit)) out.push({ price: l.price, label: l.label, source: "squareOfNine" });

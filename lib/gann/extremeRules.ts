@@ -17,12 +17,26 @@
  *
  *   Corrected 2026-10-16 (M-E12): the exhaust gap used to mean a gap filled
  *   the next day, which is not in Gann's text; it now needs the reverse
- *   signal day he names. Context only, as before.
+ *   signal day he names.
  *
  * Gann says to apply these together in very active markets and to confirm
- * them with over-balanced price and time. So they are context and measured
- * factors here (`contextFactors.ts`), never a gate, until the replay has
- * measured them ("confluence first", roadmap G21).
+ * them with over-balanced price and time. They are context and measured
+ * factors on the card (`contextFactors.ts`), and since 2026-10-22 (M-E11,
+ * M-E12; the recheck of the owner's 2026-10-01 "every Gann method acts",
+ * which named these rules) they act where Gann says they act, on an open
+ * trade's exit (`exitRules.ts`), live and replay alike:
+ * - a reverse signal day or a 7-10 Day Rule day against the trade is "an
+ *   indication for a change in trend" (p.318), so the stop goes 3 points
+ *   beyond that day's extreme, his stop beyond a top or bottom (*Wall Street
+ *   Stock Selector* Ch. IV, the daily time rule), and a further break is the
+ *   trend changing ("reverse_signal");
+ * - an exhaust gap against the trade, a gap with its reverse signal day, is
+ *   "the culmination of a major swing" (p.319), so the trade leaves
+ *   ("exhaust_gap"). It does not reverse: Gann confirms a turn with
+ *   over-balanced price and time, which `trend_change` reads.
+ * The other gap readings stay context, as Gann places them: a filled gap
+ * "does not mean the main trend is changing", only the minor (p.325), and the
+ * count of gaps is an indication to watch, not a signal (p.321).
  *
  * Engineering choices, labelled as such: "closes near its low" means the
  * close sits in the bottom quarter of the day's range (`NEAR_EXTREME`); "new
@@ -37,7 +51,8 @@
  * Three-question basis:
  * 1. Gann: as cited above, Tier A.
  * 2. Cycles: the 7-10 (up to 14) day run is a duration claim; no Dewey item is
- *    cleared yet, which is why this measures before it acts.
+ *    cleared yet. It acts on Gann's word (2026-10-01) and the replay measures
+ *    it ("disableExits" switches each exit off for a counterfactual cell).
  * 3. Hermetic: Polarity (every rule has its mirror) and Cause and Effect (a
  *    gap left open is an imbalance; filling it is the effect that reverses
  *    the minor move).
@@ -118,6 +133,30 @@ function isNewLow(bars: Bar[], i: number): boolean {
   return bars.slice(from, i).every((b) => b.l > bars[i].l);
 }
 
+/** The reverse signal day (not the 7-10 Day Rule) on bar `i`, read on the bars up to it. */
+function reverseDayAt(bars: Bar[], i: number): ExtremeSignal | null {
+  if (i < 2) return null;
+  const r = readReverseSignal(bars.slice(i - 2, i + 1));
+  return r.rule === "reverseDay" ? r.signal : null;
+}
+
+/**
+ * The exhaust gap with its gap on bar `g`: a one-day gap to a new extreme of
+ * `NEW_TERRITORY_BARS` bars, and a reverse signal day on `g` or the bar after
+ * it when that bar is in `bars` (Commodities p.319; mirrored p.320). A "top"
+ * ends an advance. Shared by `readGaps` and the exit rules (`exitRules.ts`,
+ * M-E12), so the card and the exit read one rule.
+ */
+export function exhaustGapAt(bars: Bar[], g: number): ExtremeSignal | null {
+  if (g < 1 || g >= bars.length) return null;
+  const up = bars[g].l > bars[g - 1].h && isNewHigh(bars, g);
+  const down = bars[g].h < bars[g - 1].l && isNewLow(bars, g);
+  if (!up && !down) return null;
+  const want: ExtremeSignal = up ? "top" : "bottom";
+  for (let r = g; r <= Math.min(g + 1, bars.length - 1); r++) if (reverseDayAt(bars, r) === want) return want;
+  return null;
+}
+
 export function readGaps(bars: Bar[]): GapReading {
   const out: GapReading = { exhaustGap: null, gapsInNewTerritory: null, filledGapReversal: null };
   const n = bars.length;
@@ -125,17 +164,8 @@ export function readGaps(bars: Bar[]): GapReading {
 
   // Exhaust gap (p.319): a gap to a new extreme on bar g (one of the last
   // two), and a reverse signal day on g or the bar after it.
-  const reverseDayAt = (i: number) => {
-    const r = readReverseSignal(bars.slice(0, i + 1));
-    return r.rule === "reverseDay" ? r.signal : null;
-  };
   for (const g of [n - 1, n - 2]) {
-    if (out.exhaustGap || g < 1) continue;
-    const up = bars[g].l > bars[g - 1].h && isNewHigh(bars, g);
-    const down = bars[g].h < bars[g - 1].l && isNewLow(bars, g);
-    if (!up && !down) continue;
-    const want: ExtremeSignal = up ? "top" : "bottom";
-    for (let r = g; r <= Math.min(g + 1, n - 1); r++) if (reverseDayAt(r) === want) out.exhaustGap = want;
+    if (!out.exhaustGap) out.exhaustGap = exhaustGapAt(bars, g);
   }
 
   // Gaps in new territory since the last opposite 3-Day Chart pivot.
