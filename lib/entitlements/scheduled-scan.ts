@@ -315,10 +315,19 @@ export async function runScheduledScan(
   // Runs before the fan-out, not after: it's a few bounded calls, and while
   // the fan-out ran first, every run that timed out in it (all of them, from
   // 2026-09-24) skipped this silently.
+  //
+  // Evaluation runs before recording: a plan whose session ended unfilled is
+  // read as expired first, so the same plan found again for the next session
+  // is recorded as that session's call (lib/shadow/record.ts).
   try {
-    await recordShadowSignals(service, qualifying.map((q) => q.value), source);
-    await evaluatePendingShadowSignals(service, now);
+    const shadowStartedAt = Date.now();
+    const evaluation = await evaluatePendingShadowSignals(service, now);
+    const recording = await recordShadowSignals(service, qualifying.map((q) => q.value), source);
     await evaluateShadowDrift(service, EXECUTE_TIER_BACKTEST_BASELINE, undefined, now);
+    console.log(
+      `${source}: shadow ${Date.now() - shadowStartedAt}ms — evaluated ${evaluation.evaluated}, ` +
+        `pending ${evaluation.stillPending}, failed ${evaluation.failed}, recorded ${recording.recorded}`,
+    );
   } catch (err) {
     console.error(`${source}: shadow-mode tracking failed — ${String(err)}`);
   }

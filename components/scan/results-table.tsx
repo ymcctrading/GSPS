@@ -17,6 +17,8 @@ import { formatUsd, cn } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
+import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
+import { isFundMarket } from "@/lib/market/otherMarkets";
 
 export interface ScanRow {
   symbol: string;
@@ -139,7 +141,14 @@ export function ResultsTable({
   // resting order, listed apart and out of Execute (owner, 2026-10-21;
   // lib/setups/resting.ts). Split on the scan-time price, so the list a row
   // sits in does not move with every quote; its card reads the live price.
-  const { now: live, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
+  const { now: liveAll, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
+  // Crypto pairs and the commodity and currency funds are their own markets
+  // (SYNTHESIZED_ROADMAP Q2 item 2; Gann's capital rules count them apart,
+  // three markets beside five stocks), so each is listed under its own heading.
+  const crypto = liveAll.filter((r) => isCryptoSymbol(r.symbol));
+  const funds = liveAll.filter((r) => isFundMarket(r.symbol));
+  const live = liveAll.filter((r) => !isCryptoSymbol(r.symbol) && !isFundMarket(r.symbol));
+  const sectionProps = { onInvalidatedChange: handleInvalidatedChange, onRemove, exactScoreDisplayEnabled };
 
   return (
     <>
@@ -192,8 +201,27 @@ export function ResultsTable({
       </TBody>
     </Table>
     )}
+    <MarketSection
+      rows={crypto}
+      testId="crypto-setups"
+      title="Crypto"
+      note="The same method read on crypto pairs, which trade every day of the week. The broker trades them spot, so a sell setup can't be placed as a short."
+      spaced={live.length > 0 || dead.length > 0}
+      {...sectionProps}
+    />
+    <MarketSection
+      rows={funds}
+      testId="fund-setups"
+      title="Commodities and currencies"
+      note="The same method read on the listed funds that hold commodity and currency futures. A fund stands in for the futures: it trades as shares and loses a little each time its futures roll."
+      spaced={live.length > 0 || dead.length > 0 || crypto.length > 0}
+      {...sectionProps}
+    />
     {resting.length > 0 && (
-      <div className={cn(live.length > 0 || dead.length > 0 ? "mt-4" : undefined)} data-testid="resting-orders">
+      <div
+        className={cn(live.length > 0 || dead.length > 0 || crypto.length > 0 || funds.length > 0 ? "mt-4" : undefined)}
+        data-testid="resting-orders"
+      >
         <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
         <p className="mb-1 text-xs text-muted">
           Plans the scan rates Execute whose entry is more than a day&apos;s range from price. Each waits at its
@@ -234,6 +262,60 @@ export function ResultsTable({
       </div>
     )}
     </>
+  );
+}
+
+/** A market listed under its own heading (crypto, the funds), with the same columns as the stocks. */
+function MarketSection({
+  rows,
+  testId,
+  title,
+  note,
+  spaced,
+  onInvalidatedChange,
+  onRemove,
+  exactScoreDisplayEnabled,
+}: {
+  rows: ScanRow[];
+  testId: string;
+  title: string;
+  note: string;
+  spaced: boolean;
+  onInvalidatedChange: (key: string, value: boolean) => void;
+  onRemove?: (symbol: string) => void;
+  exactScoreDisplayEnabled: boolean;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className={cn(spaced ? "mt-4" : undefined)} data-testid={testId}>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{title}</p>
+      <p className="mb-1 text-xs text-muted">{note}</p>
+      <Table>
+        <THead>
+          <TR>
+            <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+            <TH className="text-right">Price</TH>
+            <TH className="text-right">Entry</TH>
+            <TH className="text-right">Exit (S/L)</TH>
+            <TH className="text-right">TP1</TH>
+            <TH className="text-right">MTP</TH>
+            <TH className="w-8" aria-label="Save" />
+            {onRemove && <TH className="w-8" aria-label="Remove" />}
+          </TR>
+        </THead>
+        <TBody>
+          {rows.map((r) => (
+            <ResultsRow
+              key={rowKey(r)}
+              row={r}
+              onInvalidatedChange={onInvalidatedChange}
+              onRemove={onRemove}
+              exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+            />
+          ))}
+        </TBody>
+      </Table>
+    </div>
   );
 }
 

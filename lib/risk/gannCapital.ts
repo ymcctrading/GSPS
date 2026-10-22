@@ -14,8 +14,10 @@
  *   stocks their own count, so stocks are held to `MAX_OPEN_STOCKS` (owner,
  *   2026-10-16: "5 for stocks") and crypto, which no stock book covers, to
  *   the two or three markets of *Tunnel* and *Commodities*
- *   (`MAX_OPEN_OTHER_MARKETS`). Each class is counted on its own; an order in
- *   a symbol already held is not a new market.
+ *   (`MAX_OPEN_OTHER_MARKETS`). The commodity and currency funds count there
+ *   too, as the commodities they hold (`lib/market/otherMarkets.ts`). Each
+ *   class is counted on its own; an order in a symbol already held is not a
+ *   new market.
  * - Never-failing rule 1 (W006 p.46, Rule 1: "never risk more than 10% of
  *   capital on one trade"; *Commodities* p.29 "Capital Required" and p.30
  *   "never risk more than one-tenth of your capital on any one trade", and
@@ -42,7 +44,7 @@
  *    markets is attention lost; "do not diversify").
  */
 import { gannPoint } from "@/lib/gann/pointScale";
-import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
+import { isOtherMarket } from "@/lib/market/otherMarkets";
 
 /** $3,000 per 100 shares at Gann's $1 point. */
 export const CAPITAL_POINTS_PER_SHARE = 30;
@@ -83,7 +85,7 @@ export function capitalHeld(open: CapitalRuleInput["open"]): number {
 
 /** How many markets of this symbol's class may be open at once. */
 export function maxOpenMarketsFor(symbol: string): number {
-  return isCryptoSymbol(symbol) ? MAX_OPEN_OTHER_MARKETS : MAX_OPEN_STOCKS;
+  return isOtherMarket(symbol) ? MAX_OPEN_OTHER_MARKETS : MAX_OPEN_STOCKS;
 }
 
 /** "BTC/USD" and "BTCUSD" are the same market. */
@@ -93,11 +95,11 @@ function marketKey(symbol: string): string {
 
 export function capitalRuleRefusal(input: CapitalRuleInput): CapitalRuleRefusal | null {
   const symbol = input.symbol.toUpperCase();
-  const crypto = isCryptoSymbol(symbol);
-  const held = new Set(input.open.filter((p) => isCryptoSymbol(p.symbol) === crypto).map((p) => marketKey(p.symbol)));
+  const other = isOtherMarket(symbol);
+  const held = new Set(input.open.filter((p) => isOtherMarket(p.symbol) === other).map((p) => marketKey(p.symbol)));
   const cap = maxOpenMarketsFor(symbol);
   if (!held.has(marketKey(symbol)) && held.size >= cap) {
-    const kind = crypto ? "crypto pairs" : "stocks";
+    const kind = other ? "markets besides stocks (crypto, commodity and currency funds)" : "stocks";
     return {
       code: "max_open_symbols",
       error: `You already hold ${held.size} ${kind}. GSPS trades at most ${cap} ${kind} at once, so close one before opening ${symbol}. Nothing was placed.`,

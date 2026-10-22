@@ -37,6 +37,8 @@
  */
 
 import { mergeSweptIntoShortlist, SWEEP_SLOTS } from "@/lib/scan/universeSweep";
+import { CRYPTO_UNIVERSE } from "@/lib/scan/cryptoUniverse";
+import { FUND_MARKETS, isFundMarket } from "@/lib/market/otherMarkets";
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { assertLiveMarketData } from "@/lib/data/feed-mode";
@@ -668,6 +670,85 @@ export interface MarketScanOutput {
   fullScanResults: ScanResult[];
 }
 
+/**
+ * Every chart of a short list scored in full, with no coarse filter: the crypto
+ * pairs (`lib/scan/cryptoUniverse.ts`) and the commodity and currency funds
+ * (`lib/market/otherMarkets.ts`). One batched bar request a timeframe for the
+ * list, then `scanTicker`, as the equity full pass does. A symbol the batch
+ * missed is fetched by `scanTicker` itself; a failed scan is an error row.
+ */
+export async function scanEveryChart(
+  symbols: readonly string[],
+  assetClass: "crypto" | "us_equity",
+  universeThresholds: UniverseThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
+  scan: typeof scanTicker = scanTicker,
+): Promise<ScanResult[]> {
+  if (symbols.length === 0) return [];
+  const bars = await fetchAllTimeframesBatch([...symbols], EXECUTION_TIMEFRAME, assetClass);
+  return mapWithConcurrency([...symbols], 4, (symbol) =>
+    scan(symbol, undefined, undefined, bars.get(symbol.toUpperCase()), universeThresholds).catch(
+      (err: unknown) => ({ symbol, error: String(err) }) as ScanResult,
+    ),
+  );
+}
+
+/** The commodity and currency funds' setups with a priced plan, each side in the lists' own order. */
+export function fundLists(scans: readonly ScanResult[]): Record<"bullish" | "bearish", ScanResult[]> {
+  const side = (dir: "bullish" | "bearish") =>
+    scans.filter((r) => !r.error && r.direction === dir && hasTradePlan(r)).sort(compareForList);
+  return { bullish: side("bullish"), bearish: side("bearish") };
+}
+
+/** The crypto pairs' buy setups with a priced plan, in the lists' own order. */
+export function cryptoBuyList(scans: readonly ScanResult[]): ScanResult[] {
+  return scans.filter((r) => !r.error && r.direction === "bullish" && hasTradePlan(r)).sort(compareForList);
+}
+
+/** The screener's actives less the funds, which the funds pass scores, so none is scored twice. */
+export function withoutFundMarkets(symbols: readonly string[]): string[] {
+  return symbols.filter((s) => !isFundMarket(s));
+}
+
+/**
+ * The other markets' setups joined to the stock lists, in the lists' own
+ * order (`compareForList`, so an Execute pair or fund ranks above a Watch
+ * stock), beside the stocks' slots rather than in them. Spot crypto can't be
+ * shorted, so its sells are left out (`cryptoUniverse.ts`); a fund's short is
+ * checked for a borrow as a stock's is, inside the same `deadline`, and a
+ * borrow read still running then lists no fund short (never an unchecked one).
+ */
+export async function joinOtherMarkets(
+  lists: Record<"bullish" | "bearish", ScanResult[]>,
+  cryptoScans: readonly ScanResult[],
+  fundScans: readonly ScanResult[],
+  deadline: number,
+  shortable: (ranked: ScanResult[], n: number) => Promise<ScanResult[]> = takeShortable,
+): Promise<Record<"bullish" | "bearish", ScanResult[]>> {
+  const funds = fundLists(fundScans);
+  const fundShorts =
+    funds.bearish.length === 0 ? [] : ((await settleBy(shortable(funds.bearish, funds.bearish.length), deadline)) ?? []);
+  return {
+    bullish: [...lists.bullish, ...cryptoBuyList(cryptoScans), ...funds.bullish].sort(compareForList),
+    bearish: [...lists.bearish, ...fundShorts].sort(compareForList),
+  };
+}
+
+/**
+ * `p`'s value if it settles by `deadline` (ms since the epoch), else null, so a
+ * slow side pass never holds the scan past its budget.
+ */
+export async function settleBy<T>(p: Promise<T>, deadline: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), Math.max(0, deadline - Date.now()));
+  });
+  try {
+    return await Promise.race([p, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -949,7 +1030,26 @@ export async function runMarketScan(
     mark("universe strength read", u ? `${u.size} months in ${Date.now() - universeStarted}ms` : "unread");
   });
 
-  const actives = await resolveUniverse(universeTop, extraSymbols);
+  // The markets besides stocks, every chart scored in full: the crypto pairs
+  // (`lib/scan/cryptoUniverse.ts`) and the commodity and currency funds
+  // (`lib/market/otherMarkets.ts`), started now so they run beside the equity
+  // passes rather than after them. A failure leaves that market's rows off
+  // this run and nothing else.
+  const sidePass = (name: string, p: Promise<ScanResult[]>) =>
+    p
+      .then((r) => {
+        mark(`${name} pass done`, `${r.length} symbols`);
+        return r;
+      })
+      .catch((err: unknown) => {
+        console.warn(`market-scan: ${name} pass failed:`, String(err));
+        return [] as ScanResult[];
+      });
+  const cryptoP = sidePass("crypto", scanEveryChart(CRYPTO_UNIVERSE, "crypto", universeThresholds));
+  const fundsP = sidePass("funds", scanEveryChart(FUND_MARKETS, "us_equity", universeThresholds));
+
+  // A fund the actives screener names is scored by the funds pass, not twice.
+  const actives = withoutFundMarkets(await resolveUniverse(universeTop, extraSymbols));
   mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass: daily bars for trend/level context.
@@ -1168,6 +1268,15 @@ export async function runMarketScan(
   }
 
   lists.bearish = await takeShortable(dropSellsAlsoBought(lists), perSide);
+  // The other markets' setups join the lists (`joinOtherMarkets`), shown
+  // under their own headings (`ResultsTable`). Everything waits at most to
+  // the continuation deadline, the fund borrow read included.
+  const deadline = startedAt + CONTINUATION_DEADLINE_MS;
+  const [cryptoScans, fundScans] = await Promise.all([settleBy(cryptoP, deadline), settleBy(fundsP, deadline)]);
+  if (cryptoScans === null) console.warn("market-scan: crypto pass not done by the deadline; listed without it");
+  if (fundScans === null) console.warn("market-scan: funds pass not done by the deadline; listed without it");
+  Object.assign(lists, await joinOtherMarkets(lists, cryptoScans ?? [], fundScans ?? [], deadline));
+  mark("other markets joined");
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
@@ -1179,7 +1288,12 @@ export async function runMarketScan(
     coarseShortlist.map((c) => c.symbol.toUpperCase()).filter((sym) => kept.has(sym)),
   );
   const fullScanResults = new Map(
-    [...valid, ...continuationScanResults.filter((r) => !r.error)].map((r) => [r.symbol, r]),
+    [
+      ...valid,
+      ...continuationScanResults.filter((r) => !r.error),
+      ...(cryptoScans ?? []).filter((r) => !r.error),
+      ...(fundScans ?? []).filter((r) => !r.error),
+    ].map((r) => [r.symbol, r]),
   );
   const coarseTelemetry: CoarseTelemetryRow[] = coarse
     .filter((c) => c.diagnostics !== null)

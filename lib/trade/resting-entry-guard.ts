@@ -10,7 +10,7 @@
  * never checked against each other: each passed alone, and together they could
  * open a sixth stock or breach 30 points of capital a share. So the fill reads
  * the same refusals on the book as it stands at the fill: at most five stocks
- * or three crypto pairs and 30 points of capital behind every share
+ * or three other markets (crypto, funds) and 30 points of capital behind every share
  * (`capitalRuleRefusal`, A-RISK-01, Q4/Q6), and at most a tenth of the trading
  * unit at risk (`riskTenthRefusal`, never-failing rule 1, with A-RISK-07's
  * tenth of the profits). The book here is the open positions only: other
