@@ -328,8 +328,8 @@ function ScoreBreakdown({
       {summary.stateNote && <p className="mt-3 text-xs text-warn">{summary.stateNote}</p>}
 
       <p className="mt-3 text-xs text-muted">
-        Grouped by category. The conditions each category tests are part of the GSPS scoring
-        model and are not published.
+        One point for each check the method makes before a trade. The conditions behind each
+        point are part of the GSPS scoring model and are not published.
       </p>
     </div>
   );

@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { formatUsd, cn } from "@/lib/utils";
+import { SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
 
@@ -139,7 +140,7 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
       <ul className="grid gap-1.5 sm:grid-cols-2">
         {why.score.pillars.map((p) => (
           <li key={p.pillar} className="flex justify-between gap-3 text-xs">
-            <span className="text-muted capitalize">{p.pillar}</span>
+            <span className="text-muted">{SCORE_PILLAR_LABELS[p.pillar] ?? p.pillar}</span>
             <span className="font-mono">
               {p.met}/{p.total}
             </span>
