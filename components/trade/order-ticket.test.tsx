@@ -567,3 +567,19 @@ describe("OrderTicket other techniques", () => {
     expect(new URL(call, "http://x").searchParams.get("direction")).toBeNull();
   });
 });
+
+// Review of #461: an intraday alert's MTP rides with the order it opens.
+describe("OrderTicket from an intraday alert", () => {
+  it("sends the alert's stop, first target and MTP with the order", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} intradaySourced intradayPlan={{ stop: 48, target: 53, master: 55 }} />);
+
+    expect(await screen.findByText(/MTP \$55\.00 \(where the move is measured to; nothing sells there\)/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Buy .*DRAM/ }));
+    const order = fetchMock.mock.calls.find(([u]) => String(u).includes("/api/orders"))!;
+    const body = JSON.parse(String(order[1]!.body));
+    expect(body.intradaySourced).toBe(true);
+    expect(body.attachLevels).toEqual({ stopLoss: 48, takeProfit: 53, masterProfit: 55 });
+  });
+});

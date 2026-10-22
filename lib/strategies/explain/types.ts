@@ -22,7 +22,7 @@
 import type { StrategyDirection } from "../types";
 
 /** GSPS's own plan, as the scan produced it. A target the plan doesn't fix
- * (an intraday alert has no MTP, and may have no TP1) is null and gets no line. */
+ * (an intraday alert may have no TP1 or MTP) is null and gets no line. */
 export interface PlanInput {
   direction: StrategyDirection;
   entry: number;

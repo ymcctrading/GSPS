@@ -20,9 +20,11 @@
  *    multiple with no source in his method. It can be empty: when no old level
  *    lies ahead the method fixes no target and the stop trails the move, and the
  *    card says so instead of inventing one.
- *  - **MTP** is empty: the intraday scanner prices an exit and a first target
- *    and no master take profit, except on "Daily plan's level held", which
- *    carries the daily plan's TP1 and MTP (2026-10-21).
+ *  - **MTP** is the next old level or round number beyond TP1
+ *    (`gannMasterTarget`, owner 2026-10-22: "Include a mtp for intraday
+ *    trades"), where the move is measured to; nothing sells there (Q14). Empty
+ *    when no level lies beyond TP1. "Daily plan's level held" carries the daily
+ *    plan's TP1 and MTP (2026-10-21).
  *  - A first target that pays no more than the risk (`paysRisk === false`) is
  *    said so: Gann takes no such trade (M-K5).
  *
@@ -47,7 +49,7 @@ export function intradayLevels(alert: Alert): SetupLevels {
     entry: alert.move.current,
     stop: alert.invalidation,
     tp1: alert.continuationPlan.firstTarget,
-    // Only an alert carrying a daily plan has one (`plan_level_held`).
+    // The next level beyond TP1, or the daily plan's MTP on `plan_level_held`.
     mtp: alert.continuationPlan.masterTarget ?? null,
   };
 }

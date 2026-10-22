@@ -22,19 +22,34 @@ export function tickerHref(symbol: string): string {
  * components/scan/ticker-view.tsx and lib/trade/place-order.ts for where
  * `?intraday=1` is read back and turned into a gated order.
  */
-export function intradayTradeHref(symbol: string, side: "buy" | "sell", plan?: { stop: number; target: number }): string {
+export function intradayTradeHref(
+  symbol: string,
+  side: "buy" | "sell",
+  plan?: { stop: number; target: number; master?: number | null },
+): string {
   const base = `${tickerHref(symbol)}?intraday=1&side=${side}`;
   // The alert's own plan (the Intraday style, lib/trade/tradeStyle.ts): its
-  // stop and first target fill the ticket, which the person can still edit.
-  return plan ? `${base}&stop=${plan.stop}&tp1=${plan.target}` : base;
+  // stop, first target and MTP fill the ticket, which the person can still edit.
+  if (!plan) return base;
+  const mtp = plan.master != null && plan.master > 0 ? `&mtp=${plan.master}` : "";
+  return `${base}&stop=${plan.stop}&tp1=${plan.target}${mtp}`;
 }
 
-/** The alert's stop and first target from a ticker page's query, or null when either is missing or not a price. */
-export function intradayPlanFromQuery(stop: string | null, tp1: string | null): { stop: number; target: number } | null {
+/**
+ * The alert's stop, first target and MTP from a ticker page's query, or null
+ * when the stop or first target is missing or not a price. A missing or bad
+ * MTP is null on its own: the plan still stands without one.
+ */
+export function intradayPlanFromQuery(
+  stop: string | null,
+  tp1: string | null,
+  mtp: string | null = null,
+): { stop: number; target: number; master: number | null } | null {
   const s = Number(stop);
   const t = Number(tp1);
   if (stop === null || tp1 === null || !(s > 0) || !(t > 0) || !Number.isFinite(s) || !Number.isFinite(t)) return null;
-  return { stop: s, target: t };
+  const m = mtp === null ? NaN : Number(mtp);
+  return { stop: s, target: t, master: Number.isFinite(m) && m > 0 ? m : null };
 }
 
 /**

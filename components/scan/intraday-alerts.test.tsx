@@ -357,7 +357,7 @@ describe("IntradayAlerts — a signal measured losing", () => {
 });
 
 describe("IntradayAlerts — the setup card", () => {
-  it("prices the alert in the same order as the daily lists, with no MTP", async () => {
+  it("prices the alert in the same order as the daily lists, MTP included", async () => {
     mockScan();
     render(<IntradayAlerts />);
 

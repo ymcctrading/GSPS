@@ -64,7 +64,7 @@
  * matter of seconds, mins, or hours. And ideally closed by the end of the day
  * (although not mandatory)"). Not a preference: it is the style of a trade
  * taken from an intraday alert's "Trade this" (`orders.intraday_sourced`).
- * The plan is the alert's own (its stop and its first target, no MTP), and
+ * The plan is the alert's own (its stop, first target and MTP), and
  * the exits are Gann's rules read on the session's bars
  * (`lib/gann/intradayExit.ts`): no sale at the first target (Gann's "never
  * fix a target price"), the stop one
@@ -128,7 +128,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
   intraday: {
     style: "intraday",
     label: "Intraday",
-    summary: "In and out within the session: the intraday alert's own stop and first target, managed on the session's bars, and closed by the session's end unless you choose to hold it overnight.",
+    summary: "In and out within the session: the intraday alert's own stop, first target and MTP (where the move is measured to; nothing sells there), managed on the session's bars, and closed by the session's end unless you choose to hold it overnight.",
     trendCharts: "The daily trend, with the hourly chart for the first change in trend",
     entryTiming: "At the market, when the intraday alert fires",
     stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",

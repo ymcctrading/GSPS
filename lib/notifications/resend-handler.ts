@@ -95,6 +95,8 @@ export interface AlertEmailData {
   stopLoss: number;
   /** Null when the alert fixes no target and the stop trails the move instead. */
   takeProfit: number | null;
+  /** The master take profit, where the move is measured to; nothing sells there. Omitted when none is priced. */
+  masterProfit?: number | null;
   verdict: "Execute" | "Watch" | "Reject";
   confidence: number;
   /**
@@ -151,7 +153,9 @@ export async function sendAlertEmail(data: AlertEmailData) {
           <p style="margin: 0; color: #7c2d12; font-size: 14px; font-weight: 600;">Risk Management</p>
           <p style="margin: 8px 0 0; color: #7c2d12; font-size: 13px;">
             Stop Loss: <strong>${priceUsd(data.stopLoss)}</strong> |
-            Target: <strong>${data.takeProfit != null ? `${priceUsd(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>
+            Target: <strong>${data.takeProfit != null ? `${priceUsd(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>${
+              data.masterProfit != null ? ` | MTP: <strong>${priceUsd(data.masterProfit)}</strong>` : ""
+            }
           </p>
         </div>
 

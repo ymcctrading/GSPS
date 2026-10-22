@@ -66,12 +66,13 @@ export function OrderTicket({
    */
   intradaySourced?: boolean;
   /**
-   * The intraday alert's own stop and first target (the Intraday style,
+   * The intraday alert's own stop, first target and MTP (the Intraday style,
    * `lib/trade/tradeStyle.ts`), carried by its "Trade this" link. The ticket
-   * opens on them as a market entry with no MTP; the person can still edit
-   * them. Null for every other ticket.
+   * opens on them as a market entry; the person can still edit the stop and
+   * target. The MTP is recorded with the order and sells nothing. Null for
+   * every other ticket.
    */
-  intradayPlan?: { stop: number; target: number } | null;
+  intradayPlan?: { stop: number; target: number; master?: number | null } | null;
   /** Preselects the side from the alert's direction; the user can still change it. */
   forceSide?: Side;
   /**
@@ -193,8 +194,8 @@ export function OrderTicket({
   const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
 
   // An intraday alert's plan opens the ticket on its own levels, once per plan:
-  // a market entry (the alert has fired) with the alert's stop and first
-  // target, and no MTP. Derived during render, as the symbol reset below is.
+  // a market entry (the alert has fired) with the alert's stop, first target
+  // and MTP. Derived during render, as the symbol reset below is.
   const [holdOvernight, setHoldOvernight] = useState(false);
   // With no plan in the link, the ticket still opens in manual mode for the
   // trader's own stop: an intraday trade never takes the daily plan's levels.
@@ -519,12 +520,19 @@ export function OrderTicket({
   const manualLevelsBlocked = manualLevelsComplete && !manualBracketCheck.ok;
   const attachingManualLevels =
     executionMode === "manual" && assetType === "shares" && manualLevelsComplete && !manualLevelsBlocked;
+  // An intraday alert's MTP rides with the order while it still lies beyond
+  // the first target on the trade's side (the person may have moved the target).
+  const intradayMaster =
+    intradaySourced && intradayPlan?.master != null && Number.isFinite(manualTargetNum) &&
+    (side === "buy" ? intradayPlan.master > manualTargetNum : intradayPlan.master < manualTargetNum)
+      ? intradayPlan.master
+      : null;
   const manualExitPlan =
     attachingManualLevels && Number(qty) >= 1
       ? planProtocolExit(Number(qty), {
           stopLoss: manualStopNum,
           takeProfit1: manualTargetNum,
-          masterProfit: null,
+          masterProfit: intradayMaster,
         })
       : null;
 
@@ -606,7 +614,11 @@ export function OrderTicket({
                   ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
                   : undefined
                 : attachingManualLevels
-                  ? { stopLoss: manualStopNum, takeProfit: manualTargetNum }
+                  ? {
+                      stopLoss: manualStopNum,
+                      takeProfit: manualTargetNum,
+                      ...(intradayMaster != null ? { masterProfit: intradayMaster } : {}),
+                    }
                   : undefined,
               mode: "paper" as const,
               executionMode,
@@ -735,7 +747,10 @@ export function OrderTicket({
               </p>
               <p>
                 {intradayPlan
-                  ? `The alert's plan: stop ${formatUsd(intradayPlan.stop)}, first target ${formatUsd(intradayPlan.target)}, no MTP. `
+                  ? `The alert's plan: stop ${formatUsd(intradayPlan.stop)}, first target ${formatUsd(intradayPlan.target)}, ` +
+                    (intradayMaster != null
+                      ? `MTP ${formatUsd(intradayMaster)} (where the move is measured to; nothing sells there). `
+                      : "no MTP. ")
                   : "Set your own stop and first target below: an intraday trade is placed with both. "}
                 Once filled: {intradayStyle.trailRule.charAt(0).toLowerCase() + intradayStyle.trailRule.slice(1)}. Expected hold:{" "}
                 {intradayStyle.expectedHold.toLowerCase()}.

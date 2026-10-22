@@ -2991,9 +2991,13 @@ Standing facts for a session that touches any list of setups:
   "Master" in the lists; it is **MTP** (master take profit) wherever a person
   reads it. Guided Mode and the onboarding walkthrough keep their plain-English
   "next level" and add "(MTP)". The internal field stays `masterProfit`.
-- **Intraday has no MTP, and its TP1 is a Gann level or nothing.** The
+- **Intraday's TP1 and MTP are Gann levels or nothing.** The
   intraday scanner prices an exit (the session's 50% point or a point beyond the crossed prior-session
-  extreme) and a first target, and no master take profit. The first target was
+  extreme), a first target and, since 2026-10-22 (owner: "Include a mtp for
+  intraday trades"), a master take profit: the next old level or round number
+  beyond the first target (`gannMasterTarget`, the daily plan's "next level
+  beyond TP1" at the session's scale). It rides into the ticket and the order
+  record; nothing sells there (Q14), as with the daily MTP. The first target was
   twice the risk, an R-multiple with no Gann source; on 2026-09-30 the owner
   ("everything must align with Gann") had it replaced by `gannFirstTarget`
   (`lib/scanner/intraday.ts`): the nearest old top or bottom beyond the price,
@@ -3134,9 +3138,9 @@ in batches (100 symbols a request), not three requests a symbol.
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and
 "Trade this" on an intraday alert opened the ticket on the daily plan's levels,
-not the alert's. Now the link carries the alert's own stop and first target
-(`intradayTradeHref`), and the ticket opens on them as a market entry with no
-MTP, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
+not the alert's. Now the link carries the alert's own stop, first target and
+MTP (`intradayTradeHref`; the MTP since the same day, sold at by nothing), and
+the ticket opens on them as a market entry, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
 `orders.intraday_sourced`, not a picked preference). Once filled, the paper and
 live exit managers walk it on the session's bars with the intraday replay's own
 rules, now one module (`lib/gann/intradayExit.ts`), on regular-session bars

@@ -17,7 +17,7 @@ export function parsePlanParams(params: URLSearchParams): PlanInput | null {
   };
   const entry = num("entry");
   const stopLoss = num("stop");
-  // Targets are optional: an intraday alert fixes no MTP and may fix no TP1.
+  // Targets are optional: an intraday alert may fix no TP1 or MTP.
   const takeProfit1 = num("tp1");
   const masterTarget = num("mtp");
   if (entry == null || stopLoss == null) return null;
