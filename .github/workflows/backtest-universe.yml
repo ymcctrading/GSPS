@@ -106,6 +106,8 @@ jobs:
       - run: npm ci
 
       - name: Run backtest
+        # Under the job's 330 so the print and upload steps always get their turn.
+        timeout-minutes: 320
         env:
           MARKET_DATA_PROVIDER: alpaca
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
@@ -142,7 +144,10 @@ jobs:
             echo "=== END $(basename "$f") ==="
           done
           # A job stopped at its time limit leaves its last checkpoint's trades here.
-          if [ -f out/trades.partial-log.txt ]; then cat out/trades.partial-log.txt; fi
+          if [ -f out/trades.partial-log.txt ]; then
+            cat out/trades.partial-log.txt
+            if [ -f out/summary.md ]; then cat out/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()

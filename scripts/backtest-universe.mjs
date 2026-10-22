@@ -49,10 +49,17 @@ import { createServer } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Write through a temporary file and rename, so a job killed mid-checkpoint
+ * never leaves a truncated file behind. */
+async function writeWhole(file, text) {
+  await writeFile(`${file}.tmp`, text);
+  await rename(`${file}.tmp`, file);
+}
 
 /** The 12 mega-cap names behind the 2026-09-23 committed run. */
 export const MEGA_12 = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA", "GOOGL", "META", "AMZN", "NFLX", "AVGO", "CRM"];
@@ -713,8 +720,8 @@ async function main() {
           attributeWithin: cell.within ?? "Execute",
           ...(cell.options ?? {}),
         });
-        await writeFile(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
-        await writeFile(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
+        await writeWhole(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
+        await writeWhole(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
         cellResults.push({
           cell,
           trades: overall.trades,
@@ -738,6 +745,8 @@ async function main() {
         timeframe: args.timeframe,
         targetR: args.targetR,
         since: args.since,
+        offset: args.offset,
+        limit: args.limit,
         source: provider.name,
         live: provider.isLive,
         window,
@@ -747,18 +756,18 @@ async function main() {
         durationMinutes: (Date.now() - started) / 60_000,
       };
       const summary = summarizeCells(cellResults);
-      await writeFile(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
+      await writeWhole(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
       const md = summaryMarkdown(meta, summary);
-      await writeFile(path.resolve(root, args.out, "summary.md"), md);
+      await writeWhole(path.resolve(root, args.out, "summary.md"), md);
       // The per-trade rows, for exact splits from the job log alone. A
       // checkpoint keeps the log block on disk (the "Print results" step
       // prints it when the job stops early); the final write prints it here.
       const csv = tradesCsv(cellResults);
-      await writeFile(path.resolve(root, args.out, "trades.csv"), csv);
+      await writeWhole(path.resolve(root, args.out, "trades.csv"), csv);
       const block = tradesCsvLogBlock(csv);
       const blockFile = path.resolve(root, args.out, "trades.partial-log.txt");
       if (partial) {
-        await writeFile(blockFile, block);
+        await writeWhole(blockFile, block);
         return;
       }
       await rm(blockFile, { force: true });
