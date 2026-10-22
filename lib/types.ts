@@ -188,8 +188,8 @@ export interface TradeLevels {
    * would flip on rounding noise. This reports which branch actually ran.
    */
   masterFromStructure: boolean;
-  /** Warning when the structural stop is unusually wide for the instrument's candles; none for a bought option, whose premium is its stop (R-006). */
   stopPctOfPrice: number;
+  /** Warning when the structural stop is unusually wide for the instrument's candles; none for a bought option, whose premium is its stop (R-006). */
   stopBandWarning: string | null;
   /**
    * Equities only (`assetClass: "us_equity"`): true when the stop was anchored
