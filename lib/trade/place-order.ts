@@ -35,7 +35,17 @@ import {
   quotePrice,
 } from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
-import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { LIVE_EXIT_RULE, planProtocolExit, type LiveExitRule } from "@/lib/trade/protocol-exit";
+
+/**
+ * The exit split an order is written with. An intraday alert's trade (the
+ * Intraday style, `lib/gann/intradayExit.ts`) takes 60% at its first target
+ * and runs the rest on the session's rules, as the intraday replay walks it;
+ * every other order follows `LIVE_EXIT_RULE`.
+ */
+function intradayExitRule(input: { intradaySourced?: boolean }): LiveExitRule {
+  return input.intradaySourced ? "gann-runner" : LIVE_EXIT_RULE;
+}
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
@@ -113,6 +123,13 @@ export const OrderSchema = z.object({
    * entries against today's intraday-sourced history.
    */
   intradaySourced: z.boolean().optional().default(false),
+  /**
+   * An intraday-sourced trade only: keep it open past the session's end. The
+   * Intraday style closes what is left at the session's end by default (the
+   * owner's choice, "not mandatory"; `lib/gann/intradayExit.ts`), and this is
+   * the trader's way out of that close. Ignored on any other order.
+   */
+  holdOvernight: z.boolean().optional(),
   /**
    * The `trade_plans` row this order was authorized against, when there is
    * one — set only by lib/automation/service.ts's `deriveOrderInputFromPlan`
@@ -758,6 +775,7 @@ async function placeChecked(
     order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" && !atMarket ? "limit" : orderType,
     qty: input.qty,
     intraday_sourced: input.intradaySourced,
+    hold_overnight: input.intradaySourced && input.holdOvernight === true,
     source_plan_id: input.sourcePlanId ?? null,
     limit_price: submittedLimitPrice ?? null,
     // For a market entry, the plan's price, kept to measure the fill against.
@@ -783,11 +801,15 @@ async function placeChecked(
   // The split is recomputed from the quantity actually filled when the exits are
   // attached, so this is the plan for the order as asked for.
   const exitPlan = useBracket
-    ? planProtocolExit(input.qty, {
-        stopLoss: bracketLevels!.stopLoss,
-        takeProfit1: bracketLevels!.takeProfit,
-        masterProfit: input.attachLevels!.masterProfit ?? null,
-      })
+    ? planProtocolExit(
+        input.qty,
+        {
+          stopLoss: bracketLevels!.stopLoss,
+          takeProfit1: bracketLevels!.takeProfit,
+          masterProfit: input.attachLevels!.masterProfit ?? null,
+        },
+        intradayExitRule(input),
+      )
     : null;
 
   const submittedAt = Date.now();
@@ -1365,6 +1387,10 @@ async function placeLiveOrder(
       side: input.side,
       order_type: useBracket ? "bracket" : orderType,
       qty: input.qty,
+      // The live exit manager reads these to manage an intraday alert's trade
+      // in the Intraday style (lib/trade/exit-style.ts), as on paper.
+      intraday_sourced: input.intradaySourced,
+      hold_overnight: input.intradaySourced && input.holdOvernight === true,
       source_plan_id: input.sourcePlanId ?? null,
       limit_price: submittedLimitPrice ?? null,
       stop_price: stopLoss ?? null,
@@ -1384,11 +1410,15 @@ async function placeLiveOrder(
 
   let planError: string | null = null;
   if (useBracket && orderId) {
-    const exitPlan = planProtocolExit(input.qty, {
-      stopLoss: stopLoss!,
-      takeProfit1: input.attachLevels!.takeProfit,
-      masterProfit: input.attachLevels!.masterProfit ?? null,
-    });
+    const exitPlan = planProtocolExit(
+      input.qty,
+      {
+        stopLoss: stopLoss!,
+        takeProfit1: input.attachLevels!.takeProfit,
+        masterProfit: input.attachLevels!.masterProfit ?? null,
+      },
+      intradayExitRule(input),
+    );
     const { data: plan, error: planErr } = await ledgerWriter(supabase)
       .from("protocol_exits")
       .insert({

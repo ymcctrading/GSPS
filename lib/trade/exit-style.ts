@@ -9,12 +9,19 @@
  * placed (its entry order carries `source_plan_id`) stays on Swing: the
  * portfolio manager trades Fast only once the replay has measured it. Any
  * failed read answers Swing, the default.
+ *
+ * Intraday (2026-10-22) comes from the trade itself, not the history: an
+ * entry taken from an intraday alert (`orders.intraday_sourced`) is managed
+ * on the session's bars (`lib/gann/intradayExit.ts`), and closes at the
+ * session's end unless the trader held it overnight (`orders.hold_overnight`)
+ * or it is crypto, which has no session.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readGannRulePrefs } from "@/lib/trade/away-notice";
 import { styleAt, type TradeStyleChange } from "@/lib/gann/traderPrefs";
 import type { TradeStyle } from "@/lib/trade/tradeStyle";
+import { isCryptoSymbol } from "@/lib/data/alpaca";
 
 /** One read of the trader's style history per manage pass. */
 export async function traderStyleHistory(supabase: SupabaseClient, userId: string): Promise<TradeStyleChange[]> {
@@ -27,20 +34,37 @@ export async function traderStyleHistory(supabase: SupabaseClient, userId: strin
  * `orderKey` names the column the exit row's `entry_order_id` matches in
  * `orders`: `id` on paper, `broker_order_id` live.
  */
-export async function positionTradeStyle(
+export interface PositionExitStyle {
+  style: TradeStyle;
+  /** Intraday only: close what is left at the session's end. */
+  closeAtSessionEnd: boolean;
+}
+
+const SWING: PositionExitStyle = { style: "swing", closeAtSessionEnd: false };
+
+export async function positionExitStyle(
   supabase: SupabaseClient,
   history: readonly TradeStyleChange[],
   filledAt: string,
   entryOrderId: string | null,
   orderKey: "id" | "broker_order_id",
-): Promise<TradeStyle> {
-  if (styleAt(history, filledAt) !== "fast") return "swing";
-  if (!entryOrderId) return "fast";
+  symbol: string,
+): Promise<PositionExitStyle> {
+  const fast = styleAt(history, filledAt) === "fast";
+  if (!entryOrderId) return fast ? { style: "fast", closeAtSessionEnd: false } : SWING;
   try {
-    const { data, error } = await supabase.from("orders").select("source_plan_id").eq(orderKey, entryOrderId).maybeSingle();
-    if (error) return "swing";
-    return (data as { source_plan_id?: string | null } | null)?.source_plan_id ? "swing" : "fast";
+    const { data, error } = await supabase
+      .from("orders")
+      .select("source_plan_id, intraday_sourced, hold_overnight")
+      .eq(orderKey, entryOrderId)
+      .maybeSingle();
+    if (error || !data) return fast && !error ? { style: "fast", closeAtSessionEnd: false } : SWING;
+    const row = data as { source_plan_id?: string | null; intraday_sourced?: boolean | null; hold_overnight?: boolean | null };
+    if (row.intraday_sourced) {
+      return { style: "intraday", closeAtSessionEnd: !row.hold_overnight && !isCryptoSymbol(symbol) };
+    }
+    return fast && !row.source_plan_id ? { style: "fast", closeAtSessionEnd: false } : SWING;
   } catch {
-    return "swing";
+    return SWING;
   }
 }

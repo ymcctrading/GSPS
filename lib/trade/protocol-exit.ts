@@ -59,7 +59,8 @@
  */
 
 import { snapToTick, tickSizeFor } from "@/lib/trade/tick-size";
-import type { GannExitReading, GannStopReason } from "@/lib/gann/exitRules";
+import type { ExitReading, GannStopReason } from "@/lib/gann/exitRules";
+import type { IntradayStopReason } from "@/lib/gann/intradayExit";
 
 /** Which exit rules manage live and paper positions. See the header. */
 export type LiveExitRule = "gann" | "gann-runner" | "bracket";
@@ -297,7 +298,7 @@ export interface ExitState {
    * Gann's reading for this position (`readGannExit`), under either Gann rule.
    * Null when it couldn't be read this pass: the resting stop stays.
    */
-  gann?: GannExitReading | null;
+  gann?: ExitReading | null;
 }
 
 export type ExitAction =
@@ -317,7 +318,7 @@ export type ExitAction =
  * Gann's stop reasons, mapped onto the stored `applied_stop_reason` values
  * (the column's check constraint). The explanation carries Gann's own reason.
  */
-export function storedStopReason(reason: GannStopReason): StopReason {
+export function storedStopReason(reason: GannStopReason | IntradayStopReason): StopReason {
   switch (reason) {
     case "initial":
       return "protocol";
@@ -364,7 +365,7 @@ export function planStopAdjustment(state: ExitState): ExitAction {
 
   if (rule !== "bracket") {
     const g = state.gann ?? null;
-    let gannReason: GannStopReason | null = null;
+    let gannReason: GannStopReason | IntradayStopReason | null = null;
     if (g) {
       const before = stop;
       adopt(g.stop, storedStopReason(g.stopReason));
@@ -459,7 +460,7 @@ function explain(reason: StopReason, stop: number, long: boolean): string {
   }
 }
 
-function explainGann(reason: GannStopReason | null, stop: number): string {
+function explainGann(reason: GannStopReason | IntradayStopReason | null, stop: number): string {
   const usd = (n: number) =>
     n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
   switch (reason) {
@@ -475,6 +476,8 @@ function explainGann(reason: GannStopReason | null, stop: number): string {
       return `The move is in its late stage, so the stop is kept close, at ${usd(stop)}.`;
     case "day_low":
       return `Fast trade: the stop follows the last completed day, 3 points beyond its extreme, to ${usd(stop)}.`;
+    case "intraday_swing":
+      return `Intraday trade: the stop follows the last completed 15-minute swing, one intraday point beyond it, to ${usd(stop)}.`;
     default:
       return `The protocol stop rests at ${usd(stop)}.`;
   }

@@ -76,7 +76,7 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
-import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
@@ -99,6 +99,8 @@ export interface PlanRow {
   stop_loss: number;
   take_profit_1: number;
   master_profit: number | null;
+  /** The scale-out the placement recorded (0 under Gann's rules, except an intraday trade's). */
+  scale_out_qty?: number | null;
   scale_out_order_id: string | null;
   master_order_id: string | null;
   runner_order_id: string | null;
@@ -223,6 +225,7 @@ function normalizePlan(plan: PlanRow): PlanRow {
     stop_loss: Number(plan.stop_loss),
     take_profit_1: Number(plan.take_profit_1),
     master_profit: numOrNull(plan.master_profit),
+    scale_out_qty: numOrNull(plan.scale_out_qty),
     high_water: numOrNull(plan.high_water),
     applied_stop: numOrNull(plan.applied_stop),
   };
@@ -305,7 +308,7 @@ async function advance(
           initialStop: plan.stop_loss,
           openedAt: filledAt,
           best: highWater,
-          style: await positionTradeStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id"),
+          ...(await positionExitStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id", plan.symbol)),
         })
       : null;
   const action = planStopAdjustment({
@@ -456,11 +459,18 @@ async function attachExits(
   run: ManageRun,
 ): Promise<void> {
   const closingSide = plan.side === "long" ? "sell" : "buy";
-  const split = planProtocolExit(heldQty, {
-    stopLoss: plan.stop_loss,
-    takeProfit1: plan.take_profit_1,
-    masterProfit: plan.master_profit,
-  });
+  // An intraday trade's placement recorded a scale-out at its first target
+  // (`intradayExitRule`, place-order.ts); under Gann's rules no other order
+  // does, so the recorded split says which rule to split the fill by.
+  const split = planProtocolExit(
+    heldQty,
+    {
+      stopLoss: plan.stop_loss,
+      takeProfit1: plan.take_profit_1,
+      masterProfit: plan.master_profit,
+    },
+    LIVE_EXIT_RULE === "gann" && (plan.scale_out_qty ?? 0) > 0 ? "gann-runner" : LIVE_EXIT_RULE,
+  );
 
   if (split.tranches.length === 0) {
     // Nothing worth splitting — the broker's held quantity read back as zero
@@ -695,15 +705,21 @@ async function finish(
     const brokenLevel = ctx?.caught ? (ctx.lastPrice ?? stopLevel) : stopLevel;
     const extreme = ctx?.highWater ?? plan.high_water ?? ctx?.entryPrice ?? plan.entry_price;
     let sourcePlanId: string | null = null;
+    // An intraday trade (lib/gann/intradayExit.ts) ends on the session's
+    // rules: it is neither reversed nor re-bought at the daily geometry.
+    let intraday = false;
     if (plan.entry_order_id) {
       const { data: orderRow } = await supabase
         .from("orders")
-        .select("source_plan_id")
+        .select("source_plan_id, intraday_sourced")
         .eq("broker_order_id", plan.entry_order_id)
         .maybeSingle();
       sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+      intraday = orderRow?.intraday_sourced === true;
     }
-    if (sourcePlanId) {
+    if (intraday) {
+      // Nothing to offer.
+    } else if (sourcePlanId) {
       await handleAutomatedStopOut(supabase, userId, {
         planId: sourcePlanId,
         entryFillPrice: ctx?.entryPrice ?? plan.entry_price,
@@ -723,7 +739,7 @@ async function finish(
       if (offer) run.notes.push(offer);
     }
     // A-PYRAMID-07, as on paper (exit-manager-sim.ts): offered in a note.
-    const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: ctx?.entryPrice ?? plan.entry_price });
+    const rebuy = intraday ? null : await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: ctx?.entryPrice ?? plan.entry_price });
     if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
   }
 }

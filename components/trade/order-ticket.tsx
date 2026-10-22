@@ -2,6 +2,7 @@
 
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
 import { TradeStylePicker } from "@/components/trade/trade-style-picker";
+import { TRADE_STYLES } from "@/lib/trade/tradeStyle";
 import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -51,6 +52,7 @@ export function OrderTicket({
   result,
   livePrice,
   intradaySourced = false,
+  intradayPlan = null,
   forceSide,
   onExplainChange,
 }: {
@@ -63,6 +65,13 @@ export function OrderTicket({
    * tier-promotion gates (lib/promotion/pro-intraday.ts) to it.
    */
   intradaySourced?: boolean;
+  /**
+   * The intraday alert's own stop and first target (the Intraday style,
+   * `lib/trade/tradeStyle.ts`), carried by its "Trade this" link. The ticket
+   * opens on them as a market entry with no MTP; the person can still edit
+   * them. Null for every other ticket.
+   */
+  intradayPlan?: { stop: number; target: number } | null;
   /** Preselects the side from the alert's direction; the user can still change it. */
   forceSide?: Side;
   /**
@@ -182,6 +191,24 @@ export function OrderTicket({
     value: AssetTradability | null;
   }>({ symbol: "", value: null });
   const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
+
+  // An intraday alert's plan opens the ticket on its own levels, once per plan:
+  // a market entry (the alert has fired) with the alert's stop and first
+  // target, and no MTP. Derived during render, as the symbol reset below is.
+  const [holdOvernight, setHoldOvernight] = useState(false);
+  const intradayKey = intradaySourced && intradayPlan ? `${symbol}|${intradayPlan.stop}|${intradayPlan.target}` : null;
+  const [appliedIntraday, setAppliedIntraday] = useState<string | null>(null);
+  if (intradayKey && intradayPlan && appliedIntraday !== intradayKey) {
+    setAppliedIntraday(intradayKey);
+    setExecutionMode("manual");
+    setAssetType("shares");
+    setEntryMode("now");
+    setManualStop(String(intradayPlan.stop));
+    setManualTarget(String(intradayPlan.target));
+    setHoldOvernight(false);
+  }
+  const intradayStyle = TRADE_STYLES.intraday;
+  const isCrypto = symbol.includes("/");
 
   // Another symbol's techniques and levels never carry over.
   const [techniquesFor, setTechniquesFor] = useState(symbol);
@@ -490,11 +517,16 @@ export function OrderTicket({
     executionMode === "manual" && assetType === "shares" && manualLevelsComplete && !manualLevelsBlocked;
   const manualExitPlan =
     attachingManualLevels && Number(qty) >= 1
-      ? planProtocolExit(Number(qty), {
-          stopLoss: manualStopNum,
-          takeProfit1: manualTargetNum,
-          masterProfit: null,
-        })
+      ? planProtocolExit(
+          Number(qty),
+          {
+            stopLoss: manualStopNum,
+            takeProfit1: manualTargetNum,
+            masterProfit: null,
+          },
+          // An intraday alert's trade takes 60% at its first target, as the server writes it.
+          intradaySourced ? "gann-runner" : undefined,
+        )
       : null;
 
   // A limit price between two valid increments is refused by the broker
@@ -580,6 +612,8 @@ export function OrderTicket({
               mode: "paper" as const,
               executionMode,
               intradaySourced,
+              // The Intraday style's session close is the default; this is the way out of it.
+              holdOvernight: intradayKey ? holdOvernight || isCrypto : undefined,
             };
 
       const res = await fetch("/api/orders", {
@@ -685,7 +719,31 @@ export function OrderTicket({
           </button>
         </div>
         <div className="mt-2">
-          <TradeStylePicker value={tradeStyle} onChange={(s) => void saveGannPrefs({ tradeStyle: s })} />
+          {intradayKey ? (
+            <div className="flex flex-col gap-1 rounded border border-border p-2 text-xs text-muted">
+              <p>
+                <span className="font-semibold text-foreground">Trade style: {intradayStyle.label}.</span> {intradayStyle.summary}
+              </p>
+              <p>
+                The alert&apos;s plan: stop {formatUsd(intradayPlan!.stop)}, first target {formatUsd(intradayPlan!.target)}, no MTP.
+                Once filled: {intradayStyle.trailRule.charAt(0).toLowerCase() + intradayStyle.trailRule.slice(1)}. Expected hold:{" "}
+                {intradayStyle.expectedHold.toLowerCase()}.
+              </p>
+              {isCrypto ? (
+                <p>Crypto trades around the clock, so there is no session to close at: the trade ends on its stop, its target or the hourly turn.</p>
+              ) : (
+                <label className="flex min-h-9 cursor-pointer items-center gap-2">
+                  <input type="checkbox" checked={!holdOvernight} onChange={(e) => setHoldOvernight(!e.target.checked)} />
+                  Close what is left by the session&apos;s end (from 3:45 PM New York time)
+                </label>
+              )}
+              <p className="text-warn">
+                Intraday trades have no measured record yet: the method's replay at intraday scale has not shown an edge.
+              </p>
+            </div>
+          ) : (
+            <TradeStylePicker value={tradeStyle} onChange={(s) => void saveGannPrefs({ tradeStyle: s })} />
+          )}
         </div>
         {belowExecute && (
           <p className="mt-2 text-xs text-muted">

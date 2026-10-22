@@ -94,6 +94,7 @@ import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { gannDayStop } from "@/lib/gann/dayStop";
 import type { TradeStyle } from "@/lib/trade/tradeStyle";
+import type { IntradayExitSignal, IntradayStopReason } from "@/lib/gann/intradayExit";
 
 
 /**
@@ -191,6 +192,17 @@ export interface GannExitReading {
    * opposite trade at the close the exit was read on, its stop 3 points beyond
    * this trade's extreme (`lib/gann/reverse.ts`).
    */
+  reverse?: GannReversal | null;
+}
+
+/**
+ * A reading the exit managers act on: Gann's daily rules (`GannExitReading`),
+ * or the Intraday style's session rules (`lib/gann/intradayExit.ts`).
+ */
+export interface ExitReading {
+  stop: number;
+  stopReason: GannStopReason | IntradayStopReason;
+  exit: { reason: GannExitReason | IntradayExitSignal; note: string } | null;
   reverse?: GannReversal | null;
 }
 

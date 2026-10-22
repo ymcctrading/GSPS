@@ -358,6 +358,13 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   const unpaid = alert.continuationPlan.paysRisk === false;
   // A signal the replay measured losing is shown for study, never offered.
   const measuredLosing = MEASURED_LOSING[alert.type];
+  // The plan "Trade this" carries into the ticket: the alert's own stop and
+  // first target (the Intraday style). With no target fixed there is nothing
+  // to check the risk against (M-K5), so no trade is offered.
+  const tradePlan =
+    alert.continuationPlan.invalidation != null && alert.continuationPlan.firstTarget != null
+      ? { stop: alert.continuationPlan.invalidation, target: alert.continuationPlan.firstTarget }
+      : null;
   const model = buildIntradayCardModel(alert);
   const cardId = `intraday-card-${alert.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
   const { levels } = model;
@@ -435,9 +442,9 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
             </Badge>
           }
           actions={
-            !isRisk && !unpaid && !measuredLosing && (
+            !isRisk && !unpaid && !measuredLosing && tradePlan && (
               <Link
-                href={intradayTradeHref(alert.symbol, up ? "buy" : "sell")}
+                href={intradayTradeHref(alert.symbol, up ? "buy" : "sell", tradePlan)}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
               >
                 Trade this →

@@ -188,6 +188,20 @@ describe("replayIntraday", () => {
     expect(strict.trades.length).toBeLessThanOrEqual(live.trades.length);
   });
 
+  it("closes what is left at the session's last bar only when asked (the Intraday style's default)", () => {
+    const bars = zigzag(12, UP);
+    const plain = run(bars);
+    expect(plain.trades.some((t) => t.exitReason === "intraday_session_close")).toBe(false);
+    const closing = run(bars, { sessionClose: true });
+    expect(closing.trades.some((t) => t.exitReason === "intraday_session_close")).toBe(true);
+    for (const t of closing.trades) {
+      // No trade is held past the New York date it opened on.
+      const open = bars.findIndex((b) => b.t === t.openedAt);
+      const last = bars[open + t.barsHeld - 1];
+      expect(last.t.slice(0, 10)).toBe(t.openedAt.slice(0, 10));
+    }
+  });
+
   it("adds up across symbols like every other replay", () => {
     const a = run(zigzag(12, UP));
     const b = run(zigzag(12, DOWN));

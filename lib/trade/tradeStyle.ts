@@ -58,9 +58,32 @@
  * creates a trade whose stop moves with each day, which neither held alone.
  */
 
-export type TradeStyle = "swing" | "fast";
+/**
+ * **Intraday** (2026-10-22, owner: "Determine a way to better suit setups
+ * specifically for intraday trades/users. The goal is to get AND out in a
+ * matter of seconds, mins, or hours. And ideally closed by the end of the day
+ * (although not mandatory)"). Not a preference: it is the style of a trade
+ * taken from an intraday alert's "Trade this" (`orders.intraday_sourced`).
+ * The plan is the alert's own (its stop and its first target, no MTP), and
+ * the exits are Gann's rules read on the session's bars
+ * (`lib/gann/intradayExit.ts`): 60% at the first target, the stop one
+ * intraday point under each completed 15-minute bottom, out when the hourly
+ * chart gives the first change in trend (Master Course Ch. 13). What is left
+ * closes at the session's end unless the trader chose to hold it overnight
+ * (`orders.hold_overnight`): the owner's choice, not Gann's, who never closed
+ * a trade because a session ended. No measured record yet: the intraday
+ * replay's six-year run failed its test (2026-10-21), so the order ticket
+ * says so.
+ */
+export type TradeStyle = "swing" | "fast" | "intraday";
 
-export const DEFAULT_TRADE_STYLE: TradeStyle = "swing";
+/** The styles walked on the daily chart (the swing replay's `tradeStyle`). */
+export type DailyTradeStyle = Exclude<TradeStyle, "intraday">;
+
+/** The styles a trader picks as a standing preference; Intraday comes from the trade's source. */
+export const PICKABLE_TRADE_STYLES: readonly DailyTradeStyle[] = ["swing", "fast"];
+
+export const DEFAULT_TRADE_STYLE: DailyTradeStyle = "swing";
 
 export interface TradeStyleProfile {
   style: TradeStyle;
@@ -101,9 +124,20 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     expectedHold: "Days, until a day's low breaks",
     sources: "W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13",
   },
+  intraday: {
+    style: "intraday",
+    label: "Intraday",
+    summary: "In and out within the session: the intraday alert's own stop and first target, managed on the session's bars, and closed by the session's end unless you choose to hold it overnight.",
+    trendCharts: "The daily trend, with the hourly chart for the first change in trend",
+    entryTiming: "At the market, when the intraday alert fires",
+    stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",
+    trailRule: "60% leaves at the first target; the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly chart turns against the trade",
+    expectedHold: "Minutes to hours; closed by the session's end unless you choose to hold it",
+    sources: "Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source",
+  },
 };
 
-export function parseTradeStyle(value: unknown): TradeStyle {
+export function parseTradeStyle(value: unknown): DailyTradeStyle {
   return value === "fast" ? "fast" : DEFAULT_TRADE_STYLE;
 }
 

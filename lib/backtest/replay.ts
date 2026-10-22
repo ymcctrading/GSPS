@@ -64,7 +64,7 @@
  */
 
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
-import type { TradeStyle } from "@/lib/trade/tradeStyle";
+import type { DailyTradeStyle } from "@/lib/trade/tradeStyle";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
@@ -251,7 +251,7 @@ export interface ReplayOptions {
    * "gann-runner"); the fixed bracket has no trail, so "fast" changes
    * nothing there. Default "swing".
    */
-  tradeStyle?: TradeStyle;
+  tradeStyle?: DailyTradeStyle;
   /**
    * Skip entries the autonomous portfolio manager holds at a round number by
    * default (`lib/gann/evenFigures.ts#roundNumberEntryBlocked`): an entry just
@@ -465,7 +465,7 @@ export function resolveDisableExits(names: unknown, exitRule?: ReplayOptions["ex
 }
 
 /** Why an intraday-profile trade left (`lib/backtest/replayIntraday.ts`). */
-export type IntradayExitReason = "intraday_initial_stop" | "intraday_trailing_stop" | "intraday_trend_change";
+export type IntradayExitReason = "intraday_initial_stop" | "intraday_trailing_stop" | "intraday_trend_change" | "intraday_session_close";
 
 /**
  * Why a trade with no stop, target or exit signal left, marked at the last
@@ -1746,7 +1746,7 @@ export function walkRebuy(input: {
   /** `ReplayOptions.disableExits`, resolved. */
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style, carried to the derived trade (`walkGannExit`). */
-  style?: TradeStyle;
+  style?: DailyTradeStyle;
 }): ReversalTrade | null {
   const { bars, plan } = input;
   const long = plan.side === "long";
@@ -1815,7 +1815,7 @@ export function walkReversals(input: {
   /** `ReplayOptions.disableExits`, resolved. */
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style, carried to the derived trade (`walkGannExit`). */
-  style?: TradeStyle;
+  style?: DailyTradeStyle;
 }): ReversalTrade[] {
   const out: ReversalTrade[] = [];
   const { bars, dailyBars } = input;
@@ -1924,7 +1924,7 @@ export function walkGannExit(input: {
    */
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style (`ReplayOptions.tradeStyle`): "fast" adds the day trail. Default swing. */
-  style?: TradeStyle;
+  style?: DailyTradeStyle;
 }): {
   /** The single price that gives the whole exit's P&L per first-lot unit (scale-outs and adds blended in): for R only. */
   exit: number;
