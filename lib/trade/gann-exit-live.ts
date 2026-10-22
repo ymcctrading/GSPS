@@ -145,10 +145,10 @@ const BAR_MS = 15 * 60_000;
 
 /**
  * Pure part of the Intraday style's reading (`lib/gann/intradayExit.ts`):
- * the intraday point fixed at the fill from the bars closed by then (as the
- * intraday replay fixes it at entry, from every bar before the entry bar,
- * pre- and post-market prints included), then the stop and the hourly turn
- * walked on regular-session bars for a US equity, and the session close.
+ * the intraday point fixed at the fill from the bars closed by then, then the
+ * stop and the hourly turn walked, all on regular-session bars for a US
+ * equity (as the intraday replay reads them, point included), and the session
+ * close.
  * Null when there are no bars before the fill to scale the point from.
  */
 export function readIntradayExitFromBars(
@@ -158,7 +158,8 @@ export function readIntradayExitFromBars(
   now: Date,
 ): ExitReading | null {
   const filledAt = Date.parse(input.openedAt);
-  const before = bars.filter((b) => Date.parse(b.t) + BAR_MS <= filledAt);
+  const session = regularSessionBars(bars, input.crypto === true);
+  const before = session.filter((b) => Date.parse(b.t) + BAR_MS <= filledAt);
   if (before.length < 15 || daily.length < 15) return null;
   const point = intradayPoint(before[before.length - 1].c, atr(before.slice(-30), 14), atr(daily.slice(-30), 14));
   return readIntradayExit({
@@ -166,7 +167,7 @@ export function readIntradayExitFromBars(
     initialStop: input.initialStop,
     filledAt: input.openedAt,
     point,
-    bars: regularSessionBars(bars, input.crypto === true),
+    bars: session,
     now,
     closeAtSessionEnd: input.closeAtSessionEnd ?? false,
   });
