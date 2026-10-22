@@ -39,7 +39,7 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
-import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { CircuitStateUnreadableError, evaluateLiveCircuitBreaker } from "@/lib/risk/service";
 import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
@@ -1064,39 +1064,63 @@ async function placeLiveOrder(
 
   // Risk gate first — the Novice Risk & Cooldown Engine's rules apply only
   // to real money (see lib/risk/service.ts header), and this is the account
-  // they were built to gate. Read once, real, from the broker itself.
-  let equity: number;
+  // they were built to gate. Read once, real, from the broker itself. A stop,
+  // close or reduction is never blocked by the breaker (lib/risk/cooldown.ts),
+  // so a read that fails holds new entries only (review finding R-003).
+  let equity = 0;
   try {
     const account = await getAccount(connection.creds);
     equity = Number(account.equity);
     if (!Number.isFinite(equity)) throw new Error("Alpaca returned a non-numeric equity figure.");
   } catch (err) {
-    return {
-      status: 502,
-      body: {
-        error: `Couldn't read the live account's equity from Alpaca — ${err instanceof Error ? err.message : String(err)}. Nothing was placed.`,
-        code: "live_equity_unreadable",
-      },
-    };
+    if (!isProtective) {
+      return {
+        status: 502,
+        body: {
+          error: `Couldn't read the live account's equity from Alpaca — ${err instanceof Error ? err.message : String(err)}. Nothing was placed.`,
+          code: "live_equity_unreadable",
+        },
+      };
+    }
+    equity = Number.NaN;
   }
 
-  const gate = await evaluateLiveCircuitBreaker(supabase, userId, equity, true);
-  // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
-  // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
-  // already-resolved decision above, without a second, potentially
-  // inconsistent state resolution. Before this fix (2026-09-17
-  // orphan-module audit), a live protective order hitting during an active
-  // cooldown or lock would have been refused here — this file already
-  // claimed elsewhere that "the account-wide circuit breaker never blocks a
-  // close," but `lib/risk/cooldown.ts` had no caller anywhere in the
-  // codebase, so nothing actually enforced that at this, the one live call
-  // site it applies to.
-  const cooldownGate = gateResolvedAction(isProtective ? "position_reduce" : "new_entry", gate.decision);
-  if (!cooldownGate.allowed) {
-    return {
-      status: 409,
-      body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
-    };
+  if (Number.isFinite(equity)) {
+    let gate: Awaited<ReturnType<typeof evaluateLiveCircuitBreaker>> | null = null;
+    try {
+      gate = await evaluateLiveCircuitBreaker(supabase, userId, equity, true);
+    } catch (err) {
+      if (!(err instanceof CircuitStateUnreadableError)) throw err;
+      console.error(`risk: ${err.message}`);
+      if (!isProtective) {
+        return {
+          status: 503,
+          body: {
+            error: "The account's risk state couldn't be read, so no new entry was placed. Stops and closes still go through.",
+            code: "risk_state_unreadable",
+          },
+        };
+      }
+    }
+    if (gate) {
+      // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
+      // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
+      // already-resolved decision above, without a second, potentially
+      // inconsistent state resolution. Before this fix (2026-09-17
+      // orphan-module audit), a live protective order hitting during an active
+      // cooldown or lock would have been refused here — this file already
+      // claimed elsewhere that "the account-wide circuit breaker never blocks a
+      // close," but `lib/risk/cooldown.ts` had no caller anywhere in the
+      // codebase, so nothing actually enforced that at this, the one live call
+      // site it applies to.
+      const cooldownGate = gateResolvedAction(isProtective ? "position_reduce" : "new_entry", gate.decision);
+      if (!cooldownGate.allowed) {
+        return {
+          status: 409,
+          body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
+        };
+      }
+    }
   }
   if (!isProtective) {
     const paused = await lossSeriesRefusal(supabase, userId);

@@ -27,9 +27,13 @@ vi.mock("@/lib/brokers/alpaca", () => ({
   placeOrder: (...args: unknown[]) => placeOrder(...args),
   getPositions: (...args: unknown[]) => getPositions(...args),
 }));
-vi.mock("@/lib/risk/service", () => ({
-  evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
-}));
+vi.mock("@/lib/risk/service", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/risk/service")>("@/lib/risk/service");
+  return {
+    CircuitStateUnreadableError: actual.CircuitStateUnreadableError,
+    evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
+  };
+});
 vi.mock("@/lib/risk/live-trade-loss", () => ({
   isLiveTradingRestricted: vi.fn(() => Promise.resolve(false)),
 }));
@@ -124,5 +128,41 @@ describe("a live order is judged against the live account's own position", () =>
     getPositions.mockReset().mockRejectedValue(new Error("down"));
     const r = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, side: "sell", attachLevels: undefined });
     expect((r.body as { code: string }).code).toBe("stop_required");
+  });
+});
+
+// Review finding R-003: an unread risk state holds new entries and never
+// blocks a stop or close.
+describe("the live circuit breaker fails closed for entries only", () => {
+  beforeEach(() => {
+    readLiveAlpacaConnection.mockReset().mockResolvedValue(connection);
+    getAccount.mockReset().mockResolvedValue({ equity: "10000" });
+    placeOrder.mockReset().mockResolvedValue({ id: "x", status: "accepted" });
+    killSwitchRefusal.mockReset().mockReturnValue(null);
+    getOpenPosition.mockReset().mockResolvedValue(null);
+  });
+  it("refuses a new entry when the stored circuit state can't be read", async () => {
+    const { CircuitStateUnreadableError } = await import("@/lib/risk/service");
+    evaluateLiveCircuitBreaker.mockReset().mockRejectedValue(new CircuitStateUnreadableError("timeout"));
+    getPositions.mockReset().mockResolvedValue([]);
+    const r = await placeSimulatedOrder(stubSupabase(), "u1", baseInput);
+    expect(r.status).toBe(503);
+    expect((r.body as { code: string }).code).toBe("risk_state_unreadable");
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+  it("lets a close through when the stored circuit state can't be read", async () => {
+    const { CircuitStateUnreadableError } = await import("@/lib/risk/service");
+    evaluateLiveCircuitBreaker.mockReset().mockRejectedValue(new CircuitStateUnreadableError("timeout"));
+    getPositions.mockReset().mockResolvedValue([{ symbol: "AAPL", qty: "10", side: "long" }]);
+    const r = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, side: "sell", attachLevels: undefined });
+    expect((r.body as { code?: string }).code).not.toBe("risk_state_unreadable");
+  });
+  it("lets a close through when the live equity can't be read, without running the breaker", async () => {
+    getAccount.mockReset().mockRejectedValue(new Error("down"));
+    evaluateLiveCircuitBreaker.mockReset();
+    getPositions.mockReset().mockResolvedValue([{ symbol: "AAPL", qty: "10", side: "long" }]);
+    const r = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, side: "sell", attachLevels: undefined });
+    expect((r.body as { code?: string }).code).not.toBe("live_equity_unreadable");
+    expect(evaluateLiveCircuitBreaker).not.toHaveBeenCalled();
   });
 });

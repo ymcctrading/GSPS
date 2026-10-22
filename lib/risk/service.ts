@@ -162,6 +162,14 @@ export async function lastResetChecklistAt(supabase: SupabaseClient, userId: str
   }
 }
 
+/** The stored circuit state couldn't be read, so no decision was made. */
+export class CircuitStateUnreadableError extends Error {
+  constructor(detail: string) {
+    super(`risk circuit state unreadable: ${detail}`);
+    this.name = "CircuitStateUnreadableError";
+  }
+}
+
 export async function evaluateLiveCircuitBreaker(
   supabase: SupabaseClient,
   userId: string,
@@ -182,11 +190,15 @@ export async function evaluateLiveCircuitBreaker(
   const sod = startOfDayLoss(withCurrent, sessionStart(now), now);
   const drawdown30d = rollingHighWaterDrawdown(withCurrent, now);
 
-  const { data: priorRow } = await supabase
+  const { data: priorRow, error: priorError } = await supabase
     .from("risk_circuit_state")
     .select("state, triggered_at")
     .eq("profile_id", userId)
     .maybeSingle();
+  // An unread prior state would read as no hold at all, so the breaker would
+  // fail open (review finding R-003). Refuse to decide instead; the caller
+  // lets protective orders through and holds new entries.
+  if (priorError) throw new CircuitStateUnreadableError(priorError.message);
   const stored = priorRow as StoredCircuitState | null;
   const prior: PriorState | undefined = stored
     ? { state: stored.state, triggeredAt: new Date(stored.triggered_at) }

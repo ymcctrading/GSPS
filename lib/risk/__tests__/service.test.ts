@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { CircuitStateUnreadableError, evaluateLiveCircuitBreaker } from "@/lib/risk/service";
 
 interface Snapshot {
   equity: number;
@@ -13,7 +13,7 @@ interface Prior {
   triggered_at: string;
 }
 
-function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null }) {
+function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null; priorError?: string }) {
   const inserted: Record<string, unknown>[] = [];
   const auditInserts: Record<string, unknown>[] = [];
   const stateUpserts: Record<string, unknown>[] = [];
@@ -40,7 +40,10 @@ function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null })
   const circuitStateTable = {
     select: () => ({
       eq: () => ({
-        maybeSingle: () => Promise.resolve({ data: opts.priorState }),
+        maybeSingle: () =>
+          Promise.resolve(
+            opts.priorError ? { data: null, error: { message: opts.priorError } } : { data: opts.priorState, error: null },
+          ),
       }),
     }),
     upsert: (obj: Record<string, unknown>) => {
@@ -88,6 +91,14 @@ function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null })
 }
 
 describe("evaluateLiveCircuitBreaker", () => {
+  it("throws rather than reading an unread prior state as no hold (R-003)", async () => {
+    const s = makeSupabase({ snapshots: [], priorState: null, priorError: "timeout" });
+    await expect(
+      evaluateLiveCircuitBreaker(s.client, "u1", 450, true, new Date("2026-08-28T14:00:00Z")),
+    ).rejects.toBeInstanceOf(CircuitStateUnreadableError);
+    expect(s.stateUpserts).toHaveLength(0);
+  });
+
   it("resolves normal and writes the first-ever state + audit row for a brand-new account", async () => {
     const s = makeSupabase({ snapshots: [], priorState: null });
     const result = await evaluateLiveCircuitBreaker(
