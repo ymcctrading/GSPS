@@ -952,7 +952,30 @@ Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
 other's peers, in the universe and the group. `STRATEGY_VERSION` was
 `2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh
 run on it. The Fast trail (review of #405, above) merged onto it:
-`STRATEGY_VERSION` is `2026-10-21-gann-fast-trail-after-fill`.
+`STRATEGY_VERSION` was `2026-10-21-gann-fast-trail-after-fill`.
+
+**One entry a session in the replay, 2026-10-21 (review of #395 and #393).** The
+replay traded both of a session's buying points; it now trades the one the live
+scan shows (`chooseSessionEntry`: the continuation when it armed, else the
+reversion) and sets the other aside, "never buck the trend" (never-failing rule
+5). The set-aside point (`ScanResult.setAsideEntry`) is recorded on every live
+path, kept in `daily_scans.detail` with the decision state, and named on the
+setup card on the daily lists and the scanner (not the tracked and saved
+lists or the ticker page's plan card, whose rows store no set-aside point);
+`redactDecision` keeps `decisionState`. The lists hide every row
+Gann rejected, whatever the Signal and Regime Engine read. Live verdicts are
+unchanged; replay buckets move.
+**The cutoffs are 7/4 again (owner, same day: "we should be using 7/4 as the
+cut offs").** `EXECUTE_SCORE_THRESHOLD` 7, `WATCH_SCORE_THRESHOLD` 4
+(`lib/scoring/weights.ts`). Checked first that it was not already settled: 7/4
+was the protocol's pair until the 2026-09-14 stopgap; 6/3.5 was "confirmed"
+only on the 2026-09-23 run, which measured the pre-fix 15-minute trigger
+(F3.1-F3.3) and none of the nine pillars, and no later commit moved them. Every
+"6/3.5 cutoffs" above is history. Gann gives no cutoff on a count of his
+conditions, so this is the owner's display decision. Live verdicts move.
+`STRATEGY_VERSION` is `2026-10-21-cutoffs-seven-four-one-entry`; the six-year
+daily rerun that measures 7/4 runs on it, after #412 (same-day stop-outs, the
+square from highs).
 
 ## WD Gann precedence — standing principle
 

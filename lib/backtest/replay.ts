@@ -37,6 +37,9 @@
  *     properties of one symbol's setup.
  *   - With no trend on any chart, one reversion: the nearer of the two
  *     sides' buying points (fork F4 a), as `scanTicker` arms it.
+ *   - One a session, as the live scan shows (`chooseSessionEntry`, since
+ *     2026-10-21): the continuation when it armed, else the reversion. The
+ *     other side is set aside, not traded.
  *
  * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
  * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
@@ -68,7 +71,7 @@ import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetP
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  armSessionEntries,
+  chooseSessionEntry,
   entryChart,
   gannEntryOf,
   preferWithTrend,
@@ -1092,12 +1095,16 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           breakawayVolumeMet(entryDaily, trigger.direction, gannBreakLine(trigger.reactionEntry, trigger.reactionStop)),
         pivotAt: trigger.formedAt,
       });
-      // The reversion against the trend, and the buying point with it on the
-      // trend alone (PLAN.md item 6 step 11), the scan's two passes.
+      // The one buying point the live scan shows for the session
+      // (`chooseSessionEntry`): the one with the trend when it armed, else the
+      // reversion. Before 2026-10-21 the replay traded every entry that armed
+      // (`armSessionEntries`), so when both sides armed it also traded the
+      // reversion against the trend, which the live scan sets aside: "never
+      // buck the trend" (never-failing rule 5, Commodities pp. 43-45; review of
+      // #395, finding 4).
       if (entryDaily.length > 0) {
-        for (const { setupKind, trigger } of armSessionEntries(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)) {
-          triggers.push(sessionTrigger(setupKind, trigger));
-        }
+        const chosen = chooseSessionEntry(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
+        if (chosen) triggers.push(sessionTrigger(chosen.setupKind, chosen.trigger));
       }
       arm = {
         context,

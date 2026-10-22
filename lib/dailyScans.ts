@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { ScanRow } from "@/components/scan/results-table";
-import type { PublicScoreSummary, ScanDecision, ScoreBreakdownItem } from "@/lib/types";
+import type { DecisionState, PublicScoreSummary, ScanDecision, ScoreBreakdownItem, SetupKind } from "@/lib/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 
@@ -30,6 +30,8 @@ interface DailyScanRow {
     scannedAt?: string | null;
     currentPrice?: number | null;
     dayRange?: number | null;
+    decisionState?: DecisionState | null;
+    setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
     /** Rows written before 2026-10-21 only; see `lib/scan/publish.ts`. */
     breakdown?: ScoreBreakdownItem[] | null;
     scoreSummary?: PublicScoreSummary | null;
@@ -122,6 +124,8 @@ function toRow(r: DailyScanRow): ScanRow {
     // Null on a row published before the field existed: the list then keeps
     // the plan where its verdict put it (lib/setups/resting.ts).
     dayRange: r.detail?.dayRange ?? null,
+    decisionState: r.detail?.decisionState ?? null,
+    setAsideEntry: r.detail?.setAsideEntry ?? null,
     // undefined (not yet computed at write time) collapses to null here —
     // ScanRow's contract only distinguishes "no live scan ran this" from
     // "ran and nothing qualified" for the manual scanner; a persisted row

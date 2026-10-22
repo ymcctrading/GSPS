@@ -182,8 +182,7 @@ describe("ResultsTable", () => {
     expect(screen.queryByText("A-tier")).not.toBeInTheDocument();
   });
 
-  it("never lets a watchlist-only, non-tradeable rollup read as an executable score", async () => {
-    const user = userEvent.setup();
+  it("keeps a rejected row out of the list even when the Signal Engine read it", () => {
     render(
       <ResultsTable
         rows={[
@@ -204,10 +203,9 @@ describe("ResultsTable", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "AAPL" }));
-    await user.click(screen.getByRole("button", { name: /Show the full card/ }));
-    expect(screen.queryByText("Watchlist")).not.toBeInTheDocument();
-    expect(screen.getByText(/A buy setup not yet strong enough to act on/)).toBeInTheDocument();
+    // Only Gann's verdict lists a setup (review of #393, finding 2).
+    expect(screen.queryByRole("button", { name: "AAPL" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Show 1 scanned but not qualified/ })).toBeInTheDocument();
   });
 
   it("shows the current price when a row carries one", () => {

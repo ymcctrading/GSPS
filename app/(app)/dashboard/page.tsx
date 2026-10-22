@@ -227,15 +227,12 @@ function ReversionPreview({
   const side = tradeSideWord(direction);
   const preview = rows.slice(0, PREVIEW);
   const more = rows.length - preview.length;
-  const continuations = rows.filter((r) => r.setupKind === "continuation").length;
-  // A "Reject"-scored row (below WATCH_SCORE_THRESHOLD) with no Signal Engine
-  // read doesn't render in ResultsTable's primary list -- it sits behind that
-  // component's own "scanned but not qualified" toggle instead (see
-  // components/scan/results-table.tsx's qualifying/rejected split). Counting
-  // it here as a "setup near a buy/sell point" promised something the card
-  // then didn't show -- this header count now matches what the card body
-  // actually renders.
-  const qualifying = rows.filter((r) => r.outputState !== "Reject" || r.signal != null);
+  // A "Reject"-scored row (below WATCH_SCORE_THRESHOLD) doesn't render in
+  // ResultsTable's primary list -- it sits behind that component's own
+  // "scanned but not qualified" toggle (components/scan/results-table.tsx), so
+  // the header counts only what the card body renders.
+  const qualifying = rows.filter((r) => r.outputState !== "Reject");
+  const continuations = qualifying.filter((r) => r.setupKind === "continuation").length;
 
   return (
     <Card>
