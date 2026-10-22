@@ -127,7 +127,9 @@ export type AlertRefusal =
   | "bad_print"
   | "through_stop"
   | "past_target"
-  | "risk_under_point";
+  | "risk_under_point"
+  /** No first target, or one that pays no more than the risk: the live alert offers no trade (M-K5). */
+  | "target_unpaid";
 
 export interface AlertReplayResult {
   trades: AlertTrade[];
@@ -295,7 +297,12 @@ function enterAlert(input: {
   // A fill that opened through the alert's own exit is no trade.
   if (long ? entry <= stop : entry >= stop) return "through_stop";
   const target = alert.continuationPlan.firstTarget;
-  if (target != null && Number.isFinite(target) && (long ? entry >= target : entry <= target)) return "past_target";
+  // The live alert offers no "Trade this" without a first target, or with one
+  // that pays no more than the risk ("profits must exceed losses", *Wall
+  // Street Stock Selector* Ch. II; M-K5), so the replay trades neither
+  // (recheck 2026-10-22: it traded both).
+  if (target == null || !Number.isFinite(target) || alert.continuationPlan.paysRisk === false) return "target_unpaid";
+  if (long ? entry >= target : entry <= target) return "past_target";
   const risk = Math.abs(entry - stop);
   if (point > 0 && risk < point) return "risk_under_point";
   const side = long ? "long" : "short";

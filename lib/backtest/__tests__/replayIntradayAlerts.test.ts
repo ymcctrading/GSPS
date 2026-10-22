@@ -242,6 +242,12 @@ describe("replayIntradayAlerts", () => {
     expect(refusals).toBeGreaterThan(0);
   }, 60_000);
 
+  it("takes no alert the live panel offers no trade on: no first target, or one that doesn't pay the risk (M-K5)", () => {
+    for (const t of all) expect(Number.isFinite(t.target)).toBe(true);
+    const unpaid = runs.reduce((n, r) => n + (r.result.refused.target_unpaid ?? 0), 0);
+    expect(unpaid).toBeGreaterThan(0);
+  });
+
   it("summarises a cell", () => {
     const s = summariseAlertTrades(all);
     expect(s.n).toBe(all.length);

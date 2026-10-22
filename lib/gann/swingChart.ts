@@ -230,6 +230,22 @@ export function walkSwingChart(bars: Bar[], chart: SwingChartSpec | number): Swi
       continue;
     }
 
+    // On bars that each span the chart's counter-move (weekly or monthly bars
+    // on the 7-day chart), the line turns only on a bar that breaks the
+    // previous bar's low (high, in a down-swing): Gann counts monthly moves
+    // as months "without breaking the previous month's low or high"
+    // (*Commodities* pp. 102-103), so an inside month or week never moves
+    // it. Recheck 2026-10-22, A-TREND-01/02: before, the first bar that did
+    // not extend the swing reversed the line, an inside bar included.
+    if (
+      spec.kind === "calendarDays" &&
+      counterExt < 0 &&
+      calendarDaysBetween(prev, bar) >= spec.days &&
+      !(up ? bar.l < prev.l : bar.h > prev.h)
+    ) {
+      continue;
+    }
+
     // A counter-move bar: track its extreme and, for the bar-count chart, the run.
     const counterBetter = up
       ? counterExt < 0 || bar.l < bars[counterExt].l

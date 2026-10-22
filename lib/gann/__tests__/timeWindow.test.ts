@@ -178,10 +178,11 @@ describe("the yearly cycle counts reach the hold through the monthly chart (A-TI
     expect(applyTimeWindowHold(execute, "reversion", () => readWindowTurn(bars, "bullish", null, yearly)).outputState).toBe("Watch");
   });
 
-  it("reads a major low only for a long's bottom, not a short's top", () => {
+  it("reads a major low for a short's top as well: the counts run from any important top or bottom (W006 pp. 14, 44)", () => {
+    // Until 2026-10-22 a low opened only a bottom's window (recheck, A-TIME-11).
     const up = days(closes.map((c) => 220 - c));
     const turn = readWindowTurn(up, "bearish", monthly);
-    expect(turn?.windows ?? []).not.toContain("20 years from the 2006-03 major low");
+    expect(turn?.windows ?? []).toContain("20 years from the 2006-03 major low");
   });
 
   it("reads only months closed before the turn's month", () => {

@@ -44,7 +44,7 @@ export const NEVER_FAILING_RULES: NeverFailingRule[] = [
   { n: 10, rule: "Don't close a trade without a good reason; follow with a stop.", status: "enforced", where: "lib/gann/exitRules.ts", note: "Positions exit on stops and exit signals, not a fixed target." },
   { n: 11, rule: "Accumulate a surplus.", status: "person" },
   { n: 12, rule: "Never buy just to get a dividend.", status: "person" },
-  { n: 13, rule: "Never average a loss.", status: "enforced", where: "lib/gann/pyramid.ts", note: "Adds only to a position in profit." },
+  { n: 13, rule: "Never average a loss.", status: "enforced", where: "lib/gann/pyramid.ts", note: "Adds only to a position in profit: the suggestion after a full step, and placement refuses any add to a position not in profit (averagingLossRefusal)." },
   { n: 14, rule: "Never get out of the market because you have lost patience, or in because you are anxious from waiting.", status: "person" },
   { n: 15, rule: "Avoid taking small profits and big losses.", status: "enforced", where: "lib/gann/exitRules.ts", note: "No fixed target; the stop trails on structure." },
   { n: 16, rule: "Never cancel a stop after placing it.", status: "enforced", where: "lib/trade/place-order.ts", note: "Protective orders are never blocked by any gate." },

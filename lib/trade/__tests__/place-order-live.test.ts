@@ -420,14 +420,33 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).toHaveBeenCalled();
   });
 
+  it("sizes on the trading unit from the first verified equity, not the whole equity (A-RISK-04)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "15000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    // Started at 10,000, now 15,000: profits have not yet equalled the start,
+    // so the unit is still 10,000 and a tenth of it 1,000. 150 shares at $8
+    // risk 1,200; read on the whole 15,000 (before 2026-10-22) they passed.
+    const snapshots = [{ equity: 10_000 }, { equity: 15_000 }];
+    const input = { ...baseInput, qty: 150, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 92, takeProfit: 110 } };
+    const result = await placeSimulatedOrder(stubSupabase({ snapshots }), "u1", input);
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("risk_one_tenth");
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+
   it("refuses more than a tenth of the profits once they reach the first verified equity (A-RISK-07)", async () => {
     limits.bypass = true;
     readLiveAlpacaConnection.mockResolvedValue(connection);
-    getAccount.mockResolvedValue({ equity: "19000" });
+    getAccount.mockResolvedValue({ equity: "12000" });
     evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
-    // Started at 5,000, now 19,000: 14,000 of profits, so at most 1,400 at risk.
-    const snapshots = [{ equity: 5_000 }, { equity: 19_000 }];
-    const input = { ...baseInput, qty: 200, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 92, takeProfit: 110 } };
+    // Started at 5,000, now 12,000: 7,000 of profits, so at most 700 at risk.
+    // The trading unit (A-RISK-04, from the same first equity) is 10,000, a
+    // tenth of it 1,000, so the profits' tenth is the one that binds: 100
+    // shares at $8 risk 800.
+    const snapshots = [{ equity: 5_000 }, { equity: 12_000 }];
+    const input = { ...baseInput, qty: 100, entryMode: "now" as const, referencePrice: 100, attachLevels: { stopLoss: 92, takeProfit: 110 } };
     const result = await placeSimulatedOrder(stubSupabase({ snapshots }), "u1", input);
     expect(result.status).toBe(409);
     expect((result.body as { code: string }).code).toBe("risk_tenth_of_profits");

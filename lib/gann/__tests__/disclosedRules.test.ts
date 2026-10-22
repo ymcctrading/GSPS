@@ -12,6 +12,7 @@ import {
   readPricePercentages,
   readRuleOfThreeTimeframes,
   readYearFraction,
+  daysFromAnniversary,
   toMonthlyBars,
   toWeeklyBars,
   describeDisclosedRules,
@@ -186,6 +187,22 @@ describe("day-count bands and fractions of the year (A09 Rule 8; Master Course C
     const f = readYearFraction(withPivotLow(90));
     expect(f?.fraction).toBe("1/4 year");
     expect(f?.rank).toBe(3);
+  });
+
+  it("reads the anniversary on the calendar date, the 360 days apart (C-TIME-41)", () => {
+    // The low prints 2026-01-30; 365 days on is 2027-01-30, its anniversary.
+    expect(readYearFraction(withPivotLow(365))?.fraction).toBe("anniversary");
+    expect(readYearFraction(withPivotLow(365))?.rank).toBe(1);
+    // 360 days on is the circle, 5 days short of the date: not the anniversary.
+    expect(readYearFraction(withPivotLow(360))?.fraction).toBe("360 days");
+  });
+
+  it("counts a February 29 anniversary on February 28 in a common year", () => {
+    expect(daysFromAnniversary("2024-02-29T00:00:00Z", "2025-02-28T00:00:00Z")).toBe(0);
+    expect(daysFromAnniversary("2024-03-10T00:00:00Z", "2026-03-12T00:00:00Z")).toBe(2);
+    // Inside the first year it is the distance to the first anniversary ahead.
+    expect(daysFromAnniversary("2026-03-10T00:00:00Z", "2026-12-10T00:00:00Z")).toBe(90);
+    expect(daysFromAnniversary("2026-03-10T00:00:00Z", "2026-03-11T00:00:00Z")).toBe(364);
   });
 });
 

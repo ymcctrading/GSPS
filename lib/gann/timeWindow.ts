@@ -132,21 +132,27 @@ export function inceptionWindows(anchors: WindowAnchors | null | undefined, asOf
 
 const DAY_MS = 86_400_000;
 
-/** Every dated reading open on the turn's date, polarity respected where the source has one. */
+/** Every dated reading open on the turn's date, polarity respected where the source has one (Jensen's expected direction, the eclipse's top). */
 export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => {
   const asOf = new Date(`${date}T12:00:00Z`);
   const low = kind === "bottom";
   const out: string[] = [];
   const cycles = timeCycles(bars, asOf);
-  if (low ? cycles.bullishActive : cycles.bearishActive) out.push(`a time window from a major ${low ? "low" : "high"}`);
+  // Gann watches for a change in trend 1, 2 and 3 years, and his day counts,
+  // "from any important top or bottom" (W006 pp. 14, 44; 45 Years Rule 8), so
+  // a count from a high opens the window for a bottom as well as a top, and
+  // the reverse (recheck 2026-10-22, A-TIME-04/11/24/37). Until then only a
+  // count from a pivot of the turn's own kind opened it, a polarity his text
+  // does not give.
+  if (cycles.active) out.push("a time window from a major top or bottom");
   // The yearly counts (A-TIME-11's 20 years among them) from the monthly
   // chart's major pivots: the daily year cannot reach them.
   for (const h of yearCycleHits(monthly ?? [], asOf)) {
-    if (h.kind === (low ? "low" : "high")) out.push(`${h.years} year${h.years === 1 ? "" : "s"} from the ${h.pivotMonth} major ${h.kind}`);
+    out.push(`${h.years} year${h.years === 1 ? "" : "s"} from the ${h.pivotMonth} major ${h.kind}`);
   }
   // The great cycles the yearly list lacks (A-TIME-24), from the same pivots.
   for (const h of greatCycleHits(monthly ?? [], asOf)) {
-    if (h.kind === (low ? "low" : "high")) out.push(`the end of a ${h.cycle.label} great cycle from the ${h.pivotMonth} major ${h.kind}`);
+    out.push(`the end of a ${h.cycle.label} great cycle from the ${h.pivotMonth} major ${h.kind}`);
   }
   // The company's own counts: great cycles and the name's numbers from its inception.
   out.push(...inceptionWindows(anchors, asOf));

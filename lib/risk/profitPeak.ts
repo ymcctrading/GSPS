@@ -77,6 +77,16 @@ async function readLiveCapitalRecord(
   }
 }
 
+/**
+ * A live account's starting capital: its first verified equity read
+ * (`risk_live_equity_snapshots`), the figure A-RISK-07 reads, until net
+ * deposits are read from the broker. Null when none is on record or it can't
+ * be read; the trading unit then reads the equity alone (A-RISK-04).
+ */
+export async function readLiveStartingCapital(supabase: SupabaseClient, userId: string): Promise<number | null> {
+  return (await readLiveCapitalRecord(supabase, userId))?.startingCapital ?? null;
+}
+
 /** A-RISK-07's ceiling for this account at `equity`, or null where it doesn't apply or can't be read. */
 export async function readProfitCeiling(
   supabase: SupabaseClient,

@@ -313,7 +313,15 @@ export const YEAR_FRACTIONS: readonly { days: number; label: string; rank: numbe
   { days: 240, label: "2/3 year", rank: 4 },
   { days: 270, label: "3/4 year", rank: 3 },
   { days: 315, label: "7/8 year", rank: 5 },
-  { days: 360, label: "anniversary", rank: 1 },
+  { days: 360, label: "360 days", rank: 1 },
+  // The anniversary is the calendar date, a year (or years) on: Gann's 1955
+  // "anniversaries" are the same date of the month (Master Course Ch. 14,
+  // PDF 389-390). `readYearFraction` reads it against the calendar, not as a
+  // count of days; `days` here is the ordinary year, for sorting only. Until
+  // 2026-10-22 the 360-day count carried this label, so a pivot exactly a
+  // calendar year back (365 or 366 days) never read as its anniversary
+  // (recheck, C-TIME-41).
+  { days: 365, label: "anniversary", rank: 1 },
 ];
 
 const FRACTION_WINDOW_DAYS = 2;
@@ -350,6 +358,28 @@ export function readDayCountBands(bars: Bar[]): DayCountBandReading[] {
   return out;
 }
 
+/**
+ * Days from `toIso` to the nearest calendar anniversary of `fromIso` a whole
+ * number of years (one or more) on, the first one ahead included. A February
+ * 29 pivot's anniversary falls on February 28 in a common year (UTC dates).
+ * Null only for a date before the pivot's own year.
+ */
+export function daysFromAnniversary(fromIso: string, toIso: string): number | null {
+  const from = new Date(Date.parse(fromIso));
+  const to = Date.parse(toIso);
+  let best: number | null = null;
+  for (const dy of [-1, 0, 1]) {
+    const years = new Date(to).getUTCFullYear() - from.getUTCFullYear() + dy;
+    if (years < 1) continue;
+    const y = from.getUTCFullYear() + years;
+    const lastDay = new Date(Date.UTC(y, from.getUTCMonth() + 1, 0)).getUTCDate();
+    const anniv = Date.UTC(y, from.getUTCMonth(), Math.min(from.getUTCDate(), lastDay));
+    const off = Math.abs(Math.round((to - anniv) / DAY_MS));
+    if (best === null || off < best) best = off;
+  }
+  return best;
+}
+
 /** The highest-ranked fraction of the year active from any recent major pivot, or null. */
 export function readYearFraction(bars: Bar[]): YearFractionReading | null {
   if (bars.length === 0) return null;
@@ -358,7 +388,8 @@ export function readYearFraction(bars: Bar[]): YearFractionReading | null {
   for (const p of recentMajorPivots(bars)) {
     const days = daysBetween(p.bar.t, last);
     for (const f of YEAR_FRACTIONS) {
-      if (Math.abs(days - f.days) > FRACTION_WINDOW_DAYS) continue;
+      const off = f.label === "anniversary" ? daysFromAnniversary(p.bar.t, last) : Math.abs(days - f.days);
+      if (off == null || off > FRACTION_WINDOW_DAYS) continue;
       if (!best || f.rank < best.rank) {
         best = { pivotDate: p.bar.t.slice(0, 10), pivotKind: p.kind, daysSincePivot: days, fraction: f.label, rank: f.rank };
       }

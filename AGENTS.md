@@ -3015,7 +3015,32 @@ on exchange hours (Master Course PDF 378): a US equity's hours count from the
 intraday replay and the Intraday style's hourly-turn exit. It had bucketed bars
 by UTC hour, so an equity's first hour was 9:30-9:59 alone. The live scan's
 display-only hourly trend still reads the vendor's clock-hour bars (it feeds
-no score). `STRATEGY_VERSION` is `2026-10-22-gann-hourly-exchange-hours`.
+no score). `STRATEGY_VERSION` was `2026-10-22-gann-hourly-exchange-hours`.
+**Rule recheck fixes, 2026-10-22 (owner: "run the code reviewer over those
+rules"; the recheck is `/mnt/project-files/gann-feature-map/review/2026-10-22-recheck.md`).**
+Nine defects, each answered from Gann. (1) The 7-day chart on weekly and monthly
+bars turned on any bar that failed to extend the swing, an inside bar included;
+Gann counts monthly moves as months "without breaking the previous month's low
+or high" (*Commodities* pp. 102-103), so on bars that each span the chart's 7
+days the line turns only on a break of the previous bar (`swingChart.ts`;
+daily bars unchanged). (2) The time-window hold opened the yearly counts, great
+cycles and day counts only for a turn of the anchor's own kind; Gann counts
+"from any important top or bottom" (W006 pp. 14, 44), so `timeWindowsAt` reads
+both (`timeCycles`' bullish/bearish tags stay for the coarse bonus and the
+card). (3) The 5-point cap refused every automated re-buy and reversal; it now
+yields to the plan's own stop on those two (`confirmEntry`), and only to it.
+(4) The replay's `exitRule` defaults to `LIVE_EXIT_RULE` ("gann"), not
+"bracket". (5) The intraday replays refuse an alert with no first target or one
+that doesn't pay the risk, as the live panel offers no trade on it
+(`target_unpaid`). (6) Placement refuses an add to a position not in profit,
+paper and live (`averagingLossRefusal`, never-failing rule 13). (7) The live
+trading unit reads the first verified equity as its starting capital
+(`readLiveStartingCapital`), at placement and in the portfolio manager. (8) The
+portfolio manager opens nothing in the twice-yearly rest window unless the
+trader turned the reminder off or dismissed it. (9) The year fraction's
+"anniversary" is the calendar date (`daysFromAnniversary`); the 360-day count is
+labelled "360 days". `STRATEGY_VERSION` is `2026-10-22-gann-rule-recheck-fixes`;
+Execute and the 7/4 cutoffs need a fresh run on it.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
