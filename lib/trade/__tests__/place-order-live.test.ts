@@ -6,6 +6,7 @@ const readLiveAlpacaConnection = vi.fn();
 const getAccount = vi.fn();
 const placeOrder = vi.fn();
 const getPositions = vi.fn();
+const getOpenOrdersNested = vi.fn<(...args: unknown[]) => Promise<unknown[]>>(async () => []);
 const evaluateLiveCircuitBreaker = vi.fn();
 const recordOrderExecution = vi.fn();
 const killSwitchRefusal = vi.fn(() => null);
@@ -27,6 +28,7 @@ vi.mock("@/lib/brokers/alpaca", () => ({
   getAccount: (...args: unknown[]) => getAccount(...args),
   placeOrder: (...args: unknown[]) => placeOrder(...args),
   getPositions: (...args: unknown[]) => getPositions(...args),
+  getOpenOrdersNested: (...args: unknown[]) => getOpenOrdersNested(...args),
 }));
 vi.mock("@/lib/risk/service", () => ({
   evaluateLiveCircuitBreaker: (...args: unknown[]) => evaluateLiveCircuitBreaker(...args),
@@ -358,6 +360,27 @@ describe("placeSimulatedOrder — live branch", () => {
     placeOrder.mockResolvedValue({ id: "alpaca-order-1", status: "accepted" });
     const more = await placeSimulatedOrder(stubSupabase(), "u1", { ...input, symbol: "MSFT" });
     expect((more.body as { code?: string }).code).not.toBe("max_open_symbols");
+  });
+
+  it("counts a resting live entry toward the five stocks, as on paper (review fix 2, 2026-10-21)", async () => {
+    limits.bypass = true;
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "100000" });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    getPositions.mockResolvedValue(
+      ["MSFT", "NVDA", "XOM", "JPM"].map((symbol) => ({ symbol, qty: "1", avg_entry_price: "100", market_value: "100" })),
+    );
+    getOpenOrdersNested.mockResolvedValueOnce([
+      { id: "r1", symbol: "KO", status: "new", side: "buy", qty: "1", filled_qty: "0", type: "limit", limit_price: "60" },
+    ]);
+    const input = { ...baseInput, entryMode: "advised" as const, limitPrice: 100, referencePrice: 100 };
+    const sixth = await placeSimulatedOrder(stubSupabase(), "u1", input);
+    expect((sixth.body as { code: string }).code).toBe("max_open_symbols");
+    expect(placeOrder).not.toHaveBeenCalled();
+
+    getOpenOrdersNested.mockRejectedValueOnce(new Error("down"));
+    const unread = await placeSimulatedOrder(stubSupabase(), "u1", input);
+    expect((unread.body as { code: string }).code).toBe("book_unreadable");
   });
 
   it("refuses more shares than the capital carries: 30 points a share (A-RISK-01, Q4)", async () => {

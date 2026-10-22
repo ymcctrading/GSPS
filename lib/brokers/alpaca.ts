@@ -398,6 +398,17 @@ export async function getOrders(creds: AlpacaCreds, status: "open" | "closed" | 
   return alpacaFetch(creds, `/v2/orders?status=${status}&limit=100`);
 }
 
+/**
+ * The account's open orders with bracket legs nested under their entry
+ * (`nested=true`), so a resting entry's own stop and target legs are never
+ * read as orders of their own.
+ */
+export async function getOpenOrdersNested(creds: AlpacaCreds): Promise<AlpacaOrder[]> {
+  const raw = await alpacaFetch(creds, `/v2/orders?status=open&nested=true&limit=500`);
+  if (!Array.isArray(raw)) throw new Error("Alpaca returned no order list.");
+  return raw as AlpacaOrder[];
+}
+
 /** The order fields the reconciler reads. Alpaca returns considerably more. */
 export interface AlpacaOrder {
   id: string;
@@ -411,6 +422,8 @@ export interface AlpacaOrder {
   type: string;
   order_class?: string;
   limit_price?: string | null;
+  stop_price?: string | null;
+  asset_class?: string;
   submitted_at?: string | null;
   created_at?: string | null;
   filled_at?: string | null;

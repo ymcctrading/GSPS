@@ -685,7 +685,7 @@ share and the percent ceilings, and fails closed when they can't be read; a
 resting entry is checked again on the book as it stands when it fills
 (`lib/trade/resting-entry-guard.ts`: the five stocks, 30 points a share and a
 tenth at risk) and cancelled on refusal. Protective orders are never refused.
-Live working orders are not counted yet. (3) The decade digit and its in-year
+Live working orders are counted too since 2026-10-22: live placement reads the broker's open orders, legs nested under their entry (`lib/trade/live-working-entries.ts`), into the five stocks, the capital a share and the deployed figure, and fails closed when they can't be read (their planned risk is already in the working live exit rows). (3) The decade digit and its in-year
 turns read the year and month in UTC while the live scan passes the wall clock,
 so from 8 PM ET on a month's last day live read the next month and the replay
 the current one. `computeDecadeCycle` reads them in New York time.
