@@ -905,8 +905,19 @@ describe("gannFirstTarget", () => {
   });
 
   it("passes over a level that pays less than the risk for the first that pays more (M-K5)", () => {
-    // 483 is 3 away, 485 is 5 away; with 4 at risk only 485 pays.
-    expect(gannFirstTarget({ ...base, sessionHigh: 483, oldLevels: [485], dailyAtr: 8, risk: 4 })).toBe(485);
+    // 483 is 3 away, 490 is 10 away; with 4 at risk only 490 pays. (Levels
+    // more than 1% apart, so M-P4 keeps them two points.)
+    expect(gannFirstTarget({ ...base, sessionHigh: 483, oldLevels: [490], dailyAtr: 8, risk: 4 })).toBe(490);
+  });
+
+  it("averages old levels within 1% into one point before reading the target (M-P4)", () => {
+    // 483 and 485 sit 0.4% apart: one resistance point at 484, as the daily plan reads them.
+    expect(gannFirstTarget({ ...base, sessionHigh: 483, oldLevels: [485], dailyAtr: 8 })).toBe(484);
+    // Averaged, the point is 4 away and no longer pays a risk of 4, so the card can say so.
+    expect(gannFirstTarget({ ...base, sessionHigh: 483, oldLevels: [485], dailyAtr: 8, risk: 4 })).toBe(484);
+    // The session high and the prior close, 0.5% apart, average too.
+    const t = gannFirstTarget({ ...base, last: 97.2, sessionHigh: 98.4, sessionLow: 95, prevClose: 98.9, intradayAtr: 0.2 });
+    expect(t).toBeCloseTo((98.4 + 98.9) / 2, 6);
   });
 
   it("keeps the nearest when nothing ahead pays the risk, so the card can say no trade", () => {
@@ -914,7 +925,7 @@ describe("gannFirstTarget", () => {
   });
 
   it("picks the nearest of several levels", () => {
-    const t = gannFirstTarget({ ...base, last: 97.2, sessionHigh: 98.4, sessionLow: 95, prevClose: 98.9, intradayAtr: 0.2 });
+    const t = gannFirstTarget({ ...base, last: 97.2, sessionHigh: 98.4, sessionLow: 95, prevClose: 99.9, intradayAtr: 0.2 });
     expect(t).toBe(98.4);
   });
 
@@ -934,7 +945,7 @@ describe("gannFirstTarget", () => {
 
   it("reads an old level from the session's swings or the daily chart when it is the nearest", () => {
     // 481.6 is a swing top of the session or a 3-Day Chart top: nearer than any figure.
-    expect(gannFirstTarget({ ...base, oldLevels: [478, 481.6, 486] })).toBe(481.6);
+    expect(gannFirstTarget({ ...base, oldLevels: [478, 481.6, 490] })).toBe(481.6);
     // Levels behind the price, or inside the noise, still name nothing.
     expect(gannFirstTarget({ ...base, oldLevels: [478, 480.1] })).toBeNull();
     expect(gannFirstTarget({ ...base, direction: "down", sessionLow: 479.95, prevClose: 490, oldLevels: [476.4, 483] })).toBe(476.4);

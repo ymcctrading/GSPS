@@ -22,8 +22,8 @@
  *                          trailed 3 points under each completed day's low
  *                          from the fill (Gann exits only). See
  *                          ReplayOptions.tradeStyle. Default swing.
- *   ?exitRule=gann        how open trades leave: bracket (default), gann or
- *                          gann-runner. See ReplayOptions.exitRule
+ *   ?exitRule=gann        how open trades leave: bracket, gann (default,
+ *                          production's LIVE_EXIT_RULE) or gann-runner. See ReplayOptions.exitRule
  *   ?disableExits=three_adverse_closes,prior_week
  *                          measurement only: switch named Gann exit rules off
  *                          inside the replay walk (needs exitRule gann or
@@ -63,6 +63,7 @@
  * to exhaust both.
  */
 
+import { LIVE_EXIT_RULE } from "@/lib/trade/protocol-exit";
 import { NextRequest, NextResponse } from "next/server";
 import {
   BUCKETS,
@@ -205,7 +206,7 @@ export async function GET(req: NextRequest) {
     try {
       disableExits = resolveDisableExits(
         disableExitsRaw.split(",").map((n) => n.trim()).filter((n) => n.length > 0),
-        exitRule ?? "bracket",
+        exitRule ?? LIVE_EXIT_RULE,
       );
     } catch (err) {
       return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });

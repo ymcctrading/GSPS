@@ -44,7 +44,11 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
   it("partitions every trade into exactly one verdict bucket", async () => {
     const report = await runBacktest({ symbols: ["SPY", "AAPL"], timeframe: "15Min" });
     const bucketed = report.buckets.reduce((n, b) => n + b.trades, 0);
-    expect(bucketed).toBe(report.overall.trades);
+    // Under production's Gann exits (the default since 2026-10-22) reversals
+    // and re-buys count in the totals and in no bucket (`derivedSplit`).
+    const { armed, reversal, rebuy } = report.derivedSplit;
+    expect(armed.trades + reversal.trades + rebuy.trades).toBe(report.overall.trades);
+    expect(bucketed).toBe(armed.trades);
     expect(report.triggered).toBeLessThanOrEqual(report.armed);
   });
 
@@ -162,7 +166,7 @@ describe("runBacktest", { timeout: REPLAY_TIMEOUT_MS }, () => {
     const report = await runBacktest({ symbols: ["MSFT", "SPY"], timeframe: "15Min" });
     const { crossing, oldLevel, hold } = report.entryKindSplit;
     expect(report.overall.trades).toBeGreaterThan(0);
-    expect(crossing.trades + oldLevel.trades + hold.trades).toBe(report.overall.trades);
+    expect(crossing.trades + oldLevel.trades + hold.trades).toBe(report.derivedSplit.armed.trades);
     const { weeks, days, record, rally } = report.holdBasisSplit;
     expect(weeks.trades + days.trades + record.trades + rally.trades).toBe(hold.trades);
   });

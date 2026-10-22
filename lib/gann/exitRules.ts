@@ -63,6 +63,18 @@
  *   leaves when a double or triple top fails after the fill; a short on the
  *   mirror at a double or triple bottom. Reported as "failed_top".
  *
+ * - **M-E11 reverse signal day** (added 2026-10-22). A reverse signal day or
+ *   a 7-10 Day Rule day against the trade, since the fill, puts the stop 3
+ *   points beyond that day's extreme (*Commodities* pp.318, 324; the *Stock
+ *   Selector*'s daily time rule). Reported as "reverse_signal".
+ * - **M-E12 exhaust gap** (added 2026-10-22). A gap to a new extreme with its
+ *   reverse signal day, against the trade and since the fill, is the
+ *   culmination of the swing: the trade leaves ("exhaust_gap", *Commodities*
+ *   pp.319-320). It takes the trade off without reversing it.
+ * - **M-T10 boiling point** (added 2026-10-22). Once the weekly chart's run in
+ *   the trade's direction has run 6 weeks, the stop trails 10 Gann points
+ *   from the best price (*Stock Selector* Ch. V). Reported as "boiling_point".
+ *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
  *   Until 2026-09-28 it reused the entry's 0.3% lost-motion margin, about a
@@ -93,6 +105,8 @@ import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { gannDayStop } from "@/lib/gann/dayStop";
+import { exhaustGapAt, readReverseSignal, SEVEN_TO_TEN_MAX_DAYS } from "@/lib/gann/extremeRules";
+import { CLASSIC_MIN_WEEKS, runBoilingPointFromPivots } from "@/lib/gann/boilingPoint";
 import type { TradeStyle } from "@/lib/trade/tradeStyle";
 import type { IntradayExitSignal, IntradayStopReason } from "@/lib/gann/intradayExit";
 
@@ -142,8 +156,17 @@ export interface GannExitPosition {
   style?: TradeStyle;
 }
 
-export type GannStopReason = "initial" | "break_even" | "last_reaction" | "prior_week" | "prior_month" | "final_stage" | "day_low";
-export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution" | "failed_top";
+export type GannStopReason =
+  | "initial"
+  | "break_even"
+  | "last_reaction"
+  | "prior_week"
+  | "prior_month"
+  | "final_stage"
+  | "day_low"
+  | "reverse_signal"
+  | "boiling_point";
+export type GannExitReason = "hold_test_failed" | "three_adverse_closes" | "trend_change" | "distribution" | "failed_top" | "exhaust_gap";
 
 /**
  * A Gann exit rule that can be switched off by name, for measurement only:
@@ -163,11 +186,14 @@ export const GANN_EXIT_RULE_NAMES = [
   "prior_month",
   "final_stage",
   "day_low",
+  "reverse_signal",
+  "boiling_point",
   "hold_test_failed",
   "three_adverse_closes",
   "trend_change",
   "distribution",
   "failed_top",
+  "exhaust_gap",
 ] as const satisfies readonly GannExitRuleName[];
 
 // Compile-time guard: the list names every rule, so a new reason cannot be
@@ -330,8 +356,8 @@ export function readGannExit(
   }
 
   // C4: a change of trend after entry.
+  const weekly = walkSwingChart(daily, WEEKLY_SWING_CHART);
   if (!exit && on("trend_change")) {
-    const weekly = walkSwingChart(daily, WEEKLY_SWING_CHART);
     const changedAt = weekly.trendChanges[weekly.trendChanges.length - 1];
     const against = long ? "bearish" : "bullish";
     if (weekly.trend === against && changedAt !== undefined && changedAt >= firstAfter) {
@@ -375,6 +401,25 @@ export function readGannExit(
           ? "The reaction is still making new extremes in its third month: the trend is changing."
           : "A month broke the one before it and the reaction went past the previous section's top: the trend is changing.",
       };
+    }
+  }
+
+  // M-E12: an exhaust gap against the trade since the fill, "the culmination
+  // of a major swing" (Commodities p.319: after a prolonged advance a final
+  // one-day gap and a reverse signal day; mirrored p.320). The gap must print
+  // on a session after the fill's (`firstAfter` + 1): a gap on the fill day,
+  // or one before it, was part of the setup. Read after the trend-change
+  // calls, so a trade that changed trend on the same reading still reverses
+  // (Q15) rather than being taken off flat.
+  if (!exit && on("exhaust_gap")) {
+    const against = long ? "top" : "bottom";
+    for (let g = daily.length - 1; g >= Math.max(1, firstAfter + 1); g--) {
+      if (exhaustGapAt(daily, g) !== against) continue;
+      exit = {
+        reason: "exhaust_gap",
+        note: `An exhaust gap ${long ? "up" : "down"} on ${day(daily[g])} with a reverse signal day: the move has culminated.`,
+      };
+      break;
     }
   }
 
@@ -466,6 +511,44 @@ export function readGannExit(
   // tighter, so the stop follows each day's low up and is never lowered.
   if (pos.style === "fast") {
     adopt(gannDayStop({ extreme: long ? last.l : last.h, side: pos.side }), "day_low");
+  }
+
+  // M-E11 (APPROXIMATED: the day is Gann's, the stop beyond it is his daily
+  // time rule's). A reverse signal day or a 7-10 Day Rule day against the
+  // trade, since the fill, is "an indication for a change in trend" (Commodities p.318,
+  // the 7-10 Day Rule p.324), so the stop goes 3 points beyond that day's
+  // extreme: under its low when the signal is a top against a long, over its
+  // high when it is a bottom against a short (the daily time rule's stop "3
+  // points beyond" a top or bottom, *Wall Street Stock Selector* Ch. IV). The
+  // latest such day since the fill. Each day is read on the bars up to it, at
+  // most the 7-10 Day Rule's longest run back, so a later day never moves it.
+  {
+    const against = long ? "top" : "bottom";
+    for (let i = daily.length - 1; i >= Math.max(2, firstAfter); i--) {
+      const r = readReverseSignal(daily.slice(Math.max(0, i - SEVEN_TO_TEN_MAX_DAYS - 2), i + 1));
+      if (r.signal !== against) continue;
+      adopt(below(long ? daily[i].l : daily[i].h), "reverse_signal");
+      break;
+    }
+  }
+
+  // M-T10, the boiling point: "wait to sell your stock until it boils ... the
+  // final fast advance lasts 6-7 weeks (sometimes 10)", with a 10-point
+  // trailing stop (*Wall Street Stock Selector* Ch. V; the 6-7 week panic
+  // that ends a bear campaign is the mirror). Once the weekly swing chart's
+  // run in the trade's direction has run 6 weeks (`CLASSIC_MIN_WEEKS`, the
+  // start of his 6-7 week window), the stop trails 10 Gann
+  // points from the best price. Engineering choice, labelled: the run is the
+  // weekly chart's from its last swing extreme (`computeRunBoilingPoint`),
+  // whether or not it was fast; Gann gives no speed for "fast". His Rumely
+  // example trails a raw 10 points at about $100; it is read here as 10 Gann
+  // points (`pointScale.ts`), where A-STOP-04's final-stage trail reads his
+  // "10 at high levels" as 5. Both price-scaled, both engineering readings.
+  if (best !== null) {
+    const run = runBoilingPointFromPivots(daily, weekly.pivots);
+    if (run && run.run === (long ? "up" : "down") && run.weeksSinceStart >= CLASSIC_MIN_WEEKS) {
+      adopt(long ? best - 10 * gannPoint(best) : best + 10 * gannPoint(best), "boiling_point");
+    }
   }
 
   let reverse: GannReversal | null = null;

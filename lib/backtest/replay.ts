@@ -102,7 +102,7 @@ import {
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
 import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
+import { LIVE_EXIT_RULE, SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
 import { nextLotFraction, readPyramidAdd, type PyramidLot } from "@/lib/gann/pyramid";
 import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 
@@ -302,15 +302,20 @@ export interface ReplayOptions {
   /**
    * How an open trade leaves (parity roadmap Stage C, owner decisions 2 and 6):
    *
-   * - `"bracket"` (default): the plan's fixed stop and a `targetR` target.
+   * The default is production's rule, `LIVE_EXIT_RULE` ("gann" since Q14,
+   * 2026-10-16), so a run that names none measures the exit live and paper
+   * positions use (recheck 2026-10-22, M-E8; it defaulted to "bracket", a
+   * fixed target production no longer has).
+   *
+   * - `"bracket"`: the plan's fixed stop and a `targetR` target.
    * - `"gann"`: no fixed target (Gann never fixes one). The trade leaves on
    *   its stop, which moves on Gann's structure, or at the next session's open
    *   after a Gann exit signal: the hold test, three adverse closes, or a
    *   change of trend. See `lib/gann/exitRules.ts`. Stops and signals update
    *   once per session from completed daily bars only.
    *
-   * - `"gann-runner"`: the rule live and paper positions use since 2026-09-28
-   *   (`lib/trade/protocol-exit.ts#LIVE_EXIT_RULE`): 60% leaves at the target,
+   * - `"gann-runner"`: the rule live and paper positions used from 2026-09-28
+   *   to Q14 (2026-10-16): 60% leaves at the target,
    *   the rest runs on Gann's stop and exit signals exactly as `"gann"` does.
    *   Before the target, Gann's stop covers the whole position. A bar that
    *   touches both the target and the stop counts the stop (the conservative
@@ -978,7 +983,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     tradeStyle = "swing",
     roundNumberHold = false,
     entryRule = "reaction",
-    exitRule = "bracket",
+    exitRule = LIVE_EXIT_RULE,
     reverseWhenCaught = true,
     rebuyAfterStop = true,
     reclaimPoints = RECLAIM_POINTS,

@@ -55,9 +55,9 @@ import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
-import { awayReminderDue, resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
+import { awayReminderDue, resolveGannRulePrefs, restReminderDue } from "@/lib/gann/traderPrefs";
 import { maxRiskForTrade } from "@/lib/risk/gannCapital";
-import { readProfitCeiling } from "@/lib/risk/profitPeak";
+import { readLiveStartingCapital, readProfitCeiling } from "@/lib/risk/profitPeak";
 
 export type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
 type DirectionalBias = "BULLISH_ONLY" | "BEARISH_ONLY" | "BOTH";
@@ -349,15 +349,25 @@ async function runForProfile(
   }
   // Gann's trading unit (A-RISK-04, rule 24; owner, 2026-10-16, Q7): the
   // paper account steps up only once profits equal its starting capital, and
-  // neither account steps up on a long run of wins. No starting capital is on
-  // record for a live account, so only the rule-24 hold applies there.
-  const run = await readWinningRun(supabase, profile.user_id);
+  // neither account steps up on a long run of wins. A live account's starting
+  // capital is its first verified equity (lib/risk/profitPeak.ts), as
+  // placement reads it; until 2026-10-22 it was taken as none, so the live
+  // unit was the whole equity (recheck, A-RISK-04).
+  const [run, liveStart] = await Promise.all([
+    readWinningRun(supabase, profile.user_id),
+    executionMode === "live" ? readLiveStartingCapital(supabase, profile.user_id) : Promise.resolve(null),
+  ]);
   // A-RISK-07: after large profits, a tenth of the profits at most, still
   // after a loss, read on the equity before the unit (lib/risk/profitPeak.ts).
   const profitCeiling = await readProfitCeiling(supabase, profile.user_id, executionMode === "live" ? "live" : "paper", equityBasis);
-  equityBasis = run
-    ? gannRiskCapital({ equity: equityBasis, startingCapital: executionMode === "live" ? 0 : STARTING_CASH, ...run }).capital
-    : Math.min(equityBasis, executionMode === "live" ? equityBasis : STARTING_CASH);
+  equityBasis =
+    executionMode === "live"
+      ? run
+        ? gannRiskCapital({ equity: equityBasis, startingCapital: liveStart ?? 0, ...run }).capital
+        : Math.min(equityBasis, liveStart ?? Infinity)
+      : run
+        ? gannRiskCapital({ equity: equityBasis, startingCapital: STARTING_CASH, ...run }).capital
+        : Math.min(equityBasis, STARTING_CASH);
 
   const allocatedDollarRisk = allocatedDollarRiskFor(equityBasis, profile.risk_profile, profitCeiling);
   if (!(allocatedDollarRisk > 0)) {
@@ -389,6 +399,22 @@ async function runForProfile(
     result.errors.push({
       userId: profile.user_id,
       reason: `Skipped ${candidates.length} candidate(s): the trader will be away from ${gannPrefs.awayFrom}, so no new position is opened.`,
+    });
+    return;
+  }
+  // M-K4: twice a year Gann closes out every trade and rests (*Truth of the
+  // Stock Tape*, Book I; the rest window, `traderPrefs.ts`), so automation opens
+  // nothing new in it, as in the away window (recheck 2026-10-22; it read only
+  // the away window). It follows the trader's own reminder setting: a trader
+  // who turned the rest reminder off, or dismissed it for this period, chose
+  // to keep trading, and the method never forces that choice. Open positions
+  // keep their exits; nothing is closed for them.
+  const rest = candidates.length > 0 ? restReminderDue(gannPrefs) : null;
+  if (rest) {
+    result.plansSkipped += candidates.length;
+    result.errors.push({
+      userId: profile.user_id,
+      reason: `Skipped ${candidates.length} candidate(s): the twice-yearly rest runs ${rest.opens} to ${rest.closes}, so no new position is opened.`,
     });
     return;
   }
@@ -512,7 +538,8 @@ async function placeRestingEntries(
   const placed = new Set(((submitted ?? []) as { profile_id: string }[]).map((r) => r.profile_id));
 
   const { data: settingsRow } = await supabase.from("settings").select("prefs").eq("user_id", userId).maybeSingle();
-  if (awayReminderDue(resolveGannRulePrefs((settingsRow as { prefs?: unknown } | null)?.prefs ?? null))) return;
+  const restingPrefs = resolveGannRulePrefs((settingsRow as { prefs?: unknown } | null)?.prefs ?? null);
+  if (awayReminderDue(restingPrefs) || restReminderDue(restingPrefs)) return;
 
   for (const row of waiting) {
     if (placed.has(row.profile_id)) continue;

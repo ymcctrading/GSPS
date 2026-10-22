@@ -25,6 +25,7 @@
 import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import { fetchUniverseStrengthSince } from "@/lib/data/universeStrength";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
+import { LIVE_EXIT_RULE } from "@/lib/trade/protocol-exit";
 import type { GannExitRuleName } from "@/lib/gann/exitRules";
 import { loadInstrumentReferenceHistory } from "@/lib/data/instrumentReference";
 import type { Bar, Timeframe } from "@/lib/types";
@@ -127,7 +128,7 @@ export interface BacktestRequest {
   tradeStyle?: ReplayOptions["tradeStyle"];
   /** Which entry rule fills trades. See `ReplayOptions.entryRule`. Defaults to `"reaction"`, the production rule. */
   entryRule?: ReplayOptions["entryRule"];
-  /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to `"bracket"`. */
+  /** How open trades leave. See `ReplayOptions.exitRule`. Defaults to production's `LIVE_EXIT_RULE`. */
   exitRule?: ReplayOptions["exitRule"];
   /**
    * Measurement only: Gann exit rules switched off inside the walk. See
@@ -515,7 +516,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   } = request;
   // Rejected before any fetch, so a misspelt rule fails at once rather than
   // as every symbol skipped (replay() throws the same error per symbol).
-  if (resolveDisableExits(disableExits, exitRule ?? "bracket").size > 0 && profile === "intraday") {
+  if (resolveDisableExits(disableExits, exitRule ?? LIVE_EXIT_RULE).size > 0 && profile === "intraday") {
     throw new Error("disableExits applies to the swing profile's exit rules; the intraday profile has its own exits");
   }
 
@@ -678,7 +679,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing", sessionClose = false, scaleOut = true } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = LIVE_EXIT_RULE, disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing", sessionClose = false, scaleOut = true } = request;
 
   const split = byOutputState(run.overall);
   const derived = byDerived(run.overall);

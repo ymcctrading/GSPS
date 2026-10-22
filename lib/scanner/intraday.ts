@@ -73,6 +73,7 @@
  * problems, and until now there was no way to tell them apart.
  */
 
+import { combineNearbyLevels } from "@/lib/gann/nearbyLevels";
 import { priceText } from "@/lib/strat/priceText";
 import {
   ASSET_KIND_LABELS,
@@ -1655,6 +1656,12 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
  * nearest stays and the plan says it does not pay (`targetPaysRisk`). Every
  * SPY alert on 2026-10-21 named a first target nearer than its stop (0.30
  * against 2.64 at 1:45 PM), because the nearest level was taken whatever it paid.
+ *
+ * Old levels within 1% of each other are one resistance point, averaged before
+ * the target is read (M-P4, 2026-10-22; *Commodities*, "resistance points near
+ * same levels"; `lib/gann/nearbyLevels.ts`), the daily plan's rule: there the
+ * S/R levels are averaged and the even figures kept apart, and so here. The
+ * intraday replays call this function, so they read the same targets.
  */
 export function gannFirstTarget(input: {
   direction: Direction;
@@ -1676,12 +1683,17 @@ export function gannFirstTarget(input: {
 
   const window = dailyAtr != null && dailyAtr > 0 ? dailyAtr : last * (APPROACH_WINDOW_PCT / 100);
   const limit = up ? last + window : last - window;
-  const candidates = [
-    up ? sessionHigh : sessionLow,
-    ...(prevClose != null && prevClose > 0 ? [prevClose] : []),
-    ...oldLevels,
-    ...targetCandidates(last, limit, up ? "bullish" : "bearish"),
-  ].filter((p) => Number.isFinite(p) && beyond(p));
+  // M-P4: old levels within 1% of each other are one resistance point, averaged
+  // before the target is read, as the daily plan averages its levels and keeps
+  // the even figures apart (`lib/strat/levels.ts`, `combineNearbyLevels`).
+  const structural = combineNearbyLevels(
+    [up ? sessionHigh : sessionLow, ...(prevClose != null && prevClose > 0 ? [prevClose] : []), ...oldLevels].filter(
+      (p) => Number.isFinite(p) && beyond(p),
+    ),
+  );
+  const candidates = [...structural, ...targetCandidates(last, limit, up ? "bullish" : "bearish")].filter(
+    (p) => Number.isFinite(p) && beyond(p),
+  );
 
   if (candidates.length === 0) return null;
   const nearestOf = (ps: number[]) => ps.reduce((nearest, p) => (Math.abs(p - last) < Math.abs(nearest - last) ? p : nearest));

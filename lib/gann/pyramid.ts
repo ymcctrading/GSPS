@@ -285,3 +285,34 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
     reason: null,
   };
 }
+
+/**
+ * Never-failing rule 13, "never average a loss" (*45 Years* rule 13; W006
+ * Rule 5, add only "when the market moves in your favour"), at placement: a
+ * new entry on the same side as an open position in the symbol is refused
+ * unless that position shows a profit at the price the add would fill at. A
+ * buy adds to a long and a sell to a short; an order on the other side is a
+ * close, which is never refused here. The suggestion (`readPyramidAdd`)
+ * already waits for a full step of profit; this binds every other add, the
+ * ticket's included (recheck 2026-10-22, A-PYRAMID-03/04: placement had
+ * treated a held symbol as no new market and placed an add to a loser).
+ */
+export function averagingLossRefusal(input: {
+  symbol: string;
+  side: "buy" | "sell";
+  price: number;
+  open: { symbol: string; side: "long" | "short"; avgPrice: number; qty: number }[];
+}): { error: string; code: "average_a_loss" } | null {
+  const symbol = input.symbol.toUpperCase();
+  const side = input.side === "buy" ? "long" : "short";
+  const held = input.open.filter((p) => p.symbol.toUpperCase() === symbol && p.side === side && p.qty > 0 && p.avgPrice > 0);
+  if (held.length === 0 || !(input.price > 0)) return null;
+  const qty = held.reduce((s, p) => s + p.qty, 0);
+  const avg = held.reduce((s, p) => s + p.avgPrice * p.qty, 0) / qty;
+  const inProfit = side === "long" ? input.price > avg : input.price < avg;
+  if (inProfit) return null;
+  return {
+    error: `The ${side} position in ${symbol} shows no profit at ${input.price.toFixed(2)} (average ${avg.toFixed(2)}), and a loss is never added to. Nothing was placed.`,
+    code: "average_a_loss",
+  };
+}
