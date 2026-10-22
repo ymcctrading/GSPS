@@ -62,7 +62,6 @@ const inputs: ScoreInputs = {
     rewardToRiskTp1: 2,
     rewardToRiskTp2: 3,
     rewardToRiskMaster: 3,
-    masterFromStructure: false,
     stopPctOfPrice: 12,
     stopBandWarning: null,
   },

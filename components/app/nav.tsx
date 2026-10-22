@@ -78,7 +78,9 @@ export function AppNav() {
   async function signOut() {
     await forgetThisBrowserPush();
     const supabase = createClient();
-    await supabase.auth.signOut();
+    // This browser only: a practice account (lib/demo/practice.ts) is shared,
+    // and the default global sign-out would end every visitor's session.
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
     router.refresh();
   }

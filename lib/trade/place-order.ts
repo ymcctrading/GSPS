@@ -17,6 +17,7 @@ import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
+import { isRebuySignal, rebuyExtremeOf } from "@/lib/lifecycle/fromRebuy";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { readUserLossSeries } from "@/lib/risk/lossSeries";
@@ -285,6 +286,7 @@ export async function confirmEntry(
     entryKind?: "crossing" | "oldLevel" | "hold";
     takeProfit1?: number;
     since?: string;
+    cancelBeyond?: number;
   } | null = null;
   if (input.sourcePlanId) {
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
@@ -300,7 +302,33 @@ export async function confirmEntry(
       entryKind: plan.coordinates.entryKind,
       takeProfit1: plan.coordinates.takeProfit1,
       since: plan.generatedAt,
+      ...(rebuyExtremeOf(plan) != null ? { cancelBeyond: rebuyExtremeOf(plan)! } : {}),
     };
+    // The re-buy after a stop (A-PYRAMID-07) and the reversal at that stop
+    // never both hold the book: each waits while a working exit on the other
+    // side is open on the symbol. The reversal is covered at the re-buy's
+    // entry (lib/automation/rebuy-cover.ts), as the replay covers it, and an
+    // order placed first would net against the other position instead.
+    if (isRebuySignal(plan.signalId) || isPivotSignal(plan.signalId)) {
+      const opposite = await openOppositeExit(supabase, userId, input.symbol, plan.direction === "bullish" ? "short" : "long");
+      if (opposite !== false) {
+        return {
+          refusal: {
+            status: opposite === null ? 503 : 409,
+            body: {
+              error:
+                opposite === null
+                  ? "Couldn't read the open positions to check for the reversal. Nothing was placed; try again shortly."
+                  : isRebuySignal(plan.signalId)
+                    ? "The re-entry waits until the opposite trade opened at the stop is covered at its level. Nothing was placed."
+                    : "The reversal waits while a trade on the other side is open in this stock. Nothing was placed.",
+              code: opposite === null ? "confirmation_unavailable" : "awaiting_confirmation",
+            },
+          },
+          atMarket: false,
+        };
+      }
+    }
   } else if (input.entryMode === "advised" && input.limitPrice != null) {
     // No plan row: the crossing line is read from the protocol's entry and
     // stop (`gannBreakLine`). The ticket sends that stop as `entryStop`, so a
@@ -352,6 +380,32 @@ export async function confirmEntry(
     },
     atMarket: false,
   };
+}
+
+/**
+ * Whether a working exit holds `symbol` on `side` (paper or live). Null when
+ * it can't be read, which callers treat as held (fails closed).
+ */
+async function openOppositeExit(
+  supabase: SupabaseClient,
+  userId: string,
+  symbol: string,
+  side: "long" | "short",
+): Promise<boolean | null> {
+  try {
+    const { data, error } = await supabase
+      .from("protocol_exits")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("symbol", symbol.toUpperCase())
+      .eq("side", side)
+      .eq("status", "working")
+      .limit(1);
+    if (error) return null;
+    return (data ?? []).length > 0;
+  } catch {
+    return null;
+  }
 }
 
 /**

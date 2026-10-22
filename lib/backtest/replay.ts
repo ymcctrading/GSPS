@@ -1728,11 +1728,16 @@ export function rebuyPlanAt(input: {
 }
 
 /**
- * Walk one re-entry after a stop. It fills on the first candle after the stop
- * that trades back to the resting level, at that level or the open if the
- * candle opened through it, within `maxBarsHeld` candles, and is cancelled by a
- * new extreme past the stopped trade's best price before the reaction comes. A
+ * Walk one re-entry after a stop, read as placement reads it (never-failing
+ * rule 9; `confirmationFromBars` with `cancelBeyond`, lib/lifecycle/confirmNow.ts).
+ * On the closed candles after the stop, within `maxBarsHeld`: a new extreme
+ * past the stopped trade's best price calls it off (that candle first), so
+ * does a close through its stop, and the first candle that trades back into
+ * the zone confirms it; the fill is the next candle's open, at the market. A
  * fill at or beyond its own stop is refused. Walked on the same exit rules.
+ * Until 2026-10-22 it filled inside the touching candle at the level, a price
+ * live never gets, and took a full-risk loss on a candle that closed through
+ * the stop, which live calls off.
  */
 export function walkRebuy(input: {
   bars: Bar[];
@@ -1753,10 +1758,14 @@ export function walkRebuy(input: {
   const dir = long ? 1 : -1;
   const end = Math.min(bars.length, input.caughtAt + 1 + input.maxBarsHeld);
   for (let k = input.caughtAt + 1; k < end; k++) {
+    const touch = bars[k];
+    if (long ? touch.h > plan.extreme : touch.l < plan.extreme) return null;
+    if (long ? touch.c <= plan.stop : touch.c >= plan.stop) return null;
+    if (!(long ? touch.l <= plan.entry : touch.h >= plan.entry)) continue;
+    k++;
     const b = bars[k];
-    if (long ? b.h > plan.extreme : b.l < plan.extreme) return null;
-    if (!(long ? b.l <= plan.entry : b.h >= plan.entry)) continue;
-    const entry = long ? Math.min(b.o, plan.entry) : Math.max(b.o, plan.entry);
+    if (!b || k >= end) return null;
+    const entry = b.o;
     if (long ? entry <= plan.stop : entry >= plan.stop) return null;
     const risk = Math.abs(entry - plan.stop);
     const target = entry + dir * risk;

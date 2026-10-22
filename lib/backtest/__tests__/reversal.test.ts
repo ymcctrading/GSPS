@@ -77,9 +77,15 @@ describe("the replay's re-buy after a stop (A-PYRAMID-07, W022 p.198)", () => {
     const r = walkRebuy({ bars, dailyBars: [], caughtAt: 0, plan: { side: "long", entry: 95, stop: 92, extreme: 100 }, maxBarsHeld: 20, costPerShare: 0 });
     expect(r?.rebuy).toBe(true);
     expect(r?.direction).toBe("bullish");
-    expect(r?.entry).toBe(94.9);
+    // Confirmed on the candle that traded to 95, filled at the next open (rule 9).
+    expect(r?.entry).toBe(96);
     expect(r?.stop).toBe(92);
     expect(r!.rMultiple).toBeGreaterThan(0);
+  });
+
+  it("calls the re-entry off on a candle that closes through its stop, as placement does", () => {
+    const bars = candlesOn(23, [99, 98, 91.5, 93, 96]);
+    expect(walkRebuy({ bars, dailyBars: [], caughtAt: 0, plan: { side: "long", entry: 95, stop: 92, extreme: 100 }, maxBarsHeld: 20, costPerShare: 0 })).toBeNull();
   });
 
   it("cancels the re-entry when price makes a new high before the reaction", () => {

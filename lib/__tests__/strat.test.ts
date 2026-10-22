@@ -182,9 +182,6 @@ describe("computeTradeLevels", () => {
     expect(levels.takeProfit1).toBe(130); // 2R
     expect(levels.masterProfit).toBe(145); // 3R
     expect(levels.stopBandWarning).toBeNull();
-    // No Gann targets were supplied, so the master target is a plain 3R
-    // projection with nothing structural behind it.
-    expect(levels.masterFromStructure).toBe(false);
   });
 
   it("states the counter-scenario against the stop actually computed, not the pattern's raw stop", () => {
@@ -214,11 +211,10 @@ describe("computeTradeLevels", () => {
     expect(levels.pivotPlan?.cancelIf).toBeTruthy();
   });
 
-  describe("masterFromStructure", () => {
-    // This flag is the scored criterion, so both branches have to be reachable
-    // and reported honestly. It replaced a test of `rewardToRiskTp1 >= 2`,
-    // which max(2R, structural) can never fail, and a test of TP1's own
-    // structural branch, which in practice never fires.
+  describe("master target from structure", () => {
+    // The master snaps to a Gann target in its window, else stays a 3R
+    // projection. (The masterFromStructure flag that reported the branch had
+    // no consumer and was removed, review finding F-09; the prices pin it.)
     const bullish = {
       name: "2-1-2" as const,
       direction: "bullish" as const,
@@ -228,40 +224,34 @@ describe("computeTradeLevels", () => {
     };
     const prev = { t: "", o: 100, h: 105, l: 98, c: 102, v: 0 };
 
-    it("is true when a Gann target sits in the master window", () => {
+    it("snaps to a Gann target in the master window", () => {
       const levels = computeTradeLevels(bullish, prev, [137]);
-      expect(levels.masterFromStructure).toBe(true);
       expect(levels.masterProfit).toBe(137);
     });
 
-    it("is false when no target is in range, and the master stays a 3R projection", () => {
+    it("stays a 3R projection when no target is in range", () => {
       const levels = computeTradeLevels(bullish, prev, [1000, 12]);
-      expect(levels.masterFromStructure).toBe(false);
       expect(levels.masterProfit).toBe(130); // plain 3R
     });
 
-    it("is false when the only targets sit short of the 3R floor", () => {
+    it("ignores targets short of the 3R floor", () => {
       // A level between entry and 3R cannot confirm a target beyond it.
       const levels = computeTradeLevels(bullish, prev, [115, 125]);
-      expect(levels.masterFromStructure).toBe(false);
       expect(levels.masterProfit).toBe(130);
     });
 
     it("snaps to the nearest qualifying target, not the furthest", () => {
       const levels = computeTradeLevels(bullish, prev, [145, 133, 138]);
-      expect(levels.masterFromStructure).toBe(true);
       expect(levels.masterProfit).toBe(133);
     });
 
     it("reads targets below entry for a bearish setup", () => {
       const bearish = { ...bullish, direction: "bearish" as const, stopPrice: 110 };
       const snapped = computeTradeLevels(bearish, { t: "", o: 98, h: 101, l: 95, c: 97, v: 0 }, [63]);
-      expect(snapped.masterFromStructure).toBe(true);
       expect(snapped.masterProfit).toBe(63);
 
       // The same price above entry is not a target for a short.
       const ignored = computeTradeLevels(bearish, { t: "", o: 98, h: 101, l: 95, c: 97, v: 0 }, [137]);
-      expect(ignored.masterFromStructure).toBe(false);
       expect(ignored.masterProfit).toBe(70); // 3R below a 100 entry
     });
   });

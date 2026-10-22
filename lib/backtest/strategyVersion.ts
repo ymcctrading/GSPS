@@ -762,4 +762,13 @@
 // merged onto 2026-10-22-gann-name-chart-great-cycles, whose name chart and
 // great-cycle windows it keeps (the first-trade date rides in the same
 // `WindowAnchors`). No new rule.
-export const STRATEGY_VERSION = "2026-10-22-first-trade-on-name-chart";
+// (was STRATEGY_VERSION "2026-10-22-first-trade-on-name-chart")
+// 2026-10-22-gann-rebuy-rule-nine: A-PYRAMID-07's re-buy after a stop is read
+// in the replay as placement reads it (rule 9): confirmed on the closed candle
+// that trades back into the zone, filled at the next candle's open, and called
+// off by a close through its stop as well as by a new extreme. It had filled
+// inside the touching candle at the level. Automation's trades now seed the
+// re-buy plan live, and the reversal is covered at it. Re-buy replay trades
+// move; verdicts don't. Merged onto 2026-10-22-first-trade-on-name-chart,
+// whose rules it keeps.
+export const STRATEGY_VERSION = "2026-10-22-gann-rebuy-rule-nine";

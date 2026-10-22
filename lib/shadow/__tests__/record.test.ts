@@ -28,7 +28,6 @@ function baseResult(overrides: Partial<ScanResult> = {}): ScanResult {
       rewardToRiskTp1: 1,
       rewardToRiskTp2: 3,
       rewardToRiskMaster: 3,
-      masterFromStructure: false,
       stopPctOfPrice: 2.5,
       stopBandWarning: null,
       stateNote: null,
