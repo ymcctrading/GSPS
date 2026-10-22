@@ -266,6 +266,12 @@ export interface DailyPlanLevels {
   mtp: number | null;
   /** The daily verdict the plan carried: Execute or Watch. */
   verdict: "Execute" | "Watch";
+  /**
+   * The plan's crossing still waits on its daily close 3 points past the
+   * level (`TradeLevels.entryAwaitsCrossing`). Null or absent when the stored
+   * plan does not say (rows before 2026-10-22).
+   */
+  awaitsCrossing?: boolean | null;
 }
 
 /** ---- Derived session metrics ------------------------------------------- */
@@ -1305,10 +1311,18 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   // (run 80 measured the signal losing,
   // replay-diagnosis/2026-10-22-intraday-alerts-replay.md). A held bottom's
   // entry is the prior close itself, so the prior close may equal it.
-  // Known gap, held with the signal: a crossing whose prior close sits between
-  // the entry and the 3-point line (crossed, not yet confirmed) still passes;
-  // telling it apart needs the plan's entry kind and held state carried onto
-  // the stored plan, which `DailyPlanLevels` does not hold yet.
+  // A crossing closed past the entry but not yet 3 points past the level is
+  // not made either: the stored plan says so (`awaitsCrossing`, carried from
+  // `GannEntryTrigger.held` since 2026-10-22). A plan stored before then
+  // carries no flag and is read on the prior close alone.
+  if (plan.awaitsCrossing === true) {
+    checks.push({
+      name,
+      passed: false,
+      detail: `The daily plan's crossing is not made yet: it waits on a daily close 3 points past the level, and the reaction to ${priceText(plan.entry)} is bought after that.`,
+    });
+    return null;
+  }
   const prev = input.prevClose;
   const fromPlanSide = prev != null && (up ? prev >= plan.entry : prev <= plan.entry);
   if (!fromPlanSide) {

@@ -169,6 +169,7 @@ export function asDailyPlanLevels(plan: SessionDailyPlan | null | undefined): Da
     stop: plan.stop,
     tp1: plan.tp1 > 0 ? plan.tp1 : null,
     mtp: plan.mtp > 0 ? plan.mtp : null,
+    awaitsCrossing: plan.awaitsCrossing,
   };
 }
 

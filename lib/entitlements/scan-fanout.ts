@@ -191,6 +191,7 @@ export async function evaluateMonitorsAndNotify(
           masterProfit: setup.value.levels?.masterProfit ?? null,
           patternName: setup.value.pattern?.name ?? null,
           outputState: setup.value.decision.outputState,
+          awaitsCrossing: setup.value.levels ? setup.value.levels.entryAwaitsCrossing === true : null,
         },
       });
       if (result.outcome === "applied" && result.notify && result.transitionId) {
