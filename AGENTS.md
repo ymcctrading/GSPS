@@ -2130,9 +2130,12 @@ owed.
 > (no MTP) when it doesn't align. The order ticket lists them ("Read every
 > technique"), and "Trade these levels" puts a non-aligned technique's entry
 > (as the limit), stop and TP1 into a Manual Override, without the plan's
-> crossing line, `entryKind` or failed-top target, so the server judges it as
-> the person's own order (Gann's capital rules, the tenth at risk and the
-> series of losses still apply, as to any order). The saved default
+> crossing line, `entryKind` or failed-top target, and names the technique
+> (`techniqueSource`), so placement waits for no Gann crossing on it
+> (`confirmEntry`) and judges it as the person's own order. The risk rules
+> still apply, as to any order: the 5-point stop cap, Gann's capital rules,
+> the tenth at risk and the series of losses. The technique's levels lapse
+> once the person changes the side, stop or target. The saved default
 > technique's line (`plan-reading-line.tsx`: setup card, signal card, Guided,
 > plan-scoped Automation) shows the technique's own levels when it doesn't
 > align. Unchanged: nothing here reaches the scan, the score, the gates,
