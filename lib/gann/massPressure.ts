@@ -85,16 +85,17 @@ function shift(year: number, month: number, by: number): [number, number] {
 }
 
 /**
- * The market's composite curve at the New York month of `asOf`. Every month
- * read is at least ten years before it, so nothing is read ahead.
+ * One of the record's curves read the way Gann laid the years: the average of
+ * the month's centred move in each year `MASS_PRESSURE_YEARS` back. Every month
+ * read is at least ten years before `asOf`, so nothing is read ahead.
  */
-export function readMassPressure(asOf: Date): MassPressureReading | null {
+export function readCurve(series: "stocks" | "rate" | "cpi", asOf: Date): MassPressureReading | null {
   const [year, month] = etDateKey(asOf).split("-").map(Number);
   const years: MassPressureReading["years"] = [];
   for (const back of MASS_PRESSURE_YEARS) {
     const y = year - back;
-    const before = marketMonth("stocks", ...shift(y, month, -1));
-    const after = marketMonth("stocks", ...shift(y, month, 1));
+    const before = marketMonth(series, ...shift(y, month, -1));
+    const after = marketMonth(series, ...shift(y, month, 1));
     if (before === null || after === null) continue;
     years.push({ yearsBack: back, year: y, change: after / before - 1 });
   }
@@ -106,6 +107,11 @@ export function readMassPressure(asOf: Date): MassPressureReading | null {
     composite,
     direction: composite > 0 ? "bullish" : composite < 0 ? "bearish" : null,
   };
+}
+
+/** The market's composite curve (the stocks) at the New York month of `asOf`. */
+export function readMassPressure(asOf: Date): MassPressureReading | null {
+  return readCurve("stocks", asOf);
 }
 
 export function describeMassPressure(r: MassPressureReading): string {
