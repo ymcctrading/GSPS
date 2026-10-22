@@ -680,10 +680,10 @@ export function computeTradeLevels(
     const atrMultiple = structuralRisk / executionAtr;
     const effectiveMaxStopAtrMultiple = effectiveLargeCap ? LARGE_CAP_MAX_STOP_ATR_MULTIPLE : MAX_STOP_ATR_MULTIPLE;
     if (atrMultiple > effectiveMaxStopAtrMultiple) {
-      // The size itself is Gann's capital rules' to set (a tenth of capital
-      // at risk, 30 points a share: lib/risk/gannCapital.ts), so the note
-      // names that rule instead of advising a smaller size (it had no source).
-      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. The capital rules size the trade to this stop, so it buys fewer shares.`;
+      // Gann's capital rules cap the risk at a tenth of capital
+      // (lib/risk/gannCapital.ts), so the note names that rule instead of
+      // advising a smaller size (that advice had no source).
+      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. The risk rule caps a trade's risk at a tenth of capital, so fewer units fit at this stop.`;
     }
   }
 

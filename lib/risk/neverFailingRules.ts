@@ -36,7 +36,7 @@ export const NEVER_FAILING_RULES: NeverFailingRule[] = [
   { n: 2, rule: "Use stop-loss orders 3 to 5 points away.", status: "enforced", where: "lib/gann/pointScale.ts", note: "The price-scaled 3 points behind every stop." },
   { n: 3, rule: "Never overtrade.", status: "enforced", where: "lib/risk/position-limits.ts", note: "Exposure ceilings, with the capital rule's market limit." },
   { n: 4, rule: "Once 3 points ahead, move the stop to break-even.", status: "enforced", where: "lib/gann/exitRules.ts", note: "M-E6, the price-scaled 3 points." },
-  { n: 5, rule: "Never buck the trend.", status: "enforced", where: "lib/scan/entrySelection.ts", note: "Entries take the direction of the swing-chart trend." },
+  { n: 5, rule: "Never buck the trend.", status: "enforced", where: "lib/scan/entrySelection.ts", note: "When both of a session's buying points arm, the with-trend one is the trade (chooseSessionEntry, D-04), and with no trend on any chart and no buying point the scan stands aside instead of defaulting to a short (applyStandAsideHold in lib/scoring/score.ts, D-05). Live and replay alike." },
   { n: 6, rule: "When in doubt, get out, and don't get in when in doubt.", status: "person" },
   { n: 7, rule: "Trade only in active stocks.", status: "enforced", where: "lib/scan/liquidity.ts", note: "The platform-wide liquidity floor every scan applies." },
   { n: 8, rule: "Spread risk over 4 or 5 stocks.", status: "enforced", where: "lib/risk/gannCapital.ts", note: "At most 5 stocks open at once (owner, 2026-10-16); crypto keeps Tunnel Thru the Air pp.203-204's two or three markets." },
@@ -55,5 +55,5 @@ export const NEVER_FAILING_RULES: NeverFailingRule[] = [
   { n: 21, rule: "Pyramid longs in stocks with small capital and shorts in stocks with large capital.", status: "enforced", where: "lib/gann/pyramid.ts", note: "Adds read the stored share count: longs under 500 million shares, shorts at or above it (an engineering cutoff; the text gives none). Live suggestion and replay alike." },
   { n: 22, rule: "Never hedge.", status: "person", note: "GSPS never opens a hedge; a person can." },
   { n: 23, rule: "Never change position without a good reason.", status: "person" },
-  { n: 24, rule: "Avoid increasing trading after a long run of success.", status: "person" },
+  { n: 24, rule: "Avoid increasing trading after a long run of success.", status: "enforced", where: "lib/risk/dynamic-risk.ts", note: "The trading unit is never raised on the gains of a long run of wins (gannRiskCapital, readWinningRun: three closed wins in a row, an engineering count), at placement and in the portfolio manager. The replay sizes no position." },
 ];

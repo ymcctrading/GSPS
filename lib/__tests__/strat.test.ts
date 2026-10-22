@@ -182,8 +182,6 @@ describe("computeTradeLevels", () => {
     expect(levels.takeProfit1).toBe(130); // 2R
     expect(levels.masterProfit).toBe(145); // 3R
     expect(levels.stopBandWarning).toBeNull();
-    // No Gann targets were supplied, so the master target is a plain 3R
-    // projection with nothing structural behind it.
   });
 
   it("states the counter-scenario against the stop actually computed, not the pattern's raw stop", () => {
