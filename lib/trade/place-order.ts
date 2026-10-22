@@ -45,7 +45,8 @@ import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
-import { getAccount, getPositions, placeOrder } from "@/lib/brokers/alpaca";
+import { getAccount, getOpenOrdersNested, getPositions, placeOrder } from "@/lib/brokers/alpaca";
+import { workingLiveEntries, type WorkingLiveEntry } from "@/lib/trade/live-working-entries";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
 import { capitalRuleRefusal, optionPremiumRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
@@ -1214,6 +1215,8 @@ async function placeLiveOrder(
   // path. Fails closed: if exposure can't be read, nothing is placed.
   if (!isProtective) {
     let brokerPositions: Awaited<ReturnType<typeof getPositions>>;
+    // The resting orders are read beside the positions, one broker round trip.
+    const openOrders = getOpenOrdersNested(connection.creds).catch(() => null);
     try {
       brokerPositions = await getPositions(connection.creds);
       if (!Array.isArray(brokerPositions)) throw new Error("Alpaca returned no position list.");
@@ -1223,6 +1226,25 @@ async function placeLiveOrder(
         body: {
           error: `Couldn't read the live account's open positions from Alpaca — ${err instanceof Error ? err.message : String(err)}. Nothing was placed.`,
           code: "live_positions_unreadable",
+        },
+      };
+    }
+    // Resting live entries are part of the book they will join, as on paper
+    // (`listWorkingPaperEntries`): without them two resting live limits could
+    // each pass alone and together open a sixth stock. Fails closed.
+    let working: WorkingLiveEntry[] | null;
+    try {
+      const orders = await openOrders;
+      working = orders == null ? null : await workingLiveEntries(orders, brokerPositions, (s) => quotePrice(s, assetClassOf(s)));
+    } catch {
+      working = null;
+    }
+    if (working == null) {
+      return {
+        status: 502,
+        body: {
+          error: "Couldn't read the live account's resting orders from Alpaca, so the order wasn't checked. Nothing was placed.",
+          code: "book_unreadable",
         },
       };
     }
@@ -1241,14 +1263,19 @@ async function placeLiveOrder(
         },
       };
     }
-    const openRiskUsd = ((workingPlans ?? []) as { qty: number; entry_price: number; stop_loss: number | null }[])
-      .reduce(
+    const openRiskUsd =
+      ((workingPlans ?? []) as { qty: number; entry_price: number; stop_loss: number | null }[]).reduce(
         (sum, p) =>
           sum + (p.stop_loss == null ? 0 : Math.abs(Number(p.entry_price) - Number(p.stop_loss)) * Number(p.qty)),
         0,
       );
-    const deployedUsd = brokerPositions.reduce((sum, p) => sum + Math.abs(Number(p.market_value) || 0), 0);
-    const heldSymbols = new Set(brokerPositions.map((p) => p.symbol.toUpperCase()));
+    // A live exit row is written when its order is placed, so the working rows
+    // above already carry a resting entry's planned risk; only its notional and
+    // its symbol are added from the broker.
+    const deployedUsd =
+      brokerPositions.reduce((sum, p) => sum + Math.abs(Number(p.market_value) || 0), 0) +
+      working.reduce((sum, w) => sum + w.qty * w.price, 0);
+    const heldSymbols = new Set([...brokerPositions.map((p) => p.symbol.toUpperCase()), ...working.map((w) => w.symbol)]);
     const candidateJoinsExistingGroup = heldSymbols.has(input.symbol.toUpperCase());
     // A price the server knows, as on paper (review finding F-01).
     const referencePrice = input.limitPrice ?? (await quotePrice(input.symbol, assetClassOf(input.symbol)));
@@ -1289,7 +1316,10 @@ async function placeLiveOrder(
       symbol: input.symbol,
       price: referencePrice,
       qty: input.qty,
-      open: brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
+      open: [
+        ...brokerPositions.map((p) => ({ symbol: p.symbol, qty: Number(p.qty) || 0, price: Number(p.avg_entry_price) || 0 })),
+        ...working.map((w) => ({ symbol: w.symbol, qty: w.qty, price: w.price })),
+      ],
     });
     if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
     // Never-failing rule 1, as on paper. The unit is the live equity, held

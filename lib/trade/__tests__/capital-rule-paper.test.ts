@@ -9,6 +9,7 @@ const sim = vi.hoisted(() => ({
   cash: 10_000,
   open: [] as { symbol: string; asset_class: string; qty: number; avg_entry_price: number; stop_loss: number | null }[],
   working: [] as { id: string; symbol: string; side: "buy" | "sell"; qty: number; price: number; stop: number | null }[],
+  openRiskSeen: NaN,
 }));
 vi.mock("@/lib/brokers/simulator", async () => {
   const actual = await vi.importActual<typeof import("@/lib/brokers/simulator")>("@/lib/brokers/simulator");
@@ -31,7 +32,13 @@ vi.mock("@/lib/risk/lossSeries", async () => {
 // Isolate Gann's rules from the % ceilings.
 vi.mock("@/lib/risk/position-limits", async () => {
   const actual = await vi.importActual<typeof import("@/lib/risk/position-limits")>("@/lib/risk/position-limits");
-  return { ...actual, checkPositionLimits: () => ({ ok: true, violations: [] }) };
+  return {
+    ...actual,
+    checkPositionLimits: (input: { currentOpenRiskUsd: number }) => {
+      sim.openRiskSeen = input.currentOpenRiskUsd;
+      return { ok: true, violations: [] };
+    },
+  };
 });
 
 vi.mock("@/lib/entitlements/policy", async () => {
@@ -99,6 +106,13 @@ describe("the capital rules on a paper order", () => {
     sim.working = [{ id: "o1", symbol: "MSFT", side: "buy", qty: 150, price: 100, stop: 95 }];
     expect((await place({ qty: 90 })).body.code).toBe("capital_per_share");
     expect((await place({ qty: 40 })).body.code).not.toBe("capital_per_share");
+  });
+
+  it("counts a resting entry's planned risk in the open risk the ceilings read", async () => {
+    sim.open = [held("MSFT", 10)]; // 10 x 5 = 50 at risk
+    sim.working = [{ id: "o1", symbol: "KO", side: "buy", qty: 20, price: 60, stop: 57 }]; // 20 x 3 = 60
+    await place({});
+    expect(sim.openRiskSeen).toBeCloseTo(110, 6);
   });
 
   it("leaves an option order to the option rules", async () => {
