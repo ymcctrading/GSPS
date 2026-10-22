@@ -693,6 +693,22 @@ export function cryptoBuyList(scans: readonly ScanResult[]): ScanResult[] {
   return scans.filter((r) => !r.error && r.direction === "bullish" && hasTradePlan(r)).sort(compareForList);
 }
 
+/**
+ * `p`'s value if it settles by `deadline` (ms since the epoch), else null, so a
+ * slow side pass never holds the scan past its budget.
+ */
+async function settleBy<T>(p: Promise<T>, deadline: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), Math.max(0, deadline - Date.now()));
+  });
+  try {
+    return await Promise.race([p, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -1211,8 +1227,9 @@ export async function runMarketScan(
   // rather than in them; the lists show them under their own heading
   // (`ResultsTable`). Spot crypto can't be shorted, so its sell setups are not
   // listed (`cryptoUniverse.ts`).
-  const cryptoScans = await cryptoP;
-  lists.bullish = [...lists.bullish, ...cryptoBuyList(cryptoScans)].sort(compareForList);
+  const cryptoScans = await settleBy(cryptoP, startedAt + CONTINUATION_DEADLINE_MS);
+  if (cryptoScans === null) console.warn("market-scan: crypto pass not done by the deadline; listed without it");
+  lists.bullish = [...lists.bullish, ...cryptoBuyList(cryptoScans ?? [])].sort(compareForList);
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
@@ -1224,7 +1241,7 @@ export async function runMarketScan(
     coarseShortlist.map((c) => c.symbol.toUpperCase()).filter((sym) => kept.has(sym)),
   );
   const fullScanResults = new Map(
-    [...valid, ...continuationScanResults.filter((r) => !r.error), ...cryptoScans.filter((r) => !r.error)].map(
+    [...valid, ...continuationScanResults.filter((r) => !r.error), ...(cryptoScans ?? []).filter((r) => !r.error)].map(
       (r) => [r.symbol, r],
     ),
   );
