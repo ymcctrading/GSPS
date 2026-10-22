@@ -6,10 +6,11 @@
  * managers trail each of the trader's own trades in the style that stood when
  * it filled (`lib/trade/exit-style.ts`). Both are Gann's: his main swing method and his
  * fast-market method. Neither closes a trade at the end of the session; Gann
- * never did.
+ * never did. Intraday is not picked here: it is the style of a trade taken
+ * from an intraday alert (`IntradayPlanPanel`).
  */
 
-import { TRADE_STYLES, type TradeStyle } from "@/lib/trade/tradeStyle";
+import { PICKABLE_TRADE_STYLES, TRADE_STYLES, type DailyTradeStyle as TradeStyle } from "@/lib/trade/tradeStyle";
 import { cn } from "@/lib/utils";
 
 export function TradeStylePicker({
@@ -26,7 +27,7 @@ export function TradeStylePicker({
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Trade style">
         <span className="text-xs text-muted">Trade style</span>
-        {(Object.keys(TRADE_STYLES) as TradeStyle[]).map((s) => (
+        {(PICKABLE_TRADE_STYLES as readonly TradeStyle[]).map((s) => (
           <button
             key={s}
             type="button"

@@ -115,6 +115,13 @@ export const OrderSchema = z.object({
    */
   intradaySourced: z.boolean().optional().default(false),
   /**
+   * An intraday-sourced trade only: keep it open past the session's end. The
+   * Intraday style closes what is left at the session's end by default (the
+   * owner's choice, "not mandatory"; `lib/gann/intradayExit.ts`), and this is
+   * the trader's way out of that close. Ignored on any other order.
+   */
+  holdOvernight: z.boolean().optional(),
+  /**
    * The `trade_plans` row this order was authorized against, when there is
    * one — set only by lib/automation/service.ts's `deriveOrderInputFromPlan`
    * (both the plan-scoped GSPS Automation and the fully-autonomous Portfolio
@@ -812,6 +819,7 @@ async function placeChecked(
     order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" && !atMarket ? "limit" : orderType,
     qty: input.qty,
     intraday_sourced: input.intradaySourced,
+    hold_overnight: input.intradaySourced && input.holdOvernight === true,
     source_plan_id: input.sourcePlanId ?? null,
     limit_price: submittedLimitPrice ?? null,
     // For a market entry, the plan's price, kept to measure the fill against.
@@ -1419,6 +1427,10 @@ async function placeLiveOrder(
       side: input.side,
       order_type: useBracket ? "bracket" : orderType,
       qty: input.qty,
+      // The live exit manager reads these to manage an intraday alert's trade
+      // in the Intraday style (lib/trade/exit-style.ts), as on paper.
+      intraday_sourced: input.intradaySourced,
+      hold_overnight: input.intradaySourced && input.holdOvernight === true,
       source_plan_id: input.sourcePlanId ?? null,
       limit_price: submittedLimitPrice ?? null,
       stop_price: stopLoss ?? null,

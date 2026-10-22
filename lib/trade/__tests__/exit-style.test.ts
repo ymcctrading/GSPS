@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { positionTradeStyle } from "@/lib/trade/exit-style";
+import { positionExitStyle } from "@/lib/trade/exit-style";
 import { resolveGannRulePrefs, styleAt, withStyleChange, DEFAULT_GANN_RULE_PREFS } from "@/lib/gann/traderPrefs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** A stand-in for `orders` that records the key it was asked by. */
-function fakeOrders(row: { source_plan_id: string | null } | null, fail = false) {
+function fakeOrders(row: { source_plan_id: string | null; intraday_sourced?: boolean; hold_overnight?: boolean } | null, fail = false) {
   const seen: { key?: string; value?: string } = {};
   const client = {
     from: () => ({
@@ -48,16 +48,26 @@ describe("the style a trade is managed in", () => {
   it("reads paper orders by id and live by broker_order_id, and keeps automation on Swing", async () => {
     const at = "2026-10-21T16:00:00Z";
     const paper = fakeOrders({ source_plan_id: null });
-    expect(await positionTradeStyle(paper.client, fastSince, at, "o-1", "id")).toBe("fast");
+    expect((await positionExitStyle(paper.client, fastSince, at, "o-1", "id", "AAPL")).style).toBe("fast");
     expect(paper.seen).toEqual({ key: "id", value: "o-1" });
     const live = fakeOrders({ source_plan_id: "plan-9" });
-    expect(await positionTradeStyle(live.client, fastSince, at, "b-1", "broker_order_id")).toBe("swing");
+    expect((await positionExitStyle(live.client, fastSince, at, "b-1", "broker_order_id", "AAPL")).style).toBe("swing");
     expect(live.seen.key).toBe("broker_order_id");
   });
 
   it("answers Swing on a failed read, and Swing for a fill before Fast was chosen", async () => {
     const at = "2026-10-21T16:00:00Z";
-    expect(await positionTradeStyle(fakeOrders(null, true).client, fastSince, at, "o-1", "id")).toBe("swing");
-    expect(await positionTradeStyle(fakeOrders({ source_plan_id: null }).client, fastSince, "2026-10-20T16:00:00Z", "o-1", "id")).toBe("swing");
+    expect((await positionExitStyle(fakeOrders(null, true).client, fastSince, at, "o-1", "id", "AAPL")).style).toBe("swing");
+    expect((await positionExitStyle(fakeOrders({ source_plan_id: null }).client, fastSince, "2026-10-20T16:00:00Z", "o-1", "id", "AAPL")).style).toBe("swing");
+  });
+
+  it("manages an intraday alert's trade as Intraday, closing it at the session's end unless held", async () => {
+    const at = "2026-10-21T16:00:00Z";
+    const intraday = fakeOrders({ source_plan_id: null, intraday_sourced: true, hold_overnight: false });
+    expect(await positionExitStyle(intraday.client, [], at, "o-1", "id", "AAPL")).toEqual({ style: "intraday", closeAtSessionEnd: true });
+    const held = fakeOrders({ source_plan_id: null, intraday_sourced: true, hold_overnight: true });
+    expect(await positionExitStyle(held.client, fastSince, at, "o-1", "id", "AAPL")).toEqual({ style: "intraday", closeAtSessionEnd: false });
+    // Crypto has no session to close at.
+    expect(await positionExitStyle(intraday.client, [], at, "o-1", "id", "BTC/USD")).toEqual({ style: "intraday", closeAtSessionEnd: false });
   });
 });

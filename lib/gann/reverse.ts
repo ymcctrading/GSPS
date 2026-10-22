@@ -28,13 +28,18 @@
 
 import { gannThreePoints } from "./pointScale";
 import type { GannExitReason, GannStopReason } from "./exitRules";
+import type { IntradayExitSignal } from "./intradayExit";
 
-/** "stop" is any stop that was hit, when the exit manager knows no finer reason. */
+/**
+ * "stop" is any stop that was hit, when the exit manager knows no finer reason.
+ * The Intraday style's exits (`intradayExit.ts`) are causes too, and reverse
+ * nothing: the reversal is the daily method's geometry.
+ */
 /**
  * "covered": an automated reversal closed at the re-buy's level
  * (lib/automation/rebuy-cover.ts). It neither reverses nor re-buys.
  */
-export type ReversalCause = GannStopReason | GannExitReason | "stop" | "covered";
+export type ReversalCause = GannStopReason | GannExitReason | IntradayExitSignal | "stop" | "covered";
 
 const REVERSING_EXITS: ReadonlySet<GannExitReason> = new Set(["trend_change", "failed_top", "distribution"]);
 const STOP_REASONS: ReadonlySet<string> = new Set<GannStopReason | "stop">([

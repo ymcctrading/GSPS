@@ -35,7 +35,7 @@ import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out
 import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
-import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
@@ -254,7 +254,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
             openedAt: plan.created_at,
             best: highWater,
             // A paper exit row is written at the fill, so `created_at` is the day bought.
-            style: await positionTradeStyle(supabase, styleHistory, plan.created_at, plan.entry_order_id, "id"),
+            ...(await positionExitStyle(supabase, styleHistory, plan.created_at, plan.entry_order_id, "id", plan.symbol)),
           })
         : null;
     stopAction = planStopAdjustment({
@@ -494,15 +494,21 @@ async function finish(
     const cause: ReversalCause = caught ?? "stop";
     const extreme = plan.high_water ?? plan.entry_price;
     let sourcePlanId: string | null = null;
+    // An intraday trade (lib/gann/intradayExit.ts) ends on the session's
+    // rules: it is neither reversed nor re-bought at the daily geometry.
+    let intraday = false;
     if (plan.entry_order_id) {
       const { data: orderRow } = await supabase
         .from("orders")
-        .select("source_plan_id")
+        .select("source_plan_id, intraday_sourced")
         .eq("id", plan.entry_order_id)
         .maybeSingle();
       sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+      intraday = orderRow?.intraday_sourced === true;
     }
-    if (sourcePlanId) {
+    if (intraday) {
+      // Nothing to offer.
+    } else if (sourcePlanId) {
       await handleAutomatedStopOut(supabase, userId, {
         planId: sourcePlanId,
         entryFillPrice: plan.entry_price,

@@ -428,6 +428,15 @@ open; the same broken-stop test as the live scan, at this scale. One point is a 
 bars (the lifecycle's own default). One position per symbol. All engineering choices are labelled in the
 module header and are not to be changed after seeing a result.
 
+**Amended 2026-10-22 (review of PR #439), before any run on the amended rules.** For a US equity
+the profile now reads regular-session bars only (9:30-16:00 New York, 13:00 on an NYSE early close):
+the entries, the hourly chart and the exits alike. Before it, it read every pre- and post-market print
+the IEX feed carries, which the live alerts (`lib/scanner/intraday.ts`) never did. The hourly exit is the
+first turn after the fill (`lib/gann/intradayExit.ts#intradayWalker`), which equals the rule above for a
+trade entered with the hourly trend. Runs before this date read the old rules. Two options, off by
+default, measure the Intraday trade style: `sessionClose=1` (close at the session's last bar, the
+owner's choice) and `scaleOut=0` (no sale at the first target, as the style trades live).
+
 **Runs.** `?profile=intraday&within=all` on the 766-symbol universe:
 
 1. **Primary:** `timeframe=1Hour`, the longest window the feed returns (about six years). This is the one

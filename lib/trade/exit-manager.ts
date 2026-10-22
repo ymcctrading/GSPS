@@ -76,7 +76,7 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
-import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
@@ -306,7 +306,7 @@ async function advance(
           initialStop: plan.stop_loss,
           openedAt: filledAt,
           best: highWater,
-          style: await positionTradeStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id"),
+          ...(await positionExitStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id", plan.symbol)),
         })
       : null;
   let action = planStopAdjustment({
@@ -707,15 +707,21 @@ async function finish(
     const brokenLevel = ctx?.caught ? (ctx.lastPrice ?? stopLevel) : stopLevel;
     const extreme = ctx?.highWater ?? plan.high_water ?? ctx?.entryPrice ?? plan.entry_price;
     let sourcePlanId: string | null = null;
+    // An intraday trade (lib/gann/intradayExit.ts) ends on the session's
+    // rules: it is neither reversed nor re-bought at the daily geometry.
+    let intraday = false;
     if (plan.entry_order_id) {
       const { data: orderRow } = await supabase
         .from("orders")
-        .select("source_plan_id")
+        .select("source_plan_id, intraday_sourced")
         .eq("broker_order_id", plan.entry_order_id)
         .maybeSingle();
       sourcePlanId = (orderRow?.source_plan_id as string | null) ?? null;
+      intraday = orderRow?.intraday_sourced === true;
     }
-    if (sourcePlanId) {
+    if (intraday) {
+      // Nothing to offer.
+    } else if (sourcePlanId) {
       await handleAutomatedStopOut(supabase, userId, {
         planId: sourcePlanId,
         entryFillPrice: ctx?.entryPrice ?? plan.entry_price,

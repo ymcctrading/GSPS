@@ -3051,6 +3051,41 @@ of the fixed single stocks; a name whose daily plan's stop trades through is
 invalidated and the next takes its place. Both intraday scans now read bars
 in batches (100 symbols a request), not three requests a symbol.
 
+**The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
+matter of seconds, mins, or hours. And ideally closed by the end of the day
+(although not mandatory)").** Swing and Fast both hold for days or weeks, and
+"Trade this" on an intraday alert opened the ticket on the daily plan's levels,
+not the alert's. Now the link carries the alert's own stop and first target
+(`intradayTradeHref`), and the ticket opens on them as a market entry with no
+MTP, labelled Intraday (`TRADE_STYLES.intraday`; it is the trade's source,
+`orders.intraday_sourced`, not a picked preference). Once filled, the paper and
+live exit managers walk it on the session's bars with the intraday replay's own
+rules, now one module (`lib/gann/intradayExit.ts`), on regular-session bars
+only for a US equity (pre- and post-market prints never move the stop): nothing
+sold at the first target (Gann's "never fix a target price", as Q14 runs a daily
+trade; the review of #439 answered it from Gann), the stop one intraday point
+beyond each completed 15-minute swing (the Overnight Chart's 1-point stops, Master Course Ch. 3), out
+when the hourly chart turns (Ch. 13, "the first change in trend"), and no
+reversal or re-buy at the daily geometry. The trade closes from 3:45 PM New
+York time (12:45 PM on an NYSE early close, `calendar.ts#isEarlyClose`), or at
+the first pass after a close it outlived, decided from the clock even when the
+bars can't be read, unless the trader ticks off the close (`orders.hold_overnight`, migration 0105): the owner's
+choice, not Gann's, who never closed a trade because a session ended. Crypto has
+no session and is never closed for it. The replay measures the style with
+`?profile=intraday&sessionClose=1&scaleOut=0` (both off by default, so the
+pre-registered run keeps its 60% at the first target and its 10-session hold).
+Amended the same day, for parity with the live alerts and exits: a US equity's
+profile reads regular-session bars only, entries, hourly chart and exits alike
+(it read every pre- and post-market print before), and its hourly exit is the
+first turn after the fill, which equals the old rule for a trade entered with
+the hourly trend (`docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` §5.2). An
+intraday entry without a stop is refused as every new position is
+(`stop_required`, A-STOP-01), and the ticket places one only with its stop and
+first target, since its exits and its close live on that exit row. The live order row now records `intraday_sourced` too, as the
+paper row did. The ticket says intraday has no measured record; nothing
+automated trades it. Verdicts and the daily replay are unchanged, so
+`STRATEGY_VERSION` stays.
+
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 
 The novice/expert interface worked example in the Three-question mandate

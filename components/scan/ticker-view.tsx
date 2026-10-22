@@ -16,6 +16,7 @@ import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
+import { intradayPlanFromQuery } from "@/lib/routes";
 import { sessionLabel } from "@/lib/market/session";
 import { formatUsd, formatPct, cn, parseJsonResponse } from "@/lib/utils";
 import { hasFeature, type PlatformTier } from "@/lib/tiers";
@@ -63,6 +64,8 @@ export function TickerView({ symbol }: { symbol: string }) {
   const intradaySourced = mounted && searchParams.get("intraday") === "1";
   const sideParam = mounted ? searchParams.get("side") : null;
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
+  // The alert's own stop and first target (the Intraday style), from the same link.
+  const intradayPlan = intradaySourced ? intradayPlanFromQuery(searchParams.get("stop"), searchParams.get("tp1")) : null;
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
   useLayoutEffect(() => {
@@ -283,6 +286,7 @@ export function TickerView({ symbol }: { symbol: string }) {
               result={result}
               livePrice={livePrice}
               intradaySourced={intradaySourced}
+              intradayPlan={intradayPlan}
               forceSide={forceSide}
               onExplainChange={setExplain}
             />

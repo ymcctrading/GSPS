@@ -37,6 +37,12 @@
  *   ?profile=intraday      walk the replay-only intraday profile (Gann's rules read
  *                          from the run's own bars, unscored) instead of the
  *                          production method. See lib/backtest/replayIntraday.ts
+ *   ?sessionClose=1        with profile=intraday, close what is left of each trade
+ *                          at the session's last bar, as the Intraday style does
+ *                          (lib/gann/intradayExit.ts). Equities only
+ *   ?scaleOut=0            with profile=intraday, sell nothing at the first
+ *                          target: the whole position runs on the stop and the
+ *                          hourly turn, the Intraday style's live rule
  *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
  *                          the expectancy delta — a second full fetch/replay,
  *                          off by default. See BacktestRequest.includeSlippageSensitivity
@@ -212,6 +218,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid profile '${profileRaw}' (swing | intraday)` }, { status: 400 });
   }
   const profile = profileRaw === "intraday" ? ("intraday" as const) : undefined;
+  const sessionClose = searchParams.get("sessionClose") === "1";
+  if (sessionClose && profile !== "intraday") {
+    return NextResponse.json({ error: "sessionClose applies to profile=intraday only" }, { status: 400 });
+  }
+  const scaleOutRaw = searchParams.get("scaleOut");
+  const scaleOut = scaleOutRaw === "0" || scaleOutRaw === "false" ? false : undefined;
+  if (scaleOut === false && profile !== "intraday") {
+    return NextResponse.json({ error: "scaleOut applies to profile=intraday only" }, { status: 400 });
+  }
 
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
@@ -280,6 +295,8 @@ export async function GET(req: NextRequest) {
         ...disableExitsOption,
         ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
         ...(profile ? { profile } : {}),
+        ...(sessionClose ? { sessionClose } : {}),
+        ...(scaleOut === false ? { scaleOut } : {}),
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
@@ -322,6 +339,8 @@ export async function GET(req: NextRequest) {
       ...disableExitsOption,
       ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
       ...(profile ? { profile } : {}),
+      ...(sessionClose ? { sessionClose } : {}),
+      ...(scaleOut === false ? { scaleOut } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     return NextResponse.json(report);

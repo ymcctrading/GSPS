@@ -114,6 +114,29 @@ export function isMarketHoliday(dateKey: string): boolean {
   return false;
 }
 
+/**
+ * `true` if `dateKey` (an America/New_York "YYYY-MM-DD") is an NYSE early
+ * close, 1:00 PM ET: the day after Thanksgiving, and Christmas Eve or July 3
+ * when it falls on a weekday that is not itself a holiday (NYSE Rule 7.2's
+ * published schedule; Independence Day Eve on a Friday is the observed
+ * holiday when July 4 is a Saturday, so it stays closed all day).
+ */
+export function isEarlyClose(dateKey: string): boolean {
+  const year = Number(dateKey.slice(0, 4));
+  const thanksgiving = nthWeekdayOfMonth(year, 10, 4, 4);
+  const dayAfter = utcNoon(year, 10, thanksgiving.getUTCDate() + 1);
+  if (etDateKey(dayAfter) === dateKey) return true;
+  for (const [month, day] of [
+    [11, 24],
+    [6, 3],
+  ] as const) {
+    const eve = utcNoon(year, month, day);
+    const weekday = eve.getUTCDay();
+    if (weekday !== 0 && weekday !== 6 && etDateKey(eve) === dateKey && !isMarketHoliday(dateKey)) return true;
+  }
+  return false;
+}
+
 /** `true` for a Saturday or Sunday, in America/New_York terms. */
 export function isWeekend(date: Date): boolean {
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" })

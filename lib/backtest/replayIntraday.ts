@@ -73,19 +73,21 @@ import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { gannFirstTarget, gannOldLevels } from "@/lib/scanner/intraday";
 import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
-import { swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
+import { walkSwingChart } from "@/lib/gann/swingChart";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
+import { INTRADAY_SWING_BARS, INTRADAY_WINDOW_BARS, intradayWalker, isRegularSessionBar, isSessionLastBar } from "@/lib/gann/intradayExit";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import { BARS_PER_SESSION, isTimeoutReason, rollUp, stopFill, summarise, timeoutReasonAt, type IntradayExitReason, type ReplayResult, type ReplayTrade, type TimeoutReason } from "./replay";
 
-/** Closed bars read for the swing charts and the trail. Bounds the work per bar; two completed swings fit in far less. */
-export const INTRADAY_WINDOW_BARS = 400;
-/** The 3-bar swing chart, Gann's own, at the bars' scale. */
-const SWING_BARS = 3;
+// The trail, the hourly turn and the window live in `lib/gann/intradayExit.ts`
+// (2026-10-22), so the Intraday style's live and paper exits walk a trade the
+// way this profile does.
+export { INTRADAY_WINDOW_BARS } from "@/lib/gann/intradayExit";
+const SWING_BARS = INTRADAY_SWING_BARS;
 /**
  * How long an armed plan is carried, in bars: the lifecycle's default when
  * this profile's run was pre-registered (20 bars of the 15-minute execution
@@ -110,6 +112,20 @@ export interface IntradayReplayOptions {
   dailyBars: Bar[];
   /** Points a close must clear a broken stop by (`ReplayOptions.reclaimPoints`). */
   reclaimPoints?: number;
+  /**
+   * Close what is left of a trade at the close of the session's last bar, as
+   * the Intraday style does by default (`lib/gann/intradayExit.ts`; the
+   * owner's choice, not Gann's). Off by default, so the pre-registered run
+   * keeps its rules; crypto has no session and is never closed for it.
+   */
+  sessionClose?: boolean;
+  /**
+   * Sell 60% at the first target, as the pre-registered profile does (the
+   * default). False measures the Intraday style's live rule: no fixed target,
+   * the whole position runs on the stop and the hourly turn ("never fix a
+   * target price", Q14; `lib/gann/intradayExit.ts`).
+   */
+  scaleOut?: boolean;
 }
 
 /** One armed crossing and its stop, carried across bars until it fires, breaks, is replaced or expires. */
@@ -136,15 +152,24 @@ function allowanceScale(price: number, point: number): number {
   return daily > 0 ? point / daily : 1;
 }
 
-export function replayIntraday(symbol: string, bars: Bar[], options: IntradayReplayOptions): ReplayResult {
+export function replayIntraday(symbol: string, allBars: Bar[], options: IntradayReplayOptions): ReplayResult {
   const {
     costPerShare = DEFAULT_COST_PER_SHARE_USD,
     maxBarsHeld = BARS_PER_SESSION * 10,
     warmupBars = 100,
     dailyBars,
     reclaimPoints = RECLAIM_POINTS,
+    sessionClose = false,
+    scaleOut = true,
   } = options;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // A US equity is read on its regular-session bars only, entries and exits
+  // alike, as the live alerts (`lib/scanner/intraday.ts`, regular-session
+  // bars) and exit managers (`lib/gann/intradayExit.ts`) read it; Gann reads
+  // the hourly chart on exchange hours (Master Course PDF 378). The IEX bars
+  // carry pre- and post-market prints. Amended 2026-10-22 (review of #439):
+  // before it, the profile read every print.
+  const bars = assetClass === "crypto" ? allBars : allBars.filter(isRegularSessionBar);
 
   const trades: ReplayTrade[] = [];
   const armedKeys = new Set<string>();
@@ -282,7 +307,17 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         risk: Math.abs(entry - stop),
       });
 
-      const walked = walkIntradayExit({ bars, from: i, maxBarsHeld, long, entry, stop, point, firstTarget });
+      const walked = walkIntradayExit({
+        bars,
+        from: i,
+        maxBarsHeld,
+        long,
+        entry,
+        stop,
+        point,
+        firstTarget: scaleOut ? firstTarget : null,
+        sessionClose: sessionClose && assetClass !== "crypto",
+      });
       busyUntil = i + walked.barsHeld;
       trades.push({
         symbol,
@@ -313,12 +348,16 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
 /**
  * Walk one filled trade forward on Gann's intraday exits. The stop is checked
  * on every bar first (the conservative order). 60% leaves at the first target
- * when there is one; the rest runs. After each bar the stop is lifted to one
+ * when there is one (none is passed under `scaleOut: false`); the rest runs.
+ * `bars` are regular-session bars for a US equity (`replayIntraday` filters
+ * them), as the live exit managers read them. After each bar the stop is lifted to one
  * point beyond the last completed swing bottom (top, short) when that tightens
- * it. If the hourly swing chart has turned against the position by a bar's
- * close, the position leaves at the next bar's open.
+ * it (`intradayTrail`). If the hourly swing chart has turned against the
+ * position by a bar's close (`hourlyTurnedAgainst`), the position leaves at
+ * the next bar's open. With `sessionClose`, what is left leaves at the close
+ * of the session's last bar.
  */
-function walkIntradayExit(input: {
+export function walkIntradayExit(input: {
   bars: Bar[];
   from: number;
   maxBarsHeld: number;
@@ -327,11 +366,11 @@ function walkIntradayExit(input: {
   stop: number;
   point: number;
   firstTarget: number | null;
+  sessionClose?: boolean;
 }): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
   const { bars, from, maxBarsHeld, long, entry, point, firstTarget } = input;
   const dir = long ? 1 : -1;
-  let stop = input.stop;
-  let trailed = false;
+  const walker = intradayWalker({ long, stop: input.stop, point });
   // Position in units of the first lot: the result is reported as the single
   // exit price that gives the same P&L per unit, so R arithmetic is unchanged.
   let openQty = 1;
@@ -346,29 +385,25 @@ function walkIntradayExit(input: {
   });
   const end = Math.min(bars.length, from + maxBarsHeld);
   let leaveAtOpen = false;
+  let started = false;
   for (let j = from; j < end; j++) {
     const b = bars[j];
+    if (!started) {
+      walker.start(bars.slice(Math.max(0, j - INTRADAY_WINDOW_BARS), j));
+      started = true;
+    }
     if (leaveAtOpen) return done(b.o, j - from + 1, "intraday_trend_change");
+    const stop = walker.stop;
     if (long ? b.l <= stop : b.h >= stop) {
-      return done(stopFill(long, stop, b.o), j - from + 1, trailed ? "intraday_trailing_stop" : "intraday_initial_stop");
+      return done(stopFill(long, stop, b.o), j - from + 1, walker.trailed ? "intraday_trailing_stop" : "intraday_initial_stop");
     }
     if (firstTarget !== null && !scaled && (long ? b.h >= firstTarget : b.l <= firstTarget)) {
       realized += dir * SCALE_OUT_PCT * (firstTarget - entry);
       openQty -= SCALE_OUT_PCT;
       scaled = true;
     }
-    const window = bars.slice(Math.max(0, j + 1 - INTRADAY_WINDOW_BARS), j + 1);
-    const pivots = swingPivots(window, SWING_BARS);
-    const last = [...pivots].reverse().find((p) => p.kind === (long ? "bottom" : "top"));
-    if (last) {
-      const candidate = long ? last.price - point : last.price + point;
-      if ((long ? candidate > stop : candidate < stop) && (long ? candidate < b.c : candidate > b.c)) {
-        stop = candidate;
-        trailed = true;
-      }
-    }
-    const trend = walkSwingChart(rollUp(window, hourKey), SWING_BARS).trend;
-    if (trend !== null && trend !== (long ? "bullish" : "bearish")) leaveAtOpen = true;
+    if (input.sessionClose && isSessionLastBar(bars, j)) return done(b.c, j - from + 1, "intraday_session_close");
+    if (walker.step(bars.slice(Math.max(0, j + 1 - INTRADAY_WINDOW_BARS), j + 1))) leaveAtOpen = true;
   }
   return done(bars[end - 1].c, end - from, timeoutReasonAt(from, maxBarsHeld, bars.length));
 }

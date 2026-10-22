@@ -40,7 +40,7 @@
  */
 
 import { etDateKey } from "@/lib/market/session";
-import { parseTradeStyle, type TradeStyle } from "@/lib/trade/tradeStyle";
+import { parseTradeStyle, type DailyTradeStyle as TradeStyle } from "@/lib/trade/tradeStyle";
 
 export interface GannRulePrefs {
   roundNumberNotices: boolean;
