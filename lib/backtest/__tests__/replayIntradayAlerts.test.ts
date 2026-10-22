@@ -124,6 +124,7 @@ const plan = (over: Partial<SessionDailyPlan> = {}): SessionDailyPlan => ({
   stop: 95,
   tp1: 110,
   mtp: 120,
+  awaitsCrossing: false,
   ...over,
 });
 

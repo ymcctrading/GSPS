@@ -35,7 +35,7 @@ export async function loadDailyPlans(
 
   let monitors = supabase
     .from("active_monitors")
-    .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, last_evaluated_at")
+    .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, last_evaluated_at, entry_awaits_crossing")
     .in("symbol", symbols)
     .in("state", ["WATCH", "EXECUTE"])
     .gte("last_evaluated_at", since.toISOString())
@@ -53,7 +53,7 @@ export async function loadDailyPlans(
     if (!latest?.scan_date) return { data: [] };
     return supabase
       .from("daily_scans")
-      .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at")
+      .select("symbol, direction, entry, stop_loss, take_profit_1, master_profit, output_state, updated_at, detail")
       .eq("scan_date", latest.scan_date)
       .in("symbol", symbols)
       .in("output_state", ["Execute", "Watch"])
@@ -71,6 +71,7 @@ export async function loadDailyPlans(
     master_profit: number | string | null;
     output_state: string | null;
     at: string | null;
+    awaitsCrossing: boolean | null;
   }) => {
     const direction = row.direction === "bullish" ? "up" : row.direction === "bearish" ? "down" : null;
     const verdict = row.output_state === "Execute" ? "Execute" : row.output_state === "Watch" ? "Watch" : null;
@@ -92,13 +93,17 @@ export async function loadDailyPlans(
         stop,
         tp1: tp1 != null && tp1 > 0 ? tp1 : null,
         mtp: mtp != null && mtp > 0 ? mtp : null,
+        awaitsCrossing: row.awaitsCrossing,
       },
       at,
     });
   };
 
-  for (const r of monitorRows ?? []) consider({ ...r, at: r.last_evaluated_at });
-  for (const r of scanRows ?? []) consider({ ...r, at: r.updated_at });
+  for (const r of monitorRows ?? []) consider({ ...r, at: r.last_evaluated_at, awaitsCrossing: r.entry_awaits_crossing ?? null });
+  for (const r of scanRows ?? []) {
+    const flag = (r.detail as { entryAwaitsCrossing?: unknown } | null)?.entryAwaitsCrossing;
+    consider({ ...r, at: r.updated_at, awaitsCrossing: typeof flag === "boolean" ? flag : null });
+  }
 
   return new Map([...plans].map(([symbol, { plan }]) => [symbol, plan]));
 }

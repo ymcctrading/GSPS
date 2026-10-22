@@ -438,6 +438,8 @@ export interface SessionDailyPlan {
   stop: number;
   tp1: number;
   mtp: number;
+  /** The crossing still waits on its daily 3-point close (`TradeLevels.entryAwaitsCrossing`). */
+  awaitsCrossing: boolean;
 }
 
 /**
@@ -2086,6 +2088,7 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     stop: levels.stopLoss,
     tp1: levels.takeProfit1,
     mtp: levels.masterProfit,
+    awaitsCrossing: levels.entryAwaitsCrossing === true,
   };
 }
 

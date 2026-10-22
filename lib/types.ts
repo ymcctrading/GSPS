@@ -168,6 +168,13 @@ export interface TradeLevels {
    * Display only; the geometry is the same.
    */
   entryRegained?: true;
+  /**
+   * For a crossing: the old level has not yet been crossed by a daily close 3
+   * points past it (W006 Rule 3(b), p. 46), so the plan's entry, the reaction
+   * buy 1 point past the level, waits on that close. Absent once the crossing
+   * is made (`GannEntryTrigger.held`) and for every other kind.
+   */
+  entryAwaitsCrossing?: true;
   entry: number;
   stopLoss: number;
   takeProfit1: number;

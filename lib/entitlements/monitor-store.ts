@@ -80,6 +80,12 @@ export async function evaluateMonitor(
       masterProfit: number | null;
       patternName: string | null;
       outputState: "Execute" | "Watch" | "Reject" | null;
+      /**
+       * The plan's crossing still waits on its daily 3-point close
+       * (`TradeLevels.entryAwaitsCrossing`; migration 0104). Null when the
+       * caller does not know, which the intraday scan reads as unknown.
+       */
+      awaitsCrossing?: boolean | null;
     } | null;
   },
 ): Promise<MonitorEvaluationResult> {
@@ -164,6 +170,7 @@ export async function evaluateMonitor(
         master_profit: args.levels.masterProfit,
         pattern_name: args.levels.patternName,
         output_state: args.levels.outputState,
+        entry_awaits_crossing: args.levels.awaitsCrossing ?? null,
       }
     : {};
 

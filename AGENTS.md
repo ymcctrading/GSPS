@@ -2958,9 +2958,11 @@ old top), its touch test passed all session, so it bought the first intraday
 bar through the top before a daily close 3 points past it gave the indication
 (W006 Rule 3(b)-(c)). It now needs the prior session to have closed at or
 beyond the entry (a held bottom's entry is that close), so the touch is a
-reaction. Known gap: a crossing closed past the entry but not yet 3 points past
-it still passes, until the plan's entry kind and held state are carried onto
-the stored plan. The hold stays until a run on the fix reads positive.
+reaction. A crossing closed past the entry but not yet 3 points past it is
+refused too: the plan carries `entryAwaitsCrossing` (from
+`GannEntryTrigger.held`) in `daily_scans.detail`, `active_monitors.entry_awaits_crossing`
+(migration 0104) and the replay's session plan; a stored plan without it is read
+on the prior close alone. The hold stays until a run on the fix reads positive.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in
