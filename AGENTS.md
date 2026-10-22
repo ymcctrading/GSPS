@@ -1049,6 +1049,13 @@ Ch. 18 TP-1 sets ¼ beside ¾). `YEAR_FRACTIONS`, `INCORPORATION_DEGREES` and
 eighth of a swing (W001 pp. 1-2) is a labelled reconstruction
 (`lib/gann/swingEighths.ts`: the last completed 3-Day Chart swing divided by
 8): a card line and the measured factor `entryInSwingEighth`, never a gate.
+Cover shorts on bad news (A-EXIT-04, *Tunnel* p.223): bad is read from the
+market, as Gann reads it ("bottoms on bearish news", *Commodities* p.8; W006
+p.14), so an open short in profit whose last session closed down with a news
+item on the symbol since the prior 4 PM close gets an offer to cover in the
+paper and broker exit notes (`lib/gann/badNews.ts`, `readLiveBadNews`, Alpaca's
+news API, `fetchNews`; one read per symbol a day, equities only). Nothing
+closes on it, and the replay holds no news, so it is unmeasured.
 Verdicts unchanged, so `STRATEGY_VERSION` stays.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It

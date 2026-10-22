@@ -13,6 +13,7 @@ import type { MarketDataProvider } from "./provider";
 import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
 import type { AlertQuote } from "@/lib/alerts/rules";
 import { equitySession, etDateKey } from "@/lib/market/session";
+import { isCryptoSymbol as isCrypto } from "@/lib/market/cryptoSymbol";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
@@ -42,6 +43,7 @@ function ttlFor(path: string): number {
   if (path.includes("/snapshot")) return 2_000;
   if (path.includes("/bars")) return 15_000;
   if (path.includes("most-actives")) return 300_000;
+  if (path.includes("/news")) return 300_000;
   return 5_000;
 }
 
@@ -509,3 +511,21 @@ export const alpacaProvider: MarketDataProvider = {
   fetchMostActives,
   fetchAlertQuotes,
 };
+
+/**
+ * News items on `symbol` published from `start` (Alpaca's news API, on every
+ * plan). Headlines only: no sentiment is read from them. See
+ * `lib/gann/badNews.ts` for the one place they are used.
+ */
+export async function fetchNews(symbol: string, start: Date, limit = 10): Promise<{ createdAt: string; headline: string }[]> {
+  const json = await get("/v1beta1/news", {
+    symbols: isCrypto(symbol) ? normalizeCryptoSymbol(symbol).replace("/", "") : symbol.toUpperCase(),
+    start: start.toISOString(),
+    limit: String(limit),
+    sort: "desc",
+  });
+  const items: { created_at?: string; headline?: string }[] = json?.news ?? [];
+  return items
+    .filter((n) => typeof n.created_at === "string" && typeof n.headline === "string")
+    .map((n) => ({ createdAt: n.created_at as string, headline: n.headline as string }));
+}

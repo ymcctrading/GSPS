@@ -33,7 +33,8 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
 import type { ReversalCause } from "@/lib/gann/reverse";
-import { readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { badNewsOffer } from "@/lib/gann/badNews";
 import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
@@ -298,6 +299,12 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       brokenLevel = caught === "stop" ? stopAction.stop : fillAt;
       for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
     }
+  }
+
+  // Cover shorts on bad news (A-EXIT-04): offered while the short stays open.
+  if (remainingQty > 1e-9 && !caught && plan.side === "short") {
+    const news = await readLiveBadNews({ symbol: plan.symbol, side: plan.side, entryPrice: plan.entry_price });
+    if (news) run.notes.push(badNewsOffer(plan.symbol, news));
   }
 
   // ---- Claim: a single conditional write, before anything is mutated. --
