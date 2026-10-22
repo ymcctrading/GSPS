@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { INTRADAY_WINDOW_BARS, MIN_POINT_PCT, intradayPoint, replayIntraday } from "@/lib/backtest/replayIntraday";
 import { byOutputState, combine } from "@/lib/backtest/replay";
+import { isRegularSessionBar } from "@/lib/gann/intradayExit";
 
 /**
  * The intraday profile (`lib/backtest/replayIntraday.ts`). These are structural
@@ -171,10 +172,10 @@ describe("replayIntraday", () => {
     const bars = upThenReversal();
     const base = run(bars);
     const first = base.trades[0];
-    const exitIndex = bars.findIndex((b) => b.t === first.openedAt) + first.barsHeld;
-    const perturbed = bars.map((b, i) =>
-      i <= exitIndex ? b : { ...b, o: b.o * 1.7, h: b.h * 2.1, l: b.l * 0.4, c: b.c * 0.6 },
-    );
+    // The replay reads a US equity's regular-session bars, so `barsHeld` counts those.
+    const read = bars.filter(isRegularSessionBar);
+    const exitAt = read[read.findIndex((b) => b.t === first.openedAt) + first.barsHeld].t;
+    const perturbed = bars.map((b) => (b.t <= exitAt ? b : { ...b, o: b.o * 1.7, h: b.h * 2.1, l: b.l * 0.4, c: b.c * 0.6 }));
     const again = run(perturbed, { dailyBars: dailyFor(bars) });
     expect(again.trades[0]).toEqual(first);
   });

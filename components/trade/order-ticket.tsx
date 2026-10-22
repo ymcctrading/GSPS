@@ -657,7 +657,9 @@ export function OrderTicket({
     (shortBlocked && side === "sell") ||
     priceBlocked ||
     protocolInvalidated ||
-    (executionMode === "manual" && manualLevelsEntered && (!manualLevelsComplete || manualLevelsBlocked));
+    (executionMode === "manual" && manualLevelsEntered && (!manualLevelsComplete || manualLevelsBlocked)) ||
+    // An intraday trade is placed with its stop and first target (the server refuses it otherwise).
+    (intradaySourced && !attachingManualLevels);
 
   const actionLabel = (() => {
     if (assetType === "options") return `${side === "buy" ? "Buy" : "Sell"} to open ${optionType.toUpperCase()}`;
@@ -734,7 +736,7 @@ export function OrderTicket({
               <p>
                 {intradayPlan
                   ? `The alert's plan: stop ${formatUsd(intradayPlan.stop)}, first target ${formatUsd(intradayPlan.target)}, no MTP. `
-                  : "Set your own stop below. "}
+                  : "Set your own stop and first target below: an intraday trade is placed with both. "}
                 Once filled: {intradayStyle.trailRule.charAt(0).toLowerCase() + intradayStyle.trailRule.slice(1)}. Expected hold:{" "}
                 {intradayStyle.expectedHold.toLowerCase()}.
               </p>

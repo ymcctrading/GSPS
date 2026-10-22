@@ -3072,10 +3072,15 @@ bars can't be read, unless the trader ticks off the close (`orders.hold_overnigh
 choice, not Gann's, who never closed a trade because a session ended. Crypto has
 no session and is never closed for it. The replay measures the style with
 `?profile=intraday&sessionClose=1&scaleOut=0` (both off by default, so the
-pre-registered run keeps its entries, its 60% at the first target and its
-close; its exits now read regular-session bars, as live does, and its hourly
-exit is the first turn after the fill, which equals the old rule for a trade
-entered with the hourly trend). The live order row now records `intraday_sourced` too, as the
+pre-registered run keeps its 60% at the first target and its 10-session hold).
+Amended the same day, for parity with the live alerts and exits: a US equity's
+profile reads regular-session bars only, entries, hourly chart and exits alike
+(it read every pre- and post-market print before), and its hourly exit is the
+first turn after the fill, which equals the old rule for a trade entered with
+the hourly trend (`docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` §5.2). An
+intraday entry without a stop is refused as every new position is
+(`stop_required`, A-STOP-01), and the ticket places one only with its stop and
+first target, since its exits and its close live on that exit row. The live order row now records `intraday_sourced` too, as the
 paper row did. The ticket says intraday has no measured record; nothing
 automated trades it. Verdicts and the daily replay are unchanged, so
 `STRATEGY_VERSION` stays.

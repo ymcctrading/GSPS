@@ -152,7 +152,7 @@ function allowanceScale(price: number, point: number): number {
   return daily > 0 ? point / daily : 1;
 }
 
-export function replayIntraday(symbol: string, bars: Bar[], options: IntradayReplayOptions): ReplayResult {
+export function replayIntraday(symbol: string, allBars: Bar[], options: IntradayReplayOptions): ReplayResult {
   const {
     costPerShare = DEFAULT_COST_PER_SHARE_USD,
     maxBarsHeld = BARS_PER_SESSION * 10,
@@ -163,6 +163,13 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
     scaleOut = true,
   } = options;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // A US equity is read on its regular-session bars only, entries and exits
+  // alike, as the live alerts (`lib/scanner/intraday.ts`, regular-session
+  // bars) and exit managers (`lib/gann/intradayExit.ts`) read it; Gann reads
+  // the hourly chart on exchange hours (Master Course PDF 378). The IEX bars
+  // carry pre- and post-market prints. Amended 2026-10-22 (review of #439):
+  // before it, the profile read every print.
+  const bars = assetClass === "crypto" ? allBars : allBars.filter(isRegularSessionBar);
 
   const trades: ReplayTrade[] = [];
   const armedKeys = new Set<string>();
@@ -196,16 +203,6 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
     sessionFacts.set(date, facts);
     return facts;
   };
-
-  // The exits read regular-session bars only for a US equity, as the live exit
-  // managers do (lib/gann/intradayExit.ts): `exitIndex[i]` is bar i's place in
-  // `exitBars`, or -1 for a pre- or post-market print.
-  const exitBars: Bar[] = [];
-  const exitIndex = bars.map((b) => {
-    if (assetClass !== "crypto" && !isRegularSessionBar(b)) return -1;
-    exitBars.push(b);
-    return exitBars.length - 1;
-  });
 
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(Math.max(0, i - INTRADAY_WINDOW_BARS), i);
@@ -278,9 +275,7 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
           closed,
         );
       }
-      // A US equity fills in the regular session only, as the live alerts fire
-      // there only (`lib/scanner/intraday.ts`, regular-session bars).
-      if (!entryReady(plan.evidence) || i < busyUntil || exitIndex[i] < 0) continue;
+      if (!entryReady(plan.evidence) || i < busyUntil) continue;
 
       const long = plan.direction === "bullish";
       const dir = long ? 1 : -1;
@@ -314,8 +309,6 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
 
       const walked = walkIntradayExit({
         bars,
-        exitBars,
-        exitIndex,
         from: i,
         maxBarsHeld,
         long,
@@ -356,8 +349,8 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
  * Walk one filled trade forward on Gann's intraday exits. The stop is checked
  * on every bar first (the conservative order). 60% leaves at the first target
  * when there is one (none is passed under `scaleOut: false`); the rest runs.
- * A US equity's exits read regular-session bars only (`exitBars`), as the live
- * exit managers do; pre- and post-market prints are skipped. After each bar the stop is lifted to one
+ * `bars` are regular-session bars for a US equity (`replayIntraday` filters
+ * them), as the live exit managers read them. After each bar the stop is lifted to one
  * point beyond the last completed swing bottom (top, short) when that tightens
  * it (`intradayTrail`). If the hourly swing chart has turned against the
  * position by a bar's close (`hourlyTurnedAgainst`), the position leaves at
@@ -366,9 +359,6 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
  */
 export function walkIntradayExit(input: {
   bars: Bar[];
-  /** The bars the exits read (regular-session bars for a US equity) and each bar's place in them, -1 when left out. */
-  exitBars?: Bar[];
-  exitIndex?: number[];
   from: number;
   maxBarsHeld: number;
   long: boolean;
@@ -379,8 +369,6 @@ export function walkIntradayExit(input: {
   sessionClose?: boolean;
 }): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
   const { bars, from, maxBarsHeld, long, entry, point, firstTarget } = input;
-  const exitBars = input.exitBars ?? bars;
-  const exitIndex = input.exitIndex ?? bars.map((_, i) => i);
   const dir = long ? 1 : -1;
   const walker = intradayWalker({ long, stop: input.stop, point });
   // Position in units of the first lot: the result is reported as the single
@@ -399,11 +387,9 @@ export function walkIntradayExit(input: {
   let leaveAtOpen = false;
   let started = false;
   for (let j = from; j < end; j++) {
-    const k = exitIndex[j];
-    if (k < 0) continue;
     const b = bars[j];
     if (!started) {
-      walker.start(exitBars.slice(Math.max(0, k - INTRADAY_WINDOW_BARS), k));
+      walker.start(bars.slice(Math.max(0, j - INTRADAY_WINDOW_BARS), j));
       started = true;
     }
     if (leaveAtOpen) return done(b.o, j - from + 1, "intraday_trend_change");
@@ -416,8 +402,8 @@ export function walkIntradayExit(input: {
       openQty -= SCALE_OUT_PCT;
       scaled = true;
     }
-    if (input.sessionClose && isSessionLastBar(exitBars, k)) return done(b.c, j - from + 1, "intraday_session_close");
-    if (walker.step(exitBars.slice(Math.max(0, k + 1 - INTRADAY_WINDOW_BARS), k + 1))) leaveAtOpen = true;
+    if (input.sessionClose && isSessionLastBar(bars, j)) return done(b.c, j - from + 1, "intraday_session_close");
+    if (walker.step(bars.slice(Math.max(0, j + 1 - INTRADAY_WINDOW_BARS), j + 1))) leaveAtOpen = true;
   }
   return done(bars[end - 1].c, end - from, timeoutReasonAt(from, maxBarsHeld, bars.length));
 }
