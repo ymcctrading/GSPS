@@ -9,6 +9,9 @@
  * unique-key hit is never retried: it means another pass already wrote this
  * trade (`exit_plan_id`, migration 0009). The position row keeps its realized
  * P&L either way (`execute_position_fill`, migration 0088).
+ *
+ * Every row names its account (`mode`, migration 0107, review finding R-002):
+ * the paper profit peak reads paper closes only (`lib/risk/profitPeak.ts`).
  */
 
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
@@ -22,9 +25,10 @@ const UNIQUE_VIOLATION = "23505";
 
 export async function insertTradeLog(
   supabase: Supabase,
+  mode: "paper" | "live",
   row: Record<string, unknown>,
 ): Promise<{ error: { code?: string; message: string } | null; duplicate: boolean }> {
-  const stamped = { strategy_version: STRATEGY_VERSION, ...row };
+  const stamped = { strategy_version: STRATEGY_VERSION, ...row, mode };
   let last: { code?: string; message: string } | null = null;
   for (let attempt = 0; attempt < TRADE_LOG_ATTEMPTS; attempt++) {
     const { error } = await ledgerWriter(supabase).from("trade_logs").insert(stamped);

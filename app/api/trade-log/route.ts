@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
   try {
     const { data, error } = await ledgerWriter(supabase).from("trade_logs").insert({
       strategy_version: STRATEGY_VERSION,
+      // A trade a person records by hand belongs to no GSPS account, so the
+      // paper profit peak never reads it (migration 0107, R-002).
+      mode: "journal",
       user_id: user.id,
       order_id: input.orderId ?? null,
       position_id: input.positionId ?? null,

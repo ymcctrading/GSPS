@@ -69,6 +69,9 @@ export async function recordPendingExit(
     .from("trade_logs")
     .insert({
       strategy_version: STRATEGY_VERSION,
+      // Written only by the broker exit manager, so always the live account
+      // (migration 0107, review finding R-002).
+      mode: "live",
       user_id: userId,
       symbol: input.symbol.toUpperCase(),
       asset_class: input.assetClass ?? "us_equity",

@@ -68,7 +68,7 @@ export async function closePaperPosition(
       closedQty: fill.qty,
       exitPrice: fill.price,
     });
-    const { error: logError } = await insertTradeLog(supabase, { ...row });
+    const { error: logError } = await insertTradeLog(supabase, "paper", { ...row });
     if (logError) {
       console.error(`positions/close: trade log for ${row.symbol} not written — ${logError.message}`);
     } else {

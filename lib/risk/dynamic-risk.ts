@@ -100,7 +100,8 @@ export function gannRiskCapital(input: GannRiskCapitalInput): GannRiskCapital {
 
 /**
  * The run of closed wins ending at the latest close, and its realised profit,
- * from `trade_logs` (paper and live closes, as `lossSeries.ts` reads them).
+ * from `trade_logs` (paper and live closes, journal entries left out, as
+ * `lossSeries.ts` reads them).
  * Null when it can't be read; callers then take no step-up.
  */
 export async function readWinningRun(
@@ -113,6 +114,8 @@ export async function readWinningRun(
       .from("trade_logs")
       .select("outcome, profit_loss_dollars, exit_timestamp")
       .eq("user_id", userId)
+      // Trades GSPS placed, paper or live, as the loss series reads them (R-002).
+      .in("mode", ["paper", "live"])
       .in("outcome", ["profit", "loss"])
       .not("exit_timestamp", "is", null)
       .order("exit_timestamp", { ascending: false })

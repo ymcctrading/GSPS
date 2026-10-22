@@ -20,26 +20,33 @@ function stub(errors: ({ code?: string; message: string } | null)[]) {
 describe("insertTradeLog", () => {
   it("stamps the strategy version", async () => {
     const { client, rows } = stub([null]);
-    expect((await insertTradeLog(client, { symbol: "AAPL" })).error).toBeNull();
+    expect((await insertTradeLog(client, "paper", { symbol: "AAPL" })).error).toBeNull();
     expect(rows[0]).toMatchObject({ symbol: "AAPL", strategy_version: STRATEGY_VERSION });
+  });
+
+  it("names the account the trade belongs to (R-002)", async () => {
+    const { client, rows } = stub([null, null]);
+    await insertTradeLog(client, "live", { symbol: "AAPL" });
+    await insertTradeLog(client, "paper", { symbol: "AAPL", mode: "live" });
+    expect(rows.map((r) => r.mode)).toEqual(["live", "paper"]);
   });
 
   it("tries again after a failed insert", async () => {
     const { client, rows } = stub([{ message: "timeout" }, null]);
-    expect((await insertTradeLog(client, { symbol: "AAPL" })).error).toBeNull();
+    expect((await insertTradeLog(client, "paper", { symbol: "AAPL" })).error).toBeNull();
     expect(rows).toHaveLength(2);
   });
 
   it("returns the error after the last attempt", async () => {
     const fail = { message: "down" };
     const { client, rows } = stub(Array(TRADE_LOG_ATTEMPTS).fill(fail));
-    expect((await insertTradeLog(client, { symbol: "AAPL" })).error).toEqual(fail);
+    expect((await insertTradeLog(client, "paper", { symbol: "AAPL" })).error).toEqual(fail);
     expect(rows).toHaveLength(TRADE_LOG_ATTEMPTS);
   });
 
   it("never retries a row another pass already wrote", async () => {
     const { client, rows } = stub([{ code: "23505", message: "duplicate key" }]);
-    expect(await insertTradeLog(client, { symbol: "AAPL" })).toEqual({ error: null, duplicate: true });
+    expect(await insertTradeLog(client, "paper", { symbol: "AAPL" })).toEqual({ error: null, duplicate: true });
     expect(rows).toHaveLength(1);
   });
 });
