@@ -11,6 +11,8 @@
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import type { MarketDataProvider } from "./provider";
 import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
+import type { AlertQuote } from "@/lib/alerts/rules";
+import { equitySession, etDateKey } from "@/lib/market/session";
 
 const DATA_BASE = "https://data.alpaca.markets";
 
@@ -346,6 +348,76 @@ export interface Snapshot {
   dailyClose: number | null;
   /** Previous regular-session daily close (yesterday). */
   prevClose: number | null;
+  /** Every figure the alert editor can watch (`lib/alerts/rules.ts`). */
+  alertQuote: AlertQuote;
+}
+
+/** The parts of an Alpaca snapshot the alert figures read. */
+interface RawSnapshot {
+  latestTrade?: { p?: number };
+  latestQuote?: { bp?: number; ap?: number };
+  minuteBar?: { c?: number };
+  dailyBar?: { t?: string; h?: number; l?: number; c?: number; v?: number };
+  prevDailyBar?: { c?: number };
+}
+
+const num = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : null);
+
+/**
+ * The alert figures from one Alpaca snapshot. Alpaca's `dailyBar` is the latest
+ * daily bar, which before an equity's first trade of the day is yesterday's, so
+ * which close is "completed" and which today's change runs from depends on
+ * whether that bar is today's and whether the session is still running.
+ * Crypto's daily bar (UTC day) is always forming.
+ */
+export function alertQuoteFromSnapshot(snap: RawSnapshot, assetClass: AssetClass, now: Date = new Date()): AlertQuote {
+  const last = num(snap.latestTrade?.p) ?? num(snap.minuteBar?.c) ?? num(snap.dailyBar?.c);
+  const dailyClose = num(snap.dailyBar?.c);
+  const prevClose = num(snap.prevDailyBar?.c);
+  const barIsToday = snap.dailyBar?.t != null && etDateKey(new Date(snap.dailyBar.t)) === etDateKey(now);
+  const session = equitySession(now);
+  const forming = assetClass === "crypto" || (barIsToday && (session === "pre" || session === "regular"));
+  const today = assetClass === "crypto" || barIsToday;
+  const bid = num(snap.latestQuote?.bp);
+  const ask = num(snap.latestQuote?.ap);
+  return {
+    last,
+    bid: bid != null && bid > 0 ? bid : null,
+    ask: ask != null && ask > 0 ? ask : null,
+    dayHigh: today ? num(snap.dailyBar?.h) : null,
+    dayLow: today ? num(snap.dailyBar?.l) : null,
+    dayVolume: today ? num(snap.dailyBar?.v) : null,
+    completedClose: forming ? prevClose : dailyClose,
+    changeFrom: today ? prevClose : dailyClose,
+  };
+}
+
+/**
+ * Alert figures for many symbols in a few requests: one batched snapshot call
+ * per 100 symbols of an asset class. A symbol the feed has no snapshot for is
+ * left out of the map.
+ */
+export async function fetchAlertQuotes(
+  symbols: string[],
+  assetClass: AssetClass,
+  now: Date = new Date(),
+): Promise<Map<string, AlertQuote>> {
+  assertAlpacaSupports(assetClass);
+  const out = new Map<string, AlertQuote>();
+  const crypto = assetClass === "crypto";
+  const unique = [...new Set(symbols.map((s) => s.toUpperCase()))];
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    const keyOf = new Map(chunk.map((s) => [crypto ? normalizeCryptoSymbol(s) : s, s]));
+    const data = crypto
+      ? (await get(`/v1beta3/crypto/us/snapshots`, { symbols: [...keyOf.keys()].join(",") })).snapshots ?? {}
+      : await get(`/v2/stocks/snapshots`, { symbols: [...keyOf.keys()].join(","), feed: "iex" });
+    for (const [key, original] of keyOf) {
+      const snap = data?.[key] as RawSnapshot | undefined;
+      if (snap) out.set(original, alertQuoteFromSnapshot(snap, assetClass, now));
+    }
+  }
+  return out;
 }
 
 /**
@@ -364,6 +436,7 @@ export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Pro
       price,
       dailyClose: snap.dailyBar?.c ?? null,
       prevClose: snap.prevDailyBar?.c ?? null,
+      alertQuote: alertQuoteFromSnapshot(snap, assetClass),
     };
   }
   const sym = symbol.toUpperCase();
@@ -374,6 +447,7 @@ export async function fetchSnapshot(symbol: string, assetClass: AssetClass): Pro
     price,
     dailyClose: snap.dailyBar?.c ?? null,
     prevClose: snap.prevDailyBar?.c ?? null,
+    alertQuote: alertQuoteFromSnapshot(snap, assetClass),
   };
 }
 
@@ -417,4 +491,5 @@ export const alpacaProvider: MarketDataProvider = {
   fetchBarsBatch,
   fetchLatestPrice,
   fetchMostActives,
+  fetchAlertQuotes,
 };

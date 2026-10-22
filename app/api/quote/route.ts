@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchSnapshot, isCryptoSymbol } from "@/lib/data/alpaca";
 import { describeDataError } from "@/lib/data/http";
 import { marketSession } from "@/lib/market/session";
+import type { AlertQuote } from "@/lib/alerts/rules";
 
 export interface LiveQuote {
   symbol: string;
@@ -25,6 +26,8 @@ export interface LiveQuote {
   /** Extended-hours move: live price vs the regular-session close. */
   extendedAbs: number | null;
   extendedPct: number | null;
+  /** Bid, ask, the day's bar and the closes, for the alert editor. */
+  alertQuote?: AlertQuote;
   at: number;
 }
 
@@ -63,6 +66,7 @@ export async function GET(req: NextRequest) {
       changePct: pct(prevClose),
       extendedAbs: extended ? abs(regularClose) : null,
       extendedPct: extended ? pct(regularClose) : null,
+      alertQuote: snap.alertQuote,
       at: Date.now(),
     };
     return NextResponse.json(quote);

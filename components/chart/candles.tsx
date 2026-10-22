@@ -14,7 +14,9 @@ import {
   type SeriesMarker,
   type Time,
 } from "lightweight-charts";
-import { MousePointer2, Minus, TrendingUp, Bell, BellOff, Trash2 } from "lucide-react";
+import { MousePointer2, Minus, TrendingUp, Bell, BellOff, BellRing, Trash2 } from "lucide-react";
+import { AlertEditor } from "@/components/chart/alert-editor";
+import { FIELD_LABELS, PRICE_FIELDS, comparatorOf, type StoredAlert } from "@/lib/alerts/rules";
 import { ChartTradeWidget } from "@/components/trade/chart-trade-widget";
 import { CandleReadoutPanel } from "@/components/chart/candle-readout";
 import { buildReadout, indexAtTime, type ReadoutBar } from "@/lib/chart/readout";
@@ -323,6 +325,8 @@ export function CandleChart({
   const [alertPrice, setAlertPrice] = useState<number | null>(null);
   const [alertHit, setAlertHit] = useState<string | null>(null);
   const [alertInput, setAlertInput] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [ruleAlerts, setRuleAlerts] = useState<StoredAlert[]>([]);
 
   // Refs mirror state for use inside imperative chart event handlers.
   const toolRef = useRef<Tool>(tool);
@@ -516,9 +520,11 @@ export function CandleChart({
       const thisSymbol = symbol.toUpperCase();
       fetch(`/api/price-alerts?symbol=${encodeURIComponent(thisSymbol)}`)
         .then((res) => (res.ok ? res.json() : null))
-        .then((body: { alerts?: { target_price: number }[] } | null) => {
-          if (cancelled || !body?.alerts?.length) return;
-          const price = body.alerts[0].target_price;
+        .then((body: { alerts?: StoredAlert[] } | null) => {
+          // The chart line's own row: the editor's alerts draw separately.
+          const own = body?.alerts?.find((a) => (a.origin ?? "chart") === "chart" && !a.triggered);
+          if (cancelled || !own) return;
+          const price = Number(own.target_price);
           if (Number.isFinite(price)) {
             setAlertPrice(price);
             try {
@@ -731,6 +737,43 @@ export function CandleChart({
     });
     return () => series.removePriceLine(line);
   }, [alertPrice, status]);
+
+  // The alert editor's waiting alerts on price fields, drawn dotted beside the
+  // chart line, labelled with what they watch (lib/alerts/rules.ts).
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || status !== "ready") return;
+    const lines = ruleAlerts
+      .filter((a) => a.origin === "editor" && !a.triggered && PRICE_FIELDS.has(a.field ?? "last"))
+      .map((a) =>
+        series.createPriceLine({
+          price: Number(a.target_price),
+          color: ALERT_COLOR,
+          lineWidth: 1,
+          lineStyle: 3,
+          axisLabelVisible: true,
+          title: `⏰ ${FIELD_LABELS[a.field ?? "last"]} ${comparatorOf(a)}`,
+        }),
+      );
+    return () => lines.forEach((l) => series.removePriceLine(l));
+  }, [ruleAlerts, status]);
+
+  // Load the editor's alerts for this symbol (signed-in chart only).
+  useEffect(() => {
+    if (!enableTrading) return;
+    let cancelled = false;
+    fetch(`/api/price-alerts?symbol=${encodeURIComponent(symbol.toUpperCase())}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { alerts?: StoredAlert[] } | null) => {
+        if (!cancelled) setRuleAlerts(body?.alerts ?? []);
+      })
+      .catch(() => {
+        /* signed out or offline: no editor alerts drawn */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol, enableTrading]);
 
   // Load the signed-in user's own saved custom scripts, if any — populates
   // the picker below only, same one-time-fetch convention
@@ -1101,6 +1144,8 @@ export function CandleChart({
   );
   const readoutIsLatest = readoutIndex === readoutBars.length - 1;
 
+  // The chart's plan and Gann lines, offered to the alert editor as levels.
+  const alertLevels = useMemo(() => markers.map((m) => ({ price: m.price, label: m.label })), [markers]);
   const hasGann = markers.some((m) => m.kind === "structural");
   const hasLevels = markers.some((m) => m.kind !== "structural");
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
@@ -1235,6 +1280,15 @@ export function CandleChart({
               />
             </form>
           )}
+          {enableTrading && (
+            <ToolButton
+              active={ruleAlerts.some((a) => a.origin === "editor" && !a.triggered)}
+              onClick={() => setEditorOpen(true)}
+              title="Alert editor: Last, Bid, Ask, Mark, Close and more, or a level on the chart"
+            >
+              <BellRing className="h-3.5 w-3.5" />
+            </ToolButton>
+          )}
           {hasDrawings && (
             <ToolButton active={false} onClick={clearDrawings} title="Clear drawings">
               <Trash2 className="h-3.5 w-3.5" />
@@ -1367,6 +1421,16 @@ export function CandleChart({
               ? "Click the second point to finish the trend line."
               : "Click the first point of the trend line."}
         </div>
+      )}
+      {enableTrading && (
+        <AlertEditor
+          open={editorOpen}
+          onClose={() => setEditorOpen(false)}
+          symbol={symbol}
+          chartLevels={alertLevels}
+          fallbackPrice={livePrice ?? readoutBars[readoutBars.length - 1]?.close ?? null}
+          onAlertsChanged={setRuleAlerts}
+        />
       )}
       {alertHit && (
         <div className="flex items-center gap-2 rounded-md bg-warn/10 px-2.5 py-1 text-xs text-warn">

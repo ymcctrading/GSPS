@@ -8,10 +8,13 @@
  *
  * One live price fetch per distinct alerted symbol (never a full scan),
  * same shape as app/api/monitors/invalidation-sweep/route.ts. An alert
- * triggers when its `direction` (resolved once at creation — see the
- * migration's header) is confirmed by the current price: "above" fires at
- * price >= target, "below" fires at price <= target. A triggered alert is
- * marked `triggered = true` and emailed once; it never re-fires.
+ * triggers when the field it watches (last, bid, ask, mark, the completed
+ * close, net or % change, the day's high or low, volume; migration 0103,
+ * `lib/alerts/rules.ts`) compares to its threshold as set. The chart line's
+ * rows are Last >= or <= their price, the side resolved once at creation. A
+ * triggered alert is marked `triggered = true` with the value it read, put on
+ * the member's bell, pushed and emailed once; it never re-fires. A "day"
+ * alert still waiting at the close it was set for is removed.
  *
  * Same bearer-secret auth pattern as every other cron-invoked route here.
  * No trading-day gate, unlike the invalidation sweep — crypto trades every
@@ -26,7 +29,18 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { sendPriceAlertEmail } from "@/lib/notifications/resend-handler";
-import { isPriceAlertFired } from "@/lib/trade/price-alert";
+import {
+  FIELD_LABELS,
+  comparatorOf,
+  describeAlertRule,
+  formatThreshold,
+  readAlertField,
+  compareAlert,
+  type AlertComparator,
+  type AlertField,
+  type AlertQuote,
+} from "@/lib/alerts/rules";
+import type { AssetClass } from "@/lib/types";
 import { priceAlertPushMessage, sendPushToProfile } from "@/lib/notifications/web-push";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { inQuietHours } from "@/lib/entitlements/delivery";
@@ -43,6 +57,17 @@ interface AlertRow {
   symbol: string;
   target_price: number;
   direction: "above" | "below";
+  field: AlertField;
+  comparator: AlertComparator | null;
+  origin: "chart" | "editor";
+  level_source: string | null;
+  note: string | null;
+  expires_at: string | null;
+}
+
+/** A snapshot holding only the last trade, for a provider without alert quotes. */
+function lastOnly(price: number | null): AlertQuote {
+  return { last: price, bid: null, ask: null, dayHigh: null, dayLow: null, dayVolume: null, completedClose: null, changeFrom: null };
 }
 
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -69,15 +94,24 @@ export async function GET(req: NextRequest) {
 
   const service = createServiceClient();
 
+  const now = new Date();
+  // A "day" alert lasts until the close it was set for.
+  const { error: expireError } = await service
+    .from("custom_price_alerts")
+    .delete()
+    .eq("triggered", false)
+    .lt("expires_at", now.toISOString());
+  if (expireError) console.error(`price-alerts/sweep: expired alerts not removed — ${expireError.message}`);
+
   const { data: alerts, error: alertsError } = await service
     .from("custom_price_alerts")
-    .select("id, user_id, symbol, target_price, direction")
+    .select("id, user_id, symbol, target_price, direction, field, comparator, origin, level_source, note, expires_at")
     .eq("triggered", false);
   if (alertsError || !alerts) {
     console.error(`price-alerts/sweep: could not list open alerts — ${alertsError?.message}`);
     return NextResponse.json({ error: "Could not list open alerts" }, { status: 503 });
   }
-  const openAlerts = alerts as AlertRow[];
+  const openAlerts = (alerts as AlertRow[]).filter((a) => !a.expires_at || new Date(a.expires_at) > now);
   if (openAlerts.length === 0) {
     return NextResponse.json({ checked: 0, triggered: 0 });
   }
@@ -86,15 +120,29 @@ export async function GET(req: NextRequest) {
   const provider = getMarketDataProvider();
   const refused = syntheticDataRefusal("check price alerts", provider);
   if (refused) return NextResponse.json({ error: refused, code: "synthetic_market_data" }, { status: 503 });
-  const priceBySymbol = new Map<string, number | null>();
-  await mapWithConcurrency(symbols, 6, async (symbol) => {
-    try {
-      const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
-      priceBySymbol.set(symbol, await provider.fetchLatestPrice(symbol, assetClass));
-    } catch {
-      priceBySymbol.set(symbol, null);
+  const quoteBySymbol = new Map<string, AlertQuote>();
+  const byClass = new Map<AssetClass, string[]>();
+  for (const symbol of symbols) {
+    const assetClass: AssetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+    byClass.set(assetClass, [...(byClass.get(assetClass) ?? []), symbol]);
+  }
+  for (const [assetClass, group] of byClass) {
+    if (provider.fetchAlertQuotes) {
+      try {
+        for (const [symbol, quote] of await provider.fetchAlertQuotes(group, assetClass, now)) quoteBySymbol.set(symbol, quote);
+        continue;
+      } catch (err) {
+        console.error(`price-alerts/sweep: alert quotes not read, last trade only — ${String(err)}`);
+      }
     }
-  });
+    await mapWithConcurrency(group, 6, async (symbol) => {
+      try {
+        quoteBySymbol.set(symbol, lastOnly(await provider.fetchLatestPrice(symbol, assetClass)));
+      } catch {
+        /* no reading: the alert waits for the next sweep */
+      }
+    });
+  }
 
   // One auth.users lookup for the whole run — sending an alert email needs a
   // real address, which isn't on any table RLS already lets this route read.
@@ -126,22 +174,54 @@ export async function GET(req: NextRequest) {
 
   let triggeredCount = 0;
   for (const alert of openAlerts) {
-    const price = priceBySymbol.get(alert.symbol);
-    if (price == null || !Number.isFinite(price)) continue;
+    const quote = quoteBySymbol.get(alert.symbol);
+    if (!quote) continue;
+    const comparator = comparatorOf(alert);
+    const field: AlertField = alert.field ?? "last";
+    const value = readAlertField(field, quote);
+    if (value == null || !Number.isFinite(value)) continue;
+    const threshold = Number(alert.target_price);
+    if (!compareAlert(comparator, value, threshold)) continue;
 
-    if (!isPriceAlertFired(alert.direction, alert.target_price, price)) continue;
-
-    const now = new Date().toISOString();
-    const { error: updateError } = await service
+    const firedAt = new Date().toISOString();
+    const { data: marked, error: updateError } = await service
       .from("custom_price_alerts")
-      .update({ triggered: true, triggered_at: now })
+      .update({ triggered: true, triggered_at: firedAt, triggered_value: value })
       .eq("id", alert.id)
-      .eq("triggered", false); // last-writer-wins guard against a concurrent sweep run
+      .eq("triggered", false) // a concurrent sweep run marks it once
+      .select("id");
     if (updateError) {
       console.error(`price-alerts/sweep: could not mark alert ${alert.id} triggered — ${updateError.message}`);
       continue;
     }
+    if (!marked || marked.length === 0) continue;
     triggeredCount += 1;
+
+    const editorRule =
+      alert.origin === "editor"
+        ? {
+            condition: describeAlertRule({ symbol: alert.symbol, field, comparator, threshold }),
+            reading: `${FIELD_LABELS[field]} ${formatThreshold(field, value)}`,
+            note: alert.note,
+            source: alert.level_source,
+          }
+        : undefined;
+    const price = quote.last ?? value;
+
+    // The bell is written whatever the member's channels or quiet hours: it
+    // has no send cost (migration 0067), and it is where a fired alert stays.
+    const { error: bellError } = await service.from("in_app_notifications").insert({
+      profile_id: alert.user_id,
+      symbol: alert.symbol,
+      verdict: "Price alert",
+      title: editorRule ? `Alert: ${editorRule.condition}` : `${alert.symbol} ${alert.direction === "above" ? "rose above" : "fell below"} ${formatThreshold("last", threshold)}`,
+      body: editorRule
+        ? [`Read at the check: ${editorRule.reading}`, editorRule.source ? `Level: ${editorRule.source}` : null, editorRule.note ? `Note: ${editorRule.note}` : null]
+            .filter(Boolean)
+            .join(". ") + "."
+        : `Last price checked: ${formatThreshold("last", price)}.`,
+    });
+    if (bellError) console.error(`price-alerts/sweep: bell notice not written for alert ${alert.id} — ${bellError.message}`);
 
     // Quiet hours hold this send like every other alert's (preferenceHold).
     // The alert still reads triggered on the member's price-alerts list.
@@ -154,8 +234,9 @@ export async function GET(req: NextRequest) {
         priceAlertPushMessage({
           symbol: alert.symbol,
           direction: alert.direction,
-          targetPrice: alert.target_price,
+          targetPrice: threshold,
           currentPrice: price,
+          rule: editorRule,
         }),
       );
       if (!pushed.success && !pushed.skipped) {
@@ -169,9 +250,10 @@ export async function GET(req: NextRequest) {
       await sendPriceAlertEmail({
         userEmail,
         symbol: alert.symbol,
-        targetPrice: alert.target_price,
+        targetPrice: threshold,
         direction: alert.direction,
         currentPrice: price,
+        rule: editorRule,
       });
     } catch (err) {
       console.error(`price-alerts/sweep: email not sent for alert ${alert.id} — ${String(err)}`);
