@@ -1,7 +1,11 @@
 /**
  * GSPS — /api/demo/auto-trade
  *
- * Trades the showcase demo profile automatically — see lib/demo/auto-trade.ts
+ * Trades one tier's practice account (lib/demo/practice.ts), named by
+ * `?tier=novice|pro|expert|wall-street` (Wall Street when absent, the one demo
+ * account there was before 2026-10-22). One tier a call, so each run keeps to
+ * the 60-second budget; pg_cron calls each tier in turn (migration 0106).
+ * See lib/demo/auto-trade.ts
  * for the actual pipeline (it's Guided Decision Mode's own, run without a
  * user session). Invoked on a schedule by GitHub Actions
  * (.github/workflows/demo-auto-trade.yml), the same `Authorization: Bearer
@@ -25,6 +29,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { runDemoAutoTrade } from "@/lib/demo/auto-trade";
 import { generateMissingCritiques } from "@/lib/demo/critique";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { practiceTierFrom } from "@/lib/demo/practice";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. buildRecommendations batches its live re-scans specifically to fit
@@ -42,8 +47,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tierParam = req.nextUrl.searchParams.get("tier");
+  const practice = tierParam ? practiceTierFrom(tierParam) : practiceTierFrom("wall-street");
+  if (!practice) return NextResponse.json({ error: `Unknown tier: ${tierParam}` }, { status: 400 });
+
   const supabase = createServiceClient();
-  const result = await runDemoAutoTrade(supabase);
+  const result = await runDemoAutoTrade(supabase, new Date(), practice.tier);
 
   const critiques = result.demoUserId
     ? await generateMissingCritiques(supabase, result.demoUserId)

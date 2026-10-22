@@ -131,7 +131,10 @@ export default function PromotionPage() {
               <CardDescription>
                 {status.effectiveAt
                   ? `Scheduled — takes effect at the next session (${new Date(status.effectiveAt).toLocaleString()}).`
-                  : "The constraints on your current tier lift once any one path below clears — none of the three requires the other two."}
+                  : "The constraints on your current tier lift once any one path below clears — none of the three requires the other two."}{" "}
+                <a href="/practice" className="font-medium text-accent underline underline-offset-2">
+                  Preview the next tier&apos;s practice account →
+                </a>
               </CardDescription>
             </CardHeader>
           </Card>

@@ -1,5 +1,11 @@
 /**
- * GSPS — automated trading for the showcase demo profile.
+ * GSPS — automated trading for the practice accounts, one per tier.
+ *
+ * Since 2026-10-22 each tier has its own practice account
+ * (`lib/demo/practice.ts`); a run trades one of them, named by its tier, so
+ * each account trades under its own tier's entitlements and risk rules (the
+ * Novice account under Novice's percent ceilings, for one). The notes below
+ * were written for the single Wall Street demo account and hold for each.
  *
  * The demo account (`profiles.is_demo`) is meant to always have something
  * real going on when a prospective investor, partner, or user opens it: a
@@ -50,29 +56,17 @@ import {
 } from "@/lib/guided/service";
 import { readCapUsage } from "@/lib/guided/caps";
 import { resolveGuidedCaps } from "@/lib/guided/config";
+import { findPracticeUserId } from "@/lib/demo/practice";
+import type { PlatformTier } from "@/lib/tiers";
 
 export interface DemoAutoTradeResult {
   ran: boolean;
+  tier: PlatformTier;
   reason?: string;
   demoUserId?: string;
   placed: { symbol: string; side: "buy" | "sell"; qty: number; notionalUsd: number }[];
   skipped: { symbol: string; reasons: string[] }[];
   blockedReason: string | null;
-}
-
-/**
- * The single demo profile's user id, or null if none is marked yet.
- * `create-demo-profile.mjs` is what sets `is_demo`; this just reads it back.
- */
-async function findDemoUserId(supabase: SupabaseClient): Promise<string | null> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("is_demo", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return (data as { id?: string } | null)?.id ?? null;
 }
 
 /**
@@ -107,8 +101,13 @@ async function intradayCandidateSymbols(supabase: SupabaseClient, now: Date): Pr
  * client so RLS doesn't block reading/writing an account that isn't the
  * caller's own.
  */
-export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new Date()): Promise<DemoAutoTradeResult> {
+export async function runDemoAutoTrade(
+  supabase: SupabaseClient,
+  now: Date = new Date(),
+  tier: PlatformTier = "SYSTEM_MASTERY",
+): Promise<DemoAutoTradeResult> {
   const empty: Omit<DemoAutoTradeResult, "ran" | "reason"> = {
+    tier,
     placed: [],
     skipped: [],
     blockedReason: null,
@@ -117,8 +116,8 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
   const halted = killSwitchRefusal();
   if (halted) return { ran: false, reason: halted.error, ...empty };
 
-  const demoUserId = await findDemoUserId(supabase);
-  if (!demoUserId) return { ran: false, reason: "No profile is marked is_demo.", ...empty };
+  const demoUserId = await findPracticeUserId(supabase, tier);
+  if (!demoUserId) return { ran: false, reason: `No practice account for ${tier} yet.`, ...empty };
 
   if (await hasLiveBrokerage(supabase, demoUserId)) {
     return { ran: false, reason: "Demo account has a live brokerage connected — refusing to auto-trade it.", ...empty };
@@ -135,7 +134,7 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
   const usage = readCapUsage(account.openSymbols);
 
   if (usage.blockedReason) {
-    return { ran: true, demoUserId, blockedReason: usage.blockedReason, placed: [], skipped: [] };
+    return { ran: true, tier, demoUserId, blockedReason: usage.blockedReason, placed: [], skipped: [] };
   }
 
   // Both scanner sources feed the same candidate list — the daily scanner's
@@ -148,7 +147,7 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
   ]);
   const rawCandidates = [...new Set([...dailyCandidates, ...intradayCandidates])];
   if (rawCandidates.length === 0) {
-    return { ran: true, demoUserId, blockedReason: null, placed: [], skipped: [] };
+    return { ran: true, tier, demoUserId, blockedReason: null, placed: [], skipped: [] };
   }
 
   const built = await buildRecommendations({
@@ -172,6 +171,7 @@ export async function runDemoAutoTrade(supabase: SupabaseClient, now: Date = new
 
   return {
     ran: true,
+    tier,
     demoUserId,
     blockedReason: null,
     placed,
