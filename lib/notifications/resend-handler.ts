@@ -23,8 +23,26 @@ function getResendClient() {
  */
 export const SANDBOX_SENDER = "onboarding@resend.dev";
 
+const BARE_ADDRESS = /^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/;
+
+/**
+ * The bare address in `RESEND_FROM`, which may be set as "alerts@example.com"
+ * or "GSPS <alerts@example.com>". `fromHeader` adds its own display name, so a
+ * value that already carried one produced "Name <GSPS <alerts@...>>", which
+ * Resend rejects as an invalid `from` (every email on 2026-10-21 from about
+ * 20:00 UTC). A value that is neither form is treated as unset, so sends fall
+ * back to the sandbox rule and are skipped with a reason instead of failing.
+ */
+export function parseSenderAddress(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const bracketed = /<([^<>]+)>\s*$/.exec(value);
+  const address = (bracketed ? bracketed[1] : value).trim().replace(/^["']|["']$/g, "");
+  return BARE_ADDRESS.test(address) ? address : null;
+}
+
 export function senderAddress(): string {
-  return process.env.RESEND_FROM?.trim() || SANDBOX_SENDER;
+  return parseSenderAddress(process.env.RESEND_FROM) ?? SANDBOX_SENDER;
 }
 
 /** The `from` header for a send: a display name on the configured sender. */
@@ -41,9 +59,14 @@ function sandboxRecipients(): string[] {
 
 /** Why a send to `toEmail` is skipped, or null when it may go out. */
 export function sandboxBlockReason(toEmail: string): string | null {
-  if (senderAddress() !== SANDBOX_SENDER) return null;
+  if (senderAddress().toLowerCase() !== SANDBOX_SENDER) return null;
   const recipients = sandboxRecipients();
   if (recipients.includes(toEmail.trim().toLowerCase())) return null;
+  const raw = process.env.RESEND_FROM?.trim();
+  if (raw && !parseSenderAddress(raw)) {
+    console.error("resend: RESEND_FROM is set but is not an email address; member email is skipped until it is fixed");
+    return `RESEND_FROM is set but is not an email address (use alerts@your-domain or Name <alerts@your-domain>) — skipped ${toEmail}.`;
+  }
   return (
     `Resend sandbox sender (${SANDBOX_SENDER}) can only deliver to ` +
     `${recipients.join(", ")} until a domain is verified at resend.com/domains and RESEND_FROM is set — skipped ${toEmail}.`

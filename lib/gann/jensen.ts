@@ -46,6 +46,13 @@
  *   only, not specified). Jensen's 2½% orb on objectives is not used: his own
  *   one-point rule is the tighter, stated break test.
  *
+ * **Not Gann's malefic cycle (A-ASTRO-11, measured 2026-10-21).** Gann's
+ * 1919-1921 forecasts call stretches "depressing" and "malefic" without a
+ * method. The square family here was the candidate reconstruction, and on
+ * his own dated stretches it is no more common than on the rest of those
+ * years (`lib/research/maleficCycles.ts`). So it stays Jensen's rule under
+ * Jensen's name, and is never shown as Gann's malefic cycle.
+ *
  * **Fixed before any testing (Dewey's standard; nothing here is searched):**
  * - Longitudes: geocentric, tropical, of date, at noon UTC (Jensen rejects
  *   heliocentric positions), from `planetaryAverages.ts`.

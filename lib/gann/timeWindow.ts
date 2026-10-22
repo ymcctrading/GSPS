@@ -21,7 +21,7 @@
  * with-the-trend setup acts on price, as Gann's buying points do.
  *
  * Engineering choices, labelled: the orb is each source's own (`timeCycles`'
- * two days, the astro readings' one day, Jensen's dates within two days, the
+ * two days, the astro readings' and the eclipse crossings' one day, Jensen's dates within two days, the
  * yearly counts' exact month); the windows are read on the bars through the
  * turn only, and the monthly chart on months closed before the turn's month,
  * so nothing after it decides.
@@ -52,6 +52,7 @@ import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { timeCycles, yearCycleHits } from "@/lib/gann/timeCycles";
 import { jensenWindows } from "@/lib/gann/jensen";
 import { readAstroRules } from "@/lib/gann/astroRules";
+import { eclipseBreakOn } from "@/lib/gann/eclipseLongitude";
 import { readSquareOfNineTime } from "@/lib/gann/squareOfNineTime";
 import { readHexagonTime } from "@/lib/gann/hexagonTime";
 import { readMasterChartTime } from "@/lib/gann/masterChartTime";
@@ -104,6 +105,12 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly) => {
     if (astro.newMoon) out.push("a New Moon");
     if (astro.lunarReturn) out.push("the Moon back at its place at the last swing");
     if (astro.naturalAngle.near) out.push("the Sun at the price's degree");
+  }
+  // M-S4: a fast planet crossing a topping eclipse's longitude dates the break.
+  if (!low) {
+    for (const { eclipse, crossing } of eclipseBreakOn(bars, date)) {
+      out.push(`${crossing.planet} crossing the ${eclipse.peak.slice(0, 10)} ${eclipse.kind} eclipse's longitude`);
+    }
   }
   return out;
 };
