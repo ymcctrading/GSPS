@@ -12,6 +12,12 @@ name: Universe backtest (manual)
 # keys the Vercel project uses. The job refuses to run without them rather than
 # silently falling back to synthetic bars.
 #
+# Optional: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY (the same values as
+# Vercel) let the replay read the stored filings facts the live scan reads:
+# company names, inception dates and share counts. Without them the log reads
+# "Stored filings facts for 0/N symbols" and the name chart, inception and
+# great-cycle windows and the share-based rules do not act in the replay.
+#
 # Rate limit: production scans use the same Alpaca account (~200 req/min). The
 # default pace (30 symbols/min ≈ 60 req/min) leaves them headroom; raise it
 # only outside market hours.
@@ -112,6 +118,11 @@ jobs:
           MARKET_DATA_PROVIDER: alpaca
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          # The stored filings facts live reads (name, inception, share counts;
+          # lib/data/instrumentReference.ts). Empty when the secrets are unset,
+          # and the replay then runs without them, as it did before.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           BACKTEST_REF: ${{ inputs.ref }}
           NODE_OPTIONS: --max-old-space-size=6144
           UNIVERSE: ${{ inputs.universe }}

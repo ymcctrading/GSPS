@@ -15,9 +15,12 @@
  *   does not show;
  * - the alert's 0-9 confidence reaches the member's `min_score`;
  * - the member is not inside quiet hours they turned on (`inQuietHours`);
- * - the same symbol, direction and score was not sent on that channel in the
- *   last 24 hours (`notification_log`, per channel, so an email does not hold
- *   back the push or the reverse).
+ * - the same symbol, direction and score was not sent or tried on that channel
+ *   in the last 24 hours (`notification_log`, per channel, so an email does
+ *   not hold back the push or the reverse). A failed try counts too, on
+ *   purpose: the scan runs every 15 minutes, and retrying a refused send
+ *   (Resend's daily quota, a bad address) on each run multiplies the failures
+ *   without reaching anyone.
  * Best-effort per member: one bad address or failed write never stops the rest.
  *
  * The message says what Gann's method uses an intraday signal for: timing a
@@ -173,6 +176,10 @@ export async function notifySubscribedUsers(
               verdict: "Execute",
               confidence: alert.confidence / 100,
             });
+            // No deliverable sender (the sandbox address or an invalid
+            // RESEND_FROM) is not a send either: nothing to log or retry,
+            // as for push below. notification_log has no "skipped" status.
+            if (!result.success && result.skipped) continue;
           } else {
             result = await sendPushToProfile(service, userId, intradayPushMessage(alert));
             // No subscribed browser is not a send: nothing to log or retry.
