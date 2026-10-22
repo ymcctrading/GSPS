@@ -352,7 +352,7 @@ export async function confirmEntry(
   }
   if (!target) return pass;
 
-  const confirmation = await readEntryConfirmationNow({ symbol: input.symbol, assetClass: "us_equity", ...target }).catch(
+  const confirmation = await readEntryConfirmationNow({ symbol: input.symbol, assetClass: assetClassOf(input.symbol), ...target }).catch(
     () => null,
   );
   if (!confirmation) {
@@ -815,7 +815,7 @@ async function placeChecked(
     // The rules this order was placed under (review finding P-02, migration 0094).
     strategy_version: STRATEGY_VERSION,
     symbol: input.symbol.toUpperCase(),
-    asset_class: isOption ? "option" : "us_equity",
+    asset_class: isOption ? "option" : assetClassOf(input.symbol),
     side: input.side,
     order_type: useBracket ? "bracket" : !isOption && input.entryMode === "advised" && !atMarket ? "limit" : orderType,
     qty: input.qty,
@@ -1016,7 +1016,7 @@ async function placeChecked(
     await recordOrderExecution(userId, {
       orderId: orderId ?? undefined,
       symbol: input.symbol,
-      assetClass: isOption ? "option" : "us_equity",
+      assetClass: isOption ? "option" : assetClassOf(input.symbol),
       orderType: (ledgerRow.order_type as RecordedOrderType) ?? "market",
       side: input.side,
       quantity: input.qty,
@@ -1060,7 +1060,7 @@ async function placeChecked(
     await recordOrderExecution(userId, {
       orderId: (inserted as { id?: string } | null)?.id,
       symbol: input.symbol,
-      assetClass: isOption ? "option" : "us_equity",
+      assetClass: isOption ? "option" : assetClassOf(input.symbol),
       orderType: (ledgerRow.order_type as RecordedOrderType) ?? "market",
       side: input.side,
       quantity: input.qty,
@@ -1432,7 +1432,7 @@ async function placeLiveOrder(
     const raw = err instanceof Error ? err.message : String(err);
     await recordOrderExecution(userId, {
       symbol: input.symbol,
-      assetClass: "us_equity",
+      assetClass: assetClassOf(input.symbol),
       orderType: (useBracket ? "bracket" : orderType) as RecordedOrderType,
       side: input.side,
       quantity: input.qty,
@@ -1453,7 +1453,7 @@ async function placeLiveOrder(
       strategy_version: STRATEGY_VERSION,
       broker_order_id: String(order.id),
       symbol: input.symbol.toUpperCase(),
-      asset_class: "us_equity",
+      asset_class: assetClassOf(input.symbol),
       side: input.side,
       order_type: useBracket ? "bracket" : orderType,
       qty: input.qty,
@@ -1520,7 +1520,7 @@ async function placeLiveOrder(
   await recordOrderExecution(userId, {
     orderId: orderId ?? undefined,
     symbol: input.symbol,
-    assetClass: "us_equity",
+    assetClass: assetClassOf(input.symbol),
     orderType: (useBracket ? "bracket" : orderType) as RecordedOrderType,
     side: input.side,
     quantity: input.qty,

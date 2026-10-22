@@ -704,11 +704,40 @@ export function cryptoBuyList(scans: readonly ScanResult[]): ScanResult[] {
   return scans.filter((r) => !r.error && r.direction === "bullish" && hasTradePlan(r)).sort(compareForList);
 }
 
+/** The screener's actives less the funds, which the funds pass scores, so none is scored twice. */
+export function withoutFundMarkets(symbols: readonly string[]): string[] {
+  return symbols.filter((s) => !isFundMarket(s));
+}
+
+/**
+ * The other markets' setups joined to the stock lists, in the lists' own
+ * order (`compareForList`, so an Execute pair or fund ranks above a Watch
+ * stock), beside the stocks' slots rather than in them. Spot crypto can't be
+ * shorted, so its sells are left out (`cryptoUniverse.ts`); a fund's short is
+ * checked for a borrow as a stock's is, inside the same `deadline`, and a
+ * borrow read still running then lists no fund short (never an unchecked one).
+ */
+export async function joinOtherMarkets(
+  lists: Record<"bullish" | "bearish", ScanResult[]>,
+  cryptoScans: readonly ScanResult[],
+  fundScans: readonly ScanResult[],
+  deadline: number,
+  shortable: (ranked: ScanResult[], n: number) => Promise<ScanResult[]> = takeShortable,
+): Promise<Record<"bullish" | "bearish", ScanResult[]>> {
+  const funds = fundLists(fundScans);
+  const fundShorts =
+    funds.bearish.length === 0 ? [] : ((await settleBy(shortable(funds.bearish, funds.bearish.length), deadline)) ?? []);
+  return {
+    bullish: [...lists.bullish, ...cryptoBuyList(cryptoScans), ...funds.bullish].sort(compareForList),
+    bearish: [...lists.bearish, ...fundShorts].sort(compareForList),
+  };
+}
+
 /**
  * `p`'s value if it settles by `deadline` (ms since the epoch), else null, so a
  * slow side pass never holds the scan past its budget.
  */
-async function settleBy<T>(p: Promise<T>, deadline: number): Promise<T | null> {
+export async function settleBy<T>(p: Promise<T>, deadline: number): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), Math.max(0, deadline - Date.now()));
@@ -1020,7 +1049,7 @@ export async function runMarketScan(
   const fundsP = sidePass("funds", scanEveryChart(FUND_MARKETS, "us_equity", universeThresholds));
 
   // A fund the actives screener names is scored by the funds pass, not twice.
-  const actives = (await resolveUniverse(universeTop, extraSymbols)).filter((s) => !isFundMarket(s));
+  const actives = withoutFundMarkets(await resolveUniverse(universeTop, extraSymbols));
   mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass: daily bars for trend/level context.
@@ -1239,20 +1268,15 @@ export async function runMarketScan(
   }
 
   lists.bearish = await takeShortable(dropSellsAlsoBought(lists), perSide);
-  // The other markets' setups join the lists in their own order
-  // (`compareForList`, so an Execute pair or fund ranks above a Watch stock),
-  // beside the stocks' slots rather than in them; the lists show each market
-  // under its own heading (`ResultsTable`). Spot crypto can't be shorted, so
-  // its sell setups are not listed (`cryptoUniverse.ts`); a fund's short is
-  // checked for a borrow as a stock's is.
+  // The other markets' setups join the lists (`joinOtherMarkets`), shown
+  // under their own headings (`ResultsTable`). Everything waits at most to
+  // the continuation deadline, the fund borrow read included.
   const deadline = startedAt + CONTINUATION_DEADLINE_MS;
   const [cryptoScans, fundScans] = await Promise.all([settleBy(cryptoP, deadline), settleBy(fundsP, deadline)]);
   if (cryptoScans === null) console.warn("market-scan: crypto pass not done by the deadline; listed without it");
   if (fundScans === null) console.warn("market-scan: funds pass not done by the deadline; listed without it");
-  const funds = fundLists(fundScans ?? []);
-  const fundShorts = await takeShortable(funds.bearish, funds.bearish.length);
-  lists.bullish = [...lists.bullish, ...cryptoBuyList(cryptoScans ?? []), ...funds.bullish].sort(compareForList);
-  lists.bearish = [...lists.bearish, ...fundShorts].sort(compareForList);
+  Object.assign(lists, await joinOtherMarkets(lists, cryptoScans ?? [], fundScans ?? [], deadline));
+  mark("other markets joined");
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
