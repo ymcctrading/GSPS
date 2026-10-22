@@ -425,9 +425,11 @@ export async function fetchAlertQuotes(
     };
     try {
       await read([...keyOf.keys()]);
-    } catch {
-      // One bad symbol must not cost the rest of the batch: read one by one,
-      // and leave out any the feed refuses.
+    } catch (err) {
+      // One bad symbol must not cost the rest of the batch: on a refused
+      // request read one by one, leaving out any the feed refuses. Any other
+      // failure (outage, throttling) is the caller's to fall back from.
+      if (!(err instanceof MarketDataError) || (err.status !== 400 && err.status !== 422)) throw err;
       for (const key of keyOf.keys()) await read([key]).catch(() => undefined);
     }
   }

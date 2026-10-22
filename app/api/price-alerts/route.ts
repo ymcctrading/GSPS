@@ -160,6 +160,9 @@ export async function POST(req: NextRequest) {
       const d = editor.data;
       // Only a symbol the feed can price is stored: an unknown one would only
       // sit in every sweep's request.
+      if (d.expiry === "day" && assetClassOf(symbol) === "crypto") {
+        return NextResponse.json({ error: "Crypto trades around the clock, so a day alert has no close to end on." }, { status: 400 });
+      }
       if ((await quotePrice(symbol, assetClassOf(symbol))) == null) {
         return NextResponse.json({ error: `Couldn't read a price for ${symbol}.` }, { status: 400 });
       }
