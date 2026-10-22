@@ -2781,8 +2781,8 @@ entry in an active market (Master Course Ch.13). So the intraday scanner now
 times the daily plan: "Daily plan's level held" (`plan_level_held`,
 `lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
 Watch plan's entry without trading its stop and the session's swing chart turns
-back through it; the stop is 3 Gann points under the day's low, never past the
-daily plan's stop, and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
+back through it; the stop at entry is the daily plan's own (Rule 3, aligned with
+#411's styles, which move it after the fill), and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
 *Tunnel* p.198 for the re-buy). Not a session-swing stop: the six-year intraday
 replay (2026-10-21, `replay-diagnosis/2026-10-21-intraday-profile-verdict.md`)
 failed its test with every loss on the initial stop, so the panel says intraday
@@ -2804,6 +2804,11 @@ scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
 shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+Email and browser push for the same signals (`lib/notifications/intradayDelivery.ts`,
+2026-10-21, after #404) go to every member by their settings (push off until
+turned on), score floor and quiet hours, each channel deduped on its own, and
+now by tier as the bell is: before, email reached every member whatever their
+plan.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in

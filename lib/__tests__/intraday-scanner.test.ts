@@ -16,7 +16,7 @@ import {
   type ScannerConfig,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
-import { gannPoint, gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
+import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -539,10 +539,13 @@ describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () =>
     expect(held!.continuationPlan.masterTarget).toBe(520);
   });
 
-  it("puts the stop 3 Gann points under the day's low when the daily stop is farther (NSTD Rule 3(b))", () => {
+  // Corrected 2026-10-21 with #411: the entry opens on the daily plan's own
+  // stop (W006 Rule 3); a day stop under today's low is the Fast style's
+  // trail after the fill, not the stop at entry (it read 500 - 3 points).
+  it("opens on the daily plan's own stop, even when it is far below the day's low (W006 Rule 3)", () => {
     const output = scanIntraday([input({ dailyPlan: { ...plan, stop: 450 } })], DEFAULT_CONFIG, AT_1133);
     const held = output.alerts.find((a) => a.type === "plan_level_held");
-    expect(held!.invalidation!).toBeCloseTo(500 - gannThreePoints(500), 6);
+    expect(held!.invalidation!).toBe(450);
   });
 
   it("stays quiet with no daily plan", () => {

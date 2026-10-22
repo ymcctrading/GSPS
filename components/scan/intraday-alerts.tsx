@@ -459,7 +459,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               {!isRisk && alert.type === "plan_level_held" && (
                 <p className="text-xs text-muted">
                   This is the daily plan entered on today&apos;s chart: the intraday chart times the entry, the stop is
-                  3 points under the day&apos;s low (never past the daily plan&apos;s stop), and TP1 and MTP are the daily
+                  the daily plan&apos;s own (your trade style moves it once filled), and TP1 and MTP are the daily
                   plan&apos;s own targets.
                 </p>
               )}

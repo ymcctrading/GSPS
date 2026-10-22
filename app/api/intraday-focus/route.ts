@@ -62,16 +62,22 @@ export async function GET(req: NextRequest) {
     for (const [symbol, plan] of chunk) plans.set(symbol, plan);
   }
 
-  // Completed sessions only: while the session is open, today's bar is not.
+  // Completed sessions only: before the close (pre-market or the regular
+  // session) today's bar is not complete. After the close it is, so the 6 PM
+  // run reads today; reading after-hours as "open" dropped today's bar and
+  // left every stock a day behind the basis (2026-10-21's first run stored 0).
   const today = etDateKey(now);
-  const sessionOpen = equitySession(now) !== "closed";
+  const session = equitySession(now);
+  const sessionOpen = session === "pre" || session === "regular";
   const readings: FocusReading[] = [];
+  const lastSession = new Map<string, string>();
   let basisDate = "";
   for (const symbol of LARGE_CAP_UNIVERSE) {
     const all = bars.get(symbol.toUpperCase()) ?? [];
     const sessions = sessionOpen ? all.filter((b) => etDateKey(new Date(b.t)) < today) : all;
     if (sessions.length === 0) continue;
     const last = etDateKey(new Date(sessions[sessions.length - 1].t));
+    lastSession.set(symbol.toUpperCase(), last);
     if (last > basisDate) basisDate = last;
     const reading = readFocus(symbol.toUpperCase(), sessions, plans.get(symbol.toUpperCase()) ?? null);
     if (reading) readings.push(reading);
@@ -79,10 +85,8 @@ export async function GET(req: NextRequest) {
   if (!basisDate) return NextResponse.json({ error: "No daily bars were returned." }, { status: 502 });
 
   // A stock whose last bar is older than the basis day did not trade it.
-  const current = readings.filter((r) => {
-    const sessions = bars.get(r.symbol) ?? [];
-    return sessions.length > 0 && etDateKey(new Date(sessions[sessions.length - 1].t)) === basisDate;
-  });
+  // Read on the same completed sessions the readings used.
+  const current = readings.filter((r) => lastSession.get(r.symbol) === basisDate);
   const ranked = rankFocus(current);
   const rows = ranked.map((r, i) => ({
     basis_date: basisDate,

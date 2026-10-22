@@ -56,7 +56,7 @@ import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { sendAlertEmail } from "@/lib/notifications/resend-handler";
+import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { FOCUS_SIZE, FOCUS_STORED } from "@/lib/scanner/focusList";
@@ -357,7 +357,10 @@ export async function GET(req: NextRequest) {
       console.error("[intraday-scan] bell notices failed:", err);
     }
     try {
-      await notifySubscribedUsers(supabase as ServiceSupabase, output.alerts);
+      await notifySubscribedUsers(supabase as ServiceSupabase, output.alerts, {
+        intervalBySymbol: new Map(resolved.map((i) => [i.symbol, i.barIntervalMinutes])),
+        now,
+      });
     } catch (err) {
       console.error("[intraday-scan] notification fan-out failed:", err);
     }
@@ -891,152 +894,6 @@ async function loadRecentSystemAlerts(
     });
   }
   return out;
-}
-
-/**
- * Every user's id, paginating through the admin API rather than trusting a
- * single page — `notifySubscribedUsers` treats a user with no saved
- * preferences row as opted in by default, so missing a page here would
- * silently drop real recipients, not just extend a list that already had
- * everyone.
- */
-async function listAllUserIds(supabase: ServiceSupabase): Promise<string[]> {
-  const ids: string[] = [];
-  const perPage = 200;
-  for (let page = 1; ; page++) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error || !data?.users?.length) break;
-    ids.push(...data.users.map((u) => u.id));
-    if (data.users.length < perPage) break;
-  }
-  return ids;
-}
-
-/** How far back a notification_log row still counts as "already sent this". */
-const NOTIFICATION_DEDUP_HOURS = 24;
-
-/**
- * The default `app/api/notifications/preferences` (GET) itself promises to a
- * user who has never saved a row: email on, score floor 5, no quiet hours.
- */
-const DEFAULT_NOTIFICATION_PREFS = { min_score: 5, quiet_hours_enabled: false };
-
-interface EffectiveNotificationPrefs {
-  user_id: string;
-  min_score: number;
-  quiet_hours_enabled: boolean;
-}
-
-/**
- * Email every user whose notification preferences match a system-scan
- * alert. This is the piece that was built (migration 0022) but never wired
- * up — preferences and a Resend sender existed, nothing called them from an
- * actual scan. Best-effort per user: one user's bad email address or a
- * `notification_log` write failure must not stop the rest of the list from
- * being notified.
- *
- * Fixed here: this used to query `notification_preferences` filtered to
- * `email_enabled = true`, which only matches users who have explicitly
- * opened Settings and saved a row. `app/api/notifications/preferences`'s own
- * GET handler answers a user with no saved row as `email_enabled: true` by
- * default — so "never visited Settings" was being read as "opted out",
- * silently dropping every user from this list who hadn't. That is the
- * "alerts exist but cannot reach users" gap in ROADMAP.md's critical-gaps
- * table: alerts were firing and persisting to `intraday_system_alerts` the
- * whole time, just never reaching an inbox. Now every user is a recipient
- * unless a saved row explicitly sets `email_enabled: false`.
- */
-async function notifySubscribedUsers(supabase: ServiceSupabase, alerts: Alert[]): Promise<void> {
-  if (!process.env.RESEND_API_KEY) return; // sendAlertEmail would no-op anyway; skip the query entirely
-
-  const { data: saved, error } = await supabase
-    .from("notification_preferences")
-    .select("user_id, email_enabled, min_score, quiet_hours_enabled");
-  if (error) return;
-
-  interface SavedRow {
-    user_id: string;
-    email_enabled: boolean | null;
-    min_score: number | null;
-    quiet_hours_enabled: boolean | null;
-  }
-
-  const savedByUser = new Map<string, SavedRow>(((saved ?? []) as SavedRow[]).map((p) => [p.user_id, p]));
-  const userIds = await listAllUserIds(supabase);
-
-  const prefs: EffectiveNotificationPrefs[] = userIds
-    .map((user_id): SavedRow => savedByUser.get(user_id) ?? { user_id, email_enabled: true, ...DEFAULT_NOTIFICATION_PREFS })
-    .filter((p): p is SavedRow & { email_enabled: true } => p.email_enabled === true)
-    .map((p) => ({
-      user_id: p.user_id,
-      min_score: p.min_score ?? DEFAULT_NOTIFICATION_PREFS.min_score,
-      quiet_hours_enabled: p.quiet_hours_enabled ?? DEFAULT_NOTIFICATION_PREFS.quiet_hours_enabled,
-    }));
-  if (prefs.length === 0) return;
-
-  for (const alert of alerts) {
-    const direction = DIRECTION_TO_SIGNAL_TYPE[alert.direction] as "bullish" | "bearish";
-    const score = Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9)));
-    const signalHash = `${alert.symbol}-${direction}-${score}`;
-
-    for (const pref of prefs) {
-      if (score < pref.min_score) continue;
-
-      const since = new Date(Date.now() - NOTIFICATION_DEDUP_HOURS * 3600_000).toISOString();
-      const { data: alreadySent } = await supabase
-        .from("notification_log")
-        .select("id")
-        .eq("user_id", pref.user_id)
-        .eq("signal_hash", signalHash)
-        .gte("triggered_at", since)
-        .limit(1);
-      if (alreadySent && alreadySent.length > 0) continue;
-
-      if (pref.quiet_hours_enabled) {
-        const { data: inQuietHours } = await supabase.rpc("is_in_quiet_hours", {
-          user_id: pref.user_id,
-        });
-        if (inQuietHours) continue;
-      }
-
-      const { data: userRecord } = await supabase.auth.admin.getUserById(pref.user_id);
-      const email = userRecord?.user?.email;
-      if (!email) continue;
-
-      const result = await sendAlertEmail({
-        userEmail: email,
-        symbol: alert.symbol,
-        direction,
-        score,
-        // This alert's own 0-9 confidence scale, already a whole number
-        // (`Math.round` above) — unlike lib/scoring/weights.ts's protocol
-        // score, there's no fractional value to hide from a Novice/Pro
-        // viewer, so the tier split doesn't apply here.
-        exactScoreDisplayEnabled: true,
-        entry: alert.move.current,
-        stopLoss: alert.invalidation ?? alert.move.current,
-        takeProfit: alert.continuationPlan.firstTarget,
-        verdict: "Execute",
-        confidence: alert.confidence / 100,
-      });
-
-      const { error: logError } = await supabase.from("notification_log").insert({
-        user_id: pref.user_id,
-        symbol: alert.symbol,
-        direction,
-        score,
-        channel: "email",
-        status: result.success ? "sent" : "failed",
-        recipient: email,
-        triggered_at: new Date().toISOString(),
-        sent_at: result.success ? new Date().toISOString() : null,
-        failed_at: result.success ? null : new Date().toISOString(),
-        error_message: result.success ? null : (result.error ?? null),
-        signal_hash: signalHash,
-      });
-      if (logError) console.error("[intraday-scan] could not log notification:", logError);
-    }
-  }
 }
 
 interface PrefetchedBars {
