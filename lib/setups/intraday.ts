@@ -31,7 +31,7 @@
  * scanner itself advises against.
  */
 
-import { SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
+import { MEASURED_LOSING, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
 import type { Alert } from "@/lib/scanner/intraday";
 import { tickerHref } from "@/lib/routes";
 import { rewardToRisk, type SetupCardModel, type SetupCheck, type SetupLevels } from "@/lib/setups/card";
@@ -69,6 +69,10 @@ export function buildIntradaySynopsis(alert: Alert): string {
   const passed = alert.confidenceFactors.filter((f) => f.passed).length;
   const up = alert.direction === "up";
   const first = `${SIGNAL_LABELS[alert.type]}, ${up ? "up" : "down"}: ${passed} of ${total} checks line up (confidence ${alert.confidence}/100).`;
+
+  // A signal the replay measured losing is shown for study, not as a plan.
+  const held = MEASURED_LOSING[alert.type];
+  if (held) return `${first} ${held}`;
 
   const levels = intradayLevels(alert);
   if (levels.entry == null || levels.stop == null) return first;

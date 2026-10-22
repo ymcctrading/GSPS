@@ -524,7 +524,10 @@ describe("scanIntraday — suppression", () => {
 });
 
 describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () => {
-  const plan = { direction: "up" as const, entry: 500.5, stop: 495, tp1: 510, mtp: 520, verdict: "Execute" as const };
+  // The plan's entry sits under the prior close, so the session's dip to it
+  // is a reaction from above. (Corrected 2026-10-22: the entry was 500.5 over
+  // a 500 close, a crossing still to be made, which the alert bought.)
+  const plan = { direction: "up" as const, entry: 499.8, stop: 495, tp1: 510, mtp: 520, verdict: "Execute" as const };
 
   it("alerts when price reacts to the daily plan's entry and the session turns back up through it", () => {
     const output = scanIntraday([input({ dailyPlan: plan })], DEFAULT_CONFIG, AT_1133);
@@ -546,6 +549,13 @@ describe("scanIntraday — the daily plan's level held (SPY, 2026-10-21)", () =>
     const output = scanIntraday([input({ dailyPlan: { ...plan, stop: 450 } })], DEFAULT_CONFIG, AT_1133);
     const held = output.alerts.find((a) => a.type === "plan_level_held");
     expect(held!.invalidation!).toBe(450);
+  });
+
+  it("stays quiet on a crossing not yet made: the prior session closed under the entry (W006 Rule 3(b))", () => {
+    const output = scanIntraday([input({ dailyPlan: { ...plan, entry: 500.5 } })], DEFAULT_CONFIG, AT_1133);
+    expect(output.alerts.find((a) => a.type === "plan_level_held")).toBeUndefined();
+    const check = output.audit[0].checks.find((c) => c.name === "Daily plan's level");
+    expect(check?.detail).toContain("no reaction to it yet");
   });
 
   it("stays quiet with no daily plan", () => {

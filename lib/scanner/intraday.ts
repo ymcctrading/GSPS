@@ -1293,6 +1293,25 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     checks.push({ name, passed: false, detail: `The daily plan's stop (${priceText(plan.stop)}) traded this session, so the plan is retired.` });
     return null;
   }
+  // A reaction comes back to the level from the plan's side: the prior
+  // session closed beyond the entry, and today traded back to it. A plan whose
+  // entry price has not yet closed on its side is a crossing still to be made
+  // (a buy-stop 3 points over an old top, price below it): Gann's buy there is
+  // the daily close past the line, then the reaction (W006 Rule 3(b)-(c),
+  // pp. 46-47; NSTD p. 20), never the first intraday bar through it ("don't
+  // try to get ahead of the market", Master Course Ch. 8 p. 251). Until
+  // 2026-10-22 the touch test passed all session on such a plan, so the alert
+  // bought the first poke into resistance as a held level (run 80 measured
+  // the signal losing, replay-diagnosis/2026-10-22-intraday-alerts-replay.md).
+  const fromPlanSide = input.prevClose != null && (up ? input.prevClose > plan.entry : input.prevClose < plan.entry);
+  if (!fromPlanSide) {
+    checks.push({
+      name,
+      passed: false,
+      detail: `The prior session closed ${up ? "under" : "over"} the plan's entry (${priceText(plan.entry)}), so there is no reaction to it yet: the level is crossed on a daily close first.`,
+    });
+    return null;
+  }
   const touched = up ? m.low <= plan.entry + m.point : m.high >= plan.entry - m.point;
   if (!touched) {
     checks.push({

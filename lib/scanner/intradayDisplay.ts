@@ -62,9 +62,14 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
  * 2026-08-26 to 2026-10-21, five-minute bars, Gann exits): 152 trades,
  * −0.107R, 95% CI [−0.185, −0.028], both halves losing
  * (`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`). That run used
- * the earlier stop (3 points beyond the day's low); most of its trades left
- * on Gann's exit signals, not the stop, so the current stop is not expected
- * to change the sign. Re-run before lifting the hold.
+ * the earlier stop (the tighter of the plan's stop and 3 points beyond the
+ * day's low); most of its trades left on Gann's exit signals, not the stop
+ * (9 of 152 on the initial stop, 33 on three adverse closes, 15 on a failed
+ * top). The diagnosis (2026-10-22): the alert also fired on plans whose entry
+ * was a crossing still to be made, buying the first intraday bar through an
+ * old top's 3-point line before the daily close gave the indication. Fixed in
+ * `detectPlanLevelHeld` (the prior close must sit on the plan's side). Re-run
+ * on the fix before lifting the hold.
  */
 export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
   plan_level_held:

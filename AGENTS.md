@@ -2867,7 +2867,14 @@ held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
 both halves), on the earlier stop. It stays on the panel labelled with that
 record (`MEASURED_LOSING`, `lib/scanner/intradayDisplay.ts`), with no "Trade
 this" and no bell, email or push, until a run on the current stop reads
-otherwise; presume a translation defect first.
+otherwise; presume a translation defect first. Diagnosed the same day (owner:
+"if it is a Gann method ... determine how and why we are getting negative
+results, and correct it"): the alert fired on plans whose entry was a crossing
+still to be made, its touch test passing all session with price under the
+3-point line, so it bought the first intraday bar through an old top before the
+daily close gave the indication (W006 Rule 3(b)-(c)). It now needs the prior
+session to have closed on the plan's side of the entry, so the touch is a
+reaction. The hold stays until a run on the fix reads positive.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in
