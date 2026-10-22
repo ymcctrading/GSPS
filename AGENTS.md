@@ -1740,11 +1740,15 @@ for the project owner** — do not fix it silently, and re-verify it first:
   name failed `novice_eligible`'s market-cap check and Guided Mode could never
   show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
   the Alpaca validation pass). The $10B floor is the only cap rule.
-- Lesser items: the weight-promotion path can still promote non-uniform
-  weights (F4.2); `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
+- Lesser items: `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
   "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
+  **F4.2 closed 2026-10-22:** a promoted `learning_models` weight row is
+  adopted only when it is uniform (`isUniformWeightSet`,
+  `lib/scoring/active-weights.ts`), since nothing in Gann's sources ranks one
+  pillar above another ("The scorecard's role"). No live row exists, so
+  scores are unchanged and `STRATEGY_VERSION` stays.
   `quantityFromPermittedRisk`/`plannedRiskDollars` and the rest of the risk-band
   policy were removed 2026-10-21 (R-004): Gann's capital rules size every order.
 - **F3.7, traced 2026-09-30 and resolved the same day (project owner).** The

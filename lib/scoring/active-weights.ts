@@ -106,6 +106,22 @@ export function isWeightSetAddressedToCurrentCriteria(stored: unknown): boolean 
   );
 }
 
+/**
+ * True when every pillar carries the same weight (F4.2, the 2026-09-25
+ * alignment audit; Gann answers it, so it is not held). A non-equal weight
+ * asserts that one of Gann's conditions outranks another, and nothing in
+ * `docs/GANN_HISTORICAL_SOURCES.md` ranks them across techniques (AGENTS.md,
+ * "The scorecard's role"). So a promoted `learning_models` row is adopted only
+ * when it is uniform, which leaves the score unchanged; a measured translation
+ * fault is fixed in the pillar's code, never by weighting it down. A citable
+ * Gann ranking of the pillars would change this, in code and reviewed.
+ */
+export function isUniformWeightSet(weights: CriterionWeights): boolean {
+  const values = CRITERION_KEYS.map((k) => weights[k]);
+  if (!values.every((v) => Number.isFinite(v))) return false;
+  return Math.max(...values) - Math.min(...values) < 1e-9;
+}
+
 async function load(now: number): Promise<Cached> {
   if (cache && now - cache.at < CACHE_TTL_MS) return cache;
   if (inflight) return inflight;
@@ -165,7 +181,19 @@ async function fetchLiveWeights(now: number): Promise<Cached> {
       return fallback;
     }
 
-    return { weights: parseCriterionWeights(stored), version: row.version, at: now };
+    // F4.2: a promoted set that ranks Gann's conditions is not adopted.
+    // See `isUniformWeightSet` below.
+    const weights = parseCriterionWeights(stored);
+    if (!isUniformWeightSet(weights)) {
+      console.warn(
+        `[active-weights] Ignoring live ${SCORE_WEIGHT_MODEL_TYPE} v${row.version}: ` +
+          `its weights are not uniform, and nothing in Gann's sources ranks one ` +
+          `pillar above another. Scoring with the uniform default.`,
+      );
+      return fallback;
+    }
+
+    return { weights, version: row.version, at: now };
   } catch {
     // No adopted weights is the safe reading of any failure here.
     return fallback;
