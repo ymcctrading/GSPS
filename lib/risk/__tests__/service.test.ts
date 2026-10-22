@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CircuitStateUnreadableError, evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { CircuitStateUnreadableError, evaluateLiveCircuitBreaker, tradingDaysElapsed } from "@/lib/risk/service";
 
 interface Snapshot {
   equity: number;
@@ -13,7 +13,7 @@ interface Prior {
   triggered_at: string;
 }
 
-function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null; priorError?: string }) {
+function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null; priorError?: string; snapshotError?: string }) {
   const inserted: Record<string, unknown>[] = [];
   const auditInserts: Record<string, unknown>[] = [];
   const stateUpserts: Record<string, unknown>[] = [];
@@ -27,7 +27,10 @@ function makeSupabase(opts: { snapshots: Snapshot[]; priorState: Prior | null; p
         // The throttle check ends in .limit(1); always answer "nothing recent".
         limit: () => Promise.resolve({ data: [], error: null }),
         // The history read ends in .order(...); answer the fixture's samples.
-        order: () => Promise.resolve({ data: opts.snapshots, error: null }),
+        order: () =>
+          Promise.resolve(
+            opts.snapshotError ? { data: null, error: { message: opts.snapshotError } } : { data: opts.snapshots, error: null },
+          ),
       };
       return builder;
     },
@@ -99,6 +102,13 @@ describe("evaluateLiveCircuitBreaker", () => {
     expect(s.stateUpserts).toHaveLength(0);
   });
 
+  it("throws rather than reading a failed equity-history read as no loss (R-003)", async () => {
+    const s = makeSupabase({ snapshots: [], priorState: { state: "normal", triggered_at: "2026-08-15T14:00:00Z" }, snapshotError: "timeout" });
+    await expect(
+      evaluateLiveCircuitBreaker(s.client, "u1", 450, true, new Date("2026-08-28T14:00:00Z")),
+    ).rejects.toBeInstanceOf(CircuitStateUnreadableError);
+  });
+
   it("resolves normal and writes the first-ever state + audit row for a brand-new account", async () => {
     const s = makeSupabase({ snapshots: [], priorState: null });
     const result = await evaluateLiveCircuitBreaker(
@@ -148,5 +158,15 @@ describe("evaluateLiveCircuitBreaker", () => {
     const s = makeSupabase({ snapshots: [], priorState: null });
     const result = await evaluateLiveCircuitBreaker(s.client, "u1", 450, false, new Date("2026-08-28T14:00:00Z"));
     expect(result.sourceDataConfidence).toBe("estimate");
+  });
+});
+
+describe("tradingDaysElapsed", () => {
+  it("skips weekends and full-day market holidays (R-002)", () => {
+    // Wed 2026-11-25 to Mon 2026-11-30: Thanksgiving (Thu) and the weekend
+    // don't count, so only Fri 11-27 and Mon 11-30 do.
+    expect(tradingDaysElapsed(new Date("2026-11-25T18:00:00Z"), new Date("2026-11-30T18:00:00Z"))).toBe(2);
+    // An ordinary week: Wed to the next Mon is Thu, Fri, Mon.
+    expect(tradingDaysElapsed(new Date("2026-10-14T18:00:00Z"), new Date("2026-10-19T18:00:00Z"))).toBe(3);
   });
 });

@@ -1090,8 +1090,10 @@ async function placeLiveOrder(
     try {
       gate = await evaluateLiveCircuitBreaker(supabase, userId, equity, true);
     } catch (err) {
-      if (!(err instanceof CircuitStateUnreadableError)) throw err;
-      console.error(`risk: ${err.message}`);
+      // A stop, close or reduction goes through whatever failed; an entry
+      // is held on an unread risk state and fails on anything else.
+      if (!isProtective && !(err instanceof CircuitStateUnreadableError)) throw err;
+      console.error(`risk: live circuit breaker not evaluated — ${err instanceof Error ? err.message : String(err)}`);
       if (!isProtective) {
         return {
           status: 503,

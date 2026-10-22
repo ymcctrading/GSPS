@@ -23,8 +23,26 @@ function getResendClient() {
  */
 export const SANDBOX_SENDER = "onboarding@resend.dev";
 
+const BARE_ADDRESS = /^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/;
+
+/**
+ * The bare address in `RESEND_FROM`, which may be set as "alerts@example.com"
+ * or "GSPS <alerts@example.com>". `fromHeader` adds its own display name, so a
+ * value that already carried one produced "Name <GSPS <alerts@...>>", which
+ * Resend rejects as an invalid `from` (every email on 2026-10-21 from about
+ * 20:00 UTC). A value that is neither form is treated as unset, so sends fall
+ * back to the sandbox rule and are skipped with a reason instead of failing.
+ */
+export function parseSenderAddress(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const bracketed = /<([^<>]+)>\s*$/.exec(value);
+  const address = (bracketed ? bracketed[1] : value).trim().replace(/^["']|["']$/g, "");
+  return BARE_ADDRESS.test(address) ? address : null;
+}
+
 export function senderAddress(): string {
-  return process.env.RESEND_FROM?.trim() || SANDBOX_SENDER;
+  return parseSenderAddress(process.env.RESEND_FROM) ?? SANDBOX_SENDER;
 }
 
 /** The `from` header for a send: a display name on the configured sender. */

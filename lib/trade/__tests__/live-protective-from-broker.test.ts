@@ -156,6 +156,15 @@ describe("the live circuit breaker fails closed for entries only", () => {
     getPositions.mockReset().mockResolvedValue([{ symbol: "AAPL", qty: "10", side: "long" }]);
     const r = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, side: "sell", attachLevels: undefined });
     expect((r.body as { code?: string }).code).not.toBe("risk_state_unreadable");
+    expect(r.status).toBeLessThan(300);
+    expect(placeOrder).toHaveBeenCalled();
+  });
+  it("lets a close through when the breaker fails for any other reason", async () => {
+    evaluateLiveCircuitBreaker.mockReset().mockRejectedValue(new Error("network abort"));
+    getPositions.mockReset().mockResolvedValue([{ symbol: "AAPL", qty: "10", side: "long" }]);
+    const r = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, side: "sell", attachLevels: undefined });
+    expect(r.status).toBeLessThan(300);
+    expect(placeOrder).toHaveBeenCalled();
   });
   it("lets a close through when the live equity can't be read, without running the breaker", async () => {
     getAccount.mockReset().mockRejectedValue(new Error("down"));
@@ -164,5 +173,7 @@ describe("the live circuit breaker fails closed for entries only", () => {
     const r = await placeSimulatedOrder(stubSupabase(), "u1", { ...baseInput, side: "sell", attachLevels: undefined });
     expect((r.body as { code?: string }).code).not.toBe("live_equity_unreadable");
     expect(evaluateLiveCircuitBreaker).not.toHaveBeenCalled();
+    expect(r.status).toBeLessThan(300);
+    expect(placeOrder).toHaveBeenCalled();
   });
 });
