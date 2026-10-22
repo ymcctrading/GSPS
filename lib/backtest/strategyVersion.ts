@@ -721,6 +721,19 @@
 // counter-trend short Execute held to Watch for want of a window can now act. Merged onto
 // 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
 // firing-bar fixes it keeps.
+// 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
+// mass-pressure curve not against the trade (A-OTHER-05, Master Course Ch. 7,
+// PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in
+// every decade back to 70 years, as the 1936 forecast laid them, on Shiller's
+// monthly S&P composite from 1871 (`lib/gann/massPressure.ts`,
+// `marketHistory.json`), read from the session's date for a stock on both
+// surfaces. The replay no longer hands crypto the stock market's bars (the
+// live scan never fetched them), so a crypto replay reads no market trend,
+// leaders, campaign length or mass pressure, as live. Live stock verdicts move;
+// replay buckets move. Context only: `massPressureWithTrade`, the 84-year count
+// (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`). Merged onto
+// 2026-10-22-gann-eclipse-break-window, whose eclipse window and the fixes
+// before it it keeps.
 // 2026-10-22-gann-name-chart-great-cycles: A-OTHER-08 and A-TIME-24. The
 // company name's square (Master Course Ch. 15A: letters counted, a Square of
 // N², its multiples and half-squares) puts its nearest key number above and
@@ -729,6 +742,6 @@
 // 1935, 20,736 days 1953, 90 years 1955) from inception or a major monthly
 // pivot, open dated windows in the time-window hold. Live and replay alike;
 // plans and counter-trend verdicts move. Merged onto
-// 2026-10-22-gann-eclipse-break-window, whose eclipse window, square sign and
-// firing-bar fixes it keeps.
+// 2026-10-22-gann-mass-pressure, whose mass-pressure check, eclipse window,
+// square sign and firing-bar fixes it keeps.
 export const STRATEGY_VERSION = "2026-10-22-gann-name-chart-great-cycles";

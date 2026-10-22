@@ -566,3 +566,27 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     return { success: false, error: message };
   }
 }
+
+/**
+ * An operator's test send, to check the sender end to end (the domain, the
+ * `RESEND_FROM` value and the API key) without waiting for a real alert. It
+ * goes through the same `fromHeader` and sandbox rule as every member email,
+ * so a pass here means member email works too.
+ */
+export async function sendTestEmail(to: string) {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: "RESEND_API_KEY not configured" };
+  const blocked = sandboxBlockReason(to);
+  if (blocked) return { success: false, error: blocked, skipped: true };
+  try {
+    const result = await getResendClient().emails.send({
+      from: fromHeader("GSPS Ops"),
+      to,
+      subject: "GSPS: test email",
+      html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><p>This is a test from GSPS. If it reached you, email from ${senderAddress()} is working.</p></div>`,
+    });
+    if (result.error) return { success: false, error: result.error.message };
+    return { success: true, id: result.data?.id, from: senderAddress() };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}

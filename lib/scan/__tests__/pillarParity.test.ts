@@ -225,6 +225,14 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("backtest/replay.ts")).toMatch(/buildMacroContext\(priorSessions, price, new Date\(`\$\{date\}T12:00:00Z`\), priorMonthly, facts, priorWeekly\)/);
   });
 
+  it("reads the stock market for a stock only on both surfaces, so crypto reads no market trend or mass pressure", () => {
+    const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
+    expect(src("scanTicker.ts")).toMatch(/assetClass === "us_equity" \? getMarketDailyBars\(\) : Promise\.resolve\(null\)/);
+    expect(src("scanTicker.ts")).toMatch(/assetClass === "us_equity" \? getMarketMonthlyBars\(\) : Promise\.resolve\(null\)/);
+    expect(src("backtest/replay.ts")).toMatch(/marketDaily: assetClass === "us_equity" \? \(marketDailyBars \?\? null\) : null,/);
+    expect(src("backtest/replay.ts")).toMatch(/marketMonthly: marketMonthlyBars && assetClass === "us_equity" \?/);
+  });
+
   it("hands computeScore the pillar facts, and the window turn only to the time-window hold, on both surfaces", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
     expect(src("scanTicker.ts")).toMatch(/universe: assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);

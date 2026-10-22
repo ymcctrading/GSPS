@@ -152,6 +152,7 @@ import { describeSquareOfNineTime, readSquareOfNineTime, type SquareOfNineTimeHi
 import { describeHexagonTime, readHexagonTime, type HexagonTimeHit } from "@/lib/gann/hexagonTime";
 import { describeMasterChartTime, readMasterChartTime, type MasterChartHit } from "@/lib/gann/masterChartTime";
 import { describeCampaignLength, readCampaignLength, type CampaignLengthReading } from "@/lib/gann/campaignLength";
+import { readDollarTrend, type DollarTrendReading } from "@/lib/gann/dollarTrend";
 import { describeFoundingCounts, readFoundingCounts, type FoundingCountReading } from "@/lib/gann/incorporationCycle";
 import { describeOutbreakCounts, readOutbreakCounts, type OutbreakCountHit } from "@/lib/gann/outbreakCounts";
 import { describeOneByOneBreak, readOneByOneBreak, type OneByOneBreak } from "@/lib/gann/fans";
@@ -681,6 +682,14 @@ export interface DisclosedRulesContext {
   decadeCycle?: DecadeCycleReading | null;
   /** The prior bull campaign's length projected on the current one (A-TIME-07, context only). See `campaignLength.ts`. */
   campaignLength?: CampaignLengthReading | null;
+  /**
+   * True when the stock market was read for this instrument (its daily bars
+   * passed): a stock, on both surfaces. The market-wide readings that need no
+   * bars (mass pressure, the 84-year count) read it so crypto is left out.
+   */
+  stockMarket?: boolean;
+  /** The market's monthly value trend (A-OTHER-06, context only). See `dollarTrend.ts`. */
+  dollarTrend?: DollarTrendReading | null;
   /** Fixed year and month counts from the founding date (A-TIME-32, context only). See `incorporationCycle.ts`. */
   foundingCounts?: FoundingCountReading | null;
   /** 490, 1,290 and 1,335 days from the long monthly chart's major turns (A-TIME-33, context only). See `outbreakCounts.ts`. */
@@ -841,6 +850,8 @@ export function readDisclosedRules(
     squareOf52: squareOf52Windows(dailyBars, asOf),
     decadeCycle: computeDecadeCycle(asOf),
     campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
+    dollarTrend: readDollarTrend(marketMonthly),
+    stockMarket: instrument?.marketDaily != null,
     foundingCounts: readFoundingCounts(inception, asOf),
     outbreakCounts: readOutbreakCounts(longMonthly, asOf),
     oneByOneBreak: readOneByOneBreak(dailyBars),
