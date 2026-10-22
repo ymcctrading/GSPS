@@ -94,10 +94,12 @@ export const STALE_RESERVATION_MS = 15 * 60_000;
 
 /**
  * Releases every reservation older than `olderThanMs` that was never
- * finalized or released. Released, not finalized: the run produced no result,
- * so it should not have cost the member a slot (the same reading
- * `finalizeUsageReservation`'s "released" gives a failed attempt). The row
- * stays for audit. Returns how many rows it released.
+ * finalized or released. Released, not finalized: the run died before it
+ * could say it completed, so the member is not charged, the same reading
+ * `finalizeUsageReservation`'s "released" gives a failed attempt (a batch
+ * scan killed after writing its results but before finalizing goes
+ * uncharged too, as its own error path already allows). The row stays for
+ * audit. Returns how many rows it released.
  */
 export async function releaseStaleReservations(
   supabase: SupabaseClient,

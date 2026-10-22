@@ -16,7 +16,6 @@ import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
-import { readPremiumStop } from "@/lib/trade/premium-stop";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { roundPrice as round, priceText } from "./priceText";
 
@@ -668,13 +667,12 @@ export function computeTradeLevels(
   const stopPctOfPrice = (structuralRisk / entry) * 100;
   let stopBandWarning: string | null = null;
 
-  if (optionPremium && optionPremium > 0) {
-    // The scan has a premium but never a delta, so this reading assumes the
-    // contract moves point-for-point with the underlying. The strike ticket
-    // knows the contract's delta and reports the exact figure — same rule,
-    // same wording, from lib/trade/premium-stop.ts.
-    stopBandWarning = readPremiumStop({ risk: structuralRisk, premium: optionPremium })?.warning ?? null;
-  } else if (executionAtr && executionAtr > 0) {
+  // A bought option: the premium is the stop and the risk (Gann, Master
+  // Course Ch. 19A, PDF 444, 449-450), so no stop band is judged for it
+  // (review finding R-006; the 12-18% of premium band had no source). The
+  // strike ticket shows what the underlying's stop would cost, as information.
+  const optionPriced = optionPremium != null && optionPremium > 0;
+  if (!optionPriced && executionAtr && executionAtr > 0) {
     // No premium: the honest question is whether the stop is sane for how much
     // this instrument moves, not what fraction of the notional it represents.
     // Measuring against share price puts every intraday structural stop at

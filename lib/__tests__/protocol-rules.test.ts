@@ -86,8 +86,9 @@ describe("the advertised targets match the priced ones", () => {
     expect(TP1_RULE_DETAIL).not.toMatch(/of entry price, scaled/);
   });
 
-  it("says the 12–18% band is about option premium, not share price", () => {
-    expect(STOP_RULE_DETAIL).toContain("option premium");
+  it("says a bought option's premium is its stop, with no premium band (R-006)", () => {
+    expect(STOP_RULE_DETAIL).toContain("premium paid is the stop");
+    expect(STOP_RULE_DETAIL).not.toMatch(/12–18%/);
   });
 
   it("states every condition that can hold a setup at the cutoff below Execute", () => {

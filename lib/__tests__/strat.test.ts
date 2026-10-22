@@ -173,7 +173,7 @@ describe("computeTradeLevels", () => {
       name: "2-1-2" as const,
       direction: "bullish" as const,
       triggerPrice: 100,
-      stopPrice: 85, // 15% risk — inside the 12–18% band
+      stopPrice: 85, // 15% risk
       description: "",
     };
     const levels = computeTradeLevels(pattern, { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 }, []);
@@ -276,13 +276,13 @@ describe("computeTradeLevels", () => {
     };
     const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
 
-    it("reports the premium band on both sides when a premium is known", () => {
-      // $1 of risk against $10 of premium is 10% — inside the band's floor.
-      expect(computeTradeLevels(pattern, prev, [], 10).stopBandWarning).toContain("tighter");
-      // …and against $4 it is 25%, above the ceiling.
-      expect(computeTradeLevels(pattern, prev, [], 4).stopBandWarning).toContain("wider");
-      // $6.50 puts it at ~15%, mid-band.
-      expect(computeTradeLevels(pattern, prev, [], 6.5).stopBandWarning).toBeNull();
+    it("judges no stop band on a bought option: the premium is the risk (R-006)", () => {
+      // Gann, Master Course Ch. 19A: the option is the stop. The 12-18% of
+      // premium band, with its "increase size" and "reduce size" advice, had
+      // no source and is gone.
+      for (const premium of [10, 4, 6.5]) {
+        expect(computeTradeLevels(pattern, prev, [], premium).stopBandWarning).toBeNull();
+      }
     });
 
     it("says nothing about the premium band when no premium is supplied", () => {
@@ -304,9 +304,10 @@ describe("computeTradeLevels", () => {
       expect(computeTradeLevels(pattern, prev, [], undefined, 1).stopBandWarning).toBeNull();
     });
 
-    it("prefers the premium band over the volatility one when both are known", () => {
-      const levels = computeTradeLevels(pattern, prev, [], 4, 0.2);
-      expect(levels.stopBandWarning).toContain("premium");
+    it("reads no candle-width warning on a bought option either", () => {
+      // The premium caps the loss, so the underlying's stop width is not a
+      // sizing question for the option (Ch. 19A).
+      expect(computeTradeLevels(pattern, prev, [], 4, 0.2).stopBandWarning).toBeNull();
     });
   });
 

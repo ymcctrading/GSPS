@@ -116,9 +116,9 @@ export function StrikeOrderModal({
   }, [contract, orderKind, action, limit, quantity]);
 
   /**
-   * The premium band, evaluated exactly. Long premium only: the rule is about
-   * how much of what you paid a structural stop consumes, which has no meaning
-   * on a short where the premium is collected and the loss is open-ended.
+   * How much of the premium the underlying's stop would consume, read exactly.
+   * Information only (R-006): by Gann's rule the premium is the risk. Long
+   * premium only: on a short the premium is collected and the loss is open.
    */
   const stopReading = useMemo(() => {
     if (!contract || !preview || !levels || action !== "buy") return null;
@@ -344,7 +344,6 @@ export function StrikeOrderModal({
                   <Row
                     label={`Premium at risk (delta ${Math.abs(contract.delta).toFixed(2)})`}
                     value={`${stopReading.pctOfPremium.toFixed(1)}% of premium`}
-                    tone={stopReading.verdict === "in-band" ? "bull" : "warn"}
                   />
                 )}
               </dl>
@@ -361,9 +360,6 @@ export function StrikeOrderModal({
                   ` + ${formatUsd(stopReading.decayCost)} decay`}{" "}
                 per share.
               </p>
-            )}
-            {stopReading?.warning && (
-              <p className="mt-2 text-xs text-warn">{stopReading.warning}</p>
             )}
             {orderKind === "market" && (
               <p className="mt-2 text-xs text-muted">

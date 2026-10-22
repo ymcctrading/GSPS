@@ -188,7 +188,7 @@ export interface TradeLevels {
    * would flip on rounding noise. This reports which branch actually ran.
    */
   masterFromStructure: boolean;
-  /** Warning when the structural stop is outside the recommended 12–18% band. */
+  /** Warning when the structural stop is unusually wide for the instrument's candles; none for a bought option, whose premium is its stop (R-006). */
   stopPctOfPrice: number;
   stopBandWarning: string | null;
   /**
@@ -423,7 +423,7 @@ export interface ScanResult {
    * daily history to average.
    */
   volumeRead?: { relativeVolumeIndex: number | null };
-  /** Optional: option premium supplied by user for the 12–18% stop calc. */
+  /** Optional: option premium supplied by the user; a bought option's premium is its stop (R-006). */
   optionPremium?: number;
   /**
    * The Signal and Regime Engine's read (lib/signals) — a separate decision
