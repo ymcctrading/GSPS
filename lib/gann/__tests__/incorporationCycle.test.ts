@@ -61,6 +61,14 @@ describe("time from the company's inception (parity D3)", () => {
     );
   });
 
+  it("A-TIME-35: reads the 'certain ages' of a fast move as the cycle years from inception (labelled reconstruction)", () => {
+    // Tunnel p.199 names the ages but not which; GSPS reads his Ch. 7 cycle years.
+    expect(readIncorporationCycle(USX, on("1931-02-25"))!.completingCycles).toContain(30);
+    expect(readIncorporationCycle(USX, on("1961-02-25"))!.completingCycles).toEqual(expect.arrayContaining([30, 60]));
+    // Age 31 completes none of the named cycles (1, 2 and 3 are left out).
+    expect(readIncorporationCycle(USX, on("1932-02-25"))!.completingCycles).toEqual([]);
+  });
+
   it("is absent for a date after the session", () => {
     expect(readIncorporationCycle({ date: "2030-01-01", precision: "day" }, on("2026-01-01"))).toBeNull();
   });

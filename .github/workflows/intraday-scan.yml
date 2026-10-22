@@ -8,25 +8,17 @@ name: Intraday scan
 # slots are spent on the daily market scan — so a job that needs to run every
 # few minutes during the session has to live outside vercel.json entirely.
 #
-# `13-21 UTC` is wider than the actual 09:30-16:00 ET session on purpose — it
-# has to cover the session under both EST (UTC-5) and EDT (UTC-4) without a
-# DST-aware cron, and GitHub Actions' scheduler is routinely a few minutes
-# late anyway. A run that lands before the open or after the close is cheap:
-# the route reports it as pre-market/after-hours and scans the last closed
-# session's data rather than fabricating anything.
+# The database (pg_cron) now runs it every 15 minutes: `13-21 UTC` on
+# weekdays covers the 09:30-16:00 ET session under both EST and EDT, and the
+# hours outside it (weekday overnight and the whole weekend) are scanned with
+# `?universe=crypto`, since crypto is the only part of the watchlist still
+# trading then (2026-08-21: a live BTC move went unflagged because nothing
+# scanned crypto at any hour). A run that lands before the open or after the
+# close is cheap: the route reports it as pre-market/after-hours and scans the
+# last closed session's data rather than fabricating anything.
 #
-# A second cron below covers everything outside that window — weekday
-# overnight plus the whole weekend. It exists because the watchlist now
-# includes BTC/USD and ETH/USD (2026-08-21: a live BTC move went unflagged
-# because nothing scanned crypto at all, at any hour), and crypto is the one
-# part of the watchlist still trading when equities are closed. Scanning the
-# full watchlist on that schedule would mean repeatedly evaluating a dozen
-# stocks and ETFs whose market cannot have moved, so this schedule passes
-# `?universe=crypto` and the route scans only the crypto symbols for it.
-# `github.event.schedule` is how the one job below tells the two schedules
-# apart — it holds whichever cron string fired, and is unset for
-# `workflow_dispatch`, which is why a manual run always gets the full
-# watchlist regardless of when someone kicks it off.
+# A manual run scans the full watchlist, or only the crypto symbols when the
+# `universe` input is set to `crypto`.
 #
 # Authorized the same way as /api/market-scan: CRON_SECRET as a bearer token.
 # The route only fans out email notifications and writes to
@@ -34,10 +26,18 @@ name: Intraday scan
 # on-demand scan (still served the same way it always was) never emails
 # anyone on their behalf.
 on:
-  # Scheduled from the database since 2026-10-21 (pg_cron, migration
-  # 0089_scheduled_jobs_pg_cron.sql): GitHub dropped most scheduled runs.
-  # Run by hand from the Actions tab if needed.
+  # Scheduled from the database since 2026-10-21 (pg_cron: migration
+  # 0089_scheduled_jobs_pg_cron.sql, with the times staggered by
+  # 0097_stagger_scheduled_jobs.sql): GitHub dropped most scheduled runs. The
+  # schedule notes above describe the cadence, which the database keeps. Run
+  # by hand from the Actions tab if needed.
   workflow_dispatch:
+    inputs:
+      universe:
+        description: "Which symbols to scan"
+        type: choice
+        options: [all, crypto]
+        default: all
 
 jobs:
   scan:
@@ -47,7 +47,7 @@ jobs:
       - name: Call intraday-scan
         run: |
           query=""
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "*/15 13-21 * * 1-5" ]; then
+          if [ "${{ inputs.universe }}" = "crypto" ]; then
             query="?universe=crypto"
           fi
           status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
