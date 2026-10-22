@@ -130,6 +130,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         skipped.push({ symbol, reason: `pass 1: ${err instanceof Error ? err.message : String(err)}` });
       }
       await pause(began, 4);
+      if (perSymbol.size % 50 === 0) console.log(`[pass 1] ${perSymbol.size}/${universe.length} symbols, ${skipped.length} skipped`);
     }
 
     // The sessions, in order, and each one's focus list from the evening before.
@@ -154,6 +155,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
       for (const [k, n] of Object.entries(from)) into[k] = (into[k] ?? 0) + n;
     };
     const baselineFrom = new Date(windowStart.getTime() - 14 * 86_400_000);
+    let done = 0;
     for (const [symbol, s] of perSymbol) {
       const began = Date.now();
       let pages = 1;
@@ -176,6 +178,8 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         skipped.push({ symbol, reason: `pass 2: ${err instanceof Error ? err.message : String(err)}` });
       }
       await pause(began, pages);
+      done += 1;
+      if (done % 50 === 0) console.log(`[pass 2] ${done}/${perSymbol.size} symbols, ${planHeld.length} plan_level_held trades`);
     }
 
     const out = {

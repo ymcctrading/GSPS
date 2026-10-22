@@ -102,8 +102,28 @@ export function marketHolidays(year: number): Date[] {
   return holidays.sort((a, b) => a.getTime() - b.getTime());
 }
 
+// Both answers depend on the date alone, and the intraday replay asks them
+// for every bar at every scan step, so each date is worked out once (bounded,
+// cleared when full). Speed only: same output.
+const CALENDAR_CACHE_LIMIT = 50_000;
+function remembered(cache: Map<string, boolean>, dateKey: string, read: (dateKey: string) => boolean): boolean {
+  let answer = cache.get(dateKey);
+  if (answer === undefined) {
+    if (cache.size >= CALENDAR_CACHE_LIMIT) cache.clear();
+    answer = read(dateKey);
+    cache.set(dateKey, answer);
+  }
+  return answer;
+}
+const holidayCache = new Map<string, boolean>();
+const earlyCloseCache = new Map<string, boolean>();
+
 /** `true` if `dateKey` (an America/New_York "YYYY-MM-DD") is a full-day market holiday. */
 export function isMarketHoliday(dateKey: string): boolean {
+  return remembered(holidayCache, dateKey, readMarketHoliday);
+}
+
+function readMarketHoliday(dateKey: string): boolean {
   const year = Number(dateKey.slice(0, 4));
   // A holiday can only ever fall in the queried year or, for New Year's
   // Day shifted from a Dec 31/Jan 2 in the adjacent year, the year on
@@ -122,6 +142,10 @@ export function isMarketHoliday(dateKey: string): boolean {
  * holiday when July 4 is a Saturday, so it stays closed all day).
  */
 export function isEarlyClose(dateKey: string): boolean {
+  return remembered(earlyCloseCache, dateKey, readEarlyClose);
+}
+
+function readEarlyClose(dateKey: string): boolean {
   const year = Number(dateKey.slice(0, 4));
   const thanksgiving = nthWeekdayOfMonth(year, 10, 4, 4);
   const dayAfter = utcNoon(year, 10, thanksgiving.getUTCDate() + 1);
