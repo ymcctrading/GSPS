@@ -2916,8 +2916,8 @@ entry in an active market (Master Course Ch.13). So the intraday scanner now
 times the daily plan: "Daily plan's level held" (`plan_level_held`,
 `lib/scanner/intraday.ts`) fires when price reacts to a standing Execute or
 Watch plan's entry without trading its stop and the session's swing chart turns
-back through it; the stop is 3 Gann points under the day's low, never past the
-daily plan's stop, and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
+back through it; the stop at entry is the daily plan's own (Rule 3, aligned with
+#411's styles, which move it after the fill), and TP1 and MTP are the daily plan's (NSTD pp.20, 46;
 *Tunnel* p.198 for the re-buy). Not a session-swing stop: the six-year intraday
 replay (2026-10-21, `replay-diagnosis/2026-10-21-intraday-profile-verdict.md`)
 failed its test with every loss on the initial stop, so the panel says intraday
@@ -2939,6 +2939,28 @@ scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
 shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+Email and browser push for the same signals (`lib/notifications/intradayDelivery.ts`,
+2026-10-21, after #404) go to every member by their settings (push off until
+turned on), score floor and quiet hours, each channel deduped on its own, and
+now by tier as the bell is: before, email reached every member whatever their
+plan.
+**Measured losing, 2026-10-22 (run 80,
+`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`):** "Daily plan's level
+held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
+both halves), on the earlier stop. It stays on the panel labelled with that
+record (`MEASURED_LOSING`, `lib/scanner/intradayDisplay.ts`), with no "Trade
+this" and no bell, email or push, until a run on the current stop reads
+otherwise; presume a translation defect first. Diagnosed the same day (owner:
+"if it is a Gann method ... determine how and why we are getting negative
+results, and correct it"): the alert fired on plans whose entry was a crossing
+still to be made: with price under the entry (the reaction buy 1 point past the
+old top), its touch test passed all session, so it bought the first intraday
+bar through the top before a daily close 3 points past it gave the indication
+(W006 Rule 3(b)-(c)). It now needs the prior session to have closed at or
+beyond the entry (a held bottom's entry is that close), so the touch is a
+reaction. Known gap: a crossing closed past the entry but not yet 3 points past
+it still passes, until the plan's entry kind and held state are carried onto
+the stored plan. The hold stays until a run on the fix reads positive.
 **Focus list, same day (owner: "take the highly likely, and track those ...
 invalidate and replace them").** After the close, `/api/intraday-focus`
 (pg_cron 22:00 UTC, migration 0098, applied 2026-10-21) reads the scan universe's daily bars in

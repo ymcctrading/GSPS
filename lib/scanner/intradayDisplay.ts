@@ -45,9 +45,35 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
   plan_level_held:
-    "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: a stop 3 points under the day's low (over the high, for a sell), never past the daily plan's own stop, and the daily plan's targets.",
+    "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: the daily plan's own stop and targets, with the stop moved by your trade style once filled.",
   reversal_risk:
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
+};
+
+/**
+ * A signal the intraday replay measured losing, with its record. Shown on the
+ * card, and the signal is held back from action: no "Trade this", no bell,
+ * email or push (`alertsForTier`), until a run on the current rule reads
+ * otherwise. Visible, labelled, and never offered as a trade: an inverted
+ * reading is presumed a translation defect to find, not a trade to take
+ * (AGENTS.md, "Gann-derived AND measured").
+ *
+ * plan_level_held: backtest-universe run 80 (2026-10-22, 832 symbols,
+ * 2026-08-26 to 2026-10-21, five-minute bars, Gann exits): 152 trades,
+ * −0.107R, 95% CI [−0.185, −0.028], both halves losing
+ * (`replay-diagnosis/2026-10-22-intraday-alerts-replay.md`). That run used
+ * the earlier stop (the tighter of the plan's stop and 3 points beyond the
+ * day's low); most of its trades left on Gann's exit signals, not the stop
+ * (9 of 152 on the initial stop, 33 on three adverse closes, 15 on a failed
+ * top). The diagnosis (2026-10-22): the alert also fired on plans whose entry
+ * was a crossing still to be made, buying the first intraday bar through an
+ * old top's 3-point line before the daily close gave the indication. Fixed in
+ * `detectPlanLevelHeld` (the prior close must sit on the plan's side). Re-run
+ * on the fix before lifting the hold.
+ */
+export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
+  plan_level_held:
+    "Measured losing: the replay of Aug 26 to Oct 21, 2026 lost on this signal (152 trades, −0.11R a trade, with an earlier stop). Shown for study only; it is not offered as a trade until a new run reads otherwise.",
 };
 
 export function formatAge(seconds: number): string {
