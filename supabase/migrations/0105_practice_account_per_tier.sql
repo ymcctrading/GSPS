@@ -18,7 +18,8 @@
 -- may look but not write. proxy.ts refuses its /api writes; the restrictive
 -- policies below refuse the writes a browser makes straight to the database
 -- with the member's own token (settings, automation, broker connections, the
--- profile, watchlists, saved setups, alerts, scripts, preferences, critiques).
+-- profile, watchlists, saved setups, alerts, scripts, preferences, critiques,
+-- and the history tables the account's pages read back).
 -- A practice session's token carries app_metadata.practice_tier, which only
 -- the service role can set; every member's token has none, so for members
 -- these policies change nothing. The service role (the auto-trader, the
@@ -66,7 +67,13 @@ begin
     'trade_critiques', 'strategy_plugins', 'strategy_plugin_versions',
     'strategy_mode_preferences', 'notification_preferences', 'push_subscriptions',
     'watchlists', 'watchlist_items', 'saved_setups', 'setup_folders',
-    'custom_price_alerts', 'scan_criteria_presets', 'school_trader_operating_system'
+    'custom_price_alerts', 'scan_criteria_presets', 'school_trader_operating_system',
+    -- Rows the account's pages show back to the next visitor (scan history,
+    -- the intraday cooldown, the notification log) and the learning tables;
+    -- GSPS writes these with the service role, so nothing it does is refused.
+    'scan_results', 'intraday_alerts', 'notification_log', 'execution_events',
+    'signal_lifecycle_events', 'user_actions', 'scan_events', 'pivot',
+    'trend_state', 'volatility_state', 'volume_state', 'digital_root_feature'
   ] loop
     if to_regclass('public.' || t) is null then
       continue;

@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { practiceTierOfUser } from "@/lib/demo/practice";
 import { createClient } from "@/lib/supabase/server";
 import {
   onboardingRecord,
@@ -64,6 +65,12 @@ export async function PUT(req: NextRequest) {
   const parsed = OutcomeSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Expected an outcome of completed or skipped." }, { status: 400 });
+  }
+
+  // A practice account is shared and look-only (lib/demo/practice.ts): the
+  // tour is shown on every visit, so its outcome is answered and not stored.
+  if (practiceTierOfUser(user)) {
+    return NextResponse.json(resolveOnboarding({ onboarding: onboardingRecord(parsed.data.outcome) }));
   }
 
   // Merge rather than replace: `prefs` is shared with the Guided caps and
