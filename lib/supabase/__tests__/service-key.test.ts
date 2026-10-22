@@ -19,4 +19,12 @@ describe("serviceRoleKey (review finding S-06)", () => {
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     expect(serviceRoleKey()).toBeUndefined();
   });
+
+  it("treats a blank secret key as unset", () => {
+    process.env.SUPABASE_SECRET_KEY = "   ";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "legacy";
+    expect(serviceRoleKey()).toBe("legacy");
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "";
+    expect(serviceRoleKey()).toBeUndefined();
+  });
 });

@@ -384,8 +384,9 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
       "Replaces `timeCycle` (retired 2026-09-10; see RETIRED) — its projected-anniversary-date " +
       "approach measured negligible even after fixing the two implementation defects that had made it " +
       "look inverted. This is a different construction on the same daily bars: bars elapsed since the " +
-      "direction-matched swing pivot (low for bullish, high for bearish — the same anchor convention " +
-      "`gannAngleSlope` uses) checked one-for-one against the raw price move since that pivot, with no " +
+      "swing pivot against the trade (the high for bullish, the low for bearish, since 2026-10-21; it " +
+      "shared `gannAngleSlope`'s trade-side anchor before) checked one-for-one against the move away " +
+      "from that pivot, up from a low or down from a high (since the review of #389), with no " +
       "ATR normalization — a distinct question from `gannAngleSlope`'s ATR-normalized rate of change. " +
       "First measured 2026-09-10: Execute itself read 0 trades at every timeframe/targetR tried, so only " +
       "unconditioned attribution exists. The 15Min unconditioned population " +
@@ -529,7 +530,9 @@ const PILLAR = (id: string, label: string, source: string, note: string): Regist
  */
 const SCAN_SCORE: RegisteredCriterion[] = [
   PILLAR("marketCycle", "Market and cycle position", "lib/gann/trendStrength.ts, lib/gann/timeCycles.ts, lib/gann/decadeCycle.ts, lib/gann/yearRanges.ts",
-    "MC Ch.7 C1, C2: two of the market's trend with the side, no yearly count due against it, and the year's character with it."),
+    "MC Ch.7 C1, C2: two of the market's trend with the side, no yearly count due against it, and the year's character with it. " +
+      "Since 2026-10-22 the cycle check also needs the market's mass-pressure curve (A-OTHER-05, MC Ch.7 PDF 224-228: every decade 10 to " +
+      "70 years back, lib/gann/massPressure.ts) not against the side, for a stock; on 1941-2026 its sign agreed with the market's month 57.0% against a 54.3% chance rate."),
   PILLAR("trendAllTimeframes", "Trend on every timeframe", "lib/gann/weeklyOneBar.ts, lib/gann/swingChart.ts, lib/gann/ruleOfThree.ts",
     "MC Ch.7 C13; MC Ch.8 p.239; 45Y R1: the weekly green/red trend line with the side, and the 3-day swing or the Rule of Three. Absorbs swingChartTrend and ruleOfThree. " +
       "TRANSLATION FIX (2026-10-21): the weekly leg read the 1951 7-day chart's trend, which inverted on every nine-pillar replay; it now reads the green/red line the design named."),

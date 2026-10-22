@@ -23,6 +23,14 @@ function requireEnv(name) {
   return v;
 }
 
+// The server key: the Sensitive SUPABASE_SECRET_KEY first, then the legacy
+// SUPABASE_SERVICE_ROLE_KEY (review finding S-06, lib/supabase/service-key.ts).
+function serverKey() {
+  const v = process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!v) throw new Error("SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is not set");
+  return v;
+}
+
 function keyFromEnv(name) {
   const buf = Buffer.from(requireEnv(name), "base64");
   if (buf.length !== 32) throw new Error(`${name} must be 32 bytes (base64)`);
@@ -50,7 +58,7 @@ function encrypt(data, key) {
 
 async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? requireEnv("SUPABASE_URL");
-  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleKey = serverKey();
   const currentKey = keyFromEnv("CREDENTIALS_ENCRYPTION_KEY");
   const previousKey = keyFromEnv("CREDENTIALS_ENCRYPTION_KEY_PREVIOUS");
 

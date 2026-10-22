@@ -28,6 +28,7 @@ import { selectVisibleResults, type RankedSetup } from "@/lib/entitlements/resul
 import { evaluateMonitorsAndNotify } from "@/lib/entitlements/scan-fanout";
 import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { getUniversePolicy } from "@/lib/universe/policy";
+import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import type { ScanResult } from "@/lib/types";
 
 const DEFAULT_WATCHLIST = [
@@ -61,6 +62,18 @@ export async function GET(req: NextRequest) {
     ? tickersParam.split(",").map((t) => t.trim()).filter(Boolean)
     : DEFAULT_WATCHLIST
   ).slice(0, MAX_SYMBOLS);
+
+  // A batch scan records history, opens monitors and sends alerts, so it is
+  // refused outright on synthetic data in production, before any quota is
+  // spent (review of #399; lib/data/feed-mode.ts).
+  // The refusal's text names the server's configuration, so it goes to the
+  // log (syntheticDataRefusal logs it) and the caller gets a fixed message.
+  if (syntheticDataRefusal("run a dashboard scan")) {
+    return NextResponse.json(
+      { error: "Market data is unavailable right now, so the scan did not run.", code: "synthetic_market_data" },
+      { status: 503 },
+    );
+  }
 
   // Server-side writes and the quota RPCs below require service_role -- see
   // supabase/migrations/0036_entitlement_usage_and_monitors.sql's grants.

@@ -46,7 +46,7 @@
 import { z } from "zod";
 import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
 import { figuresAround, shortOfFigure } from "@/lib/gann/evenFigures";
-import { priceText, roundPrice } from "@/lib/strat/priceText";
+import { priceText, priceUsd, roundPrice } from "@/lib/strat/priceText";
 
 export const ALERT_FIELDS = [
   "last",
@@ -216,8 +216,8 @@ export function describeAlertRule(rule: {
 export function formatThreshold(field: AlertField, value: number): string {
   if (field === "volume") return Math.round(value).toLocaleString("en-US");
   if (field === "pct_change") return `${value.toFixed(2)}%`;
-  if (field === "net_change") return `${value < 0 ? "-" : value > 0 ? "+" : ""}$${priceText(Math.abs(value))}`;
-  return `$${priceText(value)}`;
+  if (field === "net_change") return `${value < 0 ? "-" : value > 0 ? "+" : ""}${priceUsd(Math.abs(value))}`;
+  return priceUsd(value);
 }
 
 /** A level on the chart the editor can take a threshold from. */

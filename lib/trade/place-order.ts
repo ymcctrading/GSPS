@@ -39,7 +39,7 @@ import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
-import { evaluateLiveCircuitBreaker } from "@/lib/risk/service";
+import { CircuitStateUnreadableError, evaluateLiveCircuitBreaker } from "@/lib/risk/service";
 import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
@@ -96,6 +96,13 @@ export const OrderSchema = z.object({
    * the target as unknown and holds the entry under any failed test beyond it.
    */
   entryTarget: z.number().positive().optional(),
+  /**
+   * The technique whose own levels the person chose to trade (owner,
+   * 2026-10-22, `lib/strategies/compare.ts`): a mode id or `custom:<id>`.
+   * Its entry is the person's own limit, not a Gann crossing, so no crossing
+   * line is read from its stop. The risk rules still apply.
+   */
+  techniqueSource: z.string().min(1).max(80).optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -238,7 +245,7 @@ export function riskCapRefusal(
 type ConfirmationInput = Pick<
   OrderInput,
   "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "entryTarget" | "referencePrice"
->;
+> & { techniqueSource?: string };
 
 /** Returns a refusal, or null to proceed. */
 export async function entryConfirmationRefusal(
@@ -292,7 +299,11 @@ export async function confirmEntry(
     // stop (`gannBreakLine`). The ticket sends that stop as `entryStop`, so a
     // stop the person typed in Manual Override doesn't move the line; an
     // order without it falls back to the stop it attaches.
-    const stopPrice = input.entryStop ?? input.attachLevels?.stopLoss;
+    // A technique's own levels (2026-10-22) carry no protocol stop and fall
+    // back to nothing: the person chose that technique, and "we can NEVER
+    // force them to drink" (owner), so no Gann crossing is waited for.
+    const stopPrice =
+      input.entryStop ?? (input.techniqueSource ? undefined : input.attachLevels?.stopLoss);
     if (stopPrice != null) {
       target = {
         direction: input.side === "sell" ? "bearish" : "bullish",
@@ -394,7 +405,14 @@ export async function placeSimulatedOrder(
   // the synthetic quote, so it is refused.
   if (input.mode !== "live" || !isProtective) {
     const refused = syntheticDataRefusal(`place a ${input.mode === "live" ? "live" : "paper"} order for ${input.symbol.toUpperCase()}`);
-    if (refused) return { status: 503, body: { error: `${refused} Nothing was placed.`, code: "synthetic_market_data" } };
+    // The refusal's text names the server's configuration: it is logged, and
+    // the member gets a fixed message (S-14).
+    if (refused) {
+      return {
+        status: 503,
+        body: { error: "Market data is unavailable right now, so nothing was placed.", code: "synthetic_market_data" },
+      };
+    }
   }
 
   // A stop on every trade (A-STOP-01; owner, 2026-10-16, Q1): a new equity
@@ -1064,39 +1082,65 @@ async function placeLiveOrder(
 
   // Risk gate first — the Novice Risk & Cooldown Engine's rules apply only
   // to real money (see lib/risk/service.ts header), and this is the account
-  // they were built to gate. Read once, real, from the broker itself.
-  let equity: number;
+  // they were built to gate. Read once, real, from the broker itself. A stop,
+  // close or reduction is never blocked by the breaker (lib/risk/cooldown.ts),
+  // so a read that fails holds new entries only (review finding R-003).
+  let equity = 0;
   try {
     const account = await getAccount(connection.creds);
     equity = Number(account.equity);
     if (!Number.isFinite(equity)) throw new Error("Alpaca returned a non-numeric equity figure.");
   } catch (err) {
-    return {
-      status: 502,
-      body: {
-        error: `Couldn't read the live account's equity from Alpaca — ${err instanceof Error ? err.message : String(err)}. Nothing was placed.`,
-        code: "live_equity_unreadable",
-      },
-    };
+    if (!isProtective) {
+      return {
+        status: 502,
+        body: {
+          error: `Couldn't read the live account's equity from Alpaca — ${err instanceof Error ? err.message : String(err)}. Nothing was placed.`,
+          code: "live_equity_unreadable",
+        },
+      };
+    }
+    equity = Number.NaN;
   }
 
-  const gate = await evaluateLiveCircuitBreaker(supabase, userId, equity, true);
-  // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
-  // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
-  // already-resolved decision above, without a second, potentially
-  // inconsistent state resolution. Before this fix (2026-09-17
-  // orphan-module audit), a live protective order hitting during an active
-  // cooldown or lock would have been refused here — this file already
-  // claimed elsewhere that "the account-wide circuit breaker never blocks a
-  // close," but `lib/risk/cooldown.ts` had no caller anywhere in the
-  // codebase, so nothing actually enforced that at this, the one live call
-  // site it applies to.
-  const cooldownGate = gateResolvedAction(isProtective ? "position_reduce" : "new_entry", gate.decision);
-  if (!cooldownGate.allowed) {
-    return {
-      status: 409,
-      body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
-    };
+  if (Number.isFinite(equity)) {
+    let gate: Awaited<ReturnType<typeof evaluateLiveCircuitBreaker>> | null = null;
+    try {
+      gate = await evaluateLiveCircuitBreaker(supabase, userId, equity, true);
+    } catch (err) {
+      // A stop, close or reduction goes through whatever failed; an entry
+      // is held on an unread risk state and fails on anything else.
+      if (!isProtective && !(err instanceof CircuitStateUnreadableError)) throw err;
+      console.error(`risk: live circuit breaker not evaluated — ${err instanceof Error ? err.message : String(err)}`);
+      if (!isProtective) {
+        return {
+          status: 503,
+          body: {
+            error: "The account's risk state couldn't be read, so no new entry was placed. Stops and closes still go through.",
+            code: "risk_state_unreadable",
+          },
+        };
+      }
+    }
+    if (gate) {
+      // `gateResolvedAction` (lib/risk/cooldown.ts) applies the disclosed
+      // "cooldown never blocks a stop loss/take profit/reduce/close" rule to the
+      // already-resolved decision above, without a second, potentially
+      // inconsistent state resolution. Before this fix (2026-09-17
+      // orphan-module audit), a live protective order hitting during an active
+      // cooldown or lock would have been refused here — this file already
+      // claimed elsewhere that "the account-wide circuit breaker never blocks a
+      // close," but `lib/risk/cooldown.ts` had no caller anywhere in the
+      // codebase, so nothing actually enforced that at this, the one live call
+      // site it applies to.
+      const cooldownGate = gateResolvedAction(isProtective ? "position_reduce" : "new_entry", gate.decision);
+      if (!cooldownGate.allowed) {
+        return {
+          status: 409,
+          body: { error: cooldownGate.reason, code: "risk_cooldown", riskState: gate.decision.state },
+        };
+      }
+    }
   }
   if (!isProtective) {
     const paused = await lossSeriesRefusal(supabase, userId);

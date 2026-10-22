@@ -35,7 +35,7 @@ import { SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDispla
 import type { Alert } from "@/lib/scanner/intraday";
 import { tickerHref } from "@/lib/routes";
 import { rewardToRisk, type SetupCardModel, type SetupCheck, type SetupLevels } from "@/lib/setups/card";
-import { formatUsd } from "@/lib/utils";
+import { priceUsd } from "@/lib/strat/priceText";
 
 export function isReversalRisk(alert: Alert): boolean {
   return alert.type === "reversal_risk";
@@ -74,14 +74,14 @@ export function buildIntradaySynopsis(alert: Alert): string {
   if (levels.entry == null || levels.stop == null) return first;
   const wait =
     alert.type === "plan_level_held"
-      ? `${first} The daily plan's level held and a bar has closed back ${up ? "above" : "below"} it: entry near ${formatUsd(levels.entry)}, exit at ${formatUsd(levels.stop)} if it fails`
-      : `${first} Wait for a bar to close ${up ? "above" : "below"} ${formatUsd(levels.entry)}, exit at ${formatUsd(levels.stop)} if it fails`;
+      ? `${first} The daily plan's level held and a bar has closed back ${up ? "above" : "below"} it: entry near ${priceUsd(levels.entry)}, exit at ${priceUsd(levels.stop)} if it fails`
+      : `${first} Wait for a bar to close ${up ? "above" : "below"} ${priceUsd(levels.entry)}, exit at ${priceUsd(levels.stop)} if it fails`;
   if (levels.tp1 == null) {
     // No old top or bottom lies ahead: name none rather than invent one.
     return `${wait}. No target is fixed: there is no old ${up ? "high" : "low"} ahead of price, so the stop trails under each ${up ? "higher bottom" : "lower top"} instead.`;
   }
   const multiple = rewardToRisk(levels, levels.tp1);
-  const base = `${wait}, first target ${formatUsd(levels.tp1)}${multiple != null ? ` (${multiple.toFixed(1)}× the risk)` : ""}${levels.mtp != null ? `, then ${formatUsd(levels.mtp)} (MTP)` : ""}.`;
+  const base = `${wait}, first target ${priceUsd(levels.tp1)}${multiple != null ? ` (${multiple.toFixed(1)}× the risk)` : ""}${levels.mtp != null ? `, then ${priceUsd(levels.mtp)} (MTP)` : ""}.`;
   if (alert.continuationPlan.paysRisk === false) {
     return `${base} That target pays no more than the risk, so the method takes no trade here: profits must exceed losses.`;
   }

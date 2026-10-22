@@ -108,9 +108,9 @@ export interface ScoreInputs {
   /**
    * Gann's squaring of price and time off the daily bars
    * (`lib/gann/timePriceSquare.ts#computeTimePriceSquare`) — bars elapsed
-   * since the direction-matched swing pivot (low for bullish, high for
-   * bearish) checked against the price move since that pivot measured in
-   * 14-bar ATRs, one ATR per day (an engineering unit, not Gann's raw point).
+   * since the swing pivot against the trade (the high for bullish, the low
+   * for bearish, since 2026-10-21) checked against the move away from that
+   * pivot in Gann points, one point per day.
    * A different question from `gannAngleSlope`'s rate of change. Empty when there isn't enough daily history to find a
    * pivot, which scores as a fail.
    */
@@ -395,7 +395,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   //
   // 2026-10-21: the square reads the move against the trade, not the move with
   // it. A balance of time and price marks a turn, measured "up from lows" and
-  // "down from highs" (Master Course Ch. 6-7, PDF 750 of the notes: low 50,
+  // "down from highs" (Master Course Ch. 18, PDF p.440: low 50,
   // price 102, up 52 = 1 year, "a Time and Price Balance"; high 182, now 130,
   // down 52 = 1 year). For a long, the decline from the last high squaring out
   // says a bottom is due, which is the buy; the advance from the last low
@@ -627,21 +627,23 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // card's "Stop required"). The checks above feed them and score nothing on
   // their own; see lib/scoring/pillars.ts.
   const monthly = inputs.macroTrends.find((t) => t.timeframe === "1Month")?.direction ?? null;
-  const point = (key: CriterionKey, criterion: string, pillar: ScoreBreakdownItem["pillar"], r: PillarResult): ScoreBreakdownItem => ({
-    key, criterion, pillar, passed: r.passed, note: r.note,
+  // Each point is its own pillar on the card (2026-10-22, owner: the card's
+  // groups were out of date with the nine points actually scored).
+  const point = (key: CriterionKey, criterion: string, r: PillarResult): ScoreBreakdownItem => ({
+    key, criterion, pillar: key, passed: r.passed, note: r.note,
   });
   breakdown.push(
-    point("marketCycle", "Market and cycle position", "timing", marketCyclePillar(pillarFacts, direction)),
-    point("trendAllTimeframes", "Trend on every timeframe", "trend", trendPillar({
+    point("marketCycle", "Market and cycle position", marketCyclePillar(pillarFacts, direction)),
+    point("trendAllTimeframes", "Trend on every timeframe", trendPillar({
       side: direction, weeklyLine: pillarFacts?.weeklyLine, threeDay: swingChart?.threeDay, ruleOfThree: ruleOfThreeHolding, monthly,
     })),
-    point("relativeStrength", "Relative strength and leadership", "trend", relativeStrengthPillar(pillarFacts, direction)),
-    point("activity", "Activity and character", "setup", activityPillar(pillarFacts)),
-    point("priceLevels", "Price levels", "structure", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
-    point("geometricAngles", "Angles", "structure", anglesPillar(pillarFacts, direction, angleHolding)),
-    point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts })),
-    point("volumeAccumulation", "Volume and accumulation", "setup", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
-    point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, indicationShown, stopBehindOldLevel)),
+    point("relativeStrength", "Relative strength and leadership", relativeStrengthPillar(pillarFacts, direction)),
+    point("activity", "Activity and character", activityPillar(pillarFacts)),
+    point("priceLevels", "Price levels", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
+    point("geometricAngles", "Angles", anglesPillar(pillarFacts, direction, angleHolding)),
+    point("timeFactors", "Time", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts })),
+    point("volumeAccumulation", "Volume and accumulation", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
+    point("definiteIndication", "Definite indication with the stop placed", definiteIndicationPillar(pillarFacts, direction, indicationShown, stopBehindOldLevel)),
   );
 
   // Points, not criteria met: every criterion is worth one point under the

@@ -21,6 +21,8 @@ import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
+import { readMassPressure } from "@/lib/gann/massPressure";
+import { marketCountHit } from "@/lib/gann/eightyFourYear";
 import { readDayCircle } from "@/lib/gann/dayCircle";
 
 export type ContextFactors = Record<string, boolean>;
@@ -268,6 +270,19 @@ export function contextFactorsFor(
     const major = macro.activeWindows.filter((w) => w.majorCycleYears.length > 0);
     f.macroMajorCycleActive = major.length > 0;
     f.macroMajorCycleWithTrade = major.some((w) => w.bullish === bull);
+  }
+  // A-OTHER-05: the market's mass-pressure curve (P1's cycle check reads it
+  // too), for a stock only, as P1 reads it.
+  if (ctx.asOf && ctx.stockMarket) {
+    const mp = readMassPressure(new Date(ctx.asOf));
+    if (mp?.direction) f.massPressureWithTrade = mp.direction === direction;
+  }
+  // A-OTHER-06: the Dollar Trend, the market's monthly value crossing old highs or breaking old lows.
+  if (ctx.dollarTrend?.direction) f.dollarTrendWithTrade = ctx.dollarTrend.direction === direction;
+  // C-ASTRO-05: the market's major turn 84 years back to the month (Ch. 7, PDF 219), for a stock.
+  if (ctx.asOf && ctx.stockMarket) {
+    const hit = marketCountHit(new Date(ctx.asOf));
+    if (hit) f.eightyFourYearCountWithTrade = (hit.kind === "low") === bull;
   }
   // G25: early and late leaders; the first-year high for longs.
   if (ctx.leadership) {

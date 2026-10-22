@@ -1,13 +1,14 @@
 /**
  * GSPS — /api/strategy-levels
  *
- * Reads GSPS's plan in one non-Gann Strategy Mode's terms for a symbol
- * (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md). Explain-only
- * since 2026-10-16: it returns words about the plan's levels and, at most,
- * which way the mode currently arms, never a price of the mode's own.
- * Never wired into scanning, scoring, SignalGates, or Automation — this
- * route exists solely to feed the order ticket's optional Strategy Mode
- * display when a human has explicitly selected one for this ticket.
+ * Reads one non-Gann Strategy Mode against GSPS's plan for a symbol
+ * (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md). Since
+ * 2026-10-22 (owner): a mode that aligns with the plan trades GSPS's plan and
+ * sends only its reading of it; a mode that doesn't align sends its own entry,
+ * stop and TP1, never an MTP (`lib/strategies/compare.ts`). Never wired into
+ * scanning, scoring, SignalGates, the plan or Automation: it feeds the
+ * technique lines a person sees, and the order ticket's Manual Override when
+ * the person picks a technique's levels.
  *
  * `mode=gann` (or an unrecognized mode) is deliberately refused, not
  * silently satisfied some other way — a caller asking for the Gann trade
@@ -31,6 +32,7 @@ import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
 import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/types";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { explainPlan, parsePlanParams } from "@/lib/strategies/explain";
+import { readTechnique } from "@/lib/strategies/compare";
 
 // Same reasoning as /api/bars and /api/indicators: a symbol fetch can queue
 // behind the shared per-provider rate limiter, and 3 retries with backoff on
@@ -88,13 +90,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No bar data available" }, { status: 404 });
     }
 
-    // Explain-only (AGENTS.md "Strategy Modes", 2026-10-16): the mode reads
-    // GSPS's plan. Its own entry/stop/targets are not sent at all, so no
-    // client can show or use them; only the direction it arms in, if any.
+    // Aligned modes send no prices of their own (the plan sets them); the
+    // rest send entry, stop and TP1 only, never an MTP (2026-10-22).
     const own = evaluateStrategyMode(mode, bars);
     const armed = own ? { direction: own.direction, rationale: own.rationale } : null;
     const plan = parsePlanParams(searchParams);
     const reading = plan ? explainPlan(mode, bars, plan) : null;
+    const technique = readTechnique(mode, STRATEGY_MODE_LABELS[mode as StrategyModeId], plan, own, reading);
     return NextResponse.json({
       symbol: symbol.toUpperCase(),
       timeframe,
@@ -102,6 +104,8 @@ export async function GET(req: NextRequest) {
       label: STRATEGY_MODE_LABELS[mode as StrategyModeId],
       armed, // null when nothing is currently armed under this mode
       reading, // null without a plan, or when the mode has too few bars to read
+      aligned: technique.aligned,
+      levels: technique.ownLevels, // null when it aligns or has armed nothing
     });
   } catch (err) {
     return NextResponse.json(

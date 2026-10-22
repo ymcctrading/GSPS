@@ -37,6 +37,24 @@ describe("checksFromSummary", () => {
     ]);
   });
 
+  it("labels each of the nine points in plain English (2026-10-22)", () => {
+    const nine = {
+      score: 2,
+      max: 9,
+      pillars: [
+        { pillar: "marketCycle" as const, met: 1, total: 1 },
+        { pillar: "definiteIndication" as const, met: 0, total: 1 },
+        { pillar: "relativeStrength" as const, met: 1, total: 1 },
+      ],
+      stateNote: null,
+    };
+    expect(checksFromSummary(nine)).toEqual([
+      { label: "Market and cycle", state: "met", detail: "1 of 1" },
+      { label: "Entry and stop", state: "missed", detail: "0 of 1" },
+      { label: "Relative strength", state: "met", detail: "1 of 1" },
+    ]);
+  });
+
   it("is empty when the row carries no rollup", () => {
     expect(checksFromSummary(null)).toEqual([]);
     expect(checksFromSummary(undefined)).toEqual([]);

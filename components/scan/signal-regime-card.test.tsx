@@ -113,5 +113,8 @@ describe("SignalRegimeCard", () => {
     render(<SignalRegimeCard result={result} />);
 
     expect(screen.queryByText(secretNote)).not.toBeInTheDocument();
+    // An evaluated state that is not tradeable says so rather than showing an
+    // empty status block (review of #393).
+    expect(screen.getByText("Not tradeable")).toBeInTheDocument();
   });
 });
