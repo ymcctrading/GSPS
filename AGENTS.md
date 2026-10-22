@@ -1007,8 +1007,36 @@ window. Not acting, with the reason: Bucholtz's first-trade chart
 GSPS does not hold, and it is not Gann's; Jensen's aspects measured against
 Gann's own 1919-1921 malefic stretches showed no lift (A-ASTRO-11,
 `lib/research/maleficCycles.ts`), so they are not Gann's malefic cycle.
-`STRATEGY_VERSION` is `2026-10-22-gann-eclipse-break-window`, merged onto
+`STRATEGY_VERSION` was `2026-10-22-gann-eclipse-break-window`, merged onto
 `2026-10-21-review-sweep-square-sign-daily-firing-bar`, whose fixes it keeps.
+
+**Mass pressure, 2026-10-22 (owner: "Build these: 10 can be filled from Gann's
+own pages. Mass pressure ... written out in the Master Course (Ch. 7)").** Gann
+forecast the year by laying the years back over it on his Master 20-Year
+Forecasting Chart of the averages ("for the 1929 forecast, I compared 1919 …
+1909 … 1899 … and 1869", Ch. 7 PDF 224-225; for 1936 every decade back to 1866,
+expecting 1896 to repeat, PDF 227-228; *Commodities* pp. 11-12, his fifth
+factor). `lib/gann/massPressure.ts` averages the month's move in every decade
+back to 70 years (the 1936 lesson, the fuller one) and reads its sign; P1's
+cycle check now needs it not against the trade, as well as no yearly count due
+against it. The record is Shiller's monthly S&P composite from 1871, checked in
+(`lib/gann/marketHistory.json`, `scripts/fetch-market-history.mjs`, ODC-PDDL),
+an engineering stand-in for the Dow, read from the session's New York month for
+a stock on both surfaces, so no request. Engineering choices, labelled: equal
+weights, the sign as the direction, the month's move read centred (the figures
+are monthly averages). On 1941-2026 its sign agreed with the month's move 57.0%
+of the time against a 54.3% chance rate: weak, measured in the replay as
+`massPressureWithTrade`. Same change, a parity fix: the replay handed crypto
+SPY's bars, which the live scan never fetches, so crypto replays read a market
+trend, leaders and campaign length live never did; now neither does. Context
+only: Gann's 84-year count (Ch. 7 PDF 219) on the same record, a major market
+turn 84 years back to the month, judged on the record before the month read
+(`eightyFourYear.ts`; April 2026 is 84 years from the April 1942 low), and the
+Dollar Trend (A-OTHER-06, his 1954 course: the market's value crossing old
+highs or breaking old lows, `dollarTrend.ts`, SPY's months on the 3-bar chart
+standing in for the NYSE's total value). `STRATEGY_VERSION` is
+`2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
+window it keeps; the six-year daily rerun that measures 7/4 runs on it.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the
