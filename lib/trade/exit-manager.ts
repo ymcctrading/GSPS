@@ -79,6 +79,7 @@ import { badNewsOffer } from "@/lib/gann/badNews";
 import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
+import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
 import { describeProtocolSignal, recordPendingExit } from "@/lib/portfolio/trade-log-record";
 import { isWorking, normalizeOrderStatus } from "@/lib/portfolio/order-status";
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
@@ -308,7 +309,7 @@ async function advance(
           style: await positionTradeStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id"),
         })
       : null;
-  const action = planStopAdjustment({
+  let action = planStopAdjustment({
     side: plan.side,
     entryPrice,
     levels: {
@@ -321,6 +322,16 @@ async function advance(
     appliedStop: plan.applied_stop,
     gann,
   });
+  // An automated reversal is covered at the re-buy's level (A-PYRAMID-07,
+  // lib/automation/rebuy-cover.ts), as on paper and in the replay.
+  let covered = false;
+  if (action.kind !== "close_all") {
+    const cover = await readRebuyCover(supabase, userId, plan.entry_order_id, "broker_order_id");
+    if (cover != null && coverReached(plan.side, price, cover)) {
+      covered = true;
+      action = { kind: "close_all", stop: action.stop, reason: plan.applied_stop_reason ?? action.reason, explanation: coverNote(plan.symbol, cover), atMarket: true };
+    }
+  }
 
   if (action.kind === "close_all") {
     await closePosition(creds, plan.symbol);
@@ -335,7 +346,7 @@ async function advance(
       highWater,
       entryPrice,
       stopReason: action.reason,
-      caught: gann?.exit && action.atMarket ? gann.exit.reason : null,
+      caught: covered ? "covered" : gann?.exit && action.atMarket ? gann.exit.reason : null,
       lastPrice: Number.isFinite(price) ? price : null,
     });
     run.closed++;
@@ -689,7 +700,8 @@ async function finish(
   const isRealStopLoss =
     ctx?.stopReason === "protocol" || ctx?.stopReason === "trailing" || ctx?.stopReason === "break_even" || ctx?.stopFilled === true;
   if (isRealStopLoss || ctx?.caught) {
-    const cause: ReversalCause = ctx?.caught ?? "stop";
+    // The initial ("protocol") stop reverses but never re-buys (lib/gann/rebuy.ts).
+    const cause: ReversalCause = ctx?.caught ?? (ctx?.stopReason === "protocol" ? "initial" : "stop");
     const stopLevel = plan.applied_stop ?? plan.stop_loss;
     // A signal exit leaves at the market: the level that broke is where it left.
     const brokenLevel = ctx?.caught ? (ctx.lastPrice ?? stopLevel) : stopLevel;
@@ -721,10 +733,11 @@ async function finish(
     } else {
       const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel, extreme });
       if (offer) run.notes.push(offer);
+      // A-PYRAMID-07, as on paper (exit-manager-sim.ts): a note for a person's
+      // trade; automation's is seeded a plan by the stop-out handling above.
+      const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: ctx?.entryPrice ?? plan.entry_price });
+      if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
     }
-    // A-PYRAMID-07, as on paper (exit-manager-sim.ts): offered in a note.
-    const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: ctx?.entryPrice ?? plan.entry_price });
-    if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
   }
 }
 

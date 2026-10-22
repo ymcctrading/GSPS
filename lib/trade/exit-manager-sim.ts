@@ -38,6 +38,7 @@ import { badNewsOffer } from "@/lib/gann/badNews";
 import { positionTradeStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
+import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
 
@@ -281,8 +282,33 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
         atMarket: true,
       };
     }
+    // An automated reversal is covered at the re-buy's level (A-PYRAMID-07,
+    // lib/automation/rebuy-cover.ts), as the replay's `coverAt` covers it.
+    let covered = false;
+    if (stopAction.kind !== "close_all") {
+      const cover = await readRebuyCover(supabase, userId, plan.entry_order_id, "id");
+      if (cover != null && coverReached(plan.side, price, cover)) {
+        covered = true;
+        stopAction = {
+          kind: "close_all",
+          stop: stopAction.stop,
+          reason: plan.applied_stop_reason ?? stopAction.reason,
+          explanation: coverNote(plan.symbol, cover),
+          atMarket: true,
+        };
+      }
+    }
     if (stopAction.kind === "close_all") {
-      caught = gann?.exit && stopAction.atMarket ? gann.exit.reason : "stop";
+      // A stop still at the initial ("protocol") is the initial stop: it
+      // reverses, but it never re-buys (lib/gann/rebuy.ts), as the replay
+      // reads the finer reason.
+      caught = covered
+        ? "covered"
+        : gann?.exit && stopAction.atMarket
+          ? gann.exit.reason
+          : stopAction.reason === "protocol"
+            ? "initial"
+            : "stop";
       // Every close here happens with the market already through the stop (or
       // on a Gann signal), so it fills at the price seen now, as the broker
       // exit manager's market close does. Filling a stop the price had already
@@ -296,7 +322,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       // signal reverses where the last shares left. Never the blended exit:
       // after a TP1 scale-out the blend is no price the position left at
       // (2026-10-21).
-      brokenLevel = caught === "stop" ? stopAction.stop : fillAt;
+      brokenLevel = caught === "stop" || caught === "initial" ? stopAction.stop : fillAt;
       for (const t of stillOpenAfterTargets) toFill.push({ key: t.key, qty: t.qty, price: fillAt });
     }
   }
@@ -491,12 +517,13 @@ async function finish(
     } else {
       const offer = reversalOffer({ symbol: plan.symbol, side: plan.side, cause, brokenLevel: brokenLevel ?? exitPrice, extreme });
       if (offer) run.notes.push(offer);
+      // A-PYRAMID-07: a trailing stop while the trend still runs this way is
+      // bought again on the reaction (lib/gann/rebuy.ts). A person's trade is
+      // offered it in a note; automation's is seeded a plan by the stop-out
+      // handling above (since 2026-10-22).
+      const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: plan.entry_price });
+      if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
     }
-    // A-PYRAMID-07: a trailing stop while the trend still runs this way is
-    // bought again on the reaction (lib/gann/rebuy.ts). Offered in a note,
-    // for automation's trades as well: no plan is seeded for it yet.
-    const rebuy = await readLiveRebuy({ symbol: plan.symbol, side: plan.side, cause, extreme, entryPrice: plan.entry_price });
-    if (rebuy) run.notes.push(rebuyOffer(plan.symbol, rebuy));
   }
 
   run.closed++;

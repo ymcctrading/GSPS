@@ -6,9 +6,14 @@ vi.mock("@/lib/learning/record", () => ({
   recordTradePlanRegime: vi.fn(),
 }));
 
+// The re-buy reads the daily chart; the tests say what it would read.
+const readLiveRebuy = vi.hoisted(() => vi.fn(async (): Promise<unknown> => null));
+vi.mock("@/lib/trade/gann-exit-live", () => ({ readLiveRebuy }));
+
 import { createTradePlan, getTradePlan, applyEventAndPersist, type NewTradePlan } from "@/lib/lifecycle/store";
 import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { handleAutomatedStopOut } from "@/lib/automation/stop-out";
+import { REBUY_SIGNAL_PREFIX } from "@/lib/lifecycle/fromRebuy";
 
 /**
  * Minimal in-memory fake covering trade_plans, trade_plan_audit (same
@@ -305,5 +310,68 @@ describe("handleAutomatedStopOut", () => {
     expect(pivot?.coordinates.invalidation).toBeGreaterThan(106);
     const closed = await getTradePlan(client, "user-1", planId);
     expect(closed?.state).toBe("invalidated"); // the plan's own lifecycle still closes out
+  });
+
+  it("seeds a re-buy on the same side after a trailing stop, beside the reversal (A-PYRAMID-07)", async () => {
+    const { client, plans } = fakeSupabase(null);
+    const planId = await createArmedPlan(client, "user-1");
+    readLiveRebuy.mockResolvedValueOnce({ side: "long", entry: 114, stop: 111, extreme: 120 });
+
+    await handleAutomatedStopOut(client, "user-1", {
+      planId,
+      entryFillPrice: 100,
+      stoppedAt: "2026-08-31T15:00:00.000Z",
+      exitPrice: 117,
+      cause: "last_reaction",
+      brokenLevel: 117,
+      extreme: 120,
+    });
+
+    expect(readLiveRebuy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ symbol: "AAPL", side: "long", cause: "last_reaction", extreme: 120, entryPrice: 100 }),
+    );
+    expect(plans).toHaveLength(3);
+    const rebuyRow = plans.find((p) => String(p.signal_id).startsWith(REBUY_SIGNAL_PREFIX))!;
+    const rebuy = await getTradePlan(client, "user-1", rebuyRow.plan_id as string);
+    expect(rebuy?.signalId).toBe(`${REBUY_SIGNAL_PREFIX}${planId}`);
+    expect(rebuy?.direction).toBe("bullish");
+    expect(rebuy?.coordinates.entryTrigger).toBe(114);
+    expect(rebuy?.coordinates.invalidation).toBe(111);
+    expect(rebuy?.coordinates.entryKind).toBe("oldLevel");
+    expect(rebuy?.evidence.dataTimestamps.rebuyExtreme).toBe("120");
+    expect(rebuy?.state).toBe("awaiting_entry_confirmation");
+    // The reversal is still seeded; it is covered at 114 (rebuy-cover.ts).
+    expect(plans.some((p) => p.direction === "bearish")).toBe(true);
+  });
+
+  it("seeds nothing when the reversal was covered at the re-buy", async () => {
+    const { client, plans } = fakeSupabase(null);
+    const planId = await createArmedPlan(client, "user-1");
+    readLiveRebuy.mockClear();
+
+    await handleAutomatedStopOut(client, "user-1", {
+      planId,
+      entryFillPrice: 100,
+      stoppedAt: "2026-08-31T15:00:00.000Z",
+      exitPrice: 95,
+      cause: "covered",
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(readLiveRebuy).not.toHaveBeenCalled();
+    expect((await getTradePlan(client, "user-1", planId))?.state).toBe("invalidated");
+  });
+
+  it("re-buys after neither the initial stop nor a derived trade's stop", async () => {
+    const { client, plans } = fakeSupabase(null);
+    readLiveRebuy.mockClear();
+    const first = await createArmedPlan(client, "user-1");
+    await handleAutomatedStopOut(client, "user-1", { planId: first, entryFillPrice: 100, stoppedAt: "2026-08-31T15:00:00.000Z", exitPrice: 97, cause: "initial" });
+    const reversal = await createArmedPlan(client, "user-1", { signalId: `pivot:${first}`, signalFingerprint: "pivot-fp" });
+    readLiveRebuy.mockResolvedValue({ side: "long", entry: 114, stop: 111, extreme: 120 });
+    await handleAutomatedStopOut(client, "user-1", { planId: reversal, entryFillPrice: 100, stoppedAt: "2026-09-01T15:00:00.000Z", exitPrice: 110, cause: "last_reaction", extreme: 120 });
+    readLiveRebuy.mockReset();
+    readLiveRebuy.mockResolvedValue(null);
+    expect(plans.some((p) => String(p.signal_id).startsWith(REBUY_SIGNAL_PREFIX))).toBe(false);
   });
 });

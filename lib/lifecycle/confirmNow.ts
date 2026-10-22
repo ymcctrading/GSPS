@@ -141,7 +141,9 @@ export function confirmationFromBars(
   entryTrigger: number,
   stopPrice?: number,
   entryKind?: GannEntryKind,
+  cancelBeyond?: number,
 ): ConfirmationNow {
+  if (stopPrice != null && cancelBeyond != null) return rebuyFromBars(bars, direction, entryTrigger, stopPrice, cancelBeyond);
   if (stopPrice != null && restsWithoutCrossing(entryKind)) {
     // Gann's double or triple bottom (PLAN.md item 5, step 2), or a bottom
     // that has held (step 4): the order rests with nothing to cross first.
@@ -169,6 +171,36 @@ export function confirmationFromBars(
   return { ready: stage === "confirmed", stage, note: notes[stage] };
 }
 
+const REBUY_NOTES = {
+  waiting: "The trend still runs this way, so the re-entry waits for the reaction back to its level, then goes at the market.",
+  confirmed: "Price reacted back to the re-entry's level, so the entry goes at the market.",
+  dead: "Price closed through the re-entry's stop, so this re-entry is off.",
+  resumed: "Price made a new extreme past the stopped trade's best before the reaction came, so the move resumed without it and this re-entry is off.",
+} as const;
+
+/**
+ * Gann's re-buy after a stop (A-PYRAMID-07, lib/lifecycle/fromRebuy.ts), read
+ * bar by bar as the replay's `walkRebuy` reads it: a bar that makes a new
+ * extreme past the stopped trade's best price before any bar traded into the
+ * zone calls it off (that bar first, even if it also traded into the zone);
+ * so does a close through its stop. `bars` are the closed bars since the stop.
+ */
+function rebuyFromBars(
+  bars: Bar[],
+  direction: "bullish" | "bearish",
+  entryTrigger: number,
+  stopPrice: number,
+  extreme: number,
+): ConfirmationNow {
+  const up = direction === "bullish";
+  for (const b of bars) {
+    if (up ? b.h > extreme : b.l < extreme) return { ready: false, stage: "dead", note: REBUY_NOTES.resumed };
+    if (up ? b.c <= stopPrice : b.c >= stopPrice) return { ready: false, stage: "dead", note: REBUY_NOTES.dead };
+    if (tradedIntoBuyZone(b, direction, entryTrigger)) return { ready: true, stage: "confirmed", note: REBUY_NOTES.confirmed };
+  }
+  return { ready: false, stage: "not_touched", note: REBUY_NOTES.waiting };
+}
+
 type ConfirmationInput = {
   symbol: string;
   assetClass: AssetClass;
@@ -189,6 +221,12 @@ type ConfirmationInput = {
    * session, or the last four days under Gann's rule.
    */
   since?: string;
+  /**
+   * A re-buy after a stop (`rebuyExtremeOf`): the stopped trade's best price,
+   * past which a new extreme calls the re-entry off. With it, only the bars
+   * from `since` (the stop) are read.
+   */
+  cancelBeyond?: number;
   now?: Date;
 };
 
@@ -232,7 +270,8 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
   const intervalMs = TF_INTERVAL_MS[EXECUTION_TIMEFRAME];
   const fourDays = now.getTime() - 4 * 24 * 3600 * 1000;
   const sinceMs = input.since ? Date.parse(input.since) : NaN;
-  const start = new Date(Number.isFinite(sinceMs) ? Math.min(sinceMs, fourDays) : fourDays);
+  const rebuy = input.cancelBeyond != null && input.stopPrice != null && Number.isFinite(sinceMs);
+  const start = new Date(rebuy ? sinceMs : Number.isFinite(sinceMs) ? Math.min(sinceMs, fourDays) : fourDays);
   const bars = await getMarketDataProvider().fetchBars(input.symbol, EXECUTION_TIMEFRAME, start, null, input.assetClass);
   // Gann's crossing can close on one day and the reaction come the next, and
   // a plan is often generated after the crossing it buys (PLAN.md item 5,
@@ -245,8 +284,8 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
     input.stopPrice != null
       ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since);
-  const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind);
-  if (input.stopPrice == null || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
+  const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind, rebuy ? input.cancelBeyond : undefined);
+  if (input.stopPrice == null || rebuy || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
   // Crossed in the window and waiting for the reaction into the zone.
   if (read.stage === "broken") return read;
   const year = new Date(now.getTime() - 365 * 24 * 3600 * 1000);

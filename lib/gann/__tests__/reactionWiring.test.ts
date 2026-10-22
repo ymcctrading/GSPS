@@ -64,12 +64,23 @@ describe("scan plans carry the reaction pair", () => {
   }, 60_000);
 });
 
-function stubOrdersSupabase() {
+function stubOrdersSupabase(workingExits: Record<string, unknown>[] = []) {
   const tables: Record<string, unknown> = {
     orders: {
       insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: "order-1" }, error: null }) }) }),
       update: () => ({ eq: () => Promise.resolve({ error: null }) }),
       select: () => ({ eq: () => ({ eq: () => ({ gte: () => Promise.resolve({ data: [], error: null }) }) }) }),
+    },
+    // No working exit on the other side, so a reversal plan reaches its confirmation.
+    protocol_exits: {
+      select() {
+        const filters: [string, unknown][] = [];
+        const chain = {
+          eq: (c: string, v: unknown) => (filters.push([c, v]), chain),
+          limit: () => Promise.resolve({ data: workingExits.filter((r) => filters.every(([c, v]) => r[c] === v)), error: null }),
+        };
+        return chain;
+      },
     },
   };
   return { from: (t: string) => tables[t] } as unknown as SupabaseClient;
@@ -133,6 +144,34 @@ describe("placement confirms on the crossing read from the protocol's entry and 
     };
     await entryConfirmationRefusal(stubOrdersSupabase(), "u1", order);
     expect(readEntryConfirmationNow.mock.calls[0][0].stopPrice).toBeUndefined();
+  });
+
+  it("holds a re-buy while the reversal at its stop is open, and a reversal while the re-buy is (A-PYRAMID-07)", async () => {
+    const shortOpen = [{ user_id: "u1", symbol: "AAPL", side: "short", status: "working" }];
+    getTradePlan.mockResolvedValue({
+      direction: "bullish", signalId: "rebuy:abc", generatedAt: "2026-10-15T14:00:00Z",
+      coordinates: { entryTrigger: 114, invalidation: 111, entryKind: "oldLevel" },
+      evidence: { dataTimestamps: { rebuyExtreme: "120" } },
+    });
+    const buy: OrderInput = {
+      symbol: "AAPL", assetClass: "equity", side: "buy", qty: 1, mode: "paper", entryMode: "advised",
+      limitPrice: 114, attachLevels: { stopLoss: 111, takeProfit: 117 }, intradaySourced: false,
+      sourcePlanId: "00000000-0000-4000-8000-000000000003",
+    };
+    const held = await entryConfirmationRefusal(stubOrdersSupabase(shortOpen), "u1", buy);
+    expect(held).toMatchObject({ status: 409, body: { code: "awaiting_confirmation" } });
+    expect(readEntryConfirmationNow).not.toHaveBeenCalled();
+    // With nothing open on the other side it confirms on the bars since the stop, called off past 120.
+    await entryConfirmationRefusal(stubOrdersSupabase(), "u1", buy);
+    expect(readEntryConfirmationNow).toHaveBeenCalledWith(expect.objectContaining({ cancelBeyond: 120, since: "2026-10-15T14:00:00Z" }));
+
+    getTradePlan.mockResolvedValue({
+      direction: "bearish", signalId: "pivot:abc", generatedAt: "2026-10-15T14:00:00Z",
+      coordinates: { entryTrigger: 117, invalidation: 121 },
+    });
+    const sell: OrderInput = { ...buy, side: "sell", limitPrice: 117, attachLevels: { stopLoss: 121, takeProfit: 110 } };
+    const longOpen = [{ user_id: "u1", symbol: "AAPL", side: "long", status: "working" }];
+    expect(await entryConfirmationRefusal(stubOrdersSupabase(longOpen), "u1", sell)).toMatchObject({ status: 409 });
   });
 });
 
