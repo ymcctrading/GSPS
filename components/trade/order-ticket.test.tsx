@@ -458,45 +458,63 @@ describe("the order ticket's protocol mode follows the verdict", () => {
   });
 });
 
-describe("OrderTicket explain-only technique reading", () => {
-  const reading = {
+describe("OrderTicket other techniques", () => {
+  const aligned = {
     source: "rsiReversal",
     label: "RSI 14 reversal (overbought/oversold)",
-    agrees: true,
-    summary: "RSI 14 is 58 (neutral). RSI 14 reversal (overbought/oversold) leans bullish, the same way as GSPS's plan.",
-    levels: [
-      { level: "entry", price: 49.76, text: "Entry $49.76: a close here would put RSI 14 near 61 (neutral)." },
-      { level: "stopLoss", price: 43.78, text: "Stop $43.78: a close here would put RSI 14 near 29 (oversold)." },
-    ],
+    aligned: true,
+    armedDirection: null,
+    reading: {
+      source: "rsiReversal",
+      label: "RSI 14 reversal (overbought/oversold)",
+      agrees: true,
+      summary: "RSI 14 is 58 (neutral). RSI 14 reversal (overbought/oversold) leans bullish, the same way as GSPS's plan.",
+      levels: [
+        { level: "stopLoss", price: 43.78, text: "Stop $43.78: a close here would put RSI 14 near 29 (oversold)." },
+      ],
+    },
+    ownLevels: null,
+  };
+  const against = {
+    source: "macdMomentum",
+    label: "MACD momentum crossover (swing)",
+    aligned: false,
+    armedDirection: "bearish",
+    reading: null,
+    ownLevels: { direction: "bearish", entry: 49.1, stopLoss: 51.2, takeProfit1: 45.95, rationale: "MACD crossed down." },
   };
 
-  function mockExplain() {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+  function mockTechniques() {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void init;
       const url = String(input);
       const json = (body: unknown) =>
         Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
       if (url.includes("/api/strategy-mode-preference")) {
-        return json({ mode: "rsiReversal", allowedModes: ["rsiReversal"] });
+        return json({ mode: "gann", allowedModes: ["rsiReversal", "macdMomentum"] });
       }
-      if (url.includes("/api/strategy-levels")) return json({ armed: null, reading });
+      if (url.includes("/api/strategy-levels/compare")) return json({ techniques: [aligned, against] });
       if (url.includes("/api/strategy-plugins")) return json({ plugins: [] });
-      return json({ symbol: "DRAM", shortable: true, tradable: true });
+      if (url.includes("/api/assets")) return json({ symbol: "DRAM", shortable: true, tradable: true });
+      return json({ order: { status: "accepted" } });
     });
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
 
-  it("sends GSPS's plan and the execution timeframe, and shows the reading with no way to copy levels", async () => {
+  it("sends GSPS's plan, lists the aligned technique first, and gives the other its own levels with no MTP", async () => {
     const user = userEvent.setup();
-    const fetchMock = mockExplain();
+    const fetchMock = mockTechniques();
     render(<OrderTicket result={scanWithEntry(50)} />);
 
-    await user.click(await screen.findByRole("button", { name: "Explain" }));
-    expect(await screen.findByText(/leans bullish, the same way as GSPS's plan/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Read every technique" }));
+    expect(await screen.findByText(/aligns with GSPS's plan/)).toBeTruthy();
     expect(screen.getByText(/Stop \$43\.78: a close here would put RSI 14 near 29/)).toBeTruthy();
-    expect(screen.queryByText(/Use these levels/)).toBeNull();
+    expect(screen.getByText(/Entry \$49\.10 · Stop \$51\.20 · TP1 \$45\.95 · no MTP/)).toBeTruthy();
+    // Only the technique that doesn't align offers its own trade.
+    expect(screen.getAllByRole("button", { name: "Trade these levels" })).toHaveLength(1);
 
-    const call = fetchMock.mock.calls.map(([u]) => String(u)).find((u) => u.includes("/api/strategy-levels"))!;
+    const call = fetchMock.mock.calls.map(([u]) => String(u)).find((u) => u.includes("/api/strategy-levels/compare"))!;
     const params = new URL(call, "http://x").searchParams;
     expect(params.get("timeframe")).toBe("15Min");
     expect(params.get("direction")).toBe("bullish");
@@ -504,13 +522,36 @@ describe("OrderTicket explain-only technique reading", () => {
     expect(Number(params.get("stop"))).toBeCloseTo(44);
   });
 
-  it("says the plan is retired instead of explaining it once its stop has broken", async () => {
-    const fetchMock = mockExplain();
+  it("trades a non-aligned technique's own levels as a Manual Override, without the plan's crossing line", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockTechniques();
+    render(<OrderTicket result={scanWithEntry(50)} />);
+
+    await user.click(await screen.findByRole("button", { name: "Read every technique" }));
+    await user.click(await screen.findByRole("button", { name: "Trade these levels" }));
+    expect(screen.getByText(/Trading MACD momentum crossover \(swing\)'s own levels/)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /Sell short DRAM/ }));
+    const order = fetchMock.mock.calls.find(([u]) => String(u).includes("/api/orders"))!;
+    const body = JSON.parse(String(order[1]!.body));
+    expect(body.executionMode).toBe("manual");
+    expect(body.side).toBe("sell");
+    expect(body.limitPrice).toBe(49.1);
+    expect(body.attachLevels).toEqual({ stopLoss: 51.2, takeProfit: 45.95 });
+    expect(body.entryStop).toBeUndefined();
+    expect(body.entryKind).toBeUndefined();
+    expect(body.entryTarget).toBeUndefined();
+  });
+
+  it("says the plan is retired and reads the techniques with no plan once its stop has broken", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockTechniques();
     const scan = { ...scanWithEntry(50), stopBreach: { stop: 44, price: 43, reclaimAt: 44.5 } };
     render(<OrderTicket result={scan} livePrice={50} />);
 
-    expect(await screen.findByText(/This plan is retired, so there are no levels/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Explain" })).toBeNull();
-    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/api/strategy-levels"))).toBe(false);
+    expect(await screen.findByText(/This plan is retired, so no technique can align/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Read every technique" }));
+    const call = fetchMock.mock.calls.map(([u]) => String(u)).find((u) => u.includes("/api/strategy-levels/compare"))!;
+    expect(new URL(call, "http://x").searchParams.get("direction")).toBeNull();
   });
 });

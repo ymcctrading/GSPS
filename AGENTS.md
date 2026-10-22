@@ -2106,6 +2106,41 @@ owed.
 
 ## Strategy Modes — scoped exception to the non-Gann boundary (2026-09-23, project owner direction)
 
+> **Explain-only reversed 2026-10-22 (owner, Chuck): techniques that align
+> first, the rest with their own levels.** In his words: "Highlight all the
+> strategies that align with gsps first. All other strategies can get their own
+> s/l, entry and tp1 (no mtp for anything that doesnt align with Gann trade
+> plan)." His reasoning, given when told it overrules the 2026-10-16 rule below:
+> "if an indicator is misaligned from a Gann method, and a user chooses to
+> trust it, that would be a user choice. But to say that the indicator doesn't
+> align with Gann, and then force them to align with Gann, isn't appropriate.
+> We can guide users to the water, but we can NEVER force them to drink. Which
+> is why that indicator feature is available. For anyone who wants the chance
+> to create for themselves." So GSPS guides (Gann's plan is the default, and
+> the techniques that agree with it are listed first) and never forces.
+> Built in `lib/strategies/compare.ts`: a technique **aligns** when it has
+> armed in the plan's direction, or, armed in neither, its lean agrees with
+> the plan; armed against the plan never aligns, and with no Gann plan nothing
+> does. An aligned technique trades GSPS's plan (entry, stop, TP1, MTP) and
+> shows its reading of those levels. Every other technique offers its own
+> entry, stop and TP1, **never an MTP**: the master take profit belongs to
+> Gann's plan alone. `/api/strategy-levels/compare` reads every mode the tier
+> allows plus the person's active scripts on one bar fetch, ranked aligned
+> first; `/api/strategy-levels` returns `aligned` and the mode's own `levels`
+> (no MTP) when it doesn't align. The order ticket lists them ("Read every
+> technique"), and "Trade these levels" puts a non-aligned technique's entry
+> (as the limit), stop and TP1 into a Manual Override, without the plan's
+> crossing line, `entryKind` or failed-top target, so the server judges it as
+> the person's own order (Gann's capital rules, the tenth at risk and the
+> series of losses still apply, as to any order). The saved default
+> technique's line (`plan-reading-line.tsx`: setup card, signal card, Guided,
+> plan-scoped Automation) shows the technique's own levels when it doesn't
+> align. Unchanged: nothing here reaches the scan, the score, the gates,
+> GSPS's plan or any automated order; the tier gating; the script editor's
+> rule test, which still shows every line the author wrote (`mtpr` included)
+> because it tests the script, not a trade. The 2026-10-16 note below is
+> history where it says "explain-only" or that no level reaches the ticket.
+
 > **Narrowed 2026-10-16 (owner, confirming his 2026-10-01 note): explain-only.**
 > "Gann's method is still how we plot the chart; the indicator of choice will
 > just [be] how we explain the math on the front end." Asked whether that means
