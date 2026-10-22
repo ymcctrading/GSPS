@@ -78,7 +78,7 @@ import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { completedDailyBars } from "@/lib/scanner/priorClose";
+import { completedDailyBars, priorDailyClose } from "@/lib/scanner/priorClose";
 import {
   DEFAULT_CONFIG,
   INTRADAY_DAILY_HISTORY_DAYS,
@@ -217,7 +217,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     const dailyPlan = asDailyPlanLevels(sessionPlan);
     const liquidity = readLiquidity(priorDaily);
     const dailyAtr = atr(priorDaily.slice(-20), 14);
-    const prevClose = priorDaily[priorDaily.length - 1].c;
+    // A non-positive prior close reads as none, as on the live scan.
+    const prevClose = priorDailyClose(priorDaily, date, kind === "crypto");
     const fired: { type: SignalType; direction: "up" | "down"; at: string }[] = [];
 
     // The last bar of the session cannot be entered on: its fill is the next session.

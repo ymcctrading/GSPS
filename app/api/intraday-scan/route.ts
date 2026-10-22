@@ -56,7 +56,7 @@ import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { completedDailyBars, INTRADAY_DAILY_BAR_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
+import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
@@ -991,11 +991,11 @@ async function buildInput(
 
   try {
     const [minuteBars, baselineBars, dailyBars] = prefetched
-      ? [prefetched.minute.slice(-2000), prefetched.baseline.slice(-5000), prefetched.daily.slice(-INTRADAY_DAILY_BAR_LIMIT)]
+      ? [prefetched.minute.slice(-2000), prefetched.baseline.slice(-5000), prefetched.daily.slice(-INTRADAY_DAILY_FETCH_LIMIT)]
       : await Promise.all([
           provider.fetchBars(symbol, "1Min", daysAgo(minuteLookbackDays), end, assetClass, 2000),
           provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
-          provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, INTRADAY_DAILY_BAR_LIMIT),
+          provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, INTRADAY_DAILY_FETCH_LIMIT),
         ]);
 
     const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt, marketClosed);

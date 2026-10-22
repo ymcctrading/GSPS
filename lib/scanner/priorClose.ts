@@ -38,6 +38,14 @@ import { etDateKey } from "@/lib/market/session";
 /** Daily bars the live scan reads per symbol (its fetch limit), and so the replay too. */
 export const INTRADAY_DAILY_BAR_LIMIT = 300;
 
+/**
+ * Raw daily bars the live scan fetches so that, once the forming bar (and,
+ * for crypto after 8 PM New York time, the next UTC day's) is set aside, a
+ * full `INTRADAY_DAILY_BAR_LIMIT` completed sessions remain, as the replay
+ * reads them.
+ */
+export const INTRADAY_DAILY_FETCH_LIMIT = INTRADAY_DAILY_BAR_LIMIT + 2;
+
 /** The date a daily bar's trading belongs to, by market (see the header). */
 export function dailyBarDate(bar: Bar, crypto: boolean): string | null {
   const ms = Date.parse(bar.t);

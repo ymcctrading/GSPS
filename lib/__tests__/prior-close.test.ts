@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { completedDailyBars, dailyBarDate, INTRADAY_DAILY_BAR_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
+import { completedDailyBars, dailyBarDate, INTRADAY_DAILY_BAR_LIMIT, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 
 /**
  * The completed daily sessions before an intraday session, as the live
@@ -55,6 +55,15 @@ describe("equities", () => {
 });
 
 describe("window and edge cases", () => {
+  it("a full fetch for crypto after 8 PM New York time still yields the full count", () => {
+    // Two UTC days on or after the session (the forming one and tomorrow's) are set aside.
+    const raw: Bar[] = [];
+    for (let i = 0; i < INTRADAY_DAILY_FETCH_LIMIT; i++) {
+      raw.push(bar(new Date(Date.UTC(2026, 9, 23) - (INTRADAY_DAILY_FETCH_LIMIT - 1 - i) * 86_400_000).toISOString(), 10 + i));
+    }
+    expect(completedDailyBars(raw, "2026-10-22", true)).toHaveLength(INTRADAY_DAILY_BAR_LIMIT);
+  });
+
   it("starts at the window's first date and keeps at most the live fetch limit", () => {
     const many: Bar[] = [];
     for (let i = 0; i < INTRADAY_DAILY_BAR_LIMIT + 50; i++) {
@@ -70,6 +79,7 @@ describe("window and edge cases", () => {
     expect(priorDailyClose([bar("not a date", 5)], "2026-10-22", false)).toBeNull();
     expect(priorDailyClose([], "2026-10-22", true)).toBeNull();
     expect(priorDailyClose([bar("2026-10-21T04:00:00Z", 0)], "2026-10-22", false)).toBeNull();
+    expect(priorDailyClose([bar("2026-10-21T04:00:00Z", -3)], "2026-10-22", false)).toBeNull();
   });
 });
 
@@ -83,10 +93,14 @@ describe("live and replay read the same function", () => {
     expect(route).toMatch(/priorDailyClose\(dailyBars, sessionBars\.sessionDate, crypto\)/);
     expect(route).toMatch(/completedDailyBars\(dailyBars, sessionBars\.sessionDate, crypto\)/);
     expect(route).not.toMatch(/function previousClose/);
+    // The raw fetch leaves room for the forming bars, so the full count survives.
+    expect(INTRADAY_DAILY_FETCH_LIMIT).toBe(INTRADAY_DAILY_BAR_LIMIT + 2);
+    expect(route).not.toMatch(/INTRADAY_DAILY_BAR_LIMIT\)/);
   });
 
   it("the replay builds its completed sessions here", () => {
     expect(replay).toMatch(/completedDailyBars\(dailyBars, date, kind === "crypto", dailyFrom\)/);
     expect(replay).not.toMatch(/b\.t\.slice\(0, 10\) < date/);
+    expect(replay).toMatch(/priorDailyClose\(priorDaily, date, kind === "crypto"\)/);
   });
 });
