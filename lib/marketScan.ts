@@ -712,9 +712,14 @@ export function cryptoBuyList(scans: readonly ScanResult[]): ScanResult[] {
   return scans.filter((r) => !r.error && r.direction === "bullish" && hasTradePlan(r)).sort(compareForList);
 }
 
-/** The screener's actives less the funds, which the funds pass scores, so none is scored twice. */
-export function withoutFundMarkets(symbols: readonly string[]): string[] {
-  return symbols.filter((s) => !isFundMarket(s));
+/**
+ * The stock universe: the actives and tracked symbols less the funds and the
+ * crypto pairs, which their own passes score, so none is scored twice. A pair
+ * tracked from the joined lists reached the stock fetch on 2026-10-22, and the
+ * stock bars endpoint refused the whole batch ("invalid symbol: BCH/USD").
+ */
+export function stocksOnly(symbols: readonly string[]): string[] {
+  return symbols.filter((s) => !isFundMarket(s) && !s.includes("/"));
 }
 
 /**
@@ -1071,8 +1076,8 @@ export async function runMarketScan(
   const cryptoP = sidePass("crypto", scanEveryChart(CRYPTO_UNIVERSE, "crypto", universeThresholds));
   const fundsP = sidePass("funds", scanEveryChart(FUND_MARKETS, "us_equity", universeThresholds));
 
-  // A fund the actives screener names is scored by the funds pass, not twice.
-  const actives = withoutFundMarkets(await resolveUniverse(universeTop, extraSymbols));
+  // A fund or pair named here is scored by its own pass, never by the stocks'.
+  const actives = stocksOnly(await resolveUniverse(universeTop, stocksOnly(extraSymbols)));
   mark("resolveUniverse done", `${actives.length} symbols`);
 
   // Coarse pass: daily bars for trend/level context.
@@ -1189,7 +1194,7 @@ export async function runMarketScan(
   // pushed first), then the coarse shortlist, same total.
   const coarseShortlist = rankShortlist(rerankPool, shortlistSize, yearHits, selection);
   const shortlist = mergeSweptIntoShortlist(
-    sweptSymbols.slice(0, SWEEP_SLOTS),
+    stocksOnly(sweptSymbols).slice(0, SWEEP_SLOTS),
     coarseShortlist,
     shortlistSize,
     (symbol) => ({ symbol, direction: "bullish", kind: "reversion", coarseScore: 0 }),
