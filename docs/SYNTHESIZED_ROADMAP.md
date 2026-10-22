@@ -204,8 +204,16 @@ against Gann:
    drawdown, read by the same functions placement uses. Paper accounts; a
    live account's book is the broker's, and the circuit breaker, which is the
    live account's, is not shown.
-5. **Performance replay UI.** Past scans compared across dates, and the
-   forward test beside the replay.
+5. **Performance replay UI.** Built 2026-10-22: the Scanner's "Past scans"
+   tab (`lib/scanner/pastScans.ts`, `/api/past-scans`) puts two sessions'
+   published Buy and Sell lists side by side, marks what changed and which
+   Watch became an Execute later, shows the forward test's walk of each
+   Execute, and lists the forward test by strategy version beside the
+   committed production-faithful replay (`lib/backtest/replayReference.ts`).
+   Reach back is the tier's `scanHistoryRetentionDays`. No bars are fetched.
+   Open: the forward test's own faults found while building it (filled trades
+   walked by the evaluator before R-032, signals recorded after the close,
+   duplicates, a session with none recorded), raised with the coordinator.
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
    configurable periods and saved presets. Explain-only: an indicator never
    sets a level.

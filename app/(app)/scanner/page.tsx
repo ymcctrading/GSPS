@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
+import { PastScans } from "@/components/scan/past-scans";
 import { SavedSearches } from "@/components/scan/saved-searches";
 import { SECTORS, COMING_SOON } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
@@ -42,12 +43,13 @@ function toRow(r: ScanResult): ScanRow {
   };
 }
 
-type ScannerTab = "universe" | "intraday" | "history";
+type ScannerTab = "universe" | "intraday" | "history" | "past";
 
 const TABS: { key: ScannerTab; label: string }[] = [
   { key: "universe", label: "Universe" },
   { key: "intraday", label: "Intraday" },
   { key: "history", label: "History" },
+  { key: "past", label: "Past scans" },
 ];
 
 export default function ScannerPage() {
@@ -119,15 +121,17 @@ export default function ScannerPage() {
         record of what past Universe scans said and whether it has since
         changed — kept in its own tab rather than stacked underneath, since a
         page with all three always rendered would mean scrolling past two
-        scans' worth of controls to reach a read-only list.
+        scans' worth of controls to reach a read-only list. Past scans (Q2
+        item 5) is the platform's own daily lists read back across two
+        dates, with the forward test's result for each Execute.
       */}
-      <div className="flex gap-1.5 border-b border-border">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-border">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={cn(
-              "border-b-2 px-3 py-2 text-sm font-medium transition-colors cursor-pointer -mb-px",
+              "shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors cursor-pointer -mb-px",
               tab === key
                 ? "border-accent text-accent"
                 : "border-transparent text-muted hover:text-foreground",
@@ -219,6 +223,8 @@ export default function ScannerPage() {
       {tab === "intraday" && <IntradayAlerts />}
 
       {tab === "history" && <ScanHistory />}
+
+      {tab === "past" && <PastScans />}
     </div>
   );
 }
