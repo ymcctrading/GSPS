@@ -19,16 +19,22 @@
  * was searched over planets, orbs, widths or windows.
  * - Pairs: Mars–Jupiter, Mercury–Mars and Mercury–Jupiter. "Mars–Jupiter and
  *   Mercury conjunctions" is read as the three pairs those planets make; the
- *   source gives no list, so this reading is ours.
- * - Aspects: geocentric conjunction (0°) and opposition (180°), the day the
- *   separation crosses the angle (orb 0, daily resolution at noon UTC, from
- *   `planetLongitudes`).
+ *   source gives no list, so this reading is ours. Meadors's summary can also
+ *   be read as two claims (any pair near the Galactic Centre up 92%; a 30-day
+ *   advance before these pairs' conjunctions); this test reads them as one.
+ * - Aspects: geocentric conjunction (0°) and opposition (180°), dated to the
+ *   first noon UTC after the separation crosses the angle (orb 0, daily
+ *   resolution, from `planetLongitudes`).
  * - Near the Galactic Centre: either planet of the pair within ±15° of 267°
- *   ecliptic longitude on that day (a 30° segment, one sign's width).
+ *   ecliptic longitude on that day (a 30° segment, one sign's width). 267° is
+ *   an engineering figure: the Galactic Centre's tropical longitude drifts
+ *   about 1.4° a century (near 265.3° in 1897), well inside the segment.
  * - Outcome: "rose in the 30 days before" is read on the monthly record as
  *   the event month's figure above the month before's. The record is Shiller's
  *   monthly S&P composite (`lib/gann/marketHistory.json`), not the Dow
- *   Dewey used, and a monthly average, not a 30-day close.
+ *   Dewey used, and a monthly average, not a 30-day close, so the comparison
+ *   runs roughly mid-month to mid-month and part of it can fall after the
+ *   event.
  * - Base rate: the share of all months in the same span that rose on the month
  *   before. One-sided exact binomial test of the hits against it.
  * - Spans: 1897–1961 (Dewey's own, so a replication) and 1962–2026 (the
@@ -105,7 +111,7 @@ export function galacticCentreEvents(fromYear: number, toYear: number): SkyEvent
         const off = signedSep(signedSep(geo[a], geo[b]), angle);
         now[key] = off;
         const before = prev?.[key];
-        if (before == null || Math.sign(before) === Math.sign(off) || Math.abs(before - off) > 90) continue;
+        if (before == null || off === 0 || Math.sign(before) === Math.sign(off) || Math.abs(before - off) > 90) continue;
         const nearGc =
           arc(geo[a], GALACTIC_CENTRE_LONGITUDE) <= SEGMENT_HALF_WIDTH ||
           arc(geo[b], GALACTIC_CENTRE_LONGITUDE) <= SEGMENT_HALF_WIDTH;
@@ -136,6 +142,8 @@ export function monthRose(year: number, month: number): boolean | null {
 export function binomialUpperTail(k: number, n: number, p: number): number {
   if (k <= 0) return 1;
   if (k > n) return 0;
+  if (!(p > 0)) return 0;
+  if (!(p < 1)) return 1;
   let logC = 0;
   let total = 0;
   for (let i = 0; i <= n; i++) {

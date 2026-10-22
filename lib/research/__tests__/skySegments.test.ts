@@ -12,6 +12,8 @@ describe("binomialUpperTail", () => {
     expect(binomialUpperTail(11, 10, 0.5)).toBe(0);
     expect(binomialUpperTail(10, 10, 0.5)).toBeCloseTo(1 / 1024, 10);
     expect(binomialUpperTail(9, 10, 0.5)).toBeCloseTo(11 / 1024, 10);
+    expect(binomialUpperTail(3, 10, 0)).toBe(0);
+    expect(binomialUpperTail(3, 10, 1)).toBe(1);
   });
 });
 
@@ -46,7 +48,11 @@ describe("monthRose", () => {
 
 describe("the pre-registered test", () => {
   it("pins the 2026-10-22 result: no replication", () => {
+    expect(galacticCentreEvents(1897, 1961)).toHaveLength(47);
+    expect(galacticCentreEvents(1962, 2026)).toHaveLength(42);
     const [dewey, holdout] = runSkySegmentTest();
+    expect(dewey.baseRate).toBeCloseTo(0.579, 3);
+    expect(holdout.baseRate).toBeCloseTo(0.622, 3);
     expect(dewey).toMatchObject({ events: 40, hits: 26, holmSignificant: false });
     expect(dewey.p).toBeCloseTo(0.23, 2);
     expect(holdout).toMatchObject({ events: 37, hits: 23, holmSignificant: false });
