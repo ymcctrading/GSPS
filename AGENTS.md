@@ -1121,6 +1121,29 @@ in the same `WindowAnchors` (no new rule): `STRATEGY_VERSION` was
 onto it as `2026-10-22-gann-rebuy-rule-nine`; Execute and the 7/4 cutoffs need a
 fresh run on it.
 
+**Extremes, boiling point and the Sun's travel act, 2026-10-22 (the recheck's
+open items, `gann-feature-map/review/2026-10-22-recheck.md`).** Gann's own
+readings that were context only now act where he says they act, live, paper and
+replay alike, since every surface reads `readGannExit` and `buildStructuralLevels`.
+M-E11: a reverse signal day against the trade after the fill moves the stop 3
+points beyond that day's extreme (`reverse_signal`; *Commodities* pp. 311,
+317-318). M-E12: an exhaust gap against the trade takes it off, with no reversal
+(`exhaust_gap`, `exhaustGapAt` in `extremeRules.ts`, pp. 318-325); the filled gap
+and the gap count stay context. M-T10: from the 6th week of the weekly run in the
+trade's direction the stop trails 10 points from the best price ("wait to sell
+your stock until it boils", *Stock Selector* Ch. V; `boiling_point`,
+`runBoilingPointFromPivots`). Both new stops reverse and re-buy as the other
+trailing stops do. A-ASTRO-03: the Sun's travel since the major low added to that
+low (W046 p.1) joins the S/R list (`sunTravelLevel`, via `masterLevels.ts`). M-P4:
+the intraday first target averages the old levels within 1%, as the daily plan
+does (`lib/gann/nearbyLevels.ts`, moved from `lib/strat/levels.ts`; round numbers
+kept apart). Engineering choices, labelled: the 10-point trail is the Stock
+Selector's figure on the Gann point, the 6th week is read on the 7-day chart's
+run. Measured on 200 random walks: about 0.13 ms more a full exit read, 0.13 ms
+for the Sun level in an S/R build. Plans and exits move: `STRATEGY_VERSION` is
+`2026-10-22-gann-extremes-boiling-sun-act`; Execute and the 7/4 cutoffs need a
+fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

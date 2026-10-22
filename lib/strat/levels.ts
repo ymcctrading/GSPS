@@ -13,6 +13,7 @@
 
 import { gannReversal } from "@/lib/gann/reverse";
 import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { combineNearbyLevels } from "@/lib/gann/nearbyLevels";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
 import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
@@ -74,43 +75,8 @@ export interface EquityTradeLevels {
   tp1FromStructure: boolean;
 }
 
-/**
- * How close two structural levels must sit (as a percent of their own
- * average) before they're treated as "the same" resistance point rather than
- * two separate ones.
- */
-const NEARBY_LEVEL_TOLERANCE_PCT = 1.0;
-
-/**
- * Combine structural levels that sit within `NEARBY_LEVEL_TOLERANCE_PCT` of
- * each other into a single averaged level — `How to Make Profits Trading in
- * Commodities` (A8, `docs/GANN_HISTORICAL_SOURCES.md`)'s disclosed
- * "resistance points near same levels" technique: "when two nearby
- * resistance levels cluster, average them into one combined support/
- * resistance point," rather than treating a clustered S/R level, a fan line,
- * and a Square-of-9 price that all happen to sit within a percent of each
- * other as three separate, competing candidates. Added 2026-09-16 per
- * `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 3 / AGENTS.md's "WD Gann
- * precedence" principle — his literal cents-based "lost motion" stop-buffer
- * number (the same A8 passage) is deliberately NOT ported here: that figure
- * is dimensionally a 1930s-commodity number (cents per bushel), not an
- * equity percentage, and porting its raw magnitude across asset class and
- * era would be a guess dressed up as a derivation. This clustering rule is
- * the one part of the same disclosed passage that transfers cleanly with no
- * unit conversion required.
- */
-function combineNearbyLevels(levels: number[]): number[] {
-  if (levels.length === 0) return [];
-  const sorted = [...levels].sort((a, b) => a - b);
-  const clusters: number[][] = [[sorted[0]]];
-  for (let i = 1; i < sorted.length; i++) {
-    const current = clusters[clusters.length - 1];
-    const mean = current.reduce((s, p) => s + p, 0) / current.length;
-    if ((Math.abs(sorted[i] - mean) / mean) * 100 <= NEARBY_LEVEL_TOLERANCE_PCT) current.push(sorted[i]);
-    else clusters.push([sorted[i]]);
-  }
-  return clusters.map((c) => c.reduce((s, p) => s + p, 0) / c.length);
-}
+// "Resistance points near same levels" (M-P4) is `combineNearbyLevels`,
+// shared with the intraday first target: lib/gann/nearbyLevels.ts.
 
 /**
  * Nearest structural level on the trade's favorable side (support under a

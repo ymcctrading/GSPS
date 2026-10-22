@@ -27,14 +27,23 @@
  * counts from the weekly swing chart's last swing bottom (for a run up) or
  * top (for a run down), Gann's own chart construction (`swingChart.ts`); the
  * climax anchor above is kept beside it, unchanged. Which pivot counts as
- * "where the run began" is our reading, labelled as such. Context only: it
- * reaches the replay and the live scan through `readDisclosedRules`
- * (`timeCounts.ts`), and feeds no score, gate, plan or order.
+ * "where the run began" is our reading, labelled as such. It reaches the
+ * replay and the live scan through `readDisclosedRules` (`timeCounts.ts`).
+ *
+ * **Acting on the exit, 2026-10-22 (M-T10, the recheck of "every Gann method
+ * acts").** Gann says what the 6-7 weeks are for: "wait to sell your stock
+ * until it boils ... the final fast advance lasts 6-7 weeks (sometimes 10)",
+ * with a 10-point trailing stop (*Wall Street Stock Selector* Ch. V; a 6-7
+ * week panic ends a bear campaign, the mirror). So once the run a trade rides
+ * reaches its 6th week, its stop trails 10 Gann points from the best price
+ * (`exitRules.ts`, "boiling_point"), on the live exits and the replay alike.
+ * The climax anchor stays context. The two lines above that say "never
+ * independently scored or gated" describe the climax reading only.
  */
 
 import type { Bar } from "@/lib/types";
 import type { VolumeClimaxReading } from "./volumeClimax";
-import { WEEKLY_SWING_CHART, walkSwingChart } from "./swingChart";
+import { WEEKLY_SWING_CHART, walkSwingChart, type SwingPivot } from "./swingChart";
 
 /** The classic disclosed exhaustion window, in weeks. */
 export const CLASSIC_MIN_WEEKS = 6;
@@ -87,7 +96,15 @@ export interface RunBoilingPointReading {
  */
 export function computeRunBoilingPoint(bars: Bar[]): RunBoilingPointReading | null {
   if (bars.length === 0) return null;
-  const pivots = walkSwingChart(bars, WEEKLY_SWING_CHART).pivots;
+  return runBoilingPointFromPivots(bars, walkSwingChart(bars, WEEKLY_SWING_CHART).pivots);
+}
+
+/**
+ * `computeRunBoilingPoint` on a weekly swing chart already walked over the
+ * same bars, for a caller that has one (the exit rules, `exitRules.ts`).
+ */
+export function runBoilingPointFromPivots(bars: Bar[], pivots: readonly SwingPivot[]): RunBoilingPointReading | null {
+  if (bars.length === 0) return null;
   const start = pivots[pivots.length - 1];
   if (!start) return null;
   const weeks = Math.max(0, (new Date(bars[bars.length - 1].t).getTime() - new Date(bars[start.index].t).getTime()) / WEEK_MS);

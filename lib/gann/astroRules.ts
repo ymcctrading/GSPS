@@ -10,10 +10,10 @@
  *
  * **Policy.** The owner decided on 2026-10-01 that every Gann method acts
  * where Gann says it acts, astrology included (AGENTS.md "Every Gann method
- * acts"). So far one reading here acts: the active angles at 0, 90, 120 and
- * 180° join the support and resistance list as price resistance
- * (`activeAngleLevels`, via `masterLevels.ts`), which moves plan stops and
- * targets. The time readings (Mars half-returns, the Sun's points, the Moon)
+ * acts"). Two readings here act as price resistance on the support and
+ * resistance list, via `masterLevels.ts`, which moves plan stops and targets:
+ * the active angles at 0, 90, 120 and 180° (`activeAngleLevels`), and since
+ * 2026-10-22 the Sun's travel added to the low (`sunTravelLevel`, A-ASTRO-03). The time readings (Mars half-returns, the Sun's points, the Moon)
  * mark windows for a turn; they act once GSPS has one shared place where a
  * time window acts on the verdict (the parity plan's item 7), and until then
  * they are shown in the trace and measured as factors. Jensen's method is
@@ -265,6 +265,38 @@ export function activeAngleLevels(asOf: Date, price: number, unit: number): { pr
   return out;
 }
 
+/**
+ * ASTRO-8a's level, in Gann points: the degrees the Sun has travelled since the
+ * bars' major low (the lowest low), added to the low's price at 1 point a
+ * degree (the coffee letter, 1954, Tier A: "the Sun's travel ... added to the
+ * low" as a resistance angle). Null when the low is not before `today` (an
+ * ephemeris instant, ms). `readAstroRules` reports it and `sunTravelLevel`
+ * puts it on the S/R list, so the factor and the level read one rule.
+ */
+function sunTravelPoints(bars: Bar[], today: number, unit: number): { lowDate: string; points: number } | null {
+  if (bars.length === 0 || !(unit > 0)) return null;
+  const { lo } = extremes(bars);
+  const lowT = ephemerisInstant(new Date(bars[lo].t)).getTime();
+  if (!(today > lowT)) return null;
+  const travel = ((today - lowT) / DAY_MS) * SUN_DEG_PER_DAY;
+  const exact = mod(sunMoon(today).sun - sunMoon(lowT).sun, 360);
+  return { lowDate: iso(lowT), points: bars[lo].l / unit + Math.floor(travel / 360) * 360 + exact };
+}
+
+/**
+ * A-ASTRO-03 acting (2026-10-22, the recheck of "every Gann method acts"):
+ * Gann calls the Sun's travel added to the low a resistance angle, and price
+ * resistance acts as a level, so it joins the S/R list through
+ * `masterLevels.ts` on the live scan and the replay alike, and reaches stops,
+ * targets and the held-level checks as the active angles do. One level, the
+ * travel itself; Gann gives no squares or oppositions of it.
+ */
+export function sunTravelLevel(bars: Bar[], asOf: Date, unit: number): { price: number; label: string } | null {
+  const t = sunTravelPoints(bars, ephemerisInstant(asOf).getTime(), unit);
+  if (!t || !(t.points > 0)) return null;
+  return { price: t.points * unit, label: `Sun's travel since the ${t.lowDate} low, added to the low` };
+}
+
 export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroReading | null {
   if (bars.length < 20 || !(unit > 0)) return null;
   const last = bars[bars.length - 1];
@@ -304,13 +336,10 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroRead
 
   // ASTRO-8a: the Sun's travel since the major low, added to the low, 1 point a degree.
   let sunTravel: AstroReading["sunTravel"] = null;
-  if (today > lowT) {
-    const travel = ((today - lowT) / DAY_MS) * SUN_DEG_PER_DAY;
-    const exact = mod(sunMoon(today).sun - sunMoon(lowT).sun, 360);
-    const deg = Math.floor(travel / 360) * 360 + exact;
-    const level = lowPts + deg;
-    const d = Math.abs(pts - level);
-    sunTravel = { lowDate: iso(lowT), level: level * unit, distancePoints: d, on: d <= CIRCLE_TOLERANCE };
+  const travelLevel = sunTravelPoints(bars, today, unit);
+  if (travelLevel) {
+    const d = Math.abs(pts - travelLevel.points);
+    sunTravel = { lowDate: travelLevel.lowDate, level: travelLevel.points * unit, distancePoints: d, on: d <= CIRCLE_TOLERANCE };
   }
 
   // ASTRO-10: geocentric Mars opposite its place at the major low.
