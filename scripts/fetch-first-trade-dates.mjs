@@ -18,14 +18,20 @@
  * - Wikidata: the company's (matched by SEC CIK, P5531) stock-exchange
  *   statement (P414) on a New York exchange (NYSE, Nasdaq, NYSE American,
  *   NYSE Arca) with a start time (P580) at day precision. The earliest wins.
+ * - SEC EDGAR: the company's first final IPO prospectus (form 424B1 or 424B4),
+ *   filed on the pricing day, so the first trade is that day or the next few.
+ *   EDGAR's filings start in the mid-1990s, so this covers later listings.
  * - Yahoo Finance's chart record: `meta.firstTradeDate`, the first daily bar
- *   it holds. Yahoo's history starts in 1962 for the oldest listings, so a
- *   date on or before 1962-01-02 is the start of its data, not a first trade,
- *   and is not counted.
- * Status: "confirmed" when both exist and lie within `AGREE_DAYS` (3) of each
- * other (a listing is often dated the pricing day, the trade the next), dated
- * by Yahoo's bar, the trade itself; "single" when only one source has a date;
- * "conflict" when both do and disagree. Only "confirmed" dates are read
+ *   it holds. Yahoo's history starts in 1962, 1973 or 1980 for the oldest
+ *   listings, so its date is a first trade only where another source agrees;
+ *   one on or before 1962-01-02 is never counted.
+ * Status: "confirmed" when Yahoo's bar lies within `AGREE_DAYS` (3) of
+ * Wikidata's listing or of SEC's prospectus (a listing is often dated the
+ * pricing day, the trade the next), dated by Yahoo's bar, the trade itself;
+ * "single" when only one source has a date; "conflict" when sources disagree.
+ * Wikidata often dates a later statement (a ticker change, a move between
+ * exchanges), so a Wikidata date later than an agreeing SEC and Yahoo pair
+ * does not stop the confirmation. Only "confirmed" dates are read
  * (`lib/gann/firstTradeDates.ts`). Engineering choices, labelled: the
  * exchanges, the tolerance and the 1962 floor.
  */
@@ -105,6 +111,29 @@ for (let i = 0; i < ciks.length; i += 150) {
   await sleep(1000);
 }
 
+// SEC: the first 424B1/424B4 (the IPO's final prospectus) the company filed.
+const sleepSec = () => sleep(125);
+async function secFirstProspectus(cik) {
+  const sub = await getJson(`https://data.sec.gov/submissions/CIK${cik}.json`, { "User-Agent": UA });
+  await sleepSec();
+  if (!sub) return null;
+  const pages = [sub.filings?.recent];
+  for (const f of sub.filings?.files ?? []) {
+    pages.push(await getJson(`https://data.sec.gov/submissions/${f.name}`, { "User-Agent": UA }));
+    await sleepSec();
+  }
+  let first = null;
+  for (const pg of pages) {
+    if (!pg?.form) continue;
+    pg.form.forEach((form, i) => {
+      if (form !== "424B1" && form !== "424B4") return;
+      const d = pg.filingDate[i];
+      if (!first || d < first) first = d;
+    });
+  }
+  return first;
+}
+
 // Yahoo: the first daily bar it holds.
 async function yahooFirst(symbol) {
   const sym = symbol.replace(".", "-");
@@ -121,20 +150,27 @@ const dayGap = (a, b) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
 const dates = {};
 const counts = { confirmed: 0, single: 0, conflict: 0, none: 0 };
 for (const symbol of symbols) {
-  const w = wikidata.get(cikOf.get(symbol.replace(".", "-")));
+  const cik = cikOf.get(symbol.replace(".", "-"));
+  const w = wikidata.get(cik);
+  const sec = cik ? await secFirstProspectus(cik) : null;
   let y = await yahooFirst(symbol);
   if (y && y <= YAHOO_FLOOR) y = null;
   await sleep(250);
+  // The trade is on or after the prospectus, never before it.
+  const agreesSec = sec && y && y >= sec && dayGap(sec, y) <= AGREE_DAYS;
+  const agreesWiki = w && y && dayGap(w.date, y) <= AGREE_DAYS;
+  const sources = [w, sec, y].filter(Boolean).length;
   let row;
-  if (w && y) row = dayGap(w.date, y) <= AGREE_DAYS ? { date: y, status: "confirmed" } : { date: null, status: "conflict" };
-  else if (w || y) row = { date: null, status: "single" };
+  if (agreesSec || agreesWiki) row = { date: y, status: "confirmed", by: [agreesWiki && "wikidata", agreesSec && "sec"].filter(Boolean) };
+  else if (sources >= 2) row = { date: null, status: "conflict" };
+  else if (sources === 1) row = { date: null, status: "single" };
   else row = { date: null, status: "none" };
   counts[row.status]++;
-  if (row.status !== "none") dates[symbol] = { ...row, wikidata: w?.date ?? null, exchange: w?.exchange ?? null, yahoo: y };
+  if (row.status !== "none") dates[symbol] = { ...row, wikidata: w?.date ?? null, exchange: w?.exchange ?? null, sec, yahoo: y };
 }
 
 const file = {
-  source: "Wikidata P414/P580 (by SEC CIK) and Yahoo Finance firstTradeDate, via scripts/fetch-first-trade-dates.mjs",
+  source: "Wikidata P414/P580 (by SEC CIK), SEC EDGAR 424B1/424B4 and Yahoo Finance firstTradeDate, via scripts/fetch-first-trade-dates.mjs",
   fetched: new Date().toISOString().slice(0, 10),
   agreeDays: AGREE_DAYS,
   counts,

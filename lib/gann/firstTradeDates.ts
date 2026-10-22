@@ -4,9 +4,9 @@
  * `scripts/fetch-first-trade-dates.mjs` through the workflow
  * `fetch-first-trade-dates.yml` and checked in as `firstTradeDates.json`, so
  * the live scan and the replay read the same dates and nothing at runtime
- * calls Wikidata or Yahoo. Only a "confirmed" date is returned: Wikidata's
- * listing on a New York exchange and Yahoo's first daily bar agreeing within 3
- * days (Chuck, 2026-10-22: "Search for, confirm and ultimately use these
+ * calls Wikidata, SEC or Yahoo. Only a "confirmed" date is returned: Yahoo's
+ * first daily bar agreeing within 3 days with Wikidata's listing on a New York
+ * exchange or with SEC's first IPO prospectus (Chuck, 2026-10-22: "Search for, confirm and ultimately use these
  * dates"). A single-source or conflicting date is kept in the file for review
  * and never read.
  *
