@@ -12,8 +12,9 @@
  * portfolio manager opened, as Gann would have placed it himself.
  *
  * Which lines: a working paper exit whose entry order came from an automated
- * plan (`orders.source_plan_id`), for a member whose Automated Portfolio
- * Manager is on, that runs whole on Gann's rules (no TP1 or master tranche,
+ * plan (`orders.source_plan_id`: the manager's, or plan-scoped automation the
+ * member started), for a member whose Automated Portfolio Manager is on and
+ * whose tier still carries automation (re-read every pass), that runs whole on Gann's rules (no TP1 or master tranche,
  * Q14), was not opened from an intraday alert (those end on the session's
  * rules), and is the only working exit on its symbol (a line a person has
  * added to by hand is theirs to manage). Live adds are not placed: the
@@ -60,6 +61,7 @@ import { etDateKey } from "@/lib/market/session";
 import { readPyramidAdd, readStoredLots, wholeLineStop, type PyramidLot } from "@/lib/gann/pyramid";
 import { OrderSchema, placeSimulatedOrder } from "@/lib/trade/place-order";
 import { readAwayNotice } from "@/lib/trade/away-notice";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { ledgerWriter } from "@/lib/supabase/ledger";
 import type { Bar } from "@/lib/types";
 
@@ -139,8 +141,12 @@ export function mergedLine(
   const avg = lots.reduce((n, l) => n + l.qty * l.price, 0) / qty;
   // Break-even to the cent on the safe side: up for a long, down for a short.
   const even = long ? Math.ceil(avg * 100 - 1e-6) / 100 : Math.floor(avg * 100 + 1e-6) / 100;
-  const floor = long ? Math.max(add.stop, even) : Math.min(add.stop, even);
   const current = Number(line.applied_stop ?? line.stop_loss);
+  // 5 points under the add's own fill or break-even (A-STOP-06), as the
+  // replay reads it from the fill; never looser than the order's own stop,
+  // which was measured from the pass's quote before the server re-quoted.
+  const fromFill = wholeLineStop(line.side, even, add.price, current);
+  const floor = long ? Math.max(add.stop, fromFill) : Math.min(add.stop, fromFill);
   const raised = long ? floor > current : floor < current;
   return { qty, entryPrice: Math.round(avg * 1e6) / 1e6, lots, stop: raised ? floor : current, raised };
 }
@@ -217,10 +223,17 @@ export async function placeAutomatedPyramidAdds(
   );
   const lines = candidates.filter((c) => automated.has(String(c.entry_order_id)));
 
+  // Re-read the entitlement every pass, as the manager does (`runForProfile`):
+  // a downgraded member takes no add on the very next pass.
+  const entitled = new Map<string, boolean>();
   const away = new Map<string, boolean>();
   for (const line of lines) {
     run.lines++;
     try {
+      if (!entitled.has(line.user_id)) {
+        entitled.set(line.user_id, (await getUserEntitlementPolicy(supabase, line.user_id)).automationEnabled === true);
+      }
+      if (!entitled.get(line.user_id)) continue;
       if (!away.has(line.user_id)) away.set(line.user_id, (await readAwayNotice(supabase, line.user_id, now)) != null);
       if (away.get(line.user_id)) continue;
       await addToLine(supabase, market, line, now, run);
@@ -353,6 +366,10 @@ async function addToLine(
     .eq("id", addId)
     .eq("user_id", line.user_id)
     .eq("status", "working")
+    // Not while an exit pass is already selling it on its own stop.
+    .is("scale_out_order_id", null)
+    .is("master_order_id", null)
+    .is("runner_order_id", null)
     .select("id")
     .maybeSingle();
   if (!taken) {

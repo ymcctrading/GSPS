@@ -369,7 +369,11 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
     .update({ ...patch, last_managed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", plan.id)
     .eq("user_id", userId)
-    .eq("status", "working");
+    .eq("status", "working")
+    // A pyramid add joined the line after this pass read it
+    // (lib/automation/pyramid-adds.ts): the quantity and stop read here are
+    // stale, so this pass loses and the next reassesses the whole line.
+    .eq("qty", plan.qty);
   for (const f of toFill) query = query.is(`${f.key}_order_id`, null);
 
   const { data: claimed } = await query.select("id").maybeSingle();

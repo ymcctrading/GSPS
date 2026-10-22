@@ -46,7 +46,7 @@ import { gannPoint } from "@/lib/gann/pointScale";
 type Row = Record<string, unknown>;
 
 /** A small Postgres-shaped fake: select/insert/update with eq, is, in, or, gte, lt and limit. */
-function fakeDb(tables: Record<string, Row[]>) {
+function fakeDb(tables: Record<string, Row[]>, onInsert?: (table: string, row: Row, tables: Record<string, Row[]>) => void) {
   const rowsOf = (name: string) => (tables[name] ??= []);
   function filtered(name: string) {
     const filters: ((r: Row) => boolean)[] = [];
@@ -121,6 +121,7 @@ function fakeDb(tables: Record<string, Row[]>) {
           // protocol_exits.status defaults to 'working' (migration 0009).
           const withId = { id: randomUUID(), created_at: new Date().toISOString(), ...(name === "protocol_exits" ? { status: "working" } : {}), ...row };
           rowsOf(name).push(withId);
+          onInsert?.(name, withId, tables);
           const done = { data: withId, error: null };
           return { select: () => ({ single: async () => done, maybeSingle: async () => done }), then: (res: (v: { error: null }) => void) => res({ error: null }) };
         },
@@ -169,7 +170,10 @@ function market(over: Partial<PyramidMarket> = {}): PyramidMarket {
   };
 }
 
-function seed(over: { line?: Row; order?: Row; profile?: Row | null } = {}) {
+function seed(
+  over: { line?: Row; order?: Row; profile?: Row | null } = {},
+  onInsert?: (table: string, row: Row, tables: Record<string, Row[]>) => void,
+) {
   const line: Row = {
     id: "line-1",
     user_id: "u1",
@@ -198,7 +202,7 @@ function seed(over: { line?: Row; order?: Row; profile?: Row | null } = {}) {
     user_automation_profiles: over.profile === null ? [] : [{ user_id: "u1", is_automation_enabled: true, ...over.profile }],
     protocol_exits: [line],
     orders: [{ id: "order-1", user_id: "u1", source_plan_id: randomUUID(), intraday_sourced: false, ...over.order }],
-  });
+  }, onInsert);
 }
 
 const trigger = () =>
@@ -328,11 +332,64 @@ describe("automated pyramid adds", () => {
   });
 });
 
+describe("an add that races an exit pass", () => {
+  // What another pass does at the moment placement writes the add's exit row.
+  const race = (act: (addRow: Row, line: Row) => void) => (table: string, row: Row, tables: Record<string, Row[]>) => {
+    if (table === "protocol_exits" && row.id !== "line-1") act(row, tables.protocol_exits.find((r) => r.id === "line-1")!);
+  };
+  beforeEach(() => {
+    sim.quote = Math.round((trigger().trigger + 0.1) * 100) / 100;
+  });
+
+  it("leaves the add on its own row when an exit pass is already selling it", async () => {
+    const { client, tables } = seed({}, race((addRow) => Object.assign(addRow, { runner_order_id: "sim_1" })));
+    const run = await placeAutomatedPyramidAdds(client, market(), NOW);
+    expect(run.errors.join(" ")).toMatch(/closed before it could join/);
+    const line = tables.protocol_exits.find((r) => r.id === "line-1")!;
+    expect(line.qty).toBe(100);
+    expect(line.add_claimed_at).toBeNull();
+    const addRow = tables.protocol_exits.find((r) => r.id !== "line-1")!;
+    expect(addRow.status).toBe("working");
+    expect(addRow.merged_into ?? null).toBeNull();
+  });
+
+  it("puts the add back on its own row and stop when the line changed before it could join", async () => {
+    const { client, tables } = seed({}, race((_addRow, line) => Object.assign(line, { status: "closed" })));
+    const run = await placeAutomatedPyramidAdds(client, market(), NOW);
+    expect(run.errors.join(" ")).toMatch(/line changed/);
+    const addRow = tables.protocol_exits.find((r) => r.id !== "line-1")!;
+    expect(addRow.status).toBe("working");
+    expect(addRow.merged_into).toBeNull();
+    expect(addRow.closed_at).toBeNull();
+    const line = tables.protocol_exits.find((r) => r.id === "line-1")!;
+    expect(line.qty).toBe(100);
+    expect(line.lots).toBeNull();
+  });
+
+  it("says so when the add's own exit row can't be found", async () => {
+    const { client, tables } = seed({}, race((addRow) => Object.assign(addRow, { entry_order_id: "someone-else" })));
+    const run = await placeAutomatedPyramidAdds(client, market(), NOW);
+    expect(run.errors.join(" ")).toMatch(/exit row wasn't found/);
+    expect(tables.protocol_exits.find((r) => r.id === "line-1")!.add_claimed_at).toBeNull();
+  });
+});
+
 describe("the merged line", () => {
   it("reads a row with no lots as one lot", () => {
     expect(lineLots({ qty: 10, entry_price: 50, created_at: "2026-06-03T14:00:00Z", lots: null })).toEqual([
       { qty: 10, price: 50, date: "2026-06-03" },
     ]);
+  });
+
+  it("measures the 5 points from the add's own fill when the server filled past the pass's quote", () => {
+    // The order's stop was measured from a quote of 119; the fill came at 121.
+    const orderStop = 119 - 5 * gannPoint(119);
+    const m = mergedLine(
+      { side: "long", qty: 100, entry_price: 100, applied_stop: 97, stop_loss: 97, created_at: "2026-06-03T14:00:00Z", lots: null },
+      { qty: 50, price: 121, date: "2026-06-10", stop: orderStop },
+    );
+    expect(m.stop).toBeCloseTo(121 - 5 * gannPoint(121), 9);
+    expect(m.stop).toBeGreaterThan(orderStop);
   });
 
   it("never loosens the stop, and mirrors for a short", () => {

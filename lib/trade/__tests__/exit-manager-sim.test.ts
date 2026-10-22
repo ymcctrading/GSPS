@@ -275,6 +275,21 @@ describe("a line pyramided by automation (lib/automation/pyramid-adds.ts)", () =
     expect(vi.mocked(handleAutomatedStopOut).mock.calls[0][2]).toMatchObject({ entryFillPrice: 101.8, brokenLevel: 107 });
   });
 
+  it("claims only the line it read, so an add that joined since makes this pass lose", async () => {
+    quotePrice.mockResolvedValue(106.5);
+    const eqs: [string, unknown][] = [];
+    const { client } = stubSupabase(line());
+    const from = (client as unknown as { from: (t: string) => Record<string, unknown> }).from;
+    (client as unknown as { from: (t: string) => unknown }).from = (t: string) => {
+      const q = from(t);
+      const eq = q.eq as (c: string, v: unknown) => unknown;
+      q.eq = (c: string, v: unknown) => (eqs.push([c, v]), eq(c, v));
+      return q;
+    };
+    await manageSimulatedExits(client, "user-1");
+    expect(eqs).toContainEqual(["qty", 150]);
+  });
+
   it("reads the exit rules from the first lot, as the replay does", async () => {
     quotePrice.mockResolvedValue(117);
     const gannExit = vi.mocked((await import("@/lib/trade/gann-exit-live")).readLiveGannExit);
