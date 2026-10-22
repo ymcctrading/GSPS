@@ -225,7 +225,12 @@ against Gann:
    account thread). A chart overlay never sets a level; since Chuck's
    2026-10-22 reversal a Strategy Mode that doesn't align with GSPS's plan
    offers its own entry, stop and TP1 (never an MTP), as AGENTS.md's
-   "Strategy Modes" records.
+   "Strategy Modes" records. **Built 2026-10-23**: every chart overlay and
+   study takes the member's own periods, and up to 12 named presets keep a
+   set of indicators with their periods (`lib/chart/indicatorParams.ts`,
+   `/api/settings/chart-indicators`, `settings.prefs.chartIndicators`). A
+   technique chosen on the ticket still draws its own lines on its published
+   periods, so a preset never moves a Strategy Mode's levels or ranking.
 7. **Scale safely.** Database index audit and query baselines; a shared rate
    limit store; caching for chart and scan reads. **First pass built
    2026-10-22** (`docs/SCALE_AUDIT.md`):
