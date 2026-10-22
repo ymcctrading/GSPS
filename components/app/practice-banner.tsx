@@ -34,7 +34,8 @@ export async function PracticeBanner() {
         Preview another tier
       </Link>{" "}
       or{" "}
-      <Link href="/signup" className="font-medium text-accent hover:underline">
+      {/* Not prefetched: opening /signup ends the practice session (proxy.ts). */}
+      <Link href="/signup" prefetch={false} className="font-medium text-accent hover:underline">
         create your own account
       </Link>
       .
