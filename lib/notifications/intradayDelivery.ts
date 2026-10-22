@@ -172,6 +172,10 @@ export async function notifySubscribedUsers(
               verdict: "Execute",
               confidence: alert.confidence / 100,
             });
+            // No deliverable sender (the sandbox address or an invalid
+            // RESEND_FROM) is not a send either: nothing to log or retry,
+            // as for push below. notification_log has no "skipped" status.
+            if (!result.success && result.skipped) continue;
           } else {
             result = await sendPushToProfile(service, userId, intradayPushMessage(alert));
             // No subscribed browser is not a send: nothing to log or retry.

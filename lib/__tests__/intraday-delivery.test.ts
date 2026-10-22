@@ -26,6 +26,8 @@ vi.mock("@/lib/entitlements/delivery", () => ({
 }));
 vi.mock("@/lib/notifications/resend-handler", () => ({
   sendAlertEmail: async (data: { userEmail: string }) => {
+    // The sender a blocked or invalid RESEND_FROM gives (resend-handler.ts).
+    if (data.userEmail === "expert-nosender@example.com") return { success: false, skipped: true, error: "blocked" };
     emails.push(data.userEmail);
     return { success: true };
   },
@@ -150,6 +152,14 @@ describe("intraday email and push", () => {
       email: 0,
       push: 0,
     });
+  });
+
+  it("logs no email row when the sender is not deliverable, as for push", async () => {
+    tierByUser.set("expert-nosender", "expert");
+    const db = fakeDb({ notification_preferences: [], notification_log: [] }, ["expert-nosender"]);
+    const sent = await notifySubscribedUsers(db.client, [alert("SPY")], { intervalBySymbol: new Map(), now });
+    expect(sent).toEqual({ email: 0, push: 0 });
+    expect(db.tables.notification_log).toHaveLength(0);
   });
 
   it("keeps push off for a member who never saved settings, and email on", async () => {

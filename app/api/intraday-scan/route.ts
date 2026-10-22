@@ -56,6 +56,7 @@ import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
+import { completedDailyBars, INTRADAY_DAILY_BAR_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
@@ -990,24 +991,28 @@ async function buildInput(
 
   try {
     const [minuteBars, baselineBars, dailyBars] = prefetched
-      ? [prefetched.minute.slice(-2000), prefetched.baseline.slice(-5000), prefetched.daily.slice(-300)]
+      ? [prefetched.minute.slice(-2000), prefetched.baseline.slice(-5000), prefetched.daily.slice(-INTRADAY_DAILY_BAR_LIMIT)]
       : await Promise.all([
           provider.fetchBars(symbol, "1Min", daysAgo(minuteLookbackDays), end, assetClass, 2000),
           provider.fetchBars(symbol, "5Min", daysAgo(BASELINE_DAYS), end, assetClass, 5000),
-          provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, 300),
+          provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, INTRADAY_DAILY_BAR_LIMIT),
         ]);
 
     const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt, marketClosed);
     if (sessionBars.bars.length === 0) return null;
 
     const last = sessionBars.bars[sessionBars.bars.length - 1];
+    // Completed sessions only, keyed as the alert replay keys them
+    // (lib/scanner/priorClose.ts): a crypto daily bar is the UTC day.
+    const crypto = assetClass === "crypto";
+    const completedDaily = completedDailyBars(dailyBars, sessionBars.sessionDate, crypto);
 
     return {
       symbol,
       kind,
       bars: sessionBars.bars,
       barIntervalMinutes: sessionBars.intervalMinutes,
-      prevClose: previousClose(dailyBars, sessionBars.sessionDate),
+      prevClose: priorDailyClose(dailyBars, sessionBars.sessionDate, crypto),
       quote: { price: last.c, at: last.t },
       // The baseline must cover exactly the window today's bars cover, not the
       // window the wall clock covers. The free IEX feed can't serve the most
@@ -1023,19 +1028,17 @@ async function buildInput(
         2,
         assetClass === "us_equity",
       ),
-      dailyAtr: dailyBars.length > 2 ? atr(dailyBars.slice(-20), 14) : null,
+      dailyAtr: completedDaily.length > 2 ? atr(completedDaily.slice(-20), 14) : null,
       // Completed sessions only: the prior session's high and low are the old
       // top and bottom the crossing alerts read, and today is appended by the
       // scanner itself from the session's own bars.
       // Recent sessions' five-minute bars, rolled up by the scanner into Gann's
       // hourly chart ("the Hourly Chart will give the first change in trend").
       recentBars: baselineBars,
-      priorDailyBars: dailyBars.filter(
-        (b) => !Number.isNaN(Date.parse(b.t)) && etDateKey(new Date(b.t)) < sessionBars.sessionDate,
-      ),
+      priorDailyBars: completedDaily,
       // The volume half of the platform-wide liquidity floor, read off the
       // daily bars already fetched above for the ATR — see lib/scan/liquidity.ts.
-      avgDailyVolume: readLiquidity(dailyBars)?.avgVolume ?? null,
+      avgDailyVolume: readLiquidity(completedDaily)?.avgVolume ?? null,
       lastAlerts,
       marketClosed,
       dailyPlan,
@@ -1095,17 +1098,6 @@ function latestSessionDate(bars: Bar[]): string | null {
     if (latest === null || date > latest) latest = date;
   }
   return latest;
-}
-
-/** The last daily close before `sessionEt`. Null when the history doesn't reach it. */
-function previousClose(dailyBars: Bar[], sessionEt: string): number | null {
-  for (let i = dailyBars.length - 1; i >= 0; i--) {
-    const bar = dailyBars[i];
-    if (Number.isNaN(Date.parse(bar.t))) continue;
-    if (etDateKey(new Date(bar.t)) >= sessionEt) continue;
-    return bar.c > 0 ? bar.c : null;
-  }
-  return null;
 }
 
 function daysAgo(n: number): Date {
