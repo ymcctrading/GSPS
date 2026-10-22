@@ -173,11 +173,20 @@ tier."
   `/promotion`), which lists each tier's inclusions and the account's record,
   losses included. `/api/demo/open` signs the browser in with a one-time link
   made and redeemed on the server: no email, no shared password.
-- A practice session is look-only. `proxy.ts` refuses its writes
+- A practice session is look-only. `proxy.ts` refuses its API writes
   (`practiceWriteRefused`) except a market scan, the tour, reading a notice
-  and switching tier, so the record is GSPS's own trading and nothing a
-  visitor typed. A banner on every signed-in page says which tier it is and
-  that it is paper money.
-- Known gap: profile and auth changes made straight to Supabase from the
-  browser (display name, password) can't be refused by the proxy. A password
-  change locks nobody out, since opening never uses the password.
+  and switching tier, and migration 0105's restrictive row policies refuse
+  the writes a browser makes straight to the database (profile, settings,
+  automation, broker connections, watchlists, saved setups, alerts, scripts,
+  preferences, critiques), keyed on `app_metadata.practice_tier` in the
+  session's token. So the record is GSPS's own trading and nothing a visitor
+  typed. Sign out ends only that browser's session (`scope: "local"`), and
+  each visitor draws their own rate budget. A banner on every signed-in page
+  says which tier it is and that it is paper money.
+- Known gap: a password change goes straight to Supabase Auth and can't be
+  refused. Opening never uses a password, so it locks nobody out; the
+  original Wall Street account's shared password is rotated to a random one
+  once `/practice` is live, so nobody depends on it.
+- A practice profile's tier is held by the unique index: a server path that
+  tried to change it (a promotion, a billing webhook) would fail rather than
+  leave two accounts on one tier. Both need requests the proxy refuses.

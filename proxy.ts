@@ -80,7 +80,10 @@ export async function proxy(request: NextRequest) {
     // caller hitting a signed-out 401 repeatedly as from a signed-in one —
     // keyed the same `user ?? ip` way as every other bucket rather than
     // skipped for a missing session.
-    const key = `${bucket}:${user?.id ?? `ip:${clientIp(request)}`}`;
+    // A practice account is shared, so each visitor on it draws their own
+    // budget rather than one budget for everyone viewing that tier.
+    const who = practice ? `${user!.id}:ip:${clientIp(request)}` : (user?.id ?? `ip:${clientIp(request)}`);
+    const key = `${bucket}:${who}`;
     const result = checkRateLimit(key, limit, API_WINDOW_MS);
 
     if (!result.allowed) {

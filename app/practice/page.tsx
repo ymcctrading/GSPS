@@ -26,6 +26,8 @@ export const dynamic = "force-dynamic";
 
 interface PracticeRecord {
   cash: number | null;
+  /** Latest equity mark (cash plus open positions at market), when recorded. */
+  equity: { value: number; at: string } | null;
   closed: number;
   wins: number;
   losses: number;
@@ -40,14 +42,24 @@ async function readRecords(): Promise<Map<string, PracticeRecord>> {
     const accounts = await listPracticeAccounts(service);
     await Promise.all(
       accounts.map(async ({ userId, tier }) => {
-        const [cashRes, tradesRes, openRes] = await Promise.all([
+        const [cashRes, tradesRes, openRes, markRes] = await Promise.all([
           service.from("paper_accounts").select("cash").eq("user_id", userId).maybeSingle(),
-          service.from("trade_logs").select("outcome, profit_loss_dollars").eq("user_id", userId).in("outcome", ["profit", "loss"]),
+          // Every closed trade: a pending row is still open.
+          service.from("trade_logs").select("outcome, profit_loss_dollars").eq("user_id", userId).not("outcome", "is", null).neq("outcome", "pending"),
           service.from("positions").select("id", { count: "exact", head: true }).eq("user_id", userId),
+          service
+            .from("paper_equity_snapshots")
+            .select("equity, recorded_at")
+            .eq("profile_id", userId)
+            .order("session_date", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
         ]);
+        const mark = markRes.data as { equity: number | string; recorded_at: string } | null;
         const trades = (tradesRes.data ?? []) as { outcome: string; profit_loss_dollars: number | string | null }[];
         out.set(tier.slug, {
           cash: cashRes.data ? Number((cashRes.data as { cash: number | string }).cash) : null,
+          equity: mark ? { value: Number(mark.equity), at: mark.recorded_at } : null,
           closed: trades.length,
           wins: trades.filter((t) => t.outcome === "profit").length,
           losses: trades.filter((t) => t.outcome === "loss").length,
@@ -103,9 +115,20 @@ function PracticeCard({ practice, record }: { practice: PracticeTier; record: Pr
             <ul className="mt-1 space-y-0.5 text-muted">
               <li>
                 {record.closed} closed trade{record.closed === 1 ? "" : "s"}: {record.wins} won, {record.losses} lost
+                {record.closed - record.wins - record.losses > 0 ? `, ${record.closed - record.wins - record.losses} even` : ""}
               </li>
               <li>Realised P&amp;L {usd(record.realized)} on {usd(PRACTICE_STARTING_CASH)} to start</li>
               <li>{record.open} open position{record.open === 1 ? "" : "s"}</li>
+              {record.open === 0 && record.cash !== null ? (
+                <li>Account value {usd(record.cash)}</li>
+              ) : record.equity ? (
+                <li>
+                  Account value {usd(record.equity.value)}, open positions at market (marked{" "}
+                  {new Date(record.equity.at).toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })} ET)
+                </li>
+              ) : (
+                <li>Open positions not yet marked at market; open the account to see them</li>
+              )}
             </ul>
           ) : (
             <p className="mt-1 text-muted">Not opened yet: it starts with {usd(PRACTICE_STARTING_CASH)} of paper money the first time someone opens it.</p>

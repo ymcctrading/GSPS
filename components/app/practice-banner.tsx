@@ -8,16 +8,20 @@ import { practiceTierFrom } from "@/lib/demo/practice";
  * traded by GSPS's own signals, and the ways out, to another tier or to an
  * account of one's own. Nothing renders for a member.
  *
- * Reads the tier from the session's claims (`app_metadata.practice_tier`),
- * verified locally, so a member's page load makes no extra request for it.
+ * Reads the tier from the session's access token (`app_metadata.practice_tier`)
+ * without a request, so a member's page load costs nothing extra. The token is
+ * not verified here: this only decides whether to show a label, and the proxy
+ * enforces the practice session's limits from the verified user.
  */
 export async function PracticeBanner() {
   let tier = null;
   try {
     const supabase = await createClient();
-    const { data } = await supabase.auth.getClaims();
-    const meta = (data?.claims as { app_metadata?: { practice_tier?: unknown } } | undefined)?.app_metadata;
-    tier = typeof meta?.practice_tier === "string" ? practiceTierFrom(meta.practice_tier) : null;
+    const { data } = await supabase.auth.getSession();
+    const payload = data.session?.access_token.split(".")[1];
+    const claims = payload ? (JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { app_metadata?: { practice_tier?: unknown } }) : null;
+    const raw = claims?.app_metadata?.practice_tier;
+    tier = typeof raw === "string" ? practiceTierFrom(raw) : null;
   } catch {
     tier = null;
   }

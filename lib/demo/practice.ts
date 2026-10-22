@@ -18,9 +18,12 @@
  *
  * A practice session is read-mostly. The session carries the tier in
  * `app_metadata.practice_tier` (only the service role can set it), so
- * `proxy.ts` refuses its writes without a database read: it can look, scan
- * and open lessons, but it cannot place or cancel orders, change settings,
- * connect a broker, pay, promote the account or delete it. The account's
+ * `proxy.ts` refuses its API writes without a database read, and migration
+ * 0105's restrictive row policies refuse the writes a browser makes straight
+ * to the database (settings, automation, broker connections, the profile,
+ * watchlists and the rest). It can look and scan, but it cannot place or
+ * cancel orders, change settings, switch on automation, connect a broker,
+ * pay, promote the account, rename it or delete it. The account's
  * record is GSPS's own trading and nothing a visitor typed.
  *
  * Three questions (AGENTS.md mandate):
@@ -136,6 +139,19 @@ export async function listPracticeAccounts(
   return out.sort((a, b) => TIER_ORDER.indexOf(a.tier.tier) - TIER_ORDER.indexOf(b.tier.tier));
 }
 
+/** An auth user's id by email; the admin API has no lookup by email. */
+async function findAuthUserIdByEmail(service: SupabaseClient, email: string): Promise<string | null> {
+  const target = email.toLowerCase();
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw new Error(`practice account lookup: ${error.message}`);
+    const match = data.users.find((u) => u.email?.toLowerCase() === target);
+    if (match) return match.id;
+    if (data.users.length < 200) break;
+  }
+  return null;
+}
+
 /**
  * The tier's practice account, created on first use: an auth user with a
  * random password nobody holds, its profile marked `is_demo` at the tier, and
@@ -161,16 +177,27 @@ export async function ensurePracticeAccount(
       if (metaError) throw new Error(`practice account ${practice.slug}: ${metaError.message}`);
     }
   } else {
-    const password = crypto.randomUUID() + crypto.randomUUID();
-    const { data, error } = await service.auth.admin.createUser({
-      email: practice.email,
-      password,
-      email_confirm: true,
-      app_metadata: { practice_tier: practice.tier },
-      user_metadata: { full_name: `${practice.label} practice account` },
-    });
-    if (error || !data.user) throw new Error(`practice account ${practice.slug}: ${error?.message ?? "not created"}`);
-    userId = data.user.id;
+    // A first open that stopped half way (or a second visitor opening the
+    // same tier at the same moment) leaves the auth user without its profile
+    // mark; pick that user up rather than failing on "already registered".
+    userId = (await findAuthUserIdByEmail(service, practice.email)) ?? null;
+    if (!userId) {
+      const password = crypto.randomUUID() + crypto.randomUUID();
+      const { data, error } = await service.auth.admin.createUser({
+        email: practice.email,
+        password,
+        email_confirm: true,
+        app_metadata: { practice_tier: practice.tier },
+        user_metadata: { full_name: `${practice.label} practice account` },
+      });
+      userId = data.user?.id ?? (await findAuthUserIdByEmail(service, practice.email));
+      if (!userId) throw new Error(`practice account ${practice.slug}: ${error?.message ?? "not created"}`);
+    } else {
+      const { error: metaError } = await service.auth.admin.updateUserById(userId, {
+        app_metadata: { practice_tier: practice.tier },
+      });
+      if (metaError) throw new Error(`practice account ${practice.slug}: ${metaError.message}`);
+    }
     email = practice.email;
     // handle_new_user() makes the profile row; upsert covers a missing one.
     const { error: profileError } = await service
@@ -182,11 +209,11 @@ export async function ensurePracticeAccount(
     if (profileError) throw new Error(`practice account ${practice.slug}: ${profileError.message}`);
   }
 
-  const { data: account } = await service.from("paper_accounts").select("user_id").eq("user_id", userId).maybeSingle();
-  if (!account) {
-    const { error } = await service.from("paper_accounts").insert({ user_id: userId, cash: PRACTICE_STARTING_CASH });
-    if (error) throw new Error(`practice account ${practice.slug}: ${error.message}`);
-  }
+  // Never overwrites an existing balance: a conflict leaves the row alone.
+  const { error: accountError } = await service
+    .from("paper_accounts")
+    .upsert({ user_id: userId, cash: PRACTICE_STARTING_CASH }, { onConflict: "user_id", ignoreDuplicates: true });
+  if (accountError) throw new Error(`practice account ${practice.slug}: ${accountError.message}`);
 
   return { userId, email };
 }

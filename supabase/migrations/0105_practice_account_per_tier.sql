@@ -14,14 +14,30 @@
 -- a few minutes after, clear of the :06 intraday scan, the :09 portfolio
 -- manager and the :12/:13 sweeps.
 --
+-- A practice account is shared by every visitor who opens it, so its session
+-- may look but not write. proxy.ts refuses its /api writes; the restrictive
+-- policies below refuse the writes a browser makes straight to the database
+-- with the member's own token (settings, automation, broker connections, the
+-- profile, watchlists, saved setups, alerts, scripts, preferences, critiques).
+-- A practice session's token carries app_metadata.practice_tier, which only
+-- the service role can set; every member's token has none, so for members
+-- these policies change nothing. The service role (the auto-trader, the
+-- ledger writer) bypasses RLS as before. Read access is untouched.
+-- guided_recommendations is left out on purpose: Guided Mode logs the cards
+-- it shows through the member's client, and that log is all it is.
+--
 -- Rollback
 -- --------
 -- drop index if exists public.profiles_one_practice_account_per_tier;
+-- and drop the "practice sessions do not <cmd>" policies on each table below.
 -- select cron.unschedule(j) from unnest(array[
 --   'gsps-demo-auto-trade-novice-1','gsps-demo-auto-trade-novice-2','gsps-demo-auto-trade-novice-3',
 --   'gsps-demo-auto-trade-pro-1','gsps-demo-auto-trade-pro-2','gsps-demo-auto-trade-pro-3',
 --   'gsps-demo-auto-trade-expert-1','gsps-demo-auto-trade-expert-2','gsps-demo-auto-trade-expert-3']) j;
 -- and reschedule gsps-demo-auto-trade-1..3 on '/api/demo/auto-trade' (0097).
+
+-- Fail fast rather than queue behind a busy table's lock.
+set lock_timeout = '10s';
 
 create unique index if not exists profiles_one_practice_account_per_tier
   on public.profiles (tier)
@@ -39,3 +55,31 @@ select cron.schedule('gsps-demo-auto-trade-pro-3',      '47 19 * * 1-5', $$selec
 select cron.schedule('gsps-demo-auto-trade-expert-1',   '44 12 * * 1-5', $$select gsps_ops.call_endpoint('/api/demo/auto-trade?tier=expert')$$);
 select cron.schedule('gsps-demo-auto-trade-expert-2',   '20 17 * * 1-5', $$select gsps_ops.call_endpoint('/api/demo/auto-trade?tier=expert')$$);
 select cron.schedule('gsps-demo-auto-trade-expert-3',   '49 19 * * 1-5', $$select gsps_ops.call_endpoint('/api/demo/auto-trade?tier=expert')$$);
+
+do $$
+declare
+  t text;
+  guard constant text := $g$(coalesce(auth.jwt() -> 'app_metadata' ->> 'practice_tier', '') = '')$g$;
+begin
+  foreach t in array array[
+    'profiles', 'settings', 'user_automation_profiles', 'broker_connections',
+    'trade_critiques', 'strategy_plugins', 'strategy_plugin_versions',
+    'strategy_mode_preferences', 'notification_preferences', 'push_subscriptions',
+    'watchlists', 'watchlist_items', 'saved_setups', 'setup_folders',
+    'custom_price_alerts', 'scan_criteria_presets', 'school_trader_operating_system'
+  ] loop
+    if to_regclass('public.' || t) is null then
+      continue;
+    end if;
+    execute format('drop policy if exists %I on public.%I', 'practice sessions do not insert', t);
+    execute format('drop policy if exists %I on public.%I', 'practice sessions do not update', t);
+    execute format('drop policy if exists %I on public.%I', 'practice sessions do not delete', t);
+    execute format('create policy %I on public.%I as restrictive for insert to authenticated with check %s',
+      'practice sessions do not insert', t, guard);
+    execute format('create policy %I on public.%I as restrictive for update to authenticated using %s with check %s',
+      'practice sessions do not update', t, guard, guard);
+    execute format('create policy %I on public.%I as restrictive for delete to authenticated using %s',
+      'practice sessions do not delete', t, guard);
+  end loop;
+end
+$$;
