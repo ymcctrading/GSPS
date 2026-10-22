@@ -159,7 +159,8 @@ export const SWEEP_MAX_AGE_DAYS = 4;
 export const SWEEP_MIN_COVERAGE = 0.5;
 
 /**
- * Which stored night to read, from each recent night's stored count: the
+ * Which stored night to read, from each recent night's count of scored stocks
+ * (failed reads not counted): the
  * newest that scored at least `SWEEP_MIN_COVERAGE` of the universe, else the
  * newest at all. Nights older than `SWEEP_MAX_AGE_DAYS` before `today` (a New
  * York date) are never read.
@@ -188,7 +189,8 @@ async function chooseSweepBasis(
     const { count, error } = await service
       .from("universe_sweep")
       .select("symbol", { count: "exact", head: true })
-      .eq("basis_date", day);
+      .eq("basis_date", day)
+      .is("error", null);
     if (error) return null;
     if (count) counts.push({ basis_date: day, count });
     if (count && count >= LARGE_CAP_UNIVERSE.length * SWEEP_MIN_COVERAGE) break;

@@ -38,6 +38,8 @@ const SWEEP_DEADLINE_MS = 35_000;
 const SWEEP_LATEST_ET_MINUTES = 4 * 60;
 /** A failed read is tried again after this long. */
 const RETRY_AFTER_MS = 20 * 60_000;
+/** Rows per read of tonight's stored rows. */
+const READ_PAGE = 1000;
 /** Days of sweep rows kept. */
 const KEEP_DAYS = 30;
 
@@ -57,16 +59,24 @@ export async function GET(req: NextRequest) {
 
   const basisDate = etDateKey(now);
   const service = createServiceClient();
-  const { data: done, error: readError } = await service
-    .from("universe_sweep")
-    .select("symbol, error, swept_at")
-    .eq("basis_date", basisDate)
-    .limit(5000);
-  if (readError) return NextResponse.json({ error: `Sweep rows not read: ${readError.message}` }, { status: 500 });
+  // Read in pages: the API returns at most 1,000 rows a request, and a stock
+  // missed here would be scored twice.
+  const done: { symbol: string; error: string | null; swept_at: string }[] = [];
+  for (let from = 0; ; from += READ_PAGE) {
+    const { data, error: readError } = await service
+      .from("universe_sweep")
+      .select("symbol, error, swept_at")
+      .eq("basis_date", basisDate)
+      .order("symbol")
+      .range(from, from + READ_PAGE - 1);
+    if (readError) return NextResponse.json({ error: `Sweep rows not read: ${readError.message}` }, { status: 500 });
+    done.push(...((data ?? []) as typeof done));
+    if (!data || data.length < READ_PAGE) break;
+  }
   // A stock whose read failed (a rate limit, a feed gap) is tried again once
   // the rest are scored, at most every `RETRY_AFTER_MS`, until the window ends.
   const retryBefore = now.getTime() - RETRY_AFTER_MS;
-  const doneRows = (done ?? []) as { symbol: string; error: string | null; swept_at: string }[];
+  const doneRows = done;
   const swept = new Set(doneRows.map((r) => r.symbol.toUpperCase()));
   const retry = doneRows
     .filter((r) => r.error && new Date(r.swept_at).getTime() < retryBefore)
