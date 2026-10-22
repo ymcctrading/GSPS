@@ -27,8 +27,8 @@
  *   tenth binds only on a wider stop, up to his 5-point cap. "Capital" is
  *   the trading unit (`gannRiskCapital`, A-RISK-04), the capital the per-trade
  *   risk rate already reads; that reading is the engineering choice. It is a
- *   per-trade ceiling, "on any one trade", not a limit on all open risk. The
- *   account's own risk bands (`lib/risk/config.ts`) sit under it.
+ *   per-trade ceiling, "on any one trade", not a limit on all open risk.
+ *   Novice's percent ceilings (`checkPositionLimits`) sit under it.
  *
  * Checked on every new entry by `lib/trade/place-order.ts` (paper and live),
  * and used to size Guided and the portfolio manager. Protective orders are

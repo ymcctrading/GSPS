@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRiskPolicy, setRiskPolicyValue, DEFAULT_RISK_POLICY_VALUES } from "@/lib/risk/policy";
 import { DEFAULT_CIRCUIT_THRESHOLDS } from "@/lib/risk/circuit-breaker";
-import { DEFAULT_RISK_BAND_THRESHOLDS } from "@/lib/risk/dynamic-risk";
 
 function makeSupabase(rows: { key: string; value: unknown }[]) {
   const table = {
@@ -16,10 +15,9 @@ function makeSupabase(rows: { key: string; value: unknown }[]) {
 }
 
 describe("getRiskPolicy", () => {
-  it("resolves to the same shape as the module-level circuit-breaker/dynamic-risk defaults when unconfigured", async () => {
+  it("resolves to the same shape as the module-level circuit-breaker defaults when unconfigured", async () => {
     const policy = await getRiskPolicy(makeSupabase([]));
     expect(policy.circuit).toEqual(DEFAULT_CIRCUIT_THRESHOLDS);
-    expect(policy.band).toEqual(DEFAULT_RISK_BAND_THRESHOLDS);
   });
 
   it("overlays a circuit-domain override", async () => {
@@ -28,10 +26,10 @@ describe("getRiskPolicy", () => {
     expect(policy.circuit.softCooldown48hLossPct).toBe(DEFAULT_CIRCUIT_THRESHOLDS.softCooldown48hLossPct);
   });
 
-  it("overlays a band-rate override for a single band without disturbing the others", async () => {
+  it("no longer reads a removed risk-band key (R-004)", async () => {
     const policy = await getRiskPolicy(makeSupabase([{ key: "riskBandRateBase", value: 0.75 }]));
-    expect(policy.band.riskBandRatePct.base).toBe(0.75);
-    expect(policy.band.riskBandRatePct.a_tier).toBe(DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.a_tier);
+    expect(policy).toEqual({ circuit: DEFAULT_CIRCUIT_THRESHOLDS });
+    expect(Object.keys(DEFAULT_RISK_POLICY_VALUES)).not.toContain("riskBandRateBase");
   });
 
   // Q13: a row may tighten a risk limit, never loosen it.
@@ -39,12 +37,10 @@ describe("getRiskPolicy", () => {
     const policy = await getRiskPolicy(
       makeSupabase([
         { key: "hardCooldown48hLossPct", value: 9 },
-        { key: "riskBandRateBase", value: 5 },
         { key: "hardCooldownBlockedDays", value: 0 },
       ]),
     );
     expect(policy.circuit).toEqual(DEFAULT_CIRCUIT_THRESHOLDS);
-    expect(policy.band).toEqual(DEFAULT_RISK_BAND_THRESHOLDS);
   });
 
   it("refuses to write a looser risk value", async () => {
@@ -52,8 +48,6 @@ describe("getRiskPolicy", () => {
   });
 
   it("default policy values match the pure-function defaults 1:1", () => {
-    expect(DEFAULT_RISK_POLICY_VALUES.riskBandRateBase).toBe(DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.base);
-    expect(DEFAULT_RISK_POLICY_VALUES.absoluteTierCapPct).toBe(DEFAULT_RISK_BAND_THRESHOLDS.absoluteTierCapPct);
     expect(DEFAULT_RISK_POLICY_VALUES.warning48hLossPct).toBe(DEFAULT_CIRCUIT_THRESHOLDS.warning48hLossPct);
   });
 });
