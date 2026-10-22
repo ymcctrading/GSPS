@@ -131,6 +131,10 @@ export default function PortfolioPage() {
   const sections = useMemo(() => sectionOrders(orders, livePositions), [orders, livePositions]);
   const openLegCount = countOpenLegs(blendedPositions);
   const loading = portfolio === null && error === null;
+  // Both loaders keep the previous object when nothing changed, so this moves
+  // only when the positions or the exit plans did, and the Risk card reads
+  // the book again with them (a trailed stop, a filled tranche).
+  const riskKey = useMemo(() => ({ portfolio, exits }), [portfolio, exits]);
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
@@ -160,7 +164,7 @@ export default function PortfolioPage() {
 
       <ExitActivity exits={exits} />
 
-      <RiskPanel />
+      <RiskPanel refreshKey={riskKey} />
 
       <PositionSection
         id="open-positions"

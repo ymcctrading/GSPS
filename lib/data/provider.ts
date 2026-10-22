@@ -15,6 +15,7 @@
  */
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
+import type { AlertQuote } from "@/lib/alerts/rules";
 import { TF_INTERVAL_MS } from "@/lib/timeframe";
 import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 
@@ -58,6 +59,13 @@ export interface MarketDataProvider {
   fetchLatestPrice(symbol: string, assetClass: AssetClass): Promise<number>;
 
   fetchMostActives(top?: number): Promise<string[]>;
+
+  /**
+   * Optional: the figures the alert editor watches (bid, ask, the day's bar,
+   * the closes), for many symbols at once. A provider without it can still
+   * check Last alerts through `fetchLatestPrice`.
+   */
+  fetchAlertQuotes?(symbols: string[], assetClass: AssetClass, now?: Date): Promise<Map<string, AlertQuote>>;
 
   /** Optional extended data. Providers without a real feed for these return undefined. */
   fetchOptionChain?(symbol: string, assetClass: AssetClass): Promise<OptionChain>;
