@@ -45,12 +45,13 @@ function zigzag(days: number, legs: [number, number][], start = 100, firstDay = 
 
 /**
  * A calm daily history ahead of the bars, then the bars' own days. It opens
- * with an old top at 107 (a rally and a 3-Day Chart turn down), so a trade
- * entered under it has a first target that pays more than its risk: the
- * replay, like the live alert, takes no trade without one (M-K5).
+ * with an old top at 107 and an old bottom at 85 (3-Day Chart turns), so a
+ * long under the top and a short over the bottom each have a first target that
+ * pays more than its risk: the replay, like the live alert, takes no trade
+ * without one (M-K5).
  */
 function dailyFor(bars: Bar[], withTop = true): Bar[] {
-  const peak = withTop ? [96, 99, 102, 105, 107, 104, 101, 98, 96] : [];
+  const peak = withTop ? [96, 99, 102, 105, 107, 104, 101, 98, 96, 93, 90, 87, 85, 88, 91, 94, 96] : [];
   const before: Bar[] = Array.from({ length: 30 }, (_, i) => {
     const p = peak[i];
     return {
