@@ -109,11 +109,13 @@ export async function proxy(request: NextRequest) {
 
   // Leaving a practice account to sign in or sign up as oneself: end the
   // practice session here rather than bouncing back to its dashboard. Only on
-  // a real visit: the router prefetches every visible link, and the banner's
+  // a real visit: the router prefetches visible links, and the banner's
   // "create your own account" link is on every page, so ending the session on
-  // a prefetch signed the visitor out moments after the account opened.
-  if (practice && (path === "/login" || path === "/signup") && !isPrefetchRequest(request.headers)) {
-    await supabase.auth.signOut({ scope: "local" });
+  // a prefetch signed the visitor out moments after the account opened. A
+  // prefetch is answered with the page itself, never the signed-in redirect
+  // to /dashboard below, which the router would cache as the link's target.
+  if (practice && (path === "/login" || path === "/signup")) {
+    if (!isPrefetchRequest(request.headers)) await supabase.auth.signOut({ scope: "local" });
     return supabaseResponse;
   }
 

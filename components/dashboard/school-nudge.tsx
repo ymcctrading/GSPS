@@ -42,8 +42,8 @@ export function SchoolNudge({ data }: { data: SchoolNudgeData }) {
         </CardTitle>
         <CardDescription>
           {data.practice
-            ? `Every lesson is open to read from this practice account. Create your own account to keep your progress and take the ${step.label} to ${step.up} exam.`
-            : `The courses and the ${step.label} to ${step.up} exam are one way to move up to ${step.up}, alongside your track record.`}
+            ? `Look around School from this practice account. Create your own account to take the lessons, keep your progress and sit the ${step.label} to ${step.up} exam.`
+            : `Finishing the courses and the ${step.label} to ${step.up} exam is one way to move up to ${step.up}; a track record on your own trades is another.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">

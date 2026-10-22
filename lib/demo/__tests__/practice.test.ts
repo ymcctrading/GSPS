@@ -82,9 +82,13 @@ describe("prefetches never end a practice session", () => {
     expect(isPrefetchRequest(h({}))).toBe(false);
     expect(isPrefetchRequest(h({ rsc: "1" }))).toBe(false);
   });
-  it("the proxy checks it before signing a practice visitor out", () => {
+  it("the proxy signs out only on a visit, and never redirects a practice prefetch", () => {
     const proxy = readFileSync("proxy.ts", "utf8");
-    expect(proxy).toMatch(/practice && \(path === "\/login" \|\| path === "\/signup"\) && !isPrefetchRequest\(request\.headers\)/);
+    const block = proxy.match(/if \(practice && \(path === "\/login" \|\| path === "\/signup"\)\) \{([\s\S]*?)\n  \}/);
+    expect(block).not.toBeNull();
+    expect(block![1]).toMatch(/if \(!isPrefetchRequest\(request\.headers\)\) await supabase\.auth\.signOut/);
+    expect(block![1]).toMatch(/return supabaseResponse;/);
+    // The practice branch comes before the signed-in redirect to /dashboard.
+    expect(proxy.indexOf("practice && (path === \"/login\"")).toBeLessThan(proxy.indexOf("user && (path === \"/login\""));
   });
 });
-

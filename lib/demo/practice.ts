@@ -107,7 +107,9 @@ export function practiceWriteRefused(path: string, method: string): boolean {
  * A router or browser prefetch rather than a visit: Next's
  * `next-router-prefetch` header, or the browser's `Sec-Purpose`/`Purpose:
  * prefetch`. Opening /login or /signup ends a practice session (proxy.ts), and
- * a prefetch of either must not.
+ * a prefetch of either must not. Next 16 sends `next-router-prefetch` on every
+ * prefetch but the full one (`<Link prefetch={true}>`, dynamic-on-hover),
+ * which reads as a navigation; no link to /login or /signup uses it.
  */
 export function isPrefetchRequest(headers: Pick<Headers, "get">): boolean {
   if (headers.get("next-router-prefetch")) return true;
