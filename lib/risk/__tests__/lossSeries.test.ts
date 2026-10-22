@@ -25,6 +25,15 @@ describe("readLossSeries (series-of-losses pause)", () => {
     expect(readLossSeries(trades, new Date("2026-09-29T15:00:00Z")).paused).toBe(false);
   });
 
+  it("skips a market holiday, so the pause still covers the next trading day", () => {
+    // Wednesday 2026-11-25 completes the series; Thursday is Thanksgiving, so
+    // Friday 2026-11-27 is the next trading day and is still paused.
+    const wed = "2026-11-25T18:00:00Z";
+    const trades = [loss(wed), loss(wed), loss(wed)];
+    expect(readLossSeries(trades, new Date("2026-11-27T15:00:00Z")).paused).toBe(true);
+    expect(readLossSeries(trades, new Date("2026-11-30T15:00:00Z")).paused).toBe(false);
+  });
+
   it("does not pause on two losses, or when a win breaks the run", () => {
     expect(readLossSeries([loss(third), loss(third)], new Date(third)).paused).toBe(false);
     expect(readLossSeries([loss(third), win(third), loss(third), loss(third)], new Date(third)).consecutiveLosses).toBe(1);

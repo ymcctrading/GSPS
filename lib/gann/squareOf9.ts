@@ -16,6 +16,13 @@
  * The 22.5° line is read as an angle round the ring (half-way between the 0°
  * and 45° cells on an even ring), as B12 records the convention.
  *
+ * M-P7, a labelled reconstruction (2026-10-21): Gann printed the wheel, never a
+ * square-root formula. "180° = +1 on the square root of price" is the modern
+ * decoding of his plate. It is kept because it reproduces the wheel's own
+ * diagonals (3, 13, 31, 57, 91) within a point a turn (C-LEVELS-14 in
+ * `lib/__tests__/gann.test.ts`), so the reconstruction is checked against his
+ * numbers rather than taken on trust.
+ *
  * These are the classic "natural support/resistance" coordinates where the
  * protocol expects liquidity to rest.
  */

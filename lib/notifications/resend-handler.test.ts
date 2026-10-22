@@ -14,7 +14,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendAlertEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
+import { parseSenderAddress, sandboxBlockReason, sendAlertEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
 import { SCORE_MAX } from "@/lib/scoring/display";
 
 const BASE: AlertEmailData = {
@@ -104,6 +104,40 @@ describe("the sender (review finding S-04)", () => {
     const result = await sendAlertEmail(BASE);
     expect(result).toMatchObject({ success: true, id: "email-1" });
     expect(sendMock.mock.calls[0][0].from).toBe("GSPS Alerts <alerts@example.com>");
+  });
+
+  it("reads RESEND_FROM set with its own display name, without nesting brackets", async () => {
+    process.env.RESEND_FROM = "GSPS <alerts@example.com>";
+    const result = await sendAlertEmail(BASE);
+    expect(result).toMatchObject({ success: true });
+    expect(sendMock.mock.calls[0][0].from).toBe("GSPS Alerts <alerts@example.com>");
+  });
+
+  it("treats a RESEND_FROM that is no address as unset, so the send is skipped, not failed", async () => {
+    process.env.RESEND_FROM = "gsps.world";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await sendAlertEmail(BASE);
+    expect(result).toMatchObject({ success: false, skipped: true });
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(sandboxBlockReason(BASE.userEmail)).toMatch(/RESEND_FROM is set but is not an email address/);
+    errorSpy.mockRestore();
+  });
+
+  it("reads the sandbox sender whatever its case", () => {
+    process.env.RESEND_FROM = "GSPS <Onboarding@resend.dev>";
+    expect(sandboxBlockReason(BASE.userEmail)).toMatch(/sandbox sender/);
+  });
+});
+
+describe("parseSenderAddress", () => {
+  it("takes the bare address from either form", () => {
+    expect(parseSenderAddress("alerts@gsps.world")).toBe("alerts@gsps.world");
+    expect(parseSenderAddress("  GSPS <alerts@gsps.world> ")).toBe("alerts@gsps.world");
+    expect(parseSenderAddress('"alerts@gsps.world"')).toBe("alerts@gsps.world");
+    expect(parseSenderAddress("")).toBeNull();
+    expect(parseSenderAddress(undefined)).toBeNull();
+    expect(parseSenderAddress("GSPS")).toBeNull();
+    expect(parseSenderAddress("a b@gsps.world")).toBeNull();
   });
 });
 

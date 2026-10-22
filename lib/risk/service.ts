@@ -32,6 +32,7 @@ import type { CircuitState } from "@/lib/risk/config";
 import { getRiskPolicy } from "@/lib/risk/policy";
 import { applyResetChecklistHold } from "@/lib/risk/cooldown";
 import { etDateKey, etParts } from "@/lib/market/session";
+import { isMarketHoliday } from "@/lib/market/calendar";
 
 /** Snapshots are throttled to at most one every this many minutes per user. */
 const SNAPSHOT_MIN_INTERVAL_MINUTES = 15;
@@ -72,6 +73,14 @@ interface SnapshotRow {
   recorded_at: string;
 }
 
+/** A risk read (the stored circuit state or the equity history) failed, so no decision was made. */
+export class CircuitStateUnreadableError extends Error {
+  constructor(detail: string) {
+    super(`risk circuit state unreadable: ${detail}`);
+    this.name = "CircuitStateUnreadableError";
+  }
+}
+
 /** Snapshots from the trailing 30 days, oldest first — the widest window any metric here reads. */
 async function readEquitySamples(
   supabase: SupabaseClient,
@@ -79,12 +88,15 @@ async function readEquitySamples(
   now: Date,
 ): Promise<{ samples: EquitySample[]; anyUnverified: boolean }> {
   const since = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("risk_live_equity_snapshots")
     .select("equity, verified, recorded_at")
     .eq("profile_id", userId)
     .gte("recorded_at", since)
     .order("recorded_at", { ascending: true });
+  // No history would read every loss and drawdown as 0%, so the breaker
+  // would fail open (review finding R-003). Refuse to decide instead.
+  if (error) throw new CircuitStateUnreadableError(error.message);
 
   const rows = (data ?? []) as SnapshotRow[];
   return {
@@ -101,8 +113,12 @@ function sessionStart(now: Date): Date {
   return new Date(startOfTodayEt.getTime() - 4 * 3600_000); // 20:00 ET the evening before
 }
 
-/** Distinct ET weekdays (Mon-Fri) strictly between `from` and `to` — a holiday-agnostic trading-day count, matching lib/market/session.ts's own posture. */
-function tradingDaysElapsed(from: Date, to: Date): number {
+/**
+ * Distinct ET trading days strictly between `from` and `to`: weekdays that are
+ * not full-day market holidays, so a hold that crosses a holiday still runs
+ * its full count of sessions (review finding R-002, as `lossSeries.ts`).
+ */
+export function tradingDaysElapsed(from: Date, to: Date): number {
   if (to.getTime() <= from.getTime()) return 0;
   let count = 0;
   const seen = new Set<string>();
@@ -112,7 +128,7 @@ function tradingDaysElapsed(from: Date, to: Date): number {
     if (cursor.getTime() > to.getTime()) break;
     const { weekday } = etParts(cursor);
     const key = etDateKey(cursor);
-    if (weekday !== 0 && weekday !== 6 && !seen.has(key)) {
+    if (weekday !== 0 && weekday !== 6 && !isMarketHoliday(key) && !seen.has(key)) {
       seen.add(key);
       count++;
     }
@@ -182,11 +198,15 @@ export async function evaluateLiveCircuitBreaker(
   const sod = startOfDayLoss(withCurrent, sessionStart(now), now);
   const drawdown30d = rollingHighWaterDrawdown(withCurrent, now);
 
-  const { data: priorRow } = await supabase
+  const { data: priorRow, error: priorError } = await supabase
     .from("risk_circuit_state")
     .select("state, triggered_at")
     .eq("profile_id", userId)
     .maybeSingle();
+  // An unread prior state would read as no hold at all, so the breaker would
+  // fail open (review finding R-003). Refuse to decide instead; the caller
+  // lets protective orders through and holds new entries.
+  if (priorError) throw new CircuitStateUnreadableError(priorError.message);
   const stored = priorRow as StoredCircuitState | null;
   const prior: PriorState | undefined = stored
     ? { state: stored.state, triggeredAt: new Date(stored.triggered_at) }

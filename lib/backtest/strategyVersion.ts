@@ -713,6 +713,14 @@
 // and replay alike; 1Day replay trades move. Merged onto
 // 2026-10-21-cutoffs-seven-four-one-entry, whose one-entry replay and 7/4
 // cutoffs it keeps.
+// 2026-10-22-gann-eclipse-break-window: M-S4 acts (Chuck, 2026-10-22, astrology
+// "no longer research only"). A fast planet crossing, within a day, the
+// longitude of an eclipse that fell within 10 sessions of a 3-Day Chart top is
+// a dated window for a top in the shared time-window hold (`eclipseBreakOn`,
+// Mikula W012 pp. 32-35, labelled reconstruction), live and replay alike. A
+// counter-trend short Execute held to Watch for want of a window can now act. Merged onto
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
+// firing-bar fixes it keeps.
 // 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
 // mass-pressure curve not against the trade (A-OTHER-05, Master Course Ch. 7,
 // PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in
@@ -724,5 +732,6 @@
 // leaders, campaign length or mass pressure, as live. Live stock verdicts move;
 // replay buckets move. Context only: `massPressureWithTrade`, the 84-year count
 // (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`). Merged onto
-// 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose fixes it keeps.
+// 2026-10-22-gann-eclipse-break-window, whose eclipse window and the fixes
+// before it it keeps.
 export const STRATEGY_VERSION = "2026-10-22-gann-mass-pressure";
