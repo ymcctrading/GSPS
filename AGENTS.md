@@ -1036,7 +1036,7 @@ standing in for the NYSE's total value). Also context, a labelled
 reconstruction: Gann's three curves (A-TIME-13, the 1922 forecast: "the
 commodity curve, money curve and curve of stocks. Sometimes one of these curves
 will cause a change of trend"), each read as the curve of stocks is, on the
-long rate and the price index (`threeCurves.ts`, `curvesDisagree`). `STRATEGY_VERSION` is
+long rate and the price index (`threeCurves.ts`, `curvesDisagree`). `STRATEGY_VERSION` was
 `2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
 window it keeps; the six-year daily rerun that measures 7/4 runs on it.
 
@@ -1052,6 +1052,27 @@ stocks that show the most strength", *Stock Selector* Ch. VII). A plan with no
 score goes last and ties keep the older plan first (engineering choices). A
 failed read ranks nothing, is logged in the run's errors, and never stops the run. There is no migration. Verdicts and the replay are
 unchanged, so `STRATEGY_VERSION` stays.
+
+**Name charts and great cycles, 2026-10-22 (A-OTHER-08, A-TIME-24; owner:
+"Build these: ... name numerology [is] written out in the Master Course").**
+Gann's name chart (Master Course Ch. 15A, PDF 401-402): "United States Steel"
+has 17 letters, so a Square of 289 whose multiples "strike important
+vibrations on the name"; 220½ is the half of the Square of 21.
+`lib/gann/nameNumerology.ts` counts the stored company name (`instrument.name`,
+the SEC title; legal-form words and state tags dropped, an engineering choice),
+and its nearest key number above and below price, in Gann points, joins the S/R
+list through `masterLevels.ts`. The same numbers counted in years from the
+stored inception (day or month precision; the NYSE Permanent Chart reads a year
+a cell) open a dated window in the time-window hold
+(`timeWindow.ts#inceptionWindows`). The great cycles (W001 pp. 7, 11, 13-14;
+lengths per lesson: 20 years 1931, 60 years 1935, 20,736 days 1953, 90 years
+1955; `timeCycles.ts#GREAT_CYCLES`) open a window in the month they end, from
+inception and from the monthly chart's major pivots for the counts
+`MAJOR_CYCLE_YEARS` lacks (`greatCycleHits`). Both surfaces read the same
+reference (732 equities have a name and a profile row). Dewey's repetition count
+fails for both; measured by the replay's window hold. `STRATEGY_VERSION` is
+`2026-10-22-gann-name-chart-great-cycles` (merged onto the mass-pressure
+version above); Execute and the 7/4 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
