@@ -99,6 +99,44 @@ describe("summarizeRiskBook", () => {
     expect(s.maxRiskSetBy).toBe("novice_open_risk");
   });
 
+  it("keeps rule 1's tenth apart from Novice's room, and judges a pyramided line leg by leg", () => {
+    // $100k equity, Novice: two open trades risking $900 each leave $200 of room,
+    // but each was a trade under a tenth when it was placed.
+    const s = summarizeRiskBook({
+      ...base,
+      cash: 80_000,
+      positions: [
+        pos({ symbol: "AAPL", qty: 100, entry: 100, openingStop: 91, legs: [{ qty: 100, entry: 100, stop: 91 }] }),
+        pos({ symbol: "MSFT", qty: 100, entry: 100, openingStop: 91, legs: [{ qty: 100, entry: 100, stop: 91 }] }),
+      ],
+      noviceCeilings: { maxGroups: 1 },
+    });
+    expect(s.maxRiskPerTrade).toBe(200);
+    expect(s.tenthPerTrade).toBe(10_000);
+    expect(s.positions.every((p) => (p.largestTradeRiskUsd ?? 0) <= s.tenthPerTrade)).toBe(true);
+
+    const line = summarizeRiskBook({
+      ...base,
+      positions: [pos({ symbol: "XYZ", qty: 200, legs: [{ qty: 100, entry: 100, stop: 60 }, { qty: 100, entry: 110, stop: 70 }] })],
+    });
+    // $8,000 in all, $4,000 the largest single trade: under a tenth of $100k.
+    expect(line.positions[0]).toMatchObject({ riskUsd: 8_000, largestTradeRiskUsd: 4_000 });
+  });
+
+  it("keeps resting entries and option premium out of what the stops lose", () => {
+    const s = summarizeRiskBook({
+      ...base,
+      positions: [
+        pos({ symbol: "AAPL", qty: 10, legs: [{ qty: 10, entry: 100, stop: 97 }] }),
+        pos({ symbol: "AAPL261120C00200000", qty: 1, entry: 5, option: true }),
+      ],
+      resting: [{ symbol: "MSFT", side: "buy", qty: 10, price: 400, stop: 390 }],
+    });
+    expect(s.openRiskUsd).toBe(30);
+    expect(s.premiumRiskUsd).toBe(500);
+    expect(s.restingRiskUsd).toBe(100);
+  });
+
   it("never shows NaN when an entry can't be read", () => {
     const s = summarizeRiskBook({ ...base, positions: [pos({ symbol: "X", legs: [{ qty: 10, entry: Number.NaN, stop: 9 }] })] });
     expect(Number.isFinite(s.openRiskUsd)).toBe(true);

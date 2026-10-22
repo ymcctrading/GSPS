@@ -85,6 +85,12 @@ export interface RiskBookPosition {
   riskUsd: number | null;
   /** That risk as a percent of the trading unit. */
   riskPctOfUnit: number | null;
+  /**
+   * The largest risk any one trade in the row carries: each add is its own
+   * trade under never-failing rule 1 ("on any one trade"), so a pyramided
+   * line is judged leg by leg, never on its sum.
+   */
+  largestTradeRiskUsd: number | null;
   resting: boolean;
   option: boolean;
 }
@@ -122,11 +128,23 @@ export interface RiskBookSummary {
   maxRiskPerTrade: number;
   /** What sets that figure: a tenth of the unit, a tenth of the profits, or Novice's open-risk room. */
   maxRiskSetBy: "unit" | "profits" | "novice_open_risk";
+  /**
+   * Rule 1's own ceiling on any one trade: a tenth of the unit, or of the
+   * profits (A-RISK-07). Unlike `maxRiskPerTrade` it never reads Novice's
+   * open-risk room, which is what is left for the next trade, not a limit
+   * each open trade had to meet.
+   */
+  tenthPerTrade: number;
   capitalHeld: number;
   capitalRoom: number;
   markets: { stocks: number; maxStocks: number; other: number; maxOther: number };
+  /** Lost if every working stop on the held shares fills. */
   openRiskUsd: number;
   openRiskPctOfUnit: number;
+  /** Resting entries' risk to their stops, should they fill: not yet at risk. */
+  restingRiskUsd: number;
+  /** Bought options' premium, which they can lose and no more. */
+  premiumRiskUsd: number;
   /** Positions with any share no stop covers. */
   unprotected: number;
   novice: NoviceCeilings | null;
@@ -135,6 +153,7 @@ export interface RiskBookSummary {
 
 const finite = (n: number | null | undefined): n is number => typeof n === "number" && Number.isFinite(n);
 
+/** A held leg's risk: none once its stop is trailed past its entry. */
 function legRisk(side: "long" | "short", leg: StopLeg): number {
   const perShare = side === "long" ? leg.entry - leg.stop : leg.stop - leg.entry;
   return Math.max(perShare, 0) * leg.qty;
@@ -156,7 +175,7 @@ export function summarizeRiskBook(input: RiskBookInput): RiskBookSummary {
       return {
         symbol: p.symbol, side: p.side, qty: p.qty, entry: p.entry, stops: [],
         stopPastEntry: false, unprotectedQty: risk == null ? p.qty : 0,
-        riskUsd: risk, riskPctOfUnit: pct(risk), resting: false, option: true,
+        riskUsd: risk, riskPctOfUnit: pct(risk), largestTradeRiskUsd: risk, resting: false, option: true,
       };
     }
     const legs = p.legs.filter((l) => finite(l.qty) && l.qty > 0 && finite(l.entry) && finite(l.stop));
@@ -168,21 +187,23 @@ export function summarizeRiskBook(input: RiskBookInput): RiskBookSummary {
     // account does. Price the risk on the shares actually held.
     const held = legQty > p.qty ? p.qty / legQty : 1;
     const risk = legs.length === 0 ? null : legs.reduce((sum, l) => sum + legRisk(p.side, l), 0) * held;
+    const largest = legs.length === 0 ? null : Math.max(...legs.map((l) => legRisk(p.side, l))) * held;
     return {
       symbol: p.symbol, side: p.side, qty: p.qty, entry: p.entry,
       stops: legs.map((l) => l.stop),
       stopPastEntry: legs.length > 0 && unprotectedQty === 0 && risk === 0,
-      unprotectedQty, riskUsd: risk, riskPctOfUnit: pct(risk), resting: false, option: false,
+      unprotectedQty, riskUsd: risk, riskPctOfUnit: pct(risk), largestTradeRiskUsd: largest, resting: false, option: false,
     };
   });
   const resting: RiskBookPosition[] = input.resting.map((w) => {
     const side = w.side === "buy" ? ("long" as const) : ("short" as const);
     const ok = finite(w.stop) && finite(w.price);
-    const risk = ok ? legRisk(side, { qty: w.qty, entry: w.price, stop: w.stop as number }) : null;
+    // Placement's ceilings read a resting entry's risk as |limit - stop|.
+    const risk = ok ? Math.abs(w.price - (w.stop as number)) * w.qty : null;
     return {
       symbol: w.symbol, side, qty: w.qty, entry: w.price, stops: ok ? [w.stop as number] : [],
       stopPastEntry: false, unprotectedQty: ok ? 0 : w.qty,
-      riskUsd: risk, riskPctOfUnit: pct(risk), resting: true, option: false,
+      riskUsd: risk, riskPctOfUnit: pct(risk), largestTradeRiskUsd: risk, resting: true, option: false,
     };
   });
   const rows = [...held, ...resting];
@@ -193,7 +214,11 @@ export function summarizeRiskBook(input: RiskBookInput): RiskBookSummary {
   const marketsOf = (crypto: boolean) =>
     new Set(rows.filter((r) => !r.option && isCryptoSymbol(r.symbol) === crypto).map((r) => r.symbol.toUpperCase().replace("/", ""))).size;
 
-  const openRiskUsd = rows.reduce((sum, r) => sum + (finite(r.riskUsd) ? r.riskUsd : 0), 0);
+  const riskOf = (keep: (r: RiskBookPosition) => boolean) =>
+    rows.filter(keep).reduce((sum, r) => sum + (finite(r.riskUsd) ? r.riskUsd : 0), 0);
+  const openRiskUsd = riskOf((r) => !r.resting && !r.option);
+  const restingRiskUsd = riskOf((r) => r.resting);
+  const premiumRiskUsd = riskOf((r) => r.option);
   const tenth = maxRiskForTrade(unit, input.profitCeiling);
   let maxRiskPerTrade = tenth;
   let maxRiskSetBy: RiskBookSummary["maxRiskSetBy"] =
@@ -229,11 +254,14 @@ export function summarizeRiskBook(input: RiskBookInput): RiskBookSummary {
     unit,
     maxRiskPerTrade,
     maxRiskSetBy,
+    tenthPerTrade: tenth,
     capitalHeld: capital,
     capitalRoom: Math.max(Math.max(equity, 0) - capital, 0),
     markets: { stocks: marketsOf(false), maxStocks: MAX_OPEN_STOCKS, other: marketsOf(true), maxOther: MAX_OPEN_OTHER_MARKETS },
     openRiskUsd,
     openRiskPctOfUnit: unit > 0 ? (openRiskUsd / unit) * 100 : 0,
+    restingRiskUsd,
+    premiumRiskUsd,
     unprotected: rows.filter((r) => r.unprotectedQty > 0).length,
     novice,
     positions: rows,

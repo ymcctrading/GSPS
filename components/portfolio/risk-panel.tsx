@@ -5,7 +5,10 @@
  * account's money rules on one card, read the way an order is checked. It
  * shows what the next trade may risk, how much of the account's capital the
  * open shares hold, how many markets are open, the risk to each stop, and any
- * pause or hold in force. Display only; placement enforces.
+ * pause or hold in force. Display only; placement enforces. It reads again
+ * whenever `refreshKey` changes, which the Portfolio page moves when its
+ * positions or exit plans change, so a trailed stop or a filled tranche shows
+ * as the exit manager holds it.
  */
 
 import { useEffect, useState } from "react";
@@ -24,6 +27,7 @@ interface RiskRow {
   unprotectedQty: number;
   riskUsd: number | null;
   riskPctOfUnit: number | null;
+  largestTradeRiskUsd: number | null;
   resting: boolean;
   option: boolean;
 }
@@ -33,11 +37,14 @@ interface RiskData {
   unit: number;
   maxRiskPerTrade: number;
   maxRiskSetBy: "unit" | "profits" | "novice_open_risk";
+  tenthPerTrade: number;
   capitalHeld: number;
   capitalRoom: number;
   markets: { stocks: number; maxStocks: number; other: number; maxOther: number };
   openRiskUsd: number;
   openRiskPctOfUnit: number;
+  restingRiskUsd: number;
+  premiumRiskUsd: number;
   unprotected: number;
   novice: {
     maxPositionUsd: number;
@@ -63,7 +70,7 @@ function Figure({ label, value, note, tone }: { label: string; value: string; no
   );
 }
 
-export function RiskPanel() {
+export function RiskPanel({ refreshKey }: { refreshKey?: unknown }) {
   const [data, setData] = useState<RiskData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +80,10 @@ export function RiskPanel() {
       .then(async (res) => {
         const body = await res.json();
         if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-        if (!cancelled) setData(body as RiskData);
+        if (!cancelled) {
+          setData(body as RiskData);
+          setError(null);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -81,7 +91,7 @@ export function RiskPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const holds: string[] = [];
   if (data?.lossSeries?.paused && data.lossSeries.note) holds.push(data.lossSeries.note);
@@ -93,12 +103,17 @@ export function RiskPanel() {
           <ShieldCheck className="h-4 w-4 text-accent" /> Risk
         </CardTitle>
         <CardDescription>
-          The rules every new order is checked against, read from your paper account now. Closing or protecting a
-          position is never held by them.
+          The rules every new paper order is checked against, read from your paper account now. Live orders are
+          checked against your broker&apos;s book. Closing or protecting a position is never held by them.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {error && <p className="text-sm text-bear">{error}</p>}
+        {error && (
+          <p className="text-sm text-bear">
+            {error}
+            {data && " The figures below are from the last read."}
+          </p>
+        )}
         {!data && !error && <p className="text-sm text-muted">Reading your risk…</p>}
         {data && (
           <>
@@ -119,20 +134,20 @@ export function RiskPanel() {
                     ? "A tenth of your profits, which is less than a tenth of your trading capital"
                     : data.maxRiskSetBy === "novice_open_risk"
                       ? "The room left under your 2% open-risk limit"
-                      : `A tenth of your trading capital, ${formatUsd(data.unit, 0)}`
+                      : `A tenth of your ${formatUsd(data.unit, 0)} trading capital`
                 }
               />
               <Figure
                 label="Capital held by open shares"
                 value={formatUsd(data.capitalHeld, 0)}
-                note={`${formatUsd(data.capitalRoom, 0)} of ${formatUsd(Math.max(data.equity, 0), 0)} still free`}
+                note={`${formatUsd(data.capitalRoom, 0)} of ${formatUsd(Math.max(data.equity, 0), 0)} still free (equity at cost)`}
                 tone={data.capitalRoom <= 0 ? "warn" : undefined}
               />
               {data.novice && data.novice.maxSymbols !== "unlimited" ? (
                 <Figure
                   label="Symbols open"
                   value={`${data.novice.symbolsOpen} of ${data.novice.maxSymbols}`}
-                  note="Novice accounts hold one symbol at a time"
+                  note={`Novice accounts hold ${data.novice.maxSymbols === 1 ? "one symbol" : `${data.novice.maxSymbols} symbols`} at a time`}
                   tone={data.novice.symbolsOpen >= data.novice.maxSymbols ? "warn" : undefined}
                 />
               ) : (
@@ -140,17 +155,25 @@ export function RiskPanel() {
                   label="Markets open"
                   value={`${data.markets.stocks} of ${data.markets.maxStocks} stocks`}
                   note={`${data.markets.other} of ${data.markets.maxOther} crypto pairs`}
-                  tone={data.markets.stocks >= data.markets.maxStocks ? "warn" : undefined}
+                  tone={
+                    data.markets.stocks >= data.markets.maxStocks || data.markets.other >= data.markets.maxOther
+                      ? "warn"
+                      : undefined
+                  }
                 />
               )}
               <Figure
                 label="Lost if every stop fills"
                 value={formatUsd(data.openRiskUsd)}
-                note={
+                note={[
                   data.unprotected > 0
                     ? `${data.unprotected} with shares no stop covers, not counted`
-                    : `${data.openRiskPctOfUnit.toFixed(1)}% of your trading capital`
-                }
+                    : `${data.openRiskPctOfUnit.toFixed(1)}% of your trading capital`,
+                  data.premiumRiskUsd > 0 ? `plus ${formatUsd(data.premiumRiskUsd)} of option premium` : null,
+                  data.restingRiskUsd > 0 ? `${formatUsd(data.restingRiskUsd)} more if resting entries fill` : null,
+                ]
+                  .filter(Boolean)
+                  .join("; ")}
                 tone={data.unprotected > 0 ? "bear" : undefined}
               />
             </div>
@@ -192,7 +215,9 @@ export function RiskPanel() {
                   </thead>
                   <tbody className="tabular-nums">
                     {data.positions.map((p, i) => {
-                      const overTenth = p.riskUsd != null && p.riskUsd > data.maxRiskPerTrade + 0.005;
+                      // Rule 1 holds each trade to a tenth; each add is its own trade.
+                      const overTenth =
+                        p.largestTradeRiskUsd != null && p.largestTradeRiskUsd > data.tenthPerTrade + 0.005;
                       return (
                         <tr key={`${p.symbol}-${p.side}-${p.resting ? "r" : "o"}-${i}`} className="border-t border-border">
                           <td className="py-1.5 pr-3 font-medium">

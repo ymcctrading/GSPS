@@ -23,6 +23,7 @@ import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { computeMacroCycle } from "@/lib/gann/macroCycle";
 import { readMassPressure } from "@/lib/gann/massPressure";
 import { marketCountHit } from "@/lib/gann/eightyFourYear";
+import { readThreeCurves } from "@/lib/gann/threeCurves";
 import { readDayCircle } from "@/lib/gann/dayCircle";
 
 export type ContextFactors = Record<string, boolean>;
@@ -276,6 +277,11 @@ export function contextFactorsFor(
   if (ctx.asOf && ctx.stockMarket) {
     const mp = readMassPressure(new Date(ctx.asOf));
     if (mp?.direction) f.massPressureWithTrade = mp.direction === direction;
+  }
+  // A-TIME-13: the money or commodity curve against the curve of stocks (labelled reconstruction, no direction).
+  if (ctx.asOf && ctx.stockMarket) {
+    const curves = readThreeCurves(new Date(ctx.asOf));
+    if (curves) f.curvesDisagree = curves.disagree;
   }
   // A-OTHER-06: the Dollar Trend, the market's monthly value crossing old highs or breaking old lows.
   if (ctx.dollarTrend?.direction) f.dollarTrendWithTrade = ctx.dollarTrend.direction === direction;
