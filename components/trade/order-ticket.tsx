@@ -196,15 +196,19 @@ export function OrderTicket({
   // a market entry (the alert has fired) with the alert's stop and first
   // target, and no MTP. Derived during render, as the symbol reset below is.
   const [holdOvernight, setHoldOvernight] = useState(false);
-  const intradayKey = intradaySourced && intradayPlan ? `${symbol}|${intradayPlan.stop}|${intradayPlan.target}` : null;
+  // With no plan in the link, the ticket still opens in manual mode for the
+  // trader's own stop: an intraday trade never takes the daily plan's levels.
+  const intradayKey = intradaySourced ? `${symbol}|${intradayPlan ? `${intradayPlan.stop}|${intradayPlan.target}` : "own"}` : null;
   const [appliedIntraday, setAppliedIntraday] = useState<string | null>(null);
-  if (intradayKey && intradayPlan && appliedIntraday !== intradayKey) {
+  if (intradayKey && appliedIntraday !== intradayKey) {
     setAppliedIntraday(intradayKey);
     setExecutionMode("manual");
     setAssetType("shares");
     setEntryMode("now");
-    setManualStop(String(intradayPlan.stop));
-    setManualTarget(String(intradayPlan.target));
+    if (intradayPlan) {
+      setManualStop(priceField(intradayPlan.stop));
+      setManualTarget(priceField(intradayPlan.target));
+    }
     setHoldOvernight(false);
   }
   const intradayStyle = TRADE_STYLES.intraday;
@@ -372,7 +376,7 @@ export function OrderTicket({
   };
 
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
-  const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal;
+  const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal && !intradaySourced;
 
   // The setup's own invalidation rule, checked against the live quote rather
   // than the price it was scored at. A stop is the line the pattern's thesis
@@ -517,16 +521,11 @@ export function OrderTicket({
     executionMode === "manual" && assetType === "shares" && manualLevelsComplete && !manualLevelsBlocked;
   const manualExitPlan =
     attachingManualLevels && Number(qty) >= 1
-      ? planProtocolExit(
-          Number(qty),
-          {
-            stopLoss: manualStopNum,
-            takeProfit1: manualTargetNum,
-            masterProfit: null,
-          },
-          // An intraday alert's trade takes 60% at its first target, as the server writes it.
-          intradaySourced ? "gann-runner" : undefined,
-        )
+      ? planProtocolExit(Number(qty), {
+          stopLoss: manualStopNum,
+          takeProfit1: manualTargetNum,
+          masterProfit: null,
+        })
       : null;
 
   // A limit price between two valid increments is refused by the broker
@@ -613,7 +612,7 @@ export function OrderTicket({
               executionMode,
               intradaySourced,
               // The Intraday style's session close is the default; this is the way out of it.
-              holdOvernight: intradayKey ? holdOvernight || isCrypto : undefined,
+              holdOvernight: intradaySourced ? holdOvernight || isCrypto : undefined,
             };
 
       const res = await fetch("/api/orders", {
@@ -695,15 +694,23 @@ export function OrderTicket({
               setExecutionMode("protocol");
               setTechniqueTrade(null);
             }}
-            disabled={!hasProtocolSignal}
+            // An intraday trade is managed on the session's rules, so it never
+            // takes the daily plan's levels (lib/trade/exit-style.ts).
+            disabled={!hasProtocolSignal || intradaySourced}
             className={cn(
               "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
-              executionMode === "protocol" && hasProtocolSignal
+              executionMode === "protocol" && hasProtocolSignal && !intradaySourced
                 ? "bg-accent text-surface"
                 : "border border-border text-muted",
-              !hasProtocolSignal && "opacity-50 cursor-not-allowed",
+              (!hasProtocolSignal || intradaySourced) && "opacity-50 cursor-not-allowed",
             )}
-            title={hasProtocolSignal ? "Use the protocol's recommended entry and levels" : "No armed protocol signal for this symbol"}
+            title={
+              intradaySourced
+                ? "An intraday trade uses the alert's own levels, not the daily plan's"
+                : hasProtocolSignal
+                  ? "Use the protocol's recommended entry and levels"
+                  : "No armed protocol signal for this symbol"
+            }
           >
             Protocol Recommended
           </button>
@@ -719,13 +726,15 @@ export function OrderTicket({
           </button>
         </div>
         <div className="mt-2">
-          {intradayKey ? (
+          {intradaySourced ? (
             <div className="flex flex-col gap-1 rounded border border-border p-2 text-xs text-muted">
               <p>
                 <span className="font-semibold text-foreground">Trade style: {intradayStyle.label}.</span> {intradayStyle.summary}
               </p>
               <p>
-                The alert&apos;s plan: stop {formatUsd(intradayPlan!.stop)}, first target {formatUsd(intradayPlan!.target)}, no MTP.
+                {intradayPlan
+                  ? `The alert's plan: stop ${formatUsd(intradayPlan.stop)}, first target ${formatUsd(intradayPlan.target)}, no MTP. `
+                  : "Set your own stop below. "}
                 Once filled: {intradayStyle.trailRule.charAt(0).toLowerCase() + intradayStyle.trailRule.slice(1)}. Expected hold:{" "}
                 {intradayStyle.expectedHold.toLowerCase()}.
               </p>

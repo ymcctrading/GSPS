@@ -35,17 +35,7 @@ import {
   quotePrice,
 } from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
-import { LIVE_EXIT_RULE, planProtocolExit, type LiveExitRule } from "@/lib/trade/protocol-exit";
-
-/**
- * The exit split an order is written with. An intraday alert's trade (the
- * Intraday style, `lib/gann/intradayExit.ts`) takes 60% at its first target
- * and runs the rest on the session's rules, as the intraday replay walks it;
- * every other order follows `LIVE_EXIT_RULE`.
- */
-function intradayExitRule(input: { intradaySourced?: boolean }): LiveExitRule {
-  return input.intradaySourced ? "gann-runner" : LIVE_EXIT_RULE;
-}
+import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
@@ -801,15 +791,11 @@ async function placeChecked(
   // The split is recomputed from the quantity actually filled when the exits are
   // attached, so this is the plan for the order as asked for.
   const exitPlan = useBracket
-    ? planProtocolExit(
-        input.qty,
-        {
-          stopLoss: bracketLevels!.stopLoss,
-          takeProfit1: bracketLevels!.takeProfit,
-          masterProfit: input.attachLevels!.masterProfit ?? null,
-        },
-        intradayExitRule(input),
-      )
+    ? planProtocolExit(input.qty, {
+        stopLoss: bracketLevels!.stopLoss,
+        takeProfit1: bracketLevels!.takeProfit,
+        masterProfit: input.attachLevels!.masterProfit ?? null,
+      })
     : null;
 
   const submittedAt = Date.now();
@@ -1410,15 +1396,11 @@ async function placeLiveOrder(
 
   let planError: string | null = null;
   if (useBracket && orderId) {
-    const exitPlan = planProtocolExit(
-      input.qty,
-      {
-        stopLoss: stopLoss!,
-        takeProfit1: input.attachLevels!.takeProfit,
-        masterProfit: input.attachLevels!.masterProfit ?? null,
-      },
-      intradayExitRule(input),
-    );
+    const exitPlan = planProtocolExit(input.qty, {
+      stopLoss: stopLoss!,
+      takeProfit1: input.attachLevels!.takeProfit,
+      masterProfit: input.attachLevels!.masterProfit ?? null,
+    });
     const { data: plan, error: planErr } = await ledgerWriter(supabase)
       .from("protocol_exits")
       .insert({

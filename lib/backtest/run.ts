@@ -155,6 +155,12 @@ export interface BacktestRequest {
    */
   sessionClose?: boolean;
   /**
+   * Under the intraday profile, false runs the whole position on the stop and
+   * the hourly turn with no sale at the first target, as the Intraday style
+   * does live (`IntradayReplayOptions.scaleOut`). Ignored by the swing profile.
+   */
+  scaleOut?: boolean;
+  /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
    * "slippage sensitivity" metric, showing how much of a bucket's edge is a
@@ -270,6 +276,8 @@ export interface BacktestReport {
   profile: "swing" | "intraday";
   /** Echoes the request: whether the intraday profile closed trades at the session's end. */
   sessionClose: boolean;
+  /** Echoes the request: whether the intraday profile sold 60% at the first target. */
+  scaleOut: boolean;
   /**
    * The run split by the scan's two setup kinds. Continuations are published
    * only at Execute, so read that side together with the verdict buckets.
@@ -502,6 +510,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     reclaimPoints,
     profile = "swing",
     sessionClose,
+    scaleOut,
     tradeStyle,
   } = request;
   // Rejected before any fetch, so a misspelt rule fails at once rather than
@@ -585,6 +594,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(costPerShare !== undefined ? { costPerShare } : {}),
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               ...(sessionClose ? { sessionClose } : {}),
+              ...(scaleOut === false ? { scaleOut } : {}),
               dailyBars: daily,
             })
           : replay(symbol, bars, { ...options, ...replaySeriesOptions(series, market, universeStrength), instrument }),
@@ -668,7 +678,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing", sessionClose = false } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = "bracket", disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing", sessionClose = false, scaleOut = true } = request;
 
   const split = byOutputState(run.overall);
   const derived = byDerived(run.overall);
@@ -715,6 +725,7 @@ export function buildReport(
     reclaimPoints,
     profile,
     sessionClose: profile === "intraday" && sessionClose,
+    scaleOut: profile !== "intraday" || scaleOut,
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),

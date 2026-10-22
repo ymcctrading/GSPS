@@ -66,7 +66,8 @@
  * taken from an intraday alert's "Trade this" (`orders.intraday_sourced`).
  * The plan is the alert's own (its stop and its first target, no MTP), and
  * the exits are Gann's rules read on the session's bars
- * (`lib/gann/intradayExit.ts`): 60% at the first target, the stop one
+ * (`lib/gann/intradayExit.ts`): no sale at the first target (Gann's "never
+ * fix a target price"), the stop one
  * intraday point under each completed 15-minute bottom, out when the hourly
  * chart gives the first change in trend (Master Course Ch. 13). What is left
  * closes at the session's end unless the trader chose to hold it overnight
@@ -131,7 +132,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     trendCharts: "The daily trend, with the hourly chart for the first change in trend",
     entryTiming: "At the market, when the intraday alert fires",
     stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",
-    trailRule: "60% leaves at the first target; the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly chart turns against the trade",
+    trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly chart turns against the trade",
     expectedHold: "Minutes to hours; closed by the session's end unless you choose to hold it",
     sources: "Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source",
   },

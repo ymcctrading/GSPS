@@ -99,8 +99,6 @@ export interface PlanRow {
   stop_loss: number;
   take_profit_1: number;
   master_profit: number | null;
-  /** The scale-out the placement recorded (0 under Gann's rules, except an intraday trade's). */
-  scale_out_qty?: number | null;
   scale_out_order_id: string | null;
   master_order_id: string | null;
   runner_order_id: string | null;
@@ -225,7 +223,6 @@ function normalizePlan(plan: PlanRow): PlanRow {
     stop_loss: Number(plan.stop_loss),
     take_profit_1: Number(plan.take_profit_1),
     master_profit: numOrNull(plan.master_profit),
-    scale_out_qty: numOrNull(plan.scale_out_qty),
     high_water: numOrNull(plan.high_water),
     applied_stop: numOrNull(plan.applied_stop),
   };
@@ -459,18 +456,11 @@ async function attachExits(
   run: ManageRun,
 ): Promise<void> {
   const closingSide = plan.side === "long" ? "sell" : "buy";
-  // An intraday trade's placement recorded a scale-out at its first target
-  // (`intradayExitRule`, place-order.ts); under Gann's rules no other order
-  // does, so the recorded split says which rule to split the fill by.
-  const split = planProtocolExit(
-    heldQty,
-    {
-      stopLoss: plan.stop_loss,
-      takeProfit1: plan.take_profit_1,
-      masterProfit: plan.master_profit,
-    },
-    LIVE_EXIT_RULE === "gann" && (plan.scale_out_qty ?? 0) > 0 ? "gann-runner" : LIVE_EXIT_RULE,
-  );
+  const split = planProtocolExit(heldQty, {
+    stopLoss: plan.stop_loss,
+    takeProfit1: plan.take_profit_1,
+    masterProfit: plan.master_profit,
+  });
 
   if (split.tranches.length === 0) {
     // Nothing worth splitting — the broker's held quantity read back as zero

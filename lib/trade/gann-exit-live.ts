@@ -31,7 +31,7 @@ import { readBadNews, type BadNewsReading } from "@/lib/gann/badNews";
 import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { readGannExit, type ExitReading, type GannExitReading } from "@/lib/gann/exitRules";
-import { readIntradayExit } from "@/lib/gann/intradayExit";
+import { INTRADAY_WINDOW_BARS, SESSION_CLOSE_EXIT, readIntradayExit, regularSessionBars, sessionCloseDue } from "@/lib/gann/intradayExit";
 import { intradayPoint } from "@/lib/gann/pointScale";
 import { atr } from "@/lib/analysis/pivots";
 import { etDateKey } from "@/lib/market/session";
@@ -135,23 +135,30 @@ export function readGannExitFromBars(
   );
 }
 
-/** Calendar days of 15-minute bars read before an intraday fill: the swing and hourly charts' history (a few sessions). */
-const INTRADAY_LOOKBACK_DAYS = 7;
+/**
+ * Calendar days of 15-minute bars read before an intraday fill: enough for
+ * the replay's window (`INTRADAY_WINDOW_BARS`, 400 regular-session bars, about
+ * 16 sessions at 26 a session) across a holiday weekend.
+ */
+const INTRADAY_LOOKBACK_DAYS = Math.ceil((INTRADAY_WINDOW_BARS / 26) * (7 / 5)) + 5;
+const BAR_MS = 15 * 60_000;
 
 /**
  * Pure part of the Intraday style's reading (`lib/gann/intradayExit.ts`):
- * the intraday point fixed at the fill from the closed bars before it (as the
- * intraday replay fixes it at entry), then the stop, the hourly turn and the
- * session close. Null when there are no bars before the fill to scale the
- * point from.
+ * the intraday point fixed at the fill from the bars closed by then (as the
+ * intraday replay fixes it at entry, from every bar before the entry bar,
+ * pre- and post-market prints included), then the stop and the hourly turn
+ * walked on regular-session bars for a US equity, and the session close.
+ * Null when there are no bars before the fill to scale the point from.
  */
 export function readIntradayExitFromBars(
-  input: Pick<LiveGannExitInput, "side" | "initialStop" | "openedAt" | "closeAtSessionEnd">,
+  input: Pick<LiveGannExitInput, "side" | "initialStop" | "openedAt" | "closeAtSessionEnd"> & { crypto?: boolean },
   bars: Bar[],
   daily: Bar[],
   now: Date,
 ): ExitReading | null {
-  const before = bars.filter((b) => b.t < input.openedAt);
+  const filledAt = Date.parse(input.openedAt);
+  const before = bars.filter((b) => Date.parse(b.t) + BAR_MS <= filledAt);
   if (before.length < 15 || daily.length < 15) return null;
   const point = intradayPoint(before[before.length - 1].c, atr(before.slice(-30), 14), atr(daily.slice(-30), 14));
   return readIntradayExit({
@@ -159,32 +166,51 @@ export function readIntradayExitFromBars(
     initialStop: input.initialStop,
     filledAt: input.openedAt,
     point,
-    bars,
+    bars: regularSessionBars(bars, input.crypto === true),
     now,
     closeAtSessionEnd: input.closeAtSessionEnd ?? false,
   });
 }
 
-/** The Intraday style's reading, on the closed 15-minute bars since a few sessions before the fill. */
+/** The Intraday style's reading, on the closed 15-minute bars since a few weeks before the fill. */
 async function readLiveIntradayExit(input: LiveGannExitInput, now: Date): Promise<ExitReading | null> {
-  const assetClass = isCryptoSymbol(input.symbol) ? "crypto" : "us_equity";
+  const crypto = isCryptoSymbol(input.symbol);
   const provider = getMarketDataProvider();
   assertLiveMarketData(`read ${input.symbol.toUpperCase()}'s session to manage its intraday exit`, provider);
   const start = new Date(Math.min(Date.parse(input.openedAt), now.getTime()) - INTRADAY_LOOKBACK_DAYS * 86_400_000);
   const [bars, { bars: daily }] = await Promise.all([
-    provider.fetchBars(input.symbol, "15Min", start, null, assetClass),
+    provider.fetchBars(input.symbol, "15Min", start, null, crypto ? "crypto" : "us_equity"),
     completedDailyBars(input.symbol, now),
   ]);
   // Closed bars only: a bar is closed once its 15 minutes have passed.
-  const closed = bars.filter((b) => Date.parse(b.t) + 15 * 60_000 <= now.getTime());
+  const closed = bars.filter((b) => Date.parse(b.t) + BAR_MS <= now.getTime());
   const prior = daily.filter((b) => b.t.slice(0, 10) < etDateKey(new Date(input.openedAt)));
-  return readIntradayExitFromBars(input, closed, prior, now);
+  return readIntradayExitFromBars({ ...input, crypto }, closed, prior, now);
+}
+
+/**
+ * The session close, read from the clock alone: due whatever the bars say, so
+ * a failed or thin read at 3:54 PM never holds overnight a trade the ticket
+ * said would close.
+ */
+function clockSessionClose(input: LiveGannExitInput, now: Date): ExitReading | null {
+  if (!input.closeAtSessionEnd || isCryptoSymbol(input.symbol)) return null;
+  if (!sessionCloseDue(now, new Date(input.openedAt))) return null;
+  return { stop: input.initialStop, stopReason: "initial", exit: SESSION_CLOSE_EXIT };
 }
 
 export async function readLiveGannExit(input: LiveGannExitInput): Promise<ExitReading | null> {
   try {
     const now = input.now ?? new Date();
-    if (input.style === "intraday") return await readLiveIntradayExit(input, now);
+    if (input.style === "intraday") {
+      try {
+        return (await readLiveIntradayExit(input, now)) ?? clockSessionClose(input, now);
+      } catch (err) {
+        const close = clockSessionClose(input, now);
+        if (close) return close;
+        throw err;
+      }
+    }
     const [{ bars: daily, monthly }, ref] = await Promise.all([
       completedDailyBars(input.symbol, now),
       isCryptoSymbol(input.symbol) ? Promise.resolve(null) : getInstrumentReference(input.symbol),

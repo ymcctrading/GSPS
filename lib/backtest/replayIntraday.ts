@@ -79,7 +79,7 @@ import type { EntryConfirmationEvidence } from "@/lib/lifecycle/types";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
-import { INTRADAY_SWING_BARS, INTRADAY_WINDOW_BARS, hourlyTurnedAgainst, intradayTrail, isSessionLastBar } from "@/lib/gann/intradayExit";
+import { INTRADAY_SWING_BARS, INTRADAY_WINDOW_BARS, intradayWalker, isRegularSessionBar, isSessionLastBar } from "@/lib/gann/intradayExit";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import { BARS_PER_SESSION, isTimeoutReason, rollUp, stopFill, summarise, timeoutReasonAt, type IntradayExitReason, type ReplayResult, type ReplayTrade, type TimeoutReason } from "./replay";
 
@@ -119,6 +119,13 @@ export interface IntradayReplayOptions {
    * keeps its rules; crypto has no session and is never closed for it.
    */
   sessionClose?: boolean;
+  /**
+   * Sell 60% at the first target, as the pre-registered profile does (the
+   * default). False measures the Intraday style's live rule: no fixed target,
+   * the whole position runs on the stop and the hourly turn ("never fix a
+   * target price", Q14; `lib/gann/intradayExit.ts`).
+   */
+  scaleOut?: boolean;
 }
 
 /** One armed crossing and its stop, carried across bars until it fires, breaks, is replaced or expires. */
@@ -153,6 +160,7 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
     dailyBars,
     reclaimPoints = RECLAIM_POINTS,
     sessionClose = false,
+    scaleOut = true,
   } = options;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
 
@@ -188,6 +196,16 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
     sessionFacts.set(date, facts);
     return facts;
   };
+
+  // The exits read regular-session bars only for a US equity, as the live exit
+  // managers do (lib/gann/intradayExit.ts): `exitIndex[i]` is bar i's place in
+  // `exitBars`, or -1 for a pre- or post-market print.
+  const exitBars: Bar[] = [];
+  const exitIndex = bars.map((b) => {
+    if (assetClass !== "crypto" && !isRegularSessionBar(b)) return -1;
+    exitBars.push(b);
+    return exitBars.length - 1;
+  });
 
   for (let i = warmupBars; i < bars.length - 1; i++) {
     const history = bars.slice(Math.max(0, i - INTRADAY_WINDOW_BARS), i);
@@ -260,7 +278,9 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
           closed,
         );
       }
-      if (!entryReady(plan.evidence) || i < busyUntil) continue;
+      // A US equity fills in the regular session only, as the live alerts fire
+      // there only (`lib/scanner/intraday.ts`, regular-session bars).
+      if (!entryReady(plan.evidence) || i < busyUntil || exitIndex[i] < 0) continue;
 
       const long = plan.direction === "bullish";
       const dir = long ? 1 : -1;
@@ -292,7 +312,19 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
         risk: Math.abs(entry - stop),
       });
 
-      const walked = walkIntradayExit({ bars, from: i, maxBarsHeld, long, entry, stop, point, firstTarget, sessionClose: sessionClose && assetClass !== "crypto" });
+      const walked = walkIntradayExit({
+        bars,
+        exitBars,
+        exitIndex,
+        from: i,
+        maxBarsHeld,
+        long,
+        entry,
+        stop,
+        point,
+        firstTarget: scaleOut ? firstTarget : null,
+        sessionClose: sessionClose && assetClass !== "crypto",
+      });
       busyUntil = i + walked.barsHeld;
       trades.push({
         symbol,
@@ -323,15 +355,20 @@ export function replayIntraday(symbol: string, bars: Bar[], options: IntradayRep
 /**
  * Walk one filled trade forward on Gann's intraday exits. The stop is checked
  * on every bar first (the conservative order). 60% leaves at the first target
- * when there is one; the rest runs. After each bar the stop is lifted to one
+ * when there is one (none is passed under `scaleOut: false`); the rest runs.
+ * A US equity's exits read regular-session bars only (`exitBars`), as the live
+ * exit managers do; pre- and post-market prints are skipped. After each bar the stop is lifted to one
  * point beyond the last completed swing bottom (top, short) when that tightens
  * it (`intradayTrail`). If the hourly swing chart has turned against the
  * position by a bar's close (`hourlyTurnedAgainst`), the position leaves at
  * the next bar's open. With `sessionClose`, what is left leaves at the close
  * of the session's last bar.
  */
-function walkIntradayExit(input: {
+export function walkIntradayExit(input: {
   bars: Bar[];
+  /** The bars the exits read (regular-session bars for a US equity) and each bar's place in them, -1 when left out. */
+  exitBars?: Bar[];
+  exitIndex?: number[];
   from: number;
   maxBarsHeld: number;
   long: boolean;
@@ -342,9 +379,10 @@ function walkIntradayExit(input: {
   sessionClose?: boolean;
 }): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason } {
   const { bars, from, maxBarsHeld, long, entry, point, firstTarget } = input;
+  const exitBars = input.exitBars ?? bars;
+  const exitIndex = input.exitIndex ?? bars.map((_, i) => i);
   const dir = long ? 1 : -1;
-  let stop = input.stop;
-  let trailed = false;
+  const walker = intradayWalker({ long, stop: input.stop, point });
   // Position in units of the first lot: the result is reported as the single
   // exit price that gives the same P&L per unit, so R arithmetic is unchanged.
   let openQty = 1;
@@ -359,25 +397,27 @@ function walkIntradayExit(input: {
   });
   const end = Math.min(bars.length, from + maxBarsHeld);
   let leaveAtOpen = false;
+  let started = false;
   for (let j = from; j < end; j++) {
+    const k = exitIndex[j];
+    if (k < 0) continue;
     const b = bars[j];
+    if (!started) {
+      walker.start(exitBars.slice(Math.max(0, k - INTRADAY_WINDOW_BARS), k));
+      started = true;
+    }
     if (leaveAtOpen) return done(b.o, j - from + 1, "intraday_trend_change");
+    const stop = walker.stop;
     if (long ? b.l <= stop : b.h >= stop) {
-      return done(stopFill(long, stop, b.o), j - from + 1, trailed ? "intraday_trailing_stop" : "intraday_initial_stop");
+      return done(stopFill(long, stop, b.o), j - from + 1, walker.trailed ? "intraday_trailing_stop" : "intraday_initial_stop");
     }
     if (firstTarget !== null && !scaled && (long ? b.h >= firstTarget : b.l <= firstTarget)) {
       realized += dir * SCALE_OUT_PCT * (firstTarget - entry);
       openQty -= SCALE_OUT_PCT;
       scaled = true;
     }
-    if (input.sessionClose && isSessionLastBar(bars, j)) return done(b.c, j - from + 1, "intraday_session_close");
-    const window = bars.slice(Math.max(0, j + 1 - INTRADAY_WINDOW_BARS), j + 1);
-    const next = intradayTrail(window, long, stop, point);
-    if (next !== null) {
-      stop = next;
-      trailed = true;
-    }
-    if (hourlyTurnedAgainst(window, long)) leaveAtOpen = true;
+    if (input.sessionClose && isSessionLastBar(exitBars, k)) return done(b.c, j - from + 1, "intraday_session_close");
+    if (walker.step(exitBars.slice(Math.max(0, k + 1 - INTRADAY_WINDOW_BARS), k + 1))) leaveAtOpen = true;
   }
   return done(bars[end - 1].c, end - from, timeoutReasonAt(from, maxBarsHeld, bars.length));
 }

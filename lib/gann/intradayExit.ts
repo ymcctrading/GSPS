@@ -23,8 +23,7 @@
  * - **The first target is an old level that pays more than the risk.** The
  *   intraday alert's own TP1 (`gannFirstTarget`: the nearest old top or
  *   bottom, or a round number short of one; M-K5, the target must pay more
- *   than the risk). 60% of the position leaves there and the rest runs on the
- *   stop above, as in the intraday replay.
+ *   than the risk). It is shown, never sold at (below).
  *
  * **Not Gann, the owner's choice, labelled:** closing what is left at the end
  * of the session. Gann never closed a trade because a session ended ("the big
@@ -36,11 +35,25 @@
  * crypto has no session, so its intraday trades end on the stop, the target or
  * the hourly turn.
  *
+ * **No fixed target (Gann, Tier A).** "Never fix a target price" (owner
+ * decision X4, 2026-09-27; Q14 for the daily trades): the alert's first target
+ * is shown and must pay more than the risk (M-K5), but nothing sells there. The
+ * whole position runs on the stop and the hourly turn, as `LIVE_EXIT_RULE`
+ * "gann" runs a daily trade. The intraday replay's pre-registered profile kept
+ * 60% at the first target; it measures this rule with `scaleOut: false`.
+ *
+ * **Exchange hours (Gann reads the hourly chart on the session's hours,
+ * Master Course PDF 378).** The IEX 15-minute bars carry pre- and post-market
+ * prints. For a US equity the exits read regular-session bars only
+ * (`regularSessionBars`), live and replay alike, so a thin 6 PM print never
+ * lifts a stop and the session ends on its last regular bar.
+ *
  * Engineering choices, labelled as such: the intraday point is
  * `pointScale.ts#intradayPoint` (Gann's point scaled by the bars' ATR against
- * the daily ATR), fixed at the fill; 15:45 ET is the start of the last bar the
- * scheduled pass runs in (every 15 minutes, `:54` past the hour in the
- * session); early-close days are not known (the calendar holds none).
+ * the daily ATR), from bars closed by the fill; the close is due from the start
+ * of the session's last 15-minute bar (15:45 ET, 12:45 ET on an NYSE early
+ * close, `calendar.ts#isEarlyClose`), the bar the scheduled pass runs in (every
+ * 15 minutes, `:54` past the hour in the session).
  *
  * Three-question basis: 1. Gann, as cited (Tier A), the session close being
  * the owner's. 2. No periodicity claim; Dewey's checklist does not apply.
@@ -55,13 +68,32 @@
 import type { Bar } from "@/lib/types";
 import { swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 import { equitySession, etDateKey, etParts, mostRecentClose } from "@/lib/market/session";
+import { isEarlyClose } from "@/lib/market/calendar";
 
 /** Closed bars read for the swing charts and the trail. Bounds the work per bar; two completed swings fit in far less. */
 export const INTRADAY_WINDOW_BARS = 400;
 /** The 3-bar swing chart, Gann's own, at the bars' scale. */
 export const INTRADAY_SWING_BARS = 3;
-/** 15:45 ET, the start of the session's last 15-minute bar. */
+/** 15:45 ET, the start of the session's last 15-minute bar (12:45 ET on an early close). */
 export const SESSION_CLOSE_FROM_MINUTES = 15 * 60 + 45;
+/** 1:00 PM ET, an NYSE early close. */
+const EARLY_CLOSE_MINUTES = 13 * 60;
+
+/** The minute (ET, since midnight) the session's last 15-minute bar starts on `at`'s New York date. */
+export function sessionCloseFromMinutes(at: Date): number {
+  return isEarlyClose(etDateKey(at)) ? EARLY_CLOSE_MINUTES - 15 : SESSION_CLOSE_FROM_MINUTES;
+}
+
+/** A US equity bar that starts inside the regular session (before an early close's 1:00 PM). */
+export function isRegularSessionBar(bar: Bar): boolean {
+  const at = new Date(bar.t);
+  return equitySession(at) === "regular" && etParts(at).minutes < sessionCloseFromMinutes(at) + 15;
+}
+
+/** The bars the exits read: regular-session bars for a US equity, every bar for crypto. */
+export function regularSessionBars(bars: Bar[], crypto: boolean): Bar[] {
+  return crypto ? bars : bars.filter(isRegularSessionBar);
+}
 
 /** Roll bars up to the hour, keyed on the bar's UTC hour (as the intraday alerts and replay always have). */
 export function hourlyBars(bars: Bar[]): Bar[] {
@@ -113,18 +145,68 @@ export function hourlyTurnedAgainst(window: Bar[], long: boolean): boolean {
  */
 export function sessionCloseDue(now: Date, filledAt: Date): boolean {
   if (mostRecentClose(now).getTime() > filledAt.getTime()) return true;
-  return equitySession(now) === "regular" && etParts(now).minutes >= SESSION_CLOSE_FROM_MINUTES;
+  return equitySession(now) === "regular" && etParts(now).minutes >= sessionCloseFromMinutes(now);
 }
 
-/** Whether `bar` is the session's last bar in `bars` (the next bar falls on a later New York date, or there is none). */
+/**
+ * Whether `bars[index]` is its session's last bar, in regular-session bars:
+ * it starts at the session's last 15 minutes (`sessionCloseFromMinutes`, as
+ * the live close reads the clock), or the next bar falls on a later New York
+ * date (a session whose last bars are missing).
+ */
 export function isSessionLastBar(bars: Bar[], index: number): boolean {
+  const at = new Date(bars[index].t);
+  if (etParts(at).minutes >= sessionCloseFromMinutes(at)) return true;
   const next = bars[index + 1];
   if (!next) return false;
-  return etDateKey(new Date(next.t)) !== etDateKey(new Date(bars[index].t));
+  return etDateKey(new Date(next.t)) !== etDateKey(at);
+}
+
+/**
+ * One trade's walk over its bars after the fill, shared by the live reading
+ * and the replay so the two read the stop and the turn the same way. `step`
+ * takes the window of bars up to and including the bar just closed.
+ */
+export function intradayWalker(input: { long: boolean; stop: number; point: number }) {
+  let stop = input.stop;
+  let trailed = false;
+  // The first change in trend after the fill: an alert can fire against the
+  // hourly chart (a reversal signal), so a trend already against the trade at
+  // the fill is not a change.
+  let wasAgainst: boolean | null = null;
+  return {
+    /** Read the trend at the fill from the bars before it. */
+    start(before: Bar[]) {
+      if (wasAgainst === null) wasAgainst = before.length > 0 && hourlyTurnedAgainst(before, input.long);
+    },
+    /** Walk one closed bar; true when the hourly chart has turned against the trade on it. */
+    step(window: Bar[]): boolean {
+      if (input.point > 0) {
+        const next = intradayTrail(window, input.long, stop, input.point);
+        if (next !== null) {
+          stop = next;
+          trailed = true;
+        }
+      }
+      const against = hourlyTurnedAgainst(window, input.long);
+      const turned = against && wasAgainst === false;
+      wasAgainst = against;
+      return turned;
+    },
+    get stop() {
+      return stop;
+    },
+    get trailed() {
+      return trailed;
+    },
+  };
 }
 
 export type IntradayStopReason = "initial" | "intraday_swing";
 export type IntradayExitSignal = "intraday_trend_change" | "session_close";
+
+/** The session-close exit, also given from the clock alone when the bars can't be read. */
+export const SESSION_CLOSE_EXIT = { reason: "session_close", note: "The session is ending, so the intraday trade closes at the market." } as const;
 
 export interface IntradayExitReading {
   stop: number;
@@ -150,33 +232,16 @@ export function readIntradayExit(input: {
   /** False when the trader chose to hold the trade overnight, and for crypto. */
   closeAtSessionEnd: boolean;
 }): IntradayExitReading {
-  const long = input.side === "long";
-  let stop = input.initialStop;
-  let stopReason: IntradayStopReason = "initial";
+  const walker = intradayWalker({ long: input.side === "long", stop: input.initialStop, point: input.point });
   let turned = false;
-  // The first change in trend after the fill: an alert can fire against the
-  // hourly chart (a reversal signal), so a trend already against the trade at
-  // the fill is not a change. The replay enters with the hourly trend, where
-  // the two readings agree.
-  let wasAgainst: boolean | null = null;
   for (let j = 0; j < input.bars.length; j++) {
     if (input.bars[j].t < input.filledAt) continue;
-    if (wasAgainst === null) wasAgainst = j > 0 && hourlyTurnedAgainst(input.bars.slice(Math.max(0, j - INTRADAY_WINDOW_BARS), j), long);
-    const window = input.bars.slice(Math.max(0, j + 1 - INTRADAY_WINDOW_BARS), j + 1);
-    if (input.point > 0) {
-      const next = intradayTrail(window, long, stop, input.point);
-      if (next !== null) {
-        stop = next;
-        stopReason = "intraday_swing";
-      }
-    }
-    const against = hourlyTurnedAgainst(window, long);
-    if (against && !wasAgainst) turned = true;
-    wasAgainst = against;
+    walker.start(input.bars.slice(Math.max(0, j - INTRADAY_WINDOW_BARS), j));
+    if (walker.step(input.bars.slice(Math.max(0, j + 1 - INTRADAY_WINDOW_BARS), j + 1))) turned = true;
   }
-  if (input.closeAtSessionEnd && sessionCloseDue(input.now, new Date(input.filledAt))) {
-    return { stop, stopReason, exit: { reason: "session_close", note: "The session is ending, so the intraday trade closes at the market." } };
-  }
+  const stop = walker.stop;
+  const stopReason: IntradayStopReason = walker.trailed ? "intraday_swing" : "initial";
+  if (input.closeAtSessionEnd && sessionCloseDue(input.now, new Date(input.filledAt))) return { stop, stopReason, exit: SESSION_CLOSE_EXIT };
   if (turned) {
     return {
       stop,
