@@ -4,7 +4,7 @@
  * Trades one tier's practice account (lib/demo/practice.ts), named by
  * `?tier=novice|pro|expert|wall-street` (Wall Street when absent, the one demo
  * account there was before 2026-10-22). One tier a call, so each run keeps to
- * the 60-second budget; pg_cron calls each tier in turn (migration 0105).
+ * the 60-second budget; pg_cron calls each tier in turn (migration 0106).
  * See lib/demo/auto-trade.ts
  * for the actual pipeline (it's Guided Decision Mode's own, run without a
  * user session). Invoked on a schedule by GitHub Actions

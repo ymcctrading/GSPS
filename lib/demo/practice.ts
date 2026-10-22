@@ -7,7 +7,7 @@
  * for/upgrade (and/or graduate) to the next tier."
  *
  * Each tier (Novice, Pro, Expert, Wall Street) has one paper account
- * (`profiles.is_demo`, one per `profiles.tier`, migration 0105). GSPS trades
+ * (`profiles.is_demo`, one per `profiles.tier`, migration 0106). GSPS trades
  * each on its own signals through Guided Mode's pipeline
  * (`lib/demo/auto-trade.ts`), under that tier's own entitlements and risk
  * rules, so a visitor sees what that tier actually gets and what it actually
@@ -19,7 +19,7 @@
  * A practice session is read-mostly. The session carries the tier in
  * `app_metadata.practice_tier` (only the service role can set it), so
  * `proxy.ts` refuses its API writes without a database read, and migration
- * 0105's restrictive row policies refuse the writes a browser makes straight
+ * 0106's restrictive row policies refuse the writes a browser makes straight
  * to the database (settings, automation, broker connections, the profile,
  * watchlists and the rest). It can look and scan, but it cannot place or
  * cancel orders, change settings, switch on automation, connect a broker,

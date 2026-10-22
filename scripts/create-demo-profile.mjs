@@ -11,7 +11,7 @@
 //
 // Since 2026-10-22 each tier has its own practice account, created on first
 // open by lib/demo/practice.ts (no script needed). This script still re-marks
-// the original Wall Street account; `is_demo` is now one a tier (0105).
+// the original Wall Street account; `is_demo` is now one a tier (0106).
 //
 // Safe to re-run: if the email already has an account, this just flips
 // `is_demo` on for it instead of failing on a duplicate signup.

@@ -160,7 +160,7 @@ whether or not they want to pay for/upgrade (and/or graduate) to the next
 tier."
 
 - One paper account per tier (`profiles.is_demo`, held to one a tier by
-  migration 0105's unique index), each at its tier, so every surface shows
+  migration 0106's unique index), each at its tier, so every surface shows
   exactly what that tier gets from the entitlement policy above. The original
   Wall Street demo account is the Wall Street one; the other three are
   created on first open (`lib/demo/practice.ts#ensurePracticeAccount`) with
@@ -175,7 +175,7 @@ tier."
   made and redeemed on the server: no email, no shared password.
 - A practice session is look-only. `proxy.ts` refuses its API writes
   (`practiceWriteRefused`) except a market scan, the tour, reading a notice
-  and switching tier, and migration 0105's restrictive row policies refuse
+  and switching tier, and migration 0106's restrictive row policies refuse
   the writes a browser makes straight to the database (profile, settings,
   automation, broker connections, watchlists, saved setups, alerts, scripts,
   preferences, critiques), keyed on `app_metadata.practice_tier` in the
