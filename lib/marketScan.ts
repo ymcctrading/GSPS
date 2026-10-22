@@ -74,6 +74,7 @@ import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBench
 import { readLeadership, readWeakStockFrom, selectionStrength, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
 import { getUniverseStrength } from "@/lib/data/universeStrength";
+import { tokensSpentSince, tokensSpentSnapshot } from "@/lib/data/http";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -1064,6 +1065,8 @@ export async function runMarketScan(
   // on. The two diverge between 20:00 ET and midnight — a post-close re-run
   // would otherwise be filed under tomorrow, and tomorrow would open showing
   // tonight's levels as though they were current.
+  // The rate-limit tokens this run spends, by endpoint, logged at the end.
+  const tokensBefore = tokensSpentSnapshot();
   const scanDate = etDateKey(new Date());
   const provider = getMarketDataProvider();
   // Never publish setups priced from the synthetic walk (both callers fail
@@ -1394,6 +1397,7 @@ export async function runMarketScan(
   if (fundScans === null) console.warn("market-scan: funds pass not done by the deadline; listed without it");
   Object.assign(lists, await joinOtherMarkets(lists, cryptoScans ?? [], fundScans ?? [], deadline));
   mark("other markets joined");
+  mark("market-data tokens spent", tokensSpentSince(tokensBefore) || "none");
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
