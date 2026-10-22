@@ -782,7 +782,39 @@
 // hourly-turn exit, live and replay alike. Intraday alerts, intraday replay
 // trades and intraday exits move; the daily verdict doesn't.
 // (was STRATEGY_VERSION "2026-10-22-gann-hourly-exchange-hours")
-// 2026-10-22-gann-pyramid-adds-placed: the portfolio manager places Gann's
+// 2026-10-22-gann-extremes-boiling-sun-act: four rules the 2026-10-22 recheck
+// found built but context only, now acting where Gann says they act, live and
+// replay alike (`readGannExit` is the one exit reader; `gannMasterLevels` the
+// one level list). M-E11: a reverse signal day or 7-10 Day Rule day against
+// the trade since the fill puts the stop 3 points beyond that day's extreme
+// ("reverse_signal"; Commodities pp.318, 324). M-E12: an exhaust gap against
+// the trade on a session after the fill's takes it off ("exhaust_gap", pp.319-320), without
+// reversing. M-T10: once the weekly chart's run with the trade has lasted 6
+// weeks, the stop trails 10 Gann points from the best price ("boiling_point";
+// Stock Selector Ch. V). A-ASTRO-03: the Sun's travel added to the low joins
+// the S/R list (`sunTravelLevel`). M-P4: the intraday first target averages
+// old levels within 1% before it is read, as the daily plan does
+// (`lib/gann/nearbyLevels.ts`). Plans, verdicts, replay trades and intraday
+// targets move.
+// (was STRATEGY_VERSION "2026-10-22-gann-extremes-boiling-sun-act")
+// 2026-10-22-gann-rule-recheck-fixes (merged onto the version above, whose
+// rules it keeps): the 2026-10-22 rule recheck's nine
+// defects (gann-feature-map/review/2026-10-22-recheck.md). Verdicts move from
+// (1) the 7-day chart on weekly and monthly bars turning only on a bar that
+// breaks the previous bar's low or high, never on an inside bar (Commodities
+// pp. 102-103; A-TREND-01/02, every trend read on those charts), and (2) the
+// time-window hold reading the yearly counts, great cycles and day counts
+// from any major top or bottom (W006 pp. 14, 44; A-TIME-04/11/24/37), and
+// the year fraction's anniversary read on the calendar date (C-TIME-41).
+// The replay now defaults to LIVE_EXIT_RULE (M-E8), the intraday replays
+// refuse a first target that doesn't pay the risk (M-K5), and live
+// placement lets a re-buy or reversal through on its own stop (A-PYRAMID-07,
+// A-EXIT-02), refuses an add to a position not in profit (rule 13), sizes on
+// the trading unit from the first verified equity (A-RISK-04); automation
+// opens nothing in the rest window (M-K4).
+// (was STRATEGY_VERSION "2026-10-22-gann-rule-recheck-fixes")
+// 2026-10-22-gann-pyramid-adds-placed (merged onto the version above, whose
+// rules it keeps): the portfolio manager places Gann's
 // pyramid adds on the paper lines it opened (lib/automation/pyramid-adds.ts),
 // each add merged into its line's one exit row as the replay walks one
 // position (migration 0111). The whole line's stop after an add goes 5 points

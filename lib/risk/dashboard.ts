@@ -61,7 +61,7 @@ import { readUserLossSeries, type LossSeriesReading } from "@/lib/risk/lossSerie
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { paperEquity, paperDrawdownPct } from "@/lib/portfolio/paper-equity";
 import { paperTradingUnit } from "@/lib/trade/resting-entry-guard";
-import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
+import { isOtherMarket } from "@/lib/market/otherMarkets";
 
 /** One working exit plan's open shares: its own entry and the stop it holds now. */
 export interface StopLeg {
@@ -211,8 +211,8 @@ export function summarizeRiskBook(input: RiskBookInput): RiskBookSummary {
   // Shares only, and resting entries included, as placement holds them.
   const shares = rows.filter((r) => !r.option).map((r) => ({ symbol: r.symbol, qty: r.qty, price: r.entry }));
   const capital = capitalHeld(shares);
-  const marketsOf = (crypto: boolean) =>
-    new Set(rows.filter((r) => !r.option && isCryptoSymbol(r.symbol) === crypto).map((r) => r.symbol.toUpperCase().replace("/", ""))).size;
+  const marketsOf = (other: boolean) =>
+    new Set(rows.filter((r) => !r.option && isOtherMarket(r.symbol) === other).map((r) => r.symbol.toUpperCase().replace("/", ""))).size;
 
   const riskOf = (keep: (r: RiskBookPosition) => boolean) =>
     rows.filter(keep).reduce((sum, r) => sum + (finite(r.riskUsd) ? r.riskUsd : 0), 0);

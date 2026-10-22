@@ -79,6 +79,30 @@ describe("ResultsTable", () => {
     expect(screen.getAllByRole("table")).toHaveLength(2);
   });
 
+  it("lists crypto pairs under their own Crypto heading, apart from the stocks", () => {
+    render(<ResultsTable rows={[BASE_ROW, { ...BASE_ROW, symbol: "BTC/USD" }]} />);
+    const cryptoSection = screen.getByTestId("crypto-setups");
+    expect(cryptoSection).toHaveTextContent("Crypto");
+    expect(cryptoSection).toHaveTextContent("BTC/USD");
+    expect(cryptoSection).not.toHaveTextContent("AAPL");
+    expect(screen.getAllByRole("table")).toHaveLength(2);
+  });
+
+  it("lists commodity and currency funds under their own heading", () => {
+    render(<ResultsTable rows={[BASE_ROW, { ...BASE_ROW, symbol: "GLD" }, { ...BASE_ROW, symbol: "ETH/USD" }]} />);
+    const funds = screen.getByTestId("fund-setups");
+    expect(funds).toHaveTextContent("Commodities and currencies");
+    expect(funds).toHaveTextContent("GLD");
+    expect(funds).not.toHaveTextContent("AAPL");
+    expect(funds).not.toHaveTextContent("ETH/USD");
+    expect(screen.getAllByRole("table")).toHaveLength(3);
+  });
+
+  it("shows no Crypto heading when no pair is listed", () => {
+    render(<ResultsTable rows={[BASE_ROW]} />);
+    expect(screen.queryByTestId("crypto-setups")).toBeNull();
+  });
+
   it("shows no Resting orders list when no plan is far from its entry, or the range is unknown", () => {
     render(<ResultsTable rows={[{ ...BASE_ROW, currentPrice: 150 }]} />);
     expect(screen.queryByTestId("resting-orders")).toBeNull();

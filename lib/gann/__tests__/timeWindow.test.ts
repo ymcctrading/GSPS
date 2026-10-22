@@ -68,6 +68,19 @@ describe("timeWindowsAt", () => {
     expect(lows.some((w) => /low/.test(w))).toBe(true);
     expect(highs.every((w) => !/time window from a major low/.test(w))).toBe(true);
   });
+
+  it("opens a day count from a low for a top as well as a bottom (W006 pp. 14, 44: from any important top or bottom)", () => {
+    const t0 = Date.parse("2025-10-01T00:00:00Z");
+    const series: Bar[] = Array.from({ length: 200 }, (_, i) => {
+      const c = 100 + 10 * Math.sin(i / 8) - (i === 60 ? 15 : 0);
+      return { t: new Date(t0 + i * DAY).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 };
+    });
+    const turnAt = series.slice(0, 151);
+    const date = turnAt[150].t.slice(0, 10);
+    const both = "a time window from a major top or bottom";
+    expect(timeWindowsAt(turnAt, date, "bottom")).toContain(both);
+    expect(timeWindowsAt(turnAt, date, "top")).toContain(both);
+  });
 });
 
 describe("applyTimeWindowHold", () => {
@@ -178,10 +191,11 @@ describe("the yearly cycle counts reach the hold through the monthly chart (A-TI
     expect(applyTimeWindowHold(execute, "reversion", () => readWindowTurn(bars, "bullish", null, yearly)).outputState).toBe("Watch");
   });
 
-  it("reads a major low only for a long's bottom, not a short's top", () => {
+  it("reads a major low for a short's top as well: the counts run from any important top or bottom (W006 pp. 14, 44)", () => {
+    // Until 2026-10-22 a low opened only a bottom's window (recheck, A-TIME-11).
     const up = days(closes.map((c) => 220 - c));
     const turn = readWindowTurn(up, "bearish", monthly);
-    expect(turn?.windows ?? []).not.toContain("20 years from the 2006-03 major low");
+    expect(turn?.windows ?? []).toContain("20 years from the 2006-03 major low");
   });
 
   it("reads only months closed before the turn's month", () => {

@@ -32,7 +32,20 @@ import { gannPoint } from "./pointScale";
 
 export const REBUY_REACTION_POINTS = 12;
 
-const TRAILING_STOPS: ReadonlySet<string> = new Set(["stop", "break_even", "last_reaction", "prior_week", "prior_month", "final_stage", "day_low"]);
+// Every trailing stop of `readGannExit` (`GannStopReason` but "initial"), so
+// the replay, which reads the finer reason, re-buys as the exit managers do
+// (they know a trailing stop only as "stop"). Pinned in rebuy.test.ts.
+export const TRAILING_STOPS: ReadonlySet<string> = new Set([
+  "stop",
+  "break_even",
+  "last_reaction",
+  "prior_week",
+  "prior_month",
+  "final_stage",
+  "day_low",
+  "reverse_signal",
+  "boiling_point",
+]);
 
 /** Whether a trade that left for this reason is re-bought on the reaction. */
 export function rebuysOn(cause: string | null | undefined): boolean {

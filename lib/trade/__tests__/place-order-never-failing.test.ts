@@ -55,7 +55,7 @@ function rowsOf(rows: unknown[]) {
   return q;
 }
 
-function stubSupabase(cash = 100_000, closes: { profit_loss_dollars: number }[] = [], prefs: unknown = null) {
+function stubSupabase(cash = 100_000, closes: { profit_loss_dollars: number }[] = [], prefs: unknown = null, open: unknown[] = []) {
   const ordersInsert = vi.fn();
   const tables: Record<string, unknown> = {
     orders: {
@@ -72,7 +72,7 @@ function stubSupabase(cash = 100_000, closes: { profit_loss_dollars: number }[] 
       select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { cash }, error: null }) }) }),
     },
     positions: {
-      select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }) }),
+      select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: open, error: null }) }) }) }) }),
     },
     trade_logs: rowsOf(closes),
     settings: { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: prefs ? { prefs } : null, error: null }) }) }) },
@@ -153,6 +153,22 @@ describe("rule 1 on paper: a tenth of the trading capital", () => {
     const r = await placeSimulatedOrder(supabase, "u1", { ...now, side: "sell", qty: 5_000, attachLevels: undefined });
     expect(r.body.code).not.toBe("risk_one_tenth");
     expect(r.status).toBe(200);
+  });
+});
+
+describe("rule 13 on paper: never average a loss (A-PYRAMID-03/04)", () => {
+  const held = [{ id: "p1", symbol: "AAPL", asset_class: "equity", side: "long", qty: 10, avg_entry_price: 104, opened_at: "2026-10-20T14:00:00Z", stop_loss: 98, take_profit: null, master_profit: null, scan_result_id: null }];
+  it("refuses a buy that adds to a long showing a loss, and places nothing", async () => {
+    const { supabase, ordersInsert } = stubSupabase(100_000, [], null, held);
+    const r = await placeSimulatedOrder(supabase, "u1", { ...now, qty: 10 });
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ code: "average_a_loss" });
+    expect(ordersInsert).not.toHaveBeenCalled();
+  });
+  it("lets the add through once the long shows a profit", async () => {
+    const { supabase } = stubSupabase(100_000, [], null, [{ ...held[0], avg_entry_price: 96 }]);
+    const r = await placeSimulatedOrder(supabase, "u1", { ...now, qty: 10 });
+    expect(r.body.code).not.toBe("average_a_loss");
   });
 });
 

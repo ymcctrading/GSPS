@@ -36,6 +36,19 @@ describe("detectSpectralCycle", () => {
     expect(reading.note).toMatch(/Hypothesis only/);
   });
 
+  it("does not credit a cycle on a series that changed scale between its halves (CYC-46)", () => {
+    const n = 240;
+    const period = 20;
+    const steady = Array.from({ length: n }, (_, i) => 100 + 0.05 * i + 10 * Math.sin((2 * Math.PI * i) / period));
+    expect(detectSpectralCycle(makeBars(steady)).homogeneity?.homogeneous).toBe(true);
+    // The same cycle, its swing four times larger in the second half.
+    const shifted = Array.from({ length: n }, (_, i) => 100 + 0.05 * i + (i < n / 2 ? 3 : 12) * Math.sin((2 * Math.PI * i) / period));
+    const reading = detectSpectralCycle(makeBars(shifted));
+    expect(reading.homogeneity?.homogeneous).toBe(false);
+    expect(reading.active).toBe(false);
+    expect(reading.note).toMatch(/changed scale between its halves/);
+  });
+
   it("flags period consistency when the same cycle holds across both halves of the window", () => {
     const n = 300;
     const period = 15;

@@ -36,8 +36,8 @@
  *   the tighter of the add's stop and break-even, as the replay raises it
  *   (`stopReason` "break_even"). Gann's exit rules keep reading the first lot
  *   (`firstEntry` in lib/trade/exit-manager-sim.ts), as the replay does.
- * - Not inside the trader's away window (A-EXIT-05): the manager opens
- *   nothing new there, and an add is new risk.
+ * - Not inside the trader's away window (A-EXIT-05) or Gann's rest window
+ *   (M-K4): the manager opens nothing new in either, and an add is new risk.
  *
  * Engineering choices, labelled: the claim (`add_claimed_at`, released after
  * `CLAIM_MINUTES`) that keeps two overlapping passes from buying one lot
@@ -60,7 +60,8 @@ import { getInstrumentReference } from "@/lib/data/instrumentReference";
 import { etDateKey } from "@/lib/market/session";
 import { readPyramidAdd, readStoredLots, wholeLineStop, type PyramidLot } from "@/lib/gann/pyramid";
 import { OrderSchema, placeSimulatedOrder } from "@/lib/trade/place-order";
-import { readAwayNotice } from "@/lib/trade/away-notice";
+import { readGannRulePrefs } from "@/lib/trade/away-notice";
+import { awayReminderDue, restReminderDue } from "@/lib/gann/traderPrefs";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { ledgerWriter } from "@/lib/supabase/ledger";
 import type { Bar } from "@/lib/types";
@@ -182,6 +183,7 @@ export async function placeAutomatedPyramidAdds(
     .eq("status", "working")
     .is("merged_into", null)
     .in("user_id", [...users])
+    .order("created_at", { ascending: true })
     .limit(500);
   if (error) {
     run.errors.push(`Could not read working paper exits: ${error.message}`);
@@ -234,7 +236,11 @@ export async function placeAutomatedPyramidAdds(
         entitled.set(line.user_id, (await getUserEntitlementPolicy(supabase, line.user_id)).automationEnabled === true);
       }
       if (!entitled.get(line.user_id)) continue;
-      if (!away.has(line.user_id)) away.set(line.user_id, (await readAwayNotice(supabase, line.user_id, now)) != null);
+      if (!away.has(line.user_id)) {
+        // Fails closed: unreadable settings could hide an away or rest window.
+        const prefs = await readGannRulePrefs(supabase, line.user_id);
+        away.set(line.user_id, prefs == null || awayReminderDue(prefs, now) != null || restReminderDue(prefs, now) != null);
+      }
       if (away.get(line.user_id)) continue;
       await addToLine(supabase, market, line, now, run);
     } catch (err) {

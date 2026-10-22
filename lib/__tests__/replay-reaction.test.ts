@@ -160,7 +160,7 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
   const S = T.direction === "bullish" ? 1 : -1;
   const L = T.pivot.price;
   const P = gannThreePoints(L);
-  const opts = { targetR: 2, dailyBars: DAILY, entryRule: "reaction" as const };
+  const opts = { targetR: 2, dailyBars: DAILY, entryRule: "reaction" as const, exitRule: "bracket" as const };
   const sess = (tail: Array<Omit<Bar, "t" | "v">>) => session(L, S, P, tail);
 
   it("arms in the fixture's direction", () => {

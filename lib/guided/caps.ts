@@ -17,11 +17,11 @@
  */
 
 import { capitalHeld, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
-import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
+import { isOtherMarket } from "@/lib/market/otherMarkets";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 
 export interface CapUsage {
-  /** Stocks open now. Guided trades stocks only, so crypto pairs are not counted. */
+  /** Stocks open now. Guided trades stocks only, so crypto pairs and funds are not counted. */
   openMarkets: string[];
   /** Capital Gann's rule holds behind the open shares, in dollars. */
   capitalHeldUsd: number;
@@ -33,7 +33,7 @@ export function readCapUsage(openSymbols: Map<string, { qty: number; avgEntry: n
   const open = [...openSymbols]
     .filter(([symbol]) => !parseOccSymbol(symbol))
     .map(([symbol, p]) => ({ symbol, qty: p.qty, price: p.avgEntry }));
-  const openMarkets = open.map((p) => p.symbol).filter((symbol) => !isCryptoSymbol(symbol));
+  const openMarkets = open.map((p) => p.symbol).filter((symbol) => !isOtherMarket(symbol));
   return {
     openMarkets,
     capitalHeldUsd: capitalHeld(open),

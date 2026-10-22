@@ -67,6 +67,20 @@ describe("capitalRuleRefusal", () => {
     const fiveStocks = [...threeStocks, ...["JPM", "KO"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }))];
     expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "DOGE/USD", open: fiveStocks })).toBeNull();
   });
+  // Commodity and currency funds stand in for Gann's commodities (Tunnel
+  // pp.203-204), so they share crypto's three, not the five stocks (#454).
+  it("counts commodity and currency funds with crypto among the three other markets", () => {
+    expect(maxOpenMarketsFor("GLD")).toBe(3);
+    expect(maxOpenMarketsFor("FXE")).toBe(3);
+    const mixed = ["BTC/USD", "GLD", "UUP"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "USO", open: mixed })?.code).toBe("max_open_symbols");
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "ETH/USD", open: mixed })?.code).toBe("max_open_symbols");
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "GLD", open: mixed })).toBeNull();
+    // Three funds open leave every stock slot free.
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, open: mixed })).toBeNull();
+    const fiveStocks = ["MSFT", "NVDA", "XOM", "JPM", "KO"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
+    expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "GLD", open: fiveStocks })).toBeNull();
+  });
 });
 
 // Never-failing rule 1 (W006 p.46; Commodities pp.29-30 and rule 1, pp.43-45):

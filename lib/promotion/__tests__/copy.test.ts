@@ -24,7 +24,7 @@ describe("promotion copy", () => {
 
   it("phrases the Novice open room as a maximum, never a target", () => {
     expect(noviceOpenRoomLabel(0, 0)).toContain("maximum");
-    expect(noviceOpenRoomLabel(5, 3)).toBe("Room for 5 more stocks and 3 more crypto pairs (maximum)");
-    expect(noviceOpenRoomLabel(1, 1)).toBe("Room for 1 more stock and 1 more crypto pair (maximum)");
+    expect(noviceOpenRoomLabel(5, 3)).toBe("Room for 5 more stocks and 3 more other markets (crypto, commodity or currency funds) (maximum)");
+    expect(noviceOpenRoomLabel(1, 1)).toBe("Room for 1 more stock and 1 more other market (crypto, commodity or currency funds) (maximum)");
   });
 });

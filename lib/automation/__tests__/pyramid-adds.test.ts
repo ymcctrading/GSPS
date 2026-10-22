@@ -291,6 +291,34 @@ describe("automated pyramid adds", () => {
     expect((await placeAutomatedPyramidAdds(stale.client, market(), NOW)).placed).toBe(1);
   });
 
+  it("adds nothing inside the away window or the rest window, nor when the settings can't be read", async () => {
+    sim.quote = Math.round((trigger().trigger + 0.1) * 100) / 100;
+    // Away from 2026-06-17: the window opens three days before.
+    const awayRun = seed();
+    awayRun.tables.settings = [{ user_id: "u1", prefs: { gannRules: { awayFrom: "2026-06-17" } } }];
+    expect((await placeAutomatedPyramidAdds(awayRun.client, market(), NOW)).placed).toBe(0);
+    // The June rest window opens 06-21.
+    const restRun = seed();
+    expect((await placeAutomatedPyramidAdds(restRun.client, market(), new Date("2026-06-23T15:00:00Z"))).placed).toBe(0);
+    expect(restRun.tables.protocol_exits).toHaveLength(1);
+    // With the rest reminder switched off the same day, the add goes in.
+    const offRun = seed();
+    offRun.tables.settings = [{ user_id: "u1", prefs: { gannRules: { restReminder: false } } }];
+    expect((await placeAutomatedPyramidAdds(offRun.client, market(), new Date("2026-06-23T15:00:00Z"))).placed).toBe(1);
+  });
+
+  it("adds nothing to a live line, or to a symbol carrying two working exits", async () => {
+    sim.quote = Math.round((trigger().trigger + 0.1) * 100) / 100;
+    const live = seed({ line: { mode: "live" } });
+    expect((await placeAutomatedPyramidAdds(live.client, market(), NOW)).placed).toBe(0);
+    const two = seed();
+    two.tables.protocol_exits.push({ ...two.tables.protocol_exits[0], id: "line-2", entry_order_id: "order-2" });
+    two.tables.orders.push({ ...two.tables.orders[0], id: "order-2" });
+    const run = await placeAutomatedPyramidAdds(two.client, market(), NOW);
+    expect(run.placed).toBe(0);
+    expect(two.tables.protocol_exits).toHaveLength(2);
+  });
+
   it("never adds a long in a large capital stock (rule 21)", async () => {
     sim.quote = Math.round((trigger().trigger + 0.1) * 100) / 100;
     const { client } = seed();
@@ -326,6 +354,8 @@ describe("automated pyramid adds", () => {
     const { client, tables } = seed({
       line: { qty: 150, runner_qty: 150, entry_price: (100 * 101.8 + 50 * 111.2) / 150, applied_stop: 105, lots },
     });
+    // June 24 is inside Gann's rest window; this trader has the reminder off.
+    tables.settings = [{ user_id: "u1", prefs: { gannRules: { restReminder: false } } }];
     const run = await placeAutomatedPyramidAdds(client, market({ daily: async () => daily }), new Date("2026-06-24T15:00:00Z"));
     expect(run.errors).toEqual([]);
     expect(run.placed).toBe(1);

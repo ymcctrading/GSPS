@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SchoolSubNav } from "@/components/school/sub-nav";
+import { GuideTip } from "@/components/guides/guide-avatar";
+import { speakerOf } from "@/lib/guides/speaker";
 
 interface LessonView {
   id: string;
@@ -137,11 +139,18 @@ export function SchoolFlow() {
                 )}
                 {isOpen && (
                   <div className="flex flex-col gap-4">
-                    {lesson.instruction.map((p, i) => (
-                      <p key={i} className="text-sm">
-                        {p}
-                      </p>
-                    ))}
+                    {lesson.instruction.map((p, i) => {
+                      const speaker = speakerOf(p);
+                      return speaker ? (
+                        <GuideTip key={i} speaker={speaker}>
+                          <p className="text-sm">{p}</p>
+                        </GuideTip>
+                      ) : (
+                        <p key={i} className="text-sm">
+                          {p}
+                        </p>
+                      );
+                    })}
                     <p className="text-sm italic text-muted">{lesson.application}</p>
                     <div className="flex flex-col gap-4">
                       {lesson.questions.map((q, qi) => (

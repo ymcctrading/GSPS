@@ -23,6 +23,7 @@ import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { loadSweptCandidates } from "@/lib/scan/universeSweep";
+import { recordShadowSignals } from "@/lib/shadow/record";
 
 /**
  * scan_executions.source for this route's own per-profile monitor fan-out.
@@ -170,6 +171,19 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   // failing, and must never block either.
   let profilesFannedOut: number | null = null;
   if (options.fanOutToProfiles) {
+    // The forward test records the Execute calls this run publishes. This
+    // scan is what fills the daily lists every 15 minutes, so a day the
+    // timed scheduled scans found nothing (2026-10-21: 11 Executes on the
+    // lists, none recorded) is still measured. A plan is one row a session
+    // (lib/shadow/record.ts), so the repeats cost nothing; evaluation stays
+    // with the scheduled scans. Best-effort: never fails the scan.
+    try {
+      const shadowStartedAt = Date.now();
+      const { recorded } = await recordShadowSignals(service, [...output.bullish, ...output.bearish], FAN_OUT_SOURCE);
+      console.log(`market-scan: shadow ${Date.now() - shadowStartedAt}ms — recorded ${recorded}`);
+    } catch (err) {
+      console.error(`market-scan: shadow signals not recorded — ${String(err)}`);
+    }
     try {
       const qualifying: RankedSetup<ScanResult>[] = [
         ...output.bullish.map((r) => ({ side: "buy" as const, rank: r.decision.score, value: r })),

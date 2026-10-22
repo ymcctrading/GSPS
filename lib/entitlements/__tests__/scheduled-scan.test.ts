@@ -7,7 +7,9 @@ const {
   fanOutForProfileMock,
   createServiceClientMock,
   etMinutes,
+  shadowCalls,
 } = vi.hoisted(() => ({
+  shadowCalls: [] as string[],
   etMinutes: { value: 10 * 60 },
   runMarketScanMock: vi.fn(),
   isTradingDayMock: vi.fn(),
@@ -23,6 +25,18 @@ vi.mock("@/lib/market/session", () => ({
 }));
 vi.mock("@/lib/entitlements/scan-fanout", () => ({ fanOutForProfile: fanOutForProfileMock }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceClient: createServiceClientMock }));
+vi.mock("@/lib/shadow/evaluate", () => ({
+  evaluatePendingShadowSignals: () => {
+    shadowCalls.push("evaluate");
+    return Promise.resolve({ evaluated: 0, stillPending: 0, failed: 0 });
+  },
+}));
+vi.mock("@/lib/shadow/record", () => ({
+  recordShadowSignals: () => {
+    shadowCalls.push("record");
+    return Promise.resolve({ recorded: 0 });
+  },
+}));
 
 import { etWindowFrom, runScheduledScan } from "@/lib/entitlements/scheduled-scan";
 
@@ -107,6 +121,7 @@ beforeEach(() => {
   fanOutForProfileMock.mockReset().mockResolvedValue({ visibleCount: 0, notifiedCount: 0 });
   createServiceClientMock.mockReset();
   etMinutes.value = 10 * 60;
+  shadowCalls.length = 0;
   process.env.CRON_SECRET = CRON_SECRET;
   delete process.env.VERCEL_ENV;
 });
@@ -233,6 +248,10 @@ describe("runScheduledScan", () => {
     expect(res.status).toBe(200);
     expect(body.scanExecutionId).toBe("se-new");
     expect(inserted[0]).toMatchObject({ source: "scheduled_morning_scan", market_date_et: "2026-08-26" });
+
+    // The forward test reads the ended sessions before it records, so a plan
+    // that expired unfilled is a new call when found for the next session.
+    expect(shadowCalls).toEqual(["evaluate", "record"]);
 
     // TSLA: no error, Reject/no-direction -> invalidation-eligible.
     // MSFT: has `.error` set -> a provider failure, not a clean reject; excluded.

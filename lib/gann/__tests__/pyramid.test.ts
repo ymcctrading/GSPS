@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { capitalSize, LARGE_CAPITAL_MIN_SHARES, nextLotFraction, PYRAMID_LOTS, pyramidLineFromRows, PYRAMID_STEP_POINTS, readPyramidAdd, wholeLineStop } from "@/lib/gann/pyramid";
+import { averagingLossRefusal, capitalSize, LARGE_CAPITAL_MIN_SHARES, nextLotFraction, PYRAMID_LOTS, pyramidLineFromRows, PYRAMID_STEP_POINTS, readPyramidAdd, wholeLineStop } from "@/lib/gann/pyramid";
 import { gannPoint } from "@/lib/gann/pointScale";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
@@ -267,5 +267,26 @@ describe("pyramidLineFromRows on a line automation pyramided (migration 0111)", 
     expect(pyramidLineFromRows([{ ...row, lots: [{ qty: 0, price: 1, date: "x" }] }], key)!.lots).toEqual([
       { qty: 150, price: 106.49, date: "2026-06-03" },
     ]);
+  });
+});
+
+describe("never average a loss at placement (never-failing rule 13, A-PYRAMID-03/04)", () => {
+  const open = [{ symbol: "AAPL", side: "long" as const, avgPrice: 100, qty: 10 }];
+  it("refuses an add to a long that shows no profit at the add's price", () => {
+    expect(averagingLossRefusal({ symbol: "aapl", side: "buy", price: 98, open })?.code).toBe("average_a_loss");
+    expect(averagingLossRefusal({ symbol: "AAPL", side: "buy", price: 100, open })?.code).toBe("average_a_loss");
+  });
+  it("lets an add to a long in profit, a new symbol, and a sell (a close) through", () => {
+    expect(averagingLossRefusal({ symbol: "AAPL", side: "buy", price: 103, open })).toBeNull();
+    expect(averagingLossRefusal({ symbol: "MSFT", side: "buy", price: 50, open })).toBeNull();
+    expect(averagingLossRefusal({ symbol: "AAPL", side: "sell", price: 90, open })).toBeNull();
+  });
+  it("mirrors it for a short, on the lots' average", () => {
+    const shorts = [
+      { symbol: "XYZ", side: "short" as const, avgPrice: 50, qty: 10 },
+      { symbol: "XYZ", side: "short" as const, avgPrice: 46, qty: 10 },
+    ];
+    expect(averagingLossRefusal({ symbol: "XYZ", side: "sell", price: 49, open: shorts })?.code).toBe("average_a_loss");
+    expect(averagingLossRefusal({ symbol: "XYZ", side: "sell", price: 47, open: shorts })).toBeNull();
   });
 });

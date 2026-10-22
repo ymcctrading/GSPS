@@ -141,3 +141,33 @@ describe("computeCampaignLeg", () => {
     expect(leg.confidence).toBe("high");
   });
 });
+
+describe("the 7-day chart on weekly and monthly bars (A-TREND-01/02)", () => {
+  // Gann counts monthly moves as months "without breaking the previous
+  // month's low or high" (*Commodities* pp. 102-103): an inside month never
+  // turns the line.
+  function months(rows: [number, number][]): Bar[] {
+    return rows.map(([h, l], i) => ({ t: new Date(Date.UTC(2020, i, 1)).toISOString(), o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1000 }));
+  }
+
+  it("does not turn on an inside month, and turns on a month under the previous month's low", () => {
+    const rising: [number, number][] = [[11, 9], [12, 10], [13, 11], [14, 12], [16, 14]];
+    const inside = months([...rising, [15.5, 14.3], [17, 15]]);
+    // Before the fix the inside month reversed the line, leaving a swing bottom at 14.3.
+    expect(walkSwingChart(inside, WEEKLY_SWING_CHART).pivots.some((p) => p.price === 14.3)).toBe(false);
+    expect(walkSwingChart(inside, WEEKLY_SWING_CHART).reversals).toHaveLength(0);
+    const broke = months([...rising, [15.5, 13.5], [17, 15]]);
+    expect(walkSwingChart(broke, WEEKLY_SWING_CHART).pivots.some((p) => p.kind === "top" && p.price === 16)).toBe(true);
+  });
+
+  it("does not move the trend when a later month undercuts an inside month only", () => {
+    // Inside month 15.5/14.3, then a month at 14.1 above the 14 low: not bearish.
+    const m = months([[11, 9], [12, 10], [13, 11], [14, 12], [16, 14], [15.5, 14.3], [15, 14.1], [17, 15]]);
+    expect(swingChartDirection(m, WEEKLY_SWING_CHART)).toBe("bullish");
+  });
+
+  it("leaves daily bars as they were: a counter-move must still run 7 days", () => {
+    const d = bars([10, 11, 12, 13, 14, 13.5, 14.5, 15]);
+    expect(walkSwingChart(d, WEEKLY_SWING_CHART).reversals).toHaveLength(0);
+  });
+});

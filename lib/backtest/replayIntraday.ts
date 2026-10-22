@@ -70,7 +70,7 @@ import type { Bar } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { gannFirstTarget, gannOldLevels } from "@/lib/scanner/intraday";
+import { gannFirstTarget, gannOldLevels, targetPaysRisk } from "@/lib/scanner/intraday";
 import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { walkSwingChart } from "@/lib/gann/swingChart";
@@ -305,6 +305,14 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
         // The first level that pays more than the risk, as the live alert reads it.
         risk: Math.abs(entry - stop),
       });
+      // With none, the live alert offers no trade (M-K5, "profits must exceed
+      // losses", *Wall Street Stock Selector* Ch. II): gannFirstTarget falls
+      // back to the nearest level, which the replay used to trade (recheck
+      // 2026-10-22).
+      if (targetPaysRisk(entry, stop, firstTarget) !== true) {
+        refusedFills++;
+        continue;
+      }
 
       const walked = walkIntradayExit({
         bars,

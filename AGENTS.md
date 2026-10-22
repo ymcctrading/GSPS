@@ -1140,6 +1140,33 @@ in the same `WindowAnchors` (no new rule): `STRATEGY_VERSION` was
 onto it as `2026-10-22-gann-rebuy-rule-nine`; Execute and the 7/4 cutoffs need a
 fresh run on it.
 
+**Extremes, boiling point and the Sun's travel act, 2026-10-22 (the recheck's
+open items, `gann-feature-map/review/2026-10-22-recheck.md`).** Gann's own
+readings that were context only now act where he says they act, live, paper and
+replay alike, since every surface reads `readGannExit` and `buildStructuralLevels`.
+M-E11 (approximated): a reverse signal day against the trade after the fill moves the stop 3
+points beyond that day's extreme (`reverse_signal`; *Commodities* pp. 311,
+317-318). M-E12: an exhaust gap against the trade takes it off, with no reversal
+(`exhaust_gap`, `exhaustGapAt` in `extremeRules.ts`, pp. 318-325; a gap on a
+session after the fill's, read after the trend-change calls so those still
+reverse); the filled gap
+and the gap count stay context. M-T10: once the weekly run in the
+trade's direction has lasted 6 weeks the stop trails 10 points from the best price ("wait to sell
+your stock until it boils", *Stock Selector* Ch. V; `boiling_point`,
+`runBoilingPointFromPivots`). Both new stops reverse and re-buy as the other
+trailing stops do. A-ASTRO-03: the Sun's travel since the major low added to that
+low (W046 p.1) joins the S/R list (`sunTravelLevel`, via `masterLevels.ts`). M-P4:
+the intraday first target averages the old levels within 1%, as the daily plan
+does (`lib/gann/nearbyLevels.ts`, moved from `lib/strat/levels.ts`; round numbers
+kept apart). Engineering choices, labelled: the 10-point trail is the Stock
+Selector's figure on the Gann point (his Rumely trail is a raw 10 at $100;
+A-STOP-04 reads his "10 at high levels" as 5), the 6 weeks are read on the 7-day chart's
+run. Measured on 200 random walks: about 0.13 ms more a full exit read, 0.13 ms
+for the Sun level in an S/R build. Plans and exits move: `STRATEGY_VERSION` was
+`2026-10-22-gann-extremes-boiling-sun-act`; the rule recheck fixes merged onto
+it as `2026-10-22-gann-rule-recheck-fixes`, and Execute and the 7/4 cutoffs need
+a fresh run on that.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
@@ -3034,7 +3061,32 @@ on exchange hours (Master Course PDF 378): a US equity's hours count from the
 intraday replay and the Intraday style's hourly-turn exit. It had bucketed bars
 by UTC hour, so an equity's first hour was 9:30-9:59 alone. The live scan's
 display-only hourly trend still reads the vendor's clock-hour bars (it feeds
-no score). `STRATEGY_VERSION` is `2026-10-22-gann-hourly-exchange-hours`.
+no score). `STRATEGY_VERSION` was `2026-10-22-gann-hourly-exchange-hours`.
+**Rule recheck fixes, 2026-10-22 (owner: "run the code reviewer over those
+rules"; the recheck is `/mnt/project-files/gann-feature-map/review/2026-10-22-recheck.md`).**
+Nine defects, each answered from Gann. (1) The 7-day chart on weekly and monthly
+bars turned on any bar that failed to extend the swing, an inside bar included;
+Gann counts monthly moves as months "without breaking the previous month's low
+or high" (*Commodities* pp. 102-103), so on bars that each span the chart's 7
+days the line turns only on a break of the previous bar (`swingChart.ts`;
+daily bars unchanged). (2) The time-window hold opened the yearly counts, great
+cycles and day counts only for a turn of the anchor's own kind; Gann counts
+"from any important top or bottom" (W006 pp. 14, 44), so `timeWindowsAt` reads
+both (`timeCycles`' bullish/bearish tags stay for the coarse bonus and the
+card). (3) The 5-point cap refused every automated re-buy and reversal; it now
+yields to the plan's own stop on those two (`confirmEntry`), and only to it.
+(4) The replay's `exitRule` defaults to `LIVE_EXIT_RULE` ("gann"), not
+"bracket". (5) The intraday replays refuse an alert with no first target or one
+that doesn't pay the risk, as the live panel offers no trade on it
+(`target_unpaid`). (6) Placement refuses an add to a position not in profit,
+paper and live (`averagingLossRefusal`, never-failing rule 13). (7) The live
+trading unit reads the first verified equity as its starting capital
+(`readLiveStartingCapital`), at placement and in the portfolio manager. (8) The
+portfolio manager opens nothing in the twice-yearly rest window unless the
+trader turned the reminder off or dismissed it. (9) The year fraction's
+"anniversary" is the calendar date (`daysFromAnniversary`); the 360-day count is
+labelled "360 days". `STRATEGY_VERSION` is `2026-10-22-gann-rule-recheck-fixes`;
+Execute and the 7/4 cutoffs need a fresh run on it.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the

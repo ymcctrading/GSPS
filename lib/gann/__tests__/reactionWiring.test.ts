@@ -196,6 +196,33 @@ describe("never risk more than 5 points (A-STOP-02)", () => {
     const r = await entryConfirmationRefusal(stubOrdersSupabase(), "u1", order);
     expect(r?.body).toMatchObject({ code: "risk_over_five_points" });
   });
+
+  it("yields to the method's own stop on a re-buy or reversal plan, and only to that stop (A-PYRAMID-07, A-EXIT-02)", async () => {
+    readEntryConfirmationNow.mockReset().mockResolvedValue({ ready: true, stage: "confirmed", note: "" });
+    const point = gannThreePoints(100) / 3;
+    // The re-buy's stop is 6 points under its entry, half a 12-point reaction (Tunnel p.198).
+    getTradePlan.mockResolvedValue({
+      direction: "bullish", signalId: "rebuy:abc", generatedAt: "2026-10-15T14:00:00Z",
+      coordinates: { entryTrigger: 100, invalidation: 100 - 6 * point, entryKind: "oldLevel" },
+      evidence: { dataTimestamps: { rebuyExtreme: String(100 + 12 * point) } },
+    });
+    const order: OrderInput = {
+      symbol: "AAPL", assetClass: "equity", side: "buy", qty: 1, mode: "paper", entryMode: "advised",
+      limitPrice: 100, attachLevels: { stopLoss: 100 - 6 * point, takeProfit: 120 }, intradaySourced: false,
+      sourcePlanId: "00000000-0000-4000-8000-000000000004",
+    };
+    const own = await entryConfirmationRefusal(stubOrdersSupabase(), "u1", order);
+    expect((own?.body as { code?: string } | undefined)?.code).not.toBe("risk_over_five_points");
+    // A stop moved off the plan's own is capped as any other.
+    const moved = await entryConfirmationRefusal(stubOrdersSupabase(), "u1", { ...order, attachLevels: { stopLoss: 100 - 7 * point, takeProfit: 120 } });
+    expect(moved?.body).toMatchObject({ code: "risk_over_five_points" });
+    // A scan plan with a 6-point stop is still refused: the cap is the entry's own rule.
+    getTradePlan.mockResolvedValue({
+      direction: "bullish", signalId: "sig-1", generatedAt: "2026-10-15T14:00:00Z",
+      coordinates: { entryTrigger: 100, invalidation: 100 - 6 * point, entryKind: "crossing" },
+    });
+    expect((await entryConfirmationRefusal(stubOrdersSupabase(), "u1", order))?.body).toMatchObject({ code: "risk_over_five_points" });
+  });
 });
 
 describe("plans advance on the 3-point crossing as price ticks", () => {

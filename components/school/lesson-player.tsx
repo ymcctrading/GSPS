@@ -9,6 +9,8 @@ import { SchoolBreadcrumbs } from "@/components/school/breadcrumbs";
 import { SchoolSubNav } from "@/components/school/sub-nav";
 import { SchoolDisclaimer } from "@/components/school/disclaimer";
 import { ProvenanceBadge, type Provenance } from "@/components/school/provenance-badge";
+import { GuideTip } from "@/components/guides/guide-avatar";
+import { speakerOf } from "@/lib/guides/speaker";
 import { ThreeElementForm, type ThreeElementFormValue } from "@/components/school/three-element-form";
 
 interface LessonDetail {
@@ -166,9 +168,16 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
           <CardTitle>Instruction</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-foreground">
-          {data.lesson.instruction.map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
+          {data.lesson.instruction.map((p, i) => {
+            const speaker = speakerOf(p);
+            return speaker ? (
+              <GuideTip key={i} speaker={speaker}>
+                <p>{p}</p>
+              </GuideTip>
+            ) : (
+              <p key={i}>{p}</p>
+            );
+          })}
         </CardContent>
       </Card>
 

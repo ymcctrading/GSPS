@@ -122,7 +122,11 @@ export function AppNav() {
             ))}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          {/* Below md the nav above is hidden, so this cluster is the only
+              thing beside the logo; it may shrink there (the search box gives
+              way, `min-w-0 flex-1`), which keeps a 320px phone from scrolling
+              sideways. From md up it holds its width beside the nav. */}
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-2 sm:gap-3 md:shrink-0">
             <SymbolSearch />
 
             <NotificationBell />

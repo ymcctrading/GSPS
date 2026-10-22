@@ -210,11 +210,22 @@ against Gann:
    drawdown, read by the same functions placement uses. Paper accounts; a
    live account's book is the broker's, and the circuit breaker, which is the
    live account's, is not shown.
-5. **Performance replay UI.** Past scans compared across dates, and the
-   forward test beside the replay.
+5. **Performance replay UI.** Built 2026-10-22: the Scanner's "Past scans"
+   tab (`lib/scanner/pastScans.ts`, `/api/past-scans`) puts two sessions'
+   published Buy and Sell lists side by side, marks what changed and which
+   Watch became an Execute later, shows the forward test's walk of each
+   Execute, and lists the forward test by strategy version beside the
+   committed production-faithful replay (`lib/backtest/replayReference.ts`).
+   Reach back is the tier's `scanHistoryRetentionDays`. No bars are fetched.
+   Open: the forward test's own faults found while building it (filled trades
+   walked by the evaluator before R-032, signals recorded after the close,
+   duplicates, a session with none recorded), raised with the coordinator.
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
-   configurable periods and saved presets. Explain-only: an indicator never
-   sets a level.
+   configurable periods and saved presets for the chart overlays (Practice
+   account thread). A chart overlay never sets a level; since Chuck's
+   2026-10-22 reversal a Strategy Mode that doesn't align with GSPS's plan
+   offers its own entry, stop and TP1 (never an MTP), as AGENTS.md's
+   "Strategy Modes" records.
 7. **Scale safely.** Database index audit and query baselines; a shared rate
    limit store; caching for chart and scan reads.
 8. **Track M:** the shared time-window mechanism (so the astro, Jensen,
@@ -242,34 +253,34 @@ proving period has shown the portfolio manager works and a real compliance
 review exists, the API, and performance work. Past July 2027 this roadmap is
 expired and must be rewritten, not extended.
 
-## Part 5. Q1 status, item by item (2026-10-21)
+## Part 5. Q1 status, item by item (re-read 2026-10-22)
 
 Status key: **Done**; **Open** (unpaid, being built); **Owner** (needs Chuck's
 budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 
 | # | Q1 item | Status | Evidence or next step |
 |---|---|---|---|
-| 1 | Email alerts, quiet hours, alert history | Done in code; delivery failing | 94% of sends fail on the Resend domain (S-04). Senior-review thread |
-| 2 | Browser push notifications | **Built** (PR #404), live once migration 0099 is applied and the VAPID keys are set | `lib/notifications/web-push.ts`, `public/sw.js`, Settings toggle; setup alerts and price alerts send push, and every send now honors quiet hours and the score floor. Intraday alerts join once #404 merges (intraday thread) |
+| 1 | Email alerts, quiet hours, alert history | Done in code; delivery capped | The domain is verified (gsps.world) and the sender fixed (#419). Read 2026-10-22 12:55 UTC from `notification_deliveries` (by `updated_at`, last 24 hours): 205 sent and 1,639 failed with Resend's daily sending quota. Member email is now opt-in (#451), which should bring the volume under the free quota; re-read once deployed. Senior-review thread |
+| 2 | Browser push notifications | **Done** | `lib/notifications/web-push.ts`, `public/sw.js`, Settings toggle. Migration 0099 is applied, and the three VAPID variables are set in Vercel production (read 2026-10-22). Setup, price and intraday alerts (#416) send push, honoring quiet hours and the score floor, opt-in since #451. 0 browsers subscribed so far |
 | 3 | SMS alerts | Owner | Needs a paid SMS provider (Twilio or similar) |
 | 4 | Portfolio analytics | Done | `components/portfolio/analytics-dashboard.tsx` |
 | 5 | Conditional orders | Done | `lib/trade/attach-protocol-exit.ts` |
 | 6 | Onboarding, glossary, pattern education | Done | Tour, `/welcome`, `/glossary` |
-| 7 | Mobile-responsive dashboard | Done (structural audit) | Not checked on a real device |
+| 7 | Mobile-responsive dashboard | Done | 2026-10-22: 12 signed-in pages and the public ones checked at iPhone 13 (390px) and small Android (320px) in a local browser on the test account; the header overflowed at 320px on every signed-in page and was fixed (`components/app/nav.tsx`). The Dashboard home could not render locally (no service key); its full lists page could. Not yet seen on a real phone |
 | 8 | Indicators phase 1 | Done | Chart overlays, explain-only |
 | 9 | Paid tier (freemium, subscriptions) | Owner | Code built; Stripe prices must be created in Chuck's Stripe account |
 | 10 | Pay-your-way promotion checkout | Owner | Prices approved; same Stripe step |
 | 11 | Vercel Pro | Owner (optional) | No longer needed for scheduling: jobs moved to Supabase pg_cron (#381), and Vercel's crons now run only two daily backups. Its one remaining use is the daily deploy cap |
-| 12 | Sentry error capture | Owner | Code done; needs a DSN from a Sentry account (free tier) |
+| 12 | Sentry error capture | **Done** | `instrumentation.ts` and `instrumentation-client.ts` read `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`, both set in Vercel production (read 2026-10-22) |
 | 13 | Caching for scan results and portfolio snapshots | **Built** (PR #404, migration 0101) | `lib/portfolio/paper-equity.ts` marks every paper account each session; promotion reads its high-water drawdown. Found and fixed on the way: paper equity counted a short's value twice, on every surface that read it |
 | 14 | Rate-limit hardening | **Done** (PR #404) | `lib/rate-limit-policy.ts`: five budgets by what a request costs; scheduled jobs exempt. A shared store stays a Q2 item |
-| 15 | E2E tests | **In progress** (intraday thread); Owner (CI) | The intraday thread is writing the alert-delivery spec; CI needs a test Supabase project |
+| 15 | E2E tests | **In progress**; Owner (CI) | Part 1, the intraday bell, merged in #406. Part 2, the email and push delivery tests, is with the paper-trading thread. CI still needs a test Supabase project |
 | 16 | Novice risk engine reset checklist | **Done** (PR #404) | `/api/risk/reset-checklist`, a Settings card, and the circuit breaker holds new entries until it is completed |
 | 17 | Decision-gate metrics (retention, adoption, signal quality) | **Done** (PR #404) | `/api/admin/decision-gate` (operator secret only). Read 2026-10-21: 20 members, 3 active in 30 days, first-cohort retention 1 of 18 (6%), 0 paying, forward test 19 of 30 winners (+0.82R average), alerts 714 of 12,974 sent |
 | 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
 | 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Restored (PR #414); measurement owed | Gann-rules thread |
-| 20 | Intraday alerts on Gann's primitives | Other thread | Intraday thread, PR #402 |
-| 21 | Trade plans by style and instrument | Other thread | Trade-style thread |
+| 20 | Intraday alerts on Gann's primitives | **Done** | #402, #416; the Intraday trade style (#439) |
+| 21 | Trade plans by style and instrument | **Done** | #405, #411 |
 
 ## Part 6. Waiting on Chuck's budget or accounts
 
@@ -279,13 +290,12 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | Vercel Pro (optional) | Paid upgrade | A higher daily deploy cap only; scheduling no longer needs it (pg_cron, #381) |
 | SMS provider (Twilio or similar) | Paid service | Text-message alerts |
 | Stripe prices | Chuck's account (Stripe charges per transaction, no fee to set up) | Subscriptions and pay-your-way checkout |
-| Sentry DSN | Chuck's account (free tier exists) | Production error capture |
 | Test Supabase project for CI | Chuck's account (free tier may suffice) | End-to-end tests in CI |
 | Futures and forex bars and a broker | Paid feeds and accounts | Q2's non-equity scanners |
 | App Store and Google Play accounts | Paid accounts | Q3's native app |
 | SOC 2 and penetration testing | Paid services | Q2 to Q4 security |
 
-## Part 7. Who owns what (parallel threads, 2026-10-21)
+## Part 7. Who owns what (parallel threads, 2026-10-22)
 
 | Thread | Owns |
 |---|---|
@@ -294,7 +304,8 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | Intraday replay | The intraday replay profile |
 | Trade plans by trade style | Swing and fast styles; the instrument types |
 | Senior code review | Security, ops, the gsps.world domain, Resend email, pg_cron |
-| Synthesized roadmap and Q1 tasks | This roadmap; the open Q1 items 2, 13, 14 (route audit), 15 (spec), 16, 17 |
+| Synthesized roadmap and Q1 tasks | This roadmap; Q1 item 7 (mobile) |
+| Paper trading health and PR reviews | Q1 item 15 part 2 (delivery tests); Q2 item 7 (scale safely) |
 
 Agree file boundaries with the owning thread before touching its area.
 

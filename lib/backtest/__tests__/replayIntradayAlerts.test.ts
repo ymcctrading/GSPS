@@ -5,6 +5,7 @@ import {
   ALERT_FEED_DELAY_BARS,
   ALERT_SCAN_MINUTES,
   asDailyPlanLevels,
+  enterAlert,
   replayIntradayAlerts,
   type AlertTrade,
 } from "@/lib/backtest/replayIntradayAlerts";
@@ -242,6 +243,12 @@ describe("replayIntradayAlerts", () => {
     expect(refusals).toBeGreaterThan(0);
   }, 60_000);
 
+  it("takes no alert the live panel offers no trade on: no first target, or one that doesn't pay the risk (M-K5)", () => {
+    for (const t of all) expect(Number.isFinite(t.target)).toBe(true);
+    const unpaid = runs.reduce((n, r) => n + (r.result.refused.target_unpaid ?? 0), 0);
+    expect(unpaid).toBeGreaterThan(0);
+  });
+
   it("summarises a cell", () => {
     const s = summariseAlertTrades(all);
     expect(s.n).toBe(all.length);
@@ -252,6 +259,26 @@ describe("replayIntradayAlerts", () => {
     const mid = rs.length / 2;
     expect(s.medianR).toBeCloseTo(rs.length % 2 ? rs[Math.floor(mid)] : (rs[mid - 1] + rs[mid]) / 2, 9);
     expect(summariseAlertTrades([]).expectancyR).toBeNull();
+  });
+});
+
+describe("enterAlert's first target", () => {
+  // A first target exists but pays no more than the risk: the live panel
+  // offers no "Trade this" on it (M-K5), so the replay refuses it too.
+  const bars: Bar[] = [
+    { t: "2025-12-03T15:00:00Z", o: 100, h: 100.4, l: 99.6, c: 100, v: 1e5 },
+    { t: "2025-12-03T15:15:00Z", o: 100, h: 100.4, l: 99.6, c: 100.2, v: 1e5 },
+    { t: "2025-12-03T15:30:00Z", o: 100.2, h: 100.6, l: 99.8, c: 100.4, v: 1e5 },
+  ];
+  const input = (paysRisk: boolean) => ({
+    alert: { direction: "up", invalidation: 99, continuationPlan: { firstTarget: 100.8, paysRisk } } as unknown as Parameters<typeof enterAlert>[0]["alert"],
+    bars, from: 0, at: 1, sessionEnd: bars.length, point: 0.1, dailyBars: [], monthlyBars: [],
+    maxBarsHeld: 10, costPerShare: 0, symbol: "TEST", kind: "equity" as const, date: "2025-12-03", dailyPlan: null,
+  });
+
+  it("refuses a target that doesn't pay the risk", () => {
+    expect(enterAlert(input(false))).toBe("target_unpaid");
+    expect(enterAlert(input(true))).not.toBe("target_unpaid");
   });
 });
 

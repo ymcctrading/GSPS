@@ -8,8 +8,9 @@ documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
 This file keeps each phase's detail and history.
 **Last updated:** 2026-10-22 (Q2 advanced orders: automated pyramid adds on
 paper, OCO answered by Gann's no-fixed-target rule; see
-`docs/SYNTHESIZED_ROADMAP.md` Part 5 item 3). Earlier the same day (two stale
-Q1 notes corrected: the
+`docs/SYNTHESIZED_ROADMAP.md` Part 5 item 3. Also Q2's crypto scanner started
+on Alpaca's free data, and Q2's Performance replay UI built as the Scanner's
+"Past scans" tab). Earlier the same day (two stale Q1 notes corrected: the
 pay-your-way pricing is approved, and `patternArmed` was closed 2026-09-17;
 carried over from PR #295). Previously 2026-10-21 (pointer to the synthesized
 roadmap). Previously
@@ -1176,12 +1177,20 @@ Portfolio analytics drives retention and trust.
   stops, one-cancels-other (OCO), with live paper-trading support.
 - **Crypto scanner** — separate scan queue for BTC, ETH, and major alts.
   Adapted timeframes (4h, 1d focus) on Binance data.
+  *(Started 2026-10-22, on Alpaca's free crypto data rather than Binance: the
+  daily market scan now scores every pair in `lib/scan/cryptoUniverse.ts` in
+  full on each run, beside the stocks, and lists their buy setups under their
+  own "Crypto" heading on the Buy list. Spot crypto can't be sold short at
+  the broker, so sell setups are not listed. Still open: a weekend run (the
+  market scan runs on weekdays), Guided Mode (its execute path hardcodes the
+  equity asset class), and a 4h chart.)*
 - **Forex scanner** — major pairs (EURUSD, GBPUSD, …) with structural analysis
   on Oanda data.
 - **Risk dashboard** — position-sizing calculator, max daily loss enforcement,
   correlation-based position warnings, VIX tracking.
 - **Performance replay UI** — replay past scans, compare alerts across dates,
-  see what would have been caught.
+  see what would have been caught. **Built 2026-10-22** as the Scanner's
+  "Past scans" tab; see `docs/SYNTHESIZED_ROADMAP.md` Part 5, Q2 item 5.
 - **Expanded indicator library for self-directed strategy testing** — broaden
   the charting indicator set well beyond today's SMA/EMA/Bollinger/RSI/MACD
   (`lib/indicators.ts`, `/api/indicators`, `components/chart/candles.tsx`) so
