@@ -210,7 +210,10 @@ export async function GET(req: NextRequest) {
     barsHeld: r.bars_held ?? null,
     fillPrice: num(r.fill_price),
     strategyVersion: r.strategy_version,
-  }));
+  }))
+    // The read starts at midnight UTC, the evening before the floor in New
+    // York; a recording from that earlier session is outside the reach.
+    .filter((r) => !floor || r.sessionDate >= floor);
 
   const rows = comparePastScans({
     earlierDate: earlier,

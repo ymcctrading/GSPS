@@ -215,8 +215,11 @@ against Gann:
    walked by the evaluator before R-032, signals recorded after the close,
    duplicates, a session with none recorded), raised with the coordinator.
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
-   configurable periods and saved presets. Explain-only: an indicator never
-   sets a level.
+   configurable periods and saved presets for the chart overlays (Practice
+   account thread). A chart overlay never sets a level; since Chuck's
+   2026-10-22 reversal a Strategy Mode that doesn't align with GSPS's plan
+   offers its own entry, stop and TP1 (never an MTP), as AGENTS.md's
+   "Strategy Modes" records.
 7. **Scale safely.** Database index audit and query baselines; a shared rate
    limit store; caching for chart and scan reads.
 8. **Track M:** the shared time-window mechanism (so the astro, Jensen,
@@ -257,7 +260,7 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 4 | Portfolio analytics | Done | `components/portfolio/analytics-dashboard.tsx` |
 | 5 | Conditional orders | Done | `lib/trade/attach-protocol-exit.ts` |
 | 6 | Onboarding, glossary, pattern education | Done | Tour, `/welcome`, `/glossary` |
-| 7 | Mobile-responsive dashboard | Done (structural audit) | Not checked on a real device |
+| 7 | Mobile-responsive dashboard | Done | 2026-10-22: 12 signed-in pages and the public ones checked at iPhone 13 (390px) and small Android (320px) in a local browser on the test account; the header overflowed at 320px on every signed-in page and was fixed (`components/app/nav.tsx`). The Dashboard home could not render locally (no service key); its full lists page could. Not yet seen on a real phone |
 | 8 | Indicators phase 1 | Done | Chart overlays, explain-only |
 | 9 | Paid tier (freemium, subscriptions) | Owner | Code built; Stripe prices must be created in Chuck's Stripe account |
 | 10 | Pay-your-way promotion checkout | Owner | Prices approved; same Stripe step |
