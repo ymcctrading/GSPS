@@ -59,9 +59,14 @@ function sandboxRecipients(): string[] {
 
 /** Why a send to `toEmail` is skipped, or null when it may go out. */
 export function sandboxBlockReason(toEmail: string): string | null {
-  if (senderAddress() !== SANDBOX_SENDER) return null;
+  if (senderAddress().toLowerCase() !== SANDBOX_SENDER) return null;
   const recipients = sandboxRecipients();
   if (recipients.includes(toEmail.trim().toLowerCase())) return null;
+  const raw = process.env.RESEND_FROM?.trim();
+  if (raw && !parseSenderAddress(raw)) {
+    console.error("resend: RESEND_FROM is set but is not an email address; member email is skipped until it is fixed");
+    return `RESEND_FROM is set but is not an email address (use alerts@your-domain or Name <alerts@your-domain>) — skipped ${toEmail}.`;
+  }
   return (
     `Resend sandbox sender (${SANDBOX_SENDER}) can only deliver to ` +
     `${recipients.join(", ")} until a domain is verified at resend.com/domains and RESEND_FROM is set — skipped ${toEmail}.`
