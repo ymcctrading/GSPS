@@ -120,14 +120,22 @@ session reading only this file still follows them.
 - The parity matrix (`GANN_PARITY_ROADMAP.md`) has every buildable row built.
   Open there: automated pyramid adds, the shared time-window mechanism that
   astro and Jensen time readings act through, the dated-forecast teaching
-  example (`macroCycle.ts`), and the missing calculator chapters (Squares of
-  90, 52, 67), which no source in the collection holds.
-- **Cannot be copied:** the Master Time Factor, the Master Three-Dimension
-  Chart, mass pressure, the CE average's and MOF formula's working beyond the
-  1954 letter, name numerology. Nothing in the collection discloses them.
-- **Measured record:** the 6/3.5 cutoffs were confirmed on a 2026-09-23 run
-  that predates the live-trigger fix, and have not been re-derived on the
-  nine-pillar version. The six-year one-hour run lost in every cell. The
+  example (`macroCycle.ts`), and the Square of 67, which no source in the
+  collection holds. (The Square of 52 is Master Course Ch. 14 and is built;
+  Ch. 15A gives the Square of 90's days.) The 42 open feature-map rules are
+  sorted in the doc "Filling the open Gann rules" (2026-10-21): 10 fillable
+  from Gann's text, 11 with a labelled reconstruction, 15 not Gann's, 6
+  missing.
+- **Named in the books, method under re-check (Chuck, 2026-10-21):** the
+  Master Time Factor, the Master Three-Dimension Chart, mass pressure and name
+  numerology. Each is being traced back to every page that touches it and to
+  sourced reconstructions before anything is called undisclosed. The COE
+  average and MOF formula are not on this list: they are built
+  (`lib/gann/planetaryAverages.ts`).
+- **Measured record:** the cutoffs go back to the protocol's 7/4 (Chuck,
+  2026-10-21). 6/3.5 was a 2026-09-14 stopgap, confirmed only on a 2026-09-23
+  run that predates the live-trigger fix; the 2026-10-20 score-band run found
+  no band above 4 that separates (`docs/replay-runs/2026-10-20-766sym-score-bands-NOTES.md`). The six-year one-hour run lost in every cell. The
   intraday profile failed its pre-registered test (Part 5.2), and the whole
   loss sat in initial stops (`/mnt/project-files/replay-diagnosis/`). The
   edge across regimes is **unproven**, and the platform says so.
@@ -163,8 +171,12 @@ method goal (Track M) and the created third it aims at.
 - **The third:** a trader who gets an alert, opens a setup card whose score
   counts Gann's own conditions, and can see what the platform has and has not
   proven.
-- **Exit test:** every Q1 item in Part 5 is done, waiting on the owner's
-  budget or accounts (Part 6), or moved with a reason.
+- **Exit test:** every Q1 item in Part 5 that costs nothing is done, and the
+  edge is measured on the current version. There is no budget (owner,
+  2026-10-21): paid items (Part 6) stay parked, not counted as pending. The
+  owner's plan is to fund them from trading GSPS's own signals once Gann is
+  carried 1 for 1 and the edge is proven, with progress recorded daily, and
+  from customers his stories bring in.
 
 ### Q2 — Differentiation and scale (Nov 2026–Jan 2027)
 
@@ -185,9 +197,12 @@ against Gann:
 3. **Advanced orders.** Gann's trailing stops already run in the exit
    managers. Remaining: broker-side OCO on live Alpaca orders, and automated
    pyramid adds (the exit managers must track more than one entry per plan).
-4. **Risk dashboard.** The engine is built (Q1). What remains is the screen:
-   Gann's capital rules (30 points a share, a tenth at risk, five stocks),
-   open risk, the loss-series pause and the profit ceiling, in one place.
+4. **Risk dashboard.** Built 2026-10-21 (the Risk card on the Portfolio page,
+   `lib/risk/dashboard.ts`, `/api/risk/dashboard`): Gann's capital rules (30
+   points a share, a tenth at risk, five stocks), open risk to each stop the
+   exit manager holds now, the loss-series pause, the profit ceiling, the
+   circuit breaker and the drawdown, read by the same functions placement
+   uses. Paper accounts; a live account's book is the broker's.
 5. **Performance replay UI.** Past scans compared across dates, and the
    forward test beside the replay.
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
@@ -245,7 +260,7 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 16 | Novice risk engine reset checklist | **Done** (PR #404) | `/api/risk/reset-checklist`, a Settings card, and the circuit breaker holds new entries until it is completed |
 | 17 | Decision-gate metrics (retention, adoption, signal quality) | **Done** (PR #404) | `/api/admin/decision-gate` (operator secret only). Read 2026-10-21: 20 members, 3 active in 30 days, first-cohort retention 1 of 18 (6%), 0 paying, forward test 19 of 30 winners (+0.82R average), alerts 714 of 12,974 sent |
 | 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
-| 19 | Re-derive the 6/3.5 cutoffs | Other thread | Gann-rules thread, after 20:15 UTC |
+| 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Other thread | Gann-rules thread, after 20:15 UTC |
 | 20 | Intraday alerts on Gann's primitives | Other thread | Intraday thread, PR #402 |
 | 21 | Trade plans by style and instrument | Other thread | Trade-style thread |
 
