@@ -167,10 +167,10 @@ const PAGE_LIMIT = 10000;
  * `end` from `Date.now()`, so to the millisecond no two requests shared a URL
  * and the bar cache in ./http (`ttlFor`, 15 s) could only coalesce identical
  * concurrent calls. Floored, every chart load and scan of one symbol and
- * timeframe inside a minute shares one upstream read (Q2 "Scale safely",
- * 2026-10-22). The window starts up to a minute earlier, which only adds an
- * old bar the limit trims (pages run newest first), and ends up to a minute
- * earlier, inside the feed's own delay.
+ * timeframe on one instance inside the cache's 15 s shares one upstream read
+ * (Q2 "Scale safely", 2026-10-22). The window starts up to a minute earlier,
+ * which can add one older bar (callers that need an exact start filter on it
+ * already), and ends up to a minute earlier, inside the feed's own delay.
  */
 function minuteFloor(d: Date): string {
   return new Date(Math.floor(d.getTime() / 60_000) * 60_000).toISOString();

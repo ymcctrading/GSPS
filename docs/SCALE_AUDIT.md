@@ -2,11 +2,11 @@
 
 First pass 2026-10-22, read from production (Supabase `vebhpmmzxixlhujlptue`):
 `extensions.pg_stat_statements`, `pg_stat_user_tables`, and the performance
-advisor. Migration `0113_scale_indexes_and_rls_initplan.sql` acts on it.
+advisor. Migration `0115_scale_indexes_and_rls_initplan.sql` acts on it.
 Re-run the queries at the end of this file after each scale change, and
 add a dated section below rather than editing this one.
 
-## Baseline, 2026-10-22 (before 0113)
+## Baseline, 2026-10-22 (before 0115)
 
 The database is small: the largest table is `monitor_transitions`, with
 30,326 rows and 14 MB. No query is slow today. The goal is to stop the
@@ -32,11 +32,15 @@ reads) and the per-request `set_config` (357,106 calls, 0.04 ms).
 
 Advisor findings:
 - **auth_rls_initplan (WARN, 170 policies).** Every row-level security
-  policy called `auth.uid()`, `auth.role()` or `auth.jwt()` per row. 0113
+  policy called `auth.uid()`, `auth.role()` or `auth.jwt()` per row. 0115
   wraps each call in a sub-select, so it is evaluated once per statement.
-  A dry run in a rolled-back transaction rewrote all 170, left none
-  unwrapped, and every `alter policy` parsed.
-- **unindexed_foreign_keys (INFO, 42).** 0113 indexes the 17 that member
+  A dry run in a rolled-back transaction (17:11 UTC 2026-10-22, the
+  final version) altered all 170 and left none unwrapped. The rewrite
+  wraps each call that is not already in a sub-select, and the migration
+  raises if any per-row call remains. It runs with a 3 s lock timeout.
+- **Migration order.** 0114 (the rate limit) was applied first, so this
+  one is numbered 0115.
+- **unindexed_foreign_keys (INFO, 42).** 0115 indexes the 17 that member
   activity or an account deletion's cascade passes through. The remaining
   25 are on research tables (`pivot`, `trend_state`, `volume_state`,
   `volatility_state`, `digital_root_feature`), admin logs and policy
@@ -77,11 +81,15 @@ warning logs any call that fails or passes 300 ms.
   millisecond. The 15 s cache in `lib/data/http.ts` could therefore only
   coalesce identical concurrent calls. `lib/data/alpaca.ts` now floors both
   edges to the minute. Chart loads and scans of one symbol and timeframe
-  within the cache's 15 s now share one vendor read.
+  on the same server instance, within the cache's 15 s, now share one
+  vendor read (the cache is in memory, per instance).
 - **`/api/bars` is cacheable by the CDN**
   (`public, s-maxage=15, stale-while-revalidate=60`). It returns the same
   bars to every caller, so a repeat is answered without running the
-  function. Errors aren't cached.
+  function. Errors carry no cache header, an empty answer is `no-store`,
+  and crypto, which has no feed delay, is served stale for 15 s, not 60.
+  A response carrying a session cookie from the proxy is not cached by
+  Vercel, so no cookie is shared.
 - **Not cached:** `/api/scan` and the scan lists. They depend on the
   member's tier and preferences, so a shared cache would leak one member's
   view to another.

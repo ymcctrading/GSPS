@@ -13,7 +13,9 @@ import { TF_LOOKBACK_DAYS, TF_MAX_BARS, isTimeframe } from "@/lib/timeframe";
 // backoff on a 429/5xx alone can exceed 10s.
 export const maxDuration = 60;
 
+// Crypto has no feed delay, so its chart is served stale for less long.
 const BARS_CACHE_CONTROL = "public, s-maxage=15, stale-while-revalidate=60";
+const CRYPTO_BARS_CACHE_CONTROL = "public, s-maxage=15, stale-while-revalidate=15";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -66,8 +68,14 @@ export async function GET(req: NextRequest) {
       // (another member, another tab, a timeframe switched back) without
       // running this function: fresh for the bar cache's own 15 s, then served
       // stale for up to a minute while one request refreshes it (Q2 "Scale
-      // safely", 2026-10-22). An error is never cached.
-      { headers: { "Cache-Control": BARS_CACHE_CONTROL } },
+      // safely", 2026-10-22). Errors carry no cache header, and an empty
+      // answer (a vendor hiccup) is never stored.
+      {
+        headers: {
+          "Cache-Control":
+            bars.length === 0 ? "no-store" : assetClass === "crypto" ? CRYPTO_BARS_CACHE_CONTROL : BARS_CACHE_CONTROL,
+        },
+      },
     );
   } catch (err) {
     return NextResponse.json(

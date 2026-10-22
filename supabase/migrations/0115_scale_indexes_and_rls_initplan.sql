@@ -16,6 +16,10 @@
 --    statement (Supabase advisor 0003, auth_rls_initplan; 170 policies). The
 --    expressions keep the same meaning and only the evaluation plan changes.
 
+-- Each ALTER POLICY locks its table; give up rather than queue behind live
+-- traffic (rerun later).
+set local lock_timeout = '3s';
+
 -- 1. Hot lookups --------------------------------------------------------------
 
 -- recordInAppNotification's duplicate check (13,121 calls, mean 2.76 ms). It
@@ -27,9 +31,10 @@ create index if not exists in_app_notifications_transition_profile_idx
 -- sweepStuckDeliveries: status in (pending, failed), attempt_count < 5,
 -- created_at < cutoff. There was no index on status, so every 30-minute
 -- sweep read the whole table.
+-- Not partial: the sweep's status list arrives as a parameter, which a
+-- generic plan can't match against a partial index's predicate.
 create index if not exists notification_deliveries_retryable_idx
-  on public.notification_deliveries (created_at)
-  where status in ('pending', 'failed');
+  on public.notification_deliveries (status, created_at);
 
 -- The intraday dedupe (lib/notifications/intradayDelivery.ts#alreadySent):
 -- user_id, channel, signal_hash and triggered_at. The older
@@ -73,20 +78,22 @@ begin
     where schemaname = 'public'
       and coalesce(qual, '') || coalesce(with_check, '') ~ 'auth\.(uid|role|jwt)\(\)'
   loop
-    -- Production has no wrapped call yet, so a plain replace never nests.
-    -- Already-wrapped text is guarded anyway, so a rerun leaves it alone.
-    q := p.qual;
-    c := p.with_check;
-    if q is not null and q !~* '\(\s*select\s+auth\.' then
-      q := regexp_replace(q, 'auth\.(uid|role|jwt)\(\)', '(select auth.\1())', 'g');
-    end if;
-    if c is not null and c !~* '\(\s*select\s+auth\.' then
-      c := regexp_replace(c, 'auth\.(uid|role|jwt)\(\)', '(select auth.\1())', 'g');
-    end if;
+    -- Each call is wrapped unless it already sits in a sub-select, so a
+    -- policy wrapped in part is finished and a rerun changes nothing.
+    q := regexp_replace(p.qual, '(?<!select )auth\.(uid|role|jwt)\(\)', '(select auth.\1())', 'gi');
+    c := regexp_replace(p.with_check, '(?<!select )auth\.(uid|role|jwt)\(\)', '(select auth.\1())', 'gi');
     stmt := format('alter policy %I on %I.%I', p.policyname, p.schemaname, p.tablename);
     if q is not null then stmt := stmt || format(' using (%s)', q); end if;
     if c is not null then stmt := stmt || format(' with check (%s)', c); end if;
     execute stmt;
   end loop;
+
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and coalesce(qual, '') || ' ' || coalesce(with_check, '') ~* '(?<!select )auth\.(uid|role|jwt)\(\)'
+  ) then
+    raise exception 'auth_rls_initplan: a policy still calls auth.* per row';
+  end if;
 end
 $$;
