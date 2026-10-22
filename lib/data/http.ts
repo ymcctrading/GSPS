@@ -157,6 +157,44 @@ export interface RetryOptions {
 }
 
 /**
+ * Rate-limit tokens spent since this server instance started, by provider and
+ * endpoint, so a slow scan can say which reads used up the shared bucket
+ * (2026-10-22: the market scan still queued for tokens after its prices were
+ * batched). Instance-wide: a concurrent request on the same instance counts too.
+ */
+const tokensSpent = new Map<string, number>();
+
+/**
+ * The endpoint a URL reads, with a symbol in the path collapsed to `*` and the
+ * bar timeframe kept: `/v2/stocks/bars 1Hour`, and one key for every
+ * symbol's `/v2/stocks/{symbol}/trades/latest`.
+ */
+export function endpointKey(url: string | URL): string {
+  const u = typeof url === "string" ? new URL(url) : url;
+  const path = u.pathname
+    .split("/")
+    .map((seg) => (/[A-Z]/.test(seg) && /^[A-Z0-9.\-%]+$/.test(seg) ? "*" : seg))
+    .join("/");
+  const tf = u.searchParams.get("timeframe");
+  return tf ? `${path} ${tf}` : path;
+}
+
+/** A copy of the tokens spent so far, keyed `provider endpoint`. */
+export function tokensSpentSnapshot(): Map<string, number> {
+  return new Map(tokensSpent);
+}
+
+/** The tokens spent between two snapshots, largest first, for a log line. */
+export function tokensSpentSince(before: Map<string, number>, after = tokensSpent): string {
+  return [...after]
+    .map(([key, n]) => [key, n - (before.get(key) ?? 0)] as const)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => `${key}=${n}`)
+    .join(", ");
+}
+
+/**
  * Fetch with retry/backoff on throttling and transient server errors.
  * Non-retriable failures throw immediately — a 404 is not worth four tries.
  */
@@ -180,6 +218,8 @@ export async function fetchWithRetry(
       const queued = Date.now();
       try {
         await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline);
+        const spentKey = `${opts.provider} ${endpointKey(url)}`;
+        tokensSpent.set(spentKey, (tokensSpent.get(spentKey) ?? 0) + 1);
         const queuedMs = Date.now() - queued;
         if (queuedMs >= SLOW_QUEUE_MS) {
           console.warn(`[market-data] ${opts.provider} waited ${queuedMs}ms for a rate-limit token`);
@@ -359,4 +399,5 @@ export async function cachedFetch<T>(key: string, ttlMs: number, load: () => Pro
 export function __resetMarketDataCache() {
   cache.clear();
   inFlight.clear();
+  tokensSpent.clear();
 }
