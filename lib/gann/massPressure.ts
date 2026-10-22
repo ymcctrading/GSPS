@@ -1,6 +1,6 @@
 /**
  * A-OTHER-05, Gann's mass pressure: the market's own cycle, read by laying the
- * years 10, 20, 30 and 60 back over this one.
+ * years 10 to 70 back, decade by decade, over this one.
  *
  * Gann names mass pressure as his fifth forecasting factor, the public's
  * over-optimism or pessimism repeating after a cycle, "a curve calculable 100
@@ -14,7 +14,7 @@
  * Time Period readings of the same chapter (PDF 218-219).
  *
  * Built: the market's composite curve at this month is the average of the
- * month's move in each of the years 10, 20, 30 and 60 back, and its direction
+ * month's move in each of the years 10 to 70 back (`MASS_PRESSURE_YEARS`), and its direction
  * is the curve's slope. It acts in P1's cycle check (`marketCyclePillar`): a
  * trade whose market cycle runs against it does not take the point.
  *
@@ -24,7 +24,7 @@
  *   the Dow and the railroad averages Gann read.
  * - A month's figure is the average of its daily closes, so the month's move
  *   is read centred, from the month before to the month after.
- * - The four years count equally (Gann ranks none of them above another) and
+ * - The years count equally (Gann ranks none of them above another) and
  *   the direction is the sign of their average (Gann gives no threshold).
  * - The month is New York's, as the decade digit reads it (`etDateKey`).
  *
@@ -45,7 +45,12 @@
 import history from "@/lib/gann/marketHistory.json";
 import { etDateKey } from "@/lib/market/session";
 
-export const MASS_PRESSURE_YEARS = [10, 20, 30, 60] as const;
+/**
+ * Every decade back to 70 years, as the 1936 forecast laid them (1926 to 1866,
+ * PDF 227-228); the 1929 forecast's 10, 20, 30 and 60 (PDF 224-225) are among
+ * them. The later lesson is the fuller statement, so it is the one built.
+ */
+export const MASS_PRESSURE_YEARS = [10, 20, 30, 40, 50, 60, 70] as const;
 
 interface MarketHistory {
   start: string;
@@ -79,7 +84,10 @@ function shift(year: number, month: number, by: number): [number, number] {
   return [Math.floor(n / 12), (n % 12) + 1];
 }
 
-/** The market's composite curve at the New York month of `asOf`. */
+/**
+ * The market's composite curve at the New York month of `asOf`. Every month
+ * read is at least ten years before it, so nothing is read ahead.
+ */
 export function readMassPressure(asOf: Date): MassPressureReading | null {
   const [year, month] = etDateKey(asOf).split("-").map(Number);
   const years: MassPressureReading["years"] = [];

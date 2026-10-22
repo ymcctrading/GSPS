@@ -704,9 +704,13 @@
 // 2026-10-21-gann-fast-trail-after-fill, whose Fast trail it keeps.
 // 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
 // mass-pressure curve not against the trade (A-OTHER-05, Master Course Ch. 7,
-// PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in the
-// years 10, 20, 30 and 60 back, on Shiller's monthly S&P composite from 1871
-// (`lib/gann/massPressure.ts`, `marketHistory.json`), read from the session's
-// date on both surfaces. Live verdicts move; replay buckets move. Context only:
-// `massPressureWithTrade` and the 84-year count (`eightyFourYear.ts`).
+// PDF 224-228; *Commodities* pp. 11-12): the average of the month's move in
+// every decade back to 70 years, as the 1936 forecast laid them, on Shiller's
+// monthly S&P composite from 1871 (`lib/gann/massPressure.ts`,
+// `marketHistory.json`), read from the session's date for a stock on both
+// surfaces. The replay no longer hands crypto the stock market's bars (the
+// live scan never fetched them), so a crypto replay reads no market trend,
+// leaders, campaign length or mass pressure, as live. Live stock verdicts move;
+// replay buckets move. Context only: `massPressureWithTrade`, the 84-year count
+// (`eightyFourYear.ts`) and the Dollar Trend (`dollarTrend.ts`).
 export const STRATEGY_VERSION = "2026-10-22-gann-mass-pressure";

@@ -16,8 +16,9 @@
  *
  * Engineering choices, labelled: the record is Shiller's monthly S&P composite,
  * a stand-in for the Dow Gann read; turns are `findPivots` at 3 months with
- * `majorPivots`' top quartile, read on the logarithm of the price so a swing
- * in 1900 weighs as a swing of the same proportion in 2000.
+ * `majorPivots`' top quartile of the record before the month read, on the
+ * logarithm of the price so a swing in 1900 weighs as a swing of the same
+ * proportion in 2000.
  *
  * Three-question basis:
  * 1. Gann: Tier A for the count; the Uranus tie is Tier C context.
@@ -39,29 +40,37 @@ export interface MarketCountHit {
   pivotMonth: string;
 }
 
-let anchors: { month: string; kind: "high" | "low" }[] | null = null;
+const record = history as { start: string; stocks: (number | null)[] };
+const [y0, m0] = record.start.split("-").map(Number);
+/** The whole record as monthly bars on the logarithm of the price. */
+const allBars: Bar[] = record.stocks.flatMap((v, i) => {
+  if (v === null) return [];
+  const n = y0 * 12 + (m0 - 1) + i;
+  const t = `${Math.floor(n / 12)}-${String((n % 12) + 1).padStart(2, "0")}-01T00:00:00Z`;
+  const x = Math.log(v);
+  return [{ t, o: x, h: x, l: x, c: x, v: 0 }];
+});
+const anchorsByMonth = new Map<string, { month: string; kind: "high" | "low" }[]>();
 
-/** The market's major monthly turns, read once. */
-function marketAnchors(): { month: string; kind: "high" | "low" }[] {
-  if (anchors) return anchors;
-  const record = history as { start: string; stocks: (number | null)[] };
-  const [y0, m0] = record.start.split("-").map(Number);
-  const bars: Bar[] = [];
-  record.stocks.forEach((v, i) => {
-    if (v === null) return;
-    const n = y0 * 12 + (m0 - 1) + i;
-    const t = `${Math.floor(n / 12)}-${String((n % 12) + 1).padStart(2, "0")}-01T00:00:00Z`;
-    const x = Math.log(v);
-    bars.push({ t, o: x, h: x, l: x, c: x, v: 0 });
-  });
-  anchors = majorPivots(findPivots(bars, 3)).map((p) => ({ month: p.bar.t.slice(0, 7), kind: p.kind }));
-  return anchors;
+/**
+ * The market's major monthly turns as they stood before `month` ("YYYY-MM"):
+ * only the months before it are read, so "major" (the top quartile of swings)
+ * never depends on a swing after the reading. Cached per month.
+ */
+function marketAnchors(month: string): { month: string; kind: "high" | "low" }[] {
+  const cached = anchorsByMonth.get(month);
+  if (cached) return cached;
+  const bars = allBars.filter((b) => b.t.slice(0, 7) < month);
+  const out = majorPivots(findPivots(bars, 3)).map((p) => ({ month: p.bar.t.slice(0, 7), kind: p.kind }));
+  anchorsByMonth.set(month, out);
+  return out;
 }
 
 /** The market's major turn exactly `years` back from the New York month of `asOf`, if any. */
 export function marketCountHit(asOf: Date, years: number = EIGHTY_FOUR_YEARS): MarketCountHit | null {
-  const [y, m] = etDateKey(asOf).split("-").map(Number);
+  const now = etDateKey(asOf).slice(0, 7);
+  const [y, m] = now.split("-").map(Number);
   const target = `${y - years}-${String(m).padStart(2, "0")}`;
-  const hit = marketAnchors().find((a) => a.month === target);
+  const hit = marketAnchors(now).find((a) => a.month === target);
   return hit ? { years, kind: hit.kind, pivotMonth: hit.month } : null;
 }

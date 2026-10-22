@@ -271,13 +271,16 @@ export function contextFactorsFor(
     f.macroMajorCycleActive = major.length > 0;
     f.macroMajorCycleWithTrade = major.some((w) => w.bullish === bull);
   }
-  // A-OTHER-05: the market's mass-pressure curve (P1's cycle check reads it too).
-  if (ctx.asOf) {
+  // A-OTHER-05: the market's mass-pressure curve (P1's cycle check reads it
+  // too), for a stock only, as P1 reads it.
+  if (ctx.asOf && ctx.stockMarket) {
     const mp = readMassPressure(new Date(ctx.asOf));
     if (mp?.direction) f.massPressureWithTrade = mp.direction === direction;
   }
-  // C-ASTRO-05: the market's major turn 84 years back to the month (Ch. 7, PDF 219).
-  if (ctx.asOf) {
+  // A-OTHER-06: the Dollar Trend, the market's monthly value crossing old highs or breaking old lows.
+  if (ctx.dollarTrend?.direction) f.dollarTrendWithTrade = ctx.dollarTrend.direction === direction;
+  // C-ASTRO-05: the market's major turn 84 years back to the month (Ch. 7, PDF 219), for a stock.
+  if (ctx.asOf && ctx.stockMarket) {
     const hit = marketCountHit(new Date(ctx.asOf));
     if (hit) f.eightyFourYearCountWithTrade = (hit.kind === "low") === bull;
   }

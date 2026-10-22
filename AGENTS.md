@@ -977,23 +977,29 @@ conditions, so this is the owner's display decision. Live verdicts move.
 
 **Mass pressure, 2026-10-22 (owner: "Build these: 10 can be filled from Gann's
 own pages. Mass pressure ... written out in the Master Course (Ch. 7)").** Gann
-forecast the year by laying the years 10, 20, 30 and 60 back over it on his
-Master 20-Year Forecasting Chart of the averages ("for the 1929 forecast, I
-compared 1919 … 1909 … 1899 … and 1869", Ch. 7 PDF 224-225; 1936 from 1896, PDF
-227-228; *Commodities* pp. 11-12, his fifth factor). `lib/gann/massPressure.ts`
-averages the month's move in those four years and reads its sign; P1's cycle
-check now needs it not against the trade (a long fails it in a month the curve
-falls), as well as no yearly count due against it. The record is Shiller's
-monthly S&P composite from 1871, checked in (`lib/gann/marketHistory.json`,
-`scripts/fetch-market-history.mjs`, ODC-PDDL), an engineering stand-in for the
-Dow, read from the session's New York month on both surfaces, so no request.
-Engineering choices, labelled: equal weights, the sign as the direction, the
-month's move read centred (the figures are monthly averages). On 1931-2026 its
-sign agreed with the month's move 55.5% of the time against a 53.9% chance
-rate: weak, measured in the replay as `massPressureWithTrade`. Also context:
-Gann's 84-year count (Ch. 7 PDF 219) on the same record, a major market turn 84
-years back to the month (`eightyFourYear.ts`, `eightyFourYearCountWithTrade`;
-April 2026 is 84 years from the April 1942 low). `STRATEGY_VERSION` is
+forecast the year by laying the years back over it on his Master 20-Year
+Forecasting Chart of the averages ("for the 1929 forecast, I compared 1919 …
+1909 … 1899 … and 1869", Ch. 7 PDF 224-225; for 1936 every decade back to 1866,
+expecting 1896 to repeat, PDF 227-228; *Commodities* pp. 11-12, his fifth
+factor). `lib/gann/massPressure.ts` averages the month's move in every decade
+back to 70 years (the 1936 lesson, the fuller one) and reads its sign; P1's
+cycle check now needs it not against the trade, as well as no yearly count due
+against it. The record is Shiller's monthly S&P composite from 1871, checked in
+(`lib/gann/marketHistory.json`, `scripts/fetch-market-history.mjs`, ODC-PDDL),
+an engineering stand-in for the Dow, read from the session's New York month for
+a stock on both surfaces, so no request. Engineering choices, labelled: equal
+weights, the sign as the direction, the month's move read centred (the figures
+are monthly averages). On 1941-2026 its sign agreed with the month's move 57.0%
+of the time against a 54.3% chance rate: weak, measured in the replay as
+`massPressureWithTrade`. Same change, a parity fix: the replay handed crypto
+SPY's bars, which the live scan never fetches, so crypto replays read a market
+trend, leaders and campaign length live never did; now neither does. Context
+only: Gann's 84-year count (Ch. 7 PDF 219) on the same record, a major market
+turn 84 years back to the month, judged on the record before the month read
+(`eightyFourYear.ts`; April 2026 is 84 years from the April 1942 low), and the
+Dollar Trend (A-OTHER-06, his 1954 course: the market's value crossing old
+highs or breaking old lows, `dollarTrend.ts`, SPY's months on the 3-bar chart
+standing in for the NYSE's total value). `STRATEGY_VERSION` is
 `2026-10-22-gann-mass-pressure`; the six-year daily rerun that measures 7/4
 runs on it, after #412 (same-day stop-outs, the square from highs).
 
