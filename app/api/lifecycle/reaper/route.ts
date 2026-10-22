@@ -13,12 +13,19 @@
  * Uses the service-role client deliberately: this reads and writes
  * `trade_plans` rows across every user, which is exactly what RLS exists to
  * block for every other route in this app.
+ *
+ * The same pass releases quota reservations a dead run left `reserved`
+ * (review finding S-12; `releaseStaleReservations`). It is clock-driven
+ * cleanup of the same shape, so it rides this schedule rather than taking a
+ * new one. Its failure is reported in the response and never stops the plan
+ * expiry.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runLifecycleReaper } from "@/lib/lifecycle/reaper";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { releaseStaleReservations } from "@/lib/entitlements/quota";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
@@ -31,5 +38,15 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServiceClient();
   const result = await runLifecycleReaper(supabase);
-  return NextResponse.json(result);
+
+  let staleReservationsReleased: number | null = null;
+  let staleReservationsError: string | undefined;
+  try {
+    staleReservationsReleased = await releaseStaleReservations(supabase);
+  } catch (err) {
+    staleReservationsError = err instanceof Error ? err.message : String(err);
+    console.error("lifecycle/reaper:", staleReservationsError);
+  }
+
+  return NextResponse.json({ ...result, staleReservationsReleased, ...(staleReservationsError ? { staleReservationsError } : {}) });
 }
