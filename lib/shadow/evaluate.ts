@@ -8,8 +8,11 @@
  * neither, so the forward test measured a rule no account trades. Now:
  *
  * - **Entry: the reaction, as production enters** (PLAN.md item 4,
- *   never-failing rule 9). After the scan, a closed execution bar of the
- *   signal's own session that trades into the buy zone (`tradedIntoBuyZone`)
+ *   never-failing rule 9), in the session the signal trades
+ *   (`shadowTradeSession`): its own when recorded before the close, the next
+ *   one when recorded after it, as Gann chose at night and traded the next
+ *   day. A closed regular-session execution bar of that session, after the
+ *   scan, that trades into the buy zone (`tradedIntoBuyZone`)
  *   makes the entry a market order at the next bar's open. A bar that closes
  *   through the stop first calls the plan off (`retired`). A plan that sees
  *   neither by the end of its session never filled (`expired`, Q17: a plan
@@ -36,6 +39,8 @@ import { walkGannExit } from "@/lib/backtest/replay";
 import { tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { completedDailyBars, entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { etDateKey } from "@/lib/market/session";
+import { regularSessionBars } from "@/lib/gann/intradayExit";
+import { shadowSessionComplete, shadowTradeSession } from "@/lib/shadow/record";
 
 /**
  * Sessions a filled shadow trade is held before being marked out at the last
@@ -47,6 +52,16 @@ export const SHADOW_MAX_HOLD_DAYS = 10;
 /** The execution bars the entry is read on, as production arms its plans. */
 const SHADOW_EXECUTION_TIMEFRAME = "15Min" as const;
 
+/**
+ * Pending signals read a pass, least recently checked first, and walked this
+ * many at a time. The pass rides the scheduled scan's 60-second budget ahead
+ * of its fan-out, so it is bounded, and a trade still held is checked again
+ * only after every other pending row has had its turn (`checked_at`), so
+ * long-held trades never crowd out newer ones. Engineering choices.
+ */
+export const SHADOW_EVALUATIONS_PER_PASS = 30;
+const SHADOW_EVALUATION_CONCURRENCY = 6;
+
 export interface ShadowOutcome {
   /**
    * `win`/`loss`/`timeout` are filled trades. `expired` never reacted into the
@@ -57,6 +72,7 @@ export interface ShadowOutcome {
   rMultiple: number | null;
   /** Sessions held, the fill's session included. */
   barsHeld: number | null;
+  /** The fill, also on a `pending` trade that has filled and is still held. */
   fillPrice: number | null;
 }
 
@@ -101,6 +117,7 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
     }
   }
   if (from < 0) return sessionComplete ? { ...PENDING, outcome: "expired" } : PENDING;
+  // Filled on the session's last bar: the fill is known, the walk not yet.
   if (from >= bars.length) return PENDING;
 
   const fill = bars[from].o;
@@ -118,8 +135,8 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
     sharesOn: () => input.sharesOutstanding ?? null,
     isStock: input.sharesOutstanding != null,
   });
-  // Ran out of bars before an exit or the limit: still open.
-  if (walked.reason === "open_at_end") return PENDING;
+  // Ran out of bars before an exit or the limit: still open, and filled.
+  if (walked.reason === "open_at_end") return { ...PENDING, fillPrice: fill };
 
   const rMultiple = ((long ? 1 : -1) * (walked.exit - fill)) / risk;
   const sessions = new Set(bars.slice(from, from + walked.barsHeld).map((b) => b.t.slice(0, 10))).size;
@@ -138,24 +155,33 @@ interface PendingShadowRow {
   entry: number;
   stop_loss: number;
   scanned_at: string;
+  session_date: string | null;
+  fill_price: number | null;
 }
 
 /**
- * Evaluates every pending shadow signal old enough that its outcome might now
- * be determinable (at least one full day since it was recorded), and writes
- * the outcome back. Best-effort per symbol: a provider failure for one symbol
- * is logged and skipped rather than aborting the whole pass.
+ * Evaluates the pending shadow signals whose session has begun and may have
+ * ended (`session_date` today or earlier; a legacy row with no session once a
+ * day old), least recently checked first and at most
+ * `SHADOW_EVALUATIONS_PER_PASS` a pass, and writes each outcome back. A trade
+ * that has filled and is still held gets its fill written and stays pending.
+ * Best-effort per symbol: a provider failure for one symbol is logged and
+ * skipped rather than aborting the whole pass.
  */
 export async function evaluatePendingShadowSignals(
   supabase: SupabaseClient,
   now: Date = new Date(),
 ): Promise<{ evaluated: number; stillPending: number; failed: number }> {
   const cutoff = new Date(now.getTime() - 24 * 3600_000).toISOString();
+  const today = etDateKey(now);
   const { data, error } = await supabase
     .from("shadow_signals")
-    .select("id, symbol, direction, entry, stop_loss, scanned_at")
+    .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price")
     .is("outcome", null)
-    .lte("scanned_at", cutoff);
+    .or(`session_date.lte.${today},and(session_date.is.null,scanned_at.lte.${cutoff})`)
+    .order("checked_at", { ascending: true, nullsFirst: true })
+    .order("scanned_at", { ascending: true })
+    .limit(SHADOW_EVALUATIONS_PER_PASS);
 
   if (error) {
     console.error(`shadow: pending-signal read failed — ${error.message}`);
@@ -164,28 +190,47 @@ export async function evaluatePendingShadowSignals(
 
   const rows = (data ?? []) as PendingShadowRow[];
   const provider = getMarketDataProvider();
-  let evaluated = 0;
-  let stillPending = 0;
-  let failed = 0;
+  const tally = { evaluated: 0, stillPending: 0, failed: 0 };
+  // One daily read a symbol a pass, shared by its rows in the same batch.
+  const daily = new Map<string, ReturnType<typeof completedDailyBars>>();
+  const dailyOf = (symbol: string) => {
+    let read = daily.get(symbol);
+    if (!read) {
+      read = completedDailyBars(symbol, now);
+      daily.set(symbol, read);
+    }
+    return read;
+  };
 
-  for (const row of rows) {
+  async function evaluateOne(row: PendingShadowRow): Promise<keyof typeof tally> {
     try {
       const crypto = isCryptoSymbol(row.symbol);
       const scannedAt = new Date(row.scanned_at);
-      const sessionDate = etDateKey(scannedAt);
+      const sessionDate = row.session_date ?? shadowTradeSession(row.scanned_at, row.symbol);
+      const sessionComplete = shadowSessionComplete(sessionDate, row.symbol, now);
+      // The session still to come or still trading, and nothing filled yet:
+      // nothing to read.
+      if (!sessionComplete && row.fill_price == null && sessionDate >= today) return "stillPending";
+      // Through the end of the session's New York day, whatever the season.
+      const sessionEnd = new Date(Date.parse(`${sessionDate}T00:00:00Z`) + 36 * 3600_000);
       const [execution, { bars: daily, monthly }, ref] = await Promise.all([
         provider.fetchBars(
           row.symbol,
           SHADOW_EXECUTION_TIMEFRAME,
           scannedAt,
-          new Date(scannedAt.getTime() + 24 * 3600_000),
+          sessionEnd,
           crypto ? "crypto" : "us_equity",
         ),
-        completedDailyBars(row.symbol, now),
+        dailyOf(row.symbol),
         crypto ? Promise.resolve(null) : getInstrumentReference(row.symbol),
       ]);
-      const sessionBars = execution.filter(
-        (b) => new Date(b.t).getTime() >= scannedAt.getTime() && etDateKey(new Date(b.t)) === sessionDate,
+      // A US equity's limit entry works in the regular session only; a
+      // pre-market print is not the reaction.
+      const sessionBars = regularSessionBars(
+        execution.filter(
+          (b) => new Date(b.t).getTime() >= scannedAt.getTime() && etDateKey(new Date(b.t)) === sessionDate,
+        ),
+        crypto,
       );
 
       const result = walkShadowTrade({
@@ -193,14 +238,20 @@ export async function evaluatePendingShadowSignals(
         entry: Number(row.entry),
         stopLoss: Number(row.stop_loss),
         sessionBars,
-        sessionComplete: etDateKey(now) > sessionDate,
+        sessionComplete,
         dailyBars: daily,
         monthly,
         sharesOutstanding: ref?.sharesOutstanding ?? null,
       });
       if (result.outcome === "pending") {
-        stillPending++;
-        continue;
+        // Checked now, so the next pass turns to rows not yet read; a fill is
+        // kept so the recorder knows the trade is on (lib/shadow/record.ts).
+        const { error: checkError } = await supabase
+          .from("shadow_signals")
+          .update({ checked_at: now.toISOString(), fill_price: result.fillPrice ?? row.fill_price ?? null })
+          .eq("id", row.id);
+        if (checkError) console.error(`shadow: check write failed for ${row.symbol} — ${checkError.message}`);
+        return "stillPending";
       }
 
       const { error: writeError } = await supabase
@@ -211,19 +262,23 @@ export async function evaluatePendingShadowSignals(
           bars_held: result.barsHeld,
           fill_price: result.fillPrice,
           evaluated_at: now.toISOString(),
+          checked_at: now.toISOString(),
         })
         .eq("id", row.id);
       if (writeError) {
         console.error(`shadow: outcome write failed for ${row.symbol} — ${writeError.message}`);
-        failed++;
-        continue;
+        return "failed";
       }
-      evaluated++;
+      return "evaluated";
     } catch (err) {
       console.error(`shadow: evaluation failed for ${row.symbol} — ${String(err)}`);
-      failed++;
+      return "failed";
     }
   }
 
-  return { evaluated, stillPending, failed };
+  for (let i = 0; i < rows.length; i += SHADOW_EVALUATION_CONCURRENCY) {
+    const settled = await Promise.all(rows.slice(i, i + SHADOW_EVALUATION_CONCURRENCY).map(evaluateOne));
+    for (const k of settled) tally[k]++;
+  }
+  return tally;
 }

@@ -14,7 +14,7 @@ vi.mock("@/lib/data/instrumentReference", () => ({
   getInstrumentReference: () => Promise.resolve(null),
 }));
 
-import { walkShadowTrade, evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
+import { SHADOW_EVALUATIONS_PER_PASS, walkShadowTrade, evaluatePendingShadowSignals } from "@/lib/shadow/evaluate";
 import { resetGannExitCache } from "@/lib/trade/gann-exit-live";
 
 /** Quiet daily history before the signal, so Gann's exit rules have sessions to read. */
@@ -94,20 +94,32 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
 describe("evaluatePendingShadowSignals", () => {
   function makeSupabase(pending: Record<string, unknown>[]) {
     const updates: Record<string, unknown>[] = [];
+    const read: { or?: string; order: unknown[][]; limit?: number } = { order: [] };
+    const query = {
+      is: () => query,
+      or: (filter: string) => {
+        read.or = filter;
+        return query;
+      },
+      order: (...args: unknown[]) => {
+        read.order.push(args);
+        return query;
+      },
+      limit: (n: number) => {
+        read.limit = n;
+        return Promise.resolve({ data: pending, error: null });
+      },
+    };
     const client = {
       from: () => ({
-        select: () => ({
-          is: () => ({
-            lte: () => Promise.resolve({ data: pending, error: null }),
-          }),
-        }),
+        select: () => query,
         update: (obj: Record<string, unknown>) => {
           updates.push(obj);
           return { eq: () => Promise.resolve({ error: null }) };
         },
       }),
     } as unknown as SupabaseClient;
-    return { client, updates };
+    return { client, updates, read };
   }
 
   const row = { id: "s1", symbol: "AAPL", direction: "bullish", entry: 100, stop_loss: 96, scanned_at: "2026-08-25T14:30:00Z" };
@@ -137,6 +149,103 @@ describe("evaluatePendingShadowSignals", () => {
     const { client, updates } = makeSupabase([row]);
     await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
     expect(updates[0]).toMatchObject({ outcome: "expired", fill_price: null });
+  });
+
+  it("walks a signal recorded after the close on the next session, not the rest of its own day", async () => {
+    // 4:30 PM ET on Tuesday the 25th: the plan trades Wednesday the 26th.
+    const evening = { ...row, scanned_at: "2026-08-25T20:30:00Z" };
+    bars({
+      "15Min": [
+        bar("2026-08-25T20:45:00Z", 100.2, 100.3, 99.5, 99.9), // after hours on the 25th: not the session
+        ...session("2026-08-26", [[101, 101.5, 99.8, 100.2], [100.4, 100.6, 95, 95.5]]),
+      ],
+      "1Day": history("2026-08-26"),
+    });
+    const { client, updates } = makeSupabase([evening]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "loss", fill_price: 100.4 });
+  });
+
+  it("reads the stored session when the row has one", async () => {
+    bars({
+      "15Min": session("2026-08-27", [[101, 101.5, 99.8, 100.2], [100.4, 100.6, 95, 95.5]]),
+      "1Day": history("2026-08-27"),
+    });
+    const { client, updates } = makeSupabase([{ ...row, scanned_at: "2026-08-25T20:30:00Z", session_date: "2026-08-27" }]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "loss", fill_price: 100.4 });
+  });
+
+  it("never takes a pre-market print as the reaction", async () => {
+    // 6:30 AM ET scan; the only trade into the zone is at 8:00 AM ET.
+    bars({
+      "15Min": [
+        bar("2026-08-25T12:00:00Z", 101, 101.2, 99.9, 100.1),
+        ...session("2026-08-25", [[101, 102, 100.5, 101.5]]),
+      ],
+      "1Day": history("2026-08-25"),
+    });
+    const { client, updates } = makeSupabase([{ ...row, scanned_at: "2026-08-25T10:30:00Z" }]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "expired" });
+  });
+
+  it("stays pending before the session it trades has opened", async () => {
+    bars({ "15Min": [], "1Day": history("2026-08-25") });
+    const { client, updates } = makeSupabase([{ ...row, scanned_at: "2026-08-28T20:30:00Z" }]); // Friday evening
+    const out = await evaluatePendingShadowSignals(client, new Date("2026-08-30T12:00:00Z")); // Sunday
+    expect(out.stillPending).toBe(1);
+    expect(updates).toHaveLength(0);
+    expect(fetchBarsMock).not.toHaveBeenCalled();
+  });
+
+  it("reads sessions begun by today, least recently checked first, a bounded number a pass", async () => {
+    bars({ "15Min": [], "1Day": [] });
+    const { client, read } = makeSupabase([]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(read.or).toBe("session_date.lte.2026-09-04,and(session_date.is.null,scanned_at.lte.2026-09-04T00:00:00.000Z)");
+    expect(read.order).toEqual([
+      ["checked_at", { ascending: true, nullsFirst: true }],
+      ["scanned_at", { ascending: true }],
+    ]);
+    expect(read.limit).toBe(SHADOW_EVALUATIONS_PER_PASS);
+  });
+
+  it("keeps a filled trade still held pending, with its fill and the time it was checked", async () => {
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.4, 100.8, 100.1, 100.6]]),
+      "1Day": history("2026-08-25"),
+    });
+    const { client, updates } = makeSupabase([row]);
+    // The evening of the fill: the session is over, the trade is on.
+    const out = await evaluatePendingShadowSignals(client, new Date("2026-08-25T22:00:00Z"));
+    expect(out.stillPending).toBe(1);
+    expect(updates[0]).toEqual({ checked_at: "2026-08-25T22:00:00.000Z", fill_price: 100.4 });
+    expect(updates[0]).not.toHaveProperty("outcome");
+  });
+
+  it("reads nothing for today's session while it still trades and nothing has filled", async () => {
+    const { client, updates } = makeSupabase([{ ...row, session_date: "2026-08-25" }]);
+    const out = await evaluatePendingShadowSignals(client, new Date("2026-08-25T18:00:00Z")); // 2 PM ET
+    expect(out.stillPending).toBe(1);
+    expect(fetchBarsMock).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(0);
+  });
+
+  it("reads a symbol's daily chart once a batch, however many of its rows are pending", async () => {
+    bars({ "15Min": session("2026-08-25", [[101, 102, 100.5, 101.5]]), "1Day": history("2026-08-25") });
+    const { client } = makeSupabase([row, { ...row, id: "s2" }, { ...row, id: "s3" }]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(fetchBarsMock.mock.calls.filter((c) => c[1] === "1Day")).toHaveLength(1);
+  });
+
+  it("walks every row of a pass larger than one concurrent batch", async () => {
+    bars({ "15Min": session("2026-08-25", [[101, 102, 100.5, 101.5]]), "1Day": history("2026-08-25") });
+    const many = Array.from({ length: 14 }, (_, i) => ({ ...row, id: `s${i}` }));
+    const { client, updates } = makeSupabase(many);
+    const out = await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(out.evaluated).toBe(14);
+    expect(updates).toHaveLength(14);
   });
 
   it("counts a per-symbol provider failure without aborting the pass", async () => {
