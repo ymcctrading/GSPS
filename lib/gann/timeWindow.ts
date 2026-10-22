@@ -53,6 +53,7 @@ import { timeCycles, yearCycleHits } from "@/lib/gann/timeCycles";
 import { jensenWindows } from "@/lib/gann/jensen";
 import { readAstroRules } from "@/lib/gann/astroRules";
 import { eclipseBreakOn } from "@/lib/gann/eclipseLongitude";
+import { firstTradeWindows } from "@/lib/gann/firstTradeChart";
 import { readSquareOfNineTime } from "@/lib/gann/squareOfNineTime";
 import { readHexagonTime } from "@/lib/gann/hexagonTime";
 import { readMasterChartTime } from "@/lib/gann/masterChartTime";
@@ -71,12 +72,12 @@ export interface WindowTurn {
  * The windows open on `date` for a turn of `kind`, read on `bars` (which end at
  * the turn) and on the monthly chart closed before the turn's month, when held.
  */
-export type WindowsAt = (bars: Bar[], date: string, kind: "bottom" | "top", monthly?: Bar[] | null) => string[];
+export type WindowsAt = (bars: Bar[], date: string, kind: "bottom" | "top", monthly?: Bar[] | null, firstTrade?: string | null) => string[];
 
 const DAY_MS = 86_400_000;
 
 /** Every dated reading open on the turn's date, polarity respected where the source has one. */
-export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly) => {
+export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, firstTrade) => {
   const asOf = new Date(`${date}T12:00:00Z`);
   const low = kind === "bottom";
   const out: string[] = [];
@@ -112,6 +113,10 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly) => {
       out.push(`${crossing.planet} crossing the ${eclipse.peak.slice(0, 10)} ${eclipse.kind} eclipse's longitude`);
     }
   }
+  // C-ASTRO-09: a transit to the first-trade chart, chosen on the swings before the turn.
+  for (const w of firstTradeWindows(bars, date, firstTrade)) {
+    out.push(`${w.combo.transit} at ${w.combo.angle}° to the first-trade ${w.combo.natal} on ${w.exact}`);
+  }
   return out;
 };
 
@@ -129,6 +134,8 @@ export function readWindowTurn(
    */
   monthly: Bar[] | null = null,
   windowsAt: WindowsAt = timeWindowsAt,
+  /** The stock's confirmed first-trade date (`firstTradeDates.ts`), for C-ASTRO-09. */
+  firstTrade: string | null = null,
 ): WindowTurn | null {
   const kind = direction === "bullish" ? "bottom" : "top";
   const pivot = [...walkSwingChart(daily, THREE_DAY_CHART).pivots].reverse().find((p) => p.kind === kind);
@@ -136,7 +143,7 @@ export function readWindowTurn(
   const through = daily.slice(0, pivot.index + 1);
   const date = daily[pivot.index].t.slice(0, 10);
   const monthlyThrough = monthly ? monthly.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null;
-  const windows = windowsAt(through, date, kind, monthlyThrough);
+  const windows = windowsAt(through, date, kind, monthlyThrough, firstTrade);
   return windows.length > 0 ? { kind, date, price: pivot.price, windows } : null;
 }
 

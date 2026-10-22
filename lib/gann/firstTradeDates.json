@@ -1,0 +1,7 @@
+{
+ "source": "Wikidata P414/P580 (by SEC CIK) and Yahoo Finance firstTradeDate, via scripts/fetch-first-trade-dates.mjs",
+ "fetched": null,
+ "agreeDays": 3,
+ "counts": { "confirmed": 0, "single": 0, "conflict": 0, "none": 0 },
+ "dates": {}
+}

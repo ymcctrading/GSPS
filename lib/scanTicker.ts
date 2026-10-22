@@ -37,6 +37,7 @@ import { readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { readPillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
 import { getUniverseStrength } from "@/lib/data/universeStrength";
+import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn } from "@/lib/gann/timeWindow";
 import { readRuleFollowing } from "@/lib/gann/ruleFollowing";
 import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
@@ -515,7 +516,7 @@ export async function scanTicker(
     });
     let windowTurnRead: { turn: ReturnType<typeof readWindowTurn> } | null = null;
     const windowTurn = () => {
-      windowTurnRead ??= { turn: readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly) };
+      windowTurnRead ??= { turn: readWindowTurn(charts.daily, scoreDirection, monthlyYearCount ?? monthlyLong ?? charts.monthly, undefined, confirmedFirstTrade(symbol)) };
       return windowTurnRead.turn;
     };
 

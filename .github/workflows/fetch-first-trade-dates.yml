@@ -1,0 +1,46 @@
+name: Fetch first-trade dates
+
+# Runs scripts/fetch-first-trade-dates.mjs, which reads each LARGE_CAP_UNIVERSE
+# stock's first-trade date from Wikidata and Yahoo Finance and keeps it only
+# where the two agree (C-ASTRO-09's first-trade chart, lib/gann/firstTradeDates.ts).
+# The file comes back as the `first-trade-dates-<run id>` artifact and is
+# committed to lib/gann/firstTradeDates.json on the branch the run was started
+# on, never main: start it on a feature branch and review the diff in the PR.
+# A push that changes the script runs it too, on that branch.
+
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [main]
+    paths: [scripts/fetch-first-trade-dates.mjs]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Fetch first-trade dates
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'GSPS research 304179280+ymcctrading@users.noreply.github.com' }}
+        run: node scripts/fetch-first-trade-dates.mjs --out out/firstTradeDates.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: first-trade-dates-${{ github.run_id }}
+          path: out/
+      - name: Commit the file
+        if: startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
+        run: |
+          cp out/firstTradeDates.json lib/gann/firstTradeDates.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/gann/firstTradeDates.json
+          git diff --cached --quiet || git commit -m "First-trade dates from Wikidata and Yahoo (run ${{ github.run_id }}) (N/A)"
+          git push
