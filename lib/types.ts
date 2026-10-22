@@ -247,7 +247,16 @@ export interface PivotPlan {
  * the coarse, publishable half: it says which part of the analysis earned or
  * lost a point without naming the condition that decided it.
  */
-export type ScorePillar = "trend" | "structure" | "setup" | "timing" | "riskReward";
+/**
+ * A scored pillar: one of the nine points (`CRITERION_KEYS`, 2026-10-17), each
+ * shown as its own row since 2026-10-22. The five display groups before it
+ * ("trend" … "riskReward") stay in the type only because summaries stored
+ * before that date carry them; nothing new is grouped that way.
+ */
+export type ScorePillar = CriterionKey | LegacyScorePillar;
+
+/** The five display groups the nine points were rolled into until 2026-10-22. */
+export type LegacyScorePillar = "trend" | "structure" | "setup" | "timing" | "riskReward";
 
 export interface ScoreBreakdownItem {
   /**

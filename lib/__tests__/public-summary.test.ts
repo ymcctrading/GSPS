@@ -213,7 +213,9 @@ describe("redaction at the API boundary", () => {
     const serialised = JSON.stringify(redactDecision(decision));
 
     for (const item of decision.breakdown) {
-      expect(serialised).not.toContain(item.criterion);
+      // The nine points are published by name since 2026-10-22, one row each;
+      // the checks behind them, and every note, stay server-side.
+      if (!item.pillar) expect(serialised).not.toContain(item.criterion);
       expect(serialised).not.toContain(item.note);
     }
   });

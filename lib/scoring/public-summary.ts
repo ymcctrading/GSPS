@@ -22,17 +22,28 @@ import type {
   ScorePillarSummary,
 } from "@/lib/types";
 import { redactScanSignals } from "@/lib/signals/publicSummary";
+import { CRITERION_KEYS } from "@/lib/scoring/weights";
 
-/** Display order. Broad to specific: context first, then the trade itself. */
-export const SCORE_PILLARS: ScorePillar[] = [
-  "trend",
-  "structure",
-  "setup",
-  "timing",
-  "riskReward",
-];
+/**
+ * Display order: the nine points in the order they are scored
+ * (`CRITERION_KEYS`), context first, then the trade itself. Each point is its
+ * own row since 2026-10-22 (owner: the card's five groups were out of date with
+ * what is actually scored). The named checks behind each point stay
+ * server-side, as before.
+ */
+export const SCORE_PILLARS: ScorePillar[] = [...CRITERION_KEYS];
 
 export const SCORE_PILLAR_LABELS: Record<ScorePillar, string> = {
+  marketCycle: "Market and cycle",
+  trendAllTimeframes: "Trend",
+  relativeStrength: "Relative strength",
+  activity: "Activity",
+  priceLevels: "Price levels",
+  geometricAngles: "Angles",
+  timeFactors: "Time",
+  volumeAccumulation: "Volume",
+  definiteIndication: "Entry and stop",
+  // Summaries stored before 2026-10-22 carry the old groups.
   trend: "Trend",
   structure: "Structure",
   setup: "Setup",
@@ -41,16 +52,19 @@ export const SCORE_PILLAR_LABELS: Record<ScorePillar, string> = {
 };
 
 /**
- * What each pillar means to a reader, in the vocabulary the glossary already
- * uses. Deliberately describes the *question* the pillar asks, never the
- * conditions that answer it. Each covers every point its group holds
- * (`lib/scoring/score.ts`, re-worded 2026-10-20 for the nine pillars):
- * trend holds the trend on every timeframe and relative strength; structure
- * the price levels and the angles; setup activity and volume; timing the
- * market and cycle position and time; risk/reward the definite indication
- * with the stop placed.
+ * What each point means to a reader. Describes the *question* the point asks,
+ * never the conditions that answer it (`lib/scoring/pillars.ts` holds those).
  */
 export const SCORE_PILLAR_DESCRIPTIONS: Record<ScorePillar, string> = {
+  marketCycle: "Whether the broad market and the stock's place in its cycles favour a move this way.",
+  trendAllTimeframes: "Whether the trend runs this way on the daily, weekly and monthly charts.",
+  relativeStrength: "Whether this stock leads its group and the market (lags them, for a short).",
+  activity: "Whether the stock is active and trades normally enough to act on.",
+  priceLevels: "Whether price is holding at a level that has mattered before.",
+  geometricAngles: "Whether the stock's trend angle is still holding.",
+  timeFactors: "Whether time since the last turn favours a move here.",
+  volumeAccumulation: "Whether volume, or a long base, stands behind the move.",
+  definiteIndication: "Whether the market has given a definite signal to enter, with the stop placed behind an old level.",
   trend: "Whether the trend runs this way on every timeframe, and whether this stock is leading the market or lagging it.",
   structure: "Whether price is at levels that have mattered before, with its trend angle holding and room to move.",
   setup: "Whether the stock is active and trades normally, and volume or a long base stands behind the move.",

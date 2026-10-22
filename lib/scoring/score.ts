@@ -627,21 +627,23 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // card's "Stop required"). The checks above feed them and score nothing on
   // their own; see lib/scoring/pillars.ts.
   const monthly = inputs.macroTrends.find((t) => t.timeframe === "1Month")?.direction ?? null;
-  const point = (key: CriterionKey, criterion: string, pillar: ScoreBreakdownItem["pillar"], r: PillarResult): ScoreBreakdownItem => ({
-    key, criterion, pillar, passed: r.passed, note: r.note,
+  // Each point is its own pillar on the card (2026-10-22, owner: the card's
+  // groups were out of date with the nine points actually scored).
+  const point = (key: CriterionKey, criterion: string, r: PillarResult): ScoreBreakdownItem => ({
+    key, criterion, pillar: key, passed: r.passed, note: r.note,
   });
   breakdown.push(
-    point("marketCycle", "Market and cycle position", "timing", marketCyclePillar(pillarFacts, direction)),
-    point("trendAllTimeframes", "Trend on every timeframe", "trend", trendPillar({
+    point("marketCycle", "Market and cycle position", marketCyclePillar(pillarFacts, direction)),
+    point("trendAllTimeframes", "Trend on every timeframe", trendPillar({
       side: direction, weeklyLine: pillarFacts?.weeklyLine, threeDay: swingChart?.threeDay, ruleOfThree: ruleOfThreeHolding, monthly,
     })),
-    point("relativeStrength", "Relative strength and leadership", "trend", relativeStrengthPillar(pillarFacts, direction)),
-    point("activity", "Activity and character", "setup", activityPillar(pillarFacts)),
-    point("priceLevels", "Price levels", "structure", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
-    point("geometricAngles", "Angles", "structure", anglesPillar(pillarFacts, direction, angleHolding)),
-    point("timeFactors", "Time", "timing", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts })),
-    point("volumeAccumulation", "Volume and accumulation", "setup", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
-    point("definiteIndication", "Definite indication with the stop placed", "riskReward", definiteIndicationPillar(pillarFacts, direction, indicationShown, stopBehindOldLevel)),
+    point("relativeStrength", "Relative strength and leadership", relativeStrengthPillar(pillarFacts, direction)),
+    point("activity", "Activity and character", activityPillar(pillarFacts)),
+    point("priceLevels", "Price levels", priceLevelsPillar(historicalSRPassed, gannConfluenceStackPassed)),
+    point("geometricAngles", "Angles", anglesPillar(pillarFacts, direction, angleHolding)),
+    point("timeFactors", "Time", timePillar({ side: direction, squared: timePriceSquareHolding, facts: pillarFacts })),
+    point("volumeAccumulation", "Volume and accumulation", volumePillar(pillarFacts, direction, volumeClimaxHolding)),
+    point("definiteIndication", "Definite indication with the stop placed", definiteIndicationPillar(pillarFacts, direction, indicationShown, stopBehindOldLevel)),
   );
 
   // Points, not criteria met: every criterion is worth one point under the

@@ -96,7 +96,9 @@ describe("SignalCard score breakdown", () => {
 
     expect(result.decision.breakdown).toHaveLength(18);
     for (const item of result.decision.breakdown) {
-      expect(text).not.toContain(item.criterion);
+      // The nine points are published by name since 2026-10-22, one row each;
+      // the checks behind them, and every note, stay server-side.
+      if (!item.pillar) expect(text).not.toContain(item.criterion);
       expect(text).not.toContain(item.note);
     }
   });
@@ -106,13 +108,15 @@ describe("SignalCard score breakdown", () => {
     render(<SignalCard result={result} />);
 
     expect(screen.getByText("Score breakdown")).toBeInTheDocument();
-    for (const label of ["Trend", "Structure", "Setup", "Timing", "Risk/reward"]) {
+    // One row per scored point since 2026-10-22, in the order they are scored.
+    for (const label of [
+      "Market and cycle", "Trend", "Relative strength", "Activity", "Price levels",
+      "Angles", "Time", "Volume", "Entry and stop",
+    ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Trend holds two of the nine points since 2026-10-17 (the trend on every
-    // timeframe, and relative strength). Neither passes in this fixture: no
-    // swing-chart data and no leadership reading are supplied.
-    expect(screen.getAllByText("0/2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^[01]\/1$/)).toHaveLength(9);
+    expect(screen.getByText("0/9 points")).toBeInTheDocument();
   });
 
   it("says nothing about the score when no summary was attached", () => {
