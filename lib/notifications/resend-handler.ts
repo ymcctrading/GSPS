@@ -504,6 +504,25 @@ export interface PriceAlertEmailData {
   direction: "above" | "below";
   /** The price that confirmed the crossing, at sweep time. */
   currentPrice: number;
+  /**
+   * An alert-editor rule (migration 0103): what was watched and what it read.
+   * Absent for the chart line, which keeps the wording above.
+   */
+  rule?: AlertRuleText;
+}
+
+/** How a fired alert-editor rule is worded in an email or a push. */
+export interface AlertRuleText {
+  /** "TFC Bid >= $47.73" */
+  condition: string;
+  /** "Bid $47.80" */
+  reading: string;
+  note?: string | null;
+  source?: string | null;
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 /**
@@ -526,18 +545,28 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
 
   try {
     const verb = data.direction === "above" ? "rose above" : "fell below";
-    const subject = `${data.symbol} ${verb} ${priceUsd(data.targetPrice)}`;
+    const rule = data.rule;
+    const subject = rule ? `Alert: ${rule.condition}` : `${data.symbol} ${verb} ${priceUsd(data.targetPrice)}`;
+    const headline = rule
+      ? `Your alert <strong>${escapeHtml(rule.condition)}</strong> fired.`
+      : `${escapeHtml(data.symbol)} ${verb} your alert level of <strong>${priceUsd(data.targetPrice)}</strong>.`;
+    const checked = rule
+      ? `Read at the check: ${escapeHtml(rule.reading)}${rule.source ? `. Level: ${escapeHtml(rule.source)}` : ""}`
+      : `Last price checked: ${priceUsd(data.currentPrice)}`;
+    const noteLine = rule?.note
+      ? `<p style="margin: 10px 0 0; color: #0f172a; font-size: 14px;">Your note: ${escapeHtml(rule.note)}</p>`
+      : "";
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${data.symbol} price alert</h1>
+        <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${escapeHtml(data.symbol)} price alert</h1>
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0f172a; font-size: 16px;">
-            ${data.symbol} ${verb} your alert level of <strong>${priceUsd(data.targetPrice)}</strong>.
+            ${headline}
           </p>
           <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
-            Last price checked: ${priceUsd(data.currentPrice)}
-          </p>
+            ${checked}
+          </p>${noteLine}
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This alert has now fired and won't repeat. Set a new one from the chart if you want another.
