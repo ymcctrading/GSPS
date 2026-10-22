@@ -1040,6 +1040,17 @@ long rate and the price index (`threeCurves.ts`, `curvesDisagree`). `STRATEGY_VE
 `2026-10-22-gann-mass-pressure`, merged onto the eclipse window's version, whose
 window it keeps; the six-year daily rerun that measures 7/4 runs on it.
 
+**Change-date rank and swing eighths, 2026-10-22 (A-TIME-17, A-OTHER-12).**
+W036 p.13's "dates marked X are the most important" is read through Master
+Course Ch. 14's order (PDF 389-390: anniversaries, then ½, ¾, then ⅓ and ⅔;
+Ch. 18 TP-1 sets ¼ beside ¾). `YEAR_FRACTIONS`, `INCORPORATION_DEGREES` and
+`SEASONAL_POINTS` already followed it; it is now cited and pinned
+(`changeDateRank.test.ts`). The 1909 account of orders at the top or bottom
+eighth of a swing (W001 pp. 1-2) is a labelled reconstruction
+(`lib/gann/swingEighths.ts`: the last completed 3-Day Chart swing divided by
+8): a card line and the measured factor `entryInSwingEighth`, never a gate.
+Verdicts unchanged, so `STRATEGY_VERSION` stays.
+
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the
 weighted grade the scorecard no longer uses. It now ranks them by Gann's score,

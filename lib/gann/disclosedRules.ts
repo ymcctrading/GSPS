@@ -125,6 +125,7 @@ import { computeRuleOfThree, type RuleOfThreeReading } from "@/lib/gann/ruleOfTh
 import { DAY_COUNT_BANDS, timeCycles } from "@/lib/gann/timeCycles";
 import { buildCampaignLedger, describeCampaignLedger, SECOND_MONTH_END_DAYS, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { readSwingEighths, type SwingEighthsReading } from "@/lib/gann/swingEighths";
 import { readExtremeRules, type ExtremeRulesReading } from "@/lib/gann/extremeRules";
 import { readTiming, type TimingReading } from "@/lib/gann/timeConvergence";
 import { describeOvernightChart, readOvernightChart, type OvernightReading } from "@/lib/gann/overnightChart";
@@ -292,7 +293,16 @@ export function readPricePercentages(bars: Bar[], currentPrice: number): PricePe
 
 export { DAY_COUNT_BANDS };
 
-/** Fractions of the 360-day year from a pivot, with Gann's ranking (1 = most important). */
+/**
+ * Fractions of the 360-day year from a pivot, with Gann's ranking (1 = most
+ * important). A-TIME-17 (W036 p.13: "the dates marked X are the most important
+ * points to watch") reads its ranking from Master Course Ch. 14 (PDF 389-390,
+ * 1955): "most important: anniversaries, then 1/2 year, 3/4, 1/3 and 2/3", with
+ * Ch. 18 TP-1 (PDF 439) setting 1/4 beside 3/4. So rank 1 and 2 are the dates
+ * marked X (`contextFactors.ts#yearFractionMajor`). Pinned in
+ * `__tests__/changeDateRank.test.ts`, with the seasonal and incorporation
+ * tables that follow the same order.
+ */
 export const YEAR_FRACTIONS: readonly { days: number; label: string; rank: number }[] = [
   { days: 45, label: "1/8 year", rank: 5 },
   { days: 90, label: "1/4 year", rank: 3 },
@@ -600,6 +610,8 @@ export interface DisclosedRulesContext {
   narrowWeekBreak?: NarrowWeekBreakReading | null;
   /** Which higher bottom or lower top the market stands on (C-ENTRY-03, context only). See `readSuccessiveSwings`. */
   successiveSwings?: SuccessiveSwings | null;
+  /** The last 3-Day Chart swing's top and bottom eighths (A-OTHER-12, a labelled reconstruction, context only). See `swingEighths.ts`. */
+  swingEighths?: SwingEighthsReading | null;
   /** A move out of the 13-week range by under 3 points that failed the next week (C-STOP-01, context only). See `falseBreakout.ts`. */
   falseBreakout?: FalseBreakoutReading | null;
   /** The heaviest completed week since the last major top (A-VOLUME-12, context only). See `topVolume.ts`. */
@@ -798,6 +810,7 @@ export function readDisclosedRules(
     narrowRangeBreak: readNarrowRangeBreak(dailyBars),
     narrowWeekBreak: readNarrowWeekBreak(toWeeklyBars(dailyBars)),
     successiveSwings: readSuccessiveSwings(dailyBars),
+    swingEighths: readSwingEighths(dailyBars, currentPrice),
     falseBreakout: readFalseBreakout(dailyBars, asOf),
     topVolume: readTopVolumeWarning(toWeeklyBars(dailyBars), asOf),
     distribution: readDistributionBreakdown(dailyBars, asOf),
@@ -985,6 +998,15 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       b.direction === "bearish"
         ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
         : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
+    );
+  }
+  const se = ctx.swingEighths;
+  if (se?.at) {
+    // A-OTHER-12, a labelled reconstruction (swingEighths.ts).
+    lines.push(
+      se.at === "bottomEighth"
+        ? `Price is in the bottom eighth of the last 3-Day Chart swing (${se.bottom.toFixed(2)} to ${se.top.toFixed(2)}), the eighth a buy is placed in by a reconstruction of the method, shown as context only.`
+        : `Price is in the top eighth of the last 3-Day Chart swing (${se.bottom.toFixed(2)} to ${se.top.toFixed(2)}), the eighth a sale is placed in by a reconstruction of the method, shown as context only.`,
     );
   }
   const ss = ctx.successiveSwings;
