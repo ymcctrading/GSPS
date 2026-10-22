@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 interface InboxNotification {
   id: string;
   symbol: string;
-  verdict: "Execute" | "INVALIDATED" | "Intraday";
+  verdict: "Execute" | "INVALIDATED" | "Intraday" | "Price alert";
   title: string;
   body: string;
   read_at: string | null;
@@ -136,7 +136,13 @@ export function NotificationBell() {
                     <span
                       className={cn(
                         "font-medium",
-                        n.verdict === "INVALIDATED" ? "text-bear" : n.verdict === "Intraday" ? "text-accent" : "text-bull",
+                        n.verdict === "INVALIDATED"
+                          ? "text-bear"
+                          : n.verdict === "Intraday"
+                            ? "text-accent"
+                            : n.verdict === "Price alert"
+                              ? "text-warn"
+                              : "text-bull",
                       )}
                     >
                       {n.title}

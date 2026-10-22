@@ -32,8 +32,10 @@ export function buildStructuralLevels(input: {
   campaign: CampaignLedger | null;
   price: number;
   asOf: Date;
+  /** The stored company name, for its name chart (A-OTHER-08); absent for no stored name. */
+  companyName?: string | null;
 }): { all: StructuralLevel[]; old: StructuralLevel[] } {
-  const { trends, charts, campaign, price, asOf } = input;
+  const { trends, charts, campaign, price, asOf, companyName = null } = input;
   const pivots = (t: TrendReading) => [
     ...t.support.map((p) => ({ price: p, timeframe: t.timeframe })),
     ...t.resistance.map((p) => ({ price: p, timeframe: t.timeframe })),
@@ -54,7 +56,7 @@ export function buildStructuralLevels(input: {
     ...old,
     // Gann's Square of 144 squares, his planetary averages and the other
     // lattices, as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
-    ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, price, asOf).map((l) => ({
+    ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, price, asOf, companyName).map((l) => ({
       price: l.price,
       timeframe: "1Month" as const,
     })),

@@ -5,7 +5,10 @@
  * from the factor attribution that survives out-of-sample. The proposal is
  * written as a **draft** `learning_models` row; it changes no score until a
  * human promotes it to `live`, which is the governance path migration 0005 was
- * built around.
+ * built around. Since 2026-10-22 (F4.2) a promoted set is adopted only if it
+ * is uniform (`lib/scoring/active-weights.ts#isUniformWeightSet`), so a
+ * proposal is a diagnostic of which pillars measure off-sign, never a score
+ * change.
  *
  * ## Why this is not in `vercel.json`
  *

@@ -115,6 +115,23 @@ export function mostRecentClose(date: Date = new Date()): Date {
   return cursor;
 }
 
+/**
+ * The next US-equities close (16:00 ET) after `date`, skipping weekends and
+ * the full-day holidays the calendar knows. A "day" alert lasts until then.
+ */
+export function nextClose(date: Date = new Date()): Date {
+  const cursor = new Date(date);
+  for (let daysAhead = 0; daysAhead < 10; daysAhead++) {
+    const { weekday } = etParts(cursor);
+    if (weekday !== 0 && weekday !== 6 && !isMarketHoliday(etDateKey(cursor))) {
+      const close = closeInstantFor(cursor);
+      if (close.getTime() > date.getTime()) return close;
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return cursor;
+}
+
 /** 16:00 ET on the same ET calendar day as `date`, as a UTC instant. */
 function closeInstantFor(date: Date): Date {
   const key = etDateKey(date); // "YYYY-MM-DD" in ET
