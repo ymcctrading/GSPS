@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { activeFeedMode, assertLiveMarketData, feedModeOf, SyntheticMarketDataError, syntheticDataRefusal } from "@/lib/data/feed-mode";
+import { activeFeedMode, assertLiveMarketData, feedModeOf, MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { quotePrice } from "@/lib/brokers/simulator";
 import { runMarketScan } from "@/lib/marketScan";
 import type { MarketDataProvider } from "@/lib/data/provider";
@@ -110,5 +110,13 @@ describe("syntheticDataRefusal (senior code review, lib/data)", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(runMarketScan(5)).rejects.toThrow(/Refused to run the market scan/);
+  });
+});
+
+// What a response says instead of the refusal: nothing about the server's
+// configuration reaches a member (S-14).
+describe("MARKET_DATA_UNAVAILABLE", () => {
+  it("names no provider, key or environment variable", () => {
+    expect(MARKET_DATA_UNAVAILABLE).not.toMatch(/alpaca|synthetic|generator|MARKET_DATA_PROVIDER|key|secret|env/i);
   });
 });

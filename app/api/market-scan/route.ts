@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
@@ -113,6 +114,11 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`market-scan: scan itself failed — ${message}`);
+    // A synthetic-data refusal names the server's configuration: logged above,
+    // never returned (S-14).
+    if (err instanceof SyntheticMarketDataError) {
+      return NextResponse.json({ error: MARKET_DATA_UNAVAILABLE, code: "synthetic_market_data", persisted: false }, { status: 503 });
+    }
     return NextResponse.json({ error: message, persisted: false }, { status: 502 });
   }
 

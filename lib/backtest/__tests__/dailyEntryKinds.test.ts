@@ -139,4 +139,33 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
     expect(again!.exitPrice).toBe(again!.stop);
     expect(again!.outcome).toBe("loss");
   }, 120_000);
+
+  // The firing bar's open decides the fill (review of #412): an open inside
+  // the zone fills there, so the stop-out costs less than the whole risk, and
+  // an open already beyond the stop is a refused fill, as production refuses
+  // a fill outside its bracket (`fill_outran_bracket`).
+  it("fills at an open inside the zone, and refuses an open beyond the stop", () => {
+    const bars = wickWalk(40, 260, 40);
+    const opts = { targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60 } as const;
+    const base = replay("TEST", bars, opts);
+    const sameDay = base.trades.find((t) => !t.derived && t.barsHeld === 1 && t.closedAt === t.openedAt && t.ambiguous);
+    expect(sameDay).toBeDefined();
+    const at = bars.findIndex((b) => b.t === sameDay!.openedAt);
+    const long = sameDay!.direction === "bullish";
+    const withOpen = (o: number) => bars.map((b, j) => (j === at ? { ...b, o, l: Math.min(b.l, o), h: Math.max(b.h, o) } : b));
+
+    const inside = (sameDay!.entry + sameDay!.stop) / 2;
+    const insideBars = withOpen(inside);
+    const filled = replay("TEST", insideBars, { ...opts, dailyBars: insideBars }).trades.find((t) => !t.derived && t.openedAt === sameDay!.openedAt);
+    expect(filled).toBeDefined();
+    expect(filled!.entry).toBeCloseTo(inside, 8);
+    expect(filled!.exitPrice).toBe(filled!.stop);
+    expect(filled!.rMultiple).toBeGreaterThan(-1);
+    expect(filled!.rMultiple).toBeLessThan(0);
+
+    const beyondBars = withOpen(long ? sameDay!.stop - 0.01 : sameDay!.stop + 0.01);
+    const refused = replay("TEST", beyondBars, { ...opts, dailyBars: beyondBars });
+    expect(refused.trades.some((t) => !t.derived && t.openedAt === sameDay!.openedAt)).toBe(false);
+    expect(refused.refusedFills).toBeGreaterThan(base.refusedFills);
+  }, 120_000);
 });

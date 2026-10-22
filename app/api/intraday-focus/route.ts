@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { getMarketDataProvider } from "@/lib/data/provider";
-import { syntheticDataRefusal } from "@/lib/data/feed-mode";
+import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
@@ -38,8 +38,9 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now();
   const now = new Date();
   const provider = getMarketDataProvider();
-  const refused = syntheticDataRefusal("build the intraday focus list", provider);
-  if (refused) return NextResponse.json({ error: refused }, { status: 503 });
+  if (syntheticDataRefusal("build the intraday focus list", provider)) {
+    return NextResponse.json({ error: MARKET_DATA_UNAVAILABLE, code: "synthetic_market_data" }, { status: 503 });
+  }
   if (!provider.fetchBarsBatch) {
     return NextResponse.json({ error: "The market data provider has no batched bars." }, { status: 503 });
   }
