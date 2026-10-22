@@ -46,7 +46,7 @@ export const NEUTRAL_UPGRADE_PROMPT = "You may be eligible to review additional 
  */
 export function noviceOpenRoomLabel(stocks: number, otherMarkets: number): string {
   const s = `${stocks} more stock${stocks === 1 ? "" : "s"}`;
-  const o = `${otherMarkets} more crypto pair${otherMarkets === 1 ? "" : "s"}`;
+  const o = `${otherMarkets} more other market${otherMarkets === 1 ? "" : "s"} (crypto, commodity or currency funds)`;
   return `Room for ${s} and ${o} (maximum)`;
 }
 
