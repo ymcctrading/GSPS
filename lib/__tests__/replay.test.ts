@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { LIVE_EXIT_RULE } from "@/lib/trade/protocol-exit";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
@@ -223,7 +224,7 @@ describe("replay", () => {
 
   it("resolves a bar covering both stop and target as a loss", () => {
     const wide = { o: MID, h: SIDE > 0 ? past(3 * RISK) : TRIGGER.stopPrice + 1, l: SIDE > 0 ? TRIGGER.stopPrice - 1 : past(3 * RISK), c: MID };
-    const r = replay("TEST", session([wide, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
+    const r = replay("TEST", session([wide, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, exitRule: "bracket" });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].ambiguous).toBe(true);
     expect(r.trades[0].outcome).toBe("loss");
@@ -684,11 +685,21 @@ describe("replay continuation setups", () => {
 });
 
 describe("replay exitRule: gann", () => {
+  it("defaults to production's exit rule, LIVE_EXIT_RULE (M-E8)", () => {
+    const beyond = past(3 * RISK);
+    const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
+    const bars = session([crossing, run, quiet]);
+    const plain = replay("TEST", bars, { entryRule: "stop", targetR: 2, dailyBars: DAILY });
+    expect(LIVE_EXIT_RULE).toBe("gann");
+    expect(plain).toEqual(replay("TEST", bars, { entryRule: "stop", targetR: 2, dailyBars: DAILY, exitRule: LIVE_EXIT_RULE }));
+    expect(plain.trades[0].outcome).not.toBe("win");
+  });
+
   it("does not take profit at a fixed target", () => {
     // Crosses the trigger, then runs through the bracket's 2R target.
     const beyond = past(3 * RISK);
     const run = { o: past(0.4), h: SIDE > 0 ? beyond : past(0.3), l: SIDE > 0 ? past(0.3) : beyond, c: past(0.5) };
-    const bracket = replay("TEST", session([crossing, run, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
+    const bracket = replay("TEST", session([crossing, run, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, exitRule: "bracket" });
     const gann = replay("TEST", session([crossing, run, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY, exitRule: "gann" });
     expect(bracket.trades[0].outcome).toBe("win");
     expect(gann.trades).toHaveLength(1);
@@ -1155,7 +1166,7 @@ describe("disableExits: Gann exit rules switched off in the replay walk (measure
     const bars = session([crossing, quiet]);
     expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, exitRule: "gann", disableExits: ["three_adverse_close" as never] })).toThrow(/Unknown exit rule/);
     expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, exitRule: "gann", disableExits: ["initial" as never] })).toThrow(/Unknown exit rule/);
-    expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, disableExits: ["prior_week"] })).toThrow(/needs exitRule/);
+    expect(() => replay("TEST", bars, { targetR: 2, dailyBars: DAILY, exitRule: "bracket", disableExits: ["prior_week"] })).toThrow(/needs exitRule/);
     expect(resolveDisableExits(undefined).size).toBe(0);
     expect([...resolveDisableExits(["prior_week", "three_adverse_closes"], "gann")]).toEqual(["prior_week", "three_adverse_closes"]);
     expect(() => resolveDisableExits("prior_week")).toThrow(/array/);

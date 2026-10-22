@@ -50,8 +50,9 @@ import { workingLiveEntries, type WorkingLiveEntry } from "@/lib/trade/live-work
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
 import { capitalRuleRefusal, optionPremiumRefusal, riskTenthRefusal } from "@/lib/risk/gannCapital";
+import { averagingLossRefusal } from "@/lib/gann/pyramid";
 import { withOrderLock } from "@/lib/trade/order-lock";
-import { readProfitCeiling } from "@/lib/risk/profitPeak";
+import { readLiveStartingCapital, readProfitCeiling } from "@/lib/risk/profitPeak";
 import { paperTradingUnit } from "@/lib/trade/resting-entry-guard";
 import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
@@ -231,7 +232,8 @@ async function lossSeriesRefusal(
  * Manual Override stop included. A protocol crossing risks 4 points (entry 1
  * point past the level, stop 3 points the other side), and a buy over a low
  * that held is offered only within the cap (`computeGannHoldEntry`), so a
- * protocol plan always passes.
+ * protocol plan always passes. Gann's re-buy and reversal plans, whose stops
+ * he states beyond it, pass on their own stop (`confirmEntry`).
  */
 export function riskCapRefusal(
   input: Pick<OrderInput, "entryMode" | "limitPrice" | "attachLevels" | "referencePrice">,
@@ -277,7 +279,9 @@ export async function confirmEntry(
   const pass = { refusal: null, atMarket: false };
   if (input.assetClass === "option") return pass;
   const overCap = riskCapRefusal(input);
-  if (overCap) return { refusal: overCap, atMarket: false };
+  // A plan's order is checked once its plan is read (below), since Gann's
+  // re-buy and reversal carry stops of their own beyond the 5 points.
+  if (overCap && !input.sourcePlanId) return { refusal: overCap, atMarket: false };
   if (!input.attachLevels && input.entryStop == null) return pass;
 
   let target: {
@@ -293,6 +297,22 @@ export async function confirmEntry(
     const plan = await getTradePlan(supabase, userId, input.sourcePlanId).catch(() => null);
     if (!plan) {
       return { refusal: { status: 409, body: { error: "The plan behind this order couldn't be read, so its entry can't be confirmed. Nothing was placed.", code: "confirmation_unavailable" } }, atMarket: false };
+    }
+    // The 5-point cap is Gann's limit on the entry he buys on the definite
+    // indication (W006 pp.20, 46-47). His re-buy after a stop sets its stop
+    // half the reaction back, 6 points from a 12-point reaction (*Tunnel*
+    // p.198, the 218/212 case), and his reversal 3 points beyond the old
+    // extreme (`reverse.ts`): each is the stop he states for that trade, and
+    // the replay walks both. So the cap yields to that stop, and only to it: a
+    // re-buy or reversal order whose stop is not its plan's own is still
+    // capped (recheck 2026-10-22, A-PYRAMID-07, A-EXIT-02; until then every
+    // automated re-buy and reversal was refused with risk_over_five_points).
+    if (overCap) {
+      const ownStop =
+        (isRebuySignal(plan.signalId) || isPivotSignal(plan.signalId)) &&
+        input.attachLevels?.stopLoss != null &&
+        Math.abs(input.attachLevels.stopLoss - plan.coordinates.invalidation) <= 0.01;
+      if (!ownStop) return { refusal: overCap, atMarket: false };
     }
     target = {
       direction: plan.direction,
@@ -675,6 +695,16 @@ async function placeChecked(
         ],
       });
       if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
+      // Never-failing rule 13: never average a loss (`averagingLossRefusal`).
+      const averaging = averagingLossRefusal({
+        symbol: candidateSymbol,
+        side: input.side,
+        price: referencePrice,
+        open: openPositions
+          .filter((p) => p.asset_class !== "option")
+          .map((p) => ({ symbol: p.symbol, side: p.side, avgPrice: p.avg_entry_price, qty: p.qty })),
+      });
+      if (averaging) return { status: 409, body: { error: averaging.error, code: averaging.code } };
       // Never-failing rule 1: at most a tenth of the trading unit at risk on
       // this trade (lib/risk/gannCapital.ts). The unit is the capital the risk
       // rate reads (A-RISK-04); with no win history readable, the starting
@@ -1330,12 +1360,32 @@ async function placeLiveOrder(
       ],
     });
     if (refusal) return { status: 409, body: { error: refusal.error, code: refusal.code } };
-    // Never-failing rule 1, as on paper. The unit is the live equity, held
-    // during a long run of wins (rule 24), as the portfolio manager reads it.
-    // A-RISK-07's tenth of the profits reads the account's first verified
-    // equity as its starting capital (lib/risk/profitPeak.ts).
-    const run = await readWinningRun(supabase, userId);
-    const unit = run ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: 0, ...run }).capital : Math.max(equity, 0);
+    // Never-failing rule 13, as on paper.
+    const averaging = averagingLossRefusal({
+      symbol: input.symbol,
+      side: input.side,
+      price: referencePrice,
+      open: brokerPositions.map((p) => ({
+        symbol: p.symbol,
+        side: String(p.side).toLowerCase() === "short" ? ("short" as const) : ("long" as const),
+        avgPrice: Number(p.avg_entry_price) || 0,
+        qty: Math.abs(Number(p.qty) || 0),
+      })),
+    });
+    if (averaging) return { status: 409, body: { error: averaging.error, code: averaging.code } };
+    // Never-failing rule 1, as on paper. The unit is Gann's trading unit
+    // (A-RISK-04): the starting capital until profits equal it, then doubled,
+    // and held during a long run of wins (rule 24). The live account's
+    // starting capital is its first verified equity (lib/risk/profitPeak.ts),
+    // as A-RISK-07 reads it; until 2026-10-22 it was taken as none, so the
+    // live unit was the whole equity and grew with every profit.
+    const [run, startingCapital] = await Promise.all([readWinningRun(supabase, userId), readLiveStartingCapital(supabase, userId)]);
+    // With the win history unread, no step-up is taken (readWinningRun's
+    // contract, as paperTradingUnit reads it): the unit is the equity, never
+    // above the starting capital.
+    const unit = run
+      ? gannRiskCapital({ equity: Math.max(equity, 0), startingCapital: startingCapital ?? 0, ...run }).capital
+      : Math.min(Math.max(equity, 0), startingCapital ?? Infinity);
     const ceiling = await readProfitCeiling(supabase, userId, "live", Math.max(equity, 0));
     const tenth = tenthRefusal(unit, input.symbol, referencePrice, input, ceiling);
     if (tenth) return tenth;

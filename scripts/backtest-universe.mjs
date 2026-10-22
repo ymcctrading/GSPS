@@ -625,7 +625,7 @@ async function main() {
         throw new Error(`Cell "${cell.label}": disableExits is not supported on this ref.`);
       }
       try {
-        resolveDisableExits(names, cell.options?.exitRule ?? "bracket");
+        resolveDisableExits(names, cell.options?.exitRule ?? "gann");
         if (cell.options?.profile === "intraday" && names.length > 0) {
           throw new Error("disableExits applies to the swing profile's exit rules, not the intraday profile");
         }

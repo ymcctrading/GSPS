@@ -293,6 +293,9 @@ export function timeCycles(dailyBars: Bar[], asOf: Date = new Date(), windowDays
   for (const anchor of anchors) {
     const anchorDate = new Date(anchor.bar.t);
     // A low resuming up argues bullish; a high resuming down argues bearish.
+    // GSPS's tag for the coarse ranking and the card, not Gann's: his counts
+    // run from any important top or bottom, so the time-window hold reads
+    // `active`, both kinds (`timeWindow.ts`).
     const bullish = anchor.kind === "low";
     // Fixed wheel counts forward from the pivot
     for (const count of WHEEL_COUNTS) {
@@ -301,7 +304,7 @@ export function timeCycles(dailyBars: Bar[], asOf: Date = new Date(), windowDays
     // Major/minor cycle years (see MAJOR_CYCLE_YEARS's own comment)
     for (const y of MAJOR_CYCLE_YEARS) {
       const anniversary = new Date(anchorDate);
-      anniversary.setFullYear(anniversary.getFullYear() + y);
+      anniversary.setUTCFullYear(anniversary.getUTCFullYear() + y);
       dates.push({ date: anniversary, bullish });
     }
   }

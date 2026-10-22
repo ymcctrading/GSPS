@@ -26,7 +26,7 @@
  * docs/BACKTESTING.md.
  */
 import { randomUUID } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Entry confirmation on closed bars (owner decision 4, and automation under
@@ -396,6 +396,17 @@ async function createArmedPlan(client: SupabaseClient, userId: string, overrides
 }
 
 describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () => {
+  // Outside Gann's twice-yearly rest (June 21 and December 21, ten days each,
+  // lib/gann/traderPrefs.ts), which the manager now honours (M-K4): pinned so
+  // a run on those dates doesn't skip every candidate. Only Date is faked.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-22T15:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("takes an armed plan from a fresh scan all the way to a filled, plan-linked order", async () => {
     const { client, plans, automationProfiles, orders } = fakeSupabase({
       user_id: "user-1",
@@ -607,6 +618,32 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     expect(result.plansActivated).toBe(0);
     expect(result.plansSkipped).toBe(1);
     expect(orders).toHaveLength(0);
+  });
+
+  it("opens nothing new in the twice-yearly rest, unless the trader turned the reminder off (M-K4)", async () => {
+    vi.setSystemTime(new Date("2026-12-22T15:00:00Z"));
+    const profile = {
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "MODERATE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+    };
+    const resting = fakeSupabase(profile);
+    await createArmedPlan(resting.client, "user-1");
+    const held = await runAutonomousPortfolioManager(resting.client);
+    expect(held.plansActivated).toBe(0);
+    expect(held.plansSkipped).toBe(1);
+    expect(held.errors.some((e) => /twice-yearly rest/.test(e.reason))).toBe(true);
+    expect(resting.orders).toHaveLength(0);
+
+    // The trader's own choice to keep trading through it stands.
+    const working = fakeSupabase(profile, { gannRules: { restReminder: false } });
+    await createArmedPlan(working.client, "user-1");
+    const ran = await runAutonomousPortfolioManager(working.client);
+    expect(ran.errors.some((e) => /twice-yearly rest/.test(e.reason))).toBe(false);
   });
 
   it("opens nothing new while the trader's away window is open (A-EXIT-05)", async () => {

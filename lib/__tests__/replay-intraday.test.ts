@@ -43,16 +43,26 @@ function zigzag(days: number, legs: [number, number][], start = 100, firstDay = 
   return out;
 }
 
-/** A calm daily history ahead of the bars, then the bars' own days. */
-function dailyFor(bars: Bar[]): Bar[] {
-  const before: Bar[] = Array.from({ length: 30 }, (_, i) => ({
-    t: `2026-04-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z`,
-    o: 95,
-    h: 97,
-    l: 93.5,
-    c: 95.5 + i * 0.1,
-    v: 5_000_000,
-  }));
+/**
+ * A calm daily history ahead of the bars, then the bars' own days. It opens
+ * with an old top at 107 and an old bottom at 85 (3-Day Chart turns), so a
+ * long under the top and a short over the bottom each have a first target that
+ * pays more than its risk: the replay, like the live alert, takes no trade
+ * without one (M-K5).
+ */
+function dailyFor(bars: Bar[], withTop = true): Bar[] {
+  const peak = withTop ? [96, 99, 102, 105, 107, 104, 101, 98, 96, 93, 90, 87, 85, 88, 91, 94, 96] : [];
+  const before: Bar[] = Array.from({ length: 30 }, (_, i) => {
+    const p = peak[i];
+    return {
+      t: `2026-04-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z`,
+      o: p !== undefined ? p - 1 : 95,
+      h: p ?? 97,
+      l: p !== undefined ? p - 2.5 : 93.5,
+      c: p !== undefined ? p - 1 : 95.5 + i * 0.1,
+      v: 5_000_000,
+    };
+  });
   const byDay = new Map<string, Bar[]>();
   for (const b of bars) byDay.set(b.t.slice(0, 10), [...(byDay.get(b.t.slice(0, 10)) ?? []), b]);
   const own = [...byDay].map(([d, bs]) => ({
@@ -128,6 +138,13 @@ describe("replayIntraday", () => {
     expect(byOutputState(r).Execute.trades).toHaveLength(0);
   });
 
+  it("takes no trade whose first target doesn't pay the risk, as the live alert offers none (M-K5)", () => {
+    const bars = zigzag(12, UP);
+    const r = replayIntraday("TEST", bars, { dailyBars: dailyFor(bars, false) });
+    expect(r.refusedFills).toBeGreaterThan(0);
+    expect(r.trades.length).toBeLessThan(run(bars).trades.length);
+  });
+
   it("mirrors for a short (Polarity)", () => {
     const r = run(zigzag(12, DOWN));
     expect(r.trades.length).toBeGreaterThan(0);
@@ -162,8 +179,12 @@ describe("replayIntraday", () => {
     const first = r.trades[0];
     expect(first.direction).toBe("bullish");
     expect(first.exitReason).toBe("intraday_trailing_stop");
-    // The stop moved up past the entry's own protective stop, so the exit locks in gain.
-    expect(first.rMultiple).toBeGreaterThan(0);
+    // The stop moved up from the entry's own protective stop, so the exit is
+    // above it and loses less than the risk. (Until 2026-10-22 this read a
+    // gain, which came from 60% taken at a nearer first target that did not
+    // pay the risk; the replay no longer trades such a target, M-K5.)
+    expect(first.exitPrice).toBeGreaterThan(first.stop);
+    expect(first.rMultiple).toBeGreaterThan(-1);
     // The crash broke the stops of the plans armed on the way down.
     expect(r.retiredPlans).toBeGreaterThan(0);
   });
