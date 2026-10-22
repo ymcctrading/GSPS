@@ -7,37 +7,11 @@
  * execution, market and correlation multipliers. Nothing called it after
  * Gann's capital rules took over sizing and refusal (Q4, Q6, Q12,
  * `lib/risk/gannCapital.ts`), and its bands have no Gann source, so it was
- * removed (review finding R-004; AGENTS.md "Gann answers the question").
- * `RiskBandThresholds` stays only because `lib/risk/policy.ts` still resolves
- * those `policy_values` keys; nothing reads the resolved band.
+ * removed (review finding R-004; AGENTS.md "Gann answers the question"),
+ * with its `policy_values` keys and band constants (2026-10-22).
  */
 
-import {
-  ABSOLUTE_TIER_CAP_PCT,
-  EXCEPTIONAL_BAND_MIN_TRADES,
-  MIN_TRADES_FOR_RISK_INCREASE,
-  RISK_BAND_RATE_PCT,
-  type RiskBand,
-} from "@/lib/risk/config";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-/**
- * The band knobs the removed band policy read. Kept as the shape of the
- * `policy_values` keys `lib/risk/policy.ts` still resolves; no consumer reads them.
- */
-export interface RiskBandThresholds {
-  minTradesForRiskIncrease: number;
-  exceptionalBandMinTrades: number;
-  absoluteTierCapPct: number;
-  riskBandRatePct: Record<RiskBand, number>;
-}
-
-export const DEFAULT_RISK_BAND_THRESHOLDS: RiskBandThresholds = {
-  minTradesForRiskIncrease: MIN_TRADES_FOR_RISK_INCREASE,
-  exceptionalBandMinTrades: EXCEPTIONAL_BAND_MIN_TRADES,
-  absoluteTierCapPct: ABSOLUTE_TIER_CAP_PCT,
-  riskBandRatePct: { ...RISK_BAND_RATE_PCT },
-};
 
 /**
  * Gann's trading unit (A-RISK-04, M-K3; owner, 2026-10-16, Q7). The capital a

@@ -1,20 +1,20 @@
 /**
  * Server-only resolver for the risk domain's `policy_values` overrides
- * (domain "risk"), composing `CircuitThresholds` (circuit-breaker.ts) and
- * `RiskBandThresholds` (dynamic-risk.ts) into one flat, `policy_values`-shaped
- * record and back — the same pattern lib/promotion/policy.ts established for
- * tier promotion, generalized via lib/policy/store.ts.
+ * (domain "risk"): the `CircuitThresholds` (circuit-breaker.ts) as one flat,
+ * `policy_values`-shaped record and back — the same pattern
+ * lib/promotion/policy.ts established for tier promotion, generalized via
+ * lib/policy/store.ts.
  *
- * `RISK_BAND_RATE_PCT` is a nested record (one rate per band), not a flat
- * number, so each band gets its own flattened key
- * (`riskBandRateBase`, `riskBandRateATier`, ...) here — `policy_values` only
- * stores flat numeric keys per domain.
+ * The risk-band keys (`riskBandRate*`, `minTradesForRiskIncrease`,
+ * `exceptionalBandMinTrades`, `absoluteTierCapPct`) were removed with the band
+ * policy they configured (R-004, 2026-10-22): Gann's capital rules size and
+ * refuse every order (`lib/risk/gannCapital.ts`), and the bands have no Gann
+ * source. A stored row under one of those keys is no longer read.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPolicyOverrides, setPolicyValue, type PolicyDirection } from "@/lib/policy/store";
 import { DEFAULT_CIRCUIT_THRESHOLDS, type CircuitThresholds } from "@/lib/risk/circuit-breaker";
-import { DEFAULT_RISK_BAND_THRESHOLDS, type RiskBandThresholds } from "@/lib/risk/dynamic-risk";
 
 const RISK_POLICY_DOMAIN = "risk";
 
@@ -29,13 +29,6 @@ export interface RiskPolicyValues {
   hardCooldownBlockedDays: number;
   criticalLockBlockedDays: number;
   emergencyLockBlockedDays: number;
-  minTradesForRiskIncrease: number;
-  exceptionalBandMinTrades: number;
-  absoluteTierCapPct: number;
-  riskBandRateBase: number;
-  riskBandRateATier: number;
-  riskBandRateAPlus: number;
-  riskBandRateExceptionalAPlus: number;
 }
 
 export const DEFAULT_RISK_POLICY_VALUES: RiskPolicyValues = {
@@ -48,21 +41,14 @@ export const DEFAULT_RISK_POLICY_VALUES: RiskPolicyValues = {
   hardCooldownBlockedDays: DEFAULT_CIRCUIT_THRESHOLDS.hardCooldownBlockedDays,
   criticalLockBlockedDays: DEFAULT_CIRCUIT_THRESHOLDS.criticalLockBlockedDays,
   emergencyLockBlockedDays: DEFAULT_CIRCUIT_THRESHOLDS.emergencyLockBlockedDays,
-  minTradesForRiskIncrease: DEFAULT_RISK_BAND_THRESHOLDS.minTradesForRiskIncrease,
-  exceptionalBandMinTrades: DEFAULT_RISK_BAND_THRESHOLDS.exceptionalBandMinTrades,
-  absoluteTierCapPct: DEFAULT_RISK_BAND_THRESHOLDS.absoluteTierCapPct,
-  riskBandRateBase: DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.base,
-  riskBandRateATier: DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.a_tier,
-  riskBandRateAPlus: DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.a_plus,
-  riskBandRateExceptionalAPlus: DEFAULT_RISK_BAND_THRESHOLDS.riskBandRatePct.exceptional_a_plus,
 };
 
 export const RISK_POLICY_KEYS = Object.keys(DEFAULT_RISK_POLICY_VALUES) as (keyof RiskPolicyValues)[];
 
 /**
  * Which way each key tightens (Q13, owner 2026-10-16): a `policy_values` row
- * may only tighten a risk limit. Loss and drawdown triggers and the risk rates tighten downward; the blocked days and the trade counts
- * needed before risk rises tighten upward.
+ * may only tighten a risk limit. Loss and drawdown triggers tighten downward;
+ * the blocked days tighten upward.
  */
 export const RISK_POLICY_DIRECTIONS: Record<keyof RiskPolicyValues, PolicyDirection> = {
   warning48hLossPct: "atMost",
@@ -74,18 +60,10 @@ export const RISK_POLICY_DIRECTIONS: Record<keyof RiskPolicyValues, PolicyDirect
   hardCooldownBlockedDays: "atLeast",
   criticalLockBlockedDays: "atLeast",
   emergencyLockBlockedDays: "atLeast",
-  minTradesForRiskIncrease: "atLeast",
-  exceptionalBandMinTrades: "atLeast",
-  absoluteTierCapPct: "atMost",
-  riskBandRateBase: "atMost",
-  riskBandRateATier: "atMost",
-  riskBandRateAPlus: "atMost",
-  riskBandRateExceptionalAPlus: "atMost",
 };
 
 export interface ResolvedRiskPolicy {
   circuit: CircuitThresholds;
-  band: RiskBandThresholds;
 }
 
 function toCircuitThresholds(v: RiskPolicyValues): CircuitThresholds {
@@ -102,29 +80,15 @@ function toCircuitThresholds(v: RiskPolicyValues): CircuitThresholds {
   };
 }
 
-function toBandThresholds(v: RiskPolicyValues): RiskBandThresholds {
-  return {
-    minTradesForRiskIncrease: v.minTradesForRiskIncrease,
-    exceptionalBandMinTrades: v.exceptionalBandMinTrades,
-    absoluteTierCapPct: v.absoluteTierCapPct,
-    riskBandRatePct: {
-      base: v.riskBandRateBase,
-      a_tier: v.riskBandRateATier,
-      a_plus: v.riskBandRateAPlus,
-      exceptional_a_plus: v.riskBandRateExceptionalAPlus,
-    },
-  };
-}
-
 /**
  * Resolves the effective risk policy: code defaults with any valid
  * `policy_values` (domain "risk") override applied on top, split back into
- * the circuit thresholds `resolveState` accepts and the band thresholds (no
- * consumer since the band policy was removed, R-004). `supabase` should be a service-role client.
+ * the circuit thresholds `resolveState` accepts. `supabase` should be a
+ * service-role client.
  */
 export async function getRiskPolicy(supabase: SupabaseClient): Promise<ResolvedRiskPolicy> {
   const values = await getPolicyOverrides(supabase, RISK_POLICY_DOMAIN, DEFAULT_RISK_POLICY_VALUES, RISK_POLICY_KEYS, RISK_POLICY_DIRECTIONS);
-  return { circuit: toCircuitThresholds(values), band: toBandThresholds(values) };
+  return { circuit: toCircuitThresholds(values) };
 }
 
 /** Server/admin-only. Sets one risk-domain policy value, auditable via `policy_change_log`. */

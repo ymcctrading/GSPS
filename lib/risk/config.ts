@@ -4,45 +4,12 @@
  * Source: "Novice Risk, Account & Cooldown Engine" spec pack (2026-08-28).
  * Everything here is a number or a threshold from that pack; the modules in
  * this directory are the logic that reads them. Nothing here is a rate of
- * return claim — the risk-band table is a ceiling on what a user may lose
- * per trade, never a promise of what they will make.
+ * return claim.
  *
- * "Novice" here is the risk-engine's own experience ladder (base → a_tier →
- * a_plus → exceptional_a_plus), not the billing tier of the same name in
- * lib/entitlements/policy.ts (Novice/Pro/Expert/Wall Street). A Pro-tier
- * account still starts on the base risk band until it has traded its way up
- * the ladder — the two concepts are independent and must not be conflated.
+ * The pack's risk-band ladder (1 to 1.75% of equity by experience, a 2% cap)
+ * was removed with the band policy it fed (R-004, 2026-10-21/22): Gann's
+ * capital rules size and refuse every order (`lib/risk/gannCapital.ts`).
  */
-
-/** The risk-band ladder, in ascending order of how much a trade may risk. */
-export type RiskBand = "base" | "a_tier" | "a_plus" | "exceptional_a_plus";
-
-export const RISK_BAND_ORDER: RiskBand[] = ["base", "a_tier", "a_plus", "exceptional_a_plus"];
-
-/** Risk rate ceiling for each band, as a percent of equity (not a floor — see dynamic-risk.ts). */
-export const RISK_BAND_RATE_PCT: Record<RiskBand, number> = {
-  base: 1.0,
-  a_tier: 1.25,
-  a_plus: 1.5,
-  exceptional_a_plus: 1.75,
-};
-
-/** Never exceeded regardless of score, band, or multipliers. Does not imply recommended use. */
-export const ABSOLUTE_TIER_CAP_PCT = 2.0;
-
-/**
- * Completed GSPS swing trades required before any risk increase above the
- * base rate — i.e. before a band above "base" may ever apply.
- */
-export const MIN_TRADES_FOR_RISK_INCREASE = 20;
-
-/**
- * The highest band (exceptional_a_plus) additionally requires a completed-trade
- * count inside this range, across varied conditions, no active cooldown, and no
- * repeated recent discipline breach — see dynamic-risk.ts `resolveRiskBand`.
- */
-export const EXCEPTIONAL_BAND_MIN_TRADES = 40;
-export const EXCEPTIONAL_BAND_MAX_TRADES = 50;
 
 /** User execution score weights (sum to 1.0). */
 export const EXECUTION_SCORE_WEIGHTS = {
