@@ -74,7 +74,7 @@
  */
 
 import { combineNearbyLevels } from "@/lib/gann/nearbyLevels";
-import { priceText } from "@/lib/strat/priceText";
+import { priceText, roundPrice } from "@/lib/strat/priceText";
 import {
   ASSET_KIND_LABELS,
   MOVE_BASIS_LABELS,
@@ -1737,12 +1737,18 @@ export function gannMasterTarget(input: {
   const beyond = (p: number) => (up ? p - firstTarget : firstTarget - p) >= floor && (up ? p > firstTarget : p < firstTarget);
   const window = 2 * (dailyAtr != null && dailyAtr > 0 ? dailyAtr : last * (APPROACH_WINDOW_PCT / 100));
   const limit = up ? last + window : last - window;
-  const candidates = [
-    up ? sessionHigh : sessionLow,
-    ...(prevClose != null && prevClose > 0 ? [prevClose] : []),
-    ...oldLevels,
-    ...targetCandidates(firstTarget, limit, up ? "bullish" : "bearish"),
-  ].filter((p) => Number.isFinite(p) && beyond(p));
+  // M-P4: the same averaged resistance points the first target is read from
+  // (the levels beyond the price by an intraday ATR, within 1% averaged into
+  // one), so the master is never a level already averaged into TP1.
+  const pastPrice = (p: number) => (up ? p - last : last - p) >= floor && (up ? p > last : p < last);
+  const structural = combineNearbyLevels(
+    [up ? sessionHigh : sessionLow, ...(prevClose != null && prevClose > 0 ? [prevClose] : []), ...oldLevels].filter(
+      (p) => Number.isFinite(p) && pastPrice(p),
+    ),
+  );
+  const candidates = [...structural, ...targetCandidates(firstTarget, limit, up ? "bullish" : "bearish")].filter(
+    (p) => Number.isFinite(p) && beyond(p),
+  );
   if (candidates.length === 0) return null;
   return candidates.reduce((nearest, p) => (Math.abs(p - firstTarget) < Math.abs(nearest - firstTarget) ? p : nearest));
 }
@@ -1793,7 +1799,9 @@ function continuationPlan(
     invalidation,
     firstTarget: target,
     paysRisk: targetPaysRisk(m.last, invalidation, target),
-    masterTarget,
+    // Rounded to the places the price needs (F-02) before it reaches the
+    // ticket's link and `orders.master_profit`.
+    masterTarget: masterTarget != null ? roundPrice(masterTarget) : null,
     cancelIf: `Price closes back ${direction === "up" ? "below" : "above"} the day's 50% point at ${priceText(m.midpoint)}, or the move stalls without a new ${direction === "up" ? "high" : "low"} for several bars.`,
   };
 }

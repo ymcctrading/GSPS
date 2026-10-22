@@ -956,6 +956,14 @@ describe("gannFirstTarget", () => {
     const risk = Math.abs(alert.move.current - (alert.invalidation ?? alert.move.current));
     expect(alert.continuationPlan.firstTarget).not.toBeCloseTo(alert.move.current + risk * 2, 6);
   });
+
+  // Review of #461: the continuation plan carries the master the levels give.
+  it("carries the next level beyond the first target as the alert's MTP", () => {
+    const alert = scanIntraday([input({ dailyAtr: 60 })], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "trend_continuation")!;
+    const tp1 = alert.continuationPlan.firstTarget!;
+    expect(tp1).toBeCloseTo(shortOfFigure(525, "below"), 6);
+    expect(alert.continuationPlan.masterTarget).toBe(Math.round(shortOfFigure(550, "below") * 100) / 100);
+  });
 });
 
 describe("Gann's hourly chart (Master Course Ch. 13)", () => {
@@ -1083,18 +1091,30 @@ describe("gannMasterTarget", () => {
     intradayAtr: 0.3,
   };
 
+  // Levels more than 1% apart, so none is averaged into another (M-P4).
   it("names the next old level beyond the first target", () => {
-    expect(gannMasterTarget({ ...base, firstTarget: 483, oldLevels: [483, 486.5, 490] })).toBe(486.5);
+    expect(gannMasterTarget({ ...base, firstTarget: 483, oldLevels: [483, 488, 494] })).toBe(488);
   });
 
   it("skips a level too close to the first target to be a different one", () => {
-    expect(gannMasterTarget({ ...base, firstTarget: 483, oldLevels: [483.1, 487] })).toBe(487);
+    expect(gannMasterTarget({ ...base, firstTarget: 483, oldLevels: [483.1, 489] })).toBe(489);
+  });
+
+  // Review of #461: TP1 averages 482.6 and 483.4 into one resistance at 483, so
+  // the master is never 483.4, a level already inside TP1.
+  it("never names a level averaged into the first target", () => {
+    const levels = { ...base, oldLevels: [482.6, 483.4] };
+    const tp1 = gannFirstTarget(levels);
+    expect(tp1).toBeCloseTo(483, 9);
+    expect(gannMasterTarget({ ...levels, firstTarget: tp1 })).not.toBeCloseTo(483.4, 6);
+    const withNext = { ...base, oldLevels: [482.6, 483.4, 489] };
+    expect(gannMasterTarget({ ...withNext, firstTarget: gannFirstTarget(withNext) })).toBe(489);
   });
 
   it("mirrors for a short", () => {
     expect(
-      gannMasterTarget({ ...base, direction: "down", last: 480, sessionHigh: 482, sessionLow: 479.95, prevClose: 485, firstTarget: 476, oldLevels: [476, 473.5] }),
-    ).toBe(473.5);
+      gannMasterTarget({ ...base, direction: "down", last: 480, sessionHigh: 482, sessionLow: 479.95, prevClose: 485, firstTarget: 476, oldLevels: [476, 470.5] }),
+    ).toBe(470.5);
   });
 
   it("is null with no first target, or with nothing beyond it", () => {

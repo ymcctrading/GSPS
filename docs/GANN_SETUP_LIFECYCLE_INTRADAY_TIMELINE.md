@@ -312,7 +312,7 @@ do not, and have to be re-derived in the unit of the chart. That is the same mov
 | Buying/selling point | Cross of an old swing top/bottom on daily bars, plus lost motion | The same cross on the 15-minute / hourly swing, plus a lost-motion allowance re-derived for the session's range | A8 nine buying points. His lost motion is in absolute cents and points, so it has to be rescaled, as `pointScale.ts` does for the exits. |
 | Stop | 3–15% band under a daily swing | 1 point-equivalent beyond the intraday swing extreme, scaled as `pointScale.ts` scales it | Master Course Ch. 3 (1-pt stops); NSTD stops of 1, 2, 3 points on cheap stocks. |
 | First target | 2 daily ATRs, clamped | The nearest old top/bottom or halfway point above the entry: the day's 50% point, the prior session's high/low | Master Course: sell at old tops, the halfway point as the gravity center. |
-| Master target | 3.5 ATRs | **None.** Trail the stop under each higher intraday bottom | "Never fix a target price" (*Truth of the Stock Tape*); the intraday scanner already prices no MTP. |
+| Master target | 3.5 ATRs | The next old top/bottom or round number beyond the first target, where the move is measured to; nothing sells there, and the stop trails under each higher intraday bottom (2026-10-22, `gannMasterTarget`) | "Never fix a target price" (*Truth of the Stock Tape*), so the MTP is never an order (Q14). |
 | Confirmation | Four stages on 15-min bars | Four stages on 5-min bars | Same rule, finer bar. |
 | Time | Daily/weekly counts | Hourly counts (144 hours), 4-minute rotation | Master Course Ch. 13; *Tunnel*. Research only until Dewey's items are met. |
 | Exit on trend change | Weekly swing chart turns | The hourly swing chart turns | Same rule, finer chart. |

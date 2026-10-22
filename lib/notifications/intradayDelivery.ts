@@ -173,6 +173,7 @@ export async function notifySubscribedUsers(
               entry: alert.move.current,
               stopLoss: alert.invalidation ?? alert.move.current,
               takeProfit: alert.continuationPlan.firstTarget,
+              masterProfit: alert.continuationPlan.masterTarget ?? null,
               verdict: "Execute",
               confidence: alert.confidence / 100,
             });

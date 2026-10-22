@@ -480,10 +480,10 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               )}
               {!isRisk && alert.type !== "plan_level_held" && (
                 <p className="text-xs text-muted">
-                  Intraday setups price an exit and a first target only — there is no MTP (master take profit) on
-                  one. TP1 here is the first old high or low beyond the price, or a round number just short of
-                  one, that pays more than the risk. When there is none ahead, no target is fixed and the stop
-                  trails under each higher bottom (a lower top for a sell) instead.
+                  TP1 here is the first old high or low beyond the price, or a round number just short of one,
+                  that pays more than the risk. The MTP (master take profit) is the next such level beyond TP1:
+                  where the move is measured to, and nothing sells there. When there is none ahead, no target is
+                  fixed and the stop trails under each higher bottom (a lower top for a sell) instead.
                 </p>
               )}
 
