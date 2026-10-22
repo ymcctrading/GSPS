@@ -55,8 +55,9 @@ describe("sendAlertEmail", () => {
     const html = sendMock.mock.calls[0][0].html as string;
     expect(html).toContain("Signal &amp; Regime Engine");
     expect(html).toContain("Trend Pullback");
-    expect(html).toContain("A-tier");
     expect(html).toContain("Tradeable");
+    // Only Gann's score is graded (review of #393): the engine's tier never prints.
+    expect(html).not.toContain("A-tier");
   });
 
   it("omits the section entirely when there is no signal rollup", async () => {
@@ -75,6 +76,8 @@ describe("sendAlertEmail", () => {
     const html = sendMock.mock.calls[0][0].html as string;
     expect(html).toContain(`${BASE.score}/${SCORE_MAX}`);
     expect(html).toContain(BASE.verdict);
+    expect(html).toContain("Not tradeable");
+    expect(html).not.toContain("Watchlist only");
   });
 });
 

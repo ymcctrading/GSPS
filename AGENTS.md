@@ -774,7 +774,7 @@ inversion: the check −0.188R, P7 −0.150R, negative in both halves).** One tr
 defect, fixed: the square shared the angle's anchor, the low for a long, so it passed
 when the advance from the low had balanced time and price, which by Gann marks a top
 due. Gann measures the balance "up from lows" and "down from highs" (Master Course
-Ch. 6-7: low 50, price 102, up 52 = 1 year; high 182, now 130, down 52 = 1 year), and
+Ch. 18, PDF p.440: low 50, price 102, up 52 = 1 year; high 182, now 130, down 52 = 1 year), and
 for a long the buy is the decline from the high squaring out. `computeScore` now reads
 the square from the last high for a long and the last low for a short
 (`squareAnchorKind`, `lib/scoring/score.ts`); the angle, the climax and the boiling
@@ -783,6 +783,21 @@ readings): squared 21.1% either way, P7 "and" 11.6% → 9.5%. The same diagnosis
 the population figure carried by trades still open at the window's end, which the
 replay reported as `timeout`; that is being split out separately. `STRATEGY_VERSION`
 was `2026-10-21-gann-square-against-move`; P7 and the 6/3.5 cutoffs need a fresh run.
+**After-merge review sweep, 2026-10-21 (owner's review mandate, applied to nine
+PRs merged before it).** Two fixes move verdicts or replay trades. (1) The price
+and time square counts only a move away from its pivot the way Gann measures it,
+"up from lows" and "down from highs" (Master Course Ch. 18, PDF p.440; "when Time
+and Space balance, the stock makes top or bottom", PDF p.202), so a long whose
+price has run above the last high no longer takes P7's square from it
+(`computeTimePriceSquare`, live and replay alike). (2) On daily bars a reaction
+entry whose firing bar traded into the zone and also reached the stop, whether it
+closed back or through it, is booked at the reaction entry (the open, if it opened
+inside the zone; refused if it opened beyond the stop) and stopped on that bar, a
+loss of the whole risk; retiring the plan first, or letting the day's close call
+off an entry live had already filled, dropped every same-day stop-out from 1Day
+runs. `STRATEGY_VERSION`
+is `2026-10-21-review-sweep-square-sign-daily-firing-bar` (merged onto the 7/4
+version below); P7 and the 7/4 cutoffs need a fresh run.
 **Square of Nine in price, same day (C-LEVELS-15).** Gann lists the numbers on
 the Square of Nine's diagonals (3, 13, 31, 57, 91 … and 7, 21, 43, 73, 111 …,
 with 8, 23, 46, 77 … and 4, 15, 34, 61 …) as "great resistance points and
@@ -973,9 +988,10 @@ only on the 2026-09-23 run, which measured the pre-fix 15-minute trigger
 (F3.1-F3.3) and none of the nine pillars, and no later commit moved them. Every
 "6/3.5 cutoffs" above is history. Gann gives no cutoff on a count of his
 conditions, so this is the owner's display decision. Live verdicts move.
-`STRATEGY_VERSION` is `2026-10-21-cutoffs-seven-four-one-entry`; the six-year
-daily rerun that measures 7/4 runs on it, after #412 (same-day stop-outs, the
-square from highs).
+`STRATEGY_VERSION` was `2026-10-21-cutoffs-seven-four-one-entry`; #412 (same-day
+stop-outs, the square from highs) merged onto it, so it is now
+`2026-10-21-review-sweep-square-sign-daily-firing-bar`, and the six-year daily
+rerun that measures 7/4 runs on that.
 
 **The portfolio manager ranks by Gann's score, same day (review sweep).** It
 ranked armed plans by the Signal & Regime Engine's alignment tier, the

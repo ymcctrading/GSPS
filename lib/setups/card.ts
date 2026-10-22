@@ -33,7 +33,7 @@ import { SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import type { PublicScoreSummary, ScorePillar, StratPattern } from "@/lib/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
-import { formatUsd } from "@/lib/utils";
+import { priceUsd } from "@/lib/strat/priceText";
 import { tickerHref } from "@/lib/routes";
 import { readResting, restingNote, type RestingRead } from "@/lib/setups/resting";
 
@@ -180,8 +180,8 @@ export function buildSetupSynopsis(args: {
 
   const r1 = rewardToRisk(levels, levels.tp1);
   const second =
-    `Enter near ${formatUsd(levels.entry!)}, exit at ${formatUsd(levels.stop!)} if it fails, ` +
-    `first target ${formatUsd(levels.tp1!)}` +
+    `Enter near ${priceUsd(levels.entry!)}, exit at ${priceUsd(levels.stop!)} if it fails, ` +
+    `first target ${priceUsd(levels.tp1!)}` +
     (r1 != null ? ` (${r1.toFixed(1)}× the risk)` : "") +
     ".";
   // The buying point is the crossed level, bought on the reaction back to it
@@ -194,7 +194,7 @@ export function buildSetupSynopsis(args: {
   if (resting) return `${first} ${second} ${restingNote(resting, levels.entry!)}`;
   const ran = price != null && (side === "buy" ? price > levels.entry! : price < levels.entry!);
   const third = ran
-    ? ` Price is already ${side === "buy" ? "above" : "below"} the entry at ${formatUsd(price)}: the plan waits for a reaction back to ${formatUsd(levels.entry!)} and is not taken here.`
+    ? ` Price is already ${side === "buy" ? "above" : "below"} the entry at ${priceUsd(price)}: the plan waits for a reaction back to ${priceUsd(levels.entry!)} and is not taken here.`
     : "";
   return `${first} ${second}${third}`;
 }
