@@ -60,8 +60,24 @@ const ET_PARTS = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
 });
 
+// As `etDateKey`: the intraday replay reads the same bar instants at every
+// scan step, so each instant is formatted once (bounded, cleared when full).
+// Speed only: same output. Callers get a copy, so the cache can't be changed.
+const etPartsCache = new Map<number, { minutes: number; weekday: number }>();
+
 /** Minutes-since-midnight and weekday (0=Sun…6=Sat) in America/New_York. */
 export function etParts(date: Date = new Date()): { minutes: number; weekday: number } {
+  const ms = date.getTime();
+  let read = etPartsCache.get(ms);
+  if (read === undefined) {
+    if (etPartsCache.size >= ET_DATE_KEY_CACHE_LIMIT) etPartsCache.clear();
+    read = formatEtParts(date);
+    etPartsCache.set(ms, read);
+  }
+  return { minutes: read.minutes, weekday: read.weekday };
+}
+
+function formatEtParts(date: Date): { minutes: number; weekday: number } {
   const parts = ET_PARTS.formatToParts(date);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   let hour = Number(get("hour"));
