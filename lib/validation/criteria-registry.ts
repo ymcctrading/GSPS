@@ -384,8 +384,9 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
       "Replaces `timeCycle` (retired 2026-09-10; see RETIRED) — its projected-anniversary-date " +
       "approach measured negligible even after fixing the two implementation defects that had made it " +
       "look inverted. This is a different construction on the same daily bars: bars elapsed since the " +
-      "direction-matched swing pivot (low for bullish, high for bearish — the same anchor convention " +
-      "`gannAngleSlope` uses) checked one-for-one against the raw price move since that pivot, with no " +
+      "swing pivot against the trade (the high for bullish, the low for bearish, since 2026-10-21; it " +
+      "shared `gannAngleSlope`'s trade-side anchor before) checked one-for-one against the move away " +
+      "from that pivot, up from a low or down from a high (since the review of #389), with no " +
       "ATR normalization — a distinct question from `gannAngleSlope`'s ATR-normalized rate of change. " +
       "First measured 2026-09-10: Execute itself read 0 trades at every timeframe/targetR tried, so only " +
       "unconditioned attribution exists. The 15Min unconditioned population " +

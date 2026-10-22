@@ -38,6 +38,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { etDateKey } from "@/lib/market/session";
+import { isMarketHoliday } from "@/lib/market/calendar";
 
 /** Consecutive closed losing trades that start a pause. */
 export const LOSS_SERIES_LENGTH = 3;
@@ -55,7 +56,11 @@ export interface LossSeriesReading {
   note: string | null;
 }
 
-/** Trading days after `from` (both YYYY-MM-DD, ET), weekends skipped. Holidays are not modelled. */
+/**
+ * Trading days after `from` (both YYYY-MM-DD, ET), weekends and full-day
+ * market holidays skipped, so a pause across a holiday still covers the next
+ * session the trader could trade (review finding R-002).
+ */
 function tradingDaysAfter(from: string, to: string): number {
   let count = 0;
   const d = new Date(`${from}T12:00:00Z`);
@@ -63,7 +68,7 @@ function tradingDaysAfter(from: string, to: string): number {
   while (d < end) {
     d.setUTCDate(d.getUTCDate() + 1);
     const wd = d.getUTCDay();
-    if (wd !== 0 && wd !== 6) count++;
+    if (wd !== 0 && wd !== 6 && !isMarketHoliday(d.toISOString().slice(0, 10))) count++;
   }
   return count;
 }

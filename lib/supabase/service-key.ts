@@ -8,5 +8,11 @@
  * fallback for an operator's shell and local development.
  */
 export function serviceRoleKey(): string | undefined {
-  return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || undefined;
+  // Trimmed, so a variable saved as whitespace counts as unset rather than
+  // winning over a valid legacy key.
+  return (
+    process.env.SUPABASE_SECRET_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    undefined
+  );
 }

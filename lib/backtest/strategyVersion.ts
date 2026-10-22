@@ -614,7 +614,7 @@
 // check and the timePriceSquare check) reads the move against the trade, the
 // decline from the last high for a long and the rally from the last low for a
 // short, not the trade's own anchor. A balance marks a turn, measured "up from
-// lows" and "down from highs" (Master Course Ch. 6-7), so the advance from the
+// lows" and "down from highs" (Master Course Ch. 18, PDF p.440), so the advance from the
 // low squaring out says a top is due, against a long. Verdicts move, live and
 // replay alike.
 // 2026-10-21-gann-nine-square-price: the Square of Nine's fixed numbers act
@@ -702,6 +702,25 @@
 // 2026-10-21): the 6/3.5 confirmation was read on the pre-fix 2026-09-23
 // trigger. Live verdicts move. Merged onto
 // 2026-10-21-gann-fast-trail-after-fill, whose Fast trail it keeps.
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar: two fixes from the
+// after-merge review of #386 and #389. The price and time square only counts a
+// move away from its pivot the way Gann measures it, up from a low or down
+// from a high (Master Course Ch. 18, PDF p.440), so a long no longer takes P7's
+// square when price has run above the last high. And on daily bars a reaction
+// entry whose firing bar traded into the zone and also reached the stop (closing
+// back or through it) is booked and stopped on that bar, not retired first,
+// which had dropped every same-day stop-out. Verdicts move (the square), live
+// and replay alike; 1Day replay trades move. Merged onto
+// 2026-10-21-cutoffs-seven-four-one-entry, whose one-entry replay and 7/4
+// cutoffs it keeps.
+// 2026-10-22-gann-eclipse-break-window: M-S4 acts (Chuck, 2026-10-22, astrology
+// "no longer research only"). A fast planet crossing, within a day, the
+// longitude of an eclipse that fell within 10 sessions of a 3-Day Chart top is
+// a dated window for a top in the shared time-window hold (`eclipseBreakOn`,
+// Mikula W012 pp. 32-35, labelled reconstruction), live and replay alike. A
+// counter-trend short Execute held to Watch for want of a window can now act. Merged onto
+// 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
+// firing-bar fixes it keeps.
 // 2026-10-22-gann-name-chart-great-cycles: A-OTHER-08 and A-TIME-24. The
 // company name's square (Master Course Ch. 15A: letters counted, a Square of
 // N², its multiples and half-squares) puts its nearest key number above and
@@ -710,6 +729,6 @@
 // 1935, 20,736 days 1953, 90 years 1955) from inception or a major monthly
 // pivot, open dated windows in the time-window hold. Live and replay alike;
 // plans and counter-trend verdicts move. Merged onto
-// 2026-10-21-cutoffs-seven-four-one-entry, whose 7/4 cutoffs and one entry
-// a session it keeps.
+// 2026-10-22-gann-eclipse-break-window, whose eclipse window, square sign and
+// firing-bar fixes it keeps.
 export const STRATEGY_VERSION = "2026-10-22-gann-name-chart-great-cycles";

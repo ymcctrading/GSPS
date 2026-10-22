@@ -1,5 +1,5 @@
 /** Review finding R-029: ledger writes go through the service role, never a member's session. */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // The real constructor needs a WebSocket, which CI's Node 20 lacks.
@@ -8,10 +8,19 @@ import { isMemberClient, ledgerWriter, markMemberClient } from "@/lib/supabase/l
 
 const fake = () => ({ from: () => null }) as unknown as SupabaseClient;
 const savedKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const savedSecret = process.env.SUPABASE_SECRET_KEY;
+
+// The service key is read from either variable (lib/supabase/service-key.ts),
+// so both are cleared for these tests and restored after.
+beforeEach(() => {
+  delete process.env.SUPABASE_SECRET_KEY;
+});
 
 afterEach(() => {
   if (savedKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   else process.env.SUPABASE_SERVICE_ROLE_KEY = savedKey;
+  if (savedSecret === undefined) delete process.env.SUPABASE_SECRET_KEY;
+  else process.env.SUPABASE_SECRET_KEY = savedSecret;
 });
 
 describe("ledgerWriter", () => {

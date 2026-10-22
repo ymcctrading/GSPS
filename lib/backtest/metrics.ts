@@ -119,6 +119,11 @@ export function bootstrapMeanCI95(values: number[], resamples = 5000, seed = 202
  * are mostly winners and the scope's own expectancy reads higher than its
  * closed trades do: on the 2026-10-21 15-minute run the 1,110 timeouts
  * averaged +0.648R while every closed exit was at or below zero.
+ *
+ * It still includes trades held to the replay's 10-session limit
+ * (`held_to_limit`), which are also marked at that bar's close rather than
+ * realised: production has no 10-session exit (Q14). So this is "excluding
+ * data-end only", not a realised-only figure (review of #389).
  */
 export interface ClosedSummary {
   n: number;

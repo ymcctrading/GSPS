@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { SCANNER_STATE_META } from "@/lib/signals/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
-import { priceText } from "@/lib/strat/priceText";
+import { priceUsd } from "@/lib/strat/priceText";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -23,8 +23,26 @@ function getResendClient() {
  */
 export const SANDBOX_SENDER = "onboarding@resend.dev";
 
+const BARE_ADDRESS = /^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/;
+
+/**
+ * The bare address in `RESEND_FROM`, which may be set as "alerts@example.com"
+ * or "GSPS <alerts@example.com>". `fromHeader` adds its own display name, so a
+ * value that already carried one produced "Name <GSPS <alerts@...>>", which
+ * Resend rejects as an invalid `from` (every email on 2026-10-21 from about
+ * 20:00 UTC). A value that is neither form is treated as unset, so sends fall
+ * back to the sandbox rule and are skipped with a reason instead of failing.
+ */
+export function parseSenderAddress(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const bracketed = /<([^<>]+)>\s*$/.exec(value);
+  const address = (bracketed ? bracketed[1] : value).trim().replace(/^["']|["']$/g, "");
+  return BARE_ADDRESS.test(address) ? address : null;
+}
+
 export function senderAddress(): string {
-  return process.env.RESEND_FROM?.trim() || SANDBOX_SENDER;
+  return parseSenderAddress(process.env.RESEND_FROM) ?? SANDBOX_SENDER;
 }
 
 /** The `from` header for a send: a display name on the configured sender. */
@@ -41,21 +59,19 @@ function sandboxRecipients(): string[] {
 
 /** Why a send to `toEmail` is skipped, or null when it may go out. */
 export function sandboxBlockReason(toEmail: string): string | null {
-  if (senderAddress() !== SANDBOX_SENDER) return null;
+  if (senderAddress().toLowerCase() !== SANDBOX_SENDER) return null;
   const recipients = sandboxRecipients();
   if (recipients.includes(toEmail.trim().toLowerCase())) return null;
+  const raw = process.env.RESEND_FROM?.trim();
+  if (raw && !parseSenderAddress(raw)) {
+    console.error("resend: RESEND_FROM is set but is not an email address; member email is skipped until it is fixed");
+    return `RESEND_FROM is set but is not an email address (use alerts@your-domain or Name <alerts@your-domain>) — skipped ${toEmail}.`;
+  }
   return (
     `Resend sandbox sender (${SANDBOX_SENDER}) can only deliver to ` +
     `${recipients.join(", ")} until a domain is verified at resend.com/domains and RESEND_FROM is set — skipped ${toEmail}.`
   );
 }
-
-const TIER_LABEL: Record<PublicSignalSummary["tier"], string> = {
-  watchlistOnly: "Watchlist only",
-  qualified: "Qualified",
-  aTier: "A-tier",
-  aPlusTier: "A+ tier",
-};
 
 export interface AlertEmailData {
   userEmail: string;
@@ -111,7 +127,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
             </div>
             <div>
               <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Entry</p>
-              <p style="margin: 5px 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">$${priceText(data.entry)}</p>
+              <p style="margin: 5px 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">${priceUsd(data.entry)}</p>
             </div>
             <div>
               <p style="margin: 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Verdict</p>
@@ -123,8 +139,8 @@ export async function sendAlertEmail(data: AlertEmailData) {
         <div style="background: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #7c2d12; font-size: 14px; font-weight: 600;">Risk Management</p>
           <p style="margin: 8px 0 0; color: #7c2d12; font-size: 13px;">
-            Stop Loss: <strong>$${priceText(data.stopLoss)}</strong> |
-            Target: <strong>${data.takeProfit != null ? `$${priceText(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>
+            Stop Loss: <strong>${priceUsd(data.stopLoss)}</strong> |
+            Target: <strong>${data.takeProfit != null ? `${priceUsd(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>
           </p>
         </div>
 
@@ -133,7 +149,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
             ? `<div style="background: #f0f9ff; padding: 15px; border-left: 4px solid #0ea5e9; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0c4a6e; font-size: 14px; font-weight: 600;">Signal &amp; Regime Engine (separate read)</p>
           <p style="margin: 8px 0 0; color: #0c4a6e; font-size: 13px;">
-            ${SCANNER_STATE_META[data.signal.state].label} — ${TIER_LABEL[data.signal.tier]}${data.signal.tradeable ? " · Tradeable" : ""}
+            ${SCANNER_STATE_META[data.signal.state].label}${data.signal.tradeable ? " · Tradeable" : " · Not tradeable"}
           </p>
         </div>`
             : ""
@@ -364,8 +380,8 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
         </div>
         <p style="color: #475569; font-size: 13px;">
           ${data.side === "buy" ? "Buy" : "Sell"} ${data.qty} ${data.symbol}
-          ${data.limitPrice != null ? ` at $${priceText(data.limitPrice)} limit` : ""}
-          ${data.stopPrice != null ? ` · stop $${priceText(data.stopPrice)}` : ""}
+          ${data.limitPrice != null ? ` at ${priceUsd(data.limitPrice)} limit` : ""}
+          ${data.stopPrice != null ? ` · stop ${priceUsd(data.stopPrice)}` : ""}
         </p>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">This order moved to Rejected in your Portfolio.
@@ -510,17 +526,17 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
 
   try {
     const verb = data.direction === "above" ? "rose above" : "fell below";
-    const subject = `${data.symbol} ${verb} $${priceText(data.targetPrice)}`;
+    const subject = `${data.symbol} ${verb} ${priceUsd(data.targetPrice)}`;
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0f172a; margin: 0 0 20px;">🔔 ${data.symbol} price alert</h1>
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <p style="margin: 0; color: #0f172a; font-size: 16px;">
-            ${data.symbol} ${verb} your alert level of <strong>$${priceText(data.targetPrice)}</strong>.
+            ${data.symbol} ${verb} your alert level of <strong>${priceUsd(data.targetPrice)}</strong>.
           </p>
           <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
-            Last price checked: $${priceText(data.currentPrice)}
+            Last price checked: ${priceUsd(data.currentPrice)}
           </p>
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
