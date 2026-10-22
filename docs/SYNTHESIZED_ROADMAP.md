@@ -221,7 +221,15 @@ against Gann:
    offers its own entry, stop and TP1 (never an MTP), as AGENTS.md's
    "Strategy Modes" records.
 7. **Scale safely.** Database index audit and query baselines; a shared rate
-   limit store; caching for chart and scan reads.
+   limit store; caching for chart and scan reads. **First pass built
+   2026-10-22** (`docs/SCALE_AUDIT.md`):
+   - Migration 0115 adds 20 indexes and has all 170 security policies read
+     the user once per query.
+   - The heavy rate-limit buckets count once across instances, in Postgres
+     (0114, the owner's pick).
+   - Chart bars share one vendor read and the CDN caches them.
+   - Scan lists stay uncached, since they vary by member.
+   - Left for a later pass: re-reading the baselines after a week of traffic.
 8. **Track M:** the shared time-window mechanism (so the astro, Jensen,
    hexagon and Master Chart time readings act where Gann says they act); the
    dated-forecast example with its documented record; the remaining review

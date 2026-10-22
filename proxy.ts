@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { checkRateLimit } from "@/lib/rate-limit";
-import { RATE_LIMITS, rateLimitBucket } from "@/lib/rate-limit-policy";
+import { checkRateLimit, checkSharedRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMITS, SHARED_BUCKETS, rateLimitBucket } from "@/lib/rate-limit-policy";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { isPrefetchRequest, PRACTICE_WRITE_REFUSAL, practiceTierOfUser, practiceWriteRefused } from "@/lib/demo/practice";
 
@@ -84,7 +84,9 @@ export async function proxy(request: NextRequest) {
     // budget rather than one budget for everyone viewing that tier.
     const who = practice ? `${user!.id}:ip:${clientIp(request)}` : (user?.id ?? `ip:${clientIp(request)}`);
     const key = `${bucket}:${who}`;
-    const result = checkRateLimit(key, limit, API_WINDOW_MS);
+    const result = SHARED_BUCKETS.has(bucket)
+      ? await checkSharedRateLimit(key, limit, API_WINDOW_MS)
+      : checkRateLimit(key, limit, API_WINDOW_MS);
 
     if (!result.allowed) {
       return NextResponse.json(
