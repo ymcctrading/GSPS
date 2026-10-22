@@ -121,8 +121,23 @@ export interface SwingChartWalk {
 
 const DAY_MS = 24 * 3600 * 1000;
 
+// Bar timestamps are parsed many times over as the replay re-walks each
+// session's history; parse each once (bounded, cleared when full). Speed only.
+const PARSE_CACHE_LIMIT = 200_000;
+const parsedTimes = new Map<string, number>();
+
+function parsedTime(t: string): number {
+  let ms = parsedTimes.get(t);
+  if (ms === undefined) {
+    if (parsedTimes.size >= PARSE_CACHE_LIMIT) parsedTimes.clear();
+    ms = Date.parse(t);
+    parsedTimes.set(t, ms);
+  }
+  return ms;
+}
+
 function calendarDaysBetween(a: Bar, b: Bar): number {
-  return Math.round((Date.parse(b.t) - Date.parse(a.t)) / DAY_MS);
+  return Math.round((parsedTime(b.t) - parsedTime(a.t)) / DAY_MS);
 }
 
 function toSpec(chart: SwingChartSpec | number): SwingChartSpec {
