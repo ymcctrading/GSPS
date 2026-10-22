@@ -6,8 +6,11 @@
  * next one is smaller at once (`profitRiskCeiling`).
  *
  * - Paper: the starting capital is `STARTING_CASH`, and the peak is the highest
- *   running total of closed P&L in `trade_logs` (the closes `lossSeries.ts` and
- *   `readWinningRun` read).
+ *   running total of the paper account's own closed P&L in `trade_logs`
+ *   (`mode = 'paper'`, migration 0107). Gann reads the tenth on the capital
+ *   that made the profits, so live and journal closes are not in it (review
+ *   finding R-002). `lossSeries.ts` and `readWinningRun` read every close,
+ *   because they are rules about the trader, not about one account.
  * - Live: the starting capital is the first verified equity read from the
  *   broker (`risk_live_equity_snapshots`, written by `lib/risk/service.ts`), and
  *   the peak is the highest verified equity since. Engineering choice, labelled:
@@ -42,6 +45,7 @@ async function readPaperPeakProfits(supabase: SupabaseClient, userId: string): P
       .from("trade_logs")
       .select("profit_loss_dollars, exit_timestamp")
       .eq("user_id", userId)
+      .eq("mode", "paper")
       .not("exit_timestamp", "is", null)
       .order("exit_timestamp", { ascending: true })
       .limit(5000);

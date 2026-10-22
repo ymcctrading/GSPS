@@ -478,7 +478,7 @@ export async function logPlainClose(
   const perShare = closed.qty > 0 ? closed.realizedPl / closed.qty : 0;
   const percent = closed.entryPrice === 0 ? null : round2((perShare / closed.entryPrice) * 100);
 
-  const { error } = await insertTradeLog(supabase, {
+  const { error } = await insertTradeLog(supabase, "paper", {
     user_id: userId,
     symbol: symbol.toUpperCase(),
     asset_class: assetClass === "crypto" ? "crypto" : isOption(symbol) ? "option" : "us_equity",

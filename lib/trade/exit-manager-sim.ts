@@ -454,7 +454,7 @@ async function finish(
           ? "master_target"
           : "tp1";
 
-  const { error: logError } = await insertTradeLog(supabase, {
+  const { error: logError } = await insertTradeLog(supabase, "paper", {
     user_id: userId,
     symbol: plan.symbol.toUpperCase(),
     asset_class: assetClassOf(plan.symbol),

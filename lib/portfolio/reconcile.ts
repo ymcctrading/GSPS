@@ -268,7 +268,7 @@ async function recordClose(
   // failure on this exact retry, immediately after the first insert
   // succeeded, can in principle double-write the row; that is a visible,
   // auditable duplicate, which is the safer failure to risk.
-  const { error: logError } = await insertTradeLog(supabase, {
+  const { error: logError } = await insertTradeLog(supabase, "live", {
     user_id: userId,
     position_id: openRow.id,
     symbol: openRow.symbol,
