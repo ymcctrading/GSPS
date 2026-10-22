@@ -104,6 +104,7 @@ export function buildIntradayCardModel(alert: Alert): SetupCardModel {
     // session in progress and carries no daily range; the resting-order read
     // (lib/setups/resting.ts) covers the daily plans.
     resting: null,
+    setAsideNote: null,
     synopsis: buildIntradaySynopsis(alert),
     tickerHref: tickerHref(alert.symbol),
   };

@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendAlertEmail, sendSetupInvalidatedEmail } from "@/lib/notifications/resend-handler";
+import { deliveryPushMessage, sendPushToProfile } from "@/lib/notifications/web-push";
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
@@ -129,6 +130,14 @@ export type DispatchOutcome =
 /** Attempt ceiling for a stuck `pending`/`failed` delivery the retry sweep will pick back up. */
 export const MAX_DISPATCH_ATTEMPTS = 5;
 
+/**
+ * A push older than this is skipped, never sent: an alert is about the
+ * session it was made in (a plan lasts its session, Q17), and a burst of old
+ * pushes, such as rows left pending while push had no sender, would open
+ * plans the scan has since moved past. Email keeps its own retry rule.
+ */
+export const PUSH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
 /** Statuses this function will still attempt to send for. `sent` (and `bounced`) are terminal -- never re-dispatched. */
 const DISPATCHABLE_STATUSES = ["pending", "failed"];
 
@@ -149,9 +158,15 @@ const DISPATCHABLE_STATUSES = ["pending", "failed"];
  * preview deployment either. The row is left untouched, so preview activity
  * never fabricates a `sent`/`failed` record.
  *
- * Email is the only channel with a real provider today (`sendAlertEmail`);
- * sms/push are recorded but not yet dispatchable and are left `pending` for
- * a future channel implementation rather than falsely marked `sent`.
+ * Email (`sendAlertEmail`) and browser push (`sendPushToProfile`, standard
+ * Web Push) send. SMS has no provider (it needs a paid one), so an sms row is
+ * left `pending` rather than falsely marked `sent`.
+ *
+ * The member's own filters hold a send before it goes out, on every channel:
+ * quiet hours, and the minimum score for an alert (an invalidation is always
+ * sent outside quiet hours, since it tells the member a tracked setup broke).
+ * A held send is `skipped` with the reason, never retried. The intraday email
+ * path (`notifySubscribedUsers`) already applied both; this path now does too.
  */
 export async function dispatchNotificationDelivery(
   service: SupabaseClient,
@@ -163,26 +178,38 @@ export async function dispatchNotificationDelivery(
 
   const { data: current, error: readError } = await service
     .from("notification_deliveries")
-    .select("id, status, channel, payload, attempt_count")
+    .select("id, status, channel, payload, attempt_count, created_at")
     .eq("id", args.deliveryId)
     .single();
   if (readError || !current) throw new Error(`dispatchNotificationDelivery: ${readError?.message ?? "not found"}`);
   if (!DISPATCHABLE_STATUSES.includes(current.status)) return { dispatched: false, reason: "not_pending" };
   if ((current.attempt_count ?? 0) >= MAX_DISPATCH_ATTEMPTS) return { dispatched: false, reason: "max_attempts" };
 
-  if (current.channel !== "email") {
+  if (current.channel !== "email" && current.channel !== "push") {
     return { dispatched: false, reason: "channel_unsupported" };
   }
 
-  const { data: userRecord } = await service.auth.admin.getUserById(args.profileId);
-  const email = userRecord?.user?.email;
-  if (!email) return { dispatched: false, reason: "no_email" };
-
   const payload = current.payload as NotificationPayload;
-  const result =
-    payload.verdict === "INVALIDATED"
-      ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
-      : await sendAlertEmail({ userEmail: email, ...payload });
+  let result: { success: boolean; id?: string | null; error?: string; skipped?: boolean };
+  const createdAt = Date.parse((current as { created_at?: string }).created_at ?? "");
+  const stale = current.channel === "push" && Number.isFinite(createdAt) && Date.now() - createdAt > PUSH_MAX_AGE_MS;
+  const held = stale
+    ? "Older than a push is worth sending: the plan is read again on the next scan."
+    : await preferenceHold(service, args.profileId, payload);
+  if (held) {
+    result = { success: false, skipped: true, error: held };
+  } else if (current.channel === "push") {
+    const pushed = await sendPushToProfile(service, args.profileId, deliveryPushMessage(payload));
+    result = pushed.success ? { success: true, id: null } : pushed;
+  } else {
+    const { data: userRecord } = await service.auth.admin.getUserById(args.profileId);
+    const email = userRecord?.user?.email;
+    if (!email) return { dispatched: false, reason: "no_email" };
+    result =
+      payload.verdict === "INVALIDATED"
+        ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
+        : await sendAlertEmail({ userEmail: email, ...payload });
+  }
   // A send the sandbox sender cannot deliver is `skipped`, not `failed`, and
   // never retried; every other failure keeps Resend's own reason (S-04).
   const status: "sent" | "failed" | "skipped" = result.success
@@ -204,6 +231,52 @@ export async function dispatchNotificationDelivery(
     .in("status", DISPATCHABLE_STATUSES);
 
   return { dispatched: true, status };
+}
+
+/**
+ * Why the member's own notification filters hold this send, or null when it
+ * may go out. Unreadable preferences hold nothing: a member who never saved
+ * any gets the defaults the settings API promises (no quiet hours, score
+ * floor 5), and an Execute alert always clears 5.
+ */
+export async function preferenceHold(
+  service: SupabaseClient,
+  profileId: string,
+  payload: NotificationPayload,
+): Promise<string | null> {
+  try {
+    const { data: prefs } = await service
+      .from("notification_preferences")
+      .select("min_score, quiet_hours_enabled")
+      .eq("user_id", profileId)
+      .maybeSingle();
+    if (!prefs) return null;
+    const minScore = (prefs as { min_score: number | null }).min_score;
+    if (payload.verdict !== "INVALIDATED" && minScore != null && payload.score < minScore) {
+      return `Below the member's minimum score (${payload.score} < ${minScore}).`;
+    }
+    if ((prefs as { quiet_hours_enabled: boolean | null }).quiet_hours_enabled && (await inQuietHours(service, profileId))) {
+      return "Inside the member's quiet hours.";
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether the member is inside quiet hours they turned on. Every send that
+ * reaches a member outside the app reads it (setup alerts, price alerts,
+ * intraday alerts). Fails open on an unreadable preference, as
+ * `preferenceHold` does.
+ */
+export async function inQuietHours(service: SupabaseClient, profileId: string): Promise<boolean> {
+  try {
+    const { data } = await service.rpc("is_in_quiet_hours", { user_id: profileId });
+    return data === true;
+  } catch {
+    return false;
+  }
 }
 
 /** Idempotency guard for `recordInAppNotification` -- a unique index on

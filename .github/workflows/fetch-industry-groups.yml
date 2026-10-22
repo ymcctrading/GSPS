@@ -49,7 +49,7 @@ jobs:
           name: industry-groups-${{ github.run_id }}
           path: out/
       - name: Commit the file
-        if: inputs.commit && github.ref != 'refs/heads/main'
+        if: inputs.commit && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
         run: |
           cp out/industryGroups.json lib/gann/industryGroups.json
           git config user.name "github-actions[bot]"

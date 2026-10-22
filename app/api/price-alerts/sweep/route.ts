@@ -27,7 +27,9 @@ import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { sendPriceAlertEmail } from "@/lib/notifications/resend-handler";
 import { isPriceAlertFired } from "@/lib/trade/price-alert";
+import { priceAlertPushMessage, sendPushToProfile } from "@/lib/notifications/web-push";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { inQuietHours } from "@/lib/entitlements/delivery";
 
 export const maxDuration = 60;
 
@@ -109,6 +111,19 @@ export async function GET(req: NextRequest) {
     if (userPage.users.length < 200) break;
   }
 
+  // Browser push goes only to members who turned it on (lib/notifications/web-push.ts).
+  const pushUserIds = new Set<string>();
+  const alertUserIds = [...new Set(openAlerts.map((a) => a.user_id))];
+  if (alertUserIds.length > 0) {
+    const { data: pushPrefs, error: pushPrefError } = await service
+      .from("notification_preferences")
+      .select("user_id")
+      .eq("push_enabled", true)
+      .in("user_id", alertUserIds);
+    if (pushPrefError) console.error(`price-alerts/sweep: push preferences not read — ${pushPrefError.message}`);
+    for (const row of (pushPrefs ?? []) as { user_id: string }[]) pushUserIds.add(row.user_id);
+  }
+
   let triggeredCount = 0;
   for (const alert of openAlerts) {
     const price = priceBySymbol.get(alert.symbol);
@@ -127,6 +142,26 @@ export async function GET(req: NextRequest) {
       continue;
     }
     triggeredCount += 1;
+
+    // Quiet hours hold this send like every other alert's (preferenceHold).
+    // The alert still reads triggered on the member's price-alerts list.
+    if (await inQuietHours(service, alert.user_id)) continue;
+
+    if (pushUserIds.has(alert.user_id)) {
+      const pushed = await sendPushToProfile(
+        service,
+        alert.user_id,
+        priceAlertPushMessage({
+          symbol: alert.symbol,
+          direction: alert.direction,
+          targetPrice: alert.target_price,
+          currentPrice: price,
+        }),
+      );
+      if (!pushed.success && !pushed.skipped) {
+        console.error(`price-alerts/sweep: push not sent for alert ${alert.id} — ${pushed.error}`);
+      }
+    }
 
     const userEmail = emailByUserId.get(alert.user_id);
     if (!userEmail) continue;

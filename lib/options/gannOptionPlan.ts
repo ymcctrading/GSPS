@@ -18,6 +18,15 @@
  *   long, a put for a short.
  * - They pay best on $75-150 stocks (PDF 453): a note on the card, not a gate.
  *
+ * Where it acts today (review of #405, 2026-10-21): the order ticket's chain
+ * opens on `gannOptionExpiration`, and the strike modal shows the risk note.
+ * Not yet on a surface, stated so it is not read as built: the strike is the
+ * trader's (`gannOptionStrike`, `nearestListedStrike` and `gannOptionType`
+ * are not yet wired to preselect one), and an option order is not held for
+ * the underlying's entry confirmation (`place-order.ts` skips it for
+ * options), so the chart rules time it only as far as the trader follows the
+ * underlying's plan.
+ *
  * Three-question basis: 1. Gann, as cited. 2. The 30 days is a holding term
  * he chose, not a cycle claim; Dewey's checklist does not apply. 3. Polarity:
  * the call and the put are the two poles of one rule; Cause and Effect: the
@@ -75,4 +84,4 @@ export function inGannOptionBand(underlying: number): boolean {
 
 /** The card's one line on an option's risk, in Gann's terms. */
 export const GANN_OPTION_RISK_NOTE =
-  "The premium is the most this can lose. The method buys puts and calls as insurance, in place of a stop, good for 30 days and a few points out of the money.";
+  "The premium is the most this can lose. The method buys puts and calls as insurance, in place of a stop. The first expiry 30 or more days out is shown first; the method prefers a strike a few points out of the money, which you choose.";

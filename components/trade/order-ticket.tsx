@@ -78,11 +78,12 @@ export function OrderTicket({
   }) => void;
 }) {
   const { pattern, symbol } = result;
-  // The trader's trade style (lib/trade/tradeStyle.ts): Fast reads the same
-  // plan with Gann's day stop, where the scan priced one.
+  // The trader's trade style (lib/trade/tradeStyle.ts). Both styles open on
+  // the same plan (Rule 3's entry and stop); Fast changes how the stop trails
+  // once filled, which the exit managers read from the saved choice.
   const { prefs: gannPrefs, save: saveGannPrefs } = useGannRulePrefs();
   const tradeStyle = gannPrefs.tradeStyle;
-  const levels = tradeStyle === "fast" && result.fastLevels ? result.fastLevels : result.levels;
+  const levels = result.levels;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
   // `levels`/`result.direction` are Gann's swing-crossing entry trigger
@@ -619,11 +620,6 @@ export function OrderTicket({
         </div>
         <div className="mt-2">
           <TradeStylePicker value={tradeStyle} onChange={(s) => void saveGannPrefs({ tradeStyle: s })} />
-          {tradeStyle === "fast" && result.levels && !result.fastLevels && (
-            <p className="mt-1 text-xs text-muted">
-              The last day&apos;s low gives no tighter stop than the swing plan here, so the swing plan&apos;s levels stand.
-            </p>
-          )}
         </div>
         {belowExecute && (
           <p className="mt-2 text-xs text-muted">

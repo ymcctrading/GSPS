@@ -174,6 +174,14 @@ function mockApi(payload: {
         json: () => Promise.resolve(body),
       } as Response);
     }
+    // The risk panel reads its own endpoint too (covered by lib/risk tests).
+    if (url.includes("/api/risk/dashboard")) {
+      return Promise.resolve({
+        ok: false,
+        status: 503,
+        json: () => Promise.resolve({ error: "Risk figures unread in this test." }),
+      } as Response);
+    }
     if (isPortfolio(url) && payload.portfolioFails) {
       return Promise.resolve({
         ok: false,
@@ -222,12 +230,13 @@ afterEach(() => {
 });
 
 describe("Portfolio sections", () => {
-  it("renders the six sections in order: Open, Pending, Rejected, Closed, Canceled & Expired, Trade Reviews", async () => {
+  it("renders the risk card, then the six sections in order: Open, Pending, Rejected, Closed, Canceled & Expired, Trade Reviews", async () => {
     mockApi({});
     render(<PortfolioPage />);
 
-    const headings = (await screen.findAllByRole("heading", { level: 3 })).map((h) => h.textContent);
+    const headings = (await screen.findAllByRole("heading", { level: 3 })).map((h) => h.textContent?.trim());
     expect(headings).toEqual([
+      "Risk",
       "Open Positions (0)",
       "Pending Positions (0)",
       "Rejected Orders (0)",

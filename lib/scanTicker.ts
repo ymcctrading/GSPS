@@ -44,7 +44,7 @@ import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { chooseSessionEntry, entryChart, gannEntryOf, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import { armSessionEntries, chooseSessionEntry, entryChart, gannEntryOf, isWithGannTrend, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -95,7 +95,6 @@ import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBench
 import { evaluateSaraConfluence } from "@/lib/signals/confluence/sara";
 import { routeMarketAdapter } from "@/lib/signals/confluence/marketAdapters";
 import { isConfluenceModuleEnabled } from "@/lib/signals/confluence/flags";
-import { priceFastLevels } from "@/lib/trade/tradeStylePlan";
 
 /**
  * What the caller is looking for. Left unset, a scan hunts reversions and
@@ -310,6 +309,18 @@ export async function scanTicker(
     let setAsideEntry: ScanResult["setAsideEntry"] = null;
     if (preference) {
       gannTrigger = entryOf(preference.direction);
+      // The other side's buying point, when it armed too, is set aside here
+      // as it is with no direction asked for, so the list row from the
+      // continuation pass and the symbol's page record the same thing (review
+      // of #395, finding 3).
+      // Only when the asked side is the one with the trend: a point the
+      // other way is set aside against the trend, never the reverse.
+      if (gannTrigger && entryDaily.length > 0 && isWithGannTrend(macroTrends, preference.direction)) {
+        const other = armSessionEntries(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c).find(
+          (a) => a.trigger.direction !== gannTrigger!.direction,
+        );
+        if (other) setAsideEntry = { setupKind: other.setupKind, direction: other.trigger.direction };
+      }
     } else if (entryDaily.length > 0) {
       const chosen = chooseSessionEntry(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
       if (chosen) {
@@ -430,11 +441,6 @@ export async function scanTicker(
         levelsError = err instanceof Error ? err.message : String(err);
       }
     }
-    // The fast-market plan (trade-style design, 2026-10-21): the same entry,
-    // the stop on Gann's day stop, priced by the same function.
-    const fastLevels = levels && entrySource ? priceFastLevels(levels, entrySource, sessions[sessions.length - 1] ?? null, (src) =>
-      computeTradeLevels(src, previousBar, gannTargets, optionPremium, executionAtr, assetClass, largeCap, allLevels.map((l) => l.price), atrPct),
-    ) : null;
     const srBandPct = levelBandPct(currentPrice);
     // The nearest in-band level on each side (support below, resistance
     // above); the score reads the one of its direction's role
@@ -685,7 +691,6 @@ export async function scanTicker(
       pattern,
       armedPatterns,
       levels,
-      fastLevels,
       levelsError,
       selectionStrength: selectionStrength(direction, leadership, weakStock, pillarFacts.universeRank),
       ...(stopBreach.breached

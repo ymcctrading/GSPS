@@ -23,6 +23,7 @@ import { BillingSettings } from "@/components/settings/billing-settings";
 import { ReferralSettings } from "@/components/settings/referral-settings";
 import { PromotionSettings } from "@/components/settings/promotion-settings";
 import { LiveTradingSettings } from "@/components/settings/live-trading-settings";
+import { RiskResetChecklist } from "@/components/settings/risk-reset-checklist";
 import { StrategyModeSettings } from "@/components/settings/strategy-mode-settings";
 import { CustomScriptsSettings } from "@/components/settings/custom-scripts-settings";
 import { TradingRemindersSettings } from "@/components/settings/trading-reminders-settings";
@@ -119,6 +120,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <RiskResetChecklist />
 
       <LiveTradingSettings />
 

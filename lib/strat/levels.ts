@@ -549,6 +549,23 @@ export function computeTradeLevels(
       stopLoss: pattern.gannReaction ? pattern.stopPrice : undefined,
     });
     const equityRisk = Math.abs(entry - equity.stopLoss);
+    // The same checks as the R model's (review finding F-02), on the numbers a
+    // person sees and an order carries: four positive prices, the stop on the
+    // other side of the entry (Rule 2: a stop is "1, 2 or 3 points away"), TP1
+    // beyond the entry and the master beyond TP1. Every named market reaches
+    // here since 2026-10-21, so a sub-cent crypto plan whose stop rounds onto
+    // its entry is refused here as it was by the R model (review of #405).
+    const shownPlan = [round(entry), equity.stopLoss, equity.takeProfit1, equity.takeProfit2];
+    if (
+      shownPlan.some((v) => !Number.isFinite(v) || v <= 0) ||
+      dir * (shownPlan[0] - shownPlan[1]) <= 0 ||
+      dir * (shownPlan[2] - shownPlan[0]) <= 0 ||
+      dir * (shownPlan[3] - shownPlan[2]) <= 0
+    ) {
+      throw new Error(
+        `Invalid trade levels: entry ${shownPlan[0]}, stop ${shownPlan[1]}, TP1 ${shownPlan[2]}, master ${shownPlan[3]} are not a priced ${pattern.direction} plan.`,
+      );
+    }
     return {
       ...(pattern.entryKind ? { entryKind: pattern.entryKind } : {}),
       ...(pattern.entrySource ? { entrySource: pattern.entrySource } : {}),

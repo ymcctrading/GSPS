@@ -55,6 +55,43 @@ export interface GannRulePrefs {
    * his fast-market method (`lib/trade/tradeStyle.ts`). Default swing.
    */
   tradeStyle: TradeStyle;
+  /**
+   * When each style was chosen, oldest first, written by the server only
+   * (`/api/settings/gann-rules`). A trade is managed in the style that stood
+   * when it was filled (`styleAt`): Gann chooses the method for the market at
+   * entry ("in fast markets", W006 Rule 2), so switching later never
+   * re-manages a trade already open.
+   */
+  tradeStyleHistory: TradeStyleChange[];
+}
+
+export interface TradeStyleChange {
+  style: TradeStyle;
+  /** ISO time the style was chosen. */
+  since: string;
+}
+
+/** The most style changes kept; older ones predate any trade still open. */
+export const TRADE_STYLE_HISTORY_MAX = 20;
+
+/**
+ * The style that stood at `at` (ISO): the latest change on or before it.
+ * Swing before any recorded change, including a Fast chosen before the
+ * history was kept, so no open trade's stop jumps on the first read.
+ */
+export function styleAt(history: readonly TradeStyleChange[], at: string): TradeStyle {
+  const t = Date.parse(at);
+  if (!Number.isFinite(t)) return "swing";
+  let style: TradeStyle = "swing";
+  for (const c of history) if (Date.parse(c.since) <= t) style = c.style;
+  return style;
+}
+
+/** The history with a change appended when the style differs from the current one. */
+export function withStyleChange(prefs: GannRulePrefs, style: TradeStyle, now: Date): TradeStyleChange[] {
+  const recorded = prefs.tradeStyleHistory.at(-1)?.style ?? "swing";
+  if (style === recorded) return prefs.tradeStyleHistory;
+  return [...prefs.tradeStyleHistory, { style, since: now.toISOString() }].slice(-TRADE_STYLE_HISTORY_MAX);
 }
 
 export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
@@ -64,6 +101,7 @@ export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
   restDismissedFor: null,
   awayFrom: null,
   tradeStyle: "swing",
+  tradeStyleHistory: [],
 };
 
 /** Days before an absence the close-out reminder opens (engineering choice). */
@@ -87,6 +125,12 @@ export function resolveGannRulePrefs(prefs: unknown): GannRulePrefs {
     restDismissedFor: typeof raw.restDismissedFor === "string" ? raw.restDismissedFor : null,
     awayFrom: typeof raw.awayFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.awayFrom) ? raw.awayFrom : null,
     tradeStyle: parseTradeStyle(raw.tradeStyle),
+    tradeStyleHistory: Array.isArray(raw.tradeStyleHistory)
+      ? (raw.tradeStyleHistory as unknown[])
+          .filter((c): c is { style: unknown; since: string } => !!c && typeof c === "object" && typeof (c as { since?: unknown }).since === "string" && Number.isFinite(Date.parse((c as { since: string }).since)))
+          .map((c) => ({ style: parseTradeStyle(c.style), since: c.since }))
+          .slice(-TRADE_STYLE_HISTORY_MAX)
+      : [],
   };
 }
 

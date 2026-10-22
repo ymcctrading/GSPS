@@ -7,6 +7,20 @@ const nextConfig: NextConfig = {
   // it. The `eslint` key was removed in Next 16 and `next build` no longer
   // lints, so linting runs via `npm run lint` instead.
 
+  // The push service worker (public/sw.js) must never be served stale, or a
+  // fix to it would wait on the browser's cache.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
+
   async redirects() {
     return [
       // The Backtest feature lives at /learning; /backtest is the name a

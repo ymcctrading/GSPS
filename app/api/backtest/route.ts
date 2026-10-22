@@ -18,7 +18,9 @@
  *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
  *   ?entryRule=confirmed   sequence instead of the reaction buy every path
  *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
- *   ?tradeStyle=fast      Gann's fast-market plan (day stop). See
+ *   ?tradeStyle=fast      Gann's fast-market method: the swing plan, its stop
+ *                          trailed 3 points under each completed day's low
+ *                          from the fill (Gann exits only). See
  *                          ReplayOptions.tradeStyle. Default swing.
  *   ?exitRule=gann        how open trades leave: bracket (default), gann or
  *                          gann-runner. See ReplayOptions.exitRule

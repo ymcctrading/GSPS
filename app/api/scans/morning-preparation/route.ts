@@ -16,10 +16,10 @@
  */
 
 import { NextRequest } from "next/server";
-import { runScheduledScan } from "@/lib/entitlements/scheduled-scan";
+import { etWindowFrom, runScheduledScan } from "@/lib/entitlements/scheduled-scan";
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  return runScheduledScan(req.headers.get("authorization"), "scheduled_morning_scan");
+  return runScheduledScan(req.headers.get("authorization"), "scheduled_morning_scan", etWindowFrom(6, 30));
 }

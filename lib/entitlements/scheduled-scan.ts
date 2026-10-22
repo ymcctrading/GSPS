@@ -61,7 +61,7 @@ import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
 import { buildScanRows, describeDbError, persistDailyScans } from "@/lib/scan/publish";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
-import { etDateKey } from "@/lib/market/session";
+import { etDateKey, etParts } from "@/lib/market/session";
 import type { EntitlementPolicy } from "@/lib/entitlements/policy";
 import { FAN_OUT_DEADLINE_MS, fanOutToProfiles } from "@/lib/entitlements/fanout-all";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
@@ -120,7 +120,7 @@ function logRunOutcome(args: {
   runId: string;
   source: ScheduledScanSource;
   marketDateEt: string | null;
-  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
+  outcome: "unauthorized" | "preview_skip" | "non_trading_day" | "outside_scheduled_window" | "already_run" | "upstream_unavailable" | "persist_failed" | "completed";
   environment: string;
   eligibleCount?: number;
   profilesFannedOut?: number;
@@ -145,9 +145,21 @@ function logRunOutcome(args: {
   );
 }
 
+/** A window of `length` minutes from an ET clock time, for runScheduledScan. */
+export function etWindowFrom(hour: number, minute: number, length = 30): { from: number; to: number } {
+  const from = hour * 60 + minute;
+  return { from, to: from + length };
+}
+
 export async function runScheduledScan(
   authorizationHeader: string | null,
   source: ScheduledScanSource,
+  /** The ET window, in minutes after midnight [from, to), the scan runs in.
+   *  pg_cron runs in UTC, so a job meant for a fixed ET time fires at both its
+   *  EDT and EST hour (migration 0102) and exactly one firing falls inside the
+   *  window in either season. Outside it the scan skips, so a failed run is
+   *  never retried an hour late. The times are product choices, not Gann's. */
+  etWindow?: { from: number; to: number },
 ): Promise<NextResponse> {
   const runId = randomUUID();
   const environment = process.env.VERCEL_ENV ?? "unknown";
@@ -173,6 +185,13 @@ export async function runScheduledScan(
   }
 
   const marketDateEt = etDateKey(now);
+  if (etWindow) {
+    const minutes = etParts(now).minutes;
+    if (minutes < etWindow.from || minutes >= etWindow.to) {
+      logRunOutcome({ runId, source, marketDateEt, outcome: "outside_scheduled_window", environment });
+      return NextResponse.json({ skipped: "outside_scheduled_window", source, runId });
+    }
+  }
   const service = createServiceClient();
 
   // Idempotency check-before-write: cheap and covers the common case (a

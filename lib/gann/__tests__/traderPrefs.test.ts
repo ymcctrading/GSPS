@@ -10,6 +10,7 @@ describe("trader rule preferences", () => {
       restDismissedFor: null,
       awayFrom: null,
       tradeStyle: "swing",
+      tradeStyleHistory: [],
     });
     expect(resolveGannRulePrefs({ gannRules: { tradeStyle: "fast" } }).tradeStyle).toBe("fast");
     expect(resolveGannRulePrefs({ gannRules: { tradeStyle: "scalp" } }).tradeStyle).toBe("swing");

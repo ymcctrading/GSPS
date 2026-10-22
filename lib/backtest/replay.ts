@@ -37,6 +37,9 @@
  *     properties of one symbol's setup.
  *   - With no trend on any chart, one reversion: the nearer of the two
  *     sides' buying points (fork F4 a), as `scanTicker` arms it.
+ *   - One a session, as the live scan shows (`chooseSessionEntry`, since
+ *     2026-10-21): the continuation when it armed, else the reversion. The
+ *     other side is set aside, not traded.
  *
  * A session arms once it has `MIN_DAILY_BARS_FOR_SCAN` prior daily bars, the
  * same minimum `scanTicker` enforces (it was 120 here until 2026-09-26, which
@@ -61,7 +64,6 @@
  */
 
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
-import { priceFastLevels } from "@/lib/trade/tradeStylePlan";
 import type { TradeStyle } from "@/lib/trade/tradeStyle";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
@@ -69,9 +71,10 @@ import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetP
 import type { TradeLevels } from "@/lib/types";
 import {
   MIN_DAILY_BARS_FOR_SCAN,
-  armSessionEntries,
+  chooseSessionEntry,
   entryChart,
   gannEntryOf,
+  preferWithTrend,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -239,11 +242,13 @@ export interface ReplayOptions {
   usePlanLevels?: boolean;
   /**
    * The trade style walked (`lib/trade/tradeStyle.ts`, 2026-10-21). "fast"
-   * trades Gann's fast-market plan: the same entry and verdict, the stop on
-   * his day stop (3 points beyond the last completed day's low, high for a
-   * short; `lib/gann/dayStop.ts`) and TP1 re-read against that risk, as the
-   * live scan's `fastLevels`. A setup with no tighter day stop trades its
-   * swing plan. Default "swing".
+   * trades Gann's fast-market method: the same plan, entry and stop as
+   * swing (Rule 3, W006 pp.46-47), and from the fill's session the stop
+   * trails 3 points under each completed day's low (over its high, short;
+   * `readGannExit`'s "day_low", W006 Rule 2 p.46), as the live and paper exit
+   * managers trail it. Read by Gann's exits only (`exitRule` "gann" or
+   * "gann-runner"); the fixed bracket has no trail, so "fast" changes
+   * nothing there. Default "swing".
    */
   tradeStyle?: TradeStyle;
   /**
@@ -412,6 +417,27 @@ export interface ReplayOptions {
    * them. Falls back to `longMonthlyBars`.
    */
   yearCountMonthlyBars?: Bar[];
+  /**
+   * Collect the daily plan each session stands on, as the daily scan prices it
+   * (`lib/backtest/replayIntradayAlerts.ts`): the session's chosen buying point
+   * (`chooseSessionEntry`'s rule, the with-trend point first), its plan levels
+   * and its verdict, read from the sessions before it. Keyed by date; null when
+   * the session arms nothing or prices no plan. Read once per session, on its
+   * first execution bar.
+   */
+  sessionPlans?: Map<string, SessionDailyPlan | null>;
+  /** With `sessionPlans`: collect the plans only, and trade nothing. */
+  plansOnly?: boolean;
+}
+
+/** One session's daily plan, as `ReplayOptions.sessionPlans` collects it. */
+export interface SessionDailyPlan {
+  direction: "up" | "down";
+  verdict: ScanDecision["outputState"];
+  entry: number;
+  stop: number;
+  tp1: number;
+  mtp: number;
 }
 
 /**
@@ -958,6 +984,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     longMonthlyBars,
     yearCountMonthlyBars,
     universeStrength,
+    sessionPlans,
+    plansOnly = false,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -1067,12 +1095,16 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           breakawayVolumeMet(entryDaily, trigger.direction, gannBreakLine(trigger.reactionEntry, trigger.reactionStop)),
         pivotAt: trigger.formedAt,
       });
-      // The reversion against the trend, and the buying point with it on the
-      // trend alone (PLAN.md item 6 step 11), the scan's two passes.
+      // The one buying point the live scan shows for the session
+      // (`chooseSessionEntry`): the one with the trend when it armed, else the
+      // reversion. Before 2026-10-21 the replay traded every entry that armed
+      // (`armSessionEntries`), so when both sides armed it also traded the
+      // reversion against the trend, which the live scan sets aside: "never
+      // buck the trend" (never-failing rule 5, Commodities pp. 43-45; review of
+      // #395, finding 4).
       if (entryDaily.length > 0) {
-        for (const { setupKind, trigger } of armSessionEntries(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c)) {
-          triggers.push(sessionTrigger(setupKind, trigger));
-        }
+        const chosen = chooseSessionEntry(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
+        if (chosen) triggers.push(sessionTrigger(chosen.setupKind, chosen.trigger));
       }
       arm = {
         context,
@@ -1124,7 +1156,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
     const arm = sessionArm(date, armPrice);
-    if (!arm) continue;
+    if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, armPrice, assetClass, weights) : null);
+    if (plansOnly || !arm) continue;
 
     for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
@@ -1337,12 +1370,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         dropped.noLevels++;
         continue;
       }
-      const fastPlan = tradeStyle === "fast" ? scored.fastLevels : null;
-      const planLevels = usePlanLevels ? (fastPlan ?? scored.levels) : null;
+      const planLevels = usePlanLevels ? scored.levels : null;
       const planned = entryRule === "reaction" ? trigger.reactionEntry : trigger.triggerPrice;
-      const stop = fastPlan
-        ? fastPlan.stopLoss
-        : entryRule === "reaction"
+      const stop = entryRule === "reaction"
         ? trigger.reactionStop
         : planLevels
         ? planLevels.stopLoss
@@ -1455,6 +1485,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           isStock: assetClass === "us_equity",
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
           disabled,
+          style: tradeStyle,
         });
         trades.push({
           symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
@@ -1489,7 +1520,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
             cause: walked.reason, brokenLevel: walked.finalExit, extreme: walked.best ?? entry, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry, disabled,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry, disabled, style: tradeStyle,
           })) {
             // Not scored: no verdict, score or criteria is inherited (see `derived`).
             trades.push({
@@ -1499,7 +1530,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }
         }
         if (rebuy) {
-          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled });
+          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled, style: tradeStyle });
           if (r) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
@@ -1704,6 +1735,8 @@ export function walkRebuy(input: {
   sharesOn?: (date: string) => number | null;
   /** `ReplayOptions.disableExits`, resolved. */
   disabled?: ReadonlySet<GannExitRuleName>;
+  /** The trade style, carried to the derived trade (`walkGannExit`). */
+  style?: TradeStyle;
 }): ReversalTrade | null {
   const { bars, plan } = input;
   const long = plan.side === "long";
@@ -1723,6 +1756,7 @@ export function walkRebuy(input: {
       scaleOut: input.runner ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
       sharesOn: input.sharesOn,
       disabled: input.disabled,
+      style: input.style,
     });
     const executionAtr = atr(bars.slice(Math.max(0, k - 30), k), 14);
     return {
@@ -1770,6 +1804,8 @@ export function walkReversals(input: {
   coverAt?: number;
   /** `ReplayOptions.disableExits`, resolved. */
   disabled?: ReadonlySet<GannExitRuleName>;
+  /** The trade style, carried to the derived trade (`walkGannExit`). */
+  style?: TradeStyle;
 }): ReversalTrade[] {
   const out: ReversalTrade[] = [];
   const { bars, dailyBars } = input;
@@ -1802,6 +1838,7 @@ export function walkReversals(input: {
       sharesOn: input.sharesOn,
       coverAt: depth === 1 ? input.coverAt : undefined,
       disabled: input.disabled,
+      style: input.style,
     });
     const executionAtr = atr(bars.slice(Math.max(0, fillAt - 30), fillAt), 14);
     out.push({
@@ -1876,6 +1913,8 @@ export function walkGannExit(input: {
    * and a disabled signal never fires. Default none.
    */
   disabled?: ReadonlySet<GannExitRuleName>;
+  /** The trade style (`ReplayOptions.tradeStyle`): "fast" adds the day trail. Default swing. */
+  style?: TradeStyle;
 }): {
   /** The single price that gives the whole exit's P&L per first-lot unit (scale-outs and adds blended in): for R only. */
   exit: number;
@@ -1907,7 +1946,7 @@ export function walkGannExit(input: {
   let scaled = false;
   let pendingAdd: { qty: number; trigger: number; newStop: number } | null = null;
   const entryDate = bars[from].t.slice(0, 10);
-  const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel } as const;
+  const position = { side: long ? "long" : "short", entry, initialStop: input.stop, entryDate, crossedLevel, style: input.style ?? "swing" } as const;
   let stop = input.stop;
   let stopReason: GannStopReason = "initial";
   let best: number | null = null;
@@ -2009,6 +2048,46 @@ function priceTradeLevels(input: {
 }
 
 /**
+ * The daily plan a session stands on, as the daily scan shows it: the
+ * with-trend buying point when both armed, else the one that did
+ * (`preferWithTrend`, as `chooseSessionEntry` picks it), its levels and its
+ * verdict. A plan whose stop the price the session's scan read has already
+ * reached is none: live, `applyStopBreachHold` makes it Reject, so the
+ * intraday route never serves it (`loadDailyPlans`).
+ *
+ * Not modelled, labelled: live plans re-scored during market hours on the
+ * delayed feed carry `applyDataLagHold` (Execute held to Watch), so the
+ * Execute/Watch split read here is the verdict without that hold.
+ */
+function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, assetClass: AssetClass, weights?: CriterionWeights): SessionDailyPlan | null {
+  const chosen = preferWithTrend(arm.triggers);
+  if (!chosen || history.length === 0) return null;
+  const executionAtr = atr(history.slice(-30), 14);
+  const { decision, levels } = scoreSetup({
+    context: arm.context,
+    pattern: null,
+    gannTrigger: chosen.trigger,
+    history,
+    executionAtr,
+    assetClass,
+    largeCap: arm.largeCap,
+    setupKind: chosen.setupKind,
+    breakaway: chosen.breakaway,
+    monthlyWarning: chosen.monthlyWarning,
+    weights,
+  });
+  if (!levels || isStopBreached(chosen.trigger.direction, levels.stopLoss, armPrice)) return null;
+  return {
+    direction: chosen.trigger.direction === "bullish" ? "up" : "down",
+    verdict: decision.outputState,
+    entry: levels.entry,
+    stop: levels.stopLoss,
+    tp1: levels.takeProfit1,
+    mtp: levels.masterProfit,
+  };
+}
+
+/**
  * Rebuild the verdict the scanner would have shown for one armed setup.
  *
  * Reads only sessions strictly before the day being traded. That is stricter
@@ -2028,7 +2107,7 @@ function scoreSetup(input: {
   breakaway: BreakawayReading;
   monthlyWarning: MonthlyBreakWarning | null;
   weights?: CriterionWeights;
-}): { decision: ScanDecision; levels: TradeLevels | null; fastLevels: TradeLevels | null } {
+}): { decision: ScanDecision; levels: TradeLevels | null } {
   const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, weights } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
@@ -2037,14 +2116,6 @@ function scoreSetup(input: {
   const hourlyTrend = readTrend(hourlyBars, "1Hour");
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
-  // The fast-market plan, priced as the live scan prices `fastLevels`: the
-  // last completed session is the last bar of the daily chart.
-  const lastDay = context.dailyChart[context.dailyChart.length - 1] ?? null;
-  const fastLevels = levels
-    ? priceFastLevels(levels, gannEntrySource(gannTrigger), lastDay, (src) =>
-        computeTradeLevels(src, history[history.length - 2] ?? history[history.length - 1], gannTargetPool(context.gann), undefined, executionAtr, assetClass, largeCap, context.structuralLevels, context.atrPct),
-      )
-    : null;
 
   const decision = withDecisionState(applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
@@ -2078,7 +2149,7 @@ function scoreSetup(input: {
     context.disclosedRules.weakStock, gannTrigger.direction),
     // A-LEVELS-08: the first and second times through a round number hold, as live.
     figureCrossingOf(context.dailyChart, gannTrigger)), gannTrigger.direction);
-  return { decision, levels, fastLevels };
+  return { decision, levels };
 }
 
 /**

@@ -35,6 +35,7 @@ import { entryChart, gannEntryOf, monthlyChartFrom, trendsFromBars } from "@/lib
 import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import type { ReversalCause } from "@/lib/gann/reverse";
+import type { TradeStyle } from "@/lib/trade/tradeStyle";
 
 /** About two years of sessions: enough for the weekly swing chart and the campaign ledger. */
 const DAILY_LOOKBACK_DAYS = 730;
@@ -75,6 +76,8 @@ export interface LiveGannExitInput {
   openedAt: string;
   /** Best price seen since the fill. */
   best: number | null;
+  /** The trade style the position is managed in (`lib/trade/tradeStyle.ts`). Default swing. */
+  style?: TradeStyle;
   now?: Date;
 }
 
@@ -119,7 +122,7 @@ export function readGannExitFromBars(
   const entryDate = etDateKey(new Date(input.openedAt));
   const crossed = entryCrossedLevel(input.side, input.entryPrice, input.openedAt, daily, monthly);
   return readGannExit(
-    { side: input.side, entry: input.entryPrice, initialStop: input.initialStop, entryDate, crossedLevel: crossed },
+    { side: input.side, entry: input.entryPrice, initialStop: input.initialStop, entryDate, crossedLevel: crossed, style: input.style ?? "swing" },
     daily,
     input.best,
     sharesOutstanding,

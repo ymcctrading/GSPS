@@ -5,7 +5,7 @@
  * a close goes through the stop 3 points under the low that held.
  */
 import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Bar } from "@/lib/types";
 
@@ -22,6 +22,22 @@ vi.mock("@/lib/lifecycle/store", async () => {
   return { ...actual, getTradePlan, listTradePlans, applyEventAndPersist };
 });
 
+// The replay takes one entry a session (`chooseSessionEntry`), the
+// continuation first. The held-bottom replay tests read the reversion side
+// alone, so they turn this on; everything else reads the real chooser.
+const reversionOnly = vi.hoisted(() => ({ on: false }));
+vi.mock("@/lib/scan/entrySelection", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/scan/entrySelection")>("@/lib/scan/entrySelection");
+  return {
+    ...actual,
+    chooseSessionEntry: (...args: Parameters<typeof actual.chooseSessionEntry>) => {
+      if (!reversionOnly.on) return actual.chooseSessionEntry(...args);
+      const reversion = actual.armSessionEntries(...args).find((a) => a.setupKind === "reversion");
+      return reversion ? { ...reversion, setAside: null } : null;
+    },
+  };
+});
+
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { entryConfirmationRefusal, OrderSchema, type OrderInput } from "@/lib/trade/place-order";
@@ -32,7 +48,8 @@ import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { computeTradeLevels, gannEntrySource } from "@/lib/strat/levels";
 import { gannThreePoints } from "@/lib/gann/pointScale";
-import { replay } from "@/lib/backtest/replay";
+import { buildMacroContext, replay } from "@/lib/backtest/replay";
+import { chooseSessionEntry, gannEntryOf } from "@/lib/scan/entrySelection";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 
 const bar = (t: string, c: number): Bar => ({ t, o: c, h: c + 0.2, l: c - 0.2, c, v: 1 });
@@ -203,32 +220,52 @@ describe("the replay buys a held bottom at the last close", () => {
   const session = (tail: Array<ReturnType<typeof candle>>) =>
     [...Array.from({ length: 44 }, () => candle(H.reactionEntry * 1.004)), ...tail].map((b, i) => ({ ...b, t: stamp(i), v: 1000 }));
 
-  it("selects the held bottom on the day before the session", () => {
-    expect(DAILY[DAILY.length - 1].t.slice(0, 10) < DAY).toBe(true);
-    expect(H.kind).toBe("hold");
-    expect(H.reactionEntry).toBeCloseTo(DAILY[DAILY.length - 1].c, 8);
-    expect(H.reactionStop).toBeCloseTo(H.level - gannThreePoints(H.level), 8);
-  });
-
-  it("buys at the next open once a closed candle trades at the last close, with the stop 3 points under the low", () => {
+  it("sets the held bottom aside when the with-trend point arms too (never buck the trend)", () => {
     const r = replay("TEST", session([candle(H.reactionEntry + 0.03), candle(H.reactionEntry * 1.004), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
-    expect(r.trades).toHaveLength(1);
-    // At the market (never-failing rule 9): the open after the closed candle.
-    expect(r.trades[0].entry).toBeCloseTo(H.reactionEntry * 1.004, 6);
-    expect(r.trades[0].stop).toBeCloseTo(H.reactionStop, 6);
-    expect(r.trades[0].entryKind).toBe("hold");
+    expect(r.trades.filter((t) => t.direction === "bullish")).toHaveLength(0);
+    // Both sides armed, and the chooser took the one with the trend.
+    const macro = buildMacroContext(DAILY, DAILY[DAILY.length - 1].c).macroTrends;
+    const chosen = chooseSessionEntry(macro, gannEntryOf(DAILY, [], macro), DAILY[DAILY.length - 1].c);
+    expect(chosen?.setupKind).toBe("continuation");
+    expect(chosen?.trigger.direction).toBe("bearish");
+    expect(chosen?.setAside).toEqual({ setupKind: "reversion", direction: "bullish" });
   });
 
-  it("buys at the open when the session opens under the last close, with nothing to cross first", () => {
-    const under = Array.from({ length: 46 }, (_, i) => ({ ...candle(H.reactionEntry * 0.997), t: stamp(i), v: 1000 }));
-    const r = replay("TEST", under, { targetR: 2, dailyBars: DAILY });
-    expect(r.trades).toHaveLength(1);
-    expect(r.trades[0].entry).toBeLessThan(H.reactionEntry);
-  });
+  describe("on the reversion side alone", () => {
+    beforeAll(() => {
+      reversionOnly.on = true;
+    });
+    afterAll(() => {
+      reversionOnly.on = false;
+    });
 
-  it("does not buy while price stays over the last close", () => {
-    const r = replay("TEST", session([candle(H.reactionEntry * 1.004), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
-    expect(r.trades).toHaveLength(0);
+    it("selects the held bottom on the day before the session", () => {
+      expect(DAILY[DAILY.length - 1].t.slice(0, 10) < DAY).toBe(true);
+      expect(H.kind).toBe("hold");
+      expect(H.reactionEntry).toBeCloseTo(DAILY[DAILY.length - 1].c, 8);
+      expect(H.reactionStop).toBeCloseTo(H.level - gannThreePoints(H.level), 8);
+    });
+
+    it("buys at the next open once a closed candle trades at the last close, with the stop 3 points under the low", () => {
+      const r = replay("TEST", session([candle(H.reactionEntry + 0.03), candle(H.reactionEntry * 1.004), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
+      expect(r.trades).toHaveLength(1);
+      // At the market (never-failing rule 9): the open after the closed candle.
+      expect(r.trades[0].entry).toBeCloseTo(H.reactionEntry * 1.004, 6);
+      expect(r.trades[0].stop).toBeCloseTo(H.reactionStop, 6);
+      expect(r.trades[0].entryKind).toBe("hold");
+    });
+
+    it("buys at the open when the session opens under the last close, with nothing to cross first", () => {
+      const under = Array.from({ length: 46 }, (_, i) => ({ ...candle(H.reactionEntry * 0.997), t: stamp(i), v: 1000 }));
+      const r = replay("TEST", under, { targetR: 2, dailyBars: DAILY });
+      expect(r.trades).toHaveLength(1);
+      expect(r.trades[0].entry).toBeLessThan(H.reactionEntry);
+    });
+
+    it("does not buy while price stays over the last close", () => {
+      const r = replay("TEST", session([candle(H.reactionEntry * 1.004), candle(H.reactionEntry * 1.004)]), { targetR: 2, dailyBars: DAILY });
+      expect(r.trades).toHaveLength(0);
+    });
   });
 });
 

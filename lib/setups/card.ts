@@ -79,6 +79,12 @@ export interface SetupCardModel {
    * 2026-10-21). Null when it is within range or the range is not known.
    */
   resting: RestingRead | null;
+  /**
+   * Set when a buying point on the other side also armed and was set aside
+   * because it runs against the trend (never-failing rule 5, *Commodities*
+   * pp. 43-45; `chooseSessionEntry`). Null otherwise.
+   */
+  setAsideNote: string | null;
   synopsis: string;
   tickerHref: string;
 }
@@ -237,9 +243,22 @@ export interface DailySetupInput {
   currentPrice?: number | null;
   /** A day's range, for the resting-order read (`lib/setups/resting.ts`). */
   dayRange?: number | null;
+  /** The buying point set aside against the trend, when both sides armed. */
+  setAsideEntry?: { setupKind: "reversion" | "continuation"; direction: "bullish" | "bearish" } | null;
   signal?: PublicSignalSummary | null;
   scoreSummary?: PublicScoreSummary | null;
   trends?: { timeframe: string; direction: string }[] | null;
+}
+
+/**
+ * The line a card shows when the session armed a buying point on each side
+ * and took the one with the trend: "never buck the trend" (never-failing rule
+ * 5, *Commodities* pp. 43-45). Null when only one side armed.
+ */
+export function setAsideNoteOf(entry: DailySetupInput["setAsideEntry"]): string | null {
+  if (!entry) return null;
+  const side = entry.direction === "bearish" ? "sell" : "buy";
+  return `A ${side} point against the trend also armed and was set aside: the trade goes with the trend.`;
 }
 
 export function buildDailyCardModel(
@@ -280,6 +299,7 @@ export function buildDailyCardModel(
     patternLabel,
     continuation: row.setupKind === "continuation",
     resting,
+    setAsideNote: setAsideNoteOf(row.setAsideEntry),
     synopsis: buildSetupSynopsis({
       side,
       verdict: row.outputState,

@@ -1335,7 +1335,9 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     : `${input.symbol} reacted to its daily plan's entry at ${priceText(plan.entry)}, held, and the session's swing chart turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
   checks.push({ name, passed: true, detail: cause });
 
-  const move = measureMove(m.last, plan.entry, "plan_entry");
+  // Measured from the closed bar, as the plan's entry and its pays-the-risk
+  // test are: Gann's rules act on a close, not an intraday poke.
+  const move = measureMove(entry, plan.entry, "plan_entry");
   if (!move) return null;
   const factors: ConfidenceFactor[] = [
     {
@@ -1372,7 +1374,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     factors,
     invalidation: stop,
     plan: sessionPlan,
-    whyThisAppeared: `${cause} The stop goes one point ${up ? "under" : "over"} that ${up ? "bottom" : "top"}, at ${priceText(stop)}, much closer than the daily stop; the targets stay the daily plan's${plan.tp1 != null ? `, ${priceText(plan.tp1)}` : ""}${plan.mtp != null ? ` and ${priceText(plan.mtp)}` : ""}, because the money is made on the swing, not the day.`,
+    whyThisAppeared: `${cause} The stop goes 3 points ${up ? "under" : "over"} the day's ${up ? "low" : "high"}, at ${priceText(stop)}, never past the daily plan's own stop; the targets stay the daily plan's${plan.tp1 != null ? `, ${priceText(plan.tp1)}` : ""}${plan.mtp != null ? ` and ${priceText(plan.mtp)}` : ""}, because the money is made on the swing, not the day.`,
   });
 }
 
@@ -1811,18 +1813,26 @@ export function firstFlaggedWithin(
  * Returns null rather than a number when fewer than two prior sessions are
  * available: a baseline drawn from one day is noise, and callers must be able
  * to tell "unavailable" from "normal".
+ *
+ * `regularOnly` (equities): only regular-session bars count, as in the
+ * numerator (`sessionMetrics` sums the session from the open). The feed's
+ * pre-market prints are not part of the auction the session measures, and
+ * counting them in the baseline alone read every equity's relative volume low
+ * (found 2026-10-21 by the PR #408 review).
  */
 export function volumeBaseline(
   bars: Bar[],
   throughEtMinute: number,
   todayEtDate: string,
   minSessions = 2,
+  regularOnly = false,
 ): number | null {
   const bySession = new Map<string, number>();
 
   for (const bar of bars) {
     if (!isUsableBar(bar)) continue;
     const at = new Date(bar.t);
+    if (regularOnly && !isRegularSession(at)) continue;
     const date = etDateKey(at);
     if (date === todayEtDate) continue;
     if (etParts(at).minutes > throughEtMinute) continue;
@@ -1847,6 +1857,16 @@ export function barsForSession(bars: Bar[], etDate: string): Bar[] {
     .filter((b) => !Number.isNaN(Date.parse(b.t)) && etDateKey(new Date(b.t)) === etDate)
     .sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
 }
+
+/**
+ * Calendar days of daily history the intraday scan reads per symbol: a year,
+ * so the campaign ledger behind the over-balance-of-space alert can find the
+ * weekly trend's start, the same year of daily bars the daily scan reads
+ * (2026-10-16). The ATR and the liquidity floor still read only their own
+ * trailing windows of it. The route fetches it, and the alert replay
+ * (`lib/backtest/replayIntradayAlerts.ts`) windows each session to it.
+ */
+export const INTRADAY_DAILY_HISTORY_DAYS = 400;
 
 /** ---- Formatting helpers ------------------------------------------------ */
 

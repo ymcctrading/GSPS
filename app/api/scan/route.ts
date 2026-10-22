@@ -21,7 +21,6 @@ import { withTimeout } from "@/lib/utils";
 import type { RankedSetup } from "@/lib/entitlements/result-selection";
 import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
 import type { ScanResult } from "@/lib/types";
-import { withDecisionState } from "@/lib/scoring/decisionState";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 
 // Without this, the route falls back to Vercel's default function duration
@@ -109,7 +108,7 @@ export async function GET(req: NextRequest) {
       {
         error: timedOut ? "The scan took too long. Please try again." : "The scan could not be completed. Please try again.",
         direction: "none",
-        decision: withDecisionState({ outputState: "Reject", score: 0, breakdown: [] }, "none"),
+        decision: { outputState: "Reject", score: 0, decisionState: "standDown" },
       } as ScanResult,
       { status: timedOut ? 504 : 502 }
     );
