@@ -36,6 +36,7 @@
  * cron. Each constant's own comment carries its design rationale.
  */
 
+import { mergeSweptIntoShortlist, SWEEP_SLOTS } from "@/lib/scan/universeSweep";
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { assertLiveMarketData } from "@/lib/data/feed-mode";
@@ -900,6 +901,15 @@ export async function runMarketScan(
    * shortlist union the current universe-rotation discovery chunk).
    */
   extraSymbols: string[] = [],
+  /**
+   * Last night's swept Execute and Watch setups (`lib/scan/universeSweep.ts`,
+   * `loadSweptCandidates`), best first. They take the full pass's first slots
+   * whatever the coarse filter reads, so a stock the sweep scored Execute is
+   * re-scored on today's price instead of never being looked at; the coarse
+   * shortlist fills the rest, so the full pass scores no more symbols than
+   * before. Defaults to empty, the coarse shortlist alone.
+   */
+  sweptSymbols: string[] = [],
 ): Promise<MarketScanOutput> {
   const startedAt = Date.now();
   // Temporary stage-timing breadcrumbs (2026-09-10) while the widened
@@ -1052,7 +1062,16 @@ export async function runMarketScan(
     console.warn(`market-scan: ${scanDate} monthly fetch still running after the coarse pass — yearly-cycle re-rank skipped`);
   }
   mark("yearly-cycle re-rank", yearHits ? `read=${yearHits.size}` : "skipped");
-  const shortlist = rankShortlist(rerankPool, shortlistSize, yearHits, selection);
+  // Last night's swept setups first (owner, 2026-10-22: Execute setups are
+  // pushed first), then the coarse shortlist, same total.
+  const coarseShortlist = rankShortlist(rerankPool, shortlistSize, yearHits, selection);
+  const shortlist = mergeSweptIntoShortlist(
+    sweptSymbols.slice(0, SWEEP_SLOTS),
+    coarseShortlist,
+    shortlistSize,
+    (symbol) => ({ symbol, direction: "bullish", kind: "reversion", coarseScore: 0 }),
+  );
+  mark("shortlist", `${shortlist.length} (swept ${Math.min(sweptSymbols.length, SWEEP_SLOTS)})`);
   const continuationPool = coarse
     .map((c) => c.continuation)
     .filter((c): c is CoarseCandidate => c !== null)
@@ -1152,7 +1171,13 @@ export async function runMarketScan(
   const continuationScans = new Set(continuationScanResults);
   continuationFills.bearish = lists.bearish.filter((r) => continuationScans.has(r)).length;
 
-  const shortlistedSymbols = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
+  // The coarse filter's own picks that kept a full-pass slot, so the column
+  // still reads "the coarse filter shortlisted it"; a swept symbol the filter
+  // rejected is not counted as one.
+  const kept = new Set(shortlist.map((c) => c.symbol.toUpperCase()));
+  const shortlistedSymbols = new Set(
+    coarseShortlist.map((c) => c.symbol.toUpperCase()).filter((sym) => kept.has(sym)),
+  );
   const fullScanResults = new Map(
     [...valid, ...continuationScanResults.filter((r) => !r.error)].map((r) => [r.symbol, r]),
   );
