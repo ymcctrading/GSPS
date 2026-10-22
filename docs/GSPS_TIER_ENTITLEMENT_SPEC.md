@@ -151,3 +151,33 @@ Implementation: `decideTransition` (`lib/entitlements/monitor.ts`) sets `notify:
 ## Correction (2026-10-16)
 
 The one-correlated-group ceiling from the Novice Risk, Account & Cooldown Engine spec pack (`lib/risk/config.ts#MAX_CORRELATED_RISK_GROUPS`, stated "at $450") was enforced on every tier. Group membership is approximated by the symbol itself, so the cap held every account, Wall Street included, to one open symbol at a time, and refused a second with "Novice accounts at this equity level may hold only 1 at a time." The cap is now a tier entitlement (`maxCorrelatedRiskGroups`, `lib/entitlements/policy.ts`): 1 for Novice, unlimited above it. The single-position (25%), aggregate (65%) and total-open-risk (2%) ceilings in `lib/risk/position-limits.ts` still apply to every tier.
+
+## Practice accounts, one per tier (2026-10-22, project owner)
+
+"Each tier should have their own 'practice account' so that either level can
+be previewed by a potential new user, investor, or current user, weighing,
+whether or not they want to pay for/upgrade (and/or graduate) to the next
+tier."
+
+- One paper account per tier (`profiles.is_demo`, held to one a tier by
+  migration 0105's unique index), each at its tier, so every surface shows
+  exactly what that tier gets from the entitlement policy above. The original
+  Wall Street demo account is the Wall Street one; the other three are
+  created on first open (`lib/demo/practice.ts#ensurePracticeAccount`) with
+  `.invalid` addresses and passwords nobody holds.
+- GSPS trades each through Guided Mode's pipeline (`lib/demo/auto-trade.ts`,
+  `/api/demo/auto-trade?tier=`), three times a trading day per tier (pg_cron),
+  under that tier's own rules: the Novice account under Novice's percent
+  ceilings. Nothing is relaxed for a practice account.
+- Anyone opens one from `/practice` (linked from the home page and
+  `/promotion`), which lists each tier's inclusions and the account's record,
+  losses included. `/api/demo/open` signs the browser in with a one-time link
+  made and redeemed on the server: no email, no shared password.
+- A practice session is look-only. `proxy.ts` refuses its writes
+  (`practiceWriteRefused`) except a market scan, the tour, reading a notice
+  and switching tier, so the record is GSPS's own trading and nothing a
+  visitor typed. A banner on every signed-in page says which tier it is and
+  that it is paper money.
+- Known gap: profile and auth changes made straight to Supabase from the
+  browser (display name, password) can't be refused by the proxy. A password
+  change locks nobody out, since opening never uses the password.

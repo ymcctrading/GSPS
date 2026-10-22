@@ -5,7 +5,7 @@
  *
  * | Bucket       | /min | Routes                                                                 | Why                                                                    |
  * |--------------|------|------------------------------------------------------------------------|------------------------------------------------------------------------|
- * | `credential` | 5    | connect-live, snaptrade/connect, username-login, account-status        | A password or broker-key guess, or an account probe                    |
+ * | `credential` | 5    | connect-live, snaptrade/connect, username-login, account-status, demo/open | A password or broker-key guess, or an account probe                    |
  * | `outbound`   | 5    | notifications/send-test, push-subscription (writes), billing/checkout,  | Each sends an email or a push, or opens a Stripe session: GSPS's quota  |
  * |              |      | billing/portal, promotion upgrades (writes)                            | with an outside service, spent by one click                            |
  * | `order`      | 30   | orders, positions/*, portfolio/close, guided/execute, trade-plans,     | A write to the ledger; a person places a few a minute at most, and a   |
@@ -45,6 +45,8 @@ const CREDENTIAL_PREFIXES = [
   "/api/snaptrade/connect",
   "/api/auth/username-login",
   "/api/auth/account-status",
+  // Signs a browser into a practice account (lib/demo/practice.ts).
+  "/api/demo/open",
 ];
 
 const SCAN_PREFIXES = [

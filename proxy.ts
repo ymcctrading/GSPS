@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { RATE_LIMITS, rateLimitBucket } from "@/lib/rate-limit-policy";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { PRACTICE_WRITE_REFUSAL, practiceTierOfUser, practiceWriteRefused } from "@/lib/demo/practice";
 
 // `/learning` joins the list because the endpoint behind it now requires a
 // session: left public it would render a page whose only button 401s.
@@ -63,6 +64,11 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  // A practice account (lib/demo/practice.ts) is shared by every visitor who
+  // opens it, and its record is GSPS's own trading, so its session may look
+  // but not write. The tier rides in the session's app_metadata, which only
+  // the service role can set, so this needs no database read.
+  const practice = practiceTierOfUser(user);
 
   if (path.startsWith("/api")) {
     // The scheduled jobs all call from Supabase's one address; the secret's
@@ -91,6 +97,17 @@ export async function proxy(request: NextRequest) {
       );
     }
 
+    if (practice && practiceWriteRefused(path, request.method)) {
+      return NextResponse.json({ error: PRACTICE_WRITE_REFUSAL, practiceAccount: practice.slug }, { status: 403 });
+    }
+
+    return supabaseResponse;
+  }
+
+  // Leaving a practice account to sign in or sign up as oneself: end the
+  // practice session here rather than bouncing back to its dashboard.
+  if (practice && (path === "/login" || path === "/signup")) {
+    await supabase.auth.signOut({ scope: "local" });
     return supabaseResponse;
   }
 

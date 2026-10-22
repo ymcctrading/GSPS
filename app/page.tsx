@@ -77,6 +77,10 @@ export default function LandingPage() {
             No account needed —{" "}
             <Link href="/chart/SPY" className="font-medium text-accent hover:underline">
               open a live shareable chart
+            </Link>{" "}
+            or{" "}
+            <Link href="/practice" className="font-medium text-accent hover:underline">
+              preview any tier&apos;s practice account
             </Link>
             .
           </p>
