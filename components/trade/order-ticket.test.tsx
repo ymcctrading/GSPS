@@ -541,6 +541,19 @@ describe("OrderTicket other techniques", () => {
     expect(body.entryStop).toBeUndefined();
     expect(body.entryKind).toBeUndefined();
     expect(body.entryTarget).toBeUndefined();
+    expect(body.techniqueSource).toBe("macdMomentum");
+  });
+
+  it("lets the technique's levels lapse once the person changes the side", async () => {
+    const user = userEvent.setup();
+    mockTechniques();
+    render(<OrderTicket result={scanWithEntry(50)} />);
+
+    await user.click(await screen.findByRole("button", { name: "Read every technique" }));
+    await user.click(await screen.findByRole("button", { name: "Trade these levels" }));
+    await user.click(screen.getByRole("button", { name: /Buy \/ Long/ }));
+    expect(screen.queryByText(/Trading MACD momentum crossover/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Trade these levels" })).toBeTruthy();
   });
 
   it("says the plan is retired and reads the techniques with no plan once its stop has broken", async () => {

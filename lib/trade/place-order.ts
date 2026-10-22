@@ -96,6 +96,13 @@ export const OrderSchema = z.object({
    * the target as unknown and holds the entry under any failed test beyond it.
    */
   entryTarget: z.number().positive().optional(),
+  /**
+   * The technique whose own levels the person chose to trade (owner,
+   * 2026-10-22, `lib/strategies/compare.ts`): a mode id or `custom:<id>`.
+   * Its entry is the person's own limit, not a Gann crossing, so no crossing
+   * line is read from its stop. The risk rules still apply.
+   */
+  techniqueSource: z.string().min(1).max(80).optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
    * True only when this order was opened through the intraday alerts
@@ -238,7 +245,7 @@ export function riskCapRefusal(
 type ConfirmationInput = Pick<
   OrderInput,
   "symbol" | "assetClass" | "side" | "entryMode" | "limitPrice" | "attachLevels" | "sourcePlanId" | "entryStop" | "entryKind" | "entryTarget" | "referencePrice"
->;
+> & { techniqueSource?: string };
 
 /** Returns a refusal, or null to proceed. */
 export async function entryConfirmationRefusal(
@@ -292,7 +299,11 @@ export async function confirmEntry(
     // stop (`gannBreakLine`). The ticket sends that stop as `entryStop`, so a
     // stop the person typed in Manual Override doesn't move the line; an
     // order without it falls back to the stop it attaches.
-    const stopPrice = input.entryStop ?? input.attachLevels?.stopLoss;
+    // A technique's own levels (2026-10-22) carry no protocol stop and fall
+    // back to nothing: the person chose that technique, and "we can NEVER
+    // force them to drink" (owner), so no Gann crossing is waited for.
+    const stopPrice =
+      input.entryStop ?? (input.techniqueSource ? undefined : input.attachLevels?.stopLoss);
     if (stopPrice != null) {
       target = {
         direction: input.side === "sell" ? "bearish" : "bullish",

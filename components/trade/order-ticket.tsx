@@ -148,7 +148,7 @@ export function OrderTicket({
   // A non-aligned technique's own levels the person chose to trade: its entry
   // becomes the Manual Override's limit, its stop and TP1 the manual exit.
   const [techniqueTrade, setTechniqueTrade] = useState<
-    (OwnTechniqueLevels & { label: string }) | null
+    (OwnTechniqueLevels & { source: string; label: string }) | null
   >(null);
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
@@ -182,6 +182,15 @@ export function OrderTicket({
     value: AssetTradability | null;
   }>({ symbol: "", value: null });
   const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
+
+  // Another symbol's techniques and levels never carry over.
+  const [techniquesFor, setTechniquesFor] = useState(symbol);
+  if (techniquesFor !== symbol) {
+    setTechniquesFor(symbol);
+    setTechniques(null);
+    setTechniqueStatus("idle");
+    setTechniqueTrade(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -235,7 +244,16 @@ export function OrderTicket({
 
   // A technique's own entry is the reference limit only in Manual Override,
   // and only once the person chose to trade that technique's levels.
-  const techniqueEntry = executionMode === "manual" && techniqueTrade ? techniqueTrade : null;
+  // It lapses once the person changes the side, the stop or the target: the
+  // order is then their own, priced from their own fields.
+  const techniqueEntry =
+    executionMode === "manual" &&
+    techniqueTrade &&
+    side === (techniqueTrade.direction === "bearish" ? "sell" : "buy") &&
+    manualStop === priceField(techniqueTrade.stopLoss) &&
+    manualTarget === priceField(techniqueTrade.takeProfit1)
+      ? techniqueTrade
+      : null;
   const advised = techniqueEntry?.entry ?? levels?.entry ?? currentPrice ?? 0;
   // GSPS's plan, sent to the techniques route so each technique is read
   // against these levels and ranked by whether it aligns with them.
@@ -402,13 +420,13 @@ export function OrderTicket({
   function tradeTechnique(t: TechniqueRead) {
     if (!t.ownLevels) return;
     const own = t.ownLevels;
-    setTechniqueTrade({ ...own, label: t.label });
+    setTechniqueTrade({ ...own, source: t.source, label: t.label });
     setExecutionMode("manual");
     setAssetType("shares");
     setSide(own.direction === "bearish" ? "sell" : "buy");
     setEntryMode("advised");
-    setManualStop(String(own.stopLoss));
-    setManualTarget(String(own.takeProfit1));
+    setManualStop(priceField(own.stopLoss));
+    setManualTarget(priceField(own.takeProfit1));
     showTechnique(t.source);
   }
 
@@ -533,6 +551,9 @@ export function OrderTicket({
                 !techniqueEntry && entryMode === "advised" && levels?.entryKind && hasProtocolSignal && side === (result.direction === "bearish" ? "sell" : "buy")
                   ? levels.entryKind
                   : undefined,
+              // A technique's own levels the person chose: their own limit,
+              // with no crossing line to wait for (lib/strategies/compare.ts).
+              techniqueSource: techniqueEntry?.source,
               // The protocol's first target, for the failed-top check; a
               // Manual Override target doesn't replace it.
               entryTarget:
@@ -944,7 +965,7 @@ export function OrderTicket({
                         technique={t}
                         onShow={() => showTechnique(t.source)}
                         onTrade={() => tradeTechnique(t)}
-                        trading={techniqueEntry != null && techniqueEntry.label === t.label}
+                        trading={techniqueEntry?.source === t.source}
                       />
                     ))}
                   </ul>
@@ -1043,6 +1064,11 @@ export function OrderTicket({
       </CardContent>
     </Card>
   );
+}
+
+/** A technique's price for the manual fields: cents, or four places under $1. */
+function priceField(n: number): string {
+  return n >= 1 ? n.toFixed(2) : n.toFixed(4);
 }
 
 /**
