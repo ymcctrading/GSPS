@@ -309,6 +309,65 @@ export function batchChunkSize(
 }
 
 /**
+ * Daily or minute bars behind one bar of each timeframe. Alpaca cuts a page by
+ * the history it reads, not by `limit` ("the API may return less"): on
+ * 2026-10-23 a page held about 450 monthly bars (some 9,600 days), 1,750
+ * weekly (8,700 days) and 192 hourly crypto bars (11,500 minutes), whatever
+ * the limit. Only an estimate, for spreading pages across chunks.
+ */
+const UNDERLYING_PER_BAR: Record<Timeframe, number> = {
+  "1Year": 252,
+  "1Month": 21,
+  "1Week": 5,
+  "1Day": 1,
+  "4Hour": 240,
+  "2Hour": 120,
+  "1Hour": 60,
+  "15Min": 15,
+  "5Min": 5,
+  "1Min": 1,
+};
+
+/** About how much history (in UNDERLYING_PER_BAR units) Alpaca reads into one page. */
+const PAGE_HISTORY = 10_000;
+
+/** A read is split for parallel pages only from this many pages, where a part page a chunk costs little. */
+const SPLIT_MIN_PAGES = 12;
+
+/**
+ * A chunk's pages run one after another, so a read that needs many pages in
+ * one chunk waits for each in turn: 12 crypto pairs' hourly bars took 45
+ * sequential pages in one chunk (2026-10-23, 10:30 UTC), and the crypto pass
+ * missed its deadline. A read that needs `SPLIT_MIN_PAGES` or more pages in
+ * fewer than `CHUNK_CONCURRENCY` chunks is split into that many, so its pages
+ * run side by side. The page count stays about the same (Alpaca's page is set
+ * by the history read), plus at most one part page a chunk.
+ */
+export function parallelChunkSize(
+  symbolCount: number,
+  size: number,
+  timeframe: Timeframe,
+  start: Date,
+  end: Date | null,
+  assetClass: AssetClass,
+  now: number = Date.now(),
+): number {
+  if (symbolCount <= 1) return size;
+  const from = Math.max(start.getTime(), HISTORY_START_MS);
+  const to = end ? end.getTime() : now;
+  const days = Math.max(1, (to - from) / 86_400_000);
+  const rate = BARS_PER_DAY[timeframe] ?? BARS_PER_DAY["1Day"];
+  const bars = days * (assetClass === "crypto" ? rate.crypto : rate.equity) * symbolCount;
+  const pages = Math.ceil((bars * (UNDERLYING_PER_BAR[timeframe] ?? 1)) / PAGE_HISTORY);
+  // Each extra chunk can cost a part page, so only a long read is split.
+  if (pages < SPLIT_MIN_PAGES) return size;
+  const want = Math.min(CHUNK_CONCURRENCY, symbolCount);
+  const chunks = Math.ceil(symbolCount / size);
+  if (chunks >= want) return size;
+  return Math.ceil(symbolCount / want);
+}
+
+/**
  * How many chunk requests (and their page-token follow-ups) run at once.
  * Unbounded `Promise.all` across every chunk was fine at the ~500-symbol
  * universe this was built for, but the 2026-09-20 large-cap refresh (~765
@@ -368,7 +427,7 @@ export async function fetchBarsBatch(
   const result = new Map<string, Bar[]>();
   if (syms.length === 0) return result;
 
-  const size = batchChunkSize(timeframe, start, end, assetClass, limit);
+  const size = parallelChunkSize(syms.length, batchChunkSize(timeframe, start, end, assetClass, limit), timeframe, start, end, assetClass);
   const chunks = chunk(syms, size);
   // Pages and bars read, logged when the reads took more pages than chunks:
   // the market scan's 21:15 UTC run (2026-10-22) spent 85 tokens on monthly
