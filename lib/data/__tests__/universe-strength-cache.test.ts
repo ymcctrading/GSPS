@@ -132,4 +132,16 @@ describe("getUniverseStrength shared by month", () => {
     const got = await getUniverseStrength(now);
     expect(got?.get("2026-10")?.bySymbol.size).toBeGreaterThanOrEqual(100);
   });
+
+  it("files the read under the New York month, not the UTC one", async () => {
+    // 10 PM ET on October 31 is already November in UTC.
+    const lateOct = new Date("2026-11-01T02:00:00Z");
+    const read = vi.fn(async () => null);
+    fetchBarsBatchMock.mockResolvedValue(monthly(120));
+    const write = vi.fn(async () => {});
+    setUniverseStrengthStore({ read, write });
+    await getUniverseStrength(lateOct);
+    expect(read).toHaveBeenCalledWith("2026-10");
+    expect((write.mock.calls[0] as unknown as [string] | undefined)?.[0]).toBe("2026-10");
+  });
 });
