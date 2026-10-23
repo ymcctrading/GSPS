@@ -723,7 +723,8 @@ resting orders, not as the top sell setup"):** the lists' order (`compareForList
 through `lib/scan/listOrder.ts#listTier`) and a member's capped list
 (`visibilityRank`, in the market, scheduled and batch scans) put a resting
 Execute with Watch, behind every Execute price is near, as the Novice home's
-Today's plan already did. The verdict is unchanged.
+Today's plan already did. On the capped list this also puts any Execute ahead of
+a Watch with a higher score, as the lists already were. The verdict is unchanged.
 
 **Daily replay entry kinds, 2026-10-21 (six-year 1Day universe run: all 4,479
 trades under "hold", crossing 0, oldLevel 0; the 15-minute run split 1,332,

@@ -52,4 +52,13 @@ describe("automation deployments", () => {
     const d = classifyDeployment(profile, plan("expired"), [resting, other], [], []);
     expect(d).toMatchObject({ status: "waiting", restingLimit: 91.5, fillPrice: null });
   });
+
+  it("drops a refusal older than the order now resting, and dates a fill from its exit row", () => {
+    const resting: OrderRow = { id: "o2", source_plan_id: "plan1", status: "new", limit_price: "91.5", filled_avg_price: null, filled_qty: null, qty: "10", created_at: "2026-10-23T14:00:00Z" };
+    const waiting = classifyDeployment(profile, plan("armed"), [resting], [], [reason({ reason: "Waiting for the entry to confirm." }, "2026-10-23T13:00:00Z")]);
+    expect(waiting.lastReason).toBeNull();
+    const filled: OrderRow = { ...resting, status: "filled", filled_avg_price: "91.5", filled_qty: "10" };
+    const exit: ExitRow = { entry_order_id: "o2", status: "working", qty: "10", entry_price: "91.5", stop_loss: "84.47", applied_stop: null, take_profit_1: "98.52", master_profit: null, created_at: "2026-10-27T15:00:00Z" };
+    expect(classifyDeployment(profile, plan("entered"), [filled], [exit], []).filledAt).toBe("2026-10-27T15:00:00Z");
+  });
 });

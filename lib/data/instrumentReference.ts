@@ -119,7 +119,10 @@ export async function loadInstrumentReferenceHistory(
   const out = new Map<string, { reference: InstrumentReference; history: SharesPoint[] }>();
   if (symbols.length === 0) return out;
   const client = serviceClient();
-  if (!client) return loadSnapshotHistory(symbols);
+  if (!client) {
+    console.info("[instrument-reference] no service key: reading the checked-in snapshot");
+    return loadSnapshotHistory(symbols);
+  }
   try {
     const upper = symbols.map((s) => s.toUpperCase());
     const { data, error } = await client

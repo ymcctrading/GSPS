@@ -249,7 +249,7 @@ async function AutomationHub({
   userId: string;
   supabase: Awaited<ReturnType<typeof createClient>>;
 }) {
-  const [{ data }, trades, deployments] = await Promise.all([
+  const [{ data }, trades, { rows: deployments, error: deploymentsError }] = await Promise.all([
     supabase
       .from("user_automation_profiles")
       .select(
@@ -319,10 +319,16 @@ async function AutomationHub({
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <DeploymentGroup
-              rows={deployments.filter((d) => d.status === "open")}
-              empty="No open positions. Nothing the engine activated has filled yet."
-            />
+            {deploymentsError ? (
+              <div className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted">
+                Couldn&apos;t load the engine&apos;s positions just now. Reload the page to try again.
+              </div>
+            ) : (
+              <DeploymentGroup
+                rows={deployments.filter((d) => d.status === "open")}
+                empty="No open positions. Nothing the engine activated has filled yet."
+              />
+            )}
             <DeploymentGroup title="Waiting to enter" rows={deployments.filter((d) => d.status === "waiting")} />
             <DeploymentGroup title="Closed" rows={deployments.filter((d) => d.status === "closed")} />
             <DeploymentGroup title="Ended without a fill" rows={deployments.filter((d) => d.status === "ended")} />

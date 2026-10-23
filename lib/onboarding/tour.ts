@@ -277,7 +277,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: [
       "Knowing when to sell is harder than knowing when to buy, so GSPS never fixes a target price.",
       "Nothing sells at the first profit target. The whole position stays open while the trend holds, and this card lists each open position with its entry, its stop and its targets.",
-      "Its stop climbs under each higher bottom the market makes and never retreats. Once the trade has gained as much as it risked, the stop sits at the entry, so a reversal cannot turn it into a loss. The rest is sold when the trend changes.",
+      "Its stop climbs under each higher bottom the market makes and never retreats. Once the trade is 3 points ahead, the stop moves to the entry, so a reversal cannot turn it into a loss. The position is sold when the trend changes.",
       "Exact share counts appear on the ticket before you approve anything.",
     ],
   },

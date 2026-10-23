@@ -94,7 +94,7 @@ export interface ReasonRow {
   created_at: string;
 }
 
-const RESTING_ORDER = new Set(["new", "accepted", "pending_new", "partially_filled"]);
+const RESTING_ORDER = new Set(["new", "accepted", "pending_new"]);
 
 function num(v: number | string | null | undefined): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -119,11 +119,21 @@ export function classifyDeployment(
 ): Deployment {
   const own = orders.filter((o) => o.source_plan_id === plan.plan_id);
   const filled = own
-    .filter((o) => o.status === "filled" && (num(o.filled_qty) ?? 0) > 0)
+    .filter((o) => (o.status === "filled" || o.status === "partially_filled") && (num(o.filled_qty) ?? 0) > 0)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   const exit = filled ? exits.find((e) => e.entry_order_id === filled.id) : undefined;
-  const resting = own.find((o) => RESTING_ORDER.has(o.status));
-  const latest = [...reasons].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(reasonOf).find((r) => r) ?? null;
+  const resting = own.find((o) => RESTING_ORDER.has(o.status) && o !== filled);
+  // A refusal older than the latest placement no longer explains the wait.
+  const placedAt = [
+    ...reasons.filter((r) => r.kind === "broker_order_submitted").map((r) => r.created_at),
+    ...(resting ? [resting.created_at] : []),
+  ].sort().at(-1);
+  const latest =
+    [...reasons]
+      .filter((r) => r.kind !== "broker_order_submitted" && (!placedAt || r.created_at > placedAt))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(reasonOf)
+      .find((r) => r) ?? null;
 
   let status: DeploymentStatus;
   if (filled) status = exit && exit.status !== "working" ? "closed" : "open";
@@ -143,7 +153,8 @@ export function classifyDeployment(
     masterProfit: num(exit?.master_profit) ?? num(plan.master_profit),
     fillPrice: filled ? (num(exit?.entry_price) ?? num(filled.filled_avg_price)) : null,
     qty: filled ? (num(exit?.qty) ?? num(filled.filled_qty)) : null,
-    filledAt: filled ? filled.created_at : null,
+    // The exit row is written at the fill; the order's own row at placement.
+    filledAt: filled ? (exit?.created_at ?? filled.created_at) : null,
     restingLimit: resting ? num(resting.limit_price) : null,
     lastReason: status === "waiting" || status === "ended" ? latest : null,
     expiresAt: plan.expires_at,
@@ -152,15 +163,23 @@ export function classifyDeployment(
 
 const STATUS_ORDER: Record<DeploymentStatus, number> = { open: 0, waiting: 1, closed: 2, ended: 3 };
 
-/** Every active automation profile of `userId`, read through to its fill. */
-export async function loadDeployments(supabase: SupabaseClient, userId: string): Promise<Deployment[]> {
-  const { data: profileData } = await supabase
+/**
+ * Every active automation profile of `userId`, read through to its fill. A
+ * failed read returns `error` instead of a list that would wrongly say nothing
+ * is open.
+ */
+export async function loadDeployments(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ rows: Deployment[]; error: string | null }> {
+  const { data: profileData, error: profileError } = await supabase
     .from("automation_profiles")
     .select("profile_id, plan_id, execution_mode")
     .eq("user_id", userId)
     .eq("status", "active");
+  if (profileError) return { rows: [], error: profileError.message };
   const profiles = (profileData ?? []) as ProfileRow[];
-  if (profiles.length === 0) return [];
+  if (profiles.length === 0) return { rows: [], error: null };
   const planIds = profiles.map((p) => p.plan_id);
   const profileIds = profiles.map((p) => p.profile_id);
 
@@ -178,26 +197,28 @@ export async function loadDeployments(supabase: SupabaseClient, userId: string):
       .from("automation_events")
       .select("profile_id, kind, detail, created_at")
       .in("profile_id", profileIds)
-      .in("kind", ["broker_order_rejected", "order_blocked"])
+      .in("kind", ["broker_order_rejected", "order_blocked", "broker_order_submitted"])
       .order("created_at", { ascending: false })
-      .limit(200),
+      .limit(Math.min(1000, 50 * profileIds.length)),
   ]);
+  const failed = planRes.error ?? orderRes.error ?? reasonRes.error;
+  if (failed) return { rows: [], error: failed.message };
   const orders = (orderRes.data ?? []) as OrderRow[];
-  const filledIds = orders.filter((o) => o.status === "filled").map((o) => o.id);
-  const exits: ExitRow[] =
-    filledIds.length > 0
-      ? (((
-          await supabase
-            .from("protocol_exits")
-            .select("entry_order_id, status, qty, entry_price, stop_loss, applied_stop, take_profit_1, master_profit, created_at")
-            .eq("user_id", userId)
-            .in("entry_order_id", filledIds)
-        ).data ?? []) as ExitRow[])
-      : [];
+  const filledIds = orders.filter((o) => o.status === "filled" || o.status === "partially_filled").map((o) => o.id);
+  let exits: ExitRow[] = [];
+  if (filledIds.length > 0) {
+    const exitRes = await supabase
+      .from("protocol_exits")
+      .select("entry_order_id, status, qty, entry_price, stop_loss, applied_stop, take_profit_1, master_profit, created_at")
+      .eq("user_id", userId)
+      .in("entry_order_id", filledIds);
+    if (exitRes.error) return { rows: [], error: exitRes.error.message };
+    exits = (exitRes.data ?? []) as ExitRow[];
+  }
   const plans = new Map(((planRes.data ?? []) as PlanRow[]).map((p) => [p.plan_id, p]));
   const reasons = (reasonRes.data ?? []) as ReasonRow[];
 
-  return profiles
+  const rows = profiles
     .map((profile) => {
       const plan = plans.get(profile.plan_id);
       if (!plan) return null;
@@ -211,4 +232,5 @@ export async function loadDeployments(supabase: SupabaseClient, userId: string):
     })
     .filter((d): d is Deployment => d !== null)
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.symbol.localeCompare(b.symbol));
+  return { rows, error: null };
 }
