@@ -3091,6 +3091,16 @@ trader turned the reminder off or dismissed it. (9) The year fraction's
 "anniversary" is the calendar date (`daysFromAnniversary`); the 360-day count is
 labelled "360 days". `STRATEGY_VERSION` is `2026-10-22-gann-rule-recheck-fixes`;
 Execute and the 7/4 cutoffs need a fresh run on it.
+**Final stage after an advance, 2026-10-23 (diagnosis of the intraday alerts'
+run 90).** The final stage's trails (A-STOP-04's 5 points under the day's high,
+the last counter-move from the best price, the two-day counter) started at the
+fill, so a trade bought in a campaign's 3rd section that had not moved was
+trailed above its entry and taken off on noise (3 of run 90's 6 final-stage
+exits had a best of 0.02R or less). Gann trails "in fast high-level advances"
+(W006 p.46, Rule 2), and moves no stop until 3 points ahead (*Stock Selector*
+Ch.II rule 4), so they now start once the trade has advanced 3 points, live and
+replay alike (`readGannExit`). `STRATEGY_VERSION` is
+`2026-10-23-gann-final-stage-after-advance`; verdicts don't move.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the

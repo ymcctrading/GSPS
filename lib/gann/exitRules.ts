@@ -457,7 +457,8 @@ export function readGannExit(
   // Selector* Ch.II rule 4, "once 3 points ahead"), price-scaled as his 3
   // points are, which covers his "4-5 in high-priced" stocks. Until
   // 2026-10-16 it waited for a profit equal to the risk taken.
-  if (best !== null && (long ? best >= pos.entry + gannThreePoints(pos.entry) : best <= pos.entry - gannThreePoints(pos.entry))) {
+  const threeAhead = best !== null && (long ? best >= pos.entry + gannThreePoints(pos.entry) : best <= pos.entry - gannThreePoints(pos.entry));
+  if (threeAhead) {
     adopt(pos.entry, "break_even");
   }
 
@@ -490,8 +491,17 @@ export function readGannExit(
     }
   }
 
-  // C3: the final stage of the campaign.
-  if (withCampaign && ledger!.sections >= FINAL_STAGE_SECTION && best !== null) {
+  // C3: the final stage of the campaign. Its trails follow an advance (W006
+  // p.46, Rule 2: "in fast high-level advances trail 5 points under each
+  // day's high"), so they start only once the trade itself has advanced 3
+  // points, the point at which Gann first moves a stop at all (break-even
+  // above, *Stock Selector* Ch.II rule 4). Before that the initial stop
+  // stands: a trade bought in the final stage that has not yet moved is in
+  // no advance to trail. Until 2026-10-23 they started at the fill, so the
+  // day's-high trail could sit above the entry on the fill's next session
+  // and take a trade that had not moved off on noise (intraday alerts run
+  // 90: 3 of 6 final-stage exits had a best of 0.02R or less).
+  if (withCampaign && ledger!.sections >= FINAL_STAGE_SECTION && threeAhead) {
     const counter = [...ledger!.legs].reverse().find((l) => l.direction === (long ? "down" : "up"));
     if (counter) adopt(long ? best * (1 - counter.pct / 100) : best * (1 + counter.pct / 100), "final_stage");
     if (since.length >= 3) {
