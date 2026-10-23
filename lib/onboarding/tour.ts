@@ -270,13 +270,13 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "automation",
-    title: "Automation \u2014 selling in stages",
+    title: "Automation \u2014 letting the trade run",
     figure: "exits",
     route: "/automation",
     anchor: "automation-deployments",
     body: [
-      "Knowing when to sell is harder than knowing when to buy, so GSPS divides the exit into stages.",
-      "The bulk of a position sells at the first profit target. The rest stays open while the trend holds, with no fixed final target.",
+      "Knowing when to sell is harder than knowing when to buy, so GSPS never fixes a target price.",
+      "Nothing sells at the first profit target. The whole position stays open while the trend holds, and this card lists each open position with its entry, its stop and its targets.",
       "Its stop climbs under each higher bottom the market makes and never retreats. Once the trade has gained as much as it risked, the stop sits at the entry, so a reversal cannot turn it into a loss. The rest is sold when the trend changes.",
       "Exact share counts appear on the ticket before you approve anything.",
     ],

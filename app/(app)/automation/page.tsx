@@ -14,6 +14,8 @@ import {
 } from "@/components/automation/gsps-plan-automation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { matchesDirectionalBias } from "@/lib/automation/portfolio-manager";
+import { loadDeployments, type Deployment } from "@/lib/automation/deployments";
+import { formatUsd } from "@/lib/utils";
 
 export const metadata = {
   title: "Automation — GSPS",
@@ -172,62 +174,6 @@ async function recentCritiquedTrades(
     .filter((t): t is CritiquedTrade => t !== null);
 }
 
-interface ActiveDeployment {
-  profileId: string;
-  instrument: string;
-  direction: "bullish" | "bearish";
-  executionMode: "paper" | "live";
-  allocatedDollarRisk: number;
-}
-
-/**
- * Positions the Automated Portfolio Manager (or a member's own manual GSPS
- * Automation activation on `/automation`'s lower section — both write to the
- * same `automation_profiles` table, see lib/automation/portfolio-manager.ts)
- * is actively managing. Previously hardcoded to always say "No active
- * deployments yet" regardless of real state.
- */
-async function activeDeployments(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<ActiveDeployment[]> {
-  const { data: profiles } = await supabase
-    .from("automation_profiles")
-    .select("profile_id, plan_id, execution_mode, configuration")
-    .eq("user_id", userId)
-    .eq("status", "active");
-  const rows = (profiles ?? []) as {
-    profile_id: string;
-    plan_id: string;
-    execution_mode: "paper" | "live";
-    configuration: { allocatedDollarRisk: number };
-  }[];
-  if (rows.length === 0) return [];
-
-  const { data: plans } = await supabase
-    .from("trade_plans")
-    .select("plan_id, instrument, direction")
-    .in(
-      "plan_id",
-      rows.map((r) => r.plan_id),
-    );
-  const byPlanId = new Map((plans ?? []).map((p) => [p.plan_id as string, p]));
-
-  return rows
-    .map((r) => {
-      const plan = byPlanId.get(r.plan_id);
-      if (!plan) return null;
-      return {
-        profileId: r.profile_id,
-        instrument: plan.instrument as string,
-        direction: plan.direction as "bullish" | "bearish",
-        executionMode: r.execution_mode,
-        allocatedDollarRisk: Number(r.configuration.allocatedDollarRisk),
-      };
-    })
-    .filter((d): d is ActiveDeployment => d !== null);
-}
-
 interface WatchingSetup {
   planId: string;
   symbol: string;
@@ -260,7 +206,7 @@ function countChecklistSteps(entryConfirmation: unknown): number {
  * it's watching" surface for the Automated Portfolio Manager. Only plans in
  * `awaiting_entry_confirmation` are shown: `watchlist`/`qualified` are
  * pre-EXECUTE or momentary states with no real checklist progress yet, and
- * `armed`+ already appear under "Active algorithmic deployments" once taken.
+ * `armed`+ already appear under "Open positions" (waiting to enter) once taken.
  */
 async function watchingSetups(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -312,7 +258,7 @@ async function AutomationHub({
       .eq("user_id", userId)
       .maybeSingle(),
     recentCritiquedTrades(supabase, userId),
-    activeDeployments(supabase, userId),
+    loadDeployments(supabase, userId),
   ]);
 
   const initial: AutomationProfile = { ...DEFAULT_PROFILE, ...(data ?? {}) };
@@ -366,34 +312,20 @@ async function AutomationHub({
 
         <Card data-tour="automation-deployments">
           <CardHeader>
-            <CardTitle>Active algorithmic deployments</CardTitle>
+            <CardTitle>Open positions</CardTitle>
             <CardDescription>
-              Positions the engine is actively managing appear here once automation is live and
-              setups trigger.
+              Trades the engine has entered and is managing on its trailing stops. Below them, the
+              entries still waiting and the plans that ended before they filled.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {deployments.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted">
-                No active deployments yet.
-              </div>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {deployments.map((d) => (
-                  <li
-                    key={d.profileId}
-                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
-                  >
-                    <span className="font-medium">
-                      {d.instrument} · {d.direction === "bullish" ? "Long" : "Short"}
-                    </span>
-                    <span className="text-muted">
-                      {d.executionMode} · ${d.allocatedDollarRisk} risk
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <CardContent className="flex flex-col gap-4">
+            <DeploymentGroup
+              rows={deployments.filter((d) => d.status === "open")}
+              empty="No open positions. Nothing the engine activated has filled yet."
+            />
+            <DeploymentGroup title="Waiting to enter" rows={deployments.filter((d) => d.status === "waiting")} />
+            <DeploymentGroup title="Closed" rows={deployments.filter((d) => d.status === "closed")} />
+            <DeploymentGroup title="Ended without a fill" rows={deployments.filter((d) => d.status === "ended")} />
           </CardContent>
         </Card>
 
@@ -432,6 +364,56 @@ async function AutomationHub({
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function levels(d: Deployment): string {
+  const parts = [
+    d.stop !== null ? `Stop ${formatUsd(d.stop)}` : null,
+    d.takeProfit1 !== null ? `TP1 ${formatUsd(d.takeProfit1)}` : null,
+    d.masterProfit !== null ? `MTP ${formatUsd(d.masterProfit)}` : null,
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
+function detailLine(d: Deployment): string {
+  if (d.status === "open" || d.status === "closed") {
+    const fill = d.fillPrice !== null ? `${d.qty ?? "?"} shares at ${formatUsd(d.fillPrice)}` : "Filled";
+    const when = d.filledAt ? ` on ${new Date(d.filledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}` : "";
+    return `${fill}${when}`;
+  }
+  if (d.restingLimit !== null) return `Order resting at ${formatUsd(d.restingLimit)}`;
+  const entry = d.entry !== null ? `Entry ${formatUsd(d.entry)}` : "Entry not priced";
+  return d.status === "ended" ? `${entry} · the plan ${d.planState === "expired" ? "expired" : "ended"} before it filled` : entry;
+}
+
+/** One group of automation activations (`lib/automation/deployments.ts`). */
+function DeploymentGroup({ title, rows, empty }: { title?: string; rows: Deployment[]; empty?: string }) {
+  if (rows.length === 0) {
+    if (!empty) return null;
+    return (
+      <div className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted">{empty}</div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {title ? <p className="text-xs font-medium uppercase tracking-wide text-muted">{title}</p> : null}
+      <ul className="flex flex-col gap-2">
+        {rows.map((d) => (
+          <li key={d.profileId} className="flex flex-col gap-1 rounded-lg border border-border px-4 py-3 text-sm">
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-medium">
+                {d.symbol} · {d.direction === "bullish" ? "Long" : "Short"}
+              </span>
+              <span className="text-xs text-muted">{d.executionMode}</span>
+            </span>
+            <span className="text-muted">{detailLine(d)}</span>
+            {d.status !== "ended" && levels(d) ? <span className="text-muted">{levels(d)}</span> : null}
+            {d.lastReason ? <span className="text-xs text-muted">Latest: {d.lastReason}</span> : null}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
