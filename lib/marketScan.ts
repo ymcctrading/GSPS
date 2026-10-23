@@ -41,6 +41,7 @@ import { CRYPTO_UNIVERSE } from "@/lib/scan/cryptoUniverse";
 import { FUND_MARKETS, isFundMarket } from "@/lib/market/otherMarkets";
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
+import { fetchMonthlyStored } from "@/lib/data/monthlyStore";
 import { assertLiveMarketData } from "@/lib/data/feed-mode";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
@@ -1138,7 +1139,14 @@ export async function runMarketScan(
     const tenYearsAgo = new Date(Date.now() - 10 * 365.25 * 24 * 3600 * 1000);
     // Background lane: never waited on, so it must not take the tokens the
     // full pass waits on (2026-10-23: 37 pages for 250 symbols).
-    void inBackgroundLane(() => provider.fetchBarsBatch!(actives, "1Month", tenYearsAgo, end, "us_equity"))
+    // Closed months come from the month's store (`monthlyStore.ts`); only the
+    // last two are read live (39 pages before, 2026-10-23 10:30 UTC).
+    const batch = provider.fetchBarsBatch.bind(provider);
+    void inBackgroundLane(() =>
+      provider.isLive
+        ? fetchMonthlyStored(batch, actives, tenYearsAgo, end)
+        : batch(actives, "1Month", tenYearsAgo, end, "us_equity"),
+    )
       .then((m) => {
         monthlyBatch = m;
         mark("monthly batch fetch done", `${m.size} symbols in ${Date.now() - monthlyStarted}ms`);

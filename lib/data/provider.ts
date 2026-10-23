@@ -136,6 +136,7 @@ export interface Level2Book {
 // Lazy imports keep the two providers from loading each other's deps eagerly.
 import { alpacaProvider, alpacaConfigured } from "./alpaca";
 import { syntheticProvider } from "./synthetic";
+import { fetchMonthlyStored } from "./monthlyStore";
 
 export function getMarketDataProvider(): MarketDataProvider {
   const choice = (process.env.MARKET_DATA_PROVIDER ?? "").trim().toLowerCase();
@@ -290,7 +291,16 @@ export async function fetchAllTimeframesBatch(
     : 30;
 
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
-    timed("1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS)),
+    // Closed months come from the month's store (`monthlyStore.ts`): only the
+    // last two are read live.
+    assetClass === "us_equity" && provider.isLive
+      ? (() => {
+          const began = Date.now();
+          return fetchMonthlyStored(fetchBatch, symbols, yearsAgo(YEAR_COUNT_MONTHLY_YEARS), end).finally(() =>
+            onTimeframe?.("1Month", Date.now() - began),
+          );
+        })()
+      : timed("1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS)),
     timed("1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000)),
     timed("1Day", yearsAgo(1)),
     timed("1Hour", daysAgo(hourlyLookbackDays)),
