@@ -86,6 +86,12 @@ class RateLimiter {
     this.refillPerMs = ratePerMinute / 60_000;
   }
 
+  /** Gives back a token taken for a request that was never sent. */
+  release(): void {
+    this.refill();
+    this.tokens = Math.min(this.capacity, this.tokens + 1);
+  }
+
   /** Tokens in the bucket now. */
   available(): number {
     this.refill();
@@ -148,7 +154,7 @@ const lane = new AsyncLocalStorage<"background">();
 export const BACKGROUND_RESERVE = 0.4;
 
 /** Tokens the background lane may take at once before it is held to its refill. Engineering choice. */
-export const BACKGROUND_BURST = 10;
+export const BACKGROUND_BURST = 30;
 
 /** How long a background read queues for a token before giving up. */
 export const BACKGROUND_QUEUE_MS = 50_000;
@@ -292,8 +298,15 @@ export async function fetchWithRetry(
     if (ratePerMinute > 0) {
       const queued = Date.now();
       try {
-        if (background) await backgroundLimiterFor(opts.provider, ratePerMinute).acquire(queueDeadline);
-        await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline, reserve);
+        const own = background ? backgroundLimiterFor(opts.provider, ratePerMinute) : null;
+        if (own) await own.acquire(queueDeadline);
+        try {
+          await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline, reserve);
+        } catch (err) {
+          // Not sent: the lane's own token goes back.
+          own?.release();
+          throw err;
+        }
         const spentKey = `${opts.provider} ${endpointKey(url)}`;
         tokensSpent.set(spentKey, (tokensSpent.get(spentKey) ?? 0) + 1);
         const queuedMs = Date.now() - queued;

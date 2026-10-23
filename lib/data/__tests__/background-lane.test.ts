@@ -63,11 +63,11 @@ describe("background lane", () => {
   it("holds the background lane to its burst at a scan's start", async () => {
     const opts = { provider: "LaneBurst", ratePerMinute: 150, queueTimeoutMs: 40 };
     const results = await inBackgroundLane(() =>
-      Promise.allSettled(Array.from({ length: 30 }, () => fetchWithRetry(url, {}, opts))),
+      Promise.allSettled(Array.from({ length: 60 }, () => fetchWithRetry(url, {}, opts))),
     );
     expect(results.filter((r) => r.status === "fulfilled").length).toBe(BACKGROUND_BURST);
     // The main bucket keeps the rest for the scan's own reads.
-    const foreground = await Promise.allSettled(Array.from({ length: 100 }, () => fetchWithRetry(url, {}, opts)));
+    const foreground = await Promise.allSettled(Array.from({ length: 150 - BACKGROUND_BURST }, () => fetchWithRetry(url, {}, opts)));
     expect(foreground.every((r) => r.status === "fulfilled")).toBe(true);
   });
 
@@ -97,5 +97,17 @@ describe("background lane", () => {
     await expect(bg).resolves.toBe("background");
     expect(slow).toHaveBeenCalledTimes(1);
     expect(fast).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the lane's own token back when the main bucket times it out", async () => {
+    const opts = { provider: "LaneRefund", ratePerMinute: 10, queueTimeoutMs: 40 };
+    // Foreground takes the main bucket down to its reserve.
+    await Promise.all(Array.from({ length: 6 }, () => fetchWithRetry(url, {}, opts)));
+    const refused = await inBackgroundLane(() =>
+      Promise.allSettled(Array.from({ length: 6 }, () => fetchWithRetry(url, {}, opts))),
+    );
+    expect(refused.every((r) => r.status === "rejected")).toBe(true);
+    // Refused before sending: no request went out for them.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 });
