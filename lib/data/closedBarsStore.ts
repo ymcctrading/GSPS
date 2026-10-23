@@ -18,7 +18,10 @@
  * memory. A stored series serves a read only when it was read from at or
  * before the window's start and its last bar is inside the window; otherwise
  * the whole window is read live, as before. A pair the live read returns
- * nothing for is served nothing, as a live read serves it. A store that can't be read or
+ * nothing for is served nothing, as a live read serves it. Each series is read
+ * whole again once a day (`WHOLE_READ_MS`), so a correction Alpaca makes to a
+ * bar older than the two rechecked ones is carried for a day at most. A store
+ * that can't be read or
  * written falls back to the live read. Crypto only: equity bars are split
  * adjusted, so a stored equity series would need the monthly store's check.
  */
@@ -35,9 +38,14 @@ const KEPT: ReadonlySet<Timeframe> = new Set<Timeframe>(["15Min", "1Hour"]);
 /** Stored bars re-read live each time, for late revisions to the newest closes. */
 const RECHECK_BARS = 2;
 
+/** How long a stored series serves before it is read whole again. Engineering choice. */
+export const WHOLE_READ_MS = 24 * 3_600_000;
+
 export interface StoredSeries {
   /** The start of the window the series was read from (epoch ms). */
   from: number;
+  /** When the whole window was last read live (epoch ms). */
+  wholeAt: number;
   /** Closed bars only, oldest first. */
   bars: Bar[];
 }
@@ -64,13 +72,17 @@ function serviceStore(): ClosedBarsStore | null {
     async read(timeframe, symbols) {
       const { data, error } = await client
         .from("closed_bars")
-        .select("symbol, from_ts, bars")
+        .select("symbol, from_ts, whole_at, bars")
         .eq("timeframe", timeframe)
         .in("symbol", symbols);
       if (error) throw new Error(error.message);
       const out = new Map<string, StoredSeries>();
       for (const r of data ?? []) {
-        out.set(r.symbol as string, { from: Date.parse(r.from_ts as string), bars: fromRows(r.bars as Row[]) });
+        out.set(r.symbol as string, {
+          from: Date.parse(r.from_ts as string),
+          wholeAt: Date.parse(r.whole_at as string),
+          bars: fromRows(r.bars as Row[]),
+        });
       }
       return out;
     },
@@ -79,6 +91,7 @@ function serviceStore(): ClosedBarsStore | null {
         timeframe,
         symbol,
         from_ts: new Date(s.from).toISOString(),
+        whole_at: new Date(s.wholeAt).toISOString(),
         bars: toRows(s.bars),
         updated_at: new Date().toISOString(),
       }));
@@ -137,13 +150,13 @@ export async function fetchCryptoClosedStored(
     }
   }
 
-  // A held series serves the read when it reaches back to the window's start
-  // and its newest bar is still inside the window.
+  // A held series serves the read when it reaches back to the window's start,
+  // its newest bar is still inside the window, and it was read whole within a day.
   const held = new Map<string, StoredSeries>();
   for (const s of syms) {
     const series = memory.get(key(s));
     const last = series?.bars.at(-1);
-    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs) held.set(s, series);
+    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs && nowMs - series.wholeAt < WHOLE_READ_MS) held.set(s, series);
   }
   const cold = syms.filter((s) => !held.has(s));
 
@@ -182,7 +195,7 @@ export async function fetchCryptoClosedStored(
     out.set(s, windowed);
     const closedBars = windowed.filter(closed);
     if (closedBars.length > 0) {
-      const next = { from: startMs, bars: closedBars };
+      const next = { from: startMs, wholeAt: series?.wholeAt ?? nowMs, bars: closedBars };
       memory.set(key(s), next);
       toStore.set(s, next);
     }
