@@ -3,17 +3,17 @@ import type { Bar } from "@/lib/types";
 
 // M-R11: the final stage starts at the campaign's 3rd section. The ledger is
 // stubbed so the section count is the only thing that differs between cases.
-const ledgerState = { sections: 3 };
+const ledgerState: { sections: number; trend: "bullish" | "bearish" } = { sections: 3, trend: "bullish" };
 vi.mock("@/lib/gann/campaignLedger", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/gann/campaignLedger")>();
   return {
     ...actual,
     buildCampaignLedger: (daily: Bar[]) => ({
-      trend: "bullish",
+      trend: ledgerState.trend,
       campaignStartDate: daily[0]?.t.slice(0, 10) ?? "2026-01-01",
       sections: ledgerState.sections,
-      // The last counter-move was 0.5%, so the final-stage stop sits 0.5% under the best price.
-      legs: [{ direction: "down", fromIndex: 0, toIndex: 1, pct: 0.5, days: 2 }],
+      // The last counter-move was 0.5%, so the final-stage stop sits 0.5% beyond the best price.
+      legs: [{ direction: ledgerState.trend === "bullish" ? "down" : "up", fromIndex: 0, toIndex: 1, pct: 0.5, days: 2 }],
       greatestCounterMove: null,
       currentCounterMove: null,
       spaceOverbalanced: false,
@@ -30,6 +30,7 @@ vi.mock("@/lib/gann/campaignLedger", async (importActual) => {
 });
 
 const { readGannExit, FINAL_STAGE_SECTION } = await import("../exitRules");
+const { gannThreePoints } = await import("../pointScale");
 
 function daily(closes: number[]): Bar[] {
   return closes.map((c, i) => ({
@@ -50,15 +51,50 @@ describe("readGannExit: the final stage of a campaign (M-R11)", () => {
 
   it("tightens to the final-stage stop in the 3rd section", () => {
     expect(FINAL_STAGE_SECTION).toBe(3);
+    ledgerState.trend = "bullish";
     ledgerState.sections = 3;
-    const r = readGannExit(pos, bars, 104.5);
+    const best = 102 + gannThreePoints(102) + 1;
+    const r = readGannExit(pos, bars, best);
     expect(r.stopReason).toBe("final_stage");
-    expect(r.stop).toBeCloseTo(104.5 * 0.995, 6);
+    expect(r.stop).toBeCloseTo(best * 0.995, 6);
+  });
+
+  it("leaves the initial stop until the trade has advanced 3 points (W006 p.46: the trail follows an advance)", () => {
+    ledgerState.trend = "bullish";
+    ledgerState.sections = 3;
+    const notYet = 102 + gannThreePoints(102) * 0.9;
+    const r = readGannExit(pos, bars, notYet);
+    expect(r.stopReason).toBe("initial");
+    expect(r.stop).toBe(97);
   });
 
   it("does not apply the final stage in the 2nd section", () => {
+    ledgerState.trend = "bullish";
     ledgerState.sections = 2;
     const r = readGannExit(pos, bars, 104.5);
     expect(r.stopReason).not.toBe("final_stage");
+  });
+
+  // Polarity: the short mirror, in a bear campaign's 3rd section.
+  describe("short side", () => {
+    const falling = daily([104, 103, 102, 101, 100]);
+    const short = { side: "short" as const, entry: 102, initialStop: 107, entryDate: falling[2].t.slice(0, 10), crossedLevel: null };
+
+    it("tightens to the final-stage stop once 3 points ahead", () => {
+      ledgerState.trend = "bearish";
+      ledgerState.sections = 3;
+      const best = 102 - gannThreePoints(102) - 1;
+      const r = readGannExit(short, falling, best);
+      expect(r.stopReason).toBe("final_stage");
+      expect(r.stop).toBeCloseTo(best * 1.005, 6);
+    });
+
+    it("leaves the initial stop until the trade has advanced 3 points", () => {
+      ledgerState.trend = "bearish";
+      ledgerState.sections = 3;
+      const r = readGannExit(short, falling, 102 - gannThreePoints(102) * 0.9);
+      expect(r.stopReason).toBe("initial");
+      expect(r.stop).toBe(107);
+    });
   });
 });

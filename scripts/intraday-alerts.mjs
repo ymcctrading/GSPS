@@ -206,6 +206,22 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         fixed: summariseAlertTrades(alerts.filter((t) => t.inFixed)),
         focusOnly: summariseAlertTrades(alerts.filter((t) => t.inFocus && !t.inFixed)),
       },
+      // Each plan_level_held trade, for diagnosis: few enough to list.
+      planLevelHeldTrades: planHeld.map((t) => ({
+        symbol: t.symbol,
+        session: t.session,
+        verdict: t.planVerdict,
+        entryKind: t.entryKind ?? null,
+        direction: t.direction,
+        entry: t.entry,
+        stop: t.stop,
+        target: t.target,
+        exit: t.exitPrice,
+        r: t.rMultiple,
+        bestR: t.bestR,
+        exitReason: t.exitReason,
+        barsHeld: t.barsHeld,
+      })),
     };
     console.log("=== BEGIN intraday-alerts.json ===");
     console.log(JSON.stringify(out, null, 2));

@@ -119,6 +119,8 @@ export interface AlertTrade extends ReplayTrade {
   /** The session's daily plan verdict, when the alert read one. */
   planVerdict: "Execute" | "Watch" | null;
   session: string;
+  /** The best price reached while held, in R from the fill (the walk's `best`); null when none was read. */
+  bestR: number | null;
 }
 
 /** Why an alert that was chosen for entry was not entered. */
@@ -341,5 +343,6 @@ export function enterAlert(input: {
     planVerdict: alert.type === "plan_level_held" && dailyPlan ? dailyPlan.verdict : null,
     ...(alert.type === "plan_level_held" && dailyPlan && planEntryKind ? { entryKind: planEntryKind } : {}),
     session: date,
+    bestR: walked.best == null ? null : (dir * (walked.best - entry)) / risk,
   };
 }

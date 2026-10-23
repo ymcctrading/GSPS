@@ -822,4 +822,13 @@
 // replay alike; the replay had measured it from the trigger, so an add filled
 // on a gap past it kept a looser stop. Pyramided replay trades move; verdicts
 // and unpyramided trades don't.
-export const STRATEGY_VERSION = "2026-10-22-gann-pyramid-adds-placed";
+// (was STRATEGY_VERSION "2026-10-22-gann-pyramid-adds-placed")
+// 2026-10-23-gann-final-stage-after-advance: the final stage's trails (the
+// last counter-move from the best price, the two-day counter and A-STOP-04's
+// 5 points under the day's high) start only once the trade has advanced 3
+// points, the point Gann first moves a stop at all (W006 p.46 Rule 2, "in fast
+// high-level advances"; Stock Selector Ch.II rule 4). They had started at the
+// fill, so a trade bought in a campaign's 3rd section and not yet moved was
+// trailed above its own entry. Live and paper exits and the replays read the
+// same readGannExit; verdicts don't move, exits do.
+export const STRATEGY_VERSION = "2026-10-23-gann-final-stage-after-advance";
