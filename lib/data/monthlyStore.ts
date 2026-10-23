@@ -32,6 +32,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import { serviceRoleKey } from "@/lib/supabase/service-key";
 import { etDateKey } from "@/lib/market/session";
+import { inBackground } from "@/lib/data/http";
 
 export type BatchFetch = (
   symbols: string[],
@@ -111,8 +112,11 @@ function storeFor(): MonthlyBarsStore | null {
 /** In memory, one New York month at a time. */
 let memory: { month: string; bars: Map<string, Bar[]> } | null = null;
 
+/** A whole-history read in flight, and whether it runs in the background lane. */
+type Pending = { promise: Promise<Bar[]>; background: boolean };
+
 /** Whole-history reads in flight on this instance, by symbol. */
-let rereads: { month: string; bySymbol: Map<string, Promise<Bar[]>> } = { month: "", bySymbol: new Map() };
+let rereads: { month: string; bySymbol: Map<string, Pending> } = { month: "", bySymbol: new Map() };
 
 /** Test hook: the store to use (null for none); undefined restores the default. Clears memory. */
 export function setMonthlyBarsStore(s: MonthlyBarsStore | null | undefined): void {
@@ -192,19 +196,27 @@ export async function fetchMonthlyStored(
   if (reread.length > 0) {
     // A whole history already being read on this instance is joined, not read
     // twice (the scan's background monthly read and its full pass overlap).
-    const pending = rereads.month === month ? rereads.bySymbol : new Map<string, Promise<Bar[]>>();
+    // A foreground caller joins only a foreground read: a background read
+    // queues for tokens behind the reserve, and its deadline is not the
+    // caller's (cachedFetch's rule).
+    const background = inBackground();
+    const pending = rereads.month === month ? rereads.bySymbol : new Map<string, Pending>();
     rereads = { month, bySymbol: pending };
-    const own = reread.filter((s) => !pending.has(s));
+    const joined = new Map<string, Promise<Bar[]>>();
+    for (const s of reread) {
+      const p = pending.get(s);
+      if (p && (background || !p.background)) joined.set(s, p.promise);
+    }
+    const own = reread.filter((s) => !joined.has(s));
     if (own.length > 0) {
       const full = fetchBatch(own, "1Month", STORE_START.getTime() < fromMs ? STORE_START : start, end, "us_equity");
       for (const sym of own) {
-        const one = full.then((m) => m.get(sym) ?? []);
-        pending.set(sym, one);
+        const entry: Pending = { promise: full.then((m) => m.get(sym) ?? []), background };
+        joined.set(sym, entry.promise);
+        pending.set(sym, entry);
         // Dropped once settled, so a later mismatch reads again.
-        void one.then(
-          () => pending.get(sym) === one && pending.delete(sym),
-          () => pending.get(sym) === one && pending.delete(sym),
-        );
+        const drop = () => pending.get(sym) === entry && pending.delete(sym);
+        void entry.promise.then(drop, drop);
       }
       void full
         .then((m) => {
@@ -227,7 +239,7 @@ export async function fetchMonthlyStored(
         })
         .catch(() => undefined);
     }
-    const bars = await Promise.all(reread.map((s) => pending.get(s)!));
+    const bars = await Promise.all(reread.map((s) => joined.get(s)!));
     reread.forEach((sym, i) => out.set(sym, bars[i].filter((b) => Date.parse(b.t) >= fromMs)));
   }
   return out;

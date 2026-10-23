@@ -10,6 +10,7 @@ import {
   type MonthlyBarsStore,
 } from "@/lib/data/monthlyStore";
 import { parallelChunkSize } from "@/lib/data/alpaca";
+import { inBackground, inBackgroundLane } from "@/lib/data/http";
 
 // Monthly bars from Jan 2016 through `last` (YYYY-MM), close = 100 + index.
 function months(last: string, factor = 1): Bar[] {
@@ -185,6 +186,42 @@ describe("fetchMonthlyStored", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(a.get("BBB")).toEqual(months("2026-10").filter(sinceTen));
     expect(b.get("AAA")).toEqual(months("2026-10"));
+  });
+
+  it("a foreground read never waits on a background whole-history read", async () => {
+    setMonthlyBarsStore(memoryStore());
+    const live = new Map([["AAA", months("2026-10")]]);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const lanes: boolean[] = [];
+    const fetch = vi.fn<BatchFetch>(async (symbols, _tf, start) => {
+      const bg = inBackground();
+      lanes.push(bg);
+      if (bg) await gate; // the background read is held queuing for tokens
+      const out = new Map<string, Bar[]>();
+      for (const s of symbols) out.set(s, (live.get(s) ?? []).filter((b) => Date.parse(b.t) >= start.getTime()));
+      return out;
+    });
+    const bgRead = inBackgroundLane(() => fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW));
+    await Promise.resolve();
+    // The foreground read starts its own and finishes while the background one is held.
+    const fg = await fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW);
+    expect(fg.get("AAA")).toEqual(months("2026-10").filter(sinceTen));
+    expect(lanes).toEqual([true, false]);
+    release();
+    expect((await bgRead).get("AAA")).toEqual(months("2026-10").filter(sinceTen));
+  });
+
+  it("a background read joins a foreground whole-history read", async () => {
+    setMonthlyBarsStore(memoryStore());
+    const live = new Map([["AAA", months("2026-10")]]);
+    const fetch = feed(() => live);
+    const [a, b] = await Promise.all([
+      fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW),
+      inBackgroundLane(() => fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW)),
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(b.get("AAA")).toEqual(a.get("AAA"));
   });
 
   it("a stock with no bar last month, or listed this month, is served", async () => {

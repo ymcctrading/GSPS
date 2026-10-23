@@ -164,6 +164,11 @@ export function inBackgroundLane<T>(fn: () => Promise<T>): Promise<T> {
   return lane.run("background", fn);
 }
 
+/** True when the caller is in the background lane. */
+export function inBackground(): boolean {
+  return lane.getStore() === "background";
+}
+
 /**
  * Runs `fn` outside the background lane: for a read shared by every caller
  * (a once-a-day cache), which must not inherit the lane of whichever caller
