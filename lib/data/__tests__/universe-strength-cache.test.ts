@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchBarsBatchMock } = vi.hoisted(() => ({ fetchBarsBatchMock: vi.fn() }));
+const { fetchBarsBatchMock, liveFlag } = vi.hoisted(() => ({ fetchBarsBatchMock: vi.fn(), liveFlag: { live: true } }));
 vi.mock("@/lib/data/provider", () => ({
-  getMarketDataProvider: () => ({ isLive: true, fetchBars: vi.fn(), fetchBarsBatch: fetchBarsBatchMock }),
+  getMarketDataProvider: () => ({ isLive: liveFlag.live, fetchBars: vi.fn(), fetchBarsBatch: fetchBarsBatchMock }),
 }));
 
 import {
@@ -56,7 +56,34 @@ describe("getUniverseStrength shared by month", () => {
       ]),
     );
 
-  afterEach(() => setUniverseStrengthStore(undefined));
+  afterEach(() => {
+    setUniverseStrengthStore(undefined);
+    liveFlag.live = true;
+  });
+
+  it("round-trips through JSON exactly, dotted symbols and every month included", async () => {
+    const bars = monthly(120);
+    bars.set("BRK.B", bars.get("S3")!.map((b) => ({ ...b, c: b.c + 0.123456789 })));
+    const live = buildUniverseStrength(bars);
+    const back = fromStoredReadings(JSON.parse(JSON.stringify(toStoredReadings(live))));
+    expect([...back.keys()].sort()).toEqual([...live.keys()].sort());
+    for (const [month, entry] of live) {
+      expect(back.get(month)?.sorted).toEqual(entry.sorted);
+      expect(back.get(month)?.bySymbol).toEqual(entry.bySymbol);
+    }
+    // The month before (a scan on the 1st reads its session's month) is kept too.
+    expect(back.has("2026-09")).toBe(true);
+    expect(back.get("2026-10")?.bySymbol.get("BRK.B")).toBe(live.get("2026-10")?.bySymbol.get("BRK.B"));
+  });
+
+  it("does not store a read of the synthetic feed", async () => {
+    liveFlag.live = false;
+    fetchBarsBatchMock.mockResolvedValue(monthly(120));
+    const write = vi.fn(async () => {});
+    setUniverseStrengthStore({ read: async () => null, write });
+    await getUniverseStrength(now);
+    expect(write).not.toHaveBeenCalled();
+  });
 
   it("reads the month's stored read without a market-data request", async () => {
     const live = buildUniverseStrength(monthly(120));

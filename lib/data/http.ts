@@ -80,9 +80,16 @@ class RateLimiter {
   private lastRefill = Date.now();
   private readonly refillPerMs: number;
 
-  constructor(private readonly capacity: number) {
+  /** `ratePerMinute` refills the bucket; `capacity` (default the same) caps its burst. */
+  constructor(ratePerMinute: number, private readonly capacity: number = ratePerMinute) {
     this.tokens = capacity;
-    this.refillPerMs = capacity / 60_000;
+    this.refillPerMs = ratePerMinute / 60_000;
+  }
+
+  /** Tokens in the bucket now. */
+  available(): number {
+    this.refill();
+    return this.tokens;
   }
 
   private refill() {
@@ -124,7 +131,10 @@ class RateLimiter {
 /**
  * The background lane: reads a request does not wait on (a scan's crypto and
  * fund passes, its monthly re-rank batch) take a token only while
- * `BACKGROUND_RESERVE` of the bucket would be left, so the reads the response
+ * `BACKGROUND_RESERVE` of the bucket would be left, and first from a bucket of
+ * their own that refills at `1 - BACKGROUND_RESERVE` of the rate with a burst
+ * of `BACKGROUND_BURST`, so they can neither drain the bucket at a scan's
+ * start nor take more than their share after it. The reads the response
  * waits on are never queued behind them. Production bug, 2026-10-23: the
  * 00:35 UTC evening scan's side reads took 37, 33 and 45 pages at its start,
  * and its own full-pass bars timed out queuing for tokens at +15.8s.
@@ -136,6 +146,9 @@ const lane = new AsyncLocalStorage<"background">();
 
 /** Share of a provider's per-minute bucket kept for foreground reads. Engineering choice. */
 export const BACKGROUND_RESERVE = 0.4;
+
+/** Tokens the background lane may take at once before it is held to its refill. Engineering choice. */
+export const BACKGROUND_BURST = 10;
 
 /** How long a background read queues for a token before giving up. */
 export const BACKGROUND_QUEUE_MS = 50_000;
@@ -154,6 +167,9 @@ export function inForegroundLane<T>(fn: () => Promise<T>): Promise<T> {
   return lane.exit(fn);
 }
 
+/** The rate limiter's name for Alpaca's market data (`lib/data/alpaca.ts`, `tokensLeft`). */
+export const ALPACA_PROVIDER_LABEL = "Alpaca market data";
+
 /** Internal signal that a caller gave up waiting for a rate-limit token. */
 class QueueTimeoutError extends Error {}
 
@@ -165,6 +181,28 @@ function limiterFor(provider: string, ratePerMinute: number): RateLimiter {
     limiters.set(provider, limiter);
   }
   return limiter;
+}
+
+/** The background lane's own bucket for `provider` (see `inBackgroundLane`). */
+function backgroundLimiterFor(provider: string, ratePerMinute: number): RateLimiter {
+  const key = `${provider}:background`;
+  let limiter = limiters.get(key);
+  if (!limiter) {
+    const rate = Math.max(1, Math.floor(ratePerMinute * (1 - BACKGROUND_RESERVE)));
+    limiter = new RateLimiter(rate, Math.min(BACKGROUND_BURST, rate));
+    limiters.set(key, limiter);
+  }
+  return limiter;
+}
+
+/**
+ * Tokens left in `provider`'s bucket on this instance, or null before its
+ * first request; for a log line (the market scan logs it as its full pass
+ * starts).
+ */
+export function tokensLeft(provider: string): number | null {
+  const limiter = limiters.get(provider);
+  return limiter ? Math.floor(limiter.available()) : null;
 }
 
 export interface RetryOptions {
@@ -254,6 +292,7 @@ export async function fetchWithRetry(
     if (ratePerMinute > 0) {
       const queued = Date.now();
       try {
+        if (background) await backgroundLimiterFor(opts.provider, ratePerMinute).acquire(queueDeadline);
         await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline, reserve);
         const spentKey = `${opts.provider} ${endpointKey(url)}`;
         tokensSpent.set(spentKey, (tokensSpent.get(spentKey) ?? 0) + 1);
@@ -394,7 +433,7 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const inFlight = new Map<string, Promise<any>>();
+const inFlight = new Map<string, { promise: Promise<any>; background: boolean }>();
 
 /** Drop expired entries so a long-lived server instance doesn't grow unbounded. */
 function sweep(now: number) {
@@ -417,10 +456,15 @@ export async function cachedFetch<T>(key: string, ttlMs: number, load: () => Pro
   const hit = cache.get(key);
   if (hit && ttlMs > 0 && now - hit.at < hit.ttlMs) return hit.value as T;
 
+  // A foreground caller does not join a background read in flight: that one
+  // may queue up to BACKGROUND_QUEUE_MS, past what the caller can wait. It
+  // reads for itself, and later callers join its read instead.
+  const background = lane.getStore() === "background";
   const pending = inFlight.get(key);
-  if (pending) return pending as Promise<T>;
+  if (pending && (background || !pending.background)) return pending.promise as Promise<T>;
 
-  const promise = load()
+  const entry: { promise: Promise<T>; background: boolean } = { promise: undefined as unknown as Promise<T>, background };
+  entry.promise = load()
     .then((value) => {
       if (ttlMs > 0) {
         cache.set(key, { at: Date.now(), ttlMs, value });
@@ -428,10 +472,12 @@ export async function cachedFetch<T>(key: string, ttlMs: number, load: () => Pro
       }
       return value;
     })
-    .finally(() => inFlight.delete(key));
+    .finally(() => {
+      if (inFlight.get(key) === entry) inFlight.delete(key);
+    });
 
-  inFlight.set(key, promise);
-  return promise;
+  inFlight.set(key, entry);
+  return entry.promise;
 }
 
 /** Test seam — clears the module-level cache between cases. */

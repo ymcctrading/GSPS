@@ -121,8 +121,11 @@ export function fromStoredReadings(readings: StoredReadings): UniverseStrength {
 
 /**
  * The month's read: the stored one when another instance has made it, else
- * read live and stored, when the month's own reading ranks at least
- * `MIN_PEERS` (a thinner read is used but not kept for the month).
+ * read live and stored, when it came from the live feed and the month's own
+ * reading ranks at least `MIN_PEERS` (anything else is used but not kept).
+ * The first stored read of a month stands for that month: a change to
+ * `LARGE_CAP_UNIVERSE` reaches the rank the next month (delete the month's
+ * row to apply it sooner).
  */
 async function readMonth(now: Date): Promise<UniverseStrength | null> {
   const month = etDateKey(now).slice(0, 7);
@@ -137,7 +140,9 @@ async function readMonth(now: Date): Promise<UniverseStrength | null> {
   }
   const strength = await fetchUniverseStrengthSince(now);
   const own = strength?.get(month);
-  if (shared && strength && own && own.bySymbol.size >= MIN_PEERS) {
+  // Only a read of the live feed is kept: a synthetic one would rank the
+  // whole platform against made-up peers for the rest of the month.
+  if (shared && strength && own && own.bySymbol.size >= MIN_PEERS && getMarketDataProvider().isLive) {
     await shared
       .write(month, toStoredReadings(strength), own.bySymbol.size)
       .catch((err: unknown) =>
