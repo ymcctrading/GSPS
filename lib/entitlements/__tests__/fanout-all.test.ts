@@ -30,6 +30,26 @@ beforeEach(() => {
 });
 
 describe("fanOutToProfiles", () => {
+  it("skips the profiles an earlier call served and reports each served or failed one done", async () => {
+    fanOutForProfileMock.mockImplementation(async (_s, args: { profileId: string; replaceVisible?: boolean }) => {
+      expect(args.replaceVisible).toBe(true);
+      if (args.profileId === "p02") throw new Error("boom");
+      return { visibleCount: 0, notifiedCount: 0 };
+    });
+    const done: string[] = [];
+    const out = await fanOutToProfiles(service(profiles(4)), {
+      ...baseArgs,
+      skipProfileIds: new Set(["p00"]),
+      onProfileDone: async (id) => {
+        done.push(id);
+      },
+      replaceVisible: true,
+    });
+    expect(fanOutForProfileMock.mock.calls.map((c) => (c[1] as { profileId: string }).profileId).sort()).toEqual(["p01", "p02", "p03"]);
+    expect(done.sort()).toEqual(["p01", "p02", "p03"]);
+    expect(out).toMatchObject({ profilesFannedOut: 2, profilesFailed: 1, profilesDeferred: 0 });
+  });
+
   it("runs profiles side by side, never more than the concurrency cap at once", async () => {
     let inFlight = 0;
     let peak = 0;

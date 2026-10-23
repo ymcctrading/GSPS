@@ -44,14 +44,6 @@ import type { RetiredPlanSignal } from "@/lib/lifecycle/retire";
 /** Profiles processed at once. Supabase handles this comfortably; engineering choice. */
 export const FAN_OUT_CONCURRENCY = 6;
 
-/**
- * Callers pass `deadlineAt` as their request's start plus this: past it, no
- * new profile starts. Leaves headroom inside the 60s budget (AGENTS.md,
- * "Speed is a product requirement") for profiles already running to finish
- * and the response to go out. Engineering choice, not sourced.
- */
-export const FAN_OUT_DEADLINE_MS = 45_000;
-
 export interface FanOutAllOutcome {
   profilesFannedOut: number;
   profilesFailed: number;
@@ -59,6 +51,10 @@ export interface FanOutAllOutcome {
   profilesDeferred: number;
   totalNotified: number;
   elapsedMs: number;
+  /** The longest one profile took, for sizing the worker's deadline. */
+  slowestProfileMs?: number;
+  /** The members could not be listed, so nobody was served or deferred. */
+  listFailed?: boolean;
 }
 
 /** Stable order, rotated by a time-anchored offset so the start point moves every run. */
@@ -84,6 +80,14 @@ export async function fanOutToProfiles(
     deadlineAt?: number;
     /** Defaults to minutes since epoch. */
     rotationKey?: number;
+    /** Profiles already served by an earlier call for this same scan (the queue's record). */
+    skipProfileIds?: ReadonlySet<string>;
+    /** Called once a profile is served or has failed, so a resumed call skips it. */
+    onProfileDone?: (profileId: string) => Promise<void>;
+    /** Passed to `fanOutForProfile`: clear this profile's visible rows first, for a retried profile. */
+    replaceVisible?: boolean;
+    /** Passed to `fanOutForProfile`: when the scan read the market. */
+    evaluatedAt?: Date;
   },
 ): Promise<FanOutAllOutcome> {
   const startedAt = Date.now();
@@ -98,13 +102,14 @@ export async function fanOutToProfiles(
   const { data: profiles, error } = await service.from("profiles").select("id, tier");
   if (error || !profiles) {
     console.error(`${args.source}: could not list profiles for fan-out — ${error?.message}`);
-    return { ...outcome, elapsedMs: Date.now() - startedAt };
+    return { ...outcome, listFailed: true, elapsedMs: Date.now() - startedAt };
   }
 
   const eligible = rotateProfiles(
     (profiles as { id: string; tier: PlatformTier | null }[])
       .map((p) => ({ id: p.id, policy: getEntitlementPolicy(p.tier ?? "PRACTICE") }))
-      .filter((p) => args.isEnabled(p.policy)),
+      .filter((p) => args.isEnabled(p.policy))
+      .filter((p) => !args.skipProfileIds?.has(p.id)),
     args.rotationKey ?? Math.floor(startedAt / 60_000),
   );
 
@@ -117,6 +122,7 @@ export async function fanOutToProfiles(
         return;
       }
       const profile = eligible[next++];
+      const profileStartedAt = Date.now();
       try {
         const result = await fanOutForProfile(service, {
           profileId: profile.id,
@@ -127,12 +133,22 @@ export async function fanOutToProfiles(
           retired: args.retired,
           maxDashboardSetupsPerScan: profile.policy.maxDashboardSetupsPerScan,
           maxActiveWatchMonitors: profile.policy.maxActiveWatchMonitors,
+          replaceVisible: args.replaceVisible,
+          evaluatedAt: args.evaluatedAt,
         });
         outcome.profilesFannedOut += 1;
         outcome.totalNotified += result.notifiedCount;
+        outcome.slowestProfileMs = Math.max(outcome.slowestProfileMs ?? 0, Date.now() - profileStartedAt);
       } catch (err) {
         outcome.profilesFailed += 1;
         console.error(`${args.source}: fan-out failed for profile ${profile.id} — ${String(err)}`);
+      }
+      // A failed profile counts as done too: the fan-out is best-effort per
+      // profile, and retrying it every minute would starve the rest.
+      if (args.onProfileDone) {
+        await args.onProfileDone(profile.id).catch((err) => {
+          console.error(`${args.source}: fan-out progress not recorded for ${profile.id} — ${String(err)}`);
+        });
       }
     }
   }
@@ -141,7 +157,8 @@ export async function fanOutToProfiles(
   outcome.elapsedMs = Date.now() - startedAt;
   console.log(
     `[fan-out] ${args.source}: ${eligible.length} eligible, ${outcome.profilesFannedOut} done, ` +
-      `${outcome.profilesFailed} failed, ${outcome.profilesDeferred} deferred in ${outcome.elapsedMs}ms`,
+      `${outcome.profilesFailed} failed, ${outcome.profilesDeferred} deferred in ${outcome.elapsedMs}ms` +
+      ` (slowest profile ${outcome.slowestProfileMs ?? 0}ms)`,
   );
   return outcome;
 }
