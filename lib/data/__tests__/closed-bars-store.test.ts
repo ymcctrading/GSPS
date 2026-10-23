@@ -7,7 +7,10 @@ import {
   setClosedBarsStore,
   type ClosedBarsStore,
   type StoredSeries,
+  WHOLE_READ_MS,
+  wholeReadAfter,
 } from "@/lib/data/closedBarsStore";
+import { CRYPTO_UNIVERSE } from "@/lib/scan/cryptoUniverse";
 
 const HOUR = 3_600_000;
 const T0 = Date.parse("2026-09-01T00:00:00Z");
@@ -181,12 +184,25 @@ describe("fetchCryptoClosedStored", () => {
     let nowRef = first;
     const fetch = vi.fn<BatchFetch>(async (symbols, tf, start, end, ac) => feed(upTo(nowRef))(symbols, tf, start, end, ac));
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(first, 7), first);
-    nowRef = at("2026-10-02T10:00:00Z"); // 23.5 h later: still served from the store
+    const after = wholeReadAfter("BTC/USD");
+    nowRef = new Date(first.getTime() + after - 60_000); // a minute before it comes due: still from the store
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(nowRef, 7), nowRef);
     expect(fetch.mock.calls[1][2].getTime()).toBeGreaterThan(windowStart(nowRef, 7).getTime());
-    nowRef = at("2026-10-02T10:30:00Z"); // a day to the minute since the whole read
+    nowRef = new Date(first.getTime() + after); // due to the minute
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(nowRef, 7), nowRef);
     expect(fetch.mock.calls[2][2].toISOString()).toBe(windowStart(nowRef, 7).toISOString());
+  });
+
+  it("spreads the pairs' whole reads over the day, never past a day", () => {
+    const due = CRYPTO_UNIVERSE.map((s) => wholeReadAfter(s.toUpperCase()));
+    for (const d of due) {
+      expect(d).toBeGreaterThan(12 * HOUR);
+      expect(d).toBeLessThanOrEqual(WHOLE_READ_MS);
+    }
+    // No scan re-reads more than two pairs whole (about 8 hourly pages).
+    const perSlot = new Map<number, number>();
+    for (const d of due) perSlot.set(d, (perSlot.get(d) ?? 0) + 1);
+    expect(Math.max(...perSlot.values())).toBeLessThanOrEqual(2);
   });
 
   it("stores a bar once its interval has ended, not before", async () => {

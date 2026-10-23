@@ -19,7 +19,7 @@
  * before the window's start and its last bar is inside the window; otherwise
  * the whole window is read live, as before. A pair the live read returns
  * nothing for is served nothing, as a live read serves it. Each series is read
- * whole again once a day (`WHOLE_READ_MS`), so a correction Alpaca makes to a
+ * whole again within a day (`wholeReadAfter`, spread by symbol), so a correction Alpaca makes to a
  * bar older than the two rechecked ones is carried for a day at most. A store
  * that can't be read or
  * written falls back to the live read. Crypto only: equity bars are split
@@ -40,6 +40,22 @@ const RECHECK_BARS = 2;
 
 /** How long a stored series serves before it is read whole again. Engineering choice. */
 export const WHOLE_READ_MS = 24 * 3_600_000;
+
+/**
+ * Each pair's whole read comes due up to this much early, by its symbol, so the
+ * pairs read whole together on a cold store spread over the scans of the next
+ * day instead of all landing on one (about 46 hourly pages at once).
+ */
+const WHOLE_READ_SPREAD_MS = 12 * 3_600_000;
+const SPREAD_SLOT_MS = 15 * 60_000;
+
+/** How long `symbol`'s stored series serves before it is read whole again. */
+export function wholeReadAfter(symbol: string): number {
+  let h = 0;
+  for (const ch of symbol) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const slots = WHOLE_READ_SPREAD_MS / SPREAD_SLOT_MS;
+  return WHOLE_READ_MS - (h % slots) * SPREAD_SLOT_MS;
+}
 
 export interface StoredSeries {
   /** The start of the window the series was read from (epoch ms). */
@@ -156,7 +172,7 @@ export async function fetchCryptoClosedStored(
   for (const s of syms) {
     const series = memory.get(key(s));
     const last = series?.bars.at(-1);
-    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs && nowMs - series.wholeAt < WHOLE_READ_MS) held.set(s, series);
+    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs && nowMs - series.wholeAt < wholeReadAfter(s)) held.set(s, series);
   }
   const cold = syms.filter((s) => !held.has(s));
 
