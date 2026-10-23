@@ -5,9 +5,10 @@
  * visible results, monitors, alerts and the trade plans they create, for every
  * member, with this request's own budget instead of what a scan left over.
  * Called every minute from the database (pg_cron `gsps-scan-fanout`, migration
- * 0116, and `gsps-scan-fanout-evening` for the 00:00 UTC Vercel cron scan,
- * 0117) with the same bearer secret as every scheduled route. A call with
- * nothing pending reads one query and returns.
+ * 0116, and `gsps-scan-fanout-evening` from 00:00 to 02:59 UTC for the
+ * evening Vercel cron scan, 0117 and 0118) with the same bearer secret as
+ * every scheduled route. A call with nothing pending reads one query and
+ * returns.
  */
 
 import { NextRequest, NextResponse } from "next/server";
