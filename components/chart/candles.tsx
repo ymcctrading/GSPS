@@ -44,7 +44,19 @@ import {
   volumeBars,
   type Candle as CalcCandle,
 } from "@/lib/indicators";
-import type { StrategyModeId } from "@/lib/strategies/types";
+import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/types";
+import { IndicatorSettings } from "@/components/chart/indicator-settings";
+import {
+  DEFAULT_INDICATOR_PARAMS,
+  effectiveParams,
+  indicatorLabel,
+  resolveChartIndicatorPrefs,
+  type ChartOverlay,
+  type ChartPreset,
+  type ChartStudy,
+  type IndicatorParams,
+  type ParamIndicator,
+} from "@/lib/chart/indicatorParams";
 import { classifySeries } from "@/lib/strat/classify";
 import { cn, parseJsonResponse } from "@/lib/utils";
 
@@ -104,23 +116,18 @@ type Point = { time: Time; price: number };
 type Trendline = { a: Point; b: Point };
 
 // Overlay indicators drawn in the main price pane.
-type Overlay =
-  | "sma20"
-  | "sma50"
-  | "ema9"
-  | "bb"
-  | "psar"
-  | "supertrend"
-  | "vwap"
-  | "donchian";
+// The ids are kept from before periods were configurable (Q2 item 6,
+// lib/chart/indicatorParams.ts); the chip labels read the periods in force.
+type Overlay = ChartOverlay;
 // Study indicators drawn in their own pane below price.
-type Study = "volume" | "rsi" | "macd" | "stoch";
+type Study = ChartStudy;
 
-const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
-  sma20: { label: "SMA 20", color: "#f59e0b" },
-  sma50: { label: "SMA 50", color: "#8b5cf6" },
-  ema9: { label: "EMA 9", color: "#06b6d4" },
-  bb: { label: "Boll (20,2)", color: "#94a3b8" },
+// Colours only: each chip's label reads the periods in force (`indicatorLabel`).
+const OVERLAY_META: Record<Overlay, { color: string }> = {
+  sma20: { color: "#f59e0b" },
+  sma50: { color: "#8b5cf6" },
+  ema9: { color: "#06b6d4" },
+  bb: { color: "#94a3b8" },
   // Neither is computed anywhere else in this codebase (AGENTS.md's
   // "PSAR/Supertrend" bullet — previously just a dormant optional-flip-count
   // hook in the Signal & Regime Engine). Same user-driven, display-only
@@ -130,20 +137,13 @@ const OVERLAY_META: Record<Overlay, { label: string; color: string }> = {
   // owner direction; the stated intent is to gate this behind the higher
   // tiers once it's confirmed working, so don't read "ungated" here as
   // settled the way the always-free SMA/EMA/RSI/MACD family is.
-  psar: { label: "PSAR", color: "#eab308" },
-  supertrend: { label: "Supertrend", color: "#14b8a6" },
+  psar: { color: "#eab308" },
+  supertrend: { color: "#14b8a6" },
   // Added 2026-10-16 so every explain-the-math technique has its line on the
   // chart (AGENTS.md "Strategy Modes"). Display only, same carve-out as above.
-  vwap: { label: "VWAP", color: "#ec4899" },
-  donchian: { label: "Donchian 20", color: "#64748b" },
+  vwap: { color: "#ec4899" },
+  donchian: { color: "#64748b" },
 };
-const STUDY_META: Record<Study, { label: string }> = {
-  volume: { label: "Volume" },
-  rsi: { label: "RSI 14" },
-  macd: { label: "MACD 12/26/9" },
-  stoch: { label: "Stoch 14/3/3" },
-};
-
 /**
  * What the chart switches on when a technique is chosen to explain the plan
  * (owner decision 2026-10-16: automatic). The bar-pattern technique has no
@@ -313,6 +313,68 @@ export function CandleChart({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (explainScriptId) setSelectedCustomScriptId(explainScriptId);
   }, [explainScriptId]);
+
+  // ---- Indicator periods and presets (Q2 item 6, lib/chart/indicatorParams.ts).
+  // The member's own, from settings; the published periods when signed out or
+  // the read fails. A technique chosen on the ticket draws its own lines on its
+  // own periods, so a preset never changes what the technique shows.
+  const [indicatorParams, setIndicatorParams] = useState<IndicatorParams>(DEFAULT_INDICATOR_PARAMS);
+  const [presets, setPresets] = useState<ChartPreset[]>([]);
+  const [showIndicatorSettings, setShowIndicatorSettings] = useState(false);
+  const [indicatorSaving, setIndicatorSaving] = useState(false);
+  const [indicatorMessage, setIndicatorMessage] = useState<string | null>(null);
+  // Set once the member's settings are read; signed out, nothing is saved.
+  const [canSaveIndicators, setCanSaveIndicators] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/chart-indicators")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (cancelled || !body) return;
+        setCanSaveIndicators(true);
+        const prefs = resolveChartIndicatorPrefs(body);
+        setIndicatorParams(prefs.params);
+        setPresets(prefs.presets);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const techniqueKeys = useMemo(() => {
+    const keys = new Set<ParamIndicator>();
+    if (explainMode && explainMode !== "gann") {
+      const want = EXPLAIN_CHART[explainMode];
+      for (const k of [...want.overlays, ...want.studies]) if (k in DEFAULT_INDICATOR_PARAMS) keys.add(k as ParamIndicator);
+    }
+    return keys;
+  }, [explainMode]);
+  const drawParams = useMemo(() => effectiveParams(indicatorParams, techniqueKeys), [indicatorParams, techniqueKeys]);
+  const paramsKey = JSON.stringify(drawParams);
+  const saveIndicatorPrefs = useCallback(async (body: unknown) => {
+    setIndicatorSaving(true);
+    setIndicatorMessage(null);
+    try {
+      const r = await fetch("/api/settings/chart-indicators", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await r.json().catch(() => null);
+      if (!r.ok) {
+        setIndicatorMessage(
+          (json && typeof json.error === "string" ? json.error : "Couldn't save.") + " The chart keeps these settings until you leave the page.",
+        );
+        return;
+      }
+      const prefs = resolveChartIndicatorPrefs(json);
+      setPresets(prefs.presets);
+    } catch {
+      setIndicatorMessage("Couldn't save. The chart keeps these settings until you leave the page.");
+    } finally {
+      setIndicatorSaving(false);
+    }
+  }, []);
   const [customScriptSeries, setCustomScriptSeries] = useState<
     { label: string; points: { time: number; value: number }[] }[]
   >([]);
@@ -877,11 +939,11 @@ export function CandleChart({
       created.push(s);
     };
 
-    if (overlays.has("sma20")) addLine(sma(calcCandles, 20), OVERLAY_META.sma20.color);
-    if (overlays.has("sma50")) addLine(sma(calcCandles, 50), OVERLAY_META.sma50.color);
-    if (overlays.has("ema9")) addLine(ema(calcCandles, 9), OVERLAY_META.ema9.color);
+    if (overlays.has("sma20")) addLine(sma(calcCandles, drawParams.sma20.period), OVERLAY_META.sma20.color);
+    if (overlays.has("sma50")) addLine(sma(calcCandles, drawParams.sma50.period), OVERLAY_META.sma50.color);
+    if (overlays.has("ema9")) addLine(ema(calcCandles, drawParams.ema9.period), OVERLAY_META.ema9.color);
     if (overlays.has("bb")) {
-      const bb = bollinger(calcCandles, 20, 2);
+      const bb = bollinger(calcCandles, drawParams.bb.period, drawParams.bb.mult);
       addLine(bb.upper, OVERLAY_META.bb.color, 1, true);
       addLine(bb.middle, OVERLAY_META.bb.color, 1, false);
       addLine(bb.lower, OVERLAY_META.bb.color, 1, true);
@@ -890,7 +952,7 @@ export function CandleChart({
     // PSAR renders as dots (no connecting line) — the standard presentation,
     // and the one that actually reads as "stop level," not a trend line.
     if (overlays.has("psar")) {
-      const points = psar(calcCandles);
+      const points = psar(calcCandles, drawParams.psar.step, drawParams.psar.max);
       if (points.length > 0) {
         const s = chart.addSeries(LineSeries, {
           color: OVERLAY_META.psar.color,
@@ -910,7 +972,7 @@ export function CandleChart({
     // (downtrend), so it's drawn as separate green/red runs rather than one
     // line — a single color would hide the flip the indicator exists to show.
     if (overlays.has("supertrend")) {
-      const points = supertrend(calcCandles);
+      const points = supertrend(calcCandles, drawParams.supertrend.period, drawParams.supertrend.multiplier);
       let run: { time: number; value: number }[] = [];
       let runTrend: "up" | "down" | null = null;
       const flushRun = () => {
@@ -930,14 +992,14 @@ export function CandleChart({
     if (overlays.has("vwap"))
       addLine(vwap(calcCandles), OVERLAY_META.vwap.color);
     if (overlays.has("donchian")) {
-      const ch = donchian(calcCandles, 20);
+      const ch = donchian(calcCandles, drawParams.donchian.period);
       addLine(ch.upper, OVERLAY_META.donchian.color, 1, true);
       addLine(ch.lower, OVERLAY_META.donchian.color, 1, true);
     }
 
     return () => created.forEach((s) => chart.removeSeries(s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlayKey, candleData, status]);
+  }, [overlayKey, paramsKey, candleData, status]);
 
   /**
    * The STRAT reversal-pattern taxonomy's per-bar labels — `1` (inside),
@@ -1018,14 +1080,14 @@ export function CandleChart({
         { color: "#6366f1", lineWidth: 1, priceLineVisible: false, lastValueVisible: true },
         paneIndex,
       );
-      line.setData(rsi(calcCandles, 14).map((d) => ({ time: d.time as Time, value: d.value })));
+      line.setData(rsi(calcCandles, drawParams.rsi.period).map((d) => ({ time: d.time as Time, value: d.value })));
       line.createPriceLine({ price: 70, color: "#dc2626", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "70" });
       line.createPriceLine({ price: 30, color: "#059669", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "30" });
       created.push(line);
       paneIndex += 1;
     }
     if (studies.has("macd")) {
-      const m = macd(calcCandles);
+      const m = macd(calcCandles, drawParams.macd.fast, drawParams.macd.slow, drawParams.macd.signal);
       // Histogram first so the MACD/signal lines draw over the bars.
       const hist = chart.addSeries(
         HistogramSeries,
@@ -1062,7 +1124,7 @@ export function CandleChart({
       paneIndex += 1;
     }
     if (studies.has("stoch")) {
-      const st = stochastic(calcCandles);
+      const st = stochastic(calcCandles, drawParams.stoch.period, drawParams.stoch.k, drawParams.stoch.d);
       const k = chart.addSeries(
         LineSeries,
         {
@@ -1108,7 +1170,7 @@ export function CandleChart({
 
     return () => created.forEach((s) => chart.removeSeries(s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studyKey, candleData, status]);
+  }, [studyKey, paramsKey, candleData, status]);
 
   const toggleSet = <T,>(set: Set<T>, setSet: (s: Set<T>) => void, key: T) => {
     const next = new Set(set);
@@ -1382,7 +1444,7 @@ export function CandleChart({
         {(Object.keys(OVERLAY_META) as Overlay[]).map((k) => (
           <IndicatorChip
             key={k}
-            label={OVERLAY_META[k].label}
+            label={indicatorLabel(k, drawParams)}
             color={OVERLAY_META[k].color}
             active={overlays.has(k)}
             onClick={() => toggleSet(overlays, setOverlays, k)}
@@ -1391,11 +1453,17 @@ export function CandleChart({
         {CHIP_STUDIES.map((k) => (
           <IndicatorChip
             key={k}
-            label={STUDY_META[k].label}
+            label={indicatorLabel(k, drawParams)}
             active={studies.has(k)}
             onClick={() => toggleSet(studies, setStudies, k)}
           />
         ))}
+        <IndicatorChip
+          label={showIndicatorSettings ? "Periods and presets ▴" : "Periods and presets ▾"}
+          active={showIndicatorSettings}
+          expanded={showIndicatorSettings}
+          onClick={() => setShowIndicatorSettings((v) => !v)}
+        />
         {customScripts.length > 0 && (
           <select
             className="min-h-8 rounded-md border px-2 py-1 text-xs bg-background"
@@ -1411,6 +1479,36 @@ export function CandleChart({
           </select>
         )}
       </div>
+
+      {showIndicatorSettings && (
+        <IndicatorSettings
+          params={indicatorParams}
+          presets={presets}
+          overlays={overlays}
+          studies={studies}
+          techniqueKeys={techniqueKeys}
+          techniqueName={explainMode && explainMode !== "gann" ? STRATEGY_MODE_LABELS[explainMode] : null}
+          saving={indicatorSaving}
+          message={indicatorMessage}
+          canSave={canSaveIndicators}
+          onChangeParams={(next) => {
+            setIndicatorParams(next);
+            if (canSaveIndicators) void saveIndicatorPrefs({ params: next });
+          }}
+          onSavePreset={(name) =>
+            void saveIndicatorPrefs({
+              savePreset: { name, overlays: [...overlays], studies: [...studies], params: indicatorParams },
+            })
+          }
+          onDeletePreset={(name) => void saveIndicatorPrefs({ deletePreset: name })}
+          onLoadPreset={(preset) => {
+            setOverlays(new Set(preset.overlays));
+            setStudies(new Set(preset.studies));
+            setIndicatorParams(preset.params);
+            if (canSaveIndicators) void saveIndicatorPrefs({ params: preset.params });
+          }}
+        />
+      )}
 
       {/* Contextual hint while a drawing tool is armed. */}
       {tool !== "none" && (
@@ -1555,16 +1653,20 @@ function IndicatorChip({
   label,
   color,
   active,
+  expanded,
   onClick,
 }: {
   label: string;
   color?: string;
   active: boolean;
+  /** Set on a chip that opens a panel. */
+  expanded?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
+      aria-expanded={expanded}
       className={cn(
         "flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer transition-colors",
         active ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:text-foreground",

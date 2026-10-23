@@ -6,7 +6,7 @@
 governs what is built and in what order. It joins this roadmap with the parity
 documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
 This file keeps each phase's detail and history.
-**Last updated:** 2026-10-22 (Q2 advanced orders: automated pyramid adds on
+**Last updated:** 2026-10-23 (Q2 indicator periods and saved presets built). Previously 2026-10-22 (Q2 advanced orders: automated pyramid adds on
 paper, OCO answered by Gann's no-fixed-target rule; see
 `docs/SYNTHESIZED_ROADMAP.md` Part 5 item 3. Also Q2's crypto scanner started
 on Alpaca's free data, and Q2's Performance replay UI built as the Scanner's
@@ -1198,6 +1198,13 @@ Portfolio analytics drives retention and trust.
   being confined to the platform's. Project-owner direction, 2026-09-17.
   Candidates: Stochastic, ATR bands, Keltner, Donchian, OBV, VWAP variants,
   volume profile, configurable periods, and user-saved indicator presets.
+  **Configurable periods and saved presets built 2026-10-23** (Q2 item 6 of
+  `docs/SYNTHESIZED_ROADMAP.md`): every chart overlay and study takes the
+  member's own periods, and up to 12 named presets keep a set of indicators
+  with their periods (`lib/chart/indicatorParams.ts`,
+  `/api/settings/chart-indicators`, stored in `settings.prefs`). A technique
+  chosen on the order ticket still draws its own lines on its published
+  periods, so a preset never moves a Strategy Mode's levels or ranking.
   Squarely a differentiation play — it converts the scanner from a single
   opinionated method into a platform a sophisticated user will stay on.
   **Deliberately non-Gann, and that is the point.** This is the one place the
