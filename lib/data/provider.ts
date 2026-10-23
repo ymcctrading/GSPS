@@ -137,6 +137,7 @@ export interface Level2Book {
 import { alpacaProvider, alpacaConfigured } from "./alpaca";
 import { syntheticProvider } from "./synthetic";
 import { fetchMonthlyStored } from "./monthlyStore";
+import { fetchCryptoClosedStored, keepsClosedBars } from "./closedBarsStore";
 
 export function getMarketDataProvider(): MarketDataProvider {
   const choice = (process.env.MARKET_DATA_PROVIDER ?? "").trim().toLowerCase();
@@ -289,6 +290,15 @@ export async function fetchAllTimeframesBatch(
   const hourlyLookbackDays = executionIsHourly
     ? Math.max(30, executionLookbackDays(executionTimeframe))
     : 30;
+  // Closed crypto bars come from the store (`closedBarsStore.ts`): only the
+  // newest are read live. Equities are split adjusted, so they are read whole.
+  const intraday = (timeframe: Timeframe, start: Date) => {
+    if (assetClass !== "crypto" || !provider.isLive || !keepsClosedBars(timeframe)) return timed(timeframe, start);
+    const began = Date.now();
+    return fetchCryptoClosedStored(fetchBatch, symbols, timeframe, start).finally(() =>
+      onTimeframe?.(timeframe, Date.now() - began),
+    );
+  };
 
   const [monthly, weekly, daily, hourly, execution] = await Promise.all([
     // Closed months come from the month's store (`monthlyStore.ts`): only the
@@ -303,10 +313,10 @@ export async function fetchAllTimeframesBatch(
       : timed("1Month", yearsAgo(YEAR_COUNT_MONTHLY_YEARS)),
     timed("1Week", new Date(yearsAgo(5).getTime() - 7 * 24 * 3600 * 1000)),
     timed("1Day", yearsAgo(1)),
-    timed("1Hour", daysAgo(hourlyLookbackDays)),
+    intraday("1Hour", daysAgo(hourlyLookbackDays)),
     executionIsHourly
       ? Promise.resolve(null)
-      : timed(executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe))),
+      : intraday(executionTimeframe, daysAgo(executionLookbackDays(executionTimeframe))),
   ]);
 
   for (const symbol of symbols) {
