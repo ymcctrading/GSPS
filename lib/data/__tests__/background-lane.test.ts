@@ -110,4 +110,30 @@ describe("background lane", () => {
     // Refused before sending: no request went out for them.
     expect(fetchMock).toHaveBeenCalledTimes(6);
   });
+
+  it("the refunded tokens are there for the lane's next reads", async () => {
+    vi.useFakeTimers();
+    try {
+      const opts = { provider: "LaneRefundRefill", ratePerMinute: 10, queueTimeoutMs: 40 };
+      // Foreground takes the main bucket (10) down to its reserve (4).
+      await Promise.all(Array.from({ length: 6 }, () => fetchWithRetry(url, {}, opts)));
+      // Six background reads each take a lane token (burst 6), then time out on the main bucket.
+      const refused = inBackgroundLane(() =>
+        Promise.allSettled(Array.from({ length: 6 }, () => fetchWithRetry(url, {}, opts))),
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect((await refused).every((r) => r.status === "rejected")).toBe(true);
+      // 36s refills the main bucket by 6, the lane's by only 3.6: with its
+      // tokens given back the lane is whole (6) and six reads go through;
+      // without, only three would.
+      await vi.advanceTimersByTimeAsync(35_000);
+      const next = inBackgroundLane(() =>
+        Promise.allSettled(Array.from({ length: 6 }, () => fetchWithRetry(url, {}, opts))),
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect((await next).filter((r) => r.status === "fulfilled").length).toBe(6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
