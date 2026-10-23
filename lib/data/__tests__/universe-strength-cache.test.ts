@@ -142,6 +142,6 @@ describe("getUniverseStrength shared by month", () => {
     setUniverseStrengthStore({ read, write });
     await getUniverseStrength(lateOct);
     expect(read).toHaveBeenCalledWith("2026-10");
-    expect(write.mock.calls[0]?.[0]).toBe("2026-10");
+    expect((write.mock.calls[0] as unknown as [string] | undefined)?.[0]).toBe("2026-10");
   });
 });
