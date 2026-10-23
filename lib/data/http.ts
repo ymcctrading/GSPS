@@ -17,6 +17,8 @@
  * the provider's wording.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 /** A provider request that failed, with enough context to explain it to a user. */
 export class MarketDataError extends Error {
   readonly status: number;
@@ -103,20 +105,53 @@ class RateLimiter {
    * wait converts that silent hang into the same clean, fast
    * `MarketDataError` a live 429 would produce.
    */
-  async acquire(deadline: number): Promise<void> {
+  async acquire(deadline: number, reserve = 0): Promise<void> {
     for (;;) {
       this.refill();
-      if (this.tokens >= 1) {
+      if (this.tokens >= 1 + reserve) {
         this.tokens -= 1;
         return;
       }
       if (Date.now() >= deadline) throw new QueueTimeoutError();
       // Capped so a near-empty bucket (a slow refill relative to `deadline`)
       // rechecks the deadline periodically instead of oversleeping well past it.
-      const wait = Math.max((1 - this.tokens) / this.refillPerMs, 10);
+      const wait = Math.max((1 + reserve - this.tokens) / this.refillPerMs, 10);
       await sleep(Math.min(wait, 250));
     }
   }
+}
+
+/**
+ * The background lane: reads a request does not wait on (a scan's crypto and
+ * fund passes, its monthly re-rank batch) take a token only while
+ * `BACKGROUND_RESERVE` of the bucket would be left, so the reads the response
+ * waits on are never queued behind them. Production bug, 2026-10-23: the
+ * 00:35 UTC evening scan's side reads took 37, 33 and 45 pages at its start,
+ * and its own full-pass bars timed out queuing for tokens at +15.8s.
+ * Background reads queue up to `BACKGROUND_QUEUE_MS`, since nothing waits on
+ * them. The lane follows the async context (`AsyncLocalStorage`), so every
+ * request started inside `inBackgroundLane` is in it.
+ */
+const lane = new AsyncLocalStorage<"background">();
+
+/** Share of a provider's per-minute bucket kept for foreground reads. Engineering choice. */
+export const BACKGROUND_RESERVE = 0.4;
+
+/** How long a background read queues for a token before giving up. */
+export const BACKGROUND_QUEUE_MS = 50_000;
+
+/** Runs `fn` with every market-data request it starts in the background lane. */
+export function inBackgroundLane<T>(fn: () => Promise<T>): Promise<T> {
+  return lane.run("background", fn);
+}
+
+/**
+ * Runs `fn` outside the background lane: for a read shared by every caller
+ * (a once-a-day cache), which must not inherit the lane of whichever caller
+ * happened to start it.
+ */
+export function inForegroundLane<T>(fn: () => Promise<T>): Promise<T> {
+  return lane.exit(fn);
 }
 
 /** Internal signal that a caller gave up waiting for a rate-limit token. */
@@ -207,7 +242,9 @@ export async function fetchWithRetry(
   const baseDelay = opts.baseDelayMs ?? 400;
   const maxDelay = opts.maxDelayMs ?? 4000;
   const ratePerMinute = opts.ratePerMinute ?? 150;
-  const queueDeadline = Date.now() + (opts.queueTimeoutMs ?? 12_000);
+  const background = lane.getStore() === "background";
+  const reserve = background ? Math.floor(ratePerMinute * BACKGROUND_RESERVE) : 0;
+  const queueDeadline = Date.now() + (opts.queueTimeoutMs ?? (background ? BACKGROUND_QUEUE_MS : 12_000));
 
   let lastStatus = 0;
   let lastBody = "";
@@ -217,12 +254,14 @@ export async function fetchWithRetry(
     if (ratePerMinute > 0) {
       const queued = Date.now();
       try {
-        await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline);
+        await limiterFor(opts.provider, ratePerMinute).acquire(queueDeadline, reserve);
         const spentKey = `${opts.provider} ${endpointKey(url)}`;
         tokensSpent.set(spentKey, (tokensSpent.get(spentKey) ?? 0) + 1);
         const queuedMs = Date.now() - queued;
         if (queuedMs >= SLOW_QUEUE_MS) {
-          console.warn(`[market-data] ${opts.provider} waited ${queuedMs}ms for a rate-limit token`);
+          console.warn(
+            `[market-data] ${opts.provider} waited ${queuedMs}ms for a rate-limit token${background ? " (background)" : ""}`,
+          );
         }
       } catch {
         // Gave up waiting for a token — report it exactly like a live 429

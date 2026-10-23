@@ -74,7 +74,7 @@ import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBench
 import { readLeadership, readWeakStockFrom, selectionStrength, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
 import { getUniverseStrength } from "@/lib/data/universeStrength";
-import { tokensSpentSince, tokensSpentSnapshot } from "@/lib/data/http";
+import { inBackgroundLane, tokensSpentSince, tokensSpentSnapshot } from "@/lib/data/http";
 
 /**
  * SEC's own line for a "penny stock" is under $5, and it doubles as a proxy
@@ -1106,8 +1106,10 @@ export async function runMarketScan(
         console.warn(`market-scan: ${name} pass failed:`, String(err));
         return [] as ScanResult[];
       });
-  const cryptoP = sidePass("crypto", scanEveryChart(CRYPTO_UNIVERSE, "crypto", universeThresholds));
-  const fundsP = sidePass("funds", scanEveryChart(FUND_MARKETS, "us_equity", universeThresholds));
+  // Both in the background lane (`lib/data/http.ts`): their reads take a
+  // rate-limit token only while the stocks' full pass keeps its reserve.
+  const cryptoP = sidePass("crypto", inBackgroundLane(() => scanEveryChart(CRYPTO_UNIVERSE, "crypto", universeThresholds)));
+  const fundsP = sidePass("funds", inBackgroundLane(() => scanEveryChart(FUND_MARKETS, "us_equity", universeThresholds)));
 
   // A fund or pair named here is scored by its own pass, never by the stocks'.
   const actives = stocksOnly(await resolveUniverse(universeTop, stocksOnly(extraSymbols)));
@@ -1134,8 +1136,9 @@ export async function runMarketScan(
   if (provider.fetchBarsBatch) {
     const monthlyStarted = Date.now();
     const tenYearsAgo = new Date(Date.now() - 10 * 365.25 * 24 * 3600 * 1000);
-    void provider
-      .fetchBarsBatch(actives, "1Month", tenYearsAgo, end, "us_equity")
+    // Background lane: never waited on, so it must not take the tokens the
+    // full pass waits on (2026-10-23: 37 pages for 250 symbols).
+    void inBackgroundLane(() => provider.fetchBarsBatch!(actives, "1Month", tenYearsAgo, end, "us_equity"))
       .then((m) => {
         monthlyBatch = m;
         mark("monthly batch fetch done", `${m.size} symbols in ${Date.now() - monthlyStarted}ms`);
