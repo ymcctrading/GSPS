@@ -127,15 +127,35 @@ describe("fetchCryptoClosedStored", () => {
     expect(fetch.mock.calls[1][2].toISOString()).toBe(windowStart(now, 2).toISOString());
   });
 
-  it("an empty live read serves the held bars", async () => {
+  it("an empty live read serves nothing, as a live read does", async () => {
     setClosedBarsStore(memoryStore());
     const now = at("2026-10-01T10:30:00Z");
     let live = new Map([["BTC/USD", hours(now.getTime())]]);
     const fetch = feed(() => live);
-    const first = await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(now, 7), now);
+    await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(now, 7), now);
     live = new Map();
     const out = await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(now, 7), now);
-    expect(out.get("BTC/USD")).toEqual(first.get("BTC/USD")!.slice(0, -1));
+    expect(out.get("BTC/USD")).toEqual([]);
+  });
+
+  it("pairs whose stored bars end at different times each get every bar", async () => {
+    const store = memoryStore();
+    setClosedBarsStore(store);
+    const early = at("2026-10-01T06:30:00Z");
+    const late = at("2026-10-01T10:30:00Z");
+    const live = new Map([
+      ["BTC/USD", hours(Date.parse("2026-10-02T00:00:00Z"))],
+      ["ETH/USD", hours(Date.parse("2026-10-02T00:00:00Z"))],
+    ]);
+    const upTo = (until: Date) => () => new Map([...live].map(([s, b]) => [s, b.filter((x) => Date.parse(x.t) < until.getTime())]));
+    await fetchCryptoClosedStored(feed(upTo(early)), ["BTC/USD"], "1Hour", windowStart(early, 7), early);
+    await fetchCryptoClosedStored(feed(upTo(late)), ["ETH/USD"], "1Hour", windowStart(early, 7), late);
+    const now = at("2026-10-01T12:30:00Z");
+    const fetch = feed(upTo(now));
+    const out = await fetchCryptoClosedStored(fetch, ["BTC/USD", "ETH/USD"], "1Hour", windowStart(now, 7), now);
+    const want = (s: string) => upTo(now)().get(s)!.filter((b) => Date.parse(b.t) >= windowStart(now, 7).getTime());
+    expect(out.get("BTC/USD")).toEqual(want("BTC/USD"));
+    expect(out.get("ETH/USD")).toEqual(want("ETH/USD"));
   });
 
   it("a store that can't be read or written falls back to the live read", async () => {

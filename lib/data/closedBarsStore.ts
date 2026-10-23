@@ -17,7 +17,8 @@
  * Stored in `closed_bars` (migration 0121, shared by the instances) and in
  * memory. A stored series serves a read only when it was read from at or
  * before the window's start and its last bar is inside the window; otherwise
- * the whole window is read live, as before. A store that can't be read or
+ * the whole window is read live, as before. A pair the live read returns
+ * nothing for is served nothing, as a live read serves it. A store that can't be read or
  * written falls back to the live read. Crypto only: equity bars are split
  * adjusted, so a stored equity series would need the monthly store's check.
  */
@@ -52,7 +53,13 @@ function serviceStore(): ClosedBarsStore | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = serviceRoleKey();
   if (!url || !key) return null;
-  const client: SupabaseClient = createClient(url, key, { auth: { persistSession: false } });
+  let client: SupabaseClient;
+  try {
+    client = createClient(url, key, { auth: { persistSession: false } });
+  } catch (err) {
+    console.warn(`[closed-bars] store not opened, reading live — ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
   return {
     async read(timeframe, symbols) {
       const { data, error } = await client
@@ -160,8 +167,10 @@ export async function fetchCryptoClosedStored(
     if (series) {
       const live = recent.get(s) ?? [];
       if (live.length === 0) {
-        // Nothing came back live: serve what is held rather than lose it.
-        bars = series.bars;
+        // The live read starts inside the held series, so nothing back means
+        // the feed has nothing for the pair: serve what a live read serves.
+        bars = [];
+        memory.delete(key(s));
       } else {
         const liveStart = Date.parse(live[0].t);
         bars = [...series.bars.filter((b) => Date.parse(b.t) < liveStart), ...live];
