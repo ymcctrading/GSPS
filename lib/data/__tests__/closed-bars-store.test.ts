@@ -178,13 +178,13 @@ describe("fetchCryptoClosedStored", () => {
     const first = at("2026-10-01T10:30:00Z");
     const live = new Map([["BTC/USD", hours(Date.parse("2026-10-03T00:00:00Z"))]]);
     const upTo = (until: Date) => () => new Map([...live].map(([s, b]) => [s, b.filter((x) => Date.parse(x.t) < until.getTime())]));
-    const fetch = vi.fn<BatchFetch>(async (symbols, tf, start, end, ac) => feed(upTo(nowRef))(symbols, tf, start, end, ac));
     let nowRef = first;
+    const fetch = vi.fn<BatchFetch>(async (symbols, tf, start, end, ac) => feed(upTo(nowRef))(symbols, tf, start, end, ac));
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(first, 7), first);
     nowRef = at("2026-10-02T10:00:00Z"); // 23.5 h later: still served from the store
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(nowRef, 7), nowRef);
     expect(fetch.mock.calls[1][2].getTime()).toBeGreaterThan(windowStart(nowRef, 7).getTime());
-    nowRef = at("2026-10-02T10:31:00Z"); // over a day since the whole read
+    nowRef = at("2026-10-02T10:30:00Z"); // a day to the minute since the whole read
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(nowRef, 7), nowRef);
     expect(fetch.mock.calls[2][2].toISOString()).toBe(windowStart(nowRef, 7).toISOString());
   });
