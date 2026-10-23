@@ -16,7 +16,13 @@
  * Split adjustment rewrites history, so each read checks the stored series
  * against the live read of the last closed month: a close that differs by more
  * than 0.1%, or a month one side has and the other doesn't, reads the stock's
- * whole history again and stores that.
+ * whole history again and stores that. A split moves that close by its ratio,
+ * which is what the check is for (bars are read with `adjustment=split`). It
+ * does not catch a later correction to another field or to an older month,
+ * and a stock with no bar last month on either side passes unchecked.
+ *
+ * Months are read in New York time from each bar's stamp: Alpaca stamps a
+ * monthly bar at midnight New York time on the 1st (04:00 or 05:00 UTC).
  *
  * Only the live feed is stored. A store that can't be read or written falls
  * back to the live read, as before.
@@ -89,7 +95,8 @@ function serviceStore(): MonthlyBarsStore | null {
       // Earlier months' rows are never read again.
       if (prunedFor !== month) {
         prunedFor = month;
-        await client.from("monthly_bars_closed").delete().lt("month", month);
+        const { error } = await client.from("monthly_bars_closed").delete().lt("month", month);
+        if (error) console.warn(`[monthly-store] rows before ${month} not deleted — ${error.message}`);
       }
     },
   };
@@ -104,10 +111,14 @@ function storeFor(): MonthlyBarsStore | null {
 /** In memory, one New York month at a time. */
 let memory: { month: string; bars: Map<string, Bar[]> } | null = null;
 
+/** Whole-history reads in flight on this instance, by symbol. */
+let rereads: { month: string; bySymbol: Map<string, Promise<Bar[]>> } = { month: "", bySymbol: new Map() };
+
 /** Test hook: the store to use (null for none); undefined restores the default. Clears memory. */
 export function setMonthlyBarsStore(s: MonthlyBarsStore | null | undefined): void {
   store = s;
   memory = null;
+  rereads = { month: "", bySymbol: new Map() };
 }
 
 const monthOf = (t: string) => etDateKey(new Date(t)).slice(0, 7);
@@ -157,17 +168,20 @@ export async function fetchMonthlyStored(
     }
   }
 
-  const held = syms.filter((s) => mem.has(s));
+  // Each held series as it stood before the live read: another call on this
+  // instance may replace or drop it while this one waits.
+  const heldSeries = new Map(syms.filter((s) => mem.has(s)).map((s) => [s, mem.get(s)!] as const));
+  const held = [...heldSeries.keys()];
   const recent = held.length > 0 ? await fetchBatch(held, "1Month", previousMonthStart(month), end, "us_equity") : new Map<string, Bar[]>();
 
   const out = new Map<string, Bar[]>();
   const fromMs = start.getTime();
-  const reread: string[] = syms.filter((s) => !mem.has(s));
+  const reread: string[] = syms.filter((s) => !heldSeries.has(s));
   for (const sym of held) {
     const live = recent.get(sym) ?? [];
-    const stored = mem.get(sym)!;
+    const stored = heldSeries.get(sym)!;
     if (!storedAgrees(stored, live, month)) {
-      mem.delete(sym);
+      if (mem.get(sym) === stored) mem.delete(sym);
       reread.push(sym);
       continue;
     }
@@ -176,24 +190,45 @@ export async function fetchMonthlyStored(
   }
 
   if (reread.length > 0) {
-    const full = await fetchBatch(reread, "1Month", STORE_START.getTime() < fromMs ? STORE_START : start, end, "us_equity");
-    const toStore = new Map<string, Bar[]>();
-    for (const sym of reread) {
-      const bars = full.get(sym) ?? [];
-      out.set(sym, bars.filter((b) => Date.parse(b.t) >= fromMs));
-      // Read from 2016 (or earlier), so whole enough to serve any later window.
-      const closed = bars.filter((b) => monthOf(b.t) < month);
-      mem.set(sym, closed);
-      // A stock with no bars is kept in memory only: nothing to share.
-      if (closed.length > 0) toStore.set(sym, closed);
-    }
-    if (shared && toStore.size > 0) {
-      await shared
-        .write(month, toStore)
-        .catch((err: unknown) =>
-          console.warn(`[monthly-store] ${month} rows not written — ${err instanceof Error ? err.message : String(err)}`),
+    // A whole history already being read on this instance is joined, not read
+    // twice (the scan's background monthly read and its full pass overlap).
+    const pending = rereads.month === month ? rereads.bySymbol : new Map<string, Promise<Bar[]>>();
+    rereads = { month, bySymbol: pending };
+    const own = reread.filter((s) => !pending.has(s));
+    if (own.length > 0) {
+      const full = fetchBatch(own, "1Month", STORE_START.getTime() < fromMs ? STORE_START : start, end, "us_equity");
+      for (const sym of own) {
+        const one = full.then((m) => m.get(sym) ?? []);
+        pending.set(sym, one);
+        // Dropped once settled, so a later mismatch reads again.
+        void one.then(
+          () => pending.get(sym) === one && pending.delete(sym),
+          () => pending.get(sym) === one && pending.delete(sym),
         );
+      }
+      void full
+        .then((m) => {
+          const toStore = new Map<string, Bar[]>();
+          for (const sym of own) {
+            // Read from 2016 (or earlier), so whole enough to serve any later window.
+            const closed = (m.get(sym) ?? []).filter((b) => monthOf(b.t) < month);
+            if (memory?.month === month) memory.bars.set(sym, closed);
+            // A stock with no bars is kept in memory only: nothing to share.
+            if (closed.length > 0) toStore.set(sym, closed);
+          }
+          // Not waited on: the scan reads the bars, not the write.
+          if (shared && toStore.size > 0) {
+            void shared
+              .write(month, toStore)
+              .catch((err: unknown) =>
+                console.warn(`[monthly-store] ${month} rows not written — ${err instanceof Error ? err.message : String(err)}`),
+              );
+          }
+        })
+        .catch(() => undefined);
     }
+    const bars = await Promise.all(reread.map((s) => pending.get(s)!));
+    reread.forEach((sym, i) => out.set(sym, bars[i].filter((b) => Date.parse(b.t) >= fromMs)));
   }
   return out;
 }

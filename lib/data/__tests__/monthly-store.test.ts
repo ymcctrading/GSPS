@@ -156,6 +156,62 @@ describe("fetchMonthlyStored", () => {
     expect(out.get("AAA")).toEqual(months("2026-10"));
   });
 
+  it("two overlapping reads after a split both get the new history", async () => {
+    const store = memoryStore();
+    setMonthlyBarsStore(store);
+    let live = new Map([["AAA", months("2026-10")]]);
+    const fetch = feed(() => live);
+    await fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW);
+    live = new Map([["AAA", months("2026-10", 0.5)]]);
+    const [a, b] = await Promise.all([
+      fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW),
+      fetchMonthlyStored(fetch, ["AAA"], TEN_YEARS, null, NOW),
+    ]);
+    const want = months("2026-10", 0.5).filter(sinceTen);
+    expect(a.get("AAA")).toEqual(want);
+    expect(b.get("AAA")).toEqual(want);
+    // One whole-history read, shared: the first read, two recent reads, one reread.
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("two overlapping cold reads share one whole-history read", async () => {
+    setMonthlyBarsStore(memoryStore());
+    const live = new Map([["AAA", months("2026-10")], ["BBB", months("2026-10")]]);
+    const fetch = feed(() => live);
+    const [a, b] = await Promise.all([
+      fetchMonthlyStored(fetch, ["AAA", "BBB"], TEN_YEARS, null, NOW),
+      fetchMonthlyStored(fetch, ["AAA"], new Date("1965-01-01T00:00:00Z"), null, NOW),
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(a.get("BBB")).toEqual(months("2026-10").filter(sinceTen));
+    expect(b.get("AAA")).toEqual(months("2026-10"));
+  });
+
+  it("a stock with no bar last month, or listed this month, is served", async () => {
+    setMonthlyBarsStore(memoryStore());
+    const halted = months("2026-08");
+    const listed = [{ t: "2026-10-01T04:00:00Z", o: 10, h: 11, l: 9, c: 10, v: 5 }];
+    const live = new Map([["HLT", halted], ["NEW", listed]]);
+    const fetch = feed(() => live);
+    await fetchMonthlyStored(fetch, ["HLT", "NEW"], TEN_YEARS, null, NOW);
+    const out = await fetchMonthlyStored(fetch, ["HLT", "NEW"], TEN_YEARS, null, NOW);
+    expect(out.get("HLT")).toEqual(halted.filter(sinceTen));
+    expect(out.get("NEW")).toEqual(listed);
+    expect(out.has("ZZZ")).toBe(false);
+  });
+
+  it("a failed store write still returns the bars", async () => {
+    setMonthlyBarsStore({
+      read: async () => new Map(),
+      write: async () => {
+        throw new Error("down");
+      },
+    });
+    const live = new Map([["AAA", months("2026-10")]]);
+    const out = await fetchMonthlyStored(feed(() => live), ["AAA"], TEN_YEARS, null, NOW);
+    expect(out.get("AAA")).toEqual(months("2026-10").filter(sinceTen));
+  });
+
   it("round-trips the stored form", () => {
     const bars = months("2016-03");
     expect(fromRows(toRows(bars))).toEqual(bars);
