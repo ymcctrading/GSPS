@@ -175,6 +175,53 @@ export function effectiveParams(params: IndicatorParams, techniqueIndicators: Re
   return out as IndicatorParams;
 }
 
+/** One change to a member's chart indicator settings (the PUT body). */
+export const ChartIndicatorChangeSchema = z.union([
+  z.object({ params: IndicatorParamsSchema }).strict(),
+  z.object({ savePreset: ChartPresetSchema }).strict(),
+  z.object({ deletePreset: z.string().trim().min(1).max(PRESET_NAME_MAX) }).strict(),
+]);
+export type ChartIndicatorChange = z.infer<typeof ChartIndicatorChangeSchema>;
+
+export type ChartIndicatorChangeResult =
+  | { ok: true; prefs: Record<string, unknown>; chartIndicators: ChartIndicatorPrefs }
+  | { ok: false; error: string };
+
+const MACD_ORDER_ERROR = "MACD's fast period must be shorter than its slow one.";
+
+/**
+ * Applies one change to a member's whole `settings.prefs` and returns the
+ * prefs to store. Every other key is kept: `prefs` also holds the trade style
+ * history the exit managers read (`gannRules.tradeStyleHistory`), Guided Mode
+ * and onboarding. The caller must pass prefs it actually read; a failed read
+ * is never stood in for by `{}`, or the write would erase those keys.
+ */
+export function applyChartIndicatorChange(
+  prefs: Record<string, unknown>,
+  change: ChartIndicatorChange,
+): ChartIndicatorChangeResult {
+  const current = resolveChartIndicatorPrefs(prefs.chartIndicators);
+  const next: ChartIndicatorPrefs = { ...current };
+  if ("params" in change) {
+    if (change.params.macd.fast >= change.params.macd.slow) return { ok: false, error: MACD_ORDER_ERROR };
+    next.params = resolveIndicatorParams(change.params);
+  } else if ("savePreset" in change) {
+    if (change.savePreset.params.macd.fast >= change.savePreset.params.macd.slow) {
+      return { ok: false, error: MACD_ORDER_ERROR };
+    }
+    const key = change.savePreset.name.toLowerCase();
+    const others = current.presets.filter((p) => p.name.toLowerCase() !== key);
+    if (others.length >= MAX_PRESETS) {
+      return { ok: false, error: `You can keep up to ${MAX_PRESETS} presets. Delete one first.` };
+    }
+    next.presets = [...others, change.savePreset];
+  } else {
+    const key = change.deletePreset.toLowerCase();
+    next.presets = current.presets.filter((p) => p.name.toLowerCase() !== key);
+  }
+  return { ok: true, prefs: { ...prefs, chartIndicators: next }, chartIndicators: next };
+}
+
 /** The editable fields of each indicator, for the settings panel. */
 export const PARAM_FIELDS: Record<ParamIndicator, { field: string; label: string; step: number }[]> = {
   sma20: [{ field: "period", label: "Period", step: 1 }],
