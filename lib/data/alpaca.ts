@@ -10,7 +10,7 @@
 
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import type { MarketDataProvider } from "./provider";
-import { cachedFetch, fetchWithRetry, MarketDataError } from "./http";
+import { ALPACA_PROVIDER_LABEL, cachedFetch, fetchWithRetry, MarketDataError } from "./http";
 import type { AlertQuote } from "@/lib/alerts/rules";
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { isCryptoSymbol as isCrypto } from "@/lib/market/cryptoSymbol";
@@ -109,7 +109,7 @@ async function get(path: string, params: Record<string, string>): Promise<any> {
     const res = await fetchWithRetry(
       url,
       { headers: headers(), next: { revalidate: 0 } } as RequestInit,
-      { provider: "Alpaca market data" },
+      { provider: ALPACA_PROVIDER_LABEL },
     );
     return res.json();
   });

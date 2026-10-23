@@ -6,6 +6,7 @@
  */
 
 import type { Bar } from "@/lib/types";
+import { inForegroundLane } from "@/lib/data/http";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { etDateKey } from "@/lib/market/session";
 
@@ -17,8 +18,8 @@ export function getMarketDailyBars(now: Date = new Date()): Promise<Bar[] | null
   const day = etDateKey(now);
   if (cached && cached.day === day) return cached.bars;
   const start = new Date(now.getTime() - 400 * 86_400_000);
-  const bars = getMarketDataProvider()
-    .fetchBars(MARKET_SYMBOL, "1Day", start, null, "us_equity")
+  // Shared by every caller: read at full priority whichever lane started it.
+  const bars = inForegroundLane(() => getMarketDataProvider().fetchBars(MARKET_SYMBOL, "1Day", start, null, "us_equity"))
     .then((b) => b.filter((x) => x.t.slice(0, 10) < day))
     .catch(() => null);
   cached = { day, bars };
@@ -42,9 +43,9 @@ export function getMarketMonthlyBars(now: Date = new Date()): Promise<Bar[] | nu
   const day = etDateKey(now);
   if (cachedMonthly && cachedMonthly.day === day) return cachedMonthly.bars;
   const start = new Date(now.getTime() - 3653 * 86_400_000);
-  const bars = getMarketDataProvider()
-    .fetchBars(MARKET_SYMBOL, "1Month", start, null, "us_equity")
-    .catch(() => null);
+  const bars = inForegroundLane(() => getMarketDataProvider().fetchBars(MARKET_SYMBOL, "1Month", start, null, "us_equity")).catch(
+    () => null,
+  );
   cachedMonthly = { day, bars };
   return bars;
 }
