@@ -658,7 +658,8 @@ async function main() {
 
     // Shares outstanding and inception dates (parity roadmap D2, D3), read
     // once, as `collectRun` does. Older refs have no loader; the readings are
-    // then absent, as they are without SUPABASE_SERVICE_ROLE_KEY.
+    // then absent. Without SUPABASE_SECRET_KEY they come from the checked-in
+    // snapshot (lib/data/instrumentReferenceSnapshot.json).
     let references = new Map();
     try {
       const refs = await server.ssrLoadModule("/lib/data/instrumentReference.ts");

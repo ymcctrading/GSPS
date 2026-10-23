@@ -30,6 +30,7 @@ import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { getUniversePolicy } from "@/lib/universe/policy";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import type { ScanResult } from "@/lib/types";
+import { visibilityRank } from "@/lib/scan/listOrder";
 
 const DEFAULT_WATCHLIST = [
   "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
       .filter((r) => !r.error && r.decision.outputState !== "Reject" && r.direction !== "none")
       .map((r) => ({
         side: r.direction === "bullish" ? ("buy" as const) : ("sell" as const),
-        rank: r.decision.score,
+        rank: visibilityRank(r),
         value: r,
       }));
 
