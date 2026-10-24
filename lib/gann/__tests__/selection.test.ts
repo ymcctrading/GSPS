@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar, ScanResult } from "@/lib/types";
 import { readLeadership, selectionStrength } from "@/lib/gann/leadership";
 import { compareForList, rankShortlist, type CoarseCandidate } from "@/lib/marketScan";
+import { visibilityRank } from "@/lib/scan/listOrder";
 
 function bars(closes: number[], start = "2025-01-01"): Bar[] {
   const t0 = Date.parse(`${start}T00:00:00Z`);
@@ -54,6 +55,23 @@ describe("list order puts the leaders first", () => {
   it("keeps score order between two setups of equal standing", () => {
     const list = [result("B", 6, "Execute", 0), result("A", 7, "Execute", 0)].sort(compareForList);
     expect(list.map((r) => r.symbol)).toEqual(["A", "B"]);
+  });
+
+  it("lists a resting Execute with Watch, behind an Execute price is near (SE, 2026-10-23)", () => {
+    const sell = (symbol: string, score: number, state: "Execute" | "Watch", entry: number) =>
+      ({
+        ...result(symbol, score, state, 0),
+        direction: "bearish",
+        currentPrice: 75.69,
+        dayRange: 3.72,
+        levels: { entry, stopLoss: entry + 5, takeProfit1: entry - 6.63, masterProfit: entry - 12 },
+      }) as unknown as ScanResult;
+    const resting = sell("SE", 7, "Execute", 100);
+    const near = sell("NEAR", 6, "Execute", 76.5);
+    const watch = sell("WAIT", 8, "Watch", 77);
+    expect([resting, watch, near].sort(compareForList).map((r) => r.symbol)).toEqual(["NEAR", "WAIT", "SE"]);
+    expect(visibilityRank(near)).toBeGreaterThan(visibilityRank(watch));
+    expect(visibilityRank(watch)).toBeGreaterThan(visibilityRank(resting));
   });
 
   it("never lists a held or rejected leader ahead of an actionable setup", () => {
