@@ -19,9 +19,9 @@
  * before the window's start and its last bar is inside the window; otherwise
  * the whole window is read live, as before. A pair the live read returns
  * nothing for is served nothing, as a live read serves it. Each series is read
- * whole again once a day (`WHOLE_READ_MS`), so a correction Alpaca makes to a
- * bar older than the two rechecked ones is carried for a day at most. A store
- * that can't be read or
+ * whole again once a day (`WHOLE_READ_MS`), two pairs a timeframe a read at
+ * most (`MAX_DUE_WHOLE_READS`), so a correction Alpaca makes to a bar older than the
+ * two rechecked ones is carried for about a day. A store that can't be read or
  * written falls back to the live read. Crypto only: equity bars are split
  * adjusted, so a stored equity series would need the monthly store's check.
  */
@@ -40,6 +40,15 @@ const RECHECK_BARS = 2;
 
 /** How long a stored series serves before it is read whole again. Engineering choice. */
 export const WHOLE_READ_MS = 24 * 3_600_000;
+
+/**
+ * At most this many stored series that have come due are read whole on one
+ * read; the rest are served from the store and wait their turn, oldest whole
+ * read first. Scans run every 15 minutes in market hours and not overnight, so
+ * a fixed due time alone would land every pair's whole read on the morning's
+ * first scan (about 46 hourly pages at once). Engineering choice.
+ */
+export const MAX_DUE_WHOLE_READS = 2;
 
 export interface StoredSeries {
   /** The start of the window the series was read from (epoch ms). */
@@ -150,14 +159,21 @@ export async function fetchCryptoClosedStored(
     }
   }
 
-  // A held series serves the read when it reaches back to the window's start,
-  // its newest bar is still inside the window, and it was read whole within a day.
+  // A held series serves the read when it reaches back to the window's start
+  // and its newest bar is still inside the window. One read whole over a day
+  // ago is due a whole read, two at most a read, the longest-held first.
   const held = new Map<string, StoredSeries>();
+  const due: string[] = [];
   for (const s of syms) {
     const series = memory.get(key(s));
     const last = series?.bars.at(-1);
-    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs && nowMs - series.wholeAt < WHOLE_READ_MS) held.set(s, series);
+    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs) {
+      held.set(s, series);
+      if (!(nowMs - series.wholeAt < WHOLE_READ_MS)) due.push(s);
+    }
   }
+  due.sort((a, b) => (held.get(a)!.wholeAt || 0) - (held.get(b)!.wholeAt || 0));
+  for (const s of due.slice(0, MAX_DUE_WHOLE_READS)) held.delete(s);
   const cold = syms.filter((s) => !held.has(s));
 
   // The held symbols are read live from the earliest of their recheck points.
