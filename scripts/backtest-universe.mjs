@@ -578,6 +578,17 @@ async function main() {
     return;
   }
 
+  // One symbol's daily plans and whether price came back to their entry (scripts/plan-retests.mjs).
+  const retestArg = process.argv.find((a) => a.startsWith("plan-retests:"));
+  if (retestArg) {
+    const { runPlanRetests } = await import("./plan-retests.mjs");
+    await runPlanRetests({ symbol: retestArg.split(":")[1], days: 90 });
+    await mkdir(path.join(root, "out"), { recursive: true });
+    await writeFile(path.join(root, "out", "summary.md"), "Plan retests: see the job log.\n");
+    await writeFile(path.join(root, "out", "summary.json"), JSON.stringify({ note: "Plan retests: see the job log." }) + "\n");
+    return;
+  }
+
   // The intraday alert replay rides it too (scripts/intraday-alerts.mjs); `since` is unused, `limit` caps the universe.
   if (process.argv.includes("intraday-alerts")) {
     const { runIntradayAlerts } = await import("./intraday-alerts.mjs");
