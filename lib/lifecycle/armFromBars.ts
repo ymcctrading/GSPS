@@ -28,12 +28,13 @@ import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { assertLiveMarketData, MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
-import { closedSessionBars } from "./confirmNow";
+import { closedSessionBars, crossingHeldNow } from "./confirmNow";
 import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import { isExpiredByClock } from "./expiry";
 import { applyEventAndPersist, listTradePlans } from "./store";
 import { isPivotSignal } from "./fromPivot";
 import { isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
+import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 
 /**
  * Has the plan's own stop broken since the plan was generated? A bar since
@@ -118,15 +119,39 @@ export async function armConfirmedPlansFromBars(
       // 2026-10-21 this passed neither the stop nor the entry kind, so the
       // manager armed every plan on the retest sequence that the reaction
       // rule replaced (review finding R-014).
-      const evidence = replayEntryConfirmation(
-        {
+      const closed = closedSessionBars(bars, now, intervalMs, plan.generatedAt);
+      const pivot = isPivotSignal(plan.signalId);
+      const rule = {
+        direction: plan.direction,
+        entryTrigger: plan.coordinates.entryTrigger,
+        stopPrice: pivot ? undefined : plan.coordinates.invalidation,
+        entryKind: plan.coordinates.entryKind,
+      };
+      let evidence = replayEntryConfirmation(rule, closed);
+      // A crossing plan is usually generated after its crossing closed: since
+      // 2026-10-27 a crossing reads Execute only once it is held (definite
+      // indication shown, `applyReadyNowHold`). The bars since generation then
+      // hold no crossing close, only the reaction. When the completed daily
+      // chart still holds the crossing this entry buys, the indication is
+      // shown, so the plan arms as an entry resting at its level does and
+      // placement's buy-zone test fills it on the reaction (W006 Rules
+      // 3(b)-(c) pp.46-47), as `readEntryConfirmationNow` already reads it.
+      let heldCrossing = false;
+      if (
+        !entryReady(evidence) &&
+        !pivot &&
+        !restsWithoutCrossing(plan.coordinates.entryKind) &&
+        (await crossingHeldNow({
+          symbol: plan.instrument,
+          assetClass: plan.market as AssetClass,
           direction: plan.direction,
-          entryTrigger: plan.coordinates.entryTrigger,
-          stopPrice: isPivotSignal(plan.signalId) ? undefined : plan.coordinates.invalidation,
-          entryKind: plan.coordinates.entryKind,
-        },
-        closedSessionBars(bars, now, intervalMs, plan.generatedAt),
-      );
+          entry: plan.coordinates.entryTrigger,
+          now,
+        }))
+      ) {
+        evidence = replayEntryConfirmation({ ...rule, entryKind: "oldLevel" }, closed);
+        heldCrossing = true;
+      }
       if (!entryReady(evidence)) continue;
 
       const at = now.toISOString();
@@ -142,9 +167,11 @@ export async function armConfirmedPlansFromBars(
       const armed = await applyEventAndPersist(supabase, userId, plan.planId, {
         type: "arm",
         at,
-        reason: isPivotSignal(plan.signalId)
+        reason: pivot
           ? "Break/retest/confirmation-move sequence completed on closed bars since the plan was generated."
-          : plan.coordinates.entryKind === "oldLevel" || plan.coordinates.entryKind === "hold"
+          : heldCrossing
+            ? "The crossing closed 3 points past the old level before the plan, and the daily chart still holds it; the entry waits for the reaction."
+            : restsWithoutCrossing(plan.coordinates.entryKind)
             ? "The entry rests at its level, read on closed bars since the plan was generated."
             : "Price closed 3 points past the old level on a closed bar; the entry waits for the reaction.",
       });

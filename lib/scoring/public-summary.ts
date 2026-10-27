@@ -23,7 +23,7 @@ import type {
   ScorePillarSummary,
 } from "@/lib/types";
 import { redactScanSignals } from "@/lib/signals/publicSummary";
-import { CRITERION_KEYS, type CriterionKey } from "@/lib/scoring/weights";
+import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionKey } from "@/lib/scoring/weights";
 
 /**
  * Display order: the nine points in the order they are scored
@@ -127,7 +127,7 @@ const HOLD_PHRASES: Partial<Record<string, string>> = {
 };
 
 /** The held state's note: the ready-now reason in full, then the rest named. */
-function heldNote(holds: ScanDecision["breakdown"]): string {
+function heldNote(holds: ScanDecision["breakdown"], score: number): string {
   const ready = holds.find((h) => h.key === "readyNow");
   const others = [...new Set(
     holds.filter((h) => h.key !== "readyNow").map((h) => (h.key && HOLD_PHRASES[h.key]) || "another condition for a live signal is not met"),
@@ -135,7 +135,8 @@ function heldNote(holds: ScanDecision["breakdown"]): string {
   const readyText = ready ? ready.note.replace(/ Held from Execute to Watch\.$/, "") : null;
   if (readyText && others.length === 0) return `Held at Watch: ${readyText}`;
   if (readyText) return `Held at Watch: ${readyText} It is also waiting because ${others.join("; ")}.`;
-  return `Held at Watch because ${others.join("; ")}.`;
+  // Below the cutoff the score alone keeps it at Watch; the holds are extra.
+  return score >= EXECUTE_SCORE_THRESHOLD ? `Held at Watch because ${others.join("; ")}.` : `Also waiting because ${others.join("; ")}.`;
 }
 
 export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary {
@@ -176,7 +177,7 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
             ? DATA_LAG_STATE_NOTE
             : decision.outputState === "Reject"
               ? CAPPED_STATE_NOTE
-              : heldNote(holds),
+              : heldNote(holds, decision.score),
   };
 }
 

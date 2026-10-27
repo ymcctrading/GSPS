@@ -108,3 +108,13 @@ describe("the card names what a held setup waits for", () => {
     expect(toPublicScoreSummary(d).stateNote).toBe("Held at Watch because the market is moving sideways and the entry stays inside its range.");
   });
 });
+
+describe("a Watch below the cutoff", () => {
+  it("does not read as held from Execute", () => {
+    const d: ScanDecision = {
+      ...decision("Watch", 5),
+      breakdown: [{ key: "breakaway", criterion: "Breakaway from a sideways range", passed: false, note: "x" }],
+    };
+    expect(toPublicScoreSummary(d).stateNote).toMatch(/^Also waiting because/);
+  });
+});
