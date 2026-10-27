@@ -19,9 +19,9 @@
  * before the window's start and its last bar is inside the window; otherwise
  * the whole window is read live, as before. A pair the live read returns
  * nothing for is served nothing, as a live read serves it. Each series is read
- * whole again within a day (`wholeReadAfter`, spread by symbol), so a correction Alpaca makes to a
- * bar older than the two rechecked ones is carried for a day at most. A store
- * that can't be read or
+ * whole again once a day (`WHOLE_READ_MS`), two pairs a read at most
+ * (`MAX_DUE_WHOLE_READS`), so a correction Alpaca makes to a bar older than the
+ * two rechecked ones is carried for about a day. A store that can't be read or
  * written falls back to the live read. Crypto only: equity bars are split
  * adjusted, so a stored equity series would need the monthly store's check.
  */
@@ -42,20 +42,13 @@ const RECHECK_BARS = 2;
 export const WHOLE_READ_MS = 24 * 3_600_000;
 
 /**
- * Each pair's whole read comes due up to this much early, by its symbol, so the
- * pairs read whole together on a cold store spread over the scans of the next
- * day instead of all landing on one (about 46 hourly pages at once).
+ * At most this many stored series that have come due are read whole on one
+ * read; the rest are served from the store and wait their turn, oldest whole
+ * read first. Scans run every 15 minutes in market hours and not overnight, so
+ * a fixed due time alone would land every pair's whole read on the morning's
+ * first scan (about 46 hourly pages at once). Engineering choice.
  */
-const WHOLE_READ_SPREAD_MS = 12 * 3_600_000;
-const SPREAD_SLOT_MS = 15 * 60_000;
-
-/** How long `symbol`'s stored series serves before it is read whole again. */
-export function wholeReadAfter(symbol: string): number {
-  let h = 0;
-  for (const ch of symbol) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const slots = WHOLE_READ_SPREAD_MS / SPREAD_SLOT_MS;
-  return WHOLE_READ_MS - (h % slots) * SPREAD_SLOT_MS;
-}
+export const MAX_DUE_WHOLE_READS = 2;
 
 export interface StoredSeries {
   /** The start of the window the series was read from (epoch ms). */
@@ -166,14 +159,21 @@ export async function fetchCryptoClosedStored(
     }
   }
 
-  // A held series serves the read when it reaches back to the window's start,
-  // its newest bar is still inside the window, and it was read whole within a day.
+  // A held series serves the read when it reaches back to the window's start
+  // and its newest bar is still inside the window. One read whole over a day
+  // ago is due a whole read, two at most a read, the longest-held first.
   const held = new Map<string, StoredSeries>();
+  const due: string[] = [];
   for (const s of syms) {
     const series = memory.get(key(s));
     const last = series?.bars.at(-1);
-    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs && nowMs - series.wholeAt < wholeReadAfter(s)) held.set(s, series);
+    if (series && last && series.from <= startMs && Date.parse(last.t) >= startMs) {
+      held.set(s, series);
+      if (!(nowMs - series.wholeAt < WHOLE_READ_MS)) due.push(s);
+    }
   }
+  due.sort((a, b) => (held.get(a)!.wholeAt || 0) - (held.get(b)!.wholeAt || 0));
+  for (const s of due.slice(0, MAX_DUE_WHOLE_READS)) held.delete(s);
   const cold = syms.filter((s) => !held.has(s));
 
   // The held symbols are read live from the earliest of their recheck points.

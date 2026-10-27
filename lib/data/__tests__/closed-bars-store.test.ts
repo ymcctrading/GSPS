@@ -7,8 +7,8 @@ import {
   setClosedBarsStore,
   type ClosedBarsStore,
   type StoredSeries,
+  MAX_DUE_WHOLE_READS,
   WHOLE_READ_MS,
-  wholeReadAfter,
 } from "@/lib/data/closedBarsStore";
 import { CRYPTO_UNIVERSE } from "@/lib/scan/cryptoUniverse";
 
@@ -184,7 +184,7 @@ describe("fetchCryptoClosedStored", () => {
     let nowRef = first;
     const fetch = vi.fn<BatchFetch>(async (symbols, tf, start, end, ac) => feed(upTo(nowRef))(symbols, tf, start, end, ac));
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(first, 7), first);
-    const after = wholeReadAfter("BTC/USD");
+    const after = WHOLE_READ_MS;
     nowRef = new Date(first.getTime() + after - 60_000); // a minute before it comes due: still from the store
     await fetchCryptoClosedStored(fetch, ["BTC/USD"], "1Hour", windowStart(nowRef, 7), nowRef);
     expect(fetch.mock.calls[1][2].getTime()).toBeGreaterThan(windowStart(nowRef, 7).getTime());
@@ -193,16 +193,51 @@ describe("fetchCryptoClosedStored", () => {
     expect(fetch.mock.calls[2][2].toISOString()).toBe(windowStart(nowRef, 7).toISOString());
   });
 
-  it("spreads the pairs' whole reads over the day, never past a day", () => {
-    const due = CRYPTO_UNIVERSE.map((s) => wholeReadAfter(s.toUpperCase()));
-    for (const d of due) {
-      expect(d).toBeGreaterThan(12 * HOUR);
-      expect(d).toBeLessThanOrEqual(WHOLE_READ_MS);
+  it("reads at most two due pairs whole on one read, the longest-held first", async () => {
+    setClosedBarsStore(memoryStore());
+    const syms = CRYPTO_UNIVERSE.map((s) => s.toUpperCase());
+    const until = Date.parse("2026-10-03T00:00:00Z");
+    const all = new Map(syms.map((s) => [s, hours(until)]));
+    let nowRef = at("2026-10-01T10:30:00Z");
+    const upTo = () => new Map([...all].map(([s, b]) => [s, b.filter((x) => Date.parse(x.t) < nowRef.getTime())]));
+    const fetch = feed(upTo);
+    const plain = feed(upTo);
+    // Every pair read whole at once, then a day of no scans (overnight).
+    await fetchCryptoClosedStored(fetch, syms, "1Hour", windowStart(nowRef, 7), nowRef);
+    const firstMorning = Date.parse("2026-10-02T13:30:00Z");
+    const wholeBy: string[][] = [];
+    for (let i = 0; i < 8; i++) {
+      nowRef = new Date(firstMorning + i * 15 * 60_000);
+      fetch.mockClear();
+      const out = await fetchCryptoClosedStored(fetch, syms, "1Hour", windowStart(nowRef, 7), nowRef);
+      const whole = fetch.mock.calls
+        .filter((c) => c[2].getTime() === windowStart(nowRef, 7).getTime())
+        .flatMap((c) => c[0]);
+      wholeBy.push(whole);
+      const want = await plain(syms, "1Hour", windowStart(nowRef, 7), null, "crypto");
+      for (const s of syms) expect(out.get(s)).toEqual(want.get(s));
     }
-    // No scan re-reads more than two pairs whole (about 8 hourly pages).
-    const perSlot = new Map<number, number>();
-    for (const d of due) perSlot.set(d, (perSlot.get(d) ?? 0) + 1);
-    expect(Math.max(...perSlot.values())).toBeLessThanOrEqual(2);
+    for (const w of wholeBy) expect(w.length).toBeLessThanOrEqual(MAX_DUE_WHOLE_READS);
+    expect(wholeBy.slice(0, 6).every((w) => w.length === 2)).toBe(true);
+    expect(new Set(wholeBy.flat()).size).toBe(syms.length);
+    expect(wholeBy.slice(6).every((w) => w.length === 0)).toBe(true);
+  });
+
+  it("the pair read whole longest ago goes first", async () => {
+    const store = memoryStore();
+    setClosedBarsStore(store);
+    const now = at("2026-10-02T13:30:00Z");
+    const bars = hours(Date.parse("2026-10-02T12:00:00Z"));
+    const from = windowStart(now, 7).getTime() - HOUR;
+    // All three due; C was read whole longest ago, then B, then A.
+    for (const [s, ago] of [["A/USD", 25], ["B/USD", 30], ["C/USD", 40]] as const) {
+      store.rows.set(`1Hour:${s}`, { from, wholeAt: now.getTime() - ago * HOUR, bars });
+    }
+    const live = new Map(["A/USD", "B/USD", "C/USD"].map((s) => [s, hours(now.getTime())]));
+    const fetch = feed(() => live);
+    await fetchCryptoClosedStored(fetch, ["A/USD", "B/USD", "C/USD"], "1Hour", windowStart(now, 7), now);
+    const whole = fetch.mock.calls.filter((c) => c[2].getTime() === windowStart(now, 7).getTime()).flatMap((c) => c[0]);
+    expect(whole.sort()).toEqual(["B/USD", "C/USD"]);
   });
 
   it("stores a bar once its interval has ended, not before", async () => {
