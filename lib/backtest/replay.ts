@@ -83,7 +83,7 @@ import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
 import { withDecisionState } from "@/lib/scoring/decisionState";
 import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
@@ -2147,7 +2147,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = withDecisionState(applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = withDecisionState(applyReadyNowHold(applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -2178,7 +2178,18 @@ function scoreSetup(input: {
     // A-SELECTION-04: a buy in a weak stock holds to Watch, as on the live scan.
     context.disclosedRules.weakStock, gannTrigger.direction),
     // A-LEVELS-08: the first and second times through a round number hold, as live.
-    figureCrossingOf(context.dailyChart, gannTrigger)), gannTrigger.direction);
+    figureCrossingOf(context.dailyChart, gannTrigger)),
+    // Owner, 2026-10-27: Execute only when placeable today with clear targets.
+    // Read at the fill, as live reads it when the trade is taken: the trade
+    // enters once its indication is shown and price has come to the entry, so
+    // only the targets-ahead reading can hold here (`applyReadyNowHold`).
+    {
+      side: gannTrigger.direction === "bearish" ? "sell" : "buy",
+      indicationShown: true,
+      price: levels?.entry ?? null,
+      dayRange: null,
+      levels,
+    }), gannTrigger.direction);
   return { decision, levels };
 }
 

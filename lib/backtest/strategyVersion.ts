@@ -843,4 +843,9 @@
 // five times in the record carry CYC-04's label. A counter-trend Execute
 // held for want of a window can now act; on random walks the hold was
 // already open on every turn, so none moved there.
-export const STRATEGY_VERSION = "2026-10-27-gann-count-windows-act";
+// 2026-10-27-execute-ready-now (owner amendment): Execute only when the
+// plan can be placed today: the definite indication shown, the entry within
+// a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
+// Live verdicts move; the replay reads it at the fill, where only the
+// targets reading can hold; how far replay buckets move is not measured.
+export const STRATEGY_VERSION = "2026-10-27-execute-ready-now";

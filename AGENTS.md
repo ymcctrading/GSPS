@@ -3125,7 +3125,23 @@ Square of Nine's and Hexagon's time counts 99% each), these counts alone on
 owner with P7's saturation. The real-data base rate
 (`lib/research/timeWindowBaseRate.ts`) needs the vendor's bars, which this
 sandbox can't reach. About 0.7 ms a read, only when a counter-trend Execute
-needs a window. `STRATEGY_VERSION` is `2026-10-27-gann-count-windows-act`.
+needs a window. `STRATEGY_VERSION` was `2026-10-27-gann-count-windows-act`.
+**Execute means placeable now, 2026-10-27 (owner amendment: "a trade SHOULD
+NOT be executable if setup isn't ready currently"; "have 7 be the lowest
+executable score. But it must still be deemed executable currently, with clear
+and obvious take profits levels").** `applyReadyNowHold` (`lib/scoring/score.ts`)
+holds a 7+ at Watch unless the definite indication is shown (a crossing closed
+3 points past, W006 Rules 3(b)-(c)), the entry is within a day's range of price
+(`lib/setups/resting.ts`, the owner's 2026-10-21 predicate, now part of the
+verdict rather than the lists alone), and TP1 and MTP lie ahead of price with
+MTP beyond TP1; M-K5 and the failed-top hold still apply. GSPS holds no measured
+chance of reaching a target, so "probability" is read as those tests until the
+replay supplies one. A Watch at the cutoff records its reason too, and the card
+names what any held setup waits for in plain words (`heldNote`,
+`public-summary.ts`). The lists' "Resting orders" now take a Watch at the
+cutoff whose entry rests. The replay reads it at the fill (indication shown,
+price at the entry), so only the targets reading holds there. `STRATEGY_VERSION`
+is `2026-10-27-execute-ready-now`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the

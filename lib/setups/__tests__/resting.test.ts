@@ -73,9 +73,11 @@ describe("readResting", () => {
 });
 
 describe("splitResting", () => {
-  it("moves only Execute rows whose entry is more than a day's range away, keeping order", () => {
+  it("moves only rows scoring at the Execute cutoff whose entry is more than a day's range away, keeping order", () => {
     const near = { ...AMD, symbol: "NEAR", currentPrice: 485 };
-    const watchFar = { ...AMD, symbol: "WATCH", outputState: "Watch" };
+    // A Watch below the cutoff stays put; at the cutoff it is the scan's own
+    // ready-now hold (2026-10-27), covered below.
+    const watchFar = { ...AMD, symbol: "WATCH", outputState: "Watch", score: 6 };
     const noRange = { ...AMD, symbol: "NORANGE", dayRange: null };
     const other = { ...AMD, symbol: "OTHER", currentPrice: 600 };
     const { now, resting } = splitResting([AMD, near, watchFar, noRange, other], (r) => restingInputOfRow(r));
@@ -138,5 +140,16 @@ describe("Today's plan on the Novice home", () => {
     const watch = { ...AMD, symbol: "WATCH", outputState: "Watch", score: 6, currentPrice: 485 };
     // Both rank as Watch; the higher score wins.
     expect(bestQualifiedSetup([AMD, watch])?.symbol).toBe("AMD");
+  });
+});
+
+describe("resting rows held at Watch by the scan (2026-10-27)", () => {
+  it("lists a Watch at the Execute cutoff as resting, not a lower Watch", () => {
+    const base = { direction: "bullish", entry: 184.45, takeProfit1: 199, masterProfit: 215, currentPrice: 206.71, dayRange: 5 };
+    const held = { ...base, outputState: "Watch", score: 9 };
+    const low = { ...base, outputState: "Watch", score: 6 };
+    const { now, resting } = splitResting([held, low], (r) => restingInputOfRow(r));
+    expect(resting).toEqual([held]);
+    expect(now).toEqual([low]);
   });
 });

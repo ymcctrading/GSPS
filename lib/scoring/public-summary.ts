@@ -81,8 +81,10 @@ export const SCORE_PILLAR_DESCRIPTIONS: Record<ScorePillar, string> = {
 };
 
 /**
- * Held back when the state is lower than the score alone implies. States the
- * consequence, not the rule — the rules are the model.
+ * Held back when the state is lower than the score alone implies, for a
+ * Reject. A held Watch names what it waits for instead (`heldNote`, owner
+ * 2026-10-27: the card says what a high-scoring Watch is missing), in plain
+ * words about the chart, never a criterion, threshold or point.
  */
 const CAPPED_STATE_NOTE =
   "This setup scores well on context, but the state is held lower because the trade plan has not met every condition for a live signal.";
@@ -103,6 +105,38 @@ const DATA_LAG_STATE_NOTE =
  */
 const STOP_BREACH_STATE_NOTE =
   "This plan is retired: its stop has broken. It stands again only if a bar closes back through the broken level by the usual allowance (a false break), or a new plan from the new structure replaces it.";
+
+/**
+ * What a held setup is waiting for, in plain words (owner, 2026-10-27: a 9/9
+ * on Watch names what it lacks). Each phrase says where the setup stands
+ * against something the reader can see or check on the chart, not which
+ * named checks the score is built from.
+ */
+const HOLD_PHRASES: Partial<Record<string, string>> = {
+  tradePlanPriced: "the trade plan is not complete (nothing armed to enter, or a first target that pays no more than the risk)",
+  reversionConfirmation: "the turn against the trend is not confirmed yet",
+  breakaway: "the market is moving sideways and the entry stays inside its range",
+  monthlyBreak: "this month has broken last month's extreme against the trade",
+  distributionBreakdown: "the stock has broken down after a lower top",
+  failedTop: "a failed top or bottom sits between the entry and the first target",
+  timeWindowTurn: "a turn against the trend that did not come at a time window",
+  queerActing: "the stock is not acting the way it normally does",
+  weakStock: "the stock is in a weak position for a buy",
+  figureCrossing: "price is crossing a round number for the first or second time",
+  dataLag: "the price data is a bar or more behind the market",
+};
+
+/** The held state's note: the ready-now reason in full, then the rest named. */
+function heldNote(holds: ScanDecision["breakdown"]): string {
+  const ready = holds.find((h) => h.key === "readyNow");
+  const others = [...new Set(
+    holds.filter((h) => h.key !== "readyNow").map((h) => (h.key && HOLD_PHRASES[h.key]) || "another condition for a live signal is not met"),
+  )];
+  const readyText = ready ? ready.note.replace(/ Held from Execute to Watch\.$/, "") : null;
+  if (readyText && others.length === 0) return `Held at Watch: ${readyText}`;
+  if (readyText) return `Held at Watch: ${readyText} It is also waiting because ${others.join("; ")}.`;
+  return `Held at Watch because ${others.join("; ")}.`;
+}
 
 export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary {
   const counts = new Map<ScorePillar, ScorePillarSummary>();
@@ -140,7 +174,9 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
           ? STOP_BREACH_STATE_NOTE
           : laggedOnly
             ? DATA_LAG_STATE_NOTE
-            : CAPPED_STATE_NOTE,
+            : decision.outputState === "Reject"
+              ? CAPPED_STATE_NOTE
+              : heldNote(holds),
   };
 }
 
