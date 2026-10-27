@@ -42,6 +42,7 @@ import { FUND_MARKETS, isFundMarket } from "@/lib/market/otherMarkets";
 import type { Bar, ScanResult, SetupKind } from "@/lib/types";
 import { fetchAllTimeframesBatch, getMarketDataProvider } from "@/lib/data/provider";
 import { fetchMonthlyStored } from "@/lib/data/monthlyStore";
+import { listTier } from "@/lib/scan/listOrder";
 import { assertLiveMarketData } from "@/lib/data/feed-mode";
 import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
@@ -963,8 +964,6 @@ export function rankShortlist(
     .map((x) => x.c);
 }
 
-const VERDICT_TIER: Record<string, number> = { Execute: 2, Watch: 1, Reject: 0 };
-
 /**
  * The daily lists' order (A-SELECTION-02): Gann buys the early leaders first,
  * so among setups with the same verdict the one his selection rules favour
@@ -976,7 +975,7 @@ const VERDICT_TIER: Record<string, number> = { Execute: 2, Watch: 1, Reject: 0 }
  */
 export function compareForList(a: ScanResult, b: ScanResult): number {
   return (
-    (VERDICT_TIER[b.decision.outputState] ?? 0) - (VERDICT_TIER[a.decision.outputState] ?? 0) ||
+    listTier(b) - listTier(a) ||
     (b.selectionStrength ?? 0) - (a.selectionStrength ?? 0) ||
     b.decision.score - a.decision.score
   );

@@ -59,6 +59,7 @@ import { loadSweptCandidates } from "@/lib/scan/universeSweep";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
+import { visibilityRank } from "@/lib/scan/listOrder";
 import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isTradingDay } from "@/lib/market/calendar";
@@ -224,8 +225,8 @@ export async function runScheduledScan(
   }
 
   const qualifying: RankedSetup<ScanResult>[] = [
-    ...output.bullish.map((r) => ({ side: "buy" as const, rank: r.decision.score, value: r })),
-    ...output.bearish.map((r) => ({ side: "sell" as const, rank: r.decision.score, value: r })),
+    ...output.bullish.map((r) => ({ side: "buy" as const, rank: visibilityRank(r), value: r })),
+    ...output.bearish.map((r) => ({ side: "sell" as const, rank: visibilityRank(r), value: r })),
   ];
   const eligibleCount = qualifying.length;
 

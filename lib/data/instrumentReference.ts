@@ -8,7 +8,8 @@
  * whole table once per server instance (about 800 rows in one or two
  * requests) and keeps it for `CACHE_TTL_MS`, so a scan never waits on a query
  * per symbol (AGENTS.md "Speed is a product requirement"). Every read fails
- * soft: no service key, a missing table or a network error gives `null`,
+ * soft: no service key, a missing table or a network error gives `null`
+ * (the backtest's history read falls back to the checked-in snapshot instead),
  * and the readings that need it are simply absent.
  */
 
@@ -116,8 +117,12 @@ export async function loadInstrumentReferenceHistory(
   symbols: string[],
 ): Promise<Map<string, { reference: InstrumentReference; history: SharesPoint[] }>> {
   const out = new Map<string, { reference: InstrumentReference; history: SharesPoint[] }>();
+  if (symbols.length === 0) return out;
   const client = serviceClient();
-  if (!client || symbols.length === 0) return out;
+  if (!client) {
+    console.info("[instrument-reference] no service key: reading the checked-in snapshot");
+    return loadSnapshotHistory(symbols);
+  }
   try {
     const upper = symbols.map((s) => s.toUpperCase());
     const { data, error } = await client
@@ -154,6 +159,65 @@ export async function loadInstrumentReferenceHistory(
     }
   } catch (err) {
     console.warn(`[instrument-reference] history load failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  return out;
+}
+
+/**
+ * The checked-in copy of the same three tables
+ * (`instrumentReferenceSnapshot.json`, exported from production with
+ * `scripts/export-instrument-reference-snapshot.mjs`), read when no service
+ * key is set, so a backtest run without one (the GitHub workflow) reads the
+ * filings facts the live scan reads. Read from disk, never imported, so it
+ * stays out of the app bundle. Refresh it when the stored rows change
+ * (`fetch-instrument-reference.mjs`). A missing or unreadable file gives an
+ * empty map, as before.
+ */
+export interface SnapshotRow {
+  name: string | null;
+  sharesOutstanding: number | string | null;
+  sharesAsOf: string | null;
+  inceptionDate: string | null;
+  inceptionPrecision: InceptionPrecision | null;
+  /** [as_of, filed, shares], ordered by filed then as_of. */
+  history: [string, string, number][];
+}
+
+export interface ReferenceSnapshot {
+  symbols: Record<string, SnapshotRow>;
+}
+
+/** The checked-in snapshot. The literal path keeps the build's file tracing to this one file. */
+async function readSnapshot(): Promise<ReferenceSnapshot> {
+  const { readFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  return JSON.parse(await readFile(join(process.cwd(), "lib/data/instrumentReferenceSnapshot.json"), "utf8"));
+}
+
+export async function loadSnapshotHistory(
+  symbols: string[],
+  snapshot?: ReferenceSnapshot,
+): Promise<Map<string, { reference: InstrumentReference; history: SharesPoint[] }>> {
+  const out = new Map<string, { reference: InstrumentReference; history: SharesPoint[] }>();
+  try {
+    const parsed = snapshot ?? (await readSnapshot());
+    for (const raw of symbols) {
+      const symbol = raw.toUpperCase();
+      const row = parsed.symbols[symbol];
+      if (!row) continue;
+      const profile: ProfileRow = {
+        shares_outstanding: row.sharesOutstanding,
+        shares_outstanding_as_of: row.sharesAsOf,
+        inception_date: row.inceptionDate,
+        inception_precision: row.inceptionPrecision,
+      };
+      out.set(symbol, {
+        reference: toReference(symbol, profile, row.name),
+        history: row.history.map(([asOf, filed, shares]) => ({ asOf, filed, shares: Number(shares) })),
+      });
+    }
+  } catch (err) {
+    console.warn(`[instrument-reference] snapshot read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   return out;
 }
