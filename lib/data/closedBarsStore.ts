@@ -19,8 +19,8 @@
  * before the window's start and its last bar is inside the window; otherwise
  * the whole window is read live, as before. A pair the live read returns
  * nothing for is served nothing, as a live read serves it. Each series is read
- * whole again once a day (`WHOLE_READ_MS`), two pairs a read at most
- * (`MAX_DUE_WHOLE_READS`), so a correction Alpaca makes to a bar older than the
+ * whole again once a day (`WHOLE_READ_MS`), two pairs a timeframe a read at
+ * most (`MAX_DUE_WHOLE_READS`), so a correction Alpaca makes to a bar older than the
  * two rechecked ones is carried for about a day. A store that can't be read or
  * written falls back to the live read. Crypto only: equity bars are split
  * adjusted, so a stored equity series would need the monthly store's check.

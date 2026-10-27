@@ -240,6 +240,22 @@ describe("fetchCryptoClosedStored", () => {
     expect(whole.sort()).toEqual(["B/USD", "C/USD"]);
   });
 
+  it("a series whose whole-read time can't be read goes first", async () => {
+    const store = memoryStore();
+    setClosedBarsStore(store);
+    const now = at("2026-10-02T13:30:00Z");
+    const bars = hours(Date.parse("2026-10-02T12:00:00Z"));
+    const from = windowStart(now, 7).getTime() - HOUR;
+    for (const [s, w] of [["A/USD", now.getTime() - 40 * HOUR], ["B/USD", now.getTime() - 30 * HOUR], ["C/USD", NaN]] as const) {
+      store.rows.set(`1Hour:${s}`, { from, wholeAt: w, bars });
+    }
+    const live = new Map(["A/USD", "B/USD", "C/USD"].map((s) => [s, hours(now.getTime())]));
+    const fetch = feed(() => live);
+    await fetchCryptoClosedStored(fetch, ["A/USD", "B/USD", "C/USD"], "1Hour", windowStart(now, 7), now);
+    const whole = fetch.mock.calls.filter((c) => c[2].getTime() === windowStart(now, 7).getTime()).flatMap((c) => c[0]);
+    expect(whole.sort()).toEqual(["A/USD", "C/USD"]);
+  });
+
   it("stores a bar once its interval has ended, not before", async () => {
     const store = memoryStore();
     setClosedBarsStore(store);
