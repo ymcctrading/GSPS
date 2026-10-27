@@ -3106,8 +3106,26 @@ trailed above its entry and taken off on noise (3 of run 90's 6 final-stage
 exits had a best of 0.02R or less). Gann trails "in fast high-level advances"
 (W006 p.46, Rule 2), and moves no stop until 3 points ahead (*Stock Selector*
 Ch.II rule 4), so they now start once the trade has advanced 3 points, live and
-replay alike (`readGannExit`). `STRATEGY_VERSION` is
+replay alike (`readGannExit`). `STRATEGY_VERSION` was
 `2026-10-23-gann-final-stage-after-advance`; verdicts don't move.
+**The context-only time counts act, 2026-10-27 (recheck's open item, the
+coordinator's assignment after #455).** `countWindowsAt` (`lib/gann/countWindows.ts`:
+the seasonal sixteenths, the winter-quarter dates, the Ch.5 wheel, the week
+counts, the Square of 52, time balance, the 11¼ market days, price read as
+time, the square of 90, the year fractions, the other lessons' cycles, the
+Square of 144 in time and the 7th/14th/21st day) now opens windows in the
+time-window hold (`timeWindowsAt`), live and replay alike. A count from a pivot
+opens for a top and a bottom alike (W006 pp. 14, 44); only a turn its source
+names (the time balance's, the 7th/14th/21st day's) is held to it. The yearly
+counts too long to repeat five times in the record (30, 50, 60 years) carry
+CYC-04's label. Measured before wiring, 942 3-Day Chart turns on 80 random
+walks: the hold was already open on every turn (yearly and day counts 90%, the
+Square of Nine's and Hexagon's time counts 99% each), these counts alone on
+98%, so the hold selects nothing a random turn would not meet; held for the
+owner with P7's saturation. The real-data base rate
+(`lib/research/timeWindowBaseRate.ts`) needs the vendor's bars, which this
+sandbox can't reach. About 0.7 ms a read, only when a counter-trend Execute
+needs a window. `STRATEGY_VERSION` is `2026-10-27-gann-count-windows-act`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
