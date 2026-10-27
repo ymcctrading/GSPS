@@ -73,7 +73,7 @@ on:
 
 concurrency:
   # One at a time: concurrent runs would share (and exhaust) one vendor rate limit.
-  group: backtest-universe
+  group: backtest-universe-${{ inputs.universe }}
   cancel-in-progress: false
 
 permissions:
