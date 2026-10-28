@@ -1,4 +1,9 @@
-/** Curated sector/industry watchlists for the scanner, per the Premise doc. */
+/**
+ * Curated watchlists, per the Premise doc. The Scanner's and the Test page's
+ * pickers now offer every industry (`lib/universe/industries.ts`); these lists
+ * stay for Guided Mode's search order, the market scan's fallback universe and
+ * saved searches that name one.
+ */
 
 export const MAG7 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"];
 
@@ -48,11 +53,11 @@ export const SECTORS: Record<string, { label: string; symbols: string[] }> = {
   },
   futures: {
     label: "Futures",
-    symbols: ["ES", "NQ", "YM", "CL", "GC", "NG", "ZB", "ZC"],
+    // The slash names the contract: a bare root is also a stock ticker (ES is
+    // Eversource), see lib/instruments/spec.ts#futuresContractOf.
+    symbols: ["/ES", "/NQ", "/YM", "/CL", "/GC", "/NG", "/ZB", "/ZC"],
   },
 };
-
-export const COMING_SOON = ["Commodities"];
 
 /** Reverse lookup for the Company tab's simulated sector fallback — first curated list a symbol appears in. */
 export function sectorForSymbol(symbol: string): string | undefined {

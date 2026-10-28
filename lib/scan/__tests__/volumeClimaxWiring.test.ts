@@ -64,7 +64,8 @@ describe("the scored volume rule's inputs", () => {
 
   it("the coarse pass, the confluence card and the context reading pass the session being read", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
-    expect(src("marketScan.ts")).toMatch(/computeVolumeClimax\(daily, undefined, \{ asOf: new Date\(\) \}\)/);
+    // The coarse pass reads its completed sessions on its own clock (review of #511).
+    expect(src("marketScan.ts")).toMatch(/computeVolumeClimax\(sessions, undefined, \{ asOf \}\)/);
     expect(src("signals/confluence/gann.ts")).toMatch(/computeVolumeClimax\(inputs\.dailyBars, undefined, \{ asOf: new Date\(\), monthly: inputs\.instrument\?\.monthly \?\? null \}\)/);
     expect(src("gann/disclosedRules.ts")).toMatch(/computeVolumeClimax\(dailyBars, undefined, \{ asOf \}\)/);
     // The shares-per-point reading too (item 8 review M3).

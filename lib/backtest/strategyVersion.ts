@@ -878,6 +878,99 @@
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
 // (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-double-bottom-weeks: a double or triple bottom (top) rests
+// its order only once the bottom is two weeks old by the session the order
+// rests for (DOUBLE_BOTTOM_MIN_DAYS): "the same level weeks, months or a year
+// or more apart" (W006 p.20, A-ENTRY-02). The six-year daily rerun's first
+// quarter (2026-10-28) had old-bottom entries at -0.076R over 4,856 trades.
+// Plans and replay trades move.
+// (was STRATEGY_VERSION "2026-10-28-double-bottom-weeks")
+// 2026-10-28-gann-groups-by-industry: P3(c)'s group rank (S4) reads the
+// platform's industries (`lib/universe/industries.ts`: the SEC codes with the
+// misfiled businesses corrected, Alphabet with the social media names,
+// ConocoPhillips with the producers) instead of the raw codes, pooling a
+// sector's small industries when they reach five together
+// (`buildIndustryGroupMap`). 821 of 832 universe stocks in 71 groups (was 762
+// in 58). Live verdicts and replay trades move where a stock's group changed.
+// (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
+// 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
+// merged in the 2026-10-28 release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
+// 2026-10-28-gann-one-class-per-company (gann-alignment-audit H9): the
+// relative strength rank counts each company once, so GOOG and GOOGL are no
+// longer each other's peers in the universe or the group (Truth of the Stock
+// Tape Ch. XVI-XIX; Stock Selector Ch. VII name each company once). P3(c) can
+// move for those two; the market scan's coarse pre-filter now reads a held
+// level and the 50% of the major range (SUS-01, SUS-02), which changes which
+// stocks the daytime scan scores first, not any stock's verdict.
+// (built alone as "2026-10-28-gann-one-class-per-company")
+// 2026-10-28-one-class-on-groups-by-industry: the share-class rule above,
+// merged onto the release that groups by industry and waits two weeks for a
+// double bottom, whose rules it keeps. The coarse pre-filter's held level reads
+// the full scan's old levels (review of #511), which orders the daytime scan
+// and moves no verdict.
+// (was STRATEGY_VERSION "2026-10-28-one-class-on-groups-by-industry")
+// 2026-10-28-base-left-volume-pillar: P8's base half counts a long base only
+// once price has left it the trade's way and stands outside it (no close back
+// 3 points inside the crossed extreme), within BASE_LEFT_SESSIONS
+// (`readBaseLeft`, lib/gann/accumulation.ts). Gann's rule is the time in the
+// range then the crossing (Master Course; Commodities p. 62; W006 Rule 3(c)
+// p.47); the old half passed for either side while price sat inside the
+// range, 82% of random-walk readings at $20 and 29% at $500 for both sides
+// alike (replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md).
+// After: 0/0% at $20 and $150, 0.6/1.5% at $500 (long/short), so P8 now rests
+// on the volume rule. Live verdicts and replay trades move.
+// (was STRATEGY_VERSION "2026-10-28-base-left-volume-pillar", built alone)
+// 2026-10-28-base-left-on-groups-by-industry: the base-left fix merged onto
+// the release above. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-base-left-on-groups-by-industry")
+// 2026-10-28-base-left-on-one-class: the base-left fix and the one-class rule
+// above, merged in the 2026-10-28 midday release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-base-left-on-one-class")
+// 2026-10-28-gann-figures-at-his-price (alignment audit, score-and-levels.md):
+// three figures Gann gave at a stated price are read at that price on his
+// point scale. The re-buy's reaction is his 12 points at about 230 (W022
+// p.198: re-bought at 218, stop 212), about 4.4 Gann points, not 12. The
+// boiling point trails his 10 points at Advance Rumely's 105 (W005, "out at
+// 95"), about 5.9 Gann points, not 10. A narrow range is at most 4 of his
+// points (4/3 of the 3-point allowance), his widest dated narrow range
+// (Master Course pp. 246-248), not 3 allowances; the range a market is
+// leaving is still read during the leg out of it (`narrowRangeBeforeLeg`),
+// so the breakaway's volume rule is still asked. Random walks (20 a price,
+// +-2% a day), armed long entries held by the breakaway before -> after:
+// $20 43.3 -> 23.3%, $150 23.4 -> 0.6%, $500 4.6 -> 0.0% (no drift).
+// Verdicts and replay trades move; Execute and the 7/4 cutoffs need a run.
+// (was STRATEGY_VERSION "2026-10-28-gann-figures-at-his-price")
+// 2026-10-28-figures-at-his-price-on-base-left: Gann's figures at his price,
+// merged onto the base-left and one-class rules in the 2026-10-28 midday
+// release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-figures-at-his-price-on-base-left")
+// 2026-10-28-retest-two-thirds-volume: a double top or bottom's volume
+// confirms only when the second turn's week traded two-thirds of the first's
+// or less (RETEST_VOLUME_RATIO; W006 pp.43-44, the Master Course's "a third or
+// less" inside it; fork FV2). Any smaller week had confirmed, which noise
+// passed about half the time. P8 and plans move.
+// (was STRATEGY_VERSION "2026-10-28-retest-two-thirds-volume")
+// 2026-10-28-midday-release: the share-class rule (#511), the base-left
+// volume pillar (#512), Gann's figures at his price (#513) and the two-thirds
+// retest volume (#516), merged together in the 2026-10-28 midday release. No
+// new rule beyond theirs. Execute and the 7/4 cutoffs need a fresh run on it.
+// (was STRATEGY_VERSION "2026-10-28-midday-release")
+// 2026-10-28-delayed-fill-timing (owner, DATA-DELAY-001): no fill before the
+// decision could be acted on. A decision read on a bar is usable at the bar's
+// close plus the feed's contractual delay (15 minutes for equities, none for
+// crypto, `lib/data/timeliness.ts`), so a closed-bar entry fills at the first
+// bar opening at or after that time (`delayedFillIndex`): two 15-minute bars
+// after the signal, not one. A stop traded before that fill refuses it
+// (`delayedRefusals`); reversals and re-buys wait the same way. A resting stop
+// order is held by the broker and fills on its own. Daily replays are
+// unchanged (close + 15 minutes is before the next open). The intraday
+// alerts replay evaluates each scan at close + delay. Verdicts don't move;
+// intraday replay trades do.
+// (was STRATEGY_VERSION "2026-10-28-delayed-fill-timing")
+// 2026-10-28-delayed-fill-on-midday-release: the delayed fill timing (#518)
+// merged onto the midday release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-delayed-fill-on-midday-release")
 // 2026-10-28-gann-levels-major-lows (Gann alignment audit, rest-of-gann.md
 // R24 and R38): Jensen's square of 90 is laid at the major low and high of the
 // long monthly record, not of a year of daily bars ("at every major low",
@@ -894,4 +987,13 @@
 // open on it AND its extreme stood at the half or three quarters of a major
 // range (`turnAtDivision`, Master Course PDF 202, Ch. 18 TP-2). The windows
 // alone were open on nearly every turn. Counter-trend verdicts move.
-export const STRATEGY_VERSION = "2026-10-28-gann-time-and-price-at-turn";
+// (built alone as "2026-10-28-gann-time-and-price-at-turn")
+// 2026-10-28-gann-narrow-spell (alignment audit L-12): the distribution
+// spell and the distributed-before check read "narrow" as 4/3 of the 3-point
+// allowance (NARROW_SPELL_ALLOWANCES), his widest dated narrow range (Master
+// Course pp. 246-248), as the breakaway's range reads it since #513; it was 2
+// allowances. Distribution exits and refusals move.
+// 2026-10-28-gann-major-lows-time-price-spell: the three audit fixes above,
+// merged onto the delayed fill timing and the midday release, whose rules they
+// keep. Verdicts and replay trades move; Execute and the 7/4 cutoffs need a run.
+export const STRATEGY_VERSION = "2026-10-28-gann-major-lows-time-price-spell";

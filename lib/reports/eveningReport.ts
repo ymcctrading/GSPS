@@ -36,6 +36,7 @@ import { gannPoint } from "@/lib/gann/pointScale";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import type { FocusReason } from "@/lib/scanner/focusList";
 import { priceUsd } from "@/lib/strat/priceText";
+import { formatStage, OUTCOME_LABELS, splitMove, STAGE_KEYS, STAGE_LABELS, type CoverageStages, type MoverOutcome } from "@/lib/reports/coverage";
 
 export type Side = "bullish" | "bearish";
 
@@ -432,8 +433,10 @@ export interface RecapEmailInput {
   basisDate: string;
   /** The session the setups were built from, "YYYY-MM-DD". */
   setupsFrom: string | null;
-  universe: number;
-  read: number;
+  /** Each pipeline stage's count, kept apart (`lib/reports/coverage.ts`). */
+  coverage: CoverageStages;
+  /** Per mover: the last stage it reached, in one line. */
+  attribution: Map<string, { outcome: MoverOutcome; line: string }>;
   movers: Mover[];
   daily: DailyJudgement[];
   intraday: IntradayJudgement[];
@@ -490,7 +493,10 @@ export function moverVerdict(m: Mover, daily: DailyJudgement[], intraday: Intrad
     parts.push(`${distinct.size} intraday signal${distinct.size === 1 ? "" : "s"}, ${withMove.length} with the move, ${hits} of them paid`);
   }
   if (onFocus) parts.push("on the focus list");
-  if (parts.length === 0) return { aligned: false, line: "Missed: no setup, signal or focus listing." };
+  // Plans and delivered signals only: the full stage attribution (the
+  // overnight reading, the focus list's reserves, system detections) is
+  // `moverAttributionLine`'s, so a mover with none of these is not "missed".
+  if (parts.length === 0) return { aligned: false, line: "Missed: no standing plan or delivered signal." };
   return { aligned, line: parts.join("; ") };
 }
 
@@ -512,8 +518,17 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   const html: string[] = [WRAP_OPEN, `<h2 style="margin:0 0 4px">Daily recap for ${day}</h2>`];
   const text: string[] = [`GSPS daily recap for ${day}`, ""];
   html.push(
-    `<p style="color:#64748b;margin:0 0 16px">${input.read} of ${input.universe} scan-universe stocks read. Setups are the plans standing at ${input.setupsFrom ? `${dayLabel(input.setupsFrom)}'s` : "the prior"} close, judged by GSPS's own entry rule on the session's 15-minute bars and filled at the next bar's open. A bar that touched both the stop and TP1 counts as the stop. Placement also waits while a breakdown stands or a failed top lies in the way, which this reading does not check, and a setup whose old level was already crossed is read as resting at its entry, so a gap into the entry can count as a fill placement would still have held.</p>`,
+    `<p style="color:#64748b;margin:0 0 16px">Owner-only report: the movers are ranked by a move that had already happened, so nothing here is shown to members or used by a scan. Setups are the plans standing at ${input.setupsFrom ? `${dayLabel(input.setupsFrom)}'s` : "the prior"} close, run through a simplified simulation: GSPS's entry rule on the session's 15-minute bars, filled at the next bar's open, then the plan's own stop and TP1 only. It is not production-faithful: it leaves out the trailing exits, costs and slippage, the placement holds (a breakdown standing, a failed top in the way) and the data delay, and a bar that touched both the stop and TP1 counts as the stop.</p>`,
   );
+  html.push(`<h3 style="margin:16px 0 4px">Coverage by stage</h3><p style="color:#64748b;margin:0 0 6px">Each stage counted on its own; "not recorded" means GSPS kept no record of it, not zero.</p><table style="border-collapse:collapse;width:100%;font-size:13px">`);
+  text.push("COVERAGE BY STAGE (each counted on its own; \"not recorded\" is not zero)");
+  for (const k of STAGE_KEYS) {
+    const v = formatStage(input.coverage[k]);
+    html.push(`<tr style="border-top:1px solid #e2e8f0"><td style="padding:4px 8px 4px 0;vertical-align:top">${esc(STAGE_LABELS[k])}</td><td style="padding:4px 0">${esc(v)}</td></tr>`);
+    text.push(`  ${STAGE_LABELS[k]}: ${v}`);
+  }
+  html.push(`</table>`);
+  text.push("");
 
   const sections: [MoverMeasure, string, (m: Mover) => string][] = [
     ["dollars", "Top movers by dollars", (m) => signed(m.dollars)],
@@ -523,17 +538,23 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   for (const [measure, title, fmt] of sections) {
     const list = topMovers(input.movers, measure);
     const alignedCount = list.filter((m) => moverVerdict(m, input.daily, input.intraday, input.focus.has(m.symbol)).aligned).length;
-    html.push(`<h3 style="margin:20px 0 4px">${title}</h3><p style="color:#64748b;margin:0 0 6px">${alignedCount} of ${list.length} lined up with a setup that paid.</p><table style="border-collapse:collapse;width:100%;font-size:13px">`);
-    text.push(`${title.toUpperCase()} (${alignedCount} of ${list.length} lined up with a setup that paid)`);
+    const outcomes = tally(list.map((m) => OUTCOME_LABELS[input.attribution.get(m.symbol)?.outcome ?? "not_examined"].toLowerCase()));
+    html.push(`<h3 style="margin:20px 0 4px">${title}</h3><p style="color:#64748b;margin:0 0 6px">${esc(outcomes)}. ${alignedCount} of ${list.length} lined up with a setup that paid in the simplified simulation.</p><table style="border-collapse:collapse;width:100%;font-size:13px">`);
+    text.push(`${title.toUpperCase()} (${outcomes}; ${alignedCount} of ${list.length} lined up with a setup that paid in the simplified simulation)`);
     for (const m of list) {
       const v = moverVerdict(m, input.daily, input.intraday, input.focus.has(m.symbol));
+      const a = input.attribution.get(m.symbol);
       const range = m.closeInRange == null ? "" : `, closed ${Math.round(m.closeInRange * 100)}% up its range`;
+      const split = splitMove(m.prevClose, m.open, m.close);
+      const splitText = split ? `gap ${signed(split.gapPct)}% at the open, ${signed(split.sessionPct)}% open to close` : "";
+      const stages = a ? `${a.line}.` : "";
+      const plans = v.line.startsWith("Missed:") ? "" : ` Plans and signals: ${v.line}.`;
       html.push(
         `<tr style="border-top:1px solid #e2e8f0"><td style="padding:6px 8px 6px 0;vertical-align:top;white-space:nowrap"><b>${esc(m.symbol)}</b> ${fmt(m)}</td>` +
-          `<td style="padding:6px 0;vertical-align:top">${priceUsd(m.prevClose)} → ${priceUsd(m.close)} (${signed(m.pct)}%, ${signed(m.dollars)}, ${signed(m.gannPoints, 1)} pts${range})<br>` +
-          `<span style="color:${v.aligned ? "#15803d" : "#475569"}">${v.aligned ? "✓ " : ""}${esc(v.line)}</span></td></tr>`,
+          `<td style="padding:6px 0;vertical-align:top">${priceUsd(m.prevClose)} → ${priceUsd(m.close)} (${signed(m.pct)}%, ${signed(m.dollars)}, ${signed(m.gannPoints, 1)} pts${range}${splitText ? `; ${splitText}` : ""})<br>` +
+          `<span style="color:${v.aligned ? "#15803d" : "#475569"}">${v.aligned ? "✓ " : ""}${esc(stages + plans)}</span></td></tr>`,
       );
-      text.push(`${m.symbol} ${fmt(m)} (${priceUsd(m.prevClose)} -> ${priceUsd(m.close)}${range}): ${v.aligned ? "[aligned] " : ""}${v.line}`);
+      text.push(`${m.symbol} ${fmt(m)} (${priceUsd(m.prevClose)} -> ${priceUsd(m.close)}${range}${splitText ? `; ${splitText}` : ""}): ${v.aligned ? "[aligned] " : ""}${stages}${plans}`);
     }
     html.push(`</table>`);
     text.push("");

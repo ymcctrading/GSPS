@@ -19,26 +19,29 @@
  *
  * A resting order (an Execute plan whose entry is more than a day's range from
  * price, owner 2026-10-21, `lib/setups/resting.ts`) is not today's trade, so it
- * ranks with Watch, behind every Execute plan price is near.
+ * ranks behind every Execute plan price is near. Since 2026-10-28 it is its own
+ * tier (`setupTier`): behind Execute and ahead of Watch, since it has every
+ * condition and waits only for price to come back to its level.
  */
 
-import { isRestingExecuteRow, type RestingRowFields } from "@/lib/setups/resting";
+import { setupTier, type RestingRowFields } from "@/lib/setups/resting";
 
 const STATE_RANK: Record<string, number> = { Execute: 0, Watch: 1 };
+const TIER_RANK: Record<string, number> = { Execute: 0, Resting: 1, Watch: 2 };
 
 type RankableRow = { outputState: string; score: number } & Partial<Omit<RestingRowFields, "outputState">>;
 
 function rankOf(r: RankableRow): number {
-  const resting = isRestingExecuteRow({
+  const tier = setupTier({
     outputState: r.outputState,
-    direction: r.direction ?? "",
-    entry: r.entry ?? null,
-    takeProfit1: r.takeProfit1 ?? null,
-    masterProfit: r.masterProfit ?? null,
-    currentPrice: r.currentPrice,
+    score: r.score,
+    resting: r.resting,
+    side: r.direction === "bearish" ? "sell" : "buy",
+    price: r.currentPrice,
+    entry: r.entry,
     dayRange: r.dayRange,
   });
-  return resting ? STATE_RANK.Watch : STATE_RANK[r.outputState];
+  return TIER_RANK[tier] ?? TIER_RANK.Watch;
 }
 
 export function isQualifiedSetup(r: { outputState: string }): boolean {

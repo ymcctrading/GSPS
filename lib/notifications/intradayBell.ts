@@ -41,6 +41,7 @@ import { isConfirmedIntradayEntry } from "@/lib/promotion/pro-intraday";
 import { etDateKey } from "@/lib/market/session";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { APPROACH_LEAD_DEFAULT_MINUTES, approachDue } from "@/lib/scanner/entryApproach";
+import { checkAlertFreshness, type NotificationFreshnessResult } from "@/lib/notifications/freshness";
 
 /** A notice is written once in this many hours a member, not once a cooldown. */
 const NOTICE_REPEAT_HOURS = 12;
@@ -56,28 +57,83 @@ function price(value: number): string {
   return value >= 1 ? value.toFixed(2) : value.toPrecision(4);
 }
 
-/** The bell's title and body for one intraday signal. */
-export function buildIntradayBellRow(alert: Alert): IntradayBellRow {
+/** A disposition a message may be written from; a suppressed one is never written. */
+export type DeliverableFreshness = Exclude<NotificationFreshnessResult, { disposition: "suppress" }>;
+
+/** "2:30 PM" in New York time. */
+function etClock(at: Date): string {
+  return at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+}
+
+/** "2:15–2:30 PM ET": the candle the data closed with, from the alert's own timing. */
+function candleWindow(alert: Alert, asOf: Date): string {
+  const minutes = alert.timeliness?.barMinutes;
+  const end = etClock(asOf);
+  if (!(minutes != null && minutes > 0)) return `the candle that closed at ${end} ET`;
+  const start = etClock(new Date(asOf.getTime() - minutes * 60_000)).replace(/ (AM|PM)$/, "");
+  return `the ${start}–${end} ET candle`;
+}
+
+/** "Equity data is delayed by 15 minutes. " when the feed is delayed, else nothing. */
+function delayNote(alert: Alert): string {
+  const ms = alert.timeliness?.delayMs ?? 0;
+  if (alert.timeliness?.feed === "realtime" || !(ms > 0)) return "";
+  const m = Math.round(ms / 60_000);
+  return `Equity data is delayed by ${m} minute${m === 1 ? "" : "s"}. `;
+}
+
+/** Why an informational message carries no instruction, in a person's words. */
+function heldNote(f: DeliverableFreshness): string {
+  if (f.disposition === "actionable") return "";
+  if (f.reason === "entry_held") return " This plan is held, so there is no trade to take on it.";
+  if (f.reason === "authorization_expired") return " That reading has aged and is not a current entry.";
+  return "";
+}
+
+/**
+ * The bell's title and body for one intraday signal, written from its
+ * freshness disposition (NOTIFY-FRESHNESS-001). The title never changes with
+ * the disposition (deduplication and the digest read it). Only an actionable
+ * disposition may say "now", give an arrival time or read as a call to act;
+ * an informational one says when the data is from and that the current status
+ * is unverified. The formatter cannot raise a disposition: it is given one.
+ */
+export function buildIntradayBellRow(alert: Alert, freshness: DeliverableFreshness): IntradayBellRow {
   const side = alert.direction === "up" ? "up" : "down";
   const plan = alert.continuationPlan;
+  const actionable = freshness.disposition === "actionable";
+  const asOf = new Date(freshness.dataAsOf);
   if (NOTICE_SIGNALS.has(alert.type)) {
     const entry = plan.entry ?? alert.move.current;
-    const eta = alert.approach ? Math.round(alert.approach.etaMinutes) : null;
-    const when =
-      alert.type === "entry_reached"
-        ? "Price is at the entry now"
-        : eta != null && eta > 0
-          ? `About ${eta} minute${eta === 1 ? "" : "s"} away at the current pace`
-          : "It may be there already";
     const parts = [`entry ${price(entry)}`];
     if (alert.invalidation != null) parts.push(`stop ${price(alert.invalidation)}`);
     if (plan.firstTarget != null) parts.push(`TP1 ${price(plan.firstTarget)}`);
     if (plan.masterTarget != null) parts.push(`MTP ${price(plan.masterTarget)}`);
+    const title = `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`;
+    if (actionable) {
+      const eta = alert.approach ? Math.round(alert.approach.etaMinutes) : null;
+      const when =
+        alert.type === "entry_reached"
+          ? "Price is at the entry now"
+          : eta != null && eta > 0
+            ? `About ${eta} minute${eta === 1 ? "" : "s"} away at the current pace`
+            : "It may be there already";
+      return {
+        symbol: alert.symbol,
+        verdict: "Intraday",
+        title,
+        body: `${when} (price ${price(alert.move.current)}). Daily plan: ${parts.join(", ")}. Open the plan to be ready: once a bar closes at the entry, its entry goes at the market. The pace can change.`,
+      };
+    }
+    const observed =
+      alert.type === "entry_reached"
+        ? `${delayNote(alert) ? "Delayed observation" : "Observation"}: price reached the entry in ${candleWindow(alert, asOf)}. ${delayNote(alert)}Current entry status has not been verified.`
+        : `Based on data through ${etClock(asOf)} ET, price was moving toward the entry. This is an estimate from ${delayNote(alert) ? "delayed " : ""}observations, not a live arrival time.${delayNote(alert) ? ` ${delayNote(alert).trim()}` : ""}`;
     return {
       symbol: alert.symbol,
       verdict: "Intraday",
-      title: `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`,
-      body: `${when} (price ${price(alert.move.current)}). Daily plan: ${parts.join(", ")}. Open the plan to be ready: once a bar closes at the entry, its entry goes at the market. The pace can change.`,
+      title,
+      body: `${observed}${heldNote(freshness)} Daily plan: ${parts.join(", ")}. Open the plan to see where price is before acting.`,
     };
   }
   const levels: string[] = [`Price ${price(alert.move.current)}`];
@@ -86,11 +142,21 @@ export function buildIntradayBellRow(alert: Alert): IntradayBellRow {
   if (plan.masterTarget != null) levels.push(`MTP ${price(plan.masterTarget)}`);
   const noTrade =
     plan.paysRisk === false ? " No trade here: the first target does not pay more than the risk." : "";
+  const title = `${alert.symbol} intraday, ${side}: ${SIGNAL_LABELS[alert.type]}`;
+  if (actionable) {
+    return {
+      symbol: alert.symbol,
+      verdict: "Intraday",
+      title,
+      body: `${levels.join(", ")}.${noTrade} Timing for a daily plan; intraday signals have no measured record yet.`,
+    };
+  }
+  const held = noTrade ? "" : heldNote(freshness);
   return {
     symbol: alert.symbol,
     verdict: "Intraday",
-    title: `${alert.symbol} intraday, ${side}: ${SIGNAL_LABELS[alert.type]}`,
-    body: `${levels.join(", ")}.${noTrade} Timing for a daily plan; intraday signals have no measured record yet.`,
+    title,
+    body: `Based on data through ${etClock(asOf)} ET: ${levels.join(", ")}. ${delayNote(alert)}Current status has not been verified.${noTrade}${held} Timing for a daily plan; intraday signals have no measured record yet.`,
   };
 }
 
@@ -212,8 +278,16 @@ async function withinProDailyBound(
 export async function recordIntradayBells(
   service: SupabaseClient,
   alerts: Alert[],
-  args: { intervalBySymbol: Map<string, number>; now: Date },
+  args: {
+    intervalBySymbol: Map<string, number>;
+    /** The scan's clock: the New York day and the history windows. */
+    now: Date;
+    /** The dispatch clock, read for each member as the notice is written (default: the wall clock). */
+    clock?: () => Date;
+  },
 ): Promise<number> {
+  const clock = args.clock ?? (() => new Date());
+  const suppressed = new Set<string>();
   if (alerts.length === 0) return 0;
   const symbols = [...new Set(alerts.map((a) => a.symbol.toUpperCase()))];
   const watchers = await loadWatchers(service, symbols);
@@ -239,7 +313,23 @@ export async function recordIntradayBells(
       );
       if (mine.length === 0) continue;
 
-      let rows = mine.map(buildIntradayBellRow);
+      // Freshness at this member's dispatch, never the scan's start
+      // (NOTIFY-FRESHNESS-001): a suppressed alert is not written at all.
+      const dispatchAt = clock();
+      let rows: IntradayBellRow[] = [];
+      for (const a of mine) {
+        const f = checkAlertFreshness(a, dispatchAt);
+        if (f.disposition === "suppress") {
+          const key = `${a.symbol}:${a.type}:${f.reason}`;
+          if (!suppressed.has(key)) {
+            suppressed.add(key);
+            console.info(`[intraday-bell] suppressed ${a.symbol} ${a.type}: ${f.reason} (checked ${f.checkedAt})`);
+          }
+          continue;
+        }
+        rows.push(buildIntradayBellRow(a, f));
+      }
+      if (rows.length === 0) continue;
       // Pro's module shows a bounded number of setups a day
       // (`setupsDisplayedPerDayMax`); its notices keep to the same bound,
       // counted by symbol over the New York day (review, 2026-10-21).
@@ -269,21 +359,21 @@ export async function recordIntradayBells(
       const latest = latestTitleByMove(
         history.filter((r) => !isNoticeTitle(r.title) && etDateKey(new Date(r.created_at)) === today),
       );
-      const fresh = rows.filter(
+      const notPreviouslyNotified = rows.filter(
         (r, i) =>
           (isNoticeTitle(r.title) ? !noticesSeen.has(r.title) : isNewMove(r.title, latest)) &&
           rows.findIndex((x) => x.title === r.title) === i,
       );
-      if (fresh.length === 0) continue;
+      if (notPreviouslyNotified.length === 0) continue;
 
       const { error } = await service
         .from("in_app_notifications")
-        .insert(fresh.map((r) => ({ profile_id: profileId, transition_id: null, ...r })));
+        .insert(notPreviouslyNotified.map((r) => ({ profile_id: profileId, transition_id: null, ...r })));
       if (error) {
         console.error("[intraday-bell] insert failed:", error.message);
         continue;
       }
-      written += fresh.length;
+      written += notPreviouslyNotified.length;
     } catch (err) {
       console.error("[intraday-bell] member skipped:", err);
     }

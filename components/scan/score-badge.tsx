@@ -16,7 +16,7 @@ export function ScoreBadge({
   state: string;
   exactScoreDisplayEnabled: boolean;
 }) {
-  const variant = state === "Execute" ? "bull" : state === "Watch" ? "warn" : "muted";
+  const variant = state === "Execute" ? "bull" : state === "Watch" ? "warn" : state === "Resting" ? "default" : "muted";
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
@@ -24,6 +24,7 @@ export function ScoreBadge({
           "inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
           state === "Execute" && "bg-bull text-white",
           state === "Watch" && "bg-warn text-white",
+          state === "Resting" && "bg-accent text-white",
           state === "Reject" && "bg-background text-muted border border-border",
         )}
       >

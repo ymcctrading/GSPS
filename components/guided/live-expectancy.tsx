@@ -31,16 +31,22 @@ interface BucketLike {
   winRate: number;
   expectancyR: number;
   profitable: boolean;
+  /** Trades with no exit yet (`RunSummary.timeouts`), left out of the win rate as the Test page does. */
+  timeouts?: number;
+}
+
+/** Wins over the trades that closed, the Test page's win rate. */
+function closedWinRate(b: Pick<BucketLike, "trades" | "winRate" | "timeouts">): number | null {
+  const decided = b.trades - (b.timeouts ?? 0);
+  return decided > 0 ? (b.winRate * b.trades) / decided : null;
 }
 
 interface BacktestReportShape {
   live: boolean;
   source: string;
-  targetR: number;
-  breakEvenWinRate: number;
   window: { from: string | null; to: string | null };
   generatedAt: string;
-  overall: { trades: number; winRate: number; expectancyR: number; profitable: boolean };
+  overall: { trades: number; winRate: number; expectancyR: number; profitable: boolean; timeouts?: number };
   buckets: BucketLike[];
 }
 
@@ -84,7 +90,7 @@ export function LiveExpectancy() {
                   {report.window.from && report.window.to
                     ? `${dateOnly(report.window.from)} → ${dateOnly(report.window.to)}`
                     : "Window unknown"}{" "}
-                  · break-even at {report.targetR}R is a {pct(report.breakEvenWinRate)} win rate ·{" "}
+                  ·{" "}
                   {report.live ? `live as of ${dateOnly(report.generatedAt)}` : "simulated data"}
                 </>
               : "Loading…"}
@@ -117,11 +123,12 @@ export function LiveExpectancy() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{label}</p>
                     <Badge variant={b.profitable ? "bull" : "bear"}>
-                      {b.profitable ? "Above break-even" : "Below break-even"}
+                      {b.profitable ? "Positive average" : b.expectancyR === 0 ? "Even" : "Negative average"}
                     </Badge>
                   </div>
                   <p className="mt-1 text-muted">
-                    {b.trades} trades · {pct(b.winRate)} win rate ·{" "}
+                    {b.trades} trades ·{" "}
+                    {closedWinRate(b) === null ? "none closed yet" : `${pct(closedWinRate(b)!)} win rate`} ·{" "}
                     <span className={b.expectancyR >= 0 ? "text-bull" : "text-bear"}>
                       {rFmt(b.expectancyR)} avg
                     </span>

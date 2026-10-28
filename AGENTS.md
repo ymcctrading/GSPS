@@ -752,13 +752,36 @@ a tracked symbol the daily scan does not cover has no range read (the monitor
 row stores none) and stays in its list; saved setups are not bucketed by verdict
 and get the card's sentence only; the intraday alerts are not read (they are
 priced from the session in progress).
-**Ranked with Watch, 2026-10-23 (owner, on SE's sell: "it should sit with the
+**Ranked with Watch, 2026-10-23 (superseded 2026-10-28 by the Resting tier
+below: it now ranks between Execute and Watch, still behind every near
+Execute; owner, on SE's sell: "it should sit with the
 resting orders, not as the top sell setup"):** the lists' order (`compareForList`,
 through `lib/scan/listOrder.ts#listTier`) and a member's capped list
 (`visibilityRank`, in the market, scheduled and batch scans) put a resting
 Execute with Watch, behind every Execute price is near, as the Novice home's
 Today's plan already did. On the capped list this also puts any Execute ahead of
 a Watch with a higher score, as the lists already were. The verdict is unchanged.
+**Resting is a tier, 2026-10-28 (owner's items 5 and 10: "determine if a
+'resting' tier should be added along with watch, execute and reject"; "Separate
+manual scans by buy/sell, as well as executable, resting, or watch").** Gann
+answers it: the resting order at the crossed level is his own state (W006
+pp. 20, 46-47), neither a setup short of a condition (Watch) nor today's order
+(Execute). `setupTier` (`lib/setups/resting.ts`) reads Execute, Resting, Watch,
+Reject. The scan flags it where the hold is decided (`ScanDecision.resting`,
+set by `applyReadyNowHold` only on an Execute, or one the data-lag hold already
+moved to Watch, whose indication is shown and whose sole hold is the entry's
+distance), it crosses redaction and is stored in
+`daily_scans.detail.resting`; a row stored before reads the old fallback (7+
+and resting). A display tier, not a verdict: `outputState` stays Watch, the
+monitor alerts on Execute only, the replay (hold read at the fill) never meets
+one, and `STRATEGY_VERSION` stays. A 7+ Watch held by another rule that also
+sits far from its entry is now Watch, not Resting. Surfaces: the daily lists'
+and tracked list's "Resting orders", the setup card's badge and synopsis, the
+ticker page's signal card, chart panel badge and company note, Guided's near
+miss, Today's plan and the lists' order and capped lists (`listTier`: Execute,
+then Resting, then Watch), and the Scanner's
+manual results, now split Buy/Sell × Executable/Resting/Watch with rejects
+collapsed (`components/scan/manual-scan-results.tsx`).
 
 **Daily replay entry kinds, 2026-10-21 (six-year 1Day universe run: all 4,479
 trades under "hold", crossing 0, oldLevel 0; the 15-minute run split 1,332,
@@ -807,6 +830,25 @@ on the strongest quarter of the group or of the universe (the weakest, short),
 as its design reads S6, and `selectionStrength` counts either. No new fetch;
 the group read adds a filter of the month's positions once per group and month.
 `STRATEGY_VERSION` was `2026-10-21-gann-group-strength-rank`.
+
+**Groups by industry, 2026-10-28 (owner: "align the raw SEC codes with Gann's
+groups").** The group rank above now reads the platform's industries
+(`lib/universe/industries.ts`, built for the Scanner's and Test page's industry
+picker): the SEC codes are the raw material and Gann's rule decides the group,
+one industry as the market trades it, so the codes that misfile a business
+(Alphabet as computer programming, ConocoPhillips as a refiner, Qualcomm as
+broadcasting equipment, 3M as surgical instruments) are corrected first. A
+sector's industries under 5 stocks are pooled as "<sector> (other)" when they
+reach 5 together (`buildIndustryGroupMap`), as the SIC map's major-group
+fallback did; `buildGroupMap` (raw SIC) stays for the rank's tests. 821 of 832
+stocks in 71 groups (was 762 in 58). The industry names and overrides are
+engineering choices, labelled. Owner's Law of Creation reading of the pair: SEC
+code ⊗ group label is a mixture (both say "industry"); the creating pair is
+industry ⊗ how the stock moves with its group, Gann reading a group by its
+stocks' monthly position, and a check that a stock moves with its industry is
+the planned second step, held until a replay. `STRATEGY_VERSION` was
+`2026-10-28-gann-groups-by-industry`; Execute and the 7/4 cutoffs need a fresh
+run on it.
 
 **Price and time squared against the move, 2026-10-21 (diagnosis of run 73's P7
 inversion: the check −0.188R, P7 −0.150R, negative in both halves).** One translation
@@ -1019,8 +1061,10 @@ even group; the median and the quarter gate are engineering choices, held for
 the owner). The best stock of a weak group is no longer a strong stock.
 Industry groups are labelled by their key and their members' commonest SEC
 description, major groups by their key alone.
-Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
-other's peers, in the universe and the group. `STRATEGY_VERSION` was
+Dual share classes (GOOG and GOOGL) counted as each other's peers, in the
+universe and the group; answered from Gann 2026-10-28 (he names each company
+once, TST Ch. XVI-XIX): the rank counts one class per company
+(`SHARE_CLASS_OF`, `rankedClass`). `STRATEGY_VERSION` was
 `2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh
 run on it. The Fast trail (review of #405, above) merged onto it:
 `STRATEGY_VERSION` was `2026-10-21-gann-fast-trail-after-fill`.
@@ -1217,7 +1261,8 @@ low (W046 p.1) joins the S/R list (`sunTravelLevel`, via `masterLevels.ts`). M-P
 the intraday first target averages the old levels within 1%, as the daily plan
 does (`lib/gann/nearbyLevels.ts`, moved from `lib/strat/levels.ts`; round numbers
 kept apart). Engineering choices, labelled: the 10-point trail is the Stock
-Selector's figure on the Gann point (his Rumely trail is a raw 10 at $100;
+Selector's figure on the Gann point (his Rumely trail is a raw 10 at $105;
+superseded 2026-10-28, "Gann's figures read at his price" below;
 A-STOP-04 reads his "10 at high levels" as 5), the 6 weeks are read on the 7-day chart's
 run. Measured on 200 random walks: about 0.13 ms more a full exit read, 0.13 ms
 for the Sun level in an S/R build. Plans and exits move: `STRATEGY_VERSION` was
@@ -1247,6 +1292,64 @@ Gann never gave; built as context and the factor `dominantCycleWithTrade`
 (`dominantCycle.ts`), not acting: on the record it called the month right 54.3%
 against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
+**Scan pre-filter and share classes, 2026-10-28 (Gann alignment audit, scan
+share: `/mnt/project-files/gann-alignment-audit/scan-universe-selection.md`).**
+The market scan's coarse pre-filter read two things Gann does not: a reversion
+took its level point from price merely near a daily level, and a continuation
+ranked on the 50% points of the last 20 and 50 bars and a 1.2 ATR travel.
+Now the level point needs one of the full scan's old levels held (`readHeldLevel`
+on `oldStructuralLevels`, as `historicalSR` reads it since 2026-10-21; W006
+p.20; the weekly chart rolled from the sessions, the coarse pass's one gap), and a continuation ranks on holding a
+point beyond the 50% of the extreme range and beyond half the highest price
+(*Commodities* pp.35-37; Master Course PDF 11, 264-267), on the monthly record
+when it has landed. This orders the daytime scan; no stock's verdict moves.
+The rank counts one share class per company (above). `STRATEGY_VERSION` was
+`2026-10-28-gann-one-class-per-company`, merged onto the industry groups and
+double-bottom weeks as `2026-10-28-one-class-on-groups-by-industry`.
+
+**P8's base is the one just left, 2026-10-28 (diagnosis of the six-year daily
+run's volume inversion,
+`/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md`).**
+One translation defect, fixed. P8's base half passed whenever price sat in a
+long range not yet broken against the side, so it passed for a long and a short
+alike while price was still inside: 82% of random-walk readings at $20, 29% at
+$500, both sides. Gann's rule is the time in the range, then the crossing: "2-6
+or 10-13 weeks in a narrow range" then cross the tops or break the bottoms, "the
+longer in range, the bigger the move" (Master Course; *Commodities* p. 62). Now
+the base counts for a long only once price has crossed its top, and for a short
+once it has broken its bottom, within the last `BASE_LEFT_SESSIONS` (20, an
+engineering figure) and with no close since back 3 points inside the crossed
+extreme (W006 Rule 3(c) p.47; `readBaseLeft`, `lib/gann/accumulation.ts`, read
+once in `readPillarFacts` for both surfaces). Random walks after: 0% at $20 and
+$150, 0.6/1.5% at $500 (long/short), so P8 now rests on the volume rule (63-70%
+of readings, the diagnosis's figures). The search adds about 0.07 ms to a full
+accumulation read (0.016 to 0.082 ms on 520 bars); the distribution reading
+reads the range alone (`readAccumulationRange`), so its cost is unchanged. The volume rule itself (the two-thirds retest) is a separate fix.
+`STRATEGY_VERSION` was `2026-10-28-base-left-volume-pillar`, merged onto the
+industry groups and double-bottom weeks as
+`2026-10-28-base-left-on-groups-by-industry`; P8, Execute and the 7/4 cutoffs
+need a fresh run on it.
+
+**Gann's figures read at his price, 2026-10-28 (alignment audit,
+`/mnt/project-files/gann-alignment-audit/score-and-levels.md`).** Three figures
+Gann gave at a stated price had been ported as that many Gann points, which
+already grow with price (`pointScale.ts`), so each ran about two to three times
+his own. The re-buy after a stop rests his 12 points under the best price read
+at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
+about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
+at Advance Rumely's 105 ("a 10-point stop, out at 95", *Stock Selector* Ch. V), about 5.9 Gann
+points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
+points (56-60 in 1898; 2 and 2½ on the Rails, Master Course pp. 246-248), 4/3
+of the 3-point allowance (`NARROW_RANGE_ALLOWANCES`, was 3, held for the owner
+until now and answered from Gann); the range a market is leaving stays read
+during the leg out of it (`narrowRangeBeforeLeg`), since the walk from its top
+to the crossing line is wider than narrow, so the breakaway's volume rule is
+still asked. Random walks, armed long entries held by the breakaway: $20 43% →
+23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
+a number at a price, divide it by `gannPoint` at that price; only his "3 points"
+(the scale's own anchor) and figures he states across price bands are read as
+Gann points directly. `STRATEGY_VERSION` was `2026-10-28-gann-figures-at-his-price`;
+Execute and the 7/4 cutoffs need a fresh run on it.
 
 **Levels from the major lows, 2026-10-28 (Gann alignment audit,
 `/mnt/project-files/gann-alignment-audit/`).** Jensen's square of 90 is laid at
@@ -1280,8 +1383,15 @@ range, highest price and latest campaign, read on the record before the turn,
 3/4 up from the low and down from the high, within the 3-point allowance), on
 the live scan and the replay alike (both take the default). Random walks: the
 turn stood at one on 82% of turns at $20, 68% at $50, 54% at $150, 35% at $500.
-`STRATEGY_VERSION` is `2026-10-28-gann-time-and-price-at-turn`; counter-trend
-Execute and the 7/4 cutoffs need a fresh run on it.
+`STRATEGY_VERSION` was `2026-10-28-gann-time-and-price-at-turn`.
+**The distribution spell's width, same day (audit L-12).** The distribution
+spell and `distributedBefore` read "narrow" as 4/3 of the 3-point allowance
+(`NARROW_SPELL_ALLOWANCES`, `lib/gann/distribution.ts`), the widest range
+Gann dates as narrow (Master Course pp. 246-248), as the breakaway's range
+reads it since #513; it was 2 allowances. The three audit fixes merged onto the
+delayed fill timing and the midday release: `STRATEGY_VERSION` is
+`2026-10-28-gann-major-lows-time-price-spell`; Execute and the 7/4 cutoffs
+need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
@@ -3294,6 +3404,29 @@ ready-now and resting. Intraday replays read the prior session's daily close
 for it too. `pillarParity.test.ts` holds a moving quote to the same plan and
 score. `STRATEGY_VERSION` was `2026-10-28-plan-at-session-close`, merged onto the
 plan expiry as `2026-10-28-plan-at-close-on-plan-expiry`.
+**Double bottoms weeks apart, 2026-10-28 (diagnosis of the six-year daily
+rerun's first quarter: old-bottom entries 4,856 trades at -0.076R, CI wholly
+below zero).** One translation defect, fixed: the old-level buy rested at the
+latest bottom however young it was, so it bought retests a few days after the
+low (that these carry the loss is inferred: the run's per-trade rows could not
+be read here), not Gann's double bottom, which is
+"the same level weeks, months or a year or more apart" (W006 p.20, A-ENTRY-02;
+tops alike, pp.22, 47). `computeGannOldLevelEntry` now rests the order only
+once the bottom is `DOUBLE_BOTTOM_MIN_DAYS` (14, `entryKind.ts`) calendar
+days old by the day after the last session, live and replay alike, and the
+volume rule's heavy-top retest (A-ENTRY-20, the "sign to sell" note) needs its
+two tops as far apart. Stated exception: the failed-top hold (A-LEVELS-04,
+`multipleTops.ts`) still reads tops days apart, since a top price failed at is
+resistance whatever the gap (W006 pp.19-24). An open trade bought at a younger
+bottom before this change has its entry rebuilt as of its day under the new
+rule, so its live exit may read a crossed level it never had; it ends with
+those positions. "Weeks" read as two weeks is an
+engineering choice, labelled; `timeRules.ts` reads "2-3 weeks" as from day 8,
+a different phrase. Only the latest bottom is read, as before. `STRATEGY_VERSION`
+was `2026-10-28-double-bottom-weeks`; Execute and the 7/4 cutoffs need a
+fresh run on it. The industry group rank merged onto it in the 2026-10-28
+release (no new rule): `STRATEGY_VERSION` is
+`2026-10-28-groups-by-industry-on-double-bottom-weeks`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
@@ -3303,7 +3436,13 @@ Email and browser push for the same signals (`lib/notifications/intradayDelivery
 2026-10-21, after #404) go to every member by their settings (push off until
 turned on), score floor and quiet hours, each channel deduped on its own, and
 now by tier as the bell is: before, email reached every member whatever their
-plan.
+plan. A signal goes once a move on each channel, as the bell's does (keyed on
+symbol, signal and direction, never the drifting score; 2026-10-28, after 150
+emails for 63 member-symbol-direction pairs on 10-27). **No email since
+2026-10-28 (owner: "Yes" to email carrying only the key alerts):** intraday
+signals go by push and the bell only; Resend refused sends once its daily
+quota of about 200 was spent, and intraday was about 90% of email (10-23: 184
+intraday, 16 monitor). The day's signals reach the inbox in the evening digest.
 **Measured losing, 2026-10-22 (run 80,
 `replay-diagnosis/2026-10-22-intraday-alerts-replay.md`):** "Daily plan's level
 held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
@@ -3377,6 +3516,20 @@ the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
 of minutes); the bell uses the default lead and repeats a notice at most every
 12 hours. Unmeasured: nothing replays a notice. User-facing text names no
 method. Verdicts unchanged.
+**The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
+Gann).** The volume pillar's retest confirmed on any smaller week, so once
+price reached the old turn inside 3 points, noise passed it about half the time
+(`replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md`). Gann
+names the figure: a double top "on two-thirds the volume" (W006 pp.43-44); the
+Master Course's sell at "a third or less" (Ch. 12) lies inside it. So the
+retest confirms at two-thirds of the first turn's week or less
+(`RETEST_VOLUME_RATIO`, `volumeClimax.ts`), bottoms mirroring tops, live and
+replay alike. Rules 1 and 7's secondary rally keeps "smaller", which names no
+figure. `STRATEGY_VERSION` was `2026-10-28-retest-two-thirds-volume`; P8,
+Execute and the 7/4 cutoffs need a fresh run on it. The share-class rule, the
+base-left pillar, Gann's figures at his price and this rule merged together in
+the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` was
+`2026-10-28-midday-release`.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
@@ -3412,6 +3565,24 @@ first target, since its exits and its close live on that exit row. The live orde
 paper row did. The ticket says intraday has no measured record; nothing
 automated trades it. Verdicts and the daily replay are unchanged, so
 `STRATEGY_VERSION` stays.
+
+**Email only for what needs the member, 2026-10-28 (owner, item 6: "send only
+the most pertinent notifications via email….everything else should be a
+mobile/in platform notification"; "Yes" to the plan).** Measured first: the
+provider refused sends once about 200 had gone out in a UTC day (10-23, 10-26),
+and intraday signals were about 90% of them. Intraday signals and entry notices
+now go by push and the bell only (#502). Email keeps a member's own positions
+and orders, a tracked symbol turning Execute (once a New York day,
+`executeEmailedToday`), a broken plan only on a symbol they hold (`holdsSymbol`;
+otherwise push and the bell), price alerts only when no push went out, the
+evening digest (it now lists the day's intraday signals from the bell,
+`lib/notifications/digestSignals.ts`, and goes on a day with signals even
+without a closed trade), and the owner and ops reports. Every member email takes
+a slot of a daily budget first (`lib/notifications/email-budget.ts`, migration
+0126: 80 for alerts and digests, 95 for own trades and ops, UTC day, fails
+open); over it the send is skipped and the bell keeps the notice. The bell
+points a member without push on that device to the switch. A new email sender
+calls `emailBudgetHold` with its kind.
 
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
@@ -3530,6 +3701,31 @@ These are explicit, user-directed departures from the protocol's real design, ma
 reason and with a stated revert trigger. Read this section every session. When a trigger fires,
 raise it with the user before doing anything else with the affected code — don't silently carry an
 override past the point it was supposed to end.
+
+### Equity data delay and notification freshness (2026-10-28, until real-time data is bought)
+
+Owner directives DATA-DELAY-001 and NOTIFY-FRESHNESS-001. Full record and coverage matrix:
+`docs/DATA_DELAY_AND_FRESHNESS.md`.
+
+- **Time contract.** `lib/data/timeliness.ts` holds the one definition:
+  - a bar's close (the provider stamps the open);
+  - usable = max(close + the feed's delay, receipt);
+  - a decision reads only what was usable at its evaluation clock;
+  - an order fills at the first bar opening at or after the decision.
+- **Where it is wired.**
+  - The intraday scan filters its input (`usableInput`).
+  - Placement and arming read only bars past the delay.
+  - The replays fill late and refuse a fill whose stop traded first (`STRATEGY_VERSION` was `2026-10-28-delayed-fill-timing`; merged onto the midday release as `2026-10-28-delayed-fill-on-midday-release`, no new rule).
+- **Notifications.**
+  - The bell and push read `checkAlertFreshness` at the dispatch clock: actionable, informational or suppressed.
+  - Only actionable wording may say "now" or give an arrival time.
+  - Queued setup deliveries re-read the member's monitor (`supersededHold`).
+  - A new notification path must call the same check.
+- **Revert trigger: a verified real-time feed.**
+  - It needs both `MARKET_DATA_REALTIME=true` and `MARKET_DATA_REALTIME_VERIFIED_AT`, set by an operator after checking a live trade arrives within seconds.
+  - The flag alone reads as delayed.
+  - Never set either without the owner's go-ahead.
+  - Replays keep the contract's delay whatever the environment.
 
 ### Execution timeframe — reverted to 15Min early (2026-09-09 through 2026-09-17)
 

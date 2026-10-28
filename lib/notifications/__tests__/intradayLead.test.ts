@@ -17,9 +17,9 @@ describe("dueForLead", () => {
 });
 
 describe("signalHashFor", () => {
-  it("keys a notice on its own type, and a signal on its score as before", () => {
+  it("keys every signal and notice on its own type and direction, never the score", () => {
     expect(signalHashFor(approach(10))).toBe("LLY-entry_approach-bullish");
     expect(signalHashFor(alert({ type: "entry_reached", direction: "down" }))).toBe("LLY-entry_reached-bearish");
-    expect(signalHashFor(alert({}))).toBe("LLY-bullish-6");
+    expect(signalHashFor(alert({}))).toBe(`LLY-${alert({}).type}-bullish`);
   });
 });

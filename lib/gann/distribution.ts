@@ -10,17 +10,17 @@
  * sessions):
  * - the lower top: the last two completed tops of the weekly (7-day) swing
  *   chart, the later one lower;
- * - the spell and its break: `readAccumulation` on those sessions, broken
+ * - the spell and its break: `readAccumulationRange` on those sessions, broken
  *   down (its range is the 20 sessions before the last one, its break the
  *   3-point allowance);
- * - narrow: the spell's high-to-low span is no wider than twice the 3-point
+ * - narrow: the spell's high-to-low span is no wider than 4/3 of the 3-point
  *   allowance at its low (`NARROW_SPELL_ALLOWANCES`);
  * - dull: the spell's mean session volume is below the mean of the
  *   `DULL_BASELINE_SESSIONS` sessions before it;
  * - increased volume: the breaking session's volume over the mean volume of
  *   the range's sessions, above 1.
  *
- * Engineering choices, labelled: "narrow" as twice Gann's price-scaled 3
+ * Engineering choices, labelled: "narrow" as 4/3 of Gann's price-scaled 3
  * points and "dull" as quieter than the sessions before (Gann gives neither a
  * width nor a volume figure for the spell; added 2026-10-16 after review M1,
  * before which a spell of any width counted); "increased" is read as above the range's
@@ -39,7 +39,7 @@
  */
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
-import { readAccumulation, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
+import { readAccumulationRange, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
@@ -51,8 +51,16 @@ import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
  */
 export const SESSIONS_READ = 220;
 
-/** A narrow spell spans at most this many 3-point allowances (an engineering figure, labelled above). */
-export const NARROW_SPELL_ALLOWANCES = 2;
+/**
+ * A narrow spell spans at most this many 3-point allowances at its low. Gann
+ * states no width, but every range he dates as narrow is 2 to 4 points (2 on
+ * the 1897 Rails, 2½ on the 1911 Rails, 56-60 in 1898; Master Course
+ * pp. 246-248), on prices where his allowance is 3 points, so the widest he
+ * calls narrow is 4/3 of the allowance, as `breakaway.ts`'s range reads it.
+ * Corrected 2026-10-28 (alignment audit, `score-and-levels.md` L-12): it was 2
+ * allowances (6 points at $42.50), wider than any spell he calls narrow.
+ */
+export const NARROW_SPELL_ALLOWANCES = 4 / 3;
 /** The sessions before the spell its volume is compared with ("dull"). */
 export const DULL_BASELINE_SESSIONS = 40;
 
@@ -78,7 +86,7 @@ export function readDistributionBreakdown(daily: Bar[], asOf: Date): Distributio
   let end = daily.length;
   while (end > 0 && etDateKey(new Date(daily[end - 1].t)) >= today) end--;
   const done = daily.slice(Math.max(0, end - SESSIONS_READ), end);
-  const acc = readAccumulation(done);
+  const acc = readAccumulationRange(done);
   if (!acc) return null;
   const last = done[done.length - 1];
   const range = done.slice(-RANGE_LOOKBACK - 1, -1);
@@ -127,7 +135,7 @@ export function readDistributionStanding(daily: Bar[], asOf: Date): Distribution
   const done = daily.slice(Math.max(0, end - SESSIONS_READ - STANDING_SESSIONS), end);
   for (let k = done.length - 1; k >= Math.max(0, done.length - STANDING_SESSIONS); k--) {
     const upTo = done.slice(0, k + 1);
-    const acc = readAccumulation(upTo.slice(-SESSIONS_READ));
+    const acc = readAccumulationRange(upTo.slice(-SESSIONS_READ));
     // The full reading only where the session broke down at all.
     if (acc?.breakout !== "down") continue;
     const breakDate = etDateKey(new Date(done[k].t));

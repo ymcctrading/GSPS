@@ -76,7 +76,43 @@ describe("ResultsTable", () => {
     expect(restingSection).toHaveTextContent("Entry $67.45 (12.3%) below price");
     expect(restingSection).not.toHaveTextContent("NEAR");
     expect(restingSection).not.toHaveTextContent("WATCHFAR");
-    expect(screen.getAllByRole("table")).toHaveLength(2);
+    expect(screen.getByTestId("watch-setups")).toHaveTextContent("WATCHFAR");
+    expect(screen.getAllByRole("table")).toHaveLength(3);
+  });
+
+  it("ranks only the setups that can be placed today, by score, with Watch and Resting under their own headings", () => {
+    render(
+      <ResultsTable
+        rows={[
+          // The owner's 2026-10-28 case: Watch 8 with a resting entry (AIZ) and
+          // a Watch 7 (LNG) were listed among the Execute rows.
+          { ...BASE_ROW, symbol: "EXSEVEN", score: 7, currentPrice: 101, dayRange: 4 },
+          { ...BASE_ROW, symbol: "AIZ", outputState: "Watch", score: 8, resting: false, currentPrice: 104, dayRange: 2 },
+          { ...BASE_ROW, symbol: "EXNINE", score: 9, currentPrice: 101, dayRange: 4 },
+          { ...BASE_ROW, symbol: "LNG", outputState: "Watch", score: 7, currentPrice: 99, dayRange: 4 },
+          { ...BASE_ROW, symbol: "RESTS", outputState: "Watch", score: 8, resting: true, currentPrice: 120, dayRange: 4 },
+          { ...BASE_ROW, symbol: "BTC/USD", outputState: "Watch", score: 7, currentPrice: 101, dayRange: 4 },
+        ]}
+      />,
+    );
+    const [ranked] = screen.getAllByRole("table");
+    const rankedText = ranked.textContent ?? "";
+    expect(rankedText).toContain("EXNINE");
+    expect(rankedText.indexOf("EXNINE")).toBeLessThan(rankedText.indexOf("EXSEVEN"));
+    for (const s of ["AIZ", "LNG", "RESTS", "BTC/USD"]) expect(rankedText).not.toContain(s);
+    expect(screen.getByTestId("resting-orders")).toHaveTextContent("RESTS");
+    const watch = screen.getByTestId("watch-setups");
+    expect(watch).toHaveTextContent("Watch");
+    for (const s of ["AIZ", "LNG", "BTC/USD"]) expect(watch).toHaveTextContent(s);
+    expect((watch.textContent ?? "").indexOf("AIZ")).toBeLessThan((watch.textContent ?? "").indexOf("LNG"));
+    expect(screen.queryByTestId("crypto-setups")).toBeNull();
+    expect(screen.queryByTestId("no-executable")).toBeNull();
+  });
+
+  it("says no setup can be placed today when only Watch and Resting rows are listed", () => {
+    render(<ResultsTable rows={[{ ...BASE_ROW, outputState: "Watch", score: 7 }]} />);
+    expect(screen.getByTestId("no-executable")).toBeInTheDocument();
+    expect(screen.getAllByRole("table")).toHaveLength(1);
   });
 
   it("lists crypto pairs under their own Crypto heading, apart from the stocks", () => {

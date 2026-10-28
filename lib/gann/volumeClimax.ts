@@ -110,6 +110,7 @@ import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
 import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
+import { DOUBLE_BOTTOM_MIN_DAYS } from "@/lib/gann/entryKind";
 
 /**
  * Held at the `lib/signals/regime.ts`-matched 1.5x since 2026-09-14, when a
@@ -164,13 +165,13 @@ export interface VolumeClimaxReading {
   climax: boolean;
   /** Volume and range both shrank into the anchor pivot (Gann's normal bottom; context for a high). */
   dryingUp: boolean;
-  /** The anchor retested the previous pivot of its kind (within 1%, or beyond) in a week of smaller volume (FV3). */
+  /** The anchor retested the previous pivot of its kind (within Gann's 3 points) in a week of two-thirds its volume or less (FV2, FV3). */
   retestOnLowerVolume: boolean;
   /**
    * When the anchor reached the previous pivot of its kind: the volume of the
    * anchor's week over the previous pivot's week (A-VOLUME-13, W006 pp.43-44:
    * a double top "on two-thirds the volume"; Master Course Ch.12: a third or
-   * less). Context only, measured; nothing reads it to confirm (fork FV2).
+   * less). The retest confirms at two-thirds or less (`RETEST_VOLUME_RATIO`, fork FV2).
    */
   retestWeekVolumeRatio?: number | null;
   /**
@@ -195,6 +196,15 @@ export interface VolumeClimaxReading {
 
 /** "Much less" volume at a panic's secondary low: half the climax week's or less (labelled). */
 export const PANIC_SECONDARY_RATIO = 0.5;
+/**
+ * A retest confirms on two-thirds of the first turn's week or less (fork FV2,
+ * answered from Gann 2026-10-28): W006 pp.43-44's double top "on two-thirds the
+ * volume"; the Master Course's sell signal (Ch.12, "a third or less") lies
+ * inside it. Rules 1 and 7's "smaller volume" gives no figure, so the one Gann
+ * names is read. Bottoms mirror tops (Polarity). Until then any smaller week
+ * confirmed, which noise passes about half the time once the 3-point band is hit.
+ */
+export const RETEST_VOLUME_RATIO = 2 / 3;
 /** A bear low is the lowest of the last this-many sessions read (a year, the live scan's daily span), labelled. */
 export const BEAR_LOW_SESSIONS = 252;
 /** "In years": the completed months read for the smallest monthly volume, and the fewest that will do. */
@@ -391,14 +401,18 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
       // FV3 b: the two turns' own weeks, second over first (W006 p.46: the weekly chart).
       const prevWeek = weekVolume(bars, previous.index);
       const ratio = prevWeek > 0 ? weekVolume(bars, anchor.index) / prevWeek : null;
-      retestOnLowerVolume = reached && ratio !== null && ratio < 1;
+      retestOnLowerVolume = reached && ratio !== null && ratio <= RETEST_VOLUME_RATIO + 1e-9;
       if (reached) retestWeekVolumeRatio = ratio;
       // A-ENTRY-20 (W006 p.28): a double top whose earlier high came on heavy
       // volume is a sell, the stop 3 points over the old high (the old-level
       // short). The heavy earlier top already counts in `climax` (the best of
       // the recent pivots); this names the case for the note. "Heavy" is
-      // `VOLUME_CLIMAX_THRESHOLD` (an engineering figure, labelled).
-      if (kind === "high" && reached) {
+      // `VOLUME_CLIMAX_THRESHOLD` (an engineering figure, labelled). The two
+      // tops are weeks apart, as the old-level sale reads a double top (W006
+      // p.20, `DOUBLE_BOTTOM_MIN_DAYS`): a retest days later is the same swing.
+      const weeksApart =
+        Math.round((Date.parse(bars[anchor.index].t) - Date.parse(bars[previous.index].t)) / 86_400_000) >= DOUBLE_BOTTOM_MIN_DAYS;
+      if (kind === "high" && reached && weeksApart) {
         const prevRvol = relativeVolume(bars.slice(0, previous.index + 1), lookback);
         retestOfHeavyTop = prevRvol !== null && prevRvol > VOLUME_CLIMAX_THRESHOLD;
       }

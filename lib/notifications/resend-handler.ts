@@ -4,6 +4,7 @@ import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { priceUsd } from "@/lib/strat/priceText";
 import { configuredAppUrl, tickerHref } from "@/lib/routes";
+import { emailBudgetHold } from "@/lib/notifications/email-budget";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -117,6 +118,8 @@ export async function sendAlertEmail(data: AlertEmailData) {
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("alert");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
 
   try {
     const scoreLabel = formatScore(data.score, data.exactScoreDisplayEnabled);
@@ -232,6 +235,8 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("alert");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
 
   try {
     const subject = `${data.symbol} setup invalidated`;
@@ -280,11 +285,18 @@ export interface JournalEmailData {
   weekCount: number;
   monthCount: number;
   allTimeCount: number;
-  attachment: Buffer;
-  attachmentFilename: string;
+  /** The journal workbook; absent when the member has no closed trade yet. */
+  attachment?: Buffer | null;
+  attachmentFilename?: string;
+  /** Today's intraday signals, one line each (`lib/notifications/digestSignals.ts`). */
+  signals?: { lines: string[]; more: number };
 }
 
-/** The daily trade-journal digest — see `lib/journal/build-workbook.ts`. */
+/**
+ * The evening digest: the trade journal (`lib/journal/build-workbook.ts`) and,
+ * since 2026-10-28, the day's intraday signals, which no longer go by email
+ * one at a time (owner, item 6).
+ */
 export async function sendJournalEmail(data: JournalEmailData) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set; skipping journal email");
@@ -295,12 +307,14 @@ export async function sendJournalEmail(data: JournalEmailData) {
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("digest");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
 
   try {
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0f172a; margin: 0 0 20px;">📒 Your trade journal — ${data.dateLabel}</h1>
-        <p style="color: #475569; font-size: 14px;">
+        <h1 style="color: #0f172a; margin: 0 0 20px;">📒 Your day on GSPS — ${data.dateLabel}</h1>
+        ${data.attachment ? `<p style="color: #475569; font-size: 14px;">
           The attached spreadsheet has four sheets — Today, This Week, This Month, and All Time —
           each trade with its entry, exit, P/L, and the reasoning it was placed under.
         </p>
@@ -321,7 +335,8 @@ export async function sendJournalEmail(data: JournalEmailData) {
             <td style="padding: 8px; color: #64748b; font-size: 12px;">All time</td>
             <td style="padding: 8px; text-align: right; font-weight: 600;">${data.allTimeCount}</td>
           </tr>
-        </table>
+        </table>` : ""}
+        ${signalSection(data.signals)}
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
           <p style="margin: 0;">Sent automatically, 2 hours after the close, from GSPS.
           <a href="${appUrl("/portfolio")}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
@@ -332,16 +347,17 @@ export async function sendJournalEmail(data: JournalEmailData) {
     const result = await getResendClient().emails.send({
       from: fromHeader("GSPS Journal"),
       to: data.userEmail,
-      subject: `Trade journal — ${data.dateLabel}`,
+      subject: data.attachment ? `Trade journal — ${data.dateLabel}` : `Today's signals — ${data.dateLabel}`,
       html,
-      attachments: [
-        {
-          filename: data.attachmentFilename,
-          content: data.attachment,
-          contentType:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        },
-      ],
+      attachments: data.attachment
+        ? [
+            {
+              filename: data.attachmentFilename ?? `gsps-trade-journal-${data.dateLabel}.xlsx`,
+              content: data.attachment,
+              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
+          ]
+        : undefined,
     });
     if (result.error) {
       console.error("Resend error:", result.error);
@@ -353,6 +369,18 @@ export async function sendJournalEmail(data: JournalEmailData) {
     console.error("Failed to send journal email:", message);
     return { success: false, error: message };
   }
+}
+
+/** The digest's "today's signals" block, or nothing when there were none. */
+export function signalSection(signals: JournalEmailData["signals"]): string {
+  if (!signals || signals.lines.length === 0) return "";
+  const items = signals.lines.map((l) => `<li style="margin: 0 0 4px;">${escapeHtml(l)}</li>`).join("");
+  const more = signals.more > 0 ? `<p style="margin: 6px 0 0; color: #64748b; font-size: 12px;">And ${signals.more} more in the app.</p>` : "";
+  return `<div style="margin: 20px 0;">
+          <p style="margin: 0 0 8px; color: #0f172a; font-size: 14px; font-weight: 600;">Today's intraday signals</p>
+          <ul style="margin: 0; padding-left: 20px; color: #475569; font-size: 13px;">${items}</ul>${more}
+          <p style="margin: 8px 0 0; color: #64748b; font-size: 12px;">These went to your phone and the bell as they happened. Intraday signals have no measured record yet.</p>
+        </div>`;
 }
 
 export interface OrderInvalidatedEmailData {
@@ -382,6 +410,8 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("trade");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
 
   try {
     const subject = `Order canceled: ${data.symbol} invalidated before entry`;
@@ -459,6 +489,8 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("ops");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
 
   try {
     const subject = "GSPS: live signal quality has drifted from backtest";
@@ -522,6 +554,8 @@ export interface PriceAlertEmailData {
    * Absent for the chart line, which keeps the wording above.
    */
   rule?: AlertRuleText;
+  /** The feed's delay in minutes for this symbol (DATA-DELAY-001); 0 or absent for a real-time read. */
+  delayMinutes?: number;
 }
 
 /** How a fired alert-editor rule is worded in an email or a push. */
@@ -555,6 +589,8 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("alert");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
 
   try {
     const verb = data.direction === "above" ? "rose above" : "fell below";
@@ -566,6 +602,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     const checked = rule
       ? `Read at the check: ${escapeHtml(rule.reading)}${rule.source ? `. Level: ${escapeHtml(rule.source)}` : ""}`
       : `Last price checked: ${priceUsd(data.currentPrice)}`;
+    const delayLine = data.delayMinutes && data.delayMinutes > 0 ? `. Equity prices are delayed by ${data.delayMinutes} minutes.` : "";
     const noteLine = rule?.note
       ? `<p style="margin: 10px 0 0; color: #0f172a; font-size: 14px;">Your note: ${escapeHtml(rule.note)}</p>`
       : "";
@@ -578,7 +615,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
             ${headline}
           </p>
           <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
-            ${checked}
+            ${checked}${delayLine}
           </p>${noteLine}
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">

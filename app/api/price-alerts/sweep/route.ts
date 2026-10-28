@@ -13,7 +13,8 @@
  * `lib/alerts/rules.ts`) compares to its threshold as set. The chart line's
  * rows are Last >= or <= their price, the side resolved once at creation. A
  * triggered alert is marked `triggered = true` with the value it read, put on
- * the member's bell, pushed and emailed once; it never re-fires. A "day"
+ * the member's bell and pushed once (emailed instead when no push went
+ * out, 2026-10-28); it never re-fires. A "day"
  * alert still waiting at the close it was set for is removed.
  *
  * Same bearer-secret auth pattern as every other cron-invoked route here.
@@ -44,6 +45,7 @@ import type { AssetClass } from "@/lib/types";
 import { priceAlertPushMessage, sendPushToProfile } from "@/lib/notifications/web-push";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { inQuietHours } from "@/lib/entitlements/delivery";
+import { resolveFeedPolicy } from "@/lib/data/timeliness";
 
 export const maxDuration = 60;
 
@@ -212,6 +214,15 @@ export async function GET(req: NextRequest) {
           }
         : undefined;
     const price = quote.last ?? value;
+    // The quote's delay, said where the member reads it (DATA-DELAY-001):
+    // equities on the delayed feed, never crypto.
+    const delayMs = resolveFeedPolicy({
+      assetClass: isCryptoSymbol(alert.symbol) ? "crypto" : "us_equity",
+      isLive: provider.isLive,
+      source: provider.name,
+    }).contractualDelayMs;
+    const delayMinutes = Math.round(delayMs / 60_000);
+    const delayText = delayMinutes > 0 ? ` Equity prices are delayed by ${delayMinutes} minutes.` : "";
 
     // The bell is written whatever the member's channels or quiet hours: it
     // has no send cost (migration 0067), and it is where a fired alert stays.
@@ -220,11 +231,11 @@ export async function GET(req: NextRequest) {
       symbol: alert.symbol,
       verdict: "Price alert",
       title: editorRule ? `Alert: ${editorRule.condition}` : `${alert.symbol} ${alert.direction === "above" ? "rose above" : "fell below"} ${formatThreshold("last", threshold)}`,
-      body: editorRule
+      body: (editorRule
         ? [`Read at the check: ${editorRule.reading}`, editorRule.source ? `Level: ${editorRule.source}` : null, editorRule.note ? `Note: ${editorRule.note}` : null]
             .filter(Boolean)
             .join(". ") + "."
-        : `Last price checked: ${formatThreshold("last", price)}.`,
+        : `Last price checked: ${formatThreshold("last", price)}.`) + delayText,
     });
     if (bellError) console.error(`price-alerts/sweep: bell notice not written for alert ${alert.id} — ${bellError.message}`);
 
@@ -232,6 +243,7 @@ export async function GET(req: NextRequest) {
     // The alert still reads triggered on the member's price-alerts list.
     if (await inQuietHours(service, alert.user_id)) continue;
 
+    let pushedOk = false;
     if (pushUserIds.has(alert.user_id)) {
       const pushed = await sendPushToProfile(
         service,
@@ -242,13 +254,20 @@ export async function GET(req: NextRequest) {
           targetPrice: threshold,
           currentPrice: price,
           rule: editorRule,
+          delayMinutes,
         }),
       );
+      pushedOk = pushed.success;
       if (!pushed.success && !pushed.skipped) {
         console.error(`price-alerts/sweep: push not sent for alert ${alert.id} — ${pushed.error}`);
       }
     }
 
+    // Email only when no phone or browser took the push (owner, 2026-10-28,
+    // item 6: email for what is most pertinent, the rest on the phone and in
+    // the app). A member with push off, or with no subscribed browser, still
+    // gets the email they asked for, inside the daily budget.
+    if (pushedOk) continue;
     const userEmail = emailUserIds.has(alert.user_id) ? emailByUserId.get(alert.user_id) : undefined;
     if (!userEmail) continue;
     try {
@@ -259,6 +278,7 @@ export async function GET(req: NextRequest) {
         direction: alert.direction,
         currentPrice: price,
         rule: editorRule,
+        delayMinutes,
       });
     } catch (err) {
       console.error(`price-alerts/sweep: email not sent for alert ${alert.id} — ${String(err)}`);

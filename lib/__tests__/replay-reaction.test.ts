@@ -39,14 +39,14 @@ const DAY = "2026-06-15";
 function dayBar(date: string, c: number): Bar {
   return { t: `${date}T00:00:00Z`, o: c, h: c + 1, l: c - 1, c, v: 1000 };
 }
-function dailyHistory(count: number, before: string): Bar[] {
+function dailyHistory(count: number, before: string, amp = 2): Bar[] {
   const out: Bar[] = [];
   const end = new Date(`${before}T00:00:00Z`).getTime();
   for (let i = count; i >= 1; i--) {
     const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
     const phase = (count - i) % 8;
     const step = phase < 4 ? phase : 7 - phase;
-    out.push(dayBar(d, 96 + step * 2));
+    out.push(dayBar(d, 96 + step * amp));
   }
   return out;
 }
@@ -77,6 +77,25 @@ function fallingHistory(count: number, before: string, start = 300): Bar[] {
     });
   }
   return out;
+}
+
+/**
+ * The falling market ending on a bottom, then a slow 13-session rally off it
+ * that stays under the last rally top: the bottom is two weeks old by the
+ * session after the last bar, as a double bottom needs ("weeks ... apart",
+ * W006 p.20), and untested, so it is the resting buy.
+ */
+function fallingToAgedBottom(before: string, start = 3000): Bar[] {
+  const end = new Date(`${before}T00:00:00Z`).getTime();
+  const fall = fallingHistory(286, new Date(end - 13 * 86_400_000).toISOString().slice(0, 10), start);
+  let c = fall[fall.length - 1].c;
+  const rally: Bar[] = [];
+  for (let i = 13; i >= 1; i--) {
+    c *= 1.0003;
+    const t = `${new Date(end - i * 86_400_000).toISOString().slice(0, 10)}T00:00:00Z`;
+    rally.push({ t, o: c, h: c * 1.002, l: c * 0.998, c, v: 1000 });
+  }
+  return [...fall, ...rally];
 }
 
 /**
@@ -238,7 +257,9 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
       const r = replay(
         "TEST",
         sess([at(L + S * (P + 0.5)), at(L + (S * P) / 3 + S * 0.1, 0.4), gapOpen, at(L)]),
-        opts,
+        // The fill mechanics without the data delay; the delayed fill is
+        // pinned in replay.test.ts (DATA-DELAY-001).
+        { ...opts, feedDelayMs: 0 },
       );
       expect(r.trades).toHaveLength(0);
       expect(r.refusedFills).toBe(1);
@@ -256,7 +277,7 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
           win,
           at(L),
         ]),
-        opts,
+        { ...opts, feedDelayMs: 0 },
       );
       expect(r.trades).toHaveLength(1);
       expect(r.trades[0].outcome).toBe("win");
@@ -279,7 +300,9 @@ describe("buildReport", () => {
 describe("replay entryRule: reaction on a level the daily chart already crossed", () => {
   // The fixture's old bottom, broken by 3 points on the last two days before
   // the session and reacting short of the sell 1 point under it: a held level.
-  const base = dailyHistory(300, DAY).slice(0, -3);
+  // The range is kept within 4/3 of the 3-point allowance, the narrow spell a
+  // bottom's break needs before a short (A-ENTRY-15, `distributedBefore`).
+  const base = dailyHistory(300, DAY, 1.4).slice(0, -3);
   const first = computeGannEntryTrigger(base, "bearish")!;
   const L = first.level;
   const P = gannThreePoints(L);
@@ -307,9 +330,9 @@ describe("replay entryRule: reaction on a level the daily chart already crossed"
 
 
 describe("replay entryRule: reaction at an old bottom (double or triple bottom)", () => {
-  // The falling fixture's latest bottom is untested, so it is the nearer
-  // buying point and the order rests at it.
-  const DAILY = fallingHistory(300, DAY, 3000);
+  // The falling fixture's latest bottom is untested and two weeks old, so it
+  // is the nearer buying point and the order rests at it.
+  const DAILY = fallingToAgedBottom(DAY);
   const T = selectGannEntry(DAILY, "bullish")!;
   const L = T.level;
   const P = gannThreePoints(L);
@@ -345,9 +368,14 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
     };
     const early: Bar[] = Array.from({ length: 44 }, (_, i) => ({ ...above, t: stamp("2025-08-25", 0, i), v: 1000 }));
     const day: Bar[] = Array.from({ length: 6 }, (_, i) => ({ ...at(L - P / 4, 0.05), t: stamp(DAY, 14, i), v: 1000 }));
-    const r = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY });
+    const r = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY, feedDelayMs: 0 });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].entry).toBeCloseTo(L - P / 4, 8);
     expect(r.trades[0].openedAt).toBe(day[1].t);
+    // Under the 15-minute delay the first candle's close is read 15 minutes
+    // later, so the market fill is the third candle's open (DATA-DELAY-001).
+    const delayed = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY });
+    expect(delayed.trades).toHaveLength(1);
+    expect(delayed.trades[0].openedAt).toBe(day[2].t);
   });
 });

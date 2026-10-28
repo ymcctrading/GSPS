@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BUCKETS, UNCONDITIONED_ATTRIBUTION, collectRun, isAttributionScope } from "@/lib/backtest/run";
 import { byOutputState, byScoreRange, type ReplayTrade } from "@/lib/backtest/replay";
 import { proposeWeights } from "@/lib/backtest/propose-weights";
+import { MAX_TEST_SYMBOLS, quotesOnlyRefusal } from "@/lib/universe/selection";
 import { auditLogEntry, createModel, createLearningClient } from "@/lib/learning/db";
 import { SCORE_WEIGHT_MODEL_TYPE } from "@/lib/scoring/active-weights";
 import { verifyAuth } from "@/lib/auth";
@@ -36,7 +37,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /** Same ceiling as /api/backtest — past this the replay outlives the function. */
-const MAX_SYMBOLS = 12;
+const MAX_SYMBOLS = MAX_TEST_SYMBOLS;
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
 export const maxDuration = 300;
@@ -66,6 +67,11 @@ export async function POST(req: NextRequest) {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   const universe = requested.length > 0 ? requested : DEFAULT_UNIVERSE;
+  const quotesOnly = quotesOnlyRefusal(universe);
+  if (quotesOnly) {
+    return NextResponse.json({ error: quotesOnly }, { status: 400 });
+  }
+
   if (universe.length > MAX_SYMBOLS) {
     return NextResponse.json(
       { error: `Too many symbols (${universe.length}). Replay at most ${MAX_SYMBOLS} at a time.` },
