@@ -44,7 +44,23 @@ update public.daily_scans set strategy_version = pg_temp.gsps_version_label(stra
   where strategy_version is not null and strategy_version <> pg_temp.gsps_version_label(strategy_version);
 update public.orders set strategy_version = pg_temp.gsps_version_label(strategy_version)
   where strategy_version is not null and strategy_version <> pg_temp.gsps_version_label(strategy_version);
-update public.trade_plans set strategy_version = pg_temp.gsps_version_label(strategy_version)
-  where strategy_version is not null and strategy_version <> pg_temp.gsps_version_label(strategy_version);
+-- A plan whose labelled twin already exists (same user, instrument,
+-- timeframe and fingerprint, the 0053 unique index) is the older copy of one
+-- signal: it is kept, not relabelled, so the update can't fail on the index.
+-- The app looks up the named copy first, so no such twin is expected.
+update public.trade_plans p set strategy_version = pg_temp.gsps_version_label(p.strategy_version)
+  where p.strategy_version is not null and p.strategy_version <> pg_temp.gsps_version_label(p.strategy_version)
+    and not exists (
+      select 1 from public.trade_plans t
+      where t.user_id = p.user_id and t.instrument = p.instrument and t.timeframe = p.timeframe
+        and t.signal_fingerprint = p.signal_fingerprint
+        and t.strategy_version = pg_temp.gsps_version_label(p.strategy_version)
+    );
 update public.trade_logs set strategy_version = pg_temp.gsps_version_label(strategy_version)
   where strategy_version is not null and strategy_version <> pg_temp.gsps_version_label(strategy_version);
+
+-- The strategy-mode preference's default id was 'gann'; the app writes and
+-- reads 'gsps' (a stored 'gann' already read as the default). Members read
+-- their own row, so the old id goes too.
+update public.strategy_mode_preferences set mode = 'gsps' where mode = 'gann';
+alter table public.strategy_mode_preferences alter column mode set default 'gsps';

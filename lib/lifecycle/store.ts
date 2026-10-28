@@ -323,6 +323,26 @@ export async function createOrGetIdempotentTradePlan(
   userId: string,
   input: NewTradePlan,
 ): Promise<{ plan: TradePlan; created: boolean }> {
+  // A plan stored before migration 0128 carries the rules version's name, not
+  // its label, so the unique index can't see it as this plan's twin. Look for
+  // it first, or a retried job in the gap between the deploy and the
+  // migration would insert a second plan (and the migration's relabel of the
+  // first would then fail on the index).
+  const raw = input.strategyVersion;
+  if (input.signalFingerprint != null && raw !== publicVersionLabel(raw)) {
+    const { data: named, error: namedErr } = await supabase
+      .from("trade_plans")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("instrument", input.instrument)
+      .eq("timeframe", input.timeframe)
+      .eq("strategy_version", raw)
+      .eq("signal_fingerprint", input.signalFingerprint)
+      .maybeSingle();
+    if (namedErr) throw new Error(namedErr.message);
+    if (named) return { plan: rowToPlan(named, []), created: false };
+  }
+
   const { data, error } = await ledgerWriter(supabase)
     .from("trade_plans")
     .insert(newPlanToRow(userId, input))
@@ -345,7 +365,7 @@ export async function createOrGetIdempotentTradePlan(
     .eq("user_id", userId)
     .eq("instrument", input.instrument)
     .eq("timeframe", input.timeframe)
-    .eq("strategy_version", publicVersionLabel(input.strategyVersion))
+    .eq("strategy_version", publicVersionLabel(raw))
     .eq("signal_fingerprint", input.signalFingerprint)
     .single();
   if (findErr || !existingRow) throw new Error(error.message);

@@ -32,12 +32,14 @@
  *                          trailed 3 points under each completed day's low
  *                          from the fill (Gann exits only). See
  *                          ReplayOptions.tradeStyle. Default swing.
- *   ?exitRule=gann        how open trades leave: bracket, gann (default,
- *                          production's LIVE_EXIT_RULE) or gann-runner. See ReplayOptions.exitRule
+ *   ?exitRule=structure   how open trades leave: bracket, structure (default,
+ *                          production's LIVE_EXIT_RULE) or structure-runner;
+ *                          the old ids gann and gann-runner are still accepted.
+ *                          See ReplayOptions.exitRule
  *   ?disableExits=three_adverse_closes,prior_week
  *                          measurement only: switch named Gann exit rules off
- *                          inside the replay walk (needs exitRule gann or
- *                          gann-runner). An unknown name is a 400. See
+ *                          inside the replay walk (needs exitRule structure or
+ *                          structure-runner). An unknown name is a 400. See
  *                          ReplayOptions.disableExits
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
  *                          stop by for the plan to stand again: 3 (default, the

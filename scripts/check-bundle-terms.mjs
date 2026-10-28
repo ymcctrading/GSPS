@@ -45,14 +45,15 @@ try {
 }
 
 const hits = [];
-for (const file of files) {
+const MAX_HITS = 50;
+scan: for (const file of files) {
   const text = readFileSync(file, "utf8");
   for (const term of TERMS) {
     const global = new RegExp(term.source, term.flags.includes("g") ? term.flags : `${term.flags}g`);
     for (const m of text.matchAll(global)) {
       const start = Math.max(0, m.index - 40);
       hits.push({ file: file.slice(ROOT.length), text: text.slice(start, m.index + m[0].length + 40).replace(/\s+/g, " ") });
-      if (hits.length > 50) break;
+      if (hits.length >= MAX_HITS) break scan;
     }
   }
 }

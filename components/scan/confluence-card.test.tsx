@@ -131,6 +131,16 @@ function makeResult(): ScanResult {
 }
 
 describe("ConfluenceCard", () => {
+  it("sends the card's sentences without the modules' field names (#510)", () => {
+    const r = makeResult();
+    expect(r.signals?.gannConfluence).not.toBeNull();
+    const wire = JSON.stringify(redactScanResult(r));
+    expect(wire).toContain('"context"');
+    for (const name of ["gann", "Confluence", "nearestFanLine", "disclosedRules", "spectralCycle", "squareOf52", "explanationTrace", "masterTwelve"]) {
+      expect(wire).not.toContain(name);
+    }
+  });
+
   it("renders nothing when the scan has no signals field", () => {
     const { container } = render(<ConfluenceCard result={redactScanResult({ ...baseResult, signals: undefined })} />);
     expect(container).toBeEmptyDOMElement();

@@ -129,7 +129,7 @@ export function validateCells(cells) {
     }
     // The exit rules' ids before 2026-10-28 ("gann", "gann-runner"); earlier
     // runs and notes still name them.
-    if (c.options?.exitRule in LEGACY_EXIT_RULES) c.options.exitRule = LEGACY_EXIT_RULES[c.options.exitRule];
+    if (c.options && Object.hasOwn(LEGACY_EXIT_RULES, c.options.exitRule)) c.options.exitRule = LEGACY_EXIT_RULES[c.options.exitRule];
   }
   return cells;
 }
