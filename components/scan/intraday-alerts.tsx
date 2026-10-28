@@ -11,6 +11,7 @@ import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import {
   ASSET_KIND_LABELS,
   MEASURED_LOSING,
+  NOTICE_SIGNALS,
   MOVE_BASIS_LABELS,
   SIGNAL_DESCRIPTIONS,
   SIGNAL_LABELS,
@@ -358,6 +359,8 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   const unpaid = alert.continuationPlan.paysRisk === false;
   // A signal the replay measured losing is shown for study, never offered.
   const measuredLosing = MEASURED_LOSING[alert.type];
+  // Nearing or at a daily plan's entry: a heads-up, not a session trade.
+  const notice = NOTICE_SIGNALS.has(alert.type);
   // The plan "Trade this" carries into the ticket: the alert's own stop, first
   // target and MTP (the Intraday style). With no target fixed there is nothing
   // to check the risk against (M-K5), so no trade is offered.
@@ -446,7 +449,16 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
             </Badge>
           }
           actions={
-            !isRisk && !unpaid && !measuredLosing && tradePlan && (
+            notice ? (
+              // A notice prices the daily plan, so it opens the plan, whose
+              // order rests at the entry; never a market entry of its own.
+              <Link
+                href={tickerHref(alert.symbol)}
+                className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
+              >
+                Open the plan →
+              </Link>
+            ) : !isRisk && !unpaid && !measuredLosing && tradePlan && (
               <Link
                 href={intradayTradeHref(alert.symbol, up ? "buy" : "sell", tradePlan)}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
@@ -478,7 +490,13 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
                   plan&apos;s own targets.
                 </p>
               )}
-              {!isRisk && alert.type !== "plan_level_held" && (
+              {notice && (
+                <p className="text-xs text-muted">
+                  These are the daily plan&apos;s own levels. The time left is read from the pace since the last
+                  {up ? " high" : " low"} and can change; open the plan to rest its order at the entry ahead of time.
+                </p>
+              )}
+              {!isRisk && !notice && alert.type !== "plan_level_held" && (
                 <p className="text-xs text-muted">
                   TP1 here is the first old high or low beyond the price, or a round number just short of one,
                   that pays more than the risk. The MTP (master take profit) is the next such level beyond TP1:

@@ -356,6 +356,31 @@ describe("IntradayAlerts — a signal measured losing", () => {
   });
 });
 
+describe("IntradayAlerts — nearing a plan's entry", () => {
+  it("shows the daily plan's entry and opens the plan instead of a market entry", async () => {
+    mockScan({
+      alerts: [
+        {
+          ...spyAlert,
+          type: "entry_approach",
+          continuationPlan: { ...spyAlert.continuationPlan, entry: 501.25 },
+          approach: { entry: 501.25, distance: 3.25, ratePerBar: 0.1, etaMinutes: 20, expectedAt: spyAlert.triggerTime },
+        },
+      ],
+    });
+    render(<IntradayAlerts />);
+
+    const user = userEvent.setup();
+    const name = await screen.findByRole("button", { name: "SPY" });
+    const card = name.closest("div.rounded-lg") as HTMLElement;
+    expect(within(card).getByText(/Nearing the plan's entry/)).toBeInTheDocument();
+    expect(within(card).getAllByText("$501.25").length).toBeGreaterThan(0);
+    await user.click(name);
+    expect(within(card).queryByText(/Trade this/)).not.toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /Open the plan/ })).toHaveAttribute("href", "/ticker/SPY");
+  });
+});
+
 describe("IntradayAlerts — the setup card", () => {
   it("prices the alert in the same order as the daily lists, MTP included", async () => {
     mockScan();

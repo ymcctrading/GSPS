@@ -706,7 +706,7 @@ async function persistAlerts(
     score: Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9))),
     signal_type: DIRECTION_TO_SIGNAL_TYPE[alert.direction],
     timeframe: intervalBySymbol.get(alert.symbol) === 5 ? "5m" : "1m",
-    entry_level: alert.move.current,
+    entry_level: alert.continuationPlan.entry ?? alert.move.current,
     stop_loss_level: alert.invalidation,
     take_profit_1_level: alert.continuationPlan.firstTarget,
     poll_cycle_timestamp: alert.triggerTime,
@@ -717,6 +717,7 @@ async function persistAlerts(
       dataTimestamp: alert.dataTimestamp,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      ...(alert.approach ? { etaMinutes: alert.approach.etaMinutes, expectedAt: alert.approach.expectedAt } : {}),
     },
   }));
 
@@ -839,7 +840,7 @@ async function persistSystemAlerts(
     signal_id: alert.type,
     score: Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9))),
     signal_type: DIRECTION_TO_SIGNAL_TYPE[alert.direction],
-    entry_level: alert.move.current,
+    entry_level: alert.continuationPlan.entry ?? alert.move.current,
     stop_loss_level: alert.invalidation,
     take_profit_1_level: alert.continuationPlan.firstTarget,
     poll_cycle_timestamp: alert.triggerTime,
@@ -851,6 +852,7 @@ async function persistSystemAlerts(
       barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      ...(alert.approach ? { etaMinutes: alert.approach.etaMinutes, expectedAt: alert.approach.expectedAt } : {}),
     },
   }));
 

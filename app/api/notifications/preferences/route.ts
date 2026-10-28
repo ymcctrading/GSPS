@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         notify_on_verdict: "execute",
         quiet_hours_enabled: false,
         user_timezone: "America/New_York",
+        entry_lead_minutes: 15,
       }
     );
   } catch (err) {

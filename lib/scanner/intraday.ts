@@ -77,6 +77,7 @@ import { combineNearbyLevels } from "@/lib/gann/nearbyLevels";
 import { priceText, roundPrice } from "@/lib/strat/priceText";
 import {
   ASSET_KIND_LABELS,
+  NOTICE_SIGNALS,
   MOVE_BASIS_LABELS,
   SIGNAL_DESCRIPTIONS,
   SIGNAL_LABELS,
@@ -95,6 +96,7 @@ import { intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
 import { hourlyBars, isRegularSessionBar } from "@/lib/gann/intradayExit";
+import { APPROACH_LEAD_MAX_MINUTES, SCAN_CADENCE_MINUTES, readEntryApproach } from "@/lib/scanner/entryApproach";
 
 /** ---- Configuration ----------------------------------------------------- */
 
@@ -105,7 +107,9 @@ export type SignalType =
   | "overnight_turn"
   | "hourly_turn"
   | "plan_level_held"
-  | "reversal_risk";
+  | "reversal_risk"
+  | "entry_approach"
+  | "entry_reached";
 
 export type Direction = "up" | "down";
 
@@ -537,6 +541,12 @@ export interface ConfidenceFactor {
 export interface TradePlan {
   /** What has to happen before the plan is live. */
   confirmation: string;
+  /**
+   * The entry, when it is a set price rather than the alert's price: the daily
+   * plan's entry on a notice (`NOTICE_SIGNALS`). Absent on every other signal,
+   * whose entry is the price it was flagged at (`move.current`).
+   */
+  entry?: number | null;
   /** The price that says the thesis is wrong. */
   invalidation: number | null;
   /**
@@ -592,6 +602,12 @@ export interface Alert {
    * qualifies on this scan; only the repeat notice is held back.
    */
   firstFlaggedAt?: string | null;
+  /**
+   * On `entry_approach`: how far off the daily plan's entry is and how soon,
+   * at the reaction's pace (`lib/scanner/entryApproach.ts`). Delivery reads
+   * `etaMinutes` against each member's lead.
+   */
+  approach?: { entry: number; distance: number; ratePerBar: number; etaMinutes: number; expectedAt: string } | null;
 }
 
 
@@ -835,6 +851,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     detectOvernightTurn(input, metrics, dayMove, checks, now),
     detectHourlyTurn(input, metrics, checks, now),
     detectPlanLevelHeld(input, metrics, checks, now),
+    detectEntryApproach(input, metrics, checks, now),
     detectReversalRisk(input, metrics, dayMove, config, checks, now),
   ].filter((a): a is Alert => a !== null);
 
@@ -856,7 +873,9 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   const kept: Alert[] = [];
   const held: Alert[] = [];
   for (const alert of candidates) {
-    const suppressedUntil = cooldownUntil(input, alert, config);
+    // An approach is a countdown: each scan carries a new time left, and
+    // delivery reads it against each member's lead, so it is never held back.
+    const suppressedUntil = alert.type === "entry_approach" ? null : cooldownUntil(input, alert, config);
     if (suppressedUntil && suppressedUntil > now) {
       const firstFlaggedAt = firstFlaggedWithin(input, alert, config, now);
       checks.push({
@@ -1409,6 +1428,162 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   });
 }
 
+/**
+ * Price nearing, or at, a standing daily plan's entry: the notice that lets a
+ * person sign in, open the plan and rest the order before price gets there
+ * (owner, 2026-10-28). The plan's order rests at its entry ahead of time, as
+ * Gann's orders did, set from the daily charts before the session; the session
+ * only says how soon it is likely to be reached (`lib/scanner/entryApproach.ts`,
+ * his angle: price covered per bar since the reaction's top).
+ *
+ * The same plans `plan_level_held` times, on the same gates: the stop has not
+ * traded, the crossing is made (`awaitsCrossing` not true), and the prior
+ * session closed on the plan's side of the entry, so price comes back to it as
+ * a reaction. A first crossing from the far side is not bought intraday (W006
+ * Rule 3(b)-(c)), so it gets no notice either.
+ *
+ * - `entry_approach`: not yet traded to the entry; at the reaction's pace it
+ *   arrives within `APPROACH_LEAD_MAX_MINUTES` plus one scan. Delivery reads the
+ *   time left against each member's lead.
+ * - `entry_reached`: the latest bar traded to the entry (within the session's
+ *   unit) and the stop held. Once it turns back the plan's way,
+ *   `plan_level_held` reads it.
+ *
+ * Notices, not trades (`NOTICE_SIGNALS`): no session entry, stop or target of
+ * their own. They carry the daily plan's levels, and the action they offer is
+ * the plan itself. Unmeasured: nothing replays a notice.
+ */
+function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: AuditCheck[], now: Date): Alert | null {
+  const plan = input.dailyPlan;
+  const name = "Nearing the plan's entry";
+  if (!plan) return null;
+  const up = plan.direction === "up";
+  if (up ? m.low <= plan.stop : m.high >= plan.stop) return null;
+  if (plan.awaitsCrossing === true) return null;
+  const prev = input.prevClose;
+  if (prev == null || !(up ? prev >= plan.entry : prev <= plan.entry)) return null;
+
+  const regularOnly = input.kind !== "crypto";
+  const bars = input.bars.filter(isUsableBar).filter((b) => !regularOnly || isRegularSession(new Date(b.t)));
+  if (bars.length === 0) return null;
+  const lastBar = bars[bars.length - 1];
+  const unit = m.point > 0 ? m.point : 0;
+  const dataAge = ageSeconds(m.dataTimestamp, now);
+  const reachedNow = up ? lastBar.l <= plan.entry + unit : lastBar.h >= plan.entry - unit;
+  const tradedThrough = up ? m.low <= plan.entry + unit : m.high >= plan.entry - unit;
+
+  const factors: ConfidenceFactor[] = [
+    {
+      label: "The daily verdict is Execute",
+      passed: plan.verdict === "Execute",
+      weight: 30,
+      detail: plan.verdict === "Execute" ? "The daily scan reads this plan Execute." : "The daily scan reads this plan Watch, not Execute.",
+    },
+  ];
+  const levels: TradePlan = {
+    confirmation: `The plan's order rests at its entry, ${priceText(plan.entry)}. Open the plan to place it before price gets there.`,
+    entry: plan.entry,
+    invalidation: plan.stop,
+    firstTarget: plan.tp1,
+    masterTarget: plan.mtp,
+    paysRisk: targetPaysRisk(plan.entry, plan.stop, plan.tp1),
+    cancelIf: `The daily plan's stop at ${priceText(plan.stop)} trades.`,
+  };
+  const move = measureMove(m.last, plan.entry, "plan_entry");
+  if (!move) return null;
+
+  if (reachedNow) {
+    checks.push({ name, passed: true, detail: `The latest bar traded to the plan's entry (${priceText(plan.entry)}) and the stop held.` });
+    return buildAlert({
+      now,
+      input,
+      metrics: m,
+      type: "entry_reached",
+      direction: plan.direction,
+      move,
+      factors,
+      invalidation: plan.stop,
+      plan: { ...levels, confirmation: `Price is at the plan's entry, ${priceText(plan.entry)}. A resting order there fills now.` },
+      whyThisAppeared: `${input.symbol} has come back to its daily plan's entry at ${priceText(plan.entry)} and has not traded the stop at ${priceText(plan.stop)}.`,
+    });
+  }
+  if (tradedThrough) {
+    // Touched earlier and moved off: the reaction is under way, and
+    // `plan_level_held` reads the turn back the plan's way.
+    checks.push({ name, passed: false, detail: `Price traded to the plan's entry earlier this session; the turn back is read by "${SIGNAL_LABELS.plan_level_held}".` });
+    return null;
+  }
+
+  const pivots = walkSwingChart(bars, SWING_BARS).pivots.filter((p) => p.kind === (up ? "top" : "bottom"));
+  const reading = readEntryApproach({
+    bars,
+    intervalMinutes: input.barIntervalMinutes,
+    direction: plan.direction,
+    entry: plan.entry,
+    unit,
+    pivotIndex: pivots.length > 0 ? pivots[pivots.length - 1].index : -1,
+    dataAgeSeconds: input.marketClosed === true ? 0 : dataAge,
+    now,
+  });
+  if (!reading) {
+    checks.push({ name, passed: false, detail: `Price is not moving toward the plan's entry (${priceText(plan.entry)}) right now.` });
+    return null;
+  }
+  const window = APPROACH_LEAD_MAX_MINUTES + SCAN_CADENCE_MINUTES;
+  if (input.marketClosed === true || reading.etaMinutes > window) {
+    checks.push({
+      name,
+      passed: false,
+      detail:
+        input.marketClosed === true
+          ? "The market is closed, so there is no pace to read."
+          : `At the current pace the plan's entry (${priceText(plan.entry)}) is about ${Math.round(reading.etaMinutes)} minutes away, more than ${window}.`,
+    });
+    return null;
+  }
+
+  const fast = reading.unitsPerBar != null && reading.unitsPerBar >= 1;
+  factors.push({
+    label: "Moving quickly toward the entry",
+    passed: fast,
+    weight: 10,
+    detail: `${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since the ${up ? "high" : "low"} of ${priceText(reading.extreme)}.`,
+  });
+  const minutes = Math.round(reading.etaMinutes);
+  const when =
+    minutes <= 0
+      ? "it may be there already: the price feed runs late"
+      : `about ${minutes} minute${minutes === 1 ? "" : "s"} away, around ${etClock(reading.expectedAt)} ET`;
+  checks.push({ name, passed: true, detail: `The plan's entry is ${when}.` });
+  return buildAlert({
+    now,
+    input,
+    metrics: m,
+    type: "entry_approach",
+    direction: plan.direction,
+    move,
+    factors,
+    invalidation: plan.stop,
+    plan: levels,
+    approach: {
+      entry: plan.entry,
+      distance: reading.distance,
+      ratePerBar: reading.ratePerBar,
+      etaMinutes: reading.etaMinutes,
+      expectedAt: reading.expectedAt,
+    },
+    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "above" : "below"} its daily plan's entry at ${priceText(plan.entry)} and has moved ${up ? "down" : "up"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "high" : "low"} of ${priceText(reading.extreme)}. At that pace the entry is ${when}${minutes > 0 && dataAge > 60 ? ` (the feed's ${formatAge(dataAge)} delay is already counted)` : ""}. The pace can change; this is a heads-up, not a fill. Open the plan to rest the order at the entry, with its stop at ${priceText(plan.stop)}.`,
+  });
+}
+
+/** "10:42 AM" in New York time. */
+function etClock(iso: string): string {
+  const { minutes } = etParts(new Date(iso));
+  const h = Math.floor(minutes / 60);
+  const mm = String(minutes % 60).padStart(2, "0");
+  return `${((h + 11) % 12) + 1}:${mm} ${h < 12 ? "AM" : "PM"}`;
+}
+
 function detectReversalRisk(
   input: SymbolInput,
   m: SessionMetrics,
@@ -1564,6 +1739,7 @@ function buildAlert(args: {
   invalidation: number | null;
   /** The continuation plan, when the detector prices its own (`plan_level_held`). */
   plan?: TradePlan;
+  approach?: Alert["approach"];
   whyThisAppeared: string;
 }): Alert {
   const { now, input, metrics: m, type, direction, move, invalidation } = args;
@@ -1594,6 +1770,7 @@ function buildAlert(args: {
     pivotPlan: pivotPlan(m, direction, invalidation),
     whyThisAppeared: args.whyThisAppeared,
     whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
+    ...(args.approach ? { approach: args.approach } : {}),
   };
 }
 
@@ -1991,4 +2168,4 @@ function ageSeconds(timestamp: string, now: Date): number {
 
 // The display labels live in `intradayDisplay.ts` so the alerts panel can read
 // them without bundling this scanner (review finding R-033).
-export { ASSET_KIND_LABELS, MOVE_BASIS_LABELS, SIGNAL_DESCRIPTIONS, SIGNAL_LABELS, formatAge, formatRvol, formatVolume };
+export { ASSET_KIND_LABELS, MOVE_BASIS_LABELS, NOTICE_SIGNALS, SIGNAL_DESCRIPTIONS, SIGNAL_LABELS, formatAge, formatRvol, formatVolume };

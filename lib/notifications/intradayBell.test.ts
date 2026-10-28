@@ -59,3 +59,21 @@ describe("alertsForTier", () => {
     expect(out.map((a) => a.type)).toEqual(["old_level_cross"]);
   });
 });
+
+describe("buildIntradayBellRow: notices", () => {
+  it("words a heads-up with the time left and the daily plan's entry, never a session trade", () => {
+    const row = buildIntradayBellRow(
+      alert({
+        symbol: "LLY",
+        type: "entry_approach",
+        move: { current: 504 } as Alert["move"],
+        invalidation: 497,
+        continuationPlan: { entry: 501, firstTarget: 512, masterTarget: 520, paysRisk: true } as Alert["continuationPlan"],
+        approach: { entry: 501, distance: 3, ratePerBar: 0.1, etaMinutes: 22.4, expectedAt: "2026-10-27T14:42:00Z" },
+      }),
+    );
+    expect(row.title).toBe("LLY buy: Nearing the plan's entry");
+    expect(row.body).toContain("About 22 minutes away");
+    expect(row.body).toContain("Daily plan: entry 501.00, stop 497.00, TP1 512.00, MTP 520.00.");
+  });
+});

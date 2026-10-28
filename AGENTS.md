@@ -3201,6 +3201,25 @@ market scan rewrites the lists, a setup that turns ready mid-session joins and
 one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
 from the daily charts after the close and timed in the session (*Truth of the
 Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
+**Nearing the entry, same day (owner: alert "as price is moving towards that
+entry level" early enough to sign in and place the order, the lead "determined
+by all of the tools [Gann] used to determine how fast price is moving").** Two
+notices on a standing daily plan, on `plan_level_held`'s gates (stop not
+traded, crossing made, prior close on the plan's side): `entry_approach`, the
+minutes left to the entry at the reaction's pace, read as Gann's angle, price
+per bar since the reaction's top (`lib/scanner/entryApproach.ts`; the
+Three-Dimension Chart that measured speed was never disclosed), with the feed's
+lateness taken off; and `entry_reached`, the latest bar at the entry with the
+stop held. Notices, not trades (`NOTICE_SIGNALS`, `intradayDisplay.ts`): they
+carry the daily plan's levels, offer "Open the plan" (the ticket rests the
+plan's own order at its entry) and never "Trade this", and the replay skips
+them. An approach is never held by the cooldown; email and push send it once
+the time left is within the member's lead plus one scan
+(`notification_preferences.entry_lead_minutes`, migration 0124: 15 by default,
+the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
+(`signalHashFor`); the bell uses the default lead and repeats a notice at most
+every 12 hours. Unmeasured: nothing replays a notice. User-facing text names no
+method. Verdicts unchanged.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day

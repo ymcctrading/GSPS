@@ -23,6 +23,14 @@ export const MOVE_BASIS_LABELS: Record<MoveBasis, string> = {
   plan_entry: "the daily plan's entry",
 };
 
+/**
+ * Notices, not trades: price nearing or at a standing daily plan's entry
+ * (`detectEntryApproach`, `intraday.ts`). They price the daily plan, never a
+ * session entry of their own, so nothing replays or places them as an intraday
+ * trade; the order is the daily plan's, rested at its entry.
+ */
+export const NOTICE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["entry_approach", "entry_reached"]);
+
 export const SIGNAL_LABELS: Record<SignalType, string> = {
   old_level_cross: "Old top or bottom crossed",
   trend_continuation: "Trend continuation",
@@ -31,6 +39,8 @@ export const SIGNAL_LABELS: Record<SignalType, string> = {
   hourly_turn: "Hourly chart turned",
   plan_level_held: "Daily plan's level held",
   reversal_risk: "Reversal risk",
+  entry_approach: "Nearing the plan's entry",
+  entry_reached: "At the plan's entry",
 };
 
 export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
@@ -48,6 +58,10 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
     "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: the daily plan's own stop and targets, with the stop moved by your trade style once filled.",
   reversal_risk:
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
+  entry_approach:
+    "Price is moving back toward a standing daily plan's entry. The time left is read from how fast it has moved since its last high (low, for a sell) and counts the price feed's delay. A heads-up to open the plan and rest its order at the entry before price gets there; the pace can change.",
+  entry_reached:
+    "Price has come back to a standing daily plan's entry and the plan's stop has not traded. A resting order at the entry fills here; the plan's own stop and targets apply.",
 };
 
 /**

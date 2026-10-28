@@ -33,7 +33,7 @@
  * scanner itself advises against.
  */
 
-import { MEASURED_LOSING, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
+import { MEASURED_LOSING, NOTICE_SIGNALS, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
 import type { Alert } from "@/lib/scanner/intraday";
 import { tickerHref } from "@/lib/routes";
 import { rewardToRisk, type SetupCardModel, type SetupCheck, type SetupLevels } from "@/lib/setups/card";
@@ -46,7 +46,9 @@ export function isReversalRisk(alert: Alert): boolean {
 export function intradayLevels(alert: Alert): SetupLevels {
   if (isReversalRisk(alert)) return { entry: null, stop: null, tp1: null, mtp: null };
   return {
-    entry: alert.move.current,
+    // A notice's entry is the daily plan's own (`NOTICE_SIGNALS`); every other
+    // signal's is the price it was flagged at.
+    entry: alert.continuationPlan.entry ?? alert.move.current,
     stop: alert.invalidation,
     tp1: alert.continuationPlan.firstTarget,
     // The next level beyond TP1, or the daily plan's MTP on `plan_level_held`.
@@ -78,6 +80,10 @@ export function buildIntradaySynopsis(alert: Alert): string {
 
   const levels = intradayLevels(alert);
   if (levels.entry == null || levels.stop == null) return first;
+  if (NOTICE_SIGNALS.has(alert.type)) {
+    const targets = levels.tp1 != null ? `, first target ${priceUsd(levels.tp1)}${levels.mtp != null ? `, then ${priceUsd(levels.mtp)} (MTP)` : ""}` : "";
+    return `${SIGNAL_LABELS[alert.type]}, ${up ? "buy" : "sell"}. ${alert.whyThisAppeared} The daily plan: entry ${priceUsd(levels.entry)}, exit at ${priceUsd(levels.stop)}${targets}.`;
+  }
   const wait =
     alert.type === "plan_level_held"
       ? `${first} The daily plan's level held and a bar has closed back ${up ? "above" : "below"} it: entry near ${priceUsd(levels.entry)}, exit at ${priceUsd(levels.stop)} if it fails`
