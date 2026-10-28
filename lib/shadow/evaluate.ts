@@ -44,7 +44,7 @@ import { walkGannExit } from "@/lib/backtest/replay";
 import { tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { completedDailyBars, entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { etDateKey } from "@/lib/market/session";
-import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
+import { delayedFillIndex, replayFeedDelayMs, sessionCloseAt } from "@/lib/data/timeliness";
 import { isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import type { AssetClass } from "@/lib/types";
 import { regularSessionBars } from "@/lib/gann/intradayExit";
@@ -290,6 +290,17 @@ export async function walkShadowRows(
         ),
         crypto,
       );
+      // A finished session the scan came before, with no bar of it in hand,
+      // is a gap in the feed, not a plan that never reacted: it is read again
+      // on a later pass rather than called expired.
+      if (
+        !crypto &&
+        sessionComplete &&
+        sessionBars.length === 0 &&
+        scannedAt.getTime() < sessionCloseAt(sessionDate).getTime() - SHADOW_EXECUTION_MINUTES * 60_000
+      ) {
+        throw new Error(`no ${SHADOW_EXECUTION_TIMEFRAME} bars for the ${sessionDate} session`);
+      }
 
       const result = walkShadowTrade({
         direction: row.direction,

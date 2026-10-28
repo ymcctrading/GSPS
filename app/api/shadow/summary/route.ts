@@ -2,8 +2,8 @@
  * GSPS — /api/shadow/summary
  *
  * Phase 7 ("Validation and monitoring") of the Claude Code Build Roadmap
- * spec pack. Read-only: reports how the shadow-tracked live Execute-tier
- * signals (lib/shadow/record.ts, recorded from the trusted scheduled scan
+ * spec pack. Owner only (`lib/auth/owner.ts`, 2026-10-28). Read-only:
+ * reports how the shadow-tracked live Execute-tier signals (lib/shadow/record.ts, recorded from the trusted scheduled scan
  * only — see lib/entitlements/scheduled-scan.ts) have actually performed
  * over a trailing window, and — when a backtest baseline is supplied —
  * whether that performance has drifted from what the backtest harness
@@ -34,14 +34,17 @@ import {
 } from "@/lib/shadow/compare";
 import { SHADOW_MAX_HOLD_DAYS } from "@/lib/shadow/evaluate";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
+import { ownerOf } from "@/lib/auth/owner";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  // The forward test's record is the owner's alone until it is verified
+  // (lib/auth/owner.ts); anyone else gets a 404, so the route discloses nothing.
+  if (!ownerOf(user)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { searchParams } = new URL(req.url);

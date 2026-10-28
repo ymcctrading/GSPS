@@ -7,6 +7,7 @@ vi.mock("@/lib/shadow/evaluate", () => ({ walkShadowRows: walkShadowRowsMock }))
 
 import { MAX_WALKS_ON_RECORD, WALK_ON_RECORD_TIMEOUT_MS, buildShadowSignal, recordShadowSignals, shadowTradeSession } from "@/lib/shadow/record";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
+import { shadowSessionComplete } from "@/lib/shadow/session";
 import type { ScanResult } from "@/lib/types";
 
 function baseResult(overrides: Partial<ScanResult> = {}): ScanResult {
@@ -282,6 +283,15 @@ describe("recordShadowSignals: a later session's call against an earlier row", (
     expect(upserted).toHaveLength(0);
   });
 
+  it("holds the next session's call back while the closed session's last bars are still on their way", async () => {
+    // 4:10 PM ET: Monday's session has closed, its last delayed bars have not arrived.
+    const justAfter = baseResult({ scannedAt: "2026-10-19T20:10:00Z" });
+    const { client, upserted } = withOpen([{ ...plan, session_date: "2026-10-19", fill_price: null }]);
+    expect((await recordShadowSignals(client, [justAfter], "x", new Date("2026-10-19T20:10:30Z"))).recorded).toBe(0);
+    expect(walkShadowRowsMock).not.toHaveBeenCalled();
+    expect(upserted).toHaveLength(0);
+  });
+
   it("does not record again for a session already recorded", async () => {
     const { client, upserted } = withOpen([{ ...plan, session_date: "2026-10-20", fill_price: null }]);
     await recordShadowSignals(client, [evening], "x");
@@ -335,5 +345,18 @@ describe("recordShadowSignals: a later session's call against an earlier row", (
     const ids = (walkShadowRowsMock.mock.calls[0][1] as { id: string }[]).map((r) => r.id);
     expect(ids).not.toContain("S0");
     expect(ids[0]).toBe("S1");
+  });
+});
+
+describe("shadowSessionComplete (the session's last bars have arrived)", () => {
+  it("waits out the feed's delay past the close before a stock's session reads over", () => {
+    // 2026-10-22 is EDT: 4:00 PM is 20:00 UTC; the delay and margin run to 4:20 PM.
+    expect(shadowSessionComplete("2026-10-22", "BP", new Date("2026-10-22T20:00:30Z"))).toBe(false);
+    expect(shadowSessionComplete("2026-10-22", "BP", new Date("2026-10-22T20:19:00Z"))).toBe(false);
+    expect(shadowSessionComplete("2026-10-22", "BP", new Date("2026-10-22T20:20:00Z"))).toBe(true);
+    // an early close: 1:00 PM EST is 18:00 UTC
+    expect(shadowSessionComplete("2026-11-27", "BP", new Date("2026-11-27T18:10:00Z"))).toBe(false);
+    expect(shadowSessionComplete("2026-11-27", "BP", new Date("2026-11-27T18:20:00Z"))).toBe(true);
+    expect(shadowSessionComplete("2026-10-21", "BP", new Date("2026-10-22T13:00:00Z"))).toBe(true);
   });
 });
