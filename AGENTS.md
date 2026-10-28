@@ -1248,6 +1248,26 @@ Gann never gave; built as context and the factor `dominantCycleWithTrade`
 against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
 
+**P8's base is the one just left, 2026-10-28 (diagnosis of the six-year daily
+run's volume inversion,
+`/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md`).**
+One translation defect, fixed. P8's base half passed whenever price sat in a
+long range not yet broken against the side, so it passed for a long and a short
+alike while price was still inside: 82% of random-walk readings at $20, 29% at
+$500, both sides. Gann's rule is the time in the range, then the crossing: "2-6
+or 10-13 weeks in a narrow range" then cross the tops or break the bottoms, "the
+longer in range, the bigger the move" (Master Course; *Commodities* p. 62). Now
+the base counts for a long only once price has crossed its top, and for a short
+once it has broken its bottom, within the last `BASE_LEFT_SESSIONS` (20, an
+engineering figure) and with no close since back 3 points inside the crossed
+extreme (W006 Rule 3(c) p.47; `readBaseLeft`, `lib/gann/accumulation.ts`, read
+once in `readPillarFacts` for both surfaces). Random walks after: 0% at $20 and
+$150, 0.6/1.5% at $500 (long/short), so P8 now rests on the volume rule (63-70%
+of readings, the diagnosis's figures). About 0.03-0.04 ms a full accumulation
+read. The volume rule itself (the two-thirds retest) is a separate fix.
+`STRATEGY_VERSION` is `2026-10-28-base-left-volume-pillar`; P8, Execute and the
+7/4 cutoffs need a fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

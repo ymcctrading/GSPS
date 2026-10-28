@@ -877,4 +877,15 @@
 // replays now read the prior session's daily close, not the last 15-minute
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
-export const STRATEGY_VERSION = "2026-10-28-plan-at-close-on-plan-expiry";
+// (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-base-left-volume-pillar: P8's base half counts a long base only
+// once price has left it the trade's way and stands outside it (no close back
+// 3 points inside the crossed extreme), within BASE_LEFT_SESSIONS
+// (`readBaseLeft`, lib/gann/accumulation.ts). Gann's rule is the time in the
+// range then the crossing (Master Course; Commodities p. 62; W006 Rule 3(c)
+// p.47); the old half passed for either side while price sat inside the
+// range, 82% of random-walk readings at $20 and 29% at $500 for both sides
+// alike (replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md).
+// After: 0/0% at $20 and $150, 0.6/1.5% at $500 (long/short), so P8 now rests
+// on the volume rule. Live verdicts and replay trades move.
+export const STRATEGY_VERSION = "2026-10-28-base-left-volume-pillar";
