@@ -2,7 +2,8 @@
  * GSPS — the intraday scan's queue: which instruments the scheduled scan
  * times when there are more candidates than its capacity (owner, 2026-10-28:
  * "tracks candidates without starvation"). A queue policy, not a trading
- * rule: it decides only what is examined, never what is traded.
+ * rule: it decides only what is examined, never what is traded. Live in the
+ * scheduled intraday scan since 2026-10-28 (owner, "I approve all 5").
  *
  * Before: one ordered list cut at 50 (`MAX_SYSTEM_UNIVERSE`): the funds and
  * crypto, then the session's setups, the members' watchlists and the first 36

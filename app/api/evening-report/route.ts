@@ -297,7 +297,8 @@ export async function GET(req: NextRequest) {
   type PrefilterDbRow = { symbol: string; atr_pct: number | string | null; cleared_reversion: boolean | null; cleared_continuation: boolean | null; shortlisted: boolean | null; full_scan_score: number | string | null; full_scan_output_state: string | null };
   type SystemDbRow = { symbol: string; signal_id: string; signal_type: string; poll_cycle_timestamp: string | null; created_at: string; metadata: { dataTimestamp?: string; barIntervalMinutes?: number } | null };
   const sessionOpenAt = etInstant(basisDate, 9 * 60 + 30);
-  const [sweepRows, prefilterRows, systemRows, placedRead, filledRead] = await Promise.all([
+  type LedgerDbRow = { symbol: string; first_queued_at: string | null; queue_tier: string | null; deferred_scans: number | null; first_discovery_at: string | null; discovery_kinds: string[] | null };
+  const [sweepRows, prefilterRows, systemRows, placedRead, filledRead, ledgerRows] = await Promise.all([
   readAll<SweepDbRow>((from, to) =>
     service.from("universe_sweep").select("symbol, direction, score, output_state, setup_kind, entry, error").eq("basis_date", basisDate).order("symbol", { ascending: true }).range(from, to),
   ),
@@ -330,7 +331,18 @@ export async function GET(req: NextRequest) {
     .gte("created_at", sessionOpenAt.toISOString())
     .lt("created_at", close.toISOString())
     .gt("filled_qty", 0),
+  // The evaluation ledger (migration 0129): slots, deferrals and discoveries.
+  readAll<LedgerDbRow>((from, to) =>
+    service
+      .from("evaluation_ledger")
+      .select("symbol, first_queued_at, queue_tier, deferred_scans, first_discovery_at, discovery_kinds")
+      .eq("session_date", basisDate)
+      .order("symbol", { ascending: true })
+      .range(from, to),
+  ),
   ]);
+  const ledgerOf = new Map(ledgerRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  const ledgerKept = !ledgerRows.error && ledgerRows.rows.length > 0;
   const sweepOf = new Map(sweepRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
   const prefilterOf = new Map(prefilterRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
   const { count: ordersPlaced, error: ordersError } = placedRead;
@@ -510,9 +522,15 @@ export async function GET(req: NextRequest) {
   const deliveredDistinct = new Set(signals.map((s2) => `${s2.symbol}|${s2.direction}|${s2.label}`)).size;
   const coverage: CoverageStages = {
     priceData: stage(movers.length, `of ${LARGE_CAP_UNIVERSE.length} in the scan universe, prior close and session both read`),
-    selected: stage(null, "the intraday scan's selection is not recorded; see the evaluation ledger proposal"),
+    selected: stage(
+      ledgerKept ? ledgerRows.rows.filter((r) => r.first_queued_at).length : null,
+      ledgerKept ? "stocks given an intraday slot at least once" : "no evaluation ledger kept for this session",
+    ),
     evaluated: stage(sweepRows.error ? null : sweptOk, `overnight sweep readings without an error${prefilterRows.error ? "" : `; the daytime pre-filter's last reading covered ${prefilterRows.rows.length}`}`),
-    deferredCapacity: stage(null, "not recorded before the evaluation ledger"),
+    deferredCapacity: stage(
+      ledgerKept ? ledgerRows.rows.filter((r) => !r.first_queued_at && (r.deferred_scans ?? 0) > 0).length : null,
+      ledgerKept ? "deferred for capacity and never given an intraday slot" : "no evaluation ledger kept for this session",
+    ),
     unavailable: stage(sweepRows.error ? null : sweepRows.rows.length - sweptOk, "overnight sweep readings that failed"),
     candidates: stage(sweepRows.error ? null : candidates, "overnight Execute or Watch with a side"),
     plansQualified: stage(setups.filter((x) => x.verdict === "Execute").length, `Execute plans standing at the prior close (${setups.length} Execute or Watch)`),
@@ -571,8 +589,14 @@ export async function GET(req: NextRequest) {
         executePlan: executeSyms.has(planKey(sym, side)),
         executeAgainst: executeSyms.has(planKey(sym, against)),
         watchPlan: watchSyms.has(planKey(sym, side)) || watchSyms.has(planKey(sym, against)),
-        examined: sw != null || pre != null,
+        examined: sw != null || pre != null || Boolean(ledgerOf.get(sym)?.first_queued_at),
         remainingAfterFirst: first ? remainingAfter(firstBars, first.usableAt ? new Date(first.usableAt) : null, first.side) : null,
+        ledger: (() => {
+          const l = ledgerOf.get(sym);
+          return l
+            ? { firstQueuedAt: l.first_queued_at, queueTier: l.queue_tier, deferredScans: l.deferred_scans ?? 0, firstDiscoveryAt: l.first_discovery_at, discoveryKinds: l.discovery_kinds }
+            : null;
+        })(),
       }),
     );
   }

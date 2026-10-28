@@ -354,6 +354,30 @@ export interface MoverContext {
    * null when unknown or nothing was left.
    */
   remainingAfterFirst?: number | null;
+  /** The evaluation ledger's row for the stock that session, when one was kept. */
+  ledger?: LedgerStanding | null;
+}
+
+/** What the evaluation ledger recorded for one stock in one session. */
+export interface LedgerStanding {
+  firstQueuedAt: string | null;
+  queueTier: string | null;
+  deferredScans: number;
+  firstDiscoveryAt: string | null;
+  discoveryKinds: string[] | null;
+}
+
+const etTime = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+
+/** The ledger's record in plain words, or null when there is none. */
+export function describeLedger(l: LedgerStanding | null | undefined): string | null {
+  if (!l) return null;
+  const parts: string[] = [];
+  if (l.firstDiscoveryAt) parts.push(`discovered active at ${etTime(l.firstDiscoveryAt)} ET${l.discoveryKinds?.length ? ` (${l.discoveryKinds.length} condition${l.discoveryKinds.length === 1 ? "" : "s"})` : ""}`);
+  if (l.firstQueuedAt) parts.push(`first given an intraday slot at ${etTime(l.firstQueuedAt)} ET${l.queueTier ? ` (${l.queueTier})` : ""}`);
+  else if (l.deferredScans > 0) parts.push("never given an intraday slot");
+  if (l.deferredScans > 0) parts.push(`deferred for capacity on ${l.deferredScans} scan${l.deferredScans === 1 ? "" : "s"}`);
+  return parts.length ? parts.join(", ") : null;
 }
 
 /**
@@ -377,6 +401,8 @@ export function moverOutcome(c: MoverContext): MoverOutcome {
 export function moverAttributionLine(c: MoverContext): { outcome: MoverOutcome; line: string } {
   const outcome = moverOutcome(c);
   const parts = [OUTCOME_LABELS[outcome], c.sweep.line, c.prefilter, describeFocusStanding(c.focus)];
+  const ledger = describeLedger(c.ledger);
+  if (ledger) parts.push(ledger);
   if (c.detections.length > 0) {
     const withMove = c.detections.filter((d) => d.side === c.side).length;
     // The first detection on the move's side (the one the move left is read from), else the first.

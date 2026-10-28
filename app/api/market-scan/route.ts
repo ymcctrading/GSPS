@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
+import { discoveryRows, prefilterRows, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { visibilityRank } from "@/lib/scan/listOrder";
 import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
@@ -160,11 +161,12 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     );
   }
 
-  // Shadow discovery: logged only, so its picks can be set beside the live
-  // lists. Nothing reads it to scan, score, plan or notify.
-  if (output.shadowDiscovery.length > 0) {
-    const top = output.shadowDiscovery.slice(0, 15).map((d) => `${d.symbol}[${d.conditions.map((c) => c.kind).join("+")}]`);
-    console.info(`market-scan: shadow discovery ${output.shadowDiscovery.length} stocks, data as of ${output.shadowDiscovery[0].dataAsOf}: ${top.join(" ")}`);
+  // Discovery: logged, and stored in the evaluation ledger (below) where the
+  // intraday scan's queue takes the session's discoveries as candidates to
+  // examine. Nothing reads it to score, plan or notify.
+  if (output.discoveries.length > 0) {
+    const top = output.discoveries.slice(0, 15).map((d) => `${d.symbol}[${d.conditions.map((c) => c.kind).join("+")}]`);
+    console.info(`market-scan: discovery ${output.discoveries.length} stocks, data as of ${output.discoveries[0].dataAsOf}: ${top.join(" ")}`);
   }
 
   // Coarse-gate calibration data — best-effort, and deliberately outside the
@@ -174,6 +176,19 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     await persistCoarseTelemetry(service, output.coarseTelemetry);
   } catch (err) {
     console.warn(`market-scan: coarse telemetry not saved — ${describeDbError(err)}`);
+  }
+
+  // The evaluation ledger: the first time each stock cleared the pre-filter,
+  // made the shortlist or was discovered this session. Best-effort.
+  {
+    const ledgerStarted = Date.now();
+    const sessionDate = etDateKey(new Date());
+    await writeLedger(
+      service,
+      [...prefilterRows(output.coarseTelemetry.filter((r) => r.scan_date === sessionDate), new Date()), ...discoveryRows(output.discoveries, sessionDate)],
+      "market scan",
+    );
+    console.info(`market-scan: evaluation ledger written in ${Date.now() - ledgerStarted}ms`);
   }
 
   // Per-profile monitor evaluation + notification fan-out — cron path only
