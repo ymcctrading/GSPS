@@ -1,33 +1,36 @@
 /**
- * GSPS — email and browser push for the scheduled intraday scan's new signals.
+ * GSPS — browser push for the scheduled intraday scan's new signals.
+ *
+ * Push and the bell only, never email (owner, 2026-10-28: email carries only
+ * the key alerts). Resend refused sends once a day's quota of about 200 was
+ * spent, and intraday signals were about 90% of email (10-23: 184 intraday
+ * and 16 monitor sends before the first refusal), so a member's own trades and
+ * a tracked symbol turning Execute went unsent. The day's signals reach the
+ * inbox in the evening digest instead.
  *
  * Moved out of `app/api/intraday-scan/route.ts` (2026-10-21) when push was
- * added (#404 shipped the subscriptions and `sendPushToProfile`), so both
- * channels go through one loop and one set of checks, and can be tested.
+ * added (#404 shipped the subscriptions and `sendPushToProfile`), so it can be
+ * tested.
  *
- * Who receives a signal: a member who turned the channel on in Settings
- * (email and push are opt-in since 2026-10-22, migration 0109; a member with no
- * row gets neither). Then, per member and channel:
+ * Who receives a signal: a member who turned push on in Settings (opt-in since
+ * 2026-10-22, migration 0109; a member with no row gets none). Then, per
+ * member:
  * - the member's tier lets the signal through, as the panel and the bell do
  *   (`alertsForTier`: no intraday access, nothing; Pro's module, only its
- *   confirmed bar lengths). Before 2026-10-21 email went to every member
- *   whatever their tier, so a Novice could be emailed a signal their plan
- *   does not show;
+ *   confirmed bar lengths);
  * - the alert's 0-9 confidence reaches the member's `min_score`;
  * - the member is not inside quiet hours they turned on (`inQuietHours`);
- * - the move is new on that channel (`notification_log`, per channel, so an
- *   email does not hold back the push or the reverse): a signal goes once a
- *   move, as the bell's does (`isNewMove`), so the same symbol and signal is
- *   sent again on the same New York day only after it turned the other way;
- *   a notice (nearing or at a plan's entry), once in 24 hours. Gann acts on
- *   the first change in trend (Master Course Ch. 13). Until 2026-10-28 a
- *   signal was keyed on its symbol, direction and 0-9 score, so a score that
- *   drifted between scans sent the same standing move again: on 10-27, 150
- *   emails for 63 member-symbol-direction pairs, every repeat a new score. A
- *   failed try counts too, on purpose: the scan runs every 15 minutes, and
- *   retrying a refused send (Resend's daily quota, a bad address) on each run
- *   multiplies the failures without reaching anyone.
- * Best-effort per member: one bad address or failed write never stops the rest.
+ * - the move is new (`notification_log`): a signal goes once a move, as the
+ *   bell's does (`isNewMove`), so the same symbol and signal is sent again on
+ *   the same New York day only after it turned the other way; a notice
+ *   (nearing or at a plan's entry), once in 24 hours. Gann acts on the first
+ *   change in trend (Master Course Ch. 13). Until 2026-10-28 a signal was
+ *   keyed on its symbol, direction and 0-9 score, so a score that drifted
+ *   between scans sent the same standing move again: on 10-27, 150 emails for
+ *   63 member-symbol-direction pairs, every repeat a new score. A failed try
+ *   counts too, on purpose: the scan runs every 15 minutes, and retrying a
+ *   refused send on each run multiplies the failures without reaching anyone.
+ * Best-effort per member: one failed send or write never stops the rest.
  *
  * The message says what Gann's method uses an intraday signal for: timing a
  * daily plan, with no measured record yet (`buildIntradayBellRow`).
@@ -41,7 +44,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Alert } from "@/lib/scanner/intraday";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { inQuietHours } from "@/lib/entitlements/delivery";
-import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import { sendPushToProfile, vapidConfig, type PushMessage } from "@/lib/notifications/web-push";
 import { alertsForTier, buildIntradayBellRow } from "@/lib/notifications/intradayBell";
 import { tickerHref } from "@/lib/routes";
@@ -49,7 +51,7 @@ import { etDateKey } from "@/lib/market/session";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { approachDue, approachLeadMinutes } from "@/lib/scanner/entryApproach";
 
-/** How far back a notice's notification_log row still counts as "already sent this". */
+/** How far back a notice's notification_log row still counts as "already pushed". */
 export const NOTIFICATION_DEDUP_HOURS = 24;
 
 /** Wide enough to hold the whole New York day; a signal's rows are filtered to it. */
@@ -57,16 +59,15 @@ const SIGNAL_READ_HOURS = 30;
 
 /**
  * What `app/api/notifications/preferences` (GET) promises a member who has
- * never saved a row: email off, push off (opt-in, 2026-10-22), score floor 5,
- * no quiet hours.
+ * never saved a row: push off (opt-in, 2026-10-22), score floor 5, no quiet
+ * hours.
  */
-const DEFAULT_PREFS = { email_enabled: false, push_enabled: false, min_score: 5, quiet_hours_enabled: false };
+const DEFAULT_PREFS = { push_enabled: false, min_score: 5, quiet_hours_enabled: false };
 
-type Channel = "email" | "push";
+type Channel = "push";
 
 interface SavedRow {
   user_id: string;
-  email_enabled: boolean | null;
   push_enabled: boolean | null;
   min_score: number | null;
   quiet_hours_enabled: boolean | null;
@@ -164,19 +165,16 @@ async function alreadySent(
 }
 
 /**
- * Emails and pushes each new system-scan alert to the members whose tier and
- * settings let it through. Returns how many sends succeeded, per channel.
+ * Pushes each new system-scan alert to the members whose tier and settings
+ * let it through. Returns how many pushes succeeded.
  */
 export async function notifySubscribedUsers(
   service: SupabaseClient,
   alerts: Alert[],
   args: { intervalBySymbol: Map<string, number>; now?: Date },
-): Promise<{ email: number; push: number }> {
-  const sent = { email: 0, push: 0 };
-  if (alerts.length === 0) return sent;
-  const emailOn = Boolean(process.env.RESEND_API_KEY);
-  const pushOn = vapidConfig() !== null;
-  if (!emailOn && !pushOn) return sent;
+): Promise<{ push: number }> {
+  const sent = { push: 0 };
+  if (alerts.length === 0 || vapidConfig() === null) return sent;
   const now = args.now ?? new Date();
 
   const { data: saved, error } = await service
@@ -190,10 +188,7 @@ export async function notifySubscribedUsers(
   for (const userId of await listAllUserIds(service)) {
     try {
       const row = savedByUser.get(userId);
-      const channels: Channel[] = [];
-      if (emailOn && (row?.email_enabled ?? DEFAULT_PREFS.email_enabled)) channels.push("email");
-      if (pushOn && (row?.push_enabled ?? DEFAULT_PREFS.push_enabled)) channels.push("push");
-      if (channels.length === 0) continue;
+      if (!(row?.push_enabled ?? DEFAULT_PREFS.push_enabled)) continue;
 
       const minScore = row?.min_score ?? DEFAULT_PREFS.min_score;
       const policy = await getUserEntitlementPolicy(service, userId);
@@ -206,70 +201,28 @@ export async function notifySubscribedUsers(
         continue;
       }
 
-      let email: string | null | undefined;
       for (const alert of mine) {
-        const direction = alert.direction === "up" ? "bullish" : "bearish";
-        const score = alertScore(alert);
-        const signalHash = signalHashFor(alert);
-        for (const channel of channels) {
-          if (await alreadySent(service, userId, channel, alert, now)) continue;
-
-          let result: { success: boolean; skipped?: boolean; error?: string };
-          let recipient: string | null = null;
-          if (channel === "email") {
-            // A heads-up goes by push and the bell, not email: an inbox is too
-            // slow for a lead of minutes, and the alert email reads as a signal
-            // to act on now (review, 2026-10-28).
-            if (NOTICE_SIGNALS.has(alert.type)) continue;
-            if (email === undefined) {
-              const { data: user } = await service.auth.admin.getUserById(userId);
-              email = user?.user?.email ?? null;
-            }
-            if (!email) continue;
-            recipient = email;
-            result = await sendAlertEmail({
-              userEmail: email,
-              symbol: alert.symbol,
-              direction,
-              score,
-              // The alert's own 0-9 confidence, already a whole number, so
-              // the protocol score's tier rounding does not apply.
-              exactScoreDisplayEnabled: true,
-              entry: alert.move.current,
-              stopLoss: alert.invalidation ?? alert.move.current,
-              takeProfit: alert.continuationPlan.firstTarget,
-              masterProfit: alert.continuationPlan.masterTarget ?? null,
-              verdict: "Execute",
-              confidence: alert.confidence / 100,
-            });
-            // No deliverable sender (the sandbox address or an invalid
-            // RESEND_FROM) is not a send either: nothing to log or retry,
-            // as for push below. notification_log has no "skipped" status.
-            if (!result.success && result.skipped) continue;
-          } else {
-            result = await sendPushToProfile(service, userId, intradayPushMessage(alert));
-            // No subscribed browser is not a send: nothing to log or retry.
-            if (!result.success && result.skipped) continue;
-          }
-
-          if (result.success) sent[channel] += 1;
-          const stamp = now.toISOString();
-          const { error: logError } = await service.from("notification_log").insert({
-            user_id: userId,
-            symbol: alert.symbol,
-            direction,
-            score,
-            channel,
-            status: result.success ? "sent" : "failed",
-            recipient,
-            triggered_at: stamp,
-            sent_at: result.success ? stamp : null,
-            failed_at: result.success ? null : stamp,
-            error_message: result.success ? null : (result.error ?? null),
-            signal_hash: signalHash,
-          });
-          if (logError) console.error("[intraday-notify] could not log notification:", logError.message);
-        }
+        if (await alreadySent(service, userId, "push", alert, now)) continue;
+        const result = await sendPushToProfile(service, userId, intradayPushMessage(alert));
+        // No subscribed browser is not a send: nothing to log or retry.
+        if (!result.success && result.skipped) continue;
+        if (result.success) sent.push += 1;
+        const stamp = now.toISOString();
+        const { error: logError } = await service.from("notification_log").insert({
+          user_id: userId,
+          symbol: alert.symbol,
+          direction: alert.direction === "up" ? "bullish" : "bearish",
+          score: alertScore(alert),
+          channel: "push",
+          status: result.success ? "sent" : "failed",
+          recipient: null,
+          triggered_at: stamp,
+          sent_at: result.success ? stamp : null,
+          failed_at: result.success ? null : stamp,
+          error_message: result.success ? null : (result.error ?? null),
+          signal_hash: signalHashFor(alert),
+        });
+        if (logError) console.error("[intraday-notify] could not log notification:", logError.message);
       }
     } catch (err) {
       console.error("[intraday-notify] member skipped:", err);
