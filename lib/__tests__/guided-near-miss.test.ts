@@ -129,3 +129,25 @@ describe("what it says is missing", () => {
     expect(missingFor(executeGrade, 8).length).toBeGreaterThan(0);
   });
 });
+
+describe("missingFor: a resting order only in the Resting tier (#521)", () => {
+  const far = {
+    currentPrice: 100,
+    dayRange: 5,
+    levels: { entry: 88, stopLoss: 85, takeProfit1: 110, masterProfit: 120, riskPerShare: 3 },
+  } as Partial<ScanResult>;
+
+  it("says resting order for a setup the scan put in the Resting tier", () => {
+    const r = scan({ symbol: "AMD", score: 8, ...far });
+    r.decision = { ...r.decision, outputState: "Watch", resting: true, breakdown: [] } as ScanResult["decision"];
+    expect(missingFor(r, 8).join(" ")).toContain("resting order");
+  });
+
+  it("names the hold, not a resting order, for a Watch held by another rule that sits far from its entry", () => {
+    const r = scan({ symbol: "HDB", score: 8, ...far });
+    r.decision = { ...r.decision, outputState: "Watch", breakdown: [] } as ScanResult["decision"];
+    const text = missingFor(r, 8).join(" ");
+    expect(text).not.toContain("resting order");
+    expect(text).toContain("the verdict is still Watch");
+  });
+});

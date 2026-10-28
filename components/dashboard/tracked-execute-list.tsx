@@ -9,7 +9,7 @@ import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setu
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { buildDailyCardModel } from "@/lib/setups/card";
-import { readResting, restingDistanceLabel, restingInputOfRow, splitResting } from "@/lib/setups/resting";
+import { readResting, restingDistanceLabel, restingInputOfRow, setupTier, splitResting } from "@/lib/setups/resting";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { cn, formatUsd } from "@/lib/utils";
 import type { TrackedExecuteRow } from "@/lib/dashboard/trackedExecute";
@@ -154,8 +154,11 @@ function TrackedRow({
     onInvalidatedChange(row.symbol, invalidated);
   }, [invalidated, onInvalidatedChange, row.symbol]);
 
-  // Read at today's scan price, the price the list was split on.
-  const restingRead = readResting(restingInputOfRow(row));
+  // Read at today's scan price, the price the list was split on, and only
+  // for the Resting tier: a Watch held by another rule that also sits far
+  // from its entry is Watch, not a resting order (#521, as the daily lists).
+  const restingInput = restingInputOfRow(row);
+  const restingRead = setupTier(restingInput) === "Resting" ? readResting(restingInput) : null;
   const { stage, setStage, toggleName } = useCardStage();
   const cardId = `tracked-card-${row.symbol.replace(/[^a-zA-Z0-9-]/g, "_")}`;
   const model = buildDailyCardModel(

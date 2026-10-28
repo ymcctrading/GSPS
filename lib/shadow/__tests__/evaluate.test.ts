@@ -54,9 +54,10 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
     expect(walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: [] }).outcome).toBe("retired");
   });
 
-  it("fills at the next bar's open after the reaction, and a stop hit is a loss on the plan's risk", () => {
+  it("fills at the open of the first bar after the reaction could be read (the feed's delay), and a stop hit is a loss on the plan's risk", () => {
     const sessionBars = session("2026-08-25", [
-      [101, 101.5, 99.8, 100.2], // trades into the zone
+      [101, 101.5, 99.8, 100.2], // trades into the zone (closes 14:45, read 15:00 on the delayed feed)
+      [100.3, 100.5, 100.0, 100.3], // the delayed reader waits
       [100.4, 100.6, 95, 95.5], // fills at 100.4, then the stop at 96 is hit
     ]);
     const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
@@ -67,7 +68,7 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
   });
 
   it("holds with no fixed target: a run far past any target is still open, then marked out at the limit", () => {
-    const sessionBars = session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.4, 101, 100.2, 100.8]]);
+    const sessionBars = session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 101, 100.2, 100.8]]);
     const after = Array.from({ length: 3 }, (_, i) => {
       const p = 104 + i * 4;
       return bar(new Date(Date.UTC(2026, 7, 26 + i, 5)).toISOString(), p, p + 1, p - 0.5, p + 0.5);
@@ -90,9 +91,60 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
     expect(out).toMatchObject({ outcome: "pending", filled: true, fillPrice: null });
   });
 
+  it("refuses the fill when the stop trades while the delayed reader waits, as the replay does", () => {
+    const sessionBars = session("2026-08-25", [
+      [101, 101.5, 99.8, 100.2], // the reaction
+      [100.3, 100.5, 95.5, 99.0], // trades the stop at 96 before the order could be placed
+      [99.2, 99.5, 98.8, 99.1],
+    ]);
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
+    expect(r.outcome).toBe("retired");
+    expect(r.fillPrice).toBeNull();
+  });
+
+  it("fills crypto at the next bar's open, with no feed delay", () => {
+    const sessionBars = session("2026-08-25", [
+      [101, 101.5, 99.8, 100.2],
+      [100.4, 100.6, 95, 95.5],
+    ]);
+    const r = walkShadowTrade({ ...base, assetClass: "crypto", sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
+    expect(r.fillPrice).toBe(100.4);
+    expect(r.outcome).toBe("loss");
+  });
+
+  it("marks a reaction whose delayed fill falls past the session's bars as filled, its price still to come", () => {
+    const out = walkShadowTrade({
+      ...base,
+      sessionBars: session("2026-08-25", [[101, 102, 101, 101.5], [101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3]]),
+      sessionComplete: true,
+      dailyBars: history("2026-08-25"),
+    });
+    expect(out).toMatchObject({ outcome: "pending", filled: true, fillPrice: null });
+  });
+
+  it("fills a reaction on the session's next-to-last bar at the next session's open once that session is in", () => {
+    const sessionBars = session("2026-08-25", [[101, 102, 101, 101.5], [101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3]]);
+    const next = bar("2026-08-26T05:00:00Z", 100.4, 100.6, 95, 95.5);
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: [...history("2026-08-25"), next] });
+    expect(r.fillPrice).toBe(100.4);
+    expect(r.outcome).toBe("loss");
+  });
+
+  it("refuses the fill when the stop trades in the last bar before the close while the order waits past it", () => {
+    // 2026-11-27 closes at 1:00 PM ET: the reaction at 12:30 ET is read at 1:00, after the close.
+    const sessionBars = [
+      bar("2026-11-27T17:15:00Z", 101, 101.5, 100.5, 101),
+      bar("2026-11-27T17:30:00Z", 101, 101.5, 99.8, 100.2),
+      bar("2026-11-27T17:45:00Z", 100.2, 100.3, 95.5, 96.5),
+    ];
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-11-27") });
+    expect(r.outcome).toBe("retired");
+  });
+
   it("mirrors the reaction for a short", () => {
     const sessionBars = session("2026-08-25", [
       [99, 100.3, 98.8, 99.9],
+      [99.7, 99.9, 99.5, 99.7],
       [99.6, 104.5, 99.5, 104.2],
     ]);
     const r = walkShadowTrade({ direction: "bearish", entry: 100, stopLoss: 104, sessionBars, sessionComplete: true, dailyBars: history("2026-08-25") });
@@ -145,7 +197,7 @@ describe("evaluatePendingShadowSignals", () => {
 
   it("writes a filled trade's outcome and fill price back", async () => {
     bars({
-      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.4, 100.6, 95, 95.5]]),
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
       "1Day": history("2026-08-25"),
     });
     const { client, updates } = makeSupabase([row]);
@@ -167,7 +219,7 @@ describe("evaluatePendingShadowSignals", () => {
     bars({
       "15Min": [
         bar("2026-08-25T20:45:00Z", 100.2, 100.3, 99.5, 99.9), // after hours on the 25th: not the session
-        ...session("2026-08-26", [[101, 101.5, 99.8, 100.2], [100.4, 100.6, 95, 95.5]]),
+        ...session("2026-08-26", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
       ],
       "1Day": history("2026-08-26"),
     });
@@ -178,7 +230,7 @@ describe("evaluatePendingShadowSignals", () => {
 
   it("reads the stored session when the row has one", async () => {
     bars({
-      "15Min": session("2026-08-27", [[101, 101.5, 99.8, 100.2], [100.4, 100.6, 95, 95.5]]),
+      "15Min": session("2026-08-27", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
       "1Day": history("2026-08-27"),
     });
     const { client, updates } = makeSupabase([{ ...row, scanned_at: "2026-08-25T20:30:00Z", session_date: "2026-08-27" }]);
@@ -223,7 +275,7 @@ describe("evaluatePendingShadowSignals", () => {
 
   it("keeps a filled trade still held pending, with its fill and the time it was checked", async () => {
     bars({
-      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.4, 100.8, 100.1, 100.6]]),
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.8, 100.1, 100.6]]),
       "1Day": history("2026-08-25"),
     });
     const { client, updates } = makeSupabase([row]);

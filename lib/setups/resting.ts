@@ -119,6 +119,15 @@ export function restingDistanceLabel(read: RestingRead): string {
 }
 
 /**
+ * A far entry worded without calling it a resting order, for a setup outside
+ * the Resting tier (#521): "Its entry is $12.00 (10.7%) below price, more
+ * than a day's range away, so it is not a trade to take today."
+ */
+export function farEntrySentence(read: RestingRead): string {
+  return `Its entry is ${restingDistanceLabel(read)}, more than a day's range away, so it is not a trade to take today.`;
+}
+
+/**
  * The card's plain sentence: "Resting order: waits for a reaction back to
  * $480.46, 12.3% below price." plus, when a target is already behind price,
  * that it counts only once the entry fills.
