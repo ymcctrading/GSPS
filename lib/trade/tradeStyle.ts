@@ -125,7 +125,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
   swing: {
     style: "swing",
     label: "Swing",
-    summary: "The main method: trade the main trend's swings and hold while the swing chart runs your way.",
+    summary: "Trade the main trend's swings and hold while the trend runs your way.",
     trendCharts: "Monthly, weekly, then the daily swing chart",
     entryTiming: "Closed 15-minute bars at the daily level",
     stopRule: "3 points beyond the old top or bottom the entry crossed",
@@ -151,7 +151,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     trendCharts: "The daily trend, with the hourly chart for the first change in trend",
     entryTiming: "At the market, when the intraday alert fires",
     stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",
-    trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly chart turns against the trade",
+    trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly trend turns against the trade",
     expectedHold: "Minutes to hours; closed by the session's end unless you choose to hold it",
     // Sources (internal only, never shipped as a string): Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source
   },

@@ -4,7 +4,7 @@
 paritys, WD Gann files, observation of cycles, William Hauck book and multi
 dimensional documents/creation equation, should coagulate together and create
 a synthesized roadmap. that we shall follow moving forward").
-**Last updated:** 2026-10-22.
+**Last updated:** 2026-10-28 (status re-read against production; see Part 5 and "Q2 status").
 **Copy for threads outside the repo:** `/mnt/project-files/roadmap/SYNTHESIZED_ROADMAP.md`.
 
 This document joins six bodies of work that until now lived apart. It decides
@@ -116,11 +116,18 @@ session reading only this file still follows them.
 **Track M.**
 - **295 of 342** rules in the Gann feature map pass a fresh review
   (`review/tally.md`). Of the other 47, 43 are declined or blocked by recorded
-  owner decisions or missing data, and the rest are in review or fix.
+  owner decisions or missing data, and the rest are in review or fix. The
+  2026-10-22 recheck of all 342 (`review/2026-10-22-recheck.md`) reads 203
+  faithful, 110 approximated (each labelled), 28 correctly not built, 1 absent
+  (A-TIME-19) and 0 contradicted; 34 are missing from a surface they apply to.
+  The Gann-rules thread owns these counts.
 - The parity matrix (`GANN_PARITY_ROADMAP.md`) has every buildable row built.
-  Open there: the shared time-window mechanism that
-  astro and Jensen time readings act through, the dated-forecast teaching
-  example (`macroCycle.ts`), and the Square of 67, which no source in the
+  The shared time-window mechanism the astro and Jensen time readings act
+  through was built 2026-10-16 (`lib/gann/timeWindow.ts`), and Gann's other
+  time counts act through it since 2026-10-27 (53d36fba, `countWindows.ts`).
+  Open there: the dated-forecast teaching example (`macroCycle.ts` is on main;
+  a dated claim shown to a person still needs its documented record), and the
+  Square of 67, which no source in the
   collection holds. (The Square of 52 is Master Course Ch. 14 and is built;
   Ch. 15A gives the Square of 90's days.) The 42 open feature-map rules are
   sorted in the doc "Filling the open Gann rules" (2026-10-21): 10 fillable
@@ -147,14 +154,15 @@ session reading only this file still follows them.
   paper for the proving period), three-path promotion, GSPS School, Strategy
   Modes (explain-only), custom scripts, scan history, saved setups, price
   alerts, the autonomous portfolio manager on paper.
-- Not working in production: 94% of emails fail (Resend sending domain), the
-  scheduled jobs moved
-  from GitHub's best-effort schedules to Supabase pg_cron (#381, staggered in
-  PR #403). Billing is inert (no Stripe prices),
-  so there are no paying users yet.
+- Email works (read 2026-10-28 00:50 UTC, `notification_deliveries`, last 7
+  days): 272 sent, 0 failed, 12,442 skipped because member email is opt-in
+  (#451). The scheduled jobs run on Supabase pg_cron (#381, staggered in
+  PR #403). Billing is inert (no Stripe prices), so there are no paying users
+  yet (0 of 20 members, same read).
 - Security: the senior code review's P0 and P1 code findings are fixed and
   its migrations applied (`/mnt/project-files/senior-code-review/`). The repo
-  is still public (S-03, owner).
+  is still public (S-03, owner; GitHub reads `visibility: public` on
+  2026-10-28).
 
 ## Part 4. Phase plan
 
@@ -217,9 +225,17 @@ against Gann:
    Execute, and lists the forward test by strategy version beside the
    committed production-faithful replay (`lib/backtest/replayReference.ts`).
    Reach back is the tier's `scanHistoryRetentionDays`. No bars are fetched.
-   Open: the forward test's own faults found while building it (filled trades
+   The forward test's own faults found while building it (filled trades
    walked by the evaluator before R-032, signals recorded after the close,
-   duplicates, a session with none recorded), raised with the coordinator.
+   duplicates, a session with none recorded) were fixed on 2026-10-22
+   (5146f823, 1df98030, fb4b035e). Read 2026-10-28 00:50 UTC: one row per
+   plan a session within a strategy version; a plan re-found after a version
+   change is recorded again under the new version, by design, since the
+   forward test is read by version. Of the 139 calls for sessions from
+   2026-10-14, 98 expired without filling, 4 filled and closed (1 win), 6
+   filled and are open, and 31 await their session. That fill rate is the
+   Gann-rules thread's to read (it moved Execute to plans placeable today in
+   `2026-10-27-execute-ready-now`).
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
    configurable periods and saved presets for the chart overlays (Practice
    account thread). A chart overlay never sets a level; since Chuck's
@@ -240,11 +256,17 @@ against Gann:
      (0114, the owner's pick).
    - Chart bars share one vendor read and the CDN caches them.
    - Scan lists stay uncached, since they vary by member.
-   - Left for a later pass: re-reading the baselines after a week of traffic.
-8. **Track M:** the shared time-window mechanism (so the astro, Jensen,
-   hexagon and Master Chart time readings act where Gann says they act); the
-   dated-forecast example with its documented record; the remaining review
-   rows.
+   - The baselines were re-read on 2026-10-28 (`docs/SCALE_AUDIT.md`): no
+     query is slow, and the database is 123 MB. One growth item:
+     `visible_scan_results` went from about 1,500 rows a weekday to about
+     25,000 after the member fan-out became its own queued job (2026-10-22).
+     Nothing in the app reads it, and it adds about 4 MB a weekday. A
+     retention rule is an ops decision for Chuck.
+8. **Track M:** the shared time-window mechanism is built (2026-10-16), and
+   the astro, Jensen, hexagon, Master Chart and the other time counts act
+   through it (the last of them 2026-10-27). Open: the dated-forecast example
+   with its documented record, and the remaining review rows (Gann-rules
+   thread).
 
 **The third Q2 aims at:** a measured record a trader can read before trusting
 an alert.
@@ -273,8 +295,8 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 
 | # | Q1 item | Status | Evidence or next step |
 |---|---|---|---|
-| 1 | Email alerts, quiet hours, alert history | Done in code; delivery capped | The domain is verified (gsps.world) and the sender fixed (#419). Read 2026-10-22 12:55 UTC from `notification_deliveries` (by `updated_at`, last 24 hours): 205 sent and 1,639 failed with Resend's daily sending quota. Member email is now opt-in (#451), which should bring the volume under the free quota; re-read once deployed. Senior-review thread |
-| 2 | Browser push notifications | **Done** | `lib/notifications/web-push.ts`, `public/sw.js`, Settings toggle. Migration 0099 is applied, and the three VAPID variables are set in Vercel production (read 2026-10-22). Setup, price and intraday alerts (#416) send push, honoring quiet hours and the score floor, opt-in since #451. 0 browsers subscribed so far |
+| 1 | Email alerts, quiet hours, alert history | **Done** | The domain is verified (gsps.world) and the sender fixed (#419). Member email is opt-in (#451). Read 2026-10-28 00:50 UTC from `notification_deliveries` (by `updated_at`): last 7 days 272 sent, 0 failed, 12,442 skipped (opted out); last 24 hours 12 sent, 0 failed. Before #451 (2026-10-22): 205 sent and 1,639 failed in 24 hours on Resend's daily quota |
+| 2 | Browser push notifications | **Done** | `lib/notifications/web-push.ts`, `public/sw.js`, Settings toggle. Migration 0099 is applied, and the three VAPID variables are set in Vercel production (read 2026-10-22). Setup, price and intraday alerts (#416) send push, honoring quiet hours and the score floor, opt-in since #451. 0 browsers subscribed (re-read 2026-10-28) |
 | 3 | SMS alerts | Owner | Needs a paid SMS provider (Twilio or similar) |
 | 4 | Portfolio analytics | Done | `components/portfolio/analytics-dashboard.tsx` |
 | 5 | Conditional orders | Done | `lib/trade/attach-protocol-exit.ts` |
@@ -293,7 +315,25 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
 | 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Restored (PR #414); measurement owed | Gann-rules thread |
 | 20 | Intraday alerts on Gann's primitives | **Done** | #402, #416; the Intraday trade style (#439) |
-| 21 | Trade plans by style and instrument | **Done** | #405, #411 |
+| 21 | Trade plans by style and instrument | **Done** | #405, #411. Fast retired 2026-10-28 (#484): two styles, Swing from the daily plan and Intraday from an intraday alert, and the chart's timeframe picks which plan it draws |
+
+**Q1 outcome (re-read 2026-10-28).** Every unpaid Q1 item is done except two
+that need Chuck's accounts: E2E tests in CI (item 15, a test Supabase project)
+and the measurement of the 7/4 cutoffs (item 19, the Gann-rules thread's
+replays, running). The paid items stay parked (Part 6).
+
+## Q2 status, item by item (re-read 2026-10-28)
+
+| # | Q2 item | Status | Owner or next step |
+|---|---|---|---|
+| 1 | Prove the edge | Running | Gann-rules thread: six-year daily slices on the current version (GitHub "Universe backtest (manual)"); walk-forward, Monte Carlo, stress windows and regime splits follow |
+| 2 | Markets beyond US equities | Crypto built; forex and futures parked | One plan and one instrument spec for every market (#405, #411). Forex and futures need a bars feed and a broker (Part 6) |
+| 3 | Advanced orders | **Done** 2026-10-22 | Live pyramid adds wait for the proving period |
+| 4 | Risk dashboard | **Done** 2026-10-21 | |
+| 5 | Performance replay UI | **Done** 2026-10-22 | Forward-test faults fixed; its fill rate is with the Gann-rules thread |
+| 6 | Expanded indicator library | **Done** 2026-10-23 | |
+| 7 | Scale safely | First pass done; baselines re-read 2026-10-28 | `visible_scan_results` retention, Chuck's call |
+| 8 | Track M | Time-window mechanism done; review rows open | Gann-rules thread |
 
 ## Part 6. Waiting on Chuck's budget or accounts
 
