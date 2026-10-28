@@ -60,7 +60,7 @@ interface SavedRow {
   push_enabled: boolean | null;
   min_score: number | null;
   quiet_hours_enabled: boolean | null;
-  /** Minutes ahead a member is told price nears a plan's entry (migration 0124); absent before it. */
+  /** Minutes ahead a member is told price nears a plan's entry (migration 0125); absent before it. */
   entry_lead_minutes?: number | null;
 }
 
@@ -149,7 +149,7 @@ export async function notifySubscribedUsers(
 
   const { data: saved, error } = await service
     .from("notification_preferences")
-    // Every column, so the read works before and after migration 0124 adds
+    // Every column, so the read works before and after migration 0125 adds
     // `entry_lead_minutes`.
     .select("*");
   if (error) return sent;

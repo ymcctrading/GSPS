@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** The settings a member may save (`notification_preferences`, 0022 and 0124). */
+/** The settings a member may save (`notification_preferences`, 0022 and 0125). */
 const PREFERENCE_FIELDS = [
   "email_enabled",
   "sms_enabled",
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         .single();
 
     let { data, error } = await upsert(row);
-    // Until migration 0124 is applied the lead column does not exist; the
+    // Until migration 0125 is applied the lead column does not exist; the
     // rest of the settings still save.
     if (
       error &&

@@ -3264,7 +3264,7 @@ approach only when it would arrive before the close. Notices are live
 readings: never stored in the alert tables, never held by the cooldown, and
 never counted in Pro's daily bound. Push sends an approach once the time left
 is within the member's lead plus one scan
-(`notification_preferences.entry_lead_minutes`, migration 0124: 15 by default,
+(`notification_preferences.entry_lead_minutes`, migration 0125: 15 by default,
 the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
 (`signalHashFor`); email never sends a notice (an inbox is too slow for a lead
 of minutes); the bell uses the default lead and repeats a notice at most every

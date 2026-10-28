@@ -1,4 +1,4 @@
--- GSPS — 0124: how early a member is told that price is nearing a plan's entry
+-- GSPS — 0125: how early a member is told that price is nearing a plan's entry
 --
 -- Owner, 2026-10-28: the intraday scan should alert "as price is moving towards
 -- that entry level", early enough to sign in, open the chart and place the
