@@ -960,6 +960,13 @@
 // rule leaves standing (the side of the latest run of three closes, held until
 // the opposite run; WSSS p.72, Ch. VI p.125), on the daily chart with neither
 // the weekly nor the monthly rule against it. It passed only on the day a run
-// of three printed, and inverted on the six-year daily replay (-0.103R within
-// Execute). P2 and plans' scores move.
-export const STRATEGY_VERSION = "2026-10-28-three-closes-trend";
+// of three printed, and read -0.103R within Execute on the six-year daily
+// replay (about 1.7 standard errors, so within noise; fixed for fidelity).
+// P2 and plans' scores move.
+// (was STRATEGY_VERSION "2026-10-28-three-closes-trend")
+// 2026-10-28-three-closes-angle-origin: P6's monthly 45° is drawn from the
+// latest monthly swing bottom (top) that has held 3 closed months with no later
+// month 3 points through it (Master Course Ch. 4, GA-25 to GA-27, GA-9;
+// `monthlyAngleOrigin`); it read the latest pivot however young. P6 and scores
+// move.
+export const STRATEGY_VERSION = "2026-10-28-three-closes-angle-origin";
