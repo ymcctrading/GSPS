@@ -28,7 +28,7 @@ export interface StructuralLevel {
 
 export function buildStructuralLevels(input: {
   trends: { daily: TrendReading; weekly: TrendReading; monthly: TrendReading };
-  charts: { daily: Bar[]; monthly: Bar[] };
+  charts: { daily: Bar[]; weekly: Bar[]; monthly: Bar[] };
   campaign: CampaignLedger | null;
   price: number;
   asOf: Date;
@@ -56,7 +56,7 @@ export function buildStructuralLevels(input: {
     ...old,
     // Gann's Square of 144 squares, his planetary averages and the other
     // lattices, as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
-    ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, price, asOf, companyName).map((l) => ({
+    ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, price, asOf, companyName, charts.weekly).map((l) => ({
       price: l.price,
       timeframe: "1Month" as const,
     })),

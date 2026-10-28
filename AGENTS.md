@@ -1257,10 +1257,12 @@ Pattern Chart. The nearest multiples of the low below and above the close join
 the S/R list (`majorPricePercentageLevels`; 45 Years Ch. IV p.30 ranks "100% of
 the low and its multiples" second only to 50%), which had been held on the card
 for a replay against "Every Gann method acts". The card's percentage levels
-read the same monthly anchors. Open from the same audit: the Sun's travel
-(`sunTravelLevel`, A-ASTRO-03) still counts from the year's low, while the 1954
-coffee letter counts it from the April 1931 low; it needs a dated major low
-older than the daily year. `STRATEGY_VERSION` is
+read the same monthly anchors. The Sun's travel (`sunTravelLevel`, A-ASTRO-03)
+counts from the major low too: the 1954 coffee letter counts it from the April
+1931 low, years back, so it reads the closed weekly record (5 years, the weekly
+level chart) when its lowest week is below the daily year's low, dated to that
+week's Wednesday (engineering: a weekly bar holds no day), live and replay
+alike (`InstrumentFacts.weekly`, `buildStructuralLevels`). `STRATEGY_VERSION` is
 `2026-10-28-gann-levels-major-lows`; Execute and the 7/4 cutoffs need a fresh
 run on it.
 

@@ -885,5 +885,7 @@
 // low below and above the close join the S/R list ("100% of the low and its
 // multiples", second only to 50%, 45 Years Ch. IV p.30; they had been held on
 // the card). The card's percentage levels read the same monthly anchors.
+// The Sun's travel (R09) counts from the weekly record's major low when it is
+// below the daily year's (the coffee letter counts from the 1931 low).
 // Plan stops and targets move; live verdicts and replay trades with them.
 export const STRATEGY_VERSION = "2026-10-28-gann-levels-major-lows";

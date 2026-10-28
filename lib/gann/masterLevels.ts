@@ -73,6 +73,8 @@ export function gannMasterLevels(
   asOf: Date,
   /** The stored company name, for its name chart; null leaves it out. */
   companyName: string | null = null,
+  /** The closed weekly bars, for the major low the Sun's travel counts from. */
+  weekly: Bar[] | null = null,
 ): MasterLevel[] {
   if (!(price > 0) || daily.length === 0) return [];
   const unit = gannPointForBars(daily);
@@ -90,7 +92,7 @@ export function gannMasterLevels(
   }
   for (const l of planetaryLevels(asOf, price, unit)) out.push({ ...l, source: "planetary" });
   for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
-  const sun = sunTravelLevel(daily, asOf, unit);
+  const sun = sunTravelLevel(daily, asOf, unit, weekly);
   if (sun) out.push({ ...sun, source: "sunTravel" });
   for (const l of jensenLevels(daily, price, unit, bars)) out.push({ ...l, source: "jensen" });
   for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });

@@ -273,14 +273,28 @@ export function activeAngleLevels(asOf: Date, price: number, unit: number): { pr
  * ephemeris instant, ms). `readAstroRules` reports it and `sunTravelLevel`
  * puts it on the S/R list, so the factor and the level read one rule.
  */
-function sunTravelPoints(bars: Bar[], today: number, unit: number): { lowDate: string; points: number } | null {
+function sunTravelPoints(bars: Bar[], today: number, unit: number, weekly?: Bar[] | null): { lowDate: string; points: number } | null {
   if (bars.length === 0 || !(unit > 0)) return null;
   const { lo } = extremes(bars);
-  const lowT = ephemerisInstant(new Date(bars[lo].t)).getTime();
+  let lowPrice = bars[lo].l;
+  let lowT = ephemerisInstant(new Date(bars[lo].t)).getTime();
+  // The major low, not the year's (2026-10-28, alignment audit R09): the coffee
+  // letter counts the travel from the April 1931 low, years before it was
+  // written. The weekly record (5 years, closed weeks) reaches further back than
+  // the daily year; its lowest week is dated to the week's Wednesday, the middle
+  // of the week (an engineering reading, labelled: a weekly bar holds no day).
+  if (weekly && weekly.length > 0) {
+    const w = extremes(weekly).lo;
+    if (weekly[w].l < lowPrice) {
+      lowPrice = weekly[w].l;
+      const monday = new Date(weekly[w].t);
+      lowT = ephemerisInstant(new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 2, 12))).getTime();
+    }
+  }
   if (!(today > lowT)) return null;
   const travel = ((today - lowT) / DAY_MS) * SUN_DEG_PER_DAY;
   const exact = mod(sunMoon(today).sun - sunMoon(lowT).sun, 360);
-  return { lowDate: iso(lowT), points: bars[lo].l / unit + Math.floor(travel / 360) * 360 + exact };
+  return { lowDate: iso(lowT), points: lowPrice / unit + Math.floor(travel / 360) * 360 + exact };
 }
 
 /**
@@ -291,14 +305,18 @@ function sunTravelPoints(bars: Bar[], today: number, unit: number): { lowDate: s
  * targets and the held-level checks as the active angles do. One level, the
  * travel itself; Gann gives no squares or oppositions of it.
  */
-export function sunTravelLevel(bars: Bar[], asOf: Date, unit: number): { price: number; label: string } | null {
-  const t = sunTravelPoints(bars, ephemerisInstant(asOf).getTime(), unit);
+export function sunTravelLevel(bars: Bar[], asOf: Date, unit: number, weekly?: Bar[] | null): { price: number; label: string } | null {
+  const t = sunTravelPoints(bars, ephemerisInstant(asOf).getTime(), unit, weekly);
   if (!t || !(t.points > 0)) return null;
   return { price: t.points * unit, label: `Sun's travel since the ${t.lowDate} low, added to the low` };
 }
 
-/** `record`, the long monthly record with the daily bars, lays Jensen's square at the major low and high as `jensenLevels` does. */
-export function readAstroRules(bars: Bar[], asOf: Date, unit: number, record?: Bar[]): AstroReading | null {
+/**
+ * `record`, the long monthly record with the daily bars, lays Jensen's square at
+ * the major low and high as `jensenLevels` does; `weekly`, the closed weeks,
+ * reaches the major low the Sun's travel counts from (`sunTravelPoints`).
+ */
+export function readAstroRules(bars: Bar[], asOf: Date, unit: number, record?: Bar[], weekly?: Bar[] | null): AstroReading | null {
   if (bars.length < 20 || !(unit > 0)) return null;
   const last = bars[bars.length - 1];
   const prev = bars[bars.length - 2];
@@ -337,7 +355,7 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number, record?: B
 
   // ASTRO-8a: the Sun's travel since the major low, added to the low, 1 point a degree.
   let sunTravel: AstroReading["sunTravel"] = null;
-  const travelLevel = sunTravelPoints(bars, today, unit);
+  const travelLevel = sunTravelPoints(bars, today, unit, weekly);
   if (travelLevel) {
     const d = Math.abs(pts - travelLevel.points);
     sunTravel = { lowDate: travelLevel.lowDate, level: travelLevel.points * unit, distancePoints: d, on: d <= CIRCLE_TOLERANCE };

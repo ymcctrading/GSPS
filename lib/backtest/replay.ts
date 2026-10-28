@@ -868,7 +868,7 @@ export function buildMacroContext(
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
   // Read before the levels: its campaign ledger supplies the secondary turn.
-  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
+  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, weekly, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
   // Mirrors lib/scanTicker.ts: one builder (lib/scan/structuralLevels.ts).
   const structural = buildStructuralLevels({
     trends: { daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend },

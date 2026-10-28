@@ -801,6 +801,8 @@ export interface InstrumentFacts {
   marketDaily?: Bar[] | null;
   /** The stock's monthly bars, for the weak-stock readings (`readWeakStock`). */
   monthly?: Bar[] | null;
+  /** The stock's closed weekly bars, for the major low the Sun's travel counts from (`astroRules.ts`). */
+  weekly?: Bar[] | null;
   /**
    * The stock's monthly bars over `LONG_MONTHLY_YEARS`, for the long month
    * counts (C-TIME-09/-12, A-TIME-05/-21) only. Falls back to `monthly`.
@@ -922,7 +924,7 @@ export function readDisclosedRules(
     masterChartTime: readMasterChartTime(dailyBars),
     patternAngles: readPatternAngles(dailyBars, currentPrice, unit),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
-    astro: readAstroRules(dailyBars, asOf, unit, instrument?.monthly ? [...instrument.monthly, ...dailyBars] : undefined),
+    astro: readAstroRules(dailyBars, asOf, unit, instrument?.monthly ? [...instrument.monthly, ...dailyBars] : undefined, instrument?.weekly),
     ascension: readAscension(dailyBars),
     priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
     priceAsTime: readPriceAsTime(dailyBars, currentPrice, unit, inception, asOf),
