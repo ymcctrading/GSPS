@@ -139,8 +139,32 @@ describe("scanIntraday: the plan's line ahead", () => {
     });
     expect(row.title).toBe("TXN buy: Through the plan's line");
     expect(row.body).toContain("Not a buy yet");
-    expect(row.body).toContain("(delayed)");
+    expect(row.body).toContain("Based on data through");
+    expect(row.body).toContain("had traded above its daily plan's line at 301.86");
     expect(row.body).toContain("has not been verified");
-    expect(row.body).not.toMatch(/\bnow\b(?! has)/i);
+    expect(row.body).not.toMatch(/\bnow\b/i);
+    expect(row.body).not.toMatch(/\bis \d|\bis (above|below)/);
+  });
+
+  it("writes a realtime notice that has aged as of its data, with no arrival time", () => {
+    const bars = rising(40, 299.6);
+    const crypto = input(bars, plan, { symbol: "BTC/USD", kind: "crypto", feed: "realtime", feedDelayMs: 0 });
+    const a = scanIntraday([crypto], DEFAULT_CONFIG, nowAfter(bars)).alerts.find((x) => x.type === "line_approach")!;
+    expect(a).toBeDefined();
+    // The scan's own sentence, read live, gives an arrival time.
+    expect(a.whyThisAppeared).toMatch(/minutes? away, around/);
+    const aged = buildIntradayBellRow(a, {
+      disposition: "informational",
+      reason: "authorization_expired",
+      dataAsOf: a.dataTimestamp,
+      checkedAt: new Date(nowAfter(bars).getTime() + 3 * 60_000).toISOString(),
+    });
+    expect(aged.body).toContain("Based on data through");
+    expect(aged.body).toContain("was at");
+    expect(aged.body).toContain("That reading has aged");
+    expect(aged.body).not.toMatch(/away|around \d|\bnow\b|\bis \d/);
+    // Actionable, the scan's own sentence stands.
+    const live = buildIntradayBellRow(a, { disposition: "actionable", reason: "current_authorization", dataAsOf: a.dataTimestamp, checkedAt: nowAfter(bars).toISOString(), authorizationId: "a" });
+    expect(live.body).toContain(a.whyThisAppeared);
   });
 });

@@ -644,6 +644,12 @@ export interface Alert {
    */
   approach?: { entry: number; distance: number; ratePerBar: number; etaMinutes: number; expectedAt: string } | null;
   /**
+   * On `line_approach` and `line_crossed`: the line the session is nearing or
+   * through and the close that would confirm the crossing, so delivery can
+   * write an as-of message from them without the scan's own sentence.
+   */
+  crossingLine?: { line: number; confirmingClose: number; atEntry: boolean } | null;
+  /**
    * True when the alert's direction runs against the daily swing chart's
    * trend. Shown for study, never offered as a trade, belled or replayed:
    * "never buck the trend" (never-failing rule 5, *Commodities* pp. 43-45, 55;
@@ -1773,6 +1779,26 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
  * Both need the plan's stop untraded today and the regular session (a stock).
  * Unmeasured: nothing replays a notice.
  */
+/**
+ * The line a standing plan's crossing still waits on, read against the prior
+ * close: the entry while the close is short of it; once a close has crossed
+ * the entry but not by 3 points (`awaitsCrossing`), the close that would
+ * confirm it (W006 p.20, Rules 3(b)-(c)). Null when the crossing is made or
+ * the plan does not wait on one.
+ */
+export function planLineAhead(
+  plan: Pick<DailyPlanLevels, "direction" | "entry" | "awaitsCrossing">,
+  prevClose: number | null | undefined,
+): { line: number; confirmingClose: number; atEntry: boolean } | null {
+  if (prevClose == null || !(prevClose > 0) || !(plan.entry > 0) || plan.awaitsCrossing === false) return null;
+  const up = plan.direction === "up";
+  const { confirmingClose } = crossingLinesFromEntry(plan.entry, up ? "bullish" : "bearish");
+  const shortOf = (level: number) => (up ? prevClose < level : prevClose > level);
+  if (shortOf(plan.entry)) return { line: plan.entry, confirmingClose, atEntry: true };
+  if (plan.awaitsCrossing === true && shortOf(confirmingClose)) return { line: confirmingClose, confirmingClose, atEntry: false };
+  return null;
+}
+
 function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: AuditCheck[], now: Date): Alert | null {
   const plan = input.dailyPlan;
   const name = "The plan's line ahead";
@@ -1784,14 +1810,9 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
   // `entry_approach`; a row that does not say (before 2026-10-22) is read from
   // the prior close alone.
   if (prev == null || plan.awaitsCrossing === false) return null;
-  const { confirmingClose } = crossingLinesFromEntry(plan.entry, up ? "bullish" : "bearish");
-  // The line still ahead: the entry while the prior close is short of it;
-  // once a close has crossed the entry but not by 3 points, the close that
-  // would confirm it.
-  const shortOf = (level: number) => (up ? prev < level : prev > level);
-  const line = shortOf(plan.entry) ? plan.entry : plan.awaitsCrossing === true && shortOf(confirmingClose) ? confirmingClose : null;
-  if (line == null) return null;
-  const atEntry = line === plan.entry;
+  const ahead = planLineAhead(plan, prev);
+  if (!ahead) return null;
+  const { line, confirmingClose, atEntry } = ahead;
   const lineName = atEntry ? "its daily plan's line" : "the close that would confirm its daily plan's line";
   if (up ? m.low <= plan.stop : m.high >= plan.stop) return null;
   const regularOnly = input.kind !== "crypto";
@@ -1844,6 +1865,7 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
       factors,
       invalidation: plan.stop,
       plan: levels,
+      crossingLine: ahead,
       whyThisAppeared: `${input.symbol} traded ${side} ${lineName} at ${priceText(line)} ${seen}, after closing at ${priceText(prev)} the session before. ${past ? `${delayedFeed ? "In that data the last price" : "The last price"}, ${priceText(m.last)}, ${delayedFeed ? "was" : "is"} already past ${priceText(confirmingClose)}; a close there would confirm it.` : `A close ${side} ${priceText(confirmingClose)} would confirm it.`} This is a heads-up, not a buy: the plan's entry, ${priceText(plan.entry)}, is taken on a pullback once the close confirms, with its stop at ${priceText(plan.stop)}.`,
     });
   }
@@ -1881,12 +1903,17 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
   const move = measureMove(m.last, plan.entry, "plan_entry");
   if (!move) return null;
   const minutes = Math.round(reading.etaMinutes);
-  const when = delayedFeed
-    ? `estimated from data through ${asOfClock} ET, when price was moving toward it; an estimate from delayed observations, not a live arrival time`
+  // On a delayed feed nothing is said to be true now and no arrival time is
+  // given: the reading is what the data showed (DATA-DELAY-001).
+  const timing = delayedFeed
+    ? "That is an estimate from delayed data, not a live arrival time."
     : minutes <= 0
-      ? "it may be there already"
-      : `about ${minutes} minute${minutes === 1 ? "" : "s"} away, around ${etClock(reading.expectedAt)} ET`;
-  checks.push({ name, passed: true, detail: `The plan's line is ${when}.` });
+      ? "It may be there already."
+      : `The line is about ${minutes} minute${minutes === 1 ? "" : "s"} away, around ${etClock(reading.expectedAt)} ET.`;
+  checks.push({ name, passed: true, detail: `Price was moving toward the plan's line (${priceText(line)}) ${seen}. ${timing}` });
+  const opening = delayedFeed
+    ? `In data through ${asOfClock} ET (delayed), ${input.symbol} was ${priceText(reading.distance)} ${up ? "below" : "above"} ${lineName} at ${priceText(line)} and had moved`
+    : `${input.symbol} is ${priceText(reading.distance)} ${up ? "below" : "above"} ${lineName} at ${priceText(line)} and has moved`;
   return buildAlert({
     now,
     input,
@@ -1897,8 +1924,9 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
     factors,
     invalidation: plan.stop,
     plan: levels,
+    crossingLine: ahead,
     approach: { entry: line, distance: reading.distance, ratePerBar: reading.ratePerBar, etaMinutes: reading.etaMinutes, expectedAt: reading.expectedAt },
-    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "below" : "above"} ${lineName} at ${priceText(line)} and has moved ${up ? "up" : "down"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "low" : "high"} of ${priceText(reading.extreme)}. The line is ${when}. Crossing it is not a buy: a close ${side} ${priceText(confirmingClose)} would confirm it, and the entry, ${priceText(plan.entry)}, is then taken on a pullback. The pace can change.`,
+    whyThisAppeared: `${opening} ${up ? "up" : "down"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "low" : "high"} of ${priceText(reading.extreme)}. ${timing} Crossing it is not a buy: a close ${side} ${priceText(confirmingClose)} would confirm it, and the entry, ${priceText(plan.entry)}, is then taken on a pullback. The pace can change.`,
   });
 }
 
@@ -2065,6 +2093,7 @@ function buildAlert(args: {
   /** The continuation plan, when the detector prices its own (`plan_level_held`). */
   plan?: TradePlan;
   approach?: Alert["approach"];
+  crossingLine?: Alert["crossingLine"];
   whyThisAppeared: string;
 }): Alert {
   const { now, input, metrics: m, type, direction, move, invalidation } = args;
@@ -2102,6 +2131,7 @@ function buildAlert(args: {
     whyThisAppeared: args.whyThisAppeared,
     whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
     ...(args.approach ? { approach: args.approach } : {}),
+    ...(args.crossingLine ? { crossingLine: args.crossingLine } : {}),
     ...(againstDailyTrend ? { againstDailyTrend: true } : {}),
     timeliness: alertTimeliness(input, m, type, direction, now),
   };

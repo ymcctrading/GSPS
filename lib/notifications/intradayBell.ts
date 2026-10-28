@@ -105,16 +105,29 @@ export function buildIntradayBellRow(alert: Alert, freshness: DeliverableFreshne
   const asOf = new Date(freshness.dataAsOf);
   if (LINE_NOTICES.has(alert.type)) {
     // A crossing still to be made: the session nearing or through the line
-    // the night's plan named. News, never a buy (`detectLineCrossing`). The
-    // scan's own sentence is already worded for the feed: a delayed one says
-    // when the data is from and never that price is there now.
+    // the night's plan named. News, never a buy (`detectLineCrossing`).
     const title = `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`;
-    const verified = actionable ? "" : " Where price is now has not been verified.";
+    // Only an actionable disposition may use the scan's own sentence, which
+    // may say "is" and give an arrival time; anything else is written as of
+    // the data, past tense, with no arrival time (NOTIFY-FRESHNESS-001).
+    if (actionable) {
+      return { symbol: alert.symbol, verdict: "Intraday", title, body: `${alert.whyThisAppeared} Not a buy yet.` };
+    }
+    const cl = alert.crossingLine;
+    const lineText = cl ? `${cl.atEntry ? "its daily plan's line" : "the close that would confirm its daily plan's line"} at ${price(cl.line)}` : "its daily plan's line";
+    const beyond = side === "up" ? "above" : "below";
+    const observed =
+      alert.type === "line_crossed"
+        ? `Based on data through ${etClock(asOf)} ET, ${alert.symbol} had traded ${beyond} ${lineText}; the last price was ${price(alert.move.current)}.`
+        : `Based on data through ${etClock(asOf)} ET, ${alert.symbol} was at ${price(alert.move.current)}, moving toward ${lineText}.`;
+    const confirm = cl
+      ? ` A close ${side === "up" ? "at or above" : "at or below"} ${price(cl.confirmingClose)} would confirm it${plan.entry != null ? `, and the entry, ${price(plan.entry)}, would then be taken on a pullback` : ""}.`
+      : "";
     return {
       symbol: alert.symbol,
       verdict: "Intraday",
       title,
-      body: `${alert.whyThisAppeared}${verified}${actionable ? "" : heldNote(freshness)} Not a buy yet.`,
+      body: `${observed} ${delayNote(alert)}Its current price has not been verified.${heldNote(freshness)}${confirm} Not a buy yet.`,
     };
   }
   if (NOTICE_SIGNALS.has(alert.type)) {

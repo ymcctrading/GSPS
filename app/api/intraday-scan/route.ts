@@ -604,6 +604,7 @@ async function loadFocusSymbols(supabase: ServiceSupabase, sweepBasisP?: Promise
   // as it stands.
   const basis = sweepBasisP ? await sweepBasisP.catch(() => null) : null;
   if (!basis) return rows.map((r) => String(r.symbol).toUpperCase());
+  const sweepReadStart = Date.now();
   const { data: plans, error: planError } = await supabase
     .from("universe_sweep")
     .select("symbol, direction, entry, output_state, invalidated_at, entry_awaits_crossing")
@@ -612,7 +613,8 @@ async function loadFocusSymbols(supabase: ServiceSupabase, sweepBasisP?: Promise
     .in("output_state", ["Execute", "Watch"]);
   if (planError || !plans) return rows.map((r) => String(r.symbol).toUpperCase());
   const { symbols, lines } = breakawayLinesFirst(rows, plans as FocusPlanRow[]);
-  if (lines.length > 0) console.info(`intraday-scan: breakaway lines first ${lines.join(",")}`);
+  // Timed, as every read a scan waits on is (AGENTS.md, "Speed is a product requirement").
+  console.info(`intraday-scan: focus sweep read ${Date.now() - sweepReadStart} ms, breakaway lines first ${lines.length > 0 ? lines.join(",") : "none"}`);
   return symbols;
 }
 
