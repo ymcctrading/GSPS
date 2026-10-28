@@ -519,6 +519,26 @@ export async function placeSimulatedOrder(
   const isProtective =
     !input.sourcePlanId &&
     isProtectiveOrder(existingPosition?.side ?? null, input.side, input.qty, existingPosition?.qty ?? 0);
+  // An order for more than the position on the other side holds would close
+  // it and open the opposite side in one fill: the old side's exit plan would
+  // be left on shares no longer held, and the new side would start without an
+  // exit of its own size. Gann closes a trade before he reverses it (the
+  // reversal is its own trade, with its own stop: lib/gann/reverse.ts), so the
+  // close comes first and the new trade follows. Paper and live alike.
+  if (existingPosition && input.assetClass !== "option") {
+    const against =
+      (existingPosition.side === "long" && input.side === "sell") || (existingPosition.side === "short" && input.side === "buy");
+    if (against && input.qty > existingPosition.qty + 1e-9) {
+      return {
+        status: 409,
+        body: {
+          error: `This order is for more shares than your ${input.symbol.toUpperCase()} position holds (${existingPosition.qty}), so it would close the position and open the other side in one go. Close the position first, then place the new trade with its own stop. Nothing was placed.`,
+          code: "flips_position",
+        },
+      };
+    }
+  }
+
   const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 

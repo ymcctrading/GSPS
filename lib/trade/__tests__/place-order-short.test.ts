@@ -177,12 +177,26 @@ describe("placeSimulatedOrder — shorts and sales of shares held", () => {
     expect(getAsset).not.toHaveBeenCalled();
   });
 
-  it("checks the lending record when a sale is larger than the long held", async () => {
+  it("refuses a sale larger than the long held: the close comes first, then the short", async () => {
     getOpenPosition.mockResolvedValue({ side: "long", qty: 1, symbol: "AMD" });
-    getAsset.mockResolvedValue({ symbol: "AMD", tradable: true, shortable: false, easy_to_borrow: false });
-    const { supabase } = stubSupabase();
+    hasWorkingPlan.mockResolvedValue(true);
+    const { supabase, ordersInsert } = stubSupabase();
     const result = await placeSimulatedOrder(supabase, "u1", short);
-    expect(result.body).toMatchObject({ code: "not_shortable" });
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ code: "flips_position" });
+    expect(ordersInsert).not.toHaveBeenCalled();
+    expect(executeFill).not.toHaveBeenCalled();
+    expect(closePaperPosition).not.toHaveBeenCalled();
+  });
+
+  it("refuses a buy larger than the short held, plan-sourced or not", async () => {
+    getOpenPosition.mockResolvedValue({ side: "short", qty: 2, symbol: "AMD" });
+    const { supabase } = stubSupabase();
+    const buy: OrderInput = { ...short, side: "buy", attachLevels: { stopLoss: 456.3, takeProfit: 464.1 } };
+    expect((await placeSimulatedOrder(supabase, "u1", buy)).body).toMatchObject({ code: "flips_position" });
+    expect(
+      (await placeSimulatedOrder(supabase, "u1", { ...buy, sourcePlanId: "11111111-1111-4111-8111-111111111111" })).body,
+    ).toMatchObject({ code: "flips_position" });
   });
 
   it("stages no new exit for a sale of shares held, even with the sell plan's levels attached", async () => {
