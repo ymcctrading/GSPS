@@ -3486,8 +3486,29 @@ replay alike. Rules 1 and 7's secondary rally keeps "smaller", which names no
 figure. `STRATEGY_VERSION` was `2026-10-28-retest-two-thirds-volume`; P8,
 Execute and the 7/4 cutoffs need a fresh run on it. The share-class rule, the
 base-left pillar, Gann's figures at his price and this rule merged together in
-the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` is
+the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` was
 `2026-10-28-midday-release`.
+
+**The Rule of Three as a standing trend, 2026-10-28 (six-year daily rerun,
+`replay-diagnosis/2026-10-28-six-year-daily/COMBINED.md`: within Execute,
+trades passing `ruleOfThree` did 0.103R worse than trades failing it).** One
+translation defect, fixed: the check passed only on the day a run of three
+closes printed (three up closes in a row for a long), the move a reaction entry
+waits out, and failed through every one- or two-day reaction of a trend the
+rule still called up. Gann's third close reverses the trend "at least
+temporarily" and the trend stands until the opposite third close (*Stock
+Selector* p.72; U.S. Steel 1929 "at no time closed 3 consecutive days with
+losses" until the top, Ch. VI p.125). `computeRuleOfThree` now returns `trend`,
+the side of the latest run of three, and the check passes when the daily rule
+reads the trade's side and neither the weekly nor the monthly rule reads against
+it (the higher charts govern, never-failing rule 5; how the three combine is an
+engineering choice, labelled: as standing trends, "any one" passes about 87% of
+random-walk readings). The weekly and monthly context factors read the same.
+Random walks (200 a drift, longs/shorts): no drift 13.1/18.8%, +0.05% a day
+21.0/11.5%, +0.1% a day 29.4/6.9%; the old reading passed about 12% either way
+whatever the drift. The cards' streak lines are unchanged. `STRATEGY_VERSION`
+is `2026-10-28-three-closes-trend`; P2, Execute and the 7/4 cutoffs need a
+fresh run on it.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day

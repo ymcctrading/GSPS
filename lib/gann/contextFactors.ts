@@ -44,7 +44,8 @@ export function contextFactorsFor(
 
   if (ctx.barMidpoint) f.closeVsMidpointAgrees = ctx.barMidpoint.lastBar === (bull ? "up" : "down");
 
-  const r3 = (r: typeof ctx.ruleOfThree.weekly) => (r ? (bull ? r.bullishSignal : r.bearishSignal) : undefined);
+  // The trend the rule leaves standing, as the scored check reads it (2026-10-28).
+  const r3 = (r: typeof ctx.ruleOfThree.weekly) => (r ? r.trend === direction : undefined);
   const w = r3(ctx.ruleOfThree.weekly);
   if (w !== undefined) f.ruleOfThreeWeeklyAgrees = w;
   const m = r3(ctx.ruleOfThree.monthly);

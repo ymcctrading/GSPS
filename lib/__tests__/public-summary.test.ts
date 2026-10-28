@@ -105,7 +105,7 @@ const allPass: ScoreInputs = {
   macroTrends: [trend("bullish"), trend("bullish"), trend("bullish")],
   hourlyTrend: trend("bullish"),
   swingChart: { threeDay: "bullish", weekly: "bullish" },
-  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false },
+  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 2, bullishSignal: true, bearishSignal: false, trend: "bullish" },
   timePriceSquare: [
     { anchorKind: "high", anchorPrice: 110, barsSinceAnchor: 10, priceMove: 10, priceMovePoints: 10, squared: true },
   ],
@@ -127,7 +127,7 @@ const allFail: ScoreInputs = {
   direction: "bullish",
   macroTrends: [trend("bearish"), trend("bearish"), trend("bearish")],
   hourlyTrend: trend("bearish"),
-  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 0, bullishSignal: false, bearishSignal: false },
+  ruleOfThree: { consecutiveLowerCloses: 0, consecutiveHigherCloses: 0, bullishSignal: false, bearishSignal: false, trend: null },
   gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
   nearSupportResistance: false,
   pattern: null,

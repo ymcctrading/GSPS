@@ -955,4 +955,11 @@
 // volume pillar (#512), Gann's figures at his price (#513) and the two-thirds
 // retest volume (#516), merged together in the 2026-10-28 midday release. No
 // new rule beyond theirs. Execute and the 7/4 cutoffs need a fresh run on it.
-export const STRATEGY_VERSION = "2026-10-28-midday-release";
+// (was STRATEGY_VERSION "2026-10-28-midday-release")
+// 2026-10-28-three-closes-trend: the Rule of Three check reads the trend the
+// rule leaves standing (the side of the latest run of three closes, held until
+// the opposite run; WSSS p.72, Ch. VI p.125), on the daily chart with neither
+// the weekly nor the monthly rule against it. It passed only on the day a run
+// of three printed, and inverted on the six-year daily replay (-0.103R within
+// Execute). P2 and plans' scores move.
+export const STRATEGY_VERSION = "2026-10-28-three-closes-trend";
