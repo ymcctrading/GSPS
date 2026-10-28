@@ -111,3 +111,41 @@ from pg_stat_user_tables where schemaname='public' order by seq_scan*n_live_tup 
 0114 and 0115 were applied to production on 2026-10-22 (about 17:15 UTC
 for 0115). Afterwards: 170 policies wrapped, 0 calling `auth.*` per row, and
 the new indexes present.
+
+## Re-read, 2026-10-28 (six days after 0115)
+
+Read from production at 00:45-00:55 UTC. `pg_stat_statements` has not been
+reset since 2026-07-12, so each figure below is the change since the
+2026-10-22 baseline above: calls and total time now, minus that table's.
+They're approximate because that baseline was read shortly before 0115 was
+applied.
+
+| Statement | Calls since | Mean ms since | Mean before | Note |
+|---|---:|---:|---:|---|
+| select `active_monitors` | 109,011 | 0.57 | 0.47 | indexed; volume tripled |
+| insert `monitor_transitions` | 1,960 | ~6.5 | 2.02 | 1,758 rows written since 17:15 UTC on 10-22; no triggers; one more index (profile_id) |
+| `in_app_notifications` duplicate check | 461 | ~3.4 | 2.76 | now an index scan on (transition_id, profile_id); EXPLAIN ANALYZE 3.8 ms, most of it planning |
+| insert `visible_scan_results` | 3,052 | ~26 | 17.6 | per-profile batch, see below |
+| insert `notification_deliveries` | 76 | n/a | 1.71 | member email is opt-in since #451 |
+| `notification_deliveries` sequential scans | 22 | n/a | 370 total | the retry sweep reads the status index |
+
+No query is slow. The writes got a few milliseconds slower per call, which
+fits the added indexes and larger tables. The cumulative statistics blur
+this, so the next re-read should reset `pg_stat_statements` first and read a
+clean week.
+
+**Size.** The database is 123 MB. The largest tables are
+`visible_scan_results` (16 MB, 97,567 rows), `monitor_transitions` (14 MB),
+`in_app_notifications` and `notification_deliveries` (11 MB each).
+
+**One growth item: `visible_scan_results`.** It held about 1,100 to 1,800
+rows a weekday through 2026-10-22. Since then it holds about 25,000
+(17,263 on 10-23, 24,870 on 10-26, 24,974 on 10-27). That is one row per
+visible setup per member per scan, and it started once the scans' member
+fan-out ran as its own queued job on every scheduled scan (b9533a38). At
+about 4 MB a weekday, this table alone would fill the free plan's 500 MB in
+about four months. Nothing in the app reads it: the fan-out writes it and
+clears a retried profile's rows. It is the record of what each member's plan
+let them see (migration 0036). How long to keep it is an ops decision for
+Chuck; Gann's method doesn't answer it. It is not a trade record, so the
+"keep indefinitely" rule (S-07) does not cover it.
