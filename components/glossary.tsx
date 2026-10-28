@@ -96,7 +96,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Reversal & continuation patterns",
         plain:
-          "GSPS arms a setup when price crosses an old swing top (for a buy) or an old swing bottom (for a sell) by a small allowance that scales with the price, so a bare poke through the level doesn't count. The bar shapes below are shown on the chart as context for reading the last few bars; they don't set the entry price.",
+          "GSPS arms a setup when price crosses an old swing top (for a buy) or an old swing bottom (for a sell) by a clear margin, so a bare poke through the level doesn't count. The bar shapes below are shown on the chart as context for reading the last few bars; they don't set the entry price.",
       },
       {
         term: "Failed-push reversal",

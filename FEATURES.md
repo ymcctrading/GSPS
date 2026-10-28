@@ -215,7 +215,7 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - `/welcome` - The first-run introduction, as a re-readable page
 
 **Core Libraries** (`lib/`):
-- `gann/` - Structural analysis calculations
+- Structural analysis calculations (levels, angles and timing)
 - `strat/` - Pattern recognition algorithms
 - `analysis/` - Trend and pivot analysis
 - `brokers/` - Broker integrations

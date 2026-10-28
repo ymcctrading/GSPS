@@ -27,7 +27,7 @@ const UNSUPPORTED_NOTE = "Not available for this market yet.";
  * missing on an older or partial result.
  */
 const COUNTER_MOVE_LABEL = {
-  normal: "a normal length (2-3 weeks)",
+  normal: "a normal length",
   extended: "longer than usual",
   secondMonth: "into a second month",
   thirdMonth: "past two months",
@@ -129,7 +129,7 @@ function levelLines(g: GannConfluenceResult): ContextLine[] {
   const tr = rules.timeRules;
   if (tr?.halt) lines.push({ text: `A ${tr.halt.days}-day pause at the ${tr.halt.at} near ${px(tr.halt.extreme)}.` });
   if (tr?.reactionWeek) {
-    lines.push({ text: `The pullback is in its week ${tr.reactionWeek}${tr.reactionAbnormal ? ", longer than usual" : tr.reactionInZone ? ", inside the usual 2-3 weeks" : ""}.` });
+    lines.push({ text: `The pullback is in its week ${tr.reactionWeek}${tr.reactionAbnormal ? ", longer than usual" : tr.reactionInZone ? ", a normal length so far" : ""}.` });
   }
   for (const m of [rules.multipleTops?.top, rules.multipleTops?.bottom]) {
     if (m) lines.push({ text: `A ${m.tests >= 3 ? "triple" : "double"} ${m.kind} at ${px(m.level)}, ${m.state}.` });
