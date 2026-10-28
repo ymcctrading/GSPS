@@ -61,6 +61,18 @@ describe("TrackedExecuteList", () => {
     expect(section).not.toHaveTextContent("NEAR");
   });
 
+  it("gives a Watch the scan held for another rule no resting label, however far its entry (#521)", async () => {
+    stubQuote(27);
+    render(
+      <TrackedExecuteList
+        initialRows={[{ ...hdb, score: 8, outputState: "Watch", resting: false, currentPrice: 27, dayRange: 0.8 }]}
+      />,
+    );
+    await screen.findByText("$27.00");
+    expect(screen.queryByTestId("tracked-resting-orders")).not.toBeInTheDocument();
+    expect(screen.queryByText(/below price/)).not.toBeInTheDocument();
+  });
+
   it("opens the setup card from the symbol, with the current score and a short synopsis", async () => {
     const user = userEvent.setup();
     stubQuote(23.95);

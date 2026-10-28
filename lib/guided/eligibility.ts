@@ -55,7 +55,7 @@
 import type { ScanResult } from "@/lib/types";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
-import { readResting, restingDistanceLabel } from "@/lib/setups/resting";
+import { readResting, restingDistanceLabel, tierOfDecision } from "@/lib/setups/resting";
 
 /**
  * The resting read of a scan: its entry more than a day's range from price
@@ -143,10 +143,14 @@ export function assessEligibility(
     reasons.push("No current price available.");
   }
 
+  // Refused on the distance whatever the tier; called a resting order only in
+  // the Resting tier (#521), since a Watch held by another rule is not one.
   const resting = restingReadOf(result);
   if (resting) {
     reasons.push(
-      `This is a resting order, not today's trade: its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it waits for price to come back to it.`,
+      tierOfDecision(result.decision) === "Resting"
+        ? `This is a resting order, not today's trade: its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it waits for price to come back to it.`
+        : `Its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it is not a trade to take today.`,
     );
   }
 
