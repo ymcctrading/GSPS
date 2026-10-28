@@ -1077,7 +1077,7 @@ export function readyNowReasons(r: ReadyNowReading): string[] {
   const reasons: string[] = [];
   if (!r.indicationShown) {
     reasons.push(
-      "Price has not yet closed 3 points past the old level, so the definite indication is not shown and there is no order to place today.",
+      "Price has not yet confirmed the break of its level, so there is no order to place today.",
     );
   }
   const lv = r.levels;

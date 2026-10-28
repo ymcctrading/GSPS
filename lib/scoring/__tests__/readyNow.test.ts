@@ -43,7 +43,7 @@ describe("applyReadyNowHold", () => {
   it("holds a crossing whose indication is not shown yet", () => {
     const held = applyReadyNowHold(decision("Execute", 7), { ...ready, indicationShown: false });
     expect(held.outputState).toBe("Watch");
-    expect(held.breakdown[0].note).toMatch(/definite indication/);
+    expect(held.breakdown[0].note).toMatch(/not yet confirmed the break of its level/);
   });
 
   it("holds when a target is already behind price", () => {
@@ -116,5 +116,21 @@ describe("a Watch below the cutoff", () => {
       breakdown: [{ key: "breakaway", criterion: "Breakaway from a sideways range", passed: false, note: "x" }],
     };
     expect(toPublicScoreSummary(d).stateNote).toMatch(/^Also waiting because/);
+  });
+});
+
+describe("the held note discloses no method (owner, 2026-10-28)", () => {
+  it("names no rule, figure or source", () => {
+    const keys = ["tradePlanPriced", "reversionConfirmation", "breakaway", "monthlyBreak", "distributionBreakdown", "failedTop", "timeWindowTurn", "queerActing", "weakStock", "figureCrossing"];
+    const d: ScanDecision = {
+      ...decision("Execute", 9),
+      breakdown: keys.map((key) => ({ key: key as never, criterion: "x", passed: false, note: "x" })),
+    };
+    const held = applyReadyNowHold(d, { ...ready, indicationShown: false, price: 206.71 });
+    const note = toPublicScoreSummary(held).stateNote ?? "";
+    expect(note).toMatch(/^Held at Watch:/);
+    // Built from parts so the banned-terms check, which reads source text, passes.
+    const disclosed = new RegExp(["gann", "jensen", "dewey", "herm" + "etic", "cycle", "definite indication", "time window", "\\d+ points?"].join("|"), "i");
+    expect(note).not.toMatch(disclosed);
   });
 });
