@@ -233,10 +233,16 @@ export function TickerView({ symbol }: { symbol: string }) {
       key = `${symbol}:session:${sessionNow}`;
       if (askedRef.current.key === key && askedRef.current.tries >= MAX_SESSION_TRIES) return;
     } else {
+      // A stop broken by the live price asks apart from one seen only in the
+      // day's extreme, and once the price is back the live break may ask
+      // again: a second break of the same stop is a new break.
+      const liveThrough = planEvent(result, quotePrice) === "stop";
+      if (!liveThrough && askedRef.current.key.endsWith(":live")) askedRef.current.key = "";
       const event = planEvent(result, quotePrice, { high: dayHigh, low: dayLow });
       if (event == null) return;
-      const bar = event === "reclaim" ? `:${Math.floor(now / EXECUTION_BAR_MS)}` : "";
-      key = `${symbol}:${event}:${planEventLevel(result, event)}${bar}`;
+      const suffix =
+        event === "reclaim" ? `:${Math.floor(now / EXECUTION_BAR_MS)}` : event === "stop" ? (liveThrough ? ":live" : ":day") : "";
+      key = `${symbol}:${event}:${planEventLevel(result, event)}${suffix}`;
       if (askedRef.current.key === key) return;
     }
     const tries = askedRef.current.key === key ? askedRef.current.tries + 1 : 1;
