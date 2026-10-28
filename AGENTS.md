@@ -1348,7 +1348,7 @@ still asked. Random walks, armed long entries held by the breakaway: $20 43% →
 23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
 a number at a price, divide it by `gannPoint` at that price; only his "3 points"
 (the scale's own anchor) and figures he states across price bands are read as
-Gann points directly. `STRATEGY_VERSION` is `2026-10-28-gann-figures-at-his-price`;
+Gann points directly. `STRATEGY_VERSION` was `2026-10-28-gann-figures-at-his-price`;
 Execute and the 7/4 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
@@ -3483,8 +3483,11 @@ Master Course's sell at "a third or less" (Ch. 12) lies inside it. So the
 retest confirms at two-thirds of the first turn's week or less
 (`RETEST_VOLUME_RATIO`, `volumeClimax.ts`), bottoms mirroring tops, live and
 replay alike. Rules 1 and 7's secondary rally keeps "smaller", which names no
-figure. `STRATEGY_VERSION` is `2026-10-28-retest-two-thirds-volume`; P8,
-Execute and the 7/4 cutoffs need a fresh run on it.
+figure. `STRATEGY_VERSION` was `2026-10-28-retest-two-thirds-volume`; P8,
+Execute and the 7/4 cutoffs need a fresh run on it. The share-class rule, the
+base-left pillar, Gann's figures at his price and this rule merged together in
+the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` is
+`2026-10-28-midday-release`.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
