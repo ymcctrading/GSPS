@@ -83,7 +83,7 @@ import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, srMatchForSide } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, indicationShownBy, readyNowReasons, srMatchForSide } from "@/lib/scoring/score";
 import { withDecisionState } from "@/lib/scoring/decisionState";
 import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
@@ -786,6 +786,12 @@ export interface MacroContext {
    */
   atrPct?: number;
   /**
+   * The day's range as the live scan reads it for a resting plan: the 14-period
+   * daily ATR on completed sessions (`ScanResult.dayRange`,
+   * `lib/setups/resting.ts`). Read by the plan-time `readyNowAtPlan` factor.
+   */
+  dayRange?: number | null;
+  /**
    * Every clustered daily/weekly/monthly support and resistance price
    * `srMatch` was matched against — not just the single nearest one. Feeds
    * `computeTradeLevels`'s equities stop/runner anchoring
@@ -915,6 +921,7 @@ export function buildMacroContext(
     srMatches: { support: withTests(srByRole.support), resistance: withTests(srByRole.resistance) },
     momentumElevated: baselineAtr > 0 && recentAtr / baselineAtr >= 1.2,
     atrPct,
+    dayRange: recentAtr > 0 ? recentAtr : null,
     structuralLevels: allLevels.map((l) => l.price),
     disclosedRules,
     pillarFacts: readPillarFacts({ rules: disclosedRules, daily: charts.daily, monthly, marketDaily: instrument?.marketDaily ?? null, universe: instrument?.universe ?? null, oldLevels: structural.old, price, asOf }),
@@ -1043,6 +1050,9 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const sessionPlanStops = new Map<string, number | null>();
   // The same plan's entry and first target, for the failed-top check below.
   const sessionPlanPaths = new Map<string, { entry: number; takeProfit1: number } | null>();
+  // Whether the plan read ready to place when the session's scan priced it
+  // (`readyNowAtPlan`), keyed as the plan stops are.
+  const sessionPlanReady = new Map<string, boolean>();
   const brokenPlans = new Set<string>();
   const retiredSessionPlans = new Set<string>();
   // Macro context and the daily triggers only move once a session, so they
@@ -1218,6 +1228,21 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         planStop = plan?.stopLoss ?? null;
         sessionPlanStops.set(planKey, planStop);
         sessionPlanPaths.set(planKey, plan ? { entry: plan.entry, takeProfit1: plan.takeProfit1 } : null);
+        // Owner, 2026-10-27 ("Execute means placeable now"): the live scan reads
+        // this when it prices the plan, on the session's last close; the scored
+        // verdict below reads it at the fill, where it always passes but for the
+        // targets. Measured here, as the scan would have shown it.
+        sessionPlanReady.set(
+          planKey,
+          plan !== null &&
+            readyNowReasons({
+              side: trigger.direction === "bearish" ? "sell" : "buy",
+              indicationShown: indicationShownBy(trigger),
+              price: armPrice,
+              dayRange: arm.context.dayRange,
+              levels: plan,
+            }).length === 0,
+        );
         // On daily bars the scan's last close is the session before; the
         // session's one closed bar is read by the bar test below.
         if (!closedSession && planStop !== null && isStopBreached(trigger.direction, planStop, lastClose)) {
@@ -1440,10 +1465,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           score: decision.score,
           outputState: decision.outputState,
           criteria: criteriaOf(decision),
-          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, fill, path?.takeProfit1, {
+          contextFactors: withPlanReady(contextFactorsFor(arm.context.disclosedRules, trigger.direction, fill, path?.takeProfit1, {
             time: firingBar.t,
             barMinutes: barMinutesAt(bars, i - 1),
-          }),
+          }), sessionPlanReady.get(planKey)),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, firingBar.t, trigger.direction) : undefined,
           selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
@@ -1509,10 +1534,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           score: decision.score,
           outputState: decision.outputState,
           criteria: criteriaOf(decision),
-          contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1, {
+          contextFactors: withPlanReady(contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1, {
             time: live.t,
             barMinutes: barMinutesAt(bars, i),
-          }),
+          }), sessionPlanReady.get(planKey)),
           largeCap,
           yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
           selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
@@ -1575,10 +1600,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         score: decision.score,
         outputState: decision.outputState,
         criteria: criteriaOf(decision),
-        contextFactors: contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1, {
+        contextFactors: withPlanReady(contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1, {
             time: live.t,
             barMinutes: barMinutesAt(bars, i),
-          }),
+          }), sessionPlanReady.get(planKey)),
         largeCap,
         yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
         selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
@@ -2115,6 +2140,15 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     awaitsCrossing: levels.entryAwaitsCrossing === true,
     entryKind: chosen.trigger.kind,
   };
+}
+
+/**
+ * The trade's context factors with `readyNowAtPlan` added when its plan was
+ * read: whether the session's scan would have shown it ready to place (owner,
+ * 2026-10-27), so the replay measures that rule as the live scan applies it.
+ */
+function withPlanReady(factors: Record<string, boolean>, ready: boolean | undefined): Record<string, boolean> {
+  return ready === undefined ? factors : { ...factors, readyNowAtPlan: ready };
 }
 
 /**
