@@ -58,9 +58,11 @@ import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
+import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { FOCUS_SIZE, FOCUS_STORED } from "@/lib/scanner/focusList";
+import { loadSessionSetups, SESSION_SETUPS_MAX, SESSION_SETUPS_ON_DEMAND } from "@/lib/scanner/sessionSetups";
 import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
@@ -203,7 +205,7 @@ export async function GET(req: NextRequest) {
   // existed.
   const universe = systemScan
     ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase)
-    : resolveUniverse(params.get("symbols"));
+    : await resolveOnDemandUniverse(params.get("symbols"), now);
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
   if (syntheticDataRefusal("run the intraday scan and send its alerts", provider)) {
@@ -274,25 +276,36 @@ export async function GET(req: NextRequest) {
   // rather than a new counter.
   if (proBounded) {
     const intervalBySymbol = new Map(resolved.map((i) => [i.symbol, i.barIntervalMinutes]));
-    const confirmed = output.alerts.filter((alert) =>
-      isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
+    const confirmed = output.alerts.filter(
+      (alert) =>
+        !NOTICE_SIGNALS.has(alert.type) &&
+        isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
     );
+    // A notice (nearing or at a daily plan's entry) is not a setup shown: it
+    // takes none of the module's daily bound.
+    const notices = output.alerts.filter((alert) => NOTICE_SIGNALS.has(alert.type));
     const shownToday = await countProIntradaySetupsShownToday(supabase as Supabase, userId!, now);
     const remaining = remainingSetupsDisplayable({ setupsDisplayedToday: shownToday }, DEFAULT_PRO_INTRADAY_POLICY);
     // Held alerts were shown before, so they count against nothing new.
     const heldConfirmed = output.heldAlerts.filter((alert) =>
       isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
     );
-    output = { ...output, alerts: confirmed.slice(0, remaining), heldAlerts: heldConfirmed };
+    output = { ...output, alerts: [...confirmed.slice(0, remaining), ...notices], heldAlerts: heldConfirmed };
   }
 
   // Persisting the alerts is what makes the cooldown survive across runs, but
   // it is not what the caller asked for. A write failure must not discard a
   // scan that already succeeded — it is reported alongside the result and the
   // cooldown degrades to within-run only, which is where it was before.
+  //
+  // Notices (nearing or at a daily plan's entry) are not stored: they are a
+  // live countdown re-read every scan, delivered from the scan itself, and a
+  // row per scan would crowd "Flagged today", the demo account's candidates
+  // and Pro's daily count (review, 2026-10-28).
+  const stored = output.alerts.filter((alert) => !NOTICE_SIGNALS.has(alert.type));
   const alertsPersisted = systemScan
-    ? await persistSystemAlerts(supabase as ServiceSupabase, output.alerts, resolved)
-    : await persistAlerts(supabase as Supabase, userId!, output.alerts, resolved);
+    ? await persistSystemAlerts(supabase as ServiceSupabase, stored, resolved)
+    : await persistAlerts(supabase as Supabase, userId!, stored, resolved);
 
   // Feed this user's own `active_monitors` — the same WATCH/EXECUTE tracker
   // `manual_dashboard` scans (app/api/batch-scan/route.ts) and the scheduled
@@ -428,11 +441,23 @@ async function resolveSystemUniverse(
   // single stocks give way to the names the daily charts read as primed, and
   // the index funds, crypto and members' watchlists stay on. With no list
   // (a missed evening), the core list as before.
-  const [watched, focus] = await Promise.all([loadWatchedSymbols(supabase), loadFocusSymbols(supabase)]);
-  const core = focus.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
+  //
+  // The session's setups come first after the core (owner, 2026-10-28: the
+  // 15-minute scans feed the intraday scanner): the daily setups ready to be
+  // taken today, chosen from the whole universe by the overnight sweep and
+  // the lists the 15-minute market scan keeps current
+  // (lib/scanner/sessionSetups.ts). Gann chose from the daily charts and timed
+  // the entry in the session (Master Course Ch. 13).
+  const [watched, focus, setups] = await Promise.all([
+    loadWatchedSymbols(supabase),
+    loadFocusSymbols(supabase),
+    loadSessionSetups(supabase, new Date(), SESSION_SETUPS_MAX).catch(() => [] as string[]),
+  ]);
+  const core = focus.length > 0 || setups.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
   const seen = new Set(core.map((w) => w.symbol));
   const out = [...core];
-  for (const entry of [...watched, ...focus.slice(0, FOCUS_SIZE).map((symbol) => ({ symbol, kind: kindFor(symbol) }))]) {
+  const asEntry = (symbol: string) => ({ symbol, kind: kindFor(symbol) });
+  for (const entry of [...setups.map(asEntry), ...watched, ...focus.slice(0, FOCUS_SIZE).map(asEntry)]) {
     if (out.length >= MAX_SYSTEM_UNIVERSE) break;
     if (seen.has(entry.symbol)) continue;
     seen.add(entry.symbol);
@@ -522,6 +547,25 @@ async function loadWatchedSymbols(supabase: ServiceSupabase): Promise<{ symbol: 
   return [...counts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .map(([symbol, v]) => ({ symbol, kind: v.kind }));
+}
+
+/**
+ * A person's own refresh: the symbols they asked for, or, with none, the
+ * session's best setups (lib/scanner/sessionSetups.ts) ahead of the core
+ * watchlist, so the Scanner page times the same daily setups the scheduled
+ * scan does. A failed read leaves the core watchlist, as before.
+ */
+async function resolveOnDemandUniverse(param: string | null, now: Date): Promise<{ symbol: string; kind: AssetKind }[]> {
+  if (param?.trim()) return resolveUniverse(param);
+  const setups = await loadSessionSetups(createServiceClient(), now, SESSION_SETUPS_ON_DEMAND).catch(() => [] as string[]);
+  const seen = new Set<string>();
+  const out: { symbol: string; kind: AssetKind }[] = [];
+  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...WATCHLIST]) {
+    if (seen.has(entry.symbol)) continue;
+    seen.add(entry.symbol);
+    out.push(entry);
+  }
+  return out;
 }
 
 /** Symbols to scan: the caller's list, or the core watchlist. */
@@ -673,7 +717,7 @@ async function persistAlerts(
     score: Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9))),
     signal_type: DIRECTION_TO_SIGNAL_TYPE[alert.direction],
     timeframe: intervalBySymbol.get(alert.symbol) === 5 ? "5m" : "1m",
-    entry_level: alert.move.current,
+    entry_level: alert.continuationPlan.entry ?? alert.move.current,
     stop_loss_level: alert.invalidation,
     take_profit_1_level: alert.continuationPlan.firstTarget,
     poll_cycle_timestamp: alert.triggerTime,
@@ -806,7 +850,7 @@ async function persistSystemAlerts(
     signal_id: alert.type,
     score: Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9))),
     signal_type: DIRECTION_TO_SIGNAL_TYPE[alert.direction],
-    entry_level: alert.move.current,
+    entry_level: alert.continuationPlan.entry ?? alert.move.current,
     stop_loss_level: alert.invalidation,
     take_profit_1_level: alert.continuationPlan.firstTarget,
     poll_cycle_timestamp: alert.triggerTime,

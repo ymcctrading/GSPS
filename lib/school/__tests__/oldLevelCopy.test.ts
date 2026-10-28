@@ -54,11 +54,11 @@ describe("the lessons and the Settings stop rule", () => {
   const lesson = (id: string) =>
     ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons)).find((l) => l.id === id)!.instruction.join(" ");
 
-  it("teach the buy at a double or triple bottom alongside the crossing", () => {
-    expect(lesson("academy-4/reading-the-swings/breakouts-and-stops")).toMatch(/second test makes a double bottom and a third a triple bottom/);
-    const method = lesson("academy-6/method-rules/entries-and-exits");
-    expect(method).toMatch(/double or triple bottom/);
-    expect(method).not.toMatch(/stays out until price breaks away/);
+  it("leave the method's resting buy out of the lessons, and the stop rule names it", () => {
+    // The School teaches public methods only (confidential sources, owner
+    // 2026-10-28), so the method's own entry rules are not in the lessons.
+    expect(lesson("academy-4/reading-the-swings/breakouts-and-stops")).not.toMatch(/second test makes a double bottom/);
+    expect(lesson("academy-6/method-rules/entries-and-exits")).not.toMatch(/double or triple bottom/);
     expect(STOP_RULE_LABEL).toMatch(/rests at/);
     expect(STOP_RULE_DETAIL).toMatch(/double or triple bottom/);
   });

@@ -165,6 +165,19 @@ describe("intraday bell delivery", () => {
     expect(db.tables.in_app_notifications).toHaveLength(8);
   });
 
+  it("writes a notice at a plan's entry once in 12 hours, as before", async () => {
+    const db = fakeDb(seed());
+    const reached = alert("SPY", { type: "entry_reached" } as Partial<Alert>);
+    const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
+    // Notices reach Pro's module too, outside its bound.
+    expect(await recordIntradayBells(db.client, [reached], args)).toBe(3);
+    expect(recipients(db.tables.in_app_notifications)).toEqual(["expert-a", "expert-b", "pro-p"]);
+    now = new Date("2026-10-21T19:00:00Z");
+    expect(await recordIntradayBells(db.client, [reached], { ...args, now })).toBe(0);
+    now = new Date("2026-10-22T04:00:00Z");
+    expect(await recordIntradayBells(db.client, [reached], { ...args, now })).toBe(3);
+  });
+
   it("keeps different signals on one symbol apart", async () => {
     const db = fakeDb(seed());
     const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
@@ -199,7 +212,7 @@ describe("intraday bell delivery", () => {
     expect(
       await recordIntradayBells(db.client, [alert("SPY", { direction: "down" }), alert("AAPL")], {
         intervalBySymbol,
-          now,
+        now,
       }),
     ).toBe(1);
   });

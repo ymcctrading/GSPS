@@ -53,7 +53,7 @@ export function priorYearLevelName(up: boolean, year?: number): string {
  */
 export function regainedLevelName(up: boolean, source?: "priorYear" | "allTime", year?: number): string {
   if (source === "priorYear") return priorYearLevelName(!up, year);
-  if (source === "allTime") return up ? "the record low from before the last 52 weeks" : "the record high from before the last 52 weeks";
+  if (source === "allTime") return up ? "the old record low" : "the old record high";
   return up ? "the old swing low" : "the old swing high";
 }
 
@@ -69,21 +69,17 @@ export function structuralTriggerHeadline(
 ): string {
   if (entryKind === "hold" && holdBasis === "narrowWeek") {
     // The sell after a narrow week and a sharp drop on large volume (A-ENTRY-19).
-    return "A sell just under a narrow week's low, for the bounce after a sharp drop on large volume, with the stop just over that low.";
+    return "A sell on the bounce after a sharp drop on heavy volume, with the stop just over the level it broke.";
   }
   if (entryKind === "hold" && holdBasis === "rally") {
     // The sell at the end of a bear-market rally (item 5, step 4b).
-    return "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop just over that week's high.";
+    return "A sell at the last close, once a rally in a falling market has run its course, with the stop just over the rally's high.";
   }
   if (entryKind === "hold") {
     // A bottom (top) that held, bought at the last close (item 5, step 4).
     const up = direction === "bullish";
-    const held =
-      holdBasis === "record"
-        ? "the record low having held for weeks without breaking decisively"
-        : holdBasis === "days"
-          ? "the low having held two days after a two-to-three-week reaction in a rising market"
-          : `the ${up ? "low" : "high"} having held into its second week`;
+    // Plain words, never the rule's timing (confidential sources, owner 2026-10-28).
+    const held = holdBasis === "record" ? `the record ${up ? "low" : "high"} having held` : `the ${up ? "low" : "high"} having held`;
     return up
       ? `A buy at the last close, ${held}, with the stop just under the low.`
       : `A sell at the last close, ${held}, with the stop just over the high.`;
@@ -106,7 +102,7 @@ export function structuralTriggerHeadline(
     entrySource === "priorYear"
       ? priorYearLevelName(up, levelYear)
       : entrySource === "allTime"
-        ? up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks"
+        ? up ? "the old record high" : "the old record low"
         : up ? "the prior confirmed swing high" : "the prior confirmed swing low";
   return up
     ? `A close clearly over ${level}, then a buy on the pullback toward it.`

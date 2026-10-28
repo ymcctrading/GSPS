@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { NotificationHistory } from "@/components/settings/notification-history";
 import { BrowserPushToggle } from "@/components/settings/browser-push-toggle";
 import { authorizedFetch } from "@/lib/supabase/authorized-fetch";
+import { APPROACH_LEAD_CHOICES, approachLeadMinutes } from "@/lib/scanner/entryApproach";
 import { Bell } from "lucide-react";
 
 interface Preferences {
@@ -21,6 +22,8 @@ interface Preferences {
   quiet_end: string | null;
   user_timezone: string;
   phone_number: string | null;
+  /** Minutes ahead of a plan's entry to be told price is nearing it. */
+  entry_lead_minutes?: number;
 }
 
 const TIMEZONES = [
@@ -82,6 +85,7 @@ export function NotificationSettings() {
           quiet_end: preferences.quiet_end,
           user_timezone: preferences.user_timezone,
           phone_number: preferences.phone_number,
+          entry_lead_minutes: approachLeadMinutes(preferences.entry_lead_minutes),
         }),
       });
       const body = await res.json();
@@ -164,7 +168,7 @@ export function NotificationSettings() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium" htmlFor="min-score">
               Minimum alert score (0-9)
@@ -192,6 +196,23 @@ export function NotificationSettings() {
               <option value="execute">Execute only</option>
               <option value="watch">Execute + Watch</option>
               <option value="any">Any verdict</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="entry-lead">
+              Tell me before price reaches an entry
+            </label>
+            <select
+              id="entry-lead"
+              value={approachLeadMinutes(preferences.entry_lead_minutes)}
+              onChange={(e) => update("entry_lead_minutes", Number(e.target.value))}
+              className="h-10 max-w-xs rounded-lg border border-border bg-surface px-3 text-sm"
+            >
+              {APPROACH_LEAD_CHOICES.map((m) => (
+                <option key={m} value={m}>
+                  About {m} minutes ahead
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">

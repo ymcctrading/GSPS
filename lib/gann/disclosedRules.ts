@@ -77,6 +77,7 @@
  *    whether the market's pull-back rhythm is still normal).
  */
 
+import { readDominantCycle, type DominantCycleReading } from "@/lib/gann/dominantCycle";
 import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRulesEmpty";
 import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import { readHalfwayRetest, type HalfwayRetestReading } from "@/lib/gann/halfwayRetest";
@@ -750,6 +751,11 @@ export interface DisclosedRulesContext {
    * bars (mass pressure, the 84-year count) read it so crypto is left out.
    */
   stockMarket?: boolean;
+  /**
+   * The decade back the market is following this month (`dominantCycle.ts`;
+   * context and a measured factor, `dominantCycleWithTrade`). For a stock only.
+   */
+  dominantCycle?: DominantCycleReading | null;
   /** The market's monthly value trend (A-OTHER-06, context only). See `dollarTrend.ts`. */
   dollarTrend?: DollarTrendReading | null;
   /** Fixed year and month counts from the founding date (A-TIME-32, context only). See `incorporationCycle.ts`. */
@@ -917,6 +923,10 @@ export function readDisclosedRules(
     campaignLength: marketMonthly ? readCampaignLength(marketMonthly, asOf) : null,
     dollarTrend: readDollarTrend(marketMonthly),
     stockMarket: instrument?.marketDaily != null,
+    // The market's bars up to the session read (the replay hands the whole span).
+    dominantCycle: instrument?.marketDaily
+      ? readDominantCycle(asOf, instrument.marketDaily.filter((b) => b.t <= (dailyBars[dailyBars.length - 1]?.t ?? "")))
+      : null,
     foundingCounts: readFoundingCounts(inception, asOf),
     outbreakCounts: readOutbreakCounts(longMonthly, asOf),
     oneByOneBreak: readOneByOneBreak(dailyBars),
