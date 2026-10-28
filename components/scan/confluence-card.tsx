@@ -114,32 +114,16 @@ function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannC
               <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.macroCycle.summary}</p>
             </div>
           )}
-          {result.nearestMasterTwelve && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Nearest base-12 spiral level (GSPS construction)</p>
-              <p className="font-mono font-semibold">{result.nearestMasterTwelve.price.toFixed(2)}</p>
-            </div>
-          )}
-          {/* M-T16: the 12-by-12 time chart, context only. */}
-          {result.masterTwelve && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">12-by-12 time chart</p>
-              <p className="font-mono font-semibold">
-                {`${result.masterTwelve.count} bars: square ${result.masterTwelve.cell.square}, place ${result.masterTwelve.cell.place}${result.masterTwelve.cell.squareEnd ? ", square end" : result.masterTwelve.cell.majorCentre ? ", major centre" : result.masterTwelve.cell.minorCentre ? ", minor centre" : ""}`}
-              </p>
-              <p className="text-[10px] text-muted">Bars since the anchor pivot. Context only; it does not change the setup.</p>
-            </div>
-          )}
           {TIME_LINE_RECORDS.squareOf52 && (
             <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Square of 52 window</p>
+              <p className="text-muted">Weekly timing window</p>
               <p className="font-mono font-semibold">{result.squareOf52.active ? "Active" : "None"}</p>
               <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.squareOf52.summary}</p>
             </div>
           )}
           {TIME_LINE_RECORDS.angleMonthCounts && (
             <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">36-angle month-count</p>
+              <p className="text-muted">Monthly timing count</p>
               <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
               <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.angleMonthCounts.summary}</p>
             </div>
@@ -232,7 +216,7 @@ function DisclosedRuleTiles({
     rot.weekly?.bearishSignal ? "weekly 3 lower" : rot.weekly?.bullishSignal ? "weekly 3 higher" : null,
     rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 3 higher" : null,
   ].filter(Boolean);
-  if (rotText.length > 0) tiles.push({ label: "Rule of Three (W/M)", value: rotText.join(", ") });
+  if (rotText.length > 0) tiles.push({ label: "Three closes (weekly/monthly)", value: rotText.join(", ") });
   // Stage F1: extreme-price and timing rules (cached results may predate them).
   const rs = rules.extremes?.reverseSignal;
   if (rs?.signal) {
@@ -248,10 +232,10 @@ function DisclosedRuleTiles({
   const timing = rules.timing;
   const timingText = [
     timing?.alternation?.mark ? `${timing.alternation.mark}-day turn count` : null,
-    timing?.square144 && timing.square144.units.length >= 2 ? `12-multiple in ${timing.square144.units.join("+")}` : null,
+    timing?.square144 && timing.square144.units.length >= 2 ? `12-unit count in ${timing.square144.units.join("+")}` : null,
   ].filter(Boolean);
   if (timingText.length > 0 && rec.turnTiming) tiles.push({ label: "Turn timing", value: timingText.join(", "), note: rec.turnTiming.summary });
-  if (rules.seasonal && rec.seasonalCount) tiles.push({ label: "Seasonal count", value: rules.seasonal.point.label, note: rec.seasonalCount.summary });
+  if (rules.seasonal && rec.seasonalCount) tiles.push({ label: "Seasonal date", value: rules.seasonal.point.label, note: rec.seasonalCount.summary });
   if (rules.accumulation && rules.accumulation.weeks >= 2) {
     tiles.push({ label: "Weeks in range", value: `${rules.accumulation.weeks.toFixed(1)}${rules.accumulation.breakout ? ` (broke ${rules.accumulation.breakout})` : ""}` });
   }
@@ -269,53 +253,10 @@ function DisclosedRuleTiles({
     if (m) tiles.push({ label: `${m.tests >= 3 ? "Triple" : "Double"} ${m.kind}`, value: `${m.level.toFixed(2)} ${m.state}` });
   }
   if (rules.zone) {
-    tiles.push({ label: "Zone of activity", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
-  }
-  // 2026-09-30: the Square of 144 calculator, the circle of 360°, the time
-  // angle and the planetary averages (cached results may predate them).
-  const mc = rules.masterCalculator;
-  if (mc) {
-    const z = mc.price.zero;
-    tiles.push({
-      label: "Square of 144",
-      value: `${z.position.toFixed(1)} in square ${z.square}${mc.strongPlacements.length > 0 ? ` (on ${mc.price[mc.strongPlacements[0]].nearest.point})` : ""}`,
-    });
-  }
-  const circle = rules.circle;
-  if (circle) {
-    tiles.push({
-      label: "Half-way on the circle",
-      value: `${circle.halfway.degree.toFixed(1)}° (near ${circle.halfway.nearest.degree}°)`,
-    });
+    tiles.push({ label: "Activity zone", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
   }
   if (rules.timeAngle) {
-    tiles.push({ label: "Time angle", value: rules.timeAngle.state === "balanced" ? "balanced" : `${rules.timeAngle.state} time` });
-  }
-  const planetary = rules.planetary;
-  if (planetary) {
-    const onAverages = planetary.averages.filter((a) => a.tier === "A" && a.on).map((a) => a.short);
-    const coe = planetary.averages.find((a) => a.id === "coe-geo");
-    tiles.push({
-      label: "Planetary averages",
-      value:
-        onAverages.length > 0
-          ? `on ${onAverages.join(", ")}`
-          : coe
-            ? `COE ${coe.below !== null ? coe.below.toFixed(2) : "—"} / ${coe.above.toFixed(2)}`
-            : "—",
-    });
-  }
-  const ts = rules.squareOfNineTime?.[0];
-  if (ts && rec.timeSquare) {
-    tiles.push({ label: "Time square", value: `${Math.round(ts.count)} ${ts.unit} from ${ts.pivot} (${ts.line.angle}° line)`, note: rec.timeSquare.summary });
-  }
-  const dc = rules.dayCircle;
-  if (dc && rec.dayCircle) {
-    tiles.push({
-      label: "Day circle",
-      value: `${dc.degree.toFixed(1)}°${dc.majorDegree !== null ? ` (on ${dc.majorDegree}°)` : ""}; next ${dc.nextMajor.degree}° at ${dc.nextMajor.time} ET`,
-      note: rec.dayCircle.summary,
-    });
+    tiles.push({ label: "Time balance", value: rules.timeAngle.state === "balanced" ? "balanced" : `${rules.timeAngle.state} time` });
   }
   // A-TIME-03, C-SWING-01, C-TIME-03: context readings whose described line
   // lives only in the explanation trace, which every response empties, so the

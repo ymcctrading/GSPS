@@ -119,7 +119,6 @@ export interface TradeStyleProfile {
   trailRule: string;
   /** Expected hold, in plain words. */
   expectedHold: string;
-  sources: string;
 }
 
 export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
@@ -127,12 +126,12 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     style: "swing",
     label: "Swing",
     summary: "The main method: trade the main trend's swings and hold while the swing chart runs your way.",
-    trendCharts: "Monthly, weekly, then the 3-Day Chart",
+    trendCharts: "Monthly, weekly, then the daily swing chart",
     entryTiming: "Closed 15-minute bars at the daily level",
     stopRule: "3 points beyond the old top or bottom the entry crossed",
     trailRule: "The exit rules on the swing chart",
     expectedHold: "Weeks; often more than ten sessions",
-    sources: "W006 pp. 20, 46-47; Commodities p. 55",
+    // Sources (internal only, never shipped as a string): W006 pp. 20, 46-47; Commodities p. 55
   },
   fast: {
     style: "fast",
@@ -143,7 +142,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     stopRule: "3 points beyond the old top or bottom the entry crossed, the same as Swing",
     trailRule: "Trails 3 points under each completed day's low from the day filled (over each day's high, short), and is never lowered",
     expectedHold: "Days, until a day's low breaks",
-    sources: "W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13",
+    // Sources (internal only, never shipped as a string): W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13
   },
   intraday: {
     style: "intraday",
@@ -154,7 +153,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",
     trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly chart turns against the trade",
     expectedHold: "Minutes to hours; closed by the session's end unless you choose to hold it",
-    sources: "Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source",
+    // Sources (internal only, never shipped as a string): Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source
   },
 };
 

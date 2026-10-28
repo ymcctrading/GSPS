@@ -222,7 +222,7 @@ describe("time lines carry their measured record or are hidden", () => {
 
   it("hides time lines that have no measured record (CYC-30)", () => {
     render(<ConfluenceCard result={withTime()} />);
-    for (const label of [/Macro time cycle/, "Square of 52 window", "36-angle month-count", "Turn timing", /Next swing/]) {
+    for (const label of [/Macro time cycle/, "Weekly timing window", "Monthly timing count", "Turn timing", /Next swing/]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
@@ -293,27 +293,13 @@ describe("context readings reach the card", () => {
   });
 });
 
-describe("the 12-by-12 time chart reaches the card (M-T16)", () => {
-  function withCell(count: number): ScanResult {
+describe("the 12-by-12 time chart stays off the card (confidential sources, 2026-10-28)", () => {
+  it("shows no grid reading even when one is computed", () => {
     const r = makeResult();
-    r.signals!.gannConfluence!.masterTwelve = { count, unit: "bars", cell: masterTwelveCell(count)! };
-    return r;
-  }
-
-  it("shows the square and place as context", () => {
-    render(<ConfluenceCard result={withCell(27)} />);
-    expect(screen.getByText("12-by-12 time chart")).toBeInTheDocument();
-    expect(screen.getByText(/27 bars: square 1, place 27/)).toBeInTheDocument();
-  });
-
-  it("shows 144 as a square end", () => {
-    render(<ConfluenceCard result={withCell(144)} />);
-    expect(screen.getByText(/144 bars: square 1, place 144, square end/)).toBeInTheDocument();
-  });
-
-  it("shows nothing when there is no reading", () => {
-    render(<ConfluenceCard result={makeResult()} />);
-    expect(screen.queryByText("12-by-12 time chart")).not.toBeInTheDocument();
+    r.signals!.gannConfluence!.masterTwelve = { count: 144, unit: "bars", cell: masterTwelveCell(144)! };
+    render(<ConfluenceCard result={r} />);
+    expect(screen.queryByText(/144 bars/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/square end/)).not.toBeInTheDocument();
   });
 });
 
