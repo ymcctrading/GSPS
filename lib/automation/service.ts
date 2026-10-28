@@ -297,7 +297,9 @@ function deriveOrderInputFromPlan(
   const riskPerShare = Math.abs(plan.coordinates.entryTrigger - plan.coordinates.invalidation);
   if (riskPerShare <= 0) return { ok: false, error: "Plan has no positive per-share risk to size against." };
 
-  const qty = Math.floor(profile.configuration.allocatedDollarRisk / riskPerShare);
+  // Slack for floating point, so a risk sized as qty x riskPerShare
+  // (the size ladder, lib/automation/sizeLadder.ts) buys qty, not qty - 1.
+  const qty = Math.floor(profile.configuration.allocatedDollarRisk / riskPerShare + 1e-9);
   if (qty < 1) {
     return { ok: false, error: "Allocated risk is too small to size at least one share against this plan." };
   }

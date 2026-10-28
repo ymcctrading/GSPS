@@ -57,6 +57,7 @@ import { levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { awayReminderDue, resolveGannRulePrefs, restReminderDue } from "@/lib/gann/traderPrefs";
 import { maxRiskForTrade } from "@/lib/risk/gannCapital";
+import { chooseSizeRung } from "@/lib/automation/sizeLadder";
 import { readLiveStartingCapital, readProfitCeiling } from "@/lib/risk/profitPeak";
 
 export type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
@@ -150,14 +151,20 @@ export function rankPlansByScore<T extends { instrument: string; direction: stri
     .map((x) => x.plan);
 }
 
-/** Fraction of paper equity risked per trade, by dial position. */
+/**
+ * Fraction of paper equity risked per trade, by dial position. The member's
+ * own choice, and no Gann figure: Gann gives only the ceiling, a tenth of the
+ * trading unit (never-failing rule 1, NSTD Rule 1 p.46), which every order
+ * is still held to at placement (`riskTenthRefusal`). The three positions are
+ * engineering choices (audit T-04).
+ */
 const RISK_PCT: Record<RiskProfile, number> = {
   PASSIVE: 0.005,
   MODERATE: 0.01,
   AGGRESSIVE: 0.02,
 };
 
-/** Below this, a sized position would round to zero shares on most tickers — not worth activating. */
+/** Below this, a sized position would round to zero shares on most tickers — not worth activating. An engineering figure. */
 const MIN_ALLOCATED_DOLLAR_RISK = 25;
 
 /**
@@ -246,10 +253,15 @@ async function runForProfile(
 
   const { data: openProfiles } = await supabase
     .from("automation_profiles")
-    .select("profile_id, plan_id, status")
+    .select("profile_id, plan_id, status, configuration")
     .eq("user_id", profile.user_id)
     .in("status", ["active", "paused"]);
-  const openRows = (openProfiles ?? []) as { profile_id: string; plan_id: string; status: string }[];
+  const openRows = (openProfiles ?? []) as {
+    profile_id: string;
+    plan_id: string;
+    status: string;
+    configuration?: { allocatedDollarRisk?: number } | null;
+  }[];
   const alreadyAutomated = new Set(openRows.map((r) => r.plan_id));
 
   // Arm whatever has confirmed on the closed bars since it was generated,
@@ -321,6 +333,8 @@ async function runForProfile(
   // authorized "live" profile with no readable live equity skips this run
   // rather than falling back to the paper balance as a stand-in.
   let equityBasis: number;
+  // Costs of the paper book's open positions, for the size ladder below.
+  const openCosts: number[] = [];
   if (executionMode === "live") {
     const live = await readLiveAccountValue(supabase, profile.user_id);
     if (!live.verified) {
@@ -342,6 +356,20 @@ async function runForProfile(
       getOrCreateAccount(supabase, profile.user_id),
       listOpenPositions(supabase, profile.user_id),
     ]);
+    for (const p of open) openCosts.push(Math.abs(Number(p.qty) * Number(p.avg_entry_price)));
+    // An activation still resting for its entry (a paused one too, since it
+    // can resume) holds its rung, at the shares its risk buys at the plan's
+    // entry, until its position opens.
+    const held = new Set(open.map((p) => p.symbol.toUpperCase()));
+    const armedById = new Map(((plans ?? []) as CandidatePlanRow[]).map((p) => [p.plan_id, p]));
+    for (const row of openRows) {
+      const plan = armedById.get(row.plan_id);
+      if (!plan || held.has(plan.instrument.toUpperCase())) continue;
+      const entry = Number(plan.entry_trigger);
+      const rps = Math.abs(entry - Number(plan.invalidation));
+      const risk = Number(row.configuration?.allocatedDollarRisk ?? 0);
+      if (rps > 0 && risk > 0) openCosts.push(Math.floor(risk / rps + 1e-9) * entry);
+    }
     equityBasis = Math.max(
       paperEquity(account.cash, open.map((p) => ({ side: p.side, qty: p.qty, price: p.avg_entry_price }))),
       0,
@@ -467,6 +495,22 @@ async function runForProfile(
     }
 
     let tradeDollarRisk = allocatedDollarRisk;
+    // Paper trades are sized on a ladder of account sizes, two-, three- and
+    // four-figure positions beside the account's own (lib/automation/sizeLadder.ts).
+    // A smaller rung only takes shares away, so Gann's ceilings still hold.
+    let rungCost: number | null = null;
+    if (executionMode === "paper") {
+      const entry = Number(plan.entry_trigger);
+      const riskPerShare = Math.abs(entry - Number(plan.invalidation));
+      if (riskPerShare > 0) {
+        const accountQty = Math.floor(allocatedDollarRisk / riskPerShare + 1e-9);
+        const choice = chooseSizeRung({ entry, accountQty, openCosts });
+        if (choice) {
+          if (choice.rung !== "full") tradeDollarRisk = choice.qty * riskPerShare;
+          rungCost = choice.qty * entry;
+        }
+      }
+    }
     if (executionMode === "live") {
       tradeDollarRisk = Math.min(tradeDollarRisk, AUTONOMOUS_LIVE_MAX_DOLLAR_RISK_PER_TRADE);
       if (liveDollarRiskSpentToday + tradeDollarRisk > AUTONOMOUS_LIVE_MAX_DAILY_DOLLAR_RISK) {
@@ -488,6 +532,7 @@ async function runForProfile(
     });
     if (activation.ok) {
       result.plansActivated++;
+      if (rungCost != null) openCosts.push(rungCost);
       if (executionMode === "live") liveDollarRiskSpentToday += tradeDollarRisk;
     } else {
       result.plansSkipped++;

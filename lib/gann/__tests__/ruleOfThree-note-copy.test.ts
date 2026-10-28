@@ -6,8 +6,8 @@ describe("the Rule of Three note names the count the rule uses", () => {
     expect(BULLISH_SIGNAL_CLOSES).toBe(3);
     expect(BEARISH_SIGNAL_CLOSES).toBe(3);
     const src = readFileSync("lib/scoring/score.ts", "utf8");
-    expect(src).toMatch(/the Rule of Three needs 3 to confirm an upturn/);
-    expect(src).toMatch(/the Rule of Three needs 3 to confirm a downturn/);
+    expect(src).toMatch(/until three higher closes/);
+    expect(src).toMatch(/until three lower closes/);
     expect(src).not.toMatch(/Rule of Three needs 2/);
   });
 });

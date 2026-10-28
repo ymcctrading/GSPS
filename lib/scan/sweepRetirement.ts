@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasTradePlan, type MarketScanOutput } from "@/lib/marketScan";
 import { equitySession, etDateKey, etParts } from "@/lib/market/session";
 import { isEarlyClose } from "@/lib/market/calendar";
+import { retireOverruledSweepRows } from "@/lib/scan/universeSweep";
 
 /**
  * 9:50 AM New York: the free stock feed runs about 16 minutes late, so before
@@ -31,7 +32,6 @@ export function pricedInRegularSession(now: Date): boolean {
   if (minutes < FIRST_REGULAR_QUOTE_ET_MINUTES) return false;
   return !isEarlyClose(etDateKey(now)) || minutes < EARLY_CLOSE_ET_MINUTES;
 }
-import { retireOverruledSweepRows } from "@/lib/scan/universeSweep";
 
 /**
  * Checks the swept symbols' reads in `output` against the night's rows and

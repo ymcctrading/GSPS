@@ -7,9 +7,10 @@
  * short side stays short rather than padded.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
+import { afterResponse, discoveryRows, prefilterRows, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { visibilityRank } from "@/lib/scan/listOrder";
 import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
@@ -162,14 +163,22 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   }
 
   // The night's sweep rows this scan re-read and no longer bears out leave the
-  // intraday scan's setups (SUS-21, lib/scan/sweepRetirement.ts).
-  await retireSweepFromScan(service, sweepBasis, sweptSymbols, output);
+  // intraday scan's setups (SUS-21, lib/scan/sweepRetirement.ts), after the
+  // response, so a member's manual scan never waits on it.
+  const retireAt = new Date();
+  const retire = () => retireSweepFromScan(service, sweepBasis, sweptSymbols, output, retireAt);
+  try {
+    after(retire);
+  } catch {
+    void retire();
+  }
 
-  // Shadow discovery: logged only, so its picks can be set beside the live
-  // lists. Nothing reads it to scan, score, plan or notify.
-  if (output.shadowDiscovery.length > 0) {
-    const top = output.shadowDiscovery.slice(0, 15).map((d) => `${d.symbol}[${d.conditions.map((c) => c.kind).join("+")}]`);
-    console.info(`market-scan: shadow discovery ${output.shadowDiscovery.length} stocks, data as of ${output.shadowDiscovery[0].dataAsOf}: ${top.join(" ")}`);
+  // Discovery: logged, and stored in the evaluation ledger (below) where the
+  // intraday scan's queue takes the session's discoveries as candidates to
+  // examine. Nothing reads it to score, plan or notify.
+  if (output.discoveries.length > 0) {
+    const top = output.discoveries.slice(0, 15).map((d) => `${d.symbol}[${d.conditions.map((c) => c.kind).join("+")}]`);
+    console.info(`market-scan: discovery ${output.discoveries.length} stocks, data as of ${output.discoveries[0].dataAsOf}: ${top.join(" ")}`);
   }
 
   // Coarse-gate calibration data — best-effort, and deliberately outside the
@@ -179,6 +188,16 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     await persistCoarseTelemetry(service, output.coarseTelemetry);
   } catch (err) {
     console.warn(`market-scan: coarse telemetry not saved — ${describeDbError(err)}`);
+  }
+
+  // The evaluation ledger: the first time each stock cleared the pre-filter,
+  // made the shortlist or was discovered this session. Best-effort, and
+  // written after the response so neither the fan-out nor a person's refresh
+  // waits on it (its time is logged there).
+  {
+    const sessionDate = etDateKey(new Date());
+    const rows = [...prefilterRows(output.coarseTelemetry.filter((r) => r.scan_date === sessionDate), new Date()), ...discoveryRows(output.discoveries, sessionDate)];
+    afterResponse("market scan", () => writeLedger(service, rows, "market scan"));
   }
 
   // Per-profile monitor evaluation + notification fan-out — cron path only

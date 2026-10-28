@@ -35,7 +35,7 @@
  * intraday scan times it from there (`dailyPlans.ts`), and once the session
  * trades through its stop `invalidateBrokenSweep` marks the row and it leaves
  * the session's setups until the next night's sweep reads new structure. A
- * sweep row stored before 0128 has no stop and stays on, as before.
+ * sweep row stored before 0130 has no stop and stays on, as before.
  *
  * Mandate: 1. Gann chose his active stocks from the daily charts after the
  * close ("the best way to read the tape is to stay away from it", *Truth of
@@ -55,6 +55,7 @@ import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { chooseSweepBasis } from "@/lib/scan/universeSweep";
 import { barSession, etDateKey, etParts } from "@/lib/market/session";
 import { isEarlyClose } from "@/lib/market/calendar";
+import { readStopBreach } from "@/lib/gann/stopBreach";
 
 /** 1:00 PM New York, an early close's last minute of trading, in minutes from midnight. */
 const EARLY_CLOSE_ET_MINUTES = 13 * 60;
@@ -220,7 +221,7 @@ export interface SweepPlanRow {
 /** A session's bars as the breach tests read them. */
 export interface BreachBars {
   kind: "equity" | "etf" | "index" | "crypto";
-  bars: readonly { t: string; h: number; l: number }[];
+  bars: readonly { t: string; h: number; l: number; c: number }[];
 }
 
 /**
@@ -231,7 +232,7 @@ export interface BreachBars {
  * before, never breaks a plan priced from that session. A plan with no
  * pricing time reads every regular-session bar.
  */
-export function barsSincePlan(input: BreachBars, sinceMs: number): { h: number; l: number }[] {
+export function barsSincePlan(input: BreachBars, sinceMs: number): { t: string; h: number; l: number; c: number }[] {
   return input.bars.filter((b) => {
     const at = Date.parse(b.t);
     if (!Number.isFinite(at) || (Number.isFinite(sinceMs) && at <= sinceMs)) return false;
@@ -243,29 +244,75 @@ export function barsSincePlan(input: BreachBars, sinceMs: number): { h: number; 
   });
 }
 
+/** The execution bar the lists' scan reads a breach on (`EXECUTION_TIMEFRAME`, 15 minutes). */
+const BREACH_BAR_MS = 15 * 60_000;
+
 /**
- * True when the bars traded through the stop: a buy's low at or below it, a
- * sell's high at or above it. A caught stop ends the plan (Overnight Chart
- * rule 4; NSTD Rule 6). No bars, no stop or no direction is never a breach.
+ * The session's bars rolled into the 15-minute bars the lists' scan reads,
+ * keeping only those closed by `nowMs` (a bar still forming says nothing about
+ * its close). Oldest first. Pure.
  */
-export function stopTraded(direction: string | null, stop: number | null, bars: readonly { h: number; l: number }[]): boolean {
-  if (stop == null || !(stop > 0) || bars.length === 0) return false;
-  if (direction === "bullish" || direction === "up") return Math.min(...bars.map((b) => b.l)) <= stop;
-  if (direction === "bearish" || direction === "down") return Math.max(...bars.map((b) => b.h)) >= stop;
-  return false;
+export function closedBreachBars(
+  bars: readonly { t: string; h: number; l: number; c: number }[],
+  nowMs: number,
+): { h: number; l: number; c: number }[] {
+  const buckets = new Map<number, { h: number; l: number; c: number; last: number }>();
+  for (const b of bars) {
+    const at = Date.parse(b.t);
+    if (!Number.isFinite(at)) continue;
+    const start = Math.floor(at / BREACH_BAR_MS) * BREACH_BAR_MS;
+    if (start + BREACH_BAR_MS > nowMs) continue;
+    const cur = buckets.get(start);
+    if (!cur) buckets.set(start, { h: b.h, l: b.l, c: b.c, last: at });
+    else {
+      cur.h = Math.max(cur.h, b.h);
+      cur.l = Math.min(cur.l, b.l);
+      if (at >= cur.last) {
+        cur.c = b.c;
+        cur.last = at;
+      }
+    }
+  }
+  return [...buckets.entries()].sort(([a], [b]) => a - b).map(([, { h, l, c }]) => ({ h, l, c }));
 }
 
 /**
- * The sweep rows whose stop the session traded through after the row was
- * priced. A symbol with no session bars is never broken here. Pure.
+ * True when the plan's stop is broken by the rule the lists' scan applies
+ * (`lib/gann/stopBreach.ts#readStopBreach`, AGENTS.md F3.7): read on closed
+ * 15-minute bars, the last close through the stop, or a bar through it with
+ * no close since back past the reclaim line (Gann's failed break, his 3-point
+ * allowance). A poke that closed back is not a break. No bars, no stop or no
+ * direction is never one.
  */
-export function brokenSweepSymbols(rows: readonly SweepPlanRow[], session: ReadonlyMap<string, BreachBars>): string[] {
+export function stopBreachStands(
+  direction: string | null,
+  stop: number | null,
+  bars: readonly { t: string; h: number; l: number; c: number }[],
+  nowMs: number,
+): boolean {
+  const side = direction === "bullish" || direction === "up" ? "bullish" : direction === "bearish" || direction === "down" ? "bearish" : null;
+  if (!side || stop == null || !(stop > 0)) return false;
+  const closed = closedBreachBars(bars, nowMs);
+  if (closed.length === 0) return false;
+  return readStopBreach({ direction: side, stopLoss: stop, price: closed[closed.length - 1].c, sessionBars: closed }).breached;
+}
+
+/**
+ * The sweep rows whose stop is broken (`stopBreachStands`) on the session's
+ * bars after the row was priced. A symbol with no session bars is never
+ * broken here. Pure.
+ */
+export function brokenSweepSymbols(
+  rows: readonly SweepPlanRow[],
+  session: ReadonlyMap<string, BreachBars>,
+  nowMs: number,
+): string[] {
   const out: string[] = [];
   for (const row of rows) {
     const input = session.get(row.symbol.trim().toUpperCase());
     if (!input) continue;
     const since = row.swept_at ? Date.parse(row.swept_at) : NaN;
-    if (stopTraded(row.direction, num(row.stop_loss), barsSincePlan(input, since))) out.push(row.symbol);
+    if (stopBreachStands(row.direction, num(row.stop_loss), barsSincePlan(input, since), nowMs)) out.push(row.symbol);
   }
   return out;
 }
@@ -294,7 +341,7 @@ export async function invalidateBrokenSweep(
     .is("invalidated_at", null)
     .not("stop_loss", "is", null);
   if (error || !data) return;
-  const broken = brokenSweepSymbols(data as SweepPlanRow[], session);
+  const broken = brokenSweepSymbols(data as SweepPlanRow[], session, now.getTime());
   if (broken.length === 0) return;
   const { error: writeError } = await supabase
     .from("universe_sweep")

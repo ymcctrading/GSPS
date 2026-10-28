@@ -157,6 +157,14 @@ describe("mover outcome", () => {
     expect(moverAttributionLine(ctx({ deliveriesAgainst: 2 })).line).toMatch(/2 delivered against the move/);
   });
 
+  it("names the ledger's slot, deferrals and discovery when kept", () => {
+    const line = moverAttributionLine(
+      ctx({ ledger: { firstQueuedAt: null, queueTier: null, deferredScans: 4, firstDiscoveryAt: "2026-10-27T15:00:00Z", discoveryKinds: ["at_old_level"] } }),
+    ).line;
+    expect(line).toMatch(/discovered active at 11:00 AM ET \(1 condition\)/);
+    expect(line).toMatch(/never given an intraday slot, left out for capacity on 4 regular-session scans in all/);
+  });
+
   it("unavailable and not examined are stated apart", () => {
     const none = attributeSweep(null, 100, 3);
     expect(moverOutcome(ctx({ sweep: none, sweepState: null, sweepError: true, examined: true }))).toBe("unavailable");

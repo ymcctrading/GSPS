@@ -50,7 +50,7 @@ export function withinTriggerTolerance(
  *
  * US equities: the next regular-session close at or after `generatedAt`, so a
  * plan made after the close or at a weekend lives through the next session
- * (holidays are not known here, so a holiday still counts as a session).
+ * (`equitySession` skips holidays and ends an early close at 1:00 PM).
  * Other markets: the end of the ET day, when their daily bar completes, the
  * same day key the scan reads sessions by (`etDateKey`).
  */

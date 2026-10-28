@@ -20,6 +20,12 @@ function builder(table: string) {
       rows = [{ symbol: "AAPL", signal_id: "old_level_cross", signal_type: "bearish", poll_cycle_timestamp: "2026-10-27T14:20:00Z", created_at: "2026-10-27T14:20:01Z", metadata: { dataTimestamp: "2026-10-27T14:00:00Z", barIntervalMinutes: 5 } }];
     }
     if (table === "universe_sweep") error = { message: "sweep unread" };
+    if (table === "evaluation_ledger") {
+      rows = [
+        { symbol: "AAPL", first_queued_at: null, queue_tier: null, deferred_scans: 3, first_discovery_at: "2026-10-27T15:00:00Z", discovery_kinds: ["at_old_level"] },
+        { symbol: "SPY", first_queued_at: "2026-10-27T13:35:00Z", queue_tier: "core", deferred_scans: 0, first_discovery_at: null, discovery_kinds: null },
+      ];
+    }
   }
   const result = { data: error ? null : rows, error, count: 0 };
   const b: Record<string, unknown> = {};
@@ -86,7 +92,7 @@ describe("/api/evening-report access", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.coverage.priceData).toBeDefined();
-    expect(body.coverage.selected.value).toBeNull();
+    expect(body.coverage.selected.value).toBeNull(); // no ledger rows kept
     expect(res.headers.get("cache-control")).toContain("no-store");
   });
 
@@ -118,6 +124,10 @@ describe("/api/evening-report access", () => {
       // A table that failed to read is "not recorded", never 0.
       expect(body.coverage.evaluated.value).toBeNull();
       expect(body.coverage.detected.value).toBe(1);
+      // The ledger's slots and deferrals.
+      expect(body.coverage.selected.value).toBe(1);
+      expect(body.coverage.deferredCapacity.value).toBe(1);
+      expect(a.line).toMatch(/left out for capacity on 3 regular-session scans in all/);
     });
   });
 });

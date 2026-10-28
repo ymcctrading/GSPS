@@ -731,11 +731,13 @@ export interface MarketScanOutput {
    */
   stockReads: ScanResult[];
   /**
-   * Shadow only (`lib/scanner/discovery.ts`): stocks the session has made
-   * active, most worth examining first. Never read by the lists, a score, a
-   * plan or an order; empty when the coarse daily batch was not read.
+   * Discoveries (`lib/scanner/discovery.ts`): stocks the session has made
+   * active, most worth examining first. The route stores them in the
+   * evaluation ledger, where the intraday queue takes them as candidates to
+   * examine. Never read by the lists, a score, a plan or an order; empty when
+   * the coarse daily batch was not read.
    */
-  shadowDiscovery: DiscoveryReading[];
+  discoveries: DiscoveryReading[];
 }
 
 /**
@@ -1265,20 +1267,19 @@ export async function runMarketScan(
     }
   });
   mark("coarse scoring done");
-  // Shadow discovery (`lib/scanner/discovery.ts`): which stocks the session
-  // has made active, read from the daily bars the coarse pass already holds,
-  // observed through the fetch's end (now less the feed's delay). Shadow only:
-  // nothing below reads it; it is returned and logged so its selections can
-  // be compared with the live lists before anything acts on it.
-  let shadowDiscovery: DiscoveryReading[] = [];
+  // Discovery (`lib/scanner/discovery.ts`): which stocks the session has
+  // made active, read from the daily bars the coarse pass already holds,
+  // observed through the fetch's end (now less the feed's delay). Nothing
+  // below reads it; the route stores it for the intraday queue.
+  let discoveries: DiscoveryReading[] = [];
   if (dailyBatch) {
     const discoveryStarted = Date.now();
     const delayMs = resolveFeedPolicy({ assetClass: "us_equity", isLive: true, source: "alpaca", env: process.env }).contractualDelayMs;
     const evaluatedAt = new Date();
     // The fetch ended at `end`; with no feed delay the session is observed through that end too.
     const observedThrough = new Date(Math.min(end.getTime(), evaluatedAt.getTime() - delayMs));
-    shadowDiscovery = discoverUniverse(dailyBatch, { evaluatedAt, observedThrough, delayMs });
-    mark("shadow discovery", `${shadowDiscovery.length} stocks in ${Date.now() - discoveryStarted}ms`);
+    discoveries = discoverUniverse(dailyBatch, { evaluatedAt, observedThrough, delayMs });
+    mark("discovery", `${discoveries.length} stocks in ${Date.now() - discoveryStarted}ms`);
   }
   const selection = new Map(
     coarse
@@ -1550,7 +1551,6 @@ export async function runMarketScan(
     equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
     stockReads: [...full, ...continuationScanResults],
-    /** Shadow only: never read by the lists, a score, a plan or an order. */
-    shadowDiscovery,
+    discoveries,
   };
 }
