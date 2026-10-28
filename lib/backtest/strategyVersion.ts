@@ -909,4 +909,21 @@
 // double bottom, whose rules it keeps. The coarse pre-filter's held level reads
 // the full scan's old levels (review of #511), which orders the daytime scan
 // and moves no verdict.
-export const STRATEGY_VERSION = "2026-10-28-one-class-on-groups-by-industry";
+// (was STRATEGY_VERSION "2026-10-28-one-class-on-groups-by-industry")
+// 2026-10-28-base-left-volume-pillar: P8's base half counts a long base only
+// once price has left it the trade's way and stands outside it (no close back
+// 3 points inside the crossed extreme), within BASE_LEFT_SESSIONS
+// (`readBaseLeft`, lib/gann/accumulation.ts). Gann's rule is the time in the
+// range then the crossing (Master Course; Commodities p. 62; W006 Rule 3(c)
+// p.47); the old half passed for either side while price sat inside the
+// range, 82% of random-walk readings at $20 and 29% at $500 for both sides
+// alike (replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md).
+// After: 0/0% at $20 and $150, 0.6/1.5% at $500 (long/short), so P8 now rests
+// on the volume rule. Live verdicts and replay trades move.
+// (was STRATEGY_VERSION "2026-10-28-base-left-volume-pillar", built alone)
+// 2026-10-28-base-left-on-groups-by-industry: the base-left fix merged onto
+// the release above. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-base-left-on-groups-by-industry")
+// 2026-10-28-base-left-on-one-class: the base-left fix and the one-class rule
+// above, merged in the 2026-10-28 midday release. No new rule.
+export const STRATEGY_VERSION = "2026-10-28-base-left-on-one-class";
