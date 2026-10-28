@@ -249,8 +249,11 @@ const BREACH_BAR_MS = 15 * 60_000;
 
 /**
  * The session's bars rolled into the 15-minute bars the lists' scan reads,
- * keeping only those closed by `nowMs` (a bar still forming says nothing about
- * its close). Oldest first. Pure.
+ * keeping only those closed (a bar still forming says nothing about its
+ * close). A bucket is closed when its end is at or before `nowMs` and the
+ * bars themselves reach past it: the stock feed runs about 16 minutes late, so
+ * at 10:20 its latest print may be 10:04, and the wall clock alone would read
+ * the 10:00 bar closed at 10:04's price. Oldest first. Pure.
  */
 export function closedBreachBars(
   bars: readonly { t: string; h: number; l: number; c: number }[],
@@ -273,7 +276,17 @@ export function closedBreachBars(
       }
     }
   }
-  return [...buckets.entries()].sort(([a], [b]) => a - b).map(([, { h, l, c }]) => ({ h, l, c }));
+  // The latest print at or before now, from any bar (a still-forming bar's
+  // print is what shows the bucket before it has closed).
+  let lastPrint = -Infinity;
+  for (const b of bars) {
+    const at = Date.parse(b.t);
+    if (Number.isFinite(at) && at <= nowMs && at > lastPrint) lastPrint = at;
+  }
+  return [...buckets.entries()]
+    .filter(([start]) => start + BREACH_BAR_MS <= lastPrint)
+    .sort(([a], [b]) => a - b)
+    .map(([, { h, l, c }]) => ({ h, l, c }));
 }
 
 /**

@@ -95,11 +95,13 @@ describe("the sweep's stop test", () => {
   const now = Date.parse("2026-10-28T15:30:00Z"); // 11:30 New York
   const session = new Map<string, BreachBars>([
     // 10:15 ET: the low trades through the stop and the bar closes under the reclaim line
-    ["BUY", { kind: "equity", bars: [at("2026-10-28T14:00:00Z", 102, 96, 100), at("2026-10-28T14:15:00Z", 101, 94.9, 95.5)] }],
+    ["BUY", { kind: "equity", bars: [at("2026-10-28T14:00:00Z", 102, 96, 100), at("2026-10-28T14:15:00Z", 101, 94.9, 95.5), at("2026-10-28T14:30:00Z", 96, 95.2, 95.5)] }],
     // a poke through the stop, then a closed bar back well past the reclaim line: Gann's failed break
-    ["POKE", { kind: "equity", bars: [at("2026-10-28T14:15:00Z", 101, 94.5, 95.2), at("2026-10-28T14:30:00Z", 103, 95.5, 102.5)] }],
+    ["POKE", { kind: "equity", bars: [at("2026-10-28T14:15:00Z", 101, 94.5, 95.2), at("2026-10-28T14:30:00Z", 103, 95.5, 102.5), at("2026-10-28T14:45:00Z", 103, 102, 102.5)] }],
     ["HELD", { kind: "equity", bars: [at("2026-10-28T14:00:00Z", 102, 96, 100)] }],
-    ["SELL", { kind: "equity", bars: [at("2026-10-28T15:00:00Z", 105, 99, 104.9)] }],
+    ["SELL", { kind: "equity", bars: [at("2026-10-28T15:00:00Z", 105, 99, 104.9), at("2026-10-28T15:15:00Z", 104.9, 104, 104.5)] }],
+    // the feed stops inside a bucket: 10:00-10:15 has prints only to 10:04, so it is not closed yet
+    ["LATE", { kind: "equity", bars: [at("2026-10-28T14:00:00Z", 101, 94, 94.5), at("2026-10-28T14:04:00Z", 95, 94, 94.2)] }],
     // 8:00 ET: a pre-market print never breaks a plan
     ["PRE", { kind: "equity", bars: [at("2026-10-28T12:00:00Z", 102, 80, 81), at("2026-10-28T14:00:00Z", 102, 96, 100)] }],
     // the session before the plan was priced (a holiday's scan) never breaks it
@@ -119,6 +121,7 @@ describe("the sweep's stop test", () => {
           { symbol: "PRE", direction: "bullish", stop_loss: 90, swept_at: swept },
           { symbol: "OLDBARS", direction: "bullish", stop_loss: 90, swept_at: swept },
           { symbol: "FORM", direction: "bullish", stop_loss: 90, swept_at: swept },
+          { symbol: "LATE", direction: "bullish", stop_loss: 95, swept_at: swept },
           { symbol: "NOSTOP", direction: "bullish", stop_loss: null, swept_at: swept },
           { symbol: "NOBARS", direction: "bullish", stop_loss: 1_000, swept_at: swept },
           { symbol: "HELD", direction: "none", stop_loss: 200, swept_at: swept },
@@ -135,9 +138,13 @@ describe("the sweep's stop test", () => {
       at("2026-10-28T14:14:00Z", 103, 98, 102),
       at("2026-10-28T14:16:00Z", 110, 90, 95),
     ];
-    expect(closedBreachBars(bars, Date.parse("2026-10-28T14:20:00Z"))).toEqual([{ h: 103, l: 98, c: 102 }]);
-    expect(stopBreachStands("up", 95, bars, Date.parse("2026-10-28T14:20:00Z"))).toBe(false);
-    expect(stopBreachStands("up", 95, bars, Date.parse("2026-10-28T14:30:00Z"))).toBe(true);
+    // 14:16's bucket has no print past its end, so only 14:00's is closed, whatever the clock says
+    expect(closedBreachBars(bars, Date.parse("2026-10-28T14:40:00Z"))).toEqual([{ h: 103, l: 98, c: 102 }]);
+    expect(stopBreachStands("up", 95, bars, Date.parse("2026-10-28T14:40:00Z"))).toBe(false);
+    const later = [...bars, at("2026-10-28T14:30:00Z", 96, 94, 95)];
+    expect(stopBreachStands("up", 95, later, Date.parse("2026-10-28T14:40:00Z"))).toBe(true);
+    // the clock still bounds it: nothing past now is read as closed
+    expect(closedBreachBars(later, Date.parse("2026-10-28T14:20:00Z"))).toEqual([{ h: 103, l: 98, c: 102 }]);
   });
 
   it("ends an early close's session at 1 PM", () => {
