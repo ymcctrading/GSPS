@@ -2,9 +2,10 @@
  * GSPS — /api/trade-journal/daily-email
  *
  * Fires 2 hours after the market close (see `vercel.json`'s cron schedule)
- * and emails every user with at least one closed trade their journal
- * spreadsheet — see `lib/journal/build-workbook.ts` for what's in it and why
- * it reads straight from `trade_logs` rather than keeping a second copy of
+ * and emails every opted-in member with at least one closed trade their journal
+ * spreadsheet, and (since 2026-10-28) the day's intraday signals from their
+ * bell, which no longer go by email one at a time. See
+ * `lib/journal/build-workbook.ts` for what's in it and why it reads straight from `trade_logs` rather than keeping a second copy of
  * the trade history.
  *
  * Runs across every user, not one — unlike the rest of this app's API
@@ -20,6 +21,7 @@ import { sendJournalEmail } from "@/lib/notifications/resend-handler";
 import { etDateKey } from "@/lib/market/session";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { emailOptedIn } from "@/lib/notifications/email-opt-in";
+import { digestSignalLines } from "@/lib/notifications/digestSignals";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
@@ -82,7 +84,26 @@ async function sendDailyJournals(): Promise<NextResponse> {
 
     const trades = (rows ?? []) as JournalTrade[];
     const closed = closedTrades(trades);
-    if (closed.length === 0) {
+
+    // Today's intraday signals, from the member's own bell (2026-10-28: they
+    // no longer go by email one at a time). An unread bell lists none.
+    const { data: bell } = await supabase
+      .from("in_app_notifications")
+      .select("title, created_at")
+      .eq("profile_id", user.id)
+      .eq("verdict", "Intraday")
+      .gte("created_at", new Date(now.getTime() - 30 * 3600_000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(500);
+    const signals = digestSignalLines((bell ?? []) as { title: string; created_at: string }[], now);
+
+    // Only on a day with something new: a trade closed today or a signal.
+    // Until 2026-10-28 any member who had ever closed a trade got it every
+    // evening; with email budgeted (lib/notifications/email-budget.ts), a day
+    // with nothing new sends nothing and the journal stays in the app.
+    const etToday = etDateKey(now);
+    const closedToday = closed.filter((t) => etDateKey(new Date(t.exit_timestamp as string)) === etToday).length;
+    if (closedToday === 0 && signals.lines.length === 0) {
       skipped++;
       continue;
     }
@@ -94,7 +115,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const exitedAt = (t: JournalTrade) => new Date(t.exit_timestamp as string).getTime();
 
-    const attachment = await buildJournalWorkbook(trades, now);
+    const attachment = closed.length > 0 ? await buildJournalWorkbook(trades, now) : null;
     const result = await sendJournalEmail({
       userEmail: user.email,
       dateLabel,
@@ -104,6 +125,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
       allTimeCount: closed.length,
       attachment,
       attachmentFilename: `gsps-trade-journal-${dateLabel}.xlsx`,
+      signals,
     });
 
     if (result.success) sent++;
