@@ -136,6 +136,19 @@ describe("checkNotificationFreshness", () => {
     expect(checkNotificationFreshness(realtime(), at("14:15", 1))).toMatchObject({ disposition: "informational", reason: "authorization_expired" });
   });
 
+  it("a fresh quote over bars a newer bar has followed is not current (mixed dependencies)", () => {
+    // Quote at 14:00, but the newest bar read closed 13:30: the 13:45 bar was usable and unread.
+    expect(checkNotificationFreshness(realtime({ structureAsOf: at("13:30").toISOString() }), at("14:02"))).toMatchObject({
+      disposition: "informational",
+      reason: "authorization_expired",
+    });
+    expect(checkNotificationFreshness(realtime({ structureAsOf: null }), at("14:02")).reason).toBe("authorization_expired");
+    // Bars through 13:50 on a 15-minute chart: the next closes 14:05, so at 14:02 nothing newer existed.
+    expect(checkNotificationFreshness(realtime({ structureAsOf: at("13:50").toISOString() }), at("14:02")).disposition).toBe("actionable");
+    // The same evidence, dispatched once the next bar exists, is no longer current.
+    expect(checkNotificationFreshness(realtime({ structureAsOf: at("13:50").toISOString() }), at("14:05")).reason).toBe("authorization_expired");
+  });
+
   it("an unrecognised bar length cannot be actionable", () => {
     expect(checkNotificationFreshness(realtime({ barMinutes: 7 }), at("14:02"))).toMatchObject({ reason: "authorization_expired" });
   });

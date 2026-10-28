@@ -52,6 +52,7 @@ in this order:
    - A feed that is not real-time gives `delayed_observation`.
    - A missing or mismatched authorization (symbol or plan) gives `actionability_unverified`.
    - A real-time observation older than a bar at dispatch gives `authorization_expired`.
+   - So does one whose bars a newer bar has since followed (`structureAsOf`, `newerBarUsable`): a current quote over stale bars is not a current decision. The scan withholds the authorization the same way.
    - Only what is left is `actionable`.
 
 The formatter (`buildIntradayBellRow(alert, freshness)`) is given the
@@ -80,6 +81,7 @@ INTENTIONAL EXCEPTION (with the reason), UNVERIFIED (not proven here).
 | Surface | Status | Where |
 |---|---|---|
 | Intraday scan: bars, recent bars and quote | IMPLEMENTED, TESTED | `scanIntraday` → `usableInput`; `lib/scanner/__tests__/noLookAhead.test.ts` (changing unusable bars on one symbol or another changes nothing) |
+| Intraday scan: a fresh quote over stale bars | IMPLEMENTED, TESTED | `alertTimeliness` records `structureAsOf` (the last bar's close) apart from `dataAsOf` (which a quote may set); no authorization while a newer bar was usable and unread. Checked again at dispatch. `noLookAhead.test.ts`, `freshness.test.ts`, `freshnessDelivery.test.ts` 7b |
 | Intraday scan: alert provenance | IMPLEMENTED, TESTED | `alertTimeliness` (data as of, usable, evaluated, age, lag hold, authorization only when real-time and usable) |
 | Intraday route: evaluation clock, receipt, feed | IMPLEMENTED | `app/api/intraday-scan/route.ts` (`scanIntraday(..., new Date())` after the fetch; `receivedAt` per batch; `resolveFeedPolicy`) |
 | Daily scan verdict (Execute while prices move) | IMPLEMENTED (already) | `applyDataLagHold` in `lib/scanTicker.ts`; plans read at the last completed session's close |
@@ -135,6 +137,9 @@ None of these were removed:
 - the measured-losing hold
 
 ## Known limits (from the review)
+
+- Bell deduplication and the digest read the bell row's title (pre-existing). Titles never change with the disposition, and a test holds that, but a structured signal key on the row would need a migration and is not in this change.
+- Across a session break, `newerBarUsable` reads the overnight gap as missed bars, so a real-time authorization waits for the session's first bar. Conservative, and moot while equities are delayed.
 
 - The live intraday route still fetches with `end = now - 16 min` (the feed's limit), so the scan runs about a minute behind what the contract allows.
 - The route evaluates the scan at its own clock after the fetch. The focus-list invalidation and other helpers still read the request's start time.

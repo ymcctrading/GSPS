@@ -248,3 +248,19 @@ describe("delayedFillIndex: no fill on extended-hours bars (review)", () => {
     expect(delayedFillIndex(bars, 0, { assetClass: "us_equity", delayMs: 15 * 60_000, intervalMinutes: 15 })).toBe(4);
   });
 });
+
+describe("newerBarUsable (dependency freshness)", () => {
+  it("reads whether the next bar after the last one read was already usable", async () => {
+    const { newerBarUsable } = await import("@/lib/data/timeliness");
+    const close = "2026-10-28T14:00:00.000Z";
+    expect(newerBarUsable(close, 15, 0, new Date("2026-10-28T14:14:59Z"))).toBe(false);
+    expect(newerBarUsable(close, 15, 0, new Date("2026-10-28T14:15:00Z"))).toBe(true);
+    // The delay counts once: the next 15-minute bar is usable at 14:30 on a delayed feed.
+    expect(newerBarUsable(close, 15, 15 * 60_000, new Date("2026-10-28T14:29:59Z"))).toBe(false);
+    expect(newerBarUsable(close, 15, 15 * 60_000, new Date("2026-10-28T14:30:00Z"))).toBe(true);
+    // Unknown is never current.
+    expect(newerBarUsable(null, 15, 0, new Date("2026-10-28T14:01:00Z"))).toBe(true);
+    expect(newerBarUsable("garbage", 15, 0, new Date("2026-10-28T14:01:00Z"))).toBe(true);
+    expect(newerBarUsable(close, Number.NaN, 0, new Date("2026-10-28T14:01:00Z"))).toBe(true);
+  });
+});

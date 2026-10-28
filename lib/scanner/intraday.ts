@@ -96,6 +96,7 @@ import {
   timeframeForMinutes,
   usableBy,
   type FeedEntitlement,
+  newerBarUsable,
 } from "@/lib/data/timeliness";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etDateKey, etParts } from "@/lib/market/session";
@@ -665,6 +666,13 @@ export interface AlertTimeliness {
   planKey: string | null;
   /** The bar length the alert read, in minutes. */
   barMinutes: number;
+  /**
+   * Close of the newest session bar the decision's structure read (swings,
+   * levels, volume). Kept apart from `dataAsOf`, which a fresher quote may set,
+   * so a current quote cannot pass stale bars off as current. Optional for
+   * alerts stored before 2026-10-28.
+   */
+  structureAsOf?: string | null;
 }
 
 
@@ -1921,7 +1929,13 @@ export function alertTimeliness(
   const age = observationAgeMs(m.dataTimestamp, now);
   const plan = input.dailyPlan;
   const planKey = plan ? `${plan.direction}:${plan.verdict}:${plan.entry}:${plan.stop}` : null;
-  const actionable = marketOpen && usable && !lag.holdsExecute && input.feed === "realtime";
+  // The quote may be newer than the bars; the structure is as old as its last
+  // bar. A decision is acted on only while no newer bar was usable that it did
+  // not read (`newerBarUsable`), so a fresh quote never launders stale bars.
+  const lastBar = input.bars[input.bars.length - 1];
+  const structureAsOf = lastBar ? sessionBarClose(lastBar, input) : null;
+  const structureCurrent = structureAsOf != null && !newerBarUsable(structureAsOf, input.barIntervalMinutes, delayMs, now);
+  const actionable = marketOpen && usable && structureCurrent && !lag.holdsExecute && input.feed === "realtime";
   return {
     feed: input.feed ?? "unknown",
     delayMs,
@@ -1935,6 +1949,7 @@ export function alertTimeliness(
     authorizationId: actionable ? `${input.symbol}:${type}:${direction}:${planKey ?? "session"}:${now.toISOString()}` : null,
     planKey,
     barMinutes: input.barIntervalMinutes,
+    structureAsOf,
   };
 }
 

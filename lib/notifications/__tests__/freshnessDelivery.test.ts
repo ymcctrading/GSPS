@@ -142,6 +142,10 @@ describe("freshness on every delivery path", () => {
     await both(d.client, [realtimeAlert({ type: "entry_reached" } as Partial<Alert>)], at(1));
     expect(String(d.tables.in_app_notifications[0].body)).toContain("Price is at the entry now");
     expect(sendPushMock.mock.calls[0][2].body).toContain("Price is at the entry now");
+    // The title is the signal's identity for bell deduplication and the digest: wording never moves it.
+    const delayed = db();
+    await both(delayed.client, [alert({ type: "entry_reached" } as Partial<Alert>)], at(1));
+    expect(delayed.tables.in_app_notifications[0].title).toBe(d.tables.in_app_notifications[0].title);
   });
 
   it("4. queue aging: dispatched more than one scan after evaluation, nothing goes", async () => {
@@ -188,6 +192,17 @@ describe("freshness on every delivery path", () => {
     expect(await both(d.client, [early], at(1))).toEqual({ bell: 0, push: 0 });
   });
 
+  it("7b. dependency freshness: a current quote over bars a newer bar followed reaches people, never as a trade", async () => {
+    const d = db();
+    const t = realtimeAlert().timeliness!;
+    const mixed = realtimeAlert({ type: "entry_reached", timeliness: { ...t, structureAsOf: new Date(EVAL.getTime() - 40 * 60_000).toISOString() } } as Partial<Alert>);
+    expect(await both(d.client, [mixed], at(1))).toEqual({ bell: 1, push: 1 });
+    for (const body of [String(d.tables.in_app_notifications[0].body), sendPushMock.mock.calls[0][2].body as string]) {
+      expect(body).not.toContain("Price is at the entry now");
+      expect(body).not.toMatch(/\bnow\b/i);
+    }
+  });
+
   it("8. independent permissions: an actionable alert still reaches no one without access or the channel", async () => {
     policyMock.mockResolvedValue(NOVICE);
     expect(await both(db().client, [realtimeAlert()], at(1))).toEqual({ bell: 0, push: 0 });
@@ -215,6 +230,16 @@ describe("freshness on every delivery path", () => {
     await both(d.client, [realtimeAlert({ ...held, timeliness: realtimeAlert().timeliness })], at(1));
     expect(String(d.tables.in_app_notifications[0].body)).toContain("This plan is held");
     expect(String(d.tables.in_app_notifications[0].body)).not.toContain("Price is at the entry now");
+  });
+
+  it("10b. protective: a reversal-risk warning is still delivered past the scan cadence, on bell and push", async () => {
+    const d = db();
+    const warning = alert({ type: "reversal_risk", direction: "down", continuationPlan: { paysRisk: null } } as unknown as Partial<Alert>);
+    expect(await both(d.client, [warning], at(20))).toEqual({ bell: 1, push: 1 });
+    expect(sendPushMock).toHaveBeenCalledTimes(1);
+    // The same age suppresses an entry instruction.
+    const entry = db();
+    expect(await both(entry.client, [alert()], at(20))).toEqual({ bell: 0, push: 0 });
   });
 
   it("11. clock: the log is stamped when the push went, not when the scan started", async () => {

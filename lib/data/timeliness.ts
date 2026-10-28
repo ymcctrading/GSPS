@@ -225,6 +225,22 @@ export function staleUnderRealtime(ageMs: number | null, timeframe: Timeframe): 
 }
 
 /**
+ * True when a bar newer than the one closing at `lastCloseAt` would already
+ * have been usable at `at` (its close, one bar later, plus the delay), so a
+ * decision read on bars through `lastCloseAt` has missed evidence it could
+ * have read. Not a chosen TTL: it is the next observation the contract says
+ * exists. Unknown times read as missed. Across a session break it reads the
+ * gap as missed bars, which only withholds an authorization until the
+ * session's first bar is read.
+ */
+export function newerBarUsable(lastCloseAt: Date | string | null | undefined, barMinutes: number, delayMs: number, at: Date): boolean {
+  const close = toMs(lastCloseAt);
+  const n = at.getTime();
+  if (close == null || !Number.isFinite(n) || !(barMinutes > 0) || !(delayMs >= 0)) return true;
+  return close + barMinutes * 60_000 + delayMs <= n;
+}
+
+/**
  * The first bar an order made at `decisionAt` could fill on: the first whose
  * open is at or after the decision. A bar that opened before the decision is
  * never filled at its open (approximation, stated: on bars only, a decision

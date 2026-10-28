@@ -36,7 +36,7 @@
  */
 
 import type { FeedEntitlement } from "@/lib/data/timeliness";
-import { availability, observationAgeMs, staleUnderRealtime, timeframeForMinutes, usableBy } from "@/lib/data/timeliness";
+import { availability, newerBarUsable, observationAgeMs, staleUnderRealtime, timeframeForMinutes, usableBy } from "@/lib/data/timeliness";
 import { SCAN_CADENCE_MINUTES } from "@/lib/scanner/entryApproach";
 import type { Alert } from "@/lib/scanner/intraday";
 import { MEASURED_LOSING } from "@/lib/scanner/intradayDisplay";
@@ -81,6 +81,12 @@ export interface FreshnessEvidence {
   evaluatedAt: string | null | undefined;
   /** The bar length the decision read, in minutes. */
   barMinutes: number;
+  /**
+   * Close of the newest bar the decision's structure read, when it differs
+   * from `dataAsOf` (a quote can be newer than the bars). undefined = not
+   * recorded; null = unknown, which is never current.
+   */
+  structureAsOf?: string | null;
   /** The plan the decision read, and the plan standing at dispatch (undefined = not re-read). */
   planKey?: string | null;
   currentPlanKey?: string | null;
@@ -143,6 +149,9 @@ export function checkNotificationFreshness(e: FreshnessEvidence, dispatchAt: Dat
   if (!e.authorizationId) return info("actionability_unverified");
   const forThis = e.authorizationFor;
   if (!forThis || forThis.symbol !== e.symbol || (forThis.planKey ?? null) !== (e.planKey ?? null)) return info("actionability_unverified");
+  // Every dependency, not only the newest: a fresh quote over bars a newer
+  // bar has since followed is not a current decision.
+  if (e.structureAsOf !== undefined && newerBarUsable(e.structureAsOf, e.barMinutes, e.delayMs, dispatchAt)) return info("authorization_expired");
   const timeframe = timeframeForMinutes(e.barMinutes);
   if (!timeframe || staleUnderRealtime(observationAgeMs(new Date(dataAsOf), dispatchAt), timeframe)) return info("authorization_expired");
 
@@ -179,6 +188,7 @@ export function alertFreshnessEvidence(
     receivedAt: t?.receivedAt ?? null,
     evaluatedAt: t?.evaluatedAt ?? null,
     barMinutes: t?.barMinutes ?? Number.NaN,
+    structureAsOf: t?.structureAsOf,
     planKey: t?.planKey ?? null,
     currentPlanKey: extra.currentPlanKey,
     authorizationId: t?.actionable ? t.authorizationId : null,

@@ -115,3 +115,28 @@ describe("no look-ahead in the intraday scan", () => {
     }
   });
 });
+
+describe("a fresh quote cannot launder stale bars (dependency freshness)", () => {
+  // Real-time feed, one-minute bars. The quote is current; the bars stop early.
+  const now = new Date(OPEN + 90 * 60_000);
+  const rt = (bars: Bar[], quoteAt: Date) =>
+    input("BTCX", bars, { feedDelayMs: 0, feed: "realtime", quote: { price: bars[bars.length - 1].c, at: quoteAt.toISOString() } });
+
+  it("records the bars' own as-of beside the quote's", async () => {
+    const { alertTimeliness } = await import("@/lib/scanner/intraday");
+    const bars = series(90, 100); // last bar 10:59-11:00, closed at now
+    const t = alertTimeliness(rt(bars, now), { dataTimestamp: now.toISOString() }, "old_level_cross", "up", now);
+    expect(t.structureAsOf).toBe(now.toISOString());
+    expect(t.actionable).toBe(true);
+  });
+
+  it("is not actionable when a newer bar was usable that the decision did not read", async () => {
+    const { alertTimeliness } = await import("@/lib/scanner/intraday");
+    const stale = series(60, 100); // bars end at 10:30 while the quote reads 11:00
+    const t = alertTimeliness(rt(stale, now), { dataTimestamp: now.toISOString() }, "old_level_cross", "up", now);
+    expect(t.dataAsOf).toBe(now.toISOString());
+    expect(t.structureAsOf).toBe(new Date(OPEN + 60 * 60_000).toISOString());
+    expect(t.actionable).toBe(false);
+    expect(t.authorizationId).toBeNull();
+  });
+});
