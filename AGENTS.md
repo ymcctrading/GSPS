@@ -1364,6 +1364,60 @@ a number at a price, divide it by `gannPoint` at that price; only his "3 points"
 Gann points directly. `STRATEGY_VERSION` was `2026-10-28-gann-figures-at-his-price`;
 Execute and the 7/4 cutoffs need a fresh run on it.
 
+**Levels from the major lows, 2026-10-28 (Gann alignment audit,
+`/mnt/project-files/gann-alignment-audit/`).** Jensen's square of 90 is laid at
+the long monthly record's major low and high (`jensenLevels`' `record`, the
+monthly chart with the daily bars, as the Square of 144 reads), not a year of
+daily bars: Jensen lays it "at every major low" after Gann's January 1931
+Pattern Chart. The nearest multiples of the low below and above the close join
+the S/R list (`lowMultipleLevels`; 45 Years Ch. IV p.30 ranks "100% of the low
+and its multiples" second only to 50%), which had been held on the card for a
+replay against "Every Gann method acts". They join `all` only, never the old
+levels `historicalSR` reads: from a deep major low they sit closer together
+than the 3-point band and were "held" on noise (queue review: long-side pass
+39.8% → 60.5% at $20 with a low a thirtieth of the start). The card's percentage levels
+read the same monthly anchors. The Sun's travel (`sunTravelLevel`, A-ASTRO-03)
+counts from the major low too: the 1954 coffee letter counts it from the April
+1931 low, years back, so it reads the closed weekly record (5 years, the weekly
+level chart) when its lowest week is below the daily year's low, dated to that
+week's Wednesday (engineering: a weekly bar holds no day), live and replay
+alike (`InstrumentFacts.weekly`, `buildStructuralLevels`); only a week that
+ended before the daily record counts, so a provider's week inside it never
+moves the low's day. Stated exception: the time side (Jensen's time counts and
+Mars's half return in `timeWindowsAt`) still counts from the daily year's
+extremes, since a count in days needs the low's day and a monthly bar dates
+none; held for the audit ledger. `STRATEGY_VERSION` was
+`2026-10-28-gann-levels-major-lows`.
+
+**Time and price at the turn, 2026-10-28 (alignment audit H2, the window
+saturation held since 2026-10-20).** The time-window hold read a turn as due
+when any dated window was open on it, and the windows were open on nearly every
+turn (100% of random-walk turns, 2026-10-27), so it selected nothing. Gann
+reads the two together: "when Time and Space balance, the stock makes top or
+bottom" (Master Course PDF 202), and the time counts mark a change "especially
+if the price is at 1/2 or 3/4 resistance" (Ch. 18, TP-2, PDF 440; TP-3 lists
+the price resistance levels beside the counts). So `readWindowTurn` now also
+needs the turn's extreme at the half or three quarters of a major range
+(`turnAtDivision`, `lib/gann/timeWindow.ts`: `rangeDivisions.ts`'s extreme
+range, highest price and latest campaign, read on the record before the turn,
+3/4 up from the low and down from the high, within the 3-point allowance), on
+the live scan and the replay alike (both take the default). TP-2's
+"especially" is an emphasis, not a stated requirement: making the division
+required is GSPS's reading of it, chosen because time alone selected nothing,
+and labelled as such. Random walks: the
+turn stood at one on 82% of turns at $20, 68% at $50, 54% at $150, 35% at $500.
+`STRATEGY_VERSION` was `2026-10-28-gann-time-and-price-at-turn`.
+**The distribution spell's width, same day (audit L-12).** The distribution
+spell and `distributedBefore` read "narrow" as 4/3 of the 3-point allowance
+(`NARROW_SPELL_ALLOWANCES`, `lib/gann/distribution.ts`), the widest range
+Gann dates as narrow (Master Course pp. 246-248), as the breakaway's range
+reads it since #513; it was 2 allowances. The three audit fixes merged onto the
+delayed fill timing and the midday release: `STRATEGY_VERSION` was
+`2026-10-28-gann-major-lows-time-price-spell`, merged onto the Rule of Three
+trend and P6's angle origin as `2026-10-28-major-lows-on-angle-origin` (no new
+rule), then onto the intraday audit (#515): `STRATEGY_VERSION` is
+`2026-10-28-major-lows-on-intraday-audit` (no new rule); Execute and the 7/4 cutoffs need a fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
@@ -3634,7 +3688,7 @@ The replay's reversal chain ran at most 3 deep; it now runs as NSTD Rule 6
 placement's `lossSeriesRefusal` does live (`LOSS_SERIES_LENGTH`). The twice-yearly
 rest reminder now comes back with a new entry placed in its window, as the
 away reminder does (`closeOutNotice`, `lib/trade/away-notice.ts`; *Truth of
-the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` is
+the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` was
 `2026-10-28-intraday-audit-on-angle-origin` (built alone as `2026-10-28-intraday-audit-fixes`, merged onto the Rule of Three trend and angle origin with no new rule); daily verdicts are unchanged. The same
 audit's trade, automation and lifecycle walk
 (`gann-alignment-audit/trade-automation-lifecycle.md`) moved three more:

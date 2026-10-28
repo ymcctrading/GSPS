@@ -281,7 +281,7 @@ describe("the nine pillars on the live scan and the replay", () => {
     const live = readFileSync(path.resolve(__dirname, "../../", "scanTicker.ts"), "utf8");
     const replay = readFileSync(path.resolve(__dirname, "../../", "backtest/replay.ts"), "utf8");
     const shared = readFileSync(path.resolve(__dirname, "../../", "scan/structuralLevels.ts"), "utf8");
-    expect(shared).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf, companyName\)/);
+    expect(shared).toMatch(/\.\.\.gannMasterLevels\(\[\.\.\.charts\.monthly, \.\.\.charts\.daily\], charts\.daily, price, asOf, companyName, charts\.weekly\)/);
     // The name chart (A-OTHER-08) reads the same stored name on both surfaces.
     expect(live).toMatch(/companyName: instrumentReference\?\.name \?\? null/);
     expect(replay).toMatch(/companyName: instrument\?\.name \?\? null/);

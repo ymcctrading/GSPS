@@ -157,6 +157,37 @@ describe("readAstroRules: the Sun's travel and Mars's half return (A-ASTRO-03, A
     expect(listed[0].label).toBe(level.label);
   });
 
+  it("keeps the daily low's own day when the weekly low falls inside the daily record", () => {
+    const asOf = noon("2022-12-13");
+    // A daily year whose low (490) is Friday 2022-11-11, inside it.
+    const daily = [...lowThen("2022-10-03", 500, "2022-10-04", "2022-11-10", 500), ...lowThen("2022-11-11", 490, "2022-11-14", "2022-12-13", 500)];
+    // The provider's week holding that low prints a cent lower.
+    const weekly: Bar[] = [{ t: "2022-11-07T05:00:00Z", o: 495, h: 501, l: 489.99, c: 500, v: 1000 }];
+    expect(sunTravelLevel(daily, asOf, 1)!.label).toContain("2022-11-11");
+    expect(sunTravelLevel(daily, asOf, 1, weekly)!.label).toBe(sunTravelLevel(daily, asOf, 1)!.label);
+    // An older week below the daily low is still found past that one.
+    const older: Bar[] = [{ t: "2020-03-16T04:00:00Z", o: 480, h: 485, l: 489.995, c: 482, v: 1000 }, ...weekly];
+    expect(sunTravelLevel(daily, asOf, 1, older)!.label).toContain("2020-03-18");
+  });
+
+  it("counts the Sun's travel from the weekly record's major low when it is below the daily year's", () => {
+    const asOf = noon("2022-12-13");
+    // A year of daily bars whose own low is 490; the weekly record reaches the
+    // week of Monday 2000-01-10, low 435, dated to its Wednesday.
+    const daily = lowThen("2022-11-09", 490, "2022-11-10", "2022-12-13", 500);
+    const weekly: Bar[] = [
+      { t: "2000-01-10T05:00:00Z", o: 437, h: 440, l: 435, c: 438, v: 1000 },
+      { t: "2022-11-07T05:00:00Z", o: 495, h: 501, l: 490, c: 500, v: 1000 },
+    ];
+    const level = sunTravelLevel(daily, asOf, 1, weekly)!;
+    expect(level.label).toContain("2000-01-12");
+    const exact = mod(SunPosition(asOf).elon - SunPosition(noon("2000-01-12")).elon);
+    expect(level.price).toBeCloseTo(435 + 22 * 360 + exact, 6);
+    expect(readAstroRules(daily, asOf, 1, undefined, weekly)!.sunTravel!.level).toBeCloseTo(level.price, 9);
+    // A weekly record whose low is not below the daily low leaves the daily low.
+    expect(sunTravelLevel(daily, asOf, 1, weekly.slice(1))!.label).toContain("2022-11-09");
+  });
+
   it("leaves the Sun's travel off when the low is not before the date read", () => {
     const series = lowThen("2022-12-13", 435, "2022-12-14", "2022-12-13", 500);
     expect(sunTravelLevel(series, noon("2022-12-13"), 1)).toBeNull();

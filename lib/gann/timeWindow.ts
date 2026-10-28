@@ -58,6 +58,28 @@
  * (2026-10-20). The counts cost about 0.7 ms on a 400-session walk, read
  * only when a counter-trend Execute needs a window.
  *
+ * Price at the turn (2026-10-28, alignment audit H2): the turn counts only
+ * when its extreme also stood at the half or three quarters of a major range
+ * (`turnAtDivision`). Gann reads time and price together: "when Time and
+ * Space balance, the stock makes top or bottom" (Master Course PDF 202), and
+ * the time counts mark a change "especially if the price is at 1/2 or 3/4
+ * resistance" (Ch. 18, TP-2, PDF 440); TP-3 (PDF 441) lists the price
+ * resistance levels among the indications beside the time counts. With the
+ * windows open on nearly every turn (above), time alone selected nothing.
+ * TP-2's "especially" is an emphasis, not a stated requirement; requiring the
+ * division is GSPS's reading of it (labelled), since time alone selected
+ * nothing. The time counts here (Jensen's, Mars's half return) still count
+ * from the daily year's extremes: a count in days needs the low's day, which a
+ * monthly bar does not hold (a stated exception to the levels' major lows).
+ * Engineering choices, labelled: the ranges are `rangeDivisions.ts`'s (the
+ * extreme range, the highest price, the latest campaign), read on the record
+ * before the turn only; 3/4 is read up from the low and down from the high
+ * (so 1/4 of the range too), as he measures "up from lows" and "down from
+ * highs"; "at" is his 3-point allowance at the division. Random walks (80
+ * walks, about 2,100 turns a price, 2026-10-28): the turn stood at one on 82%
+ * of turns at $20, 68% at $50, 54% at $150 and 35% at $500, looser at low
+ * prices with the allowance itself.
+ *
  * Three-question basis:
  * 1. Gann: as cited, class A. Jensen's and the planetary readings are the
  *    owner's 2026-10-16 decisions to let them act through this mechanism.
@@ -88,6 +110,8 @@ import { readHexagonTime } from "@/lib/gann/hexagonTime";
 import { readMasterChartTime } from "@/lib/gann/masterChartTime";
 import { gannPointForBars } from "@/lib/gann/pointScale";
 import { countWindowsAt, fewRepetitionNote } from "@/lib/gann/countWindows";
+import { majorRangeDivisions } from "@/lib/gann/rangeDivisions";
+import { levelBandPct } from "@/lib/scoring/proximity";
 
 export interface WindowTurn {
   kind: "bottom" | "top";
@@ -96,7 +120,32 @@ export interface WindowTurn {
   price: number;
   /** The windows open on that date, in plain words. */
   windows: string[];
+  /** The range division the turn's extreme stood at (`turnAtDivision`). */
+  priceLevel: string;
 }
+
+/** The divisions a turn counts at: 1/2, and 3/4 read up from the low and down from the high. */
+const TURN_DIVISIONS = new Set(["1/4", "1/2", "3/4"]);
+
+/**
+ * Reads whether the turn's extreme `price` stood at the half or three quarters
+ * of a major range, read on the record before the turn only (`through`, the
+ * daily bars through the turn; `monthlyThrough`, the months closed before its
+ * month). Returns the division's label, or null.
+ */
+export type PriceAtTurn = (through: Bar[], monthlyThrough: Bar[] | null, price: number) => string | null;
+
+export const turnAtDivision: PriceAtTurn = (through, monthlyThrough, price) => {
+  if (!(price > 0)) return null;
+  const monthly = monthlyThrough ?? [];
+  let best: { label: string; d: number } | null = null;
+  for (const l of majorRangeDivisions([...monthly, ...through], monthly)) {
+    if (!TURN_DIVISIONS.has(l.label.split(" ")[0])) continue;
+    const d = (Math.abs(price - l.price) / price) * 100;
+    if (d <= levelBandPct(l.price) && (!best || d < best.d)) best = { label: l.label, d };
+  }
+  return best?.label ?? null;
+};
 
 /**
  * The windows open on `date` for a turn of `kind`, read on `bars` (which end at
@@ -230,6 +279,8 @@ export function readWindowTurn(
   windowsAt: WindowsAt = timeWindowsAt,
   /** The company's inception and name (A-TIME-24, A-OTHER-08) and its confirmed first trade (C-ASTRO-09); both surfaces pass the stored reference. */
   anchors: WindowAnchors | null = null,
+  /** Price at the turn; both surfaces take the default (`turnAtDivision`). */
+  priceAt: PriceAtTurn = turnAtDivision,
 ): WindowTurn | null {
   const kind = direction === "bullish" ? "bottom" : "top";
   const pivot = [...walkSwingChart(daily, THREE_DAY_CHART).pivots].reverse().find((p) => p.kind === kind);
@@ -238,7 +289,9 @@ export function readWindowTurn(
   const date = daily[pivot.index].t.slice(0, 10);
   const monthlyThrough = monthly ? monthly.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null;
   const windows = windowsAt(through, date, kind, monthlyThrough, anchors);
-  return windows.length > 0 ? { kind, date, price: pivot.price, windows } : null;
+  if (windows.length === 0) return null;
+  const priceLevel = priceAt(through, monthlyThrough, pivot.price);
+  return priceLevel ? { kind, date, price: pivot.price, windows, priceLevel } : null;
 }
 
 /** Whether a setup of this kind needs a window turn to act (A-TIME-15 with HTMPC p.56): counter-trend only. */

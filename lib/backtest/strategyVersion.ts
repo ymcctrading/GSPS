@@ -1003,4 +1003,40 @@
 // 2026-10-28-intraday-audit-on-angle-origin: the intraday audit fixes (#515)
 // merged onto the Rule of Three trend and angle origin (#522). No new rule
 // beyond theirs.
-export const STRATEGY_VERSION = "2026-10-28-intraday-audit-on-angle-origin";
+// (was STRATEGY_VERSION "2026-10-28-intraday-audit-on-angle-origin")
+// 2026-10-28-gann-levels-major-lows (Gann alignment audit, rest-of-gann.md
+// R24 and R38): Jensen's square of 90 is laid at the major low and high of the
+// long monthly record, not of a year of daily bars ("at every major low",
+// after Gann's January 1931 Pattern Chart), and the nearest multiples of the
+// low below and above the close join the S/R list ("100% of the low and its
+// multiples", second only to 50%, 45 Years Ch. IV p.30; they had been held on
+// the card). The card's percentage levels read the same monthly anchors.
+// The Sun's travel (R09) counts from the weekly record's major low when it is
+// below the daily year's (the coffee letter counts from the 1931 low).
+// Plan stops and targets move; live verdicts and replay trades with them.
+// (was STRATEGY_VERSION "2026-10-28-gann-levels-major-lows")
+// 2026-10-28-gann-time-and-price-at-turn (alignment audit H2): a counter-trend
+// Execute's turn counts in the time-window hold only when a dated window was
+// open on it AND its extreme stood at the half or three quarters of a major
+// range (`turnAtDivision`, Master Course PDF 202, Ch. 18 TP-2). The windows
+// alone were open on nearly every turn. Counter-trend verdicts move.
+// (built alone as "2026-10-28-gann-time-and-price-at-turn")
+// 2026-10-28-gann-narrow-spell (alignment audit L-12): the distribution
+// spell and the distributed-before check read "narrow" as 4/3 of the 3-point
+// allowance (NARROW_SPELL_ALLOWANCES), his widest dated narrow range (Master
+// Course pp. 246-248), as the breakaway's range reads it since #513; it was 2
+// allowances. Distribution exits and refusals move.
+// 2026-10-28-gann-major-lows-time-price-spell: the three audit fixes above,
+// merged onto the delayed fill timing and the midday release, whose rules they
+// keep. Verdicts and replay trades move; Execute and the 7/4 cutoffs need a run.
+// (was STRATEGY_VERSION "2026-10-28-gann-major-lows-time-price-spell")
+// 2026-10-28-major-lows-on-angle-origin: the three audit fixes merged onto the
+// Rule of Three trend and P6's angle origin. Before release, the low's
+// multiples were kept out of the old levels `historicalSR` reads (S/R list
+// only), so a deep major low's close-spaced multiples are not held on noise.
+// (was STRATEGY_VERSION "2026-10-28-major-lows-on-angle-origin")
+// 2026-10-28-major-lows-on-intraday-audit: #509's audit fixes (Jensen's square
+// at the major low and high, time and price at the turn, the 4/3-allowance
+// distribution spell, the low's multiples in the S/R list only) merged onto the
+// intraday audit release (#515). No new rule beyond theirs.
+export const STRATEGY_VERSION = "2026-10-28-major-lows-on-intraday-audit";

@@ -519,9 +519,9 @@ export async function scanTicker(
     // The rules the nine pillars read (lib/scoring/pillars.ts), read once and
     // shared with the confluence card below, as the replay reads them.
     const instrumentFacts = instrumentReference
-      ? { ...instrumentReference, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
+      ? { ...instrumentReference, marketDaily, weekly: charts.weekly, monthly: charts.monthly, monthlyLong, marketMonthly }
       : marketDaily
-        ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
+        ? { sharesOutstanding: null, inception: null, marketDaily, weekly: charts.weekly, monthly: charts.monthly, monthlyLong, marketMonthly }
         : null;
     const disclosedRules = readDisclosedRules(charts.daily, planPrice, instrumentFacts, sessionNoon, new Date());
     const pillarFacts = readPillarFacts({

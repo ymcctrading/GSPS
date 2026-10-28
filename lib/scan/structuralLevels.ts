@@ -16,7 +16,7 @@
  * 3. Hermetic: Correspondence (one list, live and in the measurement of it).
  */
 import type { Bar, Timeframe, TrendReading } from "@/lib/types";
-import { majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
+import { lowMultipleLevels, majorPricePercentageLevels } from "@/lib/gann/disclosedRules";
 import { campaignSupportLevels, readCampaignBottoms } from "@/lib/gann/campaignBottoms";
 import { secondaryTurnLevels, type CampaignLedger } from "@/lib/gann/campaignLedger";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
@@ -59,7 +59,7 @@ export function oldStructuralLevels(input: {
 
 export function buildStructuralLevels(input: {
   trends: { daily: TrendReading; weekly: TrendReading; monthly: TrendReading };
-  charts: { daily: Bar[]; monthly: Bar[] };
+  charts: { daily: Bar[]; weekly: Bar[]; monthly: Bar[] };
   campaign: CampaignLedger | null;
   price: number;
   asOf: Date;
@@ -71,9 +71,13 @@ export function buildStructuralLevels(input: {
   const all: StructuralLevel[] = [
     ...pivots(trends.daily),
     ...old,
+    // The nearest multiples of the low either side of the close (45 Years
+    // Ch. IV p.30), in the list only: never in `old`, where a deep low's
+    // close-spaced multiples would be "held" on noise (lowMultipleLevels).
+    ...lowMultipleLevels([...charts.monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),
     // Gann's Square of 144 squares, his planetary averages and the other
     // lattices, as price resistance (2026-09-30). See lib/gann/masterLevels.ts.
-    ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, price, asOf, companyName).map((l) => ({
+    ...gannMasterLevels([...charts.monthly, ...charts.daily], charts.daily, price, asOf, companyName, charts.weekly).map((l) => ({
       price: l.price,
       timeframe: "1Month" as const,
     })),

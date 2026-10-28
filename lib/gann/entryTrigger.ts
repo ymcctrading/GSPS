@@ -757,7 +757,7 @@ export const DISTRIBUTION_LOOKBACK_DAYS = 91;
  * formed a narrow range whose high stands within 3 points of
  * the highest high of those days, at or over the level that breaks. Engineering
  * choices, labelled: the spell's length, the look-back, "narrow" as the
- * distribution rule reads its spell (`NARROW_SPELL_ALLOWANCES`, 2 allowances), and "at a top" as within 3 points of the look-back's high.
+ * distribution rule reads its spell (`NARROW_SPELL_ALLOWANCES`, 4/3 of an allowance, his widest dated narrow range), and "at a top" as within 3 points of the look-back's high.
  */
 export function distributedBefore(bars: Bar[], end: number, level: number): boolean {
   if (end <= 0) return false;
