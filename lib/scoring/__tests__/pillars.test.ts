@@ -415,6 +415,7 @@ describe("P1's yearly counts read only months before the session (2026-10-28)", 
   it("gives the same counts whether or not the long record holds later months", async () => {
     const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
     const { readPillarFacts } = await import("@/lib/scoring/pillars");
+    const { pillarYearCycleConvergence } = await import("@/lib/gann/timeCycles");
     const daily: Bar[] = Array.from({ length: 60 }, (_, i) => {
       const c = 50 + (i % 7);
       return { t: new Date(Date.UTC(2026, 7, 1) + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1_000_000 };
@@ -424,15 +425,19 @@ describe("P1's yearly counts read only months before the session (2026-10-28)", 
       const c = 50 + (i % 2 === 0 ? 0.3 : -0.3) + (i % 5) * 0.05 + extra;
       return { t: new Date(Date.UTC(1966, i, 1)).toISOString(), o: c, h: c + 0.5 + (i % 3) * 0.01, l: c - 0.5 - (i % 4) * 0.01, c, v: 1 };
     };
-    // Monthly bars from 1966 to September 2026, with a major high in January 1981.
-    const closed = Array.from({ length: 729 }, (_, i) => month(i, i === 180 ? 30 : 0));
-    // The same, plus later months holding a far bigger swing than any before.
-    const withFuture = [...closed, ...Array.from({ length: 24 }, (_, k) => month(729 + k, k === 6 ? 200 : 0))];
+    // Monthly bars from 1966 to September 2026, with a major high in October
+    // 1981, exactly 45 years (a 1955-list count) before the session's month.
+    const closed = Array.from({ length: 729 }, (_, i) => month(i, i === 189 ? 30 : 0));
+    // Forty years of later months with far bigger swings: read, they would push the 1981
+    // high out of the major swings.
+    const withFuture = [...closed, ...Array.from({ length: 480 }, (_, k) => month(729 + k, k % 6 === 3 ? 400 : 0))];
     const rules = readDisclosedRules(daily, daily[daily.length - 1].c, null, asOf);
     const input = { rules, daily, monthly: [], marketDaily: null, universe: null, oldLevels: [], price: daily[daily.length - 1].c, asOf };
     const a = readPillarFacts({ ...input, yearCountMonthly: closed }).yearCycle;
     const b = readPillarFacts({ ...input, yearCountMonthly: withFuture }).yearCycle;
-    expect(a).not.toBeNull();
+    expect(a?.bearishHits).toBeGreaterThanOrEqual(1);
     expect(b).toEqual(a);
+    // The fixture discriminates: read uncut, the later months change the count.
+    expect(pillarYearCycleConvergence(withFuture, asOf)).not.toEqual(a);
   });
 });
