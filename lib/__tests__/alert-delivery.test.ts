@@ -4,8 +4,8 @@
  * against a fake client that answers the query shapes it issues.
  *
  * This half covers the intraday bell (`recordIntradayBells`): who receives a
- * new intraday signal, by watchlist, monitor and tier, and that a repeat
- * inside the cooldown is not written twice.
+ * new intraday signal, by watchlist, monitor and tier, and that a signal
+ * still standing is not written twice the same day.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -125,7 +125,6 @@ describe("intraday bell delivery", () => {
     const db = fakeDb(seed());
     const written = await recordIntradayBells(db.client, [alert("SPY")], {
       intervalBySymbol: new Map([["SPY", 1]]),
-      cooldownMinutes: 30,
       now,
     });
     // Novice has no intraday; Pro's module takes 1-minute bars as unconfirmed;
@@ -141,26 +140,41 @@ describe("intraday bell delivery", () => {
     const db = fakeDb(seed());
     await recordIntradayBells(db.client, [alert("SPY")], {
       intervalBySymbol: new Map([["SPY", 15]]),
-      cooldownMinutes: 30,
       now,
     });
     expect(recipients(db.tables.in_app_notifications)).toEqual(["expert-a", "expert-b", "pro-p"]);
   });
 
-  it("does not write the same signal twice inside the cooldown, and does after it", async () => {
+  it("writes a standing signal once a day, again after it turns the other way, and on a new day", async () => {
     const db = fakeDb(seed());
-    const args = { intervalBySymbol: new Map([["SPY", 1]]), cooldownMinutes: 30, now };
+    const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
     await recordIntradayBells(db.client, [alert("SPY")], args);
-    now = new Date("2026-10-21T15:45:00Z");
-    expect(await recordIntradayBells(db.client, [alert("SPY")], { ...args, now })).toBe(0);
+    // Still standing past the scanner's 30-minute cooldown: no repeat (2026-10-26 had 4,515 notices for 1,115 pairs).
     now = new Date("2026-10-21T16:05:00Z");
+    expect(await recordIntradayBells(db.client, [alert("SPY")], { ...args, now })).toBe(0);
+    now = new Date("2026-10-21T19:50:00Z");
+    expect(await recordIntradayBells(db.client, [alert("SPY")], { ...args, now })).toBe(0);
+    // Turned down, then up again: each turn is a new move.
+    now = new Date("2026-10-21T20:00:00Z");
+    expect(await recordIntradayBells(db.client, [alert("SPY", { direction: "down" })], { ...args, now })).toBe(2);
+    now = new Date("2026-10-21T20:15:00Z");
     expect(await recordIntradayBells(db.client, [alert("SPY")], { ...args, now })).toBe(2);
-    expect(db.tables.in_app_notifications).toHaveLength(4);
+    // The next New York session starts afresh.
+    now = new Date("2026-10-22T14:00:00Z");
+    expect(await recordIntradayBells(db.client, [alert("SPY")], { ...args, now })).toBe(2);
+    expect(db.tables.in_app_notifications).toHaveLength(8);
+  });
+
+  it("keeps different signals on one symbol apart", async () => {
+    const db = fakeDb(seed());
+    const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
+    await recordIntradayBells(db.client, [alert("SPY")], args);
+    expect(await recordIntradayBells(db.client, [alert("SPY", { type: "trend_continuation" } as Partial<Alert>)], args)).toBe(2);
   });
 
   it("treats the other direction as a new signal", async () => {
     const db = fakeDb(seed());
-    const args = { intervalBySymbol: new Map([["SPY", 1]]), cooldownMinutes: 30, now };
+    const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
     await recordIntradayBells(db.client, [alert("SPY")], args);
     expect(await recordIntradayBells(db.client, [alert("SPY", { direction: "down" })], args)).toBe(2);
   });
@@ -176,7 +190,6 @@ describe("intraday bell delivery", () => {
     const intervalBySymbol = new Map(symbols.map((s) => [s, 15]));
     const written = await recordIntradayBells(db.client, symbols.map((s) => alert(s)), {
       intervalBySymbol,
-      cooldownMinutes: 30,
       now,
     });
     // DEFAULT_PRO_INTRADAY_POLICY.setupsDisplayedPerDayMax is 5.
@@ -186,8 +199,7 @@ describe("intraday bell delivery", () => {
     expect(
       await recordIntradayBells(db.client, [alert("SPY", { direction: "down" }), alert("AAPL")], {
         intervalBySymbol,
-        cooldownMinutes: 30,
-        now,
+          now,
       }),
     ).toBe(1);
   });
@@ -196,7 +208,6 @@ describe("intraday bell delivery", () => {
     const db = fakeDb(seed());
     const written = await recordIntradayBells(db.client, [alert("NVDA")], {
       intervalBySymbol: new Map(),
-      cooldownMinutes: 30,
       now,
     });
     expect(written).toBe(0);
