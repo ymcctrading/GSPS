@@ -219,6 +219,10 @@ export async function dispatchNotificationDelivery(
       ? await preferenceHold(service, args.profileId, payload)
       : "The member has this channel turned off.";
   }
+  // Re-read the plan's standing at send time (NOTIFY-FRESHNESS-001): a queued
+  // or retried alert whose monitor has since moved on is not sent. A broken
+  // setup's warning is never held here.
+  if (!held) held = await supersededHold(service, args.profileId, payload);
   if (held) {
     result = { success: false, skipped: true, error: held };
   } else if (current.channel === "push") {
@@ -283,6 +287,42 @@ export async function preferenceHold(
     }
     return null;
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Why a queued alert no longer describes the member's tracked setup, or null
+ * when it still does (NOTIFY-FRESHNESS-001's superseded plan, at dispatch).
+ * The alert was recorded on a WATCH -> EXECUTE transition; once the member's
+ * open monitor for the symbol is gone, or reads another state, a later scan
+ * has replaced it and the retry would send a plan that no longer stands. An
+ * invalidation is never held: a protective warning goes whatever the plan's
+ * state. Unreadable state holds nothing, as `preferenceHold` does, so a
+ * read failure keeps the behaviour before this check rather than dropping
+ * live alerts; it is logged.
+ */
+export async function supersededHold(
+  service: SupabaseClient,
+  profileId: string,
+  payload: NotificationPayload,
+): Promise<string | null> {
+  if (payload.verdict === "INVALIDATED") return null;
+  try {
+    const { data, error } = await service
+      .from("active_monitors")
+      .select("state")
+      .eq("profile_id", profileId)
+      .eq("symbol", payload.symbol)
+      .in("state", ["WATCH", "EXECUTE"])
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const state = (data as { state?: string } | null)?.state ?? null;
+    if (state == null) return "The setup has changed since this alert: no open plan is tracked now.";
+    if (state !== payload.verdict.toUpperCase()) return `The setup has changed since this alert: it reads ${state === "WATCH" ? "Watch" : state} now.`;
+    return null;
+  } catch (err) {
+    console.error("[delivery] monitor state unread at dispatch; sending as recorded:", err instanceof Error ? err.message : err);
     return null;
   }
 }

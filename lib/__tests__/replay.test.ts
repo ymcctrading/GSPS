@@ -309,11 +309,12 @@ describe("replay entryRule: confirmed", () => {
     expect(r.trades).toHaveLength(0);
   });
 
-  it("fills at the open of the bar after the hold completes the sequence", () => {
+  it("fills at the open of the bar after the hold completes the sequence (no data delay)", () => {
     const r = replay("TEST", session([touch, brk, retest, hold, next, quiet]), {
       targetR: 2,
       dailyBars: DAILY,
       entryRule: "confirmed",
+      feedDelayMs: 0,
     });
     expect(r.trades).toHaveLength(1);
     const t = r.trades[0];
@@ -322,6 +323,34 @@ describe("replay entryRule: confirmed", () => {
     // deriveOrderInputFromPlan attaches it. It is not re-derived from the fill.
     expect(t.stop).toBeCloseTo(TRIGGER.stopPrice, 10);
     expect(t.target).toBeCloseTo(P + SIDE * 2 * RISK, 10);
+  });
+
+  // DATA-DELAY-001: the hold bar closes at T; under the 15-minute delay its
+  // close is usable at T + 15, so on 15-minute bars the order fills at the
+  // open of the bar after `next`, never at `next.o`.
+  it("under the 15-minute delay fills one 15-minute bar later, at the first open after the hold could be read", () => {
+    const after = at(1.6, 1.5, 1.9, 1.7);
+    const r = replay("TEST", session([touch, brk, retest, hold, next, after, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      entryRule: "confirmed",
+    });
+    expect(r.feedDelayMs).toBe(15 * 60_000);
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].entry).toBeCloseTo(after.o, 10);
+    expect(r.trades[0].entry).not.toBeCloseTo(next.o, 10);
+  });
+
+  it("books no fill when the stop trades before the delayed signal could be acted on", () => {
+    const stopOut = at(1.4, 1.2, -(RISK + 0.5), -0.5);
+    const after = at(1.0, 0.8, 1.2, 1.0);
+    const r = replay("TEST", session([touch, brk, retest, hold, stopOut, after, quiet]), {
+      targetR: 2,
+      dailyBars: DAILY,
+      entryRule: "confirmed",
+    });
+    expect(r.trades).toHaveLength(0);
+    expect(r.delayedRefusals).toBe(1);
   });
 
   it("drops a fill that lands past the plan's own target, and counts it", () => {

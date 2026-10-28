@@ -67,6 +67,7 @@ import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import type { DailyTradeStyle } from "@/lib/trade/tradeStyle";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
 import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
 import type { TradeLevels } from "@/lib/types";
 import {
@@ -159,6 +160,12 @@ export const CRYPTO_BARS_PER_SESSION = 96;
 export const MIN_DAILY_BARS_FOR_SCORE = MIN_DAILY_BARS_FOR_SCAN;
 
 export interface ReplayOptions {
+  /**
+   * The data delay modeled, in milliseconds (DATA-DELAY-001). Defaults to the
+   * feed's contract for the symbol (`replayFeedDelayMs`: 15 minutes for a US
+   * equity, 0 for crypto). 0 reproduces runs made before 2026-10-28.
+   */
+  feedDelayMs?: number;
   /** Take-profit distance as a multiple of the trade's risk. */
   targetR: number;
   /**
@@ -704,6 +711,14 @@ export interface ReplayResult {
    * 2026-10-28; `lib/gann/planExpiry.ts`) rather than for a broken stop.
    */
   expiredPlans?: number;
+  /**
+   * The data delay this run modeled (DATA-DELAY-001, 2026-10-28): a
+   * closed-bar entry fills no earlier than its signal bar's close plus this
+   * (`delayedFillIndex`). Recorded so a run keeps its delay model.
+   */
+  feedDelayMs?: number;
+  /** Of `refusedFills`, entries whose stop traded, or whose data ran out, before the delayed fill. */
+  delayedRefusals?: number;
 }
 
 /** Why a fired entry was dropped with no trade recorded (`ReplayResult.droppedPlans`). */
@@ -1013,6 +1028,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // The run's delay model: the feed's contract, never today's environment
+  // (`replayFeedDelayMs`), unless the caller states one.
+  const feedDelayMs = options.feedDelayMs ?? replayFeedDelayMs(assetClass);
+  let delayedRefusals = 0;
+  const fillAfter = (signal: number) =>
+    delayedFillIndex(bars, signal, { assetClass, delayMs: feedDelayMs, intervalMinutes: barMinutesAt(bars, signal) });
   // Ten sessions held on every asset (review finding F-06): ten equity
   // sessions are 260 candles, but 260 candles of a coin that trades all day
   // and night are under three days.
@@ -1372,6 +1393,30 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
       if (!fired) continue;
 
+      // DATA-DELAY-001 (owner, 2026-10-28): a market order decided on a closed
+      // bar is placed once that bar could have been read, its close plus the
+      // feed's delay, and fills at the open of the first bar at or after then
+      // (`delayedFillIndex`). Under the 15-minute equity delay that is two
+      // 15-minute bars after the signal bar, not one; daily bars still fill at
+      // the next session. A plan whose stop traded before then is retired, so
+      // no trade is booked at a fill the delayed reader could not have had. A
+      // resting stop order ("stop" rule) sits at the broker, which is not
+      // delayed by the data, so it keeps the live candle.
+      const f = closedBarRule ? fillAfter(i - 1) : i;
+      if (f !== i) {
+        const fillStop = entryRule === "reaction" ? trigger.reactionStop : planStop ?? trigger.stopPrice;
+        let stoppedFirst = f < 0;
+        for (let k = i; !stoppedFirst && k < f; k++) if (isStopBreachedByBar(trigger.direction, fillStop, bars[k])) stoppedFirst = true;
+        if (stoppedFirst) {
+          consumedPivots.add(pivotKey);
+          triggered++;
+          refusedFills++;
+          delayedRefusals++;
+          continue;
+        }
+      }
+      const fillBar = bars[f];
+
       const executionAtr = atr(history.slice(-30), 14);
       const pattern =
         rankArmedPatterns({
@@ -1383,7 +1428,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         })[0] ?? null;
 
       consumedPivots.add(pivotKey);
-      if (trigger.kind === "crossing") boughtLevels.push({ prefix: levelPrefix, level: trigger.level, at: live.t });
+      if (trigger.kind === "crossing") boughtLevels.push({ prefix: levelPrefix, level: trigger.level, at: fillBar.t });
       triggered++;
 
       // A stop entry fills at the trigger, or at the open when a candle opens
@@ -1392,10 +1437,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // (never-failing rule 9), both filled at this candle's open.
       const entry =
         entryRule === "reaction" || entryRule === "confirmed"
-          ? live.o
+          ? fillBar.o
           : long
-            ? Math.max(trigger.triggerPrice, live.o)
-            : Math.min(trigger.triggerPrice, live.o);
+            ? Math.max(trigger.triggerPrice, fillBar.o)
+            : Math.min(trigger.triggerPrice, fillBar.o);
       const { largeCap } = arm;
 
       // The harness's original stop is the raw structural stop, untouched by
@@ -1520,7 +1565,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt: i - 1, side: long ? "long" : "short",
             cause: "initial", brokenLevel: stop, extreme: fill, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled, fillAfter,
           })) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
@@ -1549,7 +1594,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
 
       if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
         const walked = walkGannExit({
-          bars, from: i, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
+          bars, from: f, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
           // A double or triple bottom, or a bottom that held, crosses nothing:
           // its exit is the stop 3 points under the low, as the live exit
           // reads it (`entryCrossedLevel`).
@@ -1562,21 +1607,21 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           style: tradeStyle,
         });
         trades.push({
-          symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
+          symbol, openedAt: fillBar.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
           entry, stop, target,
           atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
           score: decision.score,
           outputState: decision.outputState,
           criteria: criteriaOf(decision),
           contextFactors: withPlanReady(contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1, {
-            time: live.t,
-            barMinutes: barMinutesAt(bars, i),
+            time: fillBar.t,
+            barMinutes: barMinutesAt(bars, f),
           }), sessionPlanReady.get(planKey)),
           largeCap,
-          yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+          yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, fillBar.t, trigger.direction) : undefined,
           selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
           barsHeld: walked.barsHeld,
-          closedAt: bars[i + walked.barsHeld - 1].t,
+          closedAt: bars[f + walked.barsHeld - 1].t,
           // A win is a trade that made money after costs, on the same net basis
           // as its R (review finding F-07).
           outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
@@ -1587,14 +1632,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
           ambiguous: false,
         });
-        const caughtAt = i + walked.barsHeld - 1;
+        const caughtAt = f + walked.barsHeld - 1;
         const sharesOn = instrument ? (date: string) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined;
         const rebuy = rebuyAfterStop ? rebuyPlanAt({ bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short", cause: walked.reason, extreme: walked.best ?? entry, entryPrice: entry }) : null;
         if (reverseWhenCaught) {
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
             cause: walked.reason, brokenLevel: walked.finalExit, extreme: walked.best ?? entry, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry, disabled, style: tradeStyle,
+            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry, disabled, style: tradeStyle, fillAfter,
           })) {
             // Not scored: no verdict, score or criteria is inherited (see `derived`).
             trades.push({
@@ -1604,7 +1649,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }
         }
         if (rebuy) {
-          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled, style: tradeStyle });
+          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled, style: tradeStyle, fillAfter });
           if (r) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
@@ -1615,12 +1660,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         continue;
       }
 
-      for (let j = i; j < Math.min(bars.length, i + maxBarsHeld); j++) {
+      for (let j = f; j < Math.min(bars.length, f + maxBarsHeld); j++) {
         const b = bars[j];
         const hitStop = long ? b.l <= stop : b.h >= stop;
         const hitTarget = long ? b.h >= target : b.l <= target;
         if (!hitStop && !hitTarget) continue;
-        barsHeld = j - i + 1;
+        barsHeld = j - f + 1;
         ambiguous = hitStop && hitTarget;
         // Both in one bar: no way to order them, so assume the loss.
         outcome = hitStop ? "loss" : "win";
@@ -1628,30 +1673,30 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       const base = {
-        symbol, openedAt: live.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
+        symbol, openedAt: fillBar.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
         entry, stop, target,
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         score: decision.score,
         outputState: decision.outputState,
         criteria: criteriaOf(decision),
         contextFactors: withPlanReady(contextFactorsFor(arm.context.disclosedRules, trigger.direction, entry, path?.takeProfit1, {
-            time: live.t,
-            barMinutes: barMinutesAt(bars, i),
+            time: fillBar.t,
+            barMinutes: barMinutesAt(bars, f),
           }), sessionPlanReady.get(planKey)),
         largeCap,
-        yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, live.t, trigger.direction) : undefined,
+        yearCycleHits: monthlyBars ? yearCycleHitsAt(monthlyBars, fillBar.t, trigger.direction) : undefined,
         selectionStrength: selectionStrength(trigger.direction, arm.context.disclosedRules.leadership, arm.context.disclosedRules.weakStock, arm.context.pillarFacts.universeRank),
         crossedLevel: planLevel,
       };
 
       if (outcome === "timeout") {
         // Marked out at the last close rather than silently dropped.
-        barsHeld = Math.min(maxBarsHeld, bars.length - i);
-        const exitBar = bars[Math.min(bars.length - 1, i + barsHeld - 1)];
+        barsHeld = Math.min(maxBarsHeld, bars.length - f);
+        const exitBar = bars[Math.min(bars.length - 1, f + barsHeld - 1)];
         const exit = exitBar.c;
         trades.push({
           ...base, barsHeld, closedAt: exitBar.t, outcome,
-          exitReason: timeoutReasonAt(i, maxBarsHeld, bars.length),
+          exitReason: timeoutReasonAt(f, maxBarsHeld, bars.length),
           exitPrice: exit,
           rMultiple: (dir * (exit - entry) - costPerShare) / risk,
           ambiguous: false,
@@ -1660,17 +1705,17 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       }
 
       // Gross P&L is the actual price distance from the fill to the exit.
-      const exitPrice = outcome === "win" ? target : stopFill(long, stop, bars[i + barsHeld - 1].o);
+      const exitPrice = outcome === "win" ? target : stopFill(long, stop, bars[f + barsHeld - 1].o);
       const gross = dir * (exitPrice - entry);
       trades.push({
-        ...base, barsHeld, closedAt: bars[i + barsHeld - 1].t, outcome, exitPrice,
+        ...base, barsHeld, closedAt: bars[f + barsHeld - 1].t, outcome, exitPrice,
         rMultiple: (gross - costPerShare) / risk,
         ambiguous,
       });
     }
   }
 
-  return { ...summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped), expiredPlans: expiredSessionPlans.size };
+  return { ...summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped), expiredPlans: expiredSessionPlans.size, feedDelayMs, delayedRefusals };
 }
 
 /**
@@ -1817,8 +1862,14 @@ export function walkRebuy(input: {
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style, carried to the derived trade (`walkGannExit`). */
   style?: DailyTradeStyle;
+  /**
+   * Where an order decided on closed bar `s` fills (DATA-DELAY-001); the next
+   * bar when absent. The replay passes `delayedFillIndex`.
+   */
+  fillAfter?: (signalIndex: number) => number;
 }): ReversalTrade | null {
   const { bars, plan } = input;
+  const fillAfter = input.fillAfter ?? ((s: number) => (s + 1 < bars.length ? s + 1 : -1));
   const long = plan.side === "long";
   const dir = long ? 1 : -1;
   const end = Math.min(bars.length, input.caughtAt + 1 + input.maxBarsHeld);
@@ -1827,9 +1878,12 @@ export function walkRebuy(input: {
     if (long ? touch.h > plan.extreme : touch.l < plan.extreme) return null;
     if (long ? touch.c <= plan.stop : touch.c >= plan.stop) return null;
     if (!(long ? touch.l <= plan.entry : touch.h >= plan.entry)) continue;
-    k++;
+    const fill = fillAfter(k);
+    if (fill < 0 || fill >= end) return null;
+    // A stop traded before the delayed order could act calls the re-buy off.
+    for (let j = k + 1; j < fill; j++) if (long ? bars[j].l <= plan.stop : bars[j].h >= plan.stop) return null;
+    k = fill;
     const b = bars[k];
-    if (!b || k >= end) return null;
     const entry = b.o;
     if (long ? entry <= plan.stop : entry >= plan.stop) return null;
     const risk = Math.abs(entry - plan.stop);
@@ -1890,9 +1944,12 @@ export function walkReversals(input: {
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style, carried to the derived trade (`walkGannExit`). */
   style?: DailyTradeStyle;
+  /** As `walkRebuy`'s: where an order decided on closed bar `s` fills. */
+  fillAfter?: (signalIndex: number) => number;
 }): ReversalTrade[] {
   const out: ReversalTrade[] = [];
   const { bars, dailyBars } = input;
+  const fillAfter = input.fillAfter ?? ((s: number) => (s + 1 < bars.length ? s + 1 : -1));
   let { caughtAt, side, cause, brokenLevel, extreme } = input;
   for (let depth = 1; depth <= MAX_REVERSALS; depth++) {
     if (!reversesOn(cause)) break;
@@ -1906,7 +1963,9 @@ export function walkReversals(input: {
     for (let k = caughtAt + 1; k < bars.length && bars[k].t.slice(0, 10) === session; k++) {
       evidence = advanceEntryConfirmation(evidence, { direction: long ? "bullish" : "bearish", entryTrigger: plan.entry }, bars[k - 1]);
       if (entryReady(evidence)) {
-        fillAt = k;
+        fillAt = fillAfter(k - 1);
+        // A stop traded before the delayed order could act calls it off.
+        for (let j = k; fillAt !== -1 && j < fillAt; j++) if (long ? bars[j].l <= plan.stop : bars[j].h >= plan.stop) fillAt = -1;
         break;
       }
     }

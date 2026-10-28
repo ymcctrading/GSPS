@@ -270,3 +270,61 @@ function toMs(v: Date | string | null | undefined): number | null {
   const ms = typeof v === "string" ? Date.parse(v) : v.getTime();
   return Number.isFinite(ms) ? ms : null;
 }
+
+const MINUTE_TIMEFRAMES: Record<number, Timeframe> = { 1: "1Min", 5: "5Min", 15: "15Min", 60: "1Hour", 120: "2Hour", 240: "4Hour" };
+
+/** The timeframe of a bar series spaced this many minutes apart; "1Day" for 0 (no intraday spacing). Null when unrecognised. */
+export function timeframeForMinutes(minutes: number): Timeframe | null {
+  if (minutes === 0) return "1Day";
+  return MINUTE_TIMEFRAMES[minutes] ?? null;
+}
+
+/**
+ * The delay a historical run models for an instrument: the contract that held
+ * when the data was received, never today's environment, so a run keeps its
+ * delay model after a real-time feed is bought. Crypto 0, US equities and
+ * commodities the 15-minute contract.
+ */
+export function replayFeedDelayMs(assetClass: AssetClass): number {
+  return assetClass === "crypto" ? 0 : CONTRACTUAL_EQUITY_DELAY_MS;
+}
+
+/**
+ * Where a market order decided on closed bar `signalIndex` fills in a replay:
+ * the first bar opening at or after that bar's close plus the delay
+ * (`replayDecisionAt`, `firstExecutableBarIndex`), never before
+ * `signalIndex + 1`. `intervalMinutes` is the series' spacing (0 for daily
+ * bars). -1 when no such bar exists or the spacing is unrecognised and a
+ * delay applies (refused rather than guessed).
+ */
+export function delayedFillIndex(
+  bars: readonly Bar[],
+  signalIndex: number,
+  args: { assetClass: AssetClass; delayMs: number; intervalMinutes: number },
+): number {
+  const next = signalIndex + 1;
+  if (next >= bars.length) return -1;
+  if (!(args.delayMs > 0)) return next;
+  const tf = timeframeForMinutes(args.intervalMinutes);
+  if (!tf) return -1;
+  const decision = replayDecisionAt(bars[signalIndex], tf, args.assetClass, args.delayMs);
+  return decision ? firstExecutableBarIndex(bars, decision, next) : -1;
+}
+
+/**
+ * The spacing of a bar series around bar `i`, in minutes: the smaller of the
+ * gaps to its neighbours that is at most 4 hours, or 0 for daily bars (no
+ * intraday spacing). Timestamps only, which are the series' schedule, not
+ * its prices.
+ */
+export function barSpacingMinutes(bars: readonly { t: string }[], i: number): number {
+  const gaps: number[] = [];
+  for (const j of [i - 1, i]) {
+    const a = bars[j];
+    const b = bars[j + 1];
+    if (!a || !b) continue;
+    const m = (Date.parse(b.t) - Date.parse(a.t)) / 60_000;
+    if (m > 0 && m <= 240) gaps.push(m);
+  }
+  return gaps.length > 0 ? Math.min(...gaps) : 0;
+}
