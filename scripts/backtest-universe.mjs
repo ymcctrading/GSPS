@@ -619,7 +619,7 @@ export function summaryMarkdown(meta, summary) {
     if (!summary.cells.some((c) => c[field])) continue;
     lines.push(`## ${title} (scored trades and within Execute)`);
     lines.push("");
-    lines.push("| Cell | Scope | Kind | n | Expectancy | 95% CI | Win rate | Median sessions held |");
+    lines.push("| Cell | Scope | Kind | n | Expectancy | 95% CI | Win rate | Median bars held |");
     lines.push("|---|---|---|---:|---:|---|---:|---:|");
     for (const c of summary.cells) {
       for (const scope of Object.keys(FACTOR_SCOPES)) {
