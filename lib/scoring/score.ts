@@ -232,7 +232,7 @@ export function volumeNote(r: VolumeClimaxReading): string {
   const at = `The ${r.anchorKind} at ${r.anchorPrice.toFixed(2)}`;
   if (r.anchorKind === "low") {
     if (r.dryingUp) return `${at} came on shrinking volume and a narrowing range: liquidation running its course, the normal bottom.`;
-    if (r.retestOnLowerVolume) return `${at} retested the previous low on smaller volume: liquidation is over.`;
+    if (r.retestOnLowerVolume) return `${at} retested the previous low on two-thirds of its volume or less: liquidation is over.`;
     if (r.secondaryOnLowerVolume) return `${at} is a higher secondary low on less volume than the first advance, and the advance after it is heavier: higher prices ahead.`;
     if (r.panicSecondary) return `${at} is a secondary low after a selling climax, on half its volume or less: the panic has run its course.`;
     if (r.volumeExtremeLow) return `${at} comes with the smallest monthly volume in five years: a sign of bottom.`;
@@ -241,7 +241,7 @@ export function volumeNote(r: VolumeClimaxReading): string {
   }
   if (r.retestOfHeavyTop) return `${at} is a second test of a top that came on heavy volume: a sign to sell.`;
   if (r.climax) return `${at} came on ${r.bestRecentRelativeVolume.toFixed(2)}x trailing volume: tops come on heavy sales.`;
-  if (r.retestOnLowerVolume) return `${at} is a secondary top on smaller volume than the one before: the advance is tiring.`;
+  if (r.retestOnLowerVolume) return `${at} is a secondary top on two-thirds of the volume before it or less: the advance is tiring.`;
   if (r.secondaryOnLowerVolume) return `${at} is a lower secondary rally on smaller volume, after a decline on heavy volume: the final top may be in.`;
   if (r.heavyAdvance) return `${at} came after the heaviest week since the last top: the largest volume often comes before the final top.`;
   return `${at} came on ordinary volume (${r.bestRecentRelativeVolume.toFixed(2)}x trailing at best): no sign of distribution yet.`;

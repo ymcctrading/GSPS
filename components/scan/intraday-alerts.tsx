@@ -62,6 +62,16 @@ type ScanResponse = ScanOutput & {
   budget?: IntradayRefreshBudget | null;
 };
 
+
+/**
+ * True when an alert reads delayed data (DATA-DELAY-001): its recorded timing
+ * says it cannot be acted on, or, for a stored alert with no timing, it is an
+ * equity on the delayed feed.
+ */
+function readsDelayed(alert: Pick<Alert, "timeliness" | "kind">): boolean {
+  return alert.timeliness ? !alert.timeliness.actionable : alert.kind !== "crypto";
+}
+
 export function IntradayAlerts({
   symbols,
   hideWhenLocked = false,
@@ -486,8 +496,13 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               <Link
                 href={intradayTradeHref(alert.symbol, up ? "buy" : "sell", tradePlan)}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
+                // On delayed data the alert is an observation, not a current
+                // entry (DATA-DELAY-001): the link opens the ticket for the
+                // person to check the price, and says so; it never reads as
+                // an instruction to act now.
+                title={readsDelayed(alert) ? "Based on delayed data: check the current price in the ticket before placing." : undefined}
               >
-                Trade this →
+                {readsDelayed(alert) ? "Review in the ticket (delayed data) →" : "Trade this →"}
               </Link>
             )
           }

@@ -554,6 +554,8 @@ export interface PriceAlertEmailData {
    * Absent for the chart line, which keeps the wording above.
    */
   rule?: AlertRuleText;
+  /** The feed's delay in minutes for this symbol (DATA-DELAY-001); 0 or absent for a real-time read. */
+  delayMinutes?: number;
 }
 
 /** How a fired alert-editor rule is worded in an email or a push. */
@@ -600,6 +602,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     const checked = rule
       ? `Read at the check: ${escapeHtml(rule.reading)}${rule.source ? `. Level: ${escapeHtml(rule.source)}` : ""}`
       : `Last price checked: ${priceUsd(data.currentPrice)}`;
+    const delayLine = data.delayMinutes && data.delayMinutes > 0 ? `. Equity prices are delayed by ${data.delayMinutes} minutes.` : "";
     const noteLine = rule?.note
       ? `<p style="margin: 10px 0 0; color: #0f172a; font-size: 14px;">Your note: ${escapeHtml(rule.note)}</p>`
       : "";
@@ -612,7 +615,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
             ${headline}
           </p>
           <p style="margin: 10px 0 0; color: #64748b; font-size: 13px;">
-            ${checked}
+            ${checked}${delayLine}
           </p>${noteLine}
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">

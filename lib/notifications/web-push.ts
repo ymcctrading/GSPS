@@ -88,20 +88,23 @@ export function priceAlertPushMessage(args: {
   currentPrice: number;
   /** An alert-editor rule (migration 0103); the chart line leaves it out. */
   rule?: AlertRuleText;
+  /** The feed's delay in minutes for this symbol (DATA-DELAY-001); 0 or absent for a real-time read. */
+  delayMinutes?: number;
 }): PushMessage {
+  const delay = args.delayMinutes && args.delayMinutes > 0 ? ` Equity prices are delayed by ${args.delayMinutes} minutes.` : "";
   const verb = args.direction === "above" ? "rose above" : "fell below";
   if (args.rule) {
     const extra = [args.rule.reading, args.rule.note].filter(Boolean).join(". ");
     return {
       title: `Alert: ${args.rule.condition}`,
-      body: `${extra}.`,
+      body: `${extra}.${delay}`,
       url: tickerHref(args.symbol),
       tag: `price-${args.symbol}`,
     };
   }
   return {
     title: `${args.symbol} ${verb} $${priceText(args.targetPrice)}`,
-    body: `${args.symbol} ${verb} your alert level of $${priceText(args.targetPrice)}. Last price checked: $${priceText(args.currentPrice)}.`,
+    body: `${args.symbol} ${verb} your alert level of $${priceText(args.targetPrice)}. Last price checked: $${priceText(args.currentPrice)}.${delay}`,
     url: tickerHref(args.symbol),
     tag: `price-${args.symbol}`,
   };

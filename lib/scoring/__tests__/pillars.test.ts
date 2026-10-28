@@ -271,18 +271,23 @@ describe("time", () => {
 });
 
 describe("volume and accumulation", () => {
-  it("passes on volume at the turn or a base, with no warning against a long", () => {
+  it("passes on volume at the turn or a base just left, with no warning against a long", () => {
     expect(volumePillar(facts(), "bullish", true).passed).toBe(true);
-    expect(volumePillar(facts({ base: { long: true, breakout: null } }), "bullish", false).passed).toBe(true);
-    expect(volumePillar(facts({ base: { long: false, breakout: null } }), "bullish", false).passed).toBe(false);
+    expect(volumePillar(facts({ base: { long: true, breakout: "up", left: "up" } }), "bullish", false).passed).toBe(true);
+    expect(volumePillar(facts({ base: { long: false, breakout: null, left: null } }), "bullish", false).passed).toBe(false);
     expect(volumePillar(facts({ capitalWarning: true }), "bullish", true).passed).toBe(false);
     expect(volumePillar(facts({ capitalWarning: true }), "bearish", true).passed).toBe(true);
   });
 
+  it("does not count a base price is still inside (Commodities p. 62: buy when it crosses the top)", () => {
+    expect(volumePillar(facts({ base: { long: true, breakout: null, left: null } }), "bullish", false).passed).toBe(false);
+    expect(volumePillar(facts({ base: { long: true, breakout: null, left: null } }), "bearish", false).passed).toBe(false);
+  });
+
   it("does not count a base the market has left against the side", () => {
-    expect(volumePillar(facts({ base: { long: true, breakout: "down" } }), "bullish", false).passed).toBe(false);
-    expect(volumePillar(facts({ base: { long: true, breakout: "up" } }), "bearish", false).passed).toBe(false);
-    expect(volumePillar(facts({ base: { long: true, breakout: "down" } }), "bearish", false).passed).toBe(true);
+    expect(volumePillar(facts({ base: { long: true, breakout: "down", left: "down" } }), "bullish", false).passed).toBe(false);
+    expect(volumePillar(facts({ base: { long: true, breakout: "up", left: "up" } }), "bearish", false).passed).toBe(false);
+    expect(volumePillar(facts({ base: { long: true, breakout: "down", left: "down" } }), "bearish", false).passed).toBe(true);
   });
 });
 

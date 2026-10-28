@@ -79,6 +79,7 @@
 
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
+import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { completedDailyBars, priorDailyClose } from "@/lib/scanner/priorClose";
@@ -160,8 +161,14 @@ export interface AlertReplayInput {
   sessions?: ReadonlySet<string>;
   /** Alert types entered. Every tradeable type when absent. */
   signals?: ReadonlySet<SignalType>;
-  /** Bars between the next bar and the fill (`ALERT_FEED_DELAY_BARS` by default). */
+  /**
+   * Bars between the next bar and the fill. When absent the fill is the first
+   * bar opening at or after the scan's evaluation (`delayedFillIndex`), which
+   * under the 15-minute delay is `ALERT_FEED_DELAY_BARS` after the next.
+   */
   feedDelayBars?: number;
+  /** The data delay modeled, in ms (DATA-DELAY-001); the feed's contract by default. */
+  feedDelayMs?: number;
   costPerShare?: number;
   maxBarsHeld?: number;
 }
@@ -193,6 +200,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
   const { symbol, kind, dailyBars, plans, sessions, signals, costPerShare = DEFAULT_COST_PER_SHARE_USD } = input;
   const maxBarsHeld = input.maxBarsHeld ?? ALERT_BARS_PER_SESSION * 10;
   const feedDelayBars = Math.max(0, input.feedDelayBars ?? ALERT_FEED_DELAY_BARS);
+  // The run's delay model: the feed's contract, never today's environment.
+  const feedDelayMs = input.feedDelayMs ?? replayFeedDelayMs(kind === "crypto" ? "crypto" : "us_equity");
   const bars = input.bars.filter((b) => {
     const m = minuteOf(b);
     return m >= OPEN_MINUTE && m < CLOSE_MINUTE;
@@ -234,13 +243,18 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       const last = bars[k];
       const end = Date.parse(last.t) + 5 * 60_000;
       if (etParts(new Date(end)).minutes % ALERT_SCAN_MINUTES !== 0) continue;
+      // DATA-DELAY-001 (2026-10-28): the scan that reads bars through `last`
+      // runs once they are usable, the last bar's close plus the feed's delay,
+      // and is evaluated then, as the live scan is (no receipt time is
+      // recorded in history, so the replay assumes the minimum delay).
+      const evaluatedAt = new Date(end + feedDelayMs);
       const scanInput: SymbolInput = {
         symbol,
         kind,
         bars: bars.slice(from, k + 1),
         barIntervalMinutes: 5,
         prevClose,
-        quote: { price: last.c, at: last.t },
+        quote: { price: last.c, at: new Date(end).toISOString() },
         volumeBaseline: volumeBaseline(bars.slice(Math.max(0, baselineStart), from), minuteOf(last), date, 2, kind !== "crypto"),
         dailyAtr,
         recentBars: bars.slice(Math.max(0, baselineStart), k + 1),
@@ -249,10 +263,17 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         dailyPlan,
         lastAlerts: fired,
         marketClosed: false,
+        feedDelayMs,
+        feed: kind === "crypto" ? "realtime" : "delayed",
       };
-      const { alerts } = scanIntraday([scanInput], DEFAULT_CONFIG, new Date(end));
-      for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: new Date(end).toISOString() });
-      const at = k + 1 + feedDelayBars;
+      const { alerts } = scanIntraday([scanInput], DEFAULT_CONFIG, evaluatedAt);
+      for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: evaluatedAt.toISOString() });
+      // The first bar a person could fill on opens at or after the evaluation
+      // (`delayedFillIndex`): three five-minute bars after the next under the
+      // 15-minute delay. `feedDelayBars` keeps the older fixed count for a
+      // caller that asks for it.
+      const at = input.feedDelayBars != null ? k + 1 + feedDelayBars : delayedFillIndex(bars, k, { assetClass: kind === "crypto" ? "crypto" : "us_equity", delayMs: feedDelayMs, intervalMinutes: 5 });
+      if (at < 0) continue;
       if (at < busyUntil) continue;
       // A notice (nearing or at a daily plan's entry) prices no session trade.
       const alert = alerts.find(

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { STAGE_KEYS, stage, type CoverageStages } from "../coverage";
 import type { Bar } from "@/lib/types";
 import {
   executableSentences,
@@ -188,12 +189,12 @@ describe("plain English", () => {
     expect(focus.text).toContain("LLY Long 8/9 (not on the focus list)");
 
     const m = toMover({ symbol: "ZZZ", prevClose: 10, open: 10, high: 12, low: 10, close: 12 })!;
-    expect(moverVerdict(m, [], [], false)).toEqual({ aligned: false, line: "Missed: no setup, signal or focus listing." });
+    expect(moverVerdict(m, [], [], false)).toEqual({ aligned: false, line: "Missed: no standing plan or delivered signal." });
     const recap = renderRecapEmail({
       basisDate: "2026-10-27",
       setupsFrom: "2026-10-26",
-      universe: 1,
-      read: 1,
+      coverage: Object.fromEntries(STAGE_KEYS.map((k) => [k, stage(k === "priceData" ? 1 : null, "test")])) as CoverageStages,
+      attribution: new Map(),
       movers: [m],
       daily: [],
       intraday: [],
@@ -202,7 +203,8 @@ describe("plain English", () => {
       appUrl: "https://example.com",
     });
     expect(recap.text).toContain("ZZZ");
-    expect(recap.text).toContain("Missed");
+    expect(recap.text).toContain("not examined");
+    expect(recap.text).toContain("not recorded (test)");
   });
 
   it("names no method, source or internal label in either email", () => {

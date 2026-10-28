@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { Alert } from "@/lib/scanner/intraday";
-import { alertsForTier, buildIntradayBellRow, isNoticeTitle } from "./intradayBell";
+import { alertsForTier, buildIntradayBellRow, isNoticeTitle, type DeliverableFreshness } from "./intradayBell";
+import { alertTimeliness } from "@/lib/__tests__/fixtures/alertTimeliness";
+
+// 10:30 ET on 2026-10-27 (EDT): the 10:15-10:30 candle, evaluated at 10:45.
+const AS_OF = "2026-10-27T14:30:00.000Z";
+const EVALUATED = new Date("2026-10-27T14:45:00.000Z");
+const actionable: DeliverableFreshness = {
+  disposition: "actionable",
+  reason: "current_authorization",
+  dataAsOf: AS_OF,
+  checkedAt: "2026-10-27T14:45:05.000Z",
+  authorizationId: "auth",
+};
+const delayed: DeliverableFreshness = {
+  disposition: "informational",
+  reason: "delayed_observation",
+  dataAsOf: AS_OF,
+  checkedAt: "2026-10-27T14:45:05.000Z",
+};
 
 function alert(over: Partial<Alert> = {}): Alert {
   return {
@@ -10,13 +28,14 @@ function alert(over: Partial<Alert> = {}): Alert {
     move: { current: 770.12 },
     invalidation: 744.12,
     continuationPlan: { firstTarget: 795.76, masterTarget: 822.83, paysRisk: true },
+    timeliness: alertTimeliness(EVALUATED),
     ...over,
   } as unknown as Alert;
 }
 
 describe("buildIntradayBellRow", () => {
   it("names the symbol, side and signal, with the plan's levels", () => {
-    const row = buildIntradayBellRow(alert());
+    const row = buildIntradayBellRow(alert(), actionable);
     expect(row.verdict).toBe("Intraday");
     expect(row.title).toBe("SPY intraday, up: Daily plan's level held");
     expect(row.body).toContain("Price 770.12, stop 744.12, TP1 795.76, MTP 822.83.");
@@ -26,11 +45,13 @@ describe("buildIntradayBellRow", () => {
   it("says when no target is fixed and when the target does not pay the risk", () => {
     const none = buildIntradayBellRow(
       alert({ direction: "down", continuationPlan: { firstTarget: null, paysRisk: null } as Alert["continuationPlan"] }),
+      actionable,
     );
     expect(none.title).toContain("intraday, down");
     expect(none.body).toContain("no target fixed, the stop trails");
     const short = buildIntradayBellRow(
       alert({ continuationPlan: { firstTarget: 771, paysRisk: false } as Alert["continuationPlan"] }),
+      delayed,
     );
     expect(short.body).toContain("No trade here");
   });
@@ -80,10 +101,66 @@ describe("buildIntradayBellRow: notices", () => {
         continuationPlan: { entry: 501, firstTarget: 512, masterTarget: 520, paysRisk: true } as Alert["continuationPlan"],
         approach: { entry: 501, distance: 3, ratePerBar: 0.1, etaMinutes: 22.4, expectedAt: "2026-10-27T14:42:00Z" },
       }),
+      actionable,
     );
     expect(row.title).toBe("LLY buy: Nearing the plan's entry");
     expect(row.body).toContain("About 22 minutes away");
     expect(row.body).toContain("Daily plan: entry 501.00, stop 497.00, TP1 512.00, MTP 520.00.");
+  });
+});
+
+describe("buildIntradayBellRow: delayed data (NOTIFY-FRESHNESS-001)", () => {
+  const notice = (type: Alert["type"]) =>
+    alert({
+      symbol: "LLY",
+      type,
+      move: { current: 501.2 } as Alert["move"],
+      invalidation: 497,
+      continuationPlan: { entry: 501, firstTarget: 512, masterTarget: 520, paysRisk: true } as Alert["continuationPlan"],
+      approach: { entry: 501, distance: 3, ratePerBar: 0.1, etaMinutes: 5, expectedAt: "2026-10-27T14:50:00Z" },
+    });
+  const forbidden = [/\bnow\b/i, /buy now/i, /minutes? away/i, /until entry/i, /\bExecute\b/];
+
+  it("an entry reached on delayed data names the candle and the delay, never 'now'", () => {
+    const row = buildIntradayBellRow(notice("entry_reached"), delayed);
+    expect(row.title).toBe("LLY buy: At the plan's entry");
+    expect(row.body).toContain(
+      "Delayed observation: price reached the entry in the 10:15–10:30 AM ET candle. Equity data is delayed by 15 minutes. Current entry status has not been verified.",
+    );
+    for (const re of forbidden) expect(row.body).not.toMatch(re);
+  });
+
+  it("a delayed approach is an estimate from data through a time, not an arrival time", () => {
+    const row = buildIntradayBellRow(notice("entry_approach"), delayed);
+    expect(row.title).toBe("LLY buy: Nearing the plan's entry");
+    expect(row.body).toContain(
+      "Based on data through 10:30 AM ET, price was moving toward the entry. This is an estimate from delayed observations, not a live arrival time.",
+    );
+    for (const re of forbidden) expect(row.body).not.toMatch(re);
+  });
+
+  it("a delayed signal says what the data is as of and that status is unverified", () => {
+    const row = buildIntradayBellRow(alert({ type: "old_level_cross" }), delayed);
+    expect(row.title).toBe("SPY intraday, up: " + row.title.split(": ")[1]);
+    expect(row.body).toMatch(/^Based on data through 10:30 AM ET: Price 770\.12/);
+    expect(row.body).toContain("Equity data is delayed by 15 minutes. Current status has not been verified.");
+    for (const re of forbidden) expect(row.body).not.toMatch(re);
+  });
+
+  it("the title is the same whatever the disposition, so deduplication still reads it", () => {
+    for (const type of ["entry_reached", "entry_approach"] as const) {
+      expect(buildIntradayBellRow(notice(type), delayed).title).toBe(buildIntradayBellRow(notice(type), actionable).title);
+    }
+  });
+
+  it("a held entry says there is no trade on it", () => {
+    const row = buildIntradayBellRow(notice("entry_reached"), { ...delayed, reason: "entry_held" });
+    expect(row.body).toContain("This plan is held, so there is no trade to take on it.");
+  });
+
+  it("only an actionable disposition says the price is at the entry now", () => {
+    expect(buildIntradayBellRow(notice("entry_reached"), actionable).body).toContain("Price is at the entry now");
+    expect(buildIntradayBellRow(notice("entry_approach"), actionable).body).toContain("About 5 minutes away");
   });
 });
 

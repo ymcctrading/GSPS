@@ -57,7 +57,13 @@ describe("scanIntraday: nearing the plan's entry", () => {
     expect(a.continuationPlan.masterTarget).toBe(520);
     // The card shows the plan's entry, not the price it was flagged at.
     expect(buildIntradayCardModel(a).levels.entry).toBe(501);
-    expect(a.whyThisAppeared).toContain("minutes away");
+    // No feed recorded on an equity reads as delayed: an estimate, never an arrival.
+    expect(a.whyThisAppeared).toContain("an estimate from delayed observations, not a live arrival time");
+    expect(a.whyThisAppeared).not.toContain("minutes away");
+    const live = scanIntraday([input(bars, plan, { feed: "realtime" })], DEFAULT_CONFIG, nowAfter(bars)).alerts.find(
+      (x) => x.type === "entry_approach",
+    )!;
+    expect(live.whyThisAppeared).toContain("minutes away");
   });
 
   it("is never held back by the cooldown: each scan carries a new time left", () => {

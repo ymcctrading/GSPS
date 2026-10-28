@@ -77,6 +77,17 @@ export interface ScanRow {
 export const RESTING_NOTE =
   "Plans with every condition met whose entry is more than a day's range from price. Each waits at its level for price to come back; none is a trade to take today.";
 
+/** What the Watch tier means, in the words every list shows it under. */
+export const WATCH_NOTE = "Worth watching, but still short of a condition. Not a trade yet.";
+
+/** Highest score first; stable, so equal scores keep the order they came in. */
+function byScore(rows: ScanRow[]): ScanRow[] {
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => b.r.score - a.r.score || a.i - b.i)
+    .map((x) => x.r);
+}
+
 /** Symbol + Price + Entry + Exit + TP1 + MTP + Save. */
 const BASE_COLUMNS = 7;
 
@@ -94,16 +105,16 @@ export function ResultsTable({
    * viewer's tier. See `lib/scoring/tier-display.ts`.
    */
   exactScoreDisplayEnabled = false,
-  restingHeading = true,
+  tierHeadings = true,
 }: {
   rows: ScanRow[];
   emptyText?: string;
   /**
-   * Whether the Resting rows carry their own "Resting orders" heading. Off
-   * where the caller already lists each tier under its own heading (the
-   * manual scan's results, `components/scan/manual-scan-results.tsx`).
+   * Whether the Resting and Watch rows carry their own headings ("Resting
+   * orders", "Watch"). Off where the caller already lists each tier under its
+   * own heading (the manual scan's results, `components/scan/manual-scan-results.tsx`).
    */
-  restingHeading?: boolean;
+  tierHeadings?: boolean;
   /** When provided, each row gets a manual remove control that calls this. */
   onRemove?: (symbol: string) => void;
   exactScoreDisplayEnabled?: boolean;
@@ -158,17 +169,30 @@ export function ResultsTable({
   // resting order, listed apart and out of Execute (owner, 2026-10-21;
   // lib/setups/resting.ts). Split on the scan-time price, so the list a row
   // sits in does not move with every quote; its card reads the live price.
-  const { now: liveAll, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
+  const { now: notResting, resting } = splitResting(stillLive, (r) => restingInputOfRow(r));
+  // The ranked list holds only the setups that can be placed today, highest
+  // score first; Watch has its own heading below Resting (owner, 2026-10-28:
+  // "Only executable setups at the top. Ranked by their execution score").
+  // The sort is stable, so equal scores keep the scan's order (leaders first,
+  // `compareForList`).
+  const liveAll = byScore(notResting.filter((r) => r.outputState === "Execute"));
+  const watch = byScore(notResting.filter((r) => r.outputState !== "Execute"));
   // Crypto pairs and the commodity and currency funds are their own markets
   // (SYNTHESIZED_ROADMAP Q2 item 2; Gann's capital rules count them apart,
   // three markets beside five stocks), so each is listed under its own heading.
   const crypto = liveAll.filter((r) => isCryptoSymbol(r.symbol));
   const funds = liveAll.filter((r) => isFundMarket(r.symbol));
   const live = liveAll.filter((r) => !isCryptoSymbol(r.symbol) && !isFundMarket(r.symbol));
+  const noneToPlace = liveAll.length === 0 && dead.length === 0 && tierHeadings;
   const sectionProps = { onInvalidatedChange: handleInvalidatedChange, onRemove, exactScoreDisplayEnabled };
 
   return (
     <>
+    {noneToPlace && (
+      <p className="py-2 text-sm text-muted" data-testid="no-executable">
+        No setup can be placed today. The plans below wait at their level or are still short of a condition.
+      </p>
+    )}
     {(live.length > 0 || dead.length > 0) && (
     <Table>
       <THead>
@@ -239,7 +263,7 @@ export function ResultsTable({
         className={cn(live.length > 0 || dead.length > 0 || crypto.length > 0 || funds.length > 0 ? "mt-4" : undefined)}
         data-testid="resting-orders"
       >
-        {restingHeading && (
+        {tierHeadings && (
           <>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
             <p className="mb-1 text-xs text-muted">{RESTING_NOTE}</p>
@@ -264,6 +288,44 @@ export function ResultsTable({
                 key={rowKey(r)}
                 row={r}
                 resting
+                onInvalidatedChange={handleInvalidatedChange}
+                onRemove={onRemove}
+                exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+              />
+            ))}
+          </TBody>
+        </Table>
+      </div>
+    )}
+    {watch.length > 0 && (
+      <div
+        className={cn(liveAll.length > 0 || dead.length > 0 || resting.length > 0 || noneToPlace ? "mt-4" : undefined)}
+        data-testid="watch-setups"
+      >
+        {tierHeadings && (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">Watch</p>
+            <p className="mb-1 text-xs text-muted">{WATCH_NOTE}</p>
+          </>
+        )}
+        <Table>
+          <THead>
+            <TR>
+              <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+              <TH className="text-right">Price</TH>
+              <TH className="text-right">Entry</TH>
+              <TH className="text-right">Exit (S/L)</TH>
+              <TH className="text-right">TP1</TH>
+              <TH className="text-right">MTP</TH>
+              <TH className="w-8" aria-label="Save" />
+              {onRemove && <TH className="w-8" aria-label="Remove" />}
+            </TR>
+          </THead>
+          <TBody>
+            {watch.map((r) => (
+              <ResultsRow
+                key={rowKey(r)}
+                row={r}
                 onInvalidatedChange={handleInvalidatedChange}
                 onRemove={onRemove}
                 exactScoreDisplayEnabled={exactScoreDisplayEnabled}

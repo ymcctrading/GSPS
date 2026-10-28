@@ -86,6 +86,18 @@ import {
   formatVolume,
 } from "@/lib/scanner/intradayDisplay";
 import type { Bar } from "@/lib/types";
+import { decisionLag } from "@/lib/data/latency";
+import {
+  availability,
+  availableBars,
+  barCloseAt,
+  seriesSpacingMinutes,
+  observationAgeMs,
+  timeframeForMinutes,
+  usableBy,
+  type FeedEntitlement,
+  newerBarUsable,
+} from "@/lib/data/timeliness";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etDateKey, etParts } from "@/lib/market/session";
 import { isEarlyClose } from "@/lib/market/calendar";
@@ -266,6 +278,17 @@ export interface SymbolInput {
    * this way says so, in `whyNotEarlier`.
    */
   marketClosed?: boolean;
+  /**
+   * The feed's contractual delay for this instrument (`resolveFeedPolicy`,
+   * DATA-DELAY-001, 2026-10-28). When set, the scan reads only the bars and
+   * quote usable at its evaluation time: a bar's close plus this delay, and
+   * not before `receivedAt`. The live route and the alerts replay set it.
+   */
+  feedDelayMs?: number;
+  /** The feed's entitlement, for the alert's provenance. Absent reads as unknown. */
+  feed?: FeedEntitlement;
+  /** When GSPS received these bars, where recorded. */
+  receivedAt?: string | null;
 }
 
 /** A daily plan's levels, as the daily scan priced them. */
@@ -428,7 +451,9 @@ export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): Sess
       input.volumeBaseline && input.volumeBaseline > 0
         ? cumulativeVolume / input.volumeBaseline
         : null,
-    dataTimestamp: input.quote?.at ?? bars[bars.length - 1].t,
+    // The newest bar's close, never its open: the provider stamps a bar with
+    // its open, and the bar was not complete then (DATA-DELAY-001).
+    dataTimestamp: input.quote?.at ?? sessionBarClose(bars[bars.length - 1], input),
     barCount: bars.length,
   };
 }
@@ -622,6 +647,45 @@ export interface Alert {
    * plan's own timing or a notice, which read the daily plan's direction.
    */
   againstDailyTrend?: boolean;
+  /**
+   * When the data behind the alert could be read, and whether it may be acted
+   * on (DATA-DELAY-001 and NOTIFY-FRESHNESS-001, 2026-10-28). Notifications
+   * read it (`lib/notifications/freshness.ts`); they never decide it.
+   */
+  timeliness?: AlertTimeliness;
+}
+
+/** The provenance every alert carries: as-of, availability, evaluation and authorization. */
+export interface AlertTimeliness {
+  feed: FeedEntitlement;
+  /** The contractual delay applied, in ms. */
+  delayMs: number;
+  /** Close of the newest bar read, or the quote's own time. */
+  dataAsOf: string;
+  /** dataAsOf plus the delay (and receipt, where recorded). */
+  usableAt: string;
+  receivedAt: string | null;
+  /** When the scan computed the alert. */
+  evaluatedAt: string;
+  /** How old the data was at evaluation, in seconds; null when unknown. */
+  dataAgeSeconds: number | null;
+  /** The delay is a whole bar or more while prices move (`decisionLag`), so the alert cannot be acted on. */
+  heldForDelay: boolean;
+  /** True only when nothing in the data's timing stops a person acting on it now. */
+  actionable: boolean;
+  /** Identifies this decision (symbol, signal, side, plan, evaluation); present only when actionable. */
+  authorizationId: string | null;
+  /** The daily plan the alert read, as entry/stop, so a dispatch can tell a superseded plan. */
+  planKey: string | null;
+  /** The bar length the alert read, in minutes. */
+  barMinutes: number;
+  /**
+   * Close of the newest session bar the decision's structure read (swings,
+   * levels, volume). Kept apart from `dataAsOf`, which a fresher quote may set,
+   * so a current quote cannot pass stale bars off as current. Optional for
+   * alerts stored before 2026-10-28.
+   */
+  structureAsOf?: string | null;
 }
 
 
@@ -698,7 +762,8 @@ export function scanIntraday(
   const audit: SymbolAudit[] = [];
   const staleSymbols: string[] = [];
 
-  for (const input of inputs) {
+  for (const raw of inputs) {
+    const input = usableInput(raw, now);
     const result = scanSymbol(input, config, now);
     audit.push(result.audit);
     // An alert whose price is already through its own exit is retired before
@@ -714,6 +779,40 @@ export function scanIntraday(
   heldAlerts.sort((a, b) => b.confidence - a.confidence || a.symbol.localeCompare(b.symbol));
 
   return { scannedAt: now.toISOString(), alerts, heldAlerts, audit, config, staleSymbols };
+}
+
+/**
+ * The input as a decision made at `now` may read it (DATA-DELAY-001): the
+ * session's and recent bars whose close plus the feed's delay (and receipt,
+ * where recorded) is at or before `now`, and the quote only once it is usable.
+ * A still-forming bar is never read. An input with no `feedDelayMs` is read as
+ * given (tests that build their own bars). A bar spacing the contract does not
+ * know reads no bars, rather than guessing.
+ */
+export function usableInput(input: SymbolInput, now: Date): SymbolInput {
+  if (input.feedDelayMs == null) return input;
+  const delayMs = input.feedDelayMs;
+  const assetClass = input.kind === "crypto" ? "crypto" : "us_equity";
+  const receivedAt = input.receivedAt ? new Date(input.receivedAt) : null;
+  const filter = (bars: Bar[], minutes: number) => {
+    const timeframe = timeframeForMinutes(minutes);
+    return timeframe && timeframe !== "1Day" ? availableBars(bars, { timeframe, assetClass, delayMs, evaluatedAt: now, receivedAt }) : [];
+  };
+  const recent = input.recentBars;
+  const quoteUsable = input.quote != null && usableBy(availability(input.quote.at, delayMs, receivedAt), now);
+  return {
+    ...input,
+    bars: filter(input.bars, input.barIntervalMinutes),
+    recentBars: recent ? filter(recent, seriesSpacingMinutes(recent)) : recent,
+    quote: quoteUsable ? input.quote : null,
+  };
+}
+
+/** The close of a session bar, from its open and the input's bar length. */
+function sessionBarClose(bar: Bar, input: Pick<SymbolInput, "barIntervalMinutes" | "kind">): string {
+  const timeframe = timeframeForMinutes(input.barIntervalMinutes);
+  const close = timeframe ? barCloseAt(bar.t, timeframe, input.kind === "crypto" ? "crypto" : "us_equity") : null;
+  return close ? close.toISOString() : new Date(Date.parse(bar.t) + input.barIntervalMinutes * 60_000).toISOString();
 }
 
 /** True when the alert's current price has already reached its own exit level. */
@@ -1510,6 +1609,10 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
   const move = measureMove(m.last, plan.entry, "plan_entry");
   if (!move) return null;
 
+  // On delayed data the panel says what the data showed and when, never that
+  // price is there now (NOTIFY-FRESHNESS-001's wording, the same on the panel).
+  const delayedFeed = (input.feed ?? (input.kind === "crypto" ? "realtime" : "delayed")) !== "realtime";
+  const asOfClock = etClock(m.dataTimestamp);
   if (reachedNow) {
     checks.push({ name, passed: true, detail: `The latest bar traded to the plan's entry (${priceText(plan.entry)}) and the stop held.` });
     return buildAlert({
@@ -1521,7 +1624,12 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
       move,
       factors,
       invalidation: plan.stop,
-      plan: { ...levels, confirmation: `Price is at the plan's entry, ${priceText(plan.entry)}. Once a bar closes there, the plan's entry goes at the market.` },
+      plan: {
+        ...levels,
+        confirmation: delayedFeed
+          ? `Price traded to the plan's entry, ${priceText(plan.entry)}, in data through ${asOfClock} ET. The data is delayed, so where price is now has not been verified. Once a bar closes there, the plan's entry goes at the market.`
+          : `Price is at the plan's entry, ${priceText(plan.entry)}. Once a bar closes there, the plan's entry goes at the market.`,
+      },
       whyThisAppeared: `${input.symbol} has come back to its daily plan's entry at ${priceText(plan.entry)} and has not traded the stop at ${priceText(plan.stop)}.`,
     });
   }
@@ -1571,9 +1679,10 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
     detail: `${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since the ${up ? "high" : "low"} of ${priceText(reading.extreme)}.`,
   });
   const minutes = Math.round(reading.etaMinutes);
-  const when =
-    minutes <= 0
-      ? "it may be there already: the price feed runs late"
+  const when = delayedFeed
+    ? `estimated from data through ${asOfClock} ET, when price was moving toward it; an estimate from delayed observations, not a live arrival time`
+    : minutes <= 0
+      ? "it may be there already"
       : `about ${minutes} minute${minutes === 1 ? "" : "s"} away, around ${etClock(reading.expectedAt)} ET`;
   checks.push({ name, passed: true, detail: `The plan's entry is ${when}.` });
   return buildAlert({
@@ -1593,7 +1702,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
       etaMinutes: reading.etaMinutes,
       expectedAt: reading.expectedAt,
     },
-    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "above" : "below"} its daily plan's entry at ${priceText(plan.entry)} and has moved ${up ? "down" : "up"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "high" : "low"} of ${priceText(reading.extreme)}. At that pace the entry is ${when}${minutes > 0 && dataAge > 60 ? ` (the feed's ${formatAge(dataAge)} delay is already counted)` : ""}. The pace can change; this is a heads-up, not a fill. Open the plan to be ready: once a bar closes at the entry, its entry goes at the market, with its stop at ${priceText(plan.stop)}.`,
+    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "above" : "below"} its daily plan's entry at ${priceText(plan.entry)} and has moved ${up ? "down" : "up"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "high" : "low"} of ${priceText(reading.extreme)}. The entry is ${when}. The pace can change; this is a heads-up, not a fill. Open the plan to be ready: once a bar closes at the entry, its entry goes at the market, with its stop at ${priceText(plan.stop)}.`,
   });
 }
 
@@ -1798,6 +1907,58 @@ function buildAlert(args: {
     whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
     ...(args.approach ? { approach: args.approach } : {}),
     ...(againstDailyTrend ? { againstDailyTrend: true } : {}),
+    timeliness: alertTimeliness(input, m, type, direction, now),
+  };
+}
+
+/**
+ * The alert's timing provenance. Actionable only when the market is open,
+ * the data's delay is under a bar of the session's chart (`decisionLag`), and
+ * the data was usable when the scan ran. Under the 15-minute equity delay on
+ * minute bars the lag is 15 bars, so a stock's alert is never actionable
+ * while the delay stands: it is an observation, not an instruction.
+ */
+export function alertTimeliness(
+  input: SymbolInput,
+  m: Pick<SessionMetrics, "dataTimestamp">,
+  type: SignalType,
+  direction: Direction,
+  now: Date,
+): AlertTimeliness {
+  const delayMs = input.feedDelayMs ?? (input.kind === "crypto" ? 0 : 15 * 60_000);
+  const a = availability(m.dataTimestamp, delayMs, input.receivedAt ?? null);
+  const timeframe = timeframeForMinutes(input.barIntervalMinutes) ?? "1Min";
+  const marketOpen = input.marketClosed !== true;
+  const lag = decisionLag(timeframe, delayMs, marketOpen);
+  const usable = usableBy(a, now);
+  const age = observationAgeMs(m.dataTimestamp, now);
+  const plan = input.dailyPlan;
+  const planKey = plan ? `${plan.direction}:${plan.verdict}:${plan.entry}:${plan.stop}` : null;
+  // The quote may be newer than the bars; the structure is as old as its last
+  // bar. A decision is acted on only while no newer bar was usable that it did
+  // not read (`newerBarUsable`), so a fresh quote never launders stale bars.
+  const lastBar = input.bars[input.bars.length - 1];
+  const structureAsOf = lastBar ? sessionBarClose(lastBar, input) : null;
+  // Judged at the fetch (receipt) clock where recorded: bars complete when
+  // fetched are not demoted by a scan that runs a few seconds past a boundary.
+  const fetchedAt = input.receivedAt && Number.isFinite(Date.parse(input.receivedAt)) ? new Date(input.receivedAt) : now;
+  const structureCurrent =
+    structureAsOf != null && !newerBarUsable(structureAsOf, input.barIntervalMinutes, delayMs, fetchedAt < now ? fetchedAt : now);
+  const actionable = marketOpen && usable && structureCurrent && !lag.holdsExecute && input.feed === "realtime";
+  return {
+    feed: input.feed ?? "unknown",
+    delayMs,
+    dataAsOf: m.dataTimestamp,
+    usableAt: a ? a.usableAt.toISOString() : m.dataTimestamp,
+    receivedAt: input.receivedAt ?? null,
+    evaluatedAt: now.toISOString(),
+    dataAgeSeconds: age == null ? null : Math.round(age / 1000),
+    heldForDelay: lag.holdsExecute,
+    actionable,
+    authorizationId: actionable ? `${input.symbol}:${type}:${direction}:${planKey ?? "session"}:${now.toISOString()}` : null,
+    planKey,
+    barMinutes: input.barIntervalMinutes,
+    structureAsOf,
   };
 }
 

@@ -508,3 +508,32 @@ describe("IntradayAlerts — refresh budget", () => {
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
   });
 });
+
+describe("IntradayAlerts — delayed data (DATA-DELAY-001)", () => {
+  it("offers the ticket as a review on delayed data, and 'Trade this' only when the alert can be acted on", async () => {
+    mockScan();
+    const { unmount } = render(<IntradayAlerts />);
+    const user = userEvent.setup();
+    let name = await screen.findByRole("button", { name: "SPY" });
+    let card = name.closest("div.rounded-lg") as HTMLElement;
+    await user.click(name);
+    expect(within(card).getByText(/Review in the ticket \(delayed data\)/)).toBeInTheDocument();
+    expect(within(card).queryByText(/Trade this/)).not.toBeInTheDocument();
+    unmount();
+    vi.unstubAllGlobals();
+
+    const actionable = {
+      ...spyAlert,
+      timeliness: {
+        feed: "realtime" as const, delayMs: 0, dataAsOf: spyAlert.dataTimestamp, usableAt: spyAlert.dataTimestamp, receivedAt: null,
+        evaluatedAt: spyAlert.triggerTime, dataAgeSeconds: 60, heldForDelay: false, actionable: true, authorizationId: "a", planKey: null, barMinutes: 1,
+      },
+    };
+    mockScan({ alerts: [actionable] });
+    render(<IntradayAlerts />);
+    name = await screen.findByRole("button", { name: "SPY" });
+    card = name.closest("div.rounded-lg") as HTMLElement;
+    await user.click(name);
+    expect(within(card).getByText(/Trade this/)).toBeInTheDocument();
+  });
+});
