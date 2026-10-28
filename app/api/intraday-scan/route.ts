@@ -36,7 +36,6 @@
  * deliberate.
  */
 
-import { isEarlyClose } from "@/lib/market/calendar";
 import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
 import { afterResponse, detectionFromAlert, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { NextRequest, NextResponse } from "next/server";
