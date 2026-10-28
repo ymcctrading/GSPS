@@ -626,7 +626,7 @@ async function invalidateBrokenFocus(supabase: ServiceSupabase, inputs: SymbolIn
     const at = builtAt.get(i.symbol);
     if (at == null) return false;
     const plan = i.dailyPlan as DailyPlanLevels;
-    return stopBreachStands(plan.direction, plan.stop, barsSincePlan({ kind: i.kind, bars: i.bars }, at), now.getTime());
+    return stopBreachStands(plan.direction, plan.stop, barsSincePlan({ kind: i.kind, bars: i.bars }, at), now.getTime(), i.kind);
   });
   if (broken.length === 0) return;
   const { error } = await supabase
