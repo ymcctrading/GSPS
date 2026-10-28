@@ -848,4 +848,14 @@
 // a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
 // Live verdicts move; the replay reads it at the fill, where only the
 // targets reading can hold; how far replay buckets move is not measured.
-export const STRATEGY_VERSION = "2026-10-27-execute-ready-now";
+// (was STRATEGY_VERSION "2026-10-27-execute-ready-now")
+// 2026-10-28-plan-at-session-close: the live scan reads the plan's lattice
+// levels and targets, the S/R band, the angles, the time and price square,
+// the range divisions and the pillar facts at the last completed session's
+// close, as the replay's buildMacroContext reads them, not at the quote, so
+// the plan and its score hold still through the session (Gann judged his
+// charts after the close: Truth of the Stock Tape pp.5-7, 76-82). Live
+// verdicts move inside a session; daily replays are unchanged; intraday
+// replays now read the prior session's daily close, not the last 15-minute
+// close before the session.
+export const STRATEGY_VERSION = "2026-10-28-plan-at-session-close";
