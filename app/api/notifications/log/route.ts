@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from("notification_log")
-      .select("*")
+      // Only what the history table shows: the row's internal key and the
+      // provider's raw reply are not the member's to read (2026-10-28).
+      .select("id, created_at, symbol, direction, score, channel, status, sent_at, failed_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
         triggered_at: new Date().toISOString(),
         signal_hash: `${body.symbol}-${body.direction}-${body.score}`,
       })
-      .select()
+      .select("id, created_at, symbol, direction, score, channel, status, sent_at, failed_at")
       .single();
 
     if (error) {

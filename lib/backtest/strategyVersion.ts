@@ -878,6 +878,24 @@
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
 // (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-double-bottom-weeks: a double or triple bottom (top) rests
+// its order only once the bottom is two weeks old by the session the order
+// rests for (DOUBLE_BOTTOM_MIN_DAYS): "the same level weeks, months or a year
+// or more apart" (W006 p.20, A-ENTRY-02). The six-year daily rerun's first
+// quarter (2026-10-28) had old-bottom entries at -0.076R over 4,856 trades.
+// Plans and replay trades move.
+// (was STRATEGY_VERSION "2026-10-28-double-bottom-weeks")
+// 2026-10-28-gann-groups-by-industry: P3(c)'s group rank (S4) reads the
+// platform's industries (`lib/universe/industries.ts`: the SEC codes with the
+// misfiled businesses corrected, Alphabet with the social media names,
+// ConocoPhillips with the producers) instead of the raw codes, pooling a
+// sector's small industries when they reach five together
+// (`buildIndustryGroupMap`). 821 of 832 universe stocks in 71 groups (was 762
+// in 58). Live verdicts and replay trades move where a stock's group changed.
+// (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
+// 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
+// merged in the 2026-10-28 release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
 // 2026-10-28-base-left-volume-pillar: P8's base half counts a long base only
 // once price has left it the trade's way and stands outside it (no close back
 // 3 points inside the crossed extreme), within BASE_LEFT_SESSIONS
@@ -888,4 +906,7 @@
 // alike (replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md).
 // After: 0/0% at $20 and $150, 0.6/1.5% at $500 (long/short), so P8 now rests
 // on the volume rule. Live verdicts and replay trades move.
-export const STRATEGY_VERSION = "2026-10-28-base-left-volume-pillar";
+// (was STRATEGY_VERSION "2026-10-28-base-left-volume-pillar", built alone)
+// 2026-10-28-base-left-on-groups-by-industry: the base-left fix merged onto
+// the release above. No new rule.
+export const STRATEGY_VERSION = "2026-10-28-base-left-on-groups-by-industry";

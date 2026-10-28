@@ -35,7 +35,7 @@ import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { priceUsd } from "@/lib/strat/priceText";
 import { tickerHref } from "@/lib/routes";
-import { readResting, restingNote, type RestingRead } from "@/lib/setups/resting";
+import { readResting, restingInputOfRow, restingNote, setupTier, type RestingRead } from "@/lib/setups/resting";
 
 export type SetupSide = "buy" | "sell";
 
@@ -62,7 +62,7 @@ export interface SetupCardModel {
   /** Live or scan-time price; null when neither is known. */
   price: number | null;
   levels: SetupLevels;
-  /** "Execute" | "Watch" | "Reject" — or the intraday signal's own label. */
+  /** "Execute" | "Resting" | "Watch" | "Reject" — or the intraday signal's own label. */
   verdict: string;
   checks: SetupCheck[];
   /** Why the state sits below what the score alone implies, when the scan said so. */
@@ -128,6 +128,7 @@ export function hasPlan(levels: SetupLevels): boolean {
 
 const VERDICT_STATUS: Record<string, string> = {
   Execute: "ready to act on",
+  Resting: "resting at its level",
   Watch: "worth watching",
 };
 
@@ -243,6 +244,8 @@ export interface DailySetupInput {
   currentPrice?: number | null;
   /** A day's range, for the resting-order read (`lib/setups/resting.ts`). */
   dayRange?: number | null;
+  /** The scan's Resting tier flag (`setupTier`). */
+  resting?: boolean | null;
   /** The buying point set aside against the trend, when both sides armed. */
   setAsideEntry?: { setupKind: "reversion" | "continuation"; direction: "bullish" | "bearish" } | null;
   signal?: PublicSignalSummary | null;
@@ -259,6 +262,12 @@ export function setAsideNoteOf(entry: DailySetupInput["setAsideEntry"]): string 
   if (!entry) return null;
   const side = entry.direction === "bearish" ? "sell" : "buy";
   return `A ${side} point against the trend also armed and was set aside: the trade goes with the trend.`;
+}
+
+/** The row's tier (`setupTier`); a label the scan never writes is kept as it is. */
+function tierOfRow(row: DailySetupInput): string {
+  if (row.outputState !== "Execute" && row.outputState !== "Watch" && row.outputState !== "Reject") return row.outputState;
+  return setupTier(restingInputOfRow(row));
 }
 
 export function buildDailyCardModel(
@@ -292,7 +301,9 @@ export function buildDailyCardModel(
     side,
     price,
     levels,
-    verdict: row.outputState,
+    // The tier the lists show the row in, read at the scan-time price as
+    // they are (`setupTier`), so the card and its list agree.
+    verdict: tierOfRow(row),
     checks,
     stateNote: row.scoreSummary?.stateNote ?? null,
     higherTimeframes: describeTrends(row.trends),
@@ -302,7 +313,7 @@ export function buildDailyCardModel(
     setAsideNote: setAsideNoteOf(row.setAsideEntry),
     synopsis: buildSetupSynopsis({
       side,
-      verdict: row.outputState,
+      verdict: tierOfRow(row),
       scoreText: opts.scoreText,
       scoreMax: opts.scoreMax,
       checks,

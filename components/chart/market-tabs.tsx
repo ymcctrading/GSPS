@@ -14,6 +14,7 @@ import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
+import { tierOfDecision } from "@/lib/setups/resting";
 
 type Tab = "research" | "options" | "levelii" | "company";
 
@@ -206,17 +207,13 @@ function ResearchPanel({
   }
   if (!fetched) return <Skeleton label="Running the protocol scan…" />;
 
-  const dirVariant =
-    fetched.decision.outputState === "Execute"
-      ? "bull"
-      : fetched.decision.outputState === "Reject"
-        ? "bear"
-        : "warn";
+  const tier = tierOfDecision(fetched.decision);
+  const dirVariant = tier === "Execute" ? "bull" : tier === "Reject" ? "bear" : tier === "Resting" ? "default" : "warn";
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Badge variant={dirVariant}>{fetched.decision.outputState}</Badge>
+        <Badge variant={dirVariant}>{tier}</Badge>
         <span className="text-sm text-muted">
           Score{" "}
           <span className="font-semibold text-foreground">
