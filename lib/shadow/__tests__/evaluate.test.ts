@@ -252,6 +252,44 @@ describe("evaluatePendingShadowSignals", () => {
     expect(updates[0]).toMatchObject({ outcome: "expired" });
   });
 
+  it("reads a finished session with no bars as a feed gap, not a plan that never filled", async () => {
+    bars({ "15Min": [], "1Day": history("2026-08-25") });
+    const { client, updates } = makeSupabase([row]);
+    const out = await evaluatePendingShadowSignals(client, new Date("2026-08-27T00:00:00Z"));
+    expect(out.failed).toBe(1);
+    expect(updates.some((u) => "outcome" in u)).toBe(false);
+  });
+
+  it("waits on a session whose daily bar shows trading but whose intraday bars are missing", async () => {
+    bars({ "15Min": [], "1Day": [...history("2026-08-25"), ...history("2026-08-27", 2)] });
+    const { client, updates } = makeSupabase([row]);
+    const out = await evaluatePendingShadowSignals(client, new Date("2026-08-28T00:00:00Z"));
+    expect(out.failed).toBe(1);
+    expect(updates.some((u) => "outcome" in u)).toBe(false);
+  });
+
+  it("resolves a session the daily chart passed with no trading in it (a halt or a delisting)", async () => {
+    const halted = { ...bar("2026-08-25T04:00:00Z", 100, 100, 100, 100), v: 0 };
+    bars({ "15Min": [], "1Day": [...history("2026-08-25"), halted, bar("2026-08-26T04:00:00Z", 100, 100.5, 99.5, 100)] });
+    const { client, updates } = makeSupabase([row]);
+    await evaluatePendingShadowSignals(client, new Date("2026-08-27T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "expired" });
+  });
+
+  it("stops waiting on a gap the feed never fills", async () => {
+    bars({ "15Min": [], "1Day": history("2026-08-25") });
+    const { client, updates } = makeSupabase([row]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "expired" });
+  });
+
+  it("still expires a plan recorded in the session's last bar, which has no bar after it", async () => {
+    bars({ "15Min": [], "1Day": history("2026-08-25") });
+    const { client, updates } = makeSupabase([{ ...row, scanned_at: "2026-08-25T19:50:00Z" }]); // 3:50 PM ET
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "expired" });
+  });
+
   it("stays pending before the session it trades has opened", async () => {
     bars({ "15Min": [], "1Day": history("2026-08-25") });
     const { client, updates } = makeSupabase([{ ...row, scanned_at: "2026-08-28T20:30:00Z" }]); // Friday evening

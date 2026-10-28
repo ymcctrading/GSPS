@@ -12,6 +12,7 @@ import type { PublicBacktestReport as BacktestReport } from "@/lib/backtest/fact
 import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import { IndustryPicker, useIndustries } from "@/components/scan/industry-picker";
 import { MAX_TEST_SYMBOLS, capSelection } from "@/lib/universe/selection";
+import { ForwardRecord } from "@/components/learning/forward-record";
 
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
 
@@ -107,6 +108,9 @@ export default function LearningPage() {
   const [shadowSummary, setShadowSummary] = useState<ShadowSummaryResponse | null>(null);
   const [shadowError, setShadowError] = useState<string | null>(null);
   const [shadowLoading, setShadowLoading] = useState(true);
+  // The live record is the owner's alone (the route answers 404 to anyone
+  // else), so the card is not shown at all to anyone else.
+  const [shadowHidden, setShadowHidden] = useState(false);
 
   // Independent of the backtest tool below — this is always-on shadow-mode
   // tracking (lib/shadow/*), not something the user runs on demand, so it
@@ -127,6 +131,10 @@ export default function LearningPage() {
         const res = await fetch(`/api/shadow/summary?${params}`);
         const body = await res.json();
         if (cancelled) return;
+        if (res.status === 404) {
+          setShadowHidden(true);
+          return;
+        }
         if (!res.ok) {
           setShadowError(body.error ?? `Request failed (${res.status})`);
           return;
@@ -202,6 +210,7 @@ export default function LearningPage() {
         </p>
       </div>
 
+      {!shadowHidden && !shadowLoading && (
       <Card>
         <CardHeader>
           <CardTitle>Live signal quality (shadow mode)</CardTitle>
@@ -212,7 +221,6 @@ export default function LearningPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {shadowLoading && <p className="text-sm text-muted">Loading…</p>}
           {shadowError && <p className="text-sm text-bear">{shadowError}</p>}
           {shadowSummary && (
             <>
@@ -278,6 +286,9 @@ export default function LearningPage() {
           )}
         </CardContent>
       </Card>
+      )}
+
+      <ForwardRecord />
 
       <Card data-tour="backtest-run">
         <CardHeader>

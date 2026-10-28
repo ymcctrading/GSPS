@@ -170,6 +170,10 @@ export async function recordShadowSignals(
       if (result == null) return true; // couldn't be read
       return result.outcome === "pending" && (result.filled === true || result.fillPrice != null);
     }
+    // An earlier session that has closed but whose last bars have not arrived
+    // (lib/shadow/session.ts) may yet have filled: held back until a later
+    // scan can read it, so a late fill is never counted twice.
+    if (e.session_date != null && e.session_date < r.session_date && !shadowSessionComplete(e.session_date, e.symbol, now)) return true;
     return e.fill_price != null || e.session_date == null || e.session_date >= r.session_date;
   };
   const seen = new Set<string>();
