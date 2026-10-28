@@ -1,10 +1,10 @@
 /**
  * Stage A of the Gann parity roadmap (`docs/memory-bank/GANN_PARITY_ROADMAP.md`):
  * seven of Gann's disclosed rules that GSPS did not yet compute, added as
- * **context only** (since then rule 2's major levels join the S/R list,
- * `majorPricePercentageLevels`, and the 2026-10-01 decision has every Gann
- * method act where he says it acts). Nothing here feeds a scored criterion, a gate, a plan, an
- * entry, a stop or a target. Each reading is shown on the confluence card and
+ * **context only**. Since then rule 2's major levels join the S/R list
+ * (`majorPricePercentageLevels`), other readings here feed the pillars and
+ * the time-window hold, and the 2026-10-01 decision has every Gann method act
+ * where he says it acts. Each reading is shown on the confluence card and
  * in the explanation trace, so a trader sees the rule and the evidence, and
  * so the backtest can measure it before anything is allowed to gate (AGENTS.md
  * "Gann-derived AND measured").

@@ -1365,9 +1365,13 @@ counts from the major low too: the 1954 coffee letter counts it from the April
 1931 low, years back, so it reads the closed weekly record (5 years, the weekly
 level chart) when its lowest week is below the daily year's low, dated to that
 week's Wednesday (engineering: a weekly bar holds no day), live and replay
-alike (`InstrumentFacts.weekly`, `buildStructuralLevels`). `STRATEGY_VERSION` is
-`2026-10-28-gann-levels-major-lows`; Execute and the 7/4 cutoffs need a fresh
-run on it.
+alike (`InstrumentFacts.weekly`, `buildStructuralLevels`); only a week that
+ended before the daily record counts, so a provider's week inside it never
+moves the low's day. Stated exception: the time side (Jensen's time counts and
+Mars's half return in `timeWindowsAt`) still counts from the daily year's
+extremes, since a count in days needs the low's day and a monthly bar dates
+none; held for the audit ledger. `STRATEGY_VERSION` was
+`2026-10-28-gann-levels-major-lows`.
 
 **Time and price at the turn, 2026-10-28 (alignment audit H2, the window
 saturation held since 2026-10-20).** The time-window hold read a turn as due
@@ -1381,7 +1385,10 @@ needs the turn's extreme at the half or three quarters of a major range
 (`turnAtDivision`, `lib/gann/timeWindow.ts`: `rangeDivisions.ts`'s extreme
 range, highest price and latest campaign, read on the record before the turn,
 3/4 up from the low and down from the high, within the 3-point allowance), on
-the live scan and the replay alike (both take the default). Random walks: the
+the live scan and the replay alike (both take the default). TP-2's
+"especially" is an emphasis, not a stated requirement: making the division
+required is GSPS's reading of it, chosen because time alone selected nothing,
+and labelled as such. Random walks: the
 turn stood at one on 82% of turns at $20, 68% at $50, 54% at $150, 35% at $500.
 `STRATEGY_VERSION` was `2026-10-28-gann-time-and-price-at-turn`.
 **The distribution spell's width, same day (audit L-12).** The distribution

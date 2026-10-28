@@ -66,6 +66,11 @@
  * resistance" (Ch. 18, TP-2, PDF 440); TP-3 (PDF 441) lists the price
  * resistance levels among the indications beside the time counts. With the
  * windows open on nearly every turn (above), time alone selected nothing.
+ * TP-2's "especially" is an emphasis, not a stated requirement; requiring the
+ * division is GSPS's reading of it (labelled), since time alone selected
+ * nothing. The time counts here (Jensen's, Mars's half return) still count
+ * from the daily year's extremes: a count in days needs the low's day, which a
+ * monthly bar does not hold (a stated exception to the levels' major lows).
  * Engineering choices, labelled: the ranges are `rangeDivisions.ts`'s (the
  * extreme range, the highest price, the latest campaign), read on the record
  * before the turn only; 3/4 is read up from the low and down from the high

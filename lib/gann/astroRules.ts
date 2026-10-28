@@ -287,11 +287,15 @@ function sunTravelPoints(bars: Bar[], today: number, unit: number, weekly?: Bar[
   // date the low to its day, and a provider's week a cent lower must not move
   // it to a Wednesday.
   if (weekly && weekly.length > 0) {
-    const w = extremes(weekly).lo;
-    if (weekly[w].l < lowPrice && Date.parse(weekly[w].t) + 7 * DAY_MS <= Date.parse(bars[0].t)) {
-      lowPrice = weekly[w].l;
-      const monday = new Date(weekly[w].t);
-      lowT = ephemerisInstant(new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 2, 12))).getTime();
+    const start = Date.parse(bars[0].t);
+    const before = weekly.filter((b) => Date.parse(b.t) + 7 * DAY_MS <= start);
+    if (before.length > 0) {
+      const w = before[extremes(before).lo];
+      if (w.l < lowPrice) {
+        lowPrice = w.l;
+        const monday = new Date(w.t);
+        lowT = ephemerisInstant(new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 2, 12))).getTime();
+      }
     }
   }
   if (!(today > lowT)) return null;

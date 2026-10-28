@@ -125,6 +125,18 @@ describe("computeGannEntryTrigger", () => {
     expect(distributedBefore(underHigh, underHigh.length, 15)).toBe(false);
   });
 
+  it("reads narrow as 4/3 of the 3-point allowance, his widest dated narrow range", () => {
+    const spell = (k: number) => {
+      const w = k * gannThreePoints(19);
+      return bars(Array.from({ length: 12 }, (_, i) => (i % 2 ? 20 + (w - 2) / 2 : 20 - (w - 2) / 2)));
+    };
+    const inside = spell(1.2);
+    expect(distributedBefore(inside, inside.length, 10)).toBe(true);
+    // Between 4/3 and 2 allowances: narrow under the old reading, not now.
+    const between = spell(1.6);
+    expect(distributedBefore(between, between.length, 10)).toBe(false);
+  });
+
   it("reads a spell wider than two 3-point allowances as no distribution", () => {
     const w = 2.5 * gannThreePoints(19);
     // Closes swing so the bars' highs and lows span 2.5 allowances: a sharp top, not a narrow spell.

@@ -25,10 +25,12 @@
  * - the Sun's travel since the major low, added to the low at 1 point a
  *   degree, contributes its one level, which Gann calls a resistance angle
  *   (the 1954 coffee letter; `astroRules.ts#sunTravelLevel`, A-ASTRO-03,
- *   2026-10-22). The low is the daily bars' lowest, as `readAstroRules` reads
- *   it, so the level and the factor are one rule;
+ *   2026-10-22). The low is the major low: the daily bars' lowest, or an older,
+ *   lower week of the closed weekly record (2026-10-28), as `readAstroRules`
+ *   reads it, so the level and the factor are one rule;
  * - Jensen's square of 90 contributes its nearest point above and below price,
- *   counted up from the daily bars' low and down from their high, across
+ *   counted up from the long record's low and down from its high (the monthly
+ *   chart with the daily bars, 2026-10-28), across
  *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16);
  * - Gann's full angle set, drawn from the major pivots and copied to the
  *   preceding opposite pivots, contributes its nearest line above and below

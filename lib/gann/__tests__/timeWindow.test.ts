@@ -94,9 +94,12 @@ describe("price at the turn (turnAtDivision)", () => {
   });
 
   it("is what both surfaces read: the default", () => {
-    const expected = turnAtDivision(bars.slice(0, 7), null, 97.5);
-    const turn = readWindowTurn(bars, "bullish", null, () => ["w"]);
-    expect(turn?.priceLevel ?? null).toBe(expected);
+    // A month before the turn spans 60 to 135, so the bottom at 97.5 stands at
+    // the half of the extreme range.
+    const months: Bar[] = [{ t: "2025-06-01T04:00:00.000Z", o: 100, h: 135, l: 60, c: 100, v: 1e6 }];
+    const turn = readWindowTurn(bars, "bullish", months, () => ["w"]);
+    expect(turn?.priceLevel).toMatch(/^1\/2 of the extreme range/);
+    expect(turn?.priceLevel).toBe(turnAtDivision(bars.slice(0, 7), months, 97.5));
   });
 });
 
