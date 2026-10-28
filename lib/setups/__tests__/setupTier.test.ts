@@ -9,6 +9,8 @@ import { redactDecision } from "@/lib/scoring/public-summary";
 import { setupTier, splitResting, restingInputOfRow } from "@/lib/setups/resting";
 import { bestQualifiedSetup } from "@/lib/dashboard/bestPlan";
 import { buildDailyCardModel } from "@/lib/setups/card";
+import { listTier } from "@/lib/scan/listOrder";
+import type { ScanResult } from "@/lib/types";
 import { groupManualScan } from "@/components/scan/manual-scan-results";
 import type { ScanRow } from "@/components/scan/results-table";
 
@@ -22,6 +24,15 @@ describe("the scan's Resting flag", () => {
     expect(held.outputState).toBe("Watch");
     expect(held.resting).toBe(true);
     expect(redactDecision(held).resting).toBe(true);
+  });
+
+  it("marks it when the data-lag hold already moved the Execute to Watch", () => {
+    const lagged: ScanDecision = {
+      score: 8,
+      outputState: "Watch",
+      breakdown: [{ key: "dataLag", criterion: "Data current enough to act on", passed: false, note: "late" }],
+    };
+    expect(applyReadyNowHold(lagged, reading).resting).toBe(true);
   });
 
   it("does not mark a crossing whose indication is not shown", () => {
@@ -109,5 +120,14 @@ describe("groupManualScan", () => {
     expect(syms(groups.sell.Resting)).toEqual([]);
     expect(syms(groups.sell.Watch)).toEqual(["SW"]);
     expect(syms(rejected)).toEqual(["RJ", "NO"]);
+  });
+});
+
+describe("listTier", () => {
+  it("ranks Resting between Execute and Watch, as Today's plan does", () => {
+    const r = (d: Partial<ScanDecision>) =>
+      ({ direction: "bullish", currentPrice: 101, dayRange: 3, levels: null, decision: { score: 7, outputState: "Watch", breakdown: [], ...d } }) as unknown as ScanResult;
+    expect(listTier(r({ outputState: "Execute" }))).toBeGreaterThan(listTier(r({ resting: true })));
+    expect(listTier(r({ resting: true }))).toBeGreaterThan(listTier(r({ score: 9 })));
   });
 });

@@ -1115,9 +1115,14 @@ export function applyReadyNowHold(decision: ScanDecision, reading: ReadyNowReadi
   // indication is shown and the order would rest at its level for the
   // reaction back (W006 pp. 20, 46-47), so it is Gann's resting order, not a
   // setup still waiting on a condition (owner's item 5, 2026-10-28;
-  // `setupTier`, `lib/setups/resting.ts`). The verdict stays Watch.
+  // `setupTier`, `lib/setups/resting.ts`). The verdict stays Watch. The
+  // data-lag hold runs first and holds only an Execute, so a Watch carrying
+  // its failed item was an Execute; a late feed says nothing about an order
+  // that is not placed today, so it is still Resting.
+  const wasExecute =
+    decision.outputState === "Execute" || decision.breakdown.some((b) => b.key === "dataLag" && !b.passed);
   const resting =
-    decision.outputState === "Execute" &&
+    wasExecute &&
     reading.indicationShown &&
     reading.levels != null &&
     readResting({

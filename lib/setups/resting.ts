@@ -237,11 +237,6 @@ export function restingInputOfRow(
   };
 }
 
-/** An Execute row resting at its level, read at its scan-time price. */
-export function isRestingExecuteRow(row: RestingRowFields): boolean {
-  return row.outputState === "Execute" && isResting(restingInputOfRow(row));
-}
-
 /**
  * Whether a scan result's Execute plan is resting, read at the scan's own
  * price. The monitor reads such a plan as Watch (`evaluateMonitorsAndNotify`),

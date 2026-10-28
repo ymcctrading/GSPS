@@ -766,8 +766,9 @@ answers it: the resting order at the crossed level is his own state (W006
 pp. 20, 46-47), neither a setup short of a condition (Watch) nor today's order
 (Execute). `setupTier` (`lib/setups/resting.ts`) reads Execute, Resting, Watch,
 Reject. The scan flags it where the hold is decided (`ScanDecision.resting`,
-set by `applyReadyNowHold` only on an Execute whose indication is shown and
-whose sole hold is the entry's distance), it crosses redaction and is stored in
+set by `applyReadyNowHold` only on an Execute, or one the data-lag hold already
+moved to Watch, whose indication is shown and whose sole hold is the entry's
+distance), it crosses redaction and is stored in
 `daily_scans.detail.resting`; a row stored before reads the old fallback (7+
 and resting). A display tier, not a verdict: `outputState` stays Watch, the
 monitor alerts on Execute only, the replay (hold read at the fill) never meets
@@ -775,7 +776,8 @@ one, and `STRATEGY_VERSION` stays. A 7+ Watch held by another rule that also
 sits far from its entry is now Watch, not Resting. Surfaces: the daily lists'
 and tracked list's "Resting orders", the setup card's badge and synopsis, the
 ticker page's signal card, chart panel badge and company note, Guided's near
-miss, Today's plan (Execute, then Resting, then Watch), and the Scanner's
+miss, Today's plan and the lists' order and capped lists (`listTier`: Execute,
+then Resting, then Watch), and the Scanner's
 manual results, now split Buy/Sell × Executable/Resting/Watch with rejects
 collapsed (`components/scan/manual-scan-results.tsx`).
 

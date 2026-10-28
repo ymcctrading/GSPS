@@ -4,10 +4,10 @@
  * without the scan itself.
  */
 
-import { isRestingScanResult } from "@/lib/setups/resting";
+import { isRestingScanResult, tierOfDecision } from "@/lib/setups/resting";
 import type { ScanResult } from "@/lib/types";
 
-const VERDICT_TIER: Record<string, number> = { Execute: 2, Watch: 1, Reject: 0 };
+const VERDICT_TIER: Record<string, number> = { Execute: 3, Resting: 2, Watch: 1, Reject: 0 };
 
 /**
  * The verdict's place in the lists' order. A resting Execute (its entry more
@@ -18,10 +18,14 @@ const VERDICT_TIER: Record<string, number> = { Execute: 2, Watch: 1, Reject: 0 }
  * reaction entry, was rank 1 on the sell list).
  */
 export function listTier(r: ScanResult): number {
-  const state = r.decision.outputState;
+  const tier = tierOfDecision(r.decision);
   const side = r.direction === "bullish" ? "buy" : "sell";
-  if (state === "Execute" && isRestingScanResult(r, side)) return VERDICT_TIER.Watch;
-  return VERDICT_TIER[state] ?? 0;
+  // An Execute resting at its level (a result cached before the scan held it
+  // at Watch, 2026-10-27) reads as the Resting tier too.
+  if (tier === "Execute" && isRestingScanResult(r, side)) return VERDICT_TIER.Resting;
+  // Since 2026-10-28 Resting is its own tier (`setupTier`): behind Execute,
+  // ahead of Watch, as Today's plan ranks it (`bestPlan.ts`).
+  return VERDICT_TIER[tier] ?? 0;
 }
 
 /**
