@@ -33,7 +33,7 @@
 import { z } from "zod";
 
 /** Overlays drawn in the price pane. The ids are kept from before periods were configurable. */
-export const CHART_OVERLAYS = ["sma20", "sma50", "ema9", "bb", "psar", "supertrend", "vwap", "donchian"] as const;
+export const CHART_OVERLAYS = ["sma20", "sma50", "ema9", "bb", "psar", "supertrend", "vwap", "donchian", "elliott"] as const;
 export type ChartOverlay = (typeof CHART_OVERLAYS)[number];
 /** Studies drawn in their own pane. */
 export const CHART_STUDIES = ["volume", "rsi", "macd", "stoch"] as const;
@@ -153,6 +153,8 @@ export function indicatorLabel(key: ChartOverlay | ChartStudy, params: Indicator
       return "VWAP";
     case "donchian":
       return `Donchian ${params.donchian.period}`;
+    case "elliott":
+      return "Elliott Wave";
     case "volume":
       return "Volume";
     case "rsi":

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Lock, CheckCircle2 } from "lucide-react";
 import { SchoolDisclaimer } from "@/components/school/disclaimer";
 import { SchoolSubNav } from "@/components/school/sub-nav";
+import { SchoolPicksCard } from "@/components/school/school-picks";
 
 interface AcademySummary {
   id: string;
@@ -59,6 +60,8 @@ export function CurriculumDashboard() {
   return (
     <div className="space-y-6">
       <SchoolDisclaimer />
+
+      <SchoolPicksCard />
 
       {nextAcademy && (
         <Card className="border-accent/40">

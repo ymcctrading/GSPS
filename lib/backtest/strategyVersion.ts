@@ -856,7 +856,17 @@
 // record join them (`marketCountHits`). Flanagan's 13, 120 and 150 years have
 // no page of Gann's and are not read. The dominant decade is a measured factor
 // only (`dominantCycleWithTrade`). Live verdicts and replay buckets move.
-// (was STRATEGY_VERSION "2026-10-28-gann-p1-long-counts")
+// 2026-10-28-plan-expiry (owner: "the setups are expired", approved "Go"):
+// a plan expires, the stock stays tracked, when price stands at or past its
+// TP1 (a crossed level is the next support, W006 pp.19-24), or when a
+// reaction buy after a crossing could fill only on a reaction over the
+// campaign's greatest by a point (Master Course Ch. 8, PDF 249). Reject live,
+// levels withheld (`applyPlanExpiredHold`, `lib/gann/planExpiry.ts`); the
+// replay does not enter such a plan and counts it under retiredPlans.
+// Live verdicts move (23 of 43 rows listed on 2026-10-27 stood past TP1);
+// replay trades move, by how much not measured. Merged onto
+// 2026-10-28-gann-p1-long-counts, whose counts it keeps.
+// (was STRATEGY_VERSION "2026-10-28-plan-expiry-on-p1-long-counts")
 // 2026-10-28-plan-at-session-close: the live scan reads the plan's lattice
 // levels and targets, the S/R band, the angles, the time and price square,
 // the range divisions and the pillar facts at the last completed session's
@@ -865,5 +875,6 @@
 // charts after the close: Truth of the Stock Tape pp.5-7, 76-82). Live
 // verdicts move inside a session; daily replays are unchanged; intraday
 // replays now read the prior session's daily close, not the last 15-minute
-// close before the session.
-export const STRATEGY_VERSION = "2026-10-28-plan-at-session-close";
+// close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
+// whose expiry it keeps.
+export const STRATEGY_VERSION = "2026-10-28-plan-at-close-on-plan-expiry";

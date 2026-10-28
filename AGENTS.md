@@ -2503,6 +2503,15 @@ see `lib/strategies/` and `docs/STRATEGY_MODES.md` for the architecture and
 each mode's three-question design rationale (required by the mandate below
 even though gate 1, Gann sourcing, is answered "none, deliberately" for
 every mode here).
+**Tenth mode, 2026-10-28 (owner: "GSPS should compute Elliott Wave"):**
+`elliottWave`, a wave 3 entry from the shared count in
+`lib/strategies/elliottCount.ts` (Elliott's three rules; diagonals, flats and
+triangles not counted), Expert and Wall Street. The same count draws the
+chart's "Elliott Wave" overlay and feeds the School's live examples, and every
+surface says it is one valid count, not a forecast. Same boundary: it never
+reaches the scan, score, gates, GSPS's plan or an automated order. Owner's
+rule of the same day: user-facing copy teaches public methods like this one
+and never names or describes the house method's sources.
 
 **Tier-gated** (2026-09-23, direct project-owner instruction, same day as
 the follow-up above): Novice has no Strategy Mode access at all — no
@@ -3218,6 +3227,24 @@ price at the entry), so only the targets reading holds there; the plan-time
 reading the live scan shows is measured as the factor `readyNowAtPlan` (the
 session's last close and daily ATR, when the plan is priced). `STRATEGY_VERSION`
 was `2026-10-27-execute-ready-now`.
+**Outdated plans expire, 2026-10-28 (owner: "I need to continue to track those
+equities but I believe that the setups are expired"; plan approved "Go").** On
+the 2026-10-27 scan 23 of the 43 listed setups already stood past TP1 (WAT's buy
+at 395 with price 468). `readPlanExpiry` (`lib/gann/planExpiry.ts`) expires a
+plan when price stands at or past its TP1 (a crossed level is the next support,
+W006 pp.19-24, "old tops become bottoms"; the next scan prices the new buying
+point), or when a reaction buy after a crossing could fill only on a reaction
+over the campaign's greatest by a point (Master Course Ch. 8, PDF 249). Not for
+an old-bottom buy: the double-bottom test is Gann's buy. `applyPlanExpiredHold`
+makes it Reject, the scan returns no levels and `ScanResult.planExpired` keeps
+the plan and a plain-words note, so no list, chart, ticket, Guided Mode,
+automation or intraday timing offers it anew, and a tracked symbol's monitor
+reads "No setup now" until a new plan arms it. A `trade_plans` row awaiting
+confirmation is not armed past its TP1 (`armFromBars`, `targetPassed`); an
+already-armed plan keeps its one-session window. Stored daily rows past TP1 are
+dropped by `isInvalidated`. The replay does not enter such a plan, re-read on
+each closed intraday candle (`planExpiryAt`, `expiredPlans`, inside
+`retiredPlans`). `STRATEGY_VERSION` was `2026-10-28-plan-expiry`, merged onto the P1 long counts as `2026-10-28-plan-expiry-on-p1-long-counts`.
 **The plan at the session's close, 2026-10-28 (found by the "symbol page keeps
 its plan" thread).** The live scan read the lattice levels (Square of 144,
 planetary averages, angles, Jensen, Square of Nine, name chart) and the Square
@@ -3230,12 +3257,13 @@ Stock Selector* pp.41-42), so the live scan now reads them at that close
 (`planPrice`, `lib/scanTicker.ts`); the quote still decides the stop breach,
 ready-now and resting. Intraday replays read the prior session's daily close
 for it too. `pillarParity.test.ts` holds a moving quote to the same plan and
-score. `STRATEGY_VERSION` is `2026-10-28-plan-at-session-close`.
+score. `STRATEGY_VERSION` was `2026-10-28-plan-at-session-close`, merged onto the
+plan expiry as `2026-10-28-plan-at-close-on-plan-expiry`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
-shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+shows it, once a move (`lib/notifications/intradayBell.ts`): a signal still standing is not written again the same New York day, only after the same symbol's signal turned the other way (2026-10-28; it had repeated every cooldown, 4,515 notices for 1,115 member-signal pairs on 10-26).
 Email and browser push for the same signals (`lib/notifications/intradayDelivery.ts`,
 2026-10-21, after #404) go to every member by their settings (push off until
 turned on), score floor and quiet hours, each channel deduped on its own, and

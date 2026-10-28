@@ -64,6 +64,7 @@ import {
 } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
 import { readResting, restingNote } from "@/lib/setups/resting";
+import type { PlanExpiry } from "@/lib/gann/planExpiry";
 import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
 
 export interface ScoreInputs {
@@ -1121,6 +1122,30 @@ export function applyReadyNowHold(decision: ScanDecision, reading: ReadyNowReadi
         passed: false,
         note: `${reasons.join(" ")}${decision.outputState === "Execute" ? " Held from Execute to Watch." : ""}`,
       },
+    ],
+  };
+}
+
+/**
+ * An expired plan is no setup (owner, 2026-10-28; `lib/gann/planExpiry.ts`):
+ * price has passed its first target without the entry filling, or the entry
+ * can fill only on a reaction that would over-balance the campaign. The
+ * verdict is Reject, so the plan leaves every list and the symbol's monitor
+ * reads "No setup now" until a new plan arms it; the scan withholds the levels
+ * (`ScanResult.planExpired`). The score is untouched: the analysis behind it
+ * is not what lapsed. A Reject keeps its state and gains the reason, so the
+ * card can say why there is no plan. A retired plan (its stop broken) is
+ * already Reject and keeps that reason alone.
+ */
+export function applyPlanExpiredHold(decision: ScanDecision, expiry: PlanExpiry | null): ScanDecision {
+  if (!expiry) return decision;
+  if (decision.breakdown.some((b) => b.key === "stopBreach" && !b.passed)) return decision;
+  return {
+    ...decision,
+    outputState: "Reject",
+    breakdown: [
+      ...decision.breakdown,
+      { key: "planExpired", criterion: "Plan still live", passed: false, note: expiry.note },
     ],
   };
 }

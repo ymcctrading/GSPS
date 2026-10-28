@@ -11,6 +11,7 @@ import { SchoolDisclaimer } from "@/components/school/disclaimer";
 import { ProvenanceBadge, type Provenance } from "@/components/school/provenance-badge";
 import { GuideTip } from "@/components/guides/guide-avatar";
 import { speakerOf } from "@/lib/guides/speaker";
+import { LessonExamples } from "@/components/school/lesson-examples";
 import { ThreeElementForm, type ThreeElementFormValue } from "@/components/school/three-element-form";
 
 interface LessonDetail {
@@ -180,6 +181,8 @@ export function LessonPlayer({ lessonId }: { lessonId: string }) {
           })}
         </CardContent>
       </Card>
+
+      <LessonExamples lessonId={data.lesson.id} />
 
       {data.lesson.metricsShown && data.lesson.metricsShown.length > 0 && (
         <Card>

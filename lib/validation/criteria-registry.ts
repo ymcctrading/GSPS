@@ -1089,6 +1089,21 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "planExpired",
+    family: "scoreHold",
+    source: "lib/gann/planExpiry.ts",
+    label: "Plan still live",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "Owner, 2026-10-28: an outdated plan expires and the stock stays tracked. Appended when price stands " +
+      "past the plan's TP1 (a level crossed is the next support, W006 pp.19-24) or the entry can fill only on " +
+      "a reaction that over-balances the campaign's greatest by a point (Master Course Ch. 8, PDF 249). It " +
+      "drops the verdict to Reject, so it is failed by construction whenever present. The replay does not " +
+      "enter such a plan and counts it under retiredPlans, so it never reaches the factor tables.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "dataLag",
     family: "scoreHold",
     source: "lib/data/latency.ts",

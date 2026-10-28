@@ -21,6 +21,7 @@ import { evaluateMacdMomentum } from "./macdMomentum";
 import { evaluateVwap } from "./vwap";
 import { evaluateStochastic } from "./stochastic";
 import { evaluateDonchian } from "./donchian";
+import { evaluateElliottWave } from "./elliottWave";
 
 export const NON_GANN_STRATEGY_EVALUATORS = {
   psarSupertrend: evaluatePsarSupertrend,
@@ -32,6 +33,7 @@ export const NON_GANN_STRATEGY_EVALUATORS = {
   vwap: evaluateVwap,
   stochastic: evaluateStochastic,
   donchian: evaluateDonchian,
+  elliottWave: evaluateElliottWave,
 } satisfies Record<string, StrategyEvaluator>;
 
 export type NonGannStrategyModeId = keyof typeof NON_GANN_STRATEGY_EVALUATORS;

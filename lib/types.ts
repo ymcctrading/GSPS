@@ -7,6 +7,7 @@ import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
 import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/confluence/types";
 import type { NoviceEligibility } from "@/lib/universe/types";
 import type { ConfluenceType } from "@/lib/gann/digitalRoot";
+import type { PlanExpiredNotice } from "@/lib/gann/planExpiry";
 
 /**
  * `"commodity"` is a recognized value with no live market-data connection
@@ -362,6 +363,15 @@ export interface ScanResult {
    * lib/gann/stopBreach.ts.
    */
   stopBreach?: { stop: number; price: number; reclaimAt: number };
+  /**
+   * Present only when the plan this scan priced has expired (owner,
+   * 2026-10-28; `lib/gann/planExpiry.ts`): price stands past its first target
+   * without the entry filling, or the entry could fill only on a reaction that
+   * over-balances the campaign. The verdict is Reject and `levels` is null, so
+   * no surface offers the plan; this keeps what it was and the plain-words
+   * reason for the card. The symbol stays tracked.
+   */
+  planExpired?: PlanExpiredNotice;
   /**
    * How strongly the selection rules favour this setup's side (early leaders
    * first; `lib/gann/leadership.ts#selectionStrength`). Orders the daily

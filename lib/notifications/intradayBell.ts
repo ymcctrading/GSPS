@@ -10,9 +10,15 @@
  * WATCH/EXECUTE monitor. A member's tier decides what reaches them, as it does
  * on the panel: no intraday access, nothing; Pro's bounded module, only the
  * confirmed entries it shows (`isConfirmedIntradayEntry`). Held repeats inside
- * the scanner's cooldown are never in `alerts`, and a notice already written
- * for the same symbol, signal and direction inside the cooldown is not written
- * again, so a member gets one notice a move.
+ * the scanner's cooldown are never in `alerts`, and a member gets one notice a
+ * move: a signal is written again on the same New York day only once the same
+ * symbol's same signal has turned the other way since (`isNewMove`). Gann acts
+ * on the first change in trend (Master Course Ch. 13), not on a standing one.
+ * Until 2026-10-28 it was written again whenever the scanner's 30-minute
+ * cooldown had passed, so a signal standing all session reached each member
+ * about every 45 minutes: 4,515 notices for 1,115 member-signal pairs on
+ * 2026-10-26. A notice nearing or at a plan's entry is written again once
+ * `NOTICE_REPEAT_HOURS` have passed.
  *
  * The notice says what Gann's method uses an intraday signal for: timing a
  * daily plan (Master Course Ch. 13), not a system of its own. The intraday
@@ -86,6 +92,30 @@ export function buildIntradayBellRow(alert: Alert): IntradayBellRow {
     title: `${alert.symbol} intraday, ${side}: ${SIGNAL_LABELS[alert.type]}`,
     body: `${levels.join(", ")}.${noTrade} Timing for a daily plan; intraday signals have no measured record yet.`,
   };
+}
+
+/** The symbol and signal of a bell title, without its direction. */
+export function moveKey(title: string): string {
+  return title.replace(/ intraday, (up|down): /, " intraday: ");
+}
+
+/** The latest title written for each symbol and signal. */
+export function latestTitleByMove(rows: { title: string; created_at: string }[]): Map<string, string> {
+  const latest = new Map<string, { title: string; at: string }>();
+  for (const r of rows) {
+    const key = moveKey(r.title);
+    const prev = latest.get(key);
+    if (!prev || r.created_at > prev.at) latest.set(key, { title: r.title, at: r.created_at });
+  }
+  return new Map([...latest].map(([k, v]) => [k, v.title]));
+}
+
+/**
+ * A notice is a new move when nothing was written today for its symbol and
+ * signal, or the last one written went the other way.
+ */
+export function isNewMove(title: string, latest: Map<string, string>): boolean {
+  return latest.get(moveKey(title)) !== title;
 }
 
 /**
@@ -182,15 +212,16 @@ async function withinProDailyBound(
 export async function recordIntradayBells(
   service: SupabaseClient,
   alerts: Alert[],
-  args: { intervalBySymbol: Map<string, number>; cooldownMinutes: number; now: Date },
+  args: { intervalBySymbol: Map<string, number>; now: Date },
 ): Promise<number> {
   if (alerts.length === 0) return 0;
   const symbols = [...new Set(alerts.map((a) => a.symbol.toUpperCase()))];
   const watchers = await loadWatchers(service, symbols);
   if (watchers.size === 0) return 0;
 
-  const since = new Date(args.now.getTime() - args.cooldownMinutes * 60_000).toISOString();
-  const noticeSince = new Date(args.now.getTime() - NOTICE_REPEAT_HOURS * 3600_000).toISOString();
+  // Wide enough to hold the whole New York day; rows are filtered to it below.
+  const since = new Date(args.now.getTime() - 30 * 3600_000).toISOString();
+  const noticeSince = Date.parse(new Date(args.now.getTime() - NOTICE_REPEAT_HOURS * 3600_000).toISOString());
   let written = 0;
   for (const [profileId, watched] of watchers) {
     try {
@@ -216,22 +247,33 @@ export async function recordIntradayBells(
         rows = await withinProDailyBound(service, profileId, rows, args.now);
         if (rows.length === 0) continue;
       }
-      // A notice repeats at most once in `NOTICE_REPEAT_HOURS`; a signal,
-      // once a cooldown. Titles tell the two apart (the signal's label).
-      const noticeTitles = new Set(mine.filter((a) => NOTICE_SIGNALS.has(a.type)).map((a) => buildIntradayBellRow(a).title));
-      const { data: recent } = await service
+      const { data: recent, error: readError } = await service
         .from("in_app_notifications")
         .select("title, created_at")
         .eq("profile_id", profileId)
         .eq("verdict", "Intraday")
-        .gte("created_at", noticeTitles.size > 0 ? noticeSince : since)
-        .in("title", rows.map((r) => r.title));
-      const seen = new Set(
-        ((recent ?? []) as { title: string; created_at?: string }[])
-          .filter((r) => noticeTitles.has(r.title) || !r.created_at || Date.parse(r.created_at) >= Date.parse(since))
-          .map((r) => r.title),
+        .gte("created_at", since)
+        .in("symbol", [...new Set(rows.map((r) => r.symbol))]);
+      if (readError) {
+        // Unread history would repeat every standing signal; skip the member.
+        console.error("[intraday-bell] history read failed:", readError.message);
+        continue;
+      }
+      const history = (recent ?? []) as { title: string; created_at: string }[];
+      // A notice (nearing or at a plan's entry) repeats at most once in
+      // `NOTICE_REPEAT_HOURS`; a signal, once a move over the New York day.
+      const noticesSeen = new Set(
+        history.filter((r) => isNoticeTitle(r.title) && Date.parse(r.created_at) >= noticeSince).map((r) => r.title),
       );
-      const fresh = rows.filter((r, i) => !seen.has(r.title) && rows.findIndex((x) => x.title === r.title) === i);
+      const today = etDateKey(args.now);
+      const latest = latestTitleByMove(
+        history.filter((r) => !isNoticeTitle(r.title) && etDateKey(new Date(r.created_at)) === today),
+      );
+      const fresh = rows.filter(
+        (r, i) =>
+          (isNoticeTitle(r.title) ? !noticesSeen.has(r.title) : isNewMove(r.title, latest)) &&
+          rows.findIndex((x) => x.title === r.title) === i,
+      );
       if (fresh.length === 0) continue;
 
       const { error } = await service
