@@ -884,4 +884,15 @@
 // or more apart" (W006 p.20, A-ENTRY-02). The six-year daily rerun's first
 // quarter (2026-10-28) had old-bottom entries at -0.076R over 4,856 trades.
 // Plans and replay trades move.
-export const STRATEGY_VERSION = "2026-10-28-double-bottom-weeks";
+// (was STRATEGY_VERSION "2026-10-28-double-bottom-weeks")
+// 2026-10-28-gann-groups-by-industry: P3(c)'s group rank (S4) reads the
+// platform's industries (`lib/universe/industries.ts`: the SEC codes with the
+// misfiled businesses corrected, Alphabet with the social media names,
+// ConocoPhillips with the producers) instead of the raw codes, pooling a
+// sector's small industries when they reach five together
+// (`buildIndustryGroupMap`). 821 of 832 universe stocks in 71 groups (was 762
+// in 58). Live verdicts and replay trades move where a stock's group changed.
+// (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
+// 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
+// merged in the 2026-10-28 release. No new rule.
+export const STRATEGY_VERSION = "2026-10-28-groups-by-industry-on-double-bottom-weeks";

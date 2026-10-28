@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { type ScanRow } from "@/components/scan/results-table";
 import { ManualScanResults } from "@/components/scan/manual-scan-results";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
 import { PastScans } from "@/components/scan/past-scans";
 import { SavedSearches } from "@/components/scan/saved-searches";
-import { SECTORS, COMING_SOON } from "@/lib/sectors";
+import { IndustryPicker, useIndustries } from "@/components/scan/industry-picker";
+import { MAX_SCAN_REQUESTS, SCAN_CHUNK_SIZE, chunk, resolveSelection } from "@/lib/universe/selection";
 import { cn } from "@/lib/utils";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { ScanResult } from "@/lib/types";
@@ -63,38 +63,66 @@ export default function ScannerPage() {
   const [results, setResults] = useState<ScanRow[] | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
   const [exactScoreDisplayEnabled, setExactScoreDisplayEnabled] = useState(false);
+  const { data: industries, error: industriesError } = useIndustries();
 
-  function toggleSector(key: string) {
-    setSelected((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  }
+  const picked = resolveSelection(selected, custom, industries?.sectors ?? [], industries?.lists ?? []);
+  const requests = Math.ceil(picked.length / SCAN_CHUNK_SIZE);
 
   async function runScan() {
     setLoading(true);
     setError(null);
     setResults(null);
     try {
-      const symbols = new Set<string>();
-      selected.forEach((key) => SECTORS[key].symbols.forEach((s) => symbols.add(s)));
-      custom
-        .split(/[,\s]+/)
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean)
-        .forEach((s) => symbols.add(s));
-
-      if (symbols.size === 0) {
+      if (picked.length === 0) {
         setError("Pick at least one industry or enter a symbol.");
         return;
       }
+      if (selected.length > 0 && !industries) {
+        setError("Industries are still loading. Try again in a moment.");
+        return;
+      }
+      if (requests > MAX_SCAN_REQUESTS) {
+        setError(
+          `That's ${picked.length} symbols. A manual scan runs at most ${MAX_SCAN_REQUESTS * SCAN_CHUNK_SIZE}; pick fewer industries. The Dashboard's daily lists already cover every stock.`,
+        );
+        return;
+      }
 
-      const res = await fetch(`/api/batch-scan?tickers=${encodeURIComponent([...symbols].join(","))}`);
-      if (!res.ok) throw new Error(`Scan failed (${res.status})`);
-      const data = await res.json();
-      const all = (data.results ?? []) as ScanResult[];
+      // One request scans at most SCAN_CHUNK_SIZE symbols, so a larger pick
+      // runs as several, two at a time, and their rows are merged. A request
+      // the server refuses (the day's scans used up) stops the rest and keeps
+      // what came back.
+      const batches = chunk(picked, SCAN_CHUNK_SIZE);
+      const all: ScanResult[] = [];
+      let exact = false;
+      let stopped: string | null = null;
+      for (let i = 0; i < batches.length && !stopped; i += 2) {
+        const replies = await Promise.all(
+          batches.slice(i, i + 2).map(async (batch) => {
+            const res = await fetch(`/api/batch-scan?tickers=${encodeURIComponent(batch.join(","))}`);
+            const body = await res.json().catch(() => ({}));
+            return { res, body };
+          }),
+        );
+        for (const { res, body } of replies) {
+          if (!res.ok) {
+            stopped =
+              (body as { error?: string }).error ??
+              `Scan failed (${res.status})`;
+            continue;
+          }
+          exact ||= Boolean(body.exactScoreDisplayEnabled);
+          all.push(...((body.results ?? []) as ScanResult[]));
+        }
+      }
+      if (stopped && batches.length > 1) {
+        setError(`${stopped} Showing the symbols scanned before that.`);
+      } else if (stopped) {
+        throw new Error(stopped);
+      }
       const ok = all.filter((r) => !r.error);
       setFailed(all.filter((r) => r.error).map((r) => r.symbol));
-      setExactScoreDisplayEnabled(Boolean(data.exactScoreDisplayEnabled));
+      setExactScoreDisplayEnabled(exact);
       setResults(
         ok.map(toRow).sort((a, b) => b.score - a.score),
       );
@@ -149,33 +177,14 @@ export default function ScannerPage() {
           <Card data-tour="scanner-universe">
             <CardHeader>
               <CardTitle>Universe</CardTitle>
-              <CardDescription>Combine industries freely, or scan specific symbols.</CardDescription>
+              <CardDescription>Pick whole sectors or single industries, across stocks, funds, crypto, futures and forex, or type symbols.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(SECTORS).map(([key, { label }]) => (
-                  <button
-                    key={key}
-                    onClick={() => toggleSector(key)}
-                    className={cn(
-                      "rounded-full border border-border px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer",
-                      selected.includes(key)
-                        ? "border-accent bg-accent-soft text-accent"
-                        : "text-muted hover:text-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-                {COMING_SOON.map((label) => (
-                  <span
-                    key={label}
-                    className="rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm text-muted/60"
-                  >
-                    {label} <Badge variant="muted" className="ml-1">soon</Badge>
-                  </span>
-                ))}
-              </div>
+              {industries ? (
+                <IndustryPicker data={industries} selected={selected} onChange={setSelected} />
+              ) : (
+                <p className="text-sm text-muted">{industriesError ?? "Loading industries…"}</p>
+              )}
 
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
@@ -188,6 +197,12 @@ export default function ScannerPage() {
                   {loading ? "Scanning…" : "Run scan"}
                 </Button>
               </div>
+              {requests > 1 && (
+                <p className="text-xs text-muted">
+                  {picked.length} symbols run as {requests} scans of up to {SCAN_CHUNK_SIZE}, and each
+                  counts toward your daily manual scans.
+                </p>
+              )}
               {error && <p className="text-sm text-bear">{error}</p>}
 
               <SavedSearches
