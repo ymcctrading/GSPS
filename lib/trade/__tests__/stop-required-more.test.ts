@@ -22,8 +22,10 @@ describe("review 24: a stop on every new position (A-STOP-01), the other shapes"
     getOpenPosition.mockResolvedValue({ side: "long", qty: 10 });
     expect((await place({ side: "buy" })).body.code).toBe("stop_required");
   });
-  it("refuses a sell larger than the long it closes (it flips to a stopless short)", async () => {
+  // Since 2026-10-28 a sale larger than the long is refused before the stop is
+  // read: the close comes first, then the short with its own stop (flips_position).
+  it("refuses a sell larger than the long it closes (it would flip to a short)", async () => {
     getOpenPosition.mockResolvedValue({ side: "long", qty: 10 });
-    expect((await place({ side: "sell", qty: 30 })).body.code).toBe("stop_required");
+    expect((await place({ side: "sell", qty: 30 })).body.code).toBe("flips_position");
   });
 });

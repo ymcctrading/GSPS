@@ -26,6 +26,7 @@ import type { OwnTechniqueLevels, TechniqueRead } from "@/lib/strategies/compare
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import { SellSetupHelp } from "@/components/education/sell-setup-help";
+import type { HeldPosition } from "@/app/api/positions/held/route";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -210,6 +211,14 @@ export function OrderTicket({
   }>({ symbol: "", value: null });
   const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
 
+  // The paper position already held in this symbol. A sell setup on shares
+  // owned is a reason to sell them, not to open a short (and a buy setup on a
+  // short held, to cover it), so the ticket offers the close first. Keyed by
+  // symbol like the pre-flight above; `heldVersion` re-reads it after a close.
+  const [heldState, setHeld] = useState<{ symbol: string; value: HeldPosition | null }>({ symbol: "", value: null });
+  const [heldVersion, setHeldVersion] = useState(0);
+  const held = heldState.symbol === symbol ? heldState.value : null;
+
   // The intraday plan the ticket can trade: the alert the person clicked
   // "Trade this" on, else the panel's current alert for the symbol. Its side is
   // where its stop and first target sit.
@@ -267,6 +276,19 @@ export function OrderTicket({
       cancelled = true;
     };
   }, [symbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/positions/held?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { held?: unknown } | null) => !cancelled && setHeld({ symbol, value: readHeld(d?.held) }))
+      .catch(() => {
+        /* unread: no offer shown; the server still treats a sale of shares held as a close */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol, heldVersion]);
 
   // Load the user's saved default Strategy Mode once (Settings ->
   // "Strategy mode"). It only picks the technique drawn on the chart; it
@@ -335,6 +357,16 @@ export function OrderTicket({
   // Only a definitive `false` blocks the short side; a lookup that didn't
   // resolve leaves the button enabled and defers to the broker.
   const shortBlocked = assetType === "shares" && tradability?.shortable === false;
+  // Hard to borrow: the broker may still lend, at a higher daily fee.
+  const hardToBorrow = assetType === "shares" && tradability?.shortable === true && tradability.easyToBorrow === false;
+  // An order on the other side of a position held: it closes or reduces that
+  // position rather than opening a new one, so the ticket offers that instead.
+  const heldAgainst =
+    assetType === "shares" &&
+    held != null &&
+    ((held.side === "long" && side === "sell") || (held.side === "short" && side === "buy"))
+      ? held
+      : null;
 
   // Find the near-the-money contract symbol for a given expiration + call/put.
   const pickAtm = useCallback(
@@ -713,6 +745,8 @@ export function OrderTicket({
         setFeedback({ ok: false, text: data.error ?? `HTTP ${res.status}`, code: data.code });
         return;
       }
+      // The book changed: re-read what's held, so a sale on the other side offers the close.
+      setHeldVersion((v) => v + 1);
       const placed = `Paper order placed — ${data.order?.status ?? "accepted"}.`;
       // The exit plan is part of what was just agreed to, so it is echoed back
       // from the server's own answer rather than from what the ticket predicted.
@@ -743,6 +777,7 @@ export function OrderTicket({
     Number(qty) < 1 ||
     (assetType === "options" && !canSubmitOptions) ||
     (shortBlocked && side === "sell") ||
+    heldAgainst != null ||
     priceBlocked ||
     protocolInvalidated ||
     (levelChoice === "swing" && !hasProtocolSignal) ||
@@ -946,8 +981,27 @@ export function OrderTicket({
           </div>
         )}
 
+        {heldAgainst && (
+          <HeldPositionOffer
+            symbol={symbol}
+            held={heldAgainst}
+            qty={Number(qty)}
+            onClosed={(text) => {
+              setFeedback({ ok: true, text });
+              setHeldVersion((v) => v + 1);
+            }}
+          />
+        )}
+
+        {hardToBorrow && side === "sell" && !heldAgainst && (
+          <p className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+            {symbol} is hard to borrow. The broker may still lend it, but the daily borrowing fee is higher, and the
+            lender can ask for the shares back.
+          </p>
+        )}
+
         {/* A short sale explained for a Novice (owner, 2026-10-28). */}
-        {assetType === "shares" && side === "sell" && !shortBlocked && <SellSetupHelp />}
+        {assetType === "shares" && side === "sell" && !shortBlocked && !heldAgainst && <SellSetupHelp />}
 
         {assetType === "shares" ? (
           <>
@@ -1703,5 +1757,85 @@ function LevelButton({
     >
       {label}
     </button>
+  );
+}
+
+/** The held position the route returned, or null for anything else. */
+function readHeld(raw: unknown): HeldPosition | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Partial<HeldPosition>;
+  if ((r.side !== "long" && r.side !== "short") || typeof r.qty !== "number" || !(r.qty > 0)) return null;
+  return { side: r.side, qty: r.qty, managed: r.managed === true };
+}
+
+/**
+ * The offer shown in place of a new position when the order would trade
+ * against one already held: close it, or (when no managed exit runs it) sell
+ * or cover part of it. It goes through "Close position"'s own route, so the
+ * trade is logged and any managed exit retired with it.
+ */
+function HeldPositionOffer({
+  symbol,
+  held,
+  qty,
+  onClosed,
+}: {
+  symbol: string;
+  held: HeldPosition;
+  qty: number;
+  onClosed: (text: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const long = held.side === "long";
+  const shares = `${held.qty} share${held.qty === 1 ? "" : "s"}`;
+  const part = !held.managed && Number.isFinite(qty) && qty >= 1 && qty < held.qty ? qty : null;
+
+  async function close(partQty: number | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/positions/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partQty == null ? { symbol } : { symbol, qty: partQty }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      const done = partQty == null ? (long ? "Sold" : "Covered") + ` all ${shares}` : (long ? "Sold" : "Covered") + ` ${partQty} of ${shares}`;
+      onClosed(`${done} of ${symbol} at market (paper).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-accent/40 bg-accent-soft p-3 text-xs">
+      <p className="font-medium">
+        {long ? `You own ${shares} of ${symbol}.` : `You're short ${shares} of ${symbol}.`}
+      </p>
+      <p className="mt-1 text-muted">
+        {long
+          ? "A sell setup on stock you own is a reason to sell what you hold, not to open a short."
+          : "A buy setup on a short you hold is a reason to cover it, not to buy more."}{" "}
+        {held.managed
+          ? "Its exit plan exits the whole position, so it closes in one go."
+          : "Close all of it, or set the quantity above to close part of it."}{" "}
+        A new {long ? "short" : "buy"} can follow once it&apos;s closed.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" disabled={busy} onClick={() => close(null)}>
+          {long ? "Sell all" : "Cover all"} {shares}
+        </Button>
+        {part != null && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => close(part)}>
+            {long ? "Sell" : "Cover"} {part} of them
+          </Button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-bear">{error}</p>}
+    </div>
   );
 }

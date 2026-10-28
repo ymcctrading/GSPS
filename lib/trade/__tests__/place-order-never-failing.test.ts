@@ -25,6 +25,7 @@ vi.mock("@/lib/brokers/simulator", async () => {
     isTriggered: (...args: unknown[]) => isTriggered(...args),
     executeFill: (...args: unknown[]) => executeFill(...args),
     getOpenPosition: (...args: unknown[]) => getOpenPosition(...args),
+    hasWorkingPlan: async () => false,
     listWorkingPaperEntries: async () => [],
     logPlainClose: vi.fn(),
   };
