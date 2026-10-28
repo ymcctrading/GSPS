@@ -171,6 +171,7 @@ function TrackedRow({
       patternName: row.patternName,
       currentPrice: row.currentPrice ?? null,
       dayRange: row.dayRange ?? null,
+      resting: row.resting ?? null,
     },
     { scoreText: formatScore(row.score, exactScoreDisplayEnabled), scoreMax: SCORE_MAX, livePrice: quote?.price ?? null },
   );
@@ -200,7 +201,7 @@ function TrackedRow({
           </>
         )}
         <span title="Score now">
-          <ScoreBadge score={row.score} state={row.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+          <ScoreBadge score={row.score} state={model.verdict} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
         </span>
       </span>
 
@@ -227,7 +228,7 @@ function TrackedRow({
           className="mt-1"
           headline={
             <span title="Score now">
-              <ScoreBadge score={row.score} state={row.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+              <ScoreBadge score={row.score} state={model.verdict} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
             </span>
           }
           extra={

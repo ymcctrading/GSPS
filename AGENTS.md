@@ -752,13 +752,36 @@ a tracked symbol the daily scan does not cover has no range read (the monitor
 row stores none) and stays in its list; saved setups are not bucketed by verdict
 and get the card's sentence only; the intraday alerts are not read (they are
 priced from the session in progress).
-**Ranked with Watch, 2026-10-23 (owner, on SE's sell: "it should sit with the
+**Ranked with Watch, 2026-10-23 (superseded 2026-10-28 by the Resting tier
+below: it now ranks between Execute and Watch, still behind every near
+Execute; owner, on SE's sell: "it should sit with the
 resting orders, not as the top sell setup"):** the lists' order (`compareForList`,
 through `lib/scan/listOrder.ts#listTier`) and a member's capped list
 (`visibilityRank`, in the market, scheduled and batch scans) put a resting
 Execute with Watch, behind every Execute price is near, as the Novice home's
 Today's plan already did. On the capped list this also puts any Execute ahead of
 a Watch with a higher score, as the lists already were. The verdict is unchanged.
+**Resting is a tier, 2026-10-28 (owner's items 5 and 10: "determine if a
+'resting' tier should be added along with watch, execute and reject"; "Separate
+manual scans by buy/sell, as well as executable, resting, or watch").** Gann
+answers it: the resting order at the crossed level is his own state (W006
+pp. 20, 46-47), neither a setup short of a condition (Watch) nor today's order
+(Execute). `setupTier` (`lib/setups/resting.ts`) reads Execute, Resting, Watch,
+Reject. The scan flags it where the hold is decided (`ScanDecision.resting`,
+set by `applyReadyNowHold` only on an Execute, or one the data-lag hold already
+moved to Watch, whose indication is shown and whose sole hold is the entry's
+distance), it crosses redaction and is stored in
+`daily_scans.detail.resting`; a row stored before reads the old fallback (7+
+and resting). A display tier, not a verdict: `outputState` stays Watch, the
+monitor alerts on Execute only, the replay (hold read at the fill) never meets
+one, and `STRATEGY_VERSION` stays. A 7+ Watch held by another rule that also
+sits far from its entry is now Watch, not Resting. Surfaces: the daily lists'
+and tracked list's "Resting orders", the setup card's badge and synopsis, the
+ticker page's signal card, chart panel badge and company note, Guided's near
+miss, Today's plan and the lists' order and capped lists (`listTier`: Execute,
+then Resting, then Watch), and the Scanner's
+manual results, now split Buy/Sell × Executable/Resting/Watch with rejects
+collapsed (`components/scan/manual-scan-results.tsx`).
 
 **Daily replay entry kinds, 2026-10-21 (six-year 1Day universe run: all 4,479
 trades under "hold", crossing 0, oldLevel 0; the 15-minute run split 1,332,

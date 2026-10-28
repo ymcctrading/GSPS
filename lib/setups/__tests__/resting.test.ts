@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  isRestingExecuteRow,
+  setupTier,
   readResting,
   restingDistanceLabel,
   restingNote,
@@ -83,8 +83,8 @@ describe("splitResting", () => {
     const { now, resting } = splitResting([AMD, near, watchFar, noRange, other], (r) => restingInputOfRow(r));
     expect(resting.map((r) => r.symbol)).toEqual(["AMD", "OTHER"]);
     expect(now.map((r) => r.symbol)).toEqual(["NEAR", "WATCH", "NORANGE"]);
-    expect(isRestingExecuteRow(AMD)).toBe(true);
-    expect(isRestingExecuteRow(near)).toBe(false);
+    expect(setupTier(restingInputOfRow(AMD)) === "Resting").toBe(true);
+    expect(setupTier(restingInputOfRow(near)) === "Resting").toBe(false);
   });
 });
 
@@ -128,8 +128,8 @@ describe("withDailyScanRange", () => {
     expect(joined.currentPrice).toBe(547.91);
     expect(joined.dayRange).toBe(18);
     expect(unmatched.dayRange).toBeUndefined();
-    expect(isRestingExecuteRow(joined)).toBe(true);
-    expect(isRestingExecuteRow(unmatched)).toBe(false);
+    expect(setupTier(restingInputOfRow(joined)) === "Resting").toBe(true);
+    expect(setupTier(restingInputOfRow(unmatched)) === "Resting").toBe(false);
   });
 });
 

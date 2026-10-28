@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ResultsTable, type ScanRow } from "@/components/scan/results-table";
+import { type ScanRow } from "@/components/scan/results-table";
+import { ManualScanResults } from "@/components/scan/manual-scan-results";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
 import { PastScans } from "@/components/scan/past-scans";
@@ -29,6 +30,7 @@ function toRow(r: ScanResult): ScanRow {
     setupKind: r.setupKind,
     currentPrice: r.currentPrice,
     dayRange: r.dayRange ?? null,
+    resting: r.decision.resting === true,
     decisionState: r.decision.decisionState ?? null,
     setAsideEntry: r.setAsideEntry ?? null,
     signal: toPublicSignalSummary(
@@ -204,16 +206,12 @@ export default function ScannerPage() {
               <CardHeader>
                 <CardTitle>Results</CardTitle>
                 <CardDescription>
-                  Sorted by score. Open a symbol for the chart, breakdown, and order ticket.
+                  Buys and sells apart, each split into executable, resting and watch, by score. Open a symbol for the chart, breakdown, and order ticket.
                   {failed.length > 0 && ` Failed: ${failed.join(", ")}.`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResultsTable
-                  rows={results}
-                  emptyText="No symbols produced a scan result."
-                  exactScoreDisplayEnabled={exactScoreDisplayEnabled}
-                />
+                <ManualScanResults rows={results} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
               </CardContent>
             </Card>
           )}

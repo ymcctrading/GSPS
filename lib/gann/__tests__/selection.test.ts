@@ -57,7 +57,7 @@ describe("list order puts the leaders first", () => {
     expect(list.map((r) => r.symbol)).toEqual(["A", "B"]);
   });
 
-  it("lists a resting Execute with Watch, behind an Execute price is near (SE, 2026-10-23)", () => {
+  it("lists a resting Execute behind an Execute price is near, in the Resting tier ahead of Watch (SE, 2026-10-23; tier 2026-10-28)", () => {
     const sell = (symbol: string, score: number, state: "Execute" | "Watch", entry: number) =>
       ({
         ...result(symbol, score, state, 0),
@@ -69,9 +69,9 @@ describe("list order puts the leaders first", () => {
     const resting = sell("SE", 7, "Execute", 100);
     const near = sell("NEAR", 6, "Execute", 76.5);
     const watch = sell("WAIT", 8, "Watch", 77);
-    expect([resting, watch, near].sort(compareForList).map((r) => r.symbol)).toEqual(["NEAR", "WAIT", "SE"]);
-    expect(visibilityRank(near)).toBeGreaterThan(visibilityRank(watch));
-    expect(visibilityRank(watch)).toBeGreaterThan(visibilityRank(resting));
+    expect([resting, watch, near].sort(compareForList).map((r) => r.symbol)).toEqual(["NEAR", "SE", "WAIT"]);
+    expect(visibilityRank(near)).toBeGreaterThan(visibilityRank(resting));
+    expect(visibilityRank(resting)).toBeGreaterThan(visibilityRank(watch));
   });
 
   it("never lists a held or rejected leader ahead of an actionable setup", () => {
