@@ -6,9 +6,10 @@
  * how a series becomes a ruin (*How to Make Profits in Commodities* pp. 12,
  * 17, 29; *Truth of the Stock Tape*; *Wall Street Stock Selector* Ch. III.
  * All Tier A). He also cuts the trading unit to a tenth of what capital is
- * left. GSPS already sizes every trade as a percentage of current equity, so
- * a loss shrinks the next unit on its own; that half of the rule is met
- * structurally and is not repeated here.
+ * left. That half is met by Gann's capital rules: a trade risks at most a
+ * tenth of the trading unit, and the unit is never above the equity left
+ * (`lib/risk/gannCapital.ts`, A-RISK-03), so a loss shrinks the next trade's
+ * risk on its own and is not repeated here.
  *
  * This module adds the other half, on every path that places an entry (paper
  * and live, manual, Guided, demo and automation), through

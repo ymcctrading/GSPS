@@ -343,7 +343,7 @@ export function StrikeOrderModal({
                 {stopReading && (
                   <Row
                     label={`Premium at risk (delta ${Math.abs(contract.delta).toFixed(2)})`}
-                    value={`${stopReading.pctOfPremium.toFixed(1)}% of premium`}
+                    value={stopReading.capped ? "100% of premium (all of it)" : `${stopReading.pctOfPremium.toFixed(1)}% of premium`}
                   />
                 )}
               </dl>
@@ -359,6 +359,7 @@ export function StrikeOrderModal({
                 {stopReading.decayCost > 0 &&
                   ` + ${formatUsd(stopReading.decayCost)} decay`}{" "}
                 per share.
+                {stopReading.capped && " That is more than the premium, and a bought option can lose only what was paid for it."}
               </p>
             )}
             {orderKind === "market" && (

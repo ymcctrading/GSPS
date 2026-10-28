@@ -988,6 +988,22 @@
 // 2026-10-28-angle-origin-on-delayed-fill: the Rule of Three trend and P6's
 // angle origin merged onto the delayed fill timing. No new rule.
 // (was STRATEGY_VERSION "2026-10-28-angle-origin-on-delayed-fill")
+// 2026-10-28 (intraday audit, gann-alignment-audit/intraday-alerts-replay.md):
+// the replay's reversal chain is no longer cut at 3 but runs, as NSTD Rule 6
+// (p.48) keeps with the trend, until three losses in a row pause it as
+// placement's series-of-losses rule does (Commodities p.12, NSTD Rule 1 p.46);
+// intraday alerts against the daily trend are shown for study but not entered
+// (never-failing rule 5), and their confidence is the share of checks met,
+// with no hand-set weights. Daily verdicts are unchanged; replay reversal
+// chains and intraday replay trades move.
+// (built alone as "2026-10-28-intraday-audit-fixes")
+// 2026-10-28-intraday-audit-on-delayed-fill: the intraday audit fixes (#515)
+// merged onto the delayed fill timing. No new rule beyond theirs.
+// (was STRATEGY_VERSION "2026-10-28-intraday-audit-on-delayed-fill")
+// 2026-10-28-intraday-audit-on-angle-origin: the intraday audit fixes (#515)
+// merged onto the Rule of Three trend and angle origin (#522). No new rule
+// beyond theirs.
+// (was STRATEGY_VERSION "2026-10-28-intraday-audit-on-angle-origin")
 // 2026-10-28-gann-levels-major-lows (Gann alignment audit, rest-of-gann.md
 // R24 and R38): Jensen's square of 90 is laid at the major low and high of the
 // long monthly record, not of a year of daily bars ("at every major low",
@@ -1018,4 +1034,7 @@
 // Rule of Three trend and P6's angle origin. Before release, the low's
 // multiples were kept out of the old levels `historicalSR` reads (S/R list
 // only), so a deep major low's close-spaced multiples are not held on noise.
-export const STRATEGY_VERSION = "2026-10-28-major-lows-on-angle-origin";
+// (was STRATEGY_VERSION "2026-10-28-major-lows-on-angle-origin")
+// 2026-10-28-major-lows-on-intraday-audit: the audit fixes above merged onto
+// the intraday audit fixes (#515). No new rule beyond theirs.
+export const STRATEGY_VERSION = "2026-10-28-major-lows-on-intraday-audit";

@@ -33,6 +33,9 @@
  * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
  * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
  * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
+ * Nor is an alert against the daily trend (`Alert.againstDailyTrend`, audit
+ * I-02, 2026-10-28): the panel shows it for study and offers no trade, "never
+ * buck the trend" (never-failing rule 5, *Commodities* pp. 43-45).
  *
  * **The fill.** A person sees an alert a feed delay after the bars it read
  * (the system scan reads data ending 16 minutes before it runs), so the fill
@@ -78,6 +81,7 @@ import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
 import { etDateKey, etParts } from "@/lib/market/session";
+import { isEarlyClose } from "@/lib/market/calendar";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { completedDailyBars, priorDailyClose } from "@/lib/scanner/priorClose";
 import {
@@ -114,6 +118,8 @@ const BASELINE_DAYS = 12;
 /** Regular session, ET minutes after midnight. */
 const OPEN_MINUTE = 9 * 60 + 30;
 const CLOSE_MINUTE = 16 * 60;
+/** 1:00 PM ET, an NYSE early close, as the live scanner reads it. */
+const EARLY_CLOSE_MINUTE = 13 * 60;
 
 /** An alert entered and walked, with what it was. */
 export interface AlertTrade extends ReplayTrade {
@@ -201,7 +207,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
   const feedDelayMs = input.feedDelayMs ?? replayFeedDelayMs(kind === "crypto" ? "crypto" : "us_equity");
   const bars = input.bars.filter((b) => {
     const m = minuteOf(b);
-    return m >= OPEN_MINUTE && m < CLOSE_MINUTE;
+    const close = isEarlyClose(etDateKey(new Date(b.t))) ? EARLY_CLOSE_MINUTE : CLOSE_MINUTE;
+    return m >= OPEN_MINUTE && m < close;
   });
   const trades: AlertTrade[] = [];
   const refused: Partial<Record<AlertRefusal, number>> = {};
@@ -273,9 +280,11 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       if (at < 0) continue;
       if (at < busyUntil) continue;
       // A notice (nearing or at a daily plan's entry) prices no session trade.
-      const alert = alerts.find((a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && (!signals || signals.has(a.type)));
+      const alert = alerts.find(
+        (a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && !a.againstDailyTrend && (!signals || signals.has(a.type)),
+      );
       if (!alert) continue;
-      const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
+      const point = sessionMetrics(scanInput)?.point ?? 0;
       const entered = enterAlert({
         alert, bars, from: k + 1, at, sessionEnd: to, point, dailyBars, monthlyBars: input.monthlyBars ?? [], sharesOn: input.sharesOn,
         maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan, planEntryKind: sessionPlan?.entryKind,

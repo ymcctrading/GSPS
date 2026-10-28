@@ -109,7 +109,7 @@ export function GuidedMode() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: rec.id }),
       });
-      const body: { error?: string; code?: string; order?: { status?: string } } = await res.json();
+      const body: { error?: string; code?: string; warning?: string; order?: { status?: string } } = await res.json();
       if (!res.ok) {
         setError(body.error ?? `HTTP ${res.status}`);
         // Waiting on entry confirmation leaves the recommendation open, so its
@@ -133,14 +133,17 @@ export function GuidedMode() {
       // wording comes from the status the server actually reported.
       const filled = body.order?.status === "filled";
       const opened = rec.action === "sell" ? "sold short" : "bought";
-      setPlaced(
-        filled
-          ? `${rec.qty} ${rec.symbol} ${opened}. Taking you to your portfolio…`
-          : `Order placed for ${rec.qty} ${rec.symbol}. It's waiting at the entry price and will fill if ${rec.symbol} pulls back to it — you'll find it in your portfolio.`,
-      );
+      const message = filled
+        ? `${rec.qty} ${rec.symbol} ${opened}. Taking you to your portfolio…`
+        : `Order placed for ${rec.qty} ${rec.symbol}. It's waiting at the entry price and will fill if ${rec.symbol} pulls back to it — you'll find it in your portfolio.`;
+      // A close-out reminder (the away or rest window) comes back on the order
+      // itself; show it before moving on so it is read, not flashed.
+      const warning = typeof body.warning === "string" && body.warning ? body.warning : null;
+      setPlaced(warning ? `${message} ${warning}` : message);
       // Straight to Portfolio with the new position and its real bracket
       // levels — not back to a screen offering the next trade.
-      router.push("/portfolio");
+      if (warning) setTimeout(() => router.push("/portfolio"), 6000);
+      else router.push("/portfolio");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -229,8 +232,11 @@ function ConfirmDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  // A-EXIT-05: inside the away window the close-out reminder sits above the button.
-  const { awayReminder } = useGannRulePrefs();
+  // A-EXIT-05 and the twice-yearly rest (Truth of the Stock Tape Ch. VII):
+  // inside either window its close-out reminder sits above the button, the
+  // away reminder first, as placement's closeOutNotice reads them.
+  const { awayReminder, restReminder } = useGannRulePrefs();
+  const closeOut = awayReminder ?? restReminder;
   return (
     <Modal
       open={rec !== null}
@@ -240,7 +246,7 @@ function ConfirmDialog({
       footer={
         rec && (
           <div className="flex flex-col gap-3">
-            {awayReminder && <p className="text-xs leading-relaxed text-warn">{awayReminder.message}</p>}
+            {closeOut && <p className="text-xs leading-relaxed text-warn">{closeOut.message}</p>}
             <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
             <div className="flex gap-2">
               <Button onClick={onConfirm} disabled={busy} size="lg" className="flex-1">
