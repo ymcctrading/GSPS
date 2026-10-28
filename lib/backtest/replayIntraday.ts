@@ -68,7 +68,7 @@
 
 import type { Bar } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
-import { barSpacingMinutes, delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
+import { delayedFillIndex, replayFeedDelayMs, seriesSpacingMinutes } from "@/lib/data/timeliness";
 import { atr } from "@/lib/analysis/pivots";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { gannFirstTarget, gannOldLevels, targetPaysRisk } from "@/lib/scanner/intraday";
@@ -177,6 +177,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
   // carry pre- and post-market prints. Amended 2026-10-22 (review of #439):
   // before it, the profile read every print.
   const bars = assetClass === "crypto" ? allBars : allBars.filter(isRegularSessionBar);
+  const seriesMinutes = seriesSpacingMinutes(bars);
 
   const trades: ReplayTrade[] = [];
   const armedKeys = new Set<string>();
@@ -295,7 +296,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
       // feed's delay (DATA-DELAY-001, 2026-10-28; `delayedFillIndex`). Under
       // the 15-minute equity delay on 15-minute bars that is the candle after
       // this one. A stop that traded before then means no fill.
-      const f = delayedFillIndex(bars, i - 1, { assetClass, delayMs: feedDelayMs, intervalMinutes: barSpacingMinutes(bars, i - 1) });
+      const f = delayedFillIndex(bars, i - 1, { assetClass, delayMs: feedDelayMs, intervalMinutes: seriesMinutes });
       let stoppedFirst = f < 0;
       for (let k = i; !stoppedFirst && k < f; k++) if (isStopBreachedByBar(plan.direction, plan.stop, bars[k])) stoppedFirst = true;
       if (stoppedFirst) {

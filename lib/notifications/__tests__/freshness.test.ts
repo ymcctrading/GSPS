@@ -146,3 +146,19 @@ describe("checkNotificationFreshness", () => {
     }
   });
 });
+
+describe("checkAlertFreshness: a reversal-risk warning is protective", () => {
+  it("is told on delayed data and past the scan cadence, never suppressed for want of authorization", async () => {
+    const { checkAlertFreshness } = await import("@/lib/notifications/freshness");
+    const { alertTimeliness } = await import("@/lib/__tests__/fixtures/alertTimeliness");
+    const warning = {
+      symbol: "SPY",
+      type: "reversal_risk",
+      direction: "down",
+      continuationPlan: { paysRisk: null },
+      timeliness: alertTimeliness(at("14:06")),
+    } as unknown as import("@/lib/scanner/intraday").Alert;
+    expect(checkAlertFreshness(warning, at("14:07"))).toMatchObject({ disposition: "informational", reason: "delayed_observation" });
+    expect(checkAlertFreshness(warning, at("15:30")).disposition).toBe("informational");
+  });
+});

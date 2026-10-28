@@ -91,7 +91,7 @@ import {
   availability,
   availableBars,
   barCloseAt,
-  barSpacingMinutes,
+  seriesSpacingMinutes,
   observationAgeMs,
   timeframeForMinutes,
   usableBy,
@@ -780,7 +780,7 @@ export function usableInput(input: SymbolInput, now: Date): SymbolInput {
   return {
     ...input,
     bars: filter(input.bars, input.barIntervalMinutes),
-    recentBars: recent ? filter(recent, barSpacingMinutes(recent, Math.max(0, recent.length - 2))) : recent,
+    recentBars: recent ? filter(recent, seriesSpacingMinutes(recent)) : recent,
     quote: quoteUsable ? input.quote : null,
   };
 }
@@ -1668,7 +1668,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
   });
   const minutes = Math.round(reading.etaMinutes);
   const when = delayedFeed
-    ? `estimated from data through ${asOfClock} ET, when price was moving toward it${minutes > 0 ? ` (at that pace about ${minutes} minute${minutes === 1 ? "" : "s"} off, around ${etClock(reading.expectedAt)} ET)` : ""}; an estimate from delayed observations, not a live arrival time`
+    ? `estimated from data through ${asOfClock} ET, when price was moving toward it; an estimate from delayed observations, not a live arrival time`
     : minutes <= 0
       ? "it may be there already"
       : `about ${minutes} minute${minutes === 1 ? "" : "s"} away, around ${etClock(reading.expectedAt)} ET`;

@@ -308,7 +308,26 @@ export function delayedFillIndex(
   const tf = timeframeForMinutes(args.intervalMinutes);
   if (!tf) return -1;
   const decision = replayDecisionAt(bars[signalIndex], tf, args.assetClass, args.delayMs);
-  return decision ? firstExecutableBarIndex(bars, decision, next) : -1;
+  let f = decision ? firstExecutableBarIndex(bars, decision, next) : -1;
+  // A decision read on a regular-session bar that lands after the close fills
+  // at the next regular session's open: a market order does not fill on a
+  // pre- or post-market bar (review of DATA-DELAY-001). Daily bars and crypto
+  // have no such hours.
+  if (f >= 0 && args.assetClass !== "crypto" && tf !== "1Day" && inRegularSession(bars[signalIndex].t)) {
+    while (f < bars.length && !inRegularSession(bars[f].t)) f++;
+    if (f >= bars.length) f = -1;
+  }
+  return f;
+}
+
+/** True when a bar opening at `barOpen` lies in a regular US equity session (9:30 ET to the close). */
+function inRegularSession(barOpen: string): boolean {
+  const at = new Date(barOpen);
+  if (!Number.isFinite(at.getTime())) return false;
+  const { minutes, weekday } = etParts(at);
+  if (weekday === 0 || weekday === 6) return false;
+  const close = isEarlyClose(etDateKey(at)) ? 13 * 60 : 16 * 60;
+  return minutes >= 9 * 60 + 30 && minutes < close;
 }
 
 /**
@@ -327,4 +346,22 @@ export function barSpacingMinutes(bars: readonly { t: string }[], i: number): nu
     if (m > 0 && m <= 240) gaps.push(m);
   }
   return gaps.length > 0 ? Math.min(...gaps) : 0;
+}
+
+/**
+ * The series' own bar length in minutes: its commonest gap of at most 4
+ * hours, or 0 for daily bars. Read once over the whole series, so a thin
+ * symbol's skipped bars (a 30- or 45-minute gap in a 15-minute series) never
+ * pass for its bar length (review of DATA-DELAY-001).
+ */
+export function seriesSpacingMinutes(bars: readonly { t: string }[]): number {
+  const counts = new Map<number, number>();
+  for (let i = 1; i < bars.length; i++) {
+    const m = Math.round((Date.parse(bars[i].t) - Date.parse(bars[i - 1].t)) / 60_000);
+    if (m > 0 && m <= 240) counts.set(m, (counts.get(m) ?? 0) + 1);
+  }
+  let best = 0;
+  let bestCount = 0;
+  for (const [m, c] of counts) if (c > bestCount || (c === bestCount && m < best)) [best, bestCount] = [m, c];
+  return best;
 }

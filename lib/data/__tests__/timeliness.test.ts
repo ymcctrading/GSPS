@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Bar, Timeframe } from "@/lib/types";
 import {
   CONTRACTUAL_EQUITY_DELAY_MS,
+  seriesSpacingMinutes,
+  delayedFillIndex,
   availability,
   availableBars,
   barCloseAt,
@@ -216,5 +218,33 @@ describe("the live-feed transition", () => {
       else process.env.MARKET_DATA_REALTIME = prev.r;
       if (prev.v !== undefined) process.env.MARKET_DATA_REALTIME_VERIFIED_AT = prev.v;
     }
+  });
+});
+
+describe("seriesSpacingMinutes (review: skipped bars)", () => {
+  const at = (m: number) => ({ t: new Date(Date.parse("2026-10-28T13:30:00Z") + m * 60_000).toISOString(), o: 1, h: 1, l: 1, c: 1, v: 1 });
+  it("reads a thin 15-minute series with skipped bars as 15 minutes, and fills it after the delay", () => {
+    const bars = [0, 15, 30, 75, 90, 105, 120].map(at); // 10:15 and 10:30 missing: a 45-minute gap
+    expect(seriesSpacingMinutes(bars)).toBe(15);
+    // The 10:00 bar (index 2) closes 10:15 and is usable 10:30; the next bar opens 10:45.
+    const f = delayedFillIndex(bars, 2, { assetClass: "us_equity", delayMs: 15 * 60_000, intervalMinutes: seriesSpacingMinutes(bars) });
+    expect(f).toBe(3);
+  });
+  it("is 0 for daily bars", () => {
+    expect(seriesSpacingMinutes([at(0), at(1440), at(2880)])).toBe(0);
+  });
+});
+
+describe("delayedFillIndex: no fill on extended-hours bars (review)", () => {
+  it("a signal on the 3:45 PM bar fills at the next regular open, not after hours", () => {
+    const t = (iso: string) => ({ t: iso, o: 1, h: 1, l: 1, c: 1, v: 1 });
+    const bars = [
+      t("2026-10-28T19:45:00Z"), // 3:45 PM ET, closes 4:00, usable 4:15
+      t("2026-10-28T20:00:00Z"), // 4:00 PM post-market
+      t("2026-10-28T20:15:00Z"), // 4:15 PM post-market
+      t("2026-10-29T13:15:00Z"), // 9:15 AM pre-market
+      t("2026-10-29T13:30:00Z"), // 9:30 AM open
+    ];
+    expect(delayedFillIndex(bars, 0, { assetClass: "us_equity", delayMs: 15 * 60_000, intervalMinutes: 15 })).toBe(4);
   });
 });

@@ -67,7 +67,7 @@ import type { UniverseStrength } from "@/lib/gann/universeStrength";
 import type { DailyTradeStyle } from "@/lib/trade/tradeStyle";
 import type { AssetClass, Bar, GannLevels, ScanDecision, SetupKind, StratPattern, Timeframe, TrendReading } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
-import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
+import { delayedFillIndex, replayFeedDelayMs, seriesSpacingMinutes } from "@/lib/data/timeliness";
 import { computeStopWithLeeway, computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
 import type { TradeLevels } from "@/lib/types";
 import {
@@ -1031,9 +1031,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // The run's delay model: the feed's contract, never today's environment
   // (`replayFeedDelayMs`), unless the caller states one.
   const feedDelayMs = options.feedDelayMs ?? replayFeedDelayMs(assetClass);
+  // The series' own bar length, read once (a skipped bar never passes for it).
+  const seriesMinutes = seriesSpacingMinutes(bars);
   let delayedRefusals = 0;
   const fillAfter = (signal: number) =>
-    delayedFillIndex(bars, signal, { assetClass, delayMs: feedDelayMs, intervalMinutes: barMinutesAt(bars, signal) });
+    delayedFillIndex(bars, signal, { assetClass, delayMs: feedDelayMs, intervalMinutes: seriesMinutes });
   // Ten sessions held on every asset (review finding F-06): ten equity
   // sessions are 260 candles, but 260 candles of a coin that trades all day
   // and night are under three days.
@@ -1407,17 +1409,12 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // resting stop order ("stop" rule) sits at the broker, which is not
       // delayed by the data, so it keeps the live candle.
       const f = closedBarRule ? fillAfter(i - 1) : i;
-      if (f !== i) {
-        const fillStop = entryRule === "reaction" ? trigger.reactionStop : planStop ?? trigger.stopPrice;
-        let stoppedFirst = f < 0;
-        for (let k = i; !stoppedFirst && k < f; k++) if (isStopBreachedByBar(trigger.direction, fillStop, bars[k])) stoppedFirst = true;
-        if (stoppedFirst) {
-          consumedPivots.add(pivotKey);
-          triggered++;
-          refusedFills++;
-          delayedRefusals++;
-          continue;
-        }
+      if (f < 0) {
+        consumedPivots.add(pivotKey);
+        triggered++;
+        refusedFills++;
+        delayedRefusals++;
+        continue;
       }
       const fillBar = bars[f];
 
@@ -1511,6 +1508,16 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const risk = Math.abs(planned - stop);
       if (!(risk > 0) || (long ? stop >= planned : stop <= planned)) {
         dropped.invalidRisk++;
+        continue;
+      }
+      // The delayed fill (above): a trade whose own stop traded between the
+      // signal and the fill is refused, read on the stop the trade is walked
+      // on (review of DATA-DELAY-001), not booked at a fill the delayed reader
+      // could not have had.
+      if (f !== i && bars.slice(i, f).some((b) => isStopBreachedByBar(trigger.direction, stop, b))) {
+        if (trigger.kind === "crossing" && boughtLevels.length > 0 && boughtLevels[boughtLevels.length - 1].at === fillBar.t) boughtLevels.pop();
+        refusedFills++;
+        delayedRefusals++;
         continue;
       }
       const target = planLevels ? planLevels.takeProfit1 : planned + dir * targetR * risk;

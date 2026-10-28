@@ -291,6 +291,18 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
       ? bars.filter((b) => Date.parse(b.t) + intervalMs + delayMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
       : closedSessionBars(bars, now, intervalMs, input.since, delayMs);
   const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind, rebuy ? input.cancelBeyond : undefined);
+  // A stop is protective: a close through it ends the entry as soon as the
+  // bar is received, delay or not. So the dead checks read every closed bar
+  // (review of DATA-DELAY-001: the delayed window alone missed a close
+  // through the stop inside the last 15 minutes and placed the order).
+  const everyClosed =
+    delayMs > 0 && input.stopPrice != null
+      ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
+      : window;
+  if (everyClosed !== window && read.stage !== "dead") {
+    const latest = confirmationFromBars(everyClosed, input.direction, input.entryTrigger, input.stopPrice, input.entryKind, rebuy ? input.cancelBeyond : undefined);
+    if (latest.stage === "dead") return latest;
+  }
   if (input.stopPrice == null || rebuy || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
   // Crossed in the window and waiting for the reaction into the zone.
   if (read.stage === "broken") return read;
@@ -304,7 +316,7 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
   // through the stop in the bars above (today's included) ends it here.
   const stop = input.stopPrice;
   const up = input.direction === "bullish";
-  if (window.some((b) => (up ? b.c <= stop : b.c >= stop))) return { ready: false, stage: "dead", note: GANN_NOTES.dead };
+  if (everyClosed.some((b) => (up ? b.c <= stop : b.c >= stop))) return { ready: false, stage: "dead", note: GANN_NOTES.dead };
 
   // A reaction can run longer than the window above, so the crossing may be
   // older than every bar fetched. The completed daily chart is where the scan

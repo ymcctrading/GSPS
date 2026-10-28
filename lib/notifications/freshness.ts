@@ -166,7 +166,10 @@ export function alertFreshnessEvidence(
   extra: { currentPlanKey?: string | null; deliveryPermitted?: boolean } = {},
 ): FreshnessEvidence {
   const t = alert.timeliness;
-  const purpose: NotificationPurpose = alert.type === "entry_approach" ? "approach" : "entry";
+  // A reversal-risk warning tells a member to stand aside: protective, so it
+  // is never suppressed for want of an entry authorization.
+  const purpose: NotificationPurpose =
+    alert.type === "reversal_risk" ? "protective" : alert.type === "entry_approach" ? "approach" : "entry";
   return {
     symbol: alert.symbol,
     purpose,

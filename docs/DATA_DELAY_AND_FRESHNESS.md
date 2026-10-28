@@ -23,6 +23,8 @@ a client, a tier or an unverified env flag.
   - An observation is eligible only when usable <= evaluatedAt.
 - **Age** (`observationAgeMs`): null when unknown, never 0.
 - **Execution** (`delayedFillIndex`): a bar-based fill goes at the first bar opening at or after the decision's usable time. That is an approximation, since a real order fills at a price inside the bar.
+  - A decision read in session that lands after the close fills at the next regular open, never on an extended-hours bar.
+  - The series' bar length is read once over the whole series (`seriesSpacingMinutes`), so a thin symbol's skipped bars don't pass for its length.
 - **The delay is applied once.**
   - The live intraday route still fetches with `end = now - 16 min`, which is the feed's limit, not a second delay.
   - The scan filters by availability against the evaluation clock.
@@ -83,7 +85,7 @@ INTENTIONAL EXCEPTION (with the reason), UNVERIFIED (not proven here).
 | Daily scan verdict (Execute while prices move) | IMPLEMENTED (already) | `applyDataLagHold` in `lib/scanTicker.ts`; plans read at the last completed session's close |
 | Discovery, trend, swing, levels, volume baselines | IMPLEMENTED | Daily and longer timeframes read completed sessions. Intraday ones go through `usableInput`. |
 | Cross-symbol and group inputs | IMPLEMENTED | Universe and group ranks read completed months only (`universeStrength.ts`). The intraday scan has no cross-symbol intraday input (tested). |
-| Placement confirmation (manual, Guided, automation) | IMPLEMENTED, TESTED | `confirmNow.ts`: closed bars past the delay (`closedSessionBars(..., delayMs)`); `closedSessionBarsDelay.test.ts` |
+| Placement confirmation (manual, Guided, automation) | IMPLEMENTED, TESTED | `confirmNow.ts`: readiness reads closed bars past the delay (`closedSessionBars(..., delayMs)`). The stop and dead checks read every closed bar received, so a close through the stop inside the delay still ends the entry. Tested in `closedSessionBarsDelay.test.ts` and `confirmNowDelayStop.test.ts`. |
 | Plan arming (portfolio manager) | IMPLEMENTED | `armFromBars.ts`: arming reads bars past the delay |
 | Stop-breach and plan-expiry checks before arming | INTENTIONAL EXCEPTION | These read every bar received. A protective retirement should never wait on the delay, because it can only remove risk. |
 | Paper and live exit managers (stops, Gann exits) | INTENTIONAL EXCEPTION | Protective. They act on the freshest data received, and the stop fills at the market quote. Delaying a stop would add risk. |
@@ -93,7 +95,10 @@ INTENTIONAL EXCEPTION (with the reason), UNVERIFIED (not proven here).
 | Bell (intraday) | IMPLEMENTED, TESTED | `recordIntradayBells`: freshness at each member's dispatch, suppress = no row |
 | Push (intraday) | IMPLEMENTED, TESTED | `notifySubscribedUsers`: freshness at each send; suppress = no send and no log; log stamped at dispatch |
 | Email (intraday) | N/A | Removed by #502 and not brought back |
-| Approach and entry-reached notices | IMPLEMENTED, TESTED | Same path as bell and push. Wording from the disposition. Panel wording on delayed data. |
+| Approach and entry-reached notices | IMPLEMENTED, TESTED | Same path as bell and push. Wording from the disposition. On delayed data the panel wording gives no arrival time. |
+| Panel's trade link | IMPLEMENTED, TESTED | On delayed data the panel shows "Review in the ticket (delayed data)", not "Trade this". The person still chooses; the platform guides and doesn't force. This also covers stored alerts with no timing for equities. Tested in `intraday-alerts.test.tsx`. |
+| Reversal-risk warning | IMPLEMENTED, TESTED | Protective: informational at worst, never suppressed for want of authorization. |
+| Superseded plan on bell and push | INTENTIONAL EXCEPTION | These are dispatched in the same run that computed the alert, with no queue, so the plan cannot change in between. `currentPlanKey` is checked for queued deliveries (`supersededHold`). |
 | Execute/Watch and invalidation deliveries (queued, retried) | IMPLEMENTED, TESTED | `dispatchNotificationDelivery` → `supersededHold` (the monitor moved on means skipped; an invalidation is never held). The Execute verdict itself already passed `applyDataLagHold`. |
 | Price alerts (bell, push, email) | IMPLEMENTED, TESTED | Wording states the equity delay. The alert fires on the latest received quote, which is the member's own threshold, not a platform decision. |
 | Evening report, trade-journal email, digests | INTENTIONAL EXCEPTION | They run after the close on completed sessions, so the delay has passed. Digests read bell rows, which carry the new wording. |
@@ -128,3 +133,10 @@ None of these were removed:
 - instrument restrictions
 - member and channel permissions
 - the measured-losing hold
+
+## Known limits (from the review)
+
+- The live intraday route still fetches with `end = now - 16 min` (the feed's limit), so the scan runs about a minute behind what the contract allows.
+- The route evaluates the scan at its own clock after the fetch. The focus-list invalidation and other helpers still read the request's start time.
+- A signal near the end of a replay's data, with no bar left to fill on, counts under `refusedFills` and `delayedRefusals`.
+- If two open monitors ever exist for one symbol, `supersededHold` cannot read a single state and lets the send through, with a log line. The database's unique index prevents that case.
