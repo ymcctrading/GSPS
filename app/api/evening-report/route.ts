@@ -18,6 +18,12 @@
  * after its evening has passed, while the next session has not yet closed; the
  * scheduled runs never pass it.
  *
+ * The owner's own session may read the reports without sending: `?dry=1`
+ * signed in as one of the two owner accounts (`lib/auth/owner.ts`) returns
+ * the text, the coverage stages and each mover's attribution. Any other
+ * session, or a dry read with neither, gets a 404, so hindsight data reaches
+ * no one else (owner, 2026-10-28). A signed-in owner can never send.
+ *
  * Returns rather than drains (AGENTS.md, "Cycles as architecture"): each
  * evening reads its own session, so a missed evening is simply missed, never
  * carried into the next.
@@ -25,14 +31,30 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { ownerOf } from "@/lib/auth/owner";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { barSession, etDateKey, etParts, mostRecentClose, nextClose } from "@/lib/market/session";
 import { isEarlyClose } from "@/lib/market/calendar";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { FOCUS_SIZE, type FocusReason } from "@/lib/scanner/focusList";
+import { FOCUS_SIZE, FOCUS_STORED, type FocusReason } from "@/lib/scanner/focusList";
+import { ownerReportRecipients } from "@/lib/auth/owner";
+import { barCloseAt, etInstant, availability, resolveFeedPolicy } from "@/lib/data/timeliness";
+import {
+  attributePrefilter,
+  attributeSweep,
+  distinctDetections,
+  focusStanding,
+  moverAttributionLine,
+  remainingAfter,
+  stage,
+  type CoverageStages,
+  type FocusListRow,
+  type MoverOutcome,
+  type SystemDetection,
+} from "@/lib/reports/coverage";
 import { SIGNAL_LABELS } from "@/lib/scanner/intradayDisplay";
 import { appUrl, fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
@@ -55,15 +77,13 @@ import {
 export const maxDuration = 60;
 
 /**
- * Who the test reports go to (owner, 2026-10-28). `OWNER_REPORT_EMAILS`
- * (comma-separated) overrides it once the owner widens the list.
+ * Who the test reports go to: the owner's two accounts only
+ * (`lib/auth/owner.ts`). `OWNER_REPORT_EMAILS` may narrow the list but never
+ * widen it (owner, 2026-10-28: hindsight ranking goes to those two accounts
+ * and no one else).
  */
-const DEFAULT_RECIPIENTS = ["icharles.coleman@gmail.com", "ymcctrading@gmail.com"];
-
 function recipients(): string[] {
-  const raw = process.env.OWNER_REPORT_EMAILS;
-  const list = (raw ? raw.split(",") : DEFAULT_RECIPIENTS).map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return Array.from(new Set(list));
+  return ownerReportRecipients();
 }
 
 type ScanRow = {
@@ -152,13 +172,20 @@ function barsFor(map: Map<string, Bar[]>, symbol: string): Bar[] {
 }
 
 export async function GET(req: NextRequest) {
-  if (!isCronAuthorized(req.headers.get("authorization"))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const cron = isCronAuthorized(req.headers.get("authorization"));
+  const dry = req.nextUrl.searchParams.get("dry") === "1";
+  if (!cron) {
+    // Only the owner's own session, and only a dry read: nothing is sent.
+    if (!dry) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!ownerOf(user)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const startedAt = Date.now();
   const marks: Record<string, number> = {};
   const mark = (k: string) => (marks[k] = Date.now() - startedAt);
-  const dry = req.nextUrl.searchParams.get("dry") === "1";
   const late = req.nextUrl.searchParams.get("late") === "1";
   const now = new Date();
   const provider = getMarketDataProvider();
@@ -234,7 +261,91 @@ export async function GET(req: NextRequest) {
     const { data: pf } = await service.from("intraday_focus").select("symbol").eq("basis_date", setupsFrom).order("rank", { ascending: true }).limit(FOCUS_SIZE);
     priorFocus = new Set((pf ?? []).map((r) => r.symbol as string));
   }
+  // Every focus row from the prior basis to the session's own (the session's
+  // own list is built after its close, so it earns no pre-session credit),
+  // reserves included: the list stores FOCUS_STORED and times FOCUS_SIZE.
+  const focusRowsBySymbol = new Map<string, FocusListRow[]>();
+  {
+    const { data: fr } = await service
+      .from("intraday_focus")
+      .select("basis_date, symbol, rank, built_at")
+      .gte("basis_date", setupsFrom ?? basisDate)
+      .lte("basis_date", basisDate)
+      .order("basis_date", { ascending: true })
+      .order("rank", { ascending: true })
+      .limit(FOCUS_STORED * 8);
+    for (const r of fr ?? []) {
+      const sym = String(r.symbol).toUpperCase();
+      focusRowsBySymbol.set(sym, [...(focusRowsBySymbol.get(sym) ?? []), { basisDate: String(r.basis_date), rank: Number(r.rank), builtAt: (r.built_at as string | null) ?? null }]);
+    }
+  }
   mark("stored");
+
+  // What the pipeline itself recorded about the session, for the coverage
+  // stages and each mover's attribution. All owner-only hindsight.
+  // The overnight sweep is filed under the session it is for.
+  type SweepDbRow = { symbol: string; direction: string | null; score: number | string | null; output_state: string | null; setup_kind: string | null; entry: number | string | null; error: string | null };
+  const sweepRows = await readAll<SweepDbRow>((from, to) =>
+    service.from("universe_sweep").select("symbol, direction, score, output_state, setup_kind, entry, error").eq("basis_date", basisDate).order("symbol", { ascending: true }).range(from, to),
+  );
+  const sweepOf = new Map(sweepRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  // The market scan's pre-filter keeps one row per stock per day, overwritten
+  // by each scan: the day's last reading, not a history.
+  type PrefilterDbRow = { symbol: string; atr_pct: number | string | null; cleared_reversion: boolean | null; cleared_continuation: boolean | null; shortlisted: boolean | null; full_scan_score: number | string | null; full_scan_output_state: string | null };
+  const prefilterRows = await readAll<PrefilterDbRow>((from, to) =>
+    service
+      .from("coarse_gate_telemetry")
+      .select("symbol, atr_pct, cleared_reversion, cleared_continuation, shortlisted, full_scan_score, full_scan_output_state")
+      .eq("scan_date", basisDate)
+      .order("symbol", { ascending: true })
+      .range(from, to),
+  );
+  const prefilterOf = new Map(prefilterRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  // System detections: what the scheduled intraday scan found, delivered or not.
+  type SystemDbRow = { symbol: string; signal_id: string; signal_type: string; poll_cycle_timestamp: string | null; created_at: string; metadata: { dataTimestamp?: string; barIntervalMinutes?: number } | null };
+  const systemRows = await readAll<SystemDbRow>((from, to) =>
+    service
+      .from("intraday_system_alerts")
+      .select("symbol, signal_id, signal_type, poll_cycle_timestamp, created_at, metadata")
+      .gte("created_at", dayStart)
+      .lt("created_at", dayEnd)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  const detectionsRaw: SystemDetection[] = [];
+  for (const r of systemRows.rows) {
+    const evaluatedAt = r.poll_cycle_timestamp ?? r.created_at;
+    if (etDateKey(new Date(evaluatedAt)) !== basisDate) continue;
+    const asset = assetOf(r.symbol);
+    const tf: Timeframe = r.metadata?.barIntervalMinutes === 15 ? "15Min" : "1Min";
+    const dataBarOpen = typeof r.metadata?.dataTimestamp === "string" ? r.metadata.dataTimestamp : null;
+    const delayMs = resolveFeedPolicy({ assetClass: asset, isLive: true, source: "alpaca" }).contractualDelayMs;
+    const usable = dataBarOpen ? availability(barCloseAt(dataBarOpen, tf, asset), delayMs) : null;
+    detectionsRaw.push({
+      symbol: r.symbol.toUpperCase(),
+      kind: r.signal_id,
+      side: r.signal_type === "bearish" ? "bearish" : "bullish",
+      evaluatedAt,
+      dataBarOpen,
+      usableAt: usable ? usable.usableAt.toISOString() : null,
+    });
+  }
+  const detections = distinctDetections(detectionsRaw);
+  // Orders placed during the session, and those filled: counts only.
+  const sessionOpenAt = etInstant(basisDate, 9 * 60 + 30);
+  const { count: ordersPlaced, error: ordersError } = await service
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", sessionOpenAt.toISOString())
+    .lt("created_at", close.toISOString());
+  const { count: ordersFilled, error: filledError } = await service
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", sessionOpenAt.toISOString())
+    .lt("created_at", close.toISOString())
+    .gt("filled_qty", 0);
+  mark("pipeline records");
 
   // The intraday signals each member received during the session: the bell
   // notices (exactly what was shown) and the member's own panel alerts.
@@ -346,7 +457,7 @@ export async function GET(req: NextRequest) {
     [daily, fifteen, minute] = await Promise.all([
       batchBars(LARGE_CAP_UNIVERSE, "1Day", new Date(close.getTime() - 14 * 86_400_000), end),
       batchBars(Array.from(new Set(setups.map((s) => s.symbol))), "15Min", new Date(close.getTime() - 20 * 3_600_000), end),
-      batchBars(Array.from(new Set(signals.map((s) => s.symbol))), "1Min", new Date(close.getTime() - 8 * 3_600_000), end),
+      batchBars(Array.from(new Set([...signals.map((s) => s.symbol), ...detections.map((d) => d.symbol)])), "1Min", new Date(close.getTime() - 8 * 3_600_000), end),
     ]);
   } catch (err) {
     return NextResponse.json({ error: `Bars not read: ${String(err)}` }, { status: 502 });
@@ -381,13 +492,78 @@ export async function GET(req: NextRequest) {
   });
   mark("judged");
 
+  // Coverage by stage, each counted on its own (lib/reports/coverage.ts).
+  const sweptOk = sweepRows.rows.filter((r) => !r.error).length;
+  const candidates = sweepRows.rows.filter((r) => !r.error && (r.output_state === "Execute" || r.output_state === "Watch") && (r.direction === "bullish" || r.direction === "bearish")).length;
+  const deliveredDistinct = new Set(signals.map((s2) => `${s2.symbol}|${s2.direction}|${s2.label}`)).size;
+  const coverage: CoverageStages = {
+    priceData: stage(movers.length, `of ${LARGE_CAP_UNIVERSE.length} in the scan universe, prior close and session both read`),
+    selected: stage(null, "the intraday scan's selection is not recorded; see the evaluation ledger proposal"),
+    evaluated: stage(sweepRows.error ? null : sweptOk, `overnight sweep readings without an error${prefilterRows.error ? "" : `; the daytime pre-filter's last reading covered ${prefilterRows.rows.length}`}`),
+    deferredCapacity: stage(null, "not recorded before the evaluation ledger"),
+    unavailable: stage(sweepRows.error ? null : sweepRows.rows.length - sweptOk, "overnight sweep readings that failed"),
+    candidates: stage(sweepRows.error ? null : candidates, "overnight Execute or Watch with a side"),
+    plansQualified: stage(setups.filter((x) => x.verdict === "Execute").length, `Execute plans standing at the prior close (${setups.length} Execute or Watch)`),
+    detected: stage(systemRows.error ? null : detections.length, "distinct system detections (symbol, kind, side)"),
+    delivered: stage(deliveredDistinct, `distinct signals delivered to a member (${signals.length} member-signal pairs)`),
+    entries: stage(ordersError ? null : ordersPlaced, "orders placed during the session, any source"),
+    simulated: stage(dailyJudged.length + intradayJudged.length, "simplified: plan stop and TP1 only, no trailing exits, costs or delay"),
+    fills: stage(filledError ? null : ordersFilled, "orders placed during the session with a fill"),
+  };
+
+  const attribution = new Map<string, { outcome: MoverOutcome; line: string }>();
+  const executeSyms = new Set(setups.filter((x) => x.verdict === "Execute").map((x) => x.symbol.toUpperCase()));
+  const watchSyms = new Set(setups.filter((x) => x.verdict === "Watch").map((x) => x.symbol.toUpperCase()));
+  for (const m of movers) {
+    const sym = m.symbol.toUpperCase();
+    const sw = sweepOf.get(sym) ?? null;
+    const pre = prefilterOf.get(sym) ?? null;
+    const side: Side = m.dollars >= 0 ? "bullish" : "bearish";
+    const mine = detections.filter((d) => d.symbol === sym);
+    const first = mine[0] ?? null;
+    const sweep = attributeSweep(
+      sw ? { state: sw.output_state, score: num(sw.score), direction: sw.direction, setupKind: sw.setup_kind, entry: num(sw.entry), error: sw.error } : null,
+      m.prevClose,
+      pre ? num(pre.atr_pct) : null,
+    );
+    const firstBars = first ? sessionBarsOf(barsFor(minute, sym), basisDate, assetOf(sym)) : [];
+    attribution.set(
+      m.symbol,
+      moverAttributionLine({
+        symbol: sym,
+        side,
+        sweep,
+        sweepState: sw?.output_state ?? null,
+        sweepError: Boolean(sw?.error),
+        prefilter: attributePrefilter(
+          pre
+            ? {
+                clearedReversion: pre.cleared_reversion === true,
+                clearedContinuation: pre.cleared_continuation === true,
+                shortlisted: pre.shortlisted === true,
+                fullScanScore: num(pre.full_scan_score),
+                fullScanState: pre.full_scan_output_state,
+              }
+            : null,
+        ),
+        focus: focusStanding(focusRowsBySymbol.get(sym) ?? [], basisDate, sessionOpenAt),
+        detections: mine,
+        deliveries: new Set(signals.filter((s2) => s2.symbol.toUpperCase() === sym).map((s2) => `${s2.direction}|${s2.label}`)).size,
+        executePlan: executeSyms.has(sym),
+        watchPlan: watchSyms.has(sym),
+        examined: sw != null || pre != null,
+        remainingAfterFirst: first ? remainingAfter(firstBars, first.usableAt ? new Date(first.usableAt) : null, first.side) : null,
+      }),
+    );
+  }
+
   const url = appUrl();
   const focusEmail = renderFocusEmail({ forDate, basisDate, focus, executable, appUrl: url });
   const recapEmail = renderRecapEmail({
     basisDate,
     setupsFrom,
-    universe: LARGE_CAP_UNIVERSE.length,
-    read: movers.length,
+    coverage,
+    attribution,
     movers,
     daily: dailyJudged,
     intraday: intradayJudged,
@@ -405,9 +581,15 @@ export async function GET(req: NextRequest) {
     movers: movers.length,
     setups: setups.length,
     signals: signals.length,
+    detections: detections.length,
     marks,
   };
-  if (dry) return NextResponse.json({ ...summary, focusEmail: focusEmail.text, recapEmail: recapEmail.text });
+  if (dry) {
+    return NextResponse.json(
+      { ...summary, coverage, attribution: Object.fromEntries(attribution), focusEmail: focusEmail.text, recapEmail: recapEmail.text },
+      { headers: { "cache-control": "private, no-store" } },
+    );
+  }
 
   if (!process.env.RESEND_API_KEY) return NextResponse.json({ ...summary, sent: false, reason: "RESEND_API_KEY is not set." }, { status: 503 });
   const to = recipients().filter((e) => {
