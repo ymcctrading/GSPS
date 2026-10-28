@@ -14,7 +14,7 @@ interface CourseDetail {
     slug: string;
     title: string;
     outcome: string;
-    lessons: { id: string; title: string; estimatedMinutes: number; passed: boolean; unlocked: boolean }[];
+    lessons: { id: string; title: string; estimatedMinutes: number; passed: boolean; optional?: boolean; unlocked: boolean }[];
   };
 }
 
@@ -83,7 +83,9 @@ export function CourseView({ courseSlug }: { courseSlug: string }) {
                   )}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{lesson.title}</p>
-                    <p className="text-xs text-muted">{lesson.estimatedMinutes} min</p>
+                    <p className="text-xs text-muted">
+                      {lesson.estimatedMinutes} min{lesson.optional ? " · Optional reading" : ""}
+                    </p>
                   </div>
                 </div>
                 {canOpen ? (

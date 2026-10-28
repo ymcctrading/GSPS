@@ -1,3 +1,4 @@
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +87,8 @@ export function NoviceHomeSummary({
           ) : (
             <p className="text-sm text-muted">{NO_QUALIFIED_SETUP_LABEL}</p>
           )}
+          {/* This card shows only to a Novice, so the tier is already known. */}
+          {bestPlan?.direction === "bearish" && <SellSetupHelp novice className="mt-3" />}
         </CardContent>
       </Card>
 

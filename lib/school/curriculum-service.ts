@@ -41,6 +41,7 @@ import {
   getAcademy,
   getLesson,
   foundationsEducationLessons,
+  requiredLessonIds,
   PAPER_VALIDATION_LESSON_ID,
   wallStreetCapstoneLessons,
   advancedCurriculumLessons,
@@ -85,7 +86,7 @@ async function fetchProgressMap(supabase: SupabaseClient, userId: string): Promi
 
 /** Whether every lesson in an academy is passed for this learner. Empty-lesson academies (e.g. Course W2's placeholder) are vacuously true. */
 export function academyComplete(academy: Academy, passedLessonIds: ReadonlySet<string>): boolean {
-  const lessonIds = academy.courses.flatMap((c) => c.lessons.map((l) => l.id));
+  const lessonIds = requiredLessonIds(academy);
   return lessonIds.every((id) => passedLessonIds.has(id));
 }
 
@@ -110,7 +111,7 @@ export async function getCurriculumMap(supabase: SupabaseClient, userId: string)
   const passedIds = new Set([...progress.values()].filter((r) => r.status === "passed").map((r) => r.lesson_id));
 
   return ACADEMIES.map((academy) => {
-    const lessonIds = academy.courses.flatMap((c) => c.lessons.map((l) => l.id));
+    const lessonIds = requiredLessonIds(academy);
     const passedLessons = lessonIds.filter((id) => passedIds.has(id)).length;
     return {
       academy,

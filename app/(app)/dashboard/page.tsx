@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 import { TrackedExecuteList } from "@/components/dashboard/tracked-execute-list";
 import { SavedSetupsList } from "@/components/dashboard/saved-setups-list";
 import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
@@ -170,6 +171,7 @@ export default async function DashboardPage() {
           emptyText="Scanning for sell setups…"
           scannedAt={scannedAt}
           exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+          novice={noviceSummary != null}
         />
       </div>
 
@@ -257,12 +259,15 @@ function ReversionPreview({
   emptyText,
   scannedAt,
   exactScoreDisplayEnabled,
+  novice = false,
 }: {
   direction: "bullish" | "bearish";
   rows: import("@/components/scan/results-table").ScanRow[];
   emptyText: string;
   scannedAt: string | null;
   exactScoreDisplayEnabled: boolean;
+  /** Novice (PRACTICE) viewer: the Sell list carries "How do I trade a sell setup?". */
+  novice?: boolean;
 }) {
   const isBull = direction === "bullish";
   const side = tradeSideWord(direction);
@@ -312,6 +317,7 @@ function ReversionPreview({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {!isBull && <SellSetupHelp novice={novice} />}
         {/* Once a scan has run, an empty list is its answer, not a scan still
             in progress: "Scanning…" there read as though setups were coming. */}
         <ResultsTable

@@ -13,6 +13,7 @@ import { formatUsd, cn } from "@/lib/utils";
 import { SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 
 /** Recommendation -> the shape SaveSetupButton already knows how to save
  * (it was previously only reachable from ResultsTable's rows). */
@@ -81,6 +82,8 @@ export function GuidedCard({
         </div>
 
         <p className="text-sm leading-relaxed">{rec.reason}</p>
+
+        {short && <SellSetupHelp />}
 
         <div className="rounded-lg border border-border bg-background px-4 py-3">
           <p className="text-sm">
