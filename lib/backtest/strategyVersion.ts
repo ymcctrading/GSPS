@@ -970,4 +970,21 @@
 // (was STRATEGY_VERSION "2026-10-28-delayed-fill-timing")
 // 2026-10-28-delayed-fill-on-midday-release: the delayed fill timing (#518)
 // merged onto the midday release. No new rule.
-export const STRATEGY_VERSION = "2026-10-28-delayed-fill-on-midday-release";
+// (was STRATEGY_VERSION "2026-10-28-delayed-fill-on-midday-release")
+// 2026-10-28-three-closes-trend: the Rule of Three check reads the trend the
+// rule leaves standing (the side of the latest run of three closes, held until
+// the opposite run; WSSS p.72, Ch. VI p.125), on the daily chart with neither
+// the weekly nor the monthly rule against it. It passed only on the day a run
+// of three printed, and read -0.103R within Execute on the six-year daily
+// replay (about 1.7 standard errors, so within noise; fixed for fidelity).
+// P2 and plans' scores move.
+// (was STRATEGY_VERSION "2026-10-28-three-closes-trend")
+// 2026-10-28-three-closes-angle-origin: P6's monthly 45° is drawn from the
+// latest monthly swing bottom (top) that has held 3 closed months with no later
+// month 3 points through it (Master Course Ch. 4, GA-25 to GA-27, GA-9;
+// `monthlyAngleOrigin`); it read the latest pivot however young. P6 and scores
+// move.
+// (was STRATEGY_VERSION "2026-10-28-three-closes-angle-origin")
+// 2026-10-28-angle-origin-on-delayed-fill: the Rule of Three trend and P6's
+// angle origin merged onto the delayed fill timing. No new rule.
+export const STRATEGY_VERSION = "2026-10-28-angle-origin-on-delayed-fill";

@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import type { Bar } from "@/lib/types";
-import { readMonthlyFortyFive } from "@/lib/scoring/pillars";
+import { monthlyAngleOrigin, readMonthlyFortyFive } from "@/lib/scoring/pillars";
+import { swingPivots, THREE_DAY_CHART } from "@/lib/gann/swingChart";
 import { buildMacroContext } from "@/lib/backtest/replay";
 import { toMonthlyBars } from "@/lib/gann/disclosedRules";
 
@@ -25,6 +26,26 @@ describe("the monthly 45° (readMonthlyFortyFive)", () => {
 
   it("allows the 1-point break under the line", () => {
     expect(readMonthlyFortyFive(months(base), 93.6, 1)?.bullish).toBe(true);
+  });
+
+  it("draws from a bottom only once it has held 3 closed months (GA-25 to GA-27)", () => {
+    // The bottom at month 6 has 2 months after it: no origin yet, so the long fails.
+    expect(readMonthlyFortyFive(months(base.slice(0, 9)), 100, 1)?.bullish).toBe(false);
+    // With a third month after it, the line is drawn: 89.5 + 4 = 93.5 at month 10.
+    expect(readMonthlyFortyFive(months(base.slice(0, 10)), 96, 1)?.bullish).toBe(true);
+  });
+
+  it("retires a bottom a later month broke by 3 points and reads the older one that stands", () => {
+    // Bottom A at month 3 (84.5), bottom B at month 10 (88.5), then a break to
+    // 85.3 at month 16, 2 months old: B is more than 3 points through, so A is
+    // the origin. Without the break, B stands.
+    const closes = [100, 95, 90, 85, 88, 91, 94, 97, 94, 91, 89, 92, 95, 98, 94, 90, 85.8, 88, 91];
+    const read = (c: number[]) => {
+      const m = months(c);
+      return monthlyAngleOrigin(m, swingPivots(m, THREE_DAY_CHART), "bottom", 1)?.price;
+    };
+    expect(read(closes)).toBe(84.5);
+    expect(read(closes.slice(0, 14))).toBe(88.5);
   });
 
   it("reads nothing without the months to draw it", () => {
