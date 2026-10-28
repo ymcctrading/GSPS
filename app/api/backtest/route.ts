@@ -14,7 +14,17 @@
  *                          verdict bucket — mutually exclusive with `within`
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
- *                          the raw pattern one — see ReplayOptions.useProductionStop
+ *                          the raw pattern one — see ReplayOptions.useProductionStop.
+ *                          Changes nothing under the default reaction entry,
+ *                          whose stop is the plan's own
+ *   ?planLevels=0          trade a bracket built from `targetR` instead of the
+ *                          plan production attaches. Default on (2026-10-28):
+ *                          the plan's TP1 and its refusals (no plan, TP1 not
+ *                          past the entry) as production applies them, so the
+ *                          Test page measures what the app trades. See
+ *                          ReplayOptions.usePlanLevels. `targetR` is then
+ *                          unused, as it is under Gann's exits (the default),
+ *                          which fix no target
  *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
  *   ?entryRule=confirmed   sequence instead of the reaction buy every path
  *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
@@ -76,6 +86,7 @@ import {
 import { byOutputState, byScoreRange, resolveDisableExits } from "@/lib/backtest/replay";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { replayOvernightForUniverse } from "@/lib/backtest/replayOvernight";
+import { toPublicReport } from "@/lib/backtest/factorLabels";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -229,6 +240,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "scaleOut applies to profile=intraday only" }, { status: 400 });
   }
 
+  const planLevelsRaw = searchParams.get("planLevels");
+  const usePlanLevels = !(planLevelsRaw === "0" || planLevelsRaw === "false");
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
@@ -289,7 +302,9 @@ export async function GET(req: NextRequest) {
         symbols: universe,
         timeframe,
         targetR,
+        usePlanLevels,
         ...(since !== null ? { since } : {}),
+        ...(useProductionStop ? { useProductionStop } : {}),
         ...(entryRule ? { entryRule } : {}),
         ...(exitRule ? { exitRule } : {}),
         ...(tradeStyle ? { tradeStyle } : {}),
@@ -334,6 +349,7 @@ export async function GET(req: NextRequest) {
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
+      usePlanLevels,
       ...(entryRule ? { entryRule } : {}),
       ...(exitRule ? { exitRule } : {}),
       ...(tradeStyle ? { tradeStyle } : {}),
@@ -344,7 +360,8 @@ export async function GET(req: NextRequest) {
       ...(scaleOut === false ? { scaleOut } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
-    return NextResponse.json(report);
+    // The whitelisted report: plain factor names, no internal ids (lib/backtest/factorLabels.ts).
+    return NextResponse.json(toPublicReport(report));
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

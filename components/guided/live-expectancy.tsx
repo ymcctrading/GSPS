@@ -36,8 +36,6 @@ interface BucketLike {
 interface BacktestReportShape {
   live: boolean;
   source: string;
-  targetR: number;
-  breakEvenWinRate: number;
   window: { from: string | null; to: string | null };
   generatedAt: string;
   overall: { trades: number; winRate: number; expectancyR: number; profitable: boolean };
@@ -84,7 +82,7 @@ export function LiveExpectancy() {
                   {report.window.from && report.window.to
                     ? `${dateOnly(report.window.from)} → ${dateOnly(report.window.to)}`
                     : "Window unknown"}{" "}
-                  · break-even at {report.targetR}R is a {pct(report.breakEvenWinRate)} win rate ·{" "}
+                  ·{" "}
                   {report.live ? `live as of ${dateOnly(report.generatedAt)}` : "simulated data"}
                 </>
               : "Loading…"}
@@ -117,7 +115,7 @@ export function LiveExpectancy() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{label}</p>
                     <Badge variant={b.profitable ? "bull" : "bear"}>
-                      {b.profitable ? "Above break-even" : "Below break-even"}
+                      {b.profitable ? "Positive average" : "Negative average"}
                     </Badge>
                   </div>
                   <p className="mt-1 text-muted">
