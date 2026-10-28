@@ -252,6 +252,18 @@ describe("placeSimulatedOrder — live branch", () => {
     expect(placeOrder).not.toHaveBeenCalled();
   });
 
+  it("places a live hard-to-borrow short with the warning on the response", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000", shorting_enabled: true });
+    getAsset.mockResolvedValue({ symbol: "AAPL", tradable: true, shortable: true, easy_to_borrow: false });
+    evaluateLiveCircuitBreaker.mockResolvedValue({ decision: { newEntriesAllowed: true, state: "normal" } });
+    placeOrder.mockResolvedValue({ id: "alpaca-short", status: "accepted" });
+    limits.bypass = true;
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", { ...liveShort, qty: 1, entryMode: "advised", limitPrice: 100, referencePrice: 100 });
+    expect(result.status).toBe(200);
+    expect(String(result.body.warning)).toMatch(/hard to borrow/);
+  });
+
   it("refuses when a real Alpaca rejection is thrown, and logs it", async () => {
     readLiveAlpacaConnection.mockResolvedValue(connection);
     getAccount.mockResolvedValue({ equity: "100000" });

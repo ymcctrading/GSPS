@@ -432,8 +432,9 @@ export async function executeFill(
  * trade-log write — `lib/trade/exit-manager-sim.ts` owns that log, blended
  * across every tranche, once the whole plan finishes.
  */
-export async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string): Promise<boolean> {
-  const { data } = await supabase
+/** Whether a working paper exit plan runs `symbol`; null when it can't be read. */
+export async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string): Promise<boolean | null> {
+  const { data, error } = await supabase
     .from("protocol_exits")
     .select("id")
     .eq("user_id", userId)
@@ -442,6 +443,7 @@ export async function hasWorkingPlan(supabase: Supabase, userId: string, symbol:
     .eq("status", "working")
     .limit(1)
     .maybeSingle();
+  if (error) return null;
   return data != null;
 }
 

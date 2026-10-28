@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getOpenPosition, hasWorkingPlan } from "@/lib/brokers/simulator";
 
+const NO_STORE = { "Cache-Control": "private, no-store" };
+
 export interface HeldPosition {
   side: "long" | "short";
   qty: number;
@@ -30,16 +32,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const position = await getOpenPosition(supabase, user.id, symbol);
-    if (!position || !(position.qty > 0)) return NextResponse.json({ held: null });
+    if (!position || !(position.qty > 0)) return NextResponse.json({ held: null }, { headers: NO_STORE });
     const held: HeldPosition = {
       side: position.side,
       qty: position.qty,
-      managed: await hasWorkingPlan(supabase, user.id, symbol),
+      // Unread counts as managed: the offer then closes it whole, as the server would.
+      managed: (await hasWorkingPlan(supabase, user.id, symbol)) !== false,
     };
-    return NextResponse.json({ held }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ held }, { headers: NO_STORE });
   } catch {
     // Unread: the ticket shows no held-position offer and the server still
     // treats a sell against a long as a close (lib/trade/place-order.ts).
-    return NextResponse.json({ held: null });
+    return NextResponse.json({ held: null }, { headers: NO_STORE });
   }
 }

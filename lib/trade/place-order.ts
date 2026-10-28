@@ -512,12 +512,13 @@ export async function placeSimulatedOrder(
     input.mode === "live" && input.assetClass !== "option"
       ? await readLivePosition(supabase, userId, input.symbol)
       : await getOpenPosition(supabase, userId, input.symbol);
-  const isProtective = isProtectiveOrder(
-    existingPosition?.side ?? null,
-    input.side,
-    input.qty,
-    existingPosition?.qty ?? 0,
-  );
+  // An order from an automated plan is a new position by intent (an entry, a
+  // re-buy, a reversal), never a close: it goes through entry confirmation,
+  // whose opposite-exit hold keeps a re-buy from netting the reversal it waits
+  // on. Closes are the exit managers' and Close position's, not placement's.
+  const isProtective =
+    !input.sourcePlanId &&
+    isProtectiveOrder(existingPosition?.side ?? null, input.side, input.qty, existingPosition?.qty ?? 0);
   const halted = isProtective ? null : killSwitchRefusal();
   if (halted) return { status: 503, body: { ...halted } };
 
@@ -557,51 +558,51 @@ export async function placeSimulatedOrder(
   // all of it retires the plan with it, as "Close position" does
   // (lib/trade/close-position.ts). Otherwise the plan would be left working on
   // shares no longer held, and its stop would trade them again.
+  // A plan read that fails counts as managed, so nothing is left working on
+  // shares no longer held. A limit is refused rather than sold at market: the
+  // managed exit, or Close position, is the way out of a managed position.
   if (isProtective && input.mode !== "live" && input.assetClass !== "option" && existingPosition) {
-    if (await hasWorkingPlan(supabase, userId, input.symbol)) {
+    if ((await hasWorkingPlan(supabase, userId, input.symbol)) !== false) {
       if (input.qty < existingPosition.qty - 1e-9) return managedPartialRefusal(input.symbol);
+      if (input.entryMode === "advised" || input.limitPrice != null) return managedLimitRefusal(input.symbol);
       return closeManagedPaperPosition(supabase, userId, input.symbol);
-    }
-  }
-
-  // A short needs a stock the broker lends (lib/trade/short-eligibility.ts).
-  // Paper asks the broker's paper account; a live order is checked in
-  // placeLiveOrder with the member's own connection, beside the account's own
-  // permission to short. A lookup that fails defers to the broker, as the
-  // ticket's own pre-flight does (app/api/assets/route.ts). Crypto has no
-  // lending record to read.
-  let shortWarning: string | null = null;
-  if (
-    input.mode !== "live" &&
-    input.assetClass === "equity" &&
-    !isCryptoSymbol(input.symbol) &&
-    opensShort(existingPosition?.side ?? null, existingPosition?.qty ?? 0, input.side, input.qty)
-  ) {
-    const asset = await readAsset(envCreds("paper"), input.symbol);
-    if (asset) {
-      const refused = shortAssetRefusal(input.symbol, asset);
-      if (refused) return refused;
-      shortWarning = hardToBorrowWarning(input.symbol, asset);
     }
   }
 
   // One new entry at a time per account (F-05, lib/trade/order-lock.ts): the
   // capital checks below read the book and the write follows, so a second
   // entry waits until the first is written. A protective order never waits.
-  if (isProtective) return placeChecked(supabase, userId, input, isProtective, existingPosition);
+  const notes: PlacementNotes = { shortWarning: null };
+  if (isProtective) return placeChecked(supabase, userId, input, isProtective, existingPosition, notes);
   return withWarning(
-    await withOrderLock(supabase, userId, () => placeChecked(supabase, userId, input, isProtective, existingPosition)),
-    shortWarning,
+    await withOrderLock(supabase, userId, () => placeChecked(supabase, userId, input, isProtective, existingPosition, notes)),
+    notes.shortWarning,
   );
 }
+
+/** What placement learns on the way that the response carries back. */
+interface PlacementNotes {
+  shortWarning: string | null;
+}
+
+/** How long the broker's lending record is waited on before deferring to the broker. */
+const ASSET_READ_TIMEOUT_MS = 3_000;
 
 /** The broker's lending record for a stock, or null when it can't be read. */
 async function readAsset(creds: AlpacaCreds | null, symbol: string): Promise<AlpacaAsset | null> {
   if (!creds) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await getAsset(creds, symbol);
+    return await Promise.race([
+      getAsset(creds, symbol),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ASSET_READ_TIMEOUT_MS);
+      }),
+    ]);
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -610,6 +611,16 @@ function withWarning(placed: PlacedOrder, warning: string | null): PlacedOrder {
   if (!warning || placed.status !== 200) return placed;
   const prior = typeof placed.body.warning === "string" && placed.body.warning ? `${placed.body.warning} ` : "";
   return { ...placed, body: { ...placed.body, warning: `${prior}${warning}` } };
+}
+
+function managedLimitRefusal(symbol: string): PlacedOrder {
+  return {
+    status: 409,
+    body: {
+      error: `Your ${symbol.toUpperCase()} position runs on a managed exit, so it isn't sold on a limit of its own. Close it at market with Close position, or edit its exit levels. Nothing was placed.`,
+      code: "managed_limit_close",
+    },
+  };
 }
 
 function managedPartialRefusal(symbol: string): PlacedOrder {
@@ -626,6 +637,9 @@ function managedPartialRefusal(symbol: string): PlacedOrder {
 async function closeManagedPaperPosition(supabase: SupabaseClient, userId: string, symbol: string): Promise<PlacedOrder> {
   const closed = await closePaperPosition(supabase, userId, symbol);
   if (!closed.ok) return { status: 409, body: { error: closed.error, code: closed.code } };
+  if (closed.alreadyFlat) {
+    return { status: 409, body: { error: `No ${symbol.toUpperCase()} position is open any more, so nothing was sold.`, code: "already_flat" } };
+  }
   return {
     status: 200,
     body: {
@@ -643,6 +657,7 @@ async function placeChecked(
   input: OrderInput,
   isProtective: boolean,
   existing: { side: "long" | "short"; qty: number } | null,
+  notes: PlacementNotes,
 ): Promise<PlacedOrder> {
   // A-EXIT-05: inside the trader's away window a new entry comes back with
   // the close-out reminder (lib/trade/away-notice.ts). Never on a protective order.
@@ -860,6 +875,27 @@ async function placeChecked(
   }
   const confirmed = isProtective ? { refusal: null, atMarket: false } : await confirmEntry(supabase, userId, input);
   if (confirmed.refusal) return confirmed.refusal;
+
+  // A short needs a stock the broker lends (lib/trade/short-eligibility.ts),
+  // read once the entry has confirmed so a resting short waiting on its
+  // reaction asks nothing on each pass. The broker's paper account answers for
+  // paper; a live order is checked in placeLiveOrder with the member's own
+  // connection, beside the account's permission to short. A read that fails or
+  // stalls defers to the broker, as the ticket's pre-flight does
+  // (app/api/assets/route.ts). Crypto has no lending record to read.
+  if (
+    !isProtective &&
+    input.assetClass === "equity" &&
+    !isCryptoSymbol(input.symbol) &&
+    opensShort(existing?.side ?? null, existing?.qty ?? 0, input.side, input.qty)
+  ) {
+    const asset = await readAsset(envCreds("paper"), input.symbol);
+    if (asset) {
+      const refused = shortAssetRefusal(input.symbol, asset);
+      if (refused) return refused;
+      notes.shortWarning = hardToBorrowWarning(input.symbol, asset);
+    }
+  }
   const atMarket = confirmed.atMarket;
 
   // ---- Price-increment validation -----------------------------------------

@@ -41,6 +41,11 @@ vi.mock("@/lib/brokers/alpaca", async () => {
     getAsset: (...args: unknown[]) => getAsset(...args),
   };
 });
+const getTradePlan = vi.fn();
+vi.mock("@/lib/lifecycle/store", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/lifecycle/store")>("@/lib/lifecycle/store");
+  return { ...actual, getTradePlan: (...args: unknown[]) => getTradePlan(...args) };
+});
 vi.mock("@/lib/trade/close-position", () => ({
   closePaperPosition: (...args: unknown[]) => closePaperPosition(...args),
 }));
@@ -135,6 +140,7 @@ describe("placeSimulatedOrder — shorts and sales of shares held", () => {
     hasWorkingPlan.mockReset().mockResolvedValue(false);
     getAsset.mockReset().mockResolvedValue({ symbol: "AMD", tradable: true, shortable: true, easy_to_borrow: true });
     closePaperPosition.mockReset();
+    getTradePlan.mockReset().mockResolvedValue(null);
   });
 
   it("refuses a short on a stock the broker won't lend, and places nothing", async () => {
@@ -216,5 +222,55 @@ describe("placeSimulatedOrder — shorts and sales of shares held", () => {
     expect(closePaperPosition).toHaveBeenCalledWith(supabase, "u1", "AMD");
     expect(result.body).toMatchObject({ closedPosition: true, order: { status: "filled" } });
     expect(ordersInsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses a limit sale of a managed position rather than selling it at market", async () => {
+    getOpenPosition.mockResolvedValue({ side: "long", qty: 3, symbol: "AMD" });
+    hasWorkingPlan.mockResolvedValue(true);
+    const { supabase } = stubSupabase();
+    const result = await placeSimulatedOrder(supabase, "u1", { ...short, entryMode: "advised", limitPrice: 470 });
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ code: "managed_limit_close" });
+    expect(closePaperPosition).not.toHaveBeenCalled();
+  });
+
+  it("treats an unread plan as managed, so a part is refused", async () => {
+    getOpenPosition.mockResolvedValue({ side: "long", qty: 10, symbol: "AMD" });
+    hasWorkingPlan.mockResolvedValue(null);
+    const { supabase } = stubSupabase();
+    const result = await placeSimulatedOrder(supabase, "u1", short);
+    expect(result.body).toMatchObject({ code: "managed_partial_close" });
+  });
+
+  it("never turns an automated plan's order into a close of the position it would net", async () => {
+    getOpenPosition.mockResolvedValue({ side: "long", qty: 3, symbol: "AMD" });
+    hasWorkingPlan.mockResolvedValue(true);
+    const { supabase } = stubSupabase();
+    await placeSimulatedOrder(supabase, "u1", { ...short, sourcePlanId: "11111111-1111-4111-8111-111111111111" });
+    expect(closePaperPosition).not.toHaveBeenCalled();
+    // It went to entry confirmation, which reads its plan.
+    expect(getTradePlan).toHaveBeenCalled();
+  });
+
+  it("asks for the lending record only once the entry has confirmed", async () => {
+    confirmNow.ready = false;
+    try {
+      const { supabase } = stubSupabase();
+      const result = await placeSimulatedOrder(supabase, "u1", { ...short, entryMode: "advised", limitPrice: 459.48, entryStop: 462.6 });
+      expect(result.body).toMatchObject({ code: "awaiting_confirmation" });
+      expect(getAsset).not.toHaveBeenCalled();
+    } finally {
+      confirmNow.ready = true;
+    }
+  });
+
+  it("tells the managed close apart from a position already gone", async () => {
+    getOpenPosition.mockResolvedValue({ side: "long", qty: 3, symbol: "AMD" });
+    hasWorkingPlan.mockResolvedValue(true);
+    closePaperPosition.mockResolvedValue({ ok: true, alreadyFlat: true });
+    const { supabase } = stubSupabase();
+    const result = await placeSimulatedOrder(supabase, "u1", short);
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ code: "already_flat" });
   });
 });

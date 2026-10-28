@@ -54,7 +54,7 @@ export async function closePaperPosition(
   const startedAt = Date.now();
   const before = await getOpenPosition(supabase, userId, ticker);
   if (!before) return { ok: true, alreadyFlat: true };
-  if (qty != null && qty < before.qty - 1e-6 && (await hasWorkingPlan(supabase, userId, ticker))) {
+  if (qty != null && qty < before.qty - 1e-6 && (await hasWorkingPlan(supabase, userId, ticker)) !== false) {
     return {
       ok: false,
       error: `Your ${ticker} position runs on a managed exit, which exits the whole position, so part of it can't be sold on its own. Close all of it, or edit its exit levels. Nothing was sold.`,

@@ -784,4 +784,11 @@ describe("OrderTicket on a sell setup for shares already held", () => {
     expect(await screen.findByText(/DRAM is hard to borrow/)).toBeInTheDocument();
     expect(screen.queryByText(/You own/)).not.toBeInTheDocument();
   });
+
+  it("offers to cover a short held when the ticket is on the buy side", async () => {
+    mockHeld({ side: "short", qty: 12, managed: false });
+    render(<OrderTicket result={scanWithEntry(50)} />);
+    expect(await screen.findByText("You're short 12 shares of DRAM.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cover all 12 shares" })).toBeInTheDocument();
+  });
 });

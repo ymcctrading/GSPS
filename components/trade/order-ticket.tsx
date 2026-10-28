@@ -745,6 +745,8 @@ export function OrderTicket({
         setFeedback({ ok: false, text: data.error ?? `HTTP ${res.status}`, code: data.code });
         return;
       }
+      // The book changed: re-read what's held, so a sale on the other side offers the close.
+      setHeldVersion((v) => v + 1);
       const placed = `Paper order placed — ${data.order?.status ?? "accepted"}.`;
       // The exit plan is part of what was just agreed to, so it is echoed back
       // from the server's own answer rather than from what the ticket predicted.
