@@ -45,6 +45,7 @@ import type { AssetClass } from "@/lib/types";
 import { priceAlertPushMessage, sendPushToProfile } from "@/lib/notifications/web-push";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { inQuietHours } from "@/lib/entitlements/delivery";
+import { resolveFeedPolicy } from "@/lib/data/timeliness";
 
 export const maxDuration = 60;
 
@@ -213,6 +214,15 @@ export async function GET(req: NextRequest) {
           }
         : undefined;
     const price = quote.last ?? value;
+    // The quote's delay, said where the member reads it (DATA-DELAY-001):
+    // equities on the delayed feed, never crypto.
+    const delayMs = resolveFeedPolicy({
+      assetClass: isCryptoSymbol(alert.symbol) ? "crypto" : "us_equity",
+      isLive: provider.isLive,
+      source: provider.name,
+    }).contractualDelayMs;
+    const delayMinutes = Math.round(delayMs / 60_000);
+    const delayText = delayMinutes > 0 ? ` Equity prices are delayed by ${delayMinutes} minutes.` : "";
 
     // The bell is written whatever the member's channels or quiet hours: it
     // has no send cost (migration 0067), and it is where a fired alert stays.
@@ -221,11 +231,11 @@ export async function GET(req: NextRequest) {
       symbol: alert.symbol,
       verdict: "Price alert",
       title: editorRule ? `Alert: ${editorRule.condition}` : `${alert.symbol} ${alert.direction === "above" ? "rose above" : "fell below"} ${formatThreshold("last", threshold)}`,
-      body: editorRule
+      body: (editorRule
         ? [`Read at the check: ${editorRule.reading}`, editorRule.source ? `Level: ${editorRule.source}` : null, editorRule.note ? `Note: ${editorRule.note}` : null]
             .filter(Boolean)
             .join(". ") + "."
-        : `Last price checked: ${formatThreshold("last", price)}.`,
+        : `Last price checked: ${formatThreshold("last", price)}.`) + delayText,
     });
     if (bellError) console.error(`price-alerts/sweep: bell notice not written for alert ${alert.id} — ${bellError.message}`);
 
@@ -244,6 +254,7 @@ export async function GET(req: NextRequest) {
           targetPrice: threshold,
           currentPrice: price,
           rule: editorRule,
+          delayMinutes,
         }),
       );
       pushedOk = pushed.success;
@@ -267,6 +278,7 @@ export async function GET(req: NextRequest) {
         direction: alert.direction,
         currentPrice: price,
         rule: editorRule,
+        delayMinutes,
       });
     } catch (err) {
       console.error(`price-alerts/sweep: email not sent for alert ${alert.id} — ${String(err)}`);
