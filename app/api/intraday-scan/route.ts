@@ -365,7 +365,6 @@ export async function GET(req: NextRequest) {
     try {
       await recordIntradayBells(supabase as ServiceSupabase, output.alerts, {
         intervalBySymbol: new Map(resolved.map((i) => [i.symbol, i.barIntervalMinutes])),
-        cooldownMinutes: config.cooldownMinutes,
         now,
       });
     } catch (err) {
