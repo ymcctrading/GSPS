@@ -163,6 +163,9 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
   const holds = decision.breakdown.filter((item) => !item.pillar && !item.checkOf && !item.passed);
   const laggedOnly = holds.length > 0 && holds.every((item) => item.key === "dataLag");
   const retired = holds.some((item) => item.key === "stopBreach");
+  // An expired plan (lib/gann/planExpiry.ts): its note names only prices the
+  // reader can see and what the stock is waiting for, so it crosses as is.
+  const expired = holds.find((item) => item.key === "planExpired");
 
   return {
     score: decision.score,
@@ -173,11 +176,13 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
         ? null
         : retired
           ? STOP_BREACH_STATE_NOTE
-          : laggedOnly
-            ? DATA_LAG_STATE_NOTE
-            : decision.outputState === "Reject"
-              ? CAPPED_STATE_NOTE
-              : heldNote(holds, decision.score),
+          : expired
+            ? expired.note
+            : laggedOnly
+              ? DATA_LAG_STATE_NOTE
+              : decision.outputState === "Reject"
+                ? CAPPED_STATE_NOTE
+                : heldNote(holds, decision.score),
   };
 }
 

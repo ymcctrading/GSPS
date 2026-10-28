@@ -63,7 +63,7 @@ export function isComplete(r: Pick<DailyScanRow, "entry" | "stop_loss" | "take_p
  * intraday after the scan runs is still caught on the next run.
  */
 export function isInvalidated(
-  r: Pick<DailyScanRow, "direction" | "stop_loss"> & {
+  r: Pick<DailyScanRow, "direction" | "stop_loss"> & Partial<Pick<DailyScanRow, "take_profit_1">> & {
     detail?: {
       retired?: boolean | null;
       currentPrice?: number | null;
@@ -75,7 +75,13 @@ export function isInvalidated(
   const price = r.detail?.currentPrice;
   if (price == null || !Number.isFinite(price)) return false;
   const side = r.direction === "bullish" ? "buy" : "sell";
-  return isInvalidatedByStop({ side, stop_price: r.stop_loss }, price);
+  if (isInvalidatedByStop({ side, stop_price: r.stop_loss }, price)) return true;
+  // An expired plan (owner, 2026-10-28; lib/gann/planExpiry.ts): price already
+  // stood at or past TP1 when the scan ran. The scan withholds such a plan
+  // since that date; rows stored before it are dropped here. The other
+  // expiry test needs the daily chart and is read by the scan alone.
+  const tp1 = Number(r.take_profit_1);
+  return Number.isFinite(tp1) && (side === "buy" ? price >= tp1 : price <= tp1);
 }
 
 /**

@@ -120,6 +120,16 @@ export function SignalCard({
             </p>
           </div>
         )}
+        {/*
+          An expired plan (owner, 2026-10-28; lib/gann/planExpiry.ts): the scan
+          returns no levels, and this says why and what the plan was.
+        */}
+        {result.planExpired && (
+          <div className="rounded-md border border-border bg-background p-3 text-xs text-muted">
+            <p className="font-medium text-foreground">No live setup: the last plan has expired.</p>
+            <p className="mt-1">{result.planExpired.note}</p>
+          </div>
+        )}
         <RoundNumberNotice
           price={result.stopBreach ? null : (levels?.entry ?? null)}
           direction={result.direction !== "none" ? result.direction : null}

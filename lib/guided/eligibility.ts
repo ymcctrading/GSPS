@@ -105,6 +105,12 @@ export function assessEligibility(
     );
   }
 
+  // An expired plan (owner, 2026-10-28; lib/gann/planExpiry.ts): named for the
+  // same reason, ahead of the Reject it causes.
+  if (result.planExpired) {
+    reasons.push(`${result.planExpired.note} Guided Mode only surfaces a live plan.`);
+  }
+
   if (result.decision.outputState !== "Execute") {
     reasons.push(
       `Verdict is ${result.decision.outputState}, and Guided Mode only surfaces Execute setups.`,

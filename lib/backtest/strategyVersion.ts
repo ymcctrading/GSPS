@@ -848,4 +848,13 @@
 // a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
 // Live verdicts move; the replay reads it at the fill, where only the
 // targets reading can hold; how far replay buckets move is not measured.
-export const STRATEGY_VERSION = "2026-10-27-execute-ready-now";
+// 2026-10-28-plan-expiry (owner: "the setups are expired", approved "Go"):
+// a plan expires, the stock stays tracked, when price stands at or past its
+// TP1 (a crossed level is the next support, W006 pp.19-24), or when a
+// reaction buy after a crossing could fill only on a reaction over the
+// campaign's greatest by a point (Master Course Ch. 8, PDF 249). Reject live,
+// levels withheld (`applyPlanExpiredHold`, `lib/gann/planExpiry.ts`); the
+// replay does not enter such a plan and counts it under retiredPlans.
+// Live verdicts move (23 of 43 rows listed on 2026-10-27 stood past TP1);
+// replay trades move, by how much not measured.
+export const STRATEGY_VERSION = "2026-10-28-plan-expiry";

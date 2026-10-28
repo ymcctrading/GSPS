@@ -114,7 +114,7 @@ export function pickNearestMiss(scans: (ScanResult | null)[]): NearMiss | null {
   for (const result of scans) {
     // A retired plan (its stop broke) is not "close": it is over until a new
     // plan replaces it, so it is never offered as the nearest miss.
-    if (!result || result.error || result.stopBreach) continue;
+    if (!result || result.error || result.stopBreach || result.planExpired) continue;
     const summary = result.decision.summary ?? toPublicScoreSummary(result.decision);
     if (best === null) {
       best = { result, score: summary.score, max: summary.max };
