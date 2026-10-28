@@ -147,6 +147,21 @@ describe("the sweep's stop test", () => {
     expect(closedBreachBars(later, Date.parse("2026-10-28T14:20:00Z"))).toEqual([{ h: 103, l: 98, c: 102 }]);
   });
 
+  it("closes a stock's last bucket once the session and the feed's delay have passed", () => {
+    // 2026-10-28 is EDT: the session closes 20:00 UTC, the feed's delay and margin run to 20:20.
+    const bars = [at("2026-10-28T19:30:00Z", 101, 99, 100), at("2026-10-28T19:46:00Z", 101, 90, 92), at("2026-10-28T19:55:00Z", 93, 91, 92)];
+    expect(stopBreachStands("up", 95, bars, Date.parse("2026-10-28T20:17:00Z"), "equity")).toBe(false);
+    expect(stopBreachStands("up", 95, bars, Date.parse("2026-10-28T20:21:00Z"), "equity")).toBe(true);
+    // crypto has no session close: its bucket waits for a later print
+    expect(stopBreachStands("up", 95, bars, Date.parse("2026-10-28T20:21:00Z"), "crypto")).toBe(false);
+    // an early close ends at 1 PM (18:00 UTC in EST)
+    const early = [at("2026-11-27T17:50:00Z", 93, 90, 92)];
+    expect(closedBreachBars(early, Date.parse("2026-11-27T18:17:00Z"), "equity")).toHaveLength(0);
+    expect(closedBreachBars(early, Date.parse("2026-11-27T18:21:00Z"), "equity")).toEqual([{ h: 93, l: 90, c: 92 }]);
+    // a mid-session bucket still needs a later print
+    expect(closedBreachBars([at("2026-10-28T15:00:00Z", 1, 0.5)], Date.parse("2026-10-28T20:21:00Z"), "equity")).toHaveLength(0);
+  });
+
   it("ends an early close's session at 1 PM", () => {
     // 2026-11-27, the day after Thanksgiving: 1:30 PM New York is after the close.
     const bars = [at("2026-11-27T18:30:00Z", 1, 0.5)];
