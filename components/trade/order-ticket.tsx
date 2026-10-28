@@ -24,12 +24,19 @@ import type { StrategyModeId } from "@/lib/strategies/types";
 import { planQuery } from "@/lib/strategies/explain/params";
 import type { OwnTechniqueLevels, TechniqueRead } from "@/lib/strategies/compare";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
+import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
 type Side = "buy" | "sell";
 type OptionType = "call" | "put";
-type ExecutionMode = "protocol" | "manual";
+/**
+ * Which levels a manual trade uses (owner, 2026-10-28: "allow for an option to
+ * trade the swing plan, the intraday plan, or use the users own sl, tp1, and
+ * mtp levels"): the daily plan's, the intraday alert's for the session, or the
+ * person's own stop, TP1 and MTP.
+ */
+type LevelChoice = "swing" | "intraday" | "own";
 
 interface StrikeRow {
   strike: number;
@@ -51,6 +58,7 @@ export function OrderTicket({
   livePrice,
   intradaySourced = false,
   intradayPlan = null,
+  sessionPlan = null,
   forceSide,
   onExplainChange,
 }: {
@@ -71,6 +79,14 @@ export function OrderTicket({
    * every other ticket.
    */
   intradayPlan?: { stop: number; target: number; master?: number | null } | null;
+  /**
+   * The intraday panel's current alert for this symbol, offered as a trade
+   * (the plan the chart draws on an intraday timeframe,
+   * `lib/chart/planForTimeframe.ts`). Lets a ticket not opened from the alert
+   * still choose the intraday plan. Null or undefined when none stands, or
+   * the plan has no intraday access.
+   */
+  sessionPlan?: IntradayChartPlan | null;
   /** Preselects the side from the alert's direction; the user can still change it. */
   forceSide?: Side;
   /**
@@ -121,10 +137,11 @@ export function OrderTicket({
   const [assetType, setAssetType] = useState<AssetType>("shares");
   const [side, setSide] = useState<Side>(signalSide);
   const [qty, setQty] = useState("1");
-  const [entryMode, setEntryMode] = useState<EntryMode>("advised");
+  const [entryModeChoice, setEntryMode] = useState<EntryMode>("advised");
   const [attachLevels, setAttachLevels] = useState(true);
   const [manualStop, setManualStop] = useState("");
   const [manualTarget, setManualTarget] = useState("");
+  const [manualMaster, setManualMaster] = useState("");
   // Strategy Modes (AGENTS.md's "Strategy Modes" section; docs/STRATEGY_MODES.md).
   // Since 2026-10-22 (owner: "we can guide users to the water, but we can
   // NEVER force them to drink"): every technique the person may use is read
@@ -164,7 +181,12 @@ export function OrderTicket({
    * never receive less. An explicit choice overrides it.
    */
   const [rounding, setRounding] = useState<RoundingMode | null>(null);
-  const [executionMode, setExecutionMode] = useState<ExecutionMode>(hasProtocolSignal ? "protocol" : "manual");
+  const [levelChoice, setLevelChoice] = useState<LevelChoice>(hasProtocolSignal ? "swing" : "own");
+  // Own levels managed on the session's rules (the Intraday style) rather than
+  // as a swing: offered wherever an intraday plan could be chosen.
+  const [manageIntraday, setManageIntraday] = useState(false);
+  // The intraday plan is traded at the market, as its alert has fired.
+  const entryMode: EntryMode = levelChoice === "intraday" ? "now" : entryModeChoice;
 
   // Options chain state.
   const [optionType, setOptionType] = useState<OptionType>(signalSide === "sell" ? "put" : "call");
@@ -186,23 +208,33 @@ export function OrderTicket({
   }>({ symbol: "", value: null });
   const tradability = tradabilityState.symbol === symbol ? tradabilityState.value : null;
 
+  // The intraday plan the ticket can trade: the alert the person clicked
+  // "Trade this" on, else the panel's current alert for the symbol. Its side is
+  // where its stop and first target sit.
+  const intradayLevels: { stop: number; target: number; master: number | null } | null =
+    intradayPlan
+      ? { stop: intradayPlan.stop, target: intradayPlan.target, master: intradayPlan.master ?? null }
+      : sessionPlan && sessionPlan.stop != null && sessionPlan.firstTarget != null &&
+          sessionPlan.stop > 0 && sessionPlan.firstTarget > 0 && sessionPlan.stop !== sessionPlan.firstTarget
+        ? { stop: sessionPlan.stop, target: sessionPlan.firstTarget, master: sessionPlan.masterTarget }
+        : null;
+  const intradaySide: Side | null = intradayLevels ? (intradayLevels.target > intradayLevels.stop ? "buy" : "sell") : null;
+  const intradayAvailable = intradaySourced || intradayLevels != null;
+
   // An intraday alert's plan opens the ticket on its own levels, once per plan:
   // a market entry (the alert has fired) with the alert's stop, first target
   // and MTP. Derived during render, as the symbol reset below is.
   const [holdOvernight, setHoldOvernight] = useState(false);
-  // With no plan in the link, the ticket still opens in manual mode for the
-  // trader's own stop: an intraday trade never takes the daily plan's levels.
+  // With no plan in the link, the ticket still opens on the trader's own
+  // levels, managed as an intraday trade.
   const intradayKey = intradaySourced ? `${symbol}|${intradayPlan ? `${intradayPlan.stop}|${intradayPlan.target}` : "own"}` : null;
   const [appliedIntraday, setAppliedIntraday] = useState<string | null>(null);
   if (intradayKey && appliedIntraday !== intradayKey) {
     setAppliedIntraday(intradayKey);
-    setExecutionMode("manual");
+    setLevelChoice(intradayPlan ? "intraday" : "own");
+    setManageIntraday(!intradayPlan);
     setAssetType("shares");
     setEntryMode("now");
-    if (intradayPlan) {
-      setManualStop(priceField(intradayPlan.stop));
-      setManualTarget(priceField(intradayPlan.target));
-    }
     setHoldOvernight(false);
   }
   const intradayStyle = TRADE_STYLES.intraday;
@@ -276,11 +308,12 @@ export function OrderTicket({
   // It lapses once the person changes the side, the stop or the target: the
   // order is then their own, priced from their own fields.
   const techniqueEntry =
-    executionMode === "manual" &&
+    levelChoice === "own" &&
     techniqueTrade &&
     side === (techniqueTrade.direction === "bearish" ? "sell" : "buy") &&
     manualStop === priceField(techniqueTrade.stopLoss) &&
-    manualTarget === priceField(techniqueTrade.takeProfit1)
+    manualTarget === priceField(techniqueTrade.takeProfit1) &&
+    manualMaster.trim() === ""
       ? techniqueTrade
       : null;
   const advised = techniqueEntry?.entry ?? levels?.entry ?? currentPrice ?? 0;
@@ -374,7 +407,11 @@ export function OrderTicket({
   };
 
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
-  const useProtocolLevels = executionMode === "protocol" && hasProtocolSignal && !intradaySourced;
+  const useProtocolLevels = levelChoice === "swing" && hasProtocolSignal;
+  // The trade is managed on the session's rules: the intraday plan, or own
+  // levels the person asked to manage that way.
+  const orderIntraday =
+    levelChoice === "intraday" || (levelChoice === "own" && manageIntraday && intradayAvailable);
 
   // The setup's own invalidation rule, checked against the live quote rather
   // than the price it was scored at. A stop is the line the pattern's thesis
@@ -450,7 +487,9 @@ export function OrderTicket({
     if (!t.ownLevels) return;
     const own = t.ownLevels;
     setTechniqueTrade({ ...own, source: t.source, label: t.label });
-    setExecutionMode("manual");
+    setLevelChoice("own");
+    setManualMaster("");
+    setManageIntraday(false);
     setAssetType("shares");
     setSide(own.direction === "bearish" ? "sell" : "buy");
     setEntryMode("advised");
@@ -490,18 +529,21 @@ export function OrderTicket({
         })
       : null;
 
-  // Manual Override carries no armed signal to source levels from, so a stop
-  // and target here are whatever the user types — optional, but once both are
-  // filled in they're validated and staged the same way a protocol bracket is
-  // (see lib/trade/exit-manager-sim.ts), so "every trade has a stop" holds in
-  // this mode too, on both sides.
+  // The person's own levels carry no armed signal to source them from, so a
+  // stop, TP1 and MTP here are whatever the user types. Once the stop and TP1
+  // are filled in they're validated and staged the same way a protocol
+  // bracket is (see lib/trade/exit-manager-sim.ts), so "every trade has a
+  // stop" holds here too, on both sides. The MTP is optional and, when given,
+  // has to lie beyond TP1.
   const manualStopNum = Number(manualStop);
   const manualTargetNum = Number(manualTarget);
+  const manualMasterNum = Number(manualMaster);
+  const manualMasterEntered = manualMaster.trim() !== "";
   // Guarded by assetType: the fields only render on the Shares tab, but the
   // state persists across a tab switch, so a value left over from Shares must
   // not block submitting an Options order that never showed these fields.
   const manualLevelsEntered =
-    assetType === "shares" && (manualStop.trim() !== "" || manualTarget.trim() !== "");
+    assetType === "shares" && (manualStop.trim() !== "" || manualTarget.trim() !== "" || manualMasterEntered);
   const manualLevelsComplete =
     assetType === "shares" &&
     manualStop.trim() !== "" &&
@@ -512,24 +554,46 @@ export function OrderTicket({
     manualTargetNum > 0;
   const manualBracketCheck =
     manualLevelsComplete && assetType === "shares"
-      ? checkBracket({ side, basePrice, stopLoss: manualStopNum, takeProfit: manualTargetNum })
+      ? checkBracket({
+          side,
+          basePrice,
+          stopLoss: manualStopNum,
+          takeProfit: manualTargetNum,
+          masterProfit: manualMasterEntered ? manualMasterNum : null,
+        })
       : { ok: true as const };
   const manualLevelsBlocked = manualLevelsComplete && !manualBracketCheck.ok;
   const attachingManualLevels =
-    executionMode === "manual" && assetType === "shares" && manualLevelsComplete && !manualLevelsBlocked;
-  // An intraday alert's MTP rides with the order while it still lies beyond
-  // the first target on the trade's side (the person may have moved the target).
+    levelChoice === "own" && assetType === "shares" && manualLevelsComplete && !manualLevelsBlocked;
+
+  // The intraday plan's levels, checked against the market entry they go with.
+  // Its MTP rides with the order while it lies beyond the first target on the
+  // trade's side (the person may have flipped the side).
   const intradayMaster =
-    intradaySourced && intradayPlan?.master != null && Number.isFinite(manualTargetNum) &&
-    (side === "buy" ? intradayPlan.master > manualTargetNum : intradayPlan.master < manualTargetNum)
-      ? intradayPlan.master
+    intradayLevels?.master != null &&
+    (side === "buy" ? intradayLevels.master > intradayLevels.target : intradayLevels.master < intradayLevels.target)
+      ? intradayLevels.master
       : null;
+  const intradayBracketCheck =
+    levelChoice === "intraday" && intradayLevels && assetType === "shares"
+      ? checkBracket({ side, basePrice, stopLoss: intradayLevels.stop, takeProfit: intradayLevels.target })
+      : { ok: true as const };
+  const attachingIntradayLevels =
+    levelChoice === "intraday" && assetType === "shares" && !!intradayLevels && intradayBracketCheck.ok;
+
+  // The exit the order carries when it isn't the swing plan's.
+  const chosenExit: { stopLoss: number; takeProfit: number; masterProfit: number | null } | null =
+    attachingIntradayLevels && intradayLevels
+      ? { stopLoss: intradayLevels.stop, takeProfit: intradayLevels.target, masterProfit: intradayMaster }
+      : attachingManualLevels
+        ? { stopLoss: manualStopNum, takeProfit: manualTargetNum, masterProfit: manualMasterEntered ? manualMasterNum : null }
+        : null;
   const manualExitPlan =
-    attachingManualLevels && Number(qty) >= 1
+    chosenExit && Number(qty) >= 1
       ? planProtocolExit(Number(qty), {
-          stopLoss: manualStopNum,
-          takeProfit1: manualTargetNum,
-          masterProfit: intradayMaster,
+          stopLoss: chosenExit.stopLoss,
+          takeProfit1: chosenExit.takeProfit,
+          masterProfit: chosenExit.masterProfit,
         })
       : null;
 
@@ -564,7 +628,7 @@ export function OrderTicket({
               qty: Number(qty),
               entryMode: "now" as const,
               mode: "paper" as const,
-              intradaySourced,
+              intradaySourced: orderIntraday,
             }
           : {
               symbol,
@@ -610,18 +674,21 @@ export function OrderTicket({
                 ? attachingLevels
                   ? { stopLoss: levels!.stopLoss, takeProfit: levels!.takeProfit1, masterProfit: levels!.masterProfit }
                   : undefined
-                : attachingManualLevels
+                : chosenExit
                   ? {
-                      stopLoss: manualStopNum,
-                      takeProfit: manualTargetNum,
-                      ...(intradayMaster != null ? { masterProfit: intradayMaster } : {}),
+                      stopLoss: chosenExit.stopLoss,
+                      takeProfit: chosenExit.takeProfit,
+                      ...(chosenExit.masterProfit != null ? { masterProfit: chosenExit.masterProfit } : {}),
                     }
                   : undefined,
               mode: "paper" as const,
-              executionMode,
-              intradaySourced,
+              executionMode: useProtocolLevels ? "protocol" : "manual",
+              // Managed on the session's rules (lib/trade/exit-style.ts) and
+              // subject to the intraday entry gates: the intraday plan, or own
+              // levels the person asked to manage that way.
+              intradaySourced: orderIntraday,
               // The Intraday style's session close is the default; this is the way out of it.
-              holdOvernight: intradaySourced ? holdOvernight || isCrypto : undefined,
+              holdOvernight: orderIntraday ? holdOvernight || isCrypto : undefined,
             };
 
       const res = await fetch("/api/orders", {
@@ -666,9 +733,10 @@ export function OrderTicket({
     (shortBlocked && side === "sell") ||
     priceBlocked ||
     protocolInvalidated ||
-    (executionMode === "manual" && manualLevelsEntered && (!manualLevelsComplete || manualLevelsBlocked)) ||
+    (levelChoice === "swing" && !hasProtocolSignal) ||
+    (levelChoice === "own" && manualLevelsEntered && (!manualLevelsComplete || manualLevelsBlocked)) ||
     // An intraday trade is placed with its stop and first target (the server refuses it otherwise).
-    (intradaySourced && !attachingManualLevels);
+    (orderIntraday && !chosenExit);
 
   const actionLabel = (() => {
     if (assetType === "options") return `${side === "buy" ? "Buy" : "Sell"} to open ${optionType.toUpperCase()}`;
@@ -679,9 +747,9 @@ export function OrderTicket({
     <Card>
       <CardHeader>
         <CardTitle>Order ticket · paper</CardTitle>
-        {intradaySourced && (
+        {orderIntraday && (
           <p className="text-xs font-medium text-warn">
-            Intraday-sourced — subject to the intraday concurrent-position,
+            Intraday trade: subject to the intraday concurrent-position,
             consecutive-loss, and daily-loss-lock gates.
           </p>
         )}
@@ -696,59 +764,63 @@ export function OrderTicket({
             ? assetType === "options"
               ? `Trade ${symbol} options — protocol read is ${result.direction}.`
               : `${side === "buy" ? "Long" : "Short"} ${symbol} — armed structural entry trigger is ${result.direction}.`
-            : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached${assetType === "shares" ? "; optional custom stop/target below" : ""}.`}
+            : levelChoice === "intraday"
+              ? `${side === "buy" ? "Long" : "Short"} ${symbol} on the intraday plan's levels, at the market.`
+              : `Manual ${side === "buy" ? "long" : "short"} execution for ${symbol} ${assetType === "options" ? "options" : ""} — no protocol levels attached${assetType === "shares" ? "; your own stop, TP1 and MTP below" : ""}.`}
         </CardDescription>
-        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <span className="text-xs font-semibold text-muted">Mode:</span>
-          <button
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3" role="group" aria-label="Levels">
+          <span className="text-xs font-semibold text-muted">Levels:</span>
+          <LevelButton
+            label="Swing plan"
+            active={levelChoice === "swing" && hasProtocolSignal}
+            disabled={!hasProtocolSignal}
+            tone="accent"
             onClick={() => {
-              setExecutionMode("protocol");
+              setLevelChoice("swing");
               setTechniqueTrade(null);
             }}
-            // An intraday trade is managed on the session's rules, so it never
-            // takes the daily plan's levels (lib/trade/exit-style.ts).
-            disabled={!hasProtocolSignal || intradaySourced}
-            className={cn(
-              "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
-              executionMode === "protocol" && hasProtocolSignal && !intradaySourced
-                ? "bg-accent text-surface"
-                : "border border-border text-muted",
-              (!hasProtocolSignal || intradaySourced) && "opacity-50 cursor-not-allowed",
-            )}
+            title={hasProtocolSignal ? "The daily plan's entry, stop, TP1 and MTP" : "No recommended daily plan for this symbol"}
+          />
+          <LevelButton
+            label="Intraday plan"
+            active={levelChoice === "intraday"}
+            disabled={!intradayLevels && levelChoice !== "intraday"}
+            tone="accent"
+            onClick={() => {
+              setLevelChoice("intraday");
+              setTechniqueTrade(null);
+              setAssetType("shares");
+              if (intradaySide) setSide(intradaySide);
+            }}
             title={
-              intradaySourced
-                ? "An intraday trade uses the alert's own levels, not the daily plan's"
-                : hasProtocolSignal
-                  ? "Use the protocol's recommended entry and levels"
-                  : "No armed protocol signal for this symbol"
+              intradayLevels
+                ? "The intraday alert's stop, TP1 and MTP, at the market, managed within the session"
+                : "No intraday plan stands for this symbol right now"
             }
-          >
-            Protocol Recommended
-          </button>
-          <button
-            onClick={() => setExecutionMode("manual")}
-            className={cn(
-              "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
-              executionMode === "manual" ? "bg-warn text-surface" : "border border-border text-muted hover:border-warn",
-            )}
-            title="Place an order independent of any protocol signal"
-          >
-            Manual Override
-          </button>
+          />
+          <LevelButton
+            label="My own levels"
+            active={levelChoice === "own"}
+            tone="warn"
+            onClick={() => setLevelChoice("own")}
+            title="Your own stop, TP1 and MTP"
+          />
         </div>
         <div className="mt-2">
-          {intradaySourced ? (
+          {orderIntraday ? (
             <div className="flex flex-col gap-1 rounded border border-border p-2 text-xs text-muted">
               <p>
                 <span className="font-semibold text-foreground">Trade style: {intradayStyle.label}.</span> {intradayStyle.summary}
               </p>
               <p>
-                {intradayPlan
-                  ? `The alert's plan: stop ${formatUsd(intradayPlan.stop)}, first target ${formatUsd(intradayPlan.target)}, ` +
-                    (intradayMaster != null
-                      ? `MTP ${formatUsd(intradayMaster)} (where the move is measured to; nothing sells there). `
-                      : "no MTP. ")
-                  : "Set your own stop and first target below: an intraday trade is placed with both. "}
+                {levelChoice === "intraday"
+                  ? intradayLevels
+                    ? `The intraday plan: stop ${formatUsd(intradayLevels.stop)}, first target ${formatUsd(intradayLevels.target)}, ` +
+                      (intradayMaster != null
+                        ? `MTP ${formatUsd(intradayMaster)} (where the move is measured to; nothing sells there). `
+                        : "no MTP. ")
+                    : `No intraday plan stands for ${symbol} right now. Choose the swing plan or your own levels. `
+                  : "Your own levels, managed on the session's rules: an intraday trade is placed with a stop and a first target. "}
                 Once filled: {intradayStyle.trailRule.charAt(0).toLowerCase() + intradayStyle.trailRule.slice(1)}. Expected hold:{" "}
                 {intradayStyle.expectedHold.toLowerCase()}.
               </p>
@@ -765,19 +837,20 @@ export function OrderTicket({
               </p>
             </div>
           ) : (
-            // A trade from the daily plan is a Swing trade; an Intraday one comes
-            // from an intraday alert's "Trade this" (lib/trade/tradeStyle.ts).
+            // The swing plan and own levels are managed as a Swing trade; an
+            // Intraday one is the intraday plan, or own levels managed that way
+            // (lib/trade/tradeStyle.ts).
             <p className="text-xs text-muted">
               <span className="font-medium text-foreground">Swing</span>: {TRADE_STYLES.swing.summary} Expected hold:{" "}
-              {TRADE_STYLES.swing.expectedHold.toLowerCase()}. For a trade in and out within the session, take it from
-              an intraday alert.
+              {TRADE_STYLES.swing.expectedHold.toLowerCase()}. For a trade in and out within the session, choose the
+              intraday plan when one stands.
             </p>
           )}
         </div>
         {belowExecute && (
           <p className="mt-2 text-xs text-muted">
             The protocol rates this setup {verdict ?? "unrated"}, not Execute, so it is not a recommended trade. Its
-            levels are shown for reference; an order here is a Manual Override.
+            levels are shown for reference; an order here uses your own levels.
           </p>
         )}
       </CardHeader>
@@ -797,10 +870,10 @@ export function OrderTicket({
               again to read it.
             </p>
             <button
-              onClick={() => setExecutionMode("manual")}
+              onClick={() => setLevelChoice("own")}
               className="mt-2 min-h-9 cursor-pointer font-medium underline underline-offset-2"
             >
-              Switch to Manual Override to trade anyway →
+              Use your own levels to trade anyway →
             </button>
           </div>
         )}
@@ -857,6 +930,8 @@ export function OrderTicket({
               <ModeButton
                 active={entryMode === "advised"}
                 onClick={() => setEntryMode("advised")}
+                // The intraday plan goes at the market: its alert has fired.
+                disabled={levelChoice === "intraday"}
                 title={
                   useProtocolLevels
                     ? "At advised price"
@@ -864,7 +939,7 @@ export function OrderTicket({
                       ? `At ${techniqueEntry.label}'s entry`
                       : "At reference price"
                 }
-                subtitle={formatUsd(advised)}
+                subtitle={levelChoice === "intraday" ? "market only" : formatUsd(advised)}
               />
               <ModeButton
                 active={entryMode === "now"}
@@ -932,17 +1007,70 @@ export function OrderTicket({
                   </div>
                 )}
               </div>
+            ) : levelChoice === "intraday" ? (
+              <div id="tour-exit" className="flex flex-col gap-2">
+                {!intradayBracketCheck.ok && (
+                  <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+                    <p className="font-medium">The intraday plan&apos;s levels can&apos;t attach at today&apos;s price.</p>
+                    <p className="mt-1">{intradayBracketCheck.reason}</p>
+                  </div>
+                )}
+                {attachingIntradayLevels && manualExitPlan && (
+                  <ExitPlanNotice
+                    summary={manualExitPlan.summary}
+                    splittable={manualExitPlan.splittable}
+                    hasMaster={intradayMaster != null}
+                  />
+                )}
+              </div>
             ) : (
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-muted">
-                  Optional — set a stop and target and GSPS stages the exit itself, the same way it
-                  does for a protocol-recommended trade. Leave both blank for a plain order with no
-                  managed exit.
+                  Set a stop and TP1, and an MTP if you have one, and GSPS stages the exit itself, the
+                  same way it does for a plan&apos;s levels. Every new position needs a stop; leave them
+                  blank only to close a position you already hold.
                 </p>
+                {(levels && !planRetired) || intradayLevels ? (
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    {levels && !planRetired && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTechniqueTrade(null);
+                          setSide(signalSide);
+                          setManualStop(priceField(levels.stopLoss));
+                          setManualTarget(priceField(levels.takeProfit1));
+                          setManualMaster(levels.masterProfit != null ? priceField(levels.masterProfit) : "");
+                          setManageIntraday(false);
+                        }}
+                        className="min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
+                      >
+                        Start from the swing plan
+                      </button>
+                    )}
+                    {intradayLevels && intradaySide && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTechniqueTrade(null);
+                          setSide(intradaySide);
+                          setManualStop(priceField(intradayLevels.stop));
+                          setManualTarget(priceField(intradayLevels.target));
+                          setManualMaster(intradayLevels.master != null ? priceField(intradayLevels.master) : "");
+                          setManageIntraday(true);
+                          setEntryMode("now");
+                        }}
+                        className="min-h-9 cursor-pointer font-medium text-accent underline underline-offset-2"
+                      >
+                        Start from the intraday plan
+                      </button>
+                    )}
+                  </div>
+                ) : null}
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <label className="flex flex-col gap-1 text-xs text-muted">
-                    Stop-loss
+                    Stop loss
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -950,11 +1078,11 @@ export function OrderTicket({
                       min="0"
                       value={manualStop}
                       onChange={(e) => setManualStop(e.target.value)}
-                      placeholder="Optional"
+                      placeholder="Stop"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-muted">
-                    Take-profit
+                    TP1
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -962,10 +1090,32 @@ export function OrderTicket({
                       min="0"
                       value={manualTarget}
                       onChange={(e) => setManualTarget(e.target.value)}
+                      placeholder="First target"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-muted">
+                    MTP
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={manualMaster}
+                      onChange={(e) => setManualMaster(e.target.value)}
                       placeholder="Optional"
                     />
                   </label>
                 </div>
+                {intradayAvailable && (
+                  <label className="flex min-h-9 cursor-pointer items-center gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={manageIntraday}
+                      onChange={(e) => setManageIntraday(e.target.checked)}
+                    />
+                    Manage it as an intraday trade, in and out within the session
+                  </label>
+                )}
                 {techniqueEntry && (
                   <p className="text-xs text-muted">
                     Trading {techniqueEntry.label}&apos;s own levels: entry{" "}
@@ -981,6 +1131,9 @@ export function OrderTicket({
                     </button>
                   </p>
                 )}
+                {manualLevelsEntered && !manualLevelsComplete && (
+                  <p className="text-xs text-muted">Enter both a stop and TP1 to attach your levels.</p>
+                )}
                 {manualLevelsBlocked && (
                   <p className="text-xs text-warn">{manualBracketCheck.reason}</p>
                 )}
@@ -988,7 +1141,7 @@ export function OrderTicket({
                   <ExitPlanNotice
                     summary={manualExitPlan.summary}
                     splittable={manualExitPlan.splittable}
-                    hasMaster={false}
+                    hasMaster={manualMasterEntered}
                   />
                 )}
                 {!manualLevelsEntered && (
@@ -1469,18 +1622,53 @@ function SideButton({
 }
 
 function ModeButton({
-  active, onClick, title, subtitle,
-}: { active: boolean; onClick: () => void; title: string; subtitle: string }) {
+  active, onClick, title, subtitle, disabled = false,
+}: { active: boolean; onClick: () => void; title: string; subtitle: string; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "min-h-12 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
         active ? "border-accent bg-accent-soft" : "border-border hover:border-muted",
+        disabled && "cursor-not-allowed opacity-50 hover:border-border",
       )}
     >
       <p className={cn("text-sm font-medium", active && "text-accent")}>{title}</p>
       <p className="font-mono text-xs text-muted tabular-nums">{subtitle}</p>
+    </button>
+  );
+}
+
+/** One of the ticket's level choices: the swing plan, the intraday plan, or the person's own. */
+function LevelButton({
+  label, active, disabled = false, tone, onClick, title,
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  tone: "accent" | "warn";
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      title={title}
+      className={cn(
+        "min-h-9 rounded px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors",
+        active
+          ? tone === "warn"
+            ? "bg-warn text-surface"
+            : "bg-accent text-surface"
+          : cn("border border-border text-muted", tone === "warn" ? "hover:border-warn" : "hover:border-accent"),
+        disabled && "opacity-50 cursor-not-allowed",
+      )}
+    >
+      {label}
     </button>
   );
 }

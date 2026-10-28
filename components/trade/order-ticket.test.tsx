@@ -417,14 +417,14 @@ describe("OrderTicket protocol-level invalidation", () => {
     expect(screen.getByRole("button", { name: /Buy DRAM/ })).not.toBeDisabled();
   });
 
-  it("lets Manual Override past the block", async () => {
+  it("lets your own levels past the block", async () => {
     const user = userEvent.setup();
     mockFetch();
     const scan = scanWithEntry(43.95, "bearish");
     render(<OrderTicket result={scan} livePrice={47.06} />);
 
     await screen.findByText(/This setup is invalidated/);
-    await user.click(screen.getByRole("button", { name: "Manual Override" }));
+    await user.click(screen.getByRole("button", { name: "My own levels" }));
 
     expect(screen.queryByText(/This setup is invalidated/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sell short DRAM/ })).not.toBeDisabled();
@@ -448,11 +448,11 @@ describe("OrderTicket with no bar-sequence pattern", () => {
 // report 2026-10-16: SPY's low-scoring plan read "Protocol Recommended").
 describe("the order ticket's protocol mode follows the verdict", () => {
   afterEach(() => vi.restoreAllMocks());
-  it("offers Protocol Recommended only on an Execute verdict", async () => {
+  it("offers the swing plan only on an Execute verdict", async () => {
     mockFetch();
     const watch = { ...scanWithEntry(49.75), decision: { score: 4, outputState: "Watch" as const, breakdown: [] } };
     render(<OrderTicket result={watch} />);
-    expect(await screen.findByRole("button", { name: "Protocol Recommended" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Swing plan" })).toBeDisabled();
     expect(screen.getByText(/rates this setup Watch/)).toBeInTheDocument();
   });
 });
@@ -581,5 +581,110 @@ describe("OrderTicket from an intraday alert", () => {
     const body = JSON.parse(String(order[1]!.body));
     expect(body.intradaySourced).toBe(true);
     expect(body.attachLevels).toEqual({ stopLoss: 48, takeProfit: 53, masterProfit: 55 });
+  });
+});
+
+// Owner, 2026-10-28: a manual trade can take the swing plan, the intraday
+// plan, or the person's own stop, TP1 and MTP.
+describe("OrderTicket level choice", () => {
+  const orderBody = (fetchMock: ReturnType<typeof mockFetch>) => {
+    const order = fetchMock.mock.calls.find(([u]) => String(u).includes("/api/orders"))!;
+    return JSON.parse(String(order[1]!.body));
+  };
+
+  it("trades the intraday plan the panel offers, at the market and managed within the session", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(
+      <OrderTicket
+        result={scanWithEntry(50)}
+        livePrice={50}
+        sessionPlan={{ entry: 50, stop: 51, firstTarget: 47, masterTarget: 45 }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Intraday plan" }));
+    expect(screen.getByText(/The intraday plan: stop \$51\.00, first target \$47\.00, MTP \$45\.00/)).toBeTruthy();
+    // The side follows the plan: its stop sits above its target, so it is a short.
+    await user.click(screen.getByRole("button", { name: /Sell short DRAM/ }));
+    const body = orderBody(fetchMock);
+    expect(body.side).toBe("sell");
+    expect(body.entryMode).toBe("now");
+    expect(body.limitPrice).toBeUndefined();
+    expect(body.entryStop).toBeUndefined();
+    expect(body.intradaySourced).toBe(true);
+    expect(body.attachLevels).toEqual({ stopLoss: 51, takeProfit: 47, masterProfit: 45 });
+  });
+
+  it("leaves the intraday plan off when no intraday alert stands", () => {
+    mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} />);
+    expect(screen.getByRole("button", { name: "Intraday plan" })).toBeDisabled();
+  });
+
+  it("lets a ticket opened from an intraday alert take the swing plan instead", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} livePrice={50} intradaySourced intradayPlan={{ stop: 48, target: 53, master: 55 }} />);
+    await user.click(screen.getByRole("button", { name: "Swing plan" }));
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    const body = orderBody(fetchMock);
+    expect(body.intradaySourced).toBe(false);
+    expect(body.holdOvernight).toBeUndefined();
+    expect(body.attachLevels.stopLoss).toBeCloseTo(44);
+    expect(body.attachLevels.takeProfit).toBeCloseTo(62);
+  });
+
+  it("sends the person's own stop, TP1 and MTP", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} livePrice={50} />);
+    await user.click(screen.getByRole("button", { name: "My own levels" }));
+    await user.type(screen.getByLabelText("Stop loss"), "47");
+    await user.type(screen.getByLabelText("TP1"), "56");
+    await user.type(screen.getByLabelText("MTP"), "60");
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    const body = orderBody(fetchMock);
+    expect(body.executionMode).toBe("manual");
+    expect(body.intradaySourced).toBe(false);
+    expect(body.attachLevels).toEqual({ stopLoss: 47, takeProfit: 56, masterProfit: 60 });
+  });
+
+  it("refuses an MTP short of TP1, and a stop on the wrong side", async () => {
+    const user = userEvent.setup();
+    mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} livePrice={50} />);
+    await user.click(screen.getByRole("button", { name: "My own levels" }));
+    await user.type(screen.getByLabelText("Stop loss"), "47");
+    await user.type(screen.getByLabelText("TP1"), "56");
+    await user.type(screen.getByLabelText("MTP"), "55");
+    expect(screen.getByText(/The MTP \(\$55\.00\) has to sit above TP1 \(\$56\.00\)/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
+
+    await user.clear(screen.getByLabelText("MTP"));
+    await user.clear(screen.getByLabelText("Stop loss"));
+    await user.type(screen.getByLabelText("Stop loss"), "52");
+    expect(screen.getByText(/The stop \(\$52\.00\) is at or above the entry price/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
+  });
+
+  it("starts own levels from the swing plan and manages own levels as intraday when asked", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(
+      <OrderTicket
+        result={scanWithEntry(50)}
+        livePrice={50}
+        sessionPlan={{ entry: 50, stop: 49, firstTarget: 52, masterTarget: null }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "My own levels" }));
+    await user.click(screen.getByRole("button", { name: "Start from the swing plan" }));
+    expect(Number((screen.getByLabelText("Stop loss") as HTMLInputElement).value)).toBeCloseTo(44);
+    expect(Number((screen.getByLabelText("MTP") as HTMLInputElement).value)).toBeCloseTo(68);
+    await user.click(screen.getByLabelText(/Manage it as an intraday trade/));
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    const body = orderBody(fetchMock);
+    expect(body.intradaySourced).toBe(true);
+    expect(body.attachLevels.masterProfit).toBeCloseTo(68);
   });
 });

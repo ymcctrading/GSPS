@@ -108,9 +108,10 @@ export const OrderSchema = z.object({
   techniqueSource: z.string().min(1).max(80).optional(),
   mode: z.enum(["paper", "live"]).default("paper"),
   /**
-   * True only when this order was opened through the intraday alerts
-   * panel's "Trade this" action (components/scan/intraday-alerts.tsx) — a
-   * manual ticket opened any other way always omits this. Subjects the
+   * True when the ticket's trade is an intraday one: the intraday plan chosen
+   * (from the alerts panel's "Trade this" action, components/scan/intraday-alerts.tsx,
+   * or the ticket's "Intraday plan" choice), or the person's own levels they
+   * asked to manage within the session (owner, 2026-10-28). Subjects the
    * order to the intraday-promotion entry gates (lib/promotion/pro-intraday.ts)
    * and is persisted on the order row so those gates can evaluate future
    * entries against today's intraday-sourced history.
@@ -251,6 +252,16 @@ export function riskCapRefusal(
       code: "risk_over_five_points",
     },
   };
+}
+
+/**
+ * The MTP checked against TP1 on an order a person priced (the ticket's
+ * swing, intraday or own levels, Guided Mode): it must lie beyond TP1 on the
+ * trade's side. An automated plan's order is left as its plan priced it.
+ */
+export function ownMasterToCheck(input: Pick<OrderInput, "attachLevels" | "sourcePlanId">): number | null {
+  if (input.sourcePlanId) return null;
+  return input.attachLevels?.masterProfit ?? null;
 }
 
 type ConfirmationInput = Pick<
@@ -827,6 +838,7 @@ async function placeChecked(
       basePrice,
       stopLoss: bracketLevels!.stopLoss,
       takeProfit: bracketLevels!.takeProfit,
+      masterProfit: ownMasterToCheck(input),
     });
     if (!check.ok) {
       return { status: 422, body: {
@@ -1453,6 +1465,7 @@ async function placeLiveOrder(
       // the take-profit level itself is never sent to the broker as part of
       // this order (see the header) — only its geometry is checked here.
       takeProfit: input.attachLevels!.takeProfit,
+      masterProfit: ownMasterToCheck(input),
     });
     if (!check.ok) {
       return {

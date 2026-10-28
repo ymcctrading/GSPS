@@ -300,7 +300,7 @@ function ProtectionCell({ leg }: { leg: EquityLeg }) {
       {leg.stopLoss != null && leg.takeProfit != null && " · "}
       {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
       {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
-      {leg.masterProfit != null && <>Master {formatUsd(leg.masterProfit)}</>}
+      {leg.masterProfit != null && <>MTP {formatUsd(leg.masterProfit)}</>}
     </TD>
   );
 }
@@ -315,7 +315,7 @@ function ProtectionLine({ leg }: { leg: EquityLeg }) {
       {leg.stopLoss != null && leg.takeProfit != null && " · "}
       {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
       {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
-      {leg.masterProfit != null && <>Master {formatUsd(leg.masterProfit)}</>}
+      {leg.masterProfit != null && <>MTP {formatUsd(leg.masterProfit)}</>}
     </p>
   );
 }
