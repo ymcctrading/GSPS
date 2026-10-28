@@ -326,7 +326,7 @@ export function executableSentences(p: NextPlan): { entry: string; stop: string;
     p.tp1 == null
       ? "No first target is fixed; the stop trails the move."
       : `First take profit (TP1) ${priceUsd(p.tp1)}${p.mtp != null ? `, master take profit (MTP) ${priceUsd(p.mtp)}` : ""}. ` +
-        "Under the method's exits nothing sells at a fixed target: the stop moves to break-even once the trade is 3 points ahead and then trails, so these are the levels the move is measured to.";
+        "Under GSPS's exits nothing sells at a fixed target: the stop moves to break-even once the trade is 3 points ahead and then trails, so these are the levels the move is measured to.";
   return { entry, stop, targets };
 }
 
@@ -512,7 +512,7 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   const html: string[] = [WRAP_OPEN, `<h2 style="margin:0 0 4px">Daily recap for ${day}</h2>`];
   const text: string[] = [`GSPS daily recap for ${day}`, ""];
   html.push(
-    `<p style="color:#64748b;margin:0 0 16px">${input.read} of ${input.universe} scan-universe stocks read. Setups are the plans standing at ${input.setupsFrom ? `${dayLabel(input.setupsFrom)}'s` : "the prior"} close, judged by GSPS's own entry rule on the session's 15-minute bars and filled at the next bar's open. A bar that touched both the stop and TP1 counts as the stop. Placement also waits while a breakdown stands or a failed top lies in the way, which this reading does not check, so it can fill a setup placement would still have held.</p>`,
+    `<p style="color:#64748b;margin:0 0 16px">${input.read} of ${input.universe} scan-universe stocks read. Setups are the plans standing at ${input.setupsFrom ? `${dayLabel(input.setupsFrom)}'s` : "the prior"} close, judged by GSPS's own entry rule on the session's 15-minute bars and filled at the next bar's open. A bar that touched both the stop and TP1 counts as the stop. Placement also waits while a breakdown stands or a failed top lies in the way, which this reading does not check, and a setup whose old level was already crossed is read as resting at its entry, so a gap into the entry can count as a fill placement would still have held.</p>`,
   );
 
   const sections: [MoverMeasure, string, (m: Mover) => string][] = [
