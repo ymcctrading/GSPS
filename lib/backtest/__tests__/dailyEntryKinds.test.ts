@@ -169,3 +169,23 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
     expect(refused.refusedFills).toBeGreaterThan(base.refusedFills);
   }, 120_000);
 });
+
+// Owner, 2026-10-27: Execute only when the plan can be placed today. The scored
+// verdict reads that at the fill; `readyNowAtPlan` records how the session's
+// scan read it when it priced the plan, so a run can measure the rule.
+describe("readyNowAtPlan", () => {
+  it("is recorded on every armed trade, and reads both ways", () => {
+    const seen = new Set<boolean>();
+    for (const seed of [1, 2, 3]) {
+      const daily = walk(seed, 260, 40);
+      const result = replay("TEST", daily, {
+        targetR: 2, dailyBars: daily, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60,
+      });
+      for (const t of result.trades.filter((x) => !x.derived)) {
+        expect(typeof t.contextFactors?.readyNowAtPlan).toBe("boolean");
+        seen.add(t.contextFactors!.readyNowAtPlan);
+      }
+    }
+    expect([...seen].sort()).toEqual([false, true]);
+  }, 120_000);
+});

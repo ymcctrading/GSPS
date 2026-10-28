@@ -3140,7 +3140,9 @@ replay supplies one. A Watch at the cutoff records its reason too, and the card
 names what any held setup waits for in plain words (`heldNote`,
 `public-summary.ts`). The lists' "Resting orders" now take a Watch at the
 cutoff whose entry rests. The replay reads it at the fill (indication shown,
-price at the entry), so only the targets reading holds there. `STRATEGY_VERSION`
+price at the entry), so only the targets reading holds there; the plan-time
+reading the live scan shows is measured as the factor `readyNowAtPlan` (the
+session's last close and daily ATR, when the plan is priced). `STRATEGY_VERSION`
 is `2026-10-27-execute-ready-now`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
