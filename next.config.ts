@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   // it. The `eslint` key was removed in Next 16 and `next build` no longer
   // lints, so linting runs via `npm run lint` instead.
 
+  // `lib/data/instrumentReference.ts` reads the 1.3 MB filings snapshot from
+  // disk by a literal path, which file tracing would copy into every
+  // function that imports the module. The deployed app reads the tables
+  // through the service key and never needs the copy; only the GitHub
+  // backtest workflow does, and it reads it from the checkout.
+  outputFileTracingExcludes: {
+    "/*": ["./lib/data/instrumentReferenceSnapshot.json"],
+  },
+
   // The push service worker (public/sw.js) must never be served stale, or a
   // fix to it would wait on the browser's cache.
   async headers() {
