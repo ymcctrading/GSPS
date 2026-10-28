@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, GraduationCap, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
 import { SymbolSearch } from "@/components/search/symbol-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { RecentCharts } from "@/components/app/recent-charts";
+import { clearRecentCharts } from "@/lib/charts/recent";
+import { clearCachedPlans } from "@/lib/scan/planCache";
 
 /**
  * Every destination, in order. `tabBar: false` keeps one out of the phone tab
@@ -77,6 +80,10 @@ export function AppNav() {
 
   async function signOut() {
     await forgetThisBrowserPush();
+    // The tab's kept plans and recent charts belong to this member; a
+    // practice account is shared between visitors.
+    clearCachedPlans();
+    clearRecentCharts();
     const supabase = createClient();
     // This browser only: a practice account (lib/demo/practice.ts) is shared,
     // and the default global sign-out would end every visitor's session.
@@ -128,6 +135,8 @@ export function AppNav() {
               sideways. From md up it holds its width beside the nav. */}
           <div className="ml-auto flex min-w-0 items-center justify-end gap-2 sm:gap-3 md:shrink-0">
             <SymbolSearch />
+
+            <RecentCharts />
 
             <NotificationBell />
 
