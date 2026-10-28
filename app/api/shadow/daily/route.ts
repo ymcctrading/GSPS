@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
     const { data, error } = await service
       .from("shadow_signals")
       .select("symbol, direction, strategy_version, entry, stop_loss, score, source, scanned_at, session_date, outcome, r_multiple, bars_held, fill_price")
-      .gte("session_date", since)
+      // A row stored before sessions were recorded has none: read it by its scan time.
+      .or(`session_date.gte.${since},and(session_date.is.null,scanned_at.gte.${since})`)
       .order("scanned_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);

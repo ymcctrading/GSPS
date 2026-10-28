@@ -6,9 +6,9 @@
  *
  * Run by the database's scheduler at 21:00 and 22:00 UTC on weekdays
  * (migration 0132), so one of the two is 5 PM New York time in either season:
- * a run before 5 PM New York time, or on a day the market is shut, sends
- * nothing, and the report's idempotency key keeps the second run from sending
- * again. `?dry=1` signed in as an owner account returns the text without
+ * a run outside the 5 PM New York hour, or on a day the market is shut,
+ * sends nothing (the report's idempotency key is a second guard against a
+ * repeat). `?dry=1` signed in as an owner account returns the text without
  * sending; anyone else gets a 404, so the route discloses nothing.
  */
 
@@ -61,7 +61,12 @@ export async function GET(req: NextRequest) {
   const day = etDateKey(now);
   if (!dry) {
     if (!isTradingDay(now)) return NextResponse.json({ sent: false, reason: `${day} is not a trading day.` }, { status: 202 });
-    if (etParts(now).minutes < SEND_FROM_MINUTES) return NextResponse.json({ sent: false, reason: "Before 5 PM New York time." }, { status: 202 });
+    // The 5 PM hour only: the other run of the pair (6 PM in summer, 4 PM in
+    // winter) stops here, before it spends a slot of the email budget.
+    const minutes = etParts(now).minutes;
+    if (minutes < SEND_FROM_MINUTES || minutes >= SEND_FROM_MINUTES + 60) {
+      return NextResponse.json({ sent: false, reason: "Outside the 5 PM New York hour." }, { status: 202 });
+    }
   }
 
   const service = createServiceClient();

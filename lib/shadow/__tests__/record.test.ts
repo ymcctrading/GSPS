@@ -292,6 +292,15 @@ describe("recordShadowSignals: a later session's call against an earlier row", (
     expect(upserted).toHaveLength(0);
   });
 
+  it("walks the closed session's row once its last bars are in (4:20 PM ET and after)", async () => {
+    walkShadowRowsMock.mockResolvedValue(new Map([["e1", outcome({ outcome: "expired" })]]));
+    const later = baseResult({ scannedAt: "2026-10-19T20:25:00Z" });
+    const { client, upserted } = withOpen([{ ...plan, session_date: "2026-10-19", fill_price: null }]);
+    expect((await recordShadowSignals(client, [later], "x", new Date("2026-10-19T20:25:30Z"))).recorded).toBe(1);
+    expect(walkShadowRowsMock).toHaveBeenCalledTimes(1);
+    expect(upserted).toHaveLength(1);
+  });
+
   it("does not record again for a session already recorded", async () => {
     const { client, upserted } = withOpen([{ ...plan, session_date: "2026-10-20", fill_price: null }]);
     await recordShadowSignals(client, [evening], "x");

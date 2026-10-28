@@ -6,7 +6,7 @@
  *
  * One section per account the manager runs for: its settings, what it did
  * today (plans taken up, orders placed and filled, trades closed and their
- * result) and its record since it was switched on (closed trades, won and
+ * result) and its record since its settings last changed (closed trades, won and
  * lost, total P&L), with its cash and open positions. Losses stay in. Pure:
  * the route (`app/api/automation-report/route.ts`) reads the rows and sends.
  * Paper only: the manager runs every profile on paper in the proving period
@@ -141,12 +141,12 @@ export function automationReportEmail(day: string, sections: AccountSection[]): 
       `${s.settings.email} (${settingsLine(s.settings)})`,
       `  Today: ${t.activations} plans taken up, ${t.ordersPlaced} orders placed, ${t.ordersFilled} filled, ${t.closed} trades closed (${t.won} won, ${t.lost} lost), ${money(t.pl)}.`,
       ...(t.trades.length ? [`  Closed today: ${t.trades.join("; ")}`] : []),
-      `  Since switched on${s.settings.enabledSince ? ` (${etDay(s.settings.enabledSince)})` : ""}: ${a.closed} closed, ${a.won} won, ${a.lost} lost${a.winRate != null ? ` (${(a.winRate * 100).toFixed(0)}% won)` : ""}, ${money(a.pl)}.`,
+      `  Since its settings were last changed${s.settings.enabledSince ? ` (${etDay(s.settings.enabledSince)})` : ""}: ${a.closed} closed, ${a.won} won, ${a.lost} lost${a.winRate != null ? ` (${(a.winRate * 100).toFixed(0)}% won)` : ""}, ${money(a.pl)}.`,
       `  Open: ${s.open.length ? s.open.map((p) => `${p.symbol} ${p.side ?? ""} ${num(p.qty)} @ ${num(p.avg_entry_price).toFixed(2)}`.replace(/\s+/g, " ")).join("; ") : "none"}. Cash ${s.cash != null ? `$${s.cash.toFixed(2)}` : "not read"}.`,
       "",
     );
   }
-  lines.push("Paper accounts only. One day is not a record; read the totals over weeks.");
+  lines.push("Paper accounts only. The running totals restart whenever an account's portfolio manager settings change. One day is not a record; read the totals over weeks.");
   const text = lines.join("\n");
   const html = `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5">${lines
     .map((l) => (l === "" ? "<br>" : `<div>${escape(l).replace(/^ {2}/, "&nbsp;&nbsp;")}</div>`))
