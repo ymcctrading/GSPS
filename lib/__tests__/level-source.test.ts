@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { heldOffPlanNote, readLevelSource, resolveLevelSource } from "@/lib/trade/level-source";
+import { heldOffPlanNote, readLevelSource, readPositionLevelSources, resolveLevelSource } from "@/lib/trade/level-source";
 import { orderLevelSource } from "@/lib/trade/place-order";
 import { intradayPlanForSide, planStopForEdit, swingPlanForSide } from "@/lib/portfolio/plan-levels";
 
@@ -50,6 +50,9 @@ describe("plan levels for the Edit flow", () => {
     expect(swingPlanForSide(result, "long")).toEqual({ ok: true, levels: { stopLoss: 95, takeProfit: 110, masterProfit: null } });
     expect(swingPlanForSide(result, "short").ok).toBe(false);
     expect(swingPlanForSide({ direction: "bullish", levels: null }, "long").ok).toBe(false);
+    // A rejected or expired plan offers nothing, whatever levels it kept.
+    expect(swingPlanForSide({ ...result, decision: { outputState: "Reject" } }, "long").ok).toBe(false);
+    expect(swingPlanForSide({ ...result, planExpired: { note: "past TP1" } }, "long").ok).toBe(false);
   });
 
   it("reads the intraday plan's side from its stop and target", () => {
@@ -66,5 +69,48 @@ describe("plan levels for the Edit flow", () => {
     expect(planStopForEdit({ planStop: 93, currentStop: 95, side: "long", inProfit: true }).stop).toBe(95);
     expect(planStopForEdit({ planStop: 98, currentStop: 95, side: "long", inProfit: false }).stop).toBe(95);
     expect(planStopForEdit({ planStop: 102, currentStop: 105, side: "short", inProfit: true }).stop).toBe(102);
+  });
+});
+
+/** A query builder that records its filters and resolves to the table's rows. */
+function fakeSupabase(tables: Record<string, { data: unknown; error?: unknown }>) {
+  const filters: Record<string, [string, string, unknown][]> = {};
+  return {
+    filters,
+    client: {
+      from(table: string) {
+        filters[table] = [];
+        const chain: Record<string, unknown> = {};
+        for (const op of ["select", "eq", "is", "in"]) {
+          chain[op] = (col: string, val: unknown) => {
+            filters[table].push([op, col, val]);
+            return chain;
+          };
+        }
+        chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: tables[table]?.data ?? null, error: tables[table]?.error ?? null });
+        return chain;
+      },
+    } as never,
+  };
+}
+
+describe("readPositionLevelSources", () => {
+  it("reads each paper exit's entry order by its id, merged lines left out", async () => {
+    const fake = fakeSupabase({
+      protocol_exits: { data: [{ symbol: "aapl", entry_order_id: "o1" }, { symbol: "MSFT", entry_order_id: "o2" }] },
+      orders: { data: [{ id: "o1", level_source: "own" }, { id: "o2", level_source: null, intraday_sourced: true }] },
+    });
+    const sources = await readPositionLevelSources(fake.client, "u", "paper");
+    expect([...sources]).toEqual([
+      ["AAPL", "own"],
+      ["MSFT", "intraday"],
+    ]);
+    expect(fake.filters.protocol_exits).toContainEqual(["is", "merged_into", null]);
+    expect(fake.filters.orders).toContainEqual(["in", "id", ["o1", "o2"]]);
+  });
+
+  it("returns nothing when a read fails", async () => {
+    const fake = fakeSupabase({ protocol_exits: { data: null, error: { message: "down" } } });
+    expect((await readPositionLevelSources(fake.client, "u", "paper")).size).toBe(0);
   });
 });

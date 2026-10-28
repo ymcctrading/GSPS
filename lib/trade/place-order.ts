@@ -263,11 +263,6 @@ export function riskCapRefusal(
   };
 }
 
-/**
- * The MTP checked against TP1 on an order a person priced (the ticket's
- * swing, intraday or own levels, Guided Mode): it must lie beyond TP1 on the
- * trade's side. An automated plan's order is left as its plan priced it.
- */
 /** The `level_source` an order row records (`lib/trade/level-source.ts`). */
 export function orderLevelSource(
   input: Pick<OrderInput, "levelSource" | "intradaySourced" | "sourcePlanId" | "techniqueSource">,
@@ -276,6 +271,11 @@ export function orderLevelSource(
   return resolveLevelSource({ ...input, hasLevels });
 }
 
+/**
+ * The MTP checked against TP1 on an order a person priced (the ticket's
+ * swing, intraday or own levels, Guided Mode): it must lie beyond TP1 on the
+ * trade's side. An automated plan's order is left as its plan priced it.
+ */
 export function ownMasterToCheck(input: Pick<OrderInput, "attachLevels" | "sourcePlanId">): number | null {
   if (input.sourcePlanId) return null;
   return input.attachLevels?.masterProfit ?? null;

@@ -25,6 +25,8 @@ export type PlanPick = { ok: true; levels: PlanExitLevels } | { ok: false; reaso
 /** The fields of the scan result this reads. */
 export interface SwingPlanResult {
   direction?: string;
+  decision?: { outputState?: string } | null;
+  planExpired?: unknown;
   levels?: { stopLoss?: number | null; takeProfit1?: number | null; masterProfit?: number | null } | null;
 }
 
@@ -41,6 +43,10 @@ const isPrice = (v: unknown): v is number => typeof v === "number" && Number.isF
 export function swingPlanForSide(result: SwingPlanResult | null, side: "long" | "short"): PlanPick {
   const wanted = side === "long" ? "bullish" : "bearish";
   const l = result?.levels;
+  // A rejected plan (its stop broke, or it expired) offers no levels to take.
+  if (result?.decision?.outputState === "Reject" || result?.planExpired) {
+    return { ok: false, reason: "The swing plan doesn't stand right now, so it has no levels to offer." };
+  }
   if (!result || result.direction !== wanted || !l || !isPrice(l.stopLoss) || !isPrice(l.takeProfit1)) {
     return { ok: false, reason: `The swing plan has no levels for a ${side} right now.` };
   }

@@ -136,9 +136,10 @@ export async function readPositionLevelSources(
 }
 
 /**
- * The choice behind a held position in `symbol`, paper first, then live: what
- * a notice about the symbol says the position runs on. Null when nothing is
- * held, the source is unknown, or it can't be read.
+ * The choice behind a held paper position in `symbol`: what a notice about the
+ * symbol says the position runs on. Null when nothing is held, the source is
+ * unknown, or it can't be read. Live is left out: a live exit row is written
+ * as working at submission, before the fill, so it can't say a symbol is held.
  */
 export async function heldPositionLevelSource(
   supabase: SupabaseClient,
@@ -146,11 +147,7 @@ export async function heldPositionLevelSource(
   symbol: string,
 ): Promise<LevelSource | null> {
   const sym = symbol.toUpperCase();
-  for (const mode of ["paper", "live"] as const) {
-    const source = (await readPositionLevelSources(supabase, userId, mode, sym)).get(sym);
-    if (source) return source;
-  }
-  return null;
+  return (await readPositionLevelSources(supabase, userId, "paper", sym)).get(sym) ?? null;
 }
 
 /**

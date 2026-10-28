@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -616,6 +616,11 @@ function EditExitLevelsModal({
   // Which plan's levels were last put into the form, and what it said.
   const [loadingPlan, setLoadingPlan] = useState<"swing" | "intraday" | null>(null);
   const [planNote, setPlanNote] = useState<string | null>(null);
+  // The symbol the form shows now, read by a plan reply that comes back late.
+  const latestSymbol = useRef<string | null>(position?.symbol ?? null);
+  useEffect(() => {
+    latestSymbol.current = position?.symbol ?? null;
+  }, [position?.symbol]);
 
   const [activeSymbol, setActiveSymbol] = useState(position?.symbol ?? null);
   if ((position?.symbol ?? null) !== activeSymbol) {
@@ -625,6 +630,7 @@ function EditExitLevelsModal({
     setMasterProfit(position?.masterProfit != null ? String(position.masterProfit) : "");
     setErr(null);
     setPlanNote(null);
+    setLoadingPlan(null);
   }
 
   const inProfit = position
@@ -638,6 +644,9 @@ function EditExitLevelsModal({
   // keeps the management it was placed under; only its levels change.
   async function takePlan(which: "swing" | "intraday") {
     if (!position) return;
+    const forSymbol = position.symbol;
+    // A reply for a position the form no longer shows is dropped.
+    const stale = () => latestSymbol.current !== forSymbol;
     setLoadingPlan(which);
     setPlanNote(null);
     setErr(null);
@@ -656,6 +665,7 @@ function EditExitLevelsModal({
         if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
         pick = intradayPlanForSide(intradayChartPlan(position.symbol, null, Array.isArray(data?.recent) ? data.recent : []), position.side);
       }
+      if (stale()) return;
       if (!pick.ok) {
         setPlanNote(pick.reason);
         return;
@@ -669,13 +679,17 @@ function EditExitLevelsModal({
       setStopLoss(stop != null ? String(stop) : "");
       setTakeProfit(String(pick.levels.takeProfit));
       setMasterProfit(pick.levels.masterProfit != null ? String(pick.levels.masterProfit) : "");
+      const noMaster =
+        pick.levels.masterProfit == null && position.masterProfit != null
+          ? " The plan has no MTP, so saving removes yours unless you type one."
+          : "";
       setPlanNote(
-        `${which === "swing" ? "The swing plan's" : "The intraday plan's"} levels are in the form. Nothing changes until you save.${note ? ` ${note}` : ""}`,
+        `${which === "swing" ? "The swing plan's" : "The intraday plan's"} levels are in the form. Nothing changes until you save.${note ? ` ${note}` : ""}${noMaster}`,
       );
     } catch (e) {
-      setPlanNote(e instanceof Error ? e.message : String(e));
+      if (!stale()) setPlanNote(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoadingPlan(null);
+      if (!stale()) setLoadingPlan(null);
     }
   }
 

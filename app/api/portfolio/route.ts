@@ -47,17 +47,18 @@ export async function GET() {
     );
     if (exits.error) console.error(`portfolio: exit management — ${exits.error}`);
 
-    const [account, positionRows, livePositionRows, paperSources, liveSources] = await Promise.all([
+    const [account, positionRows, livePositionRows, paperSources] = await Promise.all([
       getOrCreateAccount(supabase, user.id),
       listOpenPositions(supabase, user.id),
       // Display-only merge of a connected live account's positions — see
       // this route's own header. Never contributes to `equity`/`cash`/
       // `buyingPower` below, which stay paper-only exactly as before.
       listLiveOpenPositions(supabase, user.id).catch(() => []),
-      // Which levels each trade was placed on (swing, intraday or own), for
-      // the position card and its Edit flow. An unread source shows no label.
+      // Which levels each paper trade was placed on (swing, intraday or own),
+      // for the position card and its Edit flow. An unread source shows no
+      // label. Paper only: a live trade with a staged exit is not mirrored
+      // into `positions` (reconcile.ts), so no listed live leg could match.
       readPositionLevelSources(supabase, user.id, "paper"),
-      readPositionLevelSources(supabase, user.id, "live"),
     ]);
     const allPositionRows = [...positionRows, ...livePositionRows];
 
@@ -113,7 +114,7 @@ export async function GET() {
         stopLoss: occ ? null : p.stop_loss,
         takeProfit: occ ? null : p.take_profit,
         masterProfit: occ ? null : p.master_profit,
-        levelSource: occ ? null : ((mode === "live" ? liveSources : paperSources).get(p.symbol.toUpperCase()) ?? null),
+        levelSource: occ || mode === "live" ? null : (paperSources.get(p.symbol.toUpperCase()) ?? null),
         mode,
       };
     }
