@@ -327,7 +327,7 @@ export function executableSentences(p: NextPlan): { entry: string; stop: string;
     p.tp1 == null
       ? "No first target is fixed; the stop trails the move."
       : `First take profit (TP1) ${priceUsd(p.tp1)}${p.mtp != null ? `, master take profit (MTP) ${priceUsd(p.mtp)}` : ""}. ` +
-        "Under GSPS's exits nothing sells at a fixed target: the stop moves to break-even once the trade is 3 points ahead and then trails, so these are the levels the move is measured to.";
+        "Under GSPS's exits nothing sells at a fixed target: the stop moves to break-even once the trade is far enough ahead and then trails, so these are the levels the move is measured to.";
   return { entry, stop, targets };
 }
 

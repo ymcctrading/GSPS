@@ -143,6 +143,13 @@ const CONFIDENTIAL_ROOTS = [
   "lib/onboarding",
   "lib/scoring/public-summary.ts",
   "lib/scoring/direction-copy.ts",
+  // Added 2026-10-28 (independent check of the rule): the owner's evening
+  // emails, every exit and order note a member reads (lib/trade,
+  // lib/automation) and the Context card's server-built sentences.
+  "lib/reports",
+  "lib/trade",
+  "lib/automation",
+  "lib/signals/contextLines.ts",
 ];
 const CONFIDENTIAL_TERMS = [
   { pattern: /\bJensen\b/i, term: "Jensen" },
@@ -232,6 +239,8 @@ for (const file of confidentialFiles) {
 }
 for (const doc of PUBLIC_DOCS) {
   scan(join(ROOT, doc), PRODUCT_NAMES, { skipCommentsAndImports: false });
+  // The public docs are read whole, so the source names count everywhere in them.
+  scan(join(ROOT, doc), [...USER_FACING_TERMS.filter((t) => t.term === "Gann" || t.term === "Hermetic"), ...CONFIDENTIAL_TERMS], { skipCommentsAndImports: false });
 }
 
 if (violations.length > 0) {
