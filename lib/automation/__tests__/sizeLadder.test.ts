@@ -8,6 +8,7 @@ describe("costFigures / rungOf", () => {
     expect(costFigures(1_250)).toBe(4);
     expect(costFigures(48_734)).toBe(5);
     expect(costFigures(0.5)).toBe(0);
+    expect(costFigures(Number.NaN)).toBe(0);
   });
   it("puts five figures and up on the full rung", () => {
     expect(rungOf(29_000)).toBe("full");

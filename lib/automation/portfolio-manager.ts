@@ -351,13 +351,14 @@ async function runForProfile(
       listOpenPositions(supabase, profile.user_id),
     ]);
     for (const p of open) openCosts.push(Math.abs(Number(p.qty) * Number(p.avg_entry_price)));
-    // An activation still resting for its entry holds its rung too, at the
-    // shares its risk buys at the plan's entry, until its position opens.
+    // An activation still resting for its entry (a paused one too, since it
+    // can resume) holds its rung, at the shares its risk buys at the plan's
+    // entry, until its position opens.
     const held = new Set(open.map((p) => p.symbol.toUpperCase()));
     const armedById = new Map(((plans ?? []) as CandidatePlanRow[]).map((p) => [p.plan_id, p]));
     for (const row of openRows) {
       const plan = armedById.get(row.plan_id);
-      if (row.status !== "active" || !plan || held.has(plan.instrument.toUpperCase())) continue;
+      if (!plan || held.has(plan.instrument.toUpperCase())) continue;
       const entry = Number(plan.entry_trigger);
       const rps = Math.abs(entry - Number(plan.invalidation));
       const risk = Number(row.configuration?.allocatedDollarRisk ?? 0);

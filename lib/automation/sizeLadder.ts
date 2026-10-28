@@ -42,6 +42,7 @@ export const RUNG_HEADROOM = 0.95;
 
 /** Digits in a position's whole-dollar cost ($87 is 2, $1,250 is 4). */
 export function costFigures(cost: number): number {
+  if (!Number.isFinite(cost)) return 0;
   const whole = Math.floor(Math.abs(cost));
   return whole < 1 ? 0 : String(whole).length;
 }
