@@ -64,6 +64,12 @@ export interface TrackedExecuteRow {
    */
   currentPrice?: number | null;
   dayRange?: number | null;
+  /**
+   * True when the same daily-scan row is in the Resting tier (`setupTier`).
+   * Joined only when true: the monitor's Execute was read earlier, so a scan
+   * row that is not Resting leaves the tier to the distance read.
+   */
+  resting?: boolean | null;
 }
 
 /**
@@ -71,13 +77,18 @@ export interface TrackedExecuteRow {
  * symbol and side, for the resting-order read (owner, 2026-10-21).
  */
 export function withDailyScanRange<
-  R extends { symbol: string; direction: string; currentPrice?: number | null; dayRange?: number | null },
+  R extends { symbol: string; direction: string; currentPrice?: number | null; dayRange?: number | null; resting?: boolean | null },
 >(rows: TrackedExecuteRow[], scanRows: R[]): TrackedExecuteRow[] {
   const bySymbolSide = new Map(scanRows.map((r) => [`${r.symbol}-${r.direction}`, r]));
   return rows.map((row) => {
     const scan = bySymbolSide.get(`${row.symbol}-${row.direction}`);
     if (!scan) return row;
-    return { ...row, currentPrice: scan.currentPrice ?? null, dayRange: scan.dayRange ?? null };
+    return {
+      ...row,
+      currentPrice: scan.currentPrice ?? null,
+      dayRange: scan.dayRange ?? null,
+      ...(scan.resting === true ? { resting: true } : {}),
+    };
   });
 }
 

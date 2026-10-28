@@ -1111,9 +1111,25 @@ export function applyReadyNowHold(decision: ScanDecision, reading: ReadyNowReadi
   if (decision.outputState === "Watch" && decision.score < EXECUTE_SCORE_THRESHOLD) return decision;
   const reasons = readyNowReasons(reading);
   if (reasons.length === 0) return decision;
+  // Resting: an Execute whose only hold is the distance to its entry. The
+  // indication is shown and the order would rest at its level for the
+  // reaction back (W006 pp. 20, 46-47), so it is Gann's resting order, not a
+  // setup still waiting on a condition (owner's item 5, 2026-10-28;
+  // `setupTier`, `lib/setups/resting.ts`). The verdict stays Watch.
+  const resting =
+    decision.outputState === "Execute" &&
+    reading.indicationShown &&
+    reading.levels != null &&
+    readResting({
+      side: reading.side,
+      price: reading.price,
+      entry: reading.levels.entry,
+      dayRange: reading.dayRange,
+    }) != null;
   return {
     ...decision,
     outputState: "Watch",
+    ...(resting ? { resting: true } : {}),
     breakdown: [
       ...decision.breakdown,
       {

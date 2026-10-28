@@ -137,10 +137,47 @@ export function restingNote(read: RestingRead, entry: number): string {
 }
 
 /**
+ * The four tiers a setup is listed in (owner's item 5, 2026-10-28: "determine
+ * if a 'resting' tier should be added along with watch, execute and reject").
+ *
+ * Gann answers it: the resting order is his own state, distinct from both of
+ * the others. Execute is the order to place today. Watch is a setup still
+ * short of a condition (the score, the indication, a hold). Resting is a plan
+ * that has every condition and has shown its indication, whose order is placed
+ * at the crossed level and waits for the reaction back to it: "buy on a
+ * reaction" at the old top once crossed, "sell on a rally" at the old bottom
+ * (W006 pp. 20, 46-47; `lib/gann/entryTrigger.ts`). Nothing about such a plan
+ * is waiting to be proved, so it is not Watch; it cannot fill today, so it is
+ * not Execute. A display tier, not a verdict: the scan's verdict still reads
+ * Watch (`applyReadyNowHold`), the monitor alerts on Execute only, and the
+ * replay, which reads the hold at the fill, never meets one.
+ *
+ * Read from the scan's own flag (`ScanDecision.resting`, set where the hold is
+ * decided) when the row carries it. A row stored before the flag existed has
+ * none, and is read as before: a row at the Execute cutoff whose entry rests.
+ */
+export type SetupTier = "Execute" | "Resting" | "Watch" | "Reject";
+
+export function setupTier(
+  input: { outputState: string; score?: number | null; resting?: boolean | null } & RestingInput,
+): SetupTier {
+  if (input.outputState === "Reject") return "Reject";
+  if (input.resting === true) return "Resting";
+  if (input.resting == null && scoresExecute(input) && isResting(input)) return "Resting";
+  return input.outputState === "Execute" ? "Execute" : "Watch";
+}
+
+/** A live scan's tier from its decision alone (the scan sets the flag; `applyReadyNowHold`). */
+export function tierOfDecision(decision: { outputState: string; resting?: boolean | null }): SetupTier {
+  if (decision.outputState === "Reject") return "Reject";
+  if (decision.resting === true) return "Resting";
+  return decision.outputState === "Execute" ? "Execute" : "Watch";
+}
+
+/**
  * A row that scores at the Execute cutoff: an Execute row stored before
  * 2026-10-27, or a Watch the ready-now hold (`applyReadyNowHold`) keeps from
- * Execute because its entry is resting. Since that date the scan itself holds
- * a resting plan at Watch, so its score is what marks it as a resting order.
+ * Execute. Only the fallback for rows without the scan's flag reads this.
  */
 function scoresExecute(input: { outputState: string; score?: number | null }): boolean {
   if (input.outputState === "Execute") return true;
@@ -148,19 +185,17 @@ function scoresExecute(input: { outputState: string; score?: number | null }): b
 }
 
 /**
- * Split a list into the rows to act on now and the rows that score at the
- * Execute cutoff but rest at their level. Only those move; every other row
- * stays in `now` unchanged, in its order.
+ * Split a list into the rows to act on now and the rows in the Resting tier.
+ * Only those move; every other row stays in `now` unchanged, in its order.
  */
 export function splitResting<T>(
   rows: T[],
-  read: (row: T) => { outputState: string; score?: number | null } & RestingInput,
+  read: (row: T) => { outputState: string; score?: number | null; resting?: boolean | null } & RestingInput,
 ): { now: T[]; resting: T[] } {
   const now: T[] = [];
   const resting: T[] = [];
   for (const row of rows) {
-    const input = read(row);
-    if (scoresExecute(input) && isResting(input)) resting.push(row);
+    if (setupTier(read(row)) === "Resting") resting.push(row);
     else now.push(row);
   }
   return { now, resting };
@@ -170,6 +205,8 @@ export function splitResting<T>(
 export interface RestingRowFields {
   outputState: string;
   score?: number | null;
+  /** The scan's Resting flag (`ScanDecision.resting`); absent on rows stored before it. */
+  resting?: boolean | null;
   direction: string;
   entry: number | null;
   takeProfit1: number | null;
@@ -183,10 +220,14 @@ export interface RestingRowFields {
  * server and every client agree on which list a row is in; the card's own
  * sentence reads the live quote when it has one.
  */
-export function restingInputOfRow(row: RestingRowFields, price?: number | null): { outputState: string; score?: number | null } & RestingInput {
+export function restingInputOfRow(
+  row: RestingRowFields,
+  price?: number | null,
+): { outputState: string; score?: number | null; resting?: boolean | null } & RestingInput {
   return {
     outputState: row.outputState,
     score: row.score,
+    resting: row.resting,
     side: row.direction === "bearish" ? "sell" : "buy",
     price: price ?? row.currentPrice ?? null,
     entry: row.entry,

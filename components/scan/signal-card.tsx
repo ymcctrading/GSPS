@@ -14,6 +14,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
 import { TRADE_STYLES } from "@/lib/trade/tradeStyle";
 import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
+import { tierOfDecision } from "@/lib/setups/resting";
 
 /**
  * ScanResult -> the shape SaveSetupButton already knows how to save. Before
@@ -79,7 +80,7 @@ export function SignalCard({
           <div className="flex items-center gap-1.5">
             <ScoreBadge
               score={decision.score}
-              state={decision.outputState}
+              state={tierOfDecision(decision)}
               exactScoreDisplayEnabled={exactScoreDisplayEnabled}
             />
             <SaveSetupButton row={toSavedSetupRow(result)} />
