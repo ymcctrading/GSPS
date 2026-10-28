@@ -151,6 +151,12 @@ describe("mover outcome", () => {
     expect(moverOutcome(ctx({ detections: d, deliveries: 1 }))).toBe("offered");
   });
 
+  it("a signal or Execute only against the move is not 'Offered'", () => {
+    expect(moverOutcome(ctx({ deliveriesAgainst: 1 }))).toBe("offered_against");
+    expect(moverOutcome(ctx({ executeAgainst: true }))).toBe("offered_against");
+    expect(moverAttributionLine(ctx({ deliveriesAgainst: 2 })).line).toMatch(/2 delivered against the move/);
+  });
+
   it("unavailable and not examined are stated apart", () => {
     const none = attributeSweep(null, 100, 3);
     expect(moverOutcome(ctx({ sweep: none, sweepState: null, sweepError: true, examined: true }))).toBe("unavailable");

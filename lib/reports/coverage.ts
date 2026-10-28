@@ -5,9 +5,9 @@
  * signal or focus listing" while BA sat at rank 48 of the stored focus list
  * and had an overnight Watch reading).
  *
- * Pure functions over what the platform stored, so the email route
- * (`app/api/evening-report/route.ts`) and the owner-only coverage route
- * (`app/api/owner/coverage/route.ts`) read one set of rules. Nothing here is
+ * Pure functions over what the platform stored, read by the email route
+ * (`app/api/evening-report/route.ts`), whose dry read is also the owner's
+ * coverage view. Nothing here is
  * a trading rule: it only says which stage of the pipeline a stock reached.
  *
  * The stages are kept apart and never summed into one "read" or "missed"
@@ -187,7 +187,13 @@ export interface SweepAttribution {
  * `dayRangePct` is the daily average true range as a percent of price, when
  * known; without it the resting read is unknown, not false.
  */
-export function attributeSweep(r: SweepReading | null, prevClose: number | null, dayRangePct: number | null): SweepAttribution {
+export function attributeSweep(
+  r: SweepReading | null,
+  prevClose: number | null,
+  dayRangePct: number | null,
+  /** Where the day's range came from, when it is not the overnight reading's own. */
+  rangeNote?: string,
+): SweepAttribution {
   if (!r) return { line: "no overnight reading stored", entryDistancePct: null, resting: null, scaleCheck: false, directional: false };
   if (r.error) return { line: `overnight reading failed (${r.error})`, entryDistancePct: null, resting: null, scaleCheck: false, directional: false };
   const directional = r.direction === "bullish" || r.direction === "bearish";
@@ -203,7 +209,7 @@ export function attributeSweep(r: SweepReading | null, prevClose: number | null,
   const rest = dayRange == null ? null : readResting({ side: r.direction === "bullish" ? "buy" : "sell", price: prevClose, entry: r.entry, dayRange });
   const resting = dayRange == null ? null : rest != null;
   let line = `${head}, entry ${priceUsd(r.entry)} (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% from the prior close)`;
-  if (resting) line += ", a resting level more than a day's range away, not a session entry";
+  if (resting) line += `, a resting level more than a day's range away${rangeNote ? ` (${rangeNote})` : ""}, not a session entry`;
   if (scaleCheck) line += "; entry and price differ by more than the scale check, look at the anchor and any corporate action";
   return { line, entryDistancePct: pct, resting, scaleCheck, directional };
 }
@@ -302,6 +308,7 @@ export function distinctDetections(rows: readonly SystemDetection[]): (SystemDet
 
 export type MoverOutcome =
   | "offered"
+  | "offered_against"
   | "detected_not_delivered"
   | "withheld"
   | "examined_no_candidate"
@@ -310,6 +317,7 @@ export type MoverOutcome =
 
 export const OUTCOME_LABELS: Record<MoverOutcome, string> = {
   offered: "Offered",
+  offered_against: "Offered against the move",
   detected_not_delivered: "Detected, not delivered",
   withheld: "Withheld",
   examined_no_candidate: "Examined, no candidate",
@@ -328,10 +336,14 @@ export interface MoverContext {
   focus: FocusStanding;
   /** Distinct system detections for the symbol that session. */
   detections: (SystemDetection & { repeats: number })[];
-  /** Distinct member deliveries for the symbol. */
+  /** Distinct member deliveries for the symbol on the mover's side. */
   deliveries: number;
-  /** A standing Execute plan at the prior close. */
+  /** Distinct member deliveries against the move. */
+  deliveriesAgainst?: number;
+  /** A standing Execute plan at the prior close on the mover's side. */
   executePlan: boolean;
+  /** A standing Execute plan at the prior close against the move. */
+  executeAgainst?: boolean;
   /** A standing Watch plan at the prior close. */
   watchPlan: boolean;
   /** The sweep row or the pre-filter row exists. */
@@ -345,13 +357,15 @@ export interface MoverContext {
 }
 
 /**
- * The last stage a mover reached, in order: offered to a member (a delivered
- * signal or a standing Execute plan), detected but not delivered, withheld (a
+ * The last stage a mover reached, in order: offered to a member on the
+ * move's side (a delivered signal or a standing Execute plan), offered only
+ * against the move, detected but not delivered, withheld (a
  * candidate that did not qualify: Watch, resting), examined with no candidate,
  * unavailable (the reading failed), or not examined at all.
  */
 export function moverOutcome(c: MoverContext): MoverOutcome {
   if (c.deliveries > 0 || c.executePlan) return "offered";
+  if ((c.deliveriesAgainst ?? 0) > 0 || c.executeAgainst) return "offered_against";
   if (c.detections.length > 0) return "detected_not_delivered";
   if (c.watchPlan || (c.sweep.directional && (c.sweepState === "Watch" || c.sweepState === "Execute"))) return "withheld";
   if (c.sweepError) return "unavailable";
@@ -365,16 +379,20 @@ export function moverAttributionLine(c: MoverContext): { outcome: MoverOutcome; 
   const parts = [OUTCOME_LABELS[outcome], c.sweep.line, c.prefilter, describeFocusStanding(c.focus)];
   if (c.detections.length > 0) {
     const withMove = c.detections.filter((d) => d.side === c.side).length;
-    const first = c.detections[0];
+    // The first detection on the move's side (the one the move left is read from), else the first.
+    const first = c.detections.find((d) => d.side === c.side) ?? c.detections[0];
+    const which = first.side === c.side ? "first with the move" : "first (against the move)";
     const at = new Date(first.evaluatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
     const usable = first.usableAt
       ? `, its data usable from ${new Date(first.usableAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`
       : ", its data time not recorded";
     const left = c.remainingAfterFirst == null ? "" : `, ${c.remainingAfterFirst >= 0 ? "+" : ""}${c.remainingAfterFirst.toFixed(2)} a share left its way after that`;
-    parts.push(`${c.detections.length} system detection${c.detections.length === 1 ? "" : "s"} (${withMove} with the move), first evaluated ${at} ET${usable}${left}`);
+    parts.push(`${c.detections.length} system detection${c.detections.length === 1 ? "" : "s"} (${withMove} with the move), ${which} evaluated ${at} ET${usable}${left}`);
   } else {
     parts.push("no system detection");
   }
-  parts.push(c.deliveries > 0 ? `${c.deliveries} delivered to members` : "nothing delivered to a member");
+  parts.push(c.deliveries > 0 ? `${c.deliveries} delivered to members with the move` : "nothing delivered to a member with the move");
+  if ((c.deliveriesAgainst ?? 0) > 0) parts.push(`${c.deliveriesAgainst} delivered against the move`);
+  if (c.executeAgainst) parts.push("an Execute plan stood against the move");
   return { outcome, line: parts.join("; ") };
 }

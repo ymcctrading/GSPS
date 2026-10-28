@@ -1225,7 +1225,10 @@ export async function runMarketScan(
   if (dailyBatch) {
     const discoveryStarted = Date.now();
     const delayMs = resolveFeedPolicy({ assetClass: "us_equity", isLive: true, source: "alpaca", env: process.env }).contractualDelayMs;
-    shadowDiscovery = discoverUniverse(dailyBatch, { evaluatedAt: new Date(), observedThrough: end, delayMs });
+    const evaluatedAt = new Date();
+    // The fetch ended at `end`; with no feed delay the session is observed through that end too.
+    const observedThrough = new Date(Math.min(end.getTime(), evaluatedAt.getTime() - delayMs));
+    shadowDiscovery = discoverUniverse(dailyBatch, { evaluatedAt, observedThrough, delayMs });
     mark("shadow discovery", `${shadowDiscovery.length} stocks in ${Date.now() - discoveryStarted}ms`);
   }
   const selection = new Map(

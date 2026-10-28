@@ -74,4 +74,19 @@ describe("shadow discovery", () => {
     expect(rankDiscoveries([b, a]).map((r) => r.symbol)).toEqual(["A", "B"]);
     expect(rankDiscoveries([b, a])).toEqual(rankDiscoveries([a, b]));
   });
+
+  it("reads only the last completed top: an older, higher top behind a crossed one is not the level ahead", () => {
+    // Swings to 120, back to 100, up to 110 (the last top), then the close sits above 110.
+    const path = [100, 105, 110, 115, 120, 116, 112, 108, 104, 100, 103, 106, 110, 107, 104, 101, 98, 101, 104, 108, 111, 113];
+    const bars: Bar[] = [];
+    for (let i = 0; i < 40; i++) {
+      const m = path[Math.min(i, path.length - 1)];
+      bars.push({ t: day(i), o: m, h: m + 0.5, l: m - 0.5, c: m, v: 1_000_000 });
+    }
+    // Today reaches 115: within 3 points of the old 120 top, which the old reading took as the level ahead.
+    bars.push({ t: "2026-10-27T04:00:00Z", o: 113, h: 115, l: 112.6, c: 114, v: 900_000 });
+    const r = readDiscovery({ symbol: "T", bars, ...at });
+    const levelKinds = (r?.conditions ?? []).filter((c) => c.kind === "old_level_crossed" || c.kind === "at_old_level");
+    expect(levelKinds.filter((c) => "side" in c && c.side === "top")).toEqual([]);
+  });
 });

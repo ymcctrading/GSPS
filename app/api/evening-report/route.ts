@@ -176,12 +176,16 @@ export async function GET(req: NextRequest) {
   const dry = req.nextUrl.searchParams.get("dry") === "1";
   if (!cron) {
     // Only the owner's own session, and only a dry read: nothing is sent.
-    if (!dry) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Everyone else gets a 404, so the route discloses nothing.
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!ownerOf(user)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!ownerOf(user) || !dry) {
+      // A cron call whose secret no longer matches would otherwise fail silently.
+      if (req.headers.get("authorization")) console.warn("[evening-report] an authorization header failed the cron check");
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
   }
   const startedAt = Date.now();
   const marks: Record<string, number> = {};
@@ -281,29 +285,34 @@ export async function GET(req: NextRequest) {
   }
   mark("stored");
 
+  // The session's day, wide enough for a late notice; each row is then held
+  // to the session's New York date.
+  const dayStart = new Date(close.getTime() - 20 * 3_600_000).toISOString();
+  const dayEnd = new Date(close.getTime() + 8 * 3_600_000).toISOString();
+
   // What the pipeline itself recorded about the session, for the coverage
   // stages and each mover's attribution. All owner-only hindsight.
   // The overnight sweep is filed under the session it is for.
   type SweepDbRow = { symbol: string; direction: string | null; score: number | string | null; output_state: string | null; setup_kind: string | null; entry: number | string | null; error: string | null };
-  const sweepRows = await readAll<SweepDbRow>((from, to) =>
+  type PrefilterDbRow = { symbol: string; atr_pct: number | string | null; cleared_reversion: boolean | null; cleared_continuation: boolean | null; shortlisted: boolean | null; full_scan_score: number | string | null; full_scan_output_state: string | null };
+  type SystemDbRow = { symbol: string; signal_id: string; signal_type: string; poll_cycle_timestamp: string | null; created_at: string; metadata: { dataTimestamp?: string; barIntervalMinutes?: number } | null };
+  const sessionOpenAt = etInstant(basisDate, 9 * 60 + 30);
+  const [sweepRows, prefilterRows, systemRows, placedRead, filledRead] = await Promise.all([
+  readAll<SweepDbRow>((from, to) =>
     service.from("universe_sweep").select("symbol, direction, score, output_state, setup_kind, entry, error").eq("basis_date", basisDate).order("symbol", { ascending: true }).range(from, to),
-  );
-  const sweepOf = new Map(sweepRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  ),
   // The market scan's pre-filter keeps one row per stock per day, overwritten
   // by each scan: the day's last reading, not a history.
-  type PrefilterDbRow = { symbol: string; atr_pct: number | string | null; cleared_reversion: boolean | null; cleared_continuation: boolean | null; shortlisted: boolean | null; full_scan_score: number | string | null; full_scan_output_state: string | null };
-  const prefilterRows = await readAll<PrefilterDbRow>((from, to) =>
+  readAll<PrefilterDbRow>((from, to) =>
     service
       .from("coarse_gate_telemetry")
       .select("symbol, atr_pct, cleared_reversion, cleared_continuation, shortlisted, full_scan_score, full_scan_output_state")
       .eq("scan_date", basisDate)
       .order("symbol", { ascending: true })
       .range(from, to),
-  );
-  const prefilterOf = new Map(prefilterRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  ),
   // System detections: what the scheduled intraday scan found, delivered or not.
-  type SystemDbRow = { symbol: string; signal_id: string; signal_type: string; poll_cycle_timestamp: string | null; created_at: string; metadata: { dataTimestamp?: string; barIntervalMinutes?: number } | null };
-  const systemRows = await readAll<SystemDbRow>((from, to) =>
+  readAll<SystemDbRow>((from, to) =>
     service
       .from("intraday_system_alerts")
       .select("symbol, signal_id, signal_type, poll_cycle_timestamp, created_at, metadata")
@@ -312,16 +321,34 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, to),
-  );
+  ),
+  // Orders of any kind placed during the session, and those with a fill: counts only.
+  service.from("orders").select("id", { count: "exact", head: true }).gte("created_at", sessionOpenAt.toISOString()).lt("created_at", close.toISOString()),
+  service
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", sessionOpenAt.toISOString())
+    .lt("created_at", close.toISOString())
+    .gt("filled_qty", 0),
+  ]);
+  const sweepOf = new Map(sweepRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  const prefilterOf = new Map(prefilterRows.rows.map((r) => [r.symbol.toUpperCase(), r]));
+  const { count: ordersPlaced, error: ordersError } = placedRead;
+  const { count: ordersFilled, error: filledError } = filledRead;
   const detectionsRaw: SystemDetection[] = [];
   for (const r of systemRows.rows) {
     const evaluatedAt = r.poll_cycle_timestamp ?? r.created_at;
     if (etDateKey(new Date(evaluatedAt)) !== basisDate) continue;
     const asset = assetOf(r.symbol);
-    const tf: Timeframe = r.metadata?.barIntervalMinutes === 15 ? "15Min" : "1Min";
-    const dataBarOpen = typeof r.metadata?.dataTimestamp === "string" ? r.metadata.dataTimestamp : null;
+    // The scan writes 1 or 5; anything else is unknown, and then so is the usable time.
+    const minutes = r.metadata?.barIntervalMinutes;
+    const tf: Timeframe | null = minutes === 1 ? "1Min" : minutes === 5 ? "5Min" : minutes === 15 ? "15Min" : null;
+    // The newest bar's open, or a quote's time when the scan had a quote:
+    // reading it as a bar open and adding the interval can only make the
+    // usable time later, never earlier.
+    const dataBarOpen = tf && typeof r.metadata?.dataTimestamp === "string" ? r.metadata.dataTimestamp : null;
     const delayMs = resolveFeedPolicy({ assetClass: asset, isLive: true, source: "alpaca" }).contractualDelayMs;
-    const usable = dataBarOpen ? availability(barCloseAt(dataBarOpen, tf, asset), delayMs) : null;
+    const usable = dataBarOpen && tf ? availability(barCloseAt(dataBarOpen, tf, asset), delayMs) : null;
     detectionsRaw.push({
       symbol: r.symbol.toUpperCase(),
       kind: r.signal_id,
@@ -332,25 +359,10 @@ export async function GET(req: NextRequest) {
     });
   }
   const detections = distinctDetections(detectionsRaw);
-  // Orders placed during the session, and those filled: counts only.
-  const sessionOpenAt = etInstant(basisDate, 9 * 60 + 30);
-  const { count: ordersPlaced, error: ordersError } = await service
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", sessionOpenAt.toISOString())
-    .lt("created_at", close.toISOString());
-  const { count: ordersFilled, error: filledError } = await service
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", sessionOpenAt.toISOString())
-    .lt("created_at", close.toISOString())
-    .gt("filled_qty", 0);
   mark("pipeline records");
 
   // The intraday signals each member received during the session: the bell
   // notices (exactly what was shown) and the member's own panel alerts.
-  const dayStart = new Date(close.getTime() - 20 * 3_600_000).toISOString();
-  const dayEnd = new Date(close.getTime() + 8 * 3_600_000).toISOString();
   const raw: Omit<IntradaySignal, "deliveries">[] = [];
   type BellRow = { profile_id: string | null; symbol: string; title: string | null; body: string | null; created_at: string };
   const bells = await readAll<BellRow>((from, to) =>
@@ -506,25 +518,31 @@ export async function GET(req: NextRequest) {
     plansQualified: stage(setups.filter((x) => x.verdict === "Execute").length, `Execute plans standing at the prior close (${setups.length} Execute or Watch)`),
     detected: stage(systemRows.error ? null : detections.length, "distinct system detections (symbol, kind, side)"),
     delivered: stage(deliveredDistinct, `distinct signals delivered to a member (${signals.length} member-signal pairs)`),
-    entries: stage(ordersError ? null : ordersPlaced, "orders placed during the session, any source"),
+    entries: stage(ordersError ? null : ordersPlaced, "orders of any kind placed during the session (entries, exits and protective orders, every account); entries alone are not told apart"),
     simulated: stage(dailyJudged.length + intradayJudged.length, "simplified: plan stop and TP1 only, no trailing exits, costs or delay"),
-    fills: stage(filledError ? null : ordersFilled, "orders placed during the session with a fill"),
+    fills: stage(filledError ? null : ordersFilled, "of those, orders with any fill; realized outcomes are not read"),
   };
 
   const attribution = new Map<string, { outcome: MoverOutcome; line: string }>();
-  const executeSyms = new Set(setups.filter((x) => x.verdict === "Execute").map((x) => x.symbol.toUpperCase()));
-  const watchSyms = new Set(setups.filter((x) => x.verdict === "Watch").map((x) => x.symbol.toUpperCase()));
+  const planKey = (sym: string, dir: string) => `${sym.toUpperCase()}|${dir}`;
+  const executeSyms = new Set(setups.filter((x) => x.verdict === "Execute").map((x) => planKey(x.symbol, x.direction)));
+  const watchSyms = new Set(setups.filter((x) => x.verdict === "Watch").map((x) => planKey(x.symbol, x.direction)));
   for (const m of movers) {
     const sym = m.symbol.toUpperCase();
     const sw = sweepOf.get(sym) ?? null;
     const pre = prefilterOf.get(sym) ?? null;
     const side: Side = m.dollars >= 0 ? "bullish" : "bearish";
     const mine = detections.filter((d) => d.symbol === sym);
-    const first = mine[0] ?? null;
+    const against: Side = side === "bullish" ? "bearish" : "bullish";
+    // The first detection on the mover's own side, else the first at all.
+    const first = mine.find((d) => d.side === side) ?? mine[0] ?? null;
+    const delivered = signals.filter((s2) => s2.symbol.toUpperCase() === sym);
+    const distinctOn = (dir: Side) => new Set(delivered.filter((s2) => s2.direction === dir).map((s2) => s2.label)).size;
     const sweep = attributeSweep(
       sw ? { state: sw.output_state, score: num(sw.score), direction: sw.direction, setupKind: sw.setup_kind, entry: num(sw.entry), error: sw.error } : null,
       m.prevClose,
       pre ? num(pre.atr_pct) : null,
+      "range from the day's last pre-filter reading, later than the overnight one",
     );
     const firstBars = first ? sessionBarsOf(barsFor(minute, sym), basisDate, assetOf(sym)) : [];
     attribution.set(
@@ -548,9 +566,11 @@ export async function GET(req: NextRequest) {
         ),
         focus: focusStanding(focusRowsBySymbol.get(sym) ?? [], basisDate, sessionOpenAt),
         detections: mine,
-        deliveries: new Set(signals.filter((s2) => s2.symbol.toUpperCase() === sym).map((s2) => `${s2.direction}|${s2.label}`)).size,
-        executePlan: executeSyms.has(sym),
-        watchPlan: watchSyms.has(sym),
+        deliveries: distinctOn(side),
+        deliveriesAgainst: distinctOn(against),
+        executePlan: executeSyms.has(planKey(sym, side)),
+        executeAgainst: executeSyms.has(planKey(sym, against)),
+        watchPlan: watchSyms.has(planKey(sym, side)) || watchSyms.has(planKey(sym, against)),
         examined: sw != null || pre != null,
         remainingAfterFirst: first ? remainingAfter(firstBars, first.usableAt ? new Date(first.usableAt) : null, first.side) : null,
       }),

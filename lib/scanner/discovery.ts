@@ -134,8 +134,12 @@ export function splitSession(input: DiscoveryInput): { completed: Bar[]; session
 
 function lastPivots(completed: Bar[], priorClose: number): { top: number | null; bottom: number | null } {
   const pivots = walkSwingChart(completed, THREE_DAY_CHART).pivots;
-  const top = [...pivots].reverse().find((p) => p.kind === "top" && p.price > priorClose)?.price ?? null;
-  const bottom = [...pivots].reverse().find((p) => p.kind === "bottom" && p.price < priorClose)?.price ?? null;
+  // The last completed top and bottom: an old top already under the prior
+  // close (or bottom over it) has been crossed and is not the level ahead.
+  const lastTop = [...pivots].reverse().find((p) => p.kind === "top")?.price ?? null;
+  const lastBottom = [...pivots].reverse().find((p) => p.kind === "bottom")?.price ?? null;
+  const top = lastTop != null && lastTop > priorClose ? lastTop : null;
+  const bottom = lastBottom != null && lastBottom < priorClose ? lastBottom : null;
   return { top, bottom };
 }
 
