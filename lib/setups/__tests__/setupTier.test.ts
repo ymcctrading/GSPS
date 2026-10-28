@@ -97,6 +97,14 @@ describe("setupTier", () => {
     const model = buildDailyCardModel(row({ resting: true, currentPrice: 130 }), { scoreText: "7", scoreMax: 9 });
     expect(model.verdict).toBe("Resting");
     expect(model.synopsis).toMatch(/resting at its level/);
+    expect(model.resting).not.toBeNull();
+  });
+
+  it("gives a Watch far from its entry no resting chip or sentence: it reads as Watch alone (HDB, 2026-10-28)", () => {
+    const model = buildDailyCardModel(row({ resting: false, currentPrice: 130 }), { scoreText: "7", scoreMax: 9 });
+    expect(model.verdict).toBe("Watch");
+    expect(model.resting).toBeNull();
+    expect(model.synopsis).not.toMatch(/Resting order/);
   });
 });
 
