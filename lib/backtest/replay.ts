@@ -696,9 +696,14 @@ export interface ReplayResult {
    * otherwise stays out for the rest of the session, when the next session's
    * read of the swing chart replaces it with a new plan. Counted once per plan
    * per session, whether or not it was later reinstated or its entry would have
-   * fired.
+   * fired. Includes the expired plans (`expiredPlans`).
    */
   retiredPlans: number;
+  /**
+   * Of `retiredPlans`, those withdrawn because they expired (owner,
+   * 2026-10-28; `lib/gann/planExpiry.ts`) rather than for a broken stop.
+   */
+  expiredPlans?: number;
 }
 
 /** Why a fired entry was dropped with no trade recorded (`ReplayResult.droppedPlans`). */
@@ -1261,6 +1266,23 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           retiredSessionPlans.add(planKey);
         }
       }
+      // The live scan reads the expiry on every scan, so on intraday bars each
+      // closed candle of the session after the first read is read too, at its
+      // close: a plan whose TP1 price came to stand past is not entered later in
+      // the session (review of #494). On daily bars the session's one bar is
+      // the one the entry fires on, so only the first read applies.
+      if (!firstRead && !closedSession && !expiredSessionPlans.has(planKey)) {
+        const closed = history[history.length - 1];
+        const priced = sessionPlanPaths.get(planKey);
+        if (
+          closed.t.slice(0, 10) === date &&
+          priced &&
+          readPlanExpiry({ side: trigger.direction === "bearish" ? "sell" : "buy", price: closed.c, levels: priced }) !== null
+        ) {
+          expiredSessionPlans.add(planKey);
+          retiredSessionPlans.add(planKey);
+        }
+      }
       if (expiredSessionPlans.has(planKey)) continue;
       // On daily bars the session's one closed bar is also the bar a reaction
       // entry fires on: the candle traded into the zone (an order at the
@@ -1648,7 +1670,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     }
   }
 
-  return summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped);
+  return { ...summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped), expiredPlans: expiredSessionPlans.size };
 }
 
 /**
@@ -1740,7 +1762,8 @@ export function combine(results: ReplayResult[]): ReplayResult {
   for (const r of results) {
     for (const k of Object.keys(dropped) as (keyof DroppedPlanReasons)[]) dropped[k] += r.droppedPlanReasons?.[k] ?? 0;
   }
-  return summarise(trades, armed, triggered, refusedFills, retiredPlans, dropped);
+  const expiredPlans = results.reduce((s, r) => s + (r.expiredPlans ?? 0), 0);
+  return { ...summarise(trades, armed, triggered, refusedFills, retiredPlans, dropped), expiredPlans };
 }
 
 /** How many reversals deep the replay follows a chain of caught trades. An engineering bound, not Gann's. */

@@ -33,6 +33,8 @@ import { entryReady, replayEntryConfirmation } from "./entryConfirmation";
 import { isExpiredByClock } from "./expiry";
 import { applyEventAndPersist, listTradePlans } from "./store";
 import { isPivotSignal } from "./fromPivot";
+import { isRebuySignal } from "./fromRebuy";
+import { readPlanExpiry } from "@/lib/gann/planExpiry";
 import { isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 
@@ -88,6 +90,11 @@ export interface ArmFromBarsResult {
   armed: string[];
   /** Plans left unarmed because their stop broke first. */
   stopBroken: string[];
+  /**
+   * Plans left unarmed because price already stands at or past their TP1: the
+   * scan's own expiry (owner, 2026-10-28; `lib/gann/planExpiry.ts`).
+   */
+  targetPassed: string[];
   errors: { planId: string; reason: string }[];
 }
 
@@ -97,7 +104,7 @@ export async function armConfirmedPlansFromBars(
   opts: { market?: string; now?: Date } = {},
 ): Promise<ArmFromBarsResult> {
   const now = opts.now ?? new Date();
-  const result: ArmFromBarsResult = { checked: 0, armed: [], stopBroken: [], errors: [] };
+  const result: ArmFromBarsResult = { checked: 0, armed: [], stopBroken: [], targetPassed: [], errors: [] };
   const plans = (await listTradePlans(supabase, userId, { state: "awaiting_entry_confirmation" })).filter(
     (p) => (opts.market == null || p.market === opts.market) && !isExpiredByClock(now.toISOString(), p.expiresAt),
   );
@@ -110,6 +117,22 @@ export async function armConfirmedPlansFromBars(
       const latest = bars.length ? bars[bars.length - 1].c : null;
       if (stopBrokenSince(plan.direction, plan.coordinates.invalidation, bars, latest)) {
         result.stopBroken.push(plan.planId);
+        continue;
+      }
+      // A scan plan whose TP1 price already stands at or past has expired, as
+      // the scan reads it (`readPlanExpiry`, its first test, on the latest
+      // price). A reversal or re-buy plan is priced after its parent's stop and
+      // keeps its own geometry, so it is not read here.
+      if (
+        !isPivotSignal(plan.signalId) &&
+        !isRebuySignal(plan.signalId) &&
+        readPlanExpiry({
+          side: plan.direction === "bearish" ? "sell" : "buy",
+          price: latest,
+          levels: { entry: plan.coordinates.entryTrigger, takeProfit1: plan.coordinates.takeProfit1 },
+        }) !== null
+      ) {
+        result.targetPassed.push(plan.planId);
         continue;
       }
       // The plan's own rule, read exactly as the scan-driven advance reads it

@@ -46,9 +46,13 @@
  * Applied by `applyPlanExpiredHold` (`lib/scoring/score.ts`): the verdict is
  * Reject, the scan returns no levels (`ScanResult.planExpired` keeps what the
  * plan was), so no list, chart, ticket, Guided Mode, automation or intraday
- * timing offers it, and a tracked symbol's monitor reads "No setup now" until
- * a new plan arms it again. The replay does not enter such a plan
- * (`lib/backtest/replay.ts`), as the live scan never offers it.
+ * timing offers it anew, and a tracked symbol's monitor reads "No setup now"
+ * until a new plan arms it again. A `trade_plans` row still awaiting
+ * confirmation is not armed once price stands past its TP1
+ * (`lib/lifecycle/armFromBars.ts`); a plan already armed, or its resting
+ * order, keeps to its own one-session window and is not withdrawn here. The
+ * replay does not enter such a plan, re-reading it on each closed intraday
+ * candle as the live scan re-reads it on each scan (`lib/backtest/replay.ts`).
  *
  * Three-question basis (AGENTS.md):
  * 1. Gann: as above, Tier A throughout.

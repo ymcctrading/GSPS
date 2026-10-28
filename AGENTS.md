@@ -3198,10 +3198,13 @@ over the campaign's greatest by a point (Master Course Ch. 8, PDF 249). Not for
 an old-bottom buy: the double-bottom test is Gann's buy. `applyPlanExpiredHold`
 makes it Reject, the scan returns no levels and `ScanResult.planExpired` keeps
 the plan and a plain-words note, so no list, chart, ticket, Guided Mode,
-automation or intraday timing offers it, and a tracked symbol's monitor reads
-"No setup now" until a new plan arms it. Stored daily rows past TP1 are dropped
-by `isInvalidated`. The replay does not enter such a plan (`planExpiryAt`,
-counted in `retiredPlans`). `STRATEGY_VERSION` is `2026-10-28-plan-expiry`.
+automation or intraday timing offers it anew, and a tracked symbol's monitor
+reads "No setup now" until a new plan arms it. A `trade_plans` row awaiting
+confirmation is not armed past its TP1 (`armFromBars`, `targetPassed`); an
+already-armed plan keeps its one-session window. Stored daily rows past TP1 are
+dropped by `isInvalidated`. The replay does not enter such a plan, re-read on
+each closed intraday candle (`planExpiryAt`, `expiredPlans`, inside
+`retiredPlans`). `STRATEGY_VERSION` is `2026-10-28-plan-expiry`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
