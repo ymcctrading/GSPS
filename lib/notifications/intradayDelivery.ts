@@ -185,6 +185,10 @@ export async function notifySubscribedUsers(
           let result: { success: boolean; skipped?: boolean; error?: string };
           let recipient: string | null = null;
           if (channel === "email") {
+            // A heads-up goes by push and the bell, not email: an inbox is too
+            // slow for a lead of minutes, and the alert email reads as a signal
+            // to act on now (review, 2026-10-28).
+            if (NOTICE_SIGNALS.has(alert.type)) continue;
             if (email === undefined) {
               const { data: user } = await service.auth.admin.getUserById(userId);
               email = user?.user?.email ?? null;
@@ -199,7 +203,7 @@ export async function notifySubscribedUsers(
               // The alert's own 0-9 confidence, already a whole number, so
               // the protocol score's tier rounding does not apply.
               exactScoreDisplayEnabled: true,
-              entry: alert.continuationPlan.entry ?? alert.move.current,
+              entry: alert.move.current,
               stopLoss: alert.invalidation ?? alert.move.current,
               takeProfit: alert.continuationPlan.firstTarget,
               masterProfit: alert.continuationPlan.masterTarget ?? null,

@@ -96,7 +96,7 @@ export function readEntryApproach(args: {
 }): ApproachReading | null {
   const { bars, intervalMinutes, direction, entry, unit, dataAgeSeconds, now } = args;
   const n = bars.length;
-  if (n < 2 || !(entry > 0) || !(intervalMinutes > 0)) return null;
+  if (n < 2 || !(entry > 0) || !(intervalMinutes > 0) || !Number.isFinite(entry) || !Number.isFinite(intervalMinutes)) return null;
   const up = direction === "up";
   const last = bars[n - 1].c;
   const distance = up ? last - entry : entry - last;
@@ -111,11 +111,15 @@ export function readEntryApproach(args: {
   const barsSince = n - 1 - ext;
   if (barsSince < 1) return null;
   const extreme = up ? bars[ext].h : bars[ext].l;
+  // The pace is the straight line from the extreme bar's high (low) to the
+  // latest close; one bar after the extreme, a long wick sets it, and the next
+  // scan reads it again.
   const ratePerBar = (up ? extreme - last : last - extreme) / barsSince;
   if (!(ratePerBar > 0)) return null;
 
   const etaFromData = (distance / ratePerBar) * intervalMinutes;
-  const lateMinutes = Math.max(0, dataAgeSeconds) / 60;
+  if (!Number.isFinite(etaFromData)) return null;
+  const lateMinutes = Number.isFinite(dataAgeSeconds) ? Math.max(0, dataAgeSeconds) / 60 : 0;
   const etaMinutes = Math.max(0, etaFromData - lateMinutes);
   return {
     extreme,

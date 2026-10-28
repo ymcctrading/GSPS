@@ -90,6 +90,25 @@ describe("scanIntraday: nearing the plan's entry", () => {
     expect(types(null)).not.toContain("entry_approach");
   });
 
+  it("stays quiet once price has traded to the entry earlier and moved off (the turn is read elsewhere)", () => {
+    const bars = [...reaction(), bar(51, 501.02, 503.9), bar(52, 502.5, 501.02), bar(53, 502.2, 502.5)];
+    const out = scanIntraday([input(bars, plan)], DEFAULT_CONFIG, nowAfter(bars));
+    expect(out.alerts.find((x) => x.type === "entry_approach" || x.type === "entry_reached")).toBeUndefined();
+    expect(out.audit[0].checks.find((c) => c.name === "Nearing the plan's entry")?.detail).toContain("earlier this session");
+  });
+
+  it("times a stock only in the regular session, and only an arrival before the close", () => {
+    // After the close: the same bars, read at 4:06 PM ET.
+    const bars = reaction();
+    const after = new Date("2026-10-27T20:06:00Z");
+    expect(scanIntraday([input(bars, plan)], DEFAULT_CONFIG, after).alerts.some((x) => x.type === "entry_approach")).toBe(false);
+    // Near the close: the same reaction ending at 3:50 PM ET, about 30 minutes off.
+    const late = reaction().map((b, i) => ({ ...b, t: new Date(Date.parse("2026-10-27T19:00:00Z") + i * 60_000).toISOString() }));
+    const out = scanIntraday([input(late, plan)], DEFAULT_CONFIG, nowAfter(late));
+    expect(out.alerts.some((x) => x.type === "entry_approach")).toBe(false);
+    expect(out.audit[0].checks.find((c) => c.name === "Nearing the plan's entry")?.detail).toContain("before the close");
+  });
+
   it("mirrors for a short: a rally toward an entry above price", () => {
     const mirror = (b: Bar): Bar => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c });
     const bars = reaction().map(mirror);

@@ -87,7 +87,8 @@ import {
 } from "@/lib/scanner/intradayDisplay";
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
-import { etDateKey, etParts } from "@/lib/market/session";
+import { equitySession, etDateKey, etParts } from "@/lib/market/session";
+import { isEarlyClose } from "@/lib/market/calendar";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
@@ -873,9 +874,10 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
   const kept: Alert[] = [];
   const held: Alert[] = [];
   for (const alert of candidates) {
-    // An approach is a countdown: each scan carries a new time left, and
-    // delivery reads it against each member's lead, so it is never held back.
-    const suppressedUntil = alert.type === "entry_approach" ? null : cooldownUntil(input, alert, config);
+    // A notice is a live reading, not stored (the route keeps it out of the
+    // alert tables): an approach carries a new time left each scan, and
+    // delivery dedupes both kinds on its own, so neither is held back here.
+    const suppressedUntil = NOTICE_SIGNALS.has(alert.type) ? null : cooldownUntil(input, alert, config);
     if (suppressedUntil && suppressedUntil > now) {
       const firstFlaggedAt = firstFlaggedWithin(input, alert, config, now);
       checks.push({
@@ -1443,11 +1445,14 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
  * Rule 3(b)-(c)), so it gets no notice either.
  *
  * - `entry_approach`: not yet traded to the entry; at the reaction's pace it
- *   arrives within `APPROACH_LEAD_MAX_MINUTES` plus one scan. Delivery reads the
+ *   arrives within `APPROACH_LEAD_MAX_MINUTES` plus one scan. Push reads the
  *   time left against each member's lead.
  * - `entry_reached`: the latest bar traded to the entry (within the session's
  *   unit) and the stop held. Once it turns back the plan's way,
  *   `plan_level_held` reads it.
+ * A stock's notices are read in the regular session only, and an approach
+ * only when it would arrive before the close. Neither is stored or held by the
+ * cooldown; the bell and push dedupe them.
  *
  * Notices, not trades (`NOTICE_SIGNALS`): no session entry, stop or target of
  * their own. They carry the daily plan's levels, and the action they offer is
@@ -1462,8 +1467,14 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
   if (plan.awaitsCrossing === true) return null;
   const prev = input.prevClose;
   if (prev == null || !(up ? prev >= plan.entry : prev <= plan.entry)) return null;
-
+  // A stock's notice is for the regular session only: after the close the
+  // pace is read off bars that ended at 4 PM, and no regular bar can reach the
+  // entry until the next session (review, 2026-10-28).
   const regularOnly = input.kind !== "crypto";
+  if (regularOnly && equitySession(now) !== "regular") {
+    checks.push({ name, passed: false, detail: "Outside the regular session, so nothing is timed." });
+    return null;
+  }
   const bars = input.bars.filter(isUsableBar).filter((b) => !regularOnly || isRegularSession(new Date(b.t)));
   if (bars.length === 0) return null;
   const lastBar = bars[bars.length - 1];
@@ -1530,6 +1541,10 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
     return null;
   }
   const window = APPROACH_LEAD_MAX_MINUTES + SCAN_CADENCE_MINUTES;
+  if (regularOnly && etParts(new Date(reading.expectedAt)).minutes >= sessionCloseMinute(now)) {
+    checks.push({ name, passed: false, detail: `At the current pace the plan's entry (${priceText(plan.entry)}) would not be reached before the close.` });
+    return null;
+  }
   if (input.marketClosed === true || reading.etaMinutes > window) {
     checks.push({
       name,
@@ -1574,6 +1589,11 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
     },
     whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "above" : "below"} its daily plan's entry at ${priceText(plan.entry)} and has moved ${up ? "down" : "up"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "high" : "low"} of ${priceText(reading.extreme)}. At that pace the entry is ${when}${minutes > 0 && dataAge > 60 ? ` (the feed's ${formatAge(dataAge)} delay is already counted)` : ""}. The pace can change; this is a heads-up, not a fill. Open the plan to rest the order at the entry, with its stop at ${priceText(plan.stop)}.`,
   });
+}
+
+/** The regular session's close in New York minutes: 1 PM on an early close, else 4 PM. */
+function sessionCloseMinute(now: Date): number {
+  return isEarlyClose(etDateKey(now)) ? 13 * 60 : REGULAR_CLOSE_MINUTE;
 }
 
 /** "10:42 AM" in New York time. */

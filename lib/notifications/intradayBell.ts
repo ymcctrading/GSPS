@@ -135,7 +135,12 @@ async function loadWatchers(service: SupabaseClient, symbols: string[]): Promise
   return watchers;
 }
 
-/** The rows a Pro member may still be told about today, by symbol. */
+/** True for a notice's bell title (nearing or at a plan's entry), which counts against no bound. */
+export function isNoticeTitle(title: string): boolean {
+  return [...NOTICE_SIGNALS].some((type) => title.endsWith(`: ${SIGNAL_LABELS[type]}`));
+}
+
+/** The rows a Pro member may still be told about today, by symbol. Notices take none of the bound. */
 async function withinProDailyBound(
   service: SupabaseClient,
   profileId: string,
@@ -145,17 +150,18 @@ async function withinProDailyBound(
   const today = etDateKey(now);
   const { data } = await service
     .from("in_app_notifications")
-    .select("symbol, created_at")
+    .select("symbol, title, created_at")
     .eq("profile_id", profileId)
     .eq("verdict", "Intraday")
     .gte("created_at", new Date(now.getTime() - 30 * 3600_000).toISOString());
   const shown = new Set(
-    ((data ?? []) as { symbol: string; created_at: string }[])
-      .filter((r) => etDateKey(new Date(r.created_at)) === today)
+    ((data ?? []) as { symbol: string; title?: string; created_at: string }[])
+      .filter((r) => etDateKey(new Date(r.created_at)) === today && !isNoticeTitle(r.title ?? ""))
       .map((r) => r.symbol.toUpperCase()),
   );
   const max = DEFAULT_PRO_INTRADAY_POLICY.setupsDisplayedPerDayMax;
   return rows.filter((r) => {
+    if (isNoticeTitle(r.title)) return true;
     const symbol = r.symbol.toUpperCase();
     if (shown.has(symbol)) return true;
     if (shown.size >= max) return false;

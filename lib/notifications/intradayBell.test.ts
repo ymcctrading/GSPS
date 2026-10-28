@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Alert } from "@/lib/scanner/intraday";
-import { alertsForTier, buildIntradayBellRow } from "./intradayBell";
+import { alertsForTier, buildIntradayBellRow, isNoticeTitle } from "./intradayBell";
 
 function alert(over: Partial<Alert> = {}): Alert {
   return {
@@ -75,5 +75,13 @@ describe("buildIntradayBellRow: notices", () => {
     expect(row.title).toBe("LLY buy: Nearing the plan's entry");
     expect(row.body).toContain("About 22 minutes away");
     expect(row.body).toContain("Daily plan: entry 501.00, stop 497.00, TP1 512.00, MTP 520.00.");
+  });
+});
+
+describe("isNoticeTitle", () => {
+  it("tells a notice's bell title from a signal's, so a notice takes none of Pro's daily bound", () => {
+    expect(isNoticeTitle("LLY buy: Nearing the plan's entry")).toBe(true);
+    expect(isNoticeTitle("LLY sell: At the plan's entry")).toBe(true);
+    expect(isNoticeTitle("SPY intraday, up: Daily plan's level held")).toBe(false);
   });
 });

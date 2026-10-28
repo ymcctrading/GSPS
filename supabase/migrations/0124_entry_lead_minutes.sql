@@ -4,7 +4,7 @@
 -- that entry level", early enough to sign in, open the chart and place the
 -- order, "so it may be five minutes and maybe 15 minutes". The heads-up
 -- (`entry_approach`, lib/scanner/intraday.ts) carries the minutes left at the
--- current pace; email and push send it once that is within the member's lead
+-- current pace; push sends it once that is within the member's lead
 -- plus one scan (lib/scanner/entryApproach.ts). 15 minutes is the default, the
 -- owner's own figure; the other choices are engineering, labelled.
 --

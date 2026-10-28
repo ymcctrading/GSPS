@@ -58,6 +58,7 @@ import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
+import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { FOCUS_SIZE, FOCUS_STORED } from "@/lib/scanner/focusList";
@@ -275,25 +276,36 @@ export async function GET(req: NextRequest) {
   // rather than a new counter.
   if (proBounded) {
     const intervalBySymbol = new Map(resolved.map((i) => [i.symbol, i.barIntervalMinutes]));
-    const confirmed = output.alerts.filter((alert) =>
-      isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
+    const confirmed = output.alerts.filter(
+      (alert) =>
+        !NOTICE_SIGNALS.has(alert.type) &&
+        isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
     );
+    // A notice (nearing or at a daily plan's entry) is not a setup shown: it
+    // takes none of the module's daily bound.
+    const notices = output.alerts.filter((alert) => NOTICE_SIGNALS.has(alert.type));
     const shownToday = await countProIntradaySetupsShownToday(supabase as Supabase, userId!, now);
     const remaining = remainingSetupsDisplayable({ setupsDisplayedToday: shownToday }, DEFAULT_PRO_INTRADAY_POLICY);
     // Held alerts were shown before, so they count against nothing new.
     const heldConfirmed = output.heldAlerts.filter((alert) =>
       isConfirmedIntradayEntry(intervalBySymbol.get(alert.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
     );
-    output = { ...output, alerts: confirmed.slice(0, remaining), heldAlerts: heldConfirmed };
+    output = { ...output, alerts: [...confirmed.slice(0, remaining), ...notices], heldAlerts: heldConfirmed };
   }
 
   // Persisting the alerts is what makes the cooldown survive across runs, but
   // it is not what the caller asked for. A write failure must not discard a
   // scan that already succeeded — it is reported alongside the result and the
   // cooldown degrades to within-run only, which is where it was before.
+  //
+  // Notices (nearing or at a daily plan's entry) are not stored: they are a
+  // live countdown re-read every scan, delivered from the scan itself, and a
+  // row per scan would crowd "Flagged today", the demo account's candidates
+  // and Pro's daily count (review, 2026-10-28).
+  const stored = output.alerts.filter((alert) => !NOTICE_SIGNALS.has(alert.type));
   const alertsPersisted = systemScan
-    ? await persistSystemAlerts(supabase as ServiceSupabase, output.alerts, resolved)
-    : await persistAlerts(supabase as Supabase, userId!, output.alerts, resolved);
+    ? await persistSystemAlerts(supabase as ServiceSupabase, stored, resolved)
+    : await persistAlerts(supabase as Supabase, userId!, stored, resolved);
 
   // Feed this user's own `active_monitors` — the same WATCH/EXECUTE tracker
   // `manual_dashboard` scans (app/api/batch-scan/route.ts) and the scheduled
@@ -717,7 +729,6 @@ async function persistAlerts(
       dataTimestamp: alert.dataTimestamp,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
-      ...(alert.approach ? { etaMinutes: alert.approach.etaMinutes, expectedAt: alert.approach.expectedAt } : {}),
     },
   }));
 
@@ -852,7 +863,6 @@ async function persistSystemAlerts(
       barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
-      ...(alert.approach ? { etaMinutes: alert.approach.etaMinutes, expectedAt: alert.approach.expectedAt } : {}),
     },
   }));
 
