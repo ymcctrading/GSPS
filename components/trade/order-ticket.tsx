@@ -25,6 +25,7 @@ import { planQuery } from "@/lib/strategies/explain/params";
 import type { OwnTechniqueLevels, TechniqueRead } from "@/lib/strategies/compare";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -943,6 +944,9 @@ export function OrderTicket({
             </button>
           </div>
         )}
+
+        {/* A short sale explained for a Novice (owner, 2026-10-28). */}
+        {assetType === "shares" && side === "sell" && !shortBlocked && <SellSetupHelp />}
 
         {assetType === "shares" ? (
           <>

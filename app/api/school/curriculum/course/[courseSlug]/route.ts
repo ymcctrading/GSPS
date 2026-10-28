@@ -33,10 +33,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cou
         title: l.title,
         estimatedMinutes: l.estimatedMinutes,
         passed: passedIds.has(l.id),
+        optional: l.optional === true,
         // A lesson unlocks once every lesson before it in the same course
         // has passed — in-course sequencing, distinct from academy-level
         // prerequisite locking (which the academy.unlocked flag covers).
-        unlocked: i === 0 || passedIds.has(found.course.lessons[i - 1].id),
+        // An optional lesson is reading, open from the start, and never
+        // holds back the lesson after it (the previous required one does).
+        unlocked:
+          l.optional === true ||
+          found.course.lessons.slice(0, i).filter((p) => !p.optional).every((p) => passedIds.has(p.id)),
       })),
     },
   });

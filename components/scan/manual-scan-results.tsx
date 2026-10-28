@@ -25,6 +25,7 @@
  */
 
 import { ResultsTable, RESTING_NOTE, WATCH_NOTE, type ScanRow } from "@/components/scan/results-table";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 import { restingInputOfRow, setupTier, type SetupTier } from "@/lib/setups/resting";
 
 type Side = "buy" | "sell";
@@ -95,6 +96,7 @@ export function ManualScanResults({
             <h3 className={side === "buy" ? "text-sm font-semibold text-bull" : "text-sm font-semibold text-bear"}>
               {title} <span className="font-normal text-muted">({count})</span>
             </h3>
+            {side === "sell" && <SellSetupHelp />}
             {TIERS.map(({ tier, title: tierTitle, note }) => {
               const group = groups[side][tier];
               if (group.length === 0) return null;
