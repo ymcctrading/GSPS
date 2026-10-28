@@ -17,7 +17,7 @@
  *    and timed them in the session (Master Course Ch. 13), so the focus list
  *    goes out in the evening, after the daily scan has read the close. He
  *    measured moves in points, and a price-scaled point is how GSPS reads
- *    them (`pointScale.ts#gannPoint`), so the movers are ranked in Gann points
+ *    them (`pointScale.ts#pricePoint`), so the movers are ranked in Gann points
  *    beside dollars and percent. He judged his method by its trade record,
  *    losses included (the series-of-losses rule; *Tunnel* pp.198-199), so a
  *    setup counts only when its own entry rule would have filled it (rule 9,
@@ -32,7 +32,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import type { FocusReason } from "@/lib/scanner/focusList";
 import { priceUsd } from "@/lib/strat/priceText";
@@ -64,7 +64,7 @@ export function toMover(row: DayRow): Mover | null {
   const { prevClose, close, high, low } = row;
   if (![prevClose, close, high, low, row.open].every((n) => Number.isFinite(n) && n > 0)) return null;
   const dollars = close - prevClose;
-  const point = gannPoint(prevClose);
+  const point = pricePoint(prevClose);
   return {
     ...row,
     dollars,

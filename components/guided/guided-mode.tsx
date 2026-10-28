@@ -13,7 +13,7 @@ import { formatUsd } from "@/lib/utils";
 import { MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 interface GuidedResponse {
   enabled: boolean;
@@ -230,7 +230,7 @@ function ConfirmDialog({
   onConfirm: () => void;
 }) {
   // A-EXIT-05: inside the away window the close-out reminder sits above the button.
-  const { awayReminder } = useGannRulePrefs();
+  const { awayReminder } = useTradeRulePrefs();
   return (
     <Modal
       open={rec !== null}

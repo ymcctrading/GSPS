@@ -17,7 +17,7 @@ import {
   type ScannerConfig,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
-import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
+import { pricePoint, intradayPoint } from "@/lib/gann/pointScale";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -729,7 +729,7 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     // Yesterday was the second day of a reaction (low 499); today's low holds above it: a higher bottom.
     const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert?.direction).toBe("up");
-    expect(alert?.invalidation).toBeCloseTo(499 - gannPoint(499), 2);
+    expect(alert?.invalidation).toBeCloseTo(499 - pricePoint(499), 2);
   });
 
   it("does not alert on the Overnight Chart when today makes no new bottom or top against the line", () => {

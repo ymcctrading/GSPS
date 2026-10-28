@@ -53,7 +53,7 @@
  *    that support mirrors resistance.
  */
 
-import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, pricePoint } from "@/lib/gann/pointScale";
 import type { Bar } from "@/lib/types";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 
@@ -148,7 +148,7 @@ export function approachingFigure(price: number, direction: "bullish" | "bearish
 
 /** Where an order resting at a figure belongs instead: just before it. */
 export function shortOfFigure(figure: number, from: "below" | "above"): number {
-  const off = ORDER_OFFSET_POINTS * gannPoint(figure);
+  const off = ORDER_OFFSET_POINTS * pricePoint(figure);
   return from === "below" ? figure - off : figure + off;
 }
 
@@ -241,7 +241,7 @@ export function roundNumberEntryBlocked(input: {
  * - The crossing goes through it when the figure lies between the crossed
  *   level, less one point, and the crossing line (the level plus 3 points):
  *   an old top at or just under 200 crossed by 3 points is a crossing of 200.
- *   Gann's 202 to 203 is one price-scaled point over 200 (`gannPoint(200)` is
+ *   Gann's 202 to 203 is one price-scaled point over 200 (`pricePoint(200)` is
  *   2.5), so a level within one point under the figure counts as at it.
  *   Engineering choice, labelled as such.
  * - A time through is a run of closes over the figure that began from a close
@@ -272,7 +272,7 @@ export function readFigureCrossing(
   const { direction, level, triggerPrice } = crossing;
   if (!(level > 0) || !(triggerPrice > 0)) return null;
   const long = direction === "bullish";
-  const point = gannPoint(level);
+  const point = pricePoint(level);
   const lo = long ? level - point : triggerPrice;
   const hi = long ? triggerPrice : level + point;
   const nudge = level * 1e-9;

@@ -1,4 +1,4 @@
-import { gannPoint } from "../pointScale";
+import { pricePoint } from "../pointScale";
 import { describe, expect, it } from "vitest";
 import {
   approachingFigure,
@@ -10,7 +10,7 @@ import {
   stopBeyondFigure,
   targetCandidates,
 } from "@/lib/gann/evenFigures";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { applyFigureCrossingHold } from "@/lib/scoring/score";
 
 describe("even figures", () => {
@@ -34,17 +34,17 @@ describe("even figures", () => {
 
   it("places orders just before the figure", () => {
     // ¼ to ½ point inside the figure (WSSS Ch.V), taken as ⅜ of a price-scaled point.
-    expect(shortOfFigure(100, "below")).toBeCloseTo(100 - 0.375 * gannPoint(100), 6);
-    expect(shortOfFigure(100, "above")).toBeCloseTo(100 + 0.375 * gannPoint(100), 6);
+    expect(shortOfFigure(100, "below")).toBeCloseTo(100 - 0.375 * pricePoint(100), 6);
+    expect(shortOfFigure(100, "above")).toBeCloseTo(100 + 0.375 * pricePoint(100), 6);
     expect(targetCandidates(92, 104, "bullish").map((p) => Math.round(p * 100) / 100)).toEqual([95, 100].map((f) => Math.round(shortOfFigure(f, "below") * 100) / 100));
   });
 
   it("moves a stop sitting just on a figure beyond it", () => {
     // Long from 105 with a stop at 100.40: the stop belongs under 100, by
     // Gann's 3 points scaled to $100 (about 5).
-    expect(stopBeyondFigure(105, 100.4, "bullish", 15)).toBeCloseTo(100 - gannThreePoints(100), 6);
+    expect(stopBeyondFigure(105, 100.4, "bullish", 15)).toBeCloseTo(100 - threePoints(100), 6);
     // Mirror for a short.
-    expect(stopBeyondFigure(95, 99.6, "bearish", 15)).toBeCloseTo(100 + gannThreePoints(100), 6);
+    expect(stopBeyondFigure(95, 99.6, "bearish", 15)).toBeCloseTo(100 + threePoints(100), 6);
     // No figure nearby, or the move would pass the cap: unchanged.
     expect(stopBeyondFigure(105, 97.3, "bullish", 8)).toBe(97.3);
     expect(stopBeyondFigure(101, 100.4, "bullish", 1)).toBe(100.4);
@@ -65,7 +65,7 @@ describe("the third time through a round number", () => {
     closes.map((c, i) => ({ t: new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 }));
   const approach = Array.from({ length: 20 }, (_, i) => 180 + i);
   const through = [201, 202.5, 196, 190];
-  const trigger = { direction: "bullish" as const, level: 198, triggerPrice: 198 + gannThreePoints(198) };
+  const trigger = { direction: "bullish" as const, level: 198, triggerPrice: 198 + threePoints(198) };
 
   it("counts the first time through 200 and holds the buy", () => {
     const r = readFigureCrossing(days(approach), trigger)!;
@@ -83,12 +83,12 @@ describe("the third time through a round number", () => {
   });
 
   it("reads nothing when the crossing passes no round number", () => {
-    expect(readFigureCrossing(days(approach), { direction: "bullish", level: 171, triggerPrice: 171 + gannThreePoints(171) })).toBeNull();
+    expect(readFigureCrossing(days(approach), { direction: "bullish", level: 171, triggerPrice: 171 + threePoints(171) })).toBeNull();
   });
 
   it("mirrors for a short breaking down through a round number", () => {
     const down = Array.from({ length: 20 }, (_, i) => 220 - i);
-    const r = readFigureCrossing(days(down), { direction: "bearish", level: 202, triggerPrice: 202 - gannThreePoints(202) })!;
+    const r = readFigureCrossing(days(down), { direction: "bearish", level: 202, triggerPrice: 202 - threePoints(202) })!;
     expect(r.figure).toBe(200);
     expect(r.time).toBe(1);
   });

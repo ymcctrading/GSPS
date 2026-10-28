@@ -83,7 +83,7 @@ import { US_EQUITY_RECORD_YEARS, lessonCycleHits } from "@/lib/gann/timeCycles";
 import { MIN_REPETITIONS } from "@/lib/gann/spectralCycle";
 import { readTiming } from "@/lib/gann/timeConvergence";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 
 export interface CountWindow {
   /** The recheck rule the reading carries. */
@@ -154,7 +154,7 @@ export function countWindowsAt(
   }
   const low = { date: bars[lo].t.slice(0, 10), price: bars[lo].l };
   const high = { date: bars[hi].t.slice(0, 10), price: bars[hi].h };
-  const unit = gannPointForBars(bars);
+  const unit = pointForBars(bars);
   if (unit > 0) {
     for (const h of priceAsTimeHits(low, high, date, unit)) {
       const from = h.source === "range" ? (lo >= hi ? "low" : "high") : h.source;

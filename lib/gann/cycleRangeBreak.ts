@@ -17,7 +17,7 @@
  *
  * Engineering choices, labelled as such:
  * - "Sideways" is the range bars' span (highest high to lowest low) within
- *   the 3-point allowance at that price (`pointScale.ts#gannThreePoints`).
+ *   the 3-point allowance at that price (`pointScale.ts#threePoints`).
  *   Four days are tried before three.
  * - The break is the last bar closing under the range's low on a down day
  *   (close under open).
@@ -34,7 +34,7 @@
  *    the volume is the cause the break needs.
  */
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { VOLUME_CLIMAX_THRESHOLD } from "@/lib/gann/volumeClimax";
 
 export const RANGE_DAYS = [4, 3] as const;
@@ -61,7 +61,7 @@ export function readCycleRangeBreak(daily: Bar[], onCycleDate: boolean): CycleRa
     const range = daily.slice(end - n, end);
     const rangeHigh = Math.max(...range.map((b) => b.h));
     const rangeLow = Math.min(...range.map((b) => b.l));
-    if (rangeHigh - rangeLow > gannThreePoints(range[range.length - 1].c)) continue;
+    if (rangeHigh - rangeLow > threePoints(range[range.length - 1].c)) continue;
     if (last.c >= rangeLow) return null;
     const prior = daily.slice(end - n - PRIOR_VOLUME_SESSIONS, end - n);
     const avg = prior.reduce((s, b) => s + b.v, 0) / prior.length;

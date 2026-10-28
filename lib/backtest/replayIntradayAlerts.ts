@@ -46,9 +46,9 @@
  * on the distance from the fill to that stop.
  *
  * **Exits.** An alert a person trades goes through the order ticket, and every
- * protected position is managed on `LIVE_EXIT_RULE`, which is "gann" since Q14
+ * protected position is managed on `LIVE_EXIT_RULE`, which is "structure" since Q14
  * (no fixed target). So each trade is walked on `walkGannExit`, the same walk
- * the swing replay's `exitRule: "gann"` uses, with the level the entry crossed
+ * the swing replay's `exitRule: "structure"` uses, with the level the entry crossed
  * (`entryCrossedLevel`, as `readGannExitFromBars` reads it live) and the share
  * count (D2), held at most ten sessions. Reversals and re-buys are not walked:
  * a manual trade gets them only as offers in the exit notes.

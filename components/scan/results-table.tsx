@@ -38,7 +38,7 @@ export interface ScanRow {
    */
   currentPrice?: number | null;
   /**
-   * A day's range (the daily average true range, `ScanResult.dayRange`). An
+   * A day's range (the daily average true range, `PublicScanResult.dayRange`). An
    * Execute row whose entry sits further than this from price is a resting
    * order and is listed apart (`lib/setups/resting.ts`). Null or absent: not
    * known, and the row stays where its verdict put it.

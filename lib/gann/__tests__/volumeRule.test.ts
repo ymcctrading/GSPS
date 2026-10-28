@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeVolumeClimax, heaviestWeekBeforeTop } from "../volumeClimax";
 import { computeGannOldLevelEntry } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 /** Daily bars from a list of [close, volume, range] triples. */
 function bars(rows: Array<[number, number, number]>): Bar[] {
@@ -489,7 +489,7 @@ describe("a double top whose earlier high came on heavy volume (A-ENTRY-20, W006
     const b = doubleTop(4000);
     const sell = computeGannOldLevelEntry(b, "bearish")!;
     expect(sell.level).toBeCloseTo(101, 6);
-    expect(sell.reactionStop).toBeCloseTo(101 + gannThreePoints(101), 6);
+    expect(sell.reactionStop).toBeCloseTo(101 + threePoints(101), 6);
     const high = computeVolumeClimax(b).find((r) => r.anchorKind === "high")!;
     expect(high.retestOfHeavyTop).toBe(true);
     expect(high.climax).toBe(true);
@@ -511,7 +511,7 @@ describe("a double top whose earlier high came on heavy volume (A-ENTRY-20, W006
   it("does not name a top that crossed the old one by the 3 points a second test (review M3)", () => {
     const inside = computeVolumeClimax(doubleTop(4000, 104)).find((r) => r.anchorKind === "high")!;
     expect(inside.anchorPrice).toBeCloseTo(105, 6);
-    expect(105 <= 101 + gannThreePoints(101)).toBe(true);
+    expect(105 <= 101 + threePoints(101)).toBe(true);
     expect(inside.retestOfHeavyTop).toBe(true);
     for (const secondTop of [110, 120]) {
       const over = computeVolumeClimax(doubleTop(4000, secondTop)).find((r) => r.anchorKind === "high")!;

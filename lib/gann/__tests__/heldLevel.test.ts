@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import type { Bar } from "@/lib/types";
 import { HELD_LEVEL_SESSIONS, readHeldLevel } from "@/lib/gann/heldLevel";
-import { gannThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import { threePoints, pricePoint } from "@/lib/gann/pointScale";
 import { buildMacroContext } from "@/lib/backtest/replay";
 import { toMonthlyBars } from "@/lib/gann/disclosedRules";
 
@@ -33,8 +33,8 @@ describe("historicalSR: the reaction stopped at an old level and held (heldLevel
   });
 
   it("fails when the reaction stopped short of the level by more than 1 point, or went through by more than 3", () => {
-    const one = gannPoint(50);
-    const three = gannThreePoints(50);
+    const one = pricePoint(50);
+    const three = threePoints(50);
     const short = 50 + one + 0.2;
     const through = 50 - three - 0.2;
     expect(readHeldLevel(sessions([58, 57, 56, 55, short, 56, 57, 58, 58, 58]), level, 58.5, "bullish")).toBeNull();

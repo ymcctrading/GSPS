@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { gannBuyZone, tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import { NEVER_FAILING_RULES } from "@/lib/risk/neverFailingRules";
 
@@ -24,10 +24,10 @@ describe("the buying zone", () => {
   it("runs from the entry to 1 point short of the stop", () => {
     const zone = gannBuyZone("bullish", 51, 47);
     expect(zone.near).toBe(51);
-    expect(zone.far).toBeCloseTo(47 + gannThreePoints(47) / 3, 9);
+    expect(zone.far).toBeCloseTo(47 + threePoints(47) / 3, 9);
     const short = gannBuyZone("bearish", 49, 53);
     expect(short.near).toBe(49);
-    expect(short.far).toBeCloseTo(53 - gannThreePoints(53) / 3, 9);
+    expect(short.far).toBeCloseTo(53 - threePoints(53) / 3, 9);
   });
 
   it("is traded into when a long's low (a short's high) reaches the entry", () => {

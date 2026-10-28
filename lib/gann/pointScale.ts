@@ -54,20 +54,20 @@ export const MIN_ALLOWANCE_PCT = 1;
 export const MAX_ALLOWANCE_PCT = 12;
 
 /** Gann's 3-point allowance at this price, as a percentage of the price. */
-export function gannThreePointsPct(price: number): number {
+export function threePointsPct(price: number): number {
   if (!(price > 0)) return 0;
   const pct = ANCHOR_PCT * Math.pow(price / ANCHOR_PRICE, EXPONENT) * 100;
   return Math.min(MAX_ALLOWANCE_PCT, Math.max(MIN_ALLOWANCE_PCT, pct));
 }
 
 /** Gann's 3-point allowance at this price, in dollars. */
-export function gannThreePoints(price: number): number {
-  return (price * gannThreePointsPct(price)) / 100;
+export function threePoints(price: number): number {
+  return (price * threePointsPct(price)) / 100;
 }
 
 /** The level moved Gann's 3 points beyond it: up for `sign` 1, down for -1. */
 export function beyondByThreePoints(level: number, sign: 1 | -1): number {
-  return level + sign * gannThreePoints(level);
+  return level + sign * threePoints(level);
 }
 
 /**
@@ -79,7 +79,7 @@ export function levelBeforeThreePoints(trigger: number, direction: "bullish" | "
   const sign = direction === "bullish" ? 1 : -1;
   let level = trigger;
   for (let i = 0; i < 50; i++) {
-    const next = trigger - sign * gannThreePoints(level);
+    const next = trigger - sign * threePoints(level);
     if (Math.abs(next - level) < 1e-10 * trigger) return next;
     level = next;
   }
@@ -103,8 +103,8 @@ export function levelBeforeThreePoints(trigger: number, direction: "bullish" | "
  * stops and ¼-point filter (`overnightChart.ts`) and Rule 8's "around the same
  * price" (`closeCluster.ts`). Engineering choice, labelled as such.
  */
-export function gannPoint(price: number): number {
-  return gannThreePoints(price) / 3;
+export function pricePoint(price: number): number {
+  return threePoints(price) / 3;
 }
 
 /**
@@ -114,7 +114,7 @@ export function gannPoint(price: number): number {
  * between the lowest low and the highest high (Gann: "the gravity center",
  * Master Calculator, 1953). Engineering choice, labelled as such.
  */
-export function gannPointForBars(bars: { h: number; l: number }[]): number {
+export function pointForBars(bars: { h: number; l: number }[]): number {
   if (bars.length === 0) return 0;
   let low = Infinity;
   let high = -Infinity;
@@ -123,7 +123,7 @@ export function gannPointForBars(bars: { h: number; l: number }[]): number {
     if (b.h > high) high = b.h;
   }
   if (!(low > 0) || !(high >= low)) return 0;
-  return gannPoint((low + high) / 2);
+  return pricePoint((low + high) / 2);
 }
 
 /**
@@ -145,5 +145,5 @@ export const MIN_POINT_PCT = 0.05;
 export function intradayPoint(price: number, barAtr: number, dailyAtr: number): number {
   if (!(price > 0) || !(barAtr > 0) || !(dailyAtr > 0)) return 0;
   const scale = Math.min(1, barAtr / dailyAtr);
-  return Math.max((gannThreePoints(price) / 3) * scale, (price * MIN_POINT_PCT) / 100);
+  return Math.max((threePoints(price) / 3) * scale, (price * MIN_POINT_PCT) / 100);
 }

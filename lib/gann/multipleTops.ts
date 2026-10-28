@@ -37,7 +37,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePointsPct } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 export const RECENT_SESSIONS = 5;
@@ -66,7 +66,7 @@ export interface MultipleTopsReading {
 function cluster(prices: number[], kind: "top" | "bottom"): { mean: number; level: number; tests: number; lastIndexInList: number }[] {
   const out: { mean: number; level: number; tests: number; lastIndexInList: number }[] = [];
   prices.forEach((p, i) => {
-    const hit = out.find((c) => (Math.abs(p - c.mean) / c.mean) * 100 <= gannThreePointsPct(c.mean));
+    const hit = out.find((c) => (Math.abs(p - c.mean) / c.mean) * 100 <= threePointsPct(c.mean));
     if (hit) {
       hit.mean = (hit.mean * hit.tests + p) / (hit.tests + 1);
       hit.level = kind === "top" ? Math.max(hit.level, p) : Math.min(hit.level, p);

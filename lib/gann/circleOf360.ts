@@ -37,7 +37,7 @@
  * the ÷24 list omits 255.
  *
  * Engineering choices, labelled as such:
- * - Price is read in Gann points (`pointScale.ts#gannPointForBars`), one
+ * - Price is read in Gann points (`pointScale.ts#pointForBars`), one
  *   point to a degree, as his cents are on grains; par is 100 points, which
  *   is $100 at the prices GA-32 was written for.
  * - "Very close" is within 1¼ points or degrees, the loosest of his soy bean

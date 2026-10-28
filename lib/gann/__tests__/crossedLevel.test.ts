@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { threePoints, threePointsPct } from "@/lib/gann/pointScale";
 
 function bars(closes: number[]): Bar[] {
   const t0 = Date.parse("2026-03-02T00:00:00Z");
@@ -28,7 +28,7 @@ describe("the crossed level persists through the reaction", () => {
     const t = computeGannEntryTrigger(bars([...BASE, ...REACTION]), "bullish")!;
     expect(t.level).toBeCloseTo(before.level, 8);
     expect(t.level).toBeLessThan(51);
-    expect(t.reactionEntry).toBeCloseTo(t.level + gannThreePoints(t.level) / 3, 8);
+    expect(t.reactionEntry).toBeCloseTo(t.level + threePoints(t.level) / 3, 8);
   });
 
   it("does not hold a level that closes past it by less than 3 points", () => {
@@ -51,7 +51,7 @@ describe("the crossed level persists through the reaction", () => {
     const before = computeGannEntryTrigger(bars(mirror(BASE)), "bearish")!;
     const t = computeGannEntryTrigger(bars(mirror([...BASE, ...REACTION])), "bearish")!;
     expect(t.level).toBeCloseTo(before.level, 8);
-    expect(t.reactionEntry).toBeCloseTo(t.level - gannThreePoints(t.level) / 3, 8);
+    expect(t.reactionEntry).toBeCloseTo(t.level - threePoints(t.level) / 3, 8);
   });
 });
 
@@ -78,7 +78,7 @@ describe("which crossed level is held, and when it ends", () => {
     expect(t).not.toBeNull();
     expect(t.held).toBe(true);
     expect(t.level).toBeLessThan(51);
-    expect(t.stopPrice).toBeCloseTo(t.level - gannThreePoints(t.level), 8);
+    expect(t.stopPrice).toBeCloseTo(t.level - threePoints(t.level), 8);
     expect(t.crossedAt).not.toBeNull();
   });
 
@@ -133,7 +133,7 @@ describe("which crossed level is held, and when it ends", () => {
   it("counts a close exactly on the 3-point line as the crossing", () => {
     const head = [...leg(40, 50, 6), ...leg(50, 44, 4), ...leg(44, 49, 4)];
     const level = 50.3;
-    const line = level * (1 + gannThreePointsPct(level) / 100);
+    const line = level * (1 + threePointsPct(level) / 100);
     const t = computeGannEntryTrigger(bars([...head, line]), "bullish")!;
     expect(t.level).toBe(level);
     expect(t.held).toBe(true);

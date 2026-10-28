@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar, TrendReading } from "@/lib/types";
 import { gannEntryOf } from "@/lib/scan/entrySelection";
 import { HOLD_WEEKS_MIN_DAYS, computeGannHoldEntry, selectGannEntry, type OlderGannLevel } from "@/lib/gann/entryTrigger";
-import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePoints } from "@/lib/gann/pointScale";
 import { readCounterMove } from "@/lib/gann/disclosedRules";
 
 const DAY = 86_400_000;
@@ -67,11 +67,11 @@ describe("the weeks form (A-ENTRY-01)", () => {
     const bars = daily([...DOWN, ...REACTION, ...flat(100.6, 101.4, 8), 103, 104, 105]);
     const low = 99.7;
     const risk = 105 - beyondByThreePoints(low, -1);
-    expect(risk).toBeGreaterThan((5 / 3) * gannThreePoints(105));
+    expect(risk).toBeGreaterThan((5 / 3) * threePoints(105));
     expect(computeGannHoldEntry(bars, "bullish")).toBeNull();
     // Within it, the same low is a buy.
     const near = daily([...DOWN, ...REACTION, ...flat(100.6, 101.4, 8), 102.5]);
-    expect(102.5 - beyondByThreePoints(low, -1)).toBeLessThanOrEqual((5 / 3) * gannThreePoints(102.5));
+    expect(102.5 - beyondByThreePoints(low, -1)).toBeLessThanOrEqual((5 / 3) * threePoints(102.5));
     expect(computeGannHoldEntry(near, "bullish")?.reactionEntry).toBeCloseTo(102.5, 8);
   });
 

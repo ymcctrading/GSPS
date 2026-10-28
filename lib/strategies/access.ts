@@ -11,13 +11,13 @@
 import type { EntitlementPolicy } from "@/lib/entitlements/policy";
 import type { StrategyModeId } from "./types";
 
-/** `"gann"` (the structural default) is always allowed — this only governs
+/** `"gsps"` (the structural default) is always allowed — this only governs
  * the opt-in, non-default modes. */
 export function isStrategyModeAllowedForPolicy(
   policy: Pick<EntitlementPolicy, "allowedStrategyModes">,
   mode: StrategyModeId,
 ): boolean {
-  if (mode === "gann") return true;
+  if (mode === "gsps") return true;
   const allowed = policy.allowedStrategyModes;
   if (allowed === "all") return true;
   return allowed.includes(mode);

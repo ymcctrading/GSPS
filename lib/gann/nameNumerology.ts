@@ -16,7 +16,7 @@
  * How it acts, where Gann says it acts (AGENTS.md, "Every Gann method acts",
  * 2026-10-01):
  * - Price: the name's numbers are prices, as Steel's 34, 51 ... 272 were. They
- *   are read in Gann points (`pointScale.ts#gannPoint`, the unit every other
+ *   are read in Gann points (`pointScale.ts#pricePoint`, the unit every other
  *   lattice in the S/R list uses), and the nearest above and below price join
  *   the S/R list through `masterLevels.ts`, on the live scan and the replay
  *   alike: one name, one pair of levels.

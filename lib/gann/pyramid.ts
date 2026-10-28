@@ -51,7 +51,7 @@
  * - **Add at fixed steps** (A-PYRAMID-01, W006 p.47 Rule 5: every 5 points
  *   for stocks at $20-50, every 10 at $80-200; A-PYRAMID-06, W022 pp.196-199:
  *   10-point steps). Read as `PYRAMID_STEP_POINTS` Gann points past the last
- *   lot, price-scaled by `gannPoint`, which makes his 5 at $42.50 and about
+ *   lot, price-scaled by `pricePoint`, which makes his 5 at $42.50 and about
  *   10 at $150-200 one figure. Until 2026-10-16 the step was one risk unit.
  * - **Raise the whole line's stop to 10 points under as it grows** (A-STOP-06,
  *   W022 p.198: at 253 the stop on the whole line goes to 243). Read as the
@@ -81,7 +81,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, pricePoint } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
@@ -156,7 +156,7 @@ export const PYRAMID_STEP_POINTS = 5;
  * looser than the stop already in place.
  */
 export function wholeLineStop(side: "long" | "short", avg: number, trigger: number, current: number): number {
-  const step = PYRAMID_STEP_POINTS * gannPoint(trigger);
+  const step = PYRAMID_STEP_POINTS * pricePoint(trigger);
   return side === "long" ? Math.max(current, avg, trigger - step) : Math.min(current, avg, trigger + step);
 }
 
@@ -273,7 +273,7 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   // Only add to a winner, at fixed steps: the last lot must show
   // PYRAMID_STEP_POINTS Gann points of profit (A-PYRAMID-01, A-PYRAMID-06).
   const lastProfit = long ? price - last.price : last.price - price;
-  if (lastProfit < PYRAMID_STEP_POINTS * gannPoint(last.price)) {
+  if (lastProfit < PYRAMID_STEP_POINTS * pricePoint(last.price)) {
     return { add: null, reason: "The last lot hasn't yet gained a full step of profit." };
   }
 

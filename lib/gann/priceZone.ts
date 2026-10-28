@@ -23,7 +23,7 @@
  *   45-degree line): a line from a low at a fixed number of points per
  *   calendar month. `pointsPerMonth` is a labelled per-instrument input; the
  *   card uses the Master Course's 1 a month for stocks, in Gann points
- *   (`gannPointForBars`, $1 at $42.50), the scale the fans read a daily bar
+ *   (`pointForBars`, $1 at $42.50), the scale the fans read a daily bar
  *   since Q27 (2026-10-16). Raw dollars until review 24.
  *
  * Engineering choices, labelled: the first fall starts once price is under
@@ -42,7 +42,7 @@
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
 import { OLDER_LEVELS_YEARS } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 export type PriceZone = "under 50" | "50 to 100" | "100 to 150" | "150 to 200" | "over 200";
 
@@ -82,7 +82,7 @@ export function readFirstFallFromHigh(daily: Bar[], asOf: Date): FirstFallReadin
   if (bars.length === 0) return null;
   const high = bars.reduce((m, b) => Math.max(m, b.h), -Infinity);
   const pointsDown = high - bars[bars.length - 1].c;
-  return { high, pointsDown, inFirstFall: pointsDown > gannThreePoints(high) && pointsDown <= FIRST_FALL_POINTS };
+  return { high, pointsDown, inFirstFall: pointsDown > threePoints(high) && pointsDown <= FIRST_FALL_POINTS };
 }
 
 export interface AnnualRangeReading {

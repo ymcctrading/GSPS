@@ -185,9 +185,12 @@ export async function GET(req: NextRequest) {
   }
   const reclaimPoints = reclaimPointsRaw === null ? undefined : Number(reclaimPointsRaw);
 
-  const exitRuleRaw = searchParams.get("exitRule");
-  if (exitRuleRaw !== null && exitRuleRaw !== "bracket" && exitRuleRaw !== "gann" && exitRuleRaw !== "gann-runner") {
-    return NextResponse.json({ error: `Invalid exitRule '${exitRuleRaw}' (bracket | gann | gann-runner)` }, { status: 400 });
+  // The ids before 2026-10-28 ("gann", "gann-runner") are still read, so an
+  // earlier run's link reproduces.
+  const exitRuleParam = searchParams.get("exitRule");
+  const exitRuleRaw = exitRuleParam === "gann" ? "structure" : exitRuleParam === "gann-runner" ? "structure-runner" : exitRuleParam;
+  if (exitRuleRaw !== null && exitRuleRaw !== "bracket" && exitRuleRaw !== "structure" && exitRuleRaw !== "structure-runner") {
+    return NextResponse.json({ error: `Invalid exitRule '${exitRuleRaw}' (bracket | structure | structure-runner)` }, { status: 400 });
   }
   const exitRule = exitRuleRaw ?? undefined;
 

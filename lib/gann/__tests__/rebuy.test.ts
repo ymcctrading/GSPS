@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import { gannRebuy, rebuyOffer, rebuysOn, REBUY_REACTION_POINTS } from "@/lib/gann/rebuy";
 
 // W022 p.198: stopped near the top after about 230, bought again at 218 (down
@@ -7,7 +7,7 @@ import { gannRebuy, rebuyOffer, rebuysOn, REBUY_REACTION_POINTS } from "@/lib/ga
 describe("buying again after a stop, on the reaction (A-PYRAMID-07)", () => {
   it("rests 12 points under the best price with the stop half the reaction below", () => {
     const r = gannRebuy({ side: "long", extreme: 230, trend: "bullish" })!;
-    const p = gannPoint(230);
+    const p = pricePoint(230);
     expect(r.entry).toBeCloseTo(230 - 12 * p, 9);
     expect(r.stop).toBeCloseTo(r.entry - 6 * p, 9);
     expect(REBUY_REACTION_POINTS).toBe(12);

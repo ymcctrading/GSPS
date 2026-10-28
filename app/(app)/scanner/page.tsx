@@ -13,9 +13,9 @@ import { SavedSearches } from "@/components/scan/saved-searches";
 import { SECTORS, COMING_SOON } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 
-function toRow(r: ScanResult): ScanRow {
+function toRow(r: PublicScanResult): ScanRow {
   return {
     symbol: r.symbol,
     score: r.decision.score,
@@ -89,7 +89,7 @@ export default function ScannerPage() {
       const res = await fetch(`/api/batch-scan?tickers=${encodeURIComponent([...symbols].join(","))}`);
       if (!res.ok) throw new Error(`Scan failed (${res.status})`);
       const data = await res.json();
-      const all = (data.results ?? []) as ScanResult[];
+      const all = (data.results ?? []) as PublicScanResult[];
       const ok = all.filter((r) => !r.error);
       setFailed(all.filter((r) => r.error).map((r) => r.symbol));
       setExactScoreDisplayEnabled(Boolean(data.exactScoreDisplayEnabled));

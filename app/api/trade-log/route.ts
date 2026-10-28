@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      tradeLog: data,
+      tradeLog: data ? withoutVersion(data) : data,
     });
   } catch (err) {
     return NextResponse.json(
@@ -115,7 +115,7 @@ export async function GET() {
     const stillPending = (data ?? []).filter((row) => row.outcome === "pending").length;
 
     return NextResponse.json({
-      tradeLogs: data,
+      tradeLogs: (data ?? []).map(withoutVersion),
       // Paper trades resolve at fill time, so this should always read zero —
       // kept in the response shape so a client built against the old contract
       // doesn't need to change.
@@ -127,4 +127,12 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+/** The rules version names a rule in the method's words; it stays on the
+ *  server (AGENTS.md, "Confidential sources", 2026-10-28). */
+function withoutVersion<T extends Record<string, unknown>>(row: T): Omit<T, "strategy_version"> {
+  const { strategy_version: _version, ...rest } = row;
+  void _version;
+  return rest;
 }

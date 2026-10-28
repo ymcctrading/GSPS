@@ -15,7 +15,7 @@ import { gannReversal } from "@/lib/gann/reverse";
 import type { GannEntryKind, GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { combineNearbyLevels } from "@/lib/gann/nearbyLevels";
 import { levelOnFigure, stopBeyondFigure, targetCandidates } from "@/lib/gann/evenFigures";
-import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePoints, threePointsPct } from "@/lib/gann/pointScale";
 import type { AssetClass, Bar, PivotPlan, StratPattern, TradeLevels } from "@/lib/types";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { roundPrice as round, priceText } from "./priceText";
@@ -140,7 +140,7 @@ export function oldLevelBehindStop(
   let best: number | null = null;
   for (const L of levels) {
     if (!(dir * (entry - L) > 0)) continue;
-    if (!(dir * (L - stop) >= gannThreePoints(L) - 0.01)) continue;
+    if (!(dir * (L - stop) >= threePoints(L) - 0.01)) continue;
     if (best === null || dir * (L - best) < 0) best = L;
   }
   return best;
@@ -218,14 +218,14 @@ export function computeEquityTradeLevels(params: {
     stopLoss = params.stopLoss;
   } else if (structuralStop !== null) {
     const anchored = evenFigures ? levelOnFigure(structuralStop, direction) : structuralStop;
-    const ceiling = stopMaxPct + gannThreePointsPct(entry);
+    const ceiling = stopMaxPct + threePointsPct(entry);
     const fromFigure = beyondByThreePoints(anchored, -dir as 1 | -1);
     stopLoss = (Math.abs(entry - fromFigure) / entry) * 100 <= ceiling
       ? fromFigure
       : beyondByThreePoints(structuralStop, -dir as 1 | -1);
   } else {
     const rawStop = entry - dir * (fallbackStopPct / 100) * entry;
-    stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + gannThreePointsPct(entry)) : rawStop;
+    stopLoss = evenFigures ? stopBeyondFigure(entry, rawStop, direction, stopMaxPct + threePointsPct(entry)) : rawStop;
   }
 
   // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TradePlan } from "@/lib/lifecycle/types";
 import { freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { buildPivotTradePlanFromStoppedPlan } from "@/lib/lifecycle/fromPivot";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 function stoppedPlan(overrides: Partial<TradePlan> = {}): TradePlan {
   return {
@@ -65,7 +65,7 @@ describe("buildPivotTradePlanFromStoppedPlan", () => {
   it("sets the reversal's stop 3 points beyond the old trade's extreme (A-EXIT-02)", () => {
     // Original: bullish, entry 100. With no extreme known, the entry stands in for the top.
     const input = buildPivotTradePlanFromStoppedPlan(stoppedPlan(), { generatedAt: "2026-09-01T00:00:00.000Z" });
-    expect(input!.coordinates.invalidation).toBeCloseTo(100 + gannThreePoints(100), 10);
+    expect(input!.coordinates.invalidation).toBeCloseTo(100 + threePoints(100), 10);
     // The top the long reached, and the level that broke, when the exit manager knows them.
     const known = buildPivotTradePlanFromStoppedPlan(stoppedPlan(), {
       generatedAt: "2026-09-01T00:00:00.000Z",
@@ -73,12 +73,12 @@ describe("buildPivotTradePlanFromStoppedPlan", () => {
       extreme: 106,
     });
     expect(known!.coordinates.entryTrigger).toBe(101);
-    expect(known!.coordinates.invalidation).toBeCloseTo(106 + gannThreePoints(106), 10);
+    expect(known!.coordinates.invalidation).toBeCloseTo(106 + threePoints(106), 10);
   });
 
   it("marks levels to watch one and two risk-multiples beyond the new entry, in the new direction", () => {
     const input = buildPivotTradePlanFromStoppedPlan(stoppedPlan(), { generatedAt: "2026-09-01T00:00:00.000Z" });
-    const risk = 100 + gannThreePoints(100) - 97;
+    const risk = 100 + threePoints(100) - 97;
     expect(input!.coordinates.takeProfit1).toBeCloseTo(97 - risk, 10);
     expect(input!.coordinates.takeProfit2).toBeCloseTo(97 - 2 * risk, 10);
     expect(input!.coordinates.masterProfit).toBe(input!.coordinates.takeProfit2);
@@ -109,7 +109,7 @@ describe("buildPivotTradePlanFromStoppedPlan", () => {
     expect(input!.direction).toBe("bullish");
     expect(input!.coordinates.entryTrigger).toBe(103);
     // The original entry is the bearish trade's extreme; the stop is 3 points under it.
-    const stop = 100 - gannThreePoints(100);
+    const stop = 100 - threePoints(100);
     expect(input!.coordinates.invalidation).toBeCloseTo(stop, 10);
     expect(input!.coordinates.takeProfit1).toBeCloseTo(103 + (103 - stop), 10);
     expect(input!.coordinates.takeProfit2).toBeCloseTo(103 + 2 * (103 - stop), 10);

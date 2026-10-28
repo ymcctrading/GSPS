@@ -8,6 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ConfluenceCard } from "./confluence-card";
+import { redactScanResult } from "@/lib/scoring/public-summary";
 import type { ScanResult } from "@/lib/types";
 import { EMPTY_DISCLOSED_RULES } from "@/lib/gann/disclosedRules";
 import { masterTwelveCell } from "@/lib/gann/masterTwelve";
@@ -131,14 +132,14 @@ function makeResult(): ScanResult {
 
 describe("ConfluenceCard", () => {
   it("renders nothing when the scan has no signals field", () => {
-    const { container } = render(<ConfluenceCard result={{ ...baseResult, signals: undefined }} />);
+    const { container } = render(<ConfluenceCard result={redactScanResult({ ...baseResult, signals: undefined })} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("renders nothing when both confluence modules are disabled (null)", () => {
     const { container } = render(
       <ConfluenceCard
-        result={{ ...baseResult, signals: { ...baseSignals, gannConfluence: null, saraConfluence: null } }}
+        result={redactScanResult({ ...baseResult, signals: { ...baseSignals, gannConfluence: null, saraConfluence: null } })}
       />,
     );
     expect(container).toBeEmptyDOMElement();
@@ -147,7 +148,7 @@ describe("ConfluenceCard", () => {
   it("shows both readings as plain-English agreement badges", () => {
     const result = makeResult();
 
-    render(<ConfluenceCard result={result} />);
+    render(<ConfluenceCard result={redactScanResult(result)} />);
 
     expect(screen.getByText("Context")).toBeInTheDocument();
     expect(screen.getByText("Price levels and timing")).toBeInTheDocument();
@@ -203,27 +204,27 @@ describe("time lines carry their measured record or are hidden", () => {
       timeProjectionDate: "2027-01-15",
       rank: 1,
     };
-    render(<ConfluenceCard result={r} />);
+    render(<ConfluenceCard result={redactScanResult(r)} />);
     expect(screen.getByText(/A trend line from the last low sits at 100.00/)).toBeInTheDocument();
     expect(screen.queryByText(/1x1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/2027-01-15/)).not.toBeInTheDocument();
   });
 
   it("drops the macro cycle's next major date, which has no measured record (CYC-47)", () => {
-    render(<ConfluenceCard result={withTime()} />);
+    render(<ConfluenceCard result={redactScanResult(withTime())} />);
     expect(screen.queryByText(/Next major/)).not.toBeInTheDocument();
     expect(screen.queryByText(/2027-04/)).not.toBeInTheDocument();
   });
 
   it("shows the time-cycle and day-count lines with their measured record (CYC-30)", () => {
-    render(<ConfluenceCard result={withTime()} />);
+    render(<ConfluenceCard result={redactScanResult(withTime())} />);
     expect(screen.getByText(/A timing window is open/)).toBeInTheDocument();
     expect(screen.getByText(/30 days since the last turn/)).toBeInTheDocument();
     expect(screen.getAllByText(/no better than chance/i).length).toBe(2);
   });
 
   it("hides time lines that have no measured record (CYC-30)", () => {
-    render(<ConfluenceCard result={withTime()} />);
+    render(<ConfluenceCard result={redactScanResult(withTime())} />);
     for (const label of [/long-term timing window/, /weekly timing window/, /monthly timing window/, /14 days since/, /possible swing/]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
@@ -257,7 +258,7 @@ describe("context readings reach the card", () => {
   }
 
   it("shows the first rally out of a bear market (A-TIME-03)", () => {
-    render(<ConfluenceCard result={withContext()} />);
+    render(<ConfluenceCard result={redactScanResult(withContext())} />);
     expect(screen.getByText(/advance from the bear-market low is a first rally so far/)).toBeInTheDocument();
   });
 
@@ -265,28 +266,28 @@ describe("context readings reach the card", () => {
     const r = withContext();
     const rules = r.signals!.gannConfluence!.disclosedRules;
     rules.firstRally = { lowMonth: "2026-01", topMonth: "2026-05", advanceMonths: 4, volumeRatio: 1.2, state: "bullCampaign" };
-    render(<ConfluenceCard result={r} />);
+    render(<ConfluenceCard result={redactScanResult(r)} />);
     expect(screen.getByText(/bull trend has run 4 months/)).toBeInTheDocument();
   });
 
   it("shows nearly equal reactions in an uptrend (C-SWING-01)", () => {
-    render(<ConfluenceCard result={withContext()} />);
+    render(<ConfluenceCard result={redactScanResult(withContext())} />);
     expect(screen.getByText(/last three pullbacks in the uptrend were nearly equal/)).toBeInTheDocument();
   });
 
   it("shows a range broken on volume, with the time-cycle record beside its date (C-TIME-03)", () => {
-    render(<ConfluenceCard result={withContext()} />);
+    render(<ConfluenceCard result={redactScanResult(withContext())} />);
     expect(screen.getByText(/4-day range broke down on 2.5× volume, inside a timing window/)).toBeInTheDocument();
     expect(screen.getAllByText(/no better than chance/i).length).toBeGreaterThan(0);
   });
 
   it("labels each of the three as context that does not change the setup", () => {
-    render(<ConfluenceCard result={withContext()} />);
+    render(<ConfluenceCard result={redactScanResult(withContext())} />);
     expect(screen.getAllByText(/does not change the setup/).length).toBe(3);
   });
 
   it("keeps the dated change-date label off the card while it has no measured record (A-TIME-16)", () => {
-    render(<ConfluenceCard result={withContext()} />);
+    render(<ConfluenceCard result={redactScanResult(withContext())} />);
     expect(screen.queryByText(/2026-11-09/)).not.toBeInTheDocument();
     expect(screen.queryByText(/possible high/i)).not.toBeInTheDocument();
   });
@@ -296,7 +297,7 @@ describe("the 12-by-12 time chart stays off the card (confidential sources, 2026
   it("shows no grid reading even when one is computed", () => {
     const r = makeResult();
     r.signals!.gannConfluence!.masterTwelve = { count: 144, unit: "bars", cell: masterTwelveCell(144)! };
-    render(<ConfluenceCard result={r} />);
+    render(<ConfluenceCard result={redactScanResult(r)} />);
     expect(screen.queryByText(/144 bars/)).not.toBeInTheDocument();
     expect(screen.queryByText(/square end/)).not.toBeInTheDocument();
   });

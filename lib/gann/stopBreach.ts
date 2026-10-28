@@ -73,7 +73,7 @@
 
 import type { Bar } from "@/lib/types";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 export type PlanDirection = "bullish" | "bearish";
 
@@ -123,7 +123,7 @@ export function reclaimLevel(
   /** Multiplies the allowance, for a chart finer than the daily one (the replay's intraday profile). 1 on every live path. */
   scale: number = 1,
 ): number {
-  const allowance = (gannThreePoints(stop) * scale * points) / 3;
+  const allowance = (threePoints(stop) * scale * points) / 3;
   return direction === "bearish" ? stop - allowance : stop + allowance;
 }
 

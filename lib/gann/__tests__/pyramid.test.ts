@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { averagingLossRefusal, capitalSize, LARGE_CAPITAL_MIN_SHARES, nextLotFraction, PYRAMID_LOTS, pyramidLineFromRows, PYRAMID_STEP_POINTS, readPyramidAdd, wholeLineStop } from "@/lib/gann/pyramid";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import { readHoldTime } from "@/lib/gann/exitRules";
 
 function days(closes: number[], start = "2026-06-01"): Bar[] {
@@ -167,7 +167,7 @@ describe("fixed steps and the whole-line stop (A-PYRAMID-01, A-PYRAMID-06, A-STO
     initialStop: 80,
     daily,
   };
-  const step = PYRAMID_STEP_POINTS * gannPoint(101.8);
+  const step = PYRAMID_STEP_POINTS * pricePoint(101.8);
 
   it("adds every 5 points of profit, however wide the first stop", () => {
     expect(PYRAMID_STEP_POINTS).toBe(5);
@@ -176,9 +176,9 @@ describe("fixed steps and the whole-line stop (A-PYRAMID-01, A-PYRAMID-06, A-STO
   });
 
   it("raises the whole line's stop to 5 points under the add when that is above break-even", () => {
-    expect(wholeLineStop("long", 100, 130, 90)).toBeCloseTo(130 - 5 * gannPoint(130), 8);
+    expect(wholeLineStop("long", 100, 130, 90)).toBeCloseTo(130 - 5 * pricePoint(130), 8);
     expect(wholeLineStop("long", 128, 130, 90)).toBe(128);
-    expect(wholeLineStop("short", 100, 70, 110)).toBeCloseTo(70 + 5 * gannPoint(70), 8);
+    expect(wholeLineStop("short", 100, 70, 110)).toBeCloseTo(70 + 5 * pricePoint(70), 8);
     // Never loosens a stop that is already tighter.
     expect(wholeLineStop("long", 100, 130, 129)).toBe(129);
   });

@@ -121,8 +121,8 @@ describe("the price readings reach the card and the factors, and nothing else", 
     expect(ctx.annualRange?.years).toBe(3);
     expect(ctx.integerSquares).toEqual([225, 240.5, 256]);
     // 14 months at 1 point a month, the point scaled to the symbol's price like every other angle.
-    const { gannPointForBars } = await import("@/lib/gann/pointScale");
-    const angleAt = 90 + 14 * gannPointForBars(bars);
+    const { pointForBars } = await import("@/lib/gann/pointScale");
+    const angleAt = 90 + 14 * pointForBars(bars);
     expect(angleAt).not.toBeCloseTo(104, 1);
     expect(ctx.monthlyAngle).toEqual({ from: 90, fromMonth: "2025-04", price: angleAt });
     const lines = describeDisclosedRules(ctx);

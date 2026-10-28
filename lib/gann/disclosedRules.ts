@@ -100,7 +100,7 @@ import {
   type FirstFallReading,
   type PriceZone,
 } from "@/lib/gann/priceZone";
-import { beyondByThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePointsPct } from "@/lib/gann/pointScale";
 import { readMultipleTops, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import { readRuleFollowing, type RuleFollowingReading } from "@/lib/gann/ruleFollowing";
 import { readSeasonalCount, type SeasonalCountReading } from "@/lib/gann/seasonalCounts";
@@ -139,7 +139,7 @@ import { readBreakawayVolume, type BreakawayVolumeReading } from "@/lib/gann/bre
 import { describeTopVolumeWarning, readTopVolumeWarning, type TopVolumeWarningReading } from "@/lib/gann/topVolume";
 import { readMonthCounts, readSwingMonthCounts, type PivotMonthCount } from "@/lib/gann/angleMonthCounts";
 import { describeBearDuration, readBearDuration, type BearDurationReading } from "@/lib/gann/bearDuration";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { describeMasterCalculator, readMasterCalculator, type MasterCalculatorReading } from "@/lib/gann/masterCalculator";
 import {
   describeCircle,
@@ -471,7 +471,7 @@ function nearestTestedLevel(prices: number[], currentPrice: number, side: "below
   const candidates = prices.filter((p) => (side === "below" ? p < currentPrice : p > currentPrice));
   if (candidates.length === 0) return null;
   const nearest = candidates.reduce((a, b) => (Math.abs(b - currentPrice) < Math.abs(a - currentPrice) ? b : a));
-  const cluster = prices.filter((p) => (Math.abs(p - nearest) / nearest) * 100 <= gannThreePointsPct(nearest));
+  const cluster = prices.filter((p) => (Math.abs(p - nearest) / nearest) * 100 <= threePointsPct(nearest));
   const level = cluster.reduce((s, p) => s + p, 0) / cluster.length;
   return { level, tests: cluster.length };
 }
@@ -832,8 +832,8 @@ export function readDisclosedRules(
   const marketMonthly = instrument?.marketMonthly
     ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t))
     : null;
-  // One Gann point for the whole read (`pointScale.ts#gannPointForBars`), as the S/R levels use.
-  const unit = gannPointForBars(dailyBars);
+  // One Gann point for the whole read (`pointScale.ts#pointForBars`), as the S/R levels use.
+  const unit = pointForBars(dailyBars);
   const inception = instrument?.inception;
   return {
     barMidpoint: readBarMidpoint(dailyBars),

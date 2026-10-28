@@ -4,7 +4,7 @@
  *
  * - A-RISK-01 (W006 p.46, Rule 1, class A): hold at least $3,000 of capital
  *   for every 100 shares traded. Ported as 30 Gann points of capital a share
- *   (`pointScale.ts#gannPoint`, $1 at $42.50), so the rule scales with the
+ *   (`pointScale.ts#pricePoint`, $1 at $42.50), so the rule scales with the
  *   price level the way his point does; the literal dollars are 1930s stock
  *   prices. Every open share counts against the same capital, not only the
  *   new order's.
@@ -43,7 +43,7 @@
  *    the market's own point) and Mentalism (attention spread over many
  *    markets is attention lost; "do not diversify").
  */
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import { isOtherMarket } from "@/lib/market/otherMarkets";
 
 /** $3,000 per 100 shares at Gann's $1 point. */
@@ -56,7 +56,7 @@ export const MAX_OPEN_OTHER_MARKETS = 3;
 export const MAX_RISK_FRACTION = 1 / 10;
 
 export function capitalPerShare(price: number): number {
-  return CAPITAL_POINTS_PER_SHARE * gannPoint(price);
+  return CAPITAL_POINTS_PER_SHARE * pricePoint(price);
 }
 
 export function maxSharesForCapital(capital: number, price: number): number {

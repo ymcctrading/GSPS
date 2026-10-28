@@ -18,7 +18,7 @@
  *   281 means "watch near 288 (2x144)".
  *
  * Engineering choices, labelled as such:
- * - Prices are read in Gann points (`pointScale.ts#gannPointForBars`), the
+ * - Prices are read in Gann points (`pointScale.ts#pointForBars`), the
  *   unit the Square of 144 Master Calculator and the circle of 360° already
  *   use. At $42.50 a point is $1, Gann's literal unit; elsewhere it scales
  *   with price. Ch. 13 gives separate scales for grains, stocks and cotton

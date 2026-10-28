@@ -36,7 +36,7 @@
  *
  * `options.disableExits` (measurement only, `ReplayOptions.disableExits`)
  * switches named Gann exit rules off inside the walk, e.g.
- * `{"exitRule":"gann","disableExits":["three_adverse_closes"]}`. Every name
+ * `{"exitRule":"structure","disableExits":["three_adverse_closes"]}`. Every name
  * is checked against `GANN_EXIT_RULE_NAMES` before any symbol is fetched, and
  * an unknown one stops the run.
  *
@@ -66,6 +66,8 @@ export const MEGA_12 = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA", "GOOGL", "
 
 /** Symbols between partial write-outs (see `writeResults`). */
 export const CHECKPOINT_EVERY = 50;
+
+const LEGACY_EXIT_RULES = { gann: "structure", "gann-runner": "structure-runner" };
 
 export const DEFAULT_CELLS = [{ label: "baseline", options: { useProductionStop: true } }];
 
@@ -125,6 +127,9 @@ export function validateCells(cells) {
     if (c.options !== undefined && (typeof c.options !== "object" || Array.isArray(c.options))) {
       throw new Error(`Cell "${c.label}": "options" must be an object`);
     }
+    // The exit rules' ids before 2026-10-28 ("gann", "gann-runner"); earlier
+    // runs and notes still name them.
+    if (c.options?.exitRule in LEGACY_EXIT_RULES) c.options.exitRule = LEGACY_EXIT_RULES[c.options.exitRule];
   }
   return cells;
 }
@@ -625,7 +630,7 @@ async function main() {
         throw new Error(`Cell "${cell.label}": disableExits is not supported on this ref.`);
       }
       try {
-        resolveDisableExits(names, cell.options?.exitRule ?? "gann");
+        resolveDisableExits(names, cell.options?.exitRule ?? "structure");
         if (cell.options?.profile === "intraday" && names.length > 0) {
           throw new Error("disableExits applies to the swing profile's exit rules, not the intraday profile");
         }

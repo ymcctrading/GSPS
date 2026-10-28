@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { readNarrowWeekBreak } from "@/lib/gann/narrowWeek";
 import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
@@ -17,7 +17,7 @@ function weeks(rows: [number, number, number, number][]): Bar[] {
 }
 /** Thirteen ordinary weeks around 80 on volume 100. */
 const BASE: [number, number, number, number][] = Array.from({ length: 13 }, (_, i) => [78 + (i % 2), 84 + (i % 2), 81, 100]);
-const P = gannThreePoints(78);
+const P = threePoints(78);
 
 describe("a narrow week, then a sharp drop on large volume (A-ENTRY-19)", () => {
   // Ranges 6, 5, 7, then a 2-point week, then a week closing 3 points under its low on twice the volume.
@@ -58,7 +58,7 @@ describe("a narrow week, then a sharp drop on large volume (A-ENTRY-19)", () => 
   });
 
   it("reads the mirror, a sharp rise on volume after a narrow week, as up", () => {
-    const P2 = gannThreePoints(82);
+    const P2 = threePoints(82);
     const r = readNarrowWeekBreak(weeks([...BASE, ...narrow, [81, 82 + P2 + 0.6, 82 + P2 + 0.1, 200]]));
     expect(r?.direction).toBe("bullish");
   });

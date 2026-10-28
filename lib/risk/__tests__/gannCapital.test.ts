@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import {
   MAX_OPEN_OTHER_MARKETS,
   MAX_OPEN_STOCKS,
@@ -20,13 +20,13 @@ import {
 
 describe("capital per share", () => {
   it("is $30 a share at $42.50, where the point is $1 ($3,000 per 100 shares)", () => {
-    expect(gannPoint(42.5)).toBeCloseTo(1, 9);
+    expect(pricePoint(42.5)).toBeCloseTo(1, 9);
     expect(capitalPerShare(42.5)).toBeCloseTo(30, 9);
     expect(maxSharesForCapital(3000, 42.5)).toBe(100);
   });
   it("scales with the point at other prices", () => {
-    expect(capitalPerShare(170)).toBeCloseTo(30 * gannPoint(170), 9);
-    expect(maxSharesForCapital(10_000, 170)).toBe(Math.floor(10_000 / (30 * gannPoint(170))));
+    expect(capitalPerShare(170)).toBeCloseTo(30 * pricePoint(170), 9);
+    expect(maxSharesForCapital(10_000, 170)).toBe(Math.floor(10_000 / (30 * pricePoint(170))));
   });
 });
 
@@ -99,9 +99,9 @@ describe("the one-tenth risk ceiling", () => {
   });
   it("agrees with the 30-point capital rule at a 3-point stop, and binds when the stop is wider", () => {
     const price = 42.5;
-    const three = 3 * gannPoint(price);
+    const three = 3 * pricePoint(price);
     expect(maxSharesForRisk(30_000, three)).toBe(maxSharesForCapital(30_000, price));
-    const five = 5 * gannPoint(price);
+    const five = 5 * pricePoint(price);
     expect(maxSharesForRisk(30_000, five)).toBeLessThan(maxSharesForCapital(30_000, price));
   });
   it("allows a trade risking exactly a tenth and refuses one risking more", () => {

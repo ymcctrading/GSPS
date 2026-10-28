@@ -1,6 +1,6 @@
 /**
  * Explain-the-math registry: a built-in Strategy Mode id to its explainer.
- * See ./types.ts. `"gann"` has no entry: GSPS's plan needs no second reading.
+ * See ./types.ts. `"gsps"` has no entry: GSPS's plan needs no second reading.
  */
 
 import type { Bar } from "@/lib/types";

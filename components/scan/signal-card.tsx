@@ -13,15 +13,15 @@ import { structuralTriggerHeadline, tradeSideLabel } from "@/lib/scoring/directi
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { formatUsd, cn } from "@/lib/utils";
 import { TRADE_STYLES } from "@/lib/trade/tradeStyle";
-import type { AssetClass, PublicScoreSummary, ScanResult } from "@/lib/types";
+import type { AssetClass, PublicScoreSummary, PublicScanResult } from "@/lib/types";
 
 /**
- * ScanResult -> the shape SaveSetupButton already knows how to save. Before
+ * PublicScanResult -> the shape SaveSetupButton already knows how to save. Before
  * this, the button only existed inside ResultsTable (Dashboard preview,
  * Scanner Universe results) -- a symbol looked up directly by search, or a
  * ticker page opened from a link elsewhere, had no save affordance at all.
  */
-function toSavedSetupRow(result: ScanResult) {
+function toSavedSetupRow(result: PublicScanResult) {
   return {
     symbol: result.symbol,
     score: result.decision.score,
@@ -64,7 +64,7 @@ export function SignalCard({
   result,
   exactScoreDisplayEnabled = false,
 }: {
-  result: ScanResult;
+  result: PublicScanResult;
   exactScoreDisplayEnabled?: boolean;
 }) {
   const { decision, levels, levelsError, pattern, dataLag, assetClass } = result;

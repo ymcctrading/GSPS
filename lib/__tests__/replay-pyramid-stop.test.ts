@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { walkGannExit } from "@/lib/backtest/replay";
 import { readPyramidAdd } from "@/lib/gann/pyramid";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
 function days(closes: number[], start = "2026-06-01"): Bar[] {
   const t0 = Date.parse(`${start}T00:00:00Z`);
@@ -29,7 +29,7 @@ describe("the replay's whole-line stop after an add", () => {
     }).add!;
     // June 15 opens 3 dollars past the trigger, so the add fills at the open.
     const open = add.trigger + 3;
-    const fillStop = open - 5 * gannPoint(open);
+    const fillStop = open - 5 * pricePoint(open);
     expect(fillStop).toBeGreaterThan(add.newStop);
     // June 16 trades between the two stops: under the fill's, over the trigger's.
     const low = (fillStop + add.newStop) / 2;

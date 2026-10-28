@@ -13,7 +13,7 @@
  *
  * Engineering choices, labelled as such: "around the same price" is a spread
  * of the three closes of one of Gann's points (a third of his price-scaled
- * 3 points, `pointScale.ts#gannPoint`); the break is a close beyond the
+ * 3 points, `pointScale.ts#pricePoint`); the break is a close beyond the
  * three bars' high or low; a cluster counts only if it ended within the last
  * `RECENT_BARS` bars of its timeframe, since an old one has already had its
  * move. `accumulation.ts` reads the related rule on time in a range; this one
@@ -28,7 +28,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
 export const CLUSTER_CLOSES = 3;
 export const RECENT_BARS = { daily: 5, weekly: 3, monthly: 2 } as const;
@@ -53,7 +53,7 @@ export function readCloseCluster(bars: Bar[], timeframe: ClusterTimeframe): Clos
     const run = bars.slice(end - CLUSTER_CLOSES + 1, end + 1);
     const closes = run.map((b) => b.c);
     const mid = closes.reduce((s, c) => s + c, 0) / closes.length;
-    if (Math.max(...closes) - Math.min(...closes) > gannPoint(mid)) continue;
+    if (Math.max(...closes) - Math.min(...closes) > pricePoint(mid)) continue;
     const high = Math.max(...run.map((b) => b.h));
     const low = Math.min(...run.map((b) => b.l));
     let breakout: CloseClusterReading["breakout"] = null;

@@ -28,7 +28,7 @@
  * the reaction comes (the move resumed without it).
  */
 
-import { gannPoint } from "./pointScale";
+import { pricePoint } from "./pointScale";
 
 export const REBUY_REACTION_POINTS = 12;
 
@@ -76,7 +76,7 @@ export function gannRebuy(input: {
 }): GannRebuy | null {
   const { side, extreme, trend, entryPrice } = input;
   if (!(extreme > 0) || trend !== (side === "long" ? "bullish" : "bearish")) return null;
-  const reaction = REBUY_REACTION_POINTS * gannPoint(extreme);
+  const reaction = REBUY_REACTION_POINTS * pricePoint(extreme);
   const dir = side === "long" ? 1 : -1;
   const entry = extreme - dir * reaction;
   const stop = entry - dir * (reaction / 2);

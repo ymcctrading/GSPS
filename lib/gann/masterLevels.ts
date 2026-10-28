@@ -51,7 +51,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { squareBoundaryLevels } from "@/lib/gann/masterCalculator";
 import { planetaryLevels } from "@/lib/gann/planetaryAverages";
 import { activeAngleLevels, sunTravelLevel } from "@/lib/gann/astroRules";
@@ -75,7 +75,7 @@ export function gannMasterLevels(
   companyName: string | null = null,
 ): MasterLevel[] {
   if (!(price > 0) || daily.length === 0) return [];
-  const unit = gannPointForBars(daily);
+  const unit = pointForBars(daily);
   if (!(unit > 0)) return [];
   const bars = longHistory.length > 0 ? longHistory : daily;
   let low = Infinity;

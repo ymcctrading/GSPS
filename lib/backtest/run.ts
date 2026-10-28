@@ -268,7 +268,7 @@ export interface BacktestReport {
   /** Echoes the request: a report has to say which trade style produced it. */
   tradeStyle: "swing" | "fast";
   /** Echoes the request: a report has to say which exit rule produced it. */
-  exitRule: "bracket" | "gann" | "gann-runner";
+  exitRule: "bracket" | "structure" | "structure-runner";
   /** Echoes the request: the Gann exit rules switched off for this cell (empty for production's rules). */
   disableExits: GannExitRuleName[];
   /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */
@@ -293,7 +293,7 @@ export interface BacktestReport {
   /** The held entries by the form of the hold: weeks, days, record, the bear-market rally sell, or the narrow week's sale. */
   holdBasisSplit: { weeks: RunSummary; days: RunSummary; record: RunSummary; rally: RunSummary; narrowWeek: RunSummary };
   /**
-   * Under `exitRule: "gann"`, the run split by why each trade left (the stop
+   * Under `exitRule: "structure"`, the run split by why each trade left (the stop
    * reason that was binding, a Gann exit signal, or the timeout: held to the
    * session limit, `held_to_limit`, or still open when the data ended,
    * `open_at_end`), so each of Gann's exit rules can be read on its own. Under

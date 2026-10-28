@@ -157,7 +157,7 @@ const OVERLAY_META: Record<Overlay, { color: string }> = {
  * line; its per-bar labels stay behind their own tier opt-in.
  */
 const EXPLAIN_CHART: Record<
-  Exclude<StrategyModeId, "gann">,
+  Exclude<StrategyModeId, "gsps">,
   { overlays: Overlay[]; studies: Study[] }
 > = {
   psarSupertrend: { overlays: ["psar", "supertrend"], studies: [] },
@@ -313,7 +313,7 @@ export function CandleChart({
   // change of technique adds the new one's lines and leaves the rest as the
   // person set them.
   useEffect(() => {
-    if (!explainMode || explainMode === "gann") return;
+    if (!explainMode || explainMode === "gsps") return;
     const want = EXPLAIN_CHART[explainMode];
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOverlays((prev) =>
@@ -361,7 +361,7 @@ export function CandleChart({
   }, []);
   const techniqueKeys = useMemo(() => {
     const keys = new Set<ParamIndicator>();
-    if (explainMode && explainMode !== "gann") {
+    if (explainMode && explainMode !== "gsps") {
       const want = EXPLAIN_CHART[explainMode];
       for (const k of [...want.overlays, ...want.studies]) if (k in DEFAULT_INDICATOR_PARAMS) keys.add(k as ParamIndicator);
     }
@@ -1551,7 +1551,7 @@ export function CandleChart({
           overlays={overlays}
           studies={studies}
           techniqueKeys={techniqueKeys}
-          techniqueName={explainMode && explainMode !== "gann" ? STRATEGY_MODE_LABELS[explainMode] : null}
+          techniqueName={explainMode && explainMode !== "gsps" ? STRATEGY_MODE_LABELS[explainMode] : null}
           saving={indicatorSaving}
           message={indicatorMessage}
           canSave={canSaveIndicators}

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import type { Bar } from "@/lib/types";
 import { PARALLEL_ANGLES, patternAngleLevels } from "@/lib/gann/patternAngles";
 import { gannMasterLevels } from "@/lib/gann/masterLevels";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { readWinningRun } from "@/lib/risk/dynamic-risk";
 
 const DAY = 86_400_000;
@@ -17,7 +17,7 @@ describe("review 24: wiring the mutation run found unasserted", () => {
 
   it("puts the nearest pattern angles on the S/R list the live scan and replay read", () => {
     const price = daily[daily.length - 1].c;
-    const want = patternAngleLevels(daily, price, gannPointForBars(daily));
+    const want = patternAngleLevels(daily, price, pointForBars(daily));
     expect(want.length).toBeGreaterThan(0);
     const got = gannMasterLevels(daily, daily, price, new Date("2026-06-01T15:00:00Z")).filter((l) => l.source === "patternAngle");
     expect(got.map((l) => l.price)).toEqual(want.map((l) => l.price));

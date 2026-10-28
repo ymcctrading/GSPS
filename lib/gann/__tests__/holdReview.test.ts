@@ -30,7 +30,7 @@ import {
   type OlderGannLevel,
 } from "@/lib/gann/entryTrigger";
 import { entryChart } from "@/lib/scan/entrySelection";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { replay } from "@/lib/backtest/replay";
 import { examKeyedOlderLevel } from "@/lib/school/graduationExam";
 
@@ -58,7 +58,7 @@ const nextDay = (bars: Bar[], o: number, l: number, h: number, c: number): Bar[]
 ];
 
 describe("the record low has held for weeks (S2, A-ENTRY-10)", () => {
-  const pts = gannThreePoints(50);
+  const pts = threePoints(50);
 
   it("counts from the day price came back to the record, not from an earlier visit", () => {
     // Near 50 for three days, a rally to 80, and a fall that comes back
@@ -152,9 +152,9 @@ describe("the 5-point cap on a held bottom", () => {
   // last close `over` points over the stop.
   const held = (over: number) => {
     const L = 100;
-    const p = gannThreePoints(L);
+    const p = threePoints(L);
     const stop = L - p;
-    const close = stop + (over / 3) * gannThreePoints(stop + (over / 3) * p);
+    const close = stop + (over / 3) * threePoints(stop + (over / 3) * p);
     return daily([...leg(140, 90, 25), ...leg(90, 115, 10), ...leg(115, L + 0.3, 5), ...flat(L + 0.6, L + 0.9, 8), close]);
   };
 
@@ -216,7 +216,7 @@ describe("the replay buys a level crossed again after a break (S1)", () => {
   it("buys it in the replay as well as the first crossing", () => {
     const r = replay("TEST", sessions(D), { targetR: 2, dailyBars: D, monthlyBars: M, entryRule: "reaction", warmupBars: 4 * 32 });
     // Both buys of 2025's top carry its stop, 3 points under 100.
-    const at100 = r.trades.filter((t) => t.entryKind === "crossing" && Math.abs(t.stop - (100 - gannThreePoints(100))) < 0.01);
+    const at100 = r.trades.filter((t) => t.entryKind === "crossing" && Math.abs(t.stop - (100 - threePoints(100))) < 0.01);
     expect(at100.length).toBeGreaterThanOrEqual(2);
     expect(at100[at100.length - 1].openedAt > "2026-04-01").toBe(true);
   });

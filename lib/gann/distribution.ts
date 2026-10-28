@@ -40,7 +40,7 @@
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
 import { readAccumulation, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
 /**
@@ -89,7 +89,7 @@ export function readDistributionBreakdown(daily: Bar[], asOf: Date): Distributio
   const afterLowerTop = !!first && !!second && second.price < first.price;
   const brokeDown = acc.breakout === "down";
   const breakoutVolumeRatio = last.v / mean;
-  const narrow = acc.rangeHigh - acc.rangeLow <= NARROW_SPELL_ALLOWANCES * gannThreePoints(acc.rangeLow);
+  const narrow = acc.rangeHigh - acc.rangeLow <= NARROW_SPELL_ALLOWANCES * threePoints(acc.rangeLow);
   const before = done.slice(-RANGE_LOOKBACK - 1 - DULL_BASELINE_SESSIONS, -RANGE_LOOKBACK - 1);
   const beforeMean = before.reduce((s, b) => s + b.v, 0) / Math.max(1, before.length);
   const dull = before.length > 0 && mean < beforeMean;

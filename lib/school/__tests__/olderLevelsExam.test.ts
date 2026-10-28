@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { selectGannEntry, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { computeTradeLevels, gannEntrySource } from "@/lib/strat/levels";
 import { entryChart, entryChartBars } from "@/lib/scan/entrySelection";
@@ -142,5 +142,5 @@ describe("the lessons (R4, R7)", () => {
 });
 
 it("prices a previous year's level just past it, as every crossing", () => {
-  expect(T.reactionEntry).toBeCloseTo(120 + gannThreePoints(120) / 3, 8);
+  expect(T.reactionEntry).toBeCloseTo(120 + threePoints(120) / 3, 8);
 });

@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeGannOldLevelEntry, selectGannEntry } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 function bars(closes: number[]): Bar[] {
   const t0 = Date.parse("2026-03-02T00:00:00Z");
@@ -26,10 +26,10 @@ describe("computeGannOldLevelEntry", () => {
     expect(t.kind).toBe("oldLevel");
     expect(t.level).toBeCloseTo(39.7, 8);
     expect(t.reactionEntry).toBe(t.level);
-    expect(t.reactionStop).toBeCloseTo(t.level - gannThreePoints(t.level), 8);
+    expect(t.reactionStop).toBeCloseTo(t.level - threePoints(t.level), 8);
     expect(t.stopPrice).toBe(t.reactionStop);
     // Never more than 3 points of risk (A-ENTRY-02), inside the 5-point cap.
-    expect(t.reactionEntry - t.reactionStop).toBeCloseTo(gannThreePoints(t.level), 8);
+    expect(t.reactionEntry - t.reactionStop).toBeCloseTo(threePoints(t.level), 8);
     expect(t.tests).toBe(1);
   });
 
@@ -38,7 +38,7 @@ describe("computeGannOldLevelEntry", () => {
     const t = computeGannOldLevelEntry(bars(mirror), "bearish")!;
     expect(t.level).toBeCloseTo(60.3, 8);
     expect(t.reactionEntry).toBe(t.level);
-    expect(t.reactionStop).toBeCloseTo(t.level + gannThreePoints(t.level), 8);
+    expect(t.reactionStop).toBeCloseTo(t.level + threePoints(t.level), 8);
   });
 
   it("offers nothing once a later bar has tested the bottom, until that test completes its own bottom", () => {
@@ -81,7 +81,7 @@ describe("computeGannOldLevelEntry", () => {
     const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4)];
     const t = computeGannOldLevelEntry(bars(xs), "bullish")!;
     expect(t.level).toBeCloseTo(39.7, 8);
-    expect(35 - 0.3).toBeLessThan(t.level - gannThreePoints(t.level));
+    expect(35 - 0.3).toBeLessThan(t.level - threePoints(t.level));
     expect(t.tests).toBe(1);
     // Three bottoms before the break do not make this one a fourth test.
     const triple = [
@@ -95,7 +95,7 @@ describe("computeGannOldLevelEntry", () => {
     // Near 39.7, then 38.2 (under it by less than 3 points), then 39.7 again:
     // three tests of one level, so no buy for a fourth.
     const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 38.5, 6), ...leg(38.5, 48, 6), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4)];
-    expect(38.2).toBeGreaterThan(39.7 - gannThreePoints(39.7));
+    expect(38.2).toBeGreaterThan(39.7 - threePoints(39.7));
     expect(computeGannOldLevelEntry(bars(xs), "bullish")).toBeNull();
   });
 

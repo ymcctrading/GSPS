@@ -18,7 +18,7 @@ import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { isRebuySignal, rebuyExtremeOf } from "@/lib/lifecycle/fromRebuy";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { readUserLossSeries } from "@/lib/risk/lossSeries";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -241,7 +241,7 @@ export function riskCapRefusal(
   const stop = input.attachLevels?.stopLoss;
   const entry = input.entryMode === "now" ? input.referencePrice : (input.limitPrice ?? input.referencePrice);
   if (stop == null || entry == null || !(entry > 0)) return null;
-  const cap = (5 / 3) * gannThreePoints(entry);
+  const cap = (5 / 3) * threePoints(entry);
   // A cent of slack for rounding to the tick.
   if (Math.abs(entry - stop) <= cap + 0.01) return null;
   return {

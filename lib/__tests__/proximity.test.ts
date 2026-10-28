@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 import type { GannLevels, StratPattern, TradeLevels, TrendReading } from "@/lib/types";
 import { atrPercentOfPrice, levelBandPct, nearAnyLevel, proximityBandPct } from "@/lib/scoring/proximity";
-import { gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { threePoints, threePointsPct } from "@/lib/gann/pointScale";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
 import { rangeDivisionMatch, type RangeDivisionLevel } from "@/lib/gann/rangeDivisions";
 import { passingPillarFacts } from "@/lib/scoring/__tests__/pillarFixtures";
@@ -116,7 +116,7 @@ describe("nearAnyLevel", () => {
 });
 
 describe("at a level means within Gann's 3 points of it (N#27)", () => {
-  const band = gannThreePointsPct(100);
+  const band = threePointsPct(100);
 
   // P5(b)'s levels are the major-range divisions (2026-10-21), matched in
   // `rangeDivisionMatch` at the level's own allowance.
@@ -145,6 +145,6 @@ describe("at a level means within Gann's 3 points of it (N#27)", () => {
 
   it("puts the S/R band at the price's own 3-point allowance", () => {
     expect(levelBandPct(100)).toBeCloseTo(band, 10);
-    expect(levelBandPct(42.5)).toBeCloseTo((gannThreePoints(42.5) / 42.5) * 100, 10);
+    expect(levelBandPct(42.5)).toBeCloseTo((threePoints(42.5) / 42.5) * 100, 10);
   });
 });

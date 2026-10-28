@@ -278,15 +278,16 @@ describe("redaction at the API boundary", () => {
 
     expect(redacted.levels).toEqual(result.levels);
     expect(redacted.pattern).toEqual(result.pattern);
-    // The levels a chart draws pass; the method's working stays server-side
-    // (review finding S-02).
-    expect(redacted.gann.squareOf9).toEqual(result.gann.squareOf9);
-    expect(redacted.gann.fanLines).toEqual(result.gann.fanLines);
-    expect(redacted.gann.timeCycleActive).toBe(true);
-    expect(redacted.gann.digitalRootConfluences).toEqual([]);
-    expect(redacted.gann.angleSlopes).toEqual([]);
-    expect(redacted.gann.retracementLevels).toEqual([]);
-    expect(redacted.gann.timeCycleDates).toEqual([]);
+    // The levels a chart draws pass as prices and roles; the method's working
+    // and its names stay server-side (review finding S-02; confidential
+    // sources, owner 2026-10-28).
+    expect(redacted.chartLevels.keyLevels.map((l) => l.price)).toEqual(result.gann.squareOf9.map((l) => l.price));
+    expect(redacted.chartLevels.trendLines.map((l) => l.price)).toEqual(result.gann.fanLines.map((l) => l.price));
+    expect(redacted).not.toHaveProperty("gann");
+    const wire = JSON.stringify(redacted);
+    for (const name of ["gann", "fanLines", "squareOf9", "timeCycle", "digitalRoot", "angleSlopes", "retracementLevels", "degree", "angle"]) {
+      expect(wire).not.toContain(name);
+    }
     expect(result.gann.digitalRootConfluences).toHaveLength(1);
     expect(redacted.decision.breakdown).toEqual([]);
     // The caller's own copy keeps its breakdown — the scan pipeline, the
@@ -314,8 +315,8 @@ describe("redaction at the API boundary", () => {
 
     const anon = toAnonymousScanResult(result);
     expect(anon.levels).toEqual(result.levels);
-    expect(anon.gann.squareOf9).toEqual(result.gann.squareOf9);
-    expect(anon.gann.digitalRootConfluences).toEqual([]);
+    expect(anon.chartLevels.keyLevels.map((l) => l.price)).toEqual(result.gann.squareOf9.map((l) => l.price));
+    expect(anon).not.toHaveProperty("gann");
     expect(anon.signals).toBeUndefined();
     expect(anon.pattern).toBeNull();
     expect(anon.armedPatterns).toEqual([]);

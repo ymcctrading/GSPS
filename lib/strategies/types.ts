@@ -10,7 +10,7 @@
  * design rationale for each mode below.
  *
  * Hard rules every mode here must hold:
- *   - Never the default. `"gann"` is always the default and is what every
+ *   - Never the default. `"gsps"` is always the default and is what every
  *     scan, the scorecard, and every automated/Automation order-placement
  *     path continue to use unless a human explicitly picked something else
  *     for this one ticket/chart.
@@ -27,11 +27,11 @@ import type { Bar } from "@/lib/types";
 
 export type StrategyDirection = "bullish" | "bearish";
 
-/** `"gann"` is the platform default and is handled by the existing Gann
+/** `"gsps"` is the platform default and is handled by the existing Gann
  * pipeline (`lib/gann/entryTrigger.ts`, `lib/strat/levels.ts`) — it is listed
  * here only so a mode selector can enumerate it alongside the opt-in ones. */
 export type StrategyModeId =
-  | "gann"
+  | "gsps"
   | "psarSupertrend"
   | "saraStrat"
   | "maCrossover"
@@ -47,7 +47,7 @@ export type StrategyModeId =
 // scripts/check-banned-terms.mjs (docs/GSPS_BRAND_GUIDE.md), even though the
 // StrategyModeId keys themselves (internal identifiers) are unchanged.
 export const STRATEGY_MODE_LABELS: Record<StrategyModeId, string> = {
-  gann: "Structural analysis (default)",
+  gsps: "Structural analysis (default)",
   psarSupertrend: "PSAR + Supertrend reversal",
   saraStrat: "Reversal-pattern bar-sequence entry",
   maCrossover: "EMA9/SMA20 crossover (swing)",
@@ -62,7 +62,7 @@ export const STRATEGY_MODE_LABELS: Record<StrategyModeId, string> = {
 
 /** Non-Gann modes only — the set a "Strategy mode" picker actually offers as
  * an alternative to the default. */
-export const NON_GANN_STRATEGY_MODES: readonly Exclude<StrategyModeId, "gann">[] = [
+export const NON_GANN_STRATEGY_MODES: readonly Exclude<StrategyModeId, "gsps">[] = [
   "psarSupertrend",
   "saraStrat",
   "maCrossover",

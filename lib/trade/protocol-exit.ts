@@ -30,7 +30,7 @@
  *
  * Gann's exits are live (2026-09-28, project owner: "switch on Gann's exits")
  * ---------------------------------------------------------------------------
- * `LIVE_EXIT_RULE` is "gann". Under it, rules 3 and 4 above are replaced by
+ * `LIVE_EXIT_RULE` is "structure". Under it, rules 3 and 4 above are replaced by
  * Gann's own (`lib/gann/exitRules.ts`, owner decisions 2 and 6):
  *   - 60% still leaves at TP1, which since C4 is a Gann/support-resistance
  *     level, not an R multiple (the runner option, owner-approved).
@@ -45,17 +45,17 @@
  * The caller reads Gann's rules (`lib/trade/gann-exit-live.ts`) and passes the
  * reading in as `ExitState.gann`. With no reading this pass (no data), only the
  * stop already resting protects the trade, and nothing loosens.
- * The replay measures the same rule as `exitRule: "gann-runner"`.
+ * The replay measures the same rule as `exitRule: "structure-runner"`.
  * "bracket" keeps the previous behaviour, for a revert.
  *
  * No fixed target either (2026-10-16, owner, "Switch all nine", Q14)
  * ------------------------------------------------------------------
- * `LIVE_EXIT_RULE` is now "gann": Gann never fixes a profit objective
+ * `LIVE_EXIT_RULE` is now "structure": Gann never fixes a profit objective
  * ("never fix a target price", parity X4), so nothing leaves at TP1. The whole
  * position runs on Gann's stop and exit signals above, exactly as the replay's
- * `exitRule: "gann"` measures. TP1 stays on the plan as the level the card
+ * `exitRule: "structure"` measures. TP1 stays on the plan as the level the card
  * names, but no order rests there. The 60%-at-TP1 rule above is kept as
- * "gann-runner", for a revert.
+ * "structure-runner", for a revert.
  */
 
 import { snapToTick, tickSizeFor } from "@/lib/trade/tick-size";
@@ -63,15 +63,15 @@ import type { ExitReading, GannStopReason } from "@/lib/gann/exitRules";
 import type { IntradayStopReason } from "@/lib/gann/intradayExit";
 
 /** Which exit rules manage live and paper positions. See the header. */
-export type LiveExitRule = "gann" | "gann-runner" | "bracket";
-export const LIVE_EXIT_RULE: LiveExitRule = "gann";
+export type LiveExitRule = "structure" | "structure-runner" | "bracket";
+export const LIVE_EXIT_RULE: LiveExitRule = "structure";
 
-/** Share of the position that leaves at TP1 under "gann-runner" and "bracket". */
+/** Share of the position that leaves at TP1 under "structure-runner" and "bracket". */
 export const SCALE_OUT_PCT = 0.6;
 
-/** Share that leaves at TP1 under the live rule: none under "gann" (Q14). */
+/** Share that leaves at TP1 under the live rule: none under "structure" (Q14). */
 export function scaleOutPctFor(rule: LiveExitRule = LIVE_EXIT_RULE): number {
-  return rule === "gann" ? 0 : SCALE_OUT_PCT;
+  return rule === "structure" ? 0 : SCALE_OUT_PCT;
 }
 
 /** Share of *what remains after TP1* that leaves at the master target. */
@@ -107,7 +107,7 @@ export interface ExitPlan {
    * False when the quantity is too small to follow the plan — under the
    * staged rules a single share can only be all-in or all-out, and pretending
    * otherwise would round 60% up to 100% without saying so. Always true under
-   * "gann", which divides nothing.
+   * "structure", which divides nothing.
    */
   splittable: boolean;
   scaleOutQty: number;
@@ -155,7 +155,7 @@ export function planProtocolExit(
 
   // Q14: no target at all. One tranche, the whole position, runs on Gann's
   // stop and exit signals; a single share needs no split.
-  if (rule === "gann") {
+  if (rule === "structure") {
     return {
       tranches: [
         {

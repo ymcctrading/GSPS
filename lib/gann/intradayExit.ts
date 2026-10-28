@@ -39,7 +39,7 @@
  * decision X4, 2026-09-27; Q14 for the daily trades): the alert's first target
  * is shown and must pay more than the risk (M-K5), but nothing sells there. The
  * whole position runs on the stop and the hourly turn, as `LIVE_EXIT_RULE`
- * "gann" runs a daily trade. The intraday replay's pre-registered profile kept
+ * "structure" runs a daily trade. The intraday replay's pre-registered profile kept
  * 60% at the first target; it measures this rule with `scaleOut: false`.
  *
  * **Exchange hours (Gann reads the hourly chart on the session's hours,

@@ -18,7 +18,7 @@
  *   with a 3-point stop (*Truth of the Stock Tape*, Book II; *Wall Street
  *   Stock Selector*, Rule 3; Ch.II rule 4, "once 3 points ahead"). Since
  *   2026-10-16 (M-E6) the price-scaled form is his own: break-even once the
- *   best price is 3 points (`gannThreePoints`) past the entry. It had been
+ *   best price is 3 points (`threePoints`) past the entry. It had been
  *   read as one risk unit.
  * - **Weekly trail** (A-STOP-05, PLAN.md item 4). Trail the stop 3 points
  *   under each completed week's bottom once the trade is into a new week
@@ -99,7 +99,7 @@ import { gannReversal, reversesOn, type GannReversal } from "./reverse";
 import type { Bar } from "@/lib/types";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
-import { gannPoint, gannThreePoints } from "@/lib/gann/pointScale";
+import { pricePoint, threePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
@@ -280,7 +280,7 @@ export function readGannExit(
 ): GannExitReading {
   const long = pos.side === "long";
   // Gann's "3 points" beyond a level, price-scaled as he scaled it (pointScale.ts).
-  const below = (p: number) => (long ? p - gannThreePoints(p) : p + gannThreePoints(p));
+  const below = (p: number) => (long ? p - threePoints(p) : p + threePoints(p));
   const tighter = (x: number, y: number) => (long ? x > y : x < y);
 
   let stop = pos.initialStop;
@@ -457,7 +457,7 @@ export function readGannExit(
   // Selector* Ch.II rule 4, "once 3 points ahead"), price-scaled as his 3
   // points are, which covers his "4-5 in high-priced" stocks. Until
   // 2026-10-16 it waited for a profit equal to the risk taken.
-  const threeAhead = best !== null && (long ? best >= pos.entry + gannThreePoints(pos.entry) : best <= pos.entry - gannThreePoints(pos.entry));
+  const threeAhead = best !== null && (long ? best >= pos.entry + threePoints(pos.entry) : best <= pos.entry - threePoints(pos.entry));
   if (threeAhead) {
     adopt(pos.entry, "break_even");
   }
@@ -477,7 +477,7 @@ export function readGannExit(
   const entryWeek = toWeeklyBars(since)[0]?.t.slice(0, 10) ?? null;
   if (thisWeek && entryWeek && thisWeek > entryWeek && weeks.length >= 2) {
     const prior = weeks[weeks.length - 2];
-    adopt(long ? below(prior.l) : prior.h + gannPoint(prior.h), "prior_week");
+    adopt(long ? below(prior.l) : prior.h + pricePoint(prior.h), "prior_week");
   }
 
   // C3: under the prior month's low once the trade has run into a new month.
@@ -513,7 +513,7 @@ export function readGannExit(
     // points under each day's high (his 10 points "at very high levels" is
     // the same 5 once the point is price-scaled). The final stage is GSPS's
     // reading of "a fast advance at high levels"; mirrored for shorts.
-    adopt(long ? last.h - 5 * gannPoint(last.h) : last.l + 5 * gannPoint(last.l), "final_stage");
+    adopt(long ? last.h - 5 * pricePoint(last.h) : last.l + 5 * pricePoint(last.l), "final_stage");
   }
 
   // The Fast style's day trail: 3 points beyond the latest completed session
@@ -557,7 +557,7 @@ export function readGannExit(
   if (best !== null) {
     const run = runBoilingPointFromPivots(daily, weekly.pivots);
     if (run && run.run === (long ? "up" : "down") && run.weeksSinceStart >= CLASSIC_MIN_WEEKS) {
-      adopt(long ? best - 10 * gannPoint(best) : best + 10 * gannPoint(best), "boiling_point");
+      adopt(long ? best - 10 * pricePoint(best) : best + 10 * pricePoint(best), "boiling_point");
     }
   }
 

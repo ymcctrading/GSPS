@@ -476,3 +476,51 @@ export interface ScanResult {
    */
   errorCode?: "rate_limited" | "unauthorized" | "not_found" | "upstream" | "unknown";
 }
+
+/**
+ * The levels a chart draws, as they leave an API route
+ * (`redactScanResult`, `lib/scoring/public-summary.ts`). Plain names only: the
+ * wire names no method, source or construction (AGENTS.md "Confidential
+ * sources", owner 2026-10-28), so a browser reading the response learns the
+ * prices and their role, not how they were found.
+ */
+export interface ChartLevels {
+  /** Diagonal support and resistance lines, nearest first. */
+  trendLines: { price: number; distancePct: number; role: "support" | "resistance" }[];
+  /** Key horizontal price levels, nearest first. */
+  keyLevels: { price: number; distancePct: number; role: "support" | "resistance" }[];
+  /** A timing window is open today (shown only with its measured record). */
+  timingActive: boolean;
+  /** How many long-term timing measures land on this month (shown only with its record). */
+  longTermTimingCount: number;
+}
+
+/** One plain-words reading on the ticker page's Context card. */
+export interface ContextLine {
+  text: string;
+  note?: string;
+}
+
+/** A context reading's agreement with the setup, and its note when it has one. */
+export interface ContextRead {
+  alignment: "aligned" | "conflict" | "neutral" | "notImplemented";
+  note: string | null;
+}
+
+/** The Context card's readings, written as sentences on the server. */
+export interface PublicContext {
+  levels: (ContextRead & { lines: ContextLine[] }) | null;
+  barPattern: ContextRead | null;
+}
+
+type ScanSignals = NonNullable<ScanResult["signals"]>;
+
+/**
+ * A scan result as it leaves an API route: the server-only readings are gone
+ * and the chart levels and context come as plain names and sentences.
+ * Client components read this type, never `ScanResult`.
+ */
+export type PublicScanResult = Omit<ScanResult, "gann" | "signals"> & {
+  chartLevels: ChartLevels;
+  signals?: Omit<ScanSignals, "gannConfluence" | "saraConfluence"> & { context: PublicContext };
+};
