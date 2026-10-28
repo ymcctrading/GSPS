@@ -34,6 +34,8 @@
 import type { Bar } from "@/lib/types";
 import { pricePoint } from "@/lib/gann/pointScale";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
+import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
+import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 import type { FocusReason } from "@/lib/scanner/focusList";
 import { priceUsd } from "@/lib/strat/priceText";
 import { formatStage, OUTCOME_LABELS, splitMove, STAGE_KEYS, STAGE_LABELS, type CoverageStages, type MoverOutcome } from "@/lib/reports/coverage";
@@ -104,6 +106,7 @@ export type DailyOutcome =
   | "open_ahead"
   | "open_behind"
   | "called_off"
+  | "stop_while_waiting"
   | "no_fill_moved_its_way"
   | "no_fill"
   | "past_tp1_before_open"
@@ -127,8 +130,12 @@ function sideSign(direction: Side): 1 | -1 {
  * Entry: the first closed bar at which `confirmationFromBars` reads it ready
  * (a plan still awaiting its crossing needs the close 3 points past first; an
  * armed one is ready once a bar trades into the buying zone), filled at the
- * next bar's open, as the replay fills (rule 9). A close through the stop
- * first calls it off. After the fill, a bar that reaches both the stop and
+ * open of the first bar after that bar could be read, its close plus the
+ * feed's delay (`delayedFillIndex`, DATA-DELAY-001; two 15-minute bars later
+ * for a US equity, the next bar for crypto), as placement and the replays fill
+ * (rule 9). A close through the stop first calls it off, and so does the stop
+ * trading while the delayed order waited (`stop_while_waiting`), as the
+ * replay refuses that fill. After the fill, a bar that reaches both the stop and
  * TP1 is counted as the stop (the bar's order is unknown, so the worse case).
  */
 export function judgeDailySetup(setup: DailySetup, bars: Bar[], prevClose: number | null): DailyJudgement {
@@ -144,7 +151,10 @@ export function judgeDailySetup(setup: DailySetup, bars: Bar[], prevClose: numbe
     const read = confirmationFromBars(bars.slice(0, i + 1), setup.direction, setup.entry, setup.stop, kind);
     if (read.stage === "dead") return { ...base, outcome: "called_off" };
     if (read.ready) {
-      fillIndex = i + 1;
+      const assetClass = isCryptoSymbol(setup.symbol) ? "crypto" : "us_equity";
+      fillIndex = delayedFillIndex(bars, i, { assetClass, delayMs: replayFeedDelayMs(assetClass), intervalMinutes: 15 });
+      const waited = bars.slice(i + 1, fillIndex < 0 ? bars.length : fillIndex);
+      if (waited.some((b) => (sign > 0 ? b.l <= setup.stop : b.h >= setup.stop))) return { ...base, outcome: "stop_while_waiting" };
       break;
     }
   }
@@ -453,6 +463,7 @@ const DAILY_LABEL: Record<DailyOutcome, string> = {
   open_ahead: "filled, ahead at the close",
   open_behind: "filled, behind at the close",
   called_off: "called off: closed through the stop before the entry",
+  stop_while_waiting: "called off: the stop traded while the delayed data held the order back",
   no_fill_moved_its_way: "never filled, but price moved its way",
   no_fill: "never filled",
   past_tp1_before_open: "already past TP1 before the open (stale)",

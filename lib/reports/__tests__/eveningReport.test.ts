@@ -54,8 +54,14 @@ describe("movers", () => {
 });
 
 describe("judgeDailySetup", () => {
-  it("fills at the next bar's open once a closed bar trades into the zone, then counts TP1", () => {
-    const bars = [bar(at("13:30"), 104, 105, 101, 103), bar(at("13:45"), 103, 103, 99.5, 101), bar(at("14:00"), 100.5, 111, 100, 110)];
+  it("fills once the zone bar could be read on the delayed feed (its close plus 15 minutes), then counts TP1", () => {
+    // The 9:45 bar trades into the zone; it closes 10:00 and is read at 10:15, so the 10:15 bar's open fills.
+    const bars = [
+      bar(at("13:30"), 104, 105, 101, 103),
+      bar(at("13:45"), 103, 103, 99.5, 101),
+      bar(at("14:00"), 101, 101.5, 100.2, 100.8),
+      bar(at("14:15"), 100.5, 111, 100, 110),
+    ];
     const j = judgeDailySetup(long, bars, 104);
     expect(j.outcome).toBe("tp1_first");
     expect(j.fill).toBe(100.5);
@@ -63,7 +69,7 @@ describe("judgeDailySetup", () => {
   });
 
   it("counts the stop when one bar reaches both", () => {
-    const bars = [bar(at("13:30"), 101, 101, 99, 100), bar(at("13:45"), 100, 111, 94, 100)];
+    const bars = [bar(at("13:30"), 101, 101, 99, 100), bar(at("13:45"), 100, 100.5, 99.8, 100.2), bar(at("14:00"), 100, 111, 94, 100)];
     expect(judgeDailySetup(long, bars, 102).outcome).toBe("stop_first");
   });
 
@@ -85,11 +91,26 @@ describe("judgeDailySetup", () => {
 
   it("marks an open trade at the close ahead or behind, mirrored for a short", () => {
     const short: DailySetup = { ...long, symbol: "BWXT", direction: "bearish", entry: 100, stop: 105, tp1: 90 };
-    const bars = [bar(at("13:30"), 99, 100.5, 98, 99), bar(at("13:45"), 99, 99, 97, 97.5)];
+    const bars = [bar(at("13:30"), 99, 100.5, 98, 99), bar(at("13:45"), 99, 99.5, 98.5, 99), bar(at("14:00"), 99, 99, 97, 97.5)];
     const j = judgeDailySetup(short, bars, 98);
     expect(j.outcome).toBe("open_ahead");
     expect(j.fill).toBe(99);
     expect(j.r).toBeCloseTo((99 - 97.5) / (105 - 99));
+  });
+
+  it("calls the setup off when the stop trades while the delayed order waits", () => {
+    const bars = [bar(at("13:30"), 101, 101, 99, 100), bar(at("13:45"), 100, 100.5, 94, 99), bar(at("14:00"), 99, 104, 98, 103)];
+    const j = judgeDailySetup(long, bars, 102);
+    expect(j.outcome).toBe("stop_while_waiting");
+    expect(j.fill).toBeNull();
+  });
+
+  it("fills crypto at the next bar's open, with no feed delay", () => {
+    const btc = { ...long, symbol: "BTC/USD" };
+    const bars = [bar(at("13:30"), 101, 101, 99, 100), bar(at("13:45"), 100.5, 111, 100, 110)];
+    const j = judgeDailySetup(btc, bars, 102);
+    expect(j.fill).toBe(100.5);
+    expect(j.outcome).toBe("tp1_first");
   });
 
   it("waits for the crossing first when the plan still awaits it", () => {
