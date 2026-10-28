@@ -132,4 +132,20 @@ describe("readPremiumStop", () => {
     const perContract = readPremiumStop({ risk: 100, premium: 650, delta: 0.55 })!;
     expect(perShare.pctOfPremium).toBeCloseTo(perContract.pctOfPremium, 10);
   });
+
+  it("never reads more than the whole premium: a bought option loses only what was paid (review of #515)", () => {
+    // $1 premium, $0.80 stop on a 0.6 delta, 0.10 decay a day for ten days:
+    // 0.48 + 1.00 = 148% uncapped.
+    const reading = readPremiumStop({ risk: 0.8, premium: 1, delta: 0.6, theta: -0.1 })!;
+    expect(reading.pctOfPremium).toBe(100);
+    expect(reading.capped).toBe(true);
+    expect(reading.stopCost).toBeCloseTo(0.48, 10);
+    expect(reading.decayCost).toBeCloseTo(1, 10);
+    const within = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55 })!;
+    expect(within.capped).toBe(false);
+    for (const risk of [0.5, 5, 50, 1e6]) {
+      const r = readPremiumStop({ risk, premium: 2, theta: -0.3, holdingDays: 1e6 })!;
+      expect(r.pctOfPremium).toBeLessThanOrEqual(100);
+    }
+  });
 });

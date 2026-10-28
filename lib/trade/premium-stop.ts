@@ -68,6 +68,12 @@ export interface PremiumStopReading {
   holdingDays: number;
   /** True when a delta was supplied, so the figure is not an approximation. */
   exact: boolean;
+  /**
+   * True when the stop and the decay together would take more than the
+   * premium. A bought option can lose no more than its premium (Master Course
+   * Ch. 19A, PDF 444: the option is the stop), so the reading stops at 100%.
+   */
+  capped: boolean;
 }
 
 /**
@@ -99,8 +105,13 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
 
   // Premium, delta and theta are all per-share, so the 100x contract
   // multiplier cancels and never enters the ratio.
-  const pctOfPremium = ((stopCost + decayCost) / premium) * 100;
-
+  // A bought put or call can lose its premium and no more (Master Course
+  // Ch. 19A, PDF 444, 449-450), so the share at risk is held at 100%. With
+  // ten days of decay charged, a near-dated contract can otherwise read past
+  // it (review of #515).
+  const raw = ((stopCost + decayCost) / premium) * 100;
+  const capped = raw > 100;
+  const pctOfPremium = capped ? 100 : raw;
 
   return {
     pctOfPremium,
@@ -108,5 +119,6 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
     decayCost,
     holdingDays,
     exact: delta !== null,
+    capped,
   };
 }
