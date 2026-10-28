@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { GANN_EXIT_RULE_NAMES, readGannExit, type GannExitPosition, type GannExitRuleName } from "../exitRules";
+import { BOILING_POINT_TRAIL_POINTS, GANN_EXIT_RULE_NAMES, readGannExit, type GannExitPosition, type GannExitRuleName } from "../exitRules";
 import { computeRunBoilingPoint } from "../boilingPoint";
 import { exhaustGapAt, readGaps } from "../extremeRules";
 import { pricePoint, threePoints } from "../pointScale";
@@ -121,14 +121,14 @@ describe("M-E12: an exhaust gap against the trade takes it off", () => {
   });
 });
 
-describe("M-T10: the boiling point trails 10 points from the best once the run has lasted 6 weeks", () => {
+describe("M-T10: the boiling point trails his 10 points from the best once the run has lasted 6 weeks", () => {
   /** A decline into a low, then a steady advance whose reactions never turn the weekly chart. */
   function run(advanceCycles: number): Bar[] {
     const decline = Array.from({ length: 30 }, (_, i) => 130 - i);
     return daily([...decline, ...steppingAdvance(advanceCycles, 101)]);
   }
 
-  it("adopts best − 10 points once the weekly run is 6 weeks old", () => {
+  it("adopts best less his 10 points once the weekly run is 6 weeks old", () => {
     const bars = run(6); // 54 sessions of advance: about 7½ weeks
     const reading = computeRunBoilingPoint(bars)!;
     expect(reading.run).toBe("up");
@@ -136,7 +136,11 @@ describe("M-T10: the boiling point trails 10 points from the best once the run h
     const best = Math.max(...bars.map((b) => b.h));
     const r = readGannExit(long(bars, bars.length - 10), bars, best, null, only("boiling_point"));
     expect(r.stopReason).toBe("boiling_point");
-    expect(r.stop).toBeCloseTo(best - 10 * pricePoint(best), 9);
+    expect(r.stop).toBeCloseTo(best - BOILING_POINT_TRAIL_POINTS * pricePoint(best), 9);
+  });
+
+  it("is his raw 10 points at the price he worked it, Advance Rumely's 105 (out at 95)", () => {
+    expect(BOILING_POINT_TRAIL_POINTS * pricePoint(105)).toBeCloseTo(10, 9);
   });
 
   it("does nothing before 6 weeks", () => {
@@ -156,7 +160,7 @@ describe("M-T10: the boiling point trails 10 points from the best once the run h
       const on = reading.run === "up" && reading.weeksSinceStart >= 6;
       const best = Math.max(...bars.slice(n - 5).map((b) => b.h));
       const r = readGannExit(long(bars, n - 5), bars, bars[n - 1].c, null, only("boiling_point"));
-      expect(r.stopReason === "boiling_point").toBe(on && best - 10 * pricePoint(best) > bars[n - 5].c - 20);
+      expect(r.stopReason === "boiling_point").toBe(on && best - BOILING_POINT_TRAIL_POINTS * pricePoint(best) > bars[n - 5].c - 20);
       if (on) seenOn = true;
       else seenOff = true;
     }

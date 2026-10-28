@@ -74,9 +74,10 @@ export interface SetupCardModel {
   /** True for a with-trend setup: it trades with the trend, where a reversion trades against it. */
   continuation: boolean;
   /**
-   * Set when the entry sits more than a day's range from price: a resting
-   * order, not a trade to take today (`lib/setups/resting.ts`, owner
-   * 2026-10-21). Null when it is within range or the range is not known.
+   * Set when the setup is in the Resting tier (`setupTier`): its entry sits
+   * more than a day's range from price, an order resting at its level, not a
+   * trade to take today (`lib/setups/resting.ts`, owner 2026-10-21). Null for
+   * every other tier, a Watch far from its entry included (2026-10-28).
    */
   resting: RestingRead | null;
   /**
@@ -287,7 +288,12 @@ export function buildDailyCardModel(
     row.patternName && row.patternName in PATTERN_GLOSSARY_TERM
       ? PATTERN_GLOSSARY_TERM[row.patternName as StratPattern["name"]]
       : null;
-  const resting = readResting({
+  const tier = tierOfRow(row);
+  // The resting read (the chip and its sentence) belongs to the Resting tier
+  // alone, so a setup reads as one thing in one list (owner, 2026-10-28: HDB,
+  // a Watch held for missing checks whose entry was far, showed "Watch" and
+  // "Resting order" at once). A Watch far from its entry is still Watch.
+  const resting = tier !== "Resting" ? null : readResting({
     side,
     price,
     entry: levels.entry,
@@ -303,7 +309,7 @@ export function buildDailyCardModel(
     levels,
     // The tier the lists show the row in, read at the scan-time price as
     // they are (`setupTier`), so the card and its list agree.
-    verdict: tierOfRow(row),
+    verdict: tier,
     checks,
     stateNote: row.scoreSummary?.stateNote ?? null,
     higherTimeframes: describeTrends(row.trends),
@@ -313,7 +319,7 @@ export function buildDailyCardModel(
     setAsideNote: setAsideNoteOf(row.setAsideEntry),
     synopsis: buildSetupSynopsis({
       side,
-      verdict: tierOfRow(row),
+      verdict: tier,
       scoreText: opts.scoreText,
       scoreMax: opts.scoreMax,
       checks,

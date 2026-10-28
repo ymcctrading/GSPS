@@ -26,7 +26,7 @@ import { inForegroundLane } from "@/lib/data/http";
 import { serviceRoleKey } from "@/lib/supabase/service-key";
 import { etDateKey } from "@/lib/market/session";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { buildUniverseStrength, MIN_PEERS, STRENGTH_MONTHS, type UniverseStrength } from "@/lib/gann/universeStrength";
+import { buildUniverseStrength, MIN_PEERS, rankedClass, STRENGTH_MONTHS, type UniverseStrength } from "@/lib/gann/universeStrength";
 
 /** The rank's peers: the list the market scan rotates through. */
 export const STRENGTH_UNIVERSE = LARGE_CAP_UNIVERSE;
@@ -113,7 +113,12 @@ export function toStoredReadings(strength: UniverseStrength): StoredReadings {
 export function fromStoredReadings(readings: StoredReadings): UniverseStrength {
   const out: UniverseStrength = new Map();
   for (const [month, positions] of Object.entries(readings)) {
-    const bySymbol = new Map(Object.entries(positions).map(([sym, pos]) => [sym, Number(pos)] as const));
+    // A reading stored before 2026-10-28 may hold a second share class; the rank counts each company once (`rankedClass`).
+    const bySymbol = new Map(
+      Object.entries(positions)
+        .filter(([sym]) => rankedClass(sym) === sym.toUpperCase())
+        .map(([sym, pos]) => [sym, Number(pos)] as const),
+    );
     out.set(month, { sorted: [...bySymbol.values()].sort((a, b) => a - b), bySymbol });
   }
   return out;

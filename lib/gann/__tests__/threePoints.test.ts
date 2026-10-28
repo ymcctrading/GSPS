@@ -138,9 +138,10 @@ describe("3 points on the entry side", () => {
   it("counts a range breakaway only when the trigger clears the range extreme by 3 points", () => {
     const sideways: number[] = [];
     for (let k = 0; k < 6; k++) {
-      const top = k % 2 === 0 ? 105 : 103;
-      for (let i = 1; i <= 5; i++) sideways.push(95 + ((top - 95) * i) / 5);
-      for (let i = 1; i <= 5; i++) sideways.push(top - ((top - 95) * i) / 5);
+      // 97.5 to 102.5: inside Gann's widest narrow range (4 of his points).
+      const top = k % 2 === 0 ? 102 : 101.5;
+      for (let i = 1; i <= 5; i++) sideways.push(98 + ((top - 98) * i) / 5);
+      for (let i = 1; i <= 5; i++) sideways.push(top - ((top - 98) * i) / 5);
     }
     const daily = bars(sideways);
     const make = (triggerPrice: number) => ({
@@ -148,22 +149,22 @@ describe("3 points on the entry side", () => {
       direction: "bullish" as const,
       triggerPrice,
       stopPrice: 90,
-      pivot: { index: 0, price: 103.5, kind: "top" as const },
-      level: 103.5,
-      reactionEntry: 103.5 + threePoints(103.5) / 3,
-      reactionStop: 103.5 - threePoints(103.5),
-      protectivePivot: { index: 1, price: 95, kind: "bottom" as const },
+      pivot: { index: 0, price: 102, kind: "top" as const },
+      level: 102,
+      reactionEntry: 102 + threePoints(102) / 3,
+      reactionStop: 102 - threePoints(102),
+      protectivePivot: { index: 1, price: 97.5, kind: "bottom" as const },
       held: false,
       crossedAt: null,
       swingDays: 3,
       source: "swing" as const,
       formedAt: "2026-01-01T00:00:00Z",
     });
-    const r0 = readBreakaway(daily, make(106));
+    const r0 = readBreakaway(daily, make(103));
     expect(r0.rangeBound).toBe(true);
-    // Past the 105.5 range high, but not by 3 points there.
+    // Past the 102.5 range high, but not by 3 points there.
     expect(r0.breaksAway).toBe(false);
-    expect(readBreakaway(daily, make(105.5 + threePoints(105.5) + 0.01)).breaksAway).toBe(true);
+    expect(readBreakaway(daily, make(102.5 + threePoints(102.5) + 0.01)).breaksAway).toBe(true);
   });
 
   it("applies the 3 points once when a stop's support sits on an even figure", () => {

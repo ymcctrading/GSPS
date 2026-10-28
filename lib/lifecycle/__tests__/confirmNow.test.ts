@@ -76,14 +76,15 @@ describe("readEntryConfirmationNow under the 3-point crossing rule", () => {
 
 describe("readEntryConfirmationNow: leaving a range on volume (A-VOLUME-10)", () => {
   // Entry 101, stop 97: the crossing line is 103. Thirty completed sessions
-  // swing between 96 and 102, a market with no confirmed trend.
+  // swing between 97 and 101.5, a market with no confirmed trend, inside
+  // Gann's widest narrow range (4 of his points).
   const now = new Date("2026-10-15T15:00:00Z");
   const yesterday = bar("2026-10-14T19:45:00Z", 103, 103.4, 102.5, 103.2);
   const today = bar("2026-10-15T14:30:00Z", 103, 102.4, 100.9, 101.2);
   const end = Date.parse("2026-10-13T04:00:00Z");
   const range: Bar[] = Array.from({ length: 30 }, (_, i) => {
     const phase = i % 8;
-    const c = 96 + (phase < 4 ? phase : 7 - phase) * 2;
+    const c = 97 + (phase < 4 ? phase : 7 - phase) * 1.5;
     return { t: new Date(end - (29 - i) * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 };
   });
   const crossDay = (v: number): Bar => ({ t: "2026-10-14T04:00:00Z", o: 102, h: 103.6, l: 101.8, c: 103.2, v });
@@ -148,7 +149,7 @@ describe("the completed daily chart, for a reaction longer than the window", () 
   // An old top near 44 crossed by 3 points on the way to 49, then a reaction
   // to 46 that has not reached the buy. The range before the crossing is
   // narrow (A-VOLUME-10). Dated to end yesterday.
-  const closes = [...leg(40, 44, 6), ...leg(44, 41, 4), ...leg(41, 49, 8), ...leg(49, 46, 4)];
+  const closes = [...leg(41.5, 44, 6), ...leg(44, 42, 4), ...leg(42, 49, 8), ...leg(49, 46, 4)];
   const end = Date.parse("2026-10-14T04:00:00Z");
   // The advance out of the range runs on heavier volume, as a breakaway must.
   const daily: Bar[] = closes.map((c, i) => ({ t: new Date(end - (closes.length - 1 - i) * 86_400_000).toISOString(), o: c, h: c + 0.3, l: c - 0.3, c, v: i >= 10 && i < 18 ? 2e6 : 1e6 }));

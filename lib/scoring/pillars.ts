@@ -113,8 +113,12 @@ export interface PillarFacts {
   /** The seven zones' range activity (recent median range over the baseline). */
   zoneActivity: number | null;
   angles: { holds45: Record<Side, boolean>; squeezed: boolean } | null;
-  /** A base of weeks: the current range's length and where the last close left it. */
-  base: { long: boolean; breakout: "up" | "down" | null } | null;
+  /**
+   * A base of weeks: the current range's length, where the last close left
+   * it, and the long base price has left and stands outside of (`left`,
+   * `lib/gann/accumulation.ts#readBaseLeft`), which is what P8 reads.
+   */
+  base: { long: boolean; breakout: "up" | "down" | null; left: "up" | "down" | null } | null;
   /** A capital-stock or shares-per-point warning at a top (against a long). */
   capitalWarning: boolean;
   counterMove: { trend: Side; inCounterMove: boolean; phase: "normal" | "extended" | "secondMonth" | "thirdMonth" | null } | null;
@@ -301,7 +305,9 @@ export function readPillarFacts(input: {
       // The squeeze stays on the daily angles; the 45° test is the monthly one.
       return daily45 && monthly45 ? { ...daily45, holds45: monthly45 } : null;
     })(),
-    base: rules.accumulation ? { long: rules.accumulation.long, breakout: rules.accumulation.breakout } : null,
+    base: rules.accumulation
+      ? { long: rules.accumulation.long, breakout: rules.accumulation.breakout, left: rules.accumulation.left?.direction ?? null }
+      : null,
     capitalWarning: rules.capitalStock?.distributionSignal === true || rules.sharesPerPoint?.topWarning === true,
     counterMove: counterMove ? { trend: counterMove.trend, inCounterMove: counterMove.inCounterMove, phase: counterMove.phase } : null,
     reactionAbnormal: rules.timeRules?.reactionAbnormal === true,
@@ -502,14 +508,26 @@ export function timePillar(input: { side: Side; squared: boolean; facts: PillarF
   };
 }
 
-/** P8 (C7, C8, S14, S21): volume at the turn or a base of weeks, with no capital-stock warning against the side. */
+/**
+ * P8 (C7, C8, S14, S21): volume at the turn or a base of weeks left in the
+ * trade's direction, with no capital-stock warning against the side.
+ *
+ * The base counts only once price has left it the trade's way and stands
+ * outside (2026-10-28; Master Course: weeks in a narrow range "then crossing
+ * the range's tops or breaking its bottoms: go with it"; *Commodities* p. 62;
+ * `readBaseLeft`). It had counted a long range for both sides while price
+ * was still inside it: on random walks with uninformative volume that base
+ * alone passed 82% of readings at $20 and 33% at $500, for buys and sells
+ * alike, and P8 passed 70-94% (diagnosis:
+ * `/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md`).
+ */
 export function volumePillar(f: PillarFacts | null | undefined, side: Side, climax: boolean): PillarResult {
-  const base = f?.base != null && f.base.long && f.base.breakout !== (side === "bullish" ? "down" : "up");
+  const base = f?.base?.left === (side === "bullish" ? "up" : "down");
   const noWarning = side === "bearish" || f?.capitalWarning !== true;
   const passed = (climax || base) && noWarning;
   return {
     passed,
-    note: `Volume at the turn: ${yes(climax)}. A base of ${side === "bullish" ? "accumulation" : "distribution"} over weeks: ${yes(base)}. No warning from the turnover of the stock: ${yes(noWarning)}.`,
+    note: `Volume at the turn: ${yes(climax)}. A base of ${side === "bullish" ? "accumulation" : "distribution"} over weeks, left ${side === "bullish" ? "upward" : "downward"}: ${yes(base)}. No warning from the turnover of the stock: ${yes(noWarning)}.`,
   };
 }
 

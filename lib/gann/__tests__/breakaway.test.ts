@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { MIN_RANGE_SESSIONS, breakawayVolumeMet, isNarrowRange, narrowRangeSessions, readBreakaway, readBreakawayVolume } from "../breakaway";
+import { MIN_RANGE_SESSIONS, breakawayVolumeMet, isNarrowRange, narrowRangeBeforeLeg, narrowRangeSessions, readBreakaway, readBreakawayVolume } from "../breakaway";
 import { threePoints } from "../pointScale";
 import { computeGannEntryTrigger } from "../entryTrigger";
 import { applyBreakawayHold } from "@/lib/scoring/score";
@@ -18,16 +18,41 @@ function daily(closes: number[]): Bar[] {
   }));
 }
 
-/** A sideways market: swings between ~95 and ~105 with no net progress. */
+/**
+ * A sideways market: swings between 98 and 102 with no net progress, so the
+ * bars span 97.5 to 102.5, 5 points: inside Gann's widest narrow range (4 of
+ * his points, 4/3 of the 3-point allowance, about 6.5 here).
+ */
 function sideways(cycles: number): number[] {
   const out: number[] = [];
   for (let k = 0; k < cycles; k++) {
     // Tops alternate slightly so the highest top is an older one.
-    const top = k % 2 === 0 ? 105 : 103;
-    for (let i = 1; i <= 5; i++) out.push(95 + ((top - 95) * i) / 5);
-    for (let i = 1; i <= 5; i++) out.push(top - ((top - 95) * i) / 5);
+    const top = k % 2 === 0 ? 102 : 101.5;
+    for (let i = 1; i <= 5; i++) out.push(98 + ((top - 98) * i) / 5);
+    for (let i = 1; i <= 5; i++) out.push(top - ((top - 98) * i) / 5);
   }
   return out;
+}
+
+/** An entry crossing at `triggerPrice`, built by hand: inside a narrow range no swing top's 3-point crossing is. */
+function crossingAt(direction: "bullish" | "bearish", triggerPrice: number) {
+  const sign = direction === "bullish" ? 1 : -1;
+  return {
+    kind: "crossing" as const,
+    direction,
+    triggerPrice,
+    stopPrice: triggerPrice - sign * 8,
+    pivot: { index: 0, price: triggerPrice - sign, kind: direction === "bullish" ? ("top" as const) : ("bottom" as const) },
+    level: triggerPrice - sign,
+    reactionEntry: triggerPrice - sign * 0.7,
+    reactionStop: triggerPrice - sign * 2,
+    protectivePivot: { index: 1, price: triggerPrice - sign * 8, kind: direction === "bullish" ? ("bottom" as const) : ("top" as const) },
+    held: false,
+    crossedAt: null,
+    swingDays: 3,
+    source: "swing" as const,
+    formedAt: "2026-01-01T00:00:00Z",
+  };
 }
 
 function steppingAdvance(cycles: number): number[] {
@@ -42,15 +67,18 @@ function steppingAdvance(cycles: number): number[] {
 
 describe("readBreakaway (Commodities pp. 51-52)", () => {
   it("reads a sideways market as range-bound and holds an entry inside the range", () => {
-    // The last leg tops near 100, so its 3-point crossing (~5 points) still
-    // sits inside the ~105.5 range high.
-    const bars = daily([...sideways(6), 97, 98, 99, 100, 99, 98, 97, 96]);
-    const trigger = computeGannEntryTrigger(bars, "bullish");
-    const r = readBreakaway(bars, trigger);
+    const bars = daily(sideways(6));
+    const r = readBreakaway(bars, crossingAt("bullish", 101));
     expect(r.rangeBound).toBe(true);
-    expect(trigger).not.toBeNull();
-    expect(trigger!.triggerPrice).toBeLessThan(r.rangeHigh!);
+    expect(r.rangeHigh).toBe(102.5);
+    expect(r.rangeLow).toBe(97.5);
     expect(r.breaksAway).toBe(false);
+  });
+
+  it("reads a range wider than 4 of his points as not narrow (Master Course pp. 246-248)", () => {
+    // 95.5 to 103.5, 8 points: wider than his widest narrow range at this price.
+    const wider = daily(sideways(6).map((c) => 100 + (c - 100) * 2));
+    expect(readBreakaway(wider, crossingAt("bullish", 101)).rangeBound).toBe(false);
   });
 
   it("allows an entry that crosses the top of the range", () => {
@@ -137,13 +165,24 @@ describe("readBreakaway reads a narrow range only", () => {
   });
 
   it("still holds a short inside a narrow range", () => {
-    const bars = daily(flip([...sideways(6), 97, 98, 99, 100, 99, 98, 97, 96]));
-    const trigger = computeGannEntryTrigger(bars, "bearish");
-    expect(trigger).not.toBeNull();
-    const r = readBreakaway(bars, trigger);
+    const bars = daily(flip(sideways(6)));
+    const r = readBreakaway(bars, crossingAt("bearish", 99));
     expect(r.rangeBound).toBe(true);
     expect(r.breaksAway).toBe(false);
     expect(applyBreakawayHold(execute, r).outputState).toBe("Watch");
+  });
+
+  it("reads the range a market is leaving, but not one it fell back into wide", () => {
+    // Left by closes above the top every session since: still that range.
+    const leaving = daily([...sideways(6), 103.5, 105, 106.5]);
+    expect(narrowRangeBeforeLeg(leaving.slice(-70))).not.toBeNull();
+    expect(narrowRangeSessions(leaving.slice(-70))).toBeNull();
+    // A retest that closes back inside the range still reads the range it left.
+    const retest = daily([...sideways(6), 105, 106.5, 101, 107]);
+    expect(narrowRangeBeforeLeg(retest.slice(-70))).not.toBeNull();
+    // Closing through the range's other side ends it: no range.
+    const through = daily([...sideways(6), 105, 106.5, 96]);
+    expect(narrowRangeBeforeLeg(through.slice(-70))).toBeNull();
   });
 
   it("needs two weeks of sessions before it reads a range", () => {
@@ -153,24 +192,27 @@ describe("readBreakaway reads a narrow range only", () => {
 
 describe("readBreakaway on a held crossed level", () => {
   it("measures the range before the crossing, not the top made after it", () => {
-    // Cross the 105.5 range high by 3 points, run to 113, react: the level is
+    // Cross the 102.5 range high by 3 points, run to 113, react: the level is
     // held and the breakaway is the crossing of the range high itself.
-    const bars = daily([...sideways(6), 100, 104, 108, 112, 113, 112, 111, 110]);
+    const bars = daily([...sideways(6), 101, 108.5, 112, 113, 112, 111, 110]);
     const t = computeGannEntryTrigger(bars, "bullish")!;
     expect(t.held).toBe(true);
-    expect(t.level).toBe(105.5);
+    expect(t.level).toBe(102.5);
     const r = readBreakaway(bars, t);
     expect(r.rangeBound).toBe(true);
-    expect(r.rangeHigh).toBe(105.5);
+    expect(r.rangeHigh).toBe(102.5);
     expect(r.breaksAway).toBe(true);
-    // Read over every session, the move after the crossing would widen the
-    // range past narrow, so it would not be read as a range at all.
-    expect(readBreakaway(bars, { ...t, held: false, crossedAt: null }).rangeBound).toBe(false);
+    // Read over every session, the move after the crossing is the leg out of
+    // the range, closed above it throughout: the range read is still the one
+    // it left, not one widened by the breakaway's own move.
+    const all = readBreakaway(bars, { ...t, held: false, crossedAt: null });
+    expect(all.rangeBound).toBe(true);
+    expect(all.rangeHigh).toBe(102.5);
   });
 
   it("is the mirror for a short: the range ends where the bottom was broken", () => {
     const flip = (xs: number[]) => xs.map((x) => 200 - x);
-    const bars = daily(flip([...sideways(6), 100, 104, 108, 112, 113, 112, 111, 110]));
+    const bars = daily(flip([...sideways(6), 101, 108.5, 112, 113, 112, 111, 110]));
     const t = computeGannEntryTrigger(bars, "bearish")!;
     expect(t.held).toBe(true);
     const r = readBreakaway(bars, t);
@@ -196,10 +238,10 @@ describe("the breakaway's volume (A-VOLUME-10)", () => {
   it("reads nothing while the close stays inside the range, or outside a range", () => {
     const inside = withVolume(daily([...sideways(6), 104]), 3000);
     expect(readBreakawayVolume(inside, after(inside))).toBeNull();
-    // Beyond the top (~105.5) and the bottom (~94.5), but short of the 3-point allowance.
-    const short = withVolume(daily([...sideways(6), 107.5]), 3000);
+    // Beyond the top (102.5) and the bottom (97.5), but short of the 3-point allowance.
+    const short = withVolume(daily([...sideways(6), 106]), 3000);
     expect(readBreakawayVolume(short, after(short))).toBeNull();
-    const shortDown = withVolume(daily([...sideways(6), 92.5]), 3000);
+    const shortDown = withVolume(daily([...sideways(6), 94]), 3000);
     expect(readBreakawayVolume(shortDown, after(shortDown))).toBeNull();
     const trend = withVolume(daily([...steppingAdvance(10), 200]), 3000);
     expect(readBreakawayVolume(trend, after(trend))).toBeNull();
@@ -242,7 +284,7 @@ describe("the breakaway's volume (A-VOLUME-10)", () => {
 // W006 p.20 at the entry (fork FV6 b): in a narrow range, wait for a completed
 // session to close past the line on volume.
 describe("the breakaway waits for a session that closes past the range on volume (A-VOLUME-10)", () => {
-  // The range tops near 105.5; the crossing line for a long is 110.
+  // The range tops at 102.5; the lines below are past its 3-point crossing.
   const range = () => daily(sideways(6)).map((b, i) => ({ ...b, v: i % 2 ? 1500 : 500 }));
   const session = (prev: Bar[], c: number, v: number): Bar[] => [...prev, { ...prev[prev.length - 1], t: new Date(Date.parse(prev[prev.length - 1].t) + 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v }];
 
@@ -270,7 +312,7 @@ describe("the breakaway waits for a session that closes past the range on volume
 
   it("has no volume condition for a range too wide to be narrow (batch review A2)", async () => {
     const { isGannRangeBound } = await import("@/lib/gann/trendStrength");
-    // The same swings three times as wide, about 85 to 115.
+    // The same swings three times as wide, about 94 to 106.
     const wide = daily(sideways(6).map((c) => 100 + (c - 100) * 3)).map((b, i) => ({ ...b, v: i % 2 ? 1500 : 500 }));
     expect(isGannRangeBound(wide)).toBe(true);
     expect(breakawayVolumeMet(session(wide, 121, 600), "bullish", 120)).toBe(true);
@@ -282,7 +324,7 @@ describe("the breakaway waits for a session that closes past the range on volume
 
   it("waits while no completed session has closed past the line", () => {
     expect(breakawayVolumeMet(range(), "bullish", 110)).toBe(false);
-    expect(breakawayVolumeMet(session(range(), 108, 3000), "bullish", 110)).toBe(false);
+    expect(breakawayVolumeMet(session(range(), 103, 3000), "bullish", 110)).toBe(false);
   });
 
   it("judges the breakout session, not the sessions that follow it", () => {
@@ -322,8 +364,10 @@ describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () 
     }
     return out;
   }
-  /** About four weeks swinging 97 to 103 (tops 103 then 102), then a leg to 100. */
-  const narrowTail = [98, 100, 102, 103, 101, 99, 97, 99, 101, 102, 100, 98, 97, 99, 101, 103, 101, 99, 97, 98, 99, 100, 99, 98, 97];
+  /** About four weeks swinging 97.6 to 102.4 (bars 97.1 to 102.9), then a leg to 100. */
+  const narrowTail = [98, 100, 102, 103, 101, 99, 97, 99, 101, 102, 100, 98, 97, 99, 101, 103, 101, 99, 97, 98, 99, 100, 99, 98, 97].map((x) => 100 + (x - 100) * 0.8);
+  const TAIL_HIGH = 102.9;
+  const TAIL_LOW = 97.1;
   const bars = () => daily([...wideSwings(6), 100, ...narrowTail]);
   const flip = (xs: number[]) => xs.map((x) => 200 - x);
   const execute = { outputState: "Execute", breakdown: [] } as unknown as ScanDecision;
@@ -354,17 +398,17 @@ describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () 
 
   it("holds a long inside the narrow spell, with the spell's own top as the range high", () => {
     const b = bars();
-    const r = readBreakaway(b, arming(b, "bullish", 102.5));
+    const r = readBreakaway(b, arming(b, "bullish", 102));
     expect(r.rangeBound).toBe(true);
-    expect(r.rangeHigh).toBe(103.5);
-    expect(r.rangeLow).toBe(96.5);
+    expect(r.rangeHigh).toBeCloseTo(TAIL_HIGH, 9);
+    expect(r.rangeLow).toBeCloseTo(TAIL_LOW, 9);
     expect(r.breaksAway).toBe(false);
     expect(applyBreakawayHold(execute, r).outputState).toBe("Watch");
   });
 
   it("lets the entry that crosses the spell's top by 3 points through, though the quarter's top is higher", () => {
     const b = bars();
-    const r = readBreakaway(b, arming(b, "bullish", 103.5 + threePoints(103.5) + 0.01));
+    const r = readBreakaway(b, arming(b, "bullish", TAIL_HIGH + threePoints(TAIL_HIGH) + 0.01));
     expect(r.rangeBound).toBe(true);
     expect(r.breaksAway).toBe(true);
     expect(r.rangeHigh!).toBeLessThan(130);
@@ -372,17 +416,17 @@ describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () 
 
   it("is the mirror for a short", () => {
     const b = daily(flip([...wideSwings(6), 100, ...narrowTail]));
-    const r = readBreakaway(b, arming(b, "bearish", 97.5));
+    const r = readBreakaway(b, arming(b, "bearish", 98));
     expect(r.rangeBound).toBe(true);
-    expect(r.rangeLow).toBe(96.5);
-    expect(r.rangeHigh).toBe(103.5);
+    expect(r.rangeLow).toBeCloseTo(TAIL_LOW, 9);
+    expect(r.rangeHigh).toBeCloseTo(TAIL_HIGH, 9);
     expect(r.breaksAway).toBe(false);
-    expect(readBreakaway(b, arming(b, "bearish", 96.5 - threePoints(96.5) - 0.01)).breaksAway).toBe(true);
+    expect(readBreakaway(b, arming(b, "bearish", TAIL_LOW - threePoints(TAIL_LOW) - 0.01)).breaksAway).toBe(true);
   });
 
   it("waits for the spell's breakout to come on more than the spell's average volume", () => {
     const vol = bars().map((b, i, all) => ({ ...b, v: i < all.length - narrowTail.length ? 9000 : i % 2 ? 1500 : 500 }));
-    const line = 103.5 + threePoints(103.5);
+    const line = TAIL_HIGH + threePoints(TAIL_HIGH);
     const out = (v: number): Bar[] => [...vol, { ...vol[vol.length - 1], t: new Date(Date.parse(vol[vol.length - 1].t) + 86_400_000).toISOString(), o: line + 1, h: line + 1.5, l: line + 0.5, c: line + 1, v }];
     expect(breakawayVolumeMet(out(3000), "bullish", line)).toBe(true);
     expect(breakawayVolumeMet(out(1200), "bullish", line)).toBe(false);

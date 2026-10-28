@@ -74,17 +74,39 @@ describe("the volume rule at a high (W006 pp.39-40, 48)", () => {
     expect(high.confirms).toBe(false);
   });
 
-  it("confirms a secondary top that reaches the first on lower volume", () => {
+  function retestRows(light: number, top: number): Array<[number, number, number]> {
     const rows: Array<[number, number, number]> = [];
     for (let i = 0; i < 30; i++) rows.push([70 + i, 1000, 2]);
     rows.push([100, 3000, 2]); // first top on heavy volume
     for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
-    for (let i = 1; i <= 6; i++) rows.push([94 + i, 1000, 2]);
-    rows.push([100.2, 1500, 2]); // secondary top at the same level, less volume
-    for (let i = 1; i <= 6; i++) rows.push([100 - i, 1000, 2]);
-    const high = computeVolumeClimax(bars(rows)).find((r) => r.anchorKind === "high")!;
+    for (let i = 1; i <= 6; i++) rows.push([94 + i, light, 2]);
+    rows.push([100.2, top, 2]); // secondary top at the same level
+    for (let i = 1; i <= 6; i++) rows.push([100 - i, light, 2]);
+    return rows;
+  }
+
+  it("confirms a secondary top that reaches the first on two-thirds its week's volume or less (FV2)", () => {
+    const high = computeVolumeClimax(bars(retestRows(500, 1000))).find((r) => r.anchorKind === "high")!;
+    expect(high.retestWeekVolumeRatio!).toBeLessThanOrEqual(2 / 3);
     expect(high.retestOnLowerVolume).toBe(true);
     expect(high.confirms).toBe(true);
+  });
+
+  it("reads a retested low the same way, two-thirds or less (FV2, Polarity)", () => {
+    const mirror = (rows: Array<[number, number, number]>) => rows.map(([c, v, r]) => [200 - c, v, r] as [number, number, number]);
+    const light = computeVolumeClimax(bars(mirror(retestRows(500, 1000)))).find((r) => r.anchorKind === "low")!;
+    expect(light.retestWeekVolumeRatio!).toBeLessThanOrEqual(2 / 3);
+    expect(light.retestOnLowerVolume).toBe(true);
+    const heavier = computeVolumeClimax(bars(mirror(retestRows(1000, 1500)))).find((r) => r.anchorKind === "low")!;
+    expect(heavier.retestWeekVolumeRatio!).toBeGreaterThan(2 / 3);
+    expect(heavier.retestOnLowerVolume).toBe(false);
+  });
+
+  it("does not confirm a retest on a smaller week that is more than two-thirds of the first (FV2, W006 pp.43-44)", () => {
+    const high = computeVolumeClimax(bars(retestRows(1000, 1500))).find((r) => r.anchorKind === "high")!;
+    expect(high.retestWeekVolumeRatio!).toBeGreaterThan(2 / 3);
+    expect(high.retestWeekVolumeRatio!).toBeLessThan(1);
+    expect(high.retestOnLowerVolume).toBe(false);
   });
 
   it("does not read a second top on heavier volume than the first as a retest (A-VOLUME-13)", () => {
@@ -145,7 +167,7 @@ describe("the volume rule at a high (W006 pp.39-40, 48)", () => {
     });
     const ctx = readDisclosedRules(rows, 90, null, new Date(rows[rows.length - 1].t));
     expect(ctx.secondTopVolumeRatio).toBeCloseTo(6000 / 18000, 6);
-    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("A second top at the first top's level on 33% of its week's volume."))).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.startsWith("A second top at the first top's level on 33% of its week's volume: it counts"))).toBe(true);
     expect(contextFactorsFor(ctx, "bullish", 90)).toMatchObject({ secondTopTwoThirdsVolumeAgainst: true, secondTopThirdVolumeAgainst: true });
     expect(contextFactorsFor(ctx, "bearish", 90)).toMatchObject({ secondTopTwoThirdsVolumeWith: true, secondTopThirdVolumeWith: true, secondTopThirdVolumeAgainst: false });
     expect(contextFactorsFor({ ...ctx, secondTopVolumeRatio: 0.5 }, "bullish", 90)).toMatchObject({ secondTopTwoThirdsVolumeAgainst: true, secondTopThirdVolumeAgainst: false });

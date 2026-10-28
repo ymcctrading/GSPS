@@ -257,7 +257,9 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
       const r = replay(
         "TEST",
         sess([at(L + S * (P + 0.5)), at(L + (S * P) / 3 + S * 0.1, 0.4), gapOpen, at(L)]),
-        opts,
+        // The fill mechanics without the data delay; the delayed fill is
+        // pinned in replay.test.ts (DATA-DELAY-001).
+        { ...opts, feedDelayMs: 0 },
       );
       expect(r.trades).toHaveLength(0);
       expect(r.refusedFills).toBe(1);
@@ -275,7 +277,7 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
           win,
           at(L),
         ]),
-        opts,
+        { ...opts, feedDelayMs: 0 },
       );
       expect(r.trades).toHaveLength(1);
       expect(r.trades[0].outcome).toBe("win");
@@ -364,9 +366,14 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
     };
     const early: Bar[] = Array.from({ length: 44 }, (_, i) => ({ ...above, t: stamp("2025-08-25", 0, i), v: 1000 }));
     const day: Bar[] = Array.from({ length: 6 }, (_, i) => ({ ...at(L - P / 4, 0.05), t: stamp(DAY, 14, i), v: 1000 }));
-    const r = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY });
+    const r = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY, feedDelayMs: 0 });
     expect(r.trades).toHaveLength(1);
     expect(r.trades[0].entry).toBeCloseTo(L - P / 4, 8);
     expect(r.trades[0].openedAt).toBe(day[1].t);
+    // Under the 15-minute delay the first candle's close is read 15 minutes
+    // later, so the market fill is the third candle's open (DATA-DELAY-001).
+    const delayed = replay("TEST", [...early, ...day], { targetR: 2, dailyBars: DAILY });
+    expect(delayed.trades).toHaveLength(1);
+    expect(delayed.trades[0].openedAt).toBe(day[2].t);
   });
 });

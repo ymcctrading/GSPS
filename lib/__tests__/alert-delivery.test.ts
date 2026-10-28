@@ -24,7 +24,12 @@ vi.mock("@/lib/entitlements/policy", () => ({
   },
 }));
 
-import { recordIntradayBells } from "@/lib/notifications/intradayBell";
+import { recordIntradayBells as record } from "@/lib/notifications/intradayBell";
+import { alertTimeliness } from "@/lib/__tests__/fixtures/alertTimeliness";
+
+/** The bell at the scan's own clock: dispatch is the moment the alert was evaluated. */
+const recordIntradayBells = (client: SupabaseClient, alerts: Alert[], args: { intervalBySymbol: Map<string, number>; now: Date }) =>
+  record(client, alerts, { ...args, clock: () => args.now });
 
 type Row = Record<string, unknown>;
 
@@ -79,6 +84,7 @@ function alert(symbol: string, over: Partial<Alert> = {}): Alert {
     move: { current: 770 },
     invalidation: 760,
     continuationPlan: { firstTarget: 790, masterTarget: null, paysRisk: true },
+    timeliness: alertTimeliness(now),
     ...over,
   } as unknown as Alert;
 }
@@ -167,15 +173,16 @@ describe("intraday bell delivery", () => {
 
   it("writes a notice at a plan's entry once in 12 hours, as before", async () => {
     const db = fakeDb(seed());
-    const reached = alert("SPY", { type: "entry_reached" } as Partial<Alert>);
+    // Each scan reads the notice afresh; an alert object is never re-sent stale.
+    const reached = () => alert("SPY", { type: "entry_reached" } as Partial<Alert>);
     const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
     // Notices reach Pro's module too, outside its bound.
-    expect(await recordIntradayBells(db.client, [reached], args)).toBe(3);
+    expect(await recordIntradayBells(db.client, [reached()], args)).toBe(3);
     expect(recipients(db.tables.in_app_notifications)).toEqual(["expert-a", "expert-b", "pro-p"]);
     now = new Date("2026-10-21T19:00:00Z");
-    expect(await recordIntradayBells(db.client, [reached], { ...args, now })).toBe(0);
+    expect(await recordIntradayBells(db.client, [reached()], { ...args, now })).toBe(0);
     now = new Date("2026-10-22T04:00:00Z");
-    expect(await recordIntradayBells(db.client, [reached], { ...args, now })).toBe(3);
+    expect(await recordIntradayBells(db.client, [reached()], { ...args, now })).toBe(3);
   });
 
   it("keeps different signals on one symbol apart", async () => {

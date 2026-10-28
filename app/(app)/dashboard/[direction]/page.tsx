@@ -49,7 +49,7 @@ export default async function DirectionListPage({
           {scanDate
             ? `Top ${rows.length} ${side} setup${rows.length === 1 ? "" : "s"} from the ${scanDate} market scan` +
               (continuations > 0
-                ? `, ${continuations} of them taken with the trend, ranked with the reversions by score.`
+                ? `, ${continuations} of them taken with the trend.`
                 : ". Every row carries a complete trade plan; a short list means the rest armed no trigger.")
             : "The daily market scan has not run yet — results appear here after the first cron run."}
         </p>
@@ -66,13 +66,11 @@ export default async function DirectionListPage({
         <CardHeader>
           <CardTitle>Ranked setups</CardTitle>
           <CardDescription>
-            {/* Continuations are appended after the reversions rather than
-                merged by score, so a flat "sorted by score" would misdescribe
-                the order the moment one is in the list. */}
-            {continuations > 0
-              ? "Reversions first, by protocol score, then the continuations that topped the list up."
-              : "Sorted by protocol score."}{" "}
-            Open any symbol for the chart, score breakdown, and order ticket.
+            {/* Only the setups that can be placed today are ranked, by score
+                (owner, 2026-10-28); Resting orders and Watch sit under their
+                own headings below them (components/scan/results-table.tsx). */}
+            Setups you can place today, highest score first. Resting orders and Watch setups are listed below
+            under their own headings. Open any symbol for the chart, score breakdown, and order ticket.
           </CardDescription>
         </CardHeader>
         <CardContent>

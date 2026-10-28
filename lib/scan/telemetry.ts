@@ -2,13 +2,12 @@
  * Diagnostic log for the market scan's coarse pre-filter (see
  * `lib/marketScan.ts`) — one row per symbol per scan day, recording the raw
  * ATR-relative measurements the coarse gate judged and whether the symbol
- * went on to a real full-protocol score. Exists so the ATR-multiple
- * thresholds the gate was rebased to (`TRAVEL_ATR_MULT` in
- * `lib/marketScan.ts`; the reversion gate's extension tiers were removed on
- * 2026-10-16, and `extension_pct` stays here as a diagnostic only) — chosen by preserving the ratio
- * the old flat-percent thresholds expressed, not by measuring real outcomes
- * — can be calibrated against actual data once enough scan days accumulate,
- * instead of staying a one-time guess.
+ * went on to a real full-protocol score. The ATR-relative readings it
+ * logs (`extension_pct`, `travel_pct`) no longer gate or rank anything: the
+ * reversion gate's extension tiers were removed on 2026-10-16 and the
+ * continuation's travel point on 2026-10-28 (gann-alignment-audit SUS-02,
+ * replaced by Gann's 50% of the extreme range and half the highest price).
+ * They stay here as diagnostics only.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

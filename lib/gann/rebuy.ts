@@ -15,9 +15,18 @@
  *    stop is covered at the re-buy. The others add nothing to the geometry.
  *
  * The geometry, price-scaled by the Gann point: the re-entry rests
- * `REBUY_REACTION_POINTS` below the trade's best price (12, the low end of his
- * 12 to 15, where he bought), and its stop sits half the reaction under it (218
- * and 212). Mirrored for a short: 12 points of rally above its low, stop 6 over.
+ * `REBUY_REACTION_POINTS` below the trade's best price, and its stop sits half
+ * the reaction under it. Mirrored for a short: the rally above its low, stop
+ * half of it over.
+ *
+ * The reaction is his 12 points (the low end of his 12 to 15, where he bought)
+ * read at the price he wrote them for, about 230: 12 / `pricePoint(230)`, about
+ * 4.4 Gann points, so at 230 it rests at 218 with the stop at 212, as he did.
+ * Corrected 2026-10-28 (alignment audit, `score-and-levels.md`): until then it
+ * was 12 Gann points, about 32 dollars at 230, so the re-entry rested near 198
+ * with its stop near 182, nearly three times his reaction. His point scale
+ * already grows with price (`pointScale.ts`: 3 points at $25-60, 5-10 at
+ * $100-300), so a figure he gave at 230 is already a high-priced figure.
  *
  * Engineering choices, labelled: only a trailing stop re-buys (the initial
  * stop says the entry was wrong, not that the trend paused), and only once the
@@ -30,7 +39,10 @@
 
 import { pricePoint } from "./pointScale";
 
-export const REBUY_REACTION_POINTS = 12;
+/** The price of his worked example (W022 p.198: a run to about 230, re-bought at 218). */
+export const REBUY_EXAMPLE_PRICE = 230;
+/** His 12-point reaction in Gann points, read at the example's price (about 4.4). */
+export const REBUY_REACTION_POINTS = 12 / pricePoint(REBUY_EXAMPLE_PRICE);
 
 // Every trailing stop of `readGannExit` (`GannStopReason` but "initial"), so
 // the replay, which reads the finer reason, re-buys as the exit managers do
