@@ -127,7 +127,7 @@ describe("computeGannEntryTrigger", () => {
 
   it("reads narrow as 4/3 of the 3-point allowance, his widest dated narrow range", () => {
     const spell = (k: number) => {
-      const w = k * gannThreePoints(19);
+      const w = k * threePoints(19);
       return bars(Array.from({ length: 12 }, (_, i) => (i % 2 ? 20 + (w - 2) / 2 : 20 - (w - 2) / 2)));
     };
     const inside = spell(1.2);
