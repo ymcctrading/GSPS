@@ -1223,13 +1223,13 @@ James Flanagan's *W. D. Gann's Master Time Factor Revealed* (secondary) adds 9-,
 own text carries 9, 14 and 40 (January 1955 list, Master Course Ch. 14, PDF 387),
 84 (1935, Ch. 7 PDF 219), 90 (1955, "the Great Cycle") and 100 (*Commodities*
 p. 224); 13, 120 and 150 are Flanagan's alone and are not built. P1's cycle check
-now counts the 1935 list plus 9, 14 and 40 years on the stock's 61-year monthly
-record, the one the time-window hold reads (`pillarYearCycleConvergence`,
-`readPillarFacts`' `yearCountMonthly`, live and replay alike), and the market's
-84-, 90- and 100-year counts on the long record (`marketCountHits`). Random
-walks, long readings with a count against: 14.5% before, 26.2% now; every
-lesson's list would be 43.2%, so the rest of the 1955 and 1931 lists stay in the
-time-window hold only, held for the owner. The dominant cycle is Gann's step (the
+now counts every lesson's yearly list (1935, 1955 and 1931) on the stock's
+61-year monthly record, the one the time-window hold reads
+(`pillarYearCycleConvergence`, `readPillarFacts`' `yearCountMonthly`, live and
+replay alike), and the market's 84-, 90- and 100-year counts on the long record
+(`marketCountHits`). Random walks, long readings with a count against: 14.5%
+before, 43.2% now; the replay measures whether the stricter check helps.
+The dominant cycle is Gann's step (the
 1936 forecast's "I expect the 1896 cycle to repeat") with a choosing measure
 Gann never gave; built as context and the factor `dominantCycleWithTrade`
 (`dominantCycle.ts`), not acting: on the record it called the month right 53.4%

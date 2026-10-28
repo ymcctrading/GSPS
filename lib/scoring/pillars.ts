@@ -60,9 +60,8 @@ export interface PillarFacts {
   marketTrend: Side | null;
   /**
    * Yearly counts from the stock's major monthly pivots landing on this month
-   * (closed months only): the 1935 list and 9, 14 and 40 years
-   * (`pillarYearCycleConvergence`), on the stock's long monthly record when
-   * it is passed.
+   * (closed months only): every lesson's list (`pillarYearCycleConvergence`),
+   * on the stock's long monthly record when it is passed.
    */
   yearCycle: { bullishHits: number; bearishHits: number } | null;
   /**
@@ -331,8 +330,8 @@ export function readPillarFacts(input: {
  * count against the trade.
  *
  * Since 2026-10-28 (Flanagan's yearly cycles checked against Gann's text,
- * `timeCycles.ts#pillarYearCycleConvergence`): the yearly counts add Gann's
- * 9-, 14- and 40-year cycles and read the stock's long record, and the
+ * `timeCycles.ts#pillarYearCycleConvergence`): the yearly counts are every
+ * lesson's list (9, 14 and 40 years among them) on the stock's long record, and the
  * market's 84-, 90- and 100-year counts join them. The dominant decade
  * (`dominantCycle.ts`) is measured, not read here: on the record it called the
  * month worse than the average.

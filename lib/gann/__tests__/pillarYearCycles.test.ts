@@ -12,11 +12,11 @@ function withHighAt(highMonth: number, months = 600): Bar[] {
   });
 }
 
-describe("P1's yearly counts add the 9-, 14- and 40-year cycles (2026-10-28)", () => {
-  for (const years of [9, 14, 40]) {
+describe("P1's yearly counts read every lesson's list (2026-10-28)", () => {
+  for (const years of [6, 9, 14, 22.5, 40, 49]) {
     it(`counts a major high exactly ${years} years back against a long`, () => {
       const bars = withHighAt(12); // January 1981
-      const asOf = new Date(Date.UTC(1981 + years, 0, 15));
+      const asOf = new Date(Date.UTC(1981, Math.round(years * 12), 15));
       const closed = bars.filter((b) => b.t < asOf.toISOString().slice(0, 7));
       expect(yearCycleConvergence(closed, asOf).bearishHits).toBe(0);
       expect(pillarYearCycleConvergence(closed, asOf).bearishHits).toBeGreaterThanOrEqual(1);

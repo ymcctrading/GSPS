@@ -34,7 +34,7 @@ The rest of Flanagan's list (1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 60) was already 
 
 ## What GSPS built from it
 
-- P1's yearly counts read the 1935 list plus 9, 14 and 40 years (`timeCycles.ts#pillarYearCycleConvergence`) on the stock's 61-year monthly record, live and replay alike.
+- P1's yearly counts read every lesson's list, the 1955 list's 9, 14 and 40 years among them (`timeCycles.ts#pillarYearCycleConvergence`), on the stock's 61-year monthly record, live and replay alike.
 - The market's 84-, 90- and 100-year counts on the long record (`eightyFourYear.ts#marketCountHits`) count in P1's cycle check for a stock.
 - The dominant decade (`dominantCycle.ts`) is context and the factor `dominantCycleWithTrade`. On the record (1945-2025) it called the month right 53.4% of the time against 57.3% for the decades' average, so P1 keeps the average.
 - Nothing here is user-facing.
