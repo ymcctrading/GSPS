@@ -29,6 +29,23 @@ jobs:
     runs-on: ubuntu-latest
     name: Trigger /api/lifecycle/reaper
     steps:
+      # Free-tier usage meter (AGENTS.md, "Usage limits"): refuses the job at
+      # 99% of the month's Actions minutes, unless the PR carries the
+      # usage-override label (only on the owner's OK) or it is the month's last
+      # two days. Fails open when the meter can't be reached.
+      - name: Usage gate
+        env:
+          USAGE_URL: ${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/ops/usage
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          OVERRIDE: ${{ contains(github.event.pull_request.labels.*.name, 'usage-override') }}
+        run: |
+          echo "USAGE_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          [ -n "$CRON_SECRET" ] || exit 0
+          reply=$(curl -sS -m 10 -H "Authorization: Bearer $CRON_SECRET" "$USAGE_URL?gate=github_actions" || true)
+          if [ "$(echo "$reply" | jq -r '.hold // false' 2>/dev/null)" = "true" ] && [ "$OVERRIDE" != "true" ]; then
+            echo "::error::$(echo "$reply" | jq -r '.reason')"
+            exit 1
+          fi
       - name: Call lifecycle reaper
         run: |
           status=$(curl -sS -o /tmp/response.json -w '%{http_code}' \
@@ -40,3 +57,17 @@ jobs:
             echo "lifecycle reaper returned $status" >&2
             exit 1
           fi
+
+      # Reports this job's billed minutes (rounded up, at least one) to the
+      # usage meter. Runs even when the job failed or was cancelled.
+      - name: Usage report
+        if: always()
+        env:
+          USAGE_URL: ${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/ops/usage
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          [ -n "$CRON_SECRET" ] || exit 0
+          start=${USAGE_JOB_START:-$(date +%s)}
+          minutes=$(( ($(date +%s) - start + 59) / 60 )); [ "$minutes" -ge 1 ] || minutes=1
+          curl -sS -m 10 -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' \
+            -d "{\"meter\":\"github_actions\",\"units\":$minutes,\"key\":\"job-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}\",\"detail\":{\"workflow\":\"${{ github.workflow }}\",\"event\":\"${{ github.event_name }}\"}}" "$USAGE_URL" || true
