@@ -28,7 +28,6 @@
 import { NO_GUARANTEE_DISCLAIMER } from "@/lib/school/disclaimer";
 import type { PlatformTier } from "@/lib/tiers";
 import type { QuizQuestion } from "@/lib/school/content";
-import { OLD_LEVEL_BUYS_IN_RANGE } from "@/lib/gann/breakaway";
 
 export const SCHOOL_CURRICULUM_PROGRAM_ID = "gsps-school-curriculum";
 export const CURRICULUM_VERSION = "2026.09.1";
@@ -351,33 +350,36 @@ const ACADEMY_2: Academy = {
       ],
     },
     {
+      // Rewritten 2026-10-28 (owner: the School teaches public methods by
+      // others, never the back end's sources). Lesson ids are unchanged so
+      // progress and promotion carry over.
       id: "academy-2/simple-rules",
       slug: "simple-rules",
       title: "Simple Rules With Mr. Bull and Mrs. Bear",
       outcome:
-        "Explain, in plain words, the handful of rules that keep a new trader in the game: trade with the trend, respect the levels where orders gather, keep losses small, and know when to stop.",
+        "Explain, in plain words, the handful of ideas every chart reader starts with: which way the trend is, where support and resistance sit, how far a normal pullback goes, and how to keep a loss small.",
       lessons: [
         {
           id: "academy-2/simple-rules/trend-and-levels",
-          title: "Which Way Is the Market Going?",
+          title: "Which Way Is the Market Going? Dow Theory in Plain Words",
           objectives: [
-            "Tell an uptrend from a downtrend by its tops and bottoms.",
-            "Explain why old highs and lows matter again later.",
+            "Tell an uptrend from a downtrend by its highs and lows, the way Dow Theory does.",
+            "Name the three sizes of trend and explain why the biggest one matters most.",
           ],
           estimatedMinutes: 10,
           instruction: [
             "Mr. Bull and Mrs. Bear are your guides through GSPS School. Mr. Bull makes the case for a trade: what could go right. Mrs. Bear challenges it: what could go wrong, and what would prove the idea false. Every good decision hears both of them before it acts.",
-            "Mr. Bull's first lesson: a market going up makes higher tops and higher bottoms, one after another. A market going down makes lower tops and lower bottoms. When you can't tell which it is doing, it is going sideways, and sideways is the hardest place to make money.",
-            "Mrs. Bear's first lesson: don't argue with the trend. Buying in a downtrend because the price 'looks cheap' is how small losses become big ones. Wait for the market to show you it has turned: a higher bottom, then a break above the last top.",
-            "Old highs and lows matter again. A price where the market turned before is where buyers and sellers remember it, so it often stops the market again. When price finally pushes through an old high, that high often becomes the floor on the next dip. It works the other way too: an old low that price breaks clearly below often becomes the ceiling on the next rally.",
+            "Dow Theory, one of the oldest ideas in technical analysis, starts with a simple picture. A market going up makes higher highs and higher lows, one after another. A market going down makes lower highs and lower lows. When you can't tell which it is doing, it is going sideways, and sideways is the hardest place to make money.",
+            "Dow Theory also says trends come in three sizes, like the tide, the waves and the ripples. The primary trend lasts months to years. Secondary moves run against it for weeks, and most of what people call pullbacks are these. Minor moves last days and are mostly noise. Mr. Bull trades in the direction of the biggest trend he can see, and uses the smaller ones only to time his entry.",
+            "Mrs. Bear's first lesson: a trend is assumed to continue until it gives a clear signal that it has ended. Buying in a downtrend because the price 'looks cheap' is how small losses become big ones. Wait for the market to show you it has turned: a higher low, then a break above the last high.",
           ],
           application:
-            "Open any chart. Mark the last two tops and the last two bottoms. Are they rising, falling, or mixed? Say which way the trend is in one sentence, then say what Mrs. Bear would want to see before believing it.",
+            "Open any chart. Mark the last two highs and the last two lows. Are they rising, falling, or mixed? Say which way the trend is in one sentence, then say what Mrs. Bear would want to see before believing it.",
           quiz: [
-            q("An uptrend is a market making:", ["Lower tops and lower bottoms", "Higher tops and higher bottoms", "The same top every day", "Big volume every day"], 1),
+            q("An uptrend is a market making:", ["Lower highs and lower lows", "Higher highs and higher lows", "The same high every day", "Big volume every day"], 1),
             q(
-              "When price breaks above an old high, that old high often:",
-              ["Stops mattering", "Becomes a floor on the next dip", "Guarantees a new high", "Means the trend is down"],
+              "In Dow Theory, a trend is assumed to continue until:",
+              ["The news turns bad", "It gives a clear signal that it has ended", "The end of the month", "Price falls for one day"],
               1,
             ),
             q("Mrs. Bear's job in a decision is to:", ["Agree with Mr. Bull", "Challenge the idea and say what would prove it wrong", "Pick the position size", "Place the order"], 1),
@@ -387,21 +389,23 @@ const ACADEMY_2: Academy = {
         },
         {
           id: "academy-2/simple-rules/halfway-and-round-numbers",
-          title: "Halfway Points and Round Numbers",
+          title: "Support, Resistance, the 50% Pullback and Round Numbers",
           objectives: [
-            "Find the halfway point of a move and explain why it matters.",
-            "Explain why prices often stall just short of round numbers.",
+            "Explain why old highs and lows act as support and resistance.",
+            "Find the 50% point of a move, and explain why prices often stall near round numbers.",
           ],
-          estimatedMinutes: 9,
+          estimatedMinutes: 10,
           instruction: [
-            "Mr. Bull likes to measure. Take the highest and lowest price of a move and find the point halfway between them. Pullbacks often stop near that halfway point, and a market that holds above it is still healthy. A market that falls well below it is losing strength. After the halfway point, the quarter and three-quarter points of the move matter most, then the thirds, then the eighths.",
+            "Support is a price where buying has stopped a fall before. Resistance is a price where selling has stopped a rise. Old highs and lows are the most common ones, because traders remember them: people who bought at a high and watched it fall are happy to sell when price gets back there. When price finally pushes through resistance, that level often becomes support on the next dip. It works the other way too: broken support often becomes resistance.",
+            "Pullbacks in a trend often retrace a share of the move before it carries on. Dow Theory observed that secondary moves usually take back between a third and two thirds of the move before them, and the halfway point, 50%, is the one many traders watch. A market that holds above the halfway point of its last rise is still healthy. One that falls well below it is losing strength.",
             "Round numbers such as 20, 50, 100 or 200 are where many people place their orders, because people think in round numbers. That crowd of orders often stops a rally just under the round number, or a fall just above it.",
-            "Mrs. Bear's warning: don't place your own order right on the round number, where everyone else's is. Place it a little before it. And when a stock finally breaks through a big round number, that is often a sign of real strength. The first time a stock gets above 200, expect it to reach about 202 or 203 and fall back; the second time often does the same. GSPS waits for the third time through before it buys, and holds the earlier tries to Watch.",
+            "Mrs. Bear's warning: don't place your own order right on the round number or the old level, where everyone else's is. Place it a little before it. And a level isn't a wall: it is a place to watch how price behaves, not a promise that it will turn.",
           ],
           application:
-            "On a chart, find the high and low of the last big move and mark the halfway point. Then find the nearest round number above today's price. Which is closer?",
+            "On a chart, find the high and low of the last big move and mark the halfway point. Then mark the nearest old high above today's price and the nearest round number. Which is closer?",
           quiz: [
-            q("Pullbacks in a healthy move often stop near:", ["The halfway point of the move", "Zero", "Yesterday's close only", "The all-time high"], 0),
+            q("When price breaks above an old resistance level, that level often:", ["Stops mattering", "Becomes support on the next dip", "Guarantees a new high", "Means the trend is down"], 1),
+            q("A pullback that holds above the 50% point of the last rise suggests the move is:", ["Still healthy", "Over", "Certain to make a new high", "Too risky to watch"], 0),
             q(
               "A sensible place for a selling order, when a round number is just above, is:",
               ["Exactly on the round number", "A little before the round number", "Far above it", "Nowhere; round numbers don't matter"],
@@ -412,48 +416,46 @@ const ACADEMY_2: Academy = {
         },
         {
           id: "academy-2/simple-rules/small-losses",
-          title: "Keep Losses Small, and Know When to Stop",
+          title: "Cutting Losses Short",
           objectives: [
-            "State the rules for handling a losing trade.",
-            "Explain why a trader stops after a run of losses.",
+            "Set a stop before a trade and size the trade from it.",
+            "Explain why a small loss is cheap and a large one is expensive.",
           ],
           estimatedMinutes: 10,
           instruction: [
             "Mrs. Bear's most important rule: every trade has a stop before it is placed. The stop is the price that says 'I was wrong.' Hoping a losing trade comes back is how accounts get hurt.",
-            "Never add to a losing trade to 'average down'. If you add at all, add only to a trade that is already working, and add less than you started with.",
-            "Mr. Bull's rule for winners: once a trade has gained as much as you risked on it, move the stop to your entry price. From then on, the trade can't turn into a loss.",
-            "After three losing trades in a row, stop. Something has changed: the market, or your judgment. Take a break, review what happened, and come back smaller. GSPS pauses new entries for the rest of that day and the next after three losses in a row, and never blocks you from closing or protecting a trade.",
-            "Twice a year, it helps to close everything out and rest for a while. A clear head sees the next move better than a tired one.",
+            "Size the trade from the stop, not the other way round. Many traders risk only 1% or 2% of their account on any one trade: the distance from entry to stop, times the number of shares, should come to no more than that. Then a run of losses is a setback, not a disaster.",
+            "Losses are harder to win back than they look. Lose 10% and you need about 11% to get back to even. Lose 50% and you need 100%. That is why the first loss is the cheapest one to take.",
+            "Never add to a losing trade to 'average down'. If you add at all, add only to a trade that is already working. And after a run of losing trades, step back. Something has changed, the market or your judgment, and a break to review costs less than trading through it. GSPS pauses new entries for a short time after a run of losses, and never blocks you from closing or protecting a trade.",
           ],
           application:
-            "Write down your stop rule, your break-even rule and your stop-after-losses rule in your own words, as if explaining them to a friend.",
+            "Take a $10,000 practice account. If you risk 1% on a trade with the stop $2 below the entry, how many shares is that? Write down your own stop rule and your rule for a losing streak.",
           quiz: [
             q("When should a trade's stop be decided?", ["After it starts losing", "Before the trade is placed", "Never", "At the end of the week"], 1),
-            q("Adding to a losing trade to lower your average price is:", ["A good habit", "Something to avoid", "Required by GSPS", "Only for experts"], 1),
-            q("After three losing trades in a row, the sound move is to:", ["Trade bigger to win it back", "Stop, review, and come back smaller", "Switch to a new market immediately", "Remove your stops"], 1),
+            q("A $10,000 account risking 1% with the stop $2 from the entry trades about:", ["5 shares", "50 shares", "500 shares", "5,000 shares"], 1),
+            q("After a 50% loss, the gain needed to get back to even is:", ["50%", "75%", "100%", "25%"], 2),
           ],
           reviewMeta: AUTHOR,
         },
         {
           id: "academy-2/simple-rules/what-a-trader-needs",
-          title: "What Every Trader Needs",
-          objectives: ["Name the five things a trader needs before risking money.", "Explain why overtrading hurts."],
+          title: "The Trading Plan and the Trading Journal",
+          objectives: ["Write a simple trading plan.", "Explain why a journal and fewer, better trades help."],
           estimatedMinutes: 8,
           instruction: [
-            "Five things make a trader: knowledge (learn before you risk money), patience (wait for the right setup, and give a good trade time), nerve (act on your rules when it's time, without freezing), health (a tired or unwell trader makes poor decisions), and capital (money you can afford to risk, sized so that no single trade can hurt you badly).",
+            "A trading plan answers five questions before any money moves: what market, which way, where in, where out if wrong, and how much. If you can't answer all five, there is no trade yet.",
+            "A trading journal records every trade: why you took it, what you planned, what happened and how you felt. Read it back each week. Most traders find their losses come from a few repeated habits, and the journal is how you see them.",
             "Mr. Bull's reminder: fewer, better trades beat many average ones. Trading because you are bored, or to win back a loss, is overtrading, and it is one of the fastest ways to lose.",
             "Mrs. Bear's reminder: after a long winning run, don't suddenly trade bigger. Success makes traders careless.",
           ],
-          application: "Rate yourself honestly on each of the five things, from 1 to 5. Which one needs the most work before you trade real money?",
+          application: "Write a one-paragraph trading plan for a stock you follow, answering all five questions. Then start a journal page for it.",
           quiz: [
-            q("Which of these is NOT one of the five things a trader needs?", ["Patience", "Capital", "A lucky number", "Health"], 2),
-            q("Trading to win back a loss is an example of:", ["Good risk control", "Overtrading", "Patience", "Pyramiding"], 1),
+            q("Which of these is NOT one of a trading plan's questions?", ["Where in", "Where out if wrong", "What a friend thinks", "How much"], 2),
+            q("Trading to win back a loss is an example of:", ["Good risk control", "Overtrading", "Patience", "Planning"], 1),
           ],
           reviewMeta: AUTHOR,
         },
         {
-          // C-OTHER-02 (class C, Additional Cycle Findings p. 17): ignore the
-          // financial press. Written in our own words.
           id: "academy-2/simple-rules/the-chart-not-the-news",
           title: "Judge the Market From Its Own Chart",
           objectives: [
@@ -462,16 +464,16 @@ const ACADEMY_2: Academy = {
           ],
           estimatedMinutes: 8,
           instruction: [
-            "Mrs. Bear's warning: headlines are written after the move. A story about why a stock jumped is an explanation of yesterday, and by the time you read it, the buying or selling it describes is already in the price.",
-            "Mr. Bull's rule: the chart is the record of what people actually did with their money. Tops, bottoms, the trend and the volume tell you where the market is going more honestly than anyone's opinion about it. If the chart and the news disagree, trust the chart.",
+            "Dow Theory's first idea is that price already reflects what is known. Mrs. Bear's warning follows from it: headlines are written after the move. A story about why a stock jumped is an explanation of yesterday, and by the time you read it, the buying or selling it describes is already in the price.",
+            "Mr. Bull's rule: the chart is the record of what people actually did with their money. Highs, lows, the trend and the volume tell you where the market is going more honestly than anyone's opinion about it. If the chart and the news disagree, trust the chart.",
             "Exciting news often arrives near the end of a move, when the last buyers are rushing in, and gloomy news near the end of a fall. Acting on how a story makes you feel is how traders buy near tops and sell near bottoms.",
             "News still has one use: knowing when a scheduled event, such as an earnings report, can make price jump past your stop. That tells you when risk is higher and when to stay out. It does not tell you which way to trade.",
           ],
           application:
-            "Find a stock in the headlines today. Before reading the story, write down what its chart says: the trend, the last top and bottom, and where you would be wrong. Then read the story and ask whether it changes anything the chart told you.",
+            "Find a stock in the headlines today. Before reading the story, write down what its chart says: the trend, the last high and low, and where you would be wrong. Then read the story and ask whether it changes anything the chart told you.",
           quiz: [
             q(
-              "A headline says a stock is soaring on great news, but its chart shows lower tops and lower bottoms. What should guide your decision?",
+              "A headline says a stock is soaring on great news, but its chart shows lower highs and lower lows. What should guide your decision?",
               ["The headline", "The chart", "Whichever you read first", "A friend's opinion"],
               1,
             ),
@@ -574,7 +576,7 @@ const ACADEMY_3: Academy = {
           ],
           estimatedMinutes: 20,
           instruction: [
-            "A risk constitution is a small set of limits you write down before you need them, specifically so a losing streak or an exciting setup can't talk you out of them in the moment: maximum risk per trade (as a percent of account), maximum daily loss before you stop trading for the day, maximum number of concurrent open positions, and explicit pause conditions (e.g. 'three losing trades in a row: stop and review, don't take a fourth').",
+            "A risk constitution is a small set of limits you write down before you need them, specifically so a losing streak or an exciting setup can't talk you out of them in the moment: maximum risk per trade (as a percent of account), maximum daily loss before you stop trading for the day, maximum number of concurrent open positions, and explicit pause conditions (e.g. 'after a set number of losing trades in a row: stop and review before the next').",
             "This lab is where the Three-Element Method becomes concrete for the first time: Signal (what you observe), Bull Case (the opportunity, if any), Bear Challenge (what would prove it wrong, and what the loss costs against your own constitution), and the Operator's Decision (the actual choice — No Trade / Watchlist / Conditional Entry / Reduced-Risk Entry / Standard-Risk Entry / Exit / Review Required).",
             "A well-reasoned 'No Trade' is scored identically to a well-reasoned entry — this lab never rewards trading activity for its own sake.",
           ],
@@ -727,69 +729,70 @@ const ACADEMY_4: Academy = {
     },
 
     {
+      // Rewritten 2026-10-28 (owner: public methods only; see Academy 2).
       id: "academy-4/reading-the-swings",
       slug: "reading-the-swings",
       title: "Reading the Swings With Mr. Bull and Mrs. Bear",
       outcome:
-        "Read a market's swings well enough to check a GSPS plan: where the breakout level is, where the stop belongs, what volume is saying, and how a winning trade is managed.",
+        "Read a market's swings well enough to check a trade plan: where the breakout level is, where the stop belongs, what a trading range and its volume are saying, and how a winning trade is managed.",
       lessons: [
         {
           id: "academy-4/reading-the-swings/breakouts-and-stops",
-          title: "Breakout Levels and Where the Stop Goes",
+          title: "Swing Highs and Lows, Breakouts and Pullbacks",
           objectives: [
-            "Explain why GSPS enters just past an old top or bottom.",
-            "Place a stop beyond the level that would prove the idea wrong.",
+            "Mark swing highs and lows and explain why a close past one matters.",
+            "Explain the break-and-retest entry and place a stop beyond the level that would prove the idea wrong.",
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Mr. Bull's entry: first price has to close clearly above the last swing top, so a brush against the level doesn't count. Crossing the top is the market proving the buyers are in control. Then he doesn't chase it: he buys the pullback, just above the old top. The old top need not be the last swing: a previous year's top, from any of the last ten years, and the record high from before the last 52 weeks are crossed and bought the same way, and so is an old bottom price fell through decisively and then climbed back over decisively. A short is the mirror, with one more condition: Mrs. Bear first wants to see the market spend about two weeks going sideways in a narrow band near its top, the sign that holders are selling. Then a close clearly under the last swing bottom, and a sell on the bounce, just below it. A previous year's bottom broken decisively needs no such spell. She has one more sale: a narrow week, then a week that closes clearly under it on heavy volume, is sold on the bounce just under the narrow week's low, with the stop just over it, even while the market as a whole is rising.",
-            "Mr. Bull has a second entry: a swing bottom that already held once. His buy rests right at that bottom, so when price comes back down to test it, a second test makes a double bottom and a third a triple bottom. GSPS buys only those two tests. Mrs. Bear's stop for it goes just under the bottom, so this trade risks little. A short is the mirror at an old top that held.",
-            "His third entry is a low that has stopped falling. After a drop, once the low has held into its second week with no lower low, Mr. Bull buys at the last close, and Mrs. Bear's stop goes just under that low. He only buys while price is still near the low, so the risk stays small. In a rising market he does not wait that long: after a drop of two to three weeks, two days without a lower low are enough. A short is the mirror at a high that has stopped rising, and in a falling market Mrs. Bear sells a rally that has run two to three weeks, at the close of its second or third week, with the stop just over that week's high.",
-            "Mrs. Bear's stop: the stop goes just below the old top the buy was taken over (above the old bottom for a short), scaled to the price the same way. If price gets back there, the idea was wrong. A stop that sits right on a round number or right on the level is where everyone else's stops are, so it goes a little beyond.",
-            "After a breakout, a strong market shouldn't fall back far under the level it crossed. If it closes back under it, the breakout didn't hold, and GSPS treats that as a reason to leave.",
-            "A market that rallies to the same top two or three times and then closes clearly under it has made a double or triple top that failed. Mr. Bull doesn't buy a move that has to clear that top decisively to reach its first target. He waits until a day closes clearly over that top, or a new swing forms. A quick poke over it during the day doesn't count, because those often fall back by the close. A rally back up near it is still under it. If the top fails after he has bought, he leaves. Mrs. Bear reads a failed double or triple bottom the same way for a short.",
-            "A stock that has drifted sideways in a narrow range needs volume to leave it. Mr. Bull only takes the crossing when the session that closed past the line did so on more volume than the range's average. A quiet crossing out of a range is a guess, so he waits for a new crossing that comes on volume. His resting buys at an old bottom need no crossing, so they wait for nothing.",
+            "A swing high is a bar whose high stands above the bars on either side of it; a swing low is the mirror. Joined up, they show the shape of the trend more clearly than every single bar does, and they are the levels traders watch.",
+            "A breakout is price leaving a level behind. Mr. Bull wants it on a close, not a brush during the day: many intraday pokes above a high fall back by the close. A close clearly past the last swing high is the market showing the buyers are in control.",
+            "He doesn't chase it. A common way to enter is the break-and-retest: after the breakout, wait for price to pull back toward the level it broke, and buy as it holds there. The old resistance has become support. The entry is closer to the level, so the stop can be closer too. The catch: a strong breakout sometimes never comes back, and the trade is missed. That is the price of not chasing.",
+            "Mrs. Bear's stop goes just beyond the level the idea depends on: a little under the broken high for a buy, a little over the broken low for a short. If price closes back through it, the breakout has failed, and that is a reason to leave rather than to hope. A stop right on a round number or right on the level is where everyone else's is, so it goes a little beyond.",
+            "Mrs. Bear's other warning is the false breakout. A market that pushes over a high and closes straight back under it has trapped the late buyers, and the move the other way can be sharp. One reason GSPS waits for a close, and then a pullback, is to let the false ones show themselves first.",
           ],
-          application: "On a chart, mark the last swing top and bottom. Where would GSPS's entry be, and where would its stop go?",
+          application: "On a chart, mark the last swing high and low. If price closed clearly over that high, where would a break-and-retest buy go, and where would the stop go?",
           quiz: [
-            q("After price closes clearly over the last swing top, GSPS buys:", ["At a round number", "On the pullback, just above the old top", "On the next red candle", "At the next open"], 1),
-            q("A breakout that closes back under the level it crossed:", ["Is stronger than ever", "Did not hold, a reason to leave", "Should be doubled", "Means nothing"], 1),
+            q("A break-and-retest entry buys:", ["At the first intraday poke over the high", "On the pullback toward the level that was broken", "At the next open, whatever the price", "At a round number far above"], 1),
+            q("A breakout that closes back under the level it crossed:", ["Is stronger than ever", "Has failed, a reason to leave", "Should be doubled", "Means nothing"], 1),
           ],
           bullBear: { required: true, requiresRegimeCheckpoint: true, scenarioBasis: "hypothetical" },
           reviewMeta: AUTHOR,
         },
         {
           id: "academy-4/reading-the-swings/three-closes-and-volume",
-          title: "Three Closes, and What Volume Says at Turns",
-          objectives: ["Use the three-close rule on a daily chart.", "Read volume at a bottom and at a top."],
-          estimatedMinutes: 11,
+          title: "Trading Ranges and Volume at Turns (Wyckoff)",
+          objectives: ["Describe accumulation and distribution ranges the way Wyckoff did.", "Read volume at a bottom and at a top."],
+          estimatedMinutes: 12,
           instruction: [
-            "A strong uptrend rarely closes lower three days in a row. Mrs. Bear watches for the third lower close: it says the short-term trend has turned, at least for now. Three higher closes in a downtrend say the same thing the other way.",
-            "At a bottom, selling usually dries up: volume gets smaller as the fall slows, and a retest of the low comes on lighter volume than the first low. That quiet is Mr. Bull's sign that the sellers are done. A panic day with huge volume can also end a fall, but it is the exception.",
-            "At a top, very heavy volume while price stops rising says the stock is being handed from strong holders to late buyers. Mrs. Bear reads that as a warning. The heaviest week often comes just before the final top, and a second rally that stops short of the top on smaller volume says the buyers are spent.",
-            "After a second, lower top, watch for a dull, narrow stretch: price going sideways in a tight range on quieter trading. If it then breaks down out of that range on heavier volume, Mrs. Bear reads it as a sign of a further fall. GSPS holds new buys and closes open ones while price stays under the range, for up to 20 sessions after the break.",
+            "Richard Wyckoff, writing a century ago, described markets as moving between trading ranges and trends. Large buyers can't fill a big order in one day without lifting the price, so they buy over weeks inside a range. He called that accumulation. Distribution is the mirror: large holders selling to the public inside a range near a top. The trend that follows a range, up out of accumulation or down out of distribution, he called markup and markdown.",
+            "Wyckoff named a few events traders still look for. A selling climax is a sharp fall on very heavy volume that ends a decline, often followed by an automatic rally. A spring is a quick dip under the bottom of a range that snaps back inside it, shaking out weak holders before markup. An upthrust is the mirror at the top of a range, a push over its high that fails.",
+            "Volume tells you who is in charge. In Wyckoff's terms, effort (volume) should match result (price movement). A breakout on heavy volume has real effort behind it. A rally to a new high on shrinking volume shows less buying, and Mrs. Bear reads that as a warning. At a bottom, selling that dries up, a retest of the low on lighter volume than the first, is Mr. Bull's sign that the sellers are done.",
+            "Mr. Bull's caution: these labels are easy to apply after the fact. Inside a range, nobody knows yet whether it is accumulation or distribution. Let the breakout and its volume tell you.",
           ],
-          application: "Find a recent bottom on a chart. Did volume shrink into it, and was the retest quieter than the first low?",
+          application: "Find a stock that has gone sideways for several weeks. Mark the top and bottom of the range. Did it leave the range, which way, and on what volume?",
           quiz: [
-            q("Three lower closes in a row during an uptrend suggest:", ["The trend is accelerating", "The short-term trend has turned", "Nothing", "A round number is near"], 1),
+            q("In Wyckoff's terms, accumulation is:", ["Large buyers buying inside a range before a rise", "A fast rally on no volume", "Selling at a top", "A gap down"], 0),
             q("A retest of a low on lighter volume than the first low is:", ["A sign selling is drying up", "A sign of heavy selling", "Irrelevant", "A sell signal"], 0),
+            q("A spring is:", ["A rally to a new high", "A quick dip under a range's bottom that snaps back inside", "A dividend", "A long red candle at a top"], 1),
           ],
           reviewMeta: AUTHOR,
         },
         {
           id: "academy-4/reading-the-swings/managing-a-winner",
-          title: "Managing a Winning Trade",
-          objectives: ["Describe how GSPS manages a trade that is working.", "Explain why a runner has no fixed target."],
+          title: "Trailing Stops and Letting Winners Run",
+          objectives: ["Describe the common ways to trail a stop.", "Explain why a winning trade is often better without a fixed target."],
           estimatedMinutes: 11,
           instruction: [
-            "A GSPS trade has no fixed target. The first target on the plan is a level to watch, and nothing is sold there just because price reached it. The whole position keeps running.",
-            "Once the trade is far enough ahead, the stop moves to the entry. After that, the stop steps up under each new higher bottom the market makes, and under last month's low once a new month begins.",
-            "The part that keeps running has no fixed final target. It leaves when the market says the move is over: a swing chart turning, a reaction bigger or longer than any before it, or three closes against the trade. Mrs. Bear's point: let the market tell you when to leave instead of guessing a price in advance.",
+            "'Cut your losses and let your profits run' is one of the oldest sayings on Wall Street. The first half is the stop. The second half is the trailing stop: a stop that moves only in the trade's favour as the trade works.",
+            "Traders trail stops a few common ways. Under each new higher swing low, so the trend has to break to stop you out. Under a moving average, or a set multiple of the average daily range behind the best price, so the trail adjusts to how much the stock usually moves. And many move the stop to the entry price once the trade is far enough ahead, so it can no longer become a loss.",
+            "A fixed profit target caps a winner. Mrs. Bear's point: you can't know in advance how far a move will run, so let the market tell you when it is over, through a broken swing low or a failed level, instead of guessing a price. GSPS plans show a first target as a level to watch, not as an order that sells there, and the trade runs until its stop or the trend says otherwise.",
+            "Mr. Bull's caution: a trail set too tight gets stopped out by ordinary pullbacks. Give a trade room for its normal swings, and tighten only as the move gets old or fast.",
           ],
-          application: "Take a trade you know that went well. Where would the stop have been after each higher bottom?",
+          application: "Take a trade you know that went well. Where would the stop have been after each higher swing low? Where would that trail have taken you out?",
           quiz: [
-            q("After a trade gains as much as it risked, the stop moves to:", ["Further away", "The entry price", "Zero", "The first target"], 1),
-            q("The part of a trade that keeps running leaves when:", ["It hits a fixed final price", "The market shows the move is over", "It is Friday", "Volume rises once"], 1),
+            q("Once a trade is far enough ahead, many traders move the stop to:", ["Further away", "The entry price", "Zero", "The first target"], 1),
+            q("A stop trailed under each higher swing low takes you out when:", ["It is Friday", "The trend breaks", "Volume rises once", "Price touches a round number"], 1),
           ],
           reviewMeta: AUTHOR,
         },
@@ -949,66 +952,63 @@ const ACADEMY_6: Academy = {
       ],
     },
     {
+      // Rewritten 2026-10-28 (owner: the School teaches public methods by
+      // others, Elliott Wave named as the example; never the back end's
+      // sources). Ids and slug unchanged so progress carries over.
       id: "academy-6/method-rules",
       slug: "method-rules",
-      title: "The Method's Rules: Trend, Time, Entries, Exits and the Trader",
+      title: "Advanced Methods: Elliott Wave, Fibonacci, Cycles and Sizing",
       outcome:
-        "Explain the rules GSPS applies on every setup (how the trend is read, when time matters, where an entry, stop and exit go, and when to stop trading) well enough to check a plan against them yourself.",
+        "Read a chart with the advanced public methods experienced traders use (Elliott Wave counts, Fibonacci ratios, market stages and seasonal tendencies) and size and add to positions with discipline, knowing where each method is strong and where it is only opinion.",
       lessons: [
         {
           id: "academy-6/method-rules/swing-charts-and-trend",
-          title: "Swing Charts and When a Trend Changes",
+          title: "Elliott Wave: Impulse and Correction",
           objectives: [
-            "Read the trend from a 3-day and a weekly swing chart.",
-            "Name the signs that a trend is changing before price proves it.",
+            "Describe the five-wave impulse and the three-wave correction.",
+            "Explain how waves nest inside larger waves.",
           ],
           estimatedMinutes: 15,
           instruction: [
-            "GSPS reads trend from two swing charts built on highs and lows, not from moving averages. The main trend comes from the monthly chart, the weekly chart next, and the daily matters most for fast, active stocks, so GSPS weighs them in that order, in its first pass over the market as in the full scan. The 3-day chart follows price up while it makes higher highs and turns down after three bars of lower lows; the weekly chart does the same with a counter-move of about a week. The trend itself only turns when price crosses the last swing top (up) or breaks the last swing bottom (down). A pullback that holds above the last bottom is still an uptrend. A stock is never too high to buy while its trend is up, nor too low to sell while it is down, so long as a stop is placed: how far price has run is no reason on its own to trade against the trend.",
-            "Trends run in sections, usually three or four. A signal in the third or fourth section counts for more than one in the second, because the move has had time to exhaust itself.",
-            "Three signs warn that a trend is changing before the swing chart turns: a reaction bigger than any earlier reaction in the move (price over-balanced), a reaction that lasts longer than any earlier one (time over-balanced), and a month that breaks the prior month's low in an advance (or its high in a decline), the first such break being the one to mark. Time is read first: a move that runs out of time usually runs out of price soon after. Reactions are measured in points, the price distance from top to bottom, not in percent. Either over-balance means GSPS no longer reads a confirmed trend, and it keeps standing after the reaction ends: the rally that follows is the place to sell, and the over-balance clears only when price goes back above the top the reaction fell from (below the bottom, in a decline). The monthly break is a warning: no new trade is taken with the trend while it stands. The trend holds while the reaction stays above the top of the move's previous section; if it goes under that top as well, GSPS no longer reads a confirmed trend.",
-            "Which stocks to trade matters as much as when. The early leaders of an advance bottom before the market, or cross last year's top before it does; the early leaders of a decline top first, or break last year's bottom first. GSPS lists them first, buys on the buy list and shorts on the sell list. A stock that is weak while the market advances (its early top never exceeded in two years, or its first short rally never exceeded) is left alone as a buy: GSPS holds the buy to Watch and lists it first among shorts instead, so you can be long the strongest and short the weakest at the same time.",
+            "Ralph Nelson Elliott, in the 1930s, proposed that crowd psychology moves markets in repeating patterns. A move in the direction of the larger trend, he said, unfolds in five waves: three that advance (1, 3 and 5) separated by two that pull back (2 and 4). This is the impulse.",
+            "After an impulse comes a correction, usually in three waves labelled A, B and C: a move against the trend, a partial recovery, and a final move against it again. Corrections take several shapes. A zigzag is sharp and deep, a flat goes mostly sideways, and a triangle narrows as it goes.",
+            "Waves nest. Each of the five waves of an impulse is itself made of smaller waves, and the whole five-wave move is just wave 1 or 3 or 5 of something larger. Elliott named the sizes, from waves lasting minutes up to ones lasting decades. That is why two analysts can look at the same chart and count it differently: they may be counting different sizes.",
+            "Mr. Bull's use for it: wave 3 is often the strongest and longest, so a trader who recognises the end of wave 2 is entering where the trend has the most still ahead. Mrs. Bear's caution: a wave count is a map of possibilities, not a forecast. There is almost always more than one valid count, so every count needs a price that would prove it wrong.",
           ],
           application:
-            "On a chart you know, mark the last swing top and bottom on the daily chart, count the sections of the current move, and note whether the current reaction is larger or longer than any before it.",
+            "Pick a stock in a clear uptrend. Try to label the last five waves up and the correction after them. Then write down one other way the same chart could be counted.",
           quiz: [
-            q(
-              "On the swing charts GSPS uses, an uptrend turns down when:",
-              ["Price closes below a moving average", "Price breaks the last swing bottom", "Volume falls for a day", "Any red candle appears"],
-              1,
-            ),
-            q(
-              "A reaction that lasts longer than every earlier reaction in the move is a sign that:",
-              ["The trend is strengthening", "Nothing has changed", "The trend may be changing", "Volume is about to rise"],
-              2,
-            ),
+            q("An Elliott impulse unfolds in:", ["Three waves", "Five waves: three advancing, two pulling back", "Seven waves", "Any number of waves"], 1),
+            q("A correction is usually labelled:", ["1-2-3-4-5", "A-B-C", "X-Y-Z only", "It has no labels"], 1),
+            q("Why can two analysts count the same chart differently?", ["One must be cheating", "Waves nest, and more than one count can be valid", "Charts change after the fact", "Counts only work on Fridays"], 1),
           ],
           reviewMeta: AUTHOR,
         },
         {
           id: "academy-6/method-rules/time",
-          title: "Time: Counter-Moves, Anniversaries and Three Closes in a Row",
+          title: "Cycles and Seasonality: What Traders Watch",
           objectives: [
-            "Judge whether a counter-move has run a normal length of time or an abnormal one.",
-            "Use the three-close rule on daily, weekly and monthly bars.",
+            "Name the seasonal and calendar tendencies traders commonly watch.",
+            "Explain why a calendar tendency is a reason to watch, never a reason to trade on its own.",
           ],
-          estimatedMinutes: 14,
+          estimatedMinutes: 12,
           instruction: [
-            "Counter-moves in a healthy trend are usually short: two to three weeks is normal, and strong markets seldom react into a second month. A reaction that is still making new lows in its third month, counted from the top it started from, is treated as a change of trend, not a pause; one that made its low in the second month and has held is not.",
-            "Turns tend to cluster at set distances from a major top or bottom: at fractions of the year (a quarter, a third, a half, and the full year, with the half year ranked highest) and at recurring day counts. GSPS shows these as time windows. They are a reason to watch closely, never a reason to trade on their own: a window counts only when the market turns on it, and a trade against the trend waits for its turn to come on one.",
-            "The three-close rule: after a run, three lower closes in a row turn a short-term uptrend down, and three higher closes turn a downtrend up. It is read on daily bars, and again on weekly and monthly bars, where it carries more weight.",
+            "Many traders watch the calendar. Some well-known tendencies: the 'Sell in May' observation that US stocks have, on average, gained less from May to October than from November to April; the turn-of-the-month effect, with gains bunched in the last and first few days of a month; the January effect for small stocks; and the four-year presidential cycle, in which the year before an election has often been the strongest. Earnings seasons, four times a year, bring bigger moves in individual stocks.",
+            "Traders also look for cycles in price itself: lows that seem to come at fairly regular intervals. On a chart it is easy to see rhythm, because the eye finds patterns even in random data. A rhythm that is real should keep working on years it wasn't found in, should beat a random calendar, and should survive a proper statistical test. Most claimed cycles fail at least one of those.",
+            "Mrs. Bear's rule: these are averages over many years, and any one year can go the other way. A seasonal tendency is a reason to pay closer attention, never a reason to buy or sell on its own. Price and the trend come first; the calendar only tells you when to look harder.",
+            "Mr. Bull's use for it: if your chart already says buy and the calendar is on your side, fine. If they disagree, believe the chart.",
           ],
           application:
-            "Find the last major bottom on a daily chart. Count the calendar days since it, and check whether today falls near a quarter, a third or a half of a year from it.",
+            "Take a stock you follow. Look at how it did in each of the last five Mays through Octobers against each November through April. Would that tendency alone have been worth trading?",
           quiz: [
             q(
-              "A reaction in an uptrend that is still making new lows in its third month should be treated as:",
-              ["A normal pullback", "A change of trend", "A buying opportunity", "Irrelevant"],
+              "A calendar or seasonal tendency is best used as:",
+              ["A reason to trade on its own", "A reason to watch more closely, with price and trend deciding", "A guarantee", "Something to ignore completely"],
               1,
             ),
             q(
-              "Time windows on GSPS are:",
-              ["A reason to trade on their own", "A reason to watch closely, not to trade on their own", "Only for crypto", "Hidden from the plan"],
+              "A cycle that is real should:",
+              ["Look good on one chart", "Keep working on data it wasn't found in and beat a random calendar", "Be secret", "Only work in January"],
               1,
             ),
           ],
@@ -1016,30 +1016,29 @@ const ACADEMY_6: Academy = {
         },
         {
           id: "academy-6/method-rules/entries-and-exits",
-          title: "Entries, Stops and Exits on the Market's Own Structure",
+          title: "Fibonacci Retracements and Extensions",
           objectives: [
-            "Explain where a GSPS entry, stop and target come from.",
-            "Describe how the stop moves and when a trade is closed early.",
+            "Draw Fibonacci retracement levels on a swing and name the common ratios.",
+            "Use extensions to mark where a move might run, and say why they are levels to watch, not targets.",
           ],
-          estimatedMinutes: 16,
+          estimatedMinutes: 13,
           instruction: [
-            "An entry starts with a close clearly past an old swing top (long) or old swing bottom (short), so ordinary noise at the level doesn't count. A short on a swing bottom also needs distribution before the break: about two weeks of narrow, sideways trading near the top within the 13 weeks before it. GSPS then buys the reaction: the order rests just past the old level and fills when price pulls back to it, on every path, including automation. When the crossing leaves a sideways range, it has to come on volume: GSPS takes it only when the completed session that closed past the line, from short of it, did so on more than the range's average volume; after a quiet crossing it waits for a new one. The old level need not be the last swing: any previous year's top or bottom, from the last ten years, and the record high or low from before the last 52 weeks, are crossed and bought the same way. So is an old bottom that price broke decisively and then closed clearly back above: a market that regains the bottom it broke shows the decline is over, and it is bought just over that bottom with the stop just under (an old top lost after a break above it is the mirror sell). When one close crosses two levels at once, the buy is over the one nearer the price, and a level that is both a swing top and an older top is read as the older one. In a sideways market GSPS does not take a crossing until price breaks away from the range, because a crossing inside the range is only a guess at which way it will leave.",
-            `The other entry is the double or triple bottom: a swing bottom that already held, with the order resting at the bottom itself, so its second or third test is bought (an old top that held, for a short). A fourth test is not bought. A narrow week followed by a week that closes clearly under it on heavy volume is also sold, on the bounce just under the narrow week's low with the stop just over it, even while the averages rise. ${OLD_LEVEL_BUYS_IN_RANGE ? "This entry is taken inside a sideways range too, since the bottom is the range's own edge." : "Like a crossing, it waits for the breakaway in a sideways range."}`,
-            "A third entry is a bottom that holds. After a reaction, once its low has stood into its second week, GSPS buys at the last close with the stop just under the low; in a rising market, a reaction of two to three weeks is bought once its low has held two days; and a record low that holds for four weeks or more without a decisive break is bought with the stop just under the record. It is bought only near the low, so the stop stays close. A short sells a single top that holds the same way, and a rally in a falling market (its main trend down, not only the weekly chart) that has run two to three weeks is sold once, at the close of its second or third week, with the stop just over that week's high.",
-            "The stop goes just the other side of the old level. Targets are taken at the support and resistance levels the method identifies, not at a fixed percentage, falling back to a range-based target only when no level is near.",
-            "The method manages an open trade on the market's own structure: the stop moves to break-even once the trade is far enough ahead, then follows each higher swing bottom and the prior month's low. A trade is closed early if price closes back under the level it broke (the breakout did not hold), or closes against the trade three days in a row. GSPS manages every open trade this way: the whole position runs under these rules until the trend changes. No profit target is fixed; the first target on the plan is a level from the chart to watch, not an order.",
+            "The Fibonacci sequence (1, 1, 2, 3, 5, 8, 13, 21 and on, each number the sum of the two before) gives a set of ratios traders use to measure pullbacks. Dividing a number by the next gives about 0.618; by the one after that, about 0.382. Traders add 0.5 and 0.786 to make the common set: 23.6%, 38.2%, 50%, 61.8% and 78.6%.",
+            "To draw retracements on a rise, measure from the swing low to the swing high. The levels show how far a pullback might go before the trend resumes. A shallow pullback to 38.2% suggests a strong trend; one that goes past 61.8% suggests the trend is weakening. Elliott Wave traders often expect wave 2 to retrace 50% to 61.8% of wave 1, and wave 4 less.",
+            "Extensions measure beyond the move. Projected from the end of a pullback, 127.2%, 161.8% and 261.8% of the prior swing are levels where traders watch for a move to slow. Elliott traders often look for wave 3 near 161.8% of wave 1.",
+            "Mrs. Bear's caution: with five or six levels on every swing, price is almost always near one of them, so a level on its own proves little. Use them where they line up with something else, an old high or low, a round number or a trading range, and always with a stop beyond the level you are relying on.",
           ],
           application:
-            "Take one GSPS plan. Identify the old swing top or bottom it crosses or rests at, check that the entry sits just past a crossed level (or at the old level itself) and the stop just the other side, and find the level its first target sits at.",
+            "On a recent rise, draw the Fibonacci retracements from the low to the high. Where did the last pullback stop? Did that level line up with an old high or low?",
           quiz: [
             q(
-              "Where does a GSPS long entry come from?",
-              ["A fixed percentage above today's open", "The pullback after a close clearly over an old swing top", "A moving-average crossover", "The previous day's close"],
+              "The common Fibonacci retracement levels include:",
+              ["10%, 20%, 30%", "38.2%, 50%, 61.8%", "Only 100%", "33% and 66% only"],
               1,
             ),
             q(
-              "Under the method's rules, a trade is closed early when:",
-              ["It is up one risk unit", "Price closes back under the level it broke, or closes against the trade three days running", "Volume drops", "It reaches break-even"],
+              "Why should a Fibonacci level not be trusted on its own?",
+              ["The ratios are wrong", "With so many levels, price is nearly always near one; it needs something else lining up", "It only works on crypto", "It is too far from price"],
               1,
             ),
           ],
@@ -1047,28 +1046,29 @@ const ACADEMY_6: Academy = {
         },
         {
           id: "academy-6/method-rules/volume-and-the-trader",
-          title: "Volume at Turns, and Rules for the Trader",
+          title: "Elliott Wave: The Rules, the Guidelines and the Invalidation Price",
           objectives: [
-            "Read volume at a bottom and at a top the way the method does.",
-            "State the rules GSPS applies after a run of losses or wins.",
+            "State the three fixed rules of an Elliott impulse.",
+            "Turn a wave count into a trade with a price that proves it wrong.",
           ],
-          estimatedMinutes: 12,
+          estimatedMinutes: 13,
           instruction: [
-            "Sales tend to increase near tops and decrease near bottoms. A normal bottom forms on shrinking volume and a narrowing range as selling runs out; a retest of the low on smaller volume says the selling is over. Very heavy volume at a low is the exception, a panic, and it is usually followed by a sharp rebound. A top tends to come on heavy volume, often heaviest in the weeks just before it, and a second top, or a lower rally after a heavy fall, on smaller volume than the first says the advance is tiring. Out of a long decline, a higher second low on less volume than the first advance, followed by a heavier advance, points to higher prices; so does the smallest monthly volume in years, when it comes at a bottom. After a second, lower top, a dull narrow range that breaks down on heavier volume points to a further decline: GSPS holds new buys and closes open ones while price stays under the range, for up to 20 sessions after the break. Volume is compared week against week, the second turn's week against the first's.",
-            "After three losing trades in a row, GSPS pauses new entries for the rest of that day and the next trading day. The point is to stop and find out what changed, the market or your judgment, before the next trade. Stops and closes are never blocked.",
-            "Size is a fixed share of your trading unit. The unit starts as the capital you began with and doubles only once your profits equal it, and never beyond what the account is worth now, so a loss shrinks the next trade at once. Nothing in GSPS raises size because of a winning streak: during a long run of wins the unit stays where the run began, because confidence after a run of wins is the moment to be most careful, not to trade bigger.",
+            "An Elliott count is only valid if it keeps three rules. Wave 2 never retraces past the start of wave 1. Wave 3 is never the shortest of waves 1, 3 and 5. Wave 4 never moves into the price range of wave 1 (in most markets). A count that breaks one of these is not a different count, it is a wrong one.",
+            "Beyond the rules sit guidelines, which hold often but not always. Alternation: if wave 2 is sharp, wave 4 tends to be sideways, and the other way round. Equality: when wave 3 is the extended one, waves 1 and 5 are often about equal. Volume is usually heaviest in wave 3 and lighter in wave 5, which is one way a tiring trend shows itself.",
+            "The rules are what make Elliott Wave tradeable. If you count the end of wave 2 and buy, the start of wave 1 is your invalidation price: below it, the count is wrong by rule. So the stop has a reason, not just a distance. If you count wave 4 and buy for wave 5, the top of wave 1 is the line.",
+            "Mrs. Bear's caution: counts get revised all the time, and a trader who keeps re-counting to stay right is no longer trading a method. Decide the count, the invalidation price and the size before the trade, and take the stop if it comes.",
           ],
           application:
-            "Look at the last low on a chart you follow. Was volume shrinking into it, or was it a heavy-volume panic? Write down which rule you'd have applied.",
+            "Take your count from the impulse lesson. Check it against the three rules. If you were buying the end of wave 2, where is the invalidation price, and how many shares would 1% of a $10,000 account buy with a stop just beyond it?",
           quiz: [
             q(
-              "A normal bottom most often forms on:",
-              ["Shrinking volume and a narrowing range", "Record volume every time", "Rising volume and a widening range", "No volume at all"],
-              0,
+              "Which is one of Elliott's three fixed rules?",
+              ["Wave 5 is always the longest", "Wave 3 is never the shortest of waves 1, 3 and 5", "Every correction is a triangle", "Wave 2 always retraces exactly 50%"],
+              1,
             ),
             q(
-              "After three losing trades in a row, GSPS:",
-              ["Doubles the next position", "Pauses new entries for the rest of the day and the next trading day", "Closes every open position", "Changes nothing"],
+              "If you buy what you count as the end of wave 2, the count is wrong by rule if price falls below:",
+              ["The top of wave 1", "The start of wave 1", "A round number", "Yesterday's close"],
               1,
             ),
           ],
@@ -1076,52 +1076,52 @@ const ACADEMY_6: Academy = {
         },
         {
           id: "academy-6/method-rules/pyramiding",
-          title: "Adding to a Winner, and When to Stop Adding",
+          title: "Position Sizing and Adding to a Winner",
           objectives: [
-            "State the conditions under which a position may be added to.",
-            "Size each addition and move the stop so the whole position can't lose.",
+            "Size a position by fixed fractional risk.",
+            "State the conditions under which a position may be added to, and how the stop moves.",
           ],
           estimatedMinutes: 13,
           instruction: [
-            "Adding to a position is earned, never hoped for. The last lot must already show a profit at least as large as the risk the trade started with, and the market must prove the trend again by crossing a new swing top (a new swing bottom, for a short) made since that last lot. Adding to a losing trade to improve the average price is the one thing this rule exists to prevent.",
-            "Each addition is smaller than the one before. Out of 100 shares first, the additions are 50, then 30, then 20, then 10. The largest amount goes on first, when the trend is youngest; later waves of the same move get less new money. After the fifth, any further lot stays at that smallest size, because by then the move is getting old.",
-            "With every addition, the stop on the whole position moves up to at least the combined break-even, so that a reversal can cost profit but not capital. A full stop-out of everything together should never cost more than a tenth of the account.",
-            "GSPS shows an add on the Portfolio when a position has earned one. It is a suggestion: you place it through the order ticket, and nothing is added automatically.",
+            "Fixed fractional sizing risks the same small share of the account on every trade. The size comes from the stop: risk amount divided by the distance from entry to stop. When the account grows, trades grow with it; after a loss, they shrink at once. Formulas that size for maximum growth, such as the Kelly criterion, tell you how much an edge could justify, and most professionals use a fraction of that or less, because the real edge is never known exactly.",
+            "Adding to a position, pyramiding, is earned, never hoped for. Add only when the trade already shows a profit and the market confirms the trend again, for example with a new breakout. Adding to a losing trade to improve the average price is the habit this rule exists to prevent.",
+            "Keep the pyramid the right way up: each addition smaller than the one before. The largest amount goes on first, when the trend is youngest; later additions get less, because the move is getting older and the risk of a turn is growing.",
+            "With every addition, move the stop on the whole position so that a reversal can cost profit but not much capital, and check that a stop-out of everything together still fits your risk limit. GSPS suggests an add on the Portfolio when a position has earned one; you place it yourself through the order ticket.",
           ],
           application:
-            "Take a trend you know. Mark where the first entry would have been, the first swing top made after it, and the combined break-even after a half-size second lot there.",
+            "Take a trend you know. Mark the first entry, the first new breakout after it and a smaller second lot there. Where would the stop on the whole position go after the second lot?",
           quiz: [
-            q("A position may be added to when:", ["It is losing and the price is cheaper", "The last lot shows a full risk unit of profit and a new swing top is crossed", "Any day of the week", "Volume rises once"], 1),
-            q("After a first lot of 100 shares, the additions are:", ["100, 100, 100", "150, 200, 250", "50, 30, 20, 10", "Random"], 2),
-            q("After an addition, the stop on the whole position moves to at least:", ["The first entry's stop", "The combined break-even", "A round number above price", "Nowhere"], 1),
+            q("Fixed fractional sizing means:", ["The same number of shares every time", "Risking the same small share of the account on every trade", "Doubling after a loss", "Sizing by how confident you feel"], 1),
+            q("A position may be added to when:", ["It is losing and the price is cheaper", "It already shows a profit and the trend confirms again", "Any day of the week", "Volume rises once"], 1),
+            q("In a well-built pyramid, each addition is:", ["Larger than the last", "Smaller than the last", "The same as the first", "Random"], 1),
           ],
           reviewMeta: AUTHOR,
         },
         {
           id: "academy-6/method-rules/seven-zones",
-          title: "Zones of Activity",
+          title: "The Four Stages of a Market",
           objectives: [
-            "Place a stock in its normal zone or one of the extreme zones above or below it.",
-            "Explain why the outer zones call for the other rules to confirm, not for a trade on their own.",
+            "Place a stock in one of the four stages: basing, advancing, topping or declining.",
+            "Explain which stages are for buying, which for selling, and which for waiting.",
           ],
           estimatedMinutes: 10,
           instruction: [
-            "The method divides a stock's activity into zones: one normal zone where it spends most of its time, three zones above it that are progressively more extreme, and three below it, mirrored. A stock moving up out of its normal zone passes into the first zone above, then the second and third, each one further from what is normal for that stock.",
-            "The outer zones are where campaigns end. A bear campaign that has reached the lowest zone, or a bull campaign in the highest, has less room left to run than one just leaving the normal zone. A market does not turn simply because it has reached an outer zone, though; it can stay there for some time.",
-            "So the zones are a map, not a trigger. In the outer zones, give the turning rules more weight: volume at the turn, a reaction that over-balances the campaign's earlier ones, a campaign in its third or fourth section, and a close back under the level that was crossed. When those agree with an extreme zone, the turn is more likely real.",
-            "The zones are told apart by behaviour, not by fixed prices. Near normal, buying and selling balance and the daily ranges are narrow. The first zone of a move is a quiet advance (or decline) that few people notice; the second is busier, with small reactions; the third is feverish, with wide ranges and prices opening beyond the day before again and again. In the third zone above, the first opening well below the previous day's low after the run is the first warning that supply has overtaken demand. GSPS shows the zone it reads on each setup, as context.",
+            "Many traders, following Stan Weinstein's popular description, see every stock moving through four stages. Stage 1 is the base: a sideways range after a decline, with sellers running out. Stage 2 is the advance: a breakout from the base into higher highs and higher lows. Stage 3 is the top: a sideways range after the advance, with buyers running out. Stage 4 is the decline: a breakdown into lower highs and lower lows. Wyckoff's accumulation, markup, distribution and markdown describe the same circle.",
+            "The stages tell you what kind of trade belongs where. Buy in stage 2, ideally early, on the breakout from stage 1 or the first pullback after it. Sell or short in stage 4. Stages 1 and 3 are for waiting: a range can last a long time, and nobody knows which way it will leave until it does.",
+            "Each stage has a look. A base often forms on quieter volume and narrowing ranges. The advance shows rising volume on up moves. A top is often busy and choppy, with wide swings, heavy volume and failed new highs. The decline shows rallies that fail below old highs.",
+            "Mrs. Bear's caution: the stages are clear in hindsight and blurry while you are in them. Use the breakout or breakdown from a range, on volume, to confirm a new stage rather than guessing it early.",
           ],
           application:
-            "Take a stock you follow. Mark the range it spent most of the last year in, then say which zone it is in now and which turning rules, if any, are showing.",
+            "Take a stock you follow. Mark the range it spent most of the last year in, then say which stage it is in now and what would tell you it had moved to the next one.",
           quiz: [
             q(
-              "How many zones of activity does the method describe?",
-              ["Three", "Five", "Seven: one normal zone and three on each side", "Nine"],
-              2,
+              "In the four-stage model, the stage for buying is:",
+              ["Stage 1, the base", "Stage 2, the advance", "Stage 3, the top", "Stage 4, the decline"],
+              1,
             ),
             q(
-              "A stock has reached its most extreme zone above normal. What should you do?",
-              ["Sell short at once", "Give the turning rules more weight and wait for them to confirm", "Buy more", "Ignore the zone entirely"],
+              "A stock is in a sideways range after a long advance. Which stage is it likely in, and what should you do?",
+              ["Stage 2, buy more", "Stage 3, wait for it to show which way it leaves", "Stage 4, short at once", "Stage 1, buy at once"],
               1,
             ),
           ],
@@ -1129,28 +1129,29 @@ const ACADEMY_6: Academy = {
         },
         {
           id: "academy-6/method-rules/trader-qualifications",
-          title: "The Trader's Five Qualifications",
+          title: "Trading Psychology: Hope, Fear and the Plan",
           objectives: [
-            "Name the five qualifications the method says a trader needs.",
-            "Explain why hope and fear are treated as the trader's chief enemies.",
+            "Explain why hope and fear are a trader's chief enemies.",
+            "Name the habits that protect a trader from them.",
           ],
           estimatedMinutes: 10,
           instruction: [
-            "The method names five things a trader needs before the rules can work. Knowledge: regular study over years, not a few weeks. Patience: waiting for the right entry, and waiting for the trend to change before taking profits. Nerve, which comes from knowledge: you act on a rule because you understand it. Good health: never trade when you are ill or not yourself; stop and recover first. And capital: a small account is fine, provided every trade has a stop, losses are kept small and you don't overtrade.",
-            "Most losses come from the trader, not the market: trading on hope, tips, opinions or guesses, and refusing to admit a trade is wrong. Hope keeps a losing trade open; fear closes a winning one too early. A definite plan, followed every time, is the defence against both.",
-            "Prove the rules to yourself before you trust them with money. That is why GSPS measures every rule it uses against past trades, why paper trading comes before live money, and why the platform pauses new entries after a run of losses: it is the same instruction to stop, study and recover.",
+            "Most trading losses come from the trader, not the market. Hope keeps a losing trade open long after the plan said to close it. Fear closes a winning trade too early, or keeps you out of the next good one. Greed makes a trade too big. Each feels reasonable at the time.",
+            "The defence is a plan written before the trade, followed every time: the entry, the stop, the size and what would make you leave. Once a trade is on, the decisions have already been made, and your job is to carry them out, not to re-argue them.",
+            "Three habits help. Keep a journal, and read it back for repeated mistakes. Know your state: don't trade tired, unwell, angry or after a big loss or win. And prove a method to yourself on paper before you trust it with money. That is why GSPS has paper trading before live money and pauses new entries after a run of losses.",
+            "Mr. Bull's reminder: you will be wrong often, even with a good method. The goal isn't to be right on every trade; it is to lose small when wrong and let the winners pay for the losers.",
           ],
           application:
-            "Rate yourself honestly on each of the five qualifications today. Pick the weakest one and write one thing you will do this week to improve it.",
+            "Read back your last five trades, real or paper. For each, write whether hope, fear or greed changed what you did, and what your plan said to do instead.",
           quiz: [
             q(
-              "Which of these is one of the five qualifications?",
-              ["A large account", "Good health", "Inside information", "A fast internet connection"],
+              "Hope is a trader's enemy because it:",
+              ["Makes you take profits too early", "Keeps a losing trade open when the plan says to close it", "Stops you trading at all", "Has no effect on trading"],
               1,
             ),
             q(
-              "Hope is treated as an enemy because it:",
-              ["Makes you take profits too early", "Keeps a losing trade open when the plan says to close it", "Stops you trading at all", "Has no effect on trading"],
+              "The best defence against hope and fear is:",
+              ["Trading bigger", "A written plan made before the trade and followed every time", "Watching the news", "Removing your stop"],
               1,
             ),
           ],

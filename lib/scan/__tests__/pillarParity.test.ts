@@ -238,8 +238,9 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("scanTicker.ts")).toMatch(/universe: assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
     expect(src("scanTicker.ts")).toMatch(/\n\s+pillarFacts,\n\s+\}\), breakaway\)/);
     expect(src("scanTicker.ts")).toMatch(/\n\s+setupKind,\n\s+windowTurn,\n/);
-    expect(src("backtest/replay.ts")).toMatch(/universe: instrument\?\.universe \?\? null, oldLevels: structural\.old, price, asOf \}\)/);
-    expect(src("scanTicker.ts")).toMatch(/\n\s+oldLevels: structural\.old,\n\s+price: currentPrice,/);
+    // The yearly counts read the stock's long monthly record on both surfaces, as the window turn does (2026-10-28).
+    expect(src("backtest/replay.ts")).toMatch(/universe: instrument\?\.universe \?\? null, oldLevels: structural\.old, yearCountMonthly: instrument\?\.monthlyYearCount \?\? instrument\?\.monthlyLong \?\? null, price, asOf \}\)/);
+    expect(src("scanTicker.ts")).toMatch(/\n\s+oldLevels: structural\.old,\n\s+yearCountMonthly: monthlyYearCount \?\? monthlyLong \?\? null,\n\s+price: currentPrice,/);
     expect(src("backtest/replay.ts")).toMatch(/universe: universeStrength && assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
     // Both replay paths hand the replay the universe's months (S6).
     expect(src("backtest/run.ts")).toMatch(/replaySeriesOptions\(series, market, universeStrength\)/);

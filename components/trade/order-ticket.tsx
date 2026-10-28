@@ -208,10 +208,14 @@ export function OrderTicket({
   const intradayStyle = TRADE_STYLES.intraday;
   const isCrypto = symbol.includes("/");
 
-  // Another symbol's techniques and levels never carry over.
-  const [techniquesFor, setTechniquesFor] = useState(symbol);
-  if (techniquesFor !== symbol) {
-    setTechniquesFor(symbol);
+  // Another symbol's techniques and levels never carry over, nor another
+  // plan's: the symbol page keeps the ticket open when it reads the plan again
+  // (components/scan/ticker-view.tsx), and a reading of the old levels would
+  // describe a plan no longer on screen.
+  const planSignature = `${symbol}|${levels ? `${levels.entry}|${levels.stopLoss}|${levels.takeProfit1}|${levels.masterProfit}` : "none"}`;
+  const [techniquesFor, setTechniquesFor] = useState(planSignature);
+  if (techniquesFor !== planSignature) {
+    setTechniquesFor(planSignature);
     setTechniques(null);
     setTechniqueStatus("idle");
     setTechniqueTrade(null);
