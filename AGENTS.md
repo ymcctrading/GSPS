@@ -3364,6 +3364,24 @@ paper row did. The ticket says intraday has no measured record; nothing
 automated trades it. Verdicts and the daily replay are unchanged, so
 `STRATEGY_VERSION` stays.
 
+**Email only for what needs the member, 2026-10-28 (owner, item 6: "send only
+the most pertinent notifications via email….everything else should be a
+mobile/in platform notification"; "Yes" to the plan).** Measured first: the
+provider refused sends once about 200 had gone out in a UTC day (10-23, 10-26),
+and intraday signals were about 90% of them. Intraday signals and entry notices
+now go by push and the bell only (#502). Email keeps a member's own positions
+and orders, a tracked symbol turning Execute (once a New York day,
+`executeEmailedToday`), a broken plan only on a symbol they hold (`holdsSymbol`;
+otherwise push and the bell), price alerts only when no push went out, the
+evening digest (it now lists the day's intraday signals from the bell,
+`lib/notifications/digestSignals.ts`, and goes on a day with signals even
+without a closed trade), and the owner and ops reports. Every member email takes
+a slot of a daily budget first (`lib/notifications/email-budget.ts`, migration
+0126: 80 for alerts and digests, 95 for own trades and ops, UTC day, fails
+open); over it the send is skipped and the bell keeps the notice. The bell
+points a member without push on that device to the switch. A new email sender
+calls `emailBudgetHold` with its kind.
+
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
 (pg_cron 01:45 and 02:45 UTC Tue-Sat, migration 0123) emails the owner only
