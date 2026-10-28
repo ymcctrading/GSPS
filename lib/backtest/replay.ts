@@ -1067,7 +1067,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   // are built per date, not per bar.
   const armByDate = new Map<string, SessionArm | null>();
 
-  const sessionArm = (date: string, price: number): SessionArm | null => {
+  const sessionArm = (date: string): SessionArm | null => {
     const cached = armByDate.get(date);
     if (cached !== undefined) return cached;
     const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
@@ -1100,7 +1100,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // the week in progress from the completed sessions, so no later bar is read.
       const thisWeek = mondayOf(date);
       const priorWeekly = weeklyBars ? weeklyBars.filter((b) => mondayOf(b.t.slice(0, 10)) < thisWeek) : null;
-      const context = buildMacroContext(priorSessions, price, new Date(`${date}T12:00:00Z`), priorMonthly, facts, priorWeekly);
+      // The plan is read around the last completed session's close, as the live
+      // scan reads it (`planPrice`). On intraday bars it had read the close of
+      // the bar before the session's first, an extended-hours print or the
+      // regular session's last 15 minutes, not the session's close.
+      const context = buildMacroContext(priorSessions, priorSessions[priorSessions.length - 1].c, new Date(`${date}T12:00:00Z`), priorMonthly, facts, priorWeekly);
       const triggers: SessionTrigger[] = [];
       // The reaction rule is production's, and production prices from the
       // nearer of the crossing and the old level (PLAN.md item 5, step 2). The
@@ -1188,7 +1192,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     // The price the session's scan read: the last close before the session.
     const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
-    const arm = sessionArm(date, armPrice);
+    const arm = sessionArm(date);
     if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, armPrice, assetClass, weights) : null);
     if (plansOnly || !arm) continue;
 

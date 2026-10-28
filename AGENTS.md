@@ -1245,7 +1245,7 @@ The dominant cycle is Gann's step (the
 1936 forecast's "I expect the 1896 cycle to repeat") with a choosing measure
 Gann never gave; built as context and the factor `dominantCycleWithTrade`
 (`dominantCycle.ts`), not acting: on the record it called the month right 54.3%
-against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` is
+against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
 
 ## WD Gann precedence — standing principle
@@ -3226,7 +3226,7 @@ cutoff whose entry rests. The replay reads it at the fill (indication shown,
 price at the entry), so only the targets reading holds there; the plan-time
 reading the live scan shows is measured as the factor `readyNowAtPlan` (the
 session's last close and daily ATR, when the plan is priced). `STRATEGY_VERSION`
-is `2026-10-27-execute-ready-now`.
+was `2026-10-27-execute-ready-now`.
 **Outdated plans expire, 2026-10-28 (owner: "I need to continue to track those
 equities but I believe that the setups are expired"; plan approved "Go").** On
 the 2026-10-27 scan 23 of the 43 listed setups already stood past TP1 (WAT's buy
@@ -3245,6 +3245,20 @@ already-armed plan keeps its one-session window. Stored daily rows past TP1 are
 dropped by `isInvalidated`. The replay does not enter such a plan, re-read on
 each closed intraday candle (`planExpiryAt`, `expiredPlans`, inside
 `retiredPlans`). `STRATEGY_VERSION` was `2026-10-28-plan-expiry`, merged onto the P1 long counts as `2026-10-28-plan-expiry-on-p1-long-counts`.
+**The plan at the session's close, 2026-10-28 (found by the "symbol page keeps
+its plan" thread).** The live scan read the lattice levels (Square of 144,
+planetary averages, angles, Jensen, Square of Nine, name chart) and the Square
+of Nine targets around the quote, so a plan's stop, TP1 and MTP, and with them
+the S/R band, angles, square, range divisions and pillar facts, moved through
+the session, while the replay reads them all at the last completed session's
+close (`buildMacroContext`). Gann judged his charts after the close and kept
+away from the ticker (*Truth of the Stock Tape* pp.5-7, 76-82; *Wall Street
+Stock Selector* pp.41-42), so the live scan now reads them at that close
+(`planPrice`, `lib/scanTicker.ts`); the quote still decides the stop breach,
+ready-now and resting. Intraday replays read the prior session's daily close
+for it too. `pillarParity.test.ts` holds a moving quote to the same plan and
+score. `STRATEGY_VERSION` was `2026-10-28-plan-at-session-close`, merged onto the
+plan expiry as `2026-10-28-plan-at-close-on-plan-expiry`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
