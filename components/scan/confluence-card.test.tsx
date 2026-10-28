@@ -144,16 +144,17 @@ describe("ConfluenceCard", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the structural and price-action alignment badges and the framework identity", () => {
+  it("shows both readings as plain-English agreement badges", () => {
     const result = makeResult();
 
     render(<ConfluenceCard result={result} />);
 
-    expect(screen.getByText("Cross-Market Confluence")).toBeInTheDocument();
-    expect(screen.getByText("Structural Coordinate Confluence")).toBeInTheDocument();
-    expect(screen.getByText("Price-Action Confirmation Confluence")).toBeInTheDocument();
-    expect(screen.getByText("Aligned")).toBeInTheDocument();
-    expect(screen.getByText("Conflict")).toBeInTheDocument();
+    expect(screen.getByText("Context")).toBeInTheDocument();
+    expect(screen.getByText("Price levels and timing")).toBeInTheDocument();
+    expect(screen.getByText("Bar pattern")).toBeInTheDocument();
+    expect(screen.getByText("Agrees")).toBeInTheDocument();
+    expect(screen.getByText("Disagrees")).toBeInTheDocument();
+    expect(screen.getByText(/nearest key price level is 105.00, acting as support/)).toBeInTheDocument();
     expect(screen.queryByText("secret internal trace")).not.toBeInTheDocument();
     // The raw internal scenario code never reaches the DOM — only the
     // plain-language glossary term does.
@@ -203,7 +204,8 @@ describe("time lines carry their measured record or are hidden", () => {
       rank: 1,
     };
     render(<ConfluenceCard result={r} />);
-    expect(screen.getByText("1x1 (low)")).toBeInTheDocument();
+    expect(screen.getByText(/A trend line from the last low sits at 100.00/)).toBeInTheDocument();
+    expect(screen.queryByText(/1x1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/2027-01-15/)).not.toBeInTheDocument();
   });
 
@@ -215,14 +217,14 @@ describe("time lines carry their measured record or are hidden", () => {
 
   it("shows the time-cycle and day-count lines with their measured record (CYC-30)", () => {
     render(<ConfluenceCard result={withTime()} />);
-    expect(screen.getByText("Time cycle")).toBeInTheDocument();
-    expect(screen.getByText("Time from pivot")).toBeInTheDocument();
+    expect(screen.getByText(/A timing window is open/)).toBeInTheDocument();
+    expect(screen.getByText(/30 days since the last turn/)).toBeInTheDocument();
     expect(screen.getAllByText(/no better than chance/i).length).toBe(2);
   });
 
   it("hides time lines that have no measured record (CYC-30)", () => {
     render(<ConfluenceCard result={withTime()} />);
-    for (const label of [/Macro time cycle/, "Weekly timing window", "Monthly timing count", "Turn timing", /Next swing/]) {
+    for (const label of [/long-term timing window/, /weekly timing window/, /monthly timing window/, /14 days since/, /possible swing/]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
@@ -256,8 +258,7 @@ describe("context readings reach the card", () => {
 
   it("shows the first rally out of a bear market (A-TIME-03)", () => {
     render(<ConfluenceCard result={withContext()} />);
-    expect(screen.getByText("Advance from the bear low")).toBeInTheDocument();
-    expect(screen.getByText(/first rally only/)).toBeInTheDocument();
+    expect(screen.getByText(/advance from the bear-market low is a first rally so far/)).toBeInTheDocument();
   });
 
   it("shows a bull campaign of three months or more (A-TIME-03)", () => {
@@ -265,19 +266,17 @@ describe("context readings reach the card", () => {
     const rules = r.signals!.gannConfluence!.disclosedRules;
     rules.firstRally = { lowMonth: "2026-01", topMonth: "2026-05", advanceMonths: 4, volumeRatio: 1.2, state: "bullCampaign" };
     render(<ConfluenceCard result={r} />);
-    expect(screen.getByText(/bull campaign, 4 months/)).toBeInTheDocument();
+    expect(screen.getByText(/bull trend has run 4 months/)).toBeInTheDocument();
   });
 
   it("shows nearly equal reactions in an uptrend (C-SWING-01)", () => {
     render(<ConfluenceCard result={withContext()} />);
-    expect(screen.getByText("Reactions in the uptrend")).toBeInTheDocument();
-    expect(screen.getByText(/last three nearly equal/)).toBeInTheDocument();
+    expect(screen.getByText(/last three pullbacks in the uptrend were nearly equal/)).toBeInTheDocument();
   });
 
   it("shows a range broken on volume, with the time-cycle record beside its date (C-TIME-03)", () => {
     render(<ConfluenceCard result={withContext()} />);
-    expect(screen.getByText("Range break")).toBeInTheDocument();
-    expect(screen.getByText(/4-day range broken down on 2.5× volume, on a time-cycle date/)).toBeInTheDocument();
+    expect(screen.getByText(/4-day range broke down on 2.5× volume, inside a timing window/)).toBeInTheDocument();
     expect(screen.getAllByText(/no better than chance/i).length).toBeGreaterThan(0);
   });
 
@@ -289,7 +288,7 @@ describe("context readings reach the card", () => {
   it("keeps the dated change-date label off the card while it has no measured record (A-TIME-16)", () => {
     render(<ConfluenceCard result={withContext()} />);
     expect(screen.queryByText(/2026-11-09/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/change date/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/possible high/i)).not.toBeInTheDocument();
   });
 });
 
