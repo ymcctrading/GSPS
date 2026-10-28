@@ -3,6 +3,7 @@ import type { Bar } from "@/lib/types";
 import {
   counterMovePhase,
   pricePercentageLevels,
+  lowMultipleLevels,
   majorPricePercentageLevels,
   readBarMidpoint,
   readCounterMove,
@@ -71,11 +72,12 @@ describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
     expect(pricePercentageLevels(64, 390).find((l) => l.label === "500% above the low")?.price).toBe(384);
   });
 
-  it("puts the nearest multiple of the low below and above the latest close in the scan's level pool (45 Years Ch. IV p.30)", () => {
+  it("keeps the low's multiples out of the major levels, and gives the nearest pair either side of the close on their own (45 Years Ch. IV p.30)", () => {
     const b = [bar("2026-01-01T00:00:00Z", 10, 10, 10), bar("2026-01-02T00:00:00Z", 45, 45, 45)];
-    // 50% and 100% above the low (15, 20), 50% of the high (22.5), and the
-    // multiples either side of the close of 45: 400% (50) and 300% (40).
-    expect(majorPricePercentageLevels(b)).toEqual([15, 20, 22.5, 40, 50]);
+    // 50% and 100% above the low (15, 20) and 50% of the high (22.5) only.
+    expect(majorPricePercentageLevels(b)).toEqual([15, 20, 22.5]);
+    // The multiples either side of the close of 45: 300% (40) and 400% (50).
+    expect(lowMultipleLevels(b)).toEqual([40, 50]);
     expect(readPricePercentages(b, 39.5)?.nearestAbove).toMatchObject({ price: 40, label: "300% above the low" });
   });
 

@@ -269,19 +269,40 @@ export function majorPricePercentageLevels(bars: Bar[]): number[] {
   if (!(low > 0) || !(high > low)) return [];
   const levels = pricePercentageLevels(low, high);
   const major = levels.filter((l) => l.importance === 1 && l.multiple === undefined).map((l) => l.price);
-  // "100% of the low and its multiples" rank second only to 50% (45 Years
-  // Ch. IV p.30), so they act as levels like the rest (2026-10-01, "every Gann
-  // method acts"; Gann alignment audit 2026-10-28, rest-of-gann.md R24: they
-  // had been held on the card for a replay). Only the nearest multiple below
-  // and above the latest close join, as the other lattices add a pair, since
-  // a low far under price spaces dozens of them through the range.
+  return [...new Set(major)].sort((a, b) => a - b);
+}
+
+/**
+ * The nearest multiple of the low below and above the latest close. "100% of
+ * the low and its multiples" rank second only to 50% (45 Years Ch. IV p.30),
+ * so they act as levels like the rest (2026-10-01, "every Gann method acts";
+ * Gann alignment audit 2026-10-28, rest-of-gann.md R24: they had been held on
+ * the card for a replay). Only the pair either side of the close joins, as the
+ * other lattices add a pair, since a low far under price spaces dozens of them
+ * through the range.
+ *
+ * They join the S/R list (stops, TP1, MTP, the card) and never the old levels
+ * `historicalSR` reads (queue review of #509, 2026-10-28): from a deep major
+ * low the multiples sit closer together than the 3-point band, so a pair
+ * chosen by nearness to price is "held" on noise, the saturation the
+ * 2026-10-21 held-level fix removed. Gann ranks them as percentage levels,
+ * not as old tops or bottoms price has acted at.
+ */
+export function lowMultipleLevels(bars: Bar[]): number[] {
+  if (bars.length === 0) return [];
+  const low = Math.min(...bars.map((b) => b.l));
+  const high = Math.max(...bars.map((b) => b.h));
+  if (!(low > 0) || !(high > low)) return [];
   const latest = bars.reduce((a, b) => (b.t > a.t ? b : a)).c;
-  const multiples = levels.filter((l) => l.multiple !== undefined).map((l) => l.price);
+  const multiples = pricePercentageLevels(low, high)
+    .filter((l) => l.multiple !== undefined)
+    .map((l) => l.price);
   const below = multiples.filter((m) => m <= latest);
   const above = multiples.filter((m) => m > latest);
-  if (below.length > 0) major.push(Math.max(...below));
-  if (above.length > 0) major.push(Math.min(...above));
-  return [...new Set(major)].sort((a, b) => a - b);
+  const out: number[] = [];
+  if (below.length > 0) out.push(Math.max(...below));
+  if (above.length > 0) out.push(Math.min(...above));
+  return [...new Set(out)].sort((a, b) => a - b);
 }
 
 export function readPricePercentages(bars: Bar[], currentPrice: number): PricePercentageReading | null {

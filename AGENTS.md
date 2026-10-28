@@ -1357,9 +1357,12 @@ the long monthly record's major low and high (`jensenLevels`' `record`, the
 monthly chart with the daily bars, as the Square of 144 reads), not a year of
 daily bars: Jensen lays it "at every major low" after Gann's January 1931
 Pattern Chart. The nearest multiples of the low below and above the close join
-the S/R list (`majorPricePercentageLevels`; 45 Years Ch. IV p.30 ranks "100% of
-the low and its multiples" second only to 50%), which had been held on the card
-for a replay against "Every Gann method acts". The card's percentage levels
+the S/R list (`lowMultipleLevels`; 45 Years Ch. IV p.30 ranks "100% of the low
+and its multiples" second only to 50%), which had been held on the card for a
+replay against "Every Gann method acts". They join `all` only, never the old
+levels `historicalSR` reads: from a deep major low they sit closer together
+than the 3-point band and were "held" on noise (queue review: long-side pass
+39.8% → 60.5% at $20 with a low a thirtieth of the start). The card's percentage levels
 read the same monthly anchors. The Sun's travel (`sunTravelLevel`, A-ASTRO-03)
 counts from the major low too: the 1954 coffee letter counts it from the April
 1931 low, years back, so it reads the closed weekly record (5 years, the weekly

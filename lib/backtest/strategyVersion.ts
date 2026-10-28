@@ -1015,5 +1015,7 @@
 // keep. Verdicts and replay trades move; Execute and the 7/4 cutoffs need a run.
 // (was STRATEGY_VERSION "2026-10-28-gann-major-lows-time-price-spell")
 // 2026-10-28-major-lows-on-angle-origin: the three audit fixes merged onto the
-// Rule of Three trend and P6's angle origin. No new rule.
+// Rule of Three trend and P6's angle origin. Before release, the low's
+// multiples were kept out of the old levels `historicalSR` reads (S/R list
+// only), so a deep major low's close-spaced multiples are not held on noise.
 export const STRATEGY_VERSION = "2026-10-28-major-lows-on-angle-origin";
