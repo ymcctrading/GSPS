@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,7 +19,8 @@ import {
   formatVolume,
 } from "@/lib/scanner/intradayDisplay";
 import type { Alert, RecentSystemAlert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
-import { buildIntradayCardModel, isReversalRisk } from "@/lib/setups/intraday";
+import { buildIntradayCardModel, intradayChartPlan, isReversalRisk } from "@/lib/setups/intraday";
+import { panelChartPlan, type IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";
 import { intradayTradeHref, tickerHref } from "@/lib/routes";
@@ -64,8 +65,14 @@ export function IntradayAlerts({
   symbols,
   hideWhenLocked = false,
   title = "Intraday movement",
+  onChartPlan,
 }: {
   symbols?: string[];
+  /**
+   * Reports the plan the chart draws on intraday timeframes for the one symbol
+   * shown (`intradayChartPlan`); the ticker page passes it to the chart.
+   */
+  onChartPlan?: (plan: IntradayChartPlan | null | undefined) => void;
   /** Render nothing for a plan without intraday access (the ticker page). */
   hideWhenLocked?: boolean;
   title?: string;
@@ -146,7 +153,20 @@ export function IntradayAlerts({
 
   // New signals first, then the ones that still qualify but fired earlier
   // (their repeat notice is held back; the card says when they first fired).
-  const shown = output ? [...output.alerts, ...(output.heldAlerts ?? [])] : [];
+  const shown = useMemo(() => (output ? [...output.alerts, ...(output.heldAlerts ?? [])] : []), [output]);
+
+  const chartSymbol = symbols?.length === 1 ? symbols[0] : null;
+  const chartPlan = useMemo(
+    () =>
+      panelChartPlan(
+        { symbol: chartSymbol, known: budgetKnown, locked: locked != null, failed: error != null && !output },
+        (symbol) => intradayChartPlan(symbol, output ? shown : null, recent),
+      ),
+    [chartSymbol, budgetKnown, locked, error, output, shown, recent],
+  );
+  useEffect(() => {
+    onChartPlan?.(chartPlan);
+  }, [onChartPlan, chartPlan]);
 
   if (locked && hideWhenLocked) return null;
 

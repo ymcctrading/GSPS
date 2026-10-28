@@ -40,7 +40,7 @@
  */
 
 import { etDateKey } from "@/lib/market/session";
-import { parseTradeStyle, type DailyTradeStyle as TradeStyle } from "@/lib/trade/tradeStyle";
+import { FAST_RETIRED_AT, parseTradeStyle, type DailyTradeStyle as TradeStyle } from "@/lib/trade/tradeStyle";
 
 export interface GannRulePrefs {
   roundNumberNotices: boolean;
@@ -77,11 +77,13 @@ export const TRADE_STYLE_HISTORY_MAX = 20;
 /**
  * The style that stood at `at` (ISO): the latest change on or before it.
  * Swing before any recorded change, including a Fast chosen before the
- * history was kept, so no open trade's stop jumps on the first read.
+ * history was kept, so no open trade's stop jumps on the first read. Swing for
+ * any fill at or after Fast was retired (`FAST_RETIRED_AT`).
  */
 export function styleAt(history: readonly TradeStyleChange[], at: string): TradeStyle {
   const t = Date.parse(at);
   if (!Number.isFinite(t)) return "swing";
+  if (t >= Date.parse(FAST_RETIRED_AT)) return "swing";
   let style: TradeStyle = "swing";
   for (const c of history) if (Date.parse(c.since) <= t) style = c.style;
   return style;
