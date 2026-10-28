@@ -41,7 +41,12 @@ vi.mock("@/lib/notifications/web-push", () => ({
   },
 }));
 
-import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
+import { notifySubscribedUsers as notify } from "@/lib/notifications/intradayDelivery";
+import { alertTimeliness } from "@/lib/__tests__/fixtures/alertTimeliness";
+
+/** Push at the scan's own clock: dispatch is the moment the alert was evaluated. */
+const notifySubscribedUsers = (client: SupabaseClient, alerts: Alert[], args: { intervalBySymbol: Map<string, number>; now: Date }) =>
+  notify(client, alerts, { ...args, clock: () => args.now });
 
 type Row = Record<string, unknown>;
 
@@ -84,6 +89,7 @@ const alert = (symbol: string, confidence = 80): Alert =>
     move: { current: 100 },
     invalidation: 95,
     continuationPlan: { firstTarget: 110, masterTarget: null, paysRisk: true },
+    timeliness: alertTimeliness(now),
   }) as unknown as Alert;
 
 const now = new Date("2026-10-21T15:30:00Z");

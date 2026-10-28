@@ -19,14 +19,17 @@
  *
  * Crypto is not delayed, and neither is the synthetic generator (whose bars are
  * not real anyway). A paid real-time entitlement is declared with
- * `MARKET_DATA_REALTIME=true` — the third option, once someone pays for it.
+ * `MARKET_DATA_REALTIME=true` and lifts the delay only once verified
+ * (`MARKET_DATA_REALTIME_VERIFIED_AT`, 2026-10-28): the policy itself, and
+ * which observations a decision may read, live in `./timeliness.ts`.
  */
 
 import type { AssetClass, Timeframe } from "@/lib/types";
 import { TF_INTERVAL_MS } from "@/lib/timeframe";
+import { CONTRACTUAL_EQUITY_DELAY_MS, realtimeState, resolveFeedPolicy } from "@/lib/data/timeliness";
 
 /** Alpaca's free IEX feed is delayed ~15 minutes by contract. */
-export const FREE_EQUITY_FEED_DELAY_MS = 15 * 60_000;
+export const FREE_EQUITY_FEED_DELAY_MS = CONTRACTUAL_EQUITY_DELAY_MS;
 
 /**
  * Where the hold bites: a lag of one whole bar or more.
@@ -54,9 +57,13 @@ export interface DecisionLag {
   note: string;
 }
 
-/** Whether the environment declares a paid real-time entitlement. */
+/**
+ * Whether a paid real-time entitlement is in force: declared AND verified
+ * (`realtimeState`). A declaration alone, before an operator has checked live
+ * trades arriving, keeps the delay (2026-10-28).
+ */
 export function realtimeEntitlement(): boolean {
-  return (process.env.MARKET_DATA_REALTIME ?? "").trim().toLowerCase() === "true";
+  return realtimeState() === "verified";
 }
 
 /**
@@ -73,7 +80,8 @@ export function feedDelayMs(
 ): number {
   if (!isLive) return 0;
   if (assetClass === "crypto") return 0;
-  return realtime ? 0 : FREE_EQUITY_FEED_DELAY_MS;
+  if (realtime) return 0;
+  return resolveFeedPolicy({ assetClass, isLive }).contractualDelayMs || FREE_EQUITY_FEED_DELAY_MS;
 }
 
 /**
