@@ -39,12 +39,16 @@ describe("graduation exam", () => {
   });
 
   it("answers trade at a resting buy: a crossed level that holds, or an old bottom", () => {
-    // Seven days up 2, three days down 1: each rally crosses the last top by
-    // 3 points and each reaction stops short of the buy 1 point above it.
-    const bars = daily(200, (i) => 100 + Math.floor(i / 10) * 11 + (i % 10 < 7 ? (i % 10) * 2 : 12 - (i % 10 - 6)));
+    // Fourteen days up 1.5, six days down 2: each rally crosses the last top,
+    // and each reaction comes back toward a bottom two weeks old or more, as a
+    // double bottom needs (weeks apart, W006 p.20).
+    const bars = daily(260, (i) => {
+      const p = i % 20;
+      return 100 + Math.floor(i / 20) * 11 + (p < 14 ? p * 1.5 : 19.5 - (p - 13) * 2);
+    });
     let held = 0;
     let oldLevel = 0;
-    for (let k = 80; k < 190; k++) {
+    for (let k = 80; k < 250; k++) {
       const asOf = bars[k].t.slice(0, 10);
       const s = buildScenario("TEST", asOf, bars, 7);
       if (!s || s.key.direction !== "bullish") continue;

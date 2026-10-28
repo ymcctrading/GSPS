@@ -354,12 +354,21 @@ export function computeGannEntryTrigger(
  * The order type is Gann's own: never-failing rule 9 says trade at the
  * market and never fix a price (*Commodities* rule 9, pp.43-45, and p.19), so
  * once a closed bar has come down to the level the buy is a market order
- * (`gannBuyZone`). Engineering choices, labelled as such: the 3-point band
- * applies on both sides of the level; and the bottoms need no minimum time
- * apart. Gann describes them as "weeks, months or a year or more apart"
- * (A-ENTRY-02) without a floor, so any two completed swings of the 3-Day
- * Chart count. None of these moves the order or the stop.
+ * (`gannBuyZone`). The test comes weeks after the bottom it tests: Gann's
+ * double bottom is "the same level weeks, months or a year or more apart"
+ * (W006 p.20, A-ENTRY-02), so the order rests only once the bottom is
+ * `DOUBLE_BOTTOM_MIN_DAYS` old by the session it rests for. A retest days
+ * after a 3-Day Chart bottom is the same reaction, not a second bottom.
+ * Engineering choices, labelled as such: the 3-point band applies on both
+ * sides of the level; and "weeks" is read as two weeks, the least the plural
+ * can mean. None of these moves the order or the stop.
  */
+/**
+ * How old, in calendar days, the bottom (top, short) must be by the session the
+ * order rests for: "weeks ... apart" (W006 p.20) read as two weeks.
+ */
+export const DOUBLE_BOTTOM_MIN_DAYS = 14;
+
 export function computeGannOldLevelEntry(
   bars: Bar[],
   direction: TriggerDirection,
@@ -378,6 +387,11 @@ export function computeGannOldLevelEntry(
   for (let i = pivot.index + 1; i < bars.length; i++) {
     if (sign * ((sign === 1 ? bars[i].l : bars[i].h) - pivot.price) <= 0) return null;
   }
+  // Weeks apart (W006 p.20): the order rests for the session after the last
+  // bar, so the test it buys comes at least a day after that bar.
+  const formed = Date.parse(bars[pivot.index].t);
+  const restsFor = Date.parse(bars[bars.length - 1].t) + DAY_MS;
+  if (!(restsFor - formed >= DOUBLE_BOTTOM_MIN_DAYS * DAY_MS)) return null;
   const points = Math.abs(buffered(pivot.price, sign, undefined) - pivot.price);
   const reactionStop = pivot.price - sign * points;
   // The bottoms that make the double or triple bottom: those within 3 points

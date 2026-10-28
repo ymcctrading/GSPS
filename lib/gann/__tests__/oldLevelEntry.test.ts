@@ -18,7 +18,9 @@ function bars(closes: number[]): Bar[] {
 const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
 
 // Down to a bottom near 40, rally to 48, react toward it but not yet to it.
-const FALL = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+// The bottom is 13 sessions before the last bar, so the order rests for a
+// session two weeks after it (W006 p.20, "weeks ... apart").
+const FALL = [...leg(60, 40, 8), ...leg(40, 48, 9), ...leg(48, 44, 4)];
 
 describe("computeGannOldLevelEntry", () => {
   it("rests a buy at the old bottom with the stop 3 points under it", () => {
@@ -47,14 +49,14 @@ describe("computeGannOldLevelEntry", () => {
     expect(computeGannOldLevelEntry(bars(tested), "bullish")).toBeNull();
     // The test holds and rallies: the new bottom is the level for a third test,
     // which counts the earlier bottom at the same level.
-    const held = [...tested, ...leg(39.9, 47, 5)];
+    const held = [...tested, ...leg(39.9, 47, 13)];
     const t = computeGannOldLevelEntry(bars(held), "bullish")!;
     expect(t.level).toBeCloseTo(39.6, 8);
     expect(t.tests).toBe(2);
   });
 
   it("does not count a bottom more than 3 points away as the same level", () => {
-    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 44.5, 4), ...leg(44.5, 50, 5), ...leg(50, 47, 4)];
+    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 44.5, 4), ...leg(44.5, 50, 9), ...leg(50, 47, 4)];
     const t = computeGannOldLevelEntry(bars(xs), "bullish")!;
     expect(t.level).toBeCloseTo(44.2, 8);
     expect(t.tests).toBe(1);
@@ -66,7 +68,7 @@ describe("computeGannOldLevelEntry", () => {
     // bottoms do not cover.
     const xs = [
       ...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 39.9, 6),
-      ...leg(39.9, 48, 6), ...leg(48, 39.8, 6), ...leg(39.8, 48, 6), ...leg(48, 44, 4),
+      ...leg(39.9, 48, 6), ...leg(48, 39.8, 6), ...leg(39.8, 48, 9), ...leg(48, 44, 4),
     ];
     expect(computeGannOldLevelEntry(bars(xs), "bullish")).toBeNull();
     expect(selectGannEntry(bars(xs), "bullish")?.kind).not.toBe("oldLevel");
@@ -78,7 +80,7 @@ describe("computeGannOldLevelEntry", () => {
     // A bottom near 40, a break to 35 (more than 3 points under it), then a
     // bottom near 40 again: the break ended the first one, so this is the
     // first bottom of a new level and the order buys its second test.
-    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 9), ...leg(48, 44, 4)];
     const t = computeGannOldLevelEntry(bars(xs), "bullish")!;
     expect(t.level).toBeCloseTo(39.7, 8);
     expect(35 - 0.3).toBeLessThan(t.level - gannThreePoints(t.level));
@@ -86,7 +88,7 @@ describe("computeGannOldLevelEntry", () => {
     // Three bottoms before the break do not make this one a fourth test.
     const triple = [
       ...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 39.9, 6), ...leg(39.9, 48, 6), ...leg(48, 39.8, 6),
-      ...leg(39.8, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4),
+      ...leg(39.8, 48, 6), ...leg(48, 35, 8), ...leg(35, 48, 8), ...leg(48, 40, 6), ...leg(40, 48, 9), ...leg(48, 44, 4),
     ];
     expect(computeGannOldLevelEntry(bars(triple), "bullish")).toMatchObject({ kind: "oldLevel", tests: 1 });
   });
@@ -94,9 +96,20 @@ describe("computeGannOldLevelEntry", () => {
   it("counts a bottom a little under the level as a test of it, not a break", () => {
     // Near 39.7, then 38.2 (under it by less than 3 points), then 39.7 again:
     // three tests of one level, so no buy for a fourth.
-    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 38.5, 6), ...leg(38.5, 48, 6), ...leg(48, 40, 6), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    const xs = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 38.5, 6), ...leg(38.5, 48, 6), ...leg(48, 40, 6), ...leg(40, 48, 9), ...leg(48, 44, 4)];
     expect(38.2).toBeGreaterThan(39.7 - gannThreePoints(39.7));
     expect(computeGannOldLevelEntry(bars(xs), "bullish")).toBeNull();
+  });
+
+  it("rests nothing until the bottom is two weeks old (weeks apart, W006 p.20)", () => {
+    // The same fall with the rally 3 sessions shorter: the order would rest
+    // for a session 11 days after the bottom, too soon for a double bottom.
+    const soon = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    expect(computeGannOldLevelEntry(bars(soon), "bullish")).toBeNull();
+    expect(computeGannOldLevelEntry(bars(soon.map((x) => 100 - x)), "bearish")).toBeNull();
+    // One session more than FALL's rally still rests it.
+    const later = [...leg(60, 40, 8), ...leg(40, 48, 10), ...leg(48, 44, 4)];
+    expect(computeGannOldLevelEntry(bars(later), "bullish")?.kind).toBe("oldLevel");
   });
 
   it("returns null without a completed bottom", () => {
@@ -119,7 +132,7 @@ describe("selectGannEntry", () => {
     // Price 45: the old bottom (~39.7) is 5.3 away and the crossing line over
     // the 48.3 top (~51.5) is 6.5 away, but its buy (~49.4) is only 4.4 away.
     // Price has to reach the line first, so the old bottom is nearer.
-    const t = selectGannEntry(bars([...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 45, 4)]), "bullish")!;
+    const t = selectGannEntry(bars([...leg(60, 40, 8), ...leg(40, 48, 9), ...leg(48, 45, 4)]), "bullish")!;
     expect(t.kind).toBe("oldLevel");
   });
 });
