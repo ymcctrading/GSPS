@@ -51,8 +51,8 @@ describe("the signal card's headline", () => {
   it("names the previous year's level or the record, and the mirror", () => {
     expect(structuralTriggerHeadline("bullish", "crossing", "priorYear")).toMatch(/^A close clearly over the previous year's top/);
     expect(structuralTriggerHeadline("bearish", "crossing", "priorYear")).toMatch(/^A close clearly under the previous year's bottom/);
-    expect(structuralTriggerHeadline("bullish", "crossing", "allTime")).toMatch(/record high from before the last 52 weeks/);
-    expect(structuralTriggerHeadline("bearish", "crossing", "allTime")).toMatch(/record low from before the last 52 weeks/);
+    expect(structuralTriggerHeadline("bullish", "crossing", "allTime")).toMatch(/over the old record high/);
+    expect(structuralTriggerHeadline("bearish", "crossing", "allTime")).toMatch(/under the old record low/);
     expect(structuralTriggerHeadline("bullish")).toMatch(/prior confirmed swing high/);
   });
 });

@@ -115,7 +115,7 @@ describe("what a person reads about it", () => {
   it("names the setup and the signal card's headline", () => {
     expect(gannEntrySource(t).setupLabel).toBe("bear-market rally");
     expect(structuralTriggerHeadline("bearish", "hold", undefined, "rally")).toBe(
-      "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop just over that week's high.",
+      "A sell at the last close, once a rally in a falling market has run its course, with the stop just over the rally's high.",
     );
   });
 

@@ -82,10 +82,10 @@ describe("the graduation exam on a held bottom", () => {
 
 describe("the signal card's headline", () => {
   it("names the buy at the close over a low that held, and its mirror", () => {
-    expect(structuralTriggerHeadline("bullish", "hold", undefined, "weeks")).toMatch(/^A buy at the last close, the low having held into its second week, with the stop just under the low\./);
-    expect(structuralTriggerHeadline("bearish", "hold", undefined, "weeks")).toMatch(/^A sell at the last close, the high having held into its second week, with the stop just over the high\./);
-    expect(structuralTriggerHeadline("bullish", "hold", undefined, "days")).toMatch(/held two days after a two-to-three-week reaction/);
-    expect(structuralTriggerHeadline("bullish", "hold", undefined, "record")).toMatch(/record low having held for weeks/);
+    expect(structuralTriggerHeadline("bullish", "hold", undefined, "weeks")).toMatch(/^A buy at the last close, the low having held, with the stop just under the low\./);
+    expect(structuralTriggerHeadline("bearish", "hold", undefined, "weeks")).toMatch(/^A sell at the last close, the high having held, with the stop just over the high\./);
+    expect(structuralTriggerHeadline("bullish", "hold", undefined, "days")).toBe("A buy at the last close, the low having held, with the stop just under the low.");
+    expect(structuralTriggerHeadline("bullish", "hold", undefined, "record")).toBe("A buy at the last close, the record low having held, with the stop just under the low.");
   });
 });
 
