@@ -107,6 +107,7 @@ export type DailyOutcome =
   | "open_behind"
   | "called_off"
   | "stop_while_waiting"
+  | "ready_too_late"
   | "no_fill_moved_its_way"
   | "no_fill"
   | "past_tp1_before_open"
@@ -147,10 +148,12 @@ export function judgeDailySetup(setup: DailySetup, bars: Bar[], prevClose: numbe
   if (bars.length === 0) return { ...base, outcome: "no_bars" };
   const kind = setup.entryAwaitsCrossing ? undefined : "oldLevel";
   let fillIndex = -1;
+  let readyAt = false;
   for (let i = 0; i < bars.length; i++) {
     const read = confirmationFromBars(bars.slice(0, i + 1), setup.direction, setup.entry, setup.stop, kind);
     if (read.stage === "dead") return { ...base, outcome: "called_off" };
     if (read.ready) {
+      readyAt = true;
       const assetClass = isCryptoSymbol(setup.symbol) ? "crypto" : "us_equity";
       fillIndex = delayedFillIndex(bars, i, { assetClass, delayMs: replayFeedDelayMs(assetClass), intervalMinutes: 15 });
       const waited = bars.slice(i + 1, fillIndex < 0 ? bars.length : fillIndex);
@@ -158,6 +161,9 @@ export function judgeDailySetup(setup: DailySetup, bars: Bar[], prevClose: numbe
       break;
     }
   }
+  // Ready, but read only after the session's last bar: the order would go in
+  // at the next session's open, outside this recap.
+  if (fillIndex < 0 && readyAt) return { ...base, outcome: "ready_too_late" };
   if (fillIndex < 0 || fillIndex >= bars.length) {
     const last = bars[bars.length - 1].c;
     const movedItsWay = prevClose != null && sign * (last - prevClose) > 0;
@@ -464,6 +470,7 @@ const DAILY_LABEL: Record<DailyOutcome, string> = {
   open_behind: "filled, behind at the close",
   called_off: "called off: closed through the stop before the entry",
   stop_while_waiting: "called off: the stop traded while the delayed data held the order back",
+  ready_too_late: "ready too late in the session to fill today; it would go in at the next open",
   no_fill_moved_its_way: "never filled, but price moved its way",
   no_fill: "never filled",
   past_tp1_before_open: "already past TP1 before the open (stale)",

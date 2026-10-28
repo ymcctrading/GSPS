@@ -105,6 +105,24 @@ describe("judgeDailySetup", () => {
     expect(j.fill).toBeNull();
   });
 
+  it("marks a setup ready on the session's last bars as too late to fill today", () => {
+    // The 3:30 PM bar trades into the zone; it is read at 4:00 PM, after the close.
+    const bars = [bar(at("19:15"), 101, 101, 100.5, 101), bar(at("19:30"), 101, 101, 99.5, 100.5), bar(at("19:45"), 100.5, 102, 100.2, 101.5)];
+    const j = judgeDailySetup(long, bars, 102);
+    expect(j.outcome).toBe("ready_too_late");
+    expect(j.fill).toBeNull();
+  });
+
+  it("reads an early close's last bars as too late too", () => {
+    // 2026-11-27 closes at 1:00 PM ET (18:00 UTC): a 12:30 PM ready bar is read at 1:00, after the close.
+    const day = (hhmm: string) => `2026-11-27T${hhmm}:00Z`;
+    const bars = [bar(day("17:15"), 101, 101, 100.5, 101), bar(day("17:30"), 101, 101, 99.5, 100.5), bar(day("17:45"), 100.5, 102, 100.2, 101.5), bar(day("18:00"), 101.5, 102, 101, 101.8)];
+    // On a full day the 1:00 PM bar would fill it; after an early close it is not the session.
+    expect(judgeDailySetup(long, bars, 102).outcome).toBe("ready_too_late");
+    const fullDay = bars.map((b) => ({ ...b, t: b.t.replace("2026-11-27", "2026-11-24") }));
+    expect(judgeDailySetup(long, fullDay, 102).fill).toBe(101.5);
+  });
+
   it("fills crypto at the next bar's open, with no feed delay", () => {
     const btc = { ...long, symbol: "BTC/USD" };
     const bars = [bar(at("13:30"), 101, 101, 99, 100), bar(at("13:45"), 100.5, 111, 100, 110)];
