@@ -87,3 +87,13 @@ describe("equitySession on a market holiday", () => {
     expect(equitySession(new Date("2026-11-27T15:00:00Z"))).toBe("regular"); // the day after trades
   });
 });
+
+describe("equitySession on an NYSE early close (audit T-10)", () => {
+  it("ends the regular session at 1:00 PM ET the day after Thanksgiving", () => {
+    // Friday 2026-11-27, EST (UTC-5).
+    expect(equitySession(new Date("2026-11-27T17:59:00Z"))).toBe("regular");
+    expect(equitySession(new Date("2026-11-27T18:00:00Z"))).toBe("post");
+    // A normal day keeps 4:00 PM.
+    expect(equitySession(new Date("2026-11-30T18:00:00Z"))).toBe("regular");
+  });
+});

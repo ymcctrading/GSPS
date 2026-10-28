@@ -3480,7 +3480,14 @@ placement's `lossSeriesRefusal` does live (`LOSS_SERIES_LENGTH`). The twice-year
 rest reminder now comes back with a new entry placed in its window, as the
 away reminder does (`closeOutNotice`, `lib/trade/away-notice.ts`; *Truth of
 the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` is
-`2026-10-28-intraday-audit-fixes`; daily verdicts are unchanged.
+`2026-10-28-intraday-audit-fixes`; daily verdicts are unchanged. The same
+audit's trade, automation and lifecycle walk
+(`gann-alignment-audit/trade-automation-lifecycle.md`) moved three more:
+`equitySession` ends an NYSE early close's regular session at 1:00 PM (it read
+4:00 PM), the options ticket charges about ten days of time decay, the
+measured hold on Gann's exits, not the half day of the retired bar-pattern
+trigger (`TYPICAL_HOLDING_DAYS`), and the portfolio manager's risk dial is
+labelled the member's choice under Gann's tenth.
 
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`

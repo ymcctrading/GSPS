@@ -62,7 +62,7 @@ describe("readPremiumStop", () => {
     expect(reading.holdingDays).toBe(TYPICAL_HOLDING_DAYS);
     expect(reading.decayCost).toBeCloseTo(0.2 * TYPICAL_HOLDING_DAYS, 10);
     // Stop alone would read 8.5%; decay lifts it.
-    expect(reading.pctOfPremium).toBeCloseTo(((0.55 + 0.1) / 6.5) * 100, 6);
+    expect(reading.pctOfPremium).toBeCloseTo(((0.55 + 0.2 * TYPICAL_HOLDING_DAYS) / 6.5) * 100, 6);
   });
 
   it("takes an explicit hold for a position carried longer", () => {
@@ -80,7 +80,7 @@ describe("readPremiumStop", () => {
   it("charges decay on a near-dated contract — the NVDA 210 call", () => {
     // Live chain: $3.53 ask, delta 0.424, theta -0.134/day, against the scan's
     // $0.83 structural stop. The stop alone reads 10.0% of the premium;
-    // charging half a session of decay adds to it.
+    // charging the swing's typical hold of decay adds to it.
     const stopOnly = readPremiumStop({ risk: 0.83, premium: 3.5341, delta: 0.4241 })!;
     const withDecay = readPremiumStop({
       risk: 0.83,
@@ -89,8 +89,8 @@ describe("readPremiumStop", () => {
       theta: -0.1342,
     })!;
     expect(stopOnly.pctOfPremium).toBeCloseTo(9.96, 1);
-    expect(withDecay.pctOfPremium).toBeCloseTo(11.86, 1);
-    // Decay is a fifth of the total risk on this contract, not a rounding error.
+    expect(withDecay.pctOfPremium).toBeCloseTo(47.93, 1);
+    // Decay is most of the total risk on this contract over a swing, not a rounding error.
     expect(withDecay.decayCost / (withDecay.stopCost + withDecay.decayCost)).toBeGreaterThan(0.15);
   });
 
