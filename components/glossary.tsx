@@ -21,8 +21,8 @@ export function glossarySlug(term: string): string {
 }
 
 /**
- * A beginner's sentence for each signal state, read before the state's own
- * one-line purpose (2026-10-28: the glossary read through a first-time
+ * A beginner's sentence for each signal state, shown here in place of the
+ * state's one-line purpose (2026-10-28: the glossary read through a first-time
  * trader's eyes; "retracement" and "rotational" defined nothing for them).
  */
 const STATE_PLAIN: Record<keyof typeof SCANNER_STATE_META, string> = {
