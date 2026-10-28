@@ -31,6 +31,14 @@ interface BucketLike {
   winRate: number;
   expectancyR: number;
   profitable: boolean;
+  /** Trades with no exit yet (`RunSummary.timeouts`), left out of the win rate as the Test page does. */
+  timeouts?: number;
+}
+
+/** Wins over the trades that closed, the Test page's win rate. */
+function closedWinRate(b: Pick<BucketLike, "trades" | "winRate" | "timeouts">): number | null {
+  const decided = b.trades - (b.timeouts ?? 0);
+  return decided > 0 ? (b.winRate * b.trades) / decided : null;
 }
 
 interface BacktestReportShape {
@@ -38,7 +46,7 @@ interface BacktestReportShape {
   source: string;
   window: { from: string | null; to: string | null };
   generatedAt: string;
-  overall: { trades: number; winRate: number; expectancyR: number; profitable: boolean };
+  overall: { trades: number; winRate: number; expectancyR: number; profitable: boolean; timeouts?: number };
   buckets: BucketLike[];
 }
 
@@ -115,11 +123,12 @@ export function LiveExpectancy() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{label}</p>
                     <Badge variant={b.profitable ? "bull" : "bear"}>
-                      {b.profitable ? "Positive average" : "Negative average"}
+                      {b.profitable ? "Positive average" : b.expectancyR === 0 ? "Even" : "Negative average"}
                     </Badge>
                   </div>
                   <p className="mt-1 text-muted">
-                    {b.trades} trades · {pct(b.winRate)} win rate ·{" "}
+                    {b.trades} trades ·{" "}
+                    {closedWinRate(b) === null ? "none closed yet" : `${pct(closedWinRate(b)!)} win rate`} ·{" "}
                     <span className={b.expectancyR >= 0 ? "text-bull" : "text-bear"}>
                       {rFmt(b.expectancyR)} avg
                     </span>

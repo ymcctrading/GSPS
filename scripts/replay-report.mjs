@@ -371,7 +371,13 @@ async function main() {
     ? JSON.parse(await readFile(path.resolve(root, args.from), "utf8"))
     : await runHere(args);
 
-  const refusal = refuseReason(report);
+  // Since 2026-10-28 the route returns only the Test page's public report
+  // (lib/backtest/factorLabels.ts): no criterion ids, target, stop model or
+  // strategy version. A capture of it can't be rendered or gated here.
+  const publicOnly = args.from && Array.isArray(report?.factors) && report.factors.some((f) => f.criterion === undefined);
+  const refusal = publicOnly
+    ? "this payload is the route's public report, which carries no criterion ids or strategy version. Produce a measured run with scripts/backtest-universe.mjs or the 'Universe backtest (manual)' workflow instead."
+    : refuseReason(report);
   if (refusal) {
     process.stderr.write(`\nRefusing to write a report: ${refusal}\nNothing was written.\n`);
     process.exitCode = 1;

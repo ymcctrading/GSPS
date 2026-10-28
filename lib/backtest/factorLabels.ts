@@ -47,11 +47,11 @@ const HOLDS: Record<string, FactorName> = {
   tradePlanPriced: { id: "planPriced", label: "Trade plan priced", kind: "hold" },
   dataLag: { id: "dataCurrent", label: "Data current enough to act on", kind: "hold" },
   breakaway: { id: "rangeBreakout", label: "Breakout from a sideways range", kind: "hold" },
-  monthlyBreak: { id: "monthHeld", label: "No break of last month's low or high", kind: "hold" },
+  monthlyBreak: { id: "monthHeld", label: "Monthly structure intact", kind: "hold" },
   distributionBreakdown: { id: "noBreakdown", label: "No breakdown after a lower top", kind: "hold" },
   failedTop: { id: "pathClear", label: "No failed double top or bottom in the way", kind: "hold" },
   queerActing: { id: "actsNormally", label: "Stock acting normally", kind: "hold" },
-  figureCrossing: { id: "roundNumber", label: "Not the first or second time through a round number", kind: "hold" },
+  figureCrossing: { id: "roundNumber", label: "Round-number behaviour", kind: "hold" },
   weakStock: { id: "strongPosition", label: "Stock in a strong position", kind: "hold" },
   timeWindowTurn: { id: "timingWindow", label: "Turn came at a timing window", kind: "hold" },
   standAside: { id: "trendToTrade", label: "A trend to trade with", kind: "hold" },
@@ -62,7 +62,7 @@ const HOLDS: Record<string, FactorName> = {
 
 /** The public name of a breakdown id. An id with no entry is "Other check", never the id. */
 export function factorName(key: string, index = 0): FactorName {
-  if (key in CRITERION_LABELS) return { id: key, label: CRITERION_LABELS[key as CriterionKey], kind: "point" };
+  if (Object.hasOwn(CRITERION_LABELS, key)) return { id: key, label: CRITERION_LABELS[key as CriterionKey], kind: "point" };
   return CHECKS[key] ?? HOLDS[key] ?? { id: `other${index}`, label: "Other check", kind: "other" };
 }
 

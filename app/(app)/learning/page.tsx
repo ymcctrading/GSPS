@@ -455,7 +455,7 @@ export default function LearningPage() {
                         <TD className="font-medium">{label}</TD>
                         <TD className="text-right tabular-nums">{s.trades}</TD>
                         <TD className="text-right tabular-nums">
-                          {s.trades === 0 ? "—" : pct(s.winRate)}
+                          {s.trades === 0 || decidedWinRate(s) === null ? "—" : pct(decidedWinRate(s)!)}
                         </TD>
                         <TD className={cn("text-right tabular-nums", toneFor(s.expectancyR))}>
                           {s.trades === 0 ? "—" : r(s.expectancyR)}
@@ -601,7 +601,7 @@ export default function LearningPage() {
                   <TR>
                     <TH>Stop distance (× a normal 15-minute bar)</TH>
                     <TH className="text-right">Trades</TH>
-                    <TH className="text-right">Win rate</TH>
+                    <TH className="text-right">Win rate (all trades)</TH>
                     <TH className="text-right">Avg. result / trade</TH>
                   </TR>
                 </THead>
