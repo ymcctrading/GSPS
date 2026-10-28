@@ -190,8 +190,9 @@ const ACADEMY_1: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "A public market exists to do two things: discover a price that reflects everyone's current information and willingness to trade, and route capital toward the uses participants collectively judge most worthwhile. Neither function works without disagreement — a market where everyone agreed on fair value would have no trades, because a trade requires a buyer who thinks the price is fair-or-better and a seller who thinks the same in the opposite direction.",
-            "Price discovery is continuous, not a single event. Every trade is one data point in a running estimate that never finishes updating, because new information (earnings, macro data, sentiment shifts, order flow) never stops arriving.",
+            "Picture a busy farmers' market. Nobody posts an official price for tomatoes; the price settles wherever buyers and sellers agree, and it changes as the morning goes on. A stock market works the same way, only with shares of companies (small pieces of ownership) instead of tomatoes, and with millions of buyers and sellers instead of a few dozen.",
+            "A public market exists to do two things: discover a price that reflects everyone's current information and willingness to trade (called price discovery), and route money toward the companies people collectively judge most worthwhile (called capital allocation: a growing company can raise money by selling new shares, and a well-priced stock makes that easier). Neither function works without disagreement — a market where everyone agreed on fair value would have no trades, because a trade requires a buyer who thinks the price is fair-or-better and a seller who thinks the same in the opposite direction.",
+            "Price discovery is continuous, not a single event. Every trade is one data point in a running estimate that never finishes updating, because new information never stops arriving: earnings (the profit a company reports each quarter), macro data (news about the whole economy, such as jobs or inflation), sentiment shifts (changes in the crowd's mood) and order flow (the stream of buy and sell orders itself).",
             "This matters for how you read GSPS output: a signal, a score, a pattern is a snapshot of that continuous, disagreement-driven process — not a verdict from an authority. " + NO_GUARANTEE_DISCLAIMER,
           ],
           application:
@@ -219,9 +220,10 @@ const ACADEMY_1: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "Retail investors, market makers, institutional asset managers, algorithmic/systematic traders, and corporate insiders all trade the same securities for different reasons. A market maker is compensated for providing continuous two-sided liquidity and manages inventory risk, not directional conviction. An institutional manager may be forced to rebalance on a schedule regardless of their view on price. A retail trader is typically unconstrained by mandate but also unconstrained by the risk controls larger participants are required to run.",
-            "None of these incentives are visible directly in a price chart — but they explain patterns you will see repeatedly: end-of-quarter rebalancing flows, options-expiration volatility, and liquidity that dries up around scheduled news.",
-            "GSPS scope: this platform scans, charts, and executes in U.S. equities only. Every participant discussion in this academy is grounded in that scope, not futures, forex, or crypto market structure.",
+            "Think of the same busy market again. Some shoppers are buying dinner, a restaurant buys in bulk every Monday whatever the price, and a stall-holder buys from one farmer to resell to the next customer. They all trade the same tomatoes for different reasons. Markets are full of these different reasons, and knowing them helps explain moves that look strange on a chart.",
+            "Retail investors (individuals trading their own money), market makers, institutional asset managers, algorithmic or systematic traders (computer programs trading on fixed rules), and corporate insiders (a company's own executives and directors, who must report their trades) all trade the same securities (stocks and similar investments) for different reasons. A market maker is like that stall-holder: a firm that always stands ready to buy and to sell (called providing liquidity: making it easy for others to trade quickly), earning the small gap between its buying and selling price. It cares about not getting stuck with too many shares (inventory risk), not about where the price goes next. An institutional manager (a pension fund, mutual fund or insurer investing other people's money) may have to rebalance on a schedule, buying or selling to get back to its target mix, regardless of its view on price. A retail trader has no rulebook from clients telling them what they must hold (a mandate), but also no risk department forcing them to cap their losses, the controls larger firms are required to run. That freedom cuts both ways.",
+            "None of these incentives are visible directly in a price chart — but they explain patterns you will see repeatedly: end-of-quarter rebalancing flows, bigger swings on the days options contracts expire (an option is a contract to buy or sell a stock at a set price by a set date), and fewer willing traders around scheduled news.",
+            "GSPS scope: this platform scans and charts U.S. stocks and funds (including funds that hold commodity and currency futures) and crypto, and places trades in U.S. stocks, funds and crypto, with options on paper only. Futures and forex show live quotes only for now. Every participant discussion in this academy is grounded in the U.S. stock market, not futures, forex, or crypto market structure.",
           ],
           application:
             "Name one type of participant whose forced or scheduled activity (not conviction-driven) could explain a price move that otherwise looks unexplained.",
@@ -232,8 +234,8 @@ const ACADEMY_1: Academy = {
               1,
             ),
             q(
-              "What is GSPS's actual execution scope?",
-              ["Global multi-asset", "U.S. equities only", "Options and futures only", "Crypto and forex only"],
+              "Which markets can you place trades in on GSPS?",
+              ["Every market in the world", "U.S. stocks, funds and crypto (options on paper only)", "Futures and forex only", "Crypto only"],
               1,
             ),
           ],
@@ -248,7 +250,8 @@ const ACADEMY_1: Academy = {
           ],
           estimatedMinutes: 12,
           instruction: [
-            "These four words get used interchangeably but describe different processes. Investing allocates capital based on a business/fundamental thesis over a long horizon. Trading takes a position based on a defined, risk-managed thesis over a shorter horizon with an explicit exit plan. Speculation takes a directional bet with limited underlying analysis, often on a shorter horizon, and can be a legitimate, small, clearly-labeled part of a plan. Gambling stakes capital on an outcome with no persistent edge and often no risk-defined exit — the defining failure is not the time horizon, it's the absence of a repeatable, evaluable process.",
+            "Think of the difference between a professional poker player and someone feeding a slot machine. Both can win or lose on a given night, but the poker player follows rules about which hands to play and how much to bet, and can review afterwards what they did. The slot player has no rules that change the odds. That difference, a repeatable process you can check, is what this lesson is about.",
+            "These four words get used interchangeably but describe different processes. Investing puts money into a company because of how its business is doing (its fundamentals: sales, profits, debts) and holds it for years. Trading takes a position (buys or sells shares) based on a defined, risk-managed thesis, meaning a clear reason with the possible loss decided in advance, over a shorter horizon (days to weeks rather than years) with an explicit exit plan. Speculation bets on which way price will move (a directional bet) with limited underlying analysis, often on a shorter horizon, and can be a legitimate, small, clearly-labeled part of a plan. Gambling stakes money on an outcome with no persistent edge (an edge is a reason your choices should win more than chance over many tries) and often no risk-defined exit — the defining failure is not the time horizon, it's the absence of a repeatable, evaluable process.",
             "A profitable outcome does not retroactively make an undisciplined decision a 'trade' — and an unprofitable outcome does not make a disciplined, risk-defined decision a mistake. GSPS School teaches process; it never teaches outcome-chasing.",
             "Common fraud patterns to recognize: guaranteed-return pitches (no legitimate market participant can guarantee returns), pressure to act immediately without independent verification, and unregistered/unlicensed 'advisors' soliciting funds outside a regulated brokerage relationship.",
           ],
@@ -1282,7 +1285,7 @@ const ACADEMY_7: Academy = {
           ],
           estimatedMinutes: 14,
           instruction: [
-            "GSPS executes and scans U.S. equities only. This lesson exists so a learner has working vocabulary for options, futures, forex, crypto, and commodities when they encounter them elsewhere — it is explicitly not a GSPS-executable workflow, and nothing in this lesson or lab constructs an order in any of these instruments.",
+            "GSPS places trades in U.S. stocks, funds and crypto, with options on paper only; futures and forex show live quotes only for now, and commodities are reached only through funds that hold them. This lesson exists so a learner has working vocabulary for options, futures, forex, crypto, and commodities when they encounter them — it is conceptual literacy, not a workflow, and nothing in this lesson or lab constructs an order in any of these instruments.",
             "Options carry defined-risk (long option) and undefined-risk (short/naked option) variants — the distinction matters enormously and is a common source of catastrophic, unplanned loss when misunderstood. Futures and forex trade on margin with leverage that can amplify losses beyond the initial capital committed. Short-selling carries theoretically unlimited loss potential, since a shorted asset's price has no upper bound.",
             "Hedging, conceptually, is taking an offsetting position to reduce (not eliminate) risk on an existing position — a real technique used by professionals, and conceptually useful to understand even where GSPS does not execute the hedge itself.",
           ],
@@ -1291,7 +1294,7 @@ const ACADEMY_7: Academy = {
           quiz: [
             q(
               "GSPS's actual execution scope is:",
-              ["U.S. equities, options, and futures", "U.S. equities only", "Global multi-asset including crypto", "Forex and commodities only"],
+              ["U.S. stocks and futures only", "U.S. stocks, funds and crypto (options on paper only)", "Global multi-asset including forex", "Forex and commodities only"],
               1,
             ),
             q(

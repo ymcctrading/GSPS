@@ -75,10 +75,10 @@ export interface ScanRow {
 
 /** What the Resting tier means, in the words every list shows it under. */
 export const RESTING_NOTE =
-  "Plans with every condition met whose entry is more than a day's range from price. Each waits at its level for price to come back; none is a trade to take today.";
+  "Plans with every condition met whose entry is further from today's price than a normal day's move. Each waits at its level for price to come back, like a standing order at a price the shop isn't selling at yet; none is a trade to take today.";
 
 /** What the Watch tier means, in the words every list shows it under. */
-export const WATCH_NOTE = "Worth watching, but still short of a condition. Not a trade yet.";
+export const WATCH_NOTE = "Worth watching, but still missing at least one condition, like a recipe with one ingredient short. Not a trade yet.";
 
 /** Highest score first; stable, so equal scores keep the order they came in. */
 function byScore(rows: ScanRow[]): ScanRow[] {
