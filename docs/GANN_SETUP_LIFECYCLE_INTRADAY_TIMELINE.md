@@ -389,7 +389,8 @@ market data, and this session had no vendor keys (`ALPACA_API_KEY`/`ALPACA_API_S
 was made. Both are written down here, in the way `docs/memory-bank/F4_CYCLES_CALENDAR_RESEARCH.md` is, so
 the rule for reading them is fixed before the data is. Run them from a deployment that holds the keys
 (`GET /api/backtest`, then commit the captured JSON under `docs/replay-runs/` and render it with
-`npm run backtest -- --from`), as the earlier runs were.
+`npm run backtest -- --from`), as the earlier runs were. Since 2026-10-28 the route returns only the
+Test page's public report, so run them through `scripts/backtest-universe.mjs` or its workflow instead.
 
 ### 5.1 The reclaim line: 3 points or 5
 

@@ -68,7 +68,10 @@ credentialed run is the `--from` flow: hit `GET /api/backtest` while signed in o
 save the returned JSON under `docs/replay-runs/`, then run
 `npm run backtest -- --from docs/replay-runs/<file>.json` locally to render and commit
 `docs/REPLAY_RESULTS.md`. `/api/backtest` requires a signed-in session (`verifyAuth()`), so it
-can't be curled anonymously.
+can't be curled anonymously. Since 2026-10-28 the route returns only the Test page's public report
+(`lib/backtest/factorLabels.ts`: plain factor names, no criterion ids, target or strategy version),
+which `--from` refuses; capture measured runs with `scripts/backtest-universe.mjs` or the
+"Universe backtest (manual)" workflow instead.
 
 ## Validity is now a merge gate, not a habit
 
