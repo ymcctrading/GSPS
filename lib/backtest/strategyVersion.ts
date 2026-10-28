@@ -877,4 +877,13 @@
 // replays now read the prior session's daily close, not the last 15-minute
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
-export const STRATEGY_VERSION = "2026-10-28-plan-at-close-on-plan-expiry";
+// (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-gann-levels-major-lows (Gann alignment audit, rest-of-gann.md
+// R24 and R38): Jensen's square of 90 is laid at the major low and high of the
+// long monthly record, not of a year of daily bars ("at every major low",
+// after Gann's January 1931 Pattern Chart), and the nearest multiples of the
+// low below and above the close join the S/R list ("100% of the low and its
+// multiples", second only to 50%, 45 Years Ch. IV p.30; they had been held on
+// the card). The card's percentage levels read the same monthly anchors.
+// Plan stops and targets move; live verdicts and replay trades with them.
+export const STRATEGY_VERSION = "2026-10-28-gann-levels-major-lows";

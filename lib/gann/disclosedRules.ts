@@ -1,7 +1,9 @@
 /**
  * Stage A of the Gann parity roadmap (`docs/memory-bank/GANN_PARITY_ROADMAP.md`):
  * seven of Gann's disclosed rules that GSPS did not yet compute, added as
- * **context only**. Nothing here feeds a scored criterion, a gate, a plan, an
+ * **context only** (since then rule 2's major levels join the S/R list,
+ * `majorPricePercentageLevels`, and the 2026-10-01 decision has every Gann
+ * method act where he says it acts). Nothing here feeds a scored criterion, a gate, a plan, an
  * entry, a stop or a target. Each reading is shown on the confluence card and
  * in the explanation trace, so a trader sees the rule and the evidence, and
  * so the backtest can measure it before anything is allowed to gate (AGENTS.md
@@ -51,12 +53,11 @@
  *
  * Engineering choices, labelled as such rather than dressed as sourced:
  * - The percentage-of-price anchors are the lowest low and highest high of
- *   the bars supplied (about a year of daily bars in the scan). Gann ranks
- *   the all-time extremes first; this is the nearest the scan's history
- *   reaches.
- * - A level "test" is a completed 3-Day Chart swing extreme within 1% of the
- *   level, the same tolerance `combineNearbyLevels` uses. Gann's own band is
- *   1-3 points on 1920s-40s prices, which doesn't port literally.
+ *   the monthly record with the daily bars (Gann ranks the all-time extremes
+ *   first, *Commodities* p.34, Master Course Ch. 9 PDF 264), the same anchors
+ *   the S/R list reads; until 2026-10-28 the card read a year of daily bars.
+ * - A level "test" is a completed 3-Day Chart swing extreme within Gann's
+ *   price-scaled 3 points of the level (rule 5 below).
  * - The weekly and monthly bars for rule 7 are built from the daily bars and
  *   include the week and month in progress, so their last close can still
  *   change until that period ends.
@@ -266,11 +267,21 @@ export function majorPricePercentageLevels(bars: Bar[]): number[] {
   const low = Math.min(...bars.map((b) => b.l));
   const high = Math.max(...bars.map((b) => b.h));
   if (!(low > 0) || !(high > low)) return [];
-  // The multiples of the low past 100% stay on the card until a replay
-  // measures them in the pool (fork FL8, item 9 step 5).
-  return pricePercentageLevels(low, high)
-    .filter((l) => l.importance === 1 && l.multiple === undefined)
-    .map((l) => l.price);
+  const levels = pricePercentageLevels(low, high);
+  const major = levels.filter((l) => l.importance === 1 && l.multiple === undefined).map((l) => l.price);
+  // "100% of the low and its multiples" rank second only to 50% (45 Years
+  // Ch. IV p.30), so they act as levels like the rest (2026-10-01, "every Gann
+  // method acts"; Gann alignment audit 2026-10-28, rest-of-gann.md R24: they
+  // had been held on the card for a replay). Only the nearest multiple below
+  // and above the latest close join, as the other lattices add a pair, since
+  // a low far under price spaces dozens of them through the range.
+  const latest = bars.reduce((a, b) => (b.t > a.t ? b : a)).c;
+  const multiples = levels.filter((l) => l.multiple !== undefined).map((l) => l.price);
+  const below = multiples.filter((m) => m <= latest);
+  const above = multiples.filter((m) => m > latest);
+  if (below.length > 0) major.push(Math.max(...below));
+  if (above.length > 0) major.push(Math.min(...above));
+  return [...new Set(major)].sort((a, b) => a - b);
 }
 
 export function readPricePercentages(bars: Bar[], currentPrice: number): PricePercentageReading | null {
@@ -837,7 +848,7 @@ export function readDisclosedRules(
   const inception = instrument?.inception;
   return {
     barMidpoint: readBarMidpoint(dailyBars),
-    pricePercentages: readPricePercentages(dailyBars, currentPrice),
+    pricePercentages: readPricePercentages([...(instrument?.monthly ?? []), ...dailyBars], currentPrice),
     dayCountBands: readDayCountBands(dailyBars),
     yearFraction: readYearFraction(dailyBars),
     counterMove,
@@ -911,7 +922,7 @@ export function readDisclosedRules(
     masterChartTime: readMasterChartTime(dailyBars),
     patternAngles: readPatternAngles(dailyBars, currentPrice, unit),
     dayCircle: clock ? readDayCircle(clock, 0, currentPrice, unit) : null,
-    astro: readAstroRules(dailyBars, asOf, unit),
+    astro: readAstroRules(dailyBars, asOf, unit, instrument?.monthly ? [...instrument.monthly, ...dailyBars] : undefined),
     ascension: readAscension(dailyBars),
     priceGrids: readPriceGrids(dailyBars, currentPrice, unit),
     priceAsTime: readPriceAsTime(dailyBars, currentPrice, unit, inception, asOf),

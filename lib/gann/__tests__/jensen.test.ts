@@ -54,6 +54,17 @@ describe("Jensen's square of 90", () => {
     expect(levels[0].label).toContain("below the high");
   });
 
+  it("lays the square at the long record's major low and high when one is given", () => {
+    // A monthly record whose low (20) and high (110) lie outside the daily year.
+    const record: Bar[] = [bar(start - 400 * DAY, 30, 20, 40), bar(start - 300 * DAY, 100, 90, 110), ...series];
+    const levels = jensenLevels(series, 98, 1, record);
+    // 67½ points up from the record low of 20 below price, 11¼ down from the
+    // record high of 110 above it; the daily year alone gave 94.375 and 107.5.
+    expect(levels.map((l) => l.price)).toEqual([87.5, 98.75]);
+    expect(jensenLevels(series, 98, 1, [])).toEqual(jensenLevels(series, 98, 1));
+    expect(jensenPriceHit(series, 87.5, 1, record)).toMatchObject({ level: 87.5 });
+  });
+
   // C-LEVELS-21: the square points mark resistance, the trine points
   // consolidation, and 90 and 45 are doubly strong.
   it("classes 15, 30, 60 and 75 points from the low as trine points, and 22½, 45, 67½ and 90 as squares", () => {

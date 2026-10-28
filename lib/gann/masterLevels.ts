@@ -92,7 +92,7 @@ export function gannMasterLevels(
   for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
   const sun = sunTravelLevel(daily, asOf, unit);
   if (sun) out.push({ ...sun, source: "sunTravel" });
-  for (const l of jensenLevels(daily, price, unit)) out.push({ ...l, source: "jensen" });
+  for (const l of jensenLevels(daily, price, unit, bars)) out.push({ ...l, source: "jensen" });
   for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });
   for (const l of squareOfNinePriceLevels(price, unit)) out.push({ price: l.price, label: l.label, source: "squareOfNine" });
   for (const l of nameNumberLevels(nameSquare(companyName), price, unit)) out.push({ ...l, source: "name" });

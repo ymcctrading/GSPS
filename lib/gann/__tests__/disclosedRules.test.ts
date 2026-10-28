@@ -71,9 +71,11 @@ describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
     expect(pricePercentageLevels(64, 390).find((l) => l.label === "500% above the low")?.price).toBe(384);
   });
 
-  it("keeps the multiples on the card until their replay, out of the scan's level pool", () => {
+  it("puts the nearest multiple of the low below and above the latest close in the scan's level pool (45 Years Ch. IV p.30)", () => {
     const b = [bar("2026-01-01T00:00:00Z", 10, 10, 10), bar("2026-01-02T00:00:00Z", 45, 45, 45)];
-    expect(majorPricePercentageLevels(b)).toEqual([20, 22.5, 15].sort((x, y) => x - y));
+    // 50% and 100% above the low (15, 20), 50% of the high (22.5), and the
+    // multiples either side of the close of 45: 400% (50) and 300% (40).
+    expect(majorPricePercentageLevels(b)).toEqual([15, 20, 22.5, 40, 50]);
     expect(readPricePercentages(b, 39.5)?.nearestAbove).toMatchObject({ price: 40, label: "300% above the low" });
   });
 

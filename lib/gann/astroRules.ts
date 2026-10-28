@@ -297,7 +297,8 @@ export function sunTravelLevel(bars: Bar[], asOf: Date, unit: number): { price: 
   return { price: t.points * unit, label: `Sun's travel since the ${t.lowDate} low, added to the low` };
 }
 
-export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroReading | null {
+/** `record`, the long monthly record with the daily bars, lays Jensen's square at the major low and high as `jensenLevels` does. */
+export function readAstroRules(bars: Bar[], asOf: Date, unit: number, record?: Bar[]): AstroReading | null {
   if (bars.length < 20 || !(unit > 0)) return null;
   const last = bars[bars.length - 1];
   const prev = bars[bars.length - 2];
@@ -399,7 +400,7 @@ export function readAstroRules(bars: Bar[], asOf: Date, unit: number): AstroRead
   }
 
   // J-2: Jensen's square of 90, up from the low and down from the high.
-  const hitPrice = jensenPriceHit(bars, last.c, unit);
+  const hitPrice = jensenPriceHit(bars, last.c, unit, record);
   const jensenPrice: AstroReading["jensen"]["price"] = hitPrice
     ? { points: hitPrice.points, from: hitPrice.from, level: hitPrice.level, square: hitPrice.square, strong: hitPrice.strong }
     : null;

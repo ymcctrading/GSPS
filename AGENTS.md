@@ -1248,6 +1248,22 @@ Gann never gave; built as context and the factor `dominantCycleWithTrade`
 against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
 
+**Levels from the major lows, 2026-10-28 (Gann alignment audit,
+`/mnt/project-files/gann-alignment-audit/`).** Jensen's square of 90 is laid at
+the long monthly record's major low and high (`jensenLevels`' `record`, the
+monthly chart with the daily bars, as the Square of 144 reads), not a year of
+daily bars: Jensen lays it "at every major low" after Gann's January 1931
+Pattern Chart. The nearest multiples of the low below and above the close join
+the S/R list (`majorPricePercentageLevels`; 45 Years Ch. IV p.30 ranks "100% of
+the low and its multiples" second only to 50%), which had been held on the card
+for a replay against "Every Gann method acts". The card's percentage levels
+read the same monthly anchors. Open from the same audit: the Sun's travel
+(`sunTravelLevel`, A-ASTRO-03) still counts from the year's low, while the 1954
+coffee letter counts it from the April 1931 low; it needs a dated major low
+older than the daily year. `STRATEGY_VERSION` is
+`2026-10-28-gann-levels-major-lows`; Execute and the 7/4 cutoffs need a fresh
+run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
