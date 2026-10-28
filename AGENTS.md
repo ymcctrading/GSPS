@@ -3413,6 +3413,17 @@ the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
 of minutes); the bell uses the default lead and repeats a notice at most every
 12 hours. Unmeasured: nothing replays a notice. User-facing text names no
 method. Verdicts unchanged.
+**The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
+Gann).** The volume pillar's retest confirmed on any smaller week, so once
+price reached the old turn inside 3 points, noise passed it about half the time
+(`replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md`). Gann
+names the figure: a double top "on two-thirds the volume" (W006 pp.43-44); the
+Master Course's sell at "a third or less" (Ch. 12) lies inside it. So the
+retest confirms at two-thirds of the first turn's week or less
+(`RETEST_VOLUME_RATIO`, `volumeClimax.ts`), bottoms mirroring tops, live and
+replay alike. Rules 1 and 7's secondary rally keeps "smaller", which names no
+figure. `STRATEGY_VERSION` is `2026-10-28-retest-two-thirds-volume`; P8,
+Execute and the 7/4 cutoffs need a fresh run on it.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day

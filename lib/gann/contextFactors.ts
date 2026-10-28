@@ -17,6 +17,7 @@
  * stated cause set against the outcome it is supposed to produce.
  */
 
+import { RETEST_VOLUME_RATIO } from "@/lib/gann/volumeClimax";
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { approachingFigure } from "@/lib/gann/evenFigures";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
@@ -176,8 +177,11 @@ export function contextFactorsFor(
     f.topVolumeWarningWith = !bull && ctx.topVolume.warning;
   }
   // A-VOLUME-13: a second top on two-thirds, or a third, of the first top's volume.
+  // Since 2026-10-28 two-thirds is the retest's own gate (`RETEST_VOLUME_RATIO`,
+  // fork FV2), so the two-thirds factors measure the high side of that gate,
+  // not a figure on top of it; the third still measures beyond it.
   if (ctx.secondTopVolumeRatio != null) {
-    const twoThirds = ctx.secondTopVolumeRatio <= 2 / 3;
+    const twoThirds = ctx.secondTopVolumeRatio <= RETEST_VOLUME_RATIO + 1e-9;
     const third = ctx.secondTopVolumeRatio <= 1 / 3;
     f.secondTopTwoThirdsVolumeAgainst = bull && twoThirds;
     f.secondTopTwoThirdsVolumeWith = !bull && twoThirds;

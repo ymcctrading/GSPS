@@ -895,4 +895,10 @@
 // (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
 // 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
 // merged in the 2026-10-28 release. No new rule.
-export const STRATEGY_VERSION = "2026-10-28-groups-by-industry-on-double-bottom-weeks";
+// (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
+// 2026-10-28-retest-two-thirds-volume: a double top or bottom's volume
+// confirms only when the second turn's week traded two-thirds of the first's
+// or less (RETEST_VOLUME_RATIO; W006 pp.43-44, the Master Course's "a third or
+// less" inside it; fork FV2). Any smaller week had confirmed, which noise
+// passed about half the time. P8 and plans move.
+export const STRATEGY_VERSION = "2026-10-28-retest-two-thirds-volume";

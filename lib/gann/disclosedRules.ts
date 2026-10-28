@@ -133,7 +133,7 @@ import { describeOvernightChart, readOvernightChart, type OvernightReading } fro
 import { describeCloseCluster, readCloseCluster, type CloseClusterReading } from "@/lib/gann/closeCluster";
 import { describeAstroRules, readAstroRules, type AstroReading } from "@/lib/gann/astroRules";
 import { describeCapitalStock, readCapitalStock, type CapitalStockReading } from "@/lib/gann/capitalStock";
-import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
+import { computeVolumeClimax, RETEST_VOLUME_RATIO } from "@/lib/gann/volumeClimax";
 import { readDistributionBreakdown, readDistributionStanding, type DistributionReading, type DistributionStanding } from "@/lib/gann/distribution";
 import { readBreakawayVolume, type BreakawayVolumeReading } from "@/lib/gann/breakaway";
 import { describeTopVolumeWarning, readTopVolumeWarning, type TopVolumeWarningReading } from "@/lib/gann/topVolume";
@@ -956,8 +956,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   if (ctx.bearDuration) lines.push(describeBearDuration(ctx.bearDuration));
   if (ctx.topVolume?.warning) lines.push(describeTopVolumeWarning(ctx.topVolume));
-  if (ctx.secondTopVolumeRatio != null && ctx.secondTopVolumeRatio <= 2 / 3) {
-    lines.push(`A second top at the first top's level on ${Math.round(ctx.secondTopVolumeRatio * 100)}% of its week's volume. Shown for context; it does not change the setup.`);
+  if (ctx.secondTopVolumeRatio != null && ctx.secondTopVolumeRatio <= RETEST_VOLUME_RATIO + 1e-9) {
+    lines.push(`A second top at the first top's level on ${Math.round(ctx.secondTopVolumeRatio * 100)}% of its week's volume: it counts as the volume reading on this setup.`);
   }
   if (ctx.breakawayVolume) {
     const b = ctx.breakawayVolume;
