@@ -124,5 +124,7 @@ describe("intradayChartPlan", () => {
     expect(intradayChartPlan("SPY", null, recent)).toEqual({ entry: 503, stop: 501, firstTarget: 507, masterTarget: null });
     expect(intradayChartPlan("SPY", [], recent)).toBeNull();
     expect(intradayChartPlan("SPY", null, [{ ...recent[0], type: "plan_level_held" }])).toBeNull();
+    // A stored alert whose first target paid no more than the risk offers no trade.
+    expect(intradayChartPlan("SPY", null, [{ ...recent[0], paysRisk: false }])).toBeNull();
   });
 });

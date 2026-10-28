@@ -716,4 +716,14 @@ describe("OrderTicket level choice", () => {
     expect(body.entryStop).toBeCloseTo(44);
     expect(body.intradaySourced).toBe(false);
   });
+
+  it("drops a sub-dollar intraday MTP that sits inside the placement gap of TP1", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    // At $0.50 the gap is 1% of price ($0.005): an MTP $0.002 past TP1 would be refused.
+    render(<OrderTicket result={scanWithEntry(0.5)} livePrice={0.5} sessionPlan={{ entry: 0.5, stop: 0.48, firstTarget: 0.53, masterTarget: 0.532 }} />);
+    await user.click(screen.getByRole("button", { name: "Intraday plan" }));
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    expect(orderBody(fetchMock).attachLevels).toEqual({ stopLoss: 0.48, takeProfit: 0.53 });
+  });
 });
