@@ -11,11 +11,11 @@
  * anymore; it stays a live-trading concern for whichever endpoint drives that.
  */
 
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 
 const TradeLogSchema = z.object({
   orderId: z.string().uuid().optional(),
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data, error } = await ledgerWriter(supabase).from("trade_logs").insert({
-      strategy_version: STRATEGY_VERSION,
+      strategy_version: STORED_STRATEGY_VERSION,
       // A trade a person records by hand belongs to no GSPS account, so the
       // paper profit peak never reads it (migration 0107, R-002).
       mode: "journal",

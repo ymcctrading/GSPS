@@ -14,9 +14,9 @@
  * the paper profit peak reads paper closes only (`lib/risk/profitPeak.ts`).
  */
 
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -28,7 +28,7 @@ export async function insertTradeLog(
   mode: "paper" | "live",
   row: Record<string, unknown>,
 ): Promise<{ error: { code?: string; message: string } | null; duplicate: boolean }> {
-  const stamped = { strategy_version: STRATEGY_VERSION, ...row, mode };
+  const stamped = { strategy_version: STORED_STRATEGY_VERSION, ...row, mode };
   let last: { code?: string; message: string } | null = null;
   for (let attempt = 0; attempt < TRADE_LOG_ATTEMPTS; attempt++) {
     const { error } = await ledgerWriter(supabase).from("trade_logs").insert(stamped);

@@ -18,6 +18,7 @@ import { hasTradePlan } from "@/lib/marketScan";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import type { ScanResult } from "@/lib/types";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 
 export type Direction = "bullish" | "bearish";
 
@@ -30,7 +31,7 @@ export interface DailyScanRow {
   symbol: string;
   score: number;
   output_state: string;
-  /** STRATEGY_VERSION when written (migration 0094). */
+  /** STRATEGY_VERSION's label when written (migrations 0094, 0128). */
   strategy_version: string;
   entry: number;
   stop_loss: number;
@@ -89,7 +90,7 @@ export function buildScanRows(
     score: r.decision.score,
     output_state: r.decision.outputState,
     // The rules that produced this verdict (review finding P-02, migration 0094).
-    strategy_version: STRATEGY_VERSION,
+    strategy_version: STORED_STRATEGY_VERSION,
     updated_at: writtenAt,
     // hasTradePlan has already established these four are finite numbers.
     entry: r.levels!.entry,

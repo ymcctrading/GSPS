@@ -27,6 +27,7 @@ import { EMPTY_ENTRY_CONFIRMATION, PRE_ENTRY_STATES } from "./types";
 import { applyPlanEvent, type PlanEvent, type TransitionResult } from "./transitions";
 import { recordTradePlanRegime } from "@/lib/learning/record";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { publicVersionLabel } from "@/lib/backtest/publicVersion";
 
 /** Everything the caller must supply to start a plan at WATCHLIST. */
 export type NewTradePlan = Omit<
@@ -114,7 +115,7 @@ function rowToPlan(row: Record<string, unknown>, auditRows: Record<string, unkno
 function newPlanToRow(userId: string, plan: NewTradePlan): Record<string, unknown> {
   return {
     user_id: userId,
-    strategy_version: plan.strategyVersion,
+    strategy_version: publicVersionLabel(plan.strategyVersion),
     signal_id: plan.signalId,
     instrument: plan.instrument,
     market: plan.market,
@@ -344,7 +345,7 @@ export async function createOrGetIdempotentTradePlan(
     .eq("user_id", userId)
     .eq("instrument", input.instrument)
     .eq("timeframe", input.timeframe)
-    .eq("strategy_version", input.strategyVersion)
+    .eq("strategy_version", publicVersionLabel(input.strategyVersion))
     .eq("signal_fingerprint", input.signalFingerprint)
     .single();
   if (findErr || !existingRow) throw new Error(error.message);
