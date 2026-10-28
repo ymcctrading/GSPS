@@ -61,6 +61,7 @@ import { monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
+import { monteCarloResample, type MonteCarloSummary } from "./monteCarlo";
 
 /** Verdict buckets, plus the trades the score could not reach. */
 export type Bucket = "Execute" | "Watch" | "Reject" | "unscored";
@@ -182,6 +183,13 @@ export interface BacktestRequest {
   includeSlippageSensitivity?: boolean;
   /** Multiplier applied to `costPerShare` for the slippage-sensitivity run. Defaults to 3. */
   slippageMultiplier?: number;
+  /**
+   * Add `monteCarlo` to the report. Off by default: the Test page's report
+   * drops it (`toPublicReport`), and it costs about 45 ms per scope at 600
+   * trades (210 ms at 4,500, measured 2026-10-28), so only the universe runs
+   * ask for it.
+   */
+  includeMonteCarlo?: boolean;
 }
 
 export interface RunSummary {
@@ -397,6 +405,14 @@ export interface BacktestReport {
   strategyVersion: string;
   /** Present only when `includeSlippageSensitivity` was requested. */
   slippageSensitivity?: SlippageSensitivity;
+  /**
+   * Monte Carlo resampling of each scope's closed trades in open-time order
+   * (`monteCarlo.ts`): bands for expectancy, total R, maximum drawdown and
+   * the longest losing streak. `armed` is every scored trade, `derived` the
+   * reversals and re-buys on their own; `null` below 2 closed trades.
+   * Present only when `includeMonteCarlo` was requested.
+   */
+  monteCarlo?: Record<"armed" | "Execute" | "Watch" | "derived", MonteCarloSummary | null>;
   generatedAt: string;
 }
 
@@ -813,6 +829,16 @@ export function buildReport(
     })),
     strategyVersion: STRATEGY_VERSION,
     ...(slippageSensitivity ? { slippageSensitivity } : {}),
+    ...(request.includeMonteCarlo
+      ? {
+          monteCarlo: {
+            armed: monteCarloResample(derived.armed.trades),
+            Execute: monteCarloResample(split.Execute.trades),
+            Watch: monteCarloResample(split.Watch.trades),
+            derived: monteCarloResample([...derived.reversal.trades, ...derived.rebuy.trades]),
+          },
+        }
+      : {}),
     generatedAt: new Date().toISOString(),
   };
 }
