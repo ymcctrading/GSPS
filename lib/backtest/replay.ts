@@ -2143,13 +2143,6 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
 }
 
 /**
- * Rebuild the verdict the scanner would have shown for one armed setup.
- *
- * Reads only sessions strictly before the day being traded. That is stricter
- * than production, which sees the current day's partial bar, and the direction
- * of the difference is deliberate: a replay that peeks is worthless.
- */
-/**
  * The trade's context factors with `readyNowAtPlan` added when its plan was
  * read: whether the session's scan would have shown it ready to place (owner,
  * 2026-10-27), so the replay measures that rule as the live scan applies it.
@@ -2158,6 +2151,13 @@ function withPlanReady(factors: Record<string, boolean>, ready: boolean | undefi
   return ready === undefined ? factors : { ...factors, readyNowAtPlan: ready };
 }
 
+/**
+ * Rebuild the verdict the scanner would have shown for one armed setup.
+ *
+ * Reads only sessions strictly before the day being traded. That is stricter
+ * than production, which sees the current day's partial bar, and the direction
+ * of the difference is deliberate: a replay that peeks is worthless.
+ */
 function scoreSetup(input: {
   context: MacroContext;
   pattern: StratPattern | null;
