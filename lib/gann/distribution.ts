@@ -10,7 +10,7 @@
  * sessions):
  * - the lower top: the last two completed tops of the weekly (7-day) swing
  *   chart, the later one lower;
- * - the spell and its break: `readAccumulation` on those sessions, broken
+ * - the spell and its break: `readAccumulationRange` on those sessions, broken
  *   down (its range is the 20 sessions before the last one, its break the
  *   3-point allowance);
  * - narrow: the spell's high-to-low span is no wider than twice the 3-point
@@ -39,7 +39,7 @@
  */
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
-import { readAccumulation, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
+import { readAccumulationRange, RANGE_LOOKBACK } from "@/lib/gann/accumulation";
 import { gannThreePoints } from "@/lib/gann/pointScale";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
@@ -78,7 +78,7 @@ export function readDistributionBreakdown(daily: Bar[], asOf: Date): Distributio
   let end = daily.length;
   while (end > 0 && etDateKey(new Date(daily[end - 1].t)) >= today) end--;
   const done = daily.slice(Math.max(0, end - SESSIONS_READ), end);
-  const acc = readAccumulation(done);
+  const acc = readAccumulationRange(done);
   if (!acc) return null;
   const last = done[done.length - 1];
   const range = done.slice(-RANGE_LOOKBACK - 1, -1);
@@ -127,7 +127,7 @@ export function readDistributionStanding(daily: Bar[], asOf: Date): Distribution
   const done = daily.slice(Math.max(0, end - SESSIONS_READ - STANDING_SESSIONS), end);
   for (let k = done.length - 1; k >= Math.max(0, done.length - STANDING_SESSIONS); k--) {
     const upTo = done.slice(0, k + 1);
-    const acc = readAccumulation(upTo.slice(-SESSIONS_READ));
+    const acc = readAccumulationRange(upTo.slice(-SESSIONS_READ));
     // The full reading only where the session broke down at all.
     if (acc?.breakout !== "down") continue;
     const breakDate = etDateKey(new Date(done[k].t));

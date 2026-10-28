@@ -1263,8 +1263,9 @@ engineering figure) and with no close since back 3 points inside the crossed
 extreme (W006 Rule 3(c) p.47; `readBaseLeft`, `lib/gann/accumulation.ts`, read
 once in `readPillarFacts` for both surfaces). Random walks after: 0% at $20 and
 $150, 0.6/1.5% at $500 (long/short), so P8 now rests on the volume rule (63-70%
-of readings, the diagnosis's figures). About 0.03-0.04 ms a full accumulation
-read. The volume rule itself (the two-thirds retest) is a separate fix.
+of readings, the diagnosis's figures). The search adds about 0.07 ms to a full
+accumulation read (0.016 to 0.082 ms on 520 bars); the distribution reading
+reads the range alone (`readAccumulationRange`), so its cost is unchanged. The volume rule itself (the two-thirds retest) is a separate fix.
 `STRATEGY_VERSION` is `2026-10-28-base-left-volume-pillar`; P8, Execute and the
 7/4 cutoffs need a fresh run on it.
 

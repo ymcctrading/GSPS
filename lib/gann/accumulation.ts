@@ -72,7 +72,7 @@ export interface AccumulationReading {
   left: BaseLeft | null;
 }
 
-type RangeReading = Omit<AccumulationReading, "left">;
+export type RangeReading = Omit<AccumulationReading, "left">;
 
 /** The range reading as of session `end` (inclusive), from the sessions up to it. */
 function readRangeAt(daily: Bar[], end: number): RangeReading | null {
@@ -107,6 +107,15 @@ export function readBaseLeft(daily: Bar[]): BaseLeft | null {
     if (holds) return { direction: r.breakout, sessionsAgo: k, weeks: r.weeks };
   }
   return null;
+}
+
+/**
+ * The range reading at the latest session only, without the search for a base
+ * just left: for callers that read it many times over and use only the range
+ * and the latest break (`distribution.ts`), so they don't pay for the search.
+ */
+export function readAccumulationRange(daily: Bar[]): RangeReading | null {
+  return readRangeAt(daily, daily.length - 1);
 }
 
 export function readAccumulation(daily: Bar[]): AccumulationReading | null {

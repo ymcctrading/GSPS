@@ -118,7 +118,7 @@ export interface PillarFacts {
    * it, and the long base price has left and stands outside of (`left`,
    * `lib/gann/accumulation.ts#readBaseLeft`), which is what P8 reads.
    */
-  base: { long: boolean; breakout: "up" | "down" | null; left?: "up" | "down" | null } | null;
+  base: { long: boolean; breakout: "up" | "down" | null; left: "up" | "down" | null } | null;
   /** A capital-stock or shares-per-point warning at a top (against a long). */
   capitalWarning: boolean;
   counterMove: { trend: Side; inCounterMove: boolean; phase: "normal" | "extended" | "secondMonth" | "thirdMonth" | null } | null;

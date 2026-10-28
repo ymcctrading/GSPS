@@ -1004,7 +1004,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {
     const a = ctx.accumulation;
-    lines.push(`Range ${a.rangeLow.toFixed(2)}–${a.rangeHigh.toFixed(2)} held ${a.weeks.toFixed(1)} weeks${a.breakout ? `, broken ${a.breakout}` : ""}. The longer the time in a range, the bigger the move out of it.`);
+    lines.push(`Range ${a.rangeLow.toFixed(2)}–${a.rangeHigh.toFixed(2)} held ${a.weeks.toFixed(1)} weeks${a.breakout ? `, broken ${a.breakout}` : a.left ? `, left ${a.left.direction === "up" ? "upward" : "downward"} ${a.left.sessionsAgo} session${a.left.sessionsAgo === 1 ? "" : "s"} ago` : ""}. The longer the time in a range, the bigger the move out of it.`);
   }
   if (ctx.sharesPerPoint?.topWarning) {
     lines.push(`Volume per point of gain is ${ctx.sharesPerPoint.ratio.toFixed(1)}× the prior up leg near the high: more effort for less gain, a sign of a top.`);
