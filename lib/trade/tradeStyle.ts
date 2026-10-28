@@ -81,8 +81,28 @@ export type TradeStyle = "swing" | "fast" | "intraday";
 /** The styles walked on the daily chart (the swing replay's `tradeStyle`). */
 export type DailyTradeStyle = Exclude<TradeStyle, "intraday">;
 
-/** The styles a trader picks as a standing preference; Intraday comes from the trade's source. */
-export const PICKABLE_TRADE_STYLES: readonly DailyTradeStyle[] = ["swing", "fast"];
+/**
+ * The styles a trader picks as a standing preference; Intraday comes from the
+ * trade's source. Swing alone since Fast was retired (`FAST_RETIRED_AT`).
+ */
+export const PICKABLE_TRADE_STYLES: readonly DailyTradeStyle[] = ["swing"];
+
+/**
+ * Fast is retired as a choice (owner, 2026-10-27: "I was attempting to do
+ * 'fast' mode to account for intraday trades. It is not a necessary
+ * function/feature to keep"; asked how to keep swing and intraday apart on
+ * one chart, he took the answer: the chart's timeframe shows the plan for it,
+ * and a trade's style comes from the plan it was taken from). Two styles
+ * remain: Swing, from the daily plan, and Intraday, from an intraday alert.
+ * A trade filled in Fast before this time keeps its day trail until it closes
+ * (`styleAt`), so no open trade is re-managed; a fill at or after it is Swing
+ * whatever was saved. The Fast profile, its trail and the replay's
+ * `tradeStyle: "fast"` stay for those trades and for measurement. The time
+ * is set after this change deploys, never before it: a fill between the time
+ * and the deploy is trailed as Fast by the code then running, and reading it
+ * as Swing afterwards would switch it mid-trade.
+ */
+export const FAST_RETIRED_AT = "2026-10-29T00:00:00Z";
 
 export const DEFAULT_TRADE_STYLE: DailyTradeStyle = "swing";
 

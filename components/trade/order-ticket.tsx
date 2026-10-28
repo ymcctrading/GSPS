@@ -1,9 +1,7 @@
 "use client";
 
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
-import { TradeStylePicker } from "@/components/trade/trade-style-picker";
 import { TRADE_STYLES } from "@/lib/trade/tradeStyle";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,11 +83,6 @@ export function OrderTicket({
   }) => void;
 }) {
   const { pattern, symbol } = result;
-  // The trader's trade style (lib/trade/tradeStyle.ts). Both styles open on
-  // the same plan (Rule 3's entry and stop); Fast changes how the stop trails
-  // once filled, which the exit managers read from the saved choice.
-  const { prefs: gannPrefs, save: saveGannPrefs } = useGannRulePrefs();
-  const tradeStyle = gannPrefs.tradeStyle;
   const levels = result.levels;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
@@ -768,7 +761,13 @@ export function OrderTicket({
               </p>
             </div>
           ) : (
-            <TradeStylePicker value={tradeStyle} onChange={(s) => void saveGannPrefs({ tradeStyle: s })} />
+            // A trade from the daily plan is a Swing trade; an Intraday one comes
+            // from an intraday alert's "Trade this" (lib/trade/tradeStyle.ts).
+            <p className="text-xs text-muted">
+              <span className="font-medium text-foreground">Swing</span>: {TRADE_STYLES.swing.summary} Expected hold:{" "}
+              {TRADE_STYLES.swing.expectedHold.toLowerCase()}. For a trade in and out within the session, take it from
+              an intraday alert.
+            </p>
           )}
         </div>
         {belowExecute && (

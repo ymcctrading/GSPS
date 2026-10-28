@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIntradayCardModel, buildIntradaySynopsis, intradayLevels, isReversalRisk } from "@/lib/setups/intraday";
+import { buildIntradayCardModel, buildIntradaySynopsis, intradayChartPlan, intradayLevels, isReversalRisk } from "@/lib/setups/intraday";
 import type { Alert } from "@/lib/scanner/intraday";
 
 const alert: Alert = {
@@ -96,5 +96,33 @@ describe("buildIntradayCardModel", () => {
       { label: "Volume confirms", state: "missed", detail: "25 pts — 1.8× of normal." },
     ]);
     expect(model.tickerHref).toBe("/ticker/SPY");
+  });
+});
+
+describe("intradayChartPlan", () => {
+  const recent = [
+    { symbol: "SPY", type: "old_level_cross" as const, direction: "up" as const, entry: 503, stop: 501, firstTarget: 507, masterTarget: null, confidence: 60, at: "2026-08-07T14:00:00Z" },
+  ];
+
+  it("draws the highest-confidence alert offered as a trade for the symbol", () => {
+    const weaker: Alert = { ...alert, confidence: 40, invalidation: 499, continuationPlan: { ...alert.continuationPlan, invalidation: 499 } };
+    expect(intradayChartPlan("spy", [weaker, alert], recent)).toEqual({ entry: 504.5, stop: 500, firstTarget: 513.5, masterTarget: null });
+  });
+
+  it("draws nothing for an alert not offered as a trade: a reversal risk, a target that doesn't pay the risk, no target, measured losing, or another symbol", () => {
+    const none = [
+      { ...alert, type: "reversal_risk" as const },
+      { ...alert, continuationPlan: { ...alert.continuationPlan, paysRisk: false } },
+      { ...alert, continuationPlan: { ...alert.continuationPlan, firstTarget: null } },
+      { ...alert, type: "plan_level_held" as const },
+      { ...alert, symbol: "QQQ" },
+    ];
+    for (const a of none) expect(intradayChartPlan("SPY", [a], recent)).toBeNull();
+  });
+
+  it("uses today's scheduled alert only before a scan has been read", () => {
+    expect(intradayChartPlan("SPY", null, recent)).toEqual({ entry: 503, stop: 501, firstTarget: 507, masterTarget: null });
+    expect(intradayChartPlan("SPY", [], recent)).toBeNull();
+    expect(intradayChartPlan("SPY", null, [{ ...recent[0], type: "plan_level_held" }])).toBeNull();
   });
 });
