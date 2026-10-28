@@ -14,6 +14,7 @@ describe("computeRuleOfThree", () => {
       consecutiveHigherCloses: 0,
       bullishSignal: false,
       bearishSignal: false,
+      trend: null,
     });
   });
 
@@ -83,4 +84,20 @@ describe("M-R3 on every surface (review 23)", () => {
     expect(replay).toMatch(/ruleOfThreeMonthly: monthly\.length >= 4 \? computeRuleOfThree\(monthly\) : null,/);
     expect(replay).toMatch(/ruleOfThreeWeekly: context\.ruleOfThreeWeekly,\s*\n\s*ruleOfThreeMonthly: context\.ruleOfThreeMonthly,/);
   });
+
+describe("computeRuleOfThree trend", () => {
+  it("holds the trend through a one- or two-day reaction after three higher closes", () => {
+    expect(computeRuleOfThree(bars([100, 101, 102, 103])).trend).toBe("bullish");
+    expect(computeRuleOfThree(bars([100, 101, 102, 103, 102, 101])).trend).toBe("bullish");
+  });
+
+  it("turns on the third close the other way, and not before", () => {
+    expect(computeRuleOfThree(bars([100, 101, 102, 103, 102, 101, 100])).trend).toBe("bearish");
+    expect(computeRuleOfThree(bars([100, 101, 100, 101, 100])).trend).toBe(null);
+  });
+
+  it("lets a flat close end a run", () => {
+    expect(computeRuleOfThree(bars([100, 101, 102, 102, 103])).trend).toBe(null);
+  });
+});
 });

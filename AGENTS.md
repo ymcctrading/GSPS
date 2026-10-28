@@ -3489,6 +3489,47 @@ base-left pillar, Gann's figures at his price and this rule merged together in
 the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` was
 `2026-10-28-midday-release`.
 
+**The Rule of Three as a standing trend, 2026-10-28 (six-year daily rerun,
+`replay-diagnosis/2026-10-28-six-year-daily/COMBINED.md`: within Execute,
+trades passing `ruleOfThree` did 0.103R worse than trades failing it).** One
+translation defect, fixed: the check passed only on the day a run of three
+closes printed (three up closes in a row for a long), the move a reaction entry
+waits out, and failed through every one- or two-day reaction of a trend the
+rule still called up. Gann's third close reverses the trend "at least
+temporarily" and the trend stands until the opposite third close (*Stock
+Selector* p.72; U.S. Steel 1929 "at no time closed 3 consecutive days with
+losses" until the top, Ch. VI p.125). `computeRuleOfThree` now returns `trend`,
+the side of the latest run of three, and the check passes when the daily rule
+reads the trade's side and neither the weekly nor the monthly rule reads against
+it (the higher charts govern, never-failing rule 5; how the three combine is an
+engineering choice, labelled: as standing trends, "any one" passes about 87% of
+random-walk readings). The weekly and monthly context factors read the same.
+Random walks (200 a drift, longs/shorts): no drift 13.1/18.8%, +0.05% a day
+21.0/11.5%, +0.1% a day 29.4/6.9%; the old reading passed about 12% either way
+whatever the drift. The cards' streak lines are unchanged. `STRATEGY_VERSION`
+was `2026-10-28-three-closes-trend`; P2, Execute and the 7/4 cutoffs need a
+fresh run on it.
+**Reading that run's factor table, same day.** Its deltas are within Execute
+only (the slices' logs kept no all-trade table), so they are conditioned on a 7+
+score, and at about 2,100 trades with a spread near 1.4R a pass/fail delta has a
+standard error near 0.06R: every listed inversion (Rule of Three −0.103, angles
+−0.078, range divisions −0.058, relative strength and time −0.050, the square
+−0.045, the indication −0.041) sits inside about two of them. They are leads,
+not findings; a future run should keep the all-trade factor table. The Rule of
+Three fix stands on Gann's text, not the delta. **P6's origin, same day:** the
+monthly 45° is drawn from the latest monthly swing bottom (top, short) that has
+held `MONTHLY_ORIGIN_HELD_MONTHS` (3) closed months with no later month 3 points
+through it (`monthlyAngleOrigin`, `lib/scoring/pillars.ts`; Master Course Ch. 4,
+GA-25 to GA-27: a higher bottom is an origin "only once the market has
+held/advanced 3-4 months from it", retired "when exceeded by 3 points"; GA-9 the
+same for tops); it read the latest pivot however young. Random walks (20 a
+price, long/short): no drift $150 46.6/55.4 → 44.0/55.0%, $500 56.8/64.4 →
+52.8/58.6%; +0.05% a day $500 73.8/36.8 → 69.8/32.8%. "3-4 months" read as 3 is
+an engineering choice, labelled. `STRATEGY_VERSION` was
+`2026-10-28-three-closes-angle-origin`; P6, Execute and the 7/4 cutoffs need a
+fresh run on it. Merged onto the delayed-fill release (no new rule):
+`STRATEGY_VERSION` is `2026-10-28-three-closes-on-delayed-fill`.
+
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and

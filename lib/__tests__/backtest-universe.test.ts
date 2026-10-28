@@ -11,6 +11,7 @@ import {
   bootstrapDiffCI,
   bootstrapMeanCI,
   describeTrades,
+  factorTable,
   parseArgs,
   summarizeCells,
   summaryMarkdown,
@@ -247,5 +248,40 @@ describe("per-trade CSV for the job log", () => {
     expect(lines[0]).toBe("=== BEGIN trades.csv.gz.base64 ===");
     expect(lines.at(-1)).toBe("=== END trades.csv.gz.base64 ===");
     expect(gunzipSync(Buffer.from(lines.slice(1, -1).join(""), "base64")).toString("utf8")).toBe(csv);
+  });
+});
+
+describe("factor table over all scored trades", () => {
+  const trades = [
+    trade({ score: 8, rMultiple: 2, criteria: { ruleOfThree: true }, contextFactors: { lead: true } }),
+    trade({ score: 8, rMultiple: 1, criteria: { ruleOfThree: true } }),
+    trade({ score: 4, outputState: "Watch", rMultiple: -1, criteria: { ruleOfThree: false }, contextFactors: { lead: false } }),
+    trade({ score: 3, outputState: "Watch", rMultiple: 0, criteria: { ruleOfThree: false } }),
+    // Derived trades carry no score and stay out.
+    trade({ derived: "reversal", outputState: undefined, rMultiple: 5, criteria: { ruleOfThree: true } }),
+  ];
+
+  it("reads pass against fail on every scored trade and within Execute, absent keys left out", () => {
+    type Row = { key: string; diffCI95: [number, number] | null } & Record<string, unknown>;
+    const f = factorTable(trades) as Record<"scored" | "Execute", Row[]>;
+    const r3 = f.scored.find((x) => x.key === "ruleOfThree")!;
+    expect(r3).toMatchObject({ source: "criterion", passN: 2, failN: 2, passR: 1.5, failR: -0.5, diffR: 2 });
+    // Normal interval: var 0.5 each side, se sqrt(0.25 + 0.25).
+    expect(r3.diffCI95![0]).toBeCloseTo(2 - 1.96 * Math.sqrt(0.5));
+    const lead = f.scored.find((x) => x.key === "lead");
+    expect(lead).toMatchObject({ source: "context", passN: 1, failN: 1, diffCI95: null });
+    // Within Execute every trade passed, so there is nothing to compare against.
+    expect(f.Execute.find((x) => x.key === "ruleOfThree")).toMatchObject({ passN: 2, failN: 0, diffR: null });
+  });
+
+  it("rides in the summary and its markdown", () => {
+    const s = summarizeCells([{ cell: { label: "prod" }, trades }]);
+    expect(s.cells[0].factors.scored.length).toBe(2);
+    const md = summaryMarkdown(
+      { universe: "u", symbolsUsed: 1, symbolsRequested: 1, ref: "r", sha: "s", timeframe: "1Day", targetR: 2, source: "x", live: true, window: {}, generatedAt: "g", skipped: [] },
+      s,
+    );
+    expect(md).toContain("## Factor table");
+    expect(md).toContain("| prod | ruleOfThree | 2 | 2 | +2.000R |");
   });
 });
