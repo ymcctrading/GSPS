@@ -3598,6 +3598,18 @@ the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
 its line, and one that has made its crossing gets none. Notices, never trades: no
 "Trade this", not stored, not replayed, push and the bell only, worded as
 delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
+**Before the open, same day (coordinator, from the TXN thread's proposal).**
+`/api/pre-open-lines` (pg_cron 12:50 and 13:50 UTC on weekdays, migration 0132;
+it acts only from 8:30 to the 9:30 open, New York time, on a trading day) lists
+each equity plan whose line the prior close left within one 3-point allowance
+(`lib/notifications/preOpenLines.ts`: `planLineAhead`, the allowance
+`breakawayLinesFirst` reads, a close through the stop or a resting, expired or
+retired row left out). Push (one a member, by their push, score and quiet-hours
+settings) and the bell (watchers only), both gated as the line notices are and
+once a New York day per symbol and side; never email. Worded as of the prior
+close, never actionable (`checkNotificationFreshness`, an observation on the
+daily chart). The bell counts it as a notice (`isNoticeTitle`), so it takes none
+of Pro's daily bound. Unmeasured. Verdicts unchanged.
 **The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
 Gann).** The volume pillar's retest confirmed on any smaller week, so once
 price reached the old turn inside 3 points, noise passed it about half the time
