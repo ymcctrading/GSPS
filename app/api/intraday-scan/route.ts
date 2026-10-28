@@ -36,9 +36,9 @@
  * deliberate.
  */
 
-import { planQueue, rotationTick } from "@/lib/scanner/queue";
+import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
 import { availability, barCloseAt, resolveFeedPolicy } from "@/lib/data/timeliness";
-import { detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
+import { afterResponse, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
@@ -464,16 +464,20 @@ async function resolveSystemUniverse(
   // focus list's reserves and the stocks the session has made active
   // (discoveries the market scan stored in the evaluation ledger) get a turn
   // instead of slots sitting empty, as on October 27. An order of
-  // examination only: nothing here scores, plans or notifies.
+  // examination only: nothing here scores or plans, and any alert a slot
+  // produces is held to that alert's own rules.
   const now = new Date();
   const sessionDate = etDateKey(now);
+  const tick = rotationTick(now);
   const [watched, focus, setups, discovery] = await Promise.all([
     loadWatchedSymbols(supabase),
     loadFocusSymbols(supabase),
     loadSessionSetups(supabase, now, SESSION_SETUPS_MAX).catch(() => [] as string[]),
     readSessionDiscoveries(supabase, sessionDate, DISCOVERY_READ_MAX),
   ]);
-  const core = focus.length > 0 || setups.length > 0 || discovery.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
+  // The fixed single stocks give way only to a focus list or the session's
+  // setups; discoveries alone (a missed evening) leave the core list whole.
+  const core = focus.length > 0 || setups.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
   const plan = planQueue({
     capacity: MAX_SYSTEM_UNIVERSE,
     core: core.map((c) => c.symbol),
@@ -481,17 +485,22 @@ async function resolveSystemUniverse(
     discovery,
     focus,
     watched: watched.map((w) => w.symbol),
-    tick: rotationTick(now),
+    tick,
   });
   const kindOf = new Map<string, AssetKind>([...core, ...watched].map((e) => [e.symbol.toUpperCase(), e.kind]));
   const out = plan.selected.map((e) => ({ symbol: e.symbol, kind: kindOf.get(e.symbol) ?? kindFor(e.symbol) }));
   console.info(
     `intraday-scan: queue ${plan.selected.length}/${plan.capacity} ${Object.entries(plan.byTier).map(([t, n]) => `${t}=${n}`).join(" ")}, deferred ${plan.deferred.length}`,
   );
-  await Promise.all([
-    writeLedger(supabase, queueRows(plan, sessionDate, now), "queue"),
-    writeDeferred(supabase, sessionDate, plan.deferred.map((d) => d.symbol)),
-  ]);
+  // Written after the response: the scan never waits on the ledger.
+  // Deferrals count in the regular session only, once per rotation tick.
+  const deferred = equitySession(now) === "regular" ? plan.deferred.map((d) => d.symbol) : [];
+  afterResponse("queue", () =>
+    Promise.all([
+      writeLedger(supabase, queueRows(plan, sessionDate, now), "queue"),
+      writeDeferred(supabase, sessionDate, deferred, new Date(tick * ROTATION_STEP_MINUTES * 60_000)),
+    ]),
+  );
   return out;
 }
 
@@ -904,30 +913,25 @@ async function persistSystemAlerts(
   }
   // The evaluation ledger keeps the first detection per stock, its three
   // times apart: the bar read, when its delayed data could first be seen, and
-  // when the scan evaluated it.
-  const sessionDate = etDateKey(new Date());
-  await writeLedger(
-    supabase,
-    detectionRows(
-      alerts.map((alert) => {
-        const minutes = intervalBySymbol.get(alert.symbol) ?? 1;
-        const tf = minutes === 5 ? "5Min" : minutes === 15 ? "15Min" : minutes === 1 ? "1Min" : null;
-        const asset = kindFor(alert.symbol) === "crypto" ? "crypto" : "us_equity";
-        const delayMs = resolveFeedPolicy({ assetClass: asset, isLive: true, source: "alpaca" }).contractualDelayMs;
-        const usable = tf && alert.dataTimestamp ? availability(barCloseAt(alert.dataTimestamp, tf, asset), delayMs) : null;
-        return {
-          symbol: alert.symbol,
-          kind: alert.type,
-          side: alert.direction === "down" ? ("bearish" as const) : ("bullish" as const),
-          evaluatedAt: alert.triggerTime,
-          barOpen: alert.dataTimestamp ?? null,
-          usableAt: usable ? usable.usableAt.toISOString() : null,
-        };
-      }),
-      sessionDate,
-    ),
-    "detections",
-  );
+  // when the scan evaluated it. Filed under the bar's own session, and
+  // written after the response.
+  const detections = alerts.map((alert) => {
+    const minutes = intervalBySymbol.get(alert.symbol) ?? 1;
+    const tf = minutes === 5 ? "5Min" : minutes === 15 ? "15Min" : minutes === 1 ? "1Min" : null;
+    const asset = kindFor(alert.symbol) === "crypto" ? "crypto" : "us_equity";
+    const delayMs = resolveFeedPolicy({ assetClass: asset, isLive: true, source: "alpaca" }).contractualDelayMs;
+    const usable = tf && alert.dataTimestamp ? availability(barCloseAt(alert.dataTimestamp, tf, asset), delayMs) : null;
+    return {
+      symbol: alert.symbol,
+      sessionDate: etDateKey(new Date(alert.dataTimestamp ?? alert.triggerTime)),
+      kind: alert.type,
+      side: alert.direction === "down" ? ("bearish" as const) : ("bullish" as const),
+      evaluatedAt: alert.triggerTime,
+      barOpen: alert.dataTimestamp ?? null,
+      usableAt: usable ? usable.usableAt.toISOString() : null,
+    };
+  });
+  afterResponse("detections", () => writeLedger(supabase, detectionRows(detections), "detections"));
   return true;
 }
 

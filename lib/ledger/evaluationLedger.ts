@@ -11,8 +11,9 @@
  * writer may send the same stage every scan.
  *
  * Hindsight data, service role only. The only live reader is the intraday
- * scan, which takes the session's discoveries as queue candidates: an order of
- * examination, never a score, plan, order or notification.
+ * scan, which takes the session's current discoveries as queue candidates.
+ * That decides which stocks are examined; it never sets a score, plan or
+ * order, and any alert a slot produces is held to that alert's own rules.
  *
  * Best-effort: a failed write is logged and never fails a scan. On by default;
  * `GSPS_EVALUATION_LEDGER=0` turns every write and read off (kill switch).
@@ -29,6 +30,7 @@ import type { DiscoveryReading } from "@/lib/scanner/discovery";
 import type { QueuePlan } from "@/lib/scanner/queue";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 
 export interface LedgerRow {
   session_date: string;
@@ -98,6 +100,8 @@ export function queueRows(plan: QueuePlan, sessionDate: string, at: Date): Ledge
 
 export interface DetectionInput {
   symbol: string;
+  /** The New York session the detection's bar belongs to. */
+  sessionDate: string;
   kind: string;
   side: "bullish" | "bearish";
   evaluatedAt: string;
@@ -105,15 +109,19 @@ export interface DetectionInput {
   usableAt: string | null;
 }
 
-/** First detection per symbol (the earliest evaluated wins in a batch). */
-export function detectionRows(detections: readonly DetectionInput[], sessionDate: string): LedgerRow[] {
-  const bySymbol = new Map<string, DetectionInput>();
+/**
+ * First detection per session and symbol (the earliest evaluated wins in a
+ * batch). Filed under the session of the bar read, not the clock's day, so a
+ * holiday's reading of the prior session's bars lands on that session.
+ */
+export function detectionRows(detections: readonly DetectionInput[]): LedgerRow[] {
+  const byKey = new Map<string, DetectionInput>();
   for (const d of [...detections].sort((a, b) => a.evaluatedAt.localeCompare(b.evaluatedAt))) {
-    const sym = d.symbol.toUpperCase();
-    if (!bySymbol.has(sym)) bySymbol.set(sym, d);
+    const key = `${d.sessionDate}|${d.symbol.toUpperCase()}`;
+    if (!byKey.has(key)) byKey.set(key, d);
   }
-  return [...bySymbol.entries()].map(([symbol, d]) => {
-    const row: LedgerRow = { session_date: sessionDate, symbol, first_detect_kind: d.kind, first_detect_side: d.side, first_detect_eval_at: d.evaluatedAt };
+  return [...byKey.values()].map((d) => {
+    const row: LedgerRow = { session_date: d.sessionDate, symbol: d.symbol.toUpperCase(), first_detect_kind: d.kind, first_detect_side: d.side, first_detect_eval_at: d.evaluatedAt };
     if (d.barOpen) row.first_detect_bar_open = d.barOpen;
     if (d.usableAt) row.first_detect_usable_at = d.usableAt;
     return row;
@@ -128,7 +136,8 @@ export interface LedgerClient {
 /**
  * One row per session and symbol: a batch may not touch a row twice (Postgres
  * refuses an upsert that would), so stages for the same stock are merged, the
- * first value given for each field kept.
+ * first value given for each field kept. Sorted by key, so every writer locks
+ * rows in the same order and two concurrent batches can't deadlock.
  */
 export function mergeLedgerRows(rows: readonly LedgerRow[]): LedgerRow[] {
   const byKey = new Map<string, LedgerRow>();
@@ -145,7 +154,30 @@ export function mergeLedgerRows(rows: readonly LedgerRow[]): LedgerRow[] {
       if (v !== undefined && seen[k] === undefined) (seen as unknown as Record<string, unknown>)[k] = v;
     }
   }
-  return [...byKey.values()];
+  return [...byKey.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, row]) => row);
+}
+
+/**
+ * Run a ledger write after the response is sent (Next's `after`), so no scan
+ * waits on it, and log how long it took. Outside a request (tests, scripts)
+ * it starts the write without waiting.
+ */
+export function afterResponse(label: string, work: () => Promise<unknown>): void {
+  if (!ledgerEnabled()) return;
+  const run = async () => {
+    const t0 = Date.now();
+    try {
+      await work();
+    } catch (err) {
+      console.warn(`[evaluation-ledger] ${label} not written — ${String(err)}`);
+    }
+    console.info(`[evaluation-ledger] ${label} ${Date.now() - t0}ms (after the response)`);
+  };
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
 }
 
 /** Write rows in batches. Never throws; returns how many batches failed. */
@@ -169,19 +201,27 @@ export async function writeLedger(client: LedgerClient, input: readonly LedgerRo
 }
 
 /**
- * The session's discoveries for the intraday queue, the newest first (then
- * their rank). Read failures return none: the queue simply has no discovery
+ * How recent a discovery must be to count as current (engineering, labelled):
+ * the last two 15-minute market scans and a little slack. A stock whose
+ * condition lapsed drops out once the scans stop reporting it.
+ */
+export const DISCOVERY_CURRENT_MS = 35 * 60_000;
+
+/**
+ * The session's current discoveries for the intraday queue: those the market
+ * scan reported within `DISCOVERY_CURRENT_MS`, the latest first (then their
+ * latest rank). Read failures return none: the queue simply has no discovery
  * tier that scan.
  */
-export async function readSessionDiscoveries(client: SupabaseClient, sessionDate: string, limit: number): Promise<string[]> {
+export async function readSessionDiscoveries(client: SupabaseClient, sessionDate: string, limit: number, now: Date = new Date()): Promise<string[]> {
   if (!ledgerEnabled() || limit <= 0) return [];
   try {
     const q = client
       .from("evaluation_ledger")
       .select("symbol")
       .eq("session_date", sessionDate)
-      .not("first_discovery_at", "is", null)
-      .order("first_discovery_at", { ascending: false })
+      .gte("last_discovery_at", new Date(now.getTime() - DISCOVERY_CURRENT_MS).toISOString())
+      .order("last_discovery_at", { ascending: false })
       .order("discovery_rank", { ascending: true })
       .limit(limit);
     const { data, error } = await q;
@@ -192,11 +232,16 @@ export async function readSessionDiscoveries(client: SupabaseClient, sessionDate
   }
 }
 
-/** Count one deferral for each name the queue left out. Never throws. */
-export async function writeDeferred(client: LedgerClient, sessionDate: string, symbols: readonly string[]): Promise<void> {
+/**
+ * Count one deferral for each name the queue left out, once per rotation tick
+ * (`tickStart`, the tick's first instant): a second scan in the same tick
+ * counts nothing. The caller writes these in the regular session only. Never
+ * throws.
+ */
+export async function writeDeferred(client: LedgerClient, sessionDate: string, symbols: readonly string[], tickStart: Date): Promise<void> {
   if (!ledgerEnabled() || symbols.length === 0) return;
   try {
-    const { error } = await client.rpc("ledger_deferred", { p_session: sessionDate, p_symbols: [...symbols] });
+    const { error } = await client.rpc("ledger_deferred", { p_session: sessionDate, p_symbols: [...symbols], p_tick: tickStart.toISOString() });
     if (error) console.warn(`[evaluation-ledger] deferrals not written — ${error.message}`);
   } catch (err) {
     console.warn(`[evaluation-ledger] deferrals not written — ${String(err)}`);

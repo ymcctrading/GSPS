@@ -12,15 +12,15 @@
 --
 -- Hindsight data: service role only. RLS on with no policy, and every grant
 -- revoked from members; it reaches the owner's two accounts through
--- owner-gated routes only (lib/auth/owner.ts) and never feeds a score, plan,
--- order or notification. The intraday scan reads the session's discoveries
--- from it to give them queue slots (lib/scanner/queue.ts): an examination
--- order, not a trade.
+-- owner-gated routes only (lib/auth/owner.ts) and never sets a score, plan or
+-- order. The intraday scan reads the session's current discoveries from it to
+-- give them queue slots (lib/scanner/queue.ts): that decides which stocks are
+-- examined, and any alert a slot produces is held to that alert's own rules.
 --
 -- Rollback:
 --   select cron.unschedule('evaluation-ledger-retention');
 --   drop function if exists public.ledger_touch(jsonb);
---   drop function if exists public.ledger_deferred(date, text[]);
+--   drop function if exists public.ledger_deferred(date, text[], timestamptz);
 --   drop table if exists public.evaluation_ledger;
 
 create table if not exists public.evaluation_ledger (
@@ -31,12 +31,17 @@ create table if not exists public.evaluation_ledger (
   first_full_score        numeric(3,1),
   first_full_state        text,
   first_discovery_at      timestamptz,
+  -- The latest market scan that reported the stock active, and its rank on
+  -- that scan: the queue reads only current discoveries (not first-only).
+  last_discovery_at       timestamptz,
   discovery_rank          smallint,
   discovery_kinds         text[],
   discovery_data_as_of    timestamptz,
   first_queued_at         timestamptz,
   queue_tier              text,
   deferred_scans          smallint    not null default 0 check (deferred_scans >= 0),
+  -- The rotation tick last counted, so a second scan in one tick counts nothing.
+  last_deferred_tick      timestamptz,
   first_detect_kind       text,
   first_detect_side       text,
   first_detect_bar_open   timestamptz,
@@ -51,12 +56,16 @@ alter table public.evaluation_ledger enable row level security;
 revoke all on public.evaluation_ledger from anon, authenticated;
 
 create index if not exists evaluation_ledger_discovery_idx
-  on public.evaluation_ledger (session_date, first_discovery_at desc)
-  where first_discovery_at is not null;
+  on public.evaluation_ledger (session_date, last_discovery_at desc)
+  where last_discovery_at is not null;
 
 -- Each first_* column is set only while it is null, so a repeated or late
--- write can't move a first time. A row whose write would set nothing new is
--- skipped by the WHERE clause. Batches of up to a few hundred rows.
+-- write can't move a first time; a score that arrives after its shortlist is
+-- still kept. last_discovery_at and discovery_rank follow the latest
+-- discovery write (its first_discovery_at is that scan's time). A row whose
+-- write would set nothing new is skipped by the WHERE clause. Writers send
+-- rows sorted by key, so concurrent batches lock in one order. Batches of up
+-- to a few hundred rows.
 create or replace function public.ledger_touch(p_rows jsonb)
 returns void
 language sql
@@ -65,14 +74,14 @@ set search_path = public, pg_temp
 as $$
   insert into public.evaluation_ledger as l (
     session_date, symbol, first_prefilter_at, first_shortlist_at, first_full_score, first_full_state,
-    first_discovery_at, discovery_rank, discovery_kinds, discovery_data_as_of, first_queued_at, queue_tier,
+    first_discovery_at, last_discovery_at, discovery_rank, discovery_kinds, discovery_data_as_of, first_queued_at, queue_tier,
     first_detect_kind, first_detect_side, first_detect_bar_open, first_detect_usable_at, first_detect_eval_at,
     strategy_version)
   select
     (r->>'session_date')::date, upper(r->>'symbol'),
     (r->>'first_prefilter_at')::timestamptz, (r->>'first_shortlist_at')::timestamptz,
     (r->>'first_full_score')::numeric, r->>'first_full_state',
-    (r->>'first_discovery_at')::timestamptz, (r->>'discovery_rank')::smallint,
+    (r->>'first_discovery_at')::timestamptz, (r->>'first_discovery_at')::timestamptz, (r->>'discovery_rank')::smallint,
     case when jsonb_typeof(r->'discovery_kinds') = 'array' then array(select jsonb_array_elements_text(r->'discovery_kinds')) end,
     (r->>'discovery_data_as_of')::timestamptz,
     (r->>'first_queued_at')::timestamptz, r->>'queue_tier',
@@ -87,7 +96,11 @@ as $$
     first_full_score       = coalesce(l.first_full_score, excluded.first_full_score),
     first_full_state       = coalesce(l.first_full_state, excluded.first_full_state),
     first_discovery_at     = coalesce(l.first_discovery_at, excluded.first_discovery_at),
-    discovery_rank         = coalesce(l.discovery_rank, excluded.discovery_rank),
+    last_discovery_at      = greatest(l.last_discovery_at, excluded.last_discovery_at),
+    discovery_rank         = case when excluded.last_discovery_at is not null
+                                   and excluded.last_discovery_at >= coalesce(l.last_discovery_at, '-infinity'::timestamptz)
+                                  then coalesce(excluded.discovery_rank, l.discovery_rank)
+                                  else l.discovery_rank end,
     discovery_kinds        = coalesce(l.discovery_kinds, excluded.discovery_kinds),
     discovery_data_as_of   = coalesce(l.discovery_data_as_of, excluded.discovery_data_as_of),
     first_queued_at        = coalesce(l.first_queued_at, excluded.first_queued_at),
@@ -101,29 +114,39 @@ as $$
     updated_at             = now()
   where (l.first_prefilter_at is null and excluded.first_prefilter_at is not null)
      or (l.first_shortlist_at is null and excluded.first_shortlist_at is not null)
+     or (l.first_full_score is null and excluded.first_full_score is not null)
+     or (l.first_full_state is null and excluded.first_full_state is not null)
      or (l.first_discovery_at is null and excluded.first_discovery_at is not null)
+     or (excluded.last_discovery_at > coalesce(l.last_discovery_at, '-infinity'::timestamptz))
      or (l.first_queued_at is null and excluded.first_queued_at is not null)
      or (l.first_detect_eval_at is null and excluded.first_detect_eval_at is not null);
 $$;
 
--- One count per scan for the names the intraday queue deferred for capacity.
-create or replace function public.ledger_deferred(p_session date, p_symbols text[])
+-- One count per rotation tick (p_tick, the tick's first instant) for the
+-- names the intraday queue deferred for capacity; a second scan in the same
+-- tick counts nothing. Names are made distinct and sorted, so a duplicate
+-- can't touch a row twice and every writer locks in one order.
+create or replace function public.ledger_deferred(p_session date, p_symbols text[], p_tick timestamptz)
 returns void
 language sql
 security invoker
 set search_path = public, pg_temp
 as $$
-  insert into public.evaluation_ledger as l (session_date, symbol, deferred_scans)
-  select p_session, upper(s), 1 from unnest(p_symbols) s where coalesce(s, '') <> ''
+  insert into public.evaluation_ledger as l (session_date, symbol, deferred_scans, last_deferred_tick)
+  select p_session, sym, 1, p_tick
+  from (select distinct upper(s) as sym from unnest(p_symbols) s where coalesce(s, '') <> '') d
+  order by sym
   on conflict (session_date, symbol) do update set
     deferred_scans = least(l.deferred_scans + 1, 32767),
-    updated_at = now();
+    last_deferred_tick = excluded.last_deferred_tick,
+    updated_at = now()
+  where l.last_deferred_tick is null or l.last_deferred_tick < excluded.last_deferred_tick;
 $$;
 
 revoke all on function public.ledger_touch(jsonb) from public, anon, authenticated;
-revoke all on function public.ledger_deferred(date, text[]) from public, anon, authenticated;
+revoke all on function public.ledger_deferred(date, text[], timestamptz) from public, anon, authenticated;
 grant execute on function public.ledger_touch(jsonb) to service_role;
-grant execute on function public.ledger_deferred(date, text[]) to service_role;
+grant execute on function public.ledger_deferred(date, text[], timestamptz) to service_role;
 
 -- Retention: 400 days, Sundays 09:30 UTC.
 select cron.schedule(

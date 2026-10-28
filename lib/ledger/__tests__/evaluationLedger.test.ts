@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  afterResponse,
+  DISCOVERY_CURRENT_MS,
+  readSessionDiscoveries,
   detectionRows,
   discoveryRows,
   ledgerEnabled,
@@ -59,12 +62,14 @@ describe("evaluation ledger rows", () => {
   it("keeps the earliest detection per stock with its three times apart", () => {
     const rows = detectionRows(
       [
-        { symbol: "nvda", kind: "b", side: "bullish", evaluatedAt: "2026-10-27T15:00:00Z", barOpen: null, usableAt: null },
-        { symbol: "NVDA", kind: "a", side: "bearish", evaluatedAt: "2026-10-27T14:20:00Z", barOpen: "2026-10-27T14:00:00Z", usableAt: "2026-10-27T14:20:00Z" },
+        { symbol: "nvda", sessionDate: "2026-10-27", kind: "b", side: "bullish", evaluatedAt: "2026-10-27T15:00:00Z", barOpen: null, usableAt: null },
+        { symbol: "NVDA", sessionDate: "2026-10-27", kind: "a", side: "bearish", evaluatedAt: "2026-10-27T14:20:00Z", barOpen: "2026-10-27T14:00:00Z", usableAt: "2026-10-27T14:20:00Z" },
+        // A holiday's reading of the prior session's bar is filed under that session.
+        { symbol: "NVDA", sessionDate: "2026-10-26", kind: "c", side: "bullish", evaluatedAt: "2026-10-27T15:30:00Z", barOpen: "2026-10-26T19:45:00Z", usableAt: null },
       ],
-      "2026-10-27",
     );
-    expect(rows).toEqual([
+    expect(rows.find((r) => r.session_date === "2026-10-26")?.first_detect_kind).toBe("c");
+    expect(rows.filter((r) => r.session_date === "2026-10-27")).toEqual([
       {
         session_date: "2026-10-27",
         symbol: "NVDA",
@@ -84,6 +89,15 @@ describe("evaluation ledger rows", () => {
       { session_date: "2026-10-27", symbol: " " },
     ]);
     expect(merged).toEqual([{ session_date: "2026-10-27", symbol: "BA", first_prefilter_at: "x", first_discovery_at: "z" }]);
+  });
+
+  it("sorts merged rows by session and symbol, so concurrent writers lock in one order", () => {
+    const merged = mergeLedgerRows([
+      { session_date: "2026-10-27", symbol: "ZM" },
+      { session_date: "2026-10-26", symbol: "ZM" },
+      { session_date: "2026-10-27", symbol: "AA" },
+    ]);
+    expect(merged.map((r) => `${r.session_date}|${r.symbol}`)).toEqual(["2026-10-26|ZM", "2026-10-27|AA", "2026-10-27|ZM"]);
   });
 });
 
@@ -108,13 +122,39 @@ describe("evaluation ledger writes", () => {
     expect(ledgerEnabled()).toBe(false);
     const { c, calls } = client();
     await writeLedger(c, [{ session_date: "2026-10-27", symbol: "A" }], "t");
-    await writeDeferred(c, "2026-10-27", ["A"]);
+    await writeDeferred(c, "2026-10-27", ["A"], new Date("2026-10-27T14:00:00Z"));
     expect(calls).toHaveLength(0);
   });
 
-  it("deferrals go in one call per scan", async () => {
+  it("deferrals go in one call per scan, keyed by the rotation tick", async () => {
     const { c, calls } = client();
-    await writeDeferred(c, "2026-10-27", ["A", "B"]);
-    expect(calls).toEqual([{ fn: "ledger_deferred", args: { p_session: "2026-10-27", p_symbols: ["A", "B"] } }]);
+    await writeDeferred(c, "2026-10-27", ["A", "B"], new Date("2026-10-27T14:00:00Z"));
+    expect(calls).toEqual([{ fn: "ledger_deferred", args: { p_session: "2026-10-27", p_symbols: ["A", "B"], p_tick: "2026-10-27T14:00:00.000Z" } }]);
+  });
+});
+
+describe("evaluation ledger reads and deferred writes", () => {
+  it("reads only discoveries reported within the last two market scans, latest first", async () => {
+    const calls: [string, unknown[]][] = [];
+    const builder: Record<string, unknown> = {};
+    for (const m of ["from", "select", "eq", "gte", "order", "limit"]) builder[m] = (...args: unknown[]) => (calls.push([m, args]), builder);
+    builder.then = (ok: (v: unknown) => unknown) => ok({ data: [{ symbol: "ba" }], error: null });
+    const now = new Date("2026-10-27T15:00:00Z");
+    const out = await readSessionDiscoveries(builder as never, "2026-10-27", 40, now);
+    expect(out).toEqual(["BA"]);
+    expect(calls).toContainEqual(["gte", ["last_discovery_at", new Date(now.getTime() - DISCOVERY_CURRENT_MS).toISOString()]]);
+    expect(calls).toContainEqual(["order", ["last_discovery_at", { ascending: false }]]);
+  });
+
+  it("runs a deferred write outside a request without throwing, and logs its time", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    let ran = false;
+    afterResponse("t", async () => {
+      ran = true;
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ran).toBe(true);
+    expect(info.mock.calls.some((c) => String(c[0]).includes("[evaluation-ledger] t"))).toBe(true);
+    info.mockRestore();
   });
 });

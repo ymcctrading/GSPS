@@ -19,6 +19,8 @@
  *   discovery  stocks the session has made active (`lib/scanner/discovery.ts`);
  *   focus      the evening's focus list, reserves included (rank order);
  *   watched    members' watchlists (most-watched first).
+ * Standing setups and watched names beyond their share then take the slots
+ * other tiers left unused (`FIRST_CLAIM`), never the wheel's own share.
  * Then a rotating share: the candidates not yet given a slot, taken from an
  * offset that moves with the clock, so a deferred name gets a turn on a later
  * scan. The offset is read from the time (as `universe-rotation.ts` reads its
@@ -59,7 +61,7 @@ export const QUEUE_CAPACITY = 50;
 /**
  * Each tier's reserved share of `QUEUE_CAPACITY` (engineering, labelled).
  * Core is always read whole (5 today), whatever its share says; the rest sum
- * to 45, so with core at 5 the rotating share is never zero.
+ * to 45, so with core at 5 the wheel always keeps its 5.
  */
 export const DEFAULT_SHARES: QueueShares = { core: 5, plans: 14, discovery: 8, focus: 12, watched: 6, rotating: 5 };
 
@@ -97,6 +99,13 @@ export interface QueuePlan {
   capacity: number;
   tick: number;
 }
+
+/**
+ * Tiers whose names beyond their share take free slots before the wheel turns
+ * (engineering, labelled): a standing setup and a watched name take the slots
+ * other tiers left unused, ahead of the wheel, which keeps its own share.
+ */
+export const FIRST_CLAIM: readonly Exclude<QueueTier, "rotating">[] = ["plans", "watched"];
 
 /** Minutes per rotation step (engineering: one scheduled intraday scan). */
 export const ROTATION_STEP_MINUTES = 15;
@@ -148,9 +157,26 @@ export function planQueue(input: QueueInput): QueuePlan {
     for (const c of pools[tier].slice(0, quota)) take(c, tier, tier);
   }
 
-  // 2. Every slot left (the rotating share and any share a tier left unused)
-  //    goes round the wheel: the rest of each tier in tier order, read from a
-  //    clock-moved offset.
+  // 2. Standing setups and watched names beyond their share claim the free
+  //    slots first, in that order (review, 2026-10-28): a ready setup's
+  //    entry notices and a member's watched alerts need a reading every scan,
+  //    and a turn once every few hours misses them. Before the queue, setups
+  //    and watchlists ranked ahead of the focus list; this keeps that order
+  //    for the overflow while each tier still keeps its reserved share.
+  //    The wheel keeps its own share whatever they claim, so a deferred name
+  //    is still reached on a later scan.
+  const claimable = Math.max(0, capacity - selected.length - nonNeg(shares.rotating));
+  let claimed = 0;
+  for (const tier of FIRST_CLAIM) {
+    for (const c of pools[tier]) {
+      if (claimed >= claimable) break;
+      if (take(c, tier, tier)) claimed += 1;
+    }
+  }
+
+  // 3. Every slot still left (the rotating share and any share a tier left
+  //    unused) goes round the wheel: the rest of each tier in tier order, read
+  //    from a clock-moved offset.
   const rest: { c: QueueCandidate; tier: Exclude<QueueTier, "rotating"> }[] = [];
   for (const tier of TIER_ORDER) for (const c of pools[tier]) if (!taken.has(c.symbol)) rest.push({ c, tier });
   const free = capacity - selected.length;

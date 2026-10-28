@@ -376,7 +376,8 @@ export function describeLedger(l: LedgerStanding | null | undefined): string | n
   if (l.firstDiscoveryAt) parts.push(`discovered active at ${etTime(l.firstDiscoveryAt)} ET${l.discoveryKinds?.length ? ` (${l.discoveryKinds.length} condition${l.discoveryKinds.length === 1 ? "" : "s"})` : ""}`);
   if (l.firstQueuedAt) parts.push(`first given an intraday slot at ${etTime(l.firstQueuedAt)} ET${l.queueTier ? ` (${l.queueTier})` : ""}`);
   else if (l.deferredScans > 0) parts.push("never given an intraday slot");
-  if (l.deferredScans > 0) parts.push(`deferred for capacity on ${l.deferredScans} scan${l.deferredScans === 1 ? "" : "s"}`);
+  // Counted over the whole regular session, before and after any slot.
+  if (l.deferredScans > 0) parts.push(`left out for capacity on ${l.deferredScans} regular-session scan${l.deferredScans === 1 ? "" : "s"} in all`);
   return parts.length ? parts.join(", ") : null;
 }
 

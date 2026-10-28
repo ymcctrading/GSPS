@@ -162,7 +162,7 @@ describe("mover outcome", () => {
       ctx({ ledger: { firstQueuedAt: null, queueTier: null, deferredScans: 4, firstDiscoveryAt: "2026-10-27T15:00:00Z", discoveryKinds: ["at_old_level"] } }),
     ).line;
     expect(line).toMatch(/discovered active at 11:00 AM ET \(1 condition\)/);
-    expect(line).toMatch(/never given an intraday slot, deferred for capacity on 4 scans/);
+    expect(line).toMatch(/never given an intraday slot, left out for capacity on 4 regular-session scans in all/);
   });
 
   it("unavailable and not examined are stated apart", () => {

@@ -127,7 +127,7 @@ describe("/api/evening-report access", () => {
       // The ledger's slots and deferrals.
       expect(body.coverage.selected.value).toBe(1);
       expect(body.coverage.deferredCapacity.value).toBe(1);
-      expect(a.line).toMatch(/deferred for capacity on 3 scans/);
+      expect(a.line).toMatch(/left out for capacity on 3 regular-session scans in all/);
     });
   });
 });
