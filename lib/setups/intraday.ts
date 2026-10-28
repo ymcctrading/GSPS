@@ -34,7 +34,8 @@
  */
 
 import { MEASURED_LOSING, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
-import type { Alert } from "@/lib/scanner/intraday";
+import type { Alert, RecentSystemAlert } from "@/lib/scanner/intraday";
+import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import { tickerHref } from "@/lib/routes";
 import { rewardToRisk, type SetupCardModel, type SetupCheck, type SetupLevels } from "@/lib/setups/card";
 import { priceUsd } from "@/lib/strat/priceText";
@@ -52,6 +53,35 @@ export function intradayLevels(alert: Alert): SetupLevels {
     // The next level beyond TP1, or the daily plan's MTP on `plan_level_held`.
     mtp: alert.continuationPlan.masterTarget ?? null,
   };
+}
+
+/**
+ * The intraday plan a chart draws for `symbol` on an intraday timeframe
+ * (`lib/chart/planForTimeframe.ts`): the highest-confidence alert of the
+ * latest scan that offers a trade, the same alerts "Trade this" is offered on
+ * (a stop and a first target that pays the risk, not a reversal risk, not a
+ * signal measured losing). With no scan read yet, today's scheduled alerts
+ * stand in, on the same tests their stored rows allow. Null when none does.
+ */
+export function intradayChartPlan(
+  symbol: string,
+  alerts: readonly Alert[] | null,
+  recent: readonly RecentSystemAlert[],
+): IntradayChartPlan | null {
+  const sym = symbol.toUpperCase();
+  const offered = (type: Alert["type"], stop: number | null, tp1: number | null) =>
+    type !== "reversal_risk" && !MEASURED_LOSING[type] && stop != null && tp1 != null;
+  if (alerts) {
+    const best = alerts
+      .filter((a) => a.symbol.toUpperCase() === sym && a.continuationPlan.paysRisk !== false)
+      .filter((a) => offered(a.type, a.continuationPlan.invalidation, a.continuationPlan.firstTarget))
+      .sort((a, b) => b.confidence - a.confidence)[0];
+    if (!best) return null;
+    const l = intradayLevels(best);
+    return { entry: l.entry, stop: l.stop, firstTarget: l.tp1, masterTarget: l.mtp };
+  }
+  const r = recent.find((x) => x.symbol.toUpperCase() === sym && offered(x.type, x.stop, x.firstTarget));
+  return r ? { entry: r.entry, stop: r.stop, firstTarget: r.firstTarget, masterTarget: r.masterTarget } : null;
 }
 
 export function intradayChecks(alert: Alert): SetupCheck[] {

@@ -941,6 +941,23 @@ fill (`fastLevels`), which moved the crossing line confirmation reads and sat
 inside the reaction zone; it was Rule 2's trail read as an entry stop, and is
 gone. The intraday alerts' "level held" stop calls the same `gannDayStop`
 (intraday thread).
+**Fast retired; the chart's timeframe picks the plan, 2026-10-28 (owner: Fast
+"is not a necessary function/feature to keep"; "How can I make space for both
+of them separately, without creating confusion, of having to create another
+chart", then "Yes" to the answer).** Two styles remain, each set by the plan a
+trade is taken from: Swing from the daily plan, Intraday from an intraday
+alert's "Trade this". The picker is gone (`PICKABLE_TRADE_STYLES` is Swing
+alone, the settings route takes "swing" only), and `styleAt` reads Swing for
+any fill at or after `FAST_RETIRED_AT`, so a trade filled in Fast before it
+keeps its day trail until it closes; the Fast trail and the replay's
+`tradeStyle: "fast"` stay for those trades. On the symbol page one chart shows
+both: a daily or longer timeframe draws the daily plan, an intraday timeframe
+(`INTRADAY_TFS`) draws the intraday panel's current alert for the symbol, or
+today's scheduled one before a scan is read, labelled "Intraday", only when
+that alert is offered as a trade, and no plan lines when none is
+(`lib/chart/planForTimeframe.ts`, `intradayChartPlan`); the structural levels
+show on both, and a line under the chart says which plan is drawn. Verdicts,
+the replay and `STRATEGY_VERSION` are unchanged.
 One plan for every market: crypto and commodity targets were 1.5R and 2.5-3R,
 no Gann source; every named market now takes the level plan (`computeTradeLevels`).
 `lib/instruments/spec.ts` defines each market's unit, session, contract size and

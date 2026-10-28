@@ -13,6 +13,7 @@ import { SignalRegimeCard } from "@/components/scan/signal-regime-card";
 import { ConfluenceCard } from "@/components/scan/confluence-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
+import { intradayMarkers, type IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
@@ -66,6 +67,13 @@ export function TickerView({ symbol }: { symbol: string }) {
   const forceSide = sideParam === "buy" || sideParam === "sell" ? sideParam : undefined;
   // The alert's own stop, first target and MTP (the Intraday style), from the same link.
   const intradayPlan = intradaySourced ? intradayPlanFromQuery(searchParams.get("stop"), searchParams.get("tp1"), searchParams.get("mtp")) : null;
+  // The plan the chart draws on intraday timeframes (lib/chart/planForTimeframe.ts):
+  // the intraday panel's current alert for this symbol, else the alert the
+  // ticket was opened from.
+  const [alertChartPlan, setAlertChartPlan] = useState<IntradayChartPlan | null>(null);
+  const chartIntradayPlan: IntradayChartPlan | null =
+    alertChartPlan ??
+    (intradayPlan ? { entry: null, stop: intradayPlan.stop, firstTarget: intradayPlan.target, masterTarget: intradayPlan.master } : null);
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
   useLayoutEffect(() => {
@@ -249,6 +257,7 @@ export function TickerView({ symbol }: { symbol: string }) {
             <CandleChart
               symbol={symbol}
               markers={markers}
+              intradayMarkers={intradayMarkers(chartIntradayPlan)}
               livePrice={quote?.price ?? null}
               enableTrading
               saraMarkersUnlocked={saraMarkersUnlocked}
@@ -300,7 +309,7 @@ export function TickerView({ symbol }: { symbol: string }) {
           labelled apart from it: a daily Reject and an intraday signal can
           stand together (TSLA, 2026-10-21). Hidden where the plan has no
           intraday access or nobody is signed in. */}
-      <IntradayAlerts symbols={[symbol]} hideWhenLocked title={`${symbol} intraday, separate from the daily verdict`} />
+      <IntradayAlerts symbols={[symbol]} onChartPlan={setAlertChartPlan} hideWhenLocked title={`${symbol} intraday, separate from the daily verdict`} />
 
       {result && <SignalCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
 

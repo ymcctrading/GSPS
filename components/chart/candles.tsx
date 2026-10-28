@@ -58,6 +58,7 @@ import {
   type ParamIndicator,
 } from "@/lib/chart/indicatorParams";
 import { classifySeries } from "@/lib/strat/classify";
+import { isIntradayChart, markersForTimeframe } from "@/lib/chart/planForTimeframe";
 import { cn, parseJsonResponse } from "@/lib/utils";
 
 export interface PriceMarker {
@@ -218,9 +219,19 @@ export function CandleChart({
   saraMarkersUnlocked = false,
   explainMode = null,
   explainScriptId = null,
+  intradayMarkers,
 }: {
   symbol: string;
+  /** The daily (Swing) plan's lines and the structural levels. */
   markers: PriceMarker[];
+  /**
+   * The intraday alert's plan lines. When given (even empty), an intraday
+   * timeframe draws these in place of the daily plan's, so the timeframe
+   * buttons switch between Swing and Intraday (`lib/chart/planForTimeframe.ts`).
+   * Left out (the public chart, the onboarding snapshot), every timeframe draws
+   * `markers`.
+   */
+  intradayMarkers?: PriceMarker[];
   livePrice?: number | null;
   initialTimeframe?: Timeframe;
   /** Show the Buy/Sell overlay + live P/L drawer. Off on the public chart. */
@@ -723,12 +734,16 @@ export function CandleChart({
   // Price-line overlays for scan markers. Structural (Gann/harmonic) levels
   // and entry/stop/target levels are each independently toggleable, since
   // both draw in-pane labels that can crowd out the candles.
+  const planMarkers = useMemo(
+    () => (intradayMarkers === undefined ? markers : markersForTimeframe(timeframe, markers, intradayMarkers)),
+    [markers, intradayMarkers, timeframe],
+  );
   const displayMarkers = useMemo(
     () =>
-      markers.filter((m) =>
+      planMarkers.filter((m) =>
         m.kind === "structural" ? showGann : showLevels,
       ),
-    [showGann, showLevels, markers],
+    [showGann, showLevels, planMarkers],
   );
   useEffect(() => {
     const series = seriesRef.current;
@@ -1207,9 +1222,18 @@ export function CandleChart({
   const readoutIsLatest = readoutIndex === readoutBars.length - 1;
 
   // The chart's plan and Gann lines, offered to the alert editor as levels.
-  const alertLevels = useMemo(() => markers.map((m) => ({ price: m.price, label: m.label })), [markers]);
-  const hasGann = markers.some((m) => m.kind === "structural");
-  const hasLevels = markers.some((m) => m.kind !== "structural");
+  const alertLevels = useMemo(() => planMarkers.map((m) => ({ price: m.price, label: m.label })), [planMarkers]);
+  const hasGann = planMarkers.some((m) => m.kind === "structural");
+  const hasLevels = planMarkers.some((m) => m.kind !== "structural");
+  // Which plan the lines belong to, said under the chart when the switch applies.
+  const planNote =
+    intradayMarkers === undefined
+      ? null
+      : isIntradayChart(timeframe)
+        ? intradayMarkers.length > 0
+          ? "Intraday chart: the lines are today's intraday alert levels. The daily (Swing) plan is on the Daily chart."
+          : "Intraday chart: no intraday alert stands for this symbol, so no plan lines are drawn. The daily (Swing) plan is on the Daily chart."
+        : "Daily chart: the lines are the daily (Swing) plan. Switch to 15m or 1h for today's intraday alert levels.";
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
 
   function toggleAlert() {
@@ -1592,7 +1616,7 @@ export function CandleChart({
       {/* Plain-English glossary for the toggles above — a first-time viewer
           shouldn't need to leave the chart to know what a switch does. */}
       <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-muted/90 sm:grid-cols-2 lg:grid-cols-3">
-        <p><span className="font-medium text-foreground/70">Trade levels</span> — the entry, stop-loss, and profit-target lines from the current trade plan.</p>
+        <p><span className="font-medium text-foreground/70">Trade levels</span> — the entry, stop-loss, and profit-target lines from the current trade plan: the daily (Swing) plan on daily and longer charts, today&rsquo;s intraday alert on intraday charts.</p>
         <p><span className="font-medium text-foreground/70">Candle stats</span> — a small readout of the OHLC (Open, High, Low, Close — the four prices that make up one candle) and volume for whichever candle you&rsquo;re hovering (or the latest one).</p>
         <p><span className="font-medium text-foreground/70">Structure levels</span> — support/resistance zones the engine detected from prior price structure, not a live trade plan.</p>
         <p><span className="font-medium text-foreground/70">Volume pane</span> — a bar chart of shares/contracts traded per candle, shown below the price chart.</p>
@@ -1600,6 +1624,12 @@ export function CandleChart({
           <p><span className="font-medium text-foreground/70">Extended hours</span> — includes pre-market and after-hours candles, dimmed so they&rsquo;re easy to tell apart from regular-session trading.</p>
         )}
       </div>
+
+      {planNote && (
+        <p className="text-xs text-muted" data-testid="chart-plan-note">
+          {planNote}
+        </p>
+      )}
 
       {/* Legend — explains the lines cluttering the right edge. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
