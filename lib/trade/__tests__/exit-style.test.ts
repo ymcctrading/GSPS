@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { positionExitStyle } from "@/lib/trade/exit-style";
 import { resolveGannRulePrefs, styleAt, withStyleChange, DEFAULT_GANN_RULE_PREFS } from "@/lib/gann/traderPrefs";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FAST_RETIRED_AT, PICKABLE_TRADE_STYLES } from "@/lib/trade/tradeStyle";
 
 /** A stand-in for `orders` that records the key it was asked by. */
 function fakeOrders(row: { source_plan_id: string | null; intraday_sourced?: boolean; hold_overnight?: boolean } | null, fail = false) {
@@ -30,6 +31,13 @@ describe("the style a trade is managed in", () => {
     const back = [...fastSince, { style: "swing" as const, since: "2026-10-22T15:00:00Z" }];
     expect(styleAt(back, "2026-10-21T16:00:00Z")).toBe("fast");
     expect(styleAt(back, "2026-10-23T16:00:00Z")).toBe("swing");
+  });
+
+  it("is Swing for any fill once Fast was retired, while a Fast trade filled before keeps Fast", () => {
+    const retired = Date.parse(FAST_RETIRED_AT);
+    expect(styleAt(fastSince, new Date(retired - 60_000).toISOString())).toBe("fast");
+    expect(styleAt(fastSince, FAST_RETIRED_AT)).toBe("swing");
+    expect(styleAt([{ style: "fast", since: new Date(retired + 60_000).toISOString() }], new Date(retired + 120_000).toISOString())).toBe("swing");
   });
 
   it("records a change only when the style differs from the last recorded", () => {
@@ -69,5 +77,11 @@ describe("the style a trade is managed in", () => {
     expect(await positionExitStyle(held.client, fastSince, at, "o-1", "id", "AAPL")).toEqual({ style: "intraday", closeAtSessionEnd: false });
     // Crypto has no session to close at.
     expect(await positionExitStyle(intraday.client, [], at, "o-1", "id", "BTC/USD")).toEqual({ style: "intraday", closeAtSessionEnd: false });
+  });
+});
+
+describe("the styles a trader can pick", () => {
+  it("is Swing alone: Intraday comes from an intraday alert, and Fast is retired", () => {
+    expect(PICKABLE_TRADE_STYLES).toEqual(["swing"]);
   });
 });

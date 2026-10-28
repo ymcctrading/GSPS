@@ -34,8 +34,8 @@ export const NOTICE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["ent
 export const SIGNAL_LABELS: Record<SignalType, string> = {
   old_level_cross: "Old top or bottom crossed",
   trend_continuation: "Trend continuation",
-  space_overbalance: "Over-balance of space",
-  overnight_turn: "Overnight Chart turned",
+  space_overbalance: "Largest pullback of the trend",
+  overnight_turn: "Daily swing turned",
   hourly_turn: "Hourly chart turned",
   plan_level_held: "Daily plan's level held",
   reversal_risk: "Reversal risk",
@@ -49,9 +49,9 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   trend_continuation:
     "The swing chart on today's bars is running one way, and price is on that side of the middle of the day's range.",
   space_overbalance:
-    "Today's move against the trend is bigger than any pullback since the trend began. In this method that says the trend has changed or soon will.",
+    "Today's move against the trend is bigger than any pullback since the trend began. That often means the trend has changed or soon will.",
   overnight_turn:
-    "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes 1 point beyond the last bottom or top.",
+    "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes just beyond the last bottom or top.",
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
   plan_level_held:

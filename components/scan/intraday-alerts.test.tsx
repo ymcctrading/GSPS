@@ -202,7 +202,7 @@ describe("IntradayAlerts", () => {
     // ...and the lower-confidence one (Overnight Chart turned) is folded in as a
     // confirming signal, not dropped and not given its own card.
     expect(screen.getByText(/Also qualified this pass:/)).toBeInTheDocument();
-    expect(screen.getByText(/Overnight Chart turned/)).toBeInTheDocument();
+    expect(screen.getByText(/Daily swing turned/)).toBeInTheDocument();
   });
 
   it("labels asset classes so an ETF is not shown as a stock", async () => {

@@ -172,11 +172,11 @@ describe("SignalCard score breakdown", () => {
     const result = resultWithFullBreakdown();
     result.levels = { ...result.levels!, entrySource: "priorYear" };
     const { unmount } = render(<SignalCard result={result} />);
-    expect(screen.getByText(/A close 3 points over the previous year's top/)).toBeInTheDocument();
+    expect(screen.getByText(/A close clearly over the previous year's top/)).toBeInTheDocument();
     unmount();
     result.levels = { ...result.levels!, entrySource: "priorYear", entryLevelYear: 2024 };
     const second = render(<SignalCard result={result} />);
-    expect(screen.getByText(/A close 3 points over the 2024 top/)).toBeInTheDocument();
+    expect(screen.getByText(/A close clearly over the 2024 top/)).toBeInTheDocument();
     second.unmount();
     result.levels = { ...result.levels!, entrySource: undefined, entryLevelYear: undefined, entryKind: "oldLevel" };
     render(<SignalCard result={result} />);

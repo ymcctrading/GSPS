@@ -69,29 +69,29 @@ export function structuralTriggerHeadline(
 ): string {
   if (entryKind === "hold" && holdBasis === "narrowWeek") {
     // The sell after a narrow week and a sharp drop on large volume (A-ENTRY-19).
-    return "A sell 1 point under a narrow week's low, for the bounce after a sharp drop on large volume, with the stop 3 points over that low.";
+    return "A sell just under a narrow week's low, for the bounce after a sharp drop on large volume, with the stop just over that low.";
   }
   if (entryKind === "hold" && holdBasis === "rally") {
     // The sell at the end of a bear-market rally (item 5, step 4b).
-    return "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop 3 points over that week's high.";
+    return "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop just over that week's high.";
   }
   if (entryKind === "hold") {
     // A bottom (top) that held, bought at the last close (item 5, step 4).
     const up = direction === "bullish";
     const held =
       holdBasis === "record"
-        ? "the record low having held for weeks without breaking by 3 points"
+        ? "the record low having held for weeks without breaking decisively"
         : holdBasis === "days"
           ? "the low having held two days after a two-to-three-week reaction in a rising market"
           : `the ${up ? "low" : "high"} having held into its second week`;
     return up
-      ? `A buy at the last close, ${held}, with the stop 3 points under the low.`
-      : `A sell at the last close, ${held}, with the stop 3 points over the high.`;
+      ? `A buy at the last close, ${held}, with the stop just under the low.`
+      : `A sell at the last close, ${held}, with the stop just over the high.`;
   }
   if (entryKind === "oldLevel") {
     return direction === "bullish"
-      ? "A buy resting at the last confirmed swing low, where a second or third test makes a double or triple bottom, with the stop 3 points under it."
-      : "A sell resting at the last confirmed swing high, where a second or third test makes a double or triple top, with the stop 3 points over it.";
+      ? "A buy resting at the last confirmed swing low, where a second or third test makes a double or triple bottom, with the stop just under it."
+      : "A sell resting at the last confirmed swing high, where a second or third test makes a double or triple top, with the stop just over it.";
   }
   // Since step 3 the level crossed can also be a previous year's top or
   // bottom, or the record from before the last 52 weeks.
@@ -99,8 +99,8 @@ export function structuralTriggerHeadline(
   if (regained) {
     const old = regainedLevelName(up, entrySource, levelYear);
     return up
-      ? `A close 3 points back over ${old} after a break under it, then a buy on the pullback toward it.`
-      : `A close 3 points back under ${old} after a break over it, then a sell on the bounce toward it.`;
+      ? `A close clearly back over ${old} after a break under it, then a buy on the pullback toward it.`
+      : `A close clearly back under ${old} after a break over it, then a sell on the bounce toward it.`;
   }
   const level =
     entrySource === "priorYear"
@@ -109,6 +109,6 @@ export function structuralTriggerHeadline(
         ? up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks"
         : up ? "the prior confirmed swing high" : "the prior confirmed swing low";
   return up
-    ? `A close 3 points over ${level}, then a buy on the pullback toward it.`
-    : `A close 3 points under ${level}, then a sell on the bounce toward it.`;
+    ? `A close clearly over ${level}, then a buy on the pullback toward it.`
+    : `A close clearly under ${level}, then a sell on the bounce toward it.`;
 }

@@ -119,10 +119,10 @@ const HOLD_PHRASES: Partial<Record<string, string>> = {
   monthlyBreak: "this month has broken last month's extreme against the trade",
   distributionBreakdown: "the stock has broken down after a lower top",
   failedTop: "a failed top or bottom sits between the entry and the first target",
-  timeWindowTurn: "a turn against the trend that did not come at a time window",
+  timeWindowTurn: "the turn against the trend is not due yet",
   queerActing: "the stock is not acting the way it normally does",
   weakStock: "the stock is in a weak position for a buy",
-  figureCrossing: "price is crossing a round number for the first or second time",
+  figureCrossing: "price is at a round number it has not cleared yet",
   dataLag: "the price data is a bar or more behind the market",
 };
 

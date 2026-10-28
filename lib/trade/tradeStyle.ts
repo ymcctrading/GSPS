@@ -81,8 +81,28 @@ export type TradeStyle = "swing" | "fast" | "intraday";
 /** The styles walked on the daily chart (the swing replay's `tradeStyle`). */
 export type DailyTradeStyle = Exclude<TradeStyle, "intraday">;
 
-/** The styles a trader picks as a standing preference; Intraday comes from the trade's source. */
-export const PICKABLE_TRADE_STYLES: readonly DailyTradeStyle[] = ["swing", "fast"];
+/**
+ * The styles a trader picks as a standing preference; Intraday comes from the
+ * trade's source. Swing alone since Fast was retired (`FAST_RETIRED_AT`).
+ */
+export const PICKABLE_TRADE_STYLES: readonly DailyTradeStyle[] = ["swing"];
+
+/**
+ * Fast is retired as a choice (owner, 2026-10-27: "I was attempting to do
+ * 'fast' mode to account for intraday trades. It is not a necessary
+ * function/feature to keep"; asked how to keep swing and intraday apart on
+ * one chart, he took the answer: the chart's timeframe shows the plan for it,
+ * and a trade's style comes from the plan it was taken from). Two styles
+ * remain: Swing, from the daily plan, and Intraday, from an intraday alert.
+ * A trade filled in Fast before this time keeps its day trail until it closes
+ * (`styleAt`), so no open trade is re-managed; a fill at or after it is Swing
+ * whatever was saved. The Fast profile, its trail and the replay's
+ * `tradeStyle: "fast"` stay for those trades and for measurement. The time
+ * is set after this change deploys, never before it: a fill between the time
+ * and the deploy is trailed as Fast by the code then running, and reading it
+ * as Swing afterwards would switch it mid-trade.
+ */
+export const FAST_RETIRED_AT = "2026-10-29T00:00:00Z";
 
 export const DEFAULT_TRADE_STYLE: DailyTradeStyle = "swing";
 
@@ -99,20 +119,19 @@ export interface TradeStyleProfile {
   trailRule: string;
   /** Expected hold, in plain words. */
   expectedHold: string;
-  sources: string;
 }
 
 export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
   swing: {
     style: "swing",
     label: "Swing",
-    summary: "The main method: trade the main trend's swings and hold while the swing chart runs your way.",
-    trendCharts: "Monthly, weekly, then the 3-Day Chart",
+    summary: "Trade the main trend's swings and hold while the trend runs your way.",
+    trendCharts: "Monthly, weekly, then the daily swing chart",
     entryTiming: "Closed 15-minute bars at the daily level",
-    stopRule: "3 points beyond the old top or bottom the entry crossed",
+    stopRule: "Just beyond the old top or bottom the entry crossed",
     trailRule: "The exit rules on the swing chart",
     expectedHold: "Weeks; often more than ten sessions",
-    sources: "W006 pp. 20, 46-47; Commodities p. 55",
+    // Sources (internal only, never shipped as a string): W006 pp. 20, 46-47; Commodities p. 55
   },
   fast: {
     style: "fast",
@@ -120,10 +139,10 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     summary: "The fast-market method: the same entry and stop as Swing; once filled, the stop follows each day's low up. Not closed at the end of the session.",
     trendCharts: "Daily, with the hourly for the first change in trend",
     entryTiming: "Closed hourly and 15-minute bars",
-    stopRule: "3 points beyond the old top or bottom the entry crossed, the same as Swing",
-    trailRule: "Trails 3 points under each completed day's low from the day filled (over each day's high, short), and is never lowered",
+    stopRule: "Just beyond the old top or bottom the entry crossed, the same as Swing",
+    trailRule: "Trails just under each completed day's low from the day filled (over each day's high, short), and is never lowered",
     expectedHold: "Days, until a day's low breaks",
-    sources: "W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13",
+    // Sources (internal only, never shipped as a string): W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13
   },
   intraday: {
     style: "intraday",
@@ -131,10 +150,10 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     summary: "In and out within the session: the intraday alert's own stop, first target and MTP (where the move is measured to; nothing sells there), managed on the session's bars, and closed by the session's end unless you choose to hold it overnight.",
     trendCharts: "The daily trend, with the hourly chart for the first change in trend",
     entryTiming: "At the market, when the intraday alert fires",
-    stopRule: "The alert's own stop: the session's 50% point, or a point beyond the old level it crossed",
-    trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves one intraday point under each completed 15-minute bottom (over each top, short); out when the hourly chart turns against the trade",
+    stopRule: "The alert's own stop: the session's 50% point, or just beyond the old level it crossed",
+    trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves just under each completed 15-minute bottom (over each top, short); out when the hourly trend turns against the trade",
     expectedHold: "Minutes to hours; closed by the session's end unless you choose to hold it",
-    sources: "Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source",
+    // Sources (internal only, never shipped as a string): Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source
   },
 };
 

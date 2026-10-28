@@ -189,7 +189,7 @@ export function AutomationControlPanel({
           <CardTitle>Reverse when caught</CardTitle>
           <CardDescription>
             When one of the engine&apos;s own trades is stopped, or the trend turns against it, the
-            engine prepares the opposite trade: entry at the level that broke, stop 3 points beyond
+            engine prepares the opposite trade: entry at the level that broke, stop just beyond
             the old trade&apos;s high or low. It still has to confirm before it is placed, like every
             entry. A trade that only failed its first test is taken off, not reversed.
           </CardDescription>

@@ -102,7 +102,7 @@ export function SignalCard({
           lib/gann/stopBreach.ts). The levels below are what the plan was, so a
           reader can see what broke; they are no longer a live plan. It stands
           again only by the method's own test of a false break: a bar closes
-          back through the broken level by the usual 3-point allowance. Price
+          back through the broken level by the usual allowance. Price
           merely returning to the old entry does not bring it back, and
           otherwise a new plan from the new structure replaces it.
         */}
@@ -115,7 +115,7 @@ export function SignalCard({
               {result.direction === "bearish" ? "top" : "bottom"} becomes {result.direction === "bearish" ? "support" : "resistance"}.
               The levels below are what the plan was. It stands again only if a bar closes{" "}
               {result.direction === "bearish" ? "below" : "above"} {formatUsd(result.stopBreach.reclaimAt)}, the broken
-              level plus the usual 3-point allowance, which shows the break was false. Otherwise a new plan from the
+              level plus the usual allowance, which shows the break was false. Otherwise a new plan from the
               new structure replaces it, with its own entry and stop. Returning to the old entry does not reinstate it.
             </p>
           </div>
@@ -195,9 +195,8 @@ export function SignalCard({
           <p className="text-xs text-muted">
             <span className="font-medium text-foreground">Swing</span> (the main method): expected hold{" "}
             {TRADE_STYLES.swing.expectedHold.toLowerCase()}.{" "}
-            <span className="font-medium text-foreground">Fast</span> (the fast-market method): the same entry and
-            stop; once filled, the stop {TRADE_STYLES.fast.trailRule.charAt(0).toLowerCase() + TRADE_STYLES.fast.trailRule.slice(1)}, held{" "}
-            {TRADE_STYLES.fast.expectedHold.toLowerCase()}.
+            <span className="font-medium text-foreground">Intraday</span>: taken from an intraday alert, on its own
+            levels; {TRADE_STYLES.intraday.expectedHold.charAt(0).toLowerCase() + TRADE_STYLES.intraday.expectedHold.slice(1)}.
           </p>
         )}
 

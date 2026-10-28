@@ -111,6 +111,10 @@ function redactGannConfluence(result: GannConfluenceResult | null): GannConfluen
     vortexContext: { priceDisplacement: null, timeDisplacement: null, priceVortexClass: null, timeVortexClass: null, relationship: null, transition: null },
     angleSlope: null,
     coordinateLedger: [],
+    // The base-12 grid and its time chart name a construction the card no
+    // longer shows (confidential sources, owner 2026-10-28).
+    nearestMasterTwelve: null,
+    masterTwelve: null,
     // A fan line's time target is a dated forward label with no measured record (R-024).
     nearestFanLine: result.nearestFanLine ? { ...result.nearestFanLine, timeProjectionDate: null } : null,
     disclosedRules: redactDisclosedRules(result.disclosedRules),
@@ -125,28 +129,28 @@ function redactGannConfluence(result: GannConfluenceResult | null): GannConfluen
  * the dated forward labels (the next change date and the swing projection),
  * which have no measured record ("Forward-looking claims"; review finding
  * R-024, 2026-10-21). A key added here is a reading sent to the browser.
+ *
+ * The planetary averages, the Square of 144 calculator, the circle, the time
+ * square and the day circle left the card on 2026-10-28 (owner: nothing on the
+ * platform discloses the method's sources or constructions), so they stay on
+ * the server too.
  */
 const CARD_RULE_KEYS = [
   "accumulation",
   "barMidpoint",
   "campaign",
-  "circle",
   "counterMove",
   "cycleRangeBreak",
-  "dayCircle",
   "dayCountBands",
   "extremes",
   "firstRally",
   "leadership",
   "levelTests",
-  "masterCalculator",
   "multipleTops",
-  "planetary",
   "pricePercentages",
   "ruleOfThree",
   "seasonal",
   "sharesPerPoint",
-  "squareOfNineTime",
   "timeAngle",
   "timeRules",
   "yearFraction",

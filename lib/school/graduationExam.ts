@@ -441,7 +441,7 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         : rally
         ? "a rally in a falling market had run into the end of its second or third week"
         : k.holdBasis === "record"
-        ? "the record low had held for weeks without breaking by 3 points"
+        ? "the record low had held for weeks without breaking decisively"
         : k.holdBasis === "days"
           ? `the ${extreme} had held two days after a two-to-three-week reaction in a rising market`
           : `the ${extreme} had held into its second week`;
@@ -451,13 +451,13 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
       k.decision === "trade"
         ? hold
           ? narrowWeek
-            ? `${heldWhat[0].toUpperCase()}${heldWhat.slice(1)}: a trade, sold on the bounce to 1 point under that week's low.`
+            ? `${heldWhat[0].toUpperCase()}${heldWhat.slice(1)}: a trade, sold on the bounce to just under that week's low.`
             : `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close${rally ? "" : ` near that ${oldSide}`}.`
           : old
           ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
           : k.crossed
-            ? `The trend was clear and price had already closed 3 points past ${crossedName(k)}, without coming back to the ${longKey ? "buy" : "sell"}: a trade, ${longKey ? "bought on the pullback" : "sold on the bounce"} to 1 point past it.`
-            : `The trend was clear and ${crossedName(k)} was still to cross: a trade, entered only once price closes 3 points past it and ${longKey ? "pulls back" : "bounces"}.`
+            ? `The trend was clear and price had already closed clearly past ${crossedName(k)}, without coming back to the ${longKey ? "buy" : "sell"}: a trade, ${longKey ? "bought on the pullback" : "sold on the bounce"} to just past it.`
+            : `The trend was clear and ${crossedName(k)} was still to cross: a trade, entered only once price closes clearly past it and ${longKey ? "pulls back" : "bounces"}.`
         : "With no clear trend, or no level left to cross, the rule is to wait.",
     );
     if (k.decision === "trade") {
@@ -471,7 +471,7 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
             : `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the ${longKey ? "buy" : "sell"} is made now, near the ${oldSide}, rather than chased later.`
             : old
             ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
-            : `The entry is 1 point past ${crossedName(k)}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close 3 points past it, so the market has proved itself first.`,
+            : `The entry is just past ${crossedName(k)}, at ${k.entry?.toFixed(2)}: bought on the pullback after a close clearly past it, so the market has proved itself first.`,
         );
       }
       add(
@@ -479,11 +479,11 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         a.stopChoiceId === k.stopChoiceId,
         hold
           ? rally
-            ? `The stop goes 3 points over that week's high, at ${k.stop?.toFixed(2)}: a rally that runs past it is more than a rally in a falling market.`
-            : `The stop goes 3 points ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
+            ? `The stop goes just over that week's high, at ${k.stop?.toFixed(2)}: a rally that runs past it is more than a rally in a falling market.`
+            : `The stop goes just ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
           : old
-          ? `The stop goes 3 points ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`
-          : `The stop goes 3 points the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`,
+          ? `The stop goes just ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`
+          : `The stop goes just the other side of that same ${k.direction === "bullish" ? "top" : "bottom"}, at ${k.stop?.toFixed(2)}: back under it, the crossing has failed.`,
       );
       const sharesOk = k.shares !== null && typeof a.shares === "number" && Math.abs(a.shares - k.shares) <= Math.max(1, k.shares * 0.05);
       add("size", sharesOk, `Risking 1% of $${ACCOUNT_USD.toLocaleString("en-US")} is $${(ACCOUNT_USD * RISK_PCT) / 100}; divided by the risk per share (${k.entry !== null && k.stop !== null ? Math.abs(k.entry - k.stop).toFixed(2) : "?"}) that is ${k.shares} shares.`);

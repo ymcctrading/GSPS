@@ -1102,7 +1102,7 @@ function detectSpaceOverbalance(
   const ledger = sessionCampaign(input, m);
   if (!ledger || !ledger.greatestCounterMove) {
     checks.push({
-      name: "Over-balance of space",
+      name: "Largest pullback of the trend",
       passed: false,
       detail: "Not enough daily history to read the campaign and its greatest reaction.",
     });
@@ -1120,7 +1120,7 @@ function detectSpaceOverbalance(
   const inProgress = ledger.currentCounterMove !== null && current > greatest;
   const qualifies = inProgress && dayMove.direction === against;
   checks.push({
-    name: "Over-balance of space",
+    name: "Largest pullback of the trend",
     passed: qualifies,
     detail: `The ${ledger.trend} campaign's current reaction is ${priceText(current)} points (${currentPct.toFixed(1)}%) against its greatest of ${priceText(greatest)} points${qualifies ? ", and today's move made the difference" : ""}.`,
   });
@@ -1143,7 +1143,7 @@ function detectSpaceOverbalance(
           : `${formatRvol(m.relativeVolume)} of normal for this time of day.`,
     },
     {
-      label: "Over-balance of time too",
+      label: "Longest pullback in time too",
       passed: ledger.timeOverbalanced,
       weight: 15,
       detail: "Time ranks ahead of price here: a reaction that has also run longer than any before it carries more weight.",
@@ -1160,7 +1160,7 @@ function detectSpaceOverbalance(
     move: dayMove,
     factors,
     invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). In this method that over-balance says the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
+    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). A pullback larger than any before it often means the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
 
@@ -1182,16 +1182,16 @@ function detectOvernightTurn(
 ): Alert | null {
   const daily = input.priorDailyBars;
   if (!daily || daily.length < 3) {
-    checks.push({ name: "Overnight Chart", passed: false, detail: "Not enough daily history to read the Overnight Chart." });
+    checks.push({ name: "Daily swing at the lows", passed: false, detail: "Not enough daily history to read the daily swing." });
     return null;
   }
   const today: Bar = { t: m.dataTimestamp, o: m.sessionOpen, h: m.high, l: m.low, c: m.last, v: m.cumulativeVolume };
   const r = readOvernightChart([...daily, today]);
   if (!r || !r.turnedToday) {
     checks.push({
-      name: "Overnight Chart",
+      name: "Daily swing at the lows",
       passed: false,
-      detail: r ? `The Overnight Chart is ${r.line} and did not turn today.` : "The Overnight Chart has not turned yet.",
+      detail: r ? `The daily swing at the lows is ${r.line} and did not turn today.` : "The daily swing at the lows has not turned yet.",
     });
     return null;
   }
@@ -1200,11 +1200,11 @@ function detectOvernightTurn(
   const anchor = direction === "up" ? r.lastBottom : r.lastTop;
   const cause =
     direction === "up"
-      ? `Today's low held above yesterday's bottom: the Overnight Chart turned up${anchor !== null ? ` from its last bottom at ${priceText(anchor)}` : ""}.`
-      : `Today's low broke yesterday's bottom by more than ¼ point: the Overnight Chart turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
-  checks.push({ name: "Overnight Chart", passed: true, detail: cause });
+      ? `Today's low held above yesterday's bottom: the daily swing turned up${anchor !== null ? ` from its last bottom at ${priceText(anchor)}` : ""}.`
+      : `Today's low broke yesterday's bottom clearly: the daily swing turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
+  checks.push({ name: "Daily swing at the lows", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
-    { label: "The Overnight Chart turned today", passed: true, weight: 30, detail: cause },
+    { label: "The daily swing turned today", passed: true, weight: 30, detail: cause },
     midpointFactor(m, direction),
     ...hourlyFactors(m, direction),
     dayDirectionFactor(dayMove, direction),
@@ -1218,7 +1218,7 @@ function detectOvernightTurn(
     move: dayMove,
     factors,
     invalidation: stop ?? m.midpoint,
-    whyThisAppeared: `${cause} The method trades with the line and keeps its stop 1 point beyond the last Overnight ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${priceText(stop)}` : ""}; when that stop is caught the line has reversed.`,
+    whyThisAppeared: `${cause} The method trades with the line and keeps its stop just beyond the last swing ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${priceText(stop)}` : ""}; when that stop is caught the line has reversed.`,
   });
 }
 
@@ -1332,7 +1332,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     checks.push({
       name,
       passed: false,
-      detail: `The daily plan's crossing is not made yet: it waits on a daily close 3 points past the level, and the reaction to ${priceText(plan.entry)} is bought after that.`,
+      detail: `The daily plan's crossing is not made yet: it waits on a daily close clearly past the level, and the reaction to ${priceText(plan.entry)} is bought after that.`,
     });
     return null;
   }
@@ -1710,7 +1710,7 @@ function dailyTrendFactors(m: SessionMetrics, direction: Direction): ConfidenceF
       label: "With the daily trend",
       passed: m.dailyTrend === direction,
       weight: 20,
-      detail: `The 3-Day Chart on the daily bars is ${m.dailyTrend}${m.dailyTrend === direction ? "" : ": this alert runs against it"}.`,
+      detail: `The daily swing trend is ${m.dailyTrend}${m.dailyTrend === direction ? "" : ": this alert runs against it"}.`,
     },
   ];
 }

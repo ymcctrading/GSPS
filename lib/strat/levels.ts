@@ -731,7 +731,7 @@ function buildPivotPlan(pattern: EntrySource, stopLoss: number, entry: number): 
   return {
     confirmation:
       `This ${pattern.direction} ${label.toLowerCase()} thesis is invalidated if price trades through the stop at ${priceText(stopLoss)}. ` +
-      `The rules then reverse: a ${opposite} trade at ${priceText(stopLoss)}, its stop 3 points beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
+      `The rules then reverse: a ${opposite} trade at ${priceText(stopLoss)}, its stop just beyond the ${extremeWord} price this trade reaches, once the entry confirms.`,
     invalidation: reversal ? round(reversal.stop) : null,
     firstTarget: entry,
     cancelIf:

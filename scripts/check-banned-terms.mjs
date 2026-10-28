@@ -114,6 +114,57 @@ const USER_FACING_TERMS = [
   { pattern: /\bHermetic\b/i, term: "Hermetic", instead: "(omit — plain educational-governance language)" },
 ];
 
+/**
+ * Confidential sources (owner, 2026-10-28, top priority): nothing on the
+ * platform, public or private, names W.D. Gann's methods or formulas, L.J.
+ * Jensen, Dewey/Thomas, the cycles literature or the hermetic principles, or
+ * the books they come from. GSPS presents itself as a stock trading and
+ * scanning application. Internal code and project files may cite the sources
+ * in comments; rendered copy, school text, emails, notifications and any
+ * string a client component imports may not. Scanned, comments and imports
+ * skipped, on the surfaces that render copy (`CONFIDENTIAL_ROOTS`); the server
+ * modules that compute the method keep their names and trace lines, which the
+ * API boundary strips (`lib/scoring/public-summary.ts`).
+ */
+const CONFIDENTIAL_ROOTS = [
+  "app",
+  "components",
+  "lib/school",
+  "lib/education",
+  "lib/notifications",
+  "lib/scanner/intradayDisplay.ts",
+  "lib/trade/tradeStyle.ts",
+  "lib/trade/protocol-rules.ts",
+  "lib/trade/protocol-exit.ts",
+  "lib/scanner/intraday.ts",
+  "lib/scanner/focusList.ts",
+  "lib/setups",
+  "lib/lifecycle",
+  "lib/onboarding",
+  "lib/scoring/public-summary.ts",
+  "lib/scoring/direction-copy.ts",
+];
+const CONFIDENTIAL_TERMS = [
+  { pattern: /\bJensen\b/i, term: "Jensen" },
+  { pattern: /\bDewey\b/i, term: "Dewey" },
+  { pattern: /\bHauck\b/i, term: "Hauck" },
+  { pattern: /\bKybalion\b/i, term: "Kybalion" },
+  { pattern: /\bTomes\b/, term: "Tomes" },
+  { pattern: /\bMikula\b/i, term: "Mikula" },
+  { pattern: /\bBucholtz\b/i, term: "Bucholtz" },
+  { pattern: /Observation of Cycles|Study of Cycles/i, term: "cycles literature" },
+  { pattern: /Master (Stock Market )?Course|Tunnel Thru|Stock Selector|Truth of the Stock Tape|45 Years in Wall Street|How to Make Profits/i, term: "source book title" },
+  { pattern: /\bSquare[ -]of[ -](144|52|90|12|4|20)\b/i, term: "Square of N", instead: "a neutral level or timing label" },
+  { pattern: /\bRule of Three\b/i, term: "Rule of Three", instead: "three closes in a row" },
+  { pattern: /\b3-Day Chart\b|\bOvernight Chart\b/, term: "named swing chart", instead: "daily swing chart" },
+  { pattern: /\bSeven Zones\b/i, term: "Seven Zones", instead: "activity zones" },
+  { pattern: /\b(planetary|heliocentric|geocentric|astrolog\w*|ephemeris)\b/i, term: "astrology" },
+  { pattern: /Law of Creation|Emerald Tablet|Three Initiates/i, term: "hermetic source" },
+  // The entry and stop arithmetic itself ("a close 3 points past the old
+  // level", "1 point above the top"): the plan's prices show, the rule doesn't.
+  { pattern: /\b\d+[ -]points? (past|beyond|over|under|above|below|ahead|back)\b/, term: "point arithmetic", instead: "clearly past / just beyond" },
+];
+
 function walk(directory, files = []) {
   let entries;
   try {
@@ -170,6 +221,14 @@ for (const file of sourceFiles) {
   const terms = isPmgIdentifierFile ? USER_FACING_TERMS.filter((t) => t.term !== "PMG") : USER_FACING_TERMS;
   scan(file, PRODUCT_NAMES, { skipCommentsAndImports: false });
   scan(file, terms, { skipCommentsAndImports: true });
+}
+const confidentialFiles = CONFIDENTIAL_ROOTS.flatMap((root) =>
+  root.endsWith(".ts") ? [join(ROOT, root)] : walk(join(ROOT, root)),
+);
+for (const file of confidentialFiles) {
+  // Tests name the old wording to assert it is gone.
+  if (/__tests__|\.test\.tsx?$/.test(file)) continue;
+  scan(file, CONFIDENTIAL_TERMS, { skipCommentsAndImports: true });
 }
 for (const doc of PUBLIC_DOCS) {
   scan(join(ROOT, doc), PRODUCT_NAMES, { skipCommentsAndImports: false });

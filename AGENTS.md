@@ -40,6 +40,32 @@ defaulting to the last phase.
 - When a change invalidates part of the roadmap, update `ROADMAP.md` in the
   same PR and move its "Last updated" date.
 
+## Confidential sources — top-priority standing rule (2026-10-28, project owner)
+
+In Chuck's words: "nothing and I mean absolutely nothing on the platform
+disclose[s] his [Gann's] methods or formula, anything by LJ Jensen, anything
+dealing with the observation of cycles or hermetic principles." Gann, Jensen,
+Dewey/Thomas, the cycles literature and the hermetic principles (Hauck's book)
+are the intellectual property the back end is built from, known only to
+Claude and Chuck. GSPS presents itself as a stock trading and scanning
+application.
+
+- **User-facing means everything a person or a browser can read:** UI copy,
+  labels, tooltips, the school, emails, notifications, API responses (strings
+  and, over time, field names), user docs, marketing and page metadata, and
+  any string in a `lib/` module a client component imports (it ships in the
+  JS bundle; comments don't).
+- **Internal code and project files may keep their citations**, in comments,
+  server-only trace lines and docs that no user is shown.
+- **The school teaches how to trade** with publicly available methods by
+  others that build on or modify Gann's work (for example Elliott Wave),
+  never Gann or these sources themselves. This supersedes, for education
+  copy, the "Gann-grounded platform" rule's reach into education below; the
+  back end stays Gann one for one.
+- `scripts/check-banned-terms.mjs`'s `CONFIDENTIAL_TERMS` gates the copy
+  surfaces in CI. Check the built bundle too (`grep -r` over `.next/static`)
+  when a change touches what a client imports.
+
 ## Cross-platform consistency — standing principle
 
 If a concept exists anywhere in this codebase — an indicator, an anchor
@@ -941,6 +967,23 @@ fill (`fastLevels`), which moved the crossing line confirmation reads and sat
 inside the reaction zone; it was Rule 2's trail read as an entry stop, and is
 gone. The intraday alerts' "level held" stop calls the same `gannDayStop`
 (intraday thread).
+**Fast retired; the chart's timeframe picks the plan, 2026-10-28 (owner: Fast
+"is not a necessary function/feature to keep"; "How can I make space for both
+of them separately, without creating confusion, of having to create another
+chart", then "Yes" to the answer).** Two styles remain, each set by the plan a
+trade is taken from: Swing from the daily plan, Intraday from an intraday
+alert's "Trade this". The picker is gone (`PICKABLE_TRADE_STYLES` is Swing
+alone, the settings route takes "swing" only), and `styleAt` reads Swing for
+any fill at or after `FAST_RETIRED_AT`, so a trade filled in Fast before it
+keeps its day trail until it closes; the Fast trail and the replay's
+`tradeStyle: "fast"` stay for those trades. On the symbol page one chart shows
+both: a daily or longer timeframe draws the daily plan, an intraday timeframe
+(`INTRADAY_TFS`) draws the intraday panel's current alert for the symbol, or
+today's scheduled one before a scan is read (never the "Trade this" link's levels), labelled "Intraday", only when
+that alert is offered as a trade, and no plan lines when none is
+(`lib/chart/planForTimeframe.ts`, `intradayChartPlan`); the structural levels
+show on both, and a line under the chart says which plan is drawn. Verdicts,
+the replay and `STRATEGY_VERSION` are unchanged.
 One plan for every market: crypto and commodity targets were 1.5R and 2.5-3R,
 no Gann source; every named market now takes the level plan (`computeTradeLevels`).
 `lib/instruments/spec.ts` defines each market's unit, session, contract size and
@@ -3140,7 +3183,9 @@ replay supplies one. A Watch at the cutoff records its reason too, and the card
 names what any held setup waits for in plain words (`heldNote`,
 `public-summary.ts`). The lists' "Resting orders" now take a Watch at the
 cutoff whose entry rests. The replay reads it at the fill (indication shown,
-price at the entry), so only the targets reading holds there. `STRATEGY_VERSION`
+price at the entry), so only the targets reading holds there; the plan-time
+reading the live scan shows is measured as the factor `readyNowAtPlan` (the
+session's last close and daily ATR, when the plan is priced). `STRATEGY_VERSION`
 is `2026-10-27-execute-ready-now`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
@@ -3259,6 +3304,20 @@ first target, since its exits and its close live on that exit row. The live orde
 paper row did. The ticket says intraday has no measured record; nothing
 automated trades it. Verdicts and the daily replay are unchanged, so
 `STRATEGY_VERSION` stays.
+
+**Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
+well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
+(pg_cron 01:45 and 02:45 UTC Tue-Sat, migration 0123) emails the owner only
+(`OWNER_REPORT_EMAILS`, default his two addresses) once the evening scan has
+stored the session's plans: the next session's focus list with every Execute in
+plain English (entry, stop, take profits) and why each other name is listed,
+and the recap of the session just closed: top movers by dollars, percent and
+price-scaled points, each setup shown that day judged by placement's own entry
+rule (`confirmationFromBars`, filled at the next bar's open) on the session's
+15-minute bars, and each intraday signal judged from the first time it reached
+each member (`lib/reports/eveningReport.ts`). Misses and losses stay in; one
+session is never presented as a record. Widen the recipients only on the owner's
+word.
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 
