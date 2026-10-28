@@ -3576,6 +3576,28 @@ the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
 of minutes); the bell uses the default lead and repeats a notice at most every
 12 hours. Unmeasured: nothing replays a notice. User-facing text names no
 method. Verdicts unchanged.
+**The plan's line ahead, 2026-10-28 (owner, on TXN: up $28 over three sessions
+and nothing said until his 5:45 PM scan).** Production records (ET): the
+evening list of Oct 26 had TXN at the top of a 21-session narrow range and at an
+old top, ranked 42nd, past the slots the session timed; the night's sweep read it
+Watch 5 with its line at 301.86; Oct 27 crossed the line and closed 308.96 with
+no notice; Oct 28 1:21 AM it read Execute (bell and email). Gann knew the level
+the night before and watched the session cross it, buying only after the close
+confirmed, on the reaction (W006 p.20, Rules 3(b)-(c); Master Course Ch. 13).
+Two pieces: (1) the intraday scan's focus tier now leads with the breakaway
+lines, a focus name whose narrow range sits at its edge on the side of the
+night's plan and whose line is still ahead of the close by no more than one
+3-point allowance (`breakawayLinesFirst`, `lib/scanner/focusList.ts`; nearest
+in allowances first, then the longer range, an engineering order; on the night
+of Oct 26 there were 13 and TXN was 10th, inside the focus tier's 12); (2) two
+notices on any standing plan whose prior close is short of its entry,
+`line_approach` and `line_crossed` (`detectLineCrossing`, `intraday.ts`): the
+session nearing or trading through the line, with the close that would confirm
+it (`crossingLinesFromEntry`, `pointScale.ts`); a plan whose prior close crossed
+the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
+its line, and one that has made its crossing gets none. Notices, never trades: no
+"Trade this", not stored, not replayed, push and the bell only, worded as
+delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
 **The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
 Gann).** The volume pillar's retest confirmed on any smaller week, so once
 price reached the old turn inside 3 points, noise passed it about half the time

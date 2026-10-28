@@ -10,6 +10,7 @@ import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setu
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import {
   ASSET_KIND_LABELS,
+  LINE_NOTICES,
   NOTICE_SIGNALS,
   MOVE_BASIS_LABELS,
   SIGNAL_DESCRIPTIONS,
@@ -394,6 +395,8 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   const held = tradeHold(alert);
   // Nearing or at a daily plan's entry: a heads-up, not a session trade.
   const notice = NOTICE_SIGNALS.has(alert.type);
+  // Nearing or through the line a plan's crossing waits on: news, never a buy.
+  const lineNotice = LINE_NOTICES.has(alert.type);
   // The plan "Trade this" carries into the ticket: the alert's own stop, first
   // target and MTP (the Intraday style). With no target fixed there is nothing
   // to check the risk against (M-K5), so no trade is offered.
@@ -529,10 +532,20 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
                   plan&apos;s own targets.
                 </p>
               )}
-              {notice && (
+              {notice && !lineNotice && (
                 <p className="text-xs text-muted">
                   These are the daily plan&apos;s own levels. The time left is read from the pace since the last
                   {up ? " high" : " low"} and can change. Open the plan ahead of time: once a bar closes at the entry, its entry goes at the market.
+                </p>
+              )}
+              {lineNotice && (
+                <p className="text-xs text-muted">
+                  These are the daily plan&apos;s own levels.{" "}
+                  {alert.type === "line_approach" && (
+                    <>The time left is read from the pace since the last{up ? " low" : " high"} and can change. </>
+                  )}
+                  Crossing the line is not a buy: the plan can turn ready once a session closes past the confirming
+                  close named above, and its entry is then taken on a pullback.
                 </p>
               )}
               {!isRisk && !notice && alert.type !== "plan_level_held" && (

@@ -49,7 +49,7 @@ import { alertsForTier, buildIntradayBellRow, type DeliverableFreshness } from "
 import { checkAlertFreshness } from "@/lib/notifications/freshness";
 import { tickerHref } from "@/lib/routes";
 import { etDateKey } from "@/lib/market/session";
-import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
+import { APPROACH_NOTICES, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { approachDue, approachLeadMinutes } from "@/lib/scanner/entryApproach";
 
 /** How far back a notice's notification_log row still counts as "already pushed". */
@@ -99,7 +99,7 @@ async function listAllUserIds(service: SupabaseClient): Promise<string[]> {
  * plus one scan (`approachDue`).
  */
 export function dueForLead(alerts: Alert[], leadMinutes: number): Alert[] {
-  return alerts.filter((a) => a.type !== "entry_approach" || (a.approach != null && approachDue(a.approach.etaMinutes, leadMinutes)));
+  return alerts.filter((a) => !APPROACH_NOTICES.has(a.type) || (a.approach != null && approachDue(a.approach.etaMinutes, leadMinutes)));
 }
 
 /**

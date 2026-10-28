@@ -29,7 +29,18 @@ export const MOVE_BASIS_LABELS: Record<MoveBasis, string> = {
  * session entry of their own, so nothing replays or places them as an intraday
  * trade; the order is the daily plan's, rested at its entry.
  */
-export const NOTICE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["entry_approach", "entry_reached"]);
+export const NOTICE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["entry_approach", "entry_reached", "line_approach", "line_crossed"]);
+
+/**
+ * The notices on a plan whose crossing is still ahead (`detectLineCrossing`):
+ * the session nearing or trading through the plan's line. A heads-up the
+ * night's plan already named, never a buy; the method buys after the close
+ * confirms, on the pullback.
+ */
+export const LINE_NOTICES: ReadonlySet<SignalType> = new Set<SignalType>(["line_approach", "line_crossed"]);
+
+/** The notices that carry a time left (`Alert.approach`), read against a member's lead. */
+export const APPROACH_NOTICES: ReadonlySet<SignalType> = new Set<SignalType>(["entry_approach", "line_approach"]);
 
 export const SIGNAL_LABELS: Record<SignalType, string> = {
   old_level_cross: "Old top or bottom crossed",
@@ -41,6 +52,8 @@ export const SIGNAL_LABELS: Record<SignalType, string> = {
   reversal_risk: "Reversal risk",
   entry_approach: "Nearing the plan's entry",
   entry_reached: "At the plan's entry",
+  line_approach: "Nearing the plan's line",
+  line_crossed: "Through the plan's line",
 };
 
 export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
@@ -62,6 +75,10 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
     "Price is moving back toward a standing daily plan's entry. The time left is read from how fast it has moved since its last high (low, for a sell) and counts the price feed's delay. A heads-up to open the plan before price gets there: once a bar closes at the entry, the plan's entry goes at the market. The pace can change.",
   entry_reached:
     "Price has come back to a standing daily plan's entry and the plan's stop has not traded. Once a bar closes there, the plan's entry goes at the market, with the plan's own stop and targets.",
+  line_approach:
+    "The daily plan named a line price has not yet crossed, and price is moving toward it. A heads-up, not a buy: crossing the line is only the start. The plan can turn ready once a session closes far enough past it, and its entry is then taken on a pullback.",
+  line_crossed:
+    "Price has traded through the line a standing daily plan named the night before. A heads-up, not a buy: the plan can turn ready once the session closes far enough past the line, shown on the card, and its entry is then taken on a pullback to it.",
 };
 
 /**

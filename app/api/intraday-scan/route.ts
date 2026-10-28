@@ -66,7 +66,7 @@ import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { chooseSweepBasis } from "@/lib/scan/universeSweep";
-import { FOCUS_STORED } from "@/lib/scanner/focusList";
+import { FOCUS_STORED, breakawayLinesFirst, type FocusPlanRow, type StoredFocusRow } from "@/lib/scanner/focusList";
 import {
   barsSincePlan,
   invalidateBrokenSweep,
@@ -471,6 +471,15 @@ export async function GET(req: NextRequest) {
  */
 const MAX_SYSTEM_UNIVERSE = 50;
 
+/**
+ * The core list the scheduled scan and a refresh with no symbols start from:
+ * equities only for the moment (owner, 2026-10-28: "For the moment, only
+ * equities should populate the list"), so the crypto pairs and members'
+ * watched crypto take no slot. A person who names a pair still gets it, and
+ * `?universe=crypto` still scans the pairs alone when called.
+ */
+const EQUITY_CORE = WATCHLIST.filter((entry) => entry.kind !== "crypto");
+
 /** The session's discoveries read for the queue at most (engineering; the tier's share is 8, the rest wait their turn). */
 const DISCOVERY_READ_MAX = 40;
 /** An evening focus list older than this (calendar days) is not read: it spans a weekend and a holiday. */
@@ -532,23 +541,24 @@ async function resolveSystemUniverse(
   const tick = rotationTick(now);
   const [watched, focus, setups, discovery] = await Promise.all([
     loadWatchedSymbols(supabase),
-    loadFocusSymbols(supabase),
+    loadFocusSymbols(supabase, sweepBasisP),
     sweepBasisP.then((basis) => loadSessionSetups(supabase, now, SESSION_SETUPS_MAX, basis)).catch(() => [] as string[]),
     readSessionDiscoveries(supabase, sessionDate, DISCOVERY_READ_MAX),
   ]);
   // The fixed single stocks give way only to a focus list or the session's
   // setups; discoveries alone (a missed evening) leave the core list whole.
-  const core = focus.length > 0 || setups.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
+  const core = focus.length > 0 || setups.length > 0 ? EQUITY_CORE.filter((w) => w.kind !== "equity") : EQUITY_CORE;
+  const watchedEquities = watched.filter((w) => w.kind !== "crypto");
   const plan = planQueue({
     capacity: MAX_SYSTEM_UNIVERSE,
     core: core.map((c) => c.symbol),
     plans: setups,
     discovery,
     focus,
-    watched: watched.map((w) => w.symbol),
+    watched: watchedEquities.map((w) => w.symbol),
     tick,
   });
-  const kindOf = new Map<string, AssetKind>([...core, ...watched].map((e) => [e.symbol.toUpperCase(), e.kind]));
+  const kindOf = new Map<string, AssetKind>([...core, ...watchedEquities].map((e) => [e.symbol.toUpperCase(), e.kind]));
   const out = plan.selected.map((e) => ({ symbol: e.symbol, kind: kindOf.get(e.symbol) ?? kindFor(e.symbol) }));
   console.info(
     `intraday-scan: queue ${plan.selected.length}/${plan.capacity} ${Object.entries(plan.byTier).map(([t, n]) => `${t}=${n}`).join(" ")}, deferred ${plan.deferred.length}`,
@@ -575,7 +585,7 @@ async function resolveSystemUniverse(
  * scan. A list older than `FOCUS_MAX_AGE_DAYS` is not read. A read failure
  * returns none, and the scan falls back to its core list.
  */
-async function loadFocusSymbols(supabase: ServiceSupabase): Promise<string[]> {
+async function loadFocusSymbols(supabase: ServiceSupabase, sweepBasisP?: Promise<string | null>): Promise<string[]> {
   const since = etDateKey(new Date(Date.now() - FOCUS_MAX_AGE_DAYS * 86_400_000));
   const { data: latest } = await supabase
     .from("intraday_focus")
@@ -587,13 +597,35 @@ async function loadFocusSymbols(supabase: ServiceSupabase): Promise<string[]> {
   if (!latest?.basis_date) return [];
   const { data, error } = await supabase
     .from("intraday_focus")
-    .select("symbol")
+    .select("symbol, close, reasons")
     .eq("basis_date", latest.basis_date)
     .is("invalidated_at", null)
     .order("rank", { ascending: true })
     .limit(FOCUS_STORED);
   if (error || !data) return [];
-  return data.map((r) => String(r.symbol).toUpperCase());
+  const rows = data as StoredFocusRow[];
+  // The names at a breakaway, where the evening's narrow range at its edge
+  // meets the night's plan whose line is just ahead, lead the focus tier
+  // (owner, 2026-10-28, on TXN; lib/scanner/focusList.ts#breakawayLinesFirst).
+  // The sweep comes after the evening list, so it is read here, at the scan.
+  // A failed read keeps the evening's order. When tonight's sweep fell short
+  // and an older night stands (`chooseSweepBasis`), its plans are a session
+  // older than the list's close; this orders the tier only, so it is read
+  // as it stands.
+  const basis = sweepBasisP ? await sweepBasisP.catch(() => null) : null;
+  if (!basis) return rows.map((r) => String(r.symbol).toUpperCase());
+  const sweepReadStart = Date.now();
+  const { data: plans, error: planError } = await supabase
+    .from("universe_sweep")
+    .select("symbol, direction, entry, output_state, invalidated_at, entry_awaits_crossing")
+    .eq("basis_date", basis)
+    .in("symbol", rows.map((r) => String(r.symbol)))
+    .in("output_state", ["Execute", "Watch"]);
+  if (planError || !plans) return rows.map((r) => String(r.symbol).toUpperCase());
+  const { symbols, lines } = breakawayLinesFirst(rows, plans as FocusPlanRow[]);
+  // Timed, as every read a scan waits on is (AGENTS.md, "Speed is a product requirement").
+  console.info(`intraday-scan: focus sweep read ${Date.now() - sweepReadStart} ms, breakaway lines first ${lines.length > 0 ? lines.join(",") : "none"}`);
+  return symbols;
 }
 
 /**
@@ -687,7 +719,7 @@ async function resolveOnDemandUniverse(
     .catch(() => [] as string[]);
   const seen = new Set<string>();
   const out: { symbol: string; kind: AssetKind }[] = [];
-  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...WATCHLIST]) {
+  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...EQUITY_CORE]) {
     if (seen.has(entry.symbol)) continue;
     seen.add(entry.symbol);
     out.push(entry);
@@ -697,7 +729,7 @@ async function resolveOnDemandUniverse(
 
 /** Symbols to scan: the caller's list, or the core watchlist. */
 function resolveUniverse(param: string | null): { symbol: string; kind: AssetKind }[] {
-  if (!param?.trim()) return WATCHLIST;
+  if (!param?.trim()) return EQUITY_CORE;
 
   const requested = param
     .split(/[,\s]+/)
@@ -712,7 +744,7 @@ function resolveUniverse(param: string | null): { symbol: string; kind: AssetKin
     seen.add(symbol);
     universe.push({ symbol, kind: kindFor(symbol) });
   }
-  return universe.length > 0 ? universe : WATCHLIST;
+  return universe.length > 0 ? universe : EQUITY_CORE;
 }
 
 /**
