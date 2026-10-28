@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { AttributionScope, BacktestReport } from "@/lib/backtest/run";
+import type { AttributionScope, RunSummary } from "@/lib/backtest/run";
+import type { PublicBacktestReport as BacktestReport } from "@/lib/backtest/factorLabels";
 import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
-import type { WeightProposal } from "@/lib/backtest/propose-weights";
-import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
+import { IndustryPicker, useIndustries } from "@/components/scan/industry-picker";
+import { MAX_TEST_SYMBOLS, capSelection } from "@/lib/universe/selection";
 
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
 
@@ -46,30 +47,41 @@ interface ShadowSummaryResponse {
   } | null;
 }
 
-interface ProposalResponse {
-  live: boolean;
-  source: string;
-  proposal: WeightProposal;
-  stored: { id: string; version: number } | null;
-  notStored: string | null;
-}
-
 /**
- * Factor rows are keyed by the criterion's stable id, which is what the weights
- * and the replay both use. Fall back to the raw key for anything the score
- * appends outside the nine — the holds carry ids too, and showing the id is
- * better than showing nothing.
+ * Below this many trades a group's average can turn on one or two trades, so
+ * the page says so rather than inviting a comparison (an engineering figure,
+ * the usual rule of thumb for a sample mean).
  */
-function criterionLabel(key: string): string {
-  return CRITERION_LABELS[key as CriterionKey] ?? key;
+const MIN_COMPARABLE_TRADES = 30;
+
+/** Mirrors `MIN_DAILY_BARS_FOR_SCAN` (lib/scan/entrySelection.ts), not imported to keep the scan code out of the bundle. */
+const MIN_DAILY_BARS_HINT = 30;
+
+const BUCKET_NAMES: Record<string, string> = { unscored: "Not scored" };
+const bucketName = (b: string) => BUCKET_NAMES[b] ?? b;
+const scopeName = (s: string) => (s === UNCONDITIONED_ATTRIBUTION ? "every trade" : bucketName(s));
+
+/** Wins over the trades that closed inside the test, not over the ones still open. */
+function decidedWinRate(s: Pick<RunSummary, "trades" | "winRate" | "timeouts">): number | null {
+  const decided = s.trades - (s.timeouts ?? 0);
+  return decided > 0 ? (s.winRate * s.trades) / decided : null;
 }
 
-const OUTCOME_LABELS: Record<string, string> = {
-  adopted: "moves",
-  disagreed: "halves disagree",
-  unreadable: "not readable",
-  "too-small": "inside the noise",
-};
+/** Two summaries as one row (reversals with re-entries); exact for every field shown. */
+function combine(a: RunSummary, b: RunSummary): RunSummary {
+  const trades = a.trades + b.trades;
+  const totalR = a.totalR + b.totalR;
+  return {
+    ...a,
+    trades,
+    totalR,
+    expectancyR: trades > 0 ? totalR / trades : 0,
+    winRate: trades > 0 ? (a.winRate * a.trades + b.winRate * b.trades) / trades : 0,
+    timeouts: (a.timeouts ?? 0) + (b.timeouts ?? 0),
+    openAtEnd: a.openAtEnd + b.openAtEnd,
+    profitable: trades > 0 && totalR > 0,
+  };
+}
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 /** R is signed and small; the sign is the whole point, so it is always shown. */
@@ -81,25 +93,16 @@ function toneFor(value: number) {
 
 export default function LearningPage() {
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
+  const [industryKeys, setIndustryKeys] = useState<string[]>([]);
+  const { data: industries, error: industriesError } = useIndustries();
   const [within, setWithin] = useState<AttributionScope>("Execute");
-  const [targetR, setTargetR] = useState("2");
-  // Walks the leeway/large-cap-widened stop instead of the raw pattern one —
-  // see ReplayOptions.useProductionStop. Off by default so a first run shows
-  // the harness's original, already-understood behaviour; toggling it and
-  // re-running is how the "Large-cap vs. not" card below becomes a real
-  // before/after rather than one static split.
-  // Checked by default: the app's real trading behavior already includes the
-  // large-cap widening (lib/strat/large-cap.ts), so a first run should show
-  // what actually happens, not a legacy mode nobody trades with any more.
-  // Unchecking it is how the "Bigger stocks vs. smaller stocks" card below
-  // becomes a true before/after comparison.
-  const [productionStop, setProductionStop] = useState(true);
+  // No profit goal and no stop choice (2026-10-28): the route trades the
+  // production plan on production's exits by default, which fix no target and
+  // place the stop from the plan, so a "profit goal" changed nothing and the
+  // wider-stop box changed nothing under the reaction entry.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<BacktestReport | null>(null);
-  const [proposing, setProposing] = useState(false);
-  const [proposalError, setProposalError] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<ProposalResponse | null>(null);
 
   const [shadowSummary, setShadowSummary] = useState<ShadowSummaryResponse | null>(null);
   const [shadowError, setShadowError] = useState<string | null>(null);
@@ -140,39 +143,18 @@ export default function LearningPage() {
     };
   }, []);
 
-  function universe() {
-    return symbols
-      .split(/[,\s]+/)
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean);
-  }
+  // Typed symbols first, then the picked industries in turn, largest company
+  // first, up to the most one run can replay.
+  const testSelection = capSelection(
+    industryKeys,
+    symbols,
+    industries?.sectors ?? [],
+    MAX_TEST_SYMBOLS,
+    industries?.lists ?? [],
+  );
 
-  /**
-   * Runs the same replay, splits it in time, and asks what the attribution
-   * supports out of sample. The result is written as a draft — it scores
-   * nothing until someone promotes it.
-   */
-  async function propose() {
-    setProposing(true);
-    setProposalError(null);
-    try {
-      const params = new URLSearchParams({
-        symbols: universe().join(","),
-        within,
-        targetR,
-      });
-      const res = await fetch(`/api/learning/propose-weights?${params}`, { method: "POST" });
-      const body = await res.json();
-      if (!res.ok) {
-        setProposalError(body.error ?? `Request failed (${res.status})`);
-        return;
-      }
-      setProposal(body as ProposalResponse);
-    } catch (err) {
-      setProposalError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setProposing(false);
-    }
+  function universe() {
+    return testSelection.symbols;
   }
 
   async function run(bucket: AttributionScope = within) {
@@ -187,8 +169,6 @@ export default function LearningPage() {
       const params = new URLSearchParams({
         symbols: list.join(","),
         within: bucket,
-        targetR,
-        ...(productionStop ? { productionStop: "1" } : {}),
       });
       const res = await fetch(`/api/backtest?${params}`);
       const body = await res.json();
@@ -304,47 +284,41 @@ export default function LearningPage() {
           <CardTitle>Run a test</CardTitle>
           <CardDescription>
             Uses 15-minute price charts, and only ever looks at history that would have been
-            available on the day of each trade — never a sneak peek at the future.
+            available on the day of each trade — never a sneak peek at the future. Every trade is
+            taken and managed the way the app trades today: the plan&apos;s entry and stop, the
+            stop moved as the trade progresses, and the trade closed on the app&apos;s own exit
+            signals. Nothing is sold at a fixed profit goal, so the test asks for none.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <span className="block text-sm text-muted">Industries to test</span>
+            {industries ? (
+              <IndustryPicker data={industries} selected={industryKeys} onChange={setIndustryKeys} />
+            ) : (
+              <p className="text-sm text-muted">{industriesError ?? "Loading industries…"}</p>
+            )}
+            {testSelection.total > 0 && (
+              <p className="text-xs text-muted">
+                Testing {testSelection.symbols.join(", ")}
+                {testSelection.total > testSelection.symbols.length &&
+                  ` (${testSelection.symbols.length} of ${testSelection.total}: a test runs at most ${MAX_TEST_SYMBOLS} symbols, so it takes the symbols you typed, then the largest company in each picked industry in turn. Type symbols to choose others.)`}
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="min-w-0 flex-1 text-sm">
-              <span className="mb-1 block text-muted">Stocks to test</span>
+              <span className="mb-1 block text-muted">Symbols to test</span>
               <Input
                 value={symbols}
                 onChange={(e) => setSymbols(e.target.value)}
-                placeholder="SPY, AAPL"
-              />
-            </label>
-            <label className="text-sm sm:w-36">
-              <span className="mb-1 block text-muted">Profit goal</span>
-              <Input
-                value={targetR}
-                onChange={(e) => setTargetR(e.target.value)}
-                inputMode="decimal"
+                placeholder="SPY, AAPL, BTC/USD"
               />
             </label>
             <Button onClick={() => run()} disabled={loading}>
               {loading ? "Testing…" : "Run"}
             </Button>
           </div>
-          <p className="text-xs text-muted">
-            Profit goal is in R — 2 means &quot;aim to make twice what&apos;s being risked on each
-            trade.&quot;
-          </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={productionStop}
-              onChange={(e) => setProductionStop(e.target.checked)}
-              className="h-4 w-4"
-            />
-            <span>
-              Give big, well-known stocks (like Apple or Microsoft) extra room before their
-              stop-loss triggers — this matches how the app actually trades today
-            </span>
-          </label>
           {error && <p className="text-sm text-bear">{error}</p>}
         </CardContent>
       </Card>
@@ -375,18 +349,24 @@ export default function LearningPage() {
                 <br />
                 {report.window.from && report.window.to
                   ? `${report.window.from.slice(0, 10)} → ${report.window.to.slice(0, 10)}`
-                  : "date range unknown"}{" "}
-                · at a {report.targetR}R profit goal, you need to win at least{" "}
-                {pct(report.breakEvenWinRate)} of the time just to break even
+                  : "date range unknown"}
+                <br />
+                <br />
+                Each trade is counted under the app&apos;s verdict at the moment it was entered. A
+                setup first found as Watch that had become Execute by the time its entry filled
+                counts as Execute; a trade entered while the setup still read Watch counts as Watch.
+                Reversals and re-entries the app opens after a stop were never scored, so they sit
+                on their own row and count only in &quot;All&quot;.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <Table>
                 <THead>
                   <TR>
                     <TH>How confident</TH>
                     <TH className="text-right">Trades</TH>
                     <TH className="text-right">Win rate</TH>
+                    <TH className="text-right">Still open</TH>
                     <TH className="text-right">Avg. result / trade</TH>
                     <TH className="text-right">Total result</TH>
                     <TH />
@@ -394,19 +374,11 @@ export default function LearningPage() {
                 </THead>
                 <TBody>
                   {report.buckets.map((b) => (
-                    <TR key={b.bucket}>
-                      <TD className="font-medium">{b.bucket}</TD>
-                      <TD className="text-right tabular-nums">{b.trades}</TD>
-                      <TD className="text-right tabular-nums">
-                        {b.trades === 0 ? "—" : pct(b.winRate)}
-                      </TD>
-                      <TD className={cn("text-right tabular-nums", toneFor(b.expectancyR))}>
-                        {b.trades === 0 ? "—" : r(b.expectancyR)}
-                      </TD>
-                      <TD className={cn("text-right tabular-nums", toneFor(b.totalR))}>
-                        {b.trades === 0 ? "—" : r(b.totalR)}
-                      </TD>
-                      <TD className="text-right">
+                    <SummaryRow
+                      key={b.bucket}
+                      label={bucketName(b.bucket)}
+                      s={b}
+                      action={
                         <button
                           onClick={() => run(b.bucket)}
                           disabled={loading || b.trades === 0}
@@ -415,37 +387,53 @@ export default function LearningPage() {
                             b.bucket === report.attributeWithin && "font-semibold",
                           )}
                         >
-                          {b.bucket === report.attributeWithin ? "attributed" : "attribute"}
+                          {b.bucket === report.attributeWithin ? "shown below" : "break down"}
                         </button>
-                      </TD>
-                    </TR>
+                      }
+                    />
                   ))}
-                  <TR className="border-t-2 border-border">
-                    <TD className="font-medium">All</TD>
-                    <TD className="text-right tabular-nums">{report.overall.trades}</TD>
-                    <TD className="text-right tabular-nums">{pct(report.overall.winRate)}</TD>
-                    <TD className={cn("text-right tabular-nums", toneFor(report.overall.expectancyR))}>
-                      {r(report.overall.expectancyR)}
-                    </TD>
-                    <TD className={cn("text-right tabular-nums", toneFor(report.overall.totalR))}>
-                      {r(report.overall.totalR)}
-                    </TD>
-                    <TD className="text-right">
+                  {report.derivedSplit && (
+                    <SummaryRow
+                      label="Reversals and re-entries"
+                      s={combine(report.derivedSplit.reversal, report.derivedSplit.rebuy)}
+                    />
+                  )}
+                  <SummaryRow
+                    label="All"
+                    s={report.overall}
+                    className="border-t-2 border-border"
+                    action={
                       <button
                         onClick={() => run(UNCONDITIONED_ATTRIBUTION)}
                         disabled={loading || report.overall.trades === 0}
-                        title="The unconditioned population — the only one saturation (and an unbiased weight proposal) can be read from, since every verdict bucket is a slice the score itself already selected."
+                        title="Every scored trade together: the one view where each check is read on its own, not against the others its group already selected."
                         className={cn(
                           "cursor-pointer text-xs text-accent hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline",
                           report.attributeWithin === UNCONDITIONED_ATTRIBUTION && "font-semibold",
                         )}
                       >
-                        {report.attributeWithin === UNCONDITIONED_ATTRIBUTION ? "attributed" : "attribute"}
+                        {report.attributeWithin === UNCONDITIONED_ATTRIBUTION ? "shown below" : "break down"}
                       </button>
-                    </TD>
-                  </TR>
+                    }
+                  />
                 </TBody>
               </Table>
+              <p className="text-xs text-muted">
+                Win rate counts the trades that closed during the test. &quot;Still open&quot;
+                trades had no exit yet (the data ended, or the test&apos;s limit of 10 trading
+                sessions a trade was reached) and are valued at the last price, inside the average
+                but neither a win nor a loss. A trade can lose more often than it wins and still
+                average a profit, because the app lets winners run.
+              </p>
+              {report.buckets.some(
+                (b) => b.bucket !== "unscored" && b.trades > 0 && b.trades < MIN_COMPARABLE_TRADES,
+              ) && (
+                <p className="text-sm text-warn">
+                  Some groups hold fewer than {MIN_COMPARABLE_TRADES} trades. A group that small
+                  can turn on one or two trades, so it can&apos;t say whether Execute does better or
+                  worse than Watch. Test more stocks, or read the larger runs, before comparing.
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -456,19 +444,7 @@ export default function LearningPage() {
                 <CardDescription>
                   Splits every trade into two groups — well-known, heavily-traded companies (like
                   Apple or Microsoft) versus smaller or less-traded ones — so you can see whether
-                  they behave differently.
-                  <br />
-                  <br />
-                  Right now this test is using:{" "}
-                  <span className="font-medium text-foreground">
-                    {report.useProductionStop
-                      ? "extra room for big stocks before the stop-loss triggers (how the app trades today)"
-                      : "the same stop-loss rules for every stock, big or small (the old behavior)"}
-                  </span>
-                  . To see whether giving big stocks that extra room actually helps: note the
-                  &quot;Big stocks&quot; row below, then check or uncheck the box above, run again,
-                  and compare that same row between the two runs. That comparison — not either row
-                  on its own — is the answer.
+                  they behave differently. Both groups are traded on the same rules.
                   {report.largeCapSplit.largeCap.trades > 0 &&
                     report.largeCapSplit.notLargeCap.trades === 0 && (
                       <>
@@ -505,7 +481,7 @@ export default function LearningPage() {
                         <TD className="font-medium">{label}</TD>
                         <TD className="text-right tabular-nums">{s.trades}</TD>
                         <TD className="text-right tabular-nums">
-                          {s.trades === 0 ? "—" : pct(s.winRate)}
+                          {s.trades === 0 || decidedWinRate(s) === null ? "—" : pct(decidedWinRate(s)!)}
                         </TD>
                         <TD className={cn("text-right tabular-nums", toneFor(s.expectancyR))}>
                           {s.trades === 0 ? "—" : r(s.expectancyR)}
@@ -523,27 +499,44 @@ export default function LearningPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Which signals actually helped, inside {report.attributeWithin}</CardTitle>
+              <CardTitle>Which checks actually helped, across {scopeName(report.attributeWithin)}</CardTitle>
               <CardDescription>
                 For each thing the app checks for, this compares trades where that check passed
                 against trades where it didn&apos;t — over the{" "}
-                {report.buckets.find((b) => b.bucket === report.attributeWithin)?.trades ?? 0} trades
-                in this group. &quot;Difference&quot; is the size of the edge: a bigger positive
-                number means that check is pulling its weight. This shows what travels together
-                with good results, not proof that the check itself causes them.
+                {report.attributeWithin === UNCONDITIONED_ATTRIBUTION
+                  ? (report.derivedSplit?.armed.trades ?? report.overall.trades)
+                  : (report.buckets.find((b) => b.bucket === report.attributeWithin)?.trades ?? 0)}{" "}
+                trades in this group. &quot;Difference&quot; is the size of the edge: a bigger
+                positive number means that check is pulling its weight. This shows what travels
+                together with good results, not proof that the check itself causes them. The nine
+                scored points come first; the checks under them, which earn nothing on their own,
+                say which point they count toward.
+                {report.attributeWithin !== UNCONDITIONED_ATTRIBUTION && (
+                  <>
+                    <br />
+                    <br />
+                    <span className="text-foreground">
+                      Read this inside one group with care.
+                    </span>{" "}
+                    Every trade in {bucketName(report.attributeWithin)} has about the same score, so
+                    a trade that passed one check usually failed another to land here. That can
+                    make a good check look backwards inside a group. Use &quot;break down&quot; on
+                    the All row to see each check across every trade.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {report.factors.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted">
-                  Not enough scored trades in this group yet. Scoring needs at least 120 days of
-                  price history behind a stock before it counts.
+                  Not enough scored trades in this group yet. Scoring needs at least{" "}
+                  {MIN_DAILY_BARS_HINT} days of price history behind a stock before it counts.
                 </p>
               ) : (
                 <Table>
                   <THead>
                     <TR>
-                      <TH className="sticky left-0 z-10 bg-surface">Signal</TH>
+                      <TH className="sticky left-0 z-10 bg-surface">Check</TH>
                       <TH className="text-right">Passed</TH>
                       <TH className="text-right">Result when passed</TH>
                       <TH className="text-right">Result when failed</TH>
@@ -556,16 +549,23 @@ export default function LearningPage() {
                     {report.factors.map((f) => {
                       const readable = f.verdict === "informative";
                       return (
-                        <TR key={f.criterion} className={cn(!readable && "opacity-60")}>
-                          <TD className="sticky left-0 z-10 max-w-[16rem] truncate bg-surface">
-                            <span title={f.criterion}>{criterionLabel(f.criterion)}</span>
+                        <TR key={f.id} className={cn(!readable && "opacity-60")}>
+                          <TD className="sticky left-0 z-10 max-w-[16rem] bg-surface">
+                            <span className={cn("block truncate", f.kind === "point" && "font-medium")}>
+                              {f.label}
+                            </span>
+                            {f.kind === "hold" && (
+                              <span className="block truncate text-xs text-muted">
+                                can hold a setup back from Execute
+                              </span>
+                            )}
                             {f.verdict === "constant" && (
-                              <Badge variant="muted" className="ml-2">
+                              <Badge variant="muted" className="mt-1">
                                 never varied
                               </Badge>
                             )}
                             {f.verdict === "insufficient" && (
-                              <Badge variant="muted" className="ml-2">
+                              <Badge variant="muted" className="mt-1">
                                 too few
                               </Badge>
                             )}
@@ -608,101 +608,21 @@ export default function LearningPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Suggest better scoring weights</CardTitle>
-              <CardDescription>
-                Today every one of the nine checks counts equally — a starting guess, not
-                something that was ever measured. This tool re-checks that guess: it splits this
-                same test into an earlier and a later half, keeps only the checks that kept
-                helping in the later half too (so a fluke doesn&apos;t get rewarded), and suggests
-                new point values that still add up to nine. Nothing changes automatically — this
-                only saves a draft for someone to review and turn on later.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button onClick={propose} disabled={proposing}>
-                {proposing ? "Measuring…" : `Suggest weights from ${report.attributeWithin}`}
-              </Button>
-              {proposalError && <p className="text-sm text-bear">{proposalError}</p>}
-
-              {proposal && (
-                <>
-                  <p className="text-sm text-muted">
-                    {proposal.proposal.inSampleTrades} trades used to build the suggestion ·{" "}
-                    {proposal.proposal.outOfSampleTrades} held back to double-check it
-                    {proposal.proposal.splitAt &&
-                      ` · split at ${proposal.proposal.splitAt.slice(0, 10)}`}
-                  </p>
-
-                  {proposal.stored && (
-                    <p className="text-sm">
-                      <Badge variant="muted">Draft v{proposal.stored.version}</Badge> saved. Someone
-                      still has to turn it on before it affects any score.
-                    </p>
-                  )}
-                  {proposal.notStored && <p className="text-sm text-warn">{proposal.notStored}</p>}
-
-                  {proposal.proposal.weights && (
-                    <Table>
-                      <THead>
-                        <TR>
-                          <TH>Signal</TH>
-                          <TH className="text-right">Current weight</TH>
-                          <TH className="text-right">Suggested weight</TH>
-                          <TH className="text-right">Held up on first half</TH>
-                          <TH className="text-right">Held up on second half</TH>
-                          <TH>Verdict</TH>
-                        </TR>
-                      </THead>
-                      <TBody>
-                        {proposal.proposal.proposals.map((p) => (
-                          <TR key={p.criterion} className={cn(p.outcome !== "adopted" && "opacity-60")}>
-                            <TD className="max-w-[14rem] truncate">
-                              <span title={p.rationale}>{criterionLabel(p.criterion)}</span>
-                            </TD>
-                            <TD className="text-right tabular-nums">{p.currentWeight.toFixed(2)}</TD>
-                            <TD
-                              className={cn(
-                                "text-right font-medium tabular-nums",
-                                toneFor(p.proposedWeight - p.currentWeight),
-                              )}
-                            >
-                              {p.proposedWeight.toFixed(2)}
-                            </TD>
-                            <TD className="text-right tabular-nums text-muted">
-                              {p.inSampleDeltaR === undefined ? "—" : r(p.inSampleDeltaR)}
-                            </TD>
-                            <TD className="text-right tabular-nums text-muted">
-                              {p.outOfSampleDeltaR === undefined ? "—" : r(p.outOfSampleDeltaR)}
-                            </TD>
-                            <TD className="text-xs text-muted">{OUTCOME_LABELS[p.outcome]}</TD>
-                          </TR>
-                        ))}
-                      </TBody>
-                    </Table>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
               <CardTitle>Does a tighter or looser stop-loss do better?</CardTitle>
               <CardDescription>
-                Groups trades in {report.attributeWithin} by how far the stop-loss sat from
-                entry, measured against how much that stock normally moves in a day (a tight
-                stop is a small multiple, a loose stop is a large one). This is the one dial the
-                app already limits automatically, and it&apos;s knowable before the trade is even
-                placed — which is what makes it worth checking here.
+                Groups trades in {scopeName(report.attributeWithin)} by how far the stop-loss sat
+                from entry, measured against how much that stock normally moves in one 15-minute
+                bar (a tight stop is a small multiple, a loose stop is a large one). The distance is
+                known before the trade is placed, which is what makes it worth checking here.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <THead>
                   <TR>
-                    <TH>Stop distance (× a normal day&apos;s move)</TH>
+                    <TH>Stop distance (× a normal 15-minute bar)</TH>
                     <TH className="text-right">Trades</TH>
-                    <TH className="text-right">Win rate</TH>
+                    <TH className="text-right">Win rate (all trades)</TH>
                     <TH className="text-right">Avg. result / trade</TH>
                   </TR>
                 </THead>
@@ -747,5 +667,34 @@ export default function LearningPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** One row of the results table: a verdict group, the reversals, or All. */
+function SummaryRow({
+  label,
+  s,
+  action,
+  className,
+}: {
+  label: string;
+  s: RunSummary;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  const decided = decidedWinRate(s);
+  const empty = s.trades === 0;
+  return (
+    <TR className={className}>
+      <TD className="font-medium">{label}</TD>
+      <TD className="text-right tabular-nums">{s.trades}</TD>
+      <TD className="text-right tabular-nums">{empty || decided === null ? "—" : pct(decided)}</TD>
+      <TD className="text-right tabular-nums text-muted">{empty ? "—" : (s.timeouts ?? 0)}</TD>
+      <TD className={cn("text-right tabular-nums", toneFor(s.expectancyR))}>
+        {empty ? "—" : r(s.expectancyR)}
+      </TD>
+      <TD className={cn("text-right tabular-nums", toneFor(s.totalR))}>{empty ? "—" : r(s.totalR)}</TD>
+      <TD className="text-right">{action}</TD>
+    </TR>
   );
 }

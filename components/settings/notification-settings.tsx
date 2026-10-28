@@ -114,15 +114,17 @@ export function NotificationSettings() {
   }
 
   return (
-    <Card>
+    <Card id="notifications" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-accent" /> Notifications
         </CardTitle>
         <CardDescription>
-          Alerts for high-confidence signals, with quiet hours and a minimum score filter. Email and
-          browser push send today, and only once you turn them on here. SMS is on the roadmap, so its toggle saves your preference but
-          nothing delivers to it yet.
+          Alerts for high-confidence signals, with quiet hours and a minimum score filter, sent only once you turn them on here.
+          Push comes to this device as things happen: intraday signals, setups turning Execute, broken plans and price alerts.
+          Email is kept for what needs you: your own positions and orders, a tracked setup turning Execute (once a day per symbol),
+          a broken plan on a symbol you hold, and an evening digest with the day&apos;s signals. SMS is on the roadmap, so its
+          toggle saves your preference but nothing delivers to it yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">

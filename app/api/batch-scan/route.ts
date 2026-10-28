@@ -31,6 +31,7 @@ import { getUniversePolicy } from "@/lib/universe/policy";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import type { ScanResult } from "@/lib/types";
 import { visibilityRank } from "@/lib/scan/listOrder";
+import { SCAN_CHUNK_SIZE, quotesOnlyRefusal } from "@/lib/universe/selection";
 
 const DEFAULT_WATCHLIST = [
   "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
@@ -46,7 +47,8 @@ const DEFAULT_WATCHLIST = [
 // scanTicker-based pipeline; 25 mirrors intraday-scan's MAX_SYMBOLS -- both
 // numbers already proven safe on the same scanTicker cost per symbol.
 export const maxDuration = 60;
-const MAX_SYMBOLS = 25;
+// The Scanner page splits a larger pick into requests of this size.
+const MAX_SYMBOLS = SCAN_CHUNK_SIZE;
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -63,6 +65,12 @@ export async function GET(req: NextRequest) {
     ? tickersParam.split(",").map((t) => t.trim()).filter(Boolean)
     : DEFAULT_WATCHLIST
   ).slice(0, MAX_SYMBOLS);
+
+  // Futures and forex have no bars to scan; refused before any quota is spent.
+  const quotesOnly = quotesOnlyRefusal(tickers);
+  if (quotesOnly) {
+    return NextResponse.json({ error: quotesOnly, code: "quotes_only" }, { status: 400 });
+  }
 
   // A batch scan records history, opens monitors and sends alerts, so it is
   // refused outright on synthetic data in production, before any quota is

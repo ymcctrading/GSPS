@@ -101,6 +101,9 @@ export function buildScanRows(
       // A day's range, so the lists can tell a plan to take today from a
       // resting order (lib/setups/resting.ts, owner 2026-10-21).
       dayRange: r.dayRange ?? null,
+      // The Resting tier (lib/setups/resting.ts#setupTier, 2026-10-28): the
+      // plan would be Execute but its order rests at its level.
+      resting: r.decision.outputState !== "Reject" && r.decision.resting === true,
       // Whether the plan's crossing still waits on its daily close 3 points
       // past the level (W006 Rule 3(b)), so the intraday scan times only a
       // reaction to a crossing made (lib/scanner/intraday.ts, plan_level_held).
