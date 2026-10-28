@@ -987,7 +987,7 @@ const ACADEMY_6: Academy = {
         },
         {
           id: "academy-6/method-rules/time",
-          title: "Time: Counter-Moves, Anniversaries and the Rule of Three",
+          title: "Time: Counter-Moves, Anniversaries and Three Closes in a Row",
           objectives: [
             "Judge whether a counter-move has run a normal length of time or an abnormal one.",
             "Use the three-close rule on daily, weekly and monthly bars.",
@@ -1099,14 +1099,14 @@ const ACADEMY_6: Academy = {
         },
         {
           id: "academy-6/method-rules/seven-zones",
-          title: "The Seven Zones of Activity",
+          title: "Zones of Activity",
           objectives: [
             "Place a stock in its normal zone or one of the extreme zones above or below it.",
             "Explain why the outer zones call for the other rules to confirm, not for a trade on their own.",
           ],
           estimatedMinutes: 10,
           instruction: [
-            "The method divides a stock's activity into seven zones: one normal zone where it spends most of its time, three zones above it that are progressively more extreme, and three below it, mirrored. A stock moving up out of its normal zone passes into the first zone above, then the second and third, each one further from what is normal for that stock.",
+            "The method divides a stock's activity into zones: one normal zone where it spends most of its time, three zones above it that are progressively more extreme, and three below it, mirrored. A stock moving up out of its normal zone passes into the first zone above, then the second and third, each one further from what is normal for that stock.",
             "The outer zones are where campaigns end. A bear campaign that has reached the lowest zone, or a bull campaign in the highest, has less room left to run than one just leaving the normal zone. A market does not turn simply because it has reached an outer zone, though; it can stay there for some time.",
             "So the zones are a map, not a trigger. In the outer zones, give the turning rules more weight: volume at the turn, a reaction that over-balances the campaign's earlier ones, a campaign in its third or fourth section, and a close back under the level that was crossed. When those agree with an extreme zone, the turn is more likely real.",
             "The zones are told apart by behaviour, not by fixed prices. Near normal, buying and selling balance and the daily ranges are narrow. The first zone of a move is a quiet advance (or decline) that few people notice; the second is busier, with small reactions; the third is feverish, with wide ranges and prices opening beyond the day before again and again. In the third zone above, the first opening well below the previous day's low after the run is the first warning that supply has overtaken demand. GSPS shows the zone it reads on each setup, as context.",

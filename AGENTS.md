@@ -40,6 +40,32 @@ defaulting to the last phase.
 - When a change invalidates part of the roadmap, update `ROADMAP.md` in the
   same PR and move its "Last updated" date.
 
+## Confidential sources — top-priority standing rule (2026-10-28, project owner)
+
+In Chuck's words: "nothing and I mean absolutely nothing on the platform
+disclose[s] his [Gann's] methods or formula, anything by LJ Jensen, anything
+dealing with the observation of cycles or hermetic principles." Gann, Jensen,
+Dewey/Thomas, the cycles literature and the hermetic principles (Hauck's book)
+are the intellectual property the back end is built from, known only to
+Claude and Chuck. GSPS presents itself as a stock trading and scanning
+application.
+
+- **User-facing means everything a person or a browser can read:** UI copy,
+  labels, tooltips, the school, emails, notifications, API responses (strings
+  and, over time, field names), user docs, marketing and page metadata, and
+  any string in a `lib/` module a client component imports (it ships in the
+  JS bundle; comments don't).
+- **Internal code and project files may keep their citations**, in comments,
+  server-only trace lines and docs that no user is shown.
+- **The school teaches how to trade** with publicly available methods by
+  others that build on or modify Gann's work (for example Elliott Wave),
+  never Gann or these sources themselves. This supersedes, for education
+  copy, the "Gann-grounded platform" rule's reach into education below; the
+  back end stays Gann one for one.
+- `scripts/check-banned-terms.mjs`'s `CONFIDENTIAL_TERMS` gates the copy
+  surfaces in CI. Check the built bundle too (`grep -r` over `.next/static`)
+  when a change touches what a client imports.
+
 ## Cross-platform consistency — standing principle
 
 If a concept exists anywhere in this codebase — an indicator, an anchor
