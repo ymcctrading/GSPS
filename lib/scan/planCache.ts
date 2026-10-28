@@ -11,17 +11,33 @@
  * 3-Day Chart turns only on a finished day. So the plan stands until one of
  * these, and the page reads it again only then:
  *
- * - **A session closes** (`planSessionKey` moves): a new daily bar, new swings
- *   and levels.
+ * - **A session completes** (`planSessionKey` moves): the scan takes in
+ *   today's bar from New York midnight (`scanTicker`'s `sessionDay`, as the
+ *   replay reads it), so the kept plan rolls at the same moment, never at the
+ *   exchange close, which would keep a plan that lacks the day's bar.
+ * - **The regular session opens or closes** (also in `planSessionKey`, US
+ *   equities): on the delayed feed the scan holds an Execute to Watch while
+ *   prices move underneath it (`applyDataLagHold`), so a plan read before the
+ *   open is not the plan during it.
  * - **Price trades through the stop** (`planEvent` "stop"): the plan is
  *   broken, and its replacement is a new trade from the new structure, never
  *   the old levels resumed (NSTD Rule 6; Overnight Chart rule 4;
  *   `lib/gann/stopBreach.ts`). The scan reads that break, so it is asked again.
- * - **A setup at the Execute cutoff** whose price ran past TP1 or moved a
- *   day's range from its entry (`planEvent` "target" / "resting"): the owner's
- *   2026-10-27 rule that Execute means placeable now (`applyReadyNowHold`,
- *   `lib/setups/resting.ts`) reads today's price, so it can change in the
- *   session while the levels do not.
+ * - **Price back past a broken plan's reclaim line** ("reclaim"): Gann's
+ *   failed break, a closed bar back through the line by his allowance,
+ *   confirms the plan again (`readStopBreach`). The scan decides that on its
+ *   closed bars; the price only says when to ask.
+ * - **A setup at the Execute cutoff** whose price crossed TP1 or a day's
+ *   range from its entry, either way (`planEvent` "target" / "resting"): the
+ *   owner's 2026-10-27 rule that Execute means placeable now
+ *   (`applyReadyNowHold`, `lib/setups/resting.ts`) reads today's price, so it
+ *   can change in the session while the levels do not.
+ *
+ * Known limit, recorded rather than hidden: some of the scan's readings take
+ * today's price (the lattice points it adds around price, the ATR in percent,
+ * the 15-minute bars behind the stop's allowance), so a fresh scan later in
+ * the day can price TP1 or MTP a little differently from the kept plan. The
+ * page shows when its plan was read and offers a refresh.
  *
  * Each event is read against the price the plan was scanned at, so a plan
  * whose scan already saw the condition never asks again for it.
@@ -38,75 +54,44 @@
  * computing.
  */
 
-import { etDateKey } from "@/lib/market/session";
-import { isEarlyClose, isMarketHoliday } from "@/lib/market/calendar";
+import { equitySession, etDateKey } from "@/lib/market/session";
 import { isResting } from "@/lib/setups/resting";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import type { AssetClass, ScanResult } from "@/lib/types";
 
-const CLOSE_MINUTES = 16 * 60;
-const EARLY_CLOSE_MINUTES = 13 * 60;
-
-const ET_CLOCK = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/New_York",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
-
-function etMinutes(date: Date): number {
-  const parts = ET_CLOCK.formatToParts(date);
-  let hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-  if (hour === 24) hour = 0;
-  return hour * 60 + Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-}
-
-/** The "YYYY-MM-DD" `days` calendar days before `key`. */
-function shiftKey(key: string, days: number): string {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d - days, 12)).toISOString().slice(0, 10);
-}
-
-function isTradingKey(key: string): boolean {
-  const [y, m, d] = key.split("-").map(Number);
-  const weekday = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
-  return weekday !== 0 && weekday !== 6 && !isMarketHoliday(key);
-}
-
 /**
- * The last completed session a plan read at `now` is made from: for a US
- * equity, the New York date of the latest close at or before `now` (1:00 PM on
- * an early close); for crypto, the UTC date, where its daily bar ends.
+ * Which plan a read at `now` belongs to: the New York date the scan reads its
+ * completed sessions to (`scanTicker`'s `sessionDay`), and for a US equity
+ * whether the regular session is open, since the delayed-feed hold reads it.
  */
 export function planSessionKey(assetClass: AssetClass, now: Date = new Date()): string {
-  if (assetClass === "crypto") return now.toISOString().slice(0, 10);
-  const today = etDateKey(now);
-  if (isTradingKey(today)) {
-    const close = isEarlyClose(today) ? EARLY_CLOSE_MINUTES : CLOSE_MINUTES;
-    if (etMinutes(now) >= close) return today;
-  }
-  for (let back = 1; back <= 10; back++) {
-    const key = shiftKey(today, back);
-    if (isTradingKey(key)) return key;
-  }
-  return today;
+  const day = etDateKey(now);
+  if (assetClass === "crypto") return day;
+  return `${day}:${equitySession(now) === "regular" ? "open" : "shut"}`;
 }
 
-export type PlanEvent = "stop" | "target" | "resting";
+export type PlanEvent = "stop" | "reclaim" | "target" | "resting";
 
 type PlanFields = Pick<ScanResult, "direction" | "currentPrice" | "levels" | "stopBreach" | "dayRange" | "decision">;
 
 /**
  * The event in the session that asks for the plan to be read again at
- * `livePrice`, or null while the plan stands. A retired plan (its stop already
- * broken) has none: it waits for the next session's plan.
+ * `livePrice`, or null while the plan stands. Each is read against the price
+ * the plan was scanned at, so a condition the scan already saw never asks.
  */
 export function planEvent(result: PlanFields, livePrice: number | null | undefined): PlanEvent | null {
   const levels = result.levels;
-  if (!levels || result.stopBreach || result.direction === "none") return null;
+  if (!levels || result.direction === "none") return null;
   if (livePrice == null || !Number.isFinite(livePrice) || !(livePrice > 0)) return null;
   const buy = result.direction === "bullish";
   const scanPrice = result.currentPrice;
+
+  if (result.stopBreach) {
+    const reclaim = result.stopBreach.reclaimAt;
+    if (!Number.isFinite(reclaim)) return null;
+    const back = (price: number) => (buy ? price >= reclaim : price <= reclaim);
+    return back(livePrice) && !back(scanPrice) ? "reclaim" : null;
+  }
 
   const through = (price: number, level: number) => (buy ? price <= level : price >= level);
   if (Number.isFinite(levels.stopLoss) && through(livePrice, levels.stopLoss) && !through(scanPrice, levels.stopLoss)) {
@@ -116,7 +101,7 @@ export function planEvent(result: PlanFields, livePrice: number | null | undefin
   if (!(result.decision.score >= EXECUTE_SCORE_THRESHOLD)) return null;
 
   const past = (price: number, level: number) => (buy ? price >= level : price <= level);
-  if (Number.isFinite(levels.takeProfit1) && past(livePrice, levels.takeProfit1) && !past(scanPrice, levels.takeProfit1)) {
+  if (Number.isFinite(levels.takeProfit1) && past(livePrice, levels.takeProfit1) !== past(scanPrice, levels.takeProfit1)) {
     return "target";
   }
 
@@ -131,6 +116,15 @@ export function planEvent(result: PlanFields, livePrice: number | null | undefin
     });
   if (restingAt(livePrice) !== restingAt(scanPrice)) return "resting";
   return null;
+}
+
+/** The level an event was read at, so one event on one plan asks only once. */
+export function planEventLevel(result: PlanFields, event: PlanEvent): number | null {
+  const l = result.levels;
+  if (event === "reclaim") return result.stopBreach?.reclaimAt ?? null;
+  if (event === "stop") return l?.stopLoss ?? null;
+  if (event === "target") return l?.takeProfit1 ?? null;
+  return l?.entry ?? null;
 }
 
 /** What the symbol page keeps: the result and how its score is shown. */
@@ -175,7 +169,9 @@ function isCachedPlan(value: unknown): value is CachedPlan {
     typeof v.storedAt === "number" &&
     v.result != null &&
     typeof v.result === "object" &&
-    typeof v.result.symbol === "string"
+    typeof v.result.symbol === "string" &&
+    v.result.decision != null &&
+    typeof v.result.decision.score === "number"
   );
 }
 
@@ -253,6 +249,35 @@ export function forgetCachedPlan(symbol: string): void {
   } catch {
     // Nothing to clear.
   }
+}
+
+const OWNER_KEY = "gsps:plan:owner";
+/** The owner when sessionStorage can't be read (and in tests). */
+let memoryOwner: string | null = null;
+
+/**
+ * Ties the tab's kept plans to the signed-in member: a plan is redacted for
+ * its member and tier, so when another member (or nobody) is signed in, every
+ * kept plan goes. Returns true when it cleared them.
+ */
+export function bindCachedPlansTo(userId: string | null): boolean {
+  const store = storage();
+  let owner: string | null = memoryOwner;
+  try {
+    if (store) owner = store.getItem(OWNER_KEY);
+  } catch {
+    // Blocked storage: the memory owner stands in.
+  }
+  const changed = owner !== userId;
+  if (changed) clearCachedPlans();
+  memoryOwner = userId;
+  try {
+    if (userId) store?.setItem(OWNER_KEY, userId);
+    else store?.removeItem(OWNER_KEY);
+  } catch {
+    // Blocked storage keeps nothing to leak.
+  }
+  return changed && owner != null;
 }
 
 /** Every kept plan, on sign-out. */

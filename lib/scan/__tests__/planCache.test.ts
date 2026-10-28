@@ -1,40 +1,44 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  bindCachedPlansTo,
   clearCachedPlans,
   MAX_CACHED_PLANS,
   planEvent,
+  planEventLevel,
   planSessionKey,
   readCachedPlan,
   writeCachedPlan,
 } from "@/lib/scan/planCache";
+import { etDateKey } from "@/lib/market/session";
 import type { ScanResult } from "@/lib/types";
 
-// 2026-10-27 is a Tuesday; EDT, so 16:00 ET is 20:00 UTC.
+// 2026-10-27 is a Tuesday; EDT, so 09:30 ET is 13:30 UTC and 16:00 ET is 20:00 UTC.
 describe("planSessionKey", () => {
-  it("reads the prior session before the close and today's after it", () => {
-    expect(planSessionKey("us_equity", new Date("2026-10-27T19:59:00Z"))).toBe("2026-10-26");
-    expect(planSessionKey("us_equity", new Date("2026-10-27T20:00:00Z"))).toBe("2026-10-27");
+  it("rolls at New York midnight, as the scan's completed sessions do", () => {
+    // scanTicker reads sessions before etDateKey(now): after the close the
+    // plan still lacks today's bar until midnight, and so does the key.
+    expect(planSessionKey("us_equity", new Date("2026-10-27T22:00:00Z"))).toBe("2026-10-27:shut");
+    expect(planSessionKey("us_equity", new Date("2026-10-28T03:59:00Z"))).toBe("2026-10-27:shut");
+    expect(planSessionKey("us_equity", new Date("2026-10-28T04:00:00Z"))).toBe("2026-10-28:shut");
+    expect(planSessionKey("us_equity", new Date("2026-10-28T04:00:00Z"))).toBe(
+      `${etDateKey(new Date("2026-10-28T04:00:00Z"))}:shut`,
+    );
   });
 
-  it("holds Friday's session over the weekend and Monday morning", () => {
-    expect(planSessionKey("us_equity", new Date("2026-10-31T15:00:00Z"))).toBe("2026-10-30");
-    expect(planSessionKey("us_equity", new Date("2026-11-02T14:00:00Z"))).toBe("2026-10-30");
+  it("moves when the regular session opens and closes", () => {
+    expect(planSessionKey("us_equity", new Date("2026-10-27T13:29:00Z"))).toBe("2026-10-27:shut");
+    expect(planSessionKey("us_equity", new Date("2026-10-27T13:30:00Z"))).toBe("2026-10-27:open");
+    expect(planSessionKey("us_equity", new Date("2026-10-27T20:00:00Z"))).toBe("2026-10-27:shut");
   });
 
-  it("skips a market holiday", () => {
+  it("stays shut on a holiday", () => {
     // Thanksgiving 2026 is Thursday Nov 26.
-    expect(planSessionKey("us_equity", new Date("2026-11-26T22:00:00Z"))).toBe("2026-11-25");
+    expect(planSessionKey("us_equity", new Date("2026-11-26T16:00:00Z"))).toBe("2026-11-26:shut");
   });
 
-  it("closes at 1:00 PM ET on an early close", () => {
-    // Friday Nov 27 2026, EST: 13:00 ET is 18:00 UTC.
-    expect(planSessionKey("us_equity", new Date("2026-11-27T17:59:00Z"))).toBe("2026-11-25");
-    expect(planSessionKey("us_equity", new Date("2026-11-27T18:00:00Z"))).toBe("2026-11-27");
-  });
-
-  it("reads crypto on the UTC day", () => {
-    expect(planSessionKey("crypto", new Date("2026-10-27T23:59:00Z"))).toBe("2026-10-27");
-    expect(planSessionKey("crypto", new Date("2026-10-28T00:00:00Z"))).toBe("2026-10-28");
+  it("reads crypto on the New York date alone", () => {
+    expect(planSessionKey("crypto", new Date("2026-10-28T03:00:00Z"))).toBe("2026-10-27");
+    expect(planSessionKey("crypto", new Date("2026-10-28T04:00:00Z"))).toBe("2026-10-28");
   });
 });
 
@@ -65,8 +69,12 @@ describe("planEvent", () => {
     expect(planEvent(short, 100.5)).toBeNull();
   });
 
-  it("never asks for a retired plan", () => {
-    expect(planEvent(plan({ stopBreach: { stop: 97, price: 96, reclaimAt: 100 } }), 90)).toBeNull();
+  it("asks a retired plan again only once price is back past its reclaim line", () => {
+    const retired = plan({ currentPrice: 96, stopBreach: { stop: 97, price: 96, reclaimAt: 100 } });
+    expect(planEvent(retired, 90)).toBeNull();
+    expect(planEvent(retired, 99.9)).toBeNull();
+    expect(planEvent(retired, 100)).toBe("reclaim");
+    expect(planEventLevel(retired, "reclaim")).toBe(100);
   });
 
   it("asks at the Execute cutoff when price passes TP1", () => {
@@ -77,6 +85,10 @@ describe("planEvent", () => {
   it("asks when the entry's distance crosses a day's range", () => {
     // Scanned within a day's range (|100 - 101| = 1 <= 2); now 4 away.
     expect(planEvent(plan(), 105)).toBe("resting");
+  });
+
+  it("asks when price falls back short of TP1 it was scanned past", () => {
+    expect(planEvent(plan({ currentPrice: 107, dayRange: 10 }), 105)).toBe("target");
   });
 
   it("does not ask for a condition the scan already saw", () => {
@@ -96,7 +108,7 @@ describe("plan cache", () => {
   afterEach(() => clearCachedPlans());
   const morning = new Date("2026-10-27T15:00:00Z");
 
-  it("keeps a plan for its session and drops it once a session closes", () => {
+  it("keeps a plan for its session and drops it once the session moves", () => {
     writeCachedPlan("spy", plan(), true, morning);
     expect(readCachedPlan("SPY", new Date("2026-10-27T19:00:00Z"))?.exactScoreDisplayEnabled).toBe(true);
     expect(readCachedPlan("SPY", new Date("2026-10-27T20:01:00Z"))).toBeNull();
@@ -108,6 +120,18 @@ describe("plan cache", () => {
     for (let i = 0; i <= MAX_CACHED_PLANS; i++) writeCachedPlan(`S${i}`, plan({ symbol: `S${i}` }), false, morning);
     expect(readCachedPlan("S0", morning)).toBeNull();
     expect(readCachedPlan(`S${MAX_CACHED_PLANS}`, morning)).not.toBeNull();
+  });
+
+  it("drops the plans when another member signs in, or nobody is", () => {
+    expect(bindCachedPlansTo("member-a")).toBe(false);
+    writeCachedPlan("SPY", plan(), false, morning);
+    expect(bindCachedPlansTo("member-a")).toBe(false);
+    expect(readCachedPlan("SPY", morning)).not.toBeNull();
+    expect(bindCachedPlansTo("member-b")).toBe(true);
+    expect(readCachedPlan("SPY", morning)).toBeNull();
+    writeCachedPlan("SPY", plan(), false, morning);
+    expect(bindCachedPlansTo(null)).toBe(true);
+    expect(readCachedPlan("SPY", morning)).toBeNull();
   });
 
   it("clears every plan", () => {

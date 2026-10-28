@@ -24,10 +24,11 @@ import type { ScanResult } from "@/lib/types";
 import type { LiveQuote } from "@/app/api/quote/route";
 import type { StrategyModeId } from "@/lib/strategies/types";
 import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
-import { planEvent, planSessionKey, readCachedPlan, writeCachedPlan } from "@/lib/scan/planCache";
-import { rememberRecentChart } from "@/lib/charts/recent";
+import { bindCachedPlansTo, planEvent, planEventLevel, planSessionKey, readCachedPlan, writeCachedPlan } from "@/lib/scan/planCache";
+import { clearRecentCharts, rememberRecentChart } from "@/lib/charts/recent";
+import { createClient } from "@/lib/supabase/client";
 
-/** Least time between two plan reads the price asks for. */
+/** Least time between two plan reads the price or the clock asks for. */
 const PLAN_EVENT_PACING_MS = 60_000;
 
 export function TickerView({ symbol }: { symbol: string }) {
@@ -99,11 +100,13 @@ export function TickerView({ symbol }: { symbol: string }) {
     // See lib/scoring/display.ts — whether this viewer's tier sees the exact
     // weighted score or one rounded to the nearest half point.
     exactScoreDisplayEnabled: boolean;
-    // When the plan was read (epoch ms), for the refresh pacing below.
-    storedAt: number;
-  }>({ key: "", result: null, error: null, retryable: false, exactScoreDisplayEnabled: false, storedAt: 0 });
-  // Bumping `n` reads the plan again; `fresh` skips the kept copy.
-  const [reload, setReload] = useState<{ n: number; fresh: boolean }>({ n: 0, fresh: false });
+    // The kept plan's `planSessionKey`; a failed read keeps the old one, so
+    // a plan from an earlier session still reads as due.
+    session: string;
+  }>({ key: "", result: null, error: null, retryable: false, exactScoreDisplayEnabled: false, session: "" });
+  // Bumping `n` reads the plan again; `freshFor` skips the kept copy for that
+  // symbol only, so a later visit to another symbol still uses its kept plan.
+  const [reload, setReload] = useState<{ n: number; freshFor: string | null }>({ n: 0, freshFor: null });
   const [refreshing, setRefreshing] = useState(false);
 
   const current = scan.key === symbol ? scan : null;
@@ -112,7 +115,7 @@ export function TickerView({ symbol }: { symbol: string }) {
   const retryable = current?.retryable ?? false;
   const exactScoreDisplayEnabled = current?.exactScoreDisplayEnabled ?? false;
 
-  const readPlanAgain = useCallback(() => setReload((r) => ({ n: r.n + 1, fresh: true })), []);
+  const readPlanAgain = useCallback(() => setReload((r) => ({ n: r.n + 1, freshFor: symbol })), [symbol]);
 
   useEffect(() => {
     rememberRecentChart(symbol);
@@ -120,57 +123,75 @@ export function TickerView({ symbol }: { symbol: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const kept = reload.fresh ? null : readCachedPlan(symbol);
-    if (kept) {
-      // Scheduled rather than set in the effect body (react-hooks/set-state-in-effect).
-      const t = setTimeout(() => {
-        if (cancelled) return;
-        setScan({
-          key: symbol,
-          result: kept.result,
-          error: null,
-          retryable: false,
-          exactScoreDisplayEnabled: kept.exactScoreDisplayEnabled,
-          storedAt: kept.storedAt,
-        });
-      }, 0);
-      return () => {
-        cancelled = true;
-        clearTimeout(t);
-      };
-    }
+    const fresh = reload.freshFor === symbol;
     const kickoff = setTimeout(() => !cancelled && setRefreshing(true), 0);
-    fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then((res) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
-      .then((data) => {
+
+    // A kept plan is redacted for its member: read who is signed in first
+    // (local, no request), and drop the tab's plans if it is someone else.
+    const supabase = createClient();
+    supabase.auth
+      .getSession()
+      .then(({ data }) => data.session?.user.id ?? null)
+      .catch(() => null)
+      .then((userId) => {
+        if (cancelled) return null;
+        if (bindCachedPlansTo(userId)) clearRecentCharts();
+        return fresh ? null : readCachedPlan(symbol);
+      })
+      .then((kept) => {
         if (cancelled) return;
-        const exactScoreDisplayEnabled = Boolean(data.exactScoreDisplayEnabled);
-        if (data.error) {
-          setScan((prev) => ({
+        if (kept) {
+          setScan({
             key: symbol,
-            // A failed refresh keeps the plan already on screen for this symbol.
-            result: prev.key === symbol ? prev.result : null,
-            error: data.error ?? null,
-            retryable: data.errorCode === "rate_limited" || data.errorCode === "upstream",
-            exactScoreDisplayEnabled: prev.key === symbol ? prev.exactScoreDisplayEnabled : exactScoreDisplayEnabled,
-            storedAt: Date.now(),
-          }));
-        } else {
-          const kept = writeCachedPlan(symbol, data, exactScoreDisplayEnabled);
-          setScan({ key: symbol, result: data, error: null, retryable: false, exactScoreDisplayEnabled, storedAt: kept.storedAt });
+            result: kept.result,
+            error: null,
+            retryable: false,
+            exactScoreDisplayEnabled: kept.exactScoreDisplayEnabled,
+            session: kept.session,
+          });
+          setRefreshing(false);
+          return;
         }
+        return fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
+          .then((res) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
+          .then((data) => {
+            if (cancelled) return;
+            const exactScoreDisplayEnabled = Boolean(data.exactScoreDisplayEnabled);
+            if (data.error) {
+              setScan((prev) =>
+                prev.key === symbol
+                  ? // A failed refresh keeps the plan already on screen for this symbol.
+                    { ...prev, error: data.error ?? null, retryable: data.errorCode === "rate_limited" || data.errorCode === "upstream" }
+                  : {
+                      key: symbol,
+                      result: null,
+                      error: data.error ?? null,
+                      retryable: data.errorCode === "rate_limited" || data.errorCode === "upstream",
+                      exactScoreDisplayEnabled,
+                      session: "",
+                    },
+              );
+            } else {
+              const stored = writeCachedPlan(symbol, data, exactScoreDisplayEnabled);
+              setScan({ key: symbol, result: data, error: null, retryable: false, exactScoreDisplayEnabled, session: stored.session });
+            }
+          });
       })
       .catch(
         (err) =>
           !cancelled &&
-          setScan((prev) => ({
-            key: symbol,
-            result: prev.key === symbol ? prev.result : null,
-            error: err instanceof Error ? err.message : String(err),
-            retryable: false,
-            exactScoreDisplayEnabled: prev.key === symbol ? prev.exactScoreDisplayEnabled : false,
-            storedAt: Date.now(),
-          })),
+          setScan((prev) =>
+            prev.key === symbol
+              ? { ...prev, error: err instanceof Error ? err.message : String(err), retryable: false }
+              : {
+                  key: symbol,
+                  result: null,
+                  error: err instanceof Error ? err.message : String(err),
+                  retryable: false,
+                  exactScoreDisplayEnabled: false,
+                  session: "",
+                },
+          ),
       )
       .finally(() => !cancelled && setRefreshing(false));
     return () => {
@@ -180,25 +201,34 @@ export function TickerView({ symbol }: { symbol: string }) {
     };
   }, [symbol, reload]);
 
-  // The plan is read again only on its own events: a session closing, or the
-  // price reaching its stop, its TP1 or a day's range from its entry
-  // (lib/scan/planCache.ts). At most once a minute, and an event asks once:
-  // the scan's price can lag the live quote, so a read that still sees the
-  // same event is not asked again until another event or the next session.
+  // The plan is read again only on its own events: the session moving on, or
+  // the price reaching its stop, its reclaim line, its TP1 or a day's range
+  // from its entry (lib/scan/planCache.ts). Checked on every quote and once a
+  // minute (a quiet market may print nothing across the session's turn). At
+  // most one ask a minute, and each event on each level asks once: the scan's
+  // price can lag the live quote, so a read that still sees the same event is
+  // not asked again for it.
   const quotePrice = quote?.price ?? null;
-  const askedRef = useRef<{ symbol: string; event: string } | null>(null);
+  const [minute, setMinute] = useState(0);
   useEffect(() => {
-    if (!result || refreshing || quotePrice == null) return;
-    if (Date.now() - scan.storedAt < PLAN_EVENT_PACING_MS) return;
-    const sessionClosed = planSessionKey(result.assetClass) !== planSessionKey(result.assetClass, new Date(scan.storedAt));
-    const event = sessionClosed ? "session" : planEvent(result, quotePrice);
-    if (event == null) return;
-    const asked = askedRef.current;
-    if (!sessionClosed && asked?.symbol === symbol && asked.event === event) return;
-    askedRef.current = { symbol, event };
+    const timer = setInterval(() => setMinute((m) => m + 1), PLAN_EVENT_PACING_MS);
+    return () => clearInterval(timer);
+  }, []);
+  const askedRef = useRef<{ key: string; at: number }>({ key: "", at: 0 });
+  useEffect(() => {
+    if (!result || refreshing) return;
+    if (Date.now() - askedRef.current.at < PLAN_EVENT_PACING_MS) return;
+    const sessionMoved = planSessionKey(result.assetClass) !== scan.session;
+    const event = sessionMoved ? null : planEvent(result, quotePrice);
+    if (!sessionMoved && event == null) return;
+    const key = sessionMoved
+      ? `${symbol}:session:${planSessionKey(result.assetClass)}`
+      : `${symbol}:${event}:${planEventLevel(result, event!)}`;
+    if (askedRef.current.key === key && !sessionMoved) return;
+    askedRef.current = { key, at: Date.now() };
     const t = setTimeout(readPlanAgain, 0);
     return () => clearTimeout(t);
-  }, [result, quotePrice, refreshing, scan.storedAt, readPlanAgain, symbol]);
+  }, [result, quotePrice, refreshing, scan.session, readPlanAgain, symbol, minute]);
 
   const markers: PriceMarker[] = [];
   // Gann's even figures: mark the round number the price is approaching,
@@ -296,7 +326,7 @@ export function TickerView({ symbol }: { symbol: string }) {
         <div className="ml-auto flex items-center gap-2">
           {result && (
             <span className="flex items-center gap-1.5 text-xs text-muted">
-              <span className="hidden sm:inline">Plan as of {planTime(result.scannedAt)}</span>
+              <span>Plan as of {planTime(result.scannedAt)}</span>
               <button
                 type="button"
                 onClick={readPlanAgain}
