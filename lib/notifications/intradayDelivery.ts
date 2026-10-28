@@ -15,12 +15,18 @@
  *   does not show;
  * - the alert's 0-9 confidence reaches the member's `min_score`;
  * - the member is not inside quiet hours they turned on (`inQuietHours`);
- * - the same symbol, direction and score was not sent or tried on that channel
- *   in the last 24 hours (`notification_log`, per channel, so an email does
- *   not hold back the push or the reverse). A failed try counts too, on
- *   purpose: the scan runs every 15 minutes, and retrying a refused send
- *   (Resend's daily quota, a bad address) on each run multiplies the failures
- *   without reaching anyone.
+ * - the move is new on that channel (`notification_log`, per channel, so an
+ *   email does not hold back the push or the reverse): a signal goes once a
+ *   move, as the bell's does (`isNewMove`), so the same symbol and signal is
+ *   sent again on the same New York day only after it turned the other way;
+ *   a notice (nearing or at a plan's entry), once in 24 hours. Gann acts on
+ *   the first change in trend (Master Course Ch. 13). Until 2026-10-28 a
+ *   signal was keyed on its symbol, direction and 0-9 score, so a score that
+ *   drifted between scans sent the same standing move again: on 10-27, 150
+ *   emails for 63 member-symbol-direction pairs, every repeat a new score. A
+ *   failed try counts too, on purpose: the scan runs every 15 minutes, and
+ *   retrying a refused send (Resend's daily quota, a bad address) on each run
+ *   multiplies the failures without reaching anyone.
  * Best-effort per member: one bad address or failed write never stops the rest.
  *
  * The message says what Gann's method uses an intraday signal for: timing a
@@ -39,11 +45,15 @@ import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import { sendPushToProfile, vapidConfig, type PushMessage } from "@/lib/notifications/web-push";
 import { alertsForTier, buildIntradayBellRow } from "@/lib/notifications/intradayBell";
 import { tickerHref } from "@/lib/routes";
+import { etDateKey } from "@/lib/market/session";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { approachDue, approachLeadMinutes } from "@/lib/scanner/entryApproach";
 
-/** How far back a notification_log row still counts as "already sent this". */
+/** How far back a notice's notification_log row still counts as "already sent this". */
 export const NOTIFICATION_DEDUP_HOURS = 24;
+
+/** Wide enough to hold the whole New York day; a signal's rows are filtered to it. */
+const SIGNAL_READ_HOURS = 30;
 
 /**
  * What `app/api/notifications/preferences` (GET) promises a member who has
@@ -91,14 +101,14 @@ export function dueForLead(alerts: Alert[], leadMinutes: number): Alert[] {
 }
 
 /**
- * The key a send is deduplicated on. A notice (nearing or at a plan's entry)
- * is keyed on its own type, so it goes out once a day on each channel and
- * never holds back, or is held back by, a trade signal with the same score.
+ * The key a send is deduplicated on: the symbol, the signal and its
+ * direction, never the score, which drifts between scans while the move
+ * stands. Each signal and notice is keyed on its own type, so none holds
+ * another back.
  */
-export function signalHashFor(alert: Alert): string {
+export function signalHashFor(alert: Pick<Alert, "symbol" | "type" | "direction">): string {
   const direction = alert.direction === "up" ? "bullish" : "bearish";
-  if (NOTICE_SIGNALS.has(alert.type)) return `${alert.symbol}-${alert.type}-${direction}`;
-  return `${alert.symbol}-${direction}-${alertScore(alert)}`;
+  return `${alert.symbol}-${alert.type}-${direction}`;
 }
 
 /** The alert's own 0-9 confidence, a whole number. */
@@ -112,23 +122,45 @@ export function intradayPushMessage(alert: Alert): PushMessage {
   return { title: row.title, body: row.body, url: tickerHref(alert.symbol), tag: `intraday-${alert.symbol}` };
 }
 
+/**
+ * True when this alert's move was already sent or tried on the channel: a
+ * notice inside `NOTIFICATION_DEDUP_HOURS`; a signal when the latest send
+ * today (New York day) for its symbol and signal went the same way. An
+ * unread log counts as sent, so a failed read never repeats every standing
+ * signal on each scan.
+ */
 async function alreadySent(
   service: SupabaseClient,
   userId: string,
   channel: Channel,
-  signalHash: string,
+  alert: Alert,
   now: Date,
 ): Promise<boolean> {
-  const since = new Date(now.getTime() - NOTIFICATION_DEDUP_HOURS * 3600_000).toISOString();
-  const { data } = await service
+  const hash = signalHashFor(alert);
+  const notice = NOTICE_SIGNALS.has(alert.type);
+  const keys = notice ? [hash] : [hash, signalHashFor({ ...alert, direction: alert.direction === "up" ? "down" : "up" })];
+  const hours = notice ? NOTIFICATION_DEDUP_HOURS : SIGNAL_READ_HOURS;
+  const since = new Date(now.getTime() - hours * 3600_000).toISOString();
+  const { data, error } = await service
     .from("notification_log")
-    .select("id")
+    .select("signal_hash, triggered_at")
     .eq("user_id", userId)
     .eq("channel", channel)
-    .eq("signal_hash", signalHash)
-    .gte("triggered_at", since)
-    .limit(1);
-  return (data ?? []).length > 0;
+    .in("signal_hash", keys)
+    .gte("triggered_at", since);
+  if (error) {
+    console.error("[intraday-notify] log read failed:", error.message);
+    return true;
+  }
+  const rows = (data ?? []) as { signal_hash: string; triggered_at: string }[];
+  if (notice) return rows.length > 0;
+  const today = etDateKey(now);
+  let latest: { signal_hash: string; triggered_at: string } | null = null;
+  for (const r of rows) {
+    if (etDateKey(new Date(r.triggered_at)) !== today) continue;
+    if (!latest || r.triggered_at > latest.triggered_at) latest = r;
+  }
+  return latest?.signal_hash === hash;
 }
 
 /**
@@ -180,7 +212,7 @@ export async function notifySubscribedUsers(
         const score = alertScore(alert);
         const signalHash = signalHashFor(alert);
         for (const channel of channels) {
-          if (await alreadySent(service, userId, channel, signalHash, now)) continue;
+          if (await alreadySent(service, userId, channel, alert, now)) continue;
 
           let result: { success: boolean; skipped?: boolean; error?: string };
           let recipient: string | null = null;

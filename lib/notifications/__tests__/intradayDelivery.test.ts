@@ -89,21 +89,27 @@ function fakeService(opts: {
       }
       if (table === "notification_log") {
         const filters: Record<string, string> = {};
+        let keys: string[] | null = null;
         let since = "";
         const q = {
           select: () => q,
           eq: (col: string, v: string) => ((filters[col] = v), q),
+          in: (col: string, v: string[]) => {
+            if (col !== "signal_hash") throw new Error(`in() on ${col}`);
+            keys = v;
+            return q;
+          },
           gte: (col: string, v: string) => {
             if (col !== "triggered_at") throw new Error(`window read on ${col}`);
             since = v;
             return q;
           },
-          limit: () =>
-            Promise.resolve({
+          then: (resolve: (v: { data: LogRow[]; error: null }) => void) =>
+            resolve({
               data: log
                 .filter((r) => Object.entries(filters).every(([k, v]) => (r as unknown as Record<string, string>)[k] === v))
-                .filter((r) => r.triggered_at >= since)
-                .map((_, i) => ({ id: i })),
+                .filter((r) => keys === null || keys.includes(r.signal_hash))
+                .filter((r) => r.triggered_at >= since),
               error: null,
             }),
           insert: (row: Record<string, unknown>) => {
@@ -265,7 +271,7 @@ describe("notifySubscribedUsers: score floor and quiet hours", () => {
 
 describe("notifySubscribedUsers: dedupe and the log", () => {
   const prefs = [{ user_id: "u1", email_enabled: true, push_enabled: true }];
-  const hash = "SPY-bullish-9";
+  const hash = "SPY-old_level_cross-bullish";
 
   it("logs each send per channel with the signal's hash", async () => {
     const { client, inserted } = fakeService({ users: [{ id: "u1", email: "a@x.test" }], prefs });
@@ -286,7 +292,7 @@ describe("notifySubscribedUsers: dedupe and the log", () => {
     expect(await run(client, [alert()])).toEqual({ email: 0, push: 1 });
   });
 
-  it("sends again once the earlier send is older than the window", async () => {
+  it("sends a signal again on a new New York day", async () => {
     const old = new Date(NOW.getTime() - (NOTIFICATION_DEDUP_HOURS + 1) * 3600_000).toISOString();
     const { client } = fakeService({
       users: [{ id: "u1", email: "a@x.test" }],
@@ -296,11 +302,20 @@ describe("notifySubscribedUsers: dedupe and the log", () => {
     expect(await run(client, [alert()])).toEqual({ email: 1, push: 1 });
   });
 
-  it("sends a second run of the same signal nowhere, and a new score again", async () => {
+  it("sends a standing signal once a move: not on a new score, again after it turns", async () => {
     const { client } = fakeService({ users: [{ id: "u1", email: "a@x.test" }], prefs });
-    expect(await run(client, [alert()])).toEqual({ email: 1, push: 1 });
-    expect(await run(client, [alert()])).toEqual({ email: 0, push: 0 });
-    expect(await run(client, [alert({ confidence: 80 })])).toEqual({ email: 1, push: 1 });
+    // One scheduled scan every 15 minutes.
+    let scan = 0;
+    const next = (alerts: Alert[]) =>
+      notifySubscribedUsers(client, alerts, { intervalBySymbol: intervals, now: new Date(NOW.getTime() + scan++ * 15 * 60_000) });
+    expect(await next([alert()])).toEqual({ email: 1, push: 1 });
+    expect(await next([alert()])).toEqual({ email: 0, push: 0 });
+    // 10-27 sent 150 emails for 63 member-symbol-direction pairs, every repeat a new score.
+    expect(await next([alert({ confidence: 80 })])).toEqual({ email: 0, push: 0 });
+    expect(await next([alert({ direction: "down" })])).toEqual({ email: 1, push: 1 });
+    expect(await next([alert()])).toEqual({ email: 1, push: 1 });
+    // A different signal on the same symbol is its own move.
+    expect(await next([alert({ type: "trend_continuation" } as Partial<Alert>)])).toEqual({ email: 1, push: 1 });
   });
 
   it("does not hold another member's send on one member's log", async () => {
@@ -324,14 +339,24 @@ describe("notifySubscribedUsers: dedupe and the log", () => {
     expect(await run(client, [alert()])).toEqual({ email: 0, push: 0 });
   });
 
-  it("still counts a send made exactly at the window's edge", async () => {
+  it("counts a signal sent at the New York day's first minute", async () => {
+    // 00:00 New York on 2026-10-22 is 04:00 UTC (EDT).
+    const { client } = fakeService({
+      users: [{ id: "u1", email: "a@x.test" }],
+      prefs,
+      log: [{ user_id: "u1", channel: "email", signal_hash: hash, triggered_at: "2026-10-22T04:00:00.000Z" }],
+    });
+    expect(await run(client, [alert()])).toEqual({ email: 0, push: 1 });
+  });
+
+  it("still counts a notice sent exactly at the window's edge", async () => {
     const edge = new Date(NOW.getTime() - NOTIFICATION_DEDUP_HOURS * 3600_000).toISOString();
     const { client } = fakeService({
       users: [{ id: "u1", email: "a@x.test" }],
       prefs,
-      log: [{ user_id: "u1", channel: "email", signal_hash: hash, triggered_at: edge }],
+      log: [{ user_id: "u1", channel: "push", signal_hash: "SPY-entry_reached-bullish", triggered_at: edge }],
     });
-    expect(await run(client, [alert()])).toEqual({ email: 0, push: 1 });
+    expect(await run(client, [alert({ type: "entry_reached" } as Partial<Alert>)])).toEqual({ email: 0, push: 0 });
   });
 
   it("logs nothing for a push with no subscribed browser", async () => {

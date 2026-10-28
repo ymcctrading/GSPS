@@ -53,6 +53,7 @@ function fakeDb(tables: Record<string, Row[]>, users: string[]) {
       select: () => chain,
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), chain),
       gte: (c: string, v: string) => (filters.push((r) => String(r[c]) >= v), chain),
+      in: (c: string, v: unknown[]) => (filters.push((r) => v.includes(r[c])), chain),
       limit: () => chain,
       then: (resolve: (v: ReturnType<typeof result>) => void) => resolve(result()),
       insert: async (row: Row) => {

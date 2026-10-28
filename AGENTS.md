@@ -3254,7 +3254,9 @@ Email and browser push for the same signals (`lib/notifications/intradayDelivery
 2026-10-21, after #404) go to every member by their settings (push off until
 turned on), score floor and quiet hours, each channel deduped on its own, and
 now by tier as the bell is: before, email reached every member whatever their
-plan.
+plan. A signal goes once a move on each channel, as the bell's does (keyed on
+symbol, signal and direction, never the drifting score; 2026-10-28, after 150
+emails for 63 member-symbol-direction pairs on 10-27).
 **Measured losing, 2026-10-22 (run 80,
 `replay-diagnosis/2026-10-22-intraday-alerts-replay.md`):** "Daily plan's level
 held" lost over Aug 26 to Oct 21 (152 trades, −0.107R, CI wholly below zero,
