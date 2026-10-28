@@ -130,14 +130,16 @@ describe("what a person reads about it", () => {
     };
     const items = gradeExam("pro_to_expert", [s], [{ trend: "down", decision: "trade", entryChoiceId: "e1", stopChoiceId: "s1", shares: 188 }]).scenarios[0].items;
     const text = (item: string) => items.find((x) => x.item === item)!.explanation;
-    expect(text("decision")).toMatch(/rally in a falling market had run into the end of its second or third week/);
+    expect(text("decision")).toMatch(/rally in a falling market had run its course/);
+    expect(text("decision")).not.toMatch(/second or third week/);
     expect(text("entry")).toMatch(/the last close, at 97\.80/);
-    expect(text("stop")).toMatch(/just over that week's high, at 103\.10/);
+    expect(text("stop")).toMatch(/just over the rally's high, at 103\.10/);
   });
 
-  it("is taught in the Expert course", () => {
+  it("is not taught in the Expert course", () => {
+    // The School teaches public methods only (confidential sources, owner
+    // 2026-10-28), so the method's own entry rules are not in the lessons.
     const method = ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons)).find((l) => l.id === "academy-6/method-rules/entries-and-exits")!.instruction.join(" ");
-    expect(method).toMatch(/rally in a falling market/);
-    expect(method).toMatch(/second or third week/);
+    expect(method).not.toMatch(/second or third week/);
   });
 });

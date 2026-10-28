@@ -402,7 +402,7 @@ function crossedName(k: ScenarioKey): string {
   const up = k.direction !== "bearish";
   if (k.regained) return `${regainedLevelName(up, k.source, k.levelYear)} it had broken`;
   if (k.source === "priorYear") return priorYearLevelName(up, k.levelYear);
-  if (k.source === "allTime") return up ? "the record high from before the last 52 weeks" : "the record low from before the last 52 weeks";
+  if (k.source === "allTime") return up ? "the old record high" : "the old record low";
   return `the last swing ${up ? "top" : "bottom"}`;
 }
 
@@ -435,23 +435,23 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
     const extreme = longKey ? "low" : "high";
     const rally = k.holdBasis === "rally";
     const narrowWeek = k.holdBasis === "narrowWeek";
+    // The explanations say what the chart showed in plain words and never
+    // the rule's timing (confidential sources, owner 2026-10-28).
     const heldWhat =
       k.holdBasis === "narrowWeek"
-        ? "a narrow week had been followed by a sharp drop on large volume"
+        ? "price had broken down sharply on heavy volume"
         : rally
-        ? "a rally in a falling market had run into the end of its second or third week"
+        ? "a rally in a falling market had run its course"
         : k.holdBasis === "record"
-        ? "the record low had held for weeks without breaking decisively"
-        : k.holdBasis === "days"
-          ? `the ${extreme} had held two days after a two-to-three-week reaction in a rising market`
-          : `the ${extreme} had held into its second week`;
+        ? "the record low had held"
+        : `the ${extreme} had held`;
     add(
       "decision",
       a.decision === k.decision,
       k.decision === "trade"
         ? hold
           ? narrowWeek
-            ? `${heldWhat[0].toUpperCase()}${heldWhat.slice(1)}: a trade, sold on the bounce to just under that week's low.`
+            ? `The trend was down and ${heldWhat}: a trade, sold on the bounce.`
             : `The trend was clear and ${heldWhat}: a trade, ${longKey ? "bought" : "sold"} at the last close${rally ? "" : ` near that ${oldSide}`}.`
           : old
           ? `The trend was clear and an old ${oldSide} that had held sat ${longKey ? "below" : "above"} the price: a trade, resting at that ${oldSide} for a second or third test of it.`
@@ -467,7 +467,7 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
           a.entryChoiceId === k.entryChoiceId,
           hold
             ? rally
-            ? `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, the length such rallies run, so the sell is made at the week's end.`
+            ? `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the sell is made there rather than chased lower.`
             : `The entry is the last close, at ${k.entry?.toFixed(2)}: ${heldWhat}, so the ${longKey ? "buy" : "sell"} is made now, near the ${oldSide}, rather than chased later.`
             : old
             ? `The entry is the old swing ${oldSide} itself, at ${k.entry?.toFixed(2)}: an order resting there ${longKey ? "buys" : "sells"} the next test of it, the double or triple ${oldSide}.`
@@ -479,7 +479,7 @@ export function gradeExam(transition: ExamTransition, scenarios: StoredScenario[
         a.stopChoiceId === k.stopChoiceId,
         hold
           ? rally
-            ? `The stop goes just over that week's high, at ${k.stop?.toFixed(2)}: a rally that runs past it is more than a rally in a falling market.`
+            ? `The stop goes just over the rally's high, at ${k.stop?.toFixed(2)}: a rally that runs past it is more than a rally in a falling market.`
             : `The stop goes just ${longKey ? "under" : "over"} the ${extreme} that held, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has given way.`
           : old
           ? `The stop goes just ${longKey ? "under" : "over"} that ${oldSide}, at ${k.stop?.toFixed(2)}: a close beyond it means the ${oldSide} has not held.`

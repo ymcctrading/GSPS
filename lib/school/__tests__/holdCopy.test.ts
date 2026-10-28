@@ -30,16 +30,20 @@ describe("the graduation exam on a held bottom", () => {
 
   it("explains the decision, the entry and the stop as a buy at the close over a low that held", () => {
     const s = scenario();
-    expect(text(s, "decision")).toMatch(/low had held into its second week/);
+    expect(text(s, "decision")).toMatch(/the low had held: a trade/);
     expect(text(s, "entry")).toMatch(/the last close, at 101\.00/);
     expect(text(s, "entry")).not.toMatch(/just past|double or triple/);
     expect(text(s, "stop")).toMatch(/just under the low that held, at 94\.70/);
   });
 
   it("names the rule that found it", () => {
-    expect(text(scenario("days"), "decision")).toMatch(/held two days after a two-to-three-week reaction/);
-    expect(text(scenario("record"), "decision")).toMatch(/record low had held for weeks/);
-    expect(text(scenario("weeks", "bearish"), "decision")).toMatch(/high had held into its second week/);
+    // In plain words, never the rule's timing (confidential sources, 2026-10-28).
+    expect(text(scenario("days"), "decision")).toMatch(/the low had held/);
+    expect(text(scenario("days"), "decision")).not.toMatch(/two days|three-week/);
+    expect(text(scenario("record"), "decision")).toMatch(/record low had held/);
+    expect(text(scenario("record"), "decision")).not.toMatch(/for weeks/);
+    expect(text(scenario("weeks", "bearish"), "decision")).toMatch(/high had held/);
+    expect(text(scenario("weeks", "bearish"), "decision")).not.toMatch(/second week/);
     expect(text(scenario("weeks", "bearish"), "stop")).toMatch(/just over the high that held/);
   });
 
@@ -89,12 +93,11 @@ describe("the lessons and the Settings stop rule", () => {
   const lesson = (id: string) =>
     ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons)).find((l) => l.id === id)!.instruction.join(" ");
 
-  it("teach the buy over a low that held, and what it risks", () => {
-    expect(lesson("academy-4/reading-the-swings/breakouts-and-stops")).toMatch(/low that has stopped falling/);
-    const method = lesson("academy-6/method-rules/entries-and-exits");
-    expect(method).toMatch(/into its second week/);
-    expect(method).toMatch(/record low/);
-    expect(method).not.toMatch(/up to 5/);
+  it("leave the method's own hold rule out of the lessons, and the stop rule says what it risks", () => {
+    // The School teaches public methods only (confidential sources, owner
+    // 2026-10-28), so the method's own entry rules are not in the lessons.
+    expect(lesson("academy-4/reading-the-swings/breakouts-and-stops")).not.toMatch(/second week|stopped falling/);
+    expect(lesson("academy-6/method-rules/entries-and-exits")).not.toMatch(/second week|record low/);
     expect(STOP_RULE_LABEL).toMatch(/the low that held/);
     expect(STOP_RULE_DETAIL).toMatch(/at the last close/);
     expect(STOP_RULE_DETAIL).not.toMatch(/never risks more than 4 points/);
