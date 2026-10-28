@@ -101,7 +101,10 @@ describe("scanIntraday: nearing the plan's entry", () => {
     // After the close: the same bars, read at 4:06 PM ET.
     const bars = reaction();
     const after = new Date("2026-10-27T20:06:00Z");
-    expect(scanIntraday([input(bars, plan)], DEFAULT_CONFIG, after).alerts.some((x) => x.type === "entry_approach")).toBe(false);
+    const fresh = { quote: { price: bars[bars.length - 1].c, at: "2026-10-27T20:05:00Z" } };
+    const closed = scanIntraday([input(bars, plan, fresh)], DEFAULT_CONFIG, after);
+    expect(closed.alerts.some((x) => x.type === "entry_approach")).toBe(false);
+    expect(closed.audit[0].checks.find((c) => c.name === "Nearing the plan's entry")?.detail).toContain("Outside the regular session");
     // Near the close: the same reaction ending at 3:50 PM ET, about 30 minutes off.
     const late = reaction().map((b, i) => ({ ...b, t: new Date(Date.parse("2026-10-27T19:00:00Z") + i * 60_000).toISOString() }));
     const out = scanIntraday([input(late, plan)], DEFAULT_CONFIG, nowAfter(late));

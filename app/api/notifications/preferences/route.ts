@@ -102,7 +102,11 @@ export async function POST(req: NextRequest) {
     let { data, error } = await upsert(row);
     // Until migration 0124 is applied the lead column does not exist; the
     // rest of the settings still save.
-    if (error && "entry_lead_minutes" in row && /entry_lead_minutes/.test(error.message ?? "")) {
+    if (
+      error &&
+      "entry_lead_minutes" in row &&
+      (error.code === "PGRST204" || /could not find the 'entry_lead_minutes' column/i.test(error.message ?? ""))
+    ) {
       const { entry_lead_minutes: _lead, ...rest } = row;
       void _lead;
       ({ data, error } = await upsert(rest));

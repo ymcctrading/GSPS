@@ -1471,7 +1471,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
   // pace is read off bars that ended at 4 PM, and no regular bar can reach the
   // entry until the next session (review, 2026-10-28).
   const regularOnly = input.kind !== "crypto";
-  if (regularOnly && equitySession(now) !== "regular") {
+  if (regularOnly && (equitySession(now) !== "regular" || etParts(now).minutes >= sessionCloseMinute(now))) {
     checks.push({ name, passed: false, detail: "Outside the regular session, so nothing is timed." });
     return null;
   }

@@ -102,8 +102,12 @@ export function alertsForTier(
   alerts = alerts.filter((a) => !MEASURED_LOSING[a.type]);
   if (access.intradayScansEnabled) return alerts;
   if (!access.proIntradayModuleEnabled) return [];
-  return alerts.filter((a) =>
-    isConfirmedIntradayEntry(intervalBySymbol.get(a.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
+  // A notice is not a setup, so the module's bar-length bound does not apply
+  // to it, as on the panel.
+  return alerts.filter(
+    (a) =>
+      NOTICE_SIGNALS.has(a.type) ||
+      isConfirmedIntradayEntry(intervalBySymbol.get(a.symbol) ?? 1, true, DEFAULT_PRO_INTRADAY_POLICY),
   );
 }
 

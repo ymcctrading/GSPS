@@ -53,6 +53,15 @@ describe("alertsForTier", () => {
     expect(pro.map((a) => a.symbol)).toEqual(["SPY"]);
   });
 
+  it("lets Pro's module through a notice whatever its bar length: a notice is not a setup", () => {
+    const pro = alertsForTier(
+      [alert({ symbol: "TSLA", type: "entry_approach" })],
+      { intradayScansEnabled: false, proIntradayModuleEnabled: true },
+      intervals,
+    );
+    expect(pro).toHaveLength(1);
+  });
+
   it("sends no one a signal the replay measured losing (run 80, plan_level_held)", () => {
     const held = [alert({ symbol: "SPY" }), alert({ symbol: "TSLA", type: "old_level_cross" })];
     const out = alertsForTier(held, { intradayScansEnabled: true, proIntradayModuleEnabled: false }, intervals);
