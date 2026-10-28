@@ -1217,6 +1217,19 @@ don't). Broker-side OCO needs nothing: under Q14 there is no target to pair
 with the stop, and the bracket rule's tranches already rest as OCO. Live adds
 wait for the end of the proving period.
 
+**Paper trades on a ladder of sizes, 2026-10-28 (owner: "make trades of all
+sizes ... do some 2, 3, 4 & 5 figure purchases/trades", so the book shows a
+trade can start with any amount).** Gann runs one method on every size of
+account ($300 for 10 shares, W006 Rule 1; $1,000 risking $100, *Truth of the
+Stock Tape*; the $1,000 soybean campaign, *Commodities* pp.134-137; the unit
+doubling with profits, A-RISK-04), so the portfolio manager's paper
+activations are sized for one rung each: a position costing two, three or four
+figures, or the account's own size, the rung the open book (resting
+activations included) holds fewest of, the smaller first
+(`lib/automation/sizeLadder.ts`). A rung only takes shares away, so Gann's
+ceilings hold and placement checks them again. Live accounts are never
+laddered. Verdicts and the replay are unchanged, so `STRATEGY_VERSION` stays.
+
 **Name charts and great cycles, 2026-10-22 (A-OTHER-08, A-TIME-24; owner:
 "Build these: ... name numerology [is] written out in the Master Course").**
 Gann's name chart (Master Course Ch. 15A, PDF 401-402): "United States Steel"
