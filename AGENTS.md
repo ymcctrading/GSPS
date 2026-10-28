@@ -4122,8 +4122,11 @@ within the last two days of the allotted month."
 - **The meter** is `lib/ops/usageLimits.ts` (rules), `lib/ops/usageStore.ts`
   and `/api/ops/usage` (migration 0133). Meters: GitHub Actions minutes (2,000
   a UTC month), Vercel deployments (100 in a rolling 24 hours), email (Resend
-  free: 100 a UTC day, 3,000 a month, from `email_daily_budget`) and the
-  Supabase database (500 MB, alert only). Each threshold emails the owner once
+  free: 100 a UTC day, 3,000 a month, from `email_daily_budget`), and, alert
+  only, the Supabase database (500 MB), its connections (60), file storage
+  (1 GB) and monthly active users (50,000), and Alpaca's 200 requests a
+  minute (the day's busiest minute, from its rate headers). The full table,
+  and what can't be read from here, is in `docs/THIRD_PARTY_LIMITS.md`. Each threshold emails the owner once
   a period, with times in ET.
 - **How it is fed.** Every workflow job starts with a "Usage gate" step and
   ends with a "Usage report" step (`if: always()`) that posts its billed

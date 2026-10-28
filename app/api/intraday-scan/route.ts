@@ -38,7 +38,7 @@
 
 import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
 import { afterResponse, detectionFromAlert, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
 import { evaluateMonitor } from "@/lib/entitlements/monitor-store";
@@ -97,6 +97,7 @@ import {
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { reportAlpacaRateUse } from "@/lib/ops/rateUsage";
 
 export const maxDuration = 120;
 
@@ -444,6 +445,14 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       console.error("[intraday-scan] notification fan-out failed:", err);
     }
+  }
+
+  // The busiest minute of Alpaca requests this instance saw, for the usage
+  // meter, after the response.
+  try {
+    after(() => reportAlpacaRateUse("intraday-scan"));
+  } catch {
+    void reportAlpacaRateUse("intraday-scan");
   }
 
   return NextResponse.json({

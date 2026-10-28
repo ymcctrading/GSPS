@@ -19,6 +19,17 @@
  * - Email, Resend's free 100 a day and 3,000 a month, read from our own send
  *   ledger (`email_daily_budget`).
  * - The Supabase database, 500 MB (free project). Not a periodic limit.
+ * - Supabase connections (the database's max_connections, 60), file storage
+ *   (1 GB) and monthly active users (50,000). Alert only.
+ * - Alpaca's data API, 200 requests a minute (free plan), read as the day's
+ *   busiest minute from the account-wide headers the responses carry. Alert
+ *   only: the app's own limiter keeps under it, so a reading near 100% means
+ *   that limiter is too loose or a second caller shares the key.
+ *
+ * Not readable from here, so not metered (docs/THIRD_PARTY_LIMITS.md): Supabase
+ * egress (5 GB a month) and Vercel's function usage (1 million invocations,
+ * 4 hours of active CPU and 100 GB of transfer a month), which neither
+ * service exposes to a free plan's API.
  *
  * The owner's month, read for each limit (his "the allotted month"):
  * - A monthly limit's month is its own billing month (UTC, as GitHub and
@@ -43,7 +54,16 @@
  * a mixture until the reading is acted on; the hold is the created third.
  */
 
-export type UsageMeterId = "github_actions" | "vercel_deployments" | "email_daily" | "email_monthly" | "supabase_db";
+export type UsageMeterId =
+  | "github_actions"
+  | "vercel_deployments"
+  | "email_daily"
+  | "email_monthly"
+  | "supabase_db"
+  | "supabase_connections"
+  | "supabase_storage"
+  | "supabase_mau"
+  | "alpaca_rate";
 
 export type PeriodKind = "month" | "day" | "rolling24h" | "none";
 
@@ -63,6 +83,14 @@ export const USAGE_METERS: Record<UsageMeterId, UsageMeter> = {
   email_daily: { id: "email_daily", label: "Emails today", unit: "emails", limit: 100, period: "day", holds: true },
   email_monthly: { id: "email_monthly", label: "Emails this month", unit: "emails", limit: 3000, period: "month", holds: true },
   supabase_db: { id: "supabase_db", label: "Supabase database size", unit: "MB", limit: 500, period: "none", holds: false },
+  // Read hourly; the day's alert names the busiest reading. 60 is the
+  // database's own max_connections on the free compute (read 2026-10-28).
+  supabase_connections: { id: "supabase_connections", label: "Supabase database connections", unit: "connections", limit: 60, period: "day", holds: false },
+  supabase_storage: { id: "supabase_storage", label: "Supabase file storage", unit: "MB", limit: 1000, period: "none", holds: false },
+  supabase_mau: { id: "supabase_mau", label: "Supabase monthly active users", unit: "users", limit: 50_000, period: "month", holds: false },
+  // The busiest minute of the day, from Alpaca's own rate-limit headers.
+  // Alert only: our token bucket (lib/data/http.ts) already queues under it.
+  alpaca_rate: { id: "alpaca_rate", label: "Alpaca data requests in a minute", unit: "requests a minute", limit: 200, period: "day", holds: false },
 };
 
 /** The owner's thresholds, in percent. */

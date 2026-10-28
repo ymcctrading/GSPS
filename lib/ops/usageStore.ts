@@ -8,7 +8,10 @@
  *   the CI jobs themselves (every job's last step), plus any reconciliation
  *   reading posted from a measured count.
  * - Email: `email_daily_budget`, the send ledger every email reserves a slot in.
- * - The database: `usage_database_bytes()`.
+ * - The database: `usage_database_bytes()`; its connections, file storage and
+ *   monthly active users: `usage_supabase()`.
+ * - Alpaca's per-minute allowance: the day's largest `alpaca_rate` event
+ *   (`usage_max()`), each the busiest minute a scan saw (`rateUsage.ts`).
  *
  * Alerts go to the owner's addresses by email (kind "ops"), one per meter per
  * reading, naming the highest threshold crossed; every crossed threshold is
@@ -50,7 +53,7 @@ export interface MeterStatus {
 /** Records one use. Idempotent on `key`. */
 export async function recordUsage(
   service: Service,
-  event: { meter: "github_actions" | "vercel_deployments"; units: number; key: string; detail?: Record<string, unknown>; occurredAt?: Date },
+  event: { meter: "github_actions" | "vercel_deployments" | "alpaca_rate"; units: number; key: string; detail?: Record<string, unknown>; occurredAt?: Date },
 ): Promise<{ recorded: boolean; error: string | null }> {
   const { error } = await service.from("usage_events").insert({
     meter: event.meter,
@@ -84,6 +87,20 @@ async function emailUsed(service: Service, meter: UsageMeter, now: Date): Promis
   return (data ?? []).reduce((sum, row) => sum + Number(row.sent ?? 0), 0);
 }
 
+async function maxEvent(service: Service, meter: UsageMeter, now: Date): Promise<number> {
+  const { start } = periodOf(meter, now);
+  const { data, error } = await service.rpc("usage_max", { p_meter: meter.id, p_since: start.toISOString(), p_until: now.toISOString() });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
+
+async function supabaseCounts(service: Service): Promise<{ connections: number; storageMb: number; mau: number }> {
+  const { data, error } = await service.rpc("usage_supabase");
+  if (error) throw new Error(error.message);
+  const row = (data ?? {}) as { connections?: unknown; storage_bytes?: unknown; mau?: unknown };
+  return { connections: Number(row.connections ?? 0), storageMb: Number(row.storage_bytes ?? 0) / 1_000_000, mau: Number(row.mau ?? 0) };
+}
+
 async function databaseMb(service: Service): Promise<number> {
   const { data, error } = await service.rpc("usage_database_bytes");
   if (error) throw new Error(error.message);
@@ -101,6 +118,14 @@ export async function readUsed(service: Service, meter: UsageMeter, now: Date): 
       return emailUsed(service, meter, now);
     case "supabase_db":
       return databaseMb(service);
+    case "supabase_connections":
+      return (await supabaseCounts(service)).connections;
+    case "supabase_storage":
+      return (await supabaseCounts(service)).storageMb;
+    case "supabase_mau":
+      return (await supabaseCounts(service)).mau;
+    case "alpaca_rate":
+      return maxEvent(service, meter, now);
   }
 }
 

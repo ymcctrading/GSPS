@@ -108,3 +108,20 @@ describe("words", () => {
     expect(mail.text).toContain("1121 of 2000 minutes (56.0%)");
   });
 });
+
+describe("alert-only limits", () => {
+  const mid = new Date("2026-10-28T22:00:00Z");
+
+  it("Supabase's connections, storage and users and Alpaca's minute never hold", () => {
+    for (const id of ["supabase_connections", "supabase_storage", "supabase_mau", "alpaca_rate"] as const) {
+      const meter = USAGE_METERS[id];
+      expect(holdDecision(meter, meter.limit, mid, null).hold).toBe(false);
+    }
+  });
+
+  it("the busiest minute alerts once a day", () => {
+    const alpaca = USAGE_METERS.alpaca_rate;
+    expect(periodOf(alpaca, mid).key).toBe("2026-10-28");
+    expect(alertsDue(60, [], alpaca, mid)).toEqual([25, 50, 60]);
+  });
+});
