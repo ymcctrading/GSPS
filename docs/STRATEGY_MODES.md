@@ -135,6 +135,7 @@ header — summarized here, read the module for the full reasoning:
 | `vwap` | Intraday reversal | Break of the session-VWAP reclaim/loss bar | That bar's own extreme | 1.5R / 3R |
 | `stochastic` | Intraday/swing reversal | Break of the %K/%D cross-from-extreme bar | That bar's own extreme | 1.5R / 3R |
 | `donchian` | Swing trend-following | Break beyond the 20-bar Donchian channel | Opposite channel bound | 2R / 4R |
+| `elliottWave` | Swing, wave 3 entry | Break of wave 1's end once waves 1 and 2 are in place | Wave 1's start (Elliott's first rule) | 1.618 / 2.618 × wave 1 from wave 2's end |
 
 `gann` is listed in `StrategyModeId` for completeness (a mode picker needs
 to offer it as the default option) but has no evaluator in this registry —
@@ -146,8 +147,8 @@ it is the existing pipeline, not a new one.
 |---|---|
 | Novice (PRACTICE) | None — no selector shown, only the structural/Gann plan |
 | Pro (STANDARD) | `macdMomentum`, `rsiReversal`, `maCrossover`, `vwap` only |
-| Expert (INVESTOR_MODE) | All nine |
-| Wall Street (SYSTEM_MASTERY) | All nine |
+| Expert (INVESTOR_MODE) | All ten |
+| Wall Street (SYSTEM_MASTERY) | All ten |
 
 This is a pure access-control decision, not a claim about any technique, so
 AGENTS.md's Three-question mandate questions 1 (Gann sourcing) and 2 (Dewey's
@@ -196,6 +197,28 @@ One candidate remains deliberately not built:
   Gann/non-Gann line this document exists to keep clean; if wanted, it
   should compute its own volume-climax read rather than importing the Gann
   one.
+
+## Elliott Wave (2026-10-28, owner: "GSPS should compute Elliott Wave")
+
+The tenth mode, and the first whose count other surfaces share.
+`lib/strategies/elliottCount.ts` finds swing points (a zigzag turning on 2×
+the 14-bar ATR, an engineering filter) and returns the most recent five-wave
+count that keeps Elliott's three rules (wave 2 never past wave 1's start,
+wave 3 never the shortest, wave 4 never into wave 1's range), any A-B-C
+zigzag after it, and a wave 3 setup when waves 1 and 2 stand and wave 1's end
+is not yet broken. Guidelines (the 50-62% wave 2, the 1.618 wave 3,
+alternation, a truncated fifth) are notes, never required. Every surface says
+"One valid count; others are possible. Not a forecast."
+
+Read by: the `elliottWave` mode (`lib/strategies/elliottWave.ts`, Expert and
+Wall Street), its explain-the-math reading (`explainElliottWave`), the chart's
+"Elliott Wave" overlay (the count drawn as a labelled line,
+`components/chart/candles.tsx`; switched on with the mode), and next the
+School's live examples on each learner's picks. Not counted: diagonals,
+flats and triangles. Never read by the scan, the score, a gate, GSPS's plan or
+an automated order. `Elliott` now appears in `lib/chart/indicatorParams.ts`
+(the chip's label) as well as the exempt directories; that hit is this
+documented display use.
 
 ## Custom-script / plugin system
 

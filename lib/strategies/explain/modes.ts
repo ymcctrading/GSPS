@@ -19,6 +19,7 @@ import {
   latestSession,
 } from "../math";
 import { evaluateSaraStrat } from "../saraStrat";
+import { countElliott, countPoints, elliottLean, ONE_VALID_COUNT } from "../elliottCount";
 import { STRATEGY_MODE_LABELS, type StrategyDirection } from "../types";
 import { OVERBOUGHT, OVERSOLD } from "../rsiReversal";
 import {
@@ -254,6 +255,40 @@ export const explainDonchian: PlanExplainer = (bars, plan) => {
         return `below the channel low (${money(c.lower)}), a breakdown by this technique's measure.`;
       const pos = ((price - c.lower) / (c.upper - c.lower)) * 100;
       return `inside the channel, ${fixed(pos, 0)}% of the way from its low to its high.`;
+    }),
+  );
+};
+
+export const explainElliottWave: PlanExplainer = (bars, plan) => {
+  const count = countElliott(bars);
+  const points = countPoints(count);
+  if (points.length === 0) return null;
+  const lean = elliottLean(count);
+  const imp = count.impulse;
+  let state: string;
+  if (count.setup) {
+    const [, w1] = count.setup.points;
+    state = `Waves 1 and 2 of a ${count.setup.direction === "bullish" ? "rising" : "falling"} move are in place; wave 3 would begin past ${money(w1.price)}.`;
+  } else if (imp && count.correction?.complete) {
+    state = `Five ${imp.direction === "bullish" ? "rising" : "falling"} waves and their A-B-C correction are complete.`;
+  } else if (imp && count.correction) {
+    state = `Five ${imp.direction === "bullish" ? "rising" : "falling"} waves are complete and an A-B-C correction is under way.`;
+  } else if (imp) {
+    state = `Five ${imp.direction === "bullish" ? "rising" : "falling"} waves are complete; a correction usually follows.`;
+  } else {
+    state = "No count that keeps Elliott's rules stands right now.";
+  }
+  const atrValue = latestAtr(bars);
+  return reading(
+    "elliottWave",
+    STRATEGY_MODE_LABELS.elliottWave,
+    `${state} (${ONE_VALID_COUNT})`,
+    lean,
+    plan,
+    readEachLevel(plan, (price) => {
+      let near = points[0];
+      for (const p of points) if (Math.abs(p.price - price) < Math.abs(near.price - price)) near = p;
+      return `${distanceWords(price, near.price, atrValue)} the count's point ${near.text} (${money(near.price)}).`;
     }),
   );
 };

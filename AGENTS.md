@@ -2503,6 +2503,15 @@ see `lib/strategies/` and `docs/STRATEGY_MODES.md` for the architecture and
 each mode's three-question design rationale (required by the mandate below
 even though gate 1, Gann sourcing, is answered "none, deliberately" for
 every mode here).
+**Tenth mode, 2026-10-28 (owner: "GSPS should compute Elliott Wave"):**
+`elliottWave`, a wave 3 entry from the shared count in
+`lib/strategies/elliottCount.ts` (Elliott's three rules; diagonals, flats and
+triangles not counted), Expert and Wall Street. The same count draws the
+chart's "Elliott Wave" overlay and feeds the School's live examples, and every
+surface says it is one valid count, not a forecast. Same boundary: it never
+reaches the scan, score, gates, GSPS's plan or an automated order. Owner's
+rule of the same day: user-facing copy teaches public methods like this one
+and never names or describes the house method's sources.
 
 **Tier-gated** (2026-09-23, direct project-owner instruction, same day as
 the follow-up above): Novice has no Strategy Mode access at all — no

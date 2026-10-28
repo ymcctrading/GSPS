@@ -8,6 +8,7 @@ import type { NonGannStrategyModeId } from "../registry";
 import {
   explainBollinger,
   explainDonchian,
+  explainElliottWave,
   explainMacdMomentum,
   explainMaCrossover,
   explainPsarSupertrend,
@@ -28,6 +29,7 @@ export const PLAN_EXPLAINERS = {
   vwap: explainVwap,
   stochastic: explainStochastic,
   donchian: explainDonchian,
+  elliottWave: explainElliottWave,
 } satisfies Record<NonGannStrategyModeId, PlanExplainer>;
 
 export function explainPlan(

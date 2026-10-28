@@ -40,7 +40,8 @@ export type StrategyModeId =
   | "macdMomentum"
   | "vwap"
   | "stochastic"
-  | "donchian";
+  | "donchian"
+  | "elliottWave";
 
 // User-facing labels — kept off GSPS's internal Gann/Strat vocabulary per
 // scripts/check-banned-terms.mjs (docs/GSPS_BRAND_GUIDE.md), even though the
@@ -56,6 +57,7 @@ export const STRATEGY_MODE_LABELS: Record<StrategyModeId, string> = {
   vwap: "VWAP reclaim/loss (intraday)",
   stochastic: "Stochastic 14/3/3 crossover",
   donchian: "Donchian channel breakout (swing)",
+  elliottWave: "Elliott Wave, wave 3 entry (swing)",
 };
 
 /** Non-Gann modes only — the set a "Strategy mode" picker actually offers as
@@ -70,6 +72,7 @@ export const NON_GANN_STRATEGY_MODES: readonly Exclude<StrategyModeId, "gann">[]
   "vwap",
   "stochastic",
   "donchian",
+  "elliottWave",
 ];
 
 export interface StrategyLevels {
