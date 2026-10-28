@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const getOpenPosition = vi.fn();
 const readLiveAlpacaConnection = vi.fn();
 const getAccount = vi.fn();
+const getAsset = vi.fn();
 const placeOrder = vi.fn();
 const getPositions = vi.fn();
 const getOpenOrdersNested = vi.fn<(...args: unknown[]) => Promise<unknown[]>>(async () => []);
@@ -26,6 +27,8 @@ vi.mock("@/lib/brokers/live-creds", () => ({
 }));
 vi.mock("@/lib/brokers/alpaca", () => ({
   getAccount: (...args: unknown[]) => getAccount(...args),
+  getAsset: (...args: unknown[]) => getAsset(...args),
+  envCreds: () => null,
   placeOrder: (...args: unknown[]) => placeOrder(...args),
   getPositions: (...args: unknown[]) => getPositions(...args),
   getOpenOrdersNested: (...args: unknown[]) => getOpenOrdersNested(...args),
@@ -137,6 +140,7 @@ describe("placeSimulatedOrder — live branch", () => {
     getOpenPosition.mockReset().mockResolvedValue(null);
     readLiveAlpacaConnection.mockReset();
     getAccount.mockReset();
+    getAsset.mockReset().mockResolvedValue({ symbol: "AAPL", tradable: true, shortable: true, easy_to_borrow: true });
     placeOrder.mockReset();
     getPositions.mockReset().mockResolvedValue([]);
     evaluateLiveCircuitBreaker.mockReset();
@@ -224,6 +228,28 @@ describe("placeSimulatedOrder — live branch", () => {
     );
     expect(result.status).toBe(200);
     expect((result.body as { caveat: string | null }).caveat).toBeNull();
+  });
+
+  const liveShort: OrderInput = { ...baseInput, side: "sell", attachLevels: { stopLoss: 105, takeProfit: 90 } };
+
+  it("refuses a live short on an account that can't short (a cash account or an IRA)", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000", shorting_enabled: false });
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", liveShort);
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("short_not_enabled");
+    expect(placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuses a live short on a stock the broker won't lend", async () => {
+    readLiveAlpacaConnection.mockResolvedValue(connection);
+    getAccount.mockResolvedValue({ equity: "10000", shorting_enabled: true });
+    getAsset.mockResolvedValue({ symbol: "AAPL", tradable: true, shortable: false, easy_to_borrow: false });
+    const result = await placeSimulatedOrder(stubSupabase(), "u1", liveShort);
+    expect(result.status).toBe(409);
+    expect((result.body as { code: string }).code).toBe("not_shortable");
+    expect(getAsset).toHaveBeenCalledWith(connection.creds, "AAPL");
+    expect(placeOrder).not.toHaveBeenCalled();
   });
 
   it("refuses when a real Alpaca rejection is thrown, and logs it", async () => {

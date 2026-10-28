@@ -29,6 +29,7 @@ import {
   getOrCreateAccount,
   isTriggered,
   listOpenPositions,
+  hasWorkingPlan,
   listWorkingPaperEntries,
   logPlainClose,
   quoteOptionPrice,
@@ -44,7 +45,19 @@ import { canEnterNewIntradayPosition } from "@/lib/promotion/pro-intraday";
 import { loadProIntradayUsage, PRO_INTRADAY_DAILY_LOSS_LOCK_PCT } from "@/lib/promotion/intraday-gate-usage";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
-import { getAccount, getOpenOrdersNested, getPositions, placeOrder } from "@/lib/brokers/alpaca";
+import {
+  envCreds,
+  getAccount,
+  getAsset,
+  getOpenOrdersNested,
+  getPositions,
+  placeOrder,
+  type AlpacaAsset,
+  type AlpacaCreds,
+} from "@/lib/brokers/alpaca";
+import { hardToBorrowWarning, liveShortAccountRefusal, opensShort, shortAssetRefusal } from "@/lib/trade/short-eligibility";
+import { closePaperPosition } from "@/lib/trade/close-position";
+import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { workingLiveEntries, type WorkingLiveEntry } from "@/lib/trade/live-working-entries";
 import { isLiveTradingRestricted } from "@/lib/risk/live-trade-loss";
 import { checkPositionLimits } from "@/lib/risk/position-limits";
@@ -539,11 +552,88 @@ export async function placeSimulatedOrder(
     };
   }
 
+  // A sell on a paper position with a managed exit plan: a part can't be sold
+  // on its own, since the plan exits the whole position (Q14), and a sale of
+  // all of it retires the plan with it, as "Close position" does
+  // (lib/trade/close-position.ts). Otherwise the plan would be left working on
+  // shares no longer held, and its stop would trade them again.
+  if (isProtective && input.mode !== "live" && input.assetClass !== "option" && existingPosition) {
+    if (await hasWorkingPlan(supabase, userId, input.symbol)) {
+      if (input.qty < existingPosition.qty - 1e-9) return managedPartialRefusal(input.symbol);
+      return closeManagedPaperPosition(supabase, userId, input.symbol);
+    }
+  }
+
+  // A short needs a stock the broker lends (lib/trade/short-eligibility.ts).
+  // Paper asks the broker's paper account; a live order is checked in
+  // placeLiveOrder with the member's own connection, beside the account's own
+  // permission to short. A lookup that fails defers to the broker, as the
+  // ticket's own pre-flight does (app/api/assets/route.ts). Crypto has no
+  // lending record to read.
+  let shortWarning: string | null = null;
+  if (
+    input.mode !== "live" &&
+    input.assetClass === "equity" &&
+    !isCryptoSymbol(input.symbol) &&
+    opensShort(existingPosition?.side ?? null, existingPosition?.qty ?? 0, input.side, input.qty)
+  ) {
+    const asset = await readAsset(envCreds("paper"), input.symbol);
+    if (asset) {
+      const refused = shortAssetRefusal(input.symbol, asset);
+      if (refused) return refused;
+      shortWarning = hardToBorrowWarning(input.symbol, asset);
+    }
+  }
+
   // One new entry at a time per account (F-05, lib/trade/order-lock.ts): the
   // capital checks below read the book and the write follows, so a second
   // entry waits until the first is written. A protective order never waits.
-  if (isProtective) return placeChecked(supabase, userId, input, isProtective);
-  return withOrderLock(supabase, userId, () => placeChecked(supabase, userId, input, isProtective));
+  if (isProtective) return placeChecked(supabase, userId, input, isProtective, existingPosition);
+  return withWarning(
+    await withOrderLock(supabase, userId, () => placeChecked(supabase, userId, input, isProtective, existingPosition)),
+    shortWarning,
+  );
+}
+
+/** The broker's lending record for a stock, or null when it can't be read. */
+async function readAsset(creds: AlpacaCreds | null, symbol: string): Promise<AlpacaAsset | null> {
+  if (!creds) return null;
+  try {
+    return await getAsset(creds, symbol);
+  } catch {
+    return null;
+  }
+}
+
+/** An accepted order's response with a warning added beside any it carries. */
+function withWarning(placed: PlacedOrder, warning: string | null): PlacedOrder {
+  if (!warning || placed.status !== 200) return placed;
+  const prior = typeof placed.body.warning === "string" && placed.body.warning ? `${placed.body.warning} ` : "";
+  return { ...placed, body: { ...placed.body, warning: `${prior}${warning}` } };
+}
+
+function managedPartialRefusal(symbol: string): PlacedOrder {
+  return {
+    status: 409,
+    body: {
+      error: `Your ${symbol.toUpperCase()} position runs on a managed exit, which exits the whole position, so part of it can't be sold on its own. Close all of it, or edit its exit levels. Nothing was placed.`,
+      code: "managed_partial_close",
+    },
+  };
+}
+
+/** A sale of a whole managed paper position: closed at market, its plan retired. */
+async function closeManagedPaperPosition(supabase: SupabaseClient, userId: string, symbol: string): Promise<PlacedOrder> {
+  const closed = await closePaperPosition(supabase, userId, symbol);
+  if (!closed.ok) return { status: 409, body: { error: closed.error, code: closed.code } };
+  return {
+    status: 200,
+    body: {
+      order: closed.order ?? null,
+      closedPosition: true,
+      warning: "This sold the whole position at market and retired its managed exit, as Close position does.",
+    },
+  };
 }
 
 /** The rest of `placeSimulatedOrder`, once the halt and the stop are settled. */
@@ -552,13 +642,14 @@ async function placeChecked(
   userId: string,
   input: OrderInput,
   isProtective: boolean,
+  existing: { side: "long" | "short"; qty: number } | null,
 ): Promise<PlacedOrder> {
   // A-EXIT-05: inside the trader's away window a new entry comes back with
   // the close-out reminder (lib/trade/away-notice.ts). Never on a protective order.
   const awayNotice = isProtective ? null : await readAwayNotice(supabase, userId);
 
   if (input.mode === "live") {
-    return withAwayNotice(await placeLiveOrder(supabase, userId, input, isProtective), awayNotice);
+    return withAwayNotice(await placeLiveOrder(supabase, userId, input, isProtective, existing), awayNotice);
   }
 
   // Pro intraday module entry gates (lib/promotion/pro-intraday.ts's
@@ -802,7 +893,9 @@ async function placeChecked(
   // the "no bracket on a short leg" limitation a live Alpaca account would
   // hit doesn't apply — a short's exit is staged and managed the same way a
   // long's is, via lib/trade/exit-manager-sim.ts, on both sides.
-  const useBracket = !isOption && !!input.attachLevels;
+  // An order that only reduces or closes a position stages no exit of its own:
+  // the levels belong to a new position, and a reduction opens none.
+  const useBracket = !isOption && !!input.attachLevels && !isProtective;
   const orderType = submittedLimitPrice ? "limit" : "market";
 
   // The bracket legs are prices too, and they reach the broker the same way the
@@ -1182,6 +1275,22 @@ async function placeLiveOrder(
   userId: string,
   input: OrderInput,
   isProtective: boolean,
+  existing: { side: "long" | "short"; qty: number } | null,
+): Promise<PlacedOrder> {
+  let shortWarning: string | null = null;
+  const placed = await placeLiveChecked(supabase, userId, input, isProtective, existing, (w) => {
+    shortWarning = w;
+  });
+  return withWarning(placed, shortWarning);
+}
+
+async function placeLiveChecked(
+  supabase: SupabaseClient,
+  userId: string,
+  input: OrderInput,
+  isProtective: boolean,
+  existing: { side: "long" | "short"; qty: number } | null,
+  warn: (warning: string | null) => void,
 ): Promise<PlacedOrder> {
   if (input.assetClass === "option") {
     return { status: 400, body: { error: "Live options trading isn't supported yet — options are paper-only.", code: "live_options_unsupported" } };
@@ -1212,8 +1321,9 @@ async function placeLiveOrder(
   // close or reduction is never blocked by the breaker (lib/risk/cooldown.ts),
   // so a read that fails holds new entries only (review finding R-003).
   let equity = 0;
+  let account: Awaited<ReturnType<typeof getAccount>> | null = null;
   try {
-    const account = await getAccount(connection.creds);
+    account = await getAccount(connection.creds);
     equity = Number(account.equity);
     if (!Number.isFinite(equity)) throw new Error("Alpaca returned a non-numeric equity figure.");
   } catch (err) {
@@ -1227,6 +1337,24 @@ async function placeLiveOrder(
       };
     }
     equity = Number.NaN;
+  }
+
+  // A live short needs an account that may borrow (a margin account; a cash
+  // account or an IRA can't) and a stock the broker lends
+  // (lib/trade/short-eligibility.ts). A failed asset read defers to the broker.
+  if (
+    !isProtective &&
+    !isCryptoSymbol(input.symbol) &&
+    opensShort(existing?.side ?? null, existing?.qty ?? 0, input.side, input.qty)
+  ) {
+    const noShorting = account ? liveShortAccountRefusal(account) : null;
+    if (noShorting) return noShorting;
+    const asset = await readAsset(connection.creds, input.symbol);
+    if (asset) {
+      const refused = shortAssetRefusal(input.symbol, asset);
+      if (refused) return refused;
+      warn(hardToBorrowWarning(input.symbol, asset));
+    }
   }
 
   if (Number.isFinite(equity)) {
@@ -1455,7 +1583,8 @@ async function placeLiveOrder(
     submittedLimitPrice = priceCheck.price;
   }
 
-  const useBracket = !!input.attachLevels;
+  // As on paper: a reduction or close stages no exit of its own.
+  const useBracket = !!input.attachLevels && !isProtective;
   let stopLoss: number | undefined;
   if (useBracket) {
     const closingSide = input.side === "buy" ? "sell" : "buy";

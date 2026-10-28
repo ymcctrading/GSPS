@@ -370,6 +370,8 @@ export interface AlpacaAccount {
   buying_power: string;
   cash: string;
   currency: string;
+  /** False on a cash account or an IRA: the account may not borrow shares to short. */
+  shorting_enabled?: boolean;
 }
 
 export interface AlpacaPosition {

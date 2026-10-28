@@ -432,7 +432,7 @@ export async function executeFill(
  * trade-log write — `lib/trade/exit-manager-sim.ts` owns that log, blended
  * across every tranche, once the whole plan finishes.
  */
-async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string): Promise<boolean> {
+export async function hasWorkingPlan(supabase: Supabase, userId: string, symbol: string): Promise<boolean> {
   const { data } = await supabase
     .from("protocol_exits")
     .select("id")

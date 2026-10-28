@@ -15,7 +15,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { closePositionSim, getOpenPosition, listOpenPositions } from "@/lib/brokers/simulator";
+import { closePositionSim, getOpenPosition, hasWorkingPlan, listOpenPositions } from "@/lib/brokers/simulator";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 import { brokerStatusFrom, recordOrderExecution } from "@/lib/learning/record";
 import { buildTradeLogRow } from "@/lib/portfolio/trade-log";
@@ -31,17 +31,36 @@ export interface ClosedPosition {
   planRetired?: boolean;
 }
 
-/** Close `qty` of a paper position (all of it when omitted) at market. */
+/** A close refused before anything was sold. */
+export interface CloseRefused {
+  ok: false;
+  error: string;
+  code: "managed_partial_close";
+}
+
+/**
+ * Close `qty` of a paper position (all of it when omitted) at market. A part
+ * of a position with a working managed exit is refused: the plan exits the
+ * whole position (Q14), and selling a part would leave it working on shares
+ * no longer held.
+ */
 export async function closePaperPosition(
   supabase: SupabaseClient,
   userId: string,
   symbol: string,
   qty?: number,
-): Promise<ClosedPosition> {
+): Promise<ClosedPosition | CloseRefused> {
   const ticker = symbol.toUpperCase();
   const startedAt = Date.now();
   const before = await getOpenPosition(supabase, userId, ticker);
   if (!before) return { ok: true, alreadyFlat: true };
+  if (qty != null && qty < before.qty - 1e-6 && (await hasWorkingPlan(supabase, userId, ticker))) {
+    return {
+      ok: false,
+      error: `Your ${ticker} position runs on a managed exit, which exits the whole position, so part of it can't be sold on its own. Close all of it, or edit its exit levels. Nothing was sold.`,
+      code: "managed_partial_close",
+    };
+  }
 
   const fill = await closePositionSim(supabase, userId, ticker, qty);
   if (!fill) return { ok: true, alreadyFlat: true };
@@ -108,7 +127,7 @@ export async function closeAllPaperPositions(supabase: SupabaseClient, userId: s
   for (const p of await listOpenPositions(supabase, userId)) {
     try {
       const r = await closePaperPosition(supabase, userId, p.symbol);
-      if (!r.alreadyFlat) out.closed.push(p.symbol.toUpperCase());
+      if (r.ok && !r.alreadyFlat) out.closed.push(p.symbol.toUpperCase());
     } catch (err) {
       out.failed.push({ symbol: p.symbol.toUpperCase(), error: err instanceof Error ? err.message : String(err) });
     }
