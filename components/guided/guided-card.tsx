@@ -110,14 +110,16 @@ export function GuidedCard({
 
         {showWhy && <WhyPanel rec={rec} />}
 
-        {/* The order ticket's other two choices, reached from here rather
-            than crowding the one-tap card: Guided places the swing plan. */}
+        {/* The order ticket's other choices, reached from here rather than
+            crowding the one-tap card: Guided places the swing plan. The
+            intraday plan isn't named: Novice, Guided's main reader, has no
+            intraday access, and the ticket offers it where it stands. */}
         <p className="text-xs leading-relaxed text-muted">
           This trades the swing plan.{" "}
           <Link href={rec.why.tickerHref} className="font-medium text-accent hover:underline">
             Open the full order ticket
           </Link>{" "}
-          to trade the intraday plan or your own levels instead.
+          to set your own levels instead.
         </p>
 
         <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
