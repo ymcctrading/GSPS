@@ -45,7 +45,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await closePaperPosition(supabase, user.id, parsed.data.symbol, parsed.data.qty));
+    const closed = await closePaperPosition(supabase, user.id, parsed.data.symbol, parsed.data.qty);
+    if (!closed.ok) return NextResponse.json({ error: closed.error, code: closed.code }, { status: 409 });
+    return NextResponse.json(closed);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

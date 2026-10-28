@@ -39,7 +39,7 @@ import type { FeedEntitlement } from "@/lib/data/timeliness";
 import { availability, newerBarUsable, observationAgeMs, staleUnderRealtime, timeframeForMinutes, usableBy } from "@/lib/data/timeliness";
 import { SCAN_CADENCE_MINUTES } from "@/lib/scanner/entryApproach";
 import type { Alert } from "@/lib/scanner/intraday";
-import { tradeHold } from "@/lib/scanner/intradayDisplay";
+import { APPROACH_NOTICES, LINE_NOTICES, tradeHold } from "@/lib/scanner/intradayDisplay";
 
 export type NotificationFreshnessResult =
   | {
@@ -177,8 +177,16 @@ export function alertFreshnessEvidence(
   const t = alert.timeliness;
   // A reversal-risk warning tells a member to stand aside: protective, so it
   // is never suppressed for want of an entry authorization.
+  // A line notice is an observation (the check treats it as it treats an
+  // entry notice today: only "protective" changes the outcome).
   const purpose: NotificationPurpose =
-    alert.type === "reversal_risk" ? "protective" : alert.type === "entry_approach" ? "approach" : "entry";
+    alert.type === "reversal_risk"
+      ? "protective"
+      : APPROACH_NOTICES.has(alert.type)
+        ? "approach"
+        : LINE_NOTICES.has(alert.type)
+          ? "observation"
+          : "entry";
   return {
     symbol: alert.symbol,
     purpose,

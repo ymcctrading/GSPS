@@ -5,7 +5,10 @@
  *
  * Hindsight data is anything ranked or judged by a move that had already
  * happened: the daily recap's top movers, its per-mover attribution, the
- * coverage report, and the evaluation ledger. It goes to these two addresses
+ * coverage report, and the evaluation ledger. The forward test's record of
+ * every Execute call and its outcome (`/api/shadow/summary`,
+ * `/api/shadow/daily`) is held to the same two accounts until the result is
+ * verified (2026-10-28). It goes to these two addresses
  * and nowhere else, by email or through an owner-only route, and it never
  * feeds a scan, selection, score, plan or order.
  *

@@ -113,7 +113,7 @@ export function SetupCardPanel({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         {headline}
         {model.resting && (
-          <Badge variant="muted" title="The entry is more than a day's range from price: an order resting at its level, not a trade to take today.">
+          <Badge variant="muted" title="The entry is further from today's price than a normal day's move: an order waiting at its level for price to come back, not a trade to take today.">
             Resting order
           </Badge>
         )}

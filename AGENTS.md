@@ -3576,6 +3576,28 @@ the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
 of minutes); the bell uses the default lead and repeats a notice at most every
 12 hours. Unmeasured: nothing replays a notice. User-facing text names no
 method. Verdicts unchanged.
+**The plan's line ahead, 2026-10-28 (owner, on TXN: up $28 over three sessions
+and nothing said until his 5:45 PM scan).** Production records (ET): the
+evening list of Oct 26 had TXN at the top of a 21-session narrow range and at an
+old top, ranked 42nd, past the slots the session timed; the night's sweep read it
+Watch 5 with its line at 301.86; Oct 27 crossed the line and closed 308.96 with
+no notice; Oct 28 1:21 AM it read Execute (bell and email). Gann knew the level
+the night before and watched the session cross it, buying only after the close
+confirmed, on the reaction (W006 p.20, Rules 3(b)-(c); Master Course Ch. 13).
+Two pieces: (1) the intraday scan's focus tier now leads with the breakaway
+lines, a focus name whose narrow range sits at its edge on the side of the
+night's plan and whose line is still ahead of the close by no more than one
+3-point allowance (`breakawayLinesFirst`, `lib/scanner/focusList.ts`; nearest
+in allowances first, then the longer range, an engineering order; on the night
+of Oct 26 there were 13 and TXN was 10th, inside the focus tier's 12); (2) two
+notices on any standing plan whose prior close is short of its entry,
+`line_approach` and `line_crossed` (`detectLineCrossing`, `intraday.ts`): the
+session nearing or trading through the line, with the close that would confirm
+it (`crossingLinesFromEntry`, `pointScale.ts`); a plan whose prior close crossed
+the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
+its line, and one that has made its crossing gets none. Notices, never trades: no
+"Trade this", not stored, not replayed, push and the bell only, worded as
+delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
 **The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
 Gann).** The volume pillar's retest confirmed on any smaller week, so once
 price reached the old turn inside 3 points, noise passed it about half the time
@@ -4089,6 +4111,38 @@ hold until he says the plan has been upgraded.
 - **Before adding a workflow, a job or a trigger**, say what it costs in
   minutes a month. A new check is a step in an existing job where it can be
   (each job is billed at least a minute, however short).
+
+## Usage limits: alerts and the 99% hold (2026-10-28, owner)
+
+Chuck: "track how close we are to reaching our limit(s). Update us at 25, 50,
+60, 65, 70, and in intervals of 5 until 90% of usage. Go by 2 until 96%. Then
+go by 1 until 99. But never allow us to use all 100% of our limits unless it is
+within the last two days of the allotted month."
+
+- **The meter** is `lib/ops/usageLimits.ts` (rules), `lib/ops/usageStore.ts`
+  and `/api/ops/usage` (migration 0133). Meters: GitHub Actions minutes (2,000
+  a UTC month), Vercel deployments (100 in a rolling 24 hours), email (Resend
+  free: 100 a UTC day, 3,000 a month, from `email_daily_budget`) and the
+  Supabase database (500 MB, alert only). Each threshold emails the owner once
+  a period, with times in ET.
+- **How it is fed.** Every workflow job starts with a "Usage gate" step and
+  ends with a "Usage report" step (`if: always()`) that posts its billed
+  minutes, rounded up. A push to `main` also reports one Vercel deployment.
+  **A new workflow job must carry both steps** (copy them from `test.yml`),
+  or its minutes go unmetered. A manual Vercel redeploy is not seen; post it
+  (`{"meter":"vercel_deployments","units":1,"key":"deploy-<id>"}`).
+- **The hold.** At 99% the gate fails the job, and the merge queue merges
+  nothing while `usage_readings` shows `hold = true` for `github_actions` or
+  `vercel_deployments` (`select * from usage_readings` through the Supabase
+  tools; it is rewritten on every report and hourly). The hold lifts in a
+  monthly limit's last two days (UTC), when the period resets, or for an
+  urgent production fix Chuck OKs: add the `usage-override` label to its PR,
+  and for a merge insert a `usage_overrides` row (`meter`, `until`, `reason`
+  citing his message). Never add either without his OK in words.
+- **Reconcile** when a session measures the real figure (the GitHub billing
+  page, or the run list): post the difference as one event with a `key` of
+  `reconcile-<date>`. The meter started at 1,121 minutes measured from the run
+  list at 22:20 UTC on 2026-10-28 (private since 04:47 UTC).
 
 ## Git / PR Workflow
 

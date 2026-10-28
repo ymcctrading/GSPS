@@ -6,10 +6,20 @@
 import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { isEarlyClose, isTradingDay } from "@/lib/market/calendar";
+import { CONTRACTUAL_EQUITY_DELAY_MS } from "@/lib/data/timeliness";
 
 /** 4:00 PM and an early close's 1:00 PM, New York time, in minutes since midnight. */
 const CLOSE_MINUTES = 16 * 60;
 const EARLY_CLOSE_MINUTES = 13 * 60;
+
+/**
+ * Minutes past the close before a US equity's session reads over: the feed's
+ * contractual delay (DATA-DELAY-001), so the session's last bars have arrived,
+ * plus 5 minutes for a feed that runs a little past it (an engineering figure;
+ * the stock feed has run about 16 minutes late). Read at the close itself, the
+ * walk missed the last half hour and called a plan that reacted there expired.
+ */
+export const SESSION_SETTLE_MINUTES = CONTRACTUAL_EQUITY_DELAY_MS / 60_000 + 5;
 
 /**
  * The New York session a signal trades. Gann chose his active stocks from the
@@ -38,7 +48,8 @@ export function shadowTradeSession(scannedAt: string, symbol: string): string {
 
 /**
  * Whether the session a signal trades is over: an earlier New York day, or
- * today once a US equity's session has closed (1:00 PM on an early close, and
+ * today once a US equity's session has closed and its last bars have arrived
+ * (`SESSION_SETTLE_MINUTES` after 4:00 PM, or 1:00 PM on an early close, and
  * all day on a weekend or holiday). Crypto's day is over only when the New
  * York day is.
  */
@@ -47,6 +58,6 @@ export function shadowSessionComplete(sessionDate: string, symbol: string, now: 
   if (sessionDate !== today) return sessionDate < today;
   if (isCryptoSymbol(symbol)) return false;
   const close = isEarlyClose(today) ? EARLY_CLOSE_MINUTES : CLOSE_MINUTES;
-  return !isTradingDay(now) || etParts(now).minutes >= close;
+  return !isTradingDay(now) || etParts(now).minutes >= close + SESSION_SETTLE_MINUTES;
 }
 

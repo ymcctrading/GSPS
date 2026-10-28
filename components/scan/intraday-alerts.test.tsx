@@ -381,6 +381,29 @@ describe("IntradayAlerts — nearing a plan's entry", () => {
   });
 });
 
+describe("IntradayAlerts — the plan's line", () => {
+  it("says crossing the line is not a buy, and never that the entry goes at the market", async () => {
+    mockScan({
+      alerts: [
+        {
+          ...spyAlert,
+          type: "line_crossed",
+          continuationPlan: { ...spyAlert.continuationPlan, entry: 501.25 },
+        },
+      ],
+    });
+    render(<IntradayAlerts />);
+
+    const user = userEvent.setup();
+    const name = await screen.findByRole("button", { name: "SPY" });
+    const card = name.closest("div.rounded-lg") as HTMLElement;
+    await openFullCard(user);
+    expect(within(card).queryByText(/Trade this/)).not.toBeInTheDocument();
+    expect(card.textContent).toMatch(/Crossing the line is not a buy/);
+    expect(card.textContent).not.toMatch(/goes at the market/);
+  });
+});
+
 describe("IntradayAlerts — the setup card", () => {
   it("prices the alert in the same order as the daily lists, MTP included", async () => {
     mockScan();

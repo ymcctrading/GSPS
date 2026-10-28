@@ -44,7 +44,7 @@ import { walkGannExit } from "@/lib/backtest/replay";
 import { tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { completedDailyBars, entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { etDateKey } from "@/lib/market/session";
-import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
+import { delayedFillIndex, replayFeedDelayMs, sessionCloseAt } from "@/lib/data/timeliness";
 import { isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import type { AssetClass } from "@/lib/types";
 import { regularSessionBars } from "@/lib/gann/intradayExit";
@@ -234,6 +234,24 @@ export async function evaluatePendingShadowSignals(
   return tally;
 }
 
+/** Calendar days a missing session is waited on before it is read as never filled. Engineering-chosen. */
+export const FEED_GAP_RETRY_DAYS = 7;
+
+/**
+ * Whether a finished session with no execution bars may still be filled in by
+ * the feed. It may while the session is under `FEED_GAP_RETRY_DAYS` old and
+ * either its daily bar shows trading (the intraday bars are late) or the daily
+ * chart has not yet reached it. A session the daily chart has passed with no
+ * trading in it (a halt, a delisting) cannot, nor can any gap after the wait:
+ * those rows are read as they stand, so a dead session always resolves.
+ */
+export function feedGapMayClose(sessionDate: string, daily: readonly Bar[], now: Date): boolean {
+  if (now.getTime() - Date.parse(`${sessionDate}T00:00:00Z`) >= FEED_GAP_RETRY_DAYS * 86_400_000) return false;
+  const own = daily.find((b) => etDateKey(new Date(b.t)) === sessionDate);
+  if (own) return own.v > 0;
+  return !daily.some((b) => etDateKey(new Date(b.t)) > sessionDate);
+}
+
 /**
  * Walks each row over its session's bars and writes what it finds: the
  * outcome once the trade is decided, or, while it is still open, the time it
@@ -290,6 +308,19 @@ export async function walkShadowRows(
         ),
         crypto,
       );
+      // A finished session the scan came before, with no bar of it in hand,
+      // is a gap in the feed, not a plan that never reacted: it is read again
+      // on a later pass rather than called expired, while the gap can still
+      // close (`feedGapMayClose`).
+      if (
+        !crypto &&
+        sessionComplete &&
+        sessionBars.length === 0 &&
+        scannedAt.getTime() < sessionCloseAt(sessionDate).getTime() - SHADOW_EXECUTION_MINUTES * 60_000 &&
+        feedGapMayClose(sessionDate, daily, now)
+      ) {
+        throw new Error(`no ${SHADOW_EXECUTION_TIMEFRAME} bars for the ${sessionDate} session`);
+      }
 
       const result = walkShadowTrade({
         direction: row.direction,

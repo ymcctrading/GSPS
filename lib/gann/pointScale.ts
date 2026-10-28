@@ -87,6 +87,28 @@ export function levelBeforeThreePoints(trigger: number, direction: "bullish" | "
 }
 
 /**
+ * The old level a crossing plan's entry sits 1 point past, and the line a
+ * close must reach for the crossing to count, 3 points past it (W006 p.20,
+ * Rules 3(b)-(c) pp.46-47; `entryTrigger.ts` prices the reaction entry at the
+ * level plus 1 point and holds the crossing until a close 3 points beyond).
+ * Given only the plan's entry, as a stored plan keeps it: the allowance
+ * changes slowly with price, so a few fixed-point steps settle the level.
+ */
+export function crossingLinesFromEntry(entry: number, direction: "bullish" | "bearish"): { level: number; confirmingClose: number } {
+  const sign = direction === "bullish" ? 1 : -1;
+  let level = entry;
+  for (let i = 0; i < 50; i++) {
+    const next = entry - (sign * threePoints(level)) / 3;
+    if (Math.abs(next - level) < 1e-10 * entry) {
+      level = next;
+      break;
+    }
+    level = next;
+  }
+  return { level, confirmingClose: beyondByThreePoints(level, sign as 1 | -1) };
+}
+
+/**
  * One of Gann's points at this price, in dollars: his 3-point allowance ÷ 3.
  * At $42.50, the middle of the band he wrote most of his stock rules for, it
  * is exactly $1, his literal point.

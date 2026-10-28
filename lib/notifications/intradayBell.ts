@@ -39,7 +39,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry } from "@/lib/promotion/pro-intraday";
 import { etDateKey } from "@/lib/market/session";
-import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
+import { APPROACH_NOTICES, LINE_NOTICES, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { APPROACH_LEAD_DEFAULT_MINUTES, approachDue } from "@/lib/scanner/entryApproach";
 import { checkAlertFreshness, type NotificationFreshnessResult } from "@/lib/notifications/freshness";
 
@@ -103,6 +103,33 @@ export function buildIntradayBellRow(alert: Alert, freshness: DeliverableFreshne
   const plan = alert.continuationPlan;
   const actionable = freshness.disposition === "actionable";
   const asOf = new Date(freshness.dataAsOf);
+  if (LINE_NOTICES.has(alert.type)) {
+    // A crossing still to be made: the session nearing or through the line
+    // the night's plan named. News, never a buy (`detectLineCrossing`).
+    const title = `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`;
+    // Only an actionable disposition may use the scan's own sentence, which
+    // may say "is" and give an arrival time; anything else is written as of
+    // the data, past tense, with no arrival time (NOTIFY-FRESHNESS-001).
+    if (actionable) {
+      return { symbol: alert.symbol, verdict: "Intraday", title, body: `${alert.whyThisAppeared} Not a buy yet.` };
+    }
+    const cl = alert.crossingLine;
+    const lineText = cl ? `${cl.atEntry ? "its daily plan's line" : "the close that would confirm its daily plan's line"} at ${price(cl.line)}` : "its daily plan's line";
+    const beyond = side === "up" ? "above" : "below";
+    const observed =
+      alert.type === "line_crossed"
+        ? `Based on data through ${etClock(asOf)} ET, ${alert.symbol} had traded ${beyond} ${lineText}; the last price was ${price(alert.move.current)}.`
+        : `Based on data through ${etClock(asOf)} ET, ${alert.symbol} was at ${price(alert.move.current)}, moving toward ${lineText}.`;
+    const confirm = cl
+      ? ` A close ${side === "up" ? "at or above" : "at or below"} ${price(cl.confirmingClose)} would confirm it${plan.entry != null ? `, and the entry, ${price(plan.entry)}, would then be taken on a pullback` : ""}.`
+      : "";
+    return {
+      symbol: alert.symbol,
+      verdict: "Intraday",
+      title,
+      body: `${observed} ${delayNote(alert)}Its current price has not been verified.${heldNote(freshness)}${confirm} Not a buy yet.`,
+    };
+  }
   if (NOTICE_SIGNALS.has(alert.type)) {
     const entry = plan.entry ?? alert.move.current;
     const parts = [`entry ${price(entry)}`];
@@ -306,7 +333,7 @@ export async function recordIntradayBells(
         alerts.filter(
           (a) =>
             watched.has(a.symbol.toUpperCase()) &&
-            (a.type !== "entry_approach" || (a.approach != null && approachDue(a.approach.etaMinutes, APPROACH_LEAD_DEFAULT_MINUTES))),
+            (!APPROACH_NOTICES.has(a.type) || (a.approach != null && approachDue(a.approach.etaMinutes, APPROACH_LEAD_DEFAULT_MINUTES))),
         ),
         policy,
         args.intervalBySymbol,

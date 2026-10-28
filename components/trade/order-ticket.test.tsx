@@ -730,3 +730,65 @@ describe("OrderTicket level choice", () => {
     expect(orderBody(fetchMock).attachLevels).toEqual({ stopLoss: 0.48, takeProfit: 0.53 });
   });
 });
+
+describe("OrderTicket on a sell setup for shares already held", () => {
+  function mockHeld(held: { side: "long" | "short"; qty: number; managed: boolean } | null, asset = { shortable: true, easyToBorrow: true }) {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      const json = (body: unknown) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
+      if (url.includes("/api/assets")) return json({ symbol: "DRAM", tradable: true, ...asset });
+      if (url.includes("/api/positions/held")) return json({ held });
+      if (url.includes("/api/positions/close")) return json({ ok: true, order: { status: "filled" } });
+      return json({ order: { status: "accepted" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("offers to sell the shares owned instead of opening a short", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockHeld({ side: "long", qty: 40, managed: true });
+    render(<OrderTicket result={scanWithEntry(50, "bearish")} />);
+
+    expect(await screen.findByText("You own 40 shares of DRAM.")).toBeInTheDocument();
+    expect(screen.getByText(/reason to sell what you hold, not to open a short/)).toBeInTheDocument();
+    // The short itself can't be pressed while the shares are held.
+    expect(screen.getByRole("button", { name: /Sell short DRAM/ })).toBeDisabled();
+    // A managed position closes whole: no partial offer.
+    expect(screen.queryByRole("button", { name: /of them/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Sell all 40 shares" }));
+    const closeCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/positions/close"));
+    expect(JSON.parse(String((closeCall as unknown as [string, RequestInit])[1].body))).toEqual({ symbol: "DRAM" });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/orders"))).toBe(false);
+  });
+
+  it("offers part of an unmanaged position at the ticket's quantity", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockHeld({ side: "long", qty: 4000, managed: false });
+    render(<OrderTicket result={scanWithEntry(50, "bearish")} />);
+
+    const part = await screen.findByRole("button", { name: /Sell \d+ of them/ });
+    await user.click(part);
+    const closeCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/api/positions/close"));
+    const body = JSON.parse(String((closeCall as unknown as [string, RequestInit])[1].body));
+    expect(body.symbol).toBe("DRAM");
+    expect(body.qty).toBeGreaterThan(0);
+    expect(body.qty).toBeLessThan(4000);
+  });
+
+  it("shows the short as usual when nothing is held, with a note on a hard-to-borrow stock", async () => {
+    mockHeld(null, { shortable: true, easyToBorrow: false });
+    render(<OrderTicket result={scanWithEntry(50, "bearish")} />);
+
+    expect(await screen.findByText(/DRAM is hard to borrow/)).toBeInTheDocument();
+    expect(screen.queryByText(/You own/)).not.toBeInTheDocument();
+  });
+
+  it("offers to cover a short held when the ticket is on the buy side", async () => {
+    mockHeld({ side: "short", qty: 12, managed: false });
+    render(<OrderTicket result={scanWithEntry(50)} />);
+    expect(await screen.findByText("You're short 12 shares of DRAM.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cover all 12 shares" })).toBeInTheDocument();
+  });
+});
