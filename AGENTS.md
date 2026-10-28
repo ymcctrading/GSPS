@@ -3463,6 +3463,32 @@ market scan rewrites the lists, a setup that turns ready mid-session joins and
 one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
 from the daily charts after the close and timed in the session (*Truth of the
 Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
+**Fair slots and the evaluation ledger, same day (owner: "I approve all 5", on
+the October 27 coverage report).** On October 27 the scheduled intraday scan
+timed 41 of its 50 slots while the focus list's 36 reserves (BA at rank 48)
+sat out. Its slots are now shared by `lib/scanner/queue.ts`, superseding the order under "Session setups" above: core whole, then
+reserved shares for the session setups (14), discoveries (8), the focus list
+including its reserves (12) and members' watchlists (6); setups, then watched
+names, past their share take the slots other tiers left unused, and the wheel
+always keeps its own 5, rotating through the names waiting from a clock-read
+offset (no counter), so each is reached within a few scans. Only discoveries
+the market scan reported in the last 35 minutes count (`last_discovery_at`);
+discoveries alone never displace the fixed single stocks. Discoveries (`lib/scanner/discovery.ts`:
+an old top or bottom crossed or met within 3 points, a new 13-week extreme, a
+narrow range broken; one labelled heuristic, a wide range on heavy volume)
+are read by the market scan from its coarse daily batch, observed through the
+delayed fetch's end, about 0.25 s for the universe; they carry no levels and
+only earn a slot to be examined. The evaluation ledger (`evaluation_ledger`,
+migration 0129, `lib/ledger/evaluationLedger.ts`) keeps one row per session
+and symbol with the first time each stage was reached (pre-filter, shortlist,
+discovery, slot, deferrals, first detection with its bar, usable and
+evaluation times apart), 400 days, service role only (applied to production
+2026-10-28 on the owner's go-ahead); deferrals count once per 15-minute tick in
+the regular session; every ledger write runs after the response (`after`),
+so no scan waits on it; the owner's recap reads it (`lib/reports/coverage.ts`). `GSPS_EVALUATION_LEDGER=0` turns it off, and
+the queue then has no discovery tier. Hindsight data (the recap's movers and
+attribution) goes to the owner's two accounts only (`lib/auth/owner.ts`).
+Verdicts unchanged.
 **Nearing the entry, same day (owner: alert "as price is moving towards that
 entry level" early enough to sign in and place the order, the lead "determined
 by all of the tools [Gann] used to determine how fast price is moving").** Two
