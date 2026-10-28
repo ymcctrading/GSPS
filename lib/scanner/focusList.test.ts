@@ -76,6 +76,6 @@ describe("rankFocus", () => {
   });
 
   it("describes each reason in plain words", () => {
-    expect(describeFocusReason({ kind: "old_level", level: 101.5, side: "top" })).toBe("Within 3 points of the old top at 101.50");
+    expect(describeFocusReason({ kind: "old_level", level: 101.5, side: "top" })).toBe("Close to the old top at 101.50");
   });
 });

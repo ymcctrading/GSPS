@@ -180,6 +180,6 @@ export function describeFocusReason(reason: FocusReason): string {
         wide_down: "Wide range down on heavy volume",
       }[reason.signal];
     case "old_level":
-      return `Within 3 points of the old ${reason.side} at ${reason.level.toFixed(2)}`;
+      return `Close to the old ${reason.side} at ${reason.level.toFixed(2)}`;
   }
 }

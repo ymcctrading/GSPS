@@ -247,7 +247,7 @@ export function riskCapRefusal(
   return {
     status: 422,
     body: {
-      error: `The stop is more than 5 points from the entry (${Math.abs(entry - stop).toFixed(2)} against a limit of ${cap.toFixed(2)}). Move it closer. Nothing was placed.`,
+      error: `The stop is too far from the entry (${Math.abs(entry - stop).toFixed(2)} against a limit of ${cap.toFixed(2)}). Move it closer. Nothing was placed.`,
       code: "risk_over_five_points",
     },
   };
