@@ -149,3 +149,14 @@ clears a retried profile's rows. It is the record of what each member's plan
 let them see (migration 0036). How long to keep it is an ops decision for
 Chuck; Gann's method doesn't answer it. It is not a trade record, so the
 "keep indefinitely" rule (S-07) does not cover it.
+
+**Decided the same day (migration 0124).** The nightly recap judges what
+members were shown, so the record is kept, the way Gann kept his, but in a
+compact form: `visible_scan_daily` holds one row per member, setup, side and
+New York day, with the first and last time it was shown, how many scans
+showed it and its best rank. A pg_cron job at 08:00 UTC
+(`gsps_ops.rollup_visible_scan_results`) rolls up every complete day and
+deletes raw rows more than 14 New York days old. On the 2026-10-28 read,
+72,593 rollable raw rows made 14,648 daily rows; 10-26 and 10-27 were about
+1,150 a day against 25,000 raw. That is about a twentieth of the growth,
+roughly 60 MB a year at today's 24 members.
