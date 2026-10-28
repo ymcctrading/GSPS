@@ -36,6 +36,7 @@
  * deliberate.
  */
 
+import { planQueue, rotationTick } from "@/lib/scanner/queue";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
@@ -466,7 +467,42 @@ async function resolveSystemUniverse(
     seen.add(entry.symbol);
     out.push(entry);
   }
+  logShadowQueue(out, core, setups, watched, focus);
   return out;
+}
+
+/**
+ * The fair queue (`lib/scanner/queue.ts`) run in shadow beside the live
+ * selection above: logged only, so its picks can be compared before it
+ * selects anything. The discovery tier is empty here until discoveries are
+ * stored where this route can read them (the market scan logs them).
+ */
+function logShadowQueue(
+  live: readonly { symbol: string }[],
+  core: readonly { symbol: string }[],
+  setups: readonly string[],
+  watched: readonly { symbol: string }[],
+  focus: readonly string[],
+): void {
+  try {
+    const plan = planQueue({
+      core: core.map((c) => c.symbol),
+      plans: setups,
+      discovery: [],
+      focus,
+      watched: watched.map((w) => w.symbol),
+      tick: rotationTick(new Date()),
+    });
+    const liveSet = new Set(live.map((l) => l.symbol));
+    const shadowSet = new Set(plan.selected.map((e) => e.symbol));
+    const adds = plan.selected.filter((e) => !liveSet.has(e.symbol)).map((e) => `${e.symbol}(${e.sourceTier} ${e.tierRank})`);
+    const drops = live.filter((l) => !shadowSet.has(l.symbol)).map((l) => l.symbol);
+    console.info(
+      `intraday-scan: shadow queue ${plan.selected.length}/${plan.capacity} (live ${live.length}), deferred ${plan.deferred.length}, adds ${adds.join(" ") || "none"}, drops ${drops.join(" ") || "none"}`,
+    );
+  } catch (err) {
+    console.warn(`intraday-scan: shadow queue failed — ${String(err)}`);
+  }
 }
 
 /**

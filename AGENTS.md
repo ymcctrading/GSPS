@@ -3486,7 +3486,7 @@ replay alike. Rules 1 and 7's secondary rally keeps "smaller", which names no
 figure. `STRATEGY_VERSION` was `2026-10-28-retest-two-thirds-volume`; P8,
 Execute and the 7/4 cutoffs need a fresh run on it. The share-class rule, the
 base-left pillar, Gann's figures at his price and this rule merged together in
-the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` is
+the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` was
 `2026-10-28-midday-release`.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
@@ -3673,7 +3673,7 @@ Owner directives DATA-DELAY-001 and NOTIFY-FRESHNESS-001. Full record and covera
 - **Where it is wired.**
   - The intraday scan filters its input (`usableInput`).
   - Placement and arming read only bars past the delay.
-  - The replays fill late and refuse a fill whose stop traded first (`STRATEGY_VERSION` `2026-10-28-delayed-fill-timing`).
+  - The replays fill late and refuse a fill whose stop traded first (`STRATEGY_VERSION` was `2026-10-28-delayed-fill-timing`; merged onto the midday release as `2026-10-28-delayed-fill-on-midday-release`, no new rule).
 - **Notifications.**
   - The bell and push read `checkAlertFreshness` at the dispatch clock: actionable, informational or suppressed.
   - Only actionable wording may say "now" or give an arrival time.

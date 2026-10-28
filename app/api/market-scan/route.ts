@@ -160,6 +160,13 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     );
   }
 
+  // Shadow discovery: logged only, so its picks can be set beside the live
+  // lists. Nothing reads it to scan, score, plan or notify.
+  if (output.shadowDiscovery.length > 0) {
+    const top = output.shadowDiscovery.slice(0, 15).map((d) => `${d.symbol}[${d.conditions.map((c) => c.kind).join("+")}]`);
+    console.info(`market-scan: shadow discovery ${output.shadowDiscovery.length} stocks, data as of ${output.shadowDiscovery[0].dataAsOf}: ${top.join(" ")}`);
+  }
+
   // Coarse-gate calibration data — best-effort, and deliberately outside the
   // try/catch above so a telemetry write failure can never be mistaken for
   // the actual scan results failing to save.
