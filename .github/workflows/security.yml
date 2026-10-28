@@ -1,8 +1,7 @@
 name: Security
 
-# Secret scanning, dependency review and an audit of known-vulnerable
-# packages. They catch a different class of problem than the Tests workflow
-# does. One job since 2026-10-28 (owner: Actions minutes): as three jobs each
+# Secret scanning and an audit of known-vulnerable packages. They catch a
+# different class of problem than the Tests workflow does. One job since 2026-10-28 (owner: Actions minutes): as three jobs each
 # paid for its own runner minute, and npm audit reads the lockfile, so it
 # needs no install.
 on:
@@ -24,18 +23,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The gitleaks CLI, not gitleaks/gitleaks-action: the action needs a paid
+      # GITLEAKS_LICENSE on a private repository, and the repo went private on
+      # 2026-10-28. The CLI is MIT-licensed and free. It scans the commits a PR
+      # adds (base..head), or the commits a push to main adds, as the action
+      # did. Dependency review (actions/dependency-review-action) was dropped
+      # the same day: on a private repository it needs GitHub Advanced
+      # Security, which is paid. npm audit below still reports known
+      # vulnerabilities in the lockfile.
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Only on PRs: it diffs the base ref against the head ref, so it has
-      # nothing to compare on a plain push.
-      - name: Dependency review
-        if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
+          GITLEAKS_VERSION: 8.18.4
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+          if [ "$EVENT" = "pull_request" ]; then
+            range="${PR_BASE}..${HEAD}"
+          elif [ -n "${PUSH_BEFORE:-}" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            range="${PUSH_BEFORE}..${HEAD}"
+          else
+            range="${HEAD}~1..${HEAD}"
+          fi
+          echo "Scanning ${range}"
+          "$RUNNER_TEMP/gitleaks" detect --source . --log-opts="${range}" --redact --verbose --exit-code 1
 
       # Informational for now. As of 2026-10-21 (review finding CI-1) the
       # in-range fixes are applied and axios is pinned to 1.20.0 through
