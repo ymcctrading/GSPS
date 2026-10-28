@@ -3265,6 +3265,20 @@ paper row did. The ticket says intraday has no measured record; nothing
 automated trades it. Verdicts and the daily replay are unchanged, so
 `STRATEGY_VERSION` stays.
 
+**Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
+well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
+(pg_cron 01:45 and 02:45 UTC Tue-Sat, migration 0123) emails the owner only
+(`OWNER_REPORT_EMAILS`, default his two addresses) once the evening scan has
+stored the session's plans: the next session's focus list with every Execute in
+plain English (entry, stop, take profits) and why each other name is listed,
+and the recap of the session just closed: top movers by dollars, percent and
+price-scaled points, each setup shown that day judged by placement's own entry
+rule (`confirmationFromBars`, filled at the next bar's open) on the session's
+15-minute bars, and each intraday signal judged from the first time it reached
+each member (`lib/reports/eveningReport.ts`). Misses and losses stay in; one
+session is never presented as a record. Widen the recipients only on the owner's
+word.
+
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one (2026-09-23, project owner direction)
 
 The novice/expert interface worked example in the Three-question mandate
