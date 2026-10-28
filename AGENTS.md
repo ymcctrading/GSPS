@@ -1228,12 +1228,16 @@ now counts every lesson's yearly list (1935, 1955 and 1931) on the stock's
 (`pillarYearCycleConvergence`, `readPillarFacts`' `yearCountMonthly`, live and
 replay alike), and the market's 84-, 90- and 100-year counts on the long record
 (`marketCountHits`). Random walks, long readings with a count against: 14.5%
-before, 43.2% now; the replay measures whether the stricter check helps.
+before, 43.2% now; the replay measures whether the stricter check helps,
+through P1's own factor row (about 0.23 ms a read). Stated exception: the
+shortlist re-rank, the scan's year-cycle badge and the replay's
+`yearCycleSplit` keep the 1935 list on ten years, since the re-rank's bonus was
+measured on that reading; `yearCycleSplit` no longer stands for P1's check.
 The dominant cycle is Gann's step (the
 1936 forecast's "I expect the 1896 cycle to repeat") with a choosing measure
 Gann never gave; built as context and the factor `dominantCycleWithTrade`
-(`dominantCycle.ts`), not acting: on the record it called the month right 53.4%
-against the decades' average's 57.3%. `STRATEGY_VERSION` is
+(`dominantCycle.ts`), not acting: on the record it called the month right 54.3%
+against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` is
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
 
 ## WD Gann precedence — standing principle

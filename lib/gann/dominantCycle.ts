@@ -14,7 +14,7 @@
  * measure below is an engineering choice, labelled.
  *
  * Built: for each year back in `MASS_PRESSURE_YEARS` (10 to 70, the 1936
- * lesson's), count the last `ALIGNMENT_MONTHS` completed months in which the
+ * lesson's), count the last `ALIGNMENT_MONTHS` completed monthly moves in which the
  * market's monthly move and that year's move in the same calendar month went
  * the same way. The year with the most agreements, at least two thirds of the
  * months read, is the dominant cycle, and its move in the month read (centred,
@@ -25,10 +25,11 @@
  * (`DisclosedRulesContext.dominantCycle`) and a measured factor
  * (`dominantCycleWithTrade`). Measured before wiring, 2026-10-28, on the record
  * itself (972 months, 1945-2025, the record standing in for the market's daily
- * bars): a dominant decade stood out in 72% of months and called the month's
- * centred move right 53.4% of the time, against 57.3% for the decades' average
+ * bars): a dominant decade stood out in 59% of months and called the month's
+ * centred move right 54.3% of the time, against 57.3% for the decades' average
  * (`massPressure.ts`, which P1 reads) and a 65.4% share of rising months; it
- * disagreed with the average in 24% of months. The choosing rule is not
+ * disagreed with the average in 19% of months. About 0.4 ms a read on the
+ * market's daily bars. The choosing rule is not
  * Gann's, and this one made the forecast worse, so P1 keeps the average; the
  * replay's factor table is where a better rule would show.
  *
@@ -38,7 +39,7 @@
  *   the record (`marketHistory.json`, Shiller's monthly S&P composite).
  * - A month agrees when the two moves have the same sign (a turn in the same
  *   month is a change of sign in the same month, so this is "tops and bottoms
- *   aligned" read month by month). 12 months, at least 6 read, two thirds to
+ *   aligned" read month by month). 11 moves, at least 6 read, two thirds to
  *   count.
  * - Only Gann's own decades are candidates: picking the best of more cycles
  *   would find a match by chance more often (Dewey's multiple-comparison
@@ -58,7 +59,13 @@ import { MASS_PRESSURE_YEARS, marketMonth } from "@/lib/gann/massPressure";
 import { etDateKey } from "@/lib/market/session";
 import type { Bar } from "@/lib/types";
 
-export const ALIGNMENT_MONTHS = 12;
+/**
+ * The moves between the last twelve complete months. The earliest month in the
+ * bars is always dropped, since it may be partial: the live scan holds 400
+ * days of the market's bars and the replay the whole run, and both then read
+ * the same eleven moves.
+ */
+export const ALIGNMENT_MONTHS = 11;
 export const MIN_ALIGNMENT_MONTHS = 6;
 /** Two thirds of the months read must agree. */
 export const MIN_AGREEMENT_SHARE = 2 / 3;
@@ -95,6 +102,7 @@ function recentMonths(marketDaily: Bar[], month: string): { y: number; m: number
   }
   return [...sums.entries()]
     .sort(([a], [b]) => (a < b ? -1 : 1))
+    .slice(1)
     .map(([k, { s, n }]) => {
       const [y, m] = k.split("-").map(Number);
       return { y, m, avg: s / n };

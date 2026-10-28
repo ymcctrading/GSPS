@@ -29,6 +29,10 @@
  * period from 1841 to 1850 is likely to be repeated in 1941 to 1950") and the
  * 1940 *Face Facts* tract. Flanagan's 120 and 150 years have no page of Gann's
  * and are not read. The single 84-year hit stays a measured factor too.
+ * Engineering reading, labelled: Gann states the 100-year repeat for a decade
+ * of conditions (1841-50 against 1941-50); reading it as a major market turn
+ * exactly 100 years back to the month applies the exact-month rule of his
+ * yearly counts to it, as for 84 and 90.
  *
  * Three-question basis:
  * 1. Gann: Tier A for the counts; the Uranus tie is Tier C context.
