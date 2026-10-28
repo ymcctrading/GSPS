@@ -30,6 +30,10 @@ import { createClient } from "@/lib/supabase/client";
 
 /** Least time between two plan reads the price or the clock asks for. */
 const PLAN_EVENT_PACING_MS = 60_000;
+/** One execution bar (15 minutes), the reclaim's re-ask spacing. */
+const EXECUTION_BAR_MS = 15 * 60_000;
+/** Tries at a new session's plan before waiting for a refresh. */
+const MAX_SESSION_TRIES = 3;
 
 export function TickerView({ symbol }: { symbol: string }) {
   const { prefs: gannPrefs } = useGannRulePrefs();
@@ -124,7 +128,6 @@ export function TickerView({ symbol }: { symbol: string }) {
   useEffect(() => {
     let cancelled = false;
     const fresh = reload.freshFor === symbol;
-    const kickoff = setTimeout(() => !cancelled && setRefreshing(true), 0);
 
     // A kept plan is redacted for its member: read who is signed in first
     // (local, no request), and drop the tab's plans if it is someone else.
@@ -149,9 +152,9 @@ export function TickerView({ symbol }: { symbol: string }) {
             exactScoreDisplayEnabled: kept.exactScoreDisplayEnabled,
             session: kept.session,
           });
-          setRefreshing(false);
           return;
         }
+        setRefreshing(true);
         return fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
           .then((res) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
           .then((data) => {
@@ -196,39 +199,58 @@ export function TickerView({ symbol }: { symbol: string }) {
       .finally(() => !cancelled && setRefreshing(false));
     return () => {
       cancelled = true;
-      clearTimeout(kickoff);
       setRefreshing(false);
     };
   }, [symbol, reload]);
 
   // The plan is read again only on its own events: the session moving on, or
-  // the price reaching its stop, its reclaim line, its TP1 or a day's range
-  // from its entry (lib/scan/planCache.ts). Checked on every quote and once a
-  // minute (a quiet market may print nothing across the session's turn). At
-  // most one ask a minute, and each event on each level asks once: the scan's
-  // price can lag the live quote, so a read that still sees the same event is
-  // not asked again for it.
+  // the price reaching its stop (the day's extreme included), its reclaim
+  // line, its TP1 or a day's range from its entry (lib/scan/planCache.ts).
+  // Checked on every quote and once a minute, since a quiet market may print
+  // nothing across the session's turn; the minute check reads refs, so it
+  // re-renders nothing. At most one ask a minute. Each event on each level
+  // asks once: the scan's price can lag the live quote, so a read that still
+  // sees the same event isn't asked again. The reclaim asks once per
+  // execution bar while it holds, since the scan confirms it only on a closed
+  // bar. A session read that keeps failing stops after three tries until a
+  // refresh or the next session.
   const quotePrice = quote?.price ?? null;
-  const [minute, setMinute] = useState(0);
+  const dayHigh = quote?.alertQuote?.dayHigh ?? null;
+  const dayLow = quote?.alertQuote?.dayLow ?? null;
+  const askedRef = useRef<{ key: string; at: number; tries: number }>({ key: "", at: 0, tries: 0 });
+  const latestRef = useRef({ result, session: scan.session, refreshing, quotePrice, dayHigh, dayLow, symbol });
   useEffect(() => {
-    const timer = setInterval(() => setMinute((m) => m + 1), PLAN_EVENT_PACING_MS);
-    return () => clearInterval(timer);
-  }, []);
-  const askedRef = useRef<{ key: string; at: number }>({ key: "", at: 0 });
-  useEffect(() => {
+    latestRef.current = { result, session: scan.session, refreshing, quotePrice, dayHigh, dayLow, symbol };
+  });
+  const checkPlanEvents = useCallback(() => {
+    const { result, session, refreshing, quotePrice, dayHigh, dayLow, symbol } = latestRef.current;
     if (!result || refreshing) return;
-    if (Date.now() - askedRef.current.at < PLAN_EVENT_PACING_MS) return;
-    const sessionMoved = planSessionKey(result.assetClass) !== scan.session;
-    const event = sessionMoved ? null : planEvent(result, quotePrice);
-    if (!sessionMoved && event == null) return;
-    const key = sessionMoved
-      ? `${symbol}:session:${planSessionKey(result.assetClass)}`
-      : `${symbol}:${event}:${planEventLevel(result, event!)}`;
-    if (askedRef.current.key === key && !sessionMoved) return;
-    askedRef.current = { key, at: Date.now() };
-    const t = setTimeout(readPlanAgain, 0);
+    const now = Date.now();
+    if (now - askedRef.current.at < PLAN_EVENT_PACING_MS) return;
+    const sessionNow = planSessionKey(result.assetClass);
+    let key: string;
+    if (sessionNow !== session) {
+      key = `${symbol}:session:${sessionNow}`;
+      if (askedRef.current.key === key && askedRef.current.tries >= MAX_SESSION_TRIES) return;
+    } else {
+      const event = planEvent(result, quotePrice, { high: dayHigh, low: dayLow });
+      if (event == null) return;
+      const bar = event === "reclaim" ? `:${Math.floor(now / EXECUTION_BAR_MS)}` : "";
+      key = `${symbol}:${event}:${planEventLevel(result, event)}${bar}`;
+      if (askedRef.current.key === key) return;
+    }
+    const tries = askedRef.current.key === key ? askedRef.current.tries + 1 : 1;
+    askedRef.current = { key, at: now, tries };
+    readPlanAgain();
+  }, [readPlanAgain]);
+  useEffect(() => {
+    const t = setTimeout(checkPlanEvents, 0);
     return () => clearTimeout(t);
-  }, [result, quotePrice, refreshing, scan.session, readPlanAgain, symbol, minute]);
+  }, [checkPlanEvents, result, quotePrice, dayHigh, dayLow, refreshing]);
+  useEffect(() => {
+    const timer = setInterval(checkPlanEvents, PLAN_EVENT_PACING_MS);
+    return () => clearInterval(timer);
+  }, [checkPlanEvents]);
 
   const markers: PriceMarker[] = [];
   // Gann's even figures: mark the round number the price is approaching,
@@ -390,6 +412,9 @@ export function TickerView({ symbol }: { symbol: string }) {
           )}
           {result && (
             <OrderTicket
+              // A plan that changed side or verdict is a new plan: the ticket
+              // opens fresh on it rather than keeping the old one's choices.
+              key={`${symbol}:${result.direction}:${result.decision?.outputState ?? ""}`}
               result={result}
               livePrice={livePrice}
               intradaySourced={intradaySourced}

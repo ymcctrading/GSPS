@@ -69,12 +69,24 @@ describe("planEvent", () => {
     expect(planEvent(short, 100.5)).toBeNull();
   });
 
-  it("asks a retired plan again only once price is back past its reclaim line", () => {
+  it("asks a retired plan again while price is back past its reclaim line", () => {
     const retired = plan({ currentPrice: 96, stopBreach: { stop: 97, price: 96, reclaimAt: 100 } });
     expect(planEvent(retired, 90)).toBeNull();
     expect(planEvent(retired, 99.9)).toBeNull();
     expect(planEvent(retired, 100)).toBe("reclaim");
     expect(planEventLevel(retired, "reclaim")).toBe(100);
+    // A scan that already priced it past the line, still breached (no closed
+    // bar back through yet), keeps asking: the scan confirms on a closed bar.
+    const seen = plan({ currentPrice: 101, stopBreach: { stop: 97, price: 96, reclaimAt: 100 } });
+    expect(planEvent(seen, 101)).toBe("reclaim");
+  });
+
+  it("reads a stop poked by the day's extreme, not only the last price", () => {
+    expect(planEvent(plan(), 101, { high: 102, low: 96.5 })).toBe("stop");
+    expect(planEvent(plan(), 101, { high: 102, low: 98 })).toBeNull();
+    expect(planEvent(plan(), 101, { high: null, low: null })).toBeNull();
+    const short = plan({ direction: "bearish", levels: { entry: 99, stopLoss: 103, takeProfit1: 94, masterProfit: 88 } } as Partial<ScanResult>);
+    expect(planEvent(short, 100, { high: 103.2, low: 99 })).toBe("stop");
   });
 
   it("asks at the Execute cutoff when price passes TP1", () => {
@@ -107,6 +119,11 @@ describe("planEvent", () => {
 describe("plan cache", () => {
   afterEach(() => clearCachedPlans());
   const morning = new Date("2026-10-27T15:00:00Z");
+
+  it("files a plan under the session its scan read, not when it returned", () => {
+    const stored = writeCachedPlan("SPY", plan({ scannedAt: "2026-10-27T13:29:59Z" }), false, new Date("2026-10-27T13:30:02Z"));
+    expect(stored.session).toBe("2026-10-27:shut");
+  });
 
   it("keeps a plan for its session and drops it once the session moves", () => {
     writeCachedPlan("spy", plan(), true, morning);

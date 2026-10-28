@@ -74,12 +74,29 @@ export type PlanEvent = "stop" | "reclaim" | "target" | "resting";
 
 type PlanFields = Pick<ScanResult, "direction" | "currentPrice" | "levels" | "stopBreach" | "dayRange" | "decision">;
 
+/** Today's high and low so far, from the quote; either may be unknown. */
+export interface DayExtremes {
+  high: number | null | undefined;
+  low: number | null | undefined;
+}
+
 /**
  * The event in the session that asks for the plan to be read again at
  * `livePrice`, or null while the plan stands. Each is read against the price
- * the plan was scanned at, so a condition the scan already saw never asks.
+ * the plan was scanned at, so a condition the scan already saw never asks,
+ * except the reclaim, which the scan confirms only on a closed bar and so is
+ * asked while it holds (the page paces it a bar apart).
+ *
+ * The stop also reads the day's extreme on the plan's adverse side: the scan
+ * retires a plan on any of the session's bars through the stop that has not
+ * closed back, so a poke between two quotes, or while the page was closed,
+ * counts as well.
  */
-export function planEvent(result: PlanFields, livePrice: number | null | undefined): PlanEvent | null {
+export function planEvent(
+  result: PlanFields,
+  livePrice: number | null | undefined,
+  day?: DayExtremes | null,
+): PlanEvent | null {
   const levels = result.levels;
   if (!levels || result.direction === "none") return null;
   if (livePrice == null || !Number.isFinite(livePrice) || !(livePrice > 0)) return null;
@@ -89,12 +106,17 @@ export function planEvent(result: PlanFields, livePrice: number | null | undefin
   if (result.stopBreach) {
     const reclaim = result.stopBreach.reclaimAt;
     if (!Number.isFinite(reclaim)) return null;
-    const back = (price: number) => (buy ? price >= reclaim : price <= reclaim);
-    return back(livePrice) && !back(scanPrice) ? "reclaim" : null;
+    return (buy ? livePrice >= reclaim : livePrice <= reclaim) ? "reclaim" : null;
   }
 
-  const through = (price: number, level: number) => (buy ? price <= level : price >= level);
-  if (Number.isFinite(levels.stopLoss) && through(livePrice, levels.stopLoss) && !through(scanPrice, levels.stopLoss)) {
+  const through = (price: number | null | undefined, level: number) =>
+    price != null && Number.isFinite(price) && price > 0 && (buy ? price <= level : price >= level);
+  const adverse = buy ? day?.low : day?.high;
+  if (
+    Number.isFinite(levels.stopLoss) &&
+    (through(livePrice, levels.stopLoss) || through(adverse, levels.stopLoss)) &&
+    !through(scanPrice, levels.stopLoss)
+  ) {
     return "stop";
   }
 
@@ -209,7 +231,9 @@ export function writeCachedPlan(
   const plan: CachedPlan = {
     result,
     exactScoreDisplayEnabled,
-    session: planSessionKey(result.assetClass, now),
+    // The session the scan read, not the moment it returned: a scan begun a
+    // second before the open has no open-market hold.
+    session: planSessionKey(result.assetClass, scannedAtOr(result.scannedAt, now)),
     storedAt: now.getTime(),
   };
   memory.delete(key);
@@ -239,6 +263,11 @@ export function writeCachedPlan(
     }
   }
   return plan;
+}
+
+function scannedAtOr(iso: string | undefined, fallback: Date): Date {
+  const at = iso ? new Date(iso) : null;
+  return at && !Number.isNaN(at.getTime()) ? at : fallback;
 }
 
 export function forgetCachedPlan(symbol: string): void {
