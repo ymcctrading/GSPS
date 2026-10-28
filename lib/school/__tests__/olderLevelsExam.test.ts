@@ -126,24 +126,18 @@ describe("the exam's words (R7)", () => {
 
   it("says the last swing top was still to cross when it was", () => {
     expect(text(key({ crossed: false }), "decision")).toMatch(/the last swing top was still to cross/);
-    expect(text(key({ source: "allTime" }), "decision")).toMatch(/already closed clearly past the record high/);
+    expect(text(key({ source: "allTime" }), "decision")).toMatch(/already closed clearly past the old record high/);
   });
 });
 
 describe("the lessons (R4, R7)", () => {
   const lesson = (id: string) => ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons)).find((l) => l.id === id)!.instruction.join(" ");
 
-  it("teach in the Pro course that a previous year's top and the record are crossed the same way", () => {
-    const text = lesson("academy-4/reading-the-swings/breakouts-and-stops");
-    expect(text).toMatch(/previous year's top/);
-    expect(text).toMatch(/record/);
-  });
-
-  it("teach that one close through two levels buys over the nearer one, not the older one", () => {
-    const text = lesson("academy-6/method-rules/entries-and-exits");
-    expect(text).not.toMatch(/the older one counts/);
-    expect(text).toMatch(/nearer the price/);
-    expect(text).toMatch(/any previous year's top or bottom/);
+  it("leave the method's older-level rules out of the lessons", () => {
+    // The School teaches public methods only (confidential sources, owner
+    // 2026-10-28), so the method's own entry rules are not in the lessons.
+    expect(lesson("academy-4/reading-the-swings/breakouts-and-stops")).not.toMatch(/previous year's top|before the last 52 weeks/);
+    expect(lesson("academy-6/method-rules/entries-and-exits")).not.toMatch(/nearer the price|any previous year's top or bottom/);
   });
 });
 

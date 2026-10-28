@@ -281,6 +281,9 @@ export function contextFactorsFor(
     const mp = readMassPressure(new Date(ctx.asOf));
     if (mp?.direction) f.massPressureWithTrade = mp.direction === direction;
   }
+  // The dominant decade's direction (`dominantCycle.ts`), measured beside the
+  // decades' average; it does not act (its record, 2026-10-28, is in that module).
+  if (ctx.dominantCycle) f.dominantCycleWithTrade = ctx.dominantCycle.direction === direction;
   // A-TIME-13: the money or commodity curve against the curve of stocks (labelled reconstruction, no direction).
   if (ctx.asOf && ctx.stockMarket) {
     const curves = readThreeCurves(new Date(ctx.asOf));

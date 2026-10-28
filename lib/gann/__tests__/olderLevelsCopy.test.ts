@@ -51,8 +51,8 @@ describe("the signal card's headline", () => {
   it("names the previous year's level or the record, and the mirror", () => {
     expect(structuralTriggerHeadline("bullish", "crossing", "priorYear")).toMatch(/^A close clearly over the previous year's top/);
     expect(structuralTriggerHeadline("bearish", "crossing", "priorYear")).toMatch(/^A close clearly under the previous year's bottom/);
-    expect(structuralTriggerHeadline("bullish", "crossing", "allTime")).toMatch(/record high from before the last 52 weeks/);
-    expect(structuralTriggerHeadline("bearish", "crossing", "allTime")).toMatch(/record low from before the last 52 weeks/);
+    expect(structuralTriggerHeadline("bullish", "crossing", "allTime")).toMatch(/over the old record high/);
+    expect(structuralTriggerHeadline("bearish", "crossing", "allTime")).toMatch(/under the old record low/);
     expect(structuralTriggerHeadline("bullish")).toMatch(/prior confirmed swing high/);
   });
 });
@@ -68,7 +68,7 @@ describe("the graduation exam", () => {
 
   it("names the crossed level in the entry's explanation", () => {
     expect(entryText(key("priorYear"))).toMatch(/just past the previous year's top/);
-    expect(entryText(key("allTime"))).toMatch(/just past the record high from before the last 52 weeks/);
+    expect(entryText(key("allTime"))).toMatch(/just past the old record high/);
     expect(entryText(key())).toMatch(/just past the last swing top/);
   });
 
@@ -91,9 +91,10 @@ describe("the graduation exam", () => {
 });
 
 describe("the lessons", () => {
-  it("teach the previous year's level and the record as levels to cross", () => {
+  it("leave the method's older-level rule out of the lessons", () => {
+    // The School teaches public methods only (confidential sources, owner
+    // 2026-10-28), so the method's own entry rules are not in the lessons.
     const text = ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons)).find((l) => l.id === "academy-6/method-rules/entries-and-exits")!.instruction.join(" ");
-    expect(text).toMatch(/previous year's top or bottom/);
-    expect(text).toMatch(/record/);
+    expect(text).not.toMatch(/previous year's top or bottom/);
   });
 });

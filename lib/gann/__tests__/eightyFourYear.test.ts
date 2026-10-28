@@ -27,3 +27,13 @@ describe("the 84-year count on the market's record (C-ASTRO-05)", () => {
     expect(marketCountHit(mid(1950, 6))).toBeNull();
   });
 });
+
+describe("the long counts in P1 (84, 90 and 100 years, 2026-10-28)", () => {
+  it("reads every long count landing on the month", async () => {
+    const { marketCountHits } = await import("@/lib/gann/eightyFourYear");
+    expect(marketCountHits(mid(2026, 4))).toContainEqual({ years: 84, kind: "low", pivotMonth: "1942-04" });
+    // September 1929's top, 100 years on.
+    expect(marketCountHits(mid(2029, 9)).map((h) => h.years)).toContain(100);
+    expect(marketCountHits(mid(2029, 9)).find((h) => h.years === 100)?.kind).toBe("high");
+  });
+});

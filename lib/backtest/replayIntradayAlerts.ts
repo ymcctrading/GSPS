@@ -82,6 +82,7 @@ import { completedDailyBars, priorDailyClose } from "@/lib/scanner/priorClose";
 import {
   DEFAULT_CONFIG,
   INTRADAY_DAILY_HISTORY_DAYS,
+  NOTICE_SIGNALS,
   scanIntraday,
   sessionMetrics,
   volumeBaseline,
@@ -250,7 +251,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: new Date(end).toISOString() });
       const at = k + 1 + feedDelayBars;
       if (at < busyUntil) continue;
-      const alert = alerts.find((a) => !isReversalRisk(a) && (!signals || signals.has(a.type)));
+      // A notice (nearing or at a daily plan's entry) prices no session trade.
+      const alert = alerts.find((a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && (!signals || signals.has(a.type)));
       if (!alert) continue;
       const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
       const entered = enterAlert({

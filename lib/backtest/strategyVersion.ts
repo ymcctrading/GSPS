@@ -849,6 +849,14 @@
 // Live verdicts move; the replay reads it at the fill, where only the
 // targets reading can hold; how far replay buckets move is not measured.
 // (was STRATEGY_VERSION "2026-10-27-execute-ready-now")
+// 2026-10-28-gann-p1-long-counts (Flanagan's yearly cycles checked against
+// Gann's text): P1's yearly counts read every lesson's list (the January 1955
+// list's 9, 14 and 40 years among them) on the stock's 61-year monthly record, as the
+// time-window hold does; the market's 84-, 90- and 100-year counts on the long
+// record join them (`marketCountHits`). Flanagan's 13, 120 and 150 years have
+// no page of Gann's and are not read. The dominant decade is a measured factor
+// only (`dominantCycleWithTrade`). Live verdicts and replay buckets move.
+// (was STRATEGY_VERSION "2026-10-28-gann-p1-long-counts")
 // 2026-10-28-plan-at-session-close: the live scan reads the plan's lattice
 // levels and targets, the S/R band, the angles, the time and price square,
 // the range divisions and the pillar facts at the last completed session's

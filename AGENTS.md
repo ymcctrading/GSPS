@@ -62,6 +62,14 @@ application.
   never Gann or these sources themselves. This supersedes, for education
   copy, the "Gann-grounded platform" rule's reach into education below; the
   back end stays Gann one for one.
+  **Done 2026-10-28 (owner approved the outline):** Academy 2's, 4's and 6's
+  method courses now teach Dow Theory, support and resistance, the 50%
+  pullback, breakouts and pullbacks, Wyckoff ranges, trailing stops, Elliott
+  Wave, Fibonacci, market stages, calendar lore and sizing, with Mr. Bull and
+  Mrs. Bear kept and the lesson ids unchanged.
+  `lib/school/__tests__/publicMethods.test.ts` fails a lesson that writes out
+  one of the method's own rules. The graduation exam still grades GSPS's own
+  plans, explained in plain words without the rules' timing.
 - `scripts/check-banned-terms.mjs`'s `CONFIDENTIAL_TERMS` gates the copy
   surfaces in CI. Check the built bundle too (`grep -r` over `.next/static`)
   when a change touches what a client imports.
@@ -1216,6 +1224,29 @@ for the Sun level in an S/R build. Plans and exits move: `STRATEGY_VERSION` was
 `2026-10-22-gann-extremes-boiling-sun-act`; the rule recheck fixes merged onto
 it as `2026-10-22-gann-rule-recheck-fixes`, and Execute and the 7/4 cutoffs need
 a fresh run on that.
+
+**Flanagan's yearly cycles checked against Gann, 2026-10-28 (source note B18).**
+James Flanagan's *W. D. Gann's Master Time Factor Revealed* (secondary) adds 9-,
+13-, 14-, 40-, 100-, 120- and 150-year cycles and a "dominant cycle" step. Gann's
+own text carries 9, 14 and 40 (January 1955 list, Master Course Ch. 14, PDF 387),
+84 (1935, Ch. 7 PDF 219), 90 (1955, "the Great Cycle") and 100 (*Commodities*
+p. 224); 13, 120 and 150 are Flanagan's alone and are not built. P1's cycle check
+now counts every lesson's yearly list (1935, 1955 and 1931) on the stock's
+61-year monthly record, the one the time-window hold reads
+(`pillarYearCycleConvergence`, `readPillarFacts`' `yearCountMonthly`, live and
+replay alike), and the market's 84-, 90- and 100-year counts on the long record
+(`marketCountHits`). Random walks, long readings with a count against: 14.5%
+before, 43.2% now; the replay measures whether the stricter check helps,
+through P1's own factor row (about 0.23 ms a read). Stated exception: the
+shortlist re-rank, the scan's year-cycle badge and the replay's
+`yearCycleSplit` keep the 1935 list on ten years, since the re-rank's bonus was
+measured on that reading; `yearCycleSplit` no longer stands for P1's check.
+The dominant cycle is Gann's step (the
+1936 forecast's "I expect the 1896 cycle to repeat") with a choosing measure
+Gann never gave; built as context and the factor `dominantCycleWithTrade`
+(`dominantCycle.ts`), not acting: on the record it called the month right 54.3%
+against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
+`2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
 
 ## WD Gann precedence — standing principle
 
@@ -3242,6 +3273,47 @@ top `FOCUS_SIZE` with the index funds, crypto and members' watchlists in place
 of the fixed single stocks; a name whose daily plan's stop trades through is
 invalidated and the next takes its place. Both intraday scans now read bars
 in batches (100 symbols a request), not three requests a symbol.
+**Session setups, 2026-10-28 (owner: the 15-minute scans "should really be
+feeding that data to the intraday scanner"; "takes all 800+ equities ...
+takes the highest scoring opportunities or the most executable
+opportunities, and then tracks those throughout the day").** The dashboard
+chooses (the daily plan), the intraday scanner times it. Both intraday scans
+now read `lib/scanner/sessionSetups.ts` first after the funds and crypto:
+the latest lists' Execute within a day's range of its entry, then the
+overnight sweep's Execute (`universe_sweep`, all ~830 names) the lists have
+not since read otherwise, then a Watch at the 7 cutoff within a day's range,
+each by score; resting, retired, expired (`detail.planExpired`) and Rejected
+rows are left out, and the lists overrule the sweep only once they were written after it. The sweep night is the market scan's own (`chooseSweepBasis`). Up to `SESSION_SETUPS_MAX` (24) on the scheduled scan, then
+members' watchlists (so with more than about 21 watched names, some wait for a slot: an accepted trade-off for timing the best setups first; none were watched on 2026-10-28) and the focus list; a person's own refresh with no symbols puts
+`SESSION_SETUPS_ON_DEMAND` (9) ahead of the core list. Because the 15-minute
+market scan rewrites the lists, a setup that turns ready mid-session joins and
+one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
+from the daily charts after the close and timed in the session (*Truth of the
+Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
+**Nearing the entry, same day (owner: alert "as price is moving towards that
+entry level" early enough to sign in and place the order, the lead "determined
+by all of the tools [Gann] used to determine how fast price is moving").** Two
+notices on a standing daily plan, on `plan_level_held`'s gates (stop not
+traded, crossing made, prior close on the plan's side): `entry_approach`, the
+minutes left to the entry at the reaction's pace, read as Gann's angle, price
+per bar since the reaction's top (`lib/scanner/entryApproach.ts`; the
+Three-Dimension Chart that measured speed was never disclosed), with the feed's
+lateness taken off; and `entry_reached`, the latest bar at the entry with the
+stop held. Notices, not trades (`NOTICE_SIGNALS`, `intradayDisplay.ts`): they
+carry the daily plan's levels, offer "Open the plan" (no order rests at a
+fixed price: once a closed bar trades into the plan's zone its entry goes at
+the market, never-failing rule 9) and never "Trade this", and the replay skips
+them. A stock's notices are read in the regular session only, and an
+approach only when it would arrive before the close. Notices are live
+readings: never stored in the alert tables, never held by the cooldown, and
+never counted in Pro's daily bound. Push sends an approach once the time left
+is within the member's lead plus one scan
+(`notification_preferences.entry_lead_minutes`, migration 0125: 15 by default,
+the owner's figure; 5, 10, 30, 60 engineering), once a day per channel
+(`signalHashFor`); email never sends a notice (an inbox is too slow for a lead
+of minutes); the bell uses the default lead and repeats a notice at most every
+12 hours. Unmeasured: nothing replays a notice. User-facing text names no
+method. Verdicts unchanged.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day

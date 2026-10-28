@@ -72,7 +72,7 @@ export const STOP_RULE_LABEL = "Just beyond the old top or bottom the entry cros
 export const STOP_RULE_DETAIL =
   "Once price closes clearly past an old top, the buy rests just above that top and fills when price pulls back to it; the stop goes just below the top. " +
   "At a double or triple bottom the buy rests at the old bottom itself, with the stop just under it. " +
-  "Once a low has held into its second week, the buy is at the last close, with the stop just under the low, and only while the risk stays within the limit. " +
+  "Once a low has held, the buy is at the last close, with the stop just under the low, and only while the risk stays within the limit. " +
   "A short is the mirror: after a close clearly under an old bottom, sell just below it, with the stop just above. On a bought put or call the premium paid is the stop: it is the most the option can lose.";
 
 /**

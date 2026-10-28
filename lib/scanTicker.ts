@@ -529,6 +529,7 @@ export async function scanTicker(
       marketDaily: marketDaily ?? null,
       universe: assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
       oldLevels: structural.old,
+      yearCountMonthly: monthlyYearCount ?? monthlyLong ?? null,
       price: planPrice,
       // The session's noon UTC, as the replay reads it: the wall clock cut to
       // a UTC date runs a day ahead after 8 PM New York time and reads the

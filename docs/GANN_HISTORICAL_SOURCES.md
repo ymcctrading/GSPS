@@ -1052,6 +1052,17 @@ each pivot, copied to the preceding opposite pivot) is Gann's own
 parallel-angle rule (A2.1 GA-12 to GA-16). Folded into gap G27. Full note:
 `docs/memory-bank/sources/B17_tradingwdgann_jensen_geometry_article.md`.
 
+### B18. James Flanagan, *W. D. Gann's Master Time Factor Revealed*
+
+Three pages read on 2026-10-28. It reads the Master Time Factor as the annual
+forecast from yearly cycles, picks a "dominant cycle" by laying past decades
+over the current one, and lists cycles of 150, 120, 100, 90, 82-84, 60, 50,
+40, 30, 20, 15 and 10 years, with lesser ones of 14, 13, 9, 7, 5, 3, 2 and 1.
+Checked against Gann's text: 9, 14, 40, 84, 90 and 100 are his (1955 list,
+1935 lesson, *Commodities* p. 224) and are carried; 13, 120 and 150 are
+Flanagan's only. Full note:
+`docs/memory-bank/sources/B18_flanagan_master_time_factor_revealed.md`.
+
 ## Part C — General cycle-theory sources (non-Gann), from "Observation of
 Cycles"
 
