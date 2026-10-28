@@ -30,7 +30,7 @@
 // 2026-09-28 (owner): Gann's even figures move equity stops beyond, and add
 // targets just short of, round numbers (lib/gann/evenFigures.ts via
 // computeEquityTradeLevels); live and paper exits switch to Gann's rules with
-// 60% at TP1 (replay exitRule "gann-runner"). The ⅓ and ⅔ seasonal dates join
+// 60% at TP1 (replay exitRule "structure-runner"). The ⅓ and ⅔ seasonal dates join
 // the fixed calendar. New context readings are measured, not scored.
 // Same day, second bump: Gann's "3 points" in the exit rules is price-scaled
 // from his own bands (lib/gann/pointScale.ts) instead of the entry's 0.3%
@@ -372,7 +372,7 @@
 // 2026-10-16-gann-no-fixed-target: live and paper positions fix no profit
 // target (owner, "Switch all nine", Q14; parity X4): nothing sells at TP1, the
 // whole position runs on Gann's stop and exit signals, as the replay's
-// `exitRule: "gann"` measures. Gann's capital rules (30 points a share, three
+// `exitRule: "structure"` measures. Gann's capital rules (30 points a share, three
 // markets; Q4, Q6, Q12) size and refuse orders. Verdicts do not move; trades
 // and fills do.
 // 2026-10-16-gann-reverse-when-caught (Q15, A-EXIT-02): a trade caught on a

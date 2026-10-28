@@ -19,7 +19,7 @@
  * 2. Saturn's travel in price (A-ASTRO-04, W046 p.1). One scale, one frame,
  *    one sign: geocentric Saturn (the letter's worked examples), 30 points a
  *    degree (its first scale), added to the low. A point is the Gann point
- *    (`gannPointForBars`), so the scale reads in each symbol's own units.
+ *    (`pointForBars`), so the scale reads in each symbol's own units.
  *    - From each major low (`majorPivots(findPivots(daily, 5))`), the line
  *      low + 30 × Saturn's travel since the low, for two years.
  *    - A turn (weekly swing chart top or bottom) in that span hits when its
@@ -45,7 +45,7 @@ import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { ephemerisInstant, planetLongitudes, type Planet } from "@/lib/gann/planetaryAverages";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 
 const DAY = 86_400_000;
 
@@ -174,7 +174,7 @@ export interface SaturnCase {
 }
 
 export function saturnCases(daily: Bar[]): SaturnCase[] {
-  const unit = gannPointForBars(daily);
+  const unit = pointForBars(daily);
   if (!(unit > 0)) return [];
   const turns = walkSwingChart(daily, WEEKLY_SWING_CHART).pivots;
   const out: SaturnCase[] = [];

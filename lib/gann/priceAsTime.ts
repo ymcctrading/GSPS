@@ -41,7 +41,7 @@
  *
  * Engineering choices, labelled as such:
  * - Price is read in points scaled to the stock's price level
- *   (`pointScale.ts#gannPointForBars`), as the Square of 144 readings are;
+ *   (`pointScale.ts#pointForBars`), as the Square of 144 readings are;
  *   Gann's 1 point = $1 holds near $42.50.
  * - Pivots are the extreme high and low of the bars read, as the other time
  *   counts from a pivot (`squareOfNineTime.ts`, `hexagonTime.ts`) take them.

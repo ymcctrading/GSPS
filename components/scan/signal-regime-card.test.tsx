@@ -7,9 +7,9 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SignalRegimeCard } from "./signal-regime-card";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 
-const baseResult: Omit<ScanResult, "signals"> = {
+const baseResult: Omit<PublicScanResult, "signals"> = {
   symbol: "AAPL",
   assetClass: "us_equity",
   scannedAt: "2026-08-08T00:00:00Z",
@@ -18,7 +18,7 @@ const baseResult: Omit<ScanResult, "signals"> = {
   setupKind: "reversion",
   momentumElevated: true,
   trends: [],
-  gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+  chartLevels: { trendLines: [], keyLevels: [], timingActive: false, longTermTimingCount: 0 },
   pattern: null,
   armedPatterns: [],
   levels: null,
@@ -32,7 +32,7 @@ describe("SignalRegimeCard", () => {
   });
 
   it("shows the regime and each state, never its grade, and never the engine's own levels (R-025)", () => {
-    const result: ScanResult = {
+    const result: PublicScanResult = {
       ...baseResult,
       signals: {
         regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
@@ -60,8 +60,7 @@ describe("SignalRegimeCard", () => {
           disqualifiers: [{ key: "staleData", reason: "Market data is stale." }],
         },
         rangeReversion: { status: "notImplemented", state: "rangeReversion", reason: "n/a" },
-        gannConfluence: null,
-        saraConfluence: null,
+        context: { levels: null, barPattern: null },
       },
     };
 
@@ -79,7 +78,7 @@ describe("SignalRegimeCard", () => {
 
   it("never renders a per-criterion breakdown note", () => {
     const secretNote = "Relative volume 1.32x confirms real participation behind the reversal.";
-    const result: ScanResult = {
+    const result: PublicScanResult = {
       ...baseResult,
       signals: {
         regime: { regime: "trend", direction: "bullish", reasons: [], disqualifiers: [] },
@@ -105,8 +104,7 @@ describe("SignalRegimeCard", () => {
         trendBreakout: null,
         confirmedReversal: null,
         rangeReversion: null,
-        gannConfluence: null,
-        saraConfluence: null,
+        context: { levels: null, barPattern: null },
       },
     };
 

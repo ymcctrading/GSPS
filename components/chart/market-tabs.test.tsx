@@ -8,10 +8,11 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MarketTabs } from "./market-tabs";
-import type { GannLevels, ScanResult } from "@/lib/types";
+import type { GannLevels, PublicScanResult } from "@/lib/types";
+import { toChartLevels } from "@/lib/scoring/public-summary";
 import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
-function scan(gann: Partial<GannLevels>): ScanResult {
+function scan(gann: Partial<GannLevels>): PublicScanResult {
   return {
     symbol: "F",
     assetClass: "us_equity",
@@ -21,7 +22,7 @@ function scan(gann: Partial<GannLevels>): ScanResult {
     setupKind: "reversion",
     momentumElevated: false,
     trends: [],
-    gann: {
+    chartLevels: toChartLevels({
       fanLines: [],
       squareOf9: [],
       timeCycleActive: false,
@@ -32,12 +33,12 @@ function scan(gann: Partial<GannLevels>): ScanResult {
       retracementLevels: [],
       digitalRootConfluences: [],
       ...gann,
-    },
+    }),
     pattern: null,
     armedPatterns: [],
     levels: null,
     decision: { score: 5, outputState: "Watch", breakdown: [] },
-  } as ScanResult;
+  } as PublicScanResult;
 }
 
 afterEach(() => {
@@ -49,7 +50,7 @@ describe("MarketTabs yearly-cycle badge", () => {
   it("stays hidden with hits while the yearly cycles have no measured record", () => {
     expect(TIME_LINE_RECORDS.yearCycles).toBeNull();
     render(<MarketTabs symbol="F" result={scan({ yearCycleBullishHits: 2, yearCycleBearishHits: 0 })} />);
-    expect(screen.queryByText("Yearly cycles converging")).toBeNull();
+    expect(screen.queryByText("Long-term timing lines up")).toBeNull();
   });
 
   it("shows the turn window with its measured record", () => {
@@ -60,9 +61,9 @@ describe("MarketTabs yearly-cycle badge", () => {
 
   it("is absent with no hits, or when the fields are missing", () => {
     render(<MarketTabs symbol="F" result={scan({ yearCycleBullishHits: 0, yearCycleBearishHits: 0 })} />);
-    expect(screen.queryByText("Yearly cycles converging")).toBeNull();
+    expect(screen.queryByText("Long-term timing lines up")).toBeNull();
     cleanup();
     render(<MarketTabs symbol="F" result={scan({})} />);
-    expect(screen.queryByText("Yearly cycles converging")).toBeNull();
+    expect(screen.queryByText("Long-term timing lines up")).toBeNull();
   });
 });

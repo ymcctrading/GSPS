@@ -35,7 +35,7 @@ const pctRange = (min: number, max: number): string => `${min}–${max}%`;
 // as places the position sells. Since 2026-10-21 the equity TP1 is the first
 // Gann or support/resistance level in the band that pays more than the risk
 // (lib/strat/levels.ts), and since Q14 (2026-10-16) nothing sells at a fixed
-// target: `LIVE_EXIT_RULE` is "gann", so the whole position runs on Gann's
+// target: `LIVE_EXIT_RULE` is "structure", so the whole position runs on Gann's
 // stop and exit signals (lib/trade/protocol-exit.ts).
 const NO_FIXED_TARGET =
   "Nothing is sold there: the method never fixes a profit objective, so the whole position runs on the trailing stop and the protocol's exit signals.";

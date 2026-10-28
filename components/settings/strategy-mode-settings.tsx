@@ -36,7 +36,7 @@ export function StrategyModeSettings() {
         if (cancelled) return;
         if (body.error) setError(body.error);
         else {
-          setMode(body.mode ?? "gann");
+          setMode(body.mode ?? "gsps");
           setAllowedModes(body.allowedModes ?? []);
         }
       })
@@ -86,11 +86,11 @@ export function StrategyModeSettings() {
       <CardContent>
         <select
           className="w-full rounded-md border px-3 py-2 text-sm bg-background"
-          value={mode ?? "gann"}
+          value={mode ?? "gsps"}
           disabled={allowedModes === null || saving}
           onChange={(e) => save(e.target.value as StrategyModeId)}
         >
-          <option value="gann">{STRATEGY_MODE_LABELS.gann}</option>
+          <option value="gsps">{STRATEGY_MODE_LABELS.gsps}</option>
           {(allowedModes ?? []).map((m) => (
             <option key={m} value={m}>
               {STRATEGY_MODE_LABELS[m]}

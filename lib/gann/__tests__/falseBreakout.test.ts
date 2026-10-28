@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { readFalseBreakout, FALSE_BREAKOUT_RANGE_WEEKS } from "@/lib/gann/falseBreakout";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
 
@@ -12,7 +12,7 @@ function weeks(rows: [number, number, number][]): Bar[] {
   );
 }
 const RANGE: [number, number, number][] = Array.from({ length: FALSE_BREAKOUT_RANGE_WEEKS }, (_, i) => [90, 100, i % 2 ? 94 : 96]);
-const P = gannThreePoints(100);
+const P = threePoints(100);
 /** The Monday after the last week, so every week read is complete. */
 const after = (daily: Bar[]) => new Date(Date.parse(daily[daily.length - 1].t) + 3 * 86_400_000);
 
@@ -34,18 +34,18 @@ describe("readFalseBreakout (C-STOP-01)", () => {
   });
 
   it("mirrors under the range bottom", () => {
-    const d = weeks([...RANGE, [90 - gannThreePoints(90) + 0.2, 95, 91], [91, 97, 94]]);
+    const d = weeks([...RANGE, [90 - threePoints(90) + 0.2, 95, 91], [91, 97, 94]]);
     expect(readFalseBreakout(d, after(d))).toMatchObject({ direction: "bullish", level: 90 });
   });
 
   // Review 22: the mirror's two negative cases, and the range's full 13 weeks.
   it("is not false under the bottom when the break went more than 3 points past it", () => {
-    const d = weeks([...RANGE, [90 - gannThreePoints(90) - 0.2, 95, 91], [91, 97, 94]]);
+    const d = weeks([...RANGE, [90 - threePoints(90) - 0.2, 95, 91], [91, 97, 94]]);
     expect(readFalseBreakout(d, after(d))).toBeNull();
   });
 
   it("is not false under the bottom while the next week holds outside the range", () => {
-    const d = weeks([...RANGE, [90 - gannThreePoints(90) + 0.2, 95, 91], [86, 91, 88]]);
+    const d = weeks([...RANGE, [90 - threePoints(90) + 0.2, 95, 91], [86, 91, 88]]);
     expect(readFalseBreakout(d, after(d))).toBeNull();
   });
 

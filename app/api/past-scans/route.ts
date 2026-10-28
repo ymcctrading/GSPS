@@ -26,6 +26,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { isComplete, isInvalidated } from "@/lib/dailyScans";
 import { etDateKey } from "@/lib/market/session";
 import { PRODUCTION_REPLAY_RUNS } from "@/lib/backtest/replayReference";
+import { publicVersionLabel } from "@/lib/backtest/publicVersion";
 import {
   comparePastScans,
   earliestReadableDate,
@@ -35,6 +36,13 @@ import {
   type PastScanRow,
   type PastScanState,
 } from "@/lib/scanner/pastScans";
+
+// The version names stay on the server; a screen reads the label only.
+const PUBLIC_REPLAY_RUNS = PRODUCTION_REPLAY_RUNS.map((run) => ({
+  ...run,
+  file: undefined,
+  strategyVersion: publicVersionLabel(run.strategyVersion),
+}));
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -101,7 +109,7 @@ function toPastRow(r: DailyScanSelect): PastScanRow {
     stopLoss: num(r.stop_loss),
     takeProfit1: num(r.take_profit_1),
     masterProfit: num(r.master_profit),
-    strategyVersion: r.strategy_version,
+    strategyVersion: publicVersionLabel(r.strategy_version),
   };
 }
 
@@ -142,7 +150,8 @@ export async function GET(req: NextRequest) {
       later: null,
       rows: [],
       forwardByVersion: [],
-      replay: PRODUCTION_REPLAY_RUNS,
+      // The version names stay on the server; a screen reads the label only.
+      replay: PUBLIC_REPLAY_RUNS,
       exactScoreDisplayEnabled: policy.exactScoreDisplayEnabled,
       note,
     });
@@ -209,7 +218,7 @@ export async function GET(req: NextRequest) {
     rMultiple: num(r.r_multiple),
     barsHeld: r.bars_held ?? null,
     fillPrice: num(r.fill_price),
-    strategyVersion: r.strategy_version,
+    strategyVersion: publicVersionLabel(r.strategy_version),
   }))
     // The read starts at midnight UTC, the evening before the floor in New
     // York; a recording from that earlier session is outside the reach.
@@ -232,7 +241,7 @@ export async function GET(req: NextRequest) {
     later,
     rows,
     forwardByVersion: shadowError ? null : forwardTestByVersion(forward),
-    replay: PRODUCTION_REPLAY_RUNS,
+    replay: PUBLIC_REPLAY_RUNS,
     exactScoreDisplayEnabled: policy.exactScoreDisplayEnabled,
   });
 }

@@ -108,7 +108,7 @@ import { firstTradeWindows } from "@/lib/gann/firstTradeChart";
 import { readSquareOfNineTime } from "@/lib/gann/squareOfNineTime";
 import { readHexagonTime } from "@/lib/gann/hexagonTime";
 import { readMasterChartTime } from "@/lib/gann/masterChartTime";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { countWindowsAt, fewRepetitionNote } from "@/lib/gann/countWindows";
 import { majorRangeDivisions } from "@/lib/gann/rangeDivisions";
 import { levelBandPct } from "@/lib/scoring/proximity";
@@ -228,7 +228,7 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => 
   for (const h of readSquareOfNineTime(bars)) out.push(`${Math.round(h.count)} ${h.unit} from the ${h.pivotDate} ${h.pivot}, a squared time count`);
   for (const h of readHexagonTime(bars)) out.push(`${Math.round(h.count)} ${h.unit} from the ${h.pivotDate} ${h.pivot} on the Hexagon`);
   for (const h of readMasterChartTime(bars)) out.push(`${Math.round(h.count)} ${h.unit} from the ${h.pivotDate} ${h.pivot} on the Master Chart`);
-  const unit = gannPointForBars(bars);
+  const unit = pointForBars(bars);
   for (const w of jensenWindows(bars, unit, new Date(asOf.getTime() - 2 * DAY_MS), new Date(asOf.getTime() + 2 * DAY_MS))) {
     if (w.source === "projection") continue; // a price, read as a level elsewhere
     if (w.expect === (low ? "decline" : "advance")) continue;

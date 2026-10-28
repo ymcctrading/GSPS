@@ -1,6 +1,6 @@
 "use client";
 
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { approachingFigure } from "@/lib/gann/evenFigures";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -21,7 +21,7 @@ import { intradayPlanFromQuery } from "@/lib/routes";
 import { sessionLabel } from "@/lib/market/session";
 import { formatUsd, formatPct, cn, parseJsonResponse } from "@/lib/utils";
 import { hasFeature, type PlatformTier } from "@/lib/tiers";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 import type { LiveQuote } from "@/app/api/quote/route";
 import type { StrategyModeId } from "@/lib/strategies/types";
 import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
@@ -37,7 +37,7 @@ const EXECUTION_BAR_MS = 15 * 60_000;
 const MAX_SESSION_TRIES = 3;
 
 export function TickerView({ symbol }: { symbol: string }) {
-  const { prefs: gannPrefs } = useGannRulePrefs();
+  const { prefs: gannPrefs } = useTradeRulePrefs();
   // The technique (or script) the order ticket is explaining the plan with,
   // so the chart can switch its lines on (AGENTS.md "Strategy Modes", 2026-10-16).
   const [explain, setExplain] = useState<{
@@ -104,7 +104,7 @@ export function TickerView({ symbol }: { symbol: string }) {
    */
   const [scan, setScan] = useState<{
     key: string;
-    result: ScanResult | null;
+    result: PublicScanResult | null;
     error: string | null;
     // Set when the failure is temporary (a throttled data feed), which is the
     // difference between offering a retry and calling the symbol unscannable.
@@ -164,7 +164,7 @@ export function TickerView({ symbol }: { symbol: string }) {
         }
         setRefreshing(true);
         return fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-          .then((res) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
+          .then((res) => parseJsonResponse<PublicScanResult & { exactScoreDisplayEnabled?: boolean }>(res))
           .then((data) => {
             if (cancelled) return;
             const exactScoreDisplayEnabled = Boolean(data.exactScoreDisplayEnabled);
@@ -286,17 +286,17 @@ export function TickerView({ symbol }: { symbol: string }) {
       { price: result.levels.masterProfit, label: "MTP", kind: "target" },
     );
   }
-  result?.gann.fanLines.slice(0, 2).forEach((f) =>
+  result?.chartLevels?.trendLines.slice(0, 2).forEach((f) =>
     markers.push({
       price: f.price,
-      label: `${f.role === "support" ? "Support" : "Resistance"} ${f.angle}`,
+      label: `${f.role === "support" ? "Support" : "Resistance"} trend line`,
       kind: "structural",
     }),
   );
-  result?.gann.squareOf9.slice(0, 2).forEach((s) =>
+  result?.chartLevels?.keyLevels.slice(0, 2).forEach((s) =>
     markers.push({
       price: s.price,
-      label: `Key ${s.role === "support" ? "support" : "resistance"} level ${s.degree}°`,
+      label: `Key ${s.role === "support" ? "support" : "resistance"} level`,
       kind: "structural",
     }),
   );
@@ -346,16 +346,15 @@ export function TickerView({ symbol }: { symbol: string }) {
          * carries it on every screen size.
          */}
         {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
-        {TIME_LINE_RECORDS.timeCycle && result?.gann.timeCycleActive && (
+        {TIME_LINE_RECORDS.timeCycle && result?.chartLevels?.timingActive && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" /> active
             <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
           </span>
         )}
-        {TIME_LINE_RECORDS.yearCycles && result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
+        {TIME_LINE_RECORDS.yearCycles && (result?.chartLevels?.longTermTimingCount ?? 0) > 0 && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
-            ⟳ <GlossaryTerm term="Yearly cycles converging" label="Yearly cycles converging" className="decoration-warn/60" />
-            {" "}({result.gann.yearCycleBullishHits ?? 0} from lows, {result.gann.yearCycleBearishHits ?? 0} from highs)
+            ⟳ <GlossaryTerm term="Long-term timing lines up" label="Long-term timing lines up" className="decoration-warn/60" />
             <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
           </span>
         )}

@@ -3,7 +3,7 @@ import type { Bar } from "@/lib/types";
 import { BOILING_POINT_TRAIL_POINTS, GANN_EXIT_RULE_NAMES, readGannExit, type GannExitPosition, type GannExitRuleName } from "../exitRules";
 import { computeRunBoilingPoint } from "../boilingPoint";
 import { exhaustGapAt, readGaps } from "../extremeRules";
-import { gannPoint, gannThreePoints } from "../pointScale";
+import { pricePoint, threePoints } from "../pointScale";
 import { reversesOn } from "../reverse";
 import { rebuysOn, TRAILING_STOPS } from "../rebuy";
 
@@ -55,7 +55,7 @@ describe("M-E11: a reverse signal day against the trade puts the stop 3 points b
     const signal = bars[bars.length - 1];
     const r = readGannExit(long(bars, base.length - 4), bars, signal.h, null, only("reverse_signal"));
     expect(r.stopReason).toBe("reverse_signal");
-    expect(r.stop).toBeCloseTo(signal.l - gannThreePoints(signal.l), 9);
+    expect(r.stop).toBeCloseTo(signal.l - threePoints(signal.l), 9);
   });
 
   it("ignores a reverse day printed before the fill", () => {
@@ -75,7 +75,7 @@ describe("M-E11: a reverse signal day against the trade puts the stop 3 points b
     const pos: GannExitPosition = { ...long(bars, base.length - 4), side: "short", initialStop: bars[base.length - 4].c + 20 };
     const r = readGannExit(pos, bars, signal.l, null, only("reverse_signal"));
     expect(r.stopReason).toBe("reverse_signal");
-    expect(r.stop).toBeCloseTo(signal.h + gannThreePoints(signal.h), 9);
+    expect(r.stop).toBeCloseTo(signal.h + threePoints(signal.h), 9);
   });
 
   it("is a stop that reverses and re-buys, as every trailing stop is", () => {
@@ -136,11 +136,11 @@ describe("M-T10: the boiling point trails his 10 points from the best once the r
     const best = Math.max(...bars.map((b) => b.h));
     const r = readGannExit(long(bars, bars.length - 10), bars, best, null, only("boiling_point"));
     expect(r.stopReason).toBe("boiling_point");
-    expect(r.stop).toBeCloseTo(best - BOILING_POINT_TRAIL_POINTS * gannPoint(best), 9);
+    expect(r.stop).toBeCloseTo(best - BOILING_POINT_TRAIL_POINTS * pricePoint(best), 9);
   });
 
   it("is his raw 10 points at the price he worked it, Advance Rumely's 105 (out at 95)", () => {
-    expect(BOILING_POINT_TRAIL_POINTS * gannPoint(105)).toBeCloseTo(10, 9);
+    expect(BOILING_POINT_TRAIL_POINTS * pricePoint(105)).toBeCloseTo(10, 9);
   });
 
   it("does nothing before 6 weeks", () => {
@@ -160,7 +160,7 @@ describe("M-T10: the boiling point trails his 10 points from the best once the r
       const on = reading.run === "up" && reading.weeksSinceStart >= 6;
       const best = Math.max(...bars.slice(n - 5).map((b) => b.h));
       const r = readGannExit(long(bars, n - 5), bars, bars[n - 1].c, null, only("boiling_point"));
-      expect(r.stopReason === "boiling_point").toBe(on && best - BOILING_POINT_TRAIL_POINTS * gannPoint(best) > bars[n - 5].c - 20);
+      expect(r.stopReason === "boiling_point").toBe(on && best - BOILING_POINT_TRAIL_POINTS * pricePoint(best) > bars[n - 5].c - 20);
       if (on) seenOn = true;
       else seenOff = true;
     }

@@ -1,7 +1,7 @@
 /**
  * Gann's 3 points on the entry side (PLAN.md item 3; owner, 2026-10-15: "Use
  * Gann's full 3 points now"). Every surface that clears or stops beyond a
- * level uses `gannThreePoints(level)`, the price-scaled figure the exits
+ * level uses `threePoints(level)`, the price-scaled figure the exits
  * already use, not the old fixed 0.3%.
  *
  * W006 pp.20-24, 46-47: buy on crossing an old top by 3 points, sell short on
@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { gannThreePoints, levelBeforeThreePoints } from "@/lib/gann/pointScale";
+import { threePoints, levelBeforeThreePoints } from "@/lib/gann/pointScale";
 import { advanceEntryConfirmation, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { readTimeRules } from "@/lib/gann/timeRules";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
@@ -35,21 +35,21 @@ describe("3 points on the entry side", () => {
     // Before the last top is crossed, so no crossed level is held.
     const t = computeGannEntryTrigger(ZIGZAG.slice(0, -2), "bullish")!;
     expect(t.held).toBe(false);
-    expect(t.triggerPrice).toBeCloseTo(t.pivot.price + gannThreePoints(t.pivot.price), 8);
-    expect(t.stopPrice).toBeCloseTo(t.protectivePivot.price - gannThreePoints(t.protectivePivot.price), 8);
+    expect(t.triggerPrice).toBeCloseTo(t.pivot.price + threePoints(t.pivot.price), 8);
+    expect(t.stopPrice).toBeCloseTo(t.protectivePivot.price - threePoints(t.protectivePivot.price), 8);
   });
 
   it("stops 3 points under the level itself once the level is crossed and held", () => {
     const t = computeGannEntryTrigger(ZIGZAG, "bullish")!;
     expect(t.held).toBe(true);
-    expect(t.stopPrice).toBeCloseTo(t.level - gannThreePoints(t.level), 8);
+    expect(t.stopPrice).toBeCloseTo(t.level - threePoints(t.level), 8);
     expect(t.stopPrice).toBe(t.reactionStop);
   });
 
   it("breaks the old bottom by 3 points for a short, the exact mirror", () => {
     const t = computeGannEntryTrigger(ZIGZAG_SHORT.slice(0, -2), "bearish")!;
-    expect(t.triggerPrice).toBeCloseTo(t.pivot.price - gannThreePoints(t.pivot.price), 8);
-    expect(t.stopPrice).toBeCloseTo(t.protectivePivot.price + gannThreePoints(t.protectivePivot.price), 8);
+    expect(t.triggerPrice).toBeCloseTo(t.pivot.price - threePoints(t.pivot.price), 8);
+    expect(t.stopPrice).toBeCloseTo(t.protectivePivot.price + threePoints(t.protectivePivot.price), 8);
   });
 
   it("counts the 3 points once: a close beyond the trigger is the break, with no second allowance", () => {
@@ -64,7 +64,7 @@ describe("3 points on the entry side", () => {
     const closes = [...Array.from({ length: 22 }, (_, i) => 100 + i), 120.5, 120.2];
     const r = readTimeRules(bars(closes), null);
     expect(r.halt?.at).toBe("top");
-    expect(r.halt!.stop).toBeCloseTo(r.halt!.extreme + gannThreePoints(r.halt!.extreme), 8);
+    expect(r.halt!.stop).toBeCloseTo(r.halt!.extreme + threePoints(r.halt!.extreme), 8);
   });
 
   it("does not read a triple top as crossed until a close clears it by 3 points", () => {
@@ -86,31 +86,31 @@ describe("3 points on the entry side", () => {
     const daily = bars([100, 101, 102, 104, 106, 108, 110, 109, 107, 105, 104, 106, 108, 117], 0.5, "2026-06-01");
     const r = readPyramidAdd({ side: "long", lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }], stop: 90, initialStop: 90, daily, price: 117 });
     expect(r.add).not.toBeNull();
-    expect(r.add!.trigger).toBeCloseTo(110.5 + gannThreePoints(110.5), 8);
+    expect(r.add!.trigger).toBeCloseTo(110.5 + threePoints(110.5), 8);
   });
 
   it("moves a stop resting inside a round number 3 points beyond it", () => {
-    expect(stopBeyondFigure(110, 100.4, "bullish", 15)).toBeCloseTo(100 - gannThreePoints(100), 8);
-    expect(stopBeyondFigure(95, 99.6, "bearish", 15)).toBeCloseTo(100 + gannThreePoints(100), 8);
+    expect(stopBeyondFigure(110, 100.4, "bullish", 15)).toBeCloseTo(100 - threePoints(100), 8);
+    expect(stopBeyondFigure(95, 99.6, "bearish", 15)).toBeCloseTo(100 + threePoints(100), 8);
   });
 
   it("places a structural equity stop 3 points beyond the support it rests on", () => {
     const r = computeEquityTradeLevels({ direction: "bullish", entry: 100, structuralLevels: [93.3], evenFigures: false });
     expect(r.stopFromStructure).toBe(true);
-    expect(r.stopLoss).toBeCloseTo(93.3 - gannThreePoints(93.3), 2);
+    expect(r.stopLoss).toBeCloseTo(93.3 - threePoints(93.3), 2);
   });
 
   it("recovers the crossed level from a trigger that carries the 3 points", () => {
     for (const level of [12, 42.5, 99.9, 250, 60_000]) {
-      expect(levelBeforeThreePoints(level + gannThreePoints(level), "bullish")).toBeCloseTo(level, 6);
-      expect(levelBeforeThreePoints(level - gannThreePoints(level), "bearish")).toBeCloseTo(level, 6);
+      expect(levelBeforeThreePoints(level + threePoints(level), "bullish")).toBeCloseTo(level, 6);
+      expect(levelBeforeThreePoints(level - threePoints(level), "bearish")).toBeCloseTo(level, 6);
     }
   });
   it("puts a halt's stop 3 points under a bottom held for 2-3 days", () => {
     const closes = [...Array.from({ length: 22 }, (_, i) => 130 - i), 108.5, 108.8, 109];
     const r = readTimeRules(bars(closes), null);
     expect(r.halt?.at).toBe("bottom");
-    expect(r.halt!.stop).toBeCloseTo(r.halt!.extreme - gannThreePoints(r.halt!.extreme), 8);
+    expect(r.halt!.stop).toBeCloseTo(r.halt!.extreme - threePoints(r.halt!.extreme), 8);
   });
 
   it("does not read a triple bottom as crossed until a close breaks it by 3 points", () => {
@@ -132,7 +132,7 @@ describe("3 points on the entry side", () => {
     const daily = bars([110, 109, 108, 106, 104, 102, 100, 101, 103, 105, 106, 104, 102, 93], 0.5, "2026-06-01");
     const r = readPyramidAdd({ side: "short", lots: [{ qty: 100, price: 108.2, date: "2026-06-03" }], stop: 120, initialStop: 120, daily, price: 93 });
     expect(r.add).not.toBeNull();
-    expect(r.add!.trigger).toBeCloseTo(99.5 - gannThreePoints(99.5), 8);
+    expect(r.add!.trigger).toBeCloseTo(99.5 - threePoints(99.5), 8);
   });
 
   it("counts a range breakaway only when the trigger clears the range extreme by 3 points", () => {
@@ -151,8 +151,8 @@ describe("3 points on the entry side", () => {
       stopPrice: 90,
       pivot: { index: 0, price: 102, kind: "top" as const },
       level: 102,
-      reactionEntry: 102 + gannThreePoints(102) / 3,
-      reactionStop: 102 - gannThreePoints(102),
+      reactionEntry: 102 + threePoints(102) / 3,
+      reactionStop: 102 - threePoints(102),
       protectivePivot: { index: 1, price: 97.5, kind: "bottom" as const },
       held: false,
       crossedAt: null,
@@ -164,7 +164,7 @@ describe("3 points on the entry side", () => {
     expect(r0.rangeBound).toBe(true);
     // Past the 102.5 range high, but not by 3 points there.
     expect(r0.breaksAway).toBe(false);
-    expect(readBreakaway(daily, make(102.5 + gannThreePoints(102.5) + 0.01)).breaksAway).toBe(true);
+    expect(readBreakaway(daily, make(102.5 + threePoints(102.5) + 0.01)).breaksAway).toBe(true);
   });
 
   it("applies the 3 points once when a stop's support sits on an even figure", () => {
@@ -172,7 +172,7 @@ describe("3 points on the entry side", () => {
     // once, not 3 points under 95.2 and then another 3 under the next figure.
     const r = computeEquityTradeLevels({ direction: "bullish", entry: 104, structuralLevels: [95.2] });
     expect(r.stopFromStructure).toBe(true);
-    expect(r.stopLoss).toBeCloseTo(95 - gannThreePoints(95), 2);
+    expect(r.stopLoss).toBeCloseTo(95 - threePoints(95), 2);
   });
 
 });

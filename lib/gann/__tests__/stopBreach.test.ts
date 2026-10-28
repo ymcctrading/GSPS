@@ -8,7 +8,7 @@ import {
   readStopBreach,
   reclaimLevel,
 } from "@/lib/gann/stopBreach";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { applyStopBreachHold } from "@/lib/scoring/score";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
@@ -56,10 +56,10 @@ describe("isStopBreachedByBar", () => {
  */
 describe("reclaimLevel", () => {
   it("is the broken level plus his 3-point allowance for a long, minus it for a short", () => {
-    const allowance = gannThreePoints(88);
+    const allowance = threePoints(88);
     expect(allowance).toBeGreaterThan(0);
     expect(reclaimLevel("bullish", 88)).toBeCloseTo(88 + allowance, 10);
-    expect(reclaimLevel("bearish", 88)).toBeCloseTo(88 - gannThreePoints(88), 10);
+    expect(reclaimLevel("bearish", 88)).toBeCloseTo(88 - threePoints(88), 10);
   });
 
   it("scales with the price, as he scaled his points", () => {
@@ -68,8 +68,8 @@ describe("reclaimLevel", () => {
   });
 
   it("reads the 1-point penetration as a third of the 3-point allowance, both ways (C-STOP-04)", () => {
-    expect(reclaimLevel("bullish", 88, 1) - 88).toBeCloseTo(gannThreePoints(88) / 3, 10);
-    expect(88 - reclaimLevel("bearish", 88, 1)).toBeCloseTo(gannThreePoints(88) / 3, 10);
+    expect(reclaimLevel("bullish", 88, 1) - 88).toBeCloseTo(threePoints(88) / 3, 10);
+    expect(88 - reclaimLevel("bearish", 88, 1)).toBeCloseTo(threePoints(88) / 3, 10);
   });
 
   it("lets the replay route measure 1, 3 or 5 points", async () => {

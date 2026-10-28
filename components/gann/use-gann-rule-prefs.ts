@@ -3,7 +3,7 @@
 /**
  * The trader's switches for Gann's round-number notice, the rest reminder and
  * the portfolio manager's round-number setting (`lib/gann/traderPrefs.ts`),
- * read from and saved to `/api/settings/gann-rules`. Until the read returns,
+ * read from and saved to `/api/settings/trade-rules`. Until the read returns,
  * the defaults apply, so a notice that defaults on shows at once.
  */
 
@@ -22,7 +22,7 @@ export interface AwayReminder {
   message: string;
 }
 
-export function useGannRulePrefs() {
+export function useTradeRulePrefs() {
   const [prefs, setPrefs] = useState<GannRulePrefs>(DEFAULT_GANN_RULE_PREFS);
   const [restReminder, setRestReminder] = useState<RestReminder | null>(null);
   const [awayReminder, setAwayReminder] = useState<AwayReminder | null>(null);
@@ -31,7 +31,7 @@ export function useGannRulePrefs() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/settings/gann-rules")
+    fetch("/api/settings/trade-rules")
       .then((res) => (res.ok ? res.json() : null))
       .then((body: { prefs?: GannRulePrefs; restReminder?: RestReminder | null; awayReminder?: AwayReminder | null } | null) => {
         if (cancelled || !body) return;
@@ -48,7 +48,7 @@ export function useGannRulePrefs() {
 
   const save = useCallback(async (patch: Partial<GannRulePrefs>) => {
     setError(null);
-    const res = await fetch("/api/settings/gann-rules", {
+    const res = await fetch("/api/settings/trade-rules", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),

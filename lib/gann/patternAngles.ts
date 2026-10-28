@@ -31,7 +31,7 @@
  * replay alike, so the list isn't flooded.
  *
  * Engineering choices, labelled as such:
- * - Price unit: the Gann point (`pointScale.ts#gannPointForBars`), fixed
+ * - Price unit: the Gann point (`pointScale.ts#pointForBars`), fixed
  *   before any test, never tuned per market (the Dewey discipline; B17).
  * - Time unit: one daily bar, a space on Gann's daily chart.
  * - "Major pivots": the extremes plus the weekly swing chart's last top and

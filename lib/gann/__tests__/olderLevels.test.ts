@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import {
   computeGannEntryTrigger,
   nearerBuyingPoint,
@@ -42,7 +42,7 @@ function monthly(from: string, n: number, hl: (i: number, month: string) => [num
 const zig = (lo: number, hi: number, times: number) => Array.from({ length: times }, () => [...leg(lo, hi, 5), ...leg(hi, lo, 5)]).flat();
 
 const ASOF = "2026-06-01";
-const P100 = gannThreePoints(100);
+const P100 = threePoints(100);
 
 // 2025's top is 100, in June. The record before the 52 weeks is 95 (early
 // 2025), and the 2026 swings top above it, so it is no longer the record.
@@ -126,7 +126,7 @@ describe("the all-time high (A-ENTRY-06)", () => {
   // The record, 120 in March 2021, formed before the 52 weeks; 2025's top is 110.
   const M = monthly("2016-01", 125, (_i, month) => (month === "2021-03" ? [120, 100] : month >= "2025-01" ? [110, 100] : [105, 95]));
   const older = olderGannLevels(M, ASOF, "2025-06-02");
-  const P120 = gannThreePoints(120);
+  const P120 = threePoints(120);
 
   it("crossed by 3 points is a buying point like any old top, labelled as the record", () => {
     const d = daily([...zig(104, 109, 8), ...leg(104, 128, 12), ...leg(128, 124, 3)], "2026-01-05");

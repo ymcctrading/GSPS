@@ -50,7 +50,7 @@
  *    is the market's rest between swings, and the breakaway is the next beat.
  */
 
-import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePoints } from "@/lib/gann/pointScale";
 import type { Bar } from "@/lib/types";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
@@ -230,7 +230,7 @@ export const NARROW_RANGE_ALLOWANCES = 4 / 3;
 export function isNarrowRange(range: Bar[]): boolean {
   if (range.length === 0) return false;
   const low = Math.min(...range.map((b) => b.l));
-  return Math.max(...range.map((b) => b.h)) - low <= NARROW_RANGE_ALLOWANCES * gannThreePoints(low);
+  return Math.max(...range.map((b) => b.h)) - low <= NARROW_RANGE_ALLOWANCES * threePoints(low);
 }
 
 /**
@@ -252,7 +252,7 @@ export function narrowRangeSessions(sessions: Bar[]): Bar[] | null {
   for (let i = sessions.length - 1; i >= 0; i--) {
     const h = Math.max(high, sessions[i].h);
     const l = Math.min(low, sessions[i].l);
-    if (h - l > NARROW_RANGE_ALLOWANCES * gannThreePoints(l)) break;
+    if (h - l > NARROW_RANGE_ALLOWANCES * threePoints(l)) break;
     high = h;
     low = l;
     start = i;

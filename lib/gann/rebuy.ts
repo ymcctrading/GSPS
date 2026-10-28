@@ -20,7 +20,7 @@
  * half of it over.
  *
  * The reaction is his 12 points (the low end of his 12 to 15, where he bought)
- * read at the price he wrote them for, about 230: 12 / `gannPoint(230)`, about
+ * read at the price he wrote them for, about 230: 12 / `pricePoint(230)`, about
  * 4.4 Gann points, so at 230 it rests at 218 with the stop at 212, as he did.
  * Corrected 2026-10-28 (alignment audit, `score-and-levels.md`): until then it
  * was 12 Gann points, about 32 dollars at 230, so the re-entry rested near 198
@@ -37,12 +37,12 @@
  * the reaction comes (the move resumed without it).
  */
 
-import { gannPoint } from "./pointScale";
+import { pricePoint } from "./pointScale";
 
 /** The price of his worked example (W022 p.198: a run to about 230, re-bought at 218). */
 export const REBUY_EXAMPLE_PRICE = 230;
 /** His 12-point reaction in Gann points, read at the example's price (about 4.4). */
-export const REBUY_REACTION_POINTS = 12 / gannPoint(REBUY_EXAMPLE_PRICE);
+export const REBUY_REACTION_POINTS = 12 / pricePoint(REBUY_EXAMPLE_PRICE);
 
 // Every trailing stop of `readGannExit` (`GannStopReason` but "initial"), so
 // the replay, which reads the finer reason, re-buys as the exit managers do
@@ -88,7 +88,7 @@ export function gannRebuy(input: {
 }): GannRebuy | null {
   const { side, extreme, trend, entryPrice } = input;
   if (!(extreme > 0) || trend !== (side === "long" ? "bullish" : "bearish")) return null;
-  const reaction = REBUY_REACTION_POINTS * gannPoint(extreme);
+  const reaction = REBUY_REACTION_POINTS * pricePoint(extreme);
   const dir = side === "long" ? 1 : -1;
   const entry = extreme - dir * reaction;
   const stop = entry - dir * (reaction / 2);

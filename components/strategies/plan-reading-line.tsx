@@ -25,7 +25,7 @@ function savedDefaultTechnique(): Promise<StrategyModeId | null> {
     .then((r) => (r.ok ? r.json() : null))
     .then(
       (b: { mode?: StrategyModeId; allowedModes?: StrategyModeId[] } | null) =>
-        b?.mode && b.mode !== "gann" && (b.allowedModes ?? []).includes(b.mode)
+        b?.mode && b.mode !== "gsps" && (b.allowedModes ?? []).includes(b.mode)
           ? b.mode
           : null,
     )

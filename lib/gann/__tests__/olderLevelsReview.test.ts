@@ -33,7 +33,7 @@ vi.mock("@/lib/scan/entrySelection", async () => {
   };
 });
 
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import {
   OLDER_LEVELS_YEARS,
   computeGannEntryTrigger,
@@ -91,8 +91,8 @@ describe("every previous year's top and bottom (R9)", () => {
     const chart = entryChart(D, M, "2026-06-01");
     const t = selectGannEntry(chart.bars, "bullish", chart.older)!;
     expect(t).toMatchObject({ kind: "crossing", held: true, source: "priorYear", level: 120, levelYear: 2024 });
-    expect(t.reactionEntry).toBeCloseTo(120 + gannThreePoints(120) / 3, 8);
-    expect(t.reactionStop).toBeCloseTo(120 - gannThreePoints(120), 8);
+    expect(t.reactionEntry).toBeCloseTo(120 + threePoints(120) / 3, 8);
+    expect(t.reactionStop).toBeCloseTo(120 - threePoints(120), 8);
   });
 
   it("names the year of the level a crossing of last year's top bought", () => {
@@ -134,7 +134,7 @@ describe("a previous year's top across New Year (R1)", () => {
   const D = daily([...zig(90, 96, 34), ...leg(90, 107, 12), ...leg(107, 102.3, 12)], "2026-01-05");
   const months2026 = Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, "0")}`);
   const M = [...pre, ...aggregate(D, months2026)];
-  const buy = 100 + gannThreePoints(100) / 3;
+  const buy = 100 + threePoints(100) / 3;
 
   it("stays the held level on both sides of 1 January", () => {
     for (const asOf of ["2026-12-31", "2027-01-04"]) {
@@ -205,7 +205,7 @@ describe("one level read twice (R2, R11)", () => {
     const m = [...monthly("2016-01", 117, () => [90, 85]), ...months];
     const older = olderGannLevels(m, "2026-06-01", "2025-06-02");
     expect(computeGannEntryTrigger(d, "bullish", undefined, undefined, true, older)).toMatchObject({ held: true, source: "priorYear", levelYear: 2025 });
-    const bought = [...d, ...daily(leg(106, 100 + gannThreePoints(100) / 3 - 0.2, 2), new Date(Date.parse(d[d.length - 1].t) + DAY).toISOString().slice(0, 10))];
+    const bought = [...d, ...daily(leg(106, 100 + threePoints(100) / 3 - 0.2, 2), new Date(Date.parse(d[d.length - 1].t) + DAY).toISOString().slice(0, 10))];
     expect(computeGannEntryTrigger(bought, "bullish", undefined, undefined, true, older)).toBeNull();
   });
 

@@ -30,7 +30,7 @@
  */
 import type { Bar } from "@/lib/types";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 export const MIN_RESOLVED = 4;
 
@@ -51,7 +51,7 @@ export function readRuleFollowing(daily: Bar[]): RuleFollowingReading | null {
     for (let p = 0; p < pivots.length; p++) {
       const level = pivots[p];
       if (level.kind !== kind) continue;
-      const line = level.price + sign * gannThreePoints(level.price);
+      const line = level.price + sign * threePoints(level.price);
       // The first close past the line after the level formed.
       let j = level.index + 1;
       while (j < daily.length && sign * (daily[j].c - line) <= 0) j++;
@@ -63,7 +63,7 @@ export function readRuleFollowing(daily: Bar[]): RuleFollowingReading | null {
       const risk = sign * (entry - behind.price);
       if (!(risk > 0)) continue;
       const target = entry + sign * risk;
-      const breakAt = behind.price - sign * gannThreePoints(behind.price);
+      const breakAt = behind.price - sign * threePoints(behind.price);
       for (let k = j + 1; k < daily.length; k++) {
         const b = daily[k];
         if (sign * ((sign > 0 ? b.l : b.h) - breakAt) < 0) {

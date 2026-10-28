@@ -74,6 +74,11 @@ jobs:
       # need them, and if it ever starts to, that is the finding.
       - run: npm run build
 
+      # What the browser receives: identifiers and keys a client imports ship
+      # in the bundle even when no copy shows them (AGENTS.md, "Confidential
+      # sources"). Seconds, inside this job, so no extra minutes.
+      - run: node scripts/check-bundle-terms.mjs
+
       # Prevents the collision documented in CHANGELOG.md: two migrations
       # sharing a numeric prefix, where apply order was ambiguous and one
       # was silently skipped in production. See scripts/check-migrations.mjs.

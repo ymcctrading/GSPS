@@ -1,11 +1,11 @@
 /**
  * Strategy Modes registry — dispatches a `StrategyModeId` to its evaluator.
  *
- * `"gann"` is deliberately not in this map: it is not one of these opt-in
+ * `"gsps"` is deliberately not in this map: it is not one of these opt-in
  * modes, it is the platform default, handled by the existing
  * `lib/gann/entryTrigger.ts` / `lib/strat/levels.ts` pipeline everywhere
  * Strategy Modes are not explicitly selected. Callers that want "whatever
- * mode a human picked, defaulting to Gann" should check for `"gann"`
+ * mode a human picked, defaulting to Gann" should check for `"gsps"`
  * themselves and fall back to the existing Gann trade plan rather than
  * calling into this registry.
  */

@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PanelError, Skeleton } from "@/components/chart/market-tabs";
 import { formatUsd, cn } from "@/lib/utils";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 import type { CompanySnapshot } from "@/lib/data/company";
 import { isEtfSymbol } from "@/lib/sectors";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
@@ -31,7 +31,7 @@ export function CompanyPanel({
   exactScoreDisplayEnabled = false,
 }: {
   symbol: string;
-  result?: ScanResult | null;
+  result?: PublicScanResult | null;
   exactScoreDisplayEnabled?: boolean;
 }) {
   const [reloadKey, setReloadKey] = useState(0);
@@ -287,7 +287,7 @@ interface Conviction {
  * reads very differently from the same setup fighting both.
  */
 function blendConviction(
-  result: ScanResult | null,
+  result: PublicScanResult | null,
   snapshot: CompanySnapshot,
   exactScoreDisplayEnabled: boolean,
 ): Conviction {

@@ -57,7 +57,7 @@ export interface GannRulePrefs {
   tradeStyle: TradeStyle;
   /**
    * When each style was chosen, oldest first, written by the server only
-   * (`/api/settings/gann-rules`). A trade is managed in the style that stood
+   * (`/api/settings/trade-rules`). A trade is managed in the style that stood
    * when it was filled (`styleAt`): Gann chooses the method for the market at
    * entry ("in fast markets", W006 Rule 2), so switching later never
    * re-manages a trade already open.

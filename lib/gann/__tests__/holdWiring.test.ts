@@ -47,7 +47,7 @@ import { computeGannHoldEntry, selectGannEntry } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing } from "@/lib/gann/entryKind";
 import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { computeTradeLevels, gannEntrySource } from "@/lib/strat/levels";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { buildMacroContext, replay } from "@/lib/backtest/replay";
 import { chooseSessionEntry, gannEntryOf } from "@/lib/scan/entrySelection";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
@@ -243,7 +243,7 @@ describe("the replay buys a held bottom at the last close", () => {
       expect(DAILY[DAILY.length - 1].t.slice(0, 10) < DAY).toBe(true);
       expect(H.kind).toBe("hold");
       expect(H.reactionEntry).toBeCloseTo(DAILY[DAILY.length - 1].c, 8);
-      expect(H.reactionStop).toBeCloseTo(H.level - gannThreePoints(H.level), 8);
+      expect(H.reactionStop).toBeCloseTo(H.level - threePoints(H.level), 8);
     });
 
     it("buys at the next open once a closed candle trades at the last close, with the stop 3 points under the low", () => {

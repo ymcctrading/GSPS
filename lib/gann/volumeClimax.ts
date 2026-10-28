@@ -109,7 +109,7 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
-import { beyondByThreePoints, gannThreePoints } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePoints } from "@/lib/gann/pointScale";
 import { DOUBLE_BOTTOM_MIN_DAYS } from "@/lib/gann/entryKind";
 
 /**
@@ -390,7 +390,7 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
       // "The same level" on the near side is Gann's 3 points too, the band
       // double tops, level tests and the old-level entry read (review M3,
       // 2026-10-16; it was 1%, `RETEST_TOLERANCE_PCT`, kept for the record).
-      const tol = gannThreePoints(previous.price);
+      const tol = threePoints(previous.price);
       // A retest reaches the old turn but does not cross it by Gann's 3 points
       // (W006 p.20): beyond them it is a crossing, not a second test (review
       // M3, 2026-10-16; until then a top any distance over the old one counted).

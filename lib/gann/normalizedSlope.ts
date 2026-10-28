@@ -14,7 +14,7 @@
 import { findPivots } from "@/lib/analysis/pivots";
 import type { Bar } from "@/lib/types";
 import { ANGLES, angleUnit } from "./fans";
-import { gannPointForBars } from "./pointScale";
+import { pointForBars } from "./pointScale";
 
 /**
  * `normalized_slope = (price_t - anchor_price) / (unit * bars_since_anchor)`.
@@ -148,7 +148,7 @@ export interface CalendarDayAngle {
 }
 
 export interface CalendarDayAngleReading {
-  /** The price unit per calendar day: Jensen's $1 a point, scaled to the price as Gann's points are (`gannPoint`). */
+  /** The price unit per calendar day: Jensen's $1 a point, scaled to the price as Gann's points are (`pricePoint`). */
   unit: number;
   fromLow: CalendarDayAngle | null;
   fromHigh: CalendarDayAngle | null;
@@ -158,12 +158,12 @@ export interface CalendarDayAngleReading {
  * The rising 1x1 from the last significant low and the falling one from the
  * last significant high (the anchors `computeAngleSlopes` reads), on the
  * calendar-day scale. Engineering choice, labelled as such: Jensen's $1 per
- * day is ported as one price-scaled point per day (`pointScale.ts#gannPoint`,
+ * day is ported as one price-scaled point per day (`pointScale.ts#pricePoint`,
  * exactly $1 at $42.50), the unit every other point rule here uses.
  */
 export function readCalendarDayAngles(bars: Bar[], currentPrice: number): CalendarDayAngleReading | null {
   if (bars.length < 20) return null;
-  const unit = gannPointForBars(bars);
+  const unit = pointForBars(bars);
   if (!(unit > 0)) return null;
   const pivots = findPivots(bars, 4);
   const lastLow = [...pivots].reverse().find((p) => p.kind === "low");

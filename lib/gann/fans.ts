@@ -3,7 +3,7 @@
  *
  * The 1x1 line rises one Gann point per daily bar. Since 2026-10-16 (owner,
  * Q27, "default to Gann's method") the unit is the Gann point
- * (`pointScale.ts#gannPointForBars`), fixed from the chart's own range, and the
+ * (`pointScale.ts#pointForBars`), fixed from the chart's own range, and the
  * angles are Gann's full set (`patternAngles.ts#PATTERN_ANGLES`), the unit and
  * set the S/R angles already use. It was one 14-bar ATR per bar on five
  * angles, an engineering scale with no Gann source.
@@ -11,7 +11,7 @@
 
 import type { Bar } from "@/lib/types";
 import { findPivots, type Pivot } from "@/lib/analysis/pivots";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { PATTERN_ANGLES } from "@/lib/gann/patternAngles";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
@@ -74,7 +74,7 @@ export function angleRank(label: string): number {
 
 /** One Gann point per bar: the price unit every angle here is drawn in. */
 export function angleUnit(bars: Bar[]): number {
-  return gannPointForBars(bars);
+  return pointForBars(bars);
 }
 
 /**

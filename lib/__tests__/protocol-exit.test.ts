@@ -179,20 +179,20 @@ describe("Gann exit rules (live since 2026-09-28)", () => {
     highWater: 112,
     lastPrice: 110,
     appliedStop: 90,
-    rule: "gann",
+    rule: "structure",
     gann: null,
     ...over,
   });
 
   it("places no master-target order under the runner rule: everything after TP1 runs", () => {
-    const plan = planProtocolExit(10, levels, "gann-runner");
+    const plan = planProtocolExit(10, levels, "structure-runner");
     expect(plan.tranches.map((t) => t.key)).toEqual(["scale_out", "runner"]);
     expect(plan.scaleOutQty).toBe(6);
     expect(plan.runnerQty).toBe(4);
   });
 
   it("fixes no target at all under the live rule: the whole position runs (Q14)", () => {
-    expect(LIVE_EXIT_RULE).toBe("gann");
+    expect(LIVE_EXIT_RULE).toBe("structure");
     for (const qty of [1, 10]) {
       const plan = planProtocolExit(qty, levels);
       expect(plan.tranches).toEqual([expect.objectContaining({ key: "runner", qty, takeProfit: null })]);

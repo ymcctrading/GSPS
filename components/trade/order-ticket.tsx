@@ -18,7 +18,7 @@ import {
   type RoundingMode,
 } from "@/lib/trade/tick-size";
 import { formatUsd, cn } from "@/lib/utils";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 import type { AssetTradability } from "@/app/api/assets/route";
 import type { StrategyModeId } from "@/lib/strategies/types";
 import { planQuery } from "@/lib/strategies/explain/params";
@@ -62,7 +62,7 @@ export function OrderTicket({
   forceSide,
   onExplainChange,
 }: {
-  result: ScanResult;
+  result: PublicScanResult;
   livePrice?: number | null;
   /**
    * True when this ticket was opened from the intraday alerts panel's
@@ -151,7 +151,7 @@ export function OrderTicket({
   // (lib/strategies/compare.ts). Nothing here touches `levels` or
   // `result.direction`.
   // `strategyMode` / `selectedScriptId` pick the technique drawn on the chart.
-  const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gann");
+  const [strategyMode, setStrategyMode] = useState<StrategyModeId>("gsps");
   // Server-resolved (`lib/entitlements/policy.ts#allowedStrategyModes`) —
   // null while loading, [] for a tier with no Strategy Mode access at all
   // (Novice). Never computed client-side.
@@ -478,7 +478,7 @@ export function OrderTicket({
   /** Draw a technique on the chart: a built-in mode, or `custom:<scriptId>`. */
   function showTechnique(source: string) {
     if (source.startsWith("custom:")) {
-      setStrategyMode("gann");
+      setStrategyMode("gsps");
       setSelectedScriptId(source.slice("custom:".length));
     } else {
       setSelectedScriptId("");

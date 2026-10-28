@@ -59,7 +59,7 @@
  *
  * **Fixed before any testing, so nothing is searched (Dewey's standard):**
  * - Longitudes: tropical, of date, at noon UTC (`planetaryAverages.ts`).
- * - Price to degree: one Gann point (`gannPointForBars`) to a degree, the
+ * - Price to degree: one Gann point (`pointForBars`) to a degree, the
  *   one scale `planetaryAverages.ts` uses. No other scale is tried.
  * - Orbs: price within `CIRCLE_TOLERANCE` (1¼ points) for Gann's rules and
  *   1 point for Jensen's (J-5); dates within ±1 day (Moon, Sun points),

@@ -30,7 +30,7 @@ vi.mock("@/lib/gann/campaignLedger", async (importActual) => {
 });
 
 const { readGannExit, FINAL_STAGE_SECTION } = await import("../exitRules");
-const { gannThreePoints } = await import("../pointScale");
+const { threePoints } = await import("../pointScale");
 
 function daily(closes: number[]): Bar[] {
   return closes.map((c, i) => ({
@@ -53,7 +53,7 @@ describe("readGannExit: the final stage of a campaign (M-R11)", () => {
     expect(FINAL_STAGE_SECTION).toBe(3);
     ledgerState.trend = "bullish";
     ledgerState.sections = 3;
-    const best = 102 + gannThreePoints(102) + 1;
+    const best = 102 + threePoints(102) + 1;
     const r = readGannExit(pos, bars, best);
     expect(r.stopReason).toBe("final_stage");
     expect(r.stop).toBeCloseTo(best * 0.995, 6);
@@ -62,7 +62,7 @@ describe("readGannExit: the final stage of a campaign (M-R11)", () => {
   it("leaves the initial stop until the trade has advanced 3 points (W006 p.46: the trail follows an advance)", () => {
     ledgerState.trend = "bullish";
     ledgerState.sections = 3;
-    const notYet = 102 + gannThreePoints(102) * 0.9;
+    const notYet = 102 + threePoints(102) * 0.9;
     const r = readGannExit(pos, bars, notYet);
     expect(r.stopReason).toBe("initial");
     expect(r.stop).toBe(97);
@@ -83,7 +83,7 @@ describe("readGannExit: the final stage of a campaign (M-R11)", () => {
     it("tightens to the final-stage stop once 3 points ahead", () => {
       ledgerState.trend = "bearish";
       ledgerState.sections = 3;
-      const best = 102 - gannThreePoints(102) - 1;
+      const best = 102 - threePoints(102) - 1;
       const r = readGannExit(short, falling, best);
       expect(r.stopReason).toBe("final_stage");
       expect(r.stop).toBeCloseTo(best * 1.005, 6);
@@ -92,7 +92,7 @@ describe("readGannExit: the final stage of a campaign (M-R11)", () => {
     it("leaves the initial stop until the trade has advanced 3 points", () => {
       ledgerState.trend = "bearish";
       ledgerState.sections = 3;
-      const r = readGannExit(short, falling, 102 - gannThreePoints(102) * 0.9);
+      const r = readGannExit(short, falling, 102 - threePoints(102) * 0.9);
       expect(r.stopReason).toBe("initial");
       expect(r.stop).toBe(107);
     });

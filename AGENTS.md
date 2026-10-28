@@ -70,8 +70,17 @@ application.
   `lib/school/__tests__/publicMethods.test.ts` fails a lesson that writes out
   one of the method's own rules. The graduation exam still grades GSPS's own
   plans, explained in plain words without the rules' timing.
+- **Ids a browser or a member's row can read are neutral (2026-10-28, #510).**
+  Exit rules are `structure` and `structure-runner` (the old `gann` and
+  `gann-runner` are still accepted, so every "gann" exit rule in the history
+  below is `structure` now), the strategy mode is `gsps`, the settings route is
+  `/api/settings/trade-rules`, `pointScale.ts` exports `pricePoint`,
+  `threePoints` and `pointForBars`, and scan results reach the client as
+  `PublicScanResult`. Rows a member can read (`daily_scans`, `orders`,
+  `trade_plans`, `trade_logs`) store `STORED_STRATEGY_VERSION`, a dated label,
+  never the `STRATEGY_VERSION` name (`lib/backtest/publicVersion.ts`).
 - `scripts/check-banned-terms.mjs`'s `CONFIDENTIAL_TERMS` gates the copy
-  surfaces in CI. Check the built bundle too (`grep -r` over `.next/static`)
+  surfaces in CI, and `scripts/check-bundle-terms.mjs` gates the built bundle. Check the built bundle too (`grep -r` over `.next/static`)
   when a change touches what a client imports.
 
 ## Cross-platform consistency — standing principle
@@ -317,7 +326,7 @@ square ends and centres and the planetary averages' nearest points in the S/R
 list on the live scan and the replay. The rest are measured context.
 `masterTwelve.ts`'s spiral is GSPS's own, not Gann's calculator.
 `STRATEGY_VERSION` is `2026-09-30-gann-calculator-planetary`. Prices are read
-in the Gann point (`pointScale.ts#gannPoint`, exactly $1 at $42.50).
+in the Gann point (`pointScale.ts#pricePoint`, exactly $1 at $42.50).
 **Same day, from Gann's Square of Nine plate** (Vol. 3 p. 34 and the Cycles
 Research Institute workbook, source note B12, filed with the Gann sources):
 the sixteenths of the seasonal year (`seasonalCounts.ts`), the square read in
@@ -467,8 +476,8 @@ bucket, score band or factor table. **The owner's runs used `entryRule:
 "confirmed"`, which is not production's entry:** it arms on the crossing alone
 and measures R from the crossing price, 2 points past the reaction entry the plan
 and TP1 are priced from. Production's rule is `"reaction"`, the default. A
-production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann"}`
-(`LIVE_EXIT_RULE` is "gann" since Q14; `useProductionStop` does nothing under
+production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"structure"}`
+(`LIVE_EXIT_RULE` is "structure", formerly "gann", since Q14; `useProductionStop` does nothing under
 "reaction"). `STRATEGY_VERSION` was `2026-10-21-replay-accounting`; Execute and
 the 6/3.5 cutoffs need a fresh run on it.
 
@@ -1348,7 +1357,7 @@ need a fresh run on it.
 Gann gave at a stated price had been ported as that many Gann points, which
 already grow with price (`pointScale.ts`), so each ran about two to three times
 his own. The re-buy after a stop rests his 12 points under the best price read
-at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
+at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / pricePoint(230)`,
 about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
 at Advance Rumely's 105 ("a 10-point stop, out at 95", *Stock Selector* Ch. V), about 5.9 Gann
 points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
@@ -1359,7 +1368,7 @@ during the leg out of it (`narrowRangeBeforeLeg`), since the walk from its top
 to the crossing line is wider than narrow, so the breakaway's volume rule is
 still asked. Random walks, armed long entries held by the breakaway: $20 43% →
 23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
-a number at a price, divide it by `gannPoint` at that price; only his "3 points"
+a number at a price, divide it by `pricePoint` at that price; only his "3 points"
 (the scale's own anchor) and figures he states across price bands are read as
 Gann points directly. `STRATEGY_VERSION` was `2026-10-28-gann-figures-at-his-price`;
 Execute and the 7/4 cutoffs need a fresh run on it.

@@ -14,9 +14,9 @@ import { IndustryPicker, useIndustries } from "@/components/scan/industry-picker
 import { MAX_SCAN_REQUESTS, SCAN_CHUNK_SIZE, chunk, resolveSelection } from "@/lib/universe/selection";
 import { cn } from "@/lib/utils";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 
-function toRow(r: ScanResult): ScanRow {
+function toRow(r: PublicScanResult): ScanRow {
   return {
     symbol: r.symbol,
     score: r.decision.score,
@@ -93,7 +93,7 @@ export default function ScannerPage() {
       // the server refuses (the day's scans used up) stops the rest and keeps
       // what came back.
       const batches = chunk(picked, SCAN_CHUNK_SIZE);
-      const all: ScanResult[] = [];
+      const all: PublicScanResult[] = [];
       let exact = false;
       let stopped: string | null = null;
       for (let i = 0; i < batches.length && !stopped; i += 2) {
@@ -112,7 +112,7 @@ export default function ScannerPage() {
             continue;
           }
           exact ||= Boolean(body.exactScoreDisplayEnabled);
-          all.push(...((body.results ?? []) as ScanResult[]));
+          all.push(...((body.results ?? []) as PublicScanResult[]));
         }
       }
       if (stopped && batches.length > 1) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { rebuyPlanAt, walkRebuy, walkReversals } from "../replay";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { LOSS_SERIES_LENGTH } from "@/lib/risk/lossSeries";
 
 /** 15-minute candles from 14:30Z on 2026-03-02, one per close. */
@@ -22,7 +22,7 @@ describe("the replay's reversal when caught", () => {
     });
     expect(out).toHaveLength(1);
     expect(out[0].direction).toBe("bearish");
-    expect(out[0].stop).toBeCloseTo(104 + gannThreePoints(104), 10);
+    expect(out[0].stop).toBeCloseTo(104 + threePoints(104), 10);
     expect(out[0].reversal).toBe(1);
     expect(out[0].entry).toBeLessThan(100);
     expect(out[0].rMultiple).toBeGreaterThan(0);

@@ -15,7 +15,7 @@ import {
   ENTRY_TRIGGER_SWING_DAYS,
 } from "@/lib/gann/entryTrigger";
 import { swingPivots } from "@/lib/gann/swingChart";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 /** Bars from closes; high/low straddle each close so pivots are well defined. */
 function bars(closes: number[]): Bar[] {
@@ -78,7 +78,7 @@ describe("computeGannEntryTrigger", () => {
   it("clears the level by 3 points, price-scaled, rather than sitting on it", () => {
     const t = computeGannEntryTrigger(ZIGZAG, "bullish")!;
     expect(t.triggerPrice).toBeGreaterThan(t.pivot.price);
-    expect(t.triggerPrice).toBeCloseTo(t.pivot.price + gannThreePoints(t.pivot.price), 8);
+    expect(t.triggerPrice).toBeCloseTo(t.pivot.price + threePoints(t.pivot.price), 8);
   });
 
   it("stops beyond the protective swing on the other side", () => {
@@ -138,7 +138,7 @@ describe("computeGannEntryTrigger", () => {
   });
 
   it("reads a spell wider than two 3-point allowances as no distribution", () => {
-    const w = 2.5 * gannThreePoints(19);
+    const w = 2.5 * threePoints(19);
     // Closes swing so the bars' highs and lows span 2.5 allowances: a sharp top, not a narrow spell.
     const wide = bars(Array.from({ length: 12 }, (_, i) => (i % 2 ? 20 + (w - 2) / 2 : 20 - (w - 2) / 2)));
     expect(distributedBefore(wide, wide.length, 10)).toBe(false);

@@ -57,7 +57,7 @@
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { isResting } from "@/lib/setups/resting";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
-import type { AssetClass, ScanResult } from "@/lib/types";
+import type { AssetClass, PublicScanResult } from "@/lib/types";
 
 /**
  * Which plan a read at `now` belongs to: the New York date the scan reads its
@@ -72,7 +72,7 @@ export function planSessionKey(assetClass: AssetClass, now: Date = new Date()): 
 
 export type PlanEvent = "stop" | "reclaim" | "target" | "resting";
 
-type PlanFields = Pick<ScanResult, "direction" | "currentPrice" | "levels" | "stopBreach" | "dayRange" | "decision">;
+type PlanFields = Pick<PublicScanResult, "direction" | "currentPrice" | "levels" | "stopBreach" | "dayRange" | "decision">;
 
 /** Today's high and low so far, from the quote; either may be unknown. */
 export interface DayExtremes {
@@ -151,7 +151,7 @@ export function planEventLevel(result: PlanFields, event: PlanEvent): number | n
 
 /** What the symbol page keeps: the result and how its score is shown. */
 export interface CachedPlan {
-  result: ScanResult;
+  result: PublicScanResult;
   exactScoreDisplayEnabled: boolean;
   /** `planSessionKey` when it was stored. */
   session: string;
@@ -159,7 +159,7 @@ export interface CachedPlan {
   storedAt: number;
 }
 
-const PREFIX = "gsps:plan:v1:";
+const PREFIX = "gsps:plan:v2:";
 /** How many symbols the tab keeps; the oldest goes first. */
 export const MAX_CACHED_PLANS = 12;
 
@@ -223,7 +223,7 @@ export function readCachedPlan(symbol: string, now: Date = new Date()): CachedPl
 /** Keep a successful scan for the rest of its session. */
 export function writeCachedPlan(
   symbol: string,
-  result: ScanResult,
+  result: PublicScanResult,
   exactScoreDisplayEnabled: boolean,
   now: Date = new Date(),
 ): CachedPlan {

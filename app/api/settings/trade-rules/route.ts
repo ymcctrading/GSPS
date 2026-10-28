@@ -1,5 +1,5 @@
 /**
- * GSPS — /api/settings/gann-rules
+ * GSPS — /api/settings/trade-rules
  *
  * The trader's switches for Gann's round-number notice, the twice-yearly rest
  * reminder, the close-out reminder before an absence (A-EXIT-05), and the autonomous portfolio manager's round-number setting. See

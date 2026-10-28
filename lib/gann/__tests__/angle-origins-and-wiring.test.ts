@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import type { Bar } from "@/lib/types";
 import { majorAnglePivots, readPatternAngles } from "@/lib/gann/patternAngles";
 import { swingPivots, WEEKLY_SWING_CHART } from "@/lib/gann/swingChart";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 
 const DAY = 86_400_000;
 const series = (drift: number): Bar[] =>
@@ -49,8 +49,8 @@ describe("the card's pattern-angle reading uses the same price-scaled point as t
     const bars = series(0.1);
     const price = bars[bars.length - 1].c;
     const ctx = readDisclosedRules(bars, price, { sharesOutstanding: null, inception: null }, new Date("2026-06-15T15:00:00Z"));
-    expect(ctx.patternAngles).toEqual(readPatternAngles(bars, price, gannPointForBars(bars)));
-    expect(ctx.patternAngles).not.toEqual(readPatternAngles(bars, price, 2 * gannPointForBars(bars)));
+    expect(ctx.patternAngles).toEqual(readPatternAngles(bars, price, pointForBars(bars)));
+    expect(ctx.patternAngles).not.toEqual(readPatternAngles(bars, price, 2 * pointForBars(bars)));
   });
 });
 

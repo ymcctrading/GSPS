@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeGannEntryTrigger, gannBreakLine, gannCrossedLevel } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { computeTradeLevels, gannEntrySource } from "@/lib/strat/levels";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
@@ -32,7 +32,7 @@ describe("the reaction buy on the live plan", () => {
   for (const direction of ["bullish", "bearish"] as const) {
     const t = computeGannEntryTrigger(direction === "bullish" ? ZIGZAG : ZIGZAG_SHORT, direction)!;
     const sign = direction === "bullish" ? 1 : -1;
-    const point = gannThreePoints(t.level) / 3;
+    const point = threePoints(t.level) / 3;
 
     it(`prices a ${direction} plan at the level plus 1 point, stopped at the level less 3`, () => {
       for (const assetClass of ["us_equity", "crypto"] as const) {
@@ -40,7 +40,7 @@ describe("the reaction buy on the live plan", () => {
         expect(l.entry).toBeCloseTo(t.level + sign * point, 2);
         expect(l.stopLoss).toBeCloseTo(t.level - sign * 3 * point, 2);
         // Never more than 5 points at risk (W006 p.46): the reaction risks 4.
-        expect(l.riskPerShare).toBeLessThanOrEqual((5 / 3) * gannThreePoints(t.level) + 0.01);
+        expect(l.riskPerShare).toBeLessThanOrEqual((5 / 3) * threePoints(t.level) + 0.01);
       }
     });
 

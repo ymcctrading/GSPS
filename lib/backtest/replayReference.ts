@@ -4,7 +4,7 @@
  *
  * Only a production-faithful cell belongs here: `usePlanLevels`, the
  * reaction entry and Gann's exits (`{"usePlanLevels":true,"entryRule":
- * "reaction","exitRule":"gann"}`, AGENTS.md "Replay accounting"). A cell on
+ * "reaction","exitRule":"structure"}`, AGENTS.md "Replay accounting"). A cell on
  * other rules measured something no account trades. Hand-transcribed from
  * the run's JSON in `docs/replay-runs/`, the same manual discipline as
  * `lib/shadow/compare.ts`'s baseline: a person adds a row when a run is

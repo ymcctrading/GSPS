@@ -32,12 +32,14 @@
  *                          trailed 3 points under each completed day's low
  *                          from the fill (Gann exits only). See
  *                          ReplayOptions.tradeStyle. Default swing.
- *   ?exitRule=gann        how open trades leave: bracket, gann (default,
- *                          production's LIVE_EXIT_RULE) or gann-runner. See ReplayOptions.exitRule
+ *   ?exitRule=structure   how open trades leave: bracket, structure (default,
+ *                          production's LIVE_EXIT_RULE) or structure-runner;
+ *                          the old ids gann and gann-runner are still accepted.
+ *                          See ReplayOptions.exitRule
  *   ?disableExits=three_adverse_closes,prior_week
  *                          measurement only: switch named Gann exit rules off
- *                          inside the replay walk (needs exitRule gann or
- *                          gann-runner). An unknown name is a 400. See
+ *                          inside the replay walk (needs exitRule structure or
+ *                          structure-runner). An unknown name is a 400. See
  *                          ReplayOptions.disableExits
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
  *                          stop by for the plan to stand again: 3 (default, the
@@ -197,9 +199,12 @@ export async function GET(req: NextRequest) {
   }
   const reclaimPoints = reclaimPointsRaw === null ? undefined : Number(reclaimPointsRaw);
 
-  const exitRuleRaw = searchParams.get("exitRule");
-  if (exitRuleRaw !== null && exitRuleRaw !== "bracket" && exitRuleRaw !== "gann" && exitRuleRaw !== "gann-runner") {
-    return NextResponse.json({ error: `Invalid exitRule '${exitRuleRaw}' (bracket | gann | gann-runner)` }, { status: 400 });
+  // The ids before 2026-10-28 ("gann", "gann-runner") are still read, so an
+  // earlier run's link reproduces.
+  const exitRuleParam = searchParams.get("exitRule");
+  const exitRuleRaw = exitRuleParam === "gann" ? "structure" : exitRuleParam === "gann-runner" ? "structure-runner" : exitRuleParam;
+  if (exitRuleRaw !== null && exitRuleRaw !== "bracket" && exitRuleRaw !== "structure" && exitRuleRaw !== "structure-runner") {
+    return NextResponse.json({ error: `Invalid exitRule '${exitRuleRaw}' (bracket | structure | structure-runner)` }, { status: 400 });
   }
   const exitRule = exitRuleRaw ?? undefined;
 

@@ -13,7 +13,7 @@ import { formatUsd } from "@/lib/utils";
 import { MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 interface GuidedResponse {
   enabled: boolean;
@@ -235,7 +235,7 @@ function ConfirmDialog({
   // A-EXIT-05 and the twice-yearly rest (Truth of the Stock Tape Ch. VII):
   // inside either window its close-out reminder sits above the button, the
   // away reminder first, as placement's closeOutNotice reads them.
-  const { awayReminder, restReminder } = useGannRulePrefs();
+  const { awayReminder, restReminder } = useTradeRulePrefs();
   const closeOut = awayReminder ?? restReminder;
   return (
     <Modal

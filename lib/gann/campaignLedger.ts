@@ -73,7 +73,7 @@
  * - The prior range is the last completed leg with the trend, and the later
  *   low is the bottom that ended the counter-move after it (mirrored in a
  *   bear campaign, an engineering symmetry).
- * - The 1-point margin is one price-scaled point (`pointScale.ts#gannPoint`)
+ * - The 1-point margin is one price-scaled point (`pointScale.ts#pricePoint`)
  *   at the counter-move's start.
  *
  * Context only for now, like Stage A: nothing here scores or gates until the
@@ -91,7 +91,7 @@
 
 import type { Bar } from "@/lib/types";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -442,7 +442,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
             standingTime ||= time;
             standingFrom ??= l.fromIndex;
           }
-          if (l.points >= prior.points + gannPoint(topPrice)) standingByPoint = true;
+          if (l.points >= prior.points + pricePoint(topPrice)) standingByPoint = true;
         }
       }
       prior = prior === null ? { points: l.points, days: l.days } : { points: Math.max(prior.points, l.points), days: Math.max(prior.days, l.days) };
@@ -466,7 +466,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const timeOverbalanced = openTime || standingTime;
   // C-TREND-06: "by 1+ point" (Master Course Ch. 8, PDF 249), one point at the counter-move's start price.
   const spaceOverbalancedByPoint =
-    (currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.points >= greatestCounterMove.points + gannPoint(lastPoint.price)) ||
+    (currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.points >= greatestCounterMove.points + pricePoint(lastPoint.price)) ||
     standingByPoint;
   // The over-balancing reaction: the one in progress, else the earliest
   // completed one still standing.

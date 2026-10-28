@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { gannCrossedLevel } from "@/lib/gann/entryTrigger";
 
 const readEntryConfirmationNow = vi.hoisted(() => vi.fn());
@@ -45,13 +45,13 @@ describe("scan plans carry the reaction pair", () => {
       const sign = r.direction === "bullish" ? 1 : -1;
       if (r.levels.entryKind === "oldLevel") {
         // A double or triple bottom (top): at the level, stop 3 points beyond (item 5, step 2).
-        expect(Math.abs(r.levels.entry - r.levels.stopLoss)).toBeCloseTo(gannThreePoints(r.levels.entry), 1);
+        expect(Math.abs(r.levels.entry - r.levels.stopLoss)).toBeCloseTo(threePoints(r.levels.entry), 1);
         expect(sign * (r.levels.entry - r.levels.stopLoss)).toBeGreaterThan(0);
         oldLevel++;
         continue;
       }
       const level = gannCrossedLevel(r.levels.entry, r.levels.stopLoss);
-      const point = gannThreePoints(level) / 3;
+      const point = threePoints(level) / 3;
       expect(r.levels.entry).toBeCloseTo(level + sign * point, 1);
       expect(r.levels.stopLoss).toBeCloseTo(level - sign * 3 * point, 1);
       // Never more than 5 points at risk (A-STOP-02).
@@ -177,7 +177,7 @@ describe("placement confirms on the crossing read from the protocol's entry and 
 
 describe("never risk more than 5 points (A-STOP-02)", () => {
   it("refuses a stop more than 5 points from the entry, a Manual Override stop included", () => {
-    const point = gannThreePoints(100) / 3;
+    const point = threePoints(100) / 3;
     const base = { entryMode: "advised" as const, limitPrice: 100 };
     expect(riskCapRefusal({ ...base, attachLevels: { stopLoss: 100 - 4 * point, takeProfit: 120 } })).toBeNull();
     expect(riskCapRefusal({ ...base, attachLevels: { stopLoss: 100 - 5.2 * point, takeProfit: 120 } })?.body).toMatchObject({
@@ -188,7 +188,7 @@ describe("never risk more than 5 points (A-STOP-02)", () => {
 
   it("is checked before anything is placed", async () => {
     readEntryConfirmationNow.mockReset().mockResolvedValue({ ready: true, stage: "confirmed", note: "" });
-    const point = gannThreePoints(100) / 3;
+    const point = threePoints(100) / 3;
     const order: OrderInput = {
       symbol: "AAPL", assetClass: "equity", side: "buy", qty: 1, mode: "paper", entryMode: "advised",
       limitPrice: 100, attachLevels: { stopLoss: 100 - 6 * point, takeProfit: 120 }, intradaySourced: false,
@@ -199,7 +199,7 @@ describe("never risk more than 5 points (A-STOP-02)", () => {
 
   it("yields to the method's own stop on a re-buy or reversal plan, and only to that stop (A-PYRAMID-07, A-EXIT-02)", async () => {
     readEntryConfirmationNow.mockReset().mockResolvedValue({ ready: true, stage: "confirmed", note: "" });
-    const point = gannThreePoints(100) / 3;
+    const point = threePoints(100) / 3;
     // The re-buy's stop is 6 points under its entry, half a 12-point reaction (Tunnel p.198).
     getTradePlan.mockResolvedValue({
       direction: "bullish", signalId: "rebuy:abc", generatedAt: "2026-10-15T14:00:00Z",

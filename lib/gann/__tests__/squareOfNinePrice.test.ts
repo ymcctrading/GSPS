@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { nearestCrossNumbers, squareOfNinePriceLevels } from "../squareOfNinePrice";
 import { numbersOnLine } from "../squareOfNineTime";
-import { gannPoint } from "../pointScale";
+import { pricePoint } from "../pointScale";
 import { gannMasterLevels } from "../masterLevels";
 import type { Bar } from "@/lib/types";
 
@@ -47,7 +47,7 @@ describe("the nine square read in price", () => {
 
   it("converts the cell numbers to dollars in points at a low and a high price", () => {
     for (const price of [20, 500]) {
-      const unit = gannPoint(price);
+      const unit = pricePoint(price);
       const levels = squareOfNinePriceLevels(price, unit);
       expect(levels).toHaveLength(2);
       const [support, resistance] = levels;
@@ -61,12 +61,12 @@ describe("the nine square read in price", () => {
       expect(resistance.label).toMatch(/resistance$/);
     }
     // $20 is about 31.2 points (3 points ≈ 9.6% of price): support on 31, the 45° line.
-    const low = squareOfNinePriceLevels(20, gannPoint(20));
+    const low = squareOfNinePriceLevels(20, pricePoint(20));
     expect(low[0].number).toBe(31);
     expect(low[0].angle).toBe(45);
     // $500 is about 116.3 points (3 points ≈ 2.6%): support on 116, the 270° line
     // (Gann's 8, 23, 46, 77, 116 …), resistance on 121 (11², the 315° line).
-    const high = squareOfNinePriceLevels(500, gannPoint(500));
+    const high = squareOfNinePriceLevels(500, pricePoint(500));
     expect(high[0].number).toBe(116);
     expect(high[0].kind).toBe("cardinal");
     expect(high[1].number).toBe(121);

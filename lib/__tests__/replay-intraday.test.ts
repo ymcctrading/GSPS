@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { INTRADAY_WINDOW_BARS, MIN_POINT_PCT, intradayPoint, replayIntraday } from "@/lib/backtest/replayIntraday";
 import { byOutputState, combine } from "@/lib/backtest/replay";
 import { isRegularSessionBar } from "@/lib/gann/intradayExit";
@@ -102,12 +102,12 @@ function upThenReversal(): Bar[] {
 describe("intradayPoint", () => {
   it("is a third of Gann's price-scaled 3 points, in proportion to how large these bars' swings are against a day's", () => {
     const quarter = intradayPoint(100, 0.5, 2);
-    expect(quarter).toBeCloseTo((gannThreePoints(100) / 3) * 0.25, 10);
+    expect(quarter).toBeCloseTo((threePoints(100) / 3) * 0.25, 10);
     expect(intradayPoint(100, 1, 2)).toBeCloseTo(2 * quarter, 10);
   });
 
   it("never exceeds the daily third, and is floored so a quiet name still gets an allowance", () => {
-    expect(intradayPoint(100, 9, 2)).toBeCloseTo(gannThreePoints(100) / 3, 10);
+    expect(intradayPoint(100, 9, 2)).toBeCloseTo(threePoints(100) / 3, 10);
     expect(intradayPoint(100, 0.0001, 2)).toBeCloseTo((100 * MIN_POINT_PCT) / 100, 10);
   });
 

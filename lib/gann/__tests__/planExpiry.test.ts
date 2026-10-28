@@ -9,7 +9,7 @@ import { campaignExtreme, readPlanExpiry } from "@/lib/gann/planExpiry";
 import { applyPlanExpiredHold } from "@/lib/scoring/score";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { isInvalidated } from "@/lib/dailyScans";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
 const bar = (i: number, h: number, l: number): Bar => ({
   t: new Date(Date.UTC(2026, 8, 1 + i)).toISOString(),
@@ -81,7 +81,7 @@ describe("readPlanExpiry: out of a reaction's reach", () => {
   });
 
   it("needs the full point beyond the greatest", () => {
-    const point = gannPoint(150);
+    const point = pricePoint(150);
     const justUnder = 150 - (10 + point) + 0.01;
     expect(readPlanExpiry({ side: "buy", price: 146, levels: { entry: justUnder, takeProfit1: 160, entryKind: "crossing" }, ledger, bars })).toBeNull();
     const at = 150 - (10 + point) - 0.01;

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SCANNER_STATE_META, type ScannerStateName, type SignalVerdict } from "@/lib/signals/types";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 
 const STATE_ORDER: ScannerStateName[] = [
   "trendPullback",
@@ -25,7 +25,7 @@ const REGIME_LABEL: Record<string, string> = {
  * breakdown that decided them, and never the engine's own entry, stop and
  * target, which are not Gann's (R-025): the Gann plan above is the plan.
  */
-export function SignalRegimeCard({ result }: { result: ScanResult }) {
+export function SignalRegimeCard({ result }: { result: PublicScanResult }) {
   const { signals } = result;
   if (!signals) return null;
 

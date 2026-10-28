@@ -1,4 +1,4 @@
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { classifyBar, classifySeries } from "@/lib/strat/classify";
@@ -203,7 +203,7 @@ describe("computeTradeLevels", () => {
     // Reverse when caught (A-EXIT-02, Q15): the reversal's stop is 3 points
     // beyond the old trade's extreme; at plan time that is the entry, a low
     // for this short. The copy says it moves with the trade's best price.
-    expect(levels.pivotPlan?.invalidation).toBeCloseTo(levels.entry - gannThreePoints(levels.entry), 2);
+    expect(levels.pivotPlan?.invalidation).toBeCloseTo(levels.entry - threePoints(levels.entry), 2);
     expect(levels.pivotPlan?.confirmation).toContain("reverse");
     // Mirrors intraday's VWAP-as-first-target choice: here that's the level
     // the original thesis entered at.

@@ -41,7 +41,7 @@ describe("measured records for the card's time lines", () => {
  */
 describe("time-line badges outside the card", () => {
   const PAGES = ["components/scan/ticker-view.tsx", "components/chart/market-tabs.tsx", "components/chart/public-chart.tsx"];
-  const OPENER = /\{[^{}\n]*?(timeCycleActive|yearCycle(?:Bullish|Bearish)Hits)[^{}\n]*?&&\s*\(/g;
+  const OPENER = /\{[^{}\n]*?(timingActive|longTermTimingCount)[^{}\n]*?&&\s*\(/g;
 
   it("has no record for the yearly-cycle convergence yet, since the committed run does not hold its family", () => {
     expect(TIME_LINE_RECORDS.yearCycles).toBeNull();
@@ -55,7 +55,7 @@ describe("time-line badges outside the card", () => {
       const src = readFileSync(page, "utf8");
       for (const m of src.matchAll(OPENER)) {
         openers++;
-        const need = m[1] === "timeCycleActive" ? "TIME_LINE_RECORDS.timeCycle" : "TIME_LINE_RECORDS.yearCycles";
+        const need = m[1] === "timingActive" ? "TIME_LINE_RECORDS.timeCycle" : "TIME_LINE_RECORDS.yearCycles";
         expect(m[0], page).toContain(need);
       }
       expect(src, page).toMatch(/TIME_LINE_RECORDS\.timeCycle\.summary/);

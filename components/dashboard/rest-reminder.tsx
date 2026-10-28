@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 function CloseAllButton() {
   const [step, setStep] = useState<"idle" | "confirm" | "busy" | "done">("idle");
@@ -58,7 +58,7 @@ function CloseAllButton() {
 }
 
 export function RestReminder() {
-  const { restReminder, awayReminder, save } = useGannRulePrefs();
+  const { restReminder, awayReminder, save } = useTradeRulePrefs();
   return (
     <>
       {awayReminder && (
@@ -84,8 +84,8 @@ function RestNotice({
   restReminder,
   save,
 }: {
-  restReminder: NonNullable<ReturnType<typeof useGannRulePrefs>["restReminder"]>;
-  save: ReturnType<typeof useGannRulePrefs>["save"];
+  restReminder: NonNullable<ReturnType<typeof useTradeRulePrefs>["restReminder"]>;
+  save: ReturnType<typeof useTradeRulePrefs>["save"];
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-accent/40 bg-surface p-4" role="note">

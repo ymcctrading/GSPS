@@ -28,7 +28,7 @@
  */
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 /** Weeks in the range a breakout is read against: 13, the breakaway's range. */
 export const FALSE_BREAKOUT_RANGE_WEEKS = 13;
@@ -83,10 +83,10 @@ export function readFalseBreakout(daily: Bar[], asOf: Date): FalseBreakoutReadin
   const bottom = Math.min(...range.map((w) => w.l));
   const brk = weeks[n - 2];
   const next = weeks[n - 1];
-  if (brk.h > top && brk.h <= top + gannThreePoints(top) && next.c < top) {
+  if (brk.h > top && brk.h <= top + threePoints(top) && next.c < top) {
     return { direction: "bearish", level: top, extreme: brk.h, breakWeek: brk.key };
   }
-  if (brk.l < bottom && brk.l >= bottom - gannThreePoints(bottom) && next.c > bottom) {
+  if (brk.l < bottom && brk.l >= bottom - threePoints(bottom) && next.c > bottom) {
     return { direction: "bullish", level: bottom, extreme: brk.l, breakWeek: brk.key };
   }
   return null;

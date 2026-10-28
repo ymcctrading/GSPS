@@ -19,7 +19,7 @@
  * - His 1940-41 soybean trade (Chart No. 18): in the runaway move, stops 1
  *   cent under each day's low.
  *
- * Points are price-scaled (`pointScale.ts#gannPoint`), read at the day's
+ * Points are price-scaled (`pointScale.ts#pricePoint`), read at the day's
  * extreme. The default of 3 points is Gann's "safest" stop.
  *
  * Three-question basis: 1. Gann, as cited. 2. No periodicity claim; Dewey's
@@ -28,7 +28,7 @@
  * extreme becomes the trade's line, and it moves each day the trade lives.
  */
 
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
 export interface DayStopInput {
   /** The day's low for a long, the day's high for a short. */
@@ -46,7 +46,7 @@ export interface DayStopInput {
 /** Gann's day stop, or null when the extreme is not a price. */
 export function gannDayStop({ extreme, side, points = 3, planStop = null }: DayStopInput): number | null {
   if (!(extreme > 0) || !(points >= 0)) return null;
-  const offset = points * gannPoint(extreme);
+  const offset = points * pricePoint(extreme);
   const raw = side === "long" ? extreme - offset : extreme + offset;
   if (planStop == null || !(planStop > 0)) return raw;
   return side === "long" ? Math.max(raw, planStop) : Math.min(raw, planStop);

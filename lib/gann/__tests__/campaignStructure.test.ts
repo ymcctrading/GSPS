@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { buildCampaignLedger, campaignMonthOrdinal, readCampaignAge } from "../campaignLedger";
-import { gannPoint } from "../pointScale";
+import { pricePoint } from "../pointScale";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
 function daily(closes: number[]): Bar[] {
@@ -92,7 +92,7 @@ describe("C-TREND-06: over-balance of space by 1 point or more", () => {
     const greatest = buildCampaignLedger(daily([...closes, top - 0.5, top - 1]))!.greatestCounterMove!;
     // A reaction a quarter point deeper than the greatest one, in percent of the top.
     const topHigh = top + 0.5;
-    const pt = gannPoint(topHigh);
+    const pt = pricePoint(topHigh);
     const targetLow = topHigh * (1 - greatest.pct / 100) - pt / 4;
     const c = targetLow + 0.5;
     const l = buildCampaignLedger(daily([...closes, top - 1, (top - 1 + c) / 2, c]))!;

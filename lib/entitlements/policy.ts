@@ -107,7 +107,7 @@ export type EntitlementPolicy = {
    * rather than splitting it, each tier's depth matched to what it's ready
    * to use safely.
    */
-  allowedStrategyModes: "all" | readonly Exclude<StrategyModeId, "gann">[];
+  allowedStrategyModes: "all" | readonly Exclude<StrategyModeId, "gsps">[];
   /**
    * Custom-script Strategy Modes authoring (`lib/strategies/custom/`,
    * `docs/STRATEGY_MODES.md`'s "Custom-script / plugin system" section).

@@ -1,6 +1,6 @@
 /** Review findings S-08 and P-02: trade-log writes are stamped and retried. */
 import { describe, expect, it } from "vitest";
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 import { insertTradeLog, TRADE_LOG_ATTEMPTS } from "@/lib/portfolio/trade-log-insert";
 
 function stub(errors: ({ code?: string; message: string } | null)[]) {
@@ -21,7 +21,7 @@ describe("insertTradeLog", () => {
   it("stamps the strategy version", async () => {
     const { client, rows } = stub([null]);
     expect((await insertTradeLog(client, "paper", { symbol: "AAPL" })).error).toBeNull();
-    expect(rows[0]).toMatchObject({ symbol: "AAPL", strategy_version: STRATEGY_VERSION });
+    expect(rows[0]).toMatchObject({ symbol: "AAPL", strategy_version: STORED_STRATEGY_VERSION });
   });
 
   it("names the account the trade belongs to (R-002)", async () => {
