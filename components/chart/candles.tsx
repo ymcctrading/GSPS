@@ -1233,7 +1233,7 @@ export function CandleChart({
         ? intradayMarkers.length > 0
           ? "Intraday chart: the lines are today's intraday alert levels. The daily (Swing) plan is on the Daily chart."
           : "Intraday chart: no intraday alert stands for this symbol, so no plan lines are drawn. The daily (Swing) plan is on the Daily chart."
-        : "Daily chart: the lines are the daily (Swing) plan. Switch to 15m or 1h for today's intraday alert levels.";
+        : "Daily chart: the lines are the daily (Swing) plan. Switch to an intraday timeframe, such as 15m or 1h, for today's intraday alert levels.";
   const hasDrawings = hlines.length > 0 || trendlines.length > 0 || pending != null;
 
   function toggleAlert() {

@@ -953,7 +953,7 @@ keeps its day trail until it closes; the Fast trail and the replay's
 `tradeStyle: "fast"` stay for those trades. On the symbol page one chart shows
 both: a daily or longer timeframe draws the daily plan, an intraday timeframe
 (`INTRADAY_TFS`) draws the intraday panel's current alert for the symbol, or
-today's scheduled one before a scan is read, labelled "Intraday", only when
+today's scheduled one before a scan is read (never the "Trade this" link's levels), labelled "Intraday", only when
 that alert is offered as a trade, and no plan lines when none is
 (`lib/chart/planForTimeframe.ts`, `intradayChartPlan`); the structural levels
 show on both, and a line under the chart says which plan is drawn. Verdicts,

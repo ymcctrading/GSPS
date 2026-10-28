@@ -68,12 +68,10 @@ export function TickerView({ symbol }: { symbol: string }) {
   // The alert's own stop, first target and MTP (the Intraday style), from the same link.
   const intradayPlan = intradaySourced ? intradayPlanFromQuery(searchParams.get("stop"), searchParams.get("tp1"), searchParams.get("mtp")) : null;
   // The plan the chart draws on intraday timeframes (lib/chart/planForTimeframe.ts):
-  // the intraday panel's current alert for this symbol, else the alert the
-  // ticket was opened from.
-  const [alertChartPlan, setAlertChartPlan] = useState<IntradayChartPlan | null>(null);
-  const chartIntradayPlan: IntradayChartPlan | null =
-    alertChartPlan ??
-    (intradayPlan ? { entry: null, stop: intradayPlan.stop, firstTarget: intradayPlan.target, masterTarget: intradayPlan.master } : null);
+  // the intraday panel's current alert for this symbol, offered as a trade.
+  // Not the link's levels: once the alert no longer stands, its lines would
+  // describe a plan the panel no longer offers.
+  const [chartIntradayPlan, setChartIntradayPlan] = useState<IntradayChartPlan | null>(null);
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
   useLayoutEffect(() => {
@@ -309,7 +307,7 @@ export function TickerView({ symbol }: { symbol: string }) {
           labelled apart from it: a daily Reject and an intraday signal can
           stand together (TSLA, 2026-10-21). Hidden where the plan has no
           intraday access or nobody is signed in. */}
-      <IntradayAlerts symbols={[symbol]} onChartPlan={setAlertChartPlan} hideWhenLocked title={`${symbol} intraday, separate from the daily verdict`} />
+      <IntradayAlerts symbols={[symbol]} onChartPlan={setChartIntradayPlan} hideWhenLocked title={`${symbol} intraday, separate from the daily verdict`} />
 
       {result && <SignalCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
 
