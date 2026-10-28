@@ -26,7 +26,7 @@ import type { DailyPlanLevels } from "@/lib/scanner/intraday";
  *
  * The overnight sweep (`universe_sweep`, the night the caller passes as
  * `sweepBasis`, from `chooseSweepBasis`) is a third source for the intraday
- * scan (SUS-21, migration 0128): a sweep Execute the lists never
+ * scan (SUS-21, migration 0130): a sweep Execute the lists never
  * publish is still one of the session's setups (`sessionSetups.ts`), and
  * without its plan here it got no "level held" timing and no stop test. Its
  * rows are read only where they carry a stop and the session has not already

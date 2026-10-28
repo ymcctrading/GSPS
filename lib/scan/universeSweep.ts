@@ -154,7 +154,7 @@ export async function loadSweptCandidatesWithBasis(
       .select("basis_date, symbol, direction, score, output_state")
       .eq("basis_date", basis)
       .in("output_state", ["Execute", "Watch"])
-      // A row the session or a later scan already retired (migration 0128)
+      // A row the session or a later scan already retired (migration 0130)
       // is not re-scored first: the coarse pass or the next night reads its
       // new structure.
       .is("invalidated_at", null);

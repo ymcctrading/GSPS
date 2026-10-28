@@ -1,4 +1,4 @@
--- GSPS — 0128: the overnight sweep keeps its plan's levels
+-- GSPS — 0130: the overnight sweep keeps its plan's levels
 --
 -- Gann alignment audit, scan share, SUS-21: a sweep Execute that the daily
 -- lists never publish is timed by the intraday scan through the session

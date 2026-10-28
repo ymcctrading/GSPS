@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
         output_state: r.error ? null : r.decision.outputState,
         setup_kind: planned ? r.setupKind : null,
         entry: planned ? (r.levels?.entry ?? null) : null,
-        // The plan's own levels (migration 0128, SUS-21), so the intraday scan
+        // The plan's own levels (migration 0130, SUS-21), so the intraday scan
         // times a sweep-only setup and retires it when its stop trades.
         stop_loss: planned ? (r.levels?.stopLoss ?? null) : null,
         take_profit_1: planned ? (r.levels?.takeProfit1 ?? null) : null,

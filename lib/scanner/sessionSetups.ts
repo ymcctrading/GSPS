@@ -31,7 +31,7 @@
  * itself holds a resting plan at Watch (`applyReadyNowHold`), so a sweep
  * Execute is one placeable that day. A sweep Execute the lists never publish
  * (the market scan re-scores the sweep's best first, but publishes only its
- * lists) keeps its plan on the sweep row (migration 0128, SUS-21): the
+ * lists) keeps its plan on the sweep row (migration 0130, SUS-21): the
  * intraday scan times it from there (`dailyPlans.ts`), and once the session
  * trades through its stop `invalidateBrokenSweep` marks the row and it leaves
  * the session's setups until the next night's sweep reads new structure. A
@@ -83,7 +83,7 @@ export interface SweepRow {
   symbol: string;
   score: number | string | null;
   output_state: string | null;
-  /** Set once the session traded through the row's stop (migration 0128). */
+  /** Set once the session traded through the row's stop (migration 0130). */
   invalidated_at?: string | null;
 }
 
