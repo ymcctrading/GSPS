@@ -39,7 +39,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry } from "@/lib/promotion/pro-intraday";
 import { etDateKey } from "@/lib/market/session";
-import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
+import { APPROACH_NOTICES, LINE_NOTICES, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { APPROACH_LEAD_DEFAULT_MINUTES, approachDue } from "@/lib/scanner/entryApproach";
 import { checkAlertFreshness, type NotificationFreshnessResult } from "@/lib/notifications/freshness";
 
@@ -103,6 +103,28 @@ export function buildIntradayBellRow(alert: Alert, freshness: DeliverableFreshne
   const plan = alert.continuationPlan;
   const actionable = freshness.disposition === "actionable";
   const asOf = new Date(freshness.dataAsOf);
+  if (LINE_NOTICES.has(alert.type)) {
+    // A crossing still to be made: the session nearing or through the line
+    // the night's plan named. News, never a buy (`detectLineCrossing`).
+    const entry = plan.entry ?? alert.move.current;
+    const title = `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`;
+    const verb = side === "up" ? "above" : "below";
+    const eta = alert.approach ? Math.round(alert.approach.etaMinutes) : null;
+    const observed =
+      alert.type === "line_crossed"
+        ? actionable
+          ? `Price is trading ${verb} the plan's line at ${price(entry)} (price ${price(alert.move.current)}).`
+          : `${delayNote(alert) ? "Delayed observation" : "Observation"}: price traded ${verb} the plan's line at ${price(entry)} in ${candleWindow(alert, asOf)}. ${delayNote(alert)}Where price is now has not been verified.`
+        : actionable
+          ? `${eta != null && eta > 0 ? `About ${eta} minute${eta === 1 ? "" : "s"} from` : "At or near"} the plan's line at ${price(entry)} at the current pace (price ${price(alert.move.current)}).`
+          : `Based on data through ${etClock(asOf)} ET, price was moving toward the plan's line at ${price(entry)}. An estimate from ${delayNote(alert) ? "delayed " : ""}observations, not a live arrival time.${delayNote(alert) ? ` ${delayNote(alert).trim()}` : ""}`;
+    return {
+      symbol: alert.symbol,
+      verdict: "Intraday",
+      title,
+      body: `${observed}${actionable ? "" : heldNote(freshness)} Not a buy yet: ${plan.confirmation.replace(/^Not a trade yet\. /, "")}${alert.invalidation != null ? ` Plan stop ${price(alert.invalidation)}.` : ""}`,
+    };
+  }
   if (NOTICE_SIGNALS.has(alert.type)) {
     const entry = plan.entry ?? alert.move.current;
     const parts = [`entry ${price(entry)}`];
@@ -306,7 +328,7 @@ export async function recordIntradayBells(
         alerts.filter(
           (a) =>
             watched.has(a.symbol.toUpperCase()) &&
-            (a.type !== "entry_approach" || (a.approach != null && approachDue(a.approach.etaMinutes, APPROACH_LEAD_DEFAULT_MINUTES))),
+            (!APPROACH_NOTICES.has(a.type) || (a.approach != null && approachDue(a.approach.etaMinutes, APPROACH_LEAD_DEFAULT_MINUTES))),
         ),
         policy,
         args.intervalBySymbol,

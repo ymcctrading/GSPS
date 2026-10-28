@@ -183,3 +183,82 @@ export function describeFocusReason(reason: FocusReason): string {
       return `Close to the old ${reason.side} at ${reason.level.toFixed(2)}`;
   }
 }
+
+/** A night's plan on a focus name, as `breakawayLinesFirst` reads it. */
+export interface FocusPlanRow {
+  symbol: string;
+  direction: string | null;
+  entry: number | string | null;
+  output_state: string | null;
+  invalidated_at?: string | null;
+}
+
+/** A stored focus row, as `breakawayLinesFirst` reads it. */
+export interface StoredFocusRow {
+  symbol: string;
+  close: number | string | null;
+  reasons: unknown;
+}
+
+/**
+ * The focus names, with those at a breakaway first (owner, 2026-10-28, on
+ * TXN: on the evening of October 26 it had sat 21 sessions in a narrow range,
+ * closed at its top and at an old top, and the night's plan put its line at
+ * 301.86; it ranked 42nd, past the slots the session timed, and crossed the
+ * line the next morning with nobody watching).
+ *
+ * A breakaway line is where Gann's two night-before readings meet: the market
+ * held narrow and closing at the range's edge, "2-6 or 10-13 weeks in a narrow
+ * range ... the longer in range, the bigger the move" (Master Course pp.
+ * 246-248; *Commodities* p. 51), and the night's plan whose crossing is on that
+ * same side, still ahead of the close by no more than his 3-point allowance
+ * (W006 p.20, the crossing his buy waits for). Gann chose such a stock from the
+ * daily chart the night before and timed it in the session (Master Course
+ * Ch. 13), so these lead the focus tier and take its reserved slots.
+ *
+ * Order among them: nearer the line first, read in allowances (the session
+ * most likely to make the crossing), then the longer range (his "the longer in
+ * range, the bigger the move"), then the evening's own rank. The nearness
+ * order is an engineering reading, labelled. The rest keep the evening's
+ * order. A plan the session has already retired (`invalidated_at`) or a
+ * Reject is never a line. Pure.
+ */
+export function breakawayLinesFirst(
+  focus: readonly StoredFocusRow[],
+  plans: readonly FocusPlanRow[],
+): { symbols: string[]; lines: string[] } {
+  const planBy = new Map(plans.map((p) => [p.symbol.trim().toUpperCase(), p]));
+  const lines: { symbol: string; nearness: number; sessions: number; rank: number }[] = [];
+  const rest: string[] = [];
+  focus.forEach((row, rank) => {
+    const symbol = row.symbol.trim().toUpperCase();
+    const line = breakawayLine(row, planBy.get(symbol));
+    if (line) lines.push({ symbol, ...line, rank });
+    else rest.push(symbol);
+  });
+  lines.sort((a, b) => a.nearness - b.nearness || b.sessions - a.sessions || a.rank - b.rank);
+  const ordered = lines.map((l) => l.symbol);
+  return { symbols: [...ordered, ...rest], lines: ordered };
+}
+
+function breakawayLine(row: StoredFocusRow, plan: FocusPlanRow | undefined): { nearness: number; sessions: number } | null {
+  if (!plan || plan.invalidated_at) return null;
+  if (plan.output_state !== "Execute" && plan.output_state !== "Watch") return null;
+  const close = Number(row.close);
+  const entry = Number(plan.entry);
+  if (!(close > 0) || !(entry > 0)) return null;
+  const up = plan.direction === "bullish" || plan.direction === "up";
+  const down = plan.direction === "bearish" || plan.direction === "down";
+  if (!up && !down) return null;
+  const reasons = Array.isArray(row.reasons) ? (row.reasons as Partial<FocusReason>[]) : [];
+  const range = reasons.find(
+    (r): r is Extract<FocusReason, { kind: "narrow_range" }> => r?.kind === "narrow_range" && (r as { edge?: unknown }).edge === (up ? "top" : "bottom"),
+  );
+  if (!range) return null;
+  // The crossing still ahead of the close, within one allowance of it.
+  const ahead = up ? entry - close : close - entry;
+  if (!(ahead > 0)) return null;
+  const allowance = threePoints(entry);
+  if (!(allowance > 0) || ahead > allowance) return null;
+  return { nearness: ahead / allowance, sessions: Number(range.sessions) || 0 };
+}

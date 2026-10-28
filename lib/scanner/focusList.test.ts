@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { threePoints } from "@/lib/gann/pointScale";
-import { readFocus, rankFocus, describeFocusReason, type FocusReading } from "./focusList";
+import { breakawayLinesFirst, readFocus, rankFocus, describeFocusReason, type FocusReading } from "./focusList";
 
 const DAY = 86_400_000;
 function bar(i: number, o: number, h: number, l: number, c: number, v = 1_000_000): Bar {
@@ -77,5 +77,50 @@ describe("rankFocus", () => {
 
   it("describes each reason in plain words", () => {
     expect(describeFocusReason({ kind: "old_level", level: 101.5, side: "top" })).toBe("Close to the old top at 101.50");
+  });
+});
+
+describe("breakawayLinesFirst", () => {
+  const nr = (edge: "top" | "bottom" | null, sessions: number) => [{ kind: "narrow_range", sessions, top: 0, bottom: 0, edge }];
+  // The evening of 2026-10-26 (stored focus rows, rank order) and the night's
+  // sweep plans: TXN ranked 42nd, at the top of a 21-session range with its
+  // line at 301.86, 3.84 above the close.
+  const focus = [
+    { symbol: "JPM", close: 300, reasons: [{ kind: "old_level", level: 301, side: "top" }] },
+    { symbol: "GM", close: 76.31, reasons: nr("bottom", 27) },
+    { symbol: "BA", close: 188.14, reasons: nr("bottom", 23) },
+    { symbol: "TXN", close: 298.02, reasons: nr("top", 21) },
+    { symbol: "KVUE", close: 19.495, reasons: nr("top", 64) },
+    { symbol: "NVDA", close: 190, reasons: nr("top", 30) },
+  ];
+  const plans = [
+    { symbol: "GM", direction: "bearish", entry: 75.04, output_state: "Watch" },
+    { symbol: "BA", direction: "bearish", entry: 181.03, output_state: "Watch" },
+    { symbol: "TXN", direction: "bullish", entry: 301.86, output_state: "Watch" },
+    { symbol: "KVUE", direction: "bullish", entry: 20.19, output_state: "Watch" },
+    { symbol: "NVDA", direction: "bearish", entry: 185, output_state: "Watch" },
+    { symbol: "JPM", direction: "bullish", entry: 302, output_state: "Execute" },
+  ];
+
+  it("puts the names at a breakaway first, nearest the line in allowances, and keeps the rest in order", () => {
+    const { symbols, lines } = breakawayLinesFirst(focus, plans);
+    // GM 0.30 and KVUE 0.36 and TXN 0.40 allowances off; BA's line is more than an allowance away.
+    expect(lines).toEqual(["GM", "KVUE", "TXN"]);
+    expect(symbols).toEqual(["GM", "KVUE", "TXN", "JPM", "BA", "NVDA"]);
+  });
+
+  it("needs the range's edge on the plan's side, the line still ahead, and a live plan", () => {
+    // NVDA's range is at its top but its plan sells; JPM has no narrow range.
+    expect(breakawayLinesFirst(focus, plans).lines).not.toContain("NVDA");
+    expect(breakawayLinesFirst(focus, plans).lines).not.toContain("JPM");
+    const retired = plans.map((p) => (p.symbol === "TXN" ? { ...p, invalidated_at: "2026-10-27T15:00:00Z" } : p));
+    expect(breakawayLinesFirst(focus, retired).lines).not.toContain("TXN");
+    const rejected = plans.map((p) => (p.symbol === "TXN" ? { ...p, output_state: "Reject" } : p));
+    expect(breakawayLinesFirst(focus, rejected).lines).not.toContain("TXN");
+    // Already past the line: a reaction, not a crossing ahead.
+    const past = focus.map((f) => (f.symbol === "TXN" ? { ...f, close: 303 } : f));
+    expect(breakawayLinesFirst(past, plans).lines).not.toContain("TXN");
+    // Malformed rows never throw and never lead.
+    expect(breakawayLinesFirst([{ symbol: "X", close: null, reasons: null }], [{ symbol: "X", direction: null, entry: "a", output_state: "Watch" }]).lines).toEqual([]);
   });
 });

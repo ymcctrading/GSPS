@@ -66,7 +66,7 @@ import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { chooseSweepBasis } from "@/lib/scan/universeSweep";
-import { FOCUS_STORED } from "@/lib/scanner/focusList";
+import { FOCUS_STORED, breakawayLinesFirst, type FocusPlanRow, type StoredFocusRow } from "@/lib/scanner/focusList";
 import {
   barsSincePlan,
   invalidateBrokenSweep,
@@ -532,7 +532,7 @@ async function resolveSystemUniverse(
   const tick = rotationTick(now);
   const [watched, focus, setups, discovery] = await Promise.all([
     loadWatchedSymbols(supabase),
-    loadFocusSymbols(supabase),
+    loadFocusSymbols(supabase, sweepBasisP),
     sweepBasisP.then((basis) => loadSessionSetups(supabase, now, SESSION_SETUPS_MAX, basis)).catch(() => [] as string[]),
     readSessionDiscoveries(supabase, sessionDate, DISCOVERY_READ_MAX),
   ]);
@@ -575,7 +575,7 @@ async function resolveSystemUniverse(
  * scan. A list older than `FOCUS_MAX_AGE_DAYS` is not read. A read failure
  * returns none, and the scan falls back to its core list.
  */
-async function loadFocusSymbols(supabase: ServiceSupabase): Promise<string[]> {
+async function loadFocusSymbols(supabase: ServiceSupabase, sweepBasisP?: Promise<string | null>): Promise<string[]> {
   const since = etDateKey(new Date(Date.now() - FOCUS_MAX_AGE_DAYS * 86_400_000));
   const { data: latest } = await supabase
     .from("intraday_focus")
@@ -587,13 +587,30 @@ async function loadFocusSymbols(supabase: ServiceSupabase): Promise<string[]> {
   if (!latest?.basis_date) return [];
   const { data, error } = await supabase
     .from("intraday_focus")
-    .select("symbol")
+    .select("symbol, close, reasons")
     .eq("basis_date", latest.basis_date)
     .is("invalidated_at", null)
     .order("rank", { ascending: true })
     .limit(FOCUS_STORED);
   if (error || !data) return [];
-  return data.map((r) => String(r.symbol).toUpperCase());
+  const rows = data as StoredFocusRow[];
+  // The names at a breakaway, where the evening's narrow range at its edge
+  // meets the night's plan whose line is just ahead, lead the focus tier
+  // (owner, 2026-10-28, on TXN; lib/scanner/focusList.ts#breakawayLinesFirst).
+  // The sweep comes after the evening list, so it is read here, at the scan.
+  // A failed read keeps the evening's order.
+  const basis = sweepBasisP ? await sweepBasisP.catch(() => null) : null;
+  if (!basis) return rows.map((r) => String(r.symbol).toUpperCase());
+  const { data: plans, error: planError } = await supabase
+    .from("universe_sweep")
+    .select("symbol, direction, entry, output_state, invalidated_at")
+    .eq("basis_date", basis)
+    .in("symbol", rows.map((r) => String(r.symbol)))
+    .in("output_state", ["Execute", "Watch"]);
+  if (planError || !plans) return rows.map((r) => String(r.symbol).toUpperCase());
+  const { symbols, lines } = breakawayLinesFirst(rows, plans as FocusPlanRow[]);
+  if (lines.length > 0) console.info(`intraday-scan: breakaway lines first ${lines.join(",")}`);
+  return symbols;
 }
 
 /**
