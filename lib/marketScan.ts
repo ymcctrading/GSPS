@@ -353,6 +353,8 @@ export function coarseReversion(
   cycles?: TimeCycleResult,
   /** Read once per symbol by the caller; computed here when omitted. */
   trendRead?: "bullish" | "bearish" | "sideways",
+  /** The coarse pass's clock: completed sessions are those before its New York day. */
+  asOf: Date = new Date(),
 ): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
@@ -366,7 +368,7 @@ export function coarseReversion(
     trendDirection === "sideways" ? ["bullish", "bearish"] : [trendDirection === "bearish" ? "bullish" : "bearish"];
   let best: CoarseCandidate | null = null;
   for (const direction of sides) {
-    const score = reversionScore(daily, price, direction, cycles);
+    const score = reversionScore(daily, price, direction, cycles, asOf);
     if (score >= 3 && (best === null || score > best.coarseScore)) {
       best = { symbol, direction, kind: "reversion", coarseScore: score };
     }
@@ -374,9 +376,9 @@ export function coarseReversion(
   return best;
 }
 
-function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bearish", cycles?: TimeCycleResult): number {
+function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bearish", cycles: TimeCycleResult | undefined, asOf: Date): number {
   // Completed sessions only, as the full scan reads a held level.
-  const sessions = entryChartBars(daily, etDateKey(new Date()));
+  const sessions = entryChartBars(daily, etDateKey(asOf));
   // Support and resistance still come from the daily chart's tops and bottoms.
   const trend = readTrend(daily, "1Day");
 
@@ -1200,7 +1202,7 @@ export async function runMarketScan(
       // One trend read per symbol, shared by both gates and the telemetry.
       const monthly = monthlyAtCoarse?.get(symbol.toUpperCase());
       const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
-      const reversion = coarseReversion(symbol, daily, cycles, trendRead);
+      const reversion = coarseReversion(symbol, daily, cycles, trendRead, coarseAsOf);
       // Gann's early leaders (A-SELECTION-02/-03), read only for the candidates
       // the shortlist cut ranks: a few array scans over bars already here.
       const leadership: LeadershipReading | null = reversion

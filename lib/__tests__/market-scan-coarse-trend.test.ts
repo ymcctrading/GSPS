@@ -8,15 +8,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
 
 const dirs: Record<string, "bullish" | "bearish" | "sideways"> = {};
-/** Pinned daily support levels, when a test sets them. */
+/** Pinned daily support and resistance levels, when a test sets them. */
 let support: number[] | null = null;
+let resistance: number[] | null = null;
 vi.mock("@/lib/analysis/trend", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/analysis/trend")>();
   return {
     ...actual,
     readTrend: (bars: Bar[], tf: string) => {
       const r = actual.readTrend(bars, tf as never);
-      const pinned = tf === "1Day" && support ? { ...r, support } : r;
+      const pinned = tf === "1Day" ? { ...r, ...(support ? { support } : {}), ...(resistance ? { resistance } : {}) } : r;
       return dirs[tf] ? { ...pinned, direction: dirs[tf] } : pinned;
     },
   };
@@ -48,6 +49,7 @@ function advance(widen = false, lastVolume = 2e6): Bar[] {
 beforeEach(() => {
   for (const k of Object.keys(dirs)) delete dirs[k];
   support = null;
+  resistance = null;
 });
 
 describe("the coarse pass's trend", () => {
@@ -174,6 +176,19 @@ describe("the continuation's strongest points read the major range (gann-alignme
     expect(coarseContinuation("X", fallThenRise(130))!.coarseScore).toBe(3 + 1);
   });
 
+  it("mirrors for a short: under the half-way point and under half the highest price", () => {
+    Object.assign(dirs, { "1Week": "bearish" });
+    // A rise from 100 to 200, then a fall to `to`: the extreme range is 100-200 (half 150, half the high 100).
+    const riseThenFall = (to: number): Bar[] =>
+      fallThenRise(200).map((b, i, all) => {
+        const c = i < 100 ? 100 + i : 200 - ((200 - to) * (i - 99)) / (all.length - 100);
+        return { ...b, o: c, h: c + 0.5, l: c - 0.5, c };
+      });
+    // 140 is a point and more under 150 but above 100; 95 is under both.
+    expect(coarseContinuation("X", riseThenFall(140))!.coarseScore).toBe(3 + 1);
+    expect(coarseContinuation("Y", riseThenFall(95))!.coarseScore).toBe(3 + 2);
+  });
+
   it("reads the monthly record when it is in", () => {
     Object.assign(dirs, { "1Week": "bullish" });
     // The sessions alone run 100-160 (half 130, price 160 above it); a monthly high of 400
@@ -213,6 +228,7 @@ describe("the reversion's level point needs a level held (gann-alignment-audit S
 
   // An active buying window (+1) so a reading with the level point clears the pool's floor of 3.
   const window = { active: true, bullishActive: true, bearishActive: false } as never;
+  const window2 = () => ({ active: true, bullishActive: false, bearishActive: true }) as never;
 
   it("scores the level when the last reaction stopped at it and held", () => {
     Object.assign(dirs, { "1Week": "bearish" });
@@ -221,6 +237,19 @@ describe("the reversion's level point needs a level held (gann-alignment-audit S
     support = [60];
     const none = coarseReversion("X", reaction(100, 104), window, "bearish");
     expect(held).toMatchObject({ direction: "bullish", coarseScore: (none?.coarseScore ?? 1) + 2 });
+  });
+
+  it("mirrors for a short: a resistance the last rally stopped at and held", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    // The same path reflected about 150: a rally to 200, held, back to 196.
+    const short = window2();
+    const mirrored = reaction(100, 104).map((b) => ({ ...b, o: 300 - b.o, h: 300 - b.l, l: 300 - b.h, c: 300 - b.c }));
+    support = null;
+    resistance = [200];
+    const held = coarseReversion("X", mirrored, short, "bullish");
+    resistance = [260];
+    const none = coarseReversion("X", mirrored, short, "bullish");
+    expect(held).toMatchObject({ direction: "bearish", coarseScore: (none?.coarseScore ?? 1) + 2 });
   });
 
   it("does not score a level price is merely near once a close went 3 points through it", () => {
