@@ -949,7 +949,7 @@ export function applyTimeWindowHold(
           key: "timeWindowTurn",
           criterion: "Turn came at a time window",
           passed: true,
-          note: `The ${turn.kind} on ${turn.date} came on ${turn.windows.slice(0, 3).join("; ")}. Time and price agree on the turn.`,
+          note: `The ${turn.kind} on ${turn.date} came on ${turn.windows.slice(0, 3).join("; ")}, at ${turn.priceLevel}. Time and price agree on the turn.`,
         },
       ],
     };
@@ -963,7 +963,7 @@ export function applyTimeWindowHold(
         key: "timeWindowTurn",
         criterion: "Turn came at a time window",
         passed: false,
-        note: "This trade goes against the trend, and its turn did not come on any dated time window. A change of trend comes at time, so it is held from Execute to Watch until a turn comes on one.",
+        note: "This trade goes against the trend, and its turn did not come on a dated time window with price at the half or three quarters of a major range. A change of trend comes when time and price agree, so it is held from Execute to Watch until a turn does.",
       },
     ],
   };

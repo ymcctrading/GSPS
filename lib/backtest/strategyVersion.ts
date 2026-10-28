@@ -888,4 +888,10 @@
 // The Sun's travel (R09) counts from the weekly record's major low when it is
 // below the daily year's (the coffee letter counts from the 1931 low).
 // Plan stops and targets move; live verdicts and replay trades with them.
-export const STRATEGY_VERSION = "2026-10-28-gann-levels-major-lows";
+// (was STRATEGY_VERSION "2026-10-28-gann-levels-major-lows")
+// 2026-10-28-gann-time-and-price-at-turn (alignment audit H2): a counter-trend
+// Execute's turn counts in the time-window hold only when a dated window was
+// open on it AND its extreme stood at the half or three quarters of a major
+// range (`turnAtDivision`, Master Course PDF 202, Ch. 18 TP-2). The windows
+// alone were open on nearly every turn. Counter-trend verdicts move.
+export const STRATEGY_VERSION = "2026-10-28-gann-time-and-price-at-turn";

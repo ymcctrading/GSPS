@@ -3,7 +3,7 @@ import fs from "node:fs";
 import type { Bar, ScanDecision } from "@/lib/types";
 import { applyTimeWindowHold } from "@/lib/scoring/score";
 import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
-import { readWindowTurn, timeWindowsAt, type WindowsAt } from "@/lib/gann/timeWindow";
+import { readWindowTurn, timeWindowsAt, turnAtDivision, type PriceAtTurn, type WindowsAt } from "@/lib/gann/timeWindow";
 import { CRITERION_KEYS } from "@/lib/scoring/weights";
 import { countWindowsAt } from "@/lib/gann/countWindows";
 
@@ -20,6 +20,8 @@ function days(closes: number[], start = "2026-03-02"): Bar[] {
 // Down to a bottom on day 6 (2026-03-08), then up through the old top.
 const closes = [110, 108, 106, 104, 102, 100, 98, 100, 102, 104, 106, 108, 110, 112];
 const bars = days(closes);
+/** Price at the turn taken as met, for the tests about the windows themselves. */
+const atLevel: PriceAtTurn = () => "a test level";
 
 describe("readWindowTurn", () => {
   it("finds the swing bottom a long's stop sits behind and the windows open on its date", () => {
@@ -28,8 +30,8 @@ describe("readWindowTurn", () => {
       seen.push(`${date}:${kind}`);
       return date === "2026-03-08" ? ["a test window"] : [];
     };
-    const turn = readWindowTurn(bars, "bullish", null, at);
-    expect(turn).toEqual({ kind: "bottom", date: "2026-03-08", price: 97.5, windows: ["a test window"] });
+    const turn = readWindowTurn(bars, "bullish", null, at, null, atLevel);
+    expect(turn).toEqual({ kind: "bottom", date: "2026-03-08", price: 97.5, windows: ["a test window"], priceLevel: "a test level" });
     expect(seen).toEqual(["2026-03-08:bottom"]);
   });
 
@@ -51,6 +53,50 @@ describe("readWindowTurn", () => {
     const turn = readWindowTurn(up, "bearish", null, (_b, date, kind) => (kind === "top" ? [`${date}`] : []));
     expect(turn?.kind).toBe("top");
     expect(turn?.date).toBe("2026-03-08");
+  });
+});
+
+// Gann reads time and price together: "when Time and Space balance, the stock
+// makes top or bottom" (Master Course PDF 202), "especially if the price is at
+// 1/2 or 3/4 resistance" (Ch. 18, TP-2, PDF 440).
+describe("price at the turn (turnAtDivision)", () => {
+  // A 60-140 record: its extreme range's 1/4, 1/2 and 3/4 are 80, 100 and 120.
+  const record = days([100, 140, 100, 60, 100], "2025-01-01").map((b, i) => (i === 1 ? { ...b, h: 140 } : i === 3 ? { ...b, l: 60 } : b));
+
+  it("names the half or three quarters of a major range the turn stood at", () => {
+    expect(turnAtDivision(record, null, 100.4)).toMatch(/^1\/2 of the extreme range/);
+    expect(turnAtDivision(record, null, 119.6)).toMatch(/^3\/4 of the extreme range/);
+    // 3/4 down from the high: a quarter of the range up from the low.
+    expect(turnAtDivision(record, null, 80.3)).toMatch(/^1\/4 of the extreme range/);
+  });
+
+  it("is null away from them (the 3-point allowance is about 5 here)", () => {
+    // The nearest are 3/4 of the highest price (105) and 3/4 of the range (120).
+    expect(turnAtDivision(record, null, 112)).toBeNull();
+    expect(turnAtDivision(record, null, 90)).toBeNull();
+    expect(turnAtDivision(record, null, 0)).toBeNull();
+  });
+
+  it("holds a turn with a window open but price at no division", () => {
+    const turn = readWindowTurn(bars, "bullish", null, () => ["a test window"], null, () => null);
+    expect(turn).toBeNull();
+    const execute: ScanDecision = { score: 8, outputState: "Execute", breakdown: [] };
+    expect(applyTimeWindowHold(execute, "reversion", turn).outputState).toBe("Watch");
+  });
+
+  it("reads price on the bars through the turn and the months before it, as the windows are", () => {
+    let seen: { through: number; months: string | undefined } | null = null;
+    readWindowTurn(bars, "bullish", [{ ...bars[0], t: "2026-02-01T05:00:00.000Z" }, { ...bars[0], t: "2026-03-01T05:00:00.000Z" }], () => ["w"], null, (through, m) => {
+      seen = { through: through.length, months: m?.at(-1)?.t.slice(0, 7) };
+      return null;
+    });
+    expect(seen).toEqual({ through: 7, months: "2026-02" });
+  });
+
+  it("is what both surfaces read: the default", () => {
+    const expected = turnAtDivision(bars.slice(0, 7), null, 97.5);
+    const turn = readWindowTurn(bars, "bullish", null, () => ["w"]);
+    expect(turn?.priceLevel ?? null).toBe(expected);
   });
 });
 
@@ -94,7 +140,7 @@ describe("applyTimeWindowHold", () => {
   });
 
   it("lets it through when the turn came at a window", () => {
-    const turn = { kind: "bottom" as const, date: "2026-03-08", price: 97.5, windows: ["a window"] };
+    const turn = { kind: "bottom" as const, date: "2026-03-08", price: 97.5, windows: ["a window"], priceLevel: "1/2 of the extreme range (95.00-100.00)" };
     expect(applyTimeWindowHold(execute, "reversion", turn).outputState).toBe("Execute");
   });
 
@@ -195,7 +241,7 @@ describe("the yearly cycle counts reach the hold through the monthly chart (A-TI
   it("reads a major low for a short's top as well: the counts run from any important top or bottom (W006 pp. 14, 44)", () => {
     // Until 2026-10-22 a low opened only a bottom's window (recheck, A-TIME-11).
     const up = days(closes.map((c) => 220 - c));
-    const turn = readWindowTurn(up, "bearish", monthly);
+    const turn = readWindowTurn(up, "bearish", monthly, undefined, null, atLevel);
     expect(turn?.windows ?? []).toContain("20 years from the 2006-03 major low");
   });
 

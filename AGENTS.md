@@ -1266,6 +1266,23 @@ alike (`InstrumentFacts.weekly`, `buildStructuralLevels`). `STRATEGY_VERSION` is
 `2026-10-28-gann-levels-major-lows`; Execute and the 7/4 cutoffs need a fresh
 run on it.
 
+**Time and price at the turn, 2026-10-28 (alignment audit H2, the window
+saturation held since 2026-10-20).** The time-window hold read a turn as due
+when any dated window was open on it, and the windows were open on nearly every
+turn (100% of random-walk turns, 2026-10-27), so it selected nothing. Gann
+reads the two together: "when Time and Space balance, the stock makes top or
+bottom" (Master Course PDF 202), and the time counts mark a change "especially
+if the price is at 1/2 or 3/4 resistance" (Ch. 18, TP-2, PDF 440; TP-3 lists
+the price resistance levels beside the counts). So `readWindowTurn` now also
+needs the turn's extreme at the half or three quarters of a major range
+(`turnAtDivision`, `lib/gann/timeWindow.ts`: `rangeDivisions.ts`'s extreme
+range, highest price and latest campaign, read on the record before the turn,
+3/4 up from the low and down from the high, within the 3-point allowance), on
+the live scan and the replay alike (both take the default). Random walks: the
+turn stood at one on 82% of turns at $20, 68% at $50, 54% at $150, 35% at $500.
+`STRATEGY_VERSION` is `2026-10-28-gann-time-and-price-at-turn`; counter-trend
+Execute and the 7/4 cutoffs need a fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
