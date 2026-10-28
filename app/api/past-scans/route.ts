@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
       rows: [],
       forwardByVersion: [],
       // The version names stay on the server; a screen reads the label only.
-    replay: PUBLIC_REPLAY_RUNS,
+      replay: PUBLIC_REPLAY_RUNS,
       exactScoreDisplayEnabled: policy.exactScoreDisplayEnabled,
       note,
     });

@@ -247,6 +247,67 @@ export function scoreBands(trades) {
   return scores.map((score) => ({ score, ...describeTrades(scored.filter((t) => Math.round(t.score) === score)) }));
 }
 
+/**
+ * Each scored check and context factor, pass against fail, over all scored
+ * trades and within Execute (2026-10-28). The job log's factor table was
+ * Execute only, conditioned on a 7+ score, and kept no all-trade reading; at
+ * about 2,100 Execute trades a pass/fail delta's standard error was near 0.06R,
+ * so no listed inversion could be told from noise. The interval is the normal
+ * approximation (a bootstrap per factor over tens of thousands of trades would
+ * outrun the job). An absent key is "not evaluated", never a fail.
+ */
+export const FACTOR_SCOPES = {
+  scored: (t) => !t.derived && typeof t.score === "number",
+  Execute: SCOPES.Execute,
+};
+
+function sampleStats(xs) {
+  const n = xs.length;
+  const m = mean(xs);
+  const v = n < 2 ? 0 : xs.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1);
+  return { n, m, v };
+}
+
+export function factorTable(trades) {
+  const out = {};
+  for (const [scope, keep] of Object.entries(FACTOR_SCOPES)) {
+    const groups = new Map();
+    for (const t of trades) {
+      if (!keep(t)) continue;
+      for (const [source, rec] of [["criterion", t.criteria], ["context", t.contextFactors]]) {
+        for (const [key, passed] of Object.entries(rec ?? {})) {
+          if (typeof passed !== "boolean") continue;
+          const id = `${source}:${key}`;
+          if (!groups.has(id)) groups.set(id, { source, key, pass: [], fail: [] });
+          groups.get(id)[passed ? "pass" : "fail"].push(t.rMultiple);
+        }
+      }
+    }
+    out[scope] = [...groups.values()]
+      .map(({ source, key, pass, fail }) => {
+        const a = sampleStats(pass);
+        const b = sampleStats(fail);
+        const se = a.n >= 2 && b.n >= 2 ? Math.sqrt(a.v / a.n + b.v / b.n) : null;
+        const diffR = a.n > 0 && b.n > 0 ? a.m - b.m : null;
+        return {
+          source,
+          key,
+          passN: a.n,
+          failN: b.n,
+          passR: a.n > 0 ? a.m : null,
+          failR: b.n > 0 ? b.m : null,
+          // Sample variances, so slices of one run can be pooled.
+          passVar: a.v,
+          failVar: b.v,
+          diffR,
+          diffCI95: se !== null && diffR !== null ? [diffR - 1.96 * se, diffR + 1.96 * se] : null,
+        };
+      })
+      .sort((x, y) => (x.source === y.source ? (x.key < y.key ? -1 : 1) : x.source === "criterion" ? -1 : 1));
+  }
+  return out;
+}
+
 /** A fingerprint of a cell's trades, to catch options the ref silently ignored. */
 function tradeSignature(trades) {
   return trades.map((t) => `${t.symbol}|${t.openedAt}|${t.entry}|${t.rMultiple.toFixed(6)}`).join(";");
@@ -262,6 +323,7 @@ export function summarizeCells(cellResults) {
     options: cell.options ?? {},
     scopes: Object.fromEntries(Object.entries(SCOPES).map(([k, f]) => [k, describeTrades(trades.filter(f))])),
     scoreBands: scoreBands(trades),
+    factors: factorTable(trades),
     ...(accounting ? { accounting } : {}),
   }));
 
@@ -475,6 +537,26 @@ export function summaryMarkdown(meta, summary) {
           `| ${c.label} | ${s.score} | ${s.n} | ${fmtR(s.expectancyR)} | ${fmtCI(s.expectancyCI95)} | ${fmtPct(s.winRate)} | ` +
             `${fmtR(s.halves.first.expectancyR)} (n=${s.halves.first.n}) | ${fmtR(s.halves.second.expectancyR)} (n=${s.halves.second.n}) | ` +
             `${s.openAtEnd ?? 0} | ${s.closed?.n ?? "—"} | ${fmtR(s.closed?.expectancyR)} | ${fmtCI(s.closed?.expectancyCI95)} |`,
+        );
+      }
+    }
+    lines.push("");
+  }
+  if (summary.cells.some((c) => c.factors)) {
+    lines.push("## Factor table (pass − fail, scored trades and within Execute)");
+    lines.push("");
+    lines.push("Intervals are the normal approximation. A factor whose interval spans 0 is not told from noise.");
+    lines.push("");
+    lines.push("| Cell | Factor | Pass n | Fail n | Pass − fail | 95% CI | Execute pass n | Execute pass − fail | Execute 95% CI |");
+    lines.push("|---|---|---:|---:|---:|---|---:|---:|---|");
+    for (const c of summary.cells) {
+      if (!c.factors) continue;
+      const exec = new Map((c.factors.Execute ?? []).map((f) => [`${f.source}:${f.key}`, f]));
+      for (const f of c.factors.scored ?? []) {
+        const e = exec.get(`${f.source}:${f.key}`);
+        lines.push(
+          `| ${c.label} | ${f.source === "context" ? "ctx " : ""}${f.key} | ${f.passN} | ${f.failN} | ${fmtR(f.diffR)} | ${fmtCI(f.diffCI95)} | ` +
+            `${e?.passN ?? "—"} | ${fmtR(e?.diffR)} | ${fmtCI(e?.diffCI95)} |`,
         );
       }
     }

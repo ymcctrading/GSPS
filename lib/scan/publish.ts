@@ -12,7 +12,6 @@
  *    emptied the lists instead of leaving the previous run in place.
  */
 
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasTradePlan } from "@/lib/marketScan";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";

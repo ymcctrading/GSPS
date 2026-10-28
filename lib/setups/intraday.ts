@@ -33,7 +33,7 @@
  * scanner itself advises against.
  */
 
-import { MEASURED_LOSING, NOTICE_SIGNALS, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS } from "@/lib/scanner/intradayDisplay";
+import { NOTICE_SIGNALS, SIGNAL_LABELS, SIGNAL_DESCRIPTIONS, tradeHold } from "@/lib/scanner/intradayDisplay";
 import type { Alert, RecentSystemAlert } from "@/lib/scanner/intraday";
 import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import { tickerHref } from "@/lib/routes";
@@ -62,7 +62,7 @@ export function intradayLevels(alert: Alert): SetupLevels {
  * (`lib/chart/planForTimeframe.ts`): the highest-confidence alert of the
  * latest scan that offers a trade, the same alerts "Trade this" is offered on
  * (a stop and a first target that pays the risk, not a reversal risk, not a
- * signal measured losing). With no scan read yet, today's scheduled alerts
+ * signal held from trading by `tradeHold`). With no scan read yet, today's scheduled alerts
  * stand in, on the same tests their stored rows allow. Null when none does.
  */
 export function intradayChartPlan(
@@ -71,18 +71,18 @@ export function intradayChartPlan(
   recent: readonly RecentSystemAlert[],
 ): IntradayChartPlan | null {
   const sym = symbol.toUpperCase();
-  const offered = (type: Alert["type"], stop: number | null, tp1: number | null) =>
-    type !== "reversal_risk" && !NOTICE_SIGNALS.has(type) && !MEASURED_LOSING[type] && stop != null && tp1 != null;
+  const offered = (a: { type: Alert["type"]; againstDailyTrend?: boolean }, stop: number | null, tp1: number | null) =>
+    a.type !== "reversal_risk" && !NOTICE_SIGNALS.has(a.type) && !tradeHold(a) && stop != null && tp1 != null;
   if (alerts) {
     const best = alerts
       .filter((a) => a.symbol.toUpperCase() === sym && a.continuationPlan.paysRisk !== false)
-      .filter((a) => offered(a.type, a.continuationPlan.invalidation, a.continuationPlan.firstTarget))
+      .filter((a) => offered(a, a.continuationPlan.invalidation, a.continuationPlan.firstTarget))
       .sort((a, b) => b.confidence - a.confidence)[0];
     if (!best) return null;
     const l = intradayLevels(best);
     return { entry: l.entry, stop: l.stop, firstTarget: l.tp1, masterTarget: l.mtp };
   }
-  const r = recent.find((x) => x.symbol.toUpperCase() === sym && offered(x.type, x.stop, x.firstTarget));
+  const r = recent.find((x) => x.symbol.toUpperCase() === sym && offered(x, x.stop, x.firstTarget));
   return r ? { entry: r.entry, stop: r.stop, firstTarget: r.firstTarget, masterTarget: r.masterTarget } : null;
 }
 
@@ -90,7 +90,7 @@ export function intradayChecks(alert: Alert): SetupCheck[] {
   return alert.confidenceFactors.map((f) => ({
     label: f.label,
     state: f.passed ? "met" : "missed",
-    detail: `${f.weight} pts — ${f.detail}`,
+    detail: f.detail,
   }));
 }
 
@@ -104,8 +104,9 @@ export function buildIntradaySynopsis(alert: Alert): string {
   const up = alert.direction === "up";
   const first = `${SIGNAL_LABELS[alert.type]}, ${up ? "up" : "down"}: ${passed} of ${total} checks line up (confidence ${alert.confidence}/100).`;
 
-  // A signal the replay measured losing is shown for study, not as a plan.
-  const held = MEASURED_LOSING[alert.type];
+  // A signal held from trading (measured losing, or against the daily trend)
+  // is shown for study, not as a plan.
+  const held = tradeHold(alert);
   if (held) return `${first} ${held}`;
 
   const levels = intradayLevels(alert);

@@ -102,6 +102,7 @@ import {
   type GannStopReason,
 } from "@/lib/gann/exitRules";
 import { gannReversal, reversesOn, type ReversalCause } from "@/lib/gann/reverse";
+import { LOSS_SERIES_LENGTH } from "@/lib/risk/lossSeries";
 import { gannRebuy, rebuysOn, type GannRebuy } from "@/lib/gann/rebuy";
 import { readGannTrend } from "@/lib/gann/trendStrength";
 import { LIVE_EXIT_RULE, SCALE_OUT_PCT } from "@/lib/trade/protocol-exit";
@@ -357,8 +358,10 @@ export interface ReplayOptions {
    * (lib/automation/stop-out.ts): entry at the level that broke, stop 3 points
    * beyond the old trade's best price, entered once it confirms on the closed
    * candles of the same session (the plan expires at the session's close), and
-   * walked on the same exit rules. A reversal that is caught reverses again,
-   * up to `MAX_REVERSALS` deep. Default true: production reverses.
+   * walked on the same exit rules. A reversal that is caught reverses again
+   * until a series of losses ends the chain (`LOSS_SERIES_LENGTH` in a row,
+   * counting the trade it reversed), as live placement's series-of-losses
+   * pause ends it. Default true: production reverses.
    */
   reverseWhenCaught?: boolean;
   /**
@@ -1576,7 +1579,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt: i - 1, side: long ? "long" : "short",
             cause: "initial", brokenLevel: stop, extreme: fill, maxBarsHeld,
-            costPerShare, runner: exitRule === "structure-runner", sharesOn, disabled, fillAfter,
+            costPerShare, runner: exitRule === "structure-runner", sharesOn, disabled, fillAfter, parentLost: true,
           })) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
@@ -1651,6 +1654,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
             bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
             cause: walked.reason, brokenLevel: walked.finalExit, extreme: walked.best ?? entry, maxBarsHeld,
             costPerShare, runner: exitRule === "structure-runner", sharesOn, coverAt: rebuy?.entry, disabled, style: tradeStyle, fillAfter,
+            parentLost: dir * (walked.exit - entry) - costPerShare <= 0,
           })) {
             // Not scored: no verdict, score or criteria is inherited (see `derived`).
             trades.push({
@@ -1822,8 +1826,17 @@ export function combine(results: ReplayResult[]): ReplayResult {
   return { ...summarise(trades, armed, triggered, refusedFills, retiredPlans, dropped), expiredPlans };
 }
 
-/** How many reversals deep the replay follows a chain of caught trades. An engineering bound, not Gann's. */
-export const MAX_REVERSALS = 3;
+/**
+ * A work bound on how many reversals deep the replay follows a chain, never
+ * reached in practice: the chain ends on a series of losses first
+ * (`LOSS_SERIES_LENGTH`, audit I-03, 2026-10-28). Gann reverses each time he
+ * is stopped, "you must keep with the trend all the time" (*New Stock Trend
+ * Detector* Rule 6, p. 48), and stops after two or three losses in a row
+ * (*Commodities* p. 12; NSTD Rule 1, p. 46); live, the reversal plan goes
+ * through placement, where `lossSeriesRefusal` pauses the third. A fixed depth
+ * of 3 cut chains short that Gann and production would have traded.
+ */
+export const MAX_REVERSALS = 20;
 
 export type ReversalTrade = Pick<
   ReplayTrade,
@@ -1955,6 +1968,8 @@ export function walkReversals(input: {
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style, carried to the derived trade (`walkGannExit`). */
   style?: DailyTradeStyle;
+  /** The caught trade itself lost: it opens the series of losses. */
+  parentLost?: boolean;
   /** As `walkRebuy`'s: where an order decided on closed bar `s` fills. */
   fillAfter?: (signalIndex: number) => number;
 }): ReversalTrade[] {
@@ -1962,8 +1977,10 @@ export function walkReversals(input: {
   const { bars, dailyBars } = input;
   const fillAfter = input.fillAfter ?? ((s: number) => (s + 1 < bars.length ? s + 1 : -1));
   let { caughtAt, side, cause, brokenLevel, extreme } = input;
+  let losses = input.parentLost ? 1 : 0;
   for (let depth = 1; depth <= MAX_REVERSALS; depth++) {
     if (!reversesOn(cause)) break;
+    if (losses >= LOSS_SERIES_LENGTH) break;
     const plan = gannReversal({ side, brokenLevel, extreme });
     if (!plan) break;
     const long = plan.side === "long";
@@ -1995,6 +2012,7 @@ export function walkReversals(input: {
       style: input.style,
     });
     const executionAtr = atr(bars.slice(Math.max(0, fillAt - 30), fillAt), 14);
+    const outcome = isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss";
     out.push({
       openedAt: bars[fillAt].t,
       direction: long ? "bullish" : "bearish",
@@ -2002,7 +2020,7 @@ export function walkReversals(input: {
       atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
       barsHeld: walked.barsHeld,
       closedAt: bars[fillAt + walked.barsHeld - 1].t,
-      outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - input.costPerShare > 0 ? "win" : "loss",
+      outcome,
       exitReason: walked.reason,
       exitPrice: walked.finalExit,
       rMultiple: (dir * (walked.exit - entry) - input.costPerShare) / risk,
@@ -2010,6 +2028,7 @@ export function walkReversals(input: {
       contextFactors: {},
     });
     if (isTimeoutReason(walked.reason)) break;
+    losses = outcome === "loss" ? losses + 1 : 0;
     caughtAt = fillAt + walked.barsHeld - 1;
     side = plan.side;
     cause = walked.reason;

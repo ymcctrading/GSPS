@@ -57,9 +57,15 @@ export interface BracketInput {
   basePrice: number;
   stopLoss: number;
   takeProfit: number;
+  /**
+   * The master take profit, when the order carries one. It has to lie beyond
+   * the first target on the trade's side: it is where the move is measured
+   * to after TP1, so one at or short of TP1 describes no move at all.
+   */
+  masterProfit?: number | null;
 }
 
-export type BracketProblem = "stop_wrong_side" | "target_wrong_side" | "no_base_price";
+export type BracketProblem = "stop_wrong_side" | "target_wrong_side" | "master_wrong_side" | "no_base_price";
 
 export interface BracketCheck {
   ok: boolean;
@@ -79,7 +85,7 @@ const usd = (n: number) =>
  * bracket to an unknown entry is exactly the case that fails at the broker.
  */
 export function checkBracket(input: BracketInput): BracketCheck {
-  const { side, basePrice, stopLoss, takeProfit } = input;
+  const { side, basePrice, stopLoss, takeProfit, masterProfit } = input;
 
   if (!Number.isFinite(basePrice) || basePrice <= 0) {
     return {
@@ -96,32 +102,52 @@ export function checkBracket(input: BracketInput): BracketCheck {
       return {
         ok: false,
         problem: "stop_wrong_side",
-        reason: `The protocol stop (${usd(stopLoss)}) is at or above the entry price (${usd(basePrice)}). A stop on a long has to sit below the entry, so the broker would reject the bracket.`,
+        reason: `The stop (${usd(stopLoss)}) is at or above the entry price (${usd(basePrice)}). A stop on a long has to sit below the entry, so the broker would reject the bracket.`,
       };
     }
     if (!(takeProfit >= basePrice + minGap)) {
       return {
         ok: false,
         problem: "target_wrong_side",
-        reason: `The protocol target (${usd(takeProfit)}) is at or below the entry price (${usd(basePrice)}). A take-profit on a long has to sit above the entry, so the broker would reject the bracket.`,
+        reason: `The target (${usd(takeProfit)}) is at or below the entry price (${usd(basePrice)}). A take-profit on a long has to sit above the entry, so the broker would reject the bracket.`,
       };
     }
-    return { ok: true };
+    return masterCheck(side, takeProfit, masterProfit, minGap);
   }
 
   if (!(stopLoss >= basePrice + minGap)) {
     return {
       ok: false,
       problem: "stop_wrong_side",
-      reason: `The protocol stop (${usd(stopLoss)}) is at or below the entry price (${usd(basePrice)}). A stop on a short has to sit above the entry, so the broker would reject the bracket.`,
+      reason: `The stop (${usd(stopLoss)}) is at or below the entry price (${usd(basePrice)}). A stop on a short has to sit above the entry, so the broker would reject the bracket.`,
     };
   }
   if (!(takeProfit <= basePrice - minGap)) {
     return {
       ok: false,
       problem: "target_wrong_side",
-      reason: `The protocol target (${usd(takeProfit)}) is at or above the entry price (${usd(basePrice)}). A take-profit on a short has to sit below the entry, so the broker would reject the bracket.`,
+      reason: `The target (${usd(takeProfit)}) is at or above the entry price (${usd(basePrice)}). A take-profit on a short has to sit below the entry, so the broker would reject the bracket.`,
     };
   }
-  return { ok: true };
+  return masterCheck(side, takeProfit, masterProfit, minGap);
+}
+
+/** The MTP, when there is one, lies beyond TP1 on the trade's side. */
+function masterCheck(
+  side: BracketSide,
+  takeProfit: number,
+  masterProfit: number | null | undefined,
+  minGap: number,
+): BracketCheck {
+  if (masterProfit == null) return { ok: true };
+  const beyond =
+    Number.isFinite(masterProfit) &&
+    masterProfit > 0 &&
+    (side === "buy" ? masterProfit >= takeProfit + minGap : masterProfit <= takeProfit - minGap);
+  if (beyond) return { ok: true };
+  return {
+    ok: false,
+    problem: "master_wrong_side",
+    reason: `The MTP (${usd(masterProfit)}) has to sit ${side === "buy" ? "above" : "below"} TP1 (${usd(takeProfit)}): it is where the move is measured to after the first target.`,
+  };
 }

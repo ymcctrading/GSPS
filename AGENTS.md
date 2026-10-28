@@ -1226,6 +1226,19 @@ don't). Broker-side OCO needs nothing: under Q14 there is no target to pair
 with the stop, and the bracket rule's tranches already rest as OCO. Live adds
 wait for the end of the proving period.
 
+**Paper trades on a ladder of sizes, 2026-10-28 (owner: "make trades of all
+sizes ... do some 2, 3, 4 & 5 figure purchases/trades", so the book shows a
+trade can start with any amount).** Gann runs one method on every size of
+account ($300 for 10 shares, W006 Rule 1; $1,000 risking $100, *Truth of the
+Stock Tape*; the $1,000 soybean campaign, *Commodities* pp.134-137; the unit
+doubling with profits, A-RISK-04), so the portfolio manager's paper
+activations are sized for one rung each: a position costing two, three or four
+figures, or the account's own size, the rung the open book (resting
+activations included) holds fewest of, the smaller first
+(`lib/automation/sizeLadder.ts`). A rung only takes shares away, so Gann's
+ceilings hold and placement checks them again. Live accounts are never
+laddered. Verdicts and the replay are unchanged, so `STRATEGY_VERSION` stays.
+
 **Name charts and great cycles, 2026-10-22 (A-OTHER-08, A-TIME-24; owner:
 "Build these: ... name numerology [is] written out in the Master Course").**
 Gann's name chart (Master Course Ch. 15A, PDF 401-402): "United States Steel"
@@ -1344,7 +1357,7 @@ need a fresh run on it.
 Gann gave at a stated price had been ported as that many Gann points, which
 already grow with price (`pointScale.ts`), so each ran about two to three times
 his own. The re-buy after a stop rests his 12 points under the best price read
-at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
+at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / pricePoint(230)`,
 about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
 at Advance Rumely's 105 ("a 10-point stop, out at 95", *Stock Selector* Ch. V), about 5.9 Gann
 points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
@@ -1355,7 +1368,7 @@ during the leg out of it (`narrowRangeBeforeLeg`), since the walk from its top
 to the crossing line is wider than narrow, so the breakaway's volume rule is
 still asked. Random walks, armed long entries held by the breakaway: $20 43% →
 23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
-a number at a price, divide it by `gannPoint` at that price; only his "3 points"
+a number at a price, divide it by `pricePoint` at that price; only his "3 points"
 (the scale's own anchor) and figures he states across price bands are read as
 Gann points directly. `STRATEGY_VERSION` was `2026-10-28-gann-figures-at-his-price`;
 Execute and the 7/4 cutoffs need a fresh run on it.
@@ -3459,6 +3472,32 @@ market scan rewrites the lists, a setup that turns ready mid-session joins and
 one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
 from the daily charts after the close and timed in the session (*Truth of the
 Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
+**Fair slots and the evaluation ledger, same day (owner: "I approve all 5", on
+the October 27 coverage report).** On October 27 the scheduled intraday scan
+timed 41 of its 50 slots while the focus list's 36 reserves (BA at rank 48)
+sat out. Its slots are now shared by `lib/scanner/queue.ts`, superseding the order under "Session setups" above: core whole, then
+reserved shares for the session setups (14), discoveries (8), the focus list
+including its reserves (12) and members' watchlists (6); setups, then watched
+names, past their share take the slots other tiers left unused, and the wheel
+always keeps its own 5, rotating through the names waiting from a clock-read
+offset (no counter), so each is reached within a few scans. Only discoveries
+the market scan reported in the last 35 minutes count (`last_discovery_at`);
+discoveries alone never displace the fixed single stocks. Discoveries (`lib/scanner/discovery.ts`:
+an old top or bottom crossed or met within 3 points, a new 13-week extreme, a
+narrow range broken; one labelled heuristic, a wide range on heavy volume)
+are read by the market scan from its coarse daily batch, observed through the
+delayed fetch's end, about 0.25 s for the universe; they carry no levels and
+only earn a slot to be examined. The evaluation ledger (`evaluation_ledger`,
+migration 0129, `lib/ledger/evaluationLedger.ts`) keeps one row per session
+and symbol with the first time each stage was reached (pre-filter, shortlist,
+discovery, slot, deferrals, first detection with its bar, usable and
+evaluation times apart), 400 days, service role only (applied to production
+2026-10-28 on the owner's go-ahead); deferrals count once per 15-minute tick in
+the regular session; every ledger write runs after the response (`after`),
+so no scan waits on it; the owner's recap reads it (`lib/reports/coverage.ts`). `GSPS_EVALUATION_LEDGER=0` turns it off, and
+the queue then has no discovery tier. Hindsight data (the recap's movers and
+attribution) goes to the owner's two accounts only (`lib/auth/owner.ts`).
+Verdicts unchanged.
 **Nearing the entry, same day (owner: alert "as price is moving towards that
 entry level" early enough to sign in and place the order, the lead "determined
 by all of the tools [Gann] used to determine how fast price is moving").** Two
@@ -3497,6 +3536,47 @@ Execute and the 7/4 cutoffs need a fresh run on it. The share-class rule, the
 base-left pillar, Gann's figures at his price and this rule merged together in
 the 2026-10-28 midday release (no new rule): `STRATEGY_VERSION` was
 `2026-10-28-midday-release`.
+
+**The Rule of Three as a standing trend, 2026-10-28 (six-year daily rerun,
+`replay-diagnosis/2026-10-28-six-year-daily/COMBINED.md`: within Execute,
+trades passing `ruleOfThree` did 0.103R worse than trades failing it).** One
+translation defect, fixed: the check passed only on the day a run of three
+closes printed (three up closes in a row for a long), the move a reaction entry
+waits out, and failed through every one- or two-day reaction of a trend the
+rule still called up. Gann's third close reverses the trend "at least
+temporarily" and the trend stands until the opposite third close (*Stock
+Selector* p.72; U.S. Steel 1929 "at no time closed 3 consecutive days with
+losses" until the top, Ch. VI p.125). `computeRuleOfThree` now returns `trend`,
+the side of the latest run of three, and the check passes when the daily rule
+reads the trade's side and neither the weekly nor the monthly rule reads against
+it (the higher charts govern, never-failing rule 5; how the three combine is an
+engineering choice, labelled: as standing trends, "any one" passes about 87% of
+random-walk readings). The weekly and monthly context factors read the same.
+Random walks (200 a drift, longs/shorts): no drift 13.1/18.8%, +0.05% a day
+21.0/11.5%, +0.1% a day 29.4/6.9%; the old reading passed about 12% either way
+whatever the drift. The cards' streak lines are unchanged. `STRATEGY_VERSION`
+was `2026-10-28-three-closes-trend`; P2, Execute and the 7/4 cutoffs need a
+fresh run on it.
+**Reading that run's factor table, same day.** Its deltas are within Execute
+only (the slices' logs kept no all-trade table), so they are conditioned on a 7+
+score, and at about 2,100 trades with a spread near 1.4R a pass/fail delta has a
+standard error near 0.06R: every listed inversion (Rule of Three −0.103, angles
+−0.078, range divisions −0.058, relative strength and time −0.050, the square
+−0.045, the indication −0.041) sits inside about two of them. They are leads,
+not findings; a future run should keep the all-trade factor table. The Rule of
+Three fix stands on Gann's text, not the delta. **P6's origin, same day:** the
+monthly 45° is drawn from the latest monthly swing bottom (top, short) that has
+held `MONTHLY_ORIGIN_HELD_MONTHS` (3) closed months with no later month 3 points
+through it (`monthlyAngleOrigin`, `lib/scoring/pillars.ts`; Master Course Ch. 4,
+GA-25 to GA-27: a higher bottom is an origin "only once the market has
+held/advanced 3-4 months from it", retired "when exceeded by 3 points"; GA-9 the
+same for tops); it read the latest pivot however young. Random walks (20 a
+price, long/short): no drift $150 46.6/55.4 → 44.0/55.0%, $500 56.8/64.4 →
+52.8/58.6%; +0.05% a day $500 73.8/36.8 → 69.8/32.8%. "3-4 months" read as 3 is
+an engineering choice, labelled. `STRATEGY_VERSION` was
+`2026-10-28-three-closes-angle-origin`; P6, Execute and the 7/4 cutoffs need a
+fresh run on it. Merged onto the delayed fill timing (no new rule):
+`STRATEGY_VERSION` was `2026-10-28-angle-origin-on-delayed-fill`.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
@@ -3550,6 +3630,28 @@ a slot of a daily budget first (`lib/notifications/email-budget.ts`, migration
 open); over it the send is skipped and the bell keeps the notice. The bell
 points a member without push on that device to the switch. A new email sender
 calls `emailBudgetHold` with its kind.
+
+**Intraday audit fixes, 2026-10-28 (`/mnt/project-files/gann-alignment-audit/intraday-alerts-replay.md`).**
+An intraday alert against the daily swing chart's trend is shown for study and
+labelled so, never offered as a trade, written to the bell or entered by the
+intraday replay (`againstDailyTrend`, `tradeHold` in
+`lib/scanner/intradayDisplay.ts`; never-failing rule 5). The alert's confidence
+is the share of its checks met, with no hand-set weights (Gann ranks no check
+above another, "The scorecard's role"), and the unused `minMovePct` is gone.
+The replay's reversal chain ran at most 3 deep; it now runs as NSTD Rule 6
+(p.48) keeps with the trend, until three losses in a row pause it, as
+placement's `lossSeriesRefusal` does live (`LOSS_SERIES_LENGTH`). The twice-yearly
+rest reminder now comes back with a new entry placed in its window, as the
+away reminder does (`closeOutNotice`, `lib/trade/away-notice.ts`; *Truth of
+the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` is
+`2026-10-28-intraday-audit-on-angle-origin` (built alone as `2026-10-28-intraday-audit-fixes`, merged onto the Rule of Three trend and angle origin with no new rule); daily verdicts are unchanged. The same
+audit's trade, automation and lifecycle walk
+(`gann-alignment-audit/trade-automation-lifecycle.md`) moved three more:
+`equitySession` ends an NYSE early close's regular session at 1:00 PM (it read
+4:00 PM), the options ticket charges about ten days of time decay, the
+measured hold on Gann's exits, not the half day of the retired bar-pattern
+trigger (`TYPICAL_HOLDING_DAYS`), and the portfolio manager's risk dial is
+labelled the member's choice under Gann's tenth.
 
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`

@@ -32,6 +32,19 @@
  * passes on the mirror image (>= 3 consecutive lower closes). This is a
  * broader reading than Gann's literal text, named as such rather than
  * presented as a direct transcription.
+ *
+ * **The trend the rule leaves standing (2026-10-28).** The third close reverses
+ * the trend "at least temporarily" (WSSS p.72), and the trend then stands until
+ * the opposite third close: U.S. Steel's 1929 rush "at no time closed 3
+ * consecutive days with losses" until the top (Ch. VI, p.125), and the book
+ * marks "3 up closes (trend up)" and reads the trend up from there, through the
+ * reactions of one or two days. The scored check read only the day the third
+ * close printed (`bullishSignal`, the streak still running), so a long passed
+ * only after three up days in a row, the move a reaction entry waits out, and
+ * failed through every one- or two-day reaction of a trend the rule still
+ * called up. On the six-year daily replay (ref 34a386d, 2,098 Execute trades)
+ * trades passing it did 0.10R worse than trades failing it. `trend` is the
+ * rule's own reading: the side of the latest run of three closes.
  */
 
 import type { Bar } from "@/lib/types";
@@ -50,6 +63,13 @@ export interface RuleOfThreeReading {
   bullishSignal: boolean;
   /** The uptrend-reversal rule has fired: >= `BEARISH_SIGNAL_CLOSES` consecutive lower closes. */
   bearishSignal: boolean;
+  /**
+   * The trend the rule leaves standing: the side of the latest run of
+   * `BULLISH_SIGNAL_CLOSES` higher or `BEARISH_SIGNAL_CLOSES` lower closes in
+   * the bars, held until the opposite run (WSSS p.72; Ch. VI p.125). Null when
+   * no run of three has printed.
+   */
+  trend: "bullish" | "bearish" | null;
 }
 
 /**
@@ -74,10 +94,23 @@ export function computeRuleOfThree(bars: Bar[]): RuleOfThreeReading {
     }
   }
 
+  // Forward walk for the standing trend: a flat close ends a run, as above.
+  let trend: RuleOfThreeReading["trend"] = null;
+  let up = 0;
+  let down = 0;
+  for (let i = 1; i < bars.length; i++) {
+    const change = bars[i].c - bars[i - 1].c;
+    up = change > 0 ? up + 1 : 0;
+    down = change < 0 ? down + 1 : 0;
+    if (up >= BULLISH_SIGNAL_CLOSES) trend = "bullish";
+    else if (down >= BEARISH_SIGNAL_CLOSES) trend = "bearish";
+  }
+
   return {
     consecutiveLowerCloses: lower,
     consecutiveHigherCloses: higher,
     bullishSignal: higher >= BULLISH_SIGNAL_CLOSES,
     bearishSignal: lower >= BEARISH_SIGNAL_CLOSES,
+    trend,
   };
 }

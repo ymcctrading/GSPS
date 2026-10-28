@@ -16,8 +16,8 @@ const alert: Alert = {
   sessionVolume: 62_000_000,
   confidence: 75,
   confidenceFactors: [
-    { label: "Opening range broken", passed: true, weight: 30, detail: "Price is 3.50 beyond the high." },
-    { label: "Volume confirms", passed: false, weight: 25, detail: "1.8× of normal." },
+    { label: "Opening range broken", passed: true, detail: "Price is 3.50 beyond the high." },
+    { label: "Volume confirms", passed: false, detail: "1.8× of normal." },
   ],
   invalidation: 500,
   continuationPlan: { confirmation: "Wait.", invalidation: 500, firstTarget: 513.5, cancelIf: "x" },
@@ -92,8 +92,8 @@ describe("buildIntradayCardModel", () => {
     expect(model.price).toBe(504.5);
     expect(model.verdict).toBe("Old top or bottom crossed");
     expect(model.checks).toEqual([
-      { label: "Opening range broken", state: "met", detail: "30 pts — Price is 3.50 beyond the high." },
-      { label: "Volume confirms", state: "missed", detail: "25 pts — 1.8× of normal." },
+      { label: "Opening range broken", state: "met", detail: "Price is 3.50 beyond the high." },
+      { label: "Volume confirms", state: "missed", detail: "1.8× of normal." },
     ]);
     expect(model.tickerHref).toBe("/ticker/SPY");
   });

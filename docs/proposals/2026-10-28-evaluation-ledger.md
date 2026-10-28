@@ -1,8 +1,6 @@
-# Evaluation ledger: a proposal, not applied
+# Evaluation ledger: the proposal
 
-Status: **proposed only.** This SQL is not in `supabase/migrations/` and has not been
-applied anywhere. It needs Chuck's approval, then a numbered migration, then the
-migration applied before any code that writes it is merged.
+Status: **approved 2026-10-28 (owner, "I approve all 5"); built as migration 0129 and `lib/ledger/evaluationLedger.ts`.** The SQL below is the original proposal; the migration is the source of truth.
 
 ## Why
 

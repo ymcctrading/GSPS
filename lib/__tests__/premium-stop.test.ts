@@ -62,7 +62,7 @@ describe("readPremiumStop", () => {
     expect(reading.holdingDays).toBe(TYPICAL_HOLDING_DAYS);
     expect(reading.decayCost).toBeCloseTo(0.2 * TYPICAL_HOLDING_DAYS, 10);
     // Stop alone would read 8.5%; decay lifts it.
-    expect(reading.pctOfPremium).toBeCloseTo(((0.55 + 0.1) / 6.5) * 100, 6);
+    expect(reading.pctOfPremium).toBeCloseTo(((0.55 + 0.2 * TYPICAL_HOLDING_DAYS) / 6.5) * 100, 6);
   });
 
   it("takes an explicit hold for a position carried longer", () => {
@@ -80,7 +80,7 @@ describe("readPremiumStop", () => {
   it("charges decay on a near-dated contract — the NVDA 210 call", () => {
     // Live chain: $3.53 ask, delta 0.424, theta -0.134/day, against the scan's
     // $0.83 structural stop. The stop alone reads 10.0% of the premium;
-    // charging half a session of decay adds to it.
+    // charging the swing's typical hold of decay adds to it.
     const stopOnly = readPremiumStop({ risk: 0.83, premium: 3.5341, delta: 0.4241 })!;
     const withDecay = readPremiumStop({
       risk: 0.83,
@@ -89,8 +89,8 @@ describe("readPremiumStop", () => {
       theta: -0.1342,
     })!;
     expect(stopOnly.pctOfPremium).toBeCloseTo(9.96, 1);
-    expect(withDecay.pctOfPremium).toBeCloseTo(11.86, 1);
-    // Decay is a fifth of the total risk on this contract, not a rounding error.
+    expect(withDecay.pctOfPremium).toBeCloseTo(47.93, 1);
+    // Decay is most of the total risk on this contract over a swing, not a rounding error.
     expect(withDecay.decayCost / (withDecay.stopCost + withDecay.decayCost)).toBeGreaterThan(0.15);
   });
 
@@ -131,5 +131,21 @@ describe("readPremiumStop", () => {
     const perShare = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55 })!;
     const perContract = readPremiumStop({ risk: 100, premium: 650, delta: 0.55 })!;
     expect(perShare.pctOfPremium).toBeCloseTo(perContract.pctOfPremium, 10);
+  });
+
+  it("never reads more than the whole premium: a bought option loses only what was paid (review of #515)", () => {
+    // $1 premium, $0.80 stop on a 0.6 delta, 0.10 decay a day for ten days:
+    // 0.48 + 1.00 = 148% uncapped.
+    const reading = readPremiumStop({ risk: 0.8, premium: 1, delta: 0.6, theta: -0.1 })!;
+    expect(reading.pctOfPremium).toBe(100);
+    expect(reading.capped).toBe(true);
+    expect(reading.stopCost).toBeCloseTo(0.48, 10);
+    expect(reading.decayCost).toBeCloseTo(1, 10);
+    const within = readPremiumStop({ risk: 1, premium: 6.5, delta: 0.55 })!;
+    expect(within.capped).toBe(false);
+    for (const risk of [0.5, 5, 50, 1e6]) {
+      const r = readPremiumStop({ risk, premium: 2, theta: -0.3, holdingDays: 1e6 })!;
+      expect(r.pctOfPremium).toBeLessThanOrEqual(100);
+    }
   });
 });

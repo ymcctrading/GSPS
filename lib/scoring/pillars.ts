@@ -174,6 +174,51 @@ export function readAngleFacts(bars: Bar[], price: number, unit: number): Pillar
   };
 }
 
+/** Closed months a bottom (top) must have held before a monthly angle is drawn from it (GA-25..27: "3-4 months"). */
+export const MONTHLY_ORIGIN_HELD_MONTHS = 3;
+/** An origin is retired once a later month trades this many Gann points beyond it (GA-25..27). */
+export const MONTHLY_ORIGIN_RETIRE_POINTS = 3;
+
+/**
+ * The bottom (top) P6's monthly 45° is drawn from (2026-10-28, diagnosis of the
+ * six-year daily rerun: within Execute, trades passing P6 did 0.078R worse than
+ * trades failing it). Gann starts a monthly angle from a higher bottom "only
+ * once the market has held/advanced 3-4 months from it", and retires an origin
+ * "when its top/bottom is exceeded by 3 points" (Master Course Ch. 4, GA-25 to
+ * GA-27; GA-9 likewise starts angles from a top after it has declined about 3
+ * months). The check read the latest 3-month swing bottom however young, so a
+ * bottom one or two months old put the line almost at price and the long passed
+ * on the first bounce off a new low; with no drift the long and the short both
+ * passed on more than half the readings at $500. Now the origin is the latest
+ * pivot of its kind that has stood `MONTHLY_ORIGIN_HELD_MONTHS` closed months
+ * with no later month 3 points through it; with none, the angle is not read and
+ * the check fails, as an unread check does. Reading "3-4 months" as 3 is an
+ * engineering choice, labelled.
+ */
+export function monthlyAngleOrigin(
+  months: Bar[],
+  pivots: ReturnType<typeof swingPivots>,
+  kind: "bottom" | "top",
+  unit: number,
+): ReturnType<typeof swingPivots>[number] | null {
+  const retire = MONTHLY_ORIGIN_RETIRE_POINTS * unit;
+  // The latest one that qualifies; an older, lower bottom (higher top) can still stand.
+  for (let k = pivots.length - 1; k >= 0; k--) {
+    const p = pivots[k];
+    if (p.kind !== kind) continue;
+    if (months.length - 1 - p.index < MONTHLY_ORIGIN_HELD_MONTHS) continue;
+    let retired = false;
+    for (let i = p.index + 1; i < months.length; i++) {
+      if (kind === "bottom" ? months[i].l < p.price - retire : months[i].h > p.price + retire) {
+        retired = true;
+        break;
+      }
+    }
+    if (!retired) return p;
+  }
+  return null;
+}
+
 /**
  * P6(a) since 2026-10-21 (diagnosis: `replay-diagnosis/2026-10-21-p6-angle-scale.md`):
  * the monthly 45° at 1 Gann point a month from the last bottom of the 3-month
@@ -191,14 +236,16 @@ export function readAngleFacts(bars: Bar[], price: number, unit: number): Pillar
  * the S/R list (`patternAngleLevels`). Engineering choices, labelled: the 3-bar
  * chart as Gann's "3 months", its last swing as "the last bottom of the final
  * run", and `pointForBars` as the point. `months` are closed months; the
- * month in progress is the line's current month.
+ * month in progress is the line's current month. Since 2026-10-28 the origin is
+ * the latest pivot that has held 3 months and was not broken by 3 points
+ * (`monthlyAngleOrigin`).
  */
 export function readMonthlyFortyFive(months: Bar[], price: number, unit: number): Record<Side, boolean> | null {
   if (!(price > 0) || !(unit > 0) || months.length < 2) return null;
   const pivots = swingPivots(months, THREE_DAY_CHART);
   const now = months.length;
   const at = (kind: "bottom" | "top"): boolean => {
-    const p = pivots.filter((x) => x.kind === kind).at(-1);
+    const p = monthlyAngleOrigin(months, pivots, kind, unit);
     if (!p) return false;
     const line = p.price + (kind === "bottom" ? 1 : -1) * unit * (now - p.index);
     return kind === "bottom" ? price >= line - unit : price <= line + unit;

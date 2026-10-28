@@ -43,6 +43,11 @@ try {
   console.error("No .next/static found. Run `npm run build` first.");
   process.exit(1);
 }
+// An empty or partial build would otherwise read green.
+if (!files.some((f) => f.endsWith(".js"))) {
+  console.error("No built browser files under .next/static. Run `npm run build` first.");
+  process.exit(1);
+}
 
 const hits = [];
 const MAX_HITS = 50;

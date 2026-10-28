@@ -60,4 +60,18 @@ describe("intraday queue", () => {
     expect(planQueue({ capacity: 3, core, plans: [], discovery: [], focus: [], watched: [], tick: 0 }).selected).toHaveLength(3);
     expect(planQueue({ capacity: NaN, core, plans: [], discovery: [], focus: [], watched: [], tick: 0 }).selected).toHaveLength(0);
   });
+
+  it("setups and watched names beyond their share take unused slots before the wheel, never the wheel's share", () => {
+    // No discoveries: their 8 unused slots go to the setups past 14, then watched past 6.
+    const plan = planQueue({ core, plans: syms("P", 20), discovery: [], focus: syms("F", 72), watched: syms("W", 10), tick: 0 });
+    expect(plan.selected).toHaveLength(QUEUE_CAPACITY);
+    const sel = new Set(plan.selected.map((e) => e.symbol));
+    expect(syms("P", 20).every((s) => sel.has(s))).toBe(true);
+    expect(syms("W", 8).every((s) => sel.has(s))).toBe(true);
+    expect(plan.byTier.rotating).toBe(5);
+    // Saturated: the wheel keeps its five.
+    const full = planQueue({ core, plans: syms("P", 24), discovery: syms("D", 40), focus: syms("F", 72), watched: syms("W", 10), tick: 0 });
+    expect(full.byTier.rotating).toBe(5);
+    expect(full.byTier.plans).toBe(14);
+  });
 });

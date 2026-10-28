@@ -36,7 +36,8 @@
  * deliberate.
  */
 
-import { planQueue, rotationTick } from "@/lib/scanner/queue";
+import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
+import { afterResponse, detectionFromAlert, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
@@ -58,12 +59,13 @@ import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { barCloseAt, resolveFeedPolicy, timeframeForMinutes } from "@/lib/data/timeliness";
+import { isEarlyClose } from "@/lib/market/calendar";
 import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
-import { FOCUS_SIZE, FOCUS_STORED } from "@/lib/scanner/focusList";
+import { FOCUS_STORED } from "@/lib/scanner/focusList";
 import { loadSessionSetups, SESSION_SETUPS_MAX, SESSION_SETUPS_ON_DEMAND } from "@/lib/scanner/sessionSetups";
 import { withTimeout } from "@/lib/utils";
 import {
@@ -72,6 +74,7 @@ import {
   barsForSession,
   etDateKey,
   scanIntraday,
+  unreadAudit,
   volumeBaseline,
   type Alert,
   type AssetKind,
@@ -81,6 +84,7 @@ import {
   type ScannerConfig,
   type SignalType,
   type SymbolInput,
+  type UnreadCause,
   INTRADAY_DAILY_HISTORY_DAYS,
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
@@ -88,7 +92,10 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const maxDuration = 120;
 
-/** Sessions of history behind the relative-volume baseline. */
+/**
+ * Sessions of history behind the relative-volume baseline. An engineering
+ * figure: Gann compares volume with the market's own past but names no length.
+ */
 const BASELINE_DAYS = 12;
 /** Daily history fetched per symbol (`INTRADAY_DAILY_HISTORY_DAYS`, shared with the alert replay). */
 const DAILY_HISTORY_DAYS = INTRADAY_DAILY_HISTORY_DAYS;
@@ -205,9 +212,8 @@ export async function GET(req: NextRequest) {
   // scan — the equity-hours cron, and a manual `workflow_dispatch` run at
   // any hour — covers the full watchlist, same as before this parameter
   // existed.
-  const universe = systemScan
-    ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase)
-    : await resolveOnDemandUniverse(params.get("symbols"), now);
+  const system = systemScan ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase) : null;
+  const universe = system ? system.entries : await resolveOnDemandUniverse(params.get("symbols"), now);
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
   if (syntheticDataRefusal("run the intraday scan and send its alerts", provider)) {
@@ -238,6 +244,8 @@ export async function GET(req: NextRequest) {
   // symbols to the per-symbol reads, as before.
   const prefetched = await prefetchBars(provider, universe, now);
 
+  // Why each symbol that never reached the scan was left out, for its audit row.
+  const unreadCauses = new Map<string, UnreadCause>();
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
     withTimeout(
       buildInput(
@@ -251,20 +259,45 @@ export async function GET(req: NextRequest) {
       ),
       15_000,
       `buildInput for ${entry.symbol}`
-    ).catch((err) => {
-      console.error(`[intraday-scan] buildInput failed for ${entry.symbol}:`, err);
-      return null;
-    }),
+    ).then(
+      (input) => {
+        if (input === null) unreadCauses.set(entry.symbol, "no_bars");
+        return input;
+      },
+      (err) => {
+        console.error(`[intraday-scan] buildInput failed for ${entry.symbol}:`, err);
+        unreadCauses.set(entry.symbol, "read_failed");
+        return null;
+      },
+    ),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
   const unreachable = universe
     .filter((u) => !resolved.some((r) => r.symbol === u.symbol))
     .map((u) => u.symbol);
+  // The queue's slots go in the evaluation ledger only once their bars were
+  // read, so a refused or failed scan records no slot.
+  system?.recordQueue(new Set(resolved.map((r) => r.symbol.toUpperCase())));
 
   // Evaluated when the decision is computed, after the bars arrived, never
   // backdated to the request's start (DATA-DELAY-001 §4).
   let output = scanIntraday(resolved, config, new Date());
+  // A symbol whose bars could not be read gets its own audit row, so the panel
+  // says why it was not scanned rather than "0 checked".
+  if (unreachable.length > 0) {
+    const marketClosed = equitySession(now) === "closed";
+    const kindOf = new Map(universe.map((u) => [u.symbol, u.kind]));
+    output = {
+      ...output,
+      audit: [
+        ...output.audit,
+        ...unreachable.map((symbol) =>
+          unreadAudit(symbol, kindOf.get(symbol) ?? "equity", unreadCauses.get(symbol) ?? "read_failed", marketClosed),
+        ),
+      ],
+    };
+  }
 
   if (systemScan) await invalidateBrokenFocus(supabase as ServiceSupabase, resolved, now).catch(() => undefined);
 
@@ -408,6 +441,9 @@ export async function GET(req: NextRequest) {
  * see the `maxDuration` comment at the top of this file.
  */
 const MAX_SYSTEM_UNIVERSE = 50;
+
+/** The session's discoveries read for the queue at most (engineering; the tier's share is 8, the rest wait their turn). */
+const DISCOVERY_READ_MAX = 40;
 /** An evening focus list older than this (calendar days) is not read: it spans a weekend and a holiday. */
 const FOCUS_MAX_AGE_DAYS = 5;
 
@@ -438,8 +474,8 @@ const FOCUS_MAX_AGE_DAYS = 5;
 async function resolveSystemUniverse(
   universeParam: string | null,
   supabase: ServiceSupabase,
-): Promise<{ symbol: string; kind: AssetKind }[]> {
-  if (universeParam === "crypto") return WATCHLIST.filter((entry) => entry.kind === "crypto");
+): Promise<{ entries: { symbol: string; kind: AssetKind }[]; recordQueue: (examined: ReadonlySet<string>) => void }> {
+  if (universeParam === "crypto") return { entries: WATCHLIST.filter((entry) => entry.kind === "crypto"), recordQueue: () => undefined };
 
   // The evening's focus list (owner, 2026-10-21): when one stands, the fixed
   // single stocks give way to the names the daily charts read as primed, and
@@ -452,57 +488,55 @@ async function resolveSystemUniverse(
   // the lists the 15-minute market scan keeps current
   // (lib/scanner/sessionSetups.ts). Gann chose from the daily charts and timed
   // the entry in the session (Master Course Ch. 13).
-  const [watched, focus, setups] = await Promise.all([
+  //
+  // Since 2026-10-28 (owner, "I approve all 5"), the slots are shared by the
+  // fair queue (lib/scanner/queue.ts): each tier keeps a reserved share and
+  // the slots a tier leaves unused rotate through every name waiting, so the
+  // focus list's reserves and the stocks the session has made active
+  // (discoveries the market scan stored in the evaluation ledger) get a turn
+  // instead of slots sitting empty, as on October 27. An order of
+  // examination only: nothing here scores or plans, and any alert a slot
+  // produces is held to that alert's own rules.
+  const now = new Date();
+  const sessionDate = etDateKey(now);
+  const tick = rotationTick(now);
+  const [watched, focus, setups, discovery] = await Promise.all([
     loadWatchedSymbols(supabase),
     loadFocusSymbols(supabase),
-    loadSessionSetups(supabase, new Date(), SESSION_SETUPS_MAX).catch(() => [] as string[]),
+    loadSessionSetups(supabase, now, SESSION_SETUPS_MAX).catch(() => [] as string[]),
+    readSessionDiscoveries(supabase, sessionDate, DISCOVERY_READ_MAX),
   ]);
+  // The fixed single stocks give way only to a focus list or the session's
+  // setups; discoveries alone (a missed evening) leave the core list whole.
   const core = focus.length > 0 || setups.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
-  const seen = new Set(core.map((w) => w.symbol));
-  const out = [...core];
-  const asEntry = (symbol: string) => ({ symbol, kind: kindFor(symbol) });
-  for (const entry of [...setups.map(asEntry), ...watched, ...focus.slice(0, FOCUS_SIZE).map(asEntry)]) {
-    if (out.length >= MAX_SYSTEM_UNIVERSE) break;
-    if (seen.has(entry.symbol)) continue;
-    seen.add(entry.symbol);
-    out.push(entry);
-  }
-  logShadowQueue(out, core, setups, watched, focus);
-  return out;
-}
-
-/**
- * The fair queue (`lib/scanner/queue.ts`) run in shadow beside the live
- * selection above: logged only, so its picks can be compared before it
- * selects anything. The discovery tier is empty here until discoveries are
- * stored where this route can read them (the market scan logs them).
- */
-function logShadowQueue(
-  live: readonly { symbol: string }[],
-  core: readonly { symbol: string }[],
-  setups: readonly string[],
-  watched: readonly { symbol: string }[],
-  focus: readonly string[],
-): void {
-  try {
-    const plan = planQueue({
-      core: core.map((c) => c.symbol),
-      plans: setups,
-      discovery: [],
-      focus,
-      watched: watched.map((w) => w.symbol),
-      tick: rotationTick(new Date()),
-    });
-    const liveSet = new Set(live.map((l) => l.symbol));
-    const shadowSet = new Set(plan.selected.map((e) => e.symbol));
-    const adds = plan.selected.filter((e) => !liveSet.has(e.symbol)).map((e) => `${e.symbol}(${e.sourceTier} ${e.tierRank})`);
-    const drops = live.filter((l) => !shadowSet.has(l.symbol)).map((l) => l.symbol);
-    console.info(
-      `intraday-scan: shadow queue ${plan.selected.length}/${plan.capacity} (live ${live.length}), deferred ${plan.deferred.length}, adds ${adds.join(" ") || "none"}, drops ${drops.join(" ") || "none"}`,
+  const plan = planQueue({
+    capacity: MAX_SYSTEM_UNIVERSE,
+    core: core.map((c) => c.symbol),
+    plans: setups,
+    discovery,
+    focus,
+    watched: watched.map((w) => w.symbol),
+    tick,
+  });
+  const kindOf = new Map<string, AssetKind>([...core, ...watched].map((e) => [e.symbol.toUpperCase(), e.kind]));
+  const out = plan.selected.map((e) => ({ symbol: e.symbol, kind: kindOf.get(e.symbol) ?? kindFor(e.symbol) }));
+  console.info(
+    `intraday-scan: queue ${plan.selected.length}/${plan.capacity} ${Object.entries(plan.byTier).map(([t, n]) => `${t}=${n}`).join(" ")}, deferred ${plan.deferred.length}`,
+  );
+  // Written after the response: the scan never waits on the ledger.
+  // Deferrals count in the regular session only (to 1 PM on an early close),
+  // once per rotation tick.
+  const etMinutes = etParts(now).minutes;
+  const inSession = equitySession(now) === "regular" && !(isEarlyClose(sessionDate) && etMinutes >= 13 * 60);
+  const deferred = inSession ? plan.deferred.map((d) => d.symbol) : [];
+  const recordQueue = (examined: ReadonlySet<string>) =>
+    afterResponse("queue", () =>
+      Promise.all([
+        writeLedger(supabase, queueRows(plan, sessionDate, now, examined), "queue"),
+        writeDeferred(supabase, sessionDate, deferred, new Date(tick * ROTATION_STEP_MINUTES * 60_000)),
+      ]),
     );
-  } catch (err) {
-    console.warn(`intraday-scan: shadow queue failed — ${String(err)}`);
-  }
+  return { entries: out, recordQueue };
 }
 
 /**
@@ -653,7 +687,6 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
 
   return {
     relativeVolumeThreshold: num("rvol", DEFAULT_CONFIG.relativeVolumeThreshold),
-    minMovePct: num("minMovePct", DEFAULT_CONFIG.minMovePct),
     maxDataAgeSeconds: num("maxDataAge", DEFAULT_CONFIG.maxDataAgeSeconds),
     cooldownMinutes: num("cooldown", DEFAULT_CONFIG.cooldownMinutes),
     minSessionVolume: num("minVolume", DEFAULT_CONFIG.minSessionVolume),
@@ -767,6 +800,7 @@ async function persistAlerts(
       dataTimestamp: alert.dataTimestamp,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      againstDailyTrend: alert.againstDailyTrend === true,
     },
   }));
 
@@ -901,6 +935,7 @@ async function persistSystemAlerts(
       barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      againstDailyTrend: alert.againstDailyTrend === true,
     },
   }));
 
@@ -912,6 +947,13 @@ async function persistSystemAlerts(
     console.error("[intraday-scan] could not persist system alerts:", error);
     return false;
   }
+  // The evaluation ledger keeps the first detection per stock, its three
+  // times apart: the open of the newest bar its structure read, when its
+  // delayed data could first be seen (the alert's own timeliness reading),
+  // and when the scan evaluated it. Filed under the bar's own session, and
+  // written after the response.
+  const detections = alerts.map(detectionFromAlert);
+  afterResponse("detections", () => writeLedger(supabase, detectionRows(detections), "detections"));
   return true;
 }
 
@@ -975,6 +1017,7 @@ async function loadRecentSystemAlerts(
       masterTarget: num(meta.masterTarget),
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
+      ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
     });
   }
   return out;
@@ -1210,7 +1253,8 @@ function sessionLabelFor(nowEtMinute: number, now: Date): string {
   if (weekday === 0 || weekday === 6) return "Weekend — US equity markets are closed";
   if (nowEtMinute < 4 * 60) return "Overnight — US equity markets are closed";
   if (nowEtMinute < 9 * 60 + 30) return "Pre-market";
-  if (nowEtMinute < 16 * 60) return "Regular session";
+  // An NYSE early close ends the regular session at 1:00 PM (equitySession).
+  if (nowEtMinute < (isEarlyClose(etDateKey(now)) ? 13 * 60 : 16 * 60)) return "Regular session";
   if (nowEtMinute < 20 * 60) return "After hours";
   return "Closed";
 }

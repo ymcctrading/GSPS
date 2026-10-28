@@ -800,7 +800,7 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
   });
 });
 
-describe("replay exitRule: gann-runner (the live rule)", () => {
+describe("replay exitRule: structure-runner (the 60% runner)", () => {
   it("reads rule 21's share count for a stock's pyramid add, as live does", () => {
     const src = fs.readFileSync("lib/backtest/replay.ts", "utf8");
     expect(src).toMatch(/\.\.\.\(isStock \? \{ capitalStock: sharesOn\?\.\(date\) \?\? null \} : \{\}\)/);

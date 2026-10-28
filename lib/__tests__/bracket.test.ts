@@ -135,3 +135,25 @@ describe("bracketMinGap", () => {
     expect(bracketMinGap(1.01)).toBe(0.01);
   });
 });
+
+describe("checkBracket MTP", () => {
+  it("passes an MTP beyond TP1 on either side, and no MTP at all", () => {
+    expect(checkBracket({ side: "buy", basePrice: 50, stopLoss: 48, takeProfit: 54, masterProfit: 58 }).ok).toBe(true);
+    expect(checkBracket({ side: "sell", basePrice: 50, stopLoss: 52, takeProfit: 46, masterProfit: 42 }).ok).toBe(true);
+    expect(checkBracket({ side: "buy", basePrice: 50, stopLoss: 48, takeProfit: 54, masterProfit: null }).ok).toBe(true);
+  });
+
+  it("refuses an MTP at or short of TP1", () => {
+    const long = checkBracket({ side: "buy", basePrice: 50, stopLoss: 48, takeProfit: 54, masterProfit: 54 });
+    expect(long.ok).toBe(false);
+    expect(long.problem).toBe("master_wrong_side");
+    expect(long.reason).toMatch(/has to sit above TP1/);
+    const short = checkBracket({ side: "sell", basePrice: 50, stopLoss: 52, takeProfit: 46, masterProfit: 47 });
+    expect(short.problem).toBe("master_wrong_side");
+    expect(short.reason).toMatch(/has to sit below TP1/);
+  });
+
+  it("reports the stop before the MTP", () => {
+    expect(checkBracket({ side: "buy", basePrice: 50, stopLoss: 51, takeProfit: 54, masterProfit: 53 }).problem).toBe("stop_wrong_side");
+  });
+});
