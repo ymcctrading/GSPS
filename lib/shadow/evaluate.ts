@@ -13,8 +13,13 @@
  *   one when recorded after it, as Gann chose at night and traded the next
  *   day. A closed regular-session execution bar of that session, after the
  *   scan, that trades into the buy zone (`tradedIntoBuyZone`)
- *   makes the entry a market order at the next bar's open. A bar that closes
- *   through the stop first calls the plan off (`retired`). A plan that sees
+ *   makes the entry a market order, filled at the open of the first bar after
+ *   that bar could have been read: its close plus the feed's delay
+ *   (`delayedFillIndex`, DATA-DELAY-001; two 15-minute bars after it under the
+ *   15-minute equity delay, the next bar for crypto), as placement and the
+ *   replays fill. A bar that closes through the stop first calls the plan off
+ *   (`retired`), and so does the stop trading before the delayed fill, as the
+ *   replay refuses it. A plan that sees
  *   neither by the end of its session never filled (`expired`, Q17: a plan
  *   lasts its session). The same reading the replay's `entryRule: "reaction"`
  *   makes.
@@ -39,6 +44,9 @@ import { walkGannExit } from "@/lib/backtest/replay";
 import { tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { completedDailyBars, entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { etDateKey } from "@/lib/market/session";
+import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
+import { isStopBreachedByBar } from "@/lib/gann/stopBreach";
+import type { AssetClass } from "@/lib/types";
 import { regularSessionBars } from "@/lib/gann/intradayExit";
 import { shadowSessionComplete, shadowTradeSession } from "@/lib/shadow/session";
 
@@ -51,6 +59,8 @@ export const SHADOW_MAX_HOLD_DAYS = 10;
 
 /** The execution bars the entry is read on, as production arms its plans. */
 const SHADOW_EXECUTION_TIMEFRAME = "15Min" as const;
+/** That timeframe's bar length, for the delayed fill. */
+const SHADOW_EXECUTION_MINUTES = 15;
 
 /**
  * Pending signals read a pass, least recently checked first, and walked this
@@ -93,6 +103,10 @@ export interface ShadowWalkInput {
   monthly?: Bar[];
   sharesOutstanding?: number | null;
   maxHoldDays?: number;
+  /** The instrument's class, which sets the feed's delay; a US equity when absent. */
+  assetClass?: AssetClass;
+  /** The delay the fill waits out; the feed's contract for `assetClass` when absent (`replayFeedDelayMs`). */
+  feedDelayMs?: number;
 }
 
 /** Pure: production's entry and exit over the bars after one shadow signal. */
@@ -108,20 +122,37 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
   const later = dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate);
   const bars = [...sessionBars, ...later];
 
-  // The reaction: a closed bar into the zone, filled at the next bar's open.
-  let from = -1;
+  // The reaction: a closed bar into the zone.
+  let signal = -1;
   for (let k = 0; k < sessionBars.length; k++) {
     const closed = sessionBars[k];
     if (long ? closed.c <= stopLoss : closed.c >= stopLoss) return { ...PENDING, outcome: "retired" };
     if (tradedIntoBuyZone(closed, direction, entry)) {
-      from = k + 1;
+      signal = k;
       break;
     }
   }
-  if (from < 0) return sessionComplete ? { ...PENDING, outcome: "expired" } : PENDING;
-  // Filled on the session's last bar: the fill is known, the walk not yet.
-  // Its price is the next session's open, not known yet.
-  if (from >= bars.length) return { ...PENDING, filled: true };
+  if (signal < 0) return sessionComplete ? { ...PENDING, outcome: "expired" } : PENDING;
+  // Filled at the first bar opening once the reaction bar could be read
+  // (DATA-DELAY-001), as the replay's `fillAfter` reads it. The order is on
+  // from that decision, so a fill not yet among the session's bars is a trade
+  // that is on with its price still to come.
+  const assetClass = input.assetClass ?? "us_equity";
+  const delayMs = input.feedDelayMs ?? replayFeedDelayMs(assetClass);
+  const f = delayedFillIndex(sessionBars, signal, { assetClass, delayMs, intervalMinutes: SHADOW_EXECUTION_MINUTES });
+  const waited = sessionBars.slice(signal + 1, f < 0 ? sessionBars.length : f);
+  // The stop traded while the delayed reader waited: refused, as the replay
+  // refuses it, never booked at a fill it could not have had.
+  if (waited.some((b) => isStopBreachedByBar(direction, stopLoss, b))) return { ...PENDING, outcome: "retired" };
+  // A decision past the session's last bar fills at the next session's open,
+  // the first daily bar after it (the walk's next bar, as before the delay);
+  // with that session not yet in, or a bar of this session still to come, the
+  // trade is on and its price is still to come.
+  let from = f;
+  if (from < 0) {
+    if (!sessionComplete || later.length === 0) return { ...PENDING, filled: true };
+    from = sessionBars.length;
+  }
 
   const fill = bars[from].o;
   const maxBarsHeld = Math.max(0, sessionBars.length - from) + maxHoldDays;
@@ -269,6 +300,7 @@ export async function walkShadowRows(
         dailyBars: daily,
         monthly,
         sharesOutstanding: ref?.sharesOutstanding ?? null,
+        assetClass: crypto ? "crypto" : "us_equity",
       });
       if (result.outcome === "pending") {
         // Checked now, so the next pass turns to rows not yet read; a fill is

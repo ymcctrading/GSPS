@@ -40,6 +40,16 @@ describe("applyReadyNowHold", () => {
     expect(item?.note).toMatch(/Held from Execute to Watch/);
   });
 
+  it("calls a far entry a resting order only in the Resting tier (#521)", () => {
+    // Far from its entry and its indication not shown: Watch, held for the indication.
+    const held = applyReadyNowHold(decision("Execute", 9), { ...ready, price: 206.71, indicationShown: false });
+    expect(held.resting).toBeUndefined();
+    const note = held.breakdown.find((b) => b.key === "readyNow")?.note ?? "";
+    expect(note).not.toMatch(/Resting order/);
+    expect(note).toMatch(/more than a day's range away/);
+    expect(toPublicScoreSummary(held).stateNote ?? "").not.toMatch(/Resting order/);
+  });
+
   it("holds a crossing whose indication is not shown yet", () => {
     const held = applyReadyNowHold(decision("Execute", 7), { ...ready, indicationShown: false });
     expect(held.outputState).toBe("Watch");

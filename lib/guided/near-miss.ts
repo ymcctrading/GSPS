@@ -29,6 +29,7 @@ import { tickerHref } from "@/lib/routes";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 import { restingReadOf } from "@/lib/guided/eligibility";
+import { tierOfDecision } from "@/lib/setups/resting";
 import { formatUsd } from "@/lib/utils";
 
 export interface NearMiss {
@@ -66,7 +67,9 @@ export function missingFor(result: ScanResult, score: number): string[] {
   // over from the old 7/4 cutoffs.
   // A resting plan says so below; since 2026-10-27 the scan holds it at Watch
   // (`applyReadyNowHold`), and the held state's note names any other reason.
-  const resting = restingReadOf(result);
+  // The Resting tier only (#521): a Watch held by another rule that also sits
+  // far from its entry says that rule, not "resting order".
+  const resting = tierOfDecision(result.decision) === "Resting" ? restingReadOf(result) : null;
   if (result.decision.outputState !== "Execute") {
     if (score < EXECUTE_SCORE_THRESHOLD) {
       missing.push(`Scores ${score} out of 9. Guided only offers setups scoring ${EXECUTE_SCORE_THRESHOLD} or better, so this one is worth watching rather than buying.`);

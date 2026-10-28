@@ -93,6 +93,7 @@ INTENTIONAL EXCEPTION (with the reason), UNVERIFIED (not proven here).
 | Paper and live exit managers (stops, Gann exits) | INTENTIONAL EXCEPTION | Protective. They act on the freshest data received, and the stop fills at the market quote. Delaying a stop would add risk. |
 | Daily replay | IMPLEMENTED, TESTED | `replay.ts` fills via `delayedFillIndex` (unchanged on daily bars). A stop before the fill refuses it (`delayedRefusals`). Re-buys and reversals wait the same way. |
 | Intraday replays (profile, alerts) | IMPLEMENTED, TESTED | `replayIntraday.ts`, `replayIntradayAlerts.ts` (evaluated at close + delay; fill at the first bar after) |
+| Forward test (shadow signals) | IMPLEMENTED, TESTED | `walkShadowTrade` fills via `delayedFillIndex` on the 15-minute bars, and a stop traded while the order waited refuses the fill (`retired`), as the replay does. Added 2026-10-28 (cross-surface check of #518); it had filled at the next bar's open. `lib/shadow/__tests__/evaluate.test.ts` |
 | Resting stop-entry ("stop" rule) in the replay | INTENTIONAL EXCEPTION | Held by the broker, so it fills when price trades there, with no decision lag |
 | Bell (intraday) | IMPLEMENTED, TESTED | `recordIntradayBells`: freshness at each member's dispatch, suppress = no row |
 | Push (intraday) | IMPLEMENTED, TESTED | `notifySubscribedUsers`: freshness at each send; suppress = no send and no log; log stamped at dispatch |

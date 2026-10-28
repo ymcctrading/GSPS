@@ -71,8 +71,10 @@ describe("assessEligibility", () => {
     const verdict = assessEligibility(scan({ currentPrice: 112, dayRange: 5 }));
     expect(verdict.eligible).toBe(false);
     expect(verdict.reasons).toHaveLength(1);
-    expect(verdict.reasons[0]).toContain("resting order");
+    // Refused on the distance; called a resting order only in the Resting tier (#521).
+    expect(verdict.reasons[0]).not.toContain("resting order");
     expect(verdict.reasons[0]).toContain("$12.00 (10.7%) below price");
+    expect(verdict.reasons[0]).toContain("more than a day's range away");
     // Within a day's range, or with no range read, the gate does not fire.
     expect(assessEligibility(scan({ currentPrice: 104, dayRange: 5 })).eligible).toBe(true);
     expect(assessEligibility(scan({ currentPrice: 112, dayRange: null })).eligible).toBe(true);

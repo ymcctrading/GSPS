@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { GraduationCap, ShieldCheck, TimerReset, Compass } from "lucide-react";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
-import { readResting, restingNote, restingInputOfRow } from "@/lib/setups/resting";
+import { readResting, restingNote, restingInputOfRow, setupTier } from "@/lib/setups/resting";
 import type { ScanRow } from "@/components/scan/results-table";
 import type { MarketRegimeSummary } from "@/lib/promotion/market-regime";
 import type { NoviceHomeSummary as NoviceHomeData } from "@/lib/promotion/novice-home";
@@ -113,7 +113,9 @@ export function NoviceHomeSummary({
 
 /** Says so when Today's plan is a resting order (lib/setups/resting.ts): ranked behind every plan price is near. */
 function RestingLine({ plan }: { plan: ScanRow }) {
-  const read = readResting(restingInputOfRow(plan));
+  // The Resting tier only: a Watch far from its entry is held by another rule (#521).
+  const input = restingInputOfRow(plan);
+  const read = setupTier(input) === "Resting" ? readResting(input) : null;
   if (!read || plan.entry == null) return null;
   return <p className="text-xs text-muted">{restingNote(read, plan.entry)}</p>;
 }
