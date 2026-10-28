@@ -80,16 +80,12 @@ import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { MAX_TEST_SYMBOLS } from "@/lib/universe/selection";
 
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
-/**
- * A run is O(bars × symbols) and holds the request open the whole time. Past
- * this many symbols the route reliably outlives the platform's function
- * timeout and the caller gets a gateway error instead of a partial answer, so
- * it is rejected up front with a message that says what to do about it.
- */
-const MAX_SYMBOLS = 12;
+/** See `lib/universe/selection.ts#MAX_TEST_SYMBOLS`; the Test page fills to it. */
+const MAX_SYMBOLS = MAX_TEST_SYMBOLS;
 
 export async function GET(req: NextRequest) {
   const userId = await verifyAuth();

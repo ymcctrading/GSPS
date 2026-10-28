@@ -11,6 +11,8 @@ import type { AttributionScope, BacktestReport } from "@/lib/backtest/run";
 import { UNCONDITIONED_ATTRIBUTION } from "@/lib/backtest/scope";
 import type { WeightProposal } from "@/lib/backtest/propose-weights";
 import { CRITERION_LABELS, type CriterionKey } from "@/lib/scoring/weights";
+import { IndustryPicker, useIndustries } from "@/components/scan/industry-picker";
+import { MAX_TEST_SYMBOLS, capSelection } from "@/lib/universe/selection";
 
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
 
@@ -81,6 +83,8 @@ function toneFor(value: number) {
 
 export default function LearningPage() {
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS);
+  const [industryKeys, setIndustryKeys] = useState<string[]>([]);
+  const { data: industries, error: industriesError } = useIndustries();
   const [within, setWithin] = useState<AttributionScope>("Execute");
   const [targetR, setTargetR] = useState("2");
   // Walks the leeway/large-cap-widened stop instead of the raw pattern one —
@@ -140,11 +144,18 @@ export default function LearningPage() {
     };
   }, []);
 
+  // Typed symbols first, then the picked industries in turn, largest company
+  // first, up to the most one run can replay.
+  const testSelection = capSelection(
+    industryKeys,
+    symbols,
+    industries?.sectors ?? [],
+    MAX_TEST_SYMBOLS,
+    industries?.lists ?? [],
+  );
+
   function universe() {
-    return symbols
-      .split(/[,\s]+/)
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean);
+    return testSelection.symbols;
   }
 
   /**
@@ -308,13 +319,28 @@ export default function LearningPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <span className="block text-sm text-muted">Industries to test</span>
+            {industries ? (
+              <IndustryPicker data={industries} selected={industryKeys} onChange={setIndustryKeys} />
+            ) : (
+              <p className="text-sm text-muted">{industriesError ?? "Loading industries…"}</p>
+            )}
+            {testSelection.total > 0 && (
+              <p className="text-xs text-muted">
+                Testing {testSelection.symbols.join(", ")}
+                {testSelection.total > testSelection.symbols.length &&
+                  ` (${testSelection.symbols.length} of ${testSelection.total}: a test runs at most ${MAX_TEST_SYMBOLS} symbols, so it takes the symbols you typed, then the largest company in each picked industry in turn. Type symbols to choose others.)`}
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="min-w-0 flex-1 text-sm">
-              <span className="mb-1 block text-muted">Stocks to test</span>
+              <span className="mb-1 block text-muted">Symbols to test</span>
               <Input
                 value={symbols}
                 onChange={(e) => setSymbols(e.target.value)}
-                placeholder="SPY, AAPL"
+                placeholder="SPY, AAPL, BTC/USD"
               />
             </label>
             <label className="text-sm sm:w-36">

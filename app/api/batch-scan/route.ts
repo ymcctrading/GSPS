@@ -31,6 +31,7 @@ import { getUniversePolicy } from "@/lib/universe/policy";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import type { ScanResult } from "@/lib/types";
 import { visibilityRank } from "@/lib/scan/listOrder";
+import { SCAN_CHUNK_SIZE } from "@/lib/universe/selection";
 
 const DEFAULT_WATCHLIST = [
   "SPY", "AAPL", "AMD", "TSLA", "MSFT", "META",
@@ -46,7 +47,8 @@ const DEFAULT_WATCHLIST = [
 // scanTicker-based pipeline; 25 mirrors intraday-scan's MAX_SYMBOLS -- both
 // numbers already proven safe on the same scanTicker cost per symbol.
 export const maxDuration = 60;
-const MAX_SYMBOLS = 25;
+// The Scanner page splits a larger pick into requests of this size.
+const MAX_SYMBOLS = SCAN_CHUNK_SIZE;
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
