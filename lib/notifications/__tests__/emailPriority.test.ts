@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_EMAIL_DAILY_BUDGET, emailCeiling } from "@/lib/notifications/email-budget";
 import { DIGEST_SIGNAL_LIMIT, digestSignalLines } from "@/lib/notifications/digestSignals";
 import { signalSection } from "@/lib/notifications/resend-handler";
-import { executeEmailedToday, holdsSymbol } from "@/lib/entitlements/delivery";
+import { executeEmailedToday, heldSymbolKey, holdsSymbol } from "@/lib/entitlements/delivery";
 
 vi.mock("@/lib/supabase/server", () => ({ createServiceClient: () => ({}) }));
 
@@ -78,16 +78,23 @@ describe("signalSection", () => {
 });
 
 describe("holdsSymbol", () => {
-  it("is true only with an open position in the symbol, read upper-cased", async () => {
-    const held = chainClient({ data: [{ id: "p1" }], error: null });
+  it("is true only with an open position in the symbol, however the ledger spells it", async () => {
+    const held = chainClient({ data: [{ symbol: "MSFT" }, { symbol: "BTCUSD" }, { symbol: "AAPL251121C00200000" }], error: null });
     expect(await holdsSymbol(held.client, "u1", "aapl")).toBe(true);
-    expect(held.filters).toContainEqual(["eq", ["symbol", "AAPL"]]);
+    expect(await holdsSymbol(held.client, "u1", "BTC/USD")).toBe(true);
+    expect(await holdsSymbol(held.client, "u1", "NVDA")).toBe(false);
     expect(held.filters).toContainEqual(["eq", ["closed", false]]);
     expect(await holdsSymbol(chainClient({ data: [], error: null }).client, "u1", "AAPL")).toBe(false);
   });
 
   it("reads an unreadable ledger as held, so the email still goes", async () => {
     expect(await holdsSymbol(chainClient({ data: null, error: { message: "down" } }).client, "u1", "AAPL")).toBe(true);
+  });
+
+  it("keys a symbol without the pair's slash and an option by its underlying", () => {
+    expect(heldSymbolKey("btc/usd")).toBe("BTCUSD");
+    expect(heldSymbolKey("AAPL251121C00200000")).toBe("AAPL");
+    expect(heldSymbolKey("BRK.B")).toBe("BRK.B");
   });
 });
 

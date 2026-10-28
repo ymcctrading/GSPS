@@ -319,16 +319,28 @@ export async function holdsSymbol(service: SupabaseClient, profileId: string, sy
   try {
     const { data, error } = await service
       .from("positions")
-      .select("id")
+      .select("symbol")
       .eq("user_id", profileId)
-      .eq("symbol", symbol.toUpperCase())
       .eq("closed", false)
-      .limit(1);
+      .limit(200);
     if (error) return true;
-    return (data ?? []).length > 0;
+    const wanted = heldSymbolKey(symbol);
+    return ((data ?? []) as { symbol: string | null }[]).some((r) => r.symbol != null && heldSymbolKey(r.symbol) === wanted);
   } catch {
     return true;
   }
+}
+
+/**
+ * One key for a symbol however a ledger row spells it: upper case without the
+ * crypto pair's slash (a live row mirrors the broker's "BTCUSD" for the scan's
+ * "BTC/USD"), and an option's OCC code read as its underlying
+ * ("AAPL251121C00200000" holds AAPL).
+ */
+export function heldSymbolKey(symbol: string): string {
+  const s = symbol.trim().toUpperCase().replace("/", "");
+  const occ = /^([A-Z.]{1,6})\d{6}[CP]\d{8}$/.exec(s);
+  return occ ? occ[1] : s;
 }
 
 /**

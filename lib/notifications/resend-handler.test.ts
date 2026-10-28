@@ -13,6 +13,12 @@ vi.mock("resend", () => ({
     emails = { send: sendMock };
   },
 }));
+const { budgetHoldMock } = vi.hoisted(() => ({ budgetHoldMock: vi.fn() }));
+vi.mock("@/lib/notifications/email-budget", () => ({ emailBudgetHold: budgetHoldMock }));
+beforeEach(() => {
+  budgetHoldMock.mockReset();
+  budgetHoldMock.mockResolvedValue(null);
+});
 
 import { appUrl, parseSenderAddress, sandboxBlockReason, sendAlertEmail, sendTestEmail, sendOrderInvalidatedEmail, sendPriceAlertEmail, type AlertEmailData } from "./resend-handler";
 import { SCORE_MAX } from "@/lib/scoring/display";
@@ -256,5 +262,32 @@ describe("appUrl (email links)", () => {
     await sendPriceAlertEmail({ userEmail: BASE.userEmail, symbol: "BTC/USD", targetPrice: 100000, direction: "above", currentPrice: 100100 });
     const html: string = sendMock.mock.calls[0][0].html;
     expect(html).toContain('href="https://www.gsps.world/ticker/BTC/USD"');
+  });
+});
+
+describe("the daily email budget", () => {
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_SANDBOX_RECIPIENTS = BASE.userEmail;
+    sendMock.mockReset();
+    sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+  });
+  afterEach(() => {
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_SANDBOX_RECIPIENTS;
+  });
+
+  it("takes an alert slot, and skips the send with the reason once the budget is spent", async () => {
+    budgetHoldMock.mockResolvedValue("Today's email budget is spent; the notice is in the app.");
+    const result = await sendAlertEmail(BASE);
+    expect(budgetHoldMock).toHaveBeenCalledWith("alert");
+    expect(result).toMatchObject({ success: false, skipped: true });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("files a cancelled order under the member's own trades", async () => {
+    await sendOrderInvalidatedEmail({ userEmail: BASE.userEmail, symbol: "AAPL", side: "buy", qty: 1, limitPrice: 100, stopPrice: null, reason: "test" });
+    expect(budgetHoldMock).toHaveBeenCalledWith("trade");
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 });

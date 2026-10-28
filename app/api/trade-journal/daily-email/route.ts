@@ -93,10 +93,17 @@ async function sendDailyJournals(): Promise<NextResponse> {
       .eq("profile_id", user.id)
       .eq("verdict", "Intraday")
       .gte("created_at", new Date(now.getTime() - 30 * 3600_000).toISOString())
+      .order("created_at", { ascending: false })
       .limit(500);
     const signals = digestSignalLines((bell ?? []) as { title: string; created_at: string }[], now);
 
-    if (closed.length === 0 && signals.lines.length === 0) {
+    // Only on a day with something new: a trade closed today or a signal.
+    // Until 2026-10-28 any member who had ever closed a trade got it every
+    // evening; with email budgeted (lib/notifications/email-budget.ts), a day
+    // with nothing new sends nothing and the journal stays in the app.
+    const etToday = etDateKey(now);
+    const closedToday = closed.filter((t) => etDateKey(new Date(t.exit_timestamp as string)) === etToday).length;
+    if (closedToday === 0 && signals.lines.length === 0) {
       skipped++;
       continue;
     }
