@@ -7,8 +7,21 @@ name: Tests
 # `pull_request` run scheduled, which was the reason branch pushes were added.
 # A branch with no PR yet gets no run; each session runs the suite before it
 # opens one.
+#
+# Two more skips, same reason: a draft PR runs nothing until it is marked
+# ready, and a change to Markdown only (any `.md` file but the two public docs
+# the banned-terms gate reads) runs nothing, since no test reads one. Not all
+# of `docs/`: criteria-gate.test.ts reads the committed runs in
+# docs/replay-runs/*.json.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Later patterns override earlier ones (GitHub's `paths` filter).
+    paths:
+      - '**'
+      - '!**/*.md'
+      - 'README.md'
+      - 'FEATURES.md'
   push:
     branches: [main]
   workflow_dispatch:
@@ -19,6 +32,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     name: Unit tests
 
