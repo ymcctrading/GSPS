@@ -18,8 +18,11 @@
  * entry, or no range read (short history), nothing is known and the plan is
  * not called resting: the list keeps it where the verdict put it.
  *
- * Presentation and selection only. It moves no score, verdict, gate, plan
- * arming or order: the scored verdict stays Execute, the replay is unchanged,
+ * Presentation and selection only when built. Since 2026-10-27 the scan holds
+ * a resting plan at Watch itself (owner: Execute only when the trade can be
+ * placed today; `applyReadyNowHold`, `lib/scoring/score.ts`), so the lists
+ * find it by its score at the Execute cutoff. As first built it moved no
+ * score, verdict, gate, plan arming or order: the replay is unchanged,
  * and automation's resting orders are already held until price trades into
  * the buy zone (`gannBuyZone`). What changes is which list a person sees the
  * plan in, that Guided Mode and the demo account do not offer it as today's
@@ -47,6 +50,7 @@
  */
 
 import { priceUsd } from "@/lib/strat/priceText";
+import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
 export type RestingSide = "buy" | "sell";
 
@@ -133,19 +137,30 @@ export function restingNote(read: RestingRead, entry: number): string {
 }
 
 /**
- * Split a list into the Execute rows to act on now and the Execute rows
- * resting at their level. Only Execute rows move ("out of Execute"); every
- * other row stays in `now` unchanged, in its order.
+ * A row that scores at the Execute cutoff: an Execute row stored before
+ * 2026-10-27, or a Watch the ready-now hold (`applyReadyNowHold`) keeps from
+ * Execute because its entry is resting. Since that date the scan itself holds
+ * a resting plan at Watch, so its score is what marks it as a resting order.
+ */
+function scoresExecute(input: { outputState: string; score?: number | null }): boolean {
+  if (input.outputState === "Execute") return true;
+  return input.outputState === "Watch" && input.score != null && input.score >= EXECUTE_SCORE_THRESHOLD;
+}
+
+/**
+ * Split a list into the rows to act on now and the rows that score at the
+ * Execute cutoff but rest at their level. Only those move; every other row
+ * stays in `now` unchanged, in its order.
  */
 export function splitResting<T>(
   rows: T[],
-  read: (row: T) => { outputState: string } & RestingInput,
+  read: (row: T) => { outputState: string; score?: number | null } & RestingInput,
 ): { now: T[]; resting: T[] } {
   const now: T[] = [];
   const resting: T[] = [];
   for (const row of rows) {
     const input = read(row);
-    if (input.outputState === "Execute" && isResting(input)) resting.push(row);
+    if (scoresExecute(input) && isResting(input)) resting.push(row);
     else now.push(row);
   }
   return { now, resting };
@@ -154,6 +169,7 @@ export function splitResting<T>(
 /** The fields of a scan row the resting read takes; structural, so `ScanRow` satisfies it. */
 export interface RestingRowFields {
   outputState: string;
+  score?: number | null;
   direction: string;
   entry: number | null;
   takeProfit1: number | null;
@@ -167,9 +183,10 @@ export interface RestingRowFields {
  * server and every client agree on which list a row is in; the card's own
  * sentence reads the live quote when it has one.
  */
-export function restingInputOfRow(row: RestingRowFields, price?: number | null): { outputState: string } & RestingInput {
+export function restingInputOfRow(row: RestingRowFields, price?: number | null): { outputState: string; score?: number | null } & RestingInput {
   return {
     outputState: row.outputState,
+    score: row.score,
     side: row.direction === "bearish" ? "sell" : "buy",
     price: price ?? row.currentPrice ?? null,
     entry: row.entry,

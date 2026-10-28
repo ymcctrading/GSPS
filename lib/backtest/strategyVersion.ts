@@ -831,4 +831,21 @@
 // fill, so a trade bought in a campaign's 3rd section and not yet moved was
 // trailed above its own entry. Live and paper exits and the replays read the
 // same readGannExit; verdicts don't move, exits do.
-export const STRATEGY_VERSION = "2026-10-23-gann-final-stage-after-advance";
+// (was STRATEGY_VERSION "2026-10-23-gann-final-stage-after-advance")
+// 2026-10-27-gann-count-windows-act: the time counts that were context only
+// (countWindows.ts: the seasonal sixteenths, winter-quarter dates, Ch.5 wheel,
+// week counts, Square of 52, time balance, 11¼ market days, price as time,
+// square of 90, year fractions, the other lessons' cycles, the Square of 144
+// in time, the 7th/14th/21st day) open windows in the time-window hold,
+// live and replay alike, on the owner's 2026-10-01 "every Gann method acts".
+// A count from a pivot opens for a top and a bottom alike (W006 pp.14, 44);
+// a turn its source names is held to it. The yearly counts too long to repeat
+// five times in the record carry CYC-04's label. A counter-trend Execute
+// held for want of a window can now act; on random walks the hold was
+// already open on every turn, so none moved there.
+// 2026-10-27-execute-ready-now (owner amendment): Execute only when the
+// plan can be placed today: the definite indication shown, the entry within
+// a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
+// Live verdicts move; the replay reads it at the fill, where only the
+// targets reading can hold; how far replay buckets move is not measured.
+export const STRATEGY_VERSION = "2026-10-27-execute-ready-now";

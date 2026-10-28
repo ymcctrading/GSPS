@@ -1,8 +1,9 @@
 /**
  * Price read as time, and the long time counts from a pivot or a stock's
  * first trade (build order section 6 of the 2026-10-16 UNVERIFIABLE recheck).
- * Context only: nothing here feeds a scored criterion, a gate, a plan, an
- * entry, a stop or a target, and the scored `timePriceSquare` (an
+ * Nothing here feeds a scored criterion, a plan, an entry, a stop or a
+ * target; its counts open windows in the time-window hold (`countWindows.ts`,
+ * since 2026-10-27), where a count acts only on a turn. The scored `timePriceSquare` (an
  * ATR-normalized move against a bar count) is left as it is until a replay
  * compares the two. Read through `readDisclosedRules`, so the live scan and
  * the replay read the same thing, and recorded on every replayed trade

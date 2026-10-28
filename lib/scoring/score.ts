@@ -63,6 +63,7 @@ import {
   type CriterionWeights,
 } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
+import { readResting, restingNote } from "@/lib/setups/resting";
 import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
 
 export interface ScoreInputs {
@@ -470,7 +471,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // the stop under it, Rule 1) and the held bottom are Gann's buying points as
   // they stand. On random walks 51-77% of armed triggers were crossings not yet
   // made. `tradePlanReady` still reads `patternValid`: the plan is priced either way.
-  const indicationShown = patternValid && (gannTrigger!.kind !== "crossing" || gannTrigger!.held === true);
+  const indicationShown = patternValid && indicationShownBy(gannTrigger!);
 
   // Confluence/context only — never changes swingChartAligned itself. See
   // ScoreInputs.campaignLeg's own doc comment for why this stays out of the
@@ -1022,3 +1023,104 @@ export function applyStopBreachHold(decision: ScanDecision, breach: StopBreachRe
   };
 }
 
+
+/**
+ * The definite indication (W006 p.20, Rules 3(b)-(c) pp.46-47): a crossing
+ * counts once it is held (closed 3 points past, not broken back, not yet
+ * bought); the old bottom and the held bottom count as they stand.
+ */
+export function indicationShownBy(trigger: { kind?: string; held?: boolean } | null | undefined): boolean {
+  return trigger != null && (trigger.kind !== "crossing" || trigger.held === true);
+}
+
+/**
+ * Execute only when the trade can be placed today, with clear take-profit
+ * levels ahead of price (owner amendment, 2026-10-27: "a trade SHOULD NOT be
+ * executable if setup isn't ready currently ... The higher the probability of
+ * reaching the take profits levels, coupled with the immediate execution of
+ * said setup, should be the 'final qualifier' for all executable setups";
+ * then "have 7 be the lowest executable score. But it must still be deemed
+ * executable currently, with clear and obvious take profits levels").
+ *
+ * Three readings, each held to Watch with its reason named:
+ * 1. The definite indication is shown. A crossing still waiting for its close
+ *    3 points past the old level has nothing to place yet; Gann buys after the
+ *    indication (W006 p.20, Rules 3(b)-(c) pp.46-47), and placement refuses it
+ *    (`awaiting_confirmation`). The same reading P9 counts (`indicationShown`).
+ * 2. The entry is within a day's range of price (`lib/setups/resting.ts`, the
+ *    owner's day's range of 2026-10-21). Farther than that, it is an order
+ *    resting at its level, Gann's own reaction buy, not today's trade.
+ * 3. TP1 and MTP lie ahead of today's price, MTP beyond TP1. M-K5's first
+ *    target paying more than the risk is already part of Execute
+ *    (`tradePlanReady`), and A-LEVELS-04's failed top in the path holds it
+ *    (`applyFailedTopHold`); this adds that neither target is already behind
+ *    price. GSPS holds no measured chance of reaching a target yet, so these
+ *    are Gann's tests, not a probability.
+ *
+ * Also records its reason on a Watch that scores at the Execute cutoff, so a
+ * high score held lower names what it is waiting for. Never touches a Reject.
+ *
+ * The replay reads it at the fill (`lib/backtest/replay.ts`): a trade is
+ * entered once its indication is shown and price has come to the entry, so
+ * readings 1 and 2 pass there by construction and only 3 can hold.
+ */
+export interface ReadyNowReading {
+  side: "buy" | "sell";
+  indicationShown: boolean;
+  price: number | null | undefined;
+  dayRange: number | null | undefined;
+  levels: Pick<TradeLevels, "entry" | "takeProfit1" | "masterProfit"> | null;
+}
+
+/** The reasons a plan is not ready to place today, in plain words; empty when it is. */
+export function readyNowReasons(r: ReadyNowReading): string[] {
+  const reasons: string[] = [];
+  if (!r.indicationShown) {
+    reasons.push(
+      "Price has not yet closed 3 points past the old level, so the definite indication is not shown and there is no order to place today.",
+    );
+  }
+  const lv = r.levels;
+  if (!lv) return reasons;
+  const resting = readResting({
+    side: r.side,
+    price: r.price,
+    entry: lv.entry,
+    dayRange: r.dayRange,
+    tp1: lv.takeProfit1,
+    mtp: lv.masterProfit,
+  });
+  if (resting) {
+    reasons.push(restingNote(resting, lv.entry));
+    return reasons;
+  }
+  const price = r.price;
+  if (price != null && Number.isFinite(price) && price > 0) {
+    const ahead = (t: number) => (r.side === "buy" ? t > price : t < price);
+    const beyondTp1 = r.side === "buy" ? lv.masterProfit > lv.takeProfit1 : lv.masterProfit < lv.takeProfit1;
+    if (!ahead(lv.takeProfit1) || !ahead(lv.masterProfit) || !beyondTp1) {
+      reasons.push("The take-profit levels are not clearly ahead of today's price, so there is no clear target to trade for.");
+    }
+  }
+  return reasons;
+}
+
+export function applyReadyNowHold(decision: ScanDecision, reading: ReadyNowReading): ScanDecision {
+  if (decision.outputState === "Reject") return decision;
+  if (decision.outputState === "Watch" && decision.score < EXECUTE_SCORE_THRESHOLD) return decision;
+  const reasons = readyNowReasons(reading);
+  if (reasons.length === 0) return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "readyNow",
+        criterion: "Ready to place today, with clear targets",
+        passed: false,
+        note: `${reasons.join(" ")}${decision.outputState === "Execute" ? " Held from Execute to Watch." : ""}`,
+      },
+    ],
+  };
+}

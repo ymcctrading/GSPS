@@ -1,6 +1,7 @@
 /**
  * Gann's time counts that were read as context only, as dated windows for the
- * shared time-window mechanism (`timeWindow.ts`). The 2026-10-22 recheck of
+ * shared time-window mechanism (`timeWindow.ts`), which reads them since
+ * 2026-10-27 (`timeWindowsAt`). The 2026-10-22 recheck of
  * the 342 rules found each of these read on the card and in the replay's
  * context factors but never reaching the time-window hold, against the
  * owner's 2026-10-01 decision that every Gann method acts where Gann says it
@@ -60,11 +61,13 @@
  *    (repetition against a base rate, persistence out of sample). More
  *    windows make the hold easier to meet: on 20 random walks × 20 dates
  *    (2026-10-22 review probe) at least one of these was open on 395 of 400
- *    dates, the saturation P7's dated window showed on 2026-10-20. So each
- *    family's base rate is measured with `lib/research/timeWindowBaseRate.ts`
- *    before it is wired into the hold, and the replay's window hold measures
- *    it after. CYC-04's label belongs on `timeWindow.ts`'s yearly counts too
- *    (the 30-, 50- and 60-year counts), done when this is wired.
+ *    dates, the saturation P7's dated window showed on 2026-10-20. Measured
+ *    again before wiring (2026-10-27, `timeWindow.ts`'s header): open on 98%
+ *    of random-walk turns, and the hold already open on all of them, so the
+ *    real-data base rate (`lib/research/timeWindowBaseRate.ts`, which needs
+ *    the vendor's bars) cannot make the hold any looser; the replay's window
+ *    hold measures it. CYC-04's label is on `timeWindow.ts`'s yearly counts
+ *    too (the 30-, 50- and 60-year counts).
  * 3. Hermetic: Correspondence (one division of time read in days, weeks,
  *    months and years, from the market's own tops and bottoms) and Rhythm
  *    (the count returns). Polarity is left to the hold, which owns it.

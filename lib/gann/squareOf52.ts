@@ -105,8 +105,8 @@ export interface SquareOf52Result {
 /**
  * Projects the disclosed fraction weeks forward from major swing pivots —
  * same anchor convention `lib/gann/timeCycles.ts` uses via `majorPivots()`.
- * Confluence/display only: no bull/bear polarity, never independently
- * scored or gated.
+ * No bull/bear polarity and never scored; its week counts open windows in the
+ * time-window hold (`countWindows.ts#countWindowsAt`, since 2026-10-27).
  */
 export function squareOf52Windows(dailyBars: Bar[], asOf: Date = new Date(), windowDays = 2): SquareOf52Result {
   if (dailyBars.length < 30) return { active: false, dates: [] };

@@ -5,6 +5,7 @@ import { applyTimeWindowHold } from "@/lib/scoring/score";
 import { longMonthlyWindow, yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { readWindowTurn, timeWindowsAt, type WindowsAt } from "@/lib/gann/timeWindow";
 import { CRITERION_KEYS } from "@/lib/scoring/weights";
+import { countWindowsAt } from "@/lib/gann/countWindows";
 
 // Q19 (owner: "Window"): A-TIME-15, W036 p.22, "when the market turns close to
 // a forecast date, buy or sell", with C-STOP-03's "time alone is not enough":
@@ -214,5 +215,33 @@ describe("the yearly cycle counts reach the hold through the monthly chart (A-TI
     expect(readWindowTurn(bars, "bullish", held, yearly)?.windows).toEqual(["20 years from the 2006-03 major low"]);
     // The class C span alone cannot reach it.
     expect(readWindowTurn(bars, "bullish", longMonthlyWindow(monthly, asOf), yearly)).toBeNull();
+  });
+});
+
+describe("the counts that were context only act through the hold (countWindows.ts, 2026-10-27)", () => {
+  // One bar a calendar day from 2026-01-01: a major low on 2026-01-31, then a rise.
+  const pre = Array.from({ length: 30 }, (_, i) => 150 - i * 1.5);
+  const post = Array.from({ length: 141 }, (_, i) => 105 + i * 0.5 + (i % 6 < 3 ? 0 : -1));
+  const counted = days([...pre, ...post], "2026-01-01");
+  const date = counted[counted.length - 1].t.slice(0, 10);
+
+  it("opens the 20-week count from a major low for a bottom and a top alike", () => {
+    const label = "20 weeks from the 2026-01-31 low";
+    expect(countWindowsAt(counted, date).map((w) => w.label)).toContain(label);
+    expect(timeWindowsAt(counted, date, "bottom")).toContain(label);
+    expect(timeWindowsAt(counted, date, "top")).toContain(label);
+  });
+
+  it("labels a yearly count with too few repetitions in the record (CYC-04)", () => {
+    // A major low in March 1996, 360 months before the 2026-03-08 bottom.
+    const monthly: Bar[] = Array.from({ length: 31 * 12 + 2 }, (_, i) => {
+      const y = 1995 + Math.floor(i / 12);
+      const m = (i % 12) + 1;
+      const c = y === 1996 && m === 3 ? 60 : 100;
+      return { t: `${y}-${String(m).padStart(2, "0")}-01T05:00:00.000Z`, o: c, h: c + 1, l: c - 1, c, v: 1e6 };
+    });
+    expect(readWindowTurn(bars, "bullish", monthly)?.windows).toContain(
+      "30 years from the 1996-03 major low (too few repetitions in the record to confirm)",
+    );
   });
 });

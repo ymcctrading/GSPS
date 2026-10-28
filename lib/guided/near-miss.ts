@@ -64,12 +64,16 @@ export function missingFor(result: ScanResult, score: number): string[] {
   // cutoff itself, since Guided offers only Execute setups
   // (`lib/guided/eligibility.ts`); it was a hardcoded 7 until 2026-10-20, left
   // over from the old 7/4 cutoffs.
+  // A resting plan says so below; since 2026-10-27 the scan holds it at Watch
+  // (`applyReadyNowHold`), and the held state's note names any other reason.
+  const resting = restingReadOf(result);
   if (result.decision.outputState !== "Execute") {
-    missing.push(
-      score < EXECUTE_SCORE_THRESHOLD
-        ? `Scores ${score} out of 9. Guided only offers setups scoring ${EXECUTE_SCORE_THRESHOLD} or better, so this one is worth watching rather than buying.`
-        : `Scores ${score} out of 9, which is strong — but the verdict is still ${result.decision.outputState}, so something else has not lined up yet.`,
-    );
+    if (score < EXECUTE_SCORE_THRESHOLD) {
+      missing.push(`Scores ${score} out of 9. Guided only offers setups scoring ${EXECUTE_SCORE_THRESHOLD} or better, so this one is worth watching rather than buying.`);
+    } else if (!resting) {
+      const note = result.decision.breakdown.length > 0 ? toPublicScoreSummary(result.decision).stateNote : null;
+      missing.push(note ?? `Scores ${score} out of 9, which is strong — but the verdict is still ${result.decision.outputState}, so something else has not lined up yet.`);
+    }
   }
   if (result.direction === "none") {
     missing.push("No clear direction yet — the price is not committing either way.");
@@ -80,9 +84,8 @@ export function missingFor(result: ScanResult, score: number): string[] {
   if (result.direction === "bearish") {
     missing.push("Betting against a price also needs shares available to borrow, which is not guaranteed.");
   }
-  // An Execute plan resting at a level more than a day's range away
+  // A plan resting at a level more than a day's range away
   // (lib/setups/resting.ts): the plan is sound, price is just not there.
-  const resting = restingReadOf(result);
   if (resting && result.levels) {
     missing.push(
       `Price is ${resting.pct.toFixed(1)}% ${resting.entryIs === "below" ? "above" : "below"} the entry. The plan waits for price to come back to ${formatUsd(result.levels.entry)}, so it is a resting order rather than today's trade.`,
