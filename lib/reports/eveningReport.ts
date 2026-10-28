@@ -147,6 +147,8 @@ export function judgeDailySetup(setup: DailySetup, bars: Bar[], prevClose: numbe
   }
   if (bars.length === 0) return { ...base, outcome: "no_bars" };
   const kind = setup.entryAwaitsCrossing ? undefined : "oldLevel";
+  const assetClass = isCryptoSymbol(setup.symbol) ? "crypto" : "us_equity";
+  const delay = { assetClass, delayMs: replayFeedDelayMs(assetClass), intervalMinutes: 15 } as const;
   let fillIndex = -1;
   let readyAt = false;
   for (let i = 0; i < bars.length; i++) {
@@ -154,15 +156,15 @@ export function judgeDailySetup(setup: DailySetup, bars: Bar[], prevClose: numbe
     if (read.stage === "dead") return { ...base, outcome: "called_off" };
     if (read.ready) {
       readyAt = true;
-      const assetClass = isCryptoSymbol(setup.symbol) ? "crypto" : "us_equity";
-      fillIndex = delayedFillIndex(bars, i, { assetClass, delayMs: replayFeedDelayMs(assetClass), intervalMinutes: 15 });
+      fillIndex = delayedFillIndex(bars, i, delay);
       const waited = bars.slice(i + 1, fillIndex < 0 ? bars.length : fillIndex);
       if (waited.some((b) => (sign > 0 ? b.l <= setup.stop : b.h >= setup.stop))) return { ...base, outcome: "stop_while_waiting" };
       break;
     }
   }
-  // Ready, but read only after the session's last bar: the order would go in
-  // at the next session's open, outside this recap.
+  // Ready, but the delayed fill falls after the recap's last bar: a US equity's
+  // order goes in at the next session's open, crypto's on the next bar, either
+  // way outside this recap.
   if (fillIndex < 0 && readyAt) return { ...base, outcome: "ready_too_late" };
   if (fillIndex < 0 || fillIndex >= bars.length) {
     const last = bars[bars.length - 1].c;
@@ -470,7 +472,7 @@ const DAILY_LABEL: Record<DailyOutcome, string> = {
   open_behind: "filled, behind at the close",
   called_off: "called off: closed through the stop before the entry",
   stop_while_waiting: "called off: the stop traded while the delayed data held the order back",
-  ready_too_late: "ready too late in the session to fill today; it would go in at the next open",
+  ready_too_late: "ready too late to fill within this recap's bars; it would fill after them",
   no_fill_moved_its_way: "never filled, but price moved its way",
   no_fill: "never filled",
   past_tp1_before_open: "already past TP1 before the open (stale)",
