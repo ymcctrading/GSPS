@@ -3467,6 +3467,21 @@ open); over it the send is skipped and the bell keeps the notice. The bell
 points a member without push on that device to the switch. A new email sender
 calls `emailBudgetHold` with its kind.
 
+**Intraday audit fixes, 2026-10-28 (`/mnt/project-files/gann-alignment-audit/intraday-alerts-replay.md`).**
+An intraday alert against the daily swing chart's trend is shown for study and
+labelled so, never offered as a trade, written to the bell or entered by the
+intraday replay (`againstDailyTrend`, `tradeHold` in
+`lib/scanner/intradayDisplay.ts`; never-failing rule 5). The alert's confidence
+is the share of its checks met, with no hand-set weights (Gann ranks no check
+above another, "The scorecard's role"), and the unused `minMovePct` is gone.
+The replay's reversal chain ran at most 3 deep; it now runs as NSTD Rule 6
+(p.48) keeps with the trend, until three losses in a row pause it, as
+placement's `lossSeriesRefusal` does live (`LOSS_SERIES_LENGTH`). The twice-yearly
+rest reminder now comes back with a new entry placed in its window, as the
+away reminder does (`closeOutNotice`, `lib/trade/away-notice.ts`; *Truth of
+the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` is
+`2026-10-28-intraday-audit-fixes`; daily verdicts are unchanged.
+
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
 (pg_cron 01:45 and 02:45 UTC Tue-Sat, migration 0123) emails the owner only

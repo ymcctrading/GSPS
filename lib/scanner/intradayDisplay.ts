@@ -90,6 +90,20 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
     "Measured losing: the replay of Aug 26 to Oct 21, 2026 lost on this signal (152 trades, −0.11R a trade, with an earlier stop). Shown for study only; it is not offered as a trade until a new run reads otherwise.",
 };
 
+/** The note on an alert that runs against the daily trend (`Alert.againstDailyTrend`, audit I-02). */
+export const AGAINST_DAILY_TREND =
+  "Against the daily trend: the daily swing chart runs the other way. Shown for study only; the method trades with the main trend, so this is not offered as a trade.";
+
+/**
+ * Why an alert is shown but not offered as a trade, or null when it is
+ * tradeable on these grounds: a signal the replay measured losing, or one that
+ * runs against the daily trend. The panel, the setup card, the bell and push
+ * all read this one function.
+ */
+export function tradeHold(alert: { type: SignalType; againstDailyTrend?: boolean | null }): string | null {
+  return MEASURED_LOSING[alert.type] ?? (alert.againstDailyTrend ? AGAINST_DAILY_TREND : null);
+}
+
 export function formatAge(seconds: number): string {
   if (!Number.isFinite(seconds)) return "an unknown amount of time";
   if (seconds < 90) return `${Math.round(seconds)}s`;

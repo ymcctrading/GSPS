@@ -86,7 +86,10 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const maxDuration = 120;
 
-/** Sessions of history behind the relative-volume baseline. */
+/**
+ * Sessions of history behind the relative-volume baseline. An engineering
+ * figure: Gann compares volume with the market's own past but names no length.
+ */
 const BASELINE_DAYS = 12;
 /** Daily history fetched per symbol (`INTRADAY_DAILY_HISTORY_DAYS`, shared with the alert replay). */
 const DAILY_HISTORY_DAYS = INTRADAY_DAILY_HISTORY_DAYS;
@@ -614,7 +617,6 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
 
   return {
     relativeVolumeThreshold: num("rvol", DEFAULT_CONFIG.relativeVolumeThreshold),
-    minMovePct: num("minMovePct", DEFAULT_CONFIG.minMovePct),
     maxDataAgeSeconds: num("maxDataAge", DEFAULT_CONFIG.maxDataAgeSeconds),
     cooldownMinutes: num("cooldown", DEFAULT_CONFIG.cooldownMinutes),
     minSessionVolume: num("minVolume", DEFAULT_CONFIG.minSessionVolume),
@@ -728,6 +730,7 @@ async function persistAlerts(
       dataTimestamp: alert.dataTimestamp,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      againstDailyTrend: alert.againstDailyTrend === true,
     },
   }));
 
@@ -862,6 +865,7 @@ async function persistSystemAlerts(
       barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      againstDailyTrend: alert.againstDailyTrend === true,
     },
   }));
 
@@ -936,6 +940,7 @@ async function loadRecentSystemAlerts(
       masterTarget: num(meta.masterTarget),
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
+      ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
     });
   }
   return out;

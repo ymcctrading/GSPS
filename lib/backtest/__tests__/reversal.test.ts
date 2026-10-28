@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { rebuyPlanAt, walkRebuy, walkReversals } from "../replay";
 import { gannThreePoints } from "@/lib/gann/pointScale";
+import { LOSS_SERIES_LENGTH } from "@/lib/risk/lossSeries";
 
 /** 15-minute candles from 14:30Z on 2026-03-02, one per close. */
 function candles(closes: number[]): Bar[] {
@@ -42,6 +43,35 @@ describe("the replay's reversal when caught", () => {
       maxBarsHeld: 20, costPerShare: 0,
     });
     expect(out).toHaveLength(0);
+  });
+});
+
+describe("the replay's reversal chain stops on a series of losses (audit, NSTD Rule 6 and Rule 1)", () => {
+  // One-minute candles in one session: each reversal confirms, then price runs
+  // through its stop, wider each time, so every reversal in the chain loses.
+  function whipsaw(): Bar[] {
+    const seg = (lvl: number, down: boolean, to: number) => {
+      const s = down ? -1 : 1;
+      return [lvl, lvl + s * 0.5, lvl, lvl + s * 0.8, lvl + s * 1.2, lvl + s * 1.6, lvl - s * 2, to];
+    };
+    const closes = [100, ...seg(100, true, 122), ...seg(122, false, 88), ...seg(88, true, 135), ...seg(135, false, 75), ...seg(75, true, 150), ...seg(150, false, 60)];
+    const start = Date.UTC(2026, 2, 2, 14, 30);
+    return closes.map((c, i) => ({ t: new Date(start + i * 60_000).toISOString(), o: c, h: c + 0.1, l: c - 0.1, c, v: 1000 }));
+  }
+  const walk = (parentLost: boolean) =>
+    walkReversals({
+      bars: whipsaw(), dailyBars: [], caughtAt: 0, side: "long", cause: "initial", brokenLevel: 100, extreme: 104,
+      maxBarsHeld: 200, costPerShare: 0, parentLost,
+    });
+
+  it("keeps reversing past the old cap of three until three losses in a row", () => {
+    const out = walk(false);
+    expect(out).toHaveLength(LOSS_SERIES_LENGTH);
+    expect(out.every((t) => t.outcome === "loss")).toBe(true);
+  });
+
+  it("counts the caught trade's own loss as the first of the series", () => {
+    expect(walk(true)).toHaveLength(LOSS_SERIES_LENGTH - 1);
   });
 });
 

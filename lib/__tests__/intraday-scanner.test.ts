@@ -18,6 +18,7 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
+import { NOTICE_SIGNALS, tradeHold } from "@/lib/scanner/intradayDisplay";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -696,19 +697,22 @@ describe("scanIntraday — audit trail", () => {
 });
 
 describe("scoreConfidence", () => {
-  it("is the share of available weight that was earned", () => {
+  // Audit I-01: every check counts the same; no hand-set weights rank one above another.
+  it("is the share of checks met", () => {
     expect(
       scoreConfidence([
-        { label: "a", passed: true, weight: 30, detail: "" },
-        { label: "b", passed: false, weight: 10, detail: "" },
+        { label: "a", passed: true, detail: "" },
+        { label: "b", passed: true, detail: "" },
+        { label: "c", passed: true, detail: "" },
+        { label: "d", passed: false, detail: "" },
       ]),
     ).toBe(75);
   });
 
   it("is zero when nothing passed and 100 when everything did", () => {
     const factors = [
-      { label: "a", weight: 30, detail: "" },
-      { label: "b", weight: 70, detail: "" },
+      { label: "a", detail: "" },
+      { label: "b", detail: "" },
     ];
     expect(scoreConfidence(factors.map((f) => ({ ...f, passed: false })))).toBe(0);
     expect(scoreConfidence(factors.map((f) => ({ ...f, passed: true })))).toBe(100);
@@ -716,6 +720,33 @@ describe("scoreConfidence", () => {
 
   it("does not divide by zero on an empty factor list", () => {
     expect(scoreConfidence([])).toBe(0);
+  });
+});
+
+describe("an alert against the daily trend (audit I-02)", () => {
+  // Never-failing rule 5: the method trades with the main trend, so an alert
+  // the daily swing chart runs against is shown for study and never offered.
+  const mirror = (b: Bar): Bar => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c });
+
+  it("is flagged exactly when its daily-trend check failed, and held from trade", () => {
+    const outputs = [
+      scanIntraday([input()], DEFAULT_CONFIG, AT_1133),
+      scanIntraday([input({ priorDailyBars: campaignDaily().map(mirror) })], DEFAULT_CONFIG, AT_1133),
+    ];
+    const alerts = outputs.flatMap((o) => o.alerts);
+    expect(alerts.length).toBeGreaterThan(0);
+    let against = 0;
+    for (const a of alerts) {
+      const check = a.confidenceFactors.find((f) => f.label === "With the daily trend");
+      const exempt = a.type === "reversal_risk" || a.type === "plan_level_held" || NOTICE_SIGNALS.has(a.type);
+      const expected = !exempt && check !== undefined && !check.passed;
+      expect(a.againstDailyTrend === true).toBe(expected);
+      if (expected) {
+        against++;
+        expect(tradeHold(a)).toMatch(/Against the daily trend/);
+      }
+    }
+    expect(against).toBeGreaterThan(0);
   });
 });
 

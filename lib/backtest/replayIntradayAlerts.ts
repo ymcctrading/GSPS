@@ -33,6 +33,9 @@
  * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
  * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
  * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
+ * Nor is an alert against the daily trend (`Alert.againstDailyTrend`, audit
+ * I-02, 2026-10-28): the panel shows it for study and offers no trade, "never
+ * buck the trend" (never-failing rule 5, *Commodities* pp. 43-45).
  *
  * **The fill.** A person sees an alert a feed delay after the bars it read
  * (the system scan reads data ending 16 minutes before it runs), so the fill
@@ -252,7 +255,9 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       const at = k + 1 + feedDelayBars;
       if (at < busyUntil) continue;
       // A notice (nearing or at a daily plan's entry) prices no session trade.
-      const alert = alerts.find((a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && (!signals || signals.has(a.type)));
+      const alert = alerts.find(
+        (a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && !a.againstDailyTrend && (!signals || signals.has(a.type)),
+      );
       if (!alert) continue;
       const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
       const entered = enterAlert({

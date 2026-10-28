@@ -34,7 +34,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Alert } from "@/lib/scanner/intraday";
-import { MEASURED_LOSING, SIGNAL_LABELS } from "@/lib/scanner/intradayDisplay";
+import { SIGNAL_LABELS, tradeHold } from "@/lib/scanner/intradayDisplay";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { DEFAULT_PRO_INTRADAY_POLICY } from "@/lib/promotion/config";
 import { isConfirmedIntradayEntry } from "@/lib/promotion/pro-intraday";
@@ -120,16 +120,16 @@ export function isNewMove(title: string, latest: Map<string, string>): boolean {
 
 /**
  * Which alerts a member's tier lets through: all of them with full intraday
- * access, Pro's confirmed entries only, none without intraday. A signal the
- * replay measured losing (`MEASURED_LOSING`) reaches no one's bell, email or
- * push; it stays on the panel, labelled.
+ * access, Pro's confirmed entries only, none without intraday. A signal held
+ * from trading (`tradeHold`: measured losing, or against the daily trend)
+ * reaches no one's bell or push; it stays on the panel, labelled.
  */
 export function alertsForTier(
   alerts: Alert[],
   access: { intradayScansEnabled: boolean; proIntradayModuleEnabled: boolean },
   intervalBySymbol: Map<string, number>,
 ): Alert[] {
-  alerts = alerts.filter((a) => !MEASURED_LOSING[a.type]);
+  alerts = alerts.filter((a) => !tradeHold(a));
   if (access.intradayScansEnabled) return alerts;
   if (!access.proIntradayModuleEnabled) return [];
   // A notice is not a setup, so the module's bar-length bound does not apply

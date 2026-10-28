@@ -37,8 +37,8 @@ const spyAlert: Alert = {
   sessionVolume: 62_000_000,
   confidence: 75,
   confidenceFactors: [
-    { label: "Opening range broken", passed: true, weight: 30, detail: "Price is 3.50 beyond the high." },
-    { label: "Volume confirms", passed: false, weight: 25, detail: "1.8× of normal." },
+    { label: "Opening range broken", passed: true, detail: "Price is 3.50 beyond the high." },
+    { label: "Volume confirms", passed: false, detail: "1.8× of normal." },
   ],
   invalidation: 500,
   continuationPlan: {
@@ -222,7 +222,7 @@ describe("IntradayAlerts", () => {
     expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
     expect(screen.getByText("What lined up")).toBeInTheDocument();
     expect(screen.getByText(/Opening range broken/)).toBeInTheDocument();
-    expect(screen.getByText(/25 pts — 1\.8× of normal\./)).toBeInTheDocument();
+    expect(screen.getByText(/^1\.8× of normal\.$/)).toBeInTheDocument();
   });
 
   it("gives both a continuation plan and an opposite-direction pivot plan", async () => {
