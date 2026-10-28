@@ -7,12 +7,13 @@
  */
 
 import type { AssetClass } from "@/lib/types";
-import { isMarketHoliday } from "@/lib/market/calendar";
+import { isEarlyClose, isMarketHoliday } from "@/lib/market/calendar";
 
 export type MarketSession = "pre" | "regular" | "post" | "closed";
 
 const OPEN = 9 * 60 + 30; // 09:30 ET
 const CLOSE = 16 * 60; //   16:00 ET
+const EARLY_CLOSE = 13 * 60; // 13:00 ET, an NYSE early close (`isEarlyClose`)
 const PRE_OPEN = 4 * 60; //  04:00 ET
 const POST_CLOSE = 20 * 60; // 20:00 ET
 
@@ -89,17 +90,20 @@ function formatEtParts(date: Date): { minutes: number; weekday: number } {
 
 /**
  * Classify a moment for US equities. A full-day market holiday is closed all
- * day, as the scheduled scans already read it (`lib/market/calendar.ts`); an
- * early-close day still reads as a full session, since the calendar holds no
- * early closes yet.
+ * day, as the scheduled scans already read it (`lib/market/calendar.ts`). On
+ * an NYSE early close (`isEarlyClose`) the regular session ends at 1:00 PM and
+ * the after-hours session runs from there; it had read as a full session after
+ * the calendar learnt its early closes (audit T-10, 2026-10-28).
  */
 export function equitySession(date: Date = new Date()): MarketSession {
   const { minutes, weekday } = etParts(date);
   if (weekday === 0 || weekday === 6) return "closed";
-  if (isMarketHoliday(etDateKey(date))) return "closed";
-  if (minutes >= OPEN && minutes < CLOSE) return "regular";
+  const day = etDateKey(date);
+  if (isMarketHoliday(day)) return "closed";
+  const close = isEarlyClose(day) ? EARLY_CLOSE : CLOSE;
+  if (minutes >= OPEN && minutes < close) return "regular";
   if (minutes >= PRE_OPEN && minutes < OPEN) return "pre";
-  if (minutes >= CLOSE && minutes < POST_CLOSE) return "post";
+  if (minutes >= close && minutes < POST_CLOSE) return "post";
   return "closed";
 }
 

@@ -19,20 +19,22 @@
  */
 
 /**
- * How long a triggered setup is assumed to stay open, in days, for the purpose
+ * How long a trade is assumed to stay open, in calendar days, for the purpose
  * of charging time decay against the premium at risk.
  *
- * Measured by walking ~48 sessions of AAPL 15-minute bars: of 1,071 setups that
- * cleared the gap rule and the risk floor, 418 triggered on the very next
- * candle as the protocol requires, and every one resolved at TP1 or the stop.
- * Time to resolution was 3 bars at the median (~45 minutes), 13 at p90 and 19
- * at p95 — comfortably inside one session.
+ * Gann's trades run on the swing for days to weeks, with no fixed target
+ * (Q14). Measured on the 15-minute replay of 766 symbols (run 21,
+ * `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 2): the median hold on
+ * Gann's exits was about 7 sessions, and 60% of trades were still open at the
+ * 10-session limit, so 7 sessions is a floor. Seven sessions span about ten
+ * calendar days, the unit an option's theta is quoted in. An engineering
+ * reading of a measurement, not a Gann figure.
  *
- * The p90 figure is used rather than the median because this feeds a risk
- * measure, and a trade that runs long is exactly when decay has had time to
- * matter. Half a session on a 26-bar day.
+ * Until 2026-10-28 this was half a day, measured on the retired 15-minute
+ * bar-pattern trigger whose trades resolved at a fixed TP1 within a session
+ * (audit T-11); that understated decay on every contract the ticket read.
  */
-export const TYPICAL_HOLDING_DAYS = 0.5;
+export const TYPICAL_HOLDING_DAYS = 10;
 
 export interface PremiumStopInput {
   /** Stop distance on the underlying, per share. */
@@ -66,6 +68,12 @@ export interface PremiumStopReading {
   holdingDays: number;
   /** True when a delta was supplied, so the figure is not an approximation. */
   exact: boolean;
+  /**
+   * True when the stop and the decay together would take more than the
+   * premium. A bought option can lose no more than its premium (Master Course
+   * Ch. 19A, PDF 444: the option is the stop), so the reading stops at 100%.
+   */
+  capped: boolean;
 }
 
 /**
@@ -97,8 +105,13 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
 
   // Premium, delta and theta are all per-share, so the 100x contract
   // multiplier cancels and never enters the ratio.
-  const pctOfPremium = ((stopCost + decayCost) / premium) * 100;
-
+  // A bought put or call can lose its premium and no more (Master Course
+  // Ch. 19A, PDF 444, 449-450), so the share at risk is held at 100%. With
+  // ten days of decay charged, a near-dated contract can otherwise read past
+  // it (review of #515).
+  const raw = ((stopCost + decayCost) / premium) * 100;
+  const capped = raw > 100;
+  const pctOfPremium = capped ? 100 : raw;
 
   return {
     pctOfPremium,
@@ -106,5 +119,6 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
     decayCost,
     holdingDays,
     exact: delta !== null,
+    capped,
   };
 }

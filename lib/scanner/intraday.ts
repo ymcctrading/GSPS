@@ -134,8 +134,6 @@ export type AssetKind = "equity" | "etf" | "index" | "crypto";
 export interface ScannerConfig {
   /** Cumulative volume vs. the same-time-of-day baseline to count as elevated. */
   relativeVolumeThreshold: number;
-  /** Minimum move, in percent, before any directional signal is considered. */
-  minMovePct: number;
   /** Seconds after which the newest bar is too old to alert on. */
   maxDataAgeSeconds: number;
   /** Minutes a symbol+signal+direction stays suppressed after alerting. */
@@ -144,9 +142,15 @@ export interface ScannerConfig {
   minSessionVolume: number;
 }
 
+/**
+ * Engineering figures, labelled as such (audit 2026-10-28): Gann reads volume
+ * against the market's own past (*New Stock Trend Detector* Ch. VI pp. 39-40)
+ * but gives no intraday ratio, no session-volume floor and no repeat interval,
+ * so 1.2, 50,000 shares and 30 minutes are GSPS's. The data-age limit follows
+ * the feed's own delay.
+ */
 export const DEFAULT_CONFIG: ScannerConfig = {
   relativeVolumeThreshold: 1.2,
-  minMovePct: 0.5,
   // Alpaca's free IEX feed is delayed ~15 minutes by contract, so anything
   // beyond twenty minutes means the feed itself has stalled on top of that.
   maxDataAgeSeconds: 20 * 60,
@@ -355,7 +359,10 @@ export interface SessionMetrics {
   barCount: number;
 }
 
-/** Fewest hourly bars the hourly chart is read from. */
+/**
+ * Fewest hourly bars the hourly chart is read from. An engineering figure:
+ * Gann reads the hourly chart (Master Course Ch. 13) but names no minimum.
+ */
 export const MIN_HOURLY_BARS = 10;
 
 const toDirection = (d: "bullish" | "bearish" | null): Direction | null =>
@@ -386,7 +393,7 @@ export function hourlyChart(
 /**
  * Fold the session's bars into the handful of numbers every signal reads.
  */
-export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): SessionMetrics | null {
+export function sessionMetrics(input: SymbolInput): SessionMetrics | null {
   // Equities are measured over the regular session only. The feed returns
   // pre-market bars from 04:00 ET, and anchoring on "the first bar of the day"
   // put the session's high, low and 50% point in the pre-market, where a
@@ -493,14 +500,16 @@ function lastPriorBar(daily: Bar[] | undefined): Bar | null {
   return null;
 }
 
-/** 09:30 and 16:00 ET, as minutes since midnight. */
+/** 09:30 and 16:00 ET (1:00 PM on an NYSE early close), as minutes since midnight. */
 const REGULAR_OPEN_MINUTE = 9 * 60 + 30;
 const REGULAR_CLOSE_MINUTE = 16 * 60;
+const EARLY_CLOSE_MINUTE = 13 * 60;
 
-/** True when a bar printed inside the US equity regular session. */
+/** True when a bar printed inside the US equity regular session, early closes included. */
 function isRegularSession(at: Date): boolean {
   const { minutes } = etParts(at);
-  return minutes >= REGULAR_OPEN_MINUTE && minutes < REGULAR_CLOSE_MINUTE;
+  const close = isEarlyClose(etDateKey(at)) ? EARLY_CLOSE_MINUTE : REGULAR_CLOSE_MINUTE;
+  return minutes >= REGULAR_OPEN_MINUTE && minutes < close;
 }
 
 /**
@@ -559,8 +568,6 @@ export function measureMove(current: number, reference: number, basis: MoveBasis
 export interface ConfidenceFactor {
   label: string;
   passed: boolean;
-  /** Points contributed. Negative factors subtract. */
-  weight: number;
   detail: string;
 }
 
@@ -635,6 +642,14 @@ export interface Alert {
    */
   approach?: { entry: number; distance: number; ratePerBar: number; etaMinutes: number; expectedAt: string } | null;
   /**
+   * True when the alert's direction runs against the daily swing chart's
+   * trend. Shown for study, never offered as a trade, belled or replayed:
+   * "never buck the trend" (never-failing rule 5, *Commodities* pp. 43-45, 55;
+   * audit I-02, 2026-10-28). Never set on a reversal-risk warning, the daily
+   * plan's own timing or a notice, which read the daily plan's direction.
+   */
+  againstDailyTrend?: boolean;
+  /**
    * When the data behind the alert could be read, and whether it may be acted
    * on (DATA-DELAY-001 and NOTIFY-FRESHNESS-001, 2026-10-28). Notifications
    * read it (`lib/notifications/freshness.ts`); they never decide it.
@@ -688,6 +703,8 @@ export interface RecentSystemAlert {
   masterTarget: number | null;
   confidence: number | null;
   at: string;
+  /** As on `Alert`: the stored signal ran against the daily trend. */
+  againstDailyTrend?: boolean;
 }
 
 /** ---- Audit trail ------------------------------------------------------- */
@@ -733,6 +750,39 @@ export interface ScanOutput {
    * as new.
    */
   heldAlerts: Alert[];
+}
+
+/** Why a symbol never reached the scan: the feed had no bars yet, or the read failed. */
+export type UnreadCause = "no_bars" | "read_failed";
+
+/**
+ * The audit row for a symbol whose bars could not be read, so the panel says
+ * why it was not scanned instead of counting nothing (AIZ, 2026-10-28: one
+ * print on the delayed feed by 14:10Z, none in the window the scan asked
+ * for, and the panel read "0 checked").
+ */
+export function unreadAudit(
+  symbol: string,
+  kind: AssetKind,
+  cause: UnreadCause,
+  marketClosed: boolean,
+): SymbolAudit {
+  const reason =
+    cause === "read_failed"
+      ? "The market data read failed or timed out, so this symbol was not scanned. The next scan tries again."
+      : kind === "crypto" || marketClosed
+        ? "No bars came back for this symbol's last session, so it was not scanned."
+        : "No trades on the delayed feed yet this session (it runs about 15 minutes behind, and a thinly traded stock can go a while without a print), so this symbol was not scanned. The next scan tries again.";
+  return {
+    symbol,
+    kind,
+    outcome: "insufficient_data",
+    reason,
+    checks: [],
+    dataTimestamp: null,
+    dataAgeSeconds: null,
+    metrics: null,
+  };
 }
 
 /** ---- The scan ---------------------------------------------------------- */
@@ -831,7 +881,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     },
   });
 
-  const metrics = sessionMetrics(input, config);
+  const metrics = sessionMetrics(input);
   if (!metrics) {
     checks.push({ name: "Session bars", passed: false, detail: "No usable bars for today." });
     return bail("insufficient_data", "No intraday data arrived for this symbol.");
@@ -1071,13 +1121,11 @@ function detectOldLevelCross(
     {
       label: direction === "up" ? "Yesterday's high crossed on a close" : "Yesterday's low broken on a close",
       passed: true,
-      weight: 30,
       detail: `The last bar closed at ${priceText(m.lastClose)}, beyond ${priceText(level)} by more than the allowance of ${priceText(m.point)}.`,
     },
     {
       label: "Volume confirms",
       passed: volumeConfirmed,
-      weight: 25,
       detail:
         m.relativeVolume === null
           ? "No volume baseline for this symbol, so the cross is unconfirmed."
@@ -1142,16 +1190,15 @@ function detectTrendContinuation(
   if (!move) return null;
 
   const factors: ConfidenceFactor[] = [
-    { ...swingFactor(m, direction), weight: 30 },
+    swingFactor(m, direction),
     ...hourlyFactors(m, direction),
-    { label: "On the right side of the day's 50% point", passed: true, weight: 20, detail: `The middle of today's range is ${priceText(m.midpoint)}.` },
+    { label: "On the right side of the day's 50% point", passed: true, detail: `The middle of today's range is ${priceText(m.midpoint)}.` },
     {
       label: direction === "up" ? "Above yesterday's high" : "Below yesterday's low",
       passed:
         direction === "up"
           ? m.priorHigh !== null && m.lastClose > m.priorHigh
           : m.priorLow !== null && m.lastClose < m.priorLow,
-      weight: 15,
       detail:
         m.priorHigh === null || m.priorLow === null
           ? "No prior session to compare with."
@@ -1160,7 +1207,6 @@ function detectTrendContinuation(
     {
       label: "Volume sustained",
       passed: volumeSustained,
-      weight: 20,
       detail:
         m.relativeVolume === null
           ? "No volume baseline available."
@@ -1229,13 +1275,11 @@ function detectSpaceOverbalance(
     {
       label: "Greatest reaction of the campaign exceeded",
       passed: true,
-      weight: 35,
       detail: `${priceText(current)} points (${currentPct.toFixed(1)}%) against the trend, more than any reaction since the campaign began on ${ledger.campaignStartDate.slice(0, 10)} (largest ${priceText(greatest)} points).`,
     },
     {
       label: "Volume supports it",
       passed: m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold,
-      weight: 25,
       detail:
         m.relativeVolume === null
           ? "No volume baseline available."
@@ -1244,8 +1288,7 @@ function detectSpaceOverbalance(
     {
       label: "Longest pullback in time too",
       passed: ledger.timeOverbalanced,
-      weight: 15,
-      detail: "Time ranks ahead of price here: a reaction that has also run longer than any before it carries more weight.",
+      detail: "The reaction has also run longer than any before it in this campaign.",
     },
     midpointFactor(m, against),
   ];
@@ -1303,7 +1346,7 @@ function detectOvernightTurn(
       : `Today's low broke yesterday's bottom clearly: the daily swing turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
   checks.push({ name: "Daily swing at the lows", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
-    { label: "The daily swing turned today", passed: true, weight: 30, detail: cause },
+    { label: "The daily swing turned today", passed: true, detail: cause },
     midpointFactor(m, direction),
     ...hourlyFactors(m, direction),
     dayDirectionFactor(dayMove, direction),
@@ -1342,7 +1385,7 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
   const cause = `The hourly swing chart turned ${direction} on the latest hour: the first change in trend.`;
   checks.push({ name: "Hourly chart", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
-    { label: "The hourly chart turned", passed: true, weight: 30, detail: cause },
+    { label: "The hourly chart turned", passed: true, detail: cause },
     midpointFactor(m, direction),
     swingFactor(m, direction),
   ];
@@ -1494,16 +1537,14 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     {
       label: "The daily plan's level held",
       passed: true,
-      weight: 30,
       detail: `Daily plan (${plan.verdict}): entry ${priceText(plan.entry)}, stop ${priceText(plan.stop)}.`,
     },
     {
       label: "The daily verdict is Execute",
       passed: plan.verdict === "Execute",
-      weight: 15,
       detail: plan.verdict === "Execute" ? "The daily scan reads this plan Execute." : "The daily scan reads this plan Watch, not Execute.",
     },
-    { ...swingFactor(m, plan.direction), weight: 15 },
+    swingFactor(m, plan.direction),
     ...hourlyFactors(m, plan.direction),
     midpointFactor(m, plan.direction),
   ];
@@ -1588,7 +1629,6 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
     {
       label: "The daily verdict is Execute",
       passed: plan.verdict === "Execute",
-      weight: 30,
       detail: plan.verdict === "Execute" ? "The daily scan reads this plan Execute." : "The daily scan reads this plan Watch, not Execute.",
     },
   ];
@@ -1671,7 +1711,6 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
   factors.push({
     label: "Moving quickly toward the entry",
     passed: fast,
-    weight: 10,
     detail: `${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since the ${up ? "high" : "low"} of ${priceText(reading.extreme)}.`,
   });
   const minutes = Math.round(reading.etaMinutes);
@@ -1757,11 +1796,10 @@ function detectReversalRisk(
   checks.push({ name: "Reversal risk", passed: true, detail: cause });
 
   const factors: ConfidenceFactor[] = [
-    { label: "Cross failed or the 50% point lost", passed: true, weight: 30, detail: cause },
+    { label: "Cross failed or the 50% point lost", passed: true, detail: cause },
     {
       label: "Volume behind the reversal",
       passed: m.relativeVolume !== null && m.relativeVolume >= config.relativeVolumeThreshold,
-      weight: 20,
       detail:
         m.relativeVolume === null
           ? "No volume baseline available."
@@ -1789,7 +1827,6 @@ function swingFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor 
   return {
     label: "Today's swing chart agrees",
     passed: m.swingTrend === direction,
-    weight: 15,
     detail:
       m.swingTrend === null
         ? "The 3-bar swing chart on today's bars has not turned yet."
@@ -1804,7 +1841,6 @@ function hourlyFactors(m: SessionMetrics, direction: Direction): ConfidenceFacto
     {
       label: "The hourly chart agrees",
       passed: m.hourly.trend === direction,
-      weight: 15,
       detail:
         m.hourly.trend === null
           ? "The hourly swing chart has no trend yet."
@@ -1820,7 +1856,6 @@ function dailyTrendFactors(m: SessionMetrics, direction: Direction): ConfidenceF
     {
       label: "With the daily trend",
       passed: m.dailyTrend === direction,
-      weight: 20,
       detail: `The daily swing trend is ${m.dailyTrend}${m.dailyTrend === direction ? "" : ": this alert runs against it"}.`,
     },
   ];
@@ -1842,7 +1877,6 @@ function midpointFactor(m: SessionMetrics, direction: Direction): ConfidenceFact
   return {
     label: "Price on the right side of the day's 50% point",
     passed: onside,
-    weight: 15,
     detail: `Last ${priceText(m.last)} against the day's 50% point ${priceText(m.midpoint)}.`,
   };
 }
@@ -1852,7 +1886,6 @@ function dayDirectionFactor(dayMove: Move, direction: Direction): ConfidenceFact
   return {
     label: "Agrees with the day's direction",
     passed: agrees,
-    weight: 10,
     detail: `Day is ${dayMove.percent >= 0 ? "+" : ""}${dayMove.percent.toFixed(2)}% from ${MOVE_BASIS_LABELS[dayMove.basis]}.`,
   };
 }
@@ -1881,6 +1914,12 @@ function buildAlert(args: {
 
   const confidence = scoreConfidence(factors);
   const dataAge = ageSeconds(m.dataTimestamp, now);
+  const againstDailyTrend =
+    type !== "reversal_risk" &&
+    type !== "plan_level_held" &&
+    !NOTICE_SIGNALS.has(type) &&
+    m.dailyTrend !== null &&
+    m.dailyTrend !== direction;
 
   return {
     symbol: input.symbol,
@@ -1902,6 +1941,7 @@ function buildAlert(args: {
     whyThisAppeared: args.whyThisAppeared,
     whyNotEarlier: explainLateness(dataAge, type, input.marketClosed === true),
     ...(args.approach ? { approach: args.approach } : {}),
+    ...(againstDailyTrend ? { againstDailyTrend: true } : {}),
     timeliness: alertTimeliness(input, m, type, direction, now),
   };
 }
@@ -1958,15 +1998,18 @@ export function alertTimeliness(
 }
 
 /**
- * Weighted, and capped at 100. Every factor is returned alongside the number so
- * a user can see what produced it — a bare "confidence: 72" is a black box, and
- * a black box in a trading tool is something people either over-trust or ignore.
+ * The share of the alert's checks that passed, out of 100. Every factor is
+ * returned alongside the number so a user can see what produced it.
+ *
+ * Each check counts the same (audit I-01, 2026-10-28): the factors had
+ * unequal weights (15 to 35 points) that no source gives, and Gann ranks none
+ * of his conditions above another (AGENTS.md, "The scorecard's role"), so a
+ * weight here would be a ranking claim he never made.
  */
 export function scoreConfidence(factors: ConfidenceFactor[]): number {
-  const total = factors.reduce((s, f) => s + Math.abs(f.weight), 0);
-  if (total === 0) return 0;
-  const earned = factors.reduce((s, f) => s + (f.passed ? f.weight : 0), 0);
-  return Math.max(0, Math.min(100, Math.round((earned / total) * 100)));
+  if (factors.length === 0) return 0;
+  const met = factors.filter((f) => f.passed).length;
+  return Math.round((met / factors.length) * 100);
 }
 
 /**

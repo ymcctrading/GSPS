@@ -39,7 +39,7 @@ import type { FeedEntitlement } from "@/lib/data/timeliness";
 import { availability, newerBarUsable, observationAgeMs, staleUnderRealtime, timeframeForMinutes, usableBy } from "@/lib/data/timeliness";
 import { SCAN_CADENCE_MINUTES } from "@/lib/scanner/entryApproach";
 import type { Alert } from "@/lib/scanner/intraday";
-import { MEASURED_LOSING } from "@/lib/scanner/intradayDisplay";
+import { tradeHold } from "@/lib/scanner/intradayDisplay";
 
 export type NotificationFreshnessResult =
   | {
@@ -193,7 +193,7 @@ export function alertFreshnessEvidence(
     currentPlanKey: extra.currentPlanKey,
     authorizationId: t?.actionable ? t.authorizationId : null,
     authorizationFor: t?.actionable ? { symbol: alert.symbol, planKey: t.planKey } : null,
-    entryHeld: Boolean(MEASURED_LOSING[alert.type]) || alert.continuationPlan.paysRisk === false,
+    entryHeld: tradeHold(alert) !== null || alert.continuationPlan.paysRisk === false,
     deliveryPermitted: extra.deliveryPermitted,
   };
 }

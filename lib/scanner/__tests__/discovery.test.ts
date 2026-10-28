@@ -18,10 +18,10 @@ function series(sign: 1 | -1, session: { o: number; h: number; l: number; c: num
 }
 const at = { evaluatedAt: new Date("2026-10-27T15:00:00Z"), observedThrough: new Date("2026-10-27T14:45:00Z"), delayMs: DELAY };
 
-describe("shadow discovery", () => {
+describe("discovery", () => {
   it("notices a stock crossing its old top, and mirrors it for a bottom", () => {
     const up = readDiscovery({ symbol: "aaa", bars: series(1, { o: 99, h: 115, l: 98, c: 114, v: 3_000_000 }), ...at })!;
-    expect(up.shadow).toBe(true);
+    expect(up.examineOnly).toBe(true);
     expect(up.symbol).toBe("AAA");
     expect(up.conditions.some((c) => c.kind === "old_level_crossed" && c.side === "top")).toBe(true);
     expect(up.conditions.some((c) => c.kind === "new_13_week_extreme" && c.side === "high")).toBe(true);

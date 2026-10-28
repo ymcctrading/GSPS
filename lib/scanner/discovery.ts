@@ -1,18 +1,20 @@
 /**
- * GSPS — shadow discovery of newly active stocks during the session (owner,
+ * GSPS — discovery of newly active stocks during the session (owner,
  * 2026-10-28: "examines the eligible universe broadly enough to notice newly
  * active stocks ... tracks candidates without starvation"). On October 27 the
  * evening's lists held 2 of the day's 20 biggest movers (ASML at rank 35, BA
  * as a reserve at 48); nothing during the session could bring an unlisted
  * stock that started to act to the intraday scan's attention.
  *
- * SHADOW ONLY. A discovery is a reason to examine a stock, never a trade: the
- * reading carries no entry, stop or target, it is not read by the score, the
- * plan, placement, Guided Mode, automation or any notification, and the queue
- * (`lib/scanner/queue.ts`) that would give it a slot runs in shadow beside the
- * live selection. A percentage, dollar or point move ranks the list for
- * attention; it is never an entry signal ("buying a stock because it is up a
- * large percentage" is not a reason).
+ * NEVER A TRADE. A discovery is a reason to examine a stock: the reading
+ * carries no entry, stop or target, and it is not read by the score, the
+ * plan, placement, Guided Mode, automation or any notification. The market
+ * scan stores the session's discoveries in the evaluation ledger and the
+ * intraday queue (`lib/scanner/queue.ts`) gives them slots to be examined
+ * (owner, 2026-10-28, "I approve all 5"); whatever the intraday scan then
+ * finds is held to its own rules. A percentage, dollar or point move ranks
+ * the list for attention; it is never an entry signal ("buying a stock
+ * because it is up a large percentage" is not a reason).
  *
  * The conditions, each tagged with its basis:
  * - `old_level_crossed` (sourced): the session has traded 3 points past the
@@ -78,7 +80,8 @@ export type DiscoveryCondition =
 
 /** One stock's discovery reading. No entry, stop or target, by construction. */
 export interface DiscoveryReading {
-  readonly shadow: true;
+  /** A reason to examine, never a trade. */
+  readonly examineOnly: true;
   symbol: string;
   conditions: DiscoveryCondition[];
   /** Attention only: the move from the prior close, percent, dollars and price-scaled points. */
@@ -205,7 +208,7 @@ export function readDiscovery(input: DiscoveryInput): DiscoveryReading | null {
   const point = gannPoint(priorClose);
   const dollars = session.c - priorClose;
   return {
-    shadow: true,
+    examineOnly: true,
     symbol: input.symbol.toUpperCase(),
     conditions,
     attention: {
