@@ -223,7 +223,7 @@ const ACADEMY_1: Academy = {
             "Think of the same busy market again. Some shoppers are buying dinner, a restaurant buys in bulk every Monday whatever the price, and a stall-holder buys from one farmer to resell to the next customer. They all trade the same tomatoes for different reasons. Markets are full of these different reasons, and knowing them helps explain moves that look strange on a chart.",
             "Retail investors (individuals trading their own money), market makers, institutional asset managers, algorithmic or systematic traders (computer programs trading on fixed rules), and corporate insiders (a company's own executives and directors, who must report their trades) all trade the same securities (stocks and similar investments) for different reasons. A market maker is like that stall-holder: a firm that always stands ready to buy and to sell (called providing liquidity: making it easy for others to trade quickly), earning the small gap between its buying and selling price. It cares about not getting stuck with too many shares (inventory risk), not about where the price goes next. An institutional manager (a pension fund, mutual fund or insurer investing other people's money) may have to rebalance on a schedule, buying or selling to get back to its target mix, regardless of its view on price. A retail trader has no rulebook from clients telling them what they must hold (a mandate), but also no risk department forcing them to cap their losses, the controls larger firms are required to run. That freedom cuts both ways.",
             "None of these incentives are visible directly in a price chart — but they explain patterns you will see repeatedly: end-of-quarter rebalancing flows, bigger swings on the days options contracts expire (an option is a contract to buy or sell a stock at a set price by a set date), and fewer willing traders around scheduled news.",
-            "GSPS scope: this platform scans, charts, and executes in U.S. equities only. Every participant discussion in this academy is grounded in that scope, not futures, forex, or crypto market structure.",
+            "GSPS scope: this platform scans and charts U.S. stocks and funds, crypto, futures and forex, and places trades in U.S. stocks and funds, their options, and crypto. Futures and forex show prices only for now. Every participant discussion in this academy is grounded in the U.S. stock market, not futures, forex, or crypto market structure.",
           ],
           application:
             "Name one type of participant whose forced or scheduled activity (not conviction-driven) could explain a price move that otherwise looks unexplained.",
@@ -234,8 +234,8 @@ const ACADEMY_1: Academy = {
               1,
             ),
             q(
-              "What is GSPS's actual execution scope?",
-              ["Global multi-asset", "U.S. equities only", "Options and futures only", "Crypto and forex only"],
+              "Which markets can you place trades in on GSPS?",
+              ["Every market in the world", "U.S. stocks and funds, their options, and crypto", "Futures and forex only", "Crypto only"],
               1,
             ),
           ],
@@ -1285,7 +1285,7 @@ const ACADEMY_7: Academy = {
           ],
           estimatedMinutes: 14,
           instruction: [
-            "GSPS executes and scans U.S. equities only. This lesson exists so a learner has working vocabulary for options, futures, forex, crypto, and commodities when they encounter them elsewhere — it is explicitly not a GSPS-executable workflow, and nothing in this lesson or lab constructs an order in any of these instruments.",
+            "GSPS places trades in U.S. stocks and funds, their options, and crypto; futures and forex show prices only for now, and commodities aren't traded. This lesson exists so a learner has working vocabulary for options, futures, forex, crypto, and commodities when they encounter them — it is conceptual literacy, not a workflow, and nothing in this lesson or lab constructs an order in any of these instruments.",
             "Options carry defined-risk (long option) and undefined-risk (short/naked option) variants — the distinction matters enormously and is a common source of catastrophic, unplanned loss when misunderstood. Futures and forex trade on margin with leverage that can amplify losses beyond the initial capital committed. Short-selling carries theoretically unlimited loss potential, since a shorted asset's price has no upper bound.",
             "Hedging, conceptually, is taking an offsetting position to reduce (not eliminate) risk on an existing position — a real technique used by professionals, and conceptually useful to understand even where GSPS does not execute the hedge itself.",
           ],
@@ -1294,7 +1294,7 @@ const ACADEMY_7: Academy = {
           quiz: [
             q(
               "GSPS's actual execution scope is:",
-              ["U.S. equities, options, and futures", "U.S. equities only", "Global multi-asset including crypto", "Forex and commodities only"],
+              ["U.S. stocks and futures only", "U.S. stocks and funds, their options, and crypto", "Global multi-asset including forex", "Forex and commodities only"],
               1,
             ),
             q(
