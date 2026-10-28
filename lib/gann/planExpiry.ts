@@ -150,6 +150,6 @@ export function readPlanExpiry(input: PlanExpiryInput): PlanExpiry | null {
     takeProfit1,
     reactionNeeded: needed,
     greatestReaction: greatest,
-    note: `Setup expired: the ${buy ? "buy" : "sell"} at ${priceUsd(entry)} would need a ${buy ? "pullback" : "rally"} of ${priceUsd(needed)} from ${priceUsd(extreme)}, larger than any ${buy ? "pullback" : "rally"} in this move so far (${priceUsd(greatest)}), which would mean the trend has turned. The stock stays on your watch until a new plan forms.`,
+    note: `Setup expired: the ${buy ? "buy" : "sell"} at ${priceUsd(entry)} sits too far ${buy ? "below the latest high" : "above the latest low"} (${priceUsd(extreme)}) for a normal ${buy ? "pullback" : "rally"} to reach. The stock stays on your watch until a new plan forms.`,
   };
 }

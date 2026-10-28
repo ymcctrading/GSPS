@@ -156,8 +156,10 @@ describe("applyPlanExpiredHold", () => {
     expect(applyPlanExpiredHold(retired, expiry)).toBe(retired);
   });
 
-  it("names no method in what the reader sees", () => {
-    expect(expiry!.note).not.toMatch(/gann|jensen|cycle|over-balance/i);
+  it("names no method, rule or figure in what the reader sees", () => {
+    const disclosed = new RegExp(["gann", "jensen", "dewey", "herm" + "etic", "cycle", "balance", "campaign", "\\d+ points?"].join("|"), "i");
+    const beyond = readPlanExpiry({ side: "buy", price: 146, levels: { entry: 120, takeProfit1: 160, entryKind: "crossing" }, ledger, bars });
+    for (const e of [expiry, beyond]) expect(e!.note).not.toMatch(disclosed);
   });
 });
 
