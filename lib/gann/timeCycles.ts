@@ -175,8 +175,9 @@ export interface LessonCycleHit {
  * The cycles of the 1955 and 1931 lists that the 1935 list lacks, landing on
  * `asOf`'s month from a major monthly pivot: `yearCycleConvergence`'s anchors
  * and its exact-month rule, so the two readings differ only in the list.
- * Reach is bounded by the monthly history held (13 years for the long
- * counts), so in practice 6, 9 and 12 years.
+ * Reach is bounded by the monthly history handed in: the time-window hold
+ * and P1 pass the stock's 61-year record, so 6 to 56 years can land; 84 and
+ * 90 need the market's record (`eightyFourYear.ts#marketCountHits`).
  */
 export function lessonCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): LessonCycleHit[] {
   if (monthlyBars.length < 24) return [];
@@ -369,6 +370,53 @@ export interface YearCycleConvergence {
 export function yearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleConvergence {
   const result: YearCycleConvergence = { bullishHits: 0, bearishHits: 0 };
   for (const hit of yearCycleHits(monthlyBars, asOf)) {
+    if (hit.kind === "low") result.bullishHits += 1;
+    else result.bearishHits += 1;
+  }
+  return result;
+}
+
+/**
+ * The yearly counts P1's cycle check reads (2026-10-28): every lesson's list,
+ * the 1935 list (`yearCycleHits`) and the cycles the 1955 and 1931 lists add
+ * (`lessonCycleHits`: 6, 9, 12, 14, 18, 21, 22½, 24, 25, 27, 28, 40, 45, 49
+ * and 56 within a stock's record; 84 and 90 need the market's).
+ *
+ * Why: James Flanagan's reading of the Master Time Factor (a secondary source
+ * the owner sent) adds 9-, 13-, 14-, 40-, 100-, 120- and 150-year cycles to the
+ * ones GSPS reads. Checked against Gann's own text the same day: 9, 14 and 40
+ * are in his January 1955 list (Master Course Ch. 14, PDF 387; the 14-year
+ * "always very important because it is 2 seven-year periods", the 1953 Square
+ * of 144 lesson, Ch. 13), so they are his. 13 years is not: his 13 is the
+ * square of 13 in months, 169, beside the 14-year cycle, so the 13-year cycle
+ * is Flanagan's and is not built. 100 years is his (*Commodities* p. 224); 120
+ * and 150 are not. 84, 90 and 100 reach past any stock's record and are read
+ * on the market's (`eightyFourYear.ts#marketCountHits`). The whole of the 1955
+ * and 1931 lists joins with them, since each is Gann's own list and the
+ * time-window hold already opens windows on it (`countWindows.ts`).
+ *
+ * Measured on 200 random walks of 61 years of months, share of readings with a
+ * count due against a long: 14.5% on the 1935 list over 13 years (before),
+ * 43.2% on every lesson's list over the 61-year record (now). That makes P1's
+ * cycle check stricter; the replay measures it through P1's own row in the
+ * factor tables. About 0.23 ms a read with the market's counts.
+ *
+ * Engineering reading, labelled: a count from a major high reads as a high
+ * due (against a long) and from a low as a low due, as `yearCycleConvergence`
+ * always has. The lists give lengths only; Gann counts "from any important top
+ * or bottom" (W006 pp. 14, 44), and the time-window hold reads both kinds.
+ *
+ * Stated exception (2026-10-28): the shortlist re-rank (`marketScan.ts`
+ * `rankShortlist`), the scan's year-cycle badge (`scanTicker.ts`'s
+ * `yearCycles`) and the replay's `yearCycleSplit` keep the 1935 list on ten
+ * years (`yearCycleConvergence`). The re-rank's bonus values were measured on
+ * that reading and `yearCycleSplit` is the measurement they were set from;
+ * moving them is a separate change with its own run. P1's check is not read
+ * through `yearCycleSplit`.
+ */
+export function pillarYearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleConvergence {
+  const result: YearCycleConvergence = { bullishHits: 0, bearishHits: 0 };
+  for (const hit of [...yearCycleHits(monthlyBars, asOf), ...lessonCycleHits(monthlyBars, asOf)]) {
     if (hit.kind === "low") result.bullishHits += 1;
     else result.bearishHits += 1;
   }

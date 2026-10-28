@@ -848,6 +848,13 @@
 // a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
 // Live verdicts move; the replay reads it at the fill, where only the
 // targets reading can hold; how far replay buckets move is not measured.
+// 2026-10-28-gann-p1-long-counts (Flanagan's yearly cycles checked against
+// Gann's text): P1's yearly counts read every lesson's list (the January 1955
+// list's 9, 14 and 40 years among them) on the stock's 61-year monthly record, as the
+// time-window hold does; the market's 84-, 90- and 100-year counts on the long
+// record join them (`marketCountHits`). Flanagan's 13, 120 and 150 years have
+// no page of Gann's and are not read. The dominant decade is a measured factor
+// only (`dominantCycleWithTrade`). Live verdicts and replay buckets move.
 // 2026-10-28-plan-expiry (owner: "the setups are expired", approved "Go"):
 // a plan expires, the stock stays tracked, when price stands at or past its
 // TP1 (a crossed level is the next support, W006 pp.19-24), or when a
@@ -856,5 +863,6 @@
 // levels withheld (`applyPlanExpiredHold`, `lib/gann/planExpiry.ts`); the
 // replay does not enter such a plan and counts it under retiredPlans.
 // Live verdicts move (23 of 43 rows listed on 2026-10-27 stood past TP1);
-// replay trades move, by how much not measured.
-export const STRATEGY_VERSION = "2026-10-28-plan-expiry";
+// replay trades move, by how much not measured. Merged onto
+// 2026-10-28-gann-p1-long-counts, whose counts it keeps.
+export const STRATEGY_VERSION = "2026-10-28-plan-expiry-on-p1-long-counts";

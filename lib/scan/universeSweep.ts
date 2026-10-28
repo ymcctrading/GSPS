@@ -178,7 +178,7 @@ export function pickSweepBasis(
   return (recent.find((c) => c.count >= universeSize * SWEEP_MIN_COVERAGE) ?? recent[0]).basis_date;
 }
 
-async function chooseSweepBasis(
+export async function chooseSweepBasis(
   service: SupabaseClient,
   now: Date,
 ): Promise<string | null> {

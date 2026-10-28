@@ -116,7 +116,8 @@ function redactGannConfluence(result: GannConfluenceResult | null): GannConfluen
     nearestMasterTwelve: null,
     masterTwelve: null,
     // A fan line's time target is a dated forward label with no measured record (R-024).
-    nearestFanLine: result.nearestFanLine ? { ...result.nearestFanLine, timeProjectionDate: null } : null,
+    // The card names no angle (confidential sources, 2026-10-28), so its ratio stays here too.
+    nearestFanLine: result.nearestFanLine ? { ...result.nearestFanLine, angle: "trend line", timeProjectionDate: null } : null,
     disclosedRules: redactDisclosedRules(result.disclosedRules),
     evidence: { ...result.evidence, inputs: {}, explanationTrace: [] },
   };
@@ -124,14 +125,15 @@ function redactGannConfluence(result: GannConfluenceResult | null): GannConfluen
 
 /**
  * The readings the confluence card draws (`components/scan/confluence-card.tsx`,
- * `DisclosedRuleTiles`). Every other reading stays on the server: the
+ * `contextLines`). Every other reading stays on the server: the
  * astrology and Jensen readings, the time counts and grids no tile shows, and
  * the dated forward labels (the next change date and the swing projection),
  * which have no measured record ("Forward-looking claims"; review finding
  * R-024, 2026-10-21). A key added here is a reading sent to the browser.
  *
  * The planetary averages, the Square of 144 calculator, the circle, the time
- * square and the day circle left the card on 2026-10-28 (owner: nothing on the
+ * square and the day circle left the card on 2026-10-28, and the time balance
+ * and the 12-unit turn count with them when it became the Context list (owner: nothing on the
  * platform discloses the method's sources or constructions), so they stay on
  * the server too.
  */
@@ -151,7 +153,6 @@ const CARD_RULE_KEYS = [
   "ruleOfThree",
   "seasonal",
   "sharesPerPoint",
-  "timeAngle",
   "timeRules",
   "yearFraction",
   "zone",
@@ -162,7 +163,7 @@ export function redactDisclosedRules(rules: DisclosedRulesContext | undefined): 
   const out: DisclosedRulesContext = { ...EMPTY_DISCLOSED_RULES, asOf: rules.asOf };
   const write = out as unknown as Record<string, unknown>;
   for (const key of CARD_RULE_KEYS) write[key] = rules[key];
-  out.timing = { alternation: rules.timing?.alternation ?? null, square144: rules.timing?.square144 ?? null, projection: null, changeDates: null };
+  out.timing = { alternation: rules.timing?.alternation ?? null, square144: null, projection: null, changeDates: null };
   return out;
 }
 

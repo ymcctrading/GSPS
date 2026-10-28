@@ -218,6 +218,11 @@ export function redactScanResult(result: ScanResult): ScanResult {
     decision: redactDecision(result.decision),
     signals: redactScanSignals(result.signals),
     dailyBars: undefined,
+    // The plan and its note only, never the reason key or the figures behind
+    // it, whatever built the result (owner's disclosure rule, 2026-10-28).
+    planExpired: result.planExpired
+      ? { entry: result.planExpired.entry, takeProfit1: result.planExpired.takeProfit1, note: result.planExpired.note }
+      : undefined,
   };
 }
 

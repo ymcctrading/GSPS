@@ -346,6 +346,36 @@ describe("redaction at the API boundary", () => {
     expect(result.dailyBars).toHaveLength(1);
   });
 
+  it("sends an expired plan's entry, TP1 and note only (owner's disclosure rule, 2026-10-28)", () => {
+    const full = {
+      reason: "beyond_reaction",
+      entry: 95,
+      takeProfit1: 110,
+      reactionNeeded: 14,
+      greatestReaction: 9,
+      note: "Setup expired: the buy at $95.00 sits too far below the latest high ($109.00) for a normal pullback to reach.",
+    };
+    const result = {
+      symbol: "XYZ",
+      assetClass: "stock",
+      scannedAt: "2026-08-08T00:00:00Z",
+      currentPrice: 100,
+      direction: "bullish",
+      setupKind: "reversion",
+      momentumElevated: true,
+      trends: [trend("bullish")],
+      gann,
+      pattern,
+      armedPatterns: [pattern],
+      levels: null,
+      decision,
+      planExpired: full,
+    } as unknown as ScanResult;
+    const out = redactScanResult(result).planExpired as Record<string, unknown>;
+    expect(Object.keys(out).sort()).toEqual(["entry", "note", "takeProfit1"]);
+    expect(JSON.stringify(out)).not.toMatch(/reactionNeeded|greatestReaction|beyond_reaction/);
+  });
+
   it("redacts the Signal and Regime Engine's per-criterion breakdown the same way", () => {
     const secretNote = "Relative volume 1.32x confirms real participation behind the reversal.";
     const secretThreshold = "ADX 24.3 supports trend strength (>= 20)";

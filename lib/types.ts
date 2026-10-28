@@ -7,7 +7,7 @@ import type { RegimeRead, SignalVerdict } from "@/lib/signals/types";
 import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/confluence/types";
 import type { NoviceEligibility } from "@/lib/universe/types";
 import type { ConfluenceType } from "@/lib/gann/digitalRoot";
-import type { PlanExpiry } from "@/lib/gann/planExpiry";
+import type { PlanExpiredNotice } from "@/lib/gann/planExpiry";
 
 /**
  * `"commodity"` is a recognized value with no live market-data connection
@@ -371,7 +371,7 @@ export interface ScanResult {
    * no surface offers the plan; this keeps what it was and the plain-words
    * reason for the card. The symbol stays tracked.
    */
-  planExpired?: PlanExpiry;
+  planExpired?: PlanExpiredNotice;
   /**
    * How strongly the selection rules favour this setup's side (early leaders
    * first; `lib/gann/leadership.ts#selectionStrength`). Orders the daily

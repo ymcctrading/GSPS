@@ -96,6 +96,17 @@ export interface PlanExpiry {
   note: string;
 }
 
+/**
+ * What a scan result carries about an expired plan: the plan and the note,
+ * nothing more. The reason key and the reaction figures stay on the server
+ * (owner's disclosure rule, 2026-10-28: an API response names no method).
+ */
+export type PlanExpiredNotice = Pick<PlanExpiry, "entry" | "takeProfit1" | "note">;
+
+export function planExpiredNotice(expiry: PlanExpiredNotice): PlanExpiredNotice {
+  return { entry: expiry.entry, takeProfit1: expiry.takeProfit1, note: expiry.note };
+}
+
 function finite(n: number | null | undefined): n is number {
   return n != null && Number.isFinite(n);
 }

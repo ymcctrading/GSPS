@@ -70,7 +70,7 @@ import {
 import { withDecisionState } from "@/lib/scoring/decisionState";
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
-import { readPlanExpiry } from "@/lib/gann/planExpiry";
+import { planExpiredNotice, readPlanExpiry } from "@/lib/gann/planExpiry";
 import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
 import { figureCrossingOf } from "@/lib/gann/evenFigures";
 import { readStopBreach } from "@/lib/gann/stopBreach";
@@ -519,6 +519,7 @@ export async function scanTicker(
       marketDaily: marketDaily ?? null,
       universe: assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
       oldLevels: structural.old,
+      yearCountMonthly: monthlyYearCount ?? monthlyLong ?? null,
       price: currentPrice,
       // The session's noon UTC, as the replay reads it: the wall clock cut to
       // a UTC date runs a day ahead after 8 PM New York time and reads the
@@ -732,7 +733,7 @@ export async function scanTicker(
       // An expired plan offers no levels on any surface; `planExpired` keeps
       // what it was for the card's note (lib/gann/planExpiry.ts).
       levels: planExpiry ? null : levels,
-      ...(planExpiry ? { planExpired: planExpiry } : {}),
+      ...(planExpiry ? { planExpired: planExpiredNotice(planExpiry) } : {}),
       levelsError,
       selectionStrength: selectionStrength(direction, leadership, weakStock, pillarFacts.universeRank),
       ...(stopBreach.breached

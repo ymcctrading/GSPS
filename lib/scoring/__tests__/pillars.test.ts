@@ -29,6 +29,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
     marketTrend: null,
     yearCycle: null,
     massPressure: null,
+    marketCounts: null,
     weeklyLine: null,
     decadeBias: null,
     yearTrend: null,
@@ -75,6 +76,15 @@ describe("market and cycle position", () => {
     expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: counts, massPressure: "bearish" }), "bearish").passed).toBe(true);
     // Out of the record's reach, it does not count against the trade.
     expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, massPressure: null }), "bullish").passed).toBe(true);
+  });
+
+  it("counts the market's 84-, 90- and 100-year counts against the trade (2026-10-28)", () => {
+    const counts = { bullishHits: 0, bearishHits: 0 };
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, marketCounts: { bullishHits: 0, bearishHits: 1 } }), "bullish").passed).toBe(false);
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, marketCounts: { bullishHits: 1, bearishHits: 0 } }), "bullish").passed).toBe(true);
+    expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: counts, marketCounts: { bullishHits: 1, bearishHits: 0 } }), "bearish").passed).toBe(false);
+    // The stock's own counts unread still fail the check, whatever the market's.
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: null, marketCounts: counts }), "bullish").passed).toBe(false);
   });
 
   it("fails with nothing read", () => {
@@ -398,5 +408,36 @@ describe("P1 reads the market's mass pressure for a stock only (2026-10-22)", ()
     const input = { rules, daily, monthly: [], universe: null, oldLevels: [], price: daily[daily.length - 1].c, asOf };
     expect(readPillarFacts({ ...input, marketDaily: daily }).massPressure).toBe(readMassPressure(asOf)!.direction);
     expect(readPillarFacts({ ...input, marketDaily: null }).massPressure).toBeNull();
+  });
+});
+
+describe("P1's yearly counts read only months before the session (2026-10-28)", () => {
+  it("gives the same counts whether or not the long record holds later months", async () => {
+    const { readDisclosedRules } = await import("@/lib/gann/disclosedRules");
+    const { readPillarFacts } = await import("@/lib/scoring/pillars");
+    const { pillarYearCycleConvergence } = await import("@/lib/gann/timeCycles");
+    const daily: Bar[] = Array.from({ length: 60 }, (_, i) => {
+      const c = 50 + (i % 7);
+      return { t: new Date(Date.UTC(2026, 7, 1) + i * 86_400_000).toISOString(), o: c, h: c + 1, l: c - 1, c, v: 1_000_000 };
+    });
+    const asOf = new Date("2026-10-15T12:00:00Z");
+    const month = (i: number, extra = 0): Bar => {
+      const c = 50 + (i % 2 === 0 ? 0.3 : -0.3) + (i % 5) * 0.05 + extra;
+      return { t: new Date(Date.UTC(1966, i, 1)).toISOString(), o: c, h: c + 0.5 + (i % 3) * 0.01, l: c - 0.5 - (i % 4) * 0.01, c, v: 1 };
+    };
+    // Monthly bars from 1966 to September 2026, with a major high in October
+    // 1981, exactly 45 years (a 1955-list count) before the session's month.
+    const closed = Array.from({ length: 729 }, (_, i) => month(i, i === 189 ? 30 : 0));
+    // Forty years of later months with far bigger swings: read, they would push the 1981
+    // high out of the major swings.
+    const withFuture = [...closed, ...Array.from({ length: 480 }, (_, k) => month(729 + k, k % 6 === 3 ? 400 : 0))];
+    const rules = readDisclosedRules(daily, daily[daily.length - 1].c, null, asOf);
+    const input = { rules, daily, monthly: [], marketDaily: null, universe: null, oldLevels: [], price: daily[daily.length - 1].c, asOf };
+    const a = readPillarFacts({ ...input, yearCountMonthly: closed }).yearCycle;
+    const b = readPillarFacts({ ...input, yearCountMonthly: withFuture }).yearCycle;
+    expect(a?.bearishHits).toBeGreaterThanOrEqual(1);
+    expect(b).toEqual(a);
+    // The fixture discriminates: read uncut, the later months change the count.
+    expect(pillarYearCycleConvergence(withFuture, asOf)).not.toEqual(a);
   });
 });
