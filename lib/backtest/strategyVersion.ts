@@ -848,6 +848,7 @@
 // a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
 // Live verdicts move; the replay reads it at the fill, where only the
 // targets reading can hold; how far replay buckets move is not measured.
+// (was STRATEGY_VERSION "2026-10-27-execute-ready-now")
 // 2026-10-28-gann-p1-long-counts (Flanagan's yearly cycles checked against
 // Gann's text): P1's yearly counts read every lesson's list (the January 1955
 // list's 9, 14 and 40 years among them) on the stock's 61-year monthly record, as the
@@ -865,4 +866,45 @@
 // Live verdicts move (23 of 43 rows listed on 2026-10-27 stood past TP1);
 // replay trades move, by how much not measured. Merged onto
 // 2026-10-28-gann-p1-long-counts, whose counts it keeps.
-export const STRATEGY_VERSION = "2026-10-28-plan-expiry-on-p1-long-counts";
+// (was STRATEGY_VERSION "2026-10-28-plan-expiry-on-p1-long-counts")
+// 2026-10-28-plan-at-session-close: the live scan reads the plan's lattice
+// levels and targets, the S/R band, the angles, the time and price square,
+// the range divisions and the pillar facts at the last completed session's
+// close, as the replay's buildMacroContext reads them, not at the quote, so
+// the plan and its score hold still through the session (Gann judged his
+// charts after the close: Truth of the Stock Tape pp.5-7, 76-82). Live
+// verdicts move inside a session; daily replays are unchanged; intraday
+// replays now read the prior session's daily close, not the last 15-minute
+// close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
+// whose expiry it keeps.
+// (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-double-bottom-weeks: a double or triple bottom (top) rests
+// its order only once the bottom is two weeks old by the session the order
+// rests for (DOUBLE_BOTTOM_MIN_DAYS): "the same level weeks, months or a year
+// or more apart" (W006 p.20, A-ENTRY-02). The six-year daily rerun's first
+// quarter (2026-10-28) had old-bottom entries at -0.076R over 4,856 trades.
+// Plans and replay trades move.
+// (was STRATEGY_VERSION "2026-10-28-double-bottom-weeks")
+// 2026-10-28-gann-groups-by-industry: P3(c)'s group rank (S4) reads the
+// platform's industries (`lib/universe/industries.ts`: the SEC codes with the
+// misfiled businesses corrected, Alphabet with the social media names,
+// ConocoPhillips with the producers) instead of the raw codes, pooling a
+// sector's small industries when they reach five together
+// (`buildIndustryGroupMap`). 821 of 832 universe stocks in 71 groups (was 762
+// in 58). Live verdicts and replay trades move where a stock's group changed.
+// (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
+// 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
+// merged in the 2026-10-28 release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
+// 2026-10-28-delayed-fill-timing (owner, DATA-DELAY-001): no fill before the
+// decision could be acted on. A decision read on a bar is usable at the bar's
+// close plus the feed's contractual delay (15 minutes for equities, none for
+// crypto, `lib/data/timeliness.ts`), so a closed-bar entry fills at the first
+// bar opening at or after that time (`delayedFillIndex`): two 15-minute bars
+// after the signal, not one. A stop traded before that fill refuses it
+// (`delayedRefusals`); reversals and re-buys wait the same way. A resting stop
+// order is held by the broker and fills on its own. Daily replays are
+// unchanged (close + 15 minutes is before the next open). The intraday
+// alerts replay evaluates each scan at close + delay. Verdicts don't move;
+// intraday replay trades do.
+export const STRATEGY_VERSION = "2026-10-28-delayed-fill-timing";

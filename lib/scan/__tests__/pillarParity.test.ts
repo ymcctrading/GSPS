@@ -213,6 +213,31 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(fromReplay.score).toBe(liveOut.score);
   }, 60_000);
 
+  it("reads the plan and its score at the last completed session's close, so a moving quote moves neither (2026-10-28)", async () => {
+    const bars = await fetchAllTimeframes("AAPL", "us_equity", EXECUTION_TIMEFRAME);
+    const today = etDateKey(new Date());
+    const sessions = bars.daily.filter((b) => b.t.slice(0, 10) < today);
+    const close = sessions[sessions.length - 1].c;
+    const read = async (quote: number) => {
+      seen.facts.length = 0;
+      seen.scores.length = 0;
+      const result = await scanTicker("AAPL", undefined, undefined, bars, undefined, quote);
+      const facts = seen.facts.at(-1)!;
+      const score = seen.scores.find((x) => (x.input as ScoreInputs).pillarFacts === facts.output)!;
+      return { result, facts, score };
+    };
+    const up = await read(close * 1.03);
+    const down = await read(close * 0.97);
+    expect(up.result.currentPrice).not.toBe(down.result.currentPrice);
+    expect((up.facts.input as FactsInput).price).toBe(close);
+    expect(up.facts.output).toEqual(down.facts.output);
+    expect((up.score.input as ScoreInputs).gann).toEqual((down.score.input as ScoreInputs).gann);
+    expect((up.score.input as ScoreInputs).srMatch).toEqual((down.score.input as ScoreInputs).srMatch);
+    expect((up.score.input as ScoreInputs).atrPct).toBe((down.score.input as ScoreInputs).atrPct);
+    expect(up.result.levels).toEqual(down.result.levels);
+    expect((up.score.output as ReturnType<typeof computeScore>).breakdown).toEqual((down.score.output as ReturnType<typeof computeScore>).breakdown);
+  }, 60_000);
+
   it("counts the yearly cycles on closed months reaching ten years back, the month in progress left out", () => {
     const month = (t: string) => ({ t: `${t}-01T05:00:00.000Z`, o: 1, h: 1, l: 1, c: 1, v: 1 });
     const months = ["2016-09", "2016-10", "2020-01", "2026-09", "2026-10"].map(month);
@@ -222,7 +247,7 @@ describe("the nine pillars on the live scan and the replay", () => {
   it("hands the replay the provider's weekly bars on both replay paths", () => {
     const src = (f: string) => readFileSync(path.resolve(__dirname, "../../", f), "utf8");
     expect(src("backtest/run.ts")).toMatch(/weeklyBars: series\.weekly,/);
-    expect(src("backtest/replay.ts")).toMatch(/buildMacroContext\(priorSessions, price, new Date\(`\$\{date\}T12:00:00Z`\), priorMonthly, facts, priorWeekly\)/);
+    expect(src("backtest/replay.ts")).toMatch(/buildMacroContext\(priorSessions, priorSessions\[priorSessions\.length - 1\]\.c, new Date\(`\$\{date\}T12:00:00Z`\), priorMonthly, facts, priorWeekly\)/);
   });
 
   it("reads the stock market for a stock only on both surfaces, so crypto reads no market trend or mass pressure", () => {
@@ -240,7 +265,7 @@ describe("the nine pillars on the live scan and the replay", () => {
     expect(src("scanTicker.ts")).toMatch(/\n\s+setupKind,\n\s+windowTurn,\n/);
     // The yearly counts read the stock's long monthly record on both surfaces, as the window turn does (2026-10-28).
     expect(src("backtest/replay.ts")).toMatch(/universe: instrument\?\.universe \?\? null, oldLevels: structural\.old, yearCountMonthly: instrument\?\.monthlyYearCount \?\? instrument\?\.monthlyLong \?\? null, price, asOf \}\)/);
-    expect(src("scanTicker.ts")).toMatch(/\n\s+oldLevels: structural\.old,\n\s+yearCountMonthly: monthlyYearCount \?\? monthlyLong \?\? null,\n\s+price: currentPrice,/);
+    expect(src("scanTicker.ts")).toMatch(/\n\s+oldLevels: structural\.old,\n\s+yearCountMonthly: monthlyYearCount \?\? monthlyLong \?\? null,\n\s+price: planPrice,/);
     expect(src("backtest/replay.ts")).toMatch(/universe: universeStrength && assetClass === "us_equity" \? \{ symbol, strength: universeStrength \} : null,/);
     // Both replay paths hand the replay the universe's months (S6).
     expect(src("backtest/run.ts")).toMatch(/replaySeriesOptions\(series, market, universeStrength\)/);
@@ -260,7 +285,7 @@ describe("the nine pillars on the live scan and the replay", () => {
     // The name chart (A-OTHER-08) reads the same stored name on both surfaces.
     expect(live).toMatch(/companyName: instrumentReference\?\.name \?\? null/);
     expect(replay).toMatch(/companyName: instrument\?\.name \?\? null/);
-    expect(live).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: campaignLedger,\n\s+price: currentPrice,\n\s+asOf: sessionNoon,/);
+    expect(live).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: campaignLedger,\n\s+price: planPrice,\n\s+asOf: sessionNoon,/);
     expect(replay).toMatch(/buildStructuralLevels\(\{\n\s+trends: \{ daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend \},\n\s+charts,\n\s+campaign: disclosedRules\.campaign,\n\s+price,\n\s+asOf,/);
     const master = readFileSync(path.resolve(__dirname, "../../", "gann/masterLevels.ts"), "utf8");
     expect(master).toMatch(/squareOfNinePriceLevels\(price, unit\)/);
@@ -272,7 +297,7 @@ describe("the nine pillars on the live scan and the replay", () => {
     const src = readFileSync(path.resolve(__dirname, "../../", "scanTicker.ts"), "utf8");
     expect(src).toMatch(/const sessionNoon = new Date\(`\$\{sessionDay\}T12:00:00Z`\);/);
     expect(src).not.toMatch(/asOf: new Date\(scannedAt\)/);
-    expect(src).toMatch(/readDisclosedRules\(charts\.daily, currentPrice, instrumentFacts, sessionNoon, new Date\(\)\)/);
+    expect(src).toMatch(/readDisclosedRules\(charts\.daily, planPrice, instrumentFacts, sessionNoon, new Date\(\)\)/);
     // readCampaignBottoms and gannMasterLevels run inside buildStructuralLevels, handed sessionNoon (above).
     for (const read of ["readDistributionStanding"]) {
       const call = src.slice(src.indexOf(`${read}(`), src.indexOf(`${read}(`) + 160);

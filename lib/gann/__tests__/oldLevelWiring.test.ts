@@ -81,7 +81,7 @@ describe("the old-level entry is ready with nothing to cross", () => {
 describe("the plan's levels carry the kind", () => {
   it("for stocks and crypto alike, at the old bottom with the stop 3 points under", () => {
     const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
-    const closes = [...leg(60, 40, 8), ...leg(40, 48, 6), ...leg(48, 44, 4)];
+    const closes = [...leg(60, 40, 8), ...leg(40, 48, 9), ...leg(48, 44, 4)];
     const daily = closes.map((c, i) => bar(new Date(Date.UTC(2026, 2, 2) + i * 86_400_000).toISOString(), c));
     const t = computeGannOldLevelEntry(daily, "bullish")!;
     for (const assetClass of ["us_equity", "crypto"] as const) {
@@ -162,8 +162,9 @@ describe("an old-level entry inside a sideways range", () => {
       for (let i = 1; i <= 5; i++) sideways.push(top - ((top - bottom) * i) / 5);
       from = bottom;
     }
-    // End on a rally off the last bottom, so that bottom is untested.
-    const closes = [...sideways, 96, 97, 98, 99];
+    // End on a slow rally off the last bottom, so that bottom is untested and
+    // two weeks old (weeks apart, W006 p.20).
+    const closes = [...sideways, ...Array.from({ length: 13 }, (_, i) => 95.3 + 0.3 * i)];
     const daily: Bar[] = closes.map((c, i) => ({ t: new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 1 }));
     const t = computeGannOldLevelEntry(daily, "bullish")!;
     expect(t).not.toBeNull();
@@ -178,7 +179,7 @@ describe("the live exit of an old-level buy", () => {
     // A top at 40 crossed by 3 points and never bought back to, then a bottom
     // near 44 and a reaction toward it: the scan prices the old bottom.
     const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
-    const closes = [...leg(30, 40, 10), ...leg(40, 36, 4), ...leg(36, 47, 10), ...leg(47, 44, 4), ...leg(44, 49, 6), ...leg(49, 46, 4)];
+    const closes = [...leg(30, 40, 10), ...leg(40, 36, 4), ...leg(36, 47, 10), ...leg(47, 44, 4), ...leg(44, 49, 6), ...leg(49, 46, 8)];
     const daily = closes.map((c, i) => bar(new Date(Date.UTC(2026, 2, 2) + i * 86_400_000).toISOString(), c));
     const sel = selectGannEntry(daily, "bullish")!;
     expect(sel.kind).toBe("oldLevel");

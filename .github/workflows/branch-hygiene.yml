@@ -34,11 +34,49 @@ env:
   MAX_BRANCH_AGE_DAYS: 30
 
 jobs:
-  stale-branch:
+  # The two PR gates share one job since 2026-10-28 (owner: Actions minutes):
+  # as two jobs each paid for its own runner minute.
+  pr-gates:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    name: Branch age
+    name: Branch age and roadmap phase
     steps:
+      - name: Require a Q1–Q4 (or N/A) phase in the title or body
+        env:
+          # Read through the environment, never interpolated into the script
+          # body — a PR title is attacker-controlled text.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+
+          # Matches `Q1`/`Q3:`/`Phase: Q2` anywhere in the title or body, or an
+          # explicit `N/A` for out-of-phase work (production bug, security fix,
+          # docs, direct request — AGENTS.md allows these, it just wants them
+          # marked as deviations rather than passed off as planned).
+          if printf '%s\n%s' "$PR_TITLE" "$PR_BODY" | grep -Eqi '(^|[^a-z0-9])(q[1-4]|n/a)([^a-z0-9]|$)'; then
+            echo "✅ Roadmap phase named." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Roadmap phase missing"
+            echo
+            echo "Name the \`ROADMAP.md\` phase this work belongs to in the PR"
+            echo "title or body — \`Q1\`, \`Q2\`, \`Q3\`, \`Q4\`, or \`N/A\` for"
+            echo "out-of-phase work (production bug, security fix, docs, or a"
+            echo "direct request), with one line saying which."
+            echo
+            echo "| Phase | Window | Theme |"
+            echo "|---|---|---|"
+            echo "| Q1 | Aug–Oct 2026 | Monetization & retention foundation |"
+            echo "| Q2 | Nov 2026 – Jan 2027 | Differentiation & scale foundation |"
+            echo "| Q3 | Feb–Apr 2027 | Mobile & community |"
+            echo "| Q4 | May–Jul 2027 | Enterprise & scale |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::No roadmap phase (Q1–Q4 or N/A) found in the PR title or body. See ROADMAP.md and the PR template."
+          exit 1
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -85,47 +123,6 @@ jobs:
           fi
 
           echo "✅ Within the ${MAX_BRANCH_AGE_DAYS}-day limit." >> "$GITHUB_STEP_SUMMARY"
-
-  roadmap-phase:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    name: Roadmap phase named
-    steps:
-      - name: Require a Q1–Q4 (or N/A) phase in the title or body
-        env:
-          # Read through the environment, never interpolated into the script
-          # body — a PR title is attacker-controlled text.
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set -euo pipefail
-
-          # Matches `Q1`/`Q3:`/`Phase: Q2` anywhere in the title or body, or an
-          # explicit `N/A` for out-of-phase work (production bug, security fix,
-          # docs, direct request — AGENTS.md allows these, it just wants them
-          # marked as deviations rather than passed off as planned).
-          if printf '%s\n%s' "$PR_TITLE" "$PR_BODY" | grep -Eqi '(^|[^a-z0-9])(q[1-4]|n/a)([^a-z0-9]|$)'; then
-            echo "✅ Roadmap phase named." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          {
-            echo "## Roadmap phase missing"
-            echo
-            echo "Name the \`ROADMAP.md\` phase this work belongs to in the PR"
-            echo "title or body — \`Q1\`, \`Q2\`, \`Q3\`, \`Q4\`, or \`N/A\` for"
-            echo "out-of-phase work (production bug, security fix, docs, or a"
-            echo "direct request), with one line saying which."
-            echo
-            echo "| Phase | Window | Theme |"
-            echo "|---|---|---|"
-            echo "| Q1 | Aug–Oct 2026 | Monetization & retention foundation |"
-            echo "| Q2 | Nov 2026 – Jan 2027 | Differentiation & scale foundation |"
-            echo "| Q3 | Feb–Apr 2027 | Mobile & community |"
-            echo "| Q4 | May–Jul 2027 | Enterprise & scale |"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::error::No roadmap phase (Q1–Q4 or N/A) found in the PR title or body. See ROADMAP.md and the PR template."
-          exit 1
 
   audit:
     if: github.event_name != 'pull_request'

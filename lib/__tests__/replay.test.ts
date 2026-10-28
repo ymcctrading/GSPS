@@ -73,6 +73,24 @@ function risingDaily(count: number, before: string, widen = true): Bar[] {
 }
 
 /**
+ * The rising market up to 13 sessions before DAY, then 13 sessions drifting up
+ * off its last bottom without crossing a top: that bottom is two weeks old by
+ * DAY, as a double bottom needs ("weeks ... apart", W006 p.20), and untested,
+ * so the continuation rests its buy at it.
+ */
+function risingToAgedBottom(): Bar[] {
+  const end = new Date(`${DAY}T00:00:00Z`).getTime();
+  const base = risingDaily(290, new Date(end - 13 * 86_400_000).toISOString().slice(0, 10));
+  let c = base[base.length - 1].c;
+  const tail: Bar[] = [];
+  for (let i = 13; i >= 1; i--) {
+    c += 0.1;
+    tail.push(dayBar(new Date(end - i * 86_400_000).toISOString().slice(0, 10), c, c + 3, c - 3, c));
+  }
+  return [...base, ...tail];
+}
+
+/**
  * The trigger the live scan would arm for DAY. It is computed here with the
  * rule `lib/scanTicker.ts` arms by (`reversionEntry`), so every assertion below checks
  * the replay against production's rule rather than against a hand-copied
@@ -672,10 +690,10 @@ describe("replay continuation setups", () => {
   });
 
   it("buys a continuation at an old bottom when that is the nearer buying point", () => {
-    // Three sessions later the reaction sits nearer the last bottom than any
+    // Two weeks off the last bottom the reaction sits nearer it than any
     // crossing, so the continuation, like the live scan's, rests at the bottom
     // (PLAN.md item 5, step 2).
-    const later = risingDaily(303, DAY);
+    const later = risingToAgedBottom();
     const sel = selectGannEntry(entryChartBars(later, DAY), "bullish")!;
     expect(sel.kind).toBe("oldLevel");
     const L = sel.level;
@@ -751,7 +769,7 @@ describe("replay usePlanLevels (the production plan's bracket)", () => {
     // A buy resting at an old bottom, with nothing to cross, so the breakaway
     // volume rule does not hold it (A-VOLUME-10). The quiet candle reacts back
     // to the entry, then the run goes on.
-    const later = risingDaily(303, DAY);
+    const later = risingToAgedBottom();
     const L = selectGannEntry(entryChartBars(later, DAY), "bullish")!.level;
     const hold = Array.from({ length: 44 }, (_, i) => {
       const c = L + 2 + [0, 0.2, 0.4, 0.2][i % 4];

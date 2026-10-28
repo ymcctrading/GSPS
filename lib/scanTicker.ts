@@ -200,6 +200,18 @@ export async function scanTicker(
     const sessions = daily.filter((b) => b.t.slice(0, 10) < sessionDay);
     // The replay's session date, at noon UTC (`buildMacroContext`'s asOf).
     const sessionNoon = new Date(`${sessionDay}T12:00:00Z`);
+    // Gann judged his daily, weekly and monthly charts after the close and kept
+    // away from the ticker (*Truth of the Stock Tape* pp.5-7, 76-82; *Wall
+    // Street Stock Selector* pp.41-42), and timed the entry in the session on
+    // the plan's own levels (W006 Rule 3, pp.46-47). So every read the
+    // replay's `buildMacroContext` takes at one price (the lattice levels and
+    // targets, the S/R band, the angles, the square, the range divisions, the
+    // pillar facts) is read here at the last completed session's close, the
+    // price the replay reads, not the quote: the plan and its score hold still
+    // through the session (2026-10-28). Before, they moved with each quote and
+    // the replay never measured what the page showed. The quote still decides
+    // what is timed in the session: the stop breach, ready-now and resting.
+    const planPrice = sessions[sessions.length - 1]?.c ?? currentPrice;
     const monthlyTrend = readTrend(charts.monthly, "1Month");
     const weeklyTrend = readTrend(charts.weekly, "1Week");
     const dailyTrend = readTrend(charts.daily, "1Day");
@@ -222,8 +234,8 @@ export async function scanTicker(
     const hourlyTrend = readTrend(hourly, "1Hour");
 
     // ---- Gann structures (anchored on the daily chart)
-    const fanLines = computeFanLines(charts.daily, currentPrice);
-    const s9 = recentSquareOf9Levels(charts.daily, currentPrice).slice(0, 12);
+    const fanLines = computeFanLines(charts.daily, planPrice);
+    const s9 = recentSquareOf9Levels(charts.daily, planPrice).slice(0, 12);
     const cycles = timeCycles(sessions, sessionNoon);
     // The yearly cycles need the 10-year monthly chart; the daily read above
     // only reaches the day-count wheel. See yearCycleConvergence.
@@ -231,24 +243,24 @@ export async function scanTicker(
     // (`yearCycleHitsAt`): not the provider's month in progress, and not the
     // wall clock, whose UTC month runs ahead of the ET session in the evening.
     const yearCycles = yearCycleConvergence(yearCycleMonths(monthlyLong ?? monthly, sessionDay), sessionNoon);
-    const angleSlopes = computeAngleSlopes(sessions, currentPrice);
+    const angleSlopes = computeAngleSlopes(sessions, planPrice);
     // Gann's squaring of price and time, replacing timeCycle — same anchors
     // as angleSlopes, a different (raw count-for-count) construction.
-    const timePriceSquare = computeTimePriceSquare(sessions, currentPrice);
+    const timePriceSquare = computeTimePriceSquare(sessions, planPrice);
     // Volume climax at the same pivots, replacing harmonicProximity.
     // Completed sessions and months only, and the smallest month in years (A-VOLUME-09).
     const volumeClimax = computeVolumeClimax(sessions, undefined, { asOf: sessionNoon, monthly });
     // Gann's "boiling point" blow-off duration off the same climax anchors,
     // added 2026-09-16 — confluence/context only, see lib/gann/boilingPoint.ts.
     const boilingPoint = computeBoilingPoint(sessions, volumeClimax);
-    const retracementLevels = computeRetracementLevels(charts.daily, currentPrice);
+    const retracementLevels = computeRetracementLevels(charts.daily, planPrice);
     // Digital-root/vortex confluence off the same anchors angleSlopes reads —
     // confluence/context only (blueprint 7.4): score.ts's gannRetracementConfluence
     // shows it on the card and no longer ANDs it in (fork FL5 a, 2026-10-16).
     // See lib/gann/digitalRoot.ts's priceTimeConfluence.
     const digitalRootConfluences = angleSlopes
       .map((r) => {
-        const confluence = priceTimeConfluence(currentPrice, r.anchorPrice, r.barsSinceAnchor);
+        const confluence = priceTimeConfluence(planPrice, r.anchorPrice, r.barsSinceAnchor);
         return confluence && { anchorKind: r.anchorKind, ...confluence };
       })
       .filter((v): v is NonNullable<typeof v> => v !== null);
@@ -420,7 +432,7 @@ export async function scanTicker(
       trends: { daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend },
       charts,
       campaign: campaignLedger,
-      price: currentPrice,
+      price: planPrice,
       asOf: sessionNoon,
       companyName: instrumentReference?.name ?? null,
     });
@@ -432,7 +444,7 @@ export async function scanTicker(
     // The structural proximity criteria are measured in multiples of this
     // symbol's own daily range, so "near a level" is the same fraction of a
     // day's move on a utility as on a high-beta name.
-    const atrPct = atrPercentOfPrice(recentAtr, currentPrice);
+    const atrPct = atrPercentOfPrice(recentAtr, planPrice);
 
     let levels: TradeLevels | null = null;
     let levelsError: string | undefined;
@@ -453,11 +465,11 @@ export async function scanTicker(
         levelsError = err instanceof Error ? err.message : String(err);
       }
     }
-    const srBandPct = levelBandPct(currentPrice);
+    const srBandPct = levelBandPct(planPrice);
     // The nearest in-band level on each side (support below, resistance
     // above); the score reads the one of its direction's role
     // (`srMatchForSide`), as the replay does.
-    const srMatches = nearestLevelMatchByRole(currentPrice, allLevels, srBandPct);
+    const srMatches = nearestLevelMatchByRole(planPrice, allLevels, srBandPct);
     const nearSupportResistance = srMatches.support !== null || srMatches.resistance !== null;
 
     // The bars above are what the verdict is computed on, and on the free feed
@@ -511,7 +523,7 @@ export async function scanTicker(
       : marketDaily
         ? { sharesOutstanding: null, inception: null, marketDaily, monthly: charts.monthly, monthlyLong, marketMonthly }
         : null;
-    const disclosedRules = readDisclosedRules(charts.daily, currentPrice, instrumentFacts, sessionNoon, new Date());
+    const disclosedRules = readDisclosedRules(charts.daily, planPrice, instrumentFacts, sessionNoon, new Date());
     const pillarFacts = readPillarFacts({
       rules: disclosedRules,
       daily: charts.daily,
@@ -520,7 +532,7 @@ export async function scanTicker(
       universe: assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
       oldLevels: structural.old,
       yearCountMonthly: monthlyYearCount ?? monthlyLong ?? null,
-      price: currentPrice,
+      price: planPrice,
       // The session's noon UTC, as the replay reads it: the wall clock cut to
       // a UTC date runs a day ahead after 8 PM New York time and reads the
       // month in progress as closed on its last evening (review finding F-03).
@@ -564,7 +576,7 @@ export async function scanTicker(
           nearSupportResistance,
           srMatch: (() => {
             const m = srMatchForSide(srMatches, scoreDirection);
-            return m && { ...m, role: levelRole(currentPrice, m.price), testCount: countLevelTests(sessions, m.price, srBandPct) };
+            return m && { ...m, role: levelRole(planPrice, m.price), testCount: countLevelTests(sessions, m.price, srBandPct) };
           })(),
           pattern,
           gannTrigger,

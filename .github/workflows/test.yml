@@ -1,19 +1,29 @@
 name: Tests
 
-# Branch pushes trigger this, not just PRs and `main`.
+# Runs on pull requests and on `main`, not on every branch push (owner,
+# 2026-10-28: Actions minutes). A push to a branch with an open PR used to run
+# this twice, once for each event, about 60% of the test minutes in the week
+# measured. Every PR opened through the GitHub App API since has had its
+# `pull_request` run scheduled, which was the reason branch pushes were added.
+# A branch with no PR yet gets no run; each session runs the suite before it
+# opens one.
 #
-# The `pull_request` event does not always produce a run: a PR opened through
-# the GitHub App API can be created without Actions ever scheduling one, which
-# leaves a branch with no CI signal at all and nothing the author can do about
-# it from a shell. A `push` trigger is not subject to that, so every branch gets
-# checked on the way up rather than only once a PR event happens to fire.
-#
-# The cost is that a push to a branch with an open PR runs this twice — once for
-# each event. The concurrency group below cancels a superseded run when commits
-# land in quick succession, which is where the real waste was.
+# Two more skips, same reason: a draft PR runs nothing until it is marked
+# ready, and a change to Markdown only (any `.md` file but the two public docs
+# the banned-terms gate reads) runs nothing, since no test reads one. Not all
+# of `docs/`: criteria-gate.test.ts reads the committed runs in
+# docs/replay-runs/*.json.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Later patterns override earlier ones (GitHub's `paths` filter).
+    paths:
+      - '**'
+      - '!**/*.md'
+      - 'README.md'
+      - 'FEATURES.md'
   push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -22,6 +32,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     name: Unit tests
 
@@ -67,3 +78,9 @@ jobs:
       # sharing a numeric prefix, where apply order was ambiguous and one
       # was silently skipped in production. See scripts/check-migrations.mjs.
       - run: npm run check:migrations
+
+      # The banned-terms gate, folded in from its own workflow (2026-10-28):
+      # a second job paid for its own runner minute to run one script that
+      # takes seconds. It needs no install, so it runs on what is here.
+      - name: Check for banned terms
+        run: node scripts/check-banned-terms.mjs

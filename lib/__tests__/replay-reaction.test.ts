@@ -80,6 +80,25 @@ function fallingHistory(count: number, before: string, start = 300): Bar[] {
 }
 
 /**
+ * The falling market ending on a bottom, then a slow 13-session rally off it
+ * that stays under the last rally top: the bottom is two weeks old by the
+ * session after the last bar, as a double bottom needs ("weeks ... apart",
+ * W006 p.20), and untested, so it is the resting buy.
+ */
+function fallingToAgedBottom(before: string, start = 3000): Bar[] {
+  const end = new Date(`${before}T00:00:00Z`).getTime();
+  const fall = fallingHistory(286, new Date(end - 13 * 86_400_000).toISOString().slice(0, 10), start);
+  let c = fall[fall.length - 1].c;
+  const rally: Bar[] = [];
+  for (let i = 13; i >= 1; i--) {
+    c *= 1.0003;
+    const t = `${new Date(end - i * 86_400_000).toISOString().slice(0, 10)}T00:00:00Z`;
+    rally.push({ t, o: c, h: c * 1.002, l: c * 0.998, c, v: 1000 });
+  }
+  return [...fall, ...rally];
+}
+
+/**
  * The last day trades back down to the latest completed bottom and closes
  * where it opened, so that bottom has had its test and is not a resting buy
  * (PLAN.md item 5, step 2). The crossing is then the only buying point, which
@@ -309,9 +328,9 @@ describe("replay entryRule: reaction on a level the daily chart already crossed"
 
 
 describe("replay entryRule: reaction at an old bottom (double or triple bottom)", () => {
-  // The falling fixture's latest bottom is untested, so it is the nearer
-  // buying point and the order rests at it.
-  const DAILY = fallingHistory(300, DAY, 3000);
+  // The falling fixture's latest bottom is untested and two weeks old, so it
+  // is the nearer buying point and the order rests at it.
+  const DAILY = fallingToAgedBottom(DAY);
   const T = selectGannEntry(DAILY, "bullish")!;
   const L = T.level;
   const P = gannThreePoints(L);

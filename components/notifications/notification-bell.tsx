@@ -40,6 +40,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<InboxNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [pushOff, setPushOff] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const fetchInbox = useCallback(async () => {
@@ -96,6 +97,26 @@ export function NotificationBell() {
       // the next poll, which is a correct (if slightly stale) recovery.
     });
   }
+
+  // Alerts come to the phone by push, not email, so a member without push on
+  // this browser is pointed to the switch (2026-10-28). Read when the menu
+  // opens; a browser with no push support is never asked.
+  useEffect(() => {
+    if (!open) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
+    if (Notification.permission === "denied") return;
+    let cancelled = false;
+    navigator.serviceWorker
+      .getRegistration("/")
+      .then((registration) => registration?.pushManager.getSubscription() ?? null)
+      .then((subscription) => {
+        if (!cancelled) setPushOff(subscription == null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -154,6 +175,15 @@ export function NotificationBell() {
               ))
             )}
           </div>
+          {pushOff && (
+            <Link
+              href="/settings#notifications"
+              onClick={() => setOpen(false)}
+              className="block border-t border-border px-3 py-2 text-xs text-accent hover:bg-background"
+            >
+              Get these on your phone: turn on alerts for this device. On iPhone, add GSPS to your Home Screen first.
+            </Link>
+          )}
         </div>
       )}
     </div>

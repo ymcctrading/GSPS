@@ -12,7 +12,11 @@
  *
  * The reports themselves are pure (`lib/reports/eveningReport.ts`); this route
  * reads the stored plans, focus list and intraday notices, the day's bars, and
- * sends. `?dry=1` returns both reports as text without sending.
+ * sends. `?dry=1` returns both reports as text without sending. `?late=1`
+ * (owner, 2026-10-28, after gsps.world's suspension held the first evening's
+ * send past midnight: "Send the email now") sends the last session's reports
+ * after its evening has passed, while the next session has not yet closed; the
+ * scheduled runs never pass it.
  *
  * Returns rather than drains (AGENTS.md, "Cycles as architecture"): each
  * evening reads its own session, so a missed evening is simply missed, never
@@ -155,6 +159,7 @@ export async function GET(req: NextRequest) {
   const marks: Record<string, number> = {};
   const mark = (k: string) => (marks[k] = Date.now() - startedAt);
   const dry = req.nextUrl.searchParams.get("dry") === "1";
+  const late = req.nextUrl.searchParams.get("late") === "1";
   const now = new Date();
   const provider = getMarketDataProvider();
   if (syntheticDataRefusal("build the evening report", provider)) {
@@ -166,7 +171,7 @@ export async function GET(req: NextRequest) {
   const forDate = etDateKey(nextClose(now));
   // Only on the evening of the session itself: after a holiday the last close
   // is an earlier session, already reported (Resend's keys last 24 hours).
-  if (etDateKey(now) !== basisDate) {
+  if (etDateKey(now) !== basisDate && !late) {
     return NextResponse.json({ sent: false, reason: `No session closed today (${etDateKey(now)}); ${basisDate} was reported on its own evening.` }, { status: 202 });
   }
   const service = createServiceClient();

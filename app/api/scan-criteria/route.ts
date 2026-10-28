@@ -9,10 +9,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { SECTORS } from "@/lib/sectors";
+import { isIndustryKey } from "@/lib/universe/industries";
 
 const SaveCriteriaSchema = z.object({
   name: z.string().min(1).max(60),
-  sectorKeys: z.array(z.string()).max(50).default([]),
+  sectorKeys: z.array(z.string()).max(120).default([]),
   customSymbols: z.string().max(2000).default(""),
 });
 
@@ -31,7 +32,9 @@ export async function POST(req: NextRequest) {
   }
   const input = parsed.data;
 
-  const sectorKeys = input.sectorKeys.filter((key) => key in SECTORS);
+  // A saved search names industries (`lib/universe/industries.ts`) or one of
+  // the older curated lists, which still resolve.
+  const sectorKeys = input.sectorKeys.filter((key) => isIndustryKey(key) || key in SECTORS);
   if (sectorKeys.length === 0 && input.customSymbols.trim() === "") {
     return NextResponse.json(
       { error: "Pick at least one industry or enter a symbol before saving." },
