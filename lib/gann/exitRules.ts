@@ -72,8 +72,9 @@
  *   culmination of the swing: the trade leaves ("exhaust_gap", *Commodities*
  *   pp.319-320). It takes the trade off without reversing it.
  * - **M-T10 boiling point** (added 2026-10-22). Once the weekly chart's run in
- *   the trade's direction has run 6 weeks, the stop trails 10 Gann points
- *   from the best price (*Stock Selector* Ch. V). Reported as "boiling_point".
+ *   the trade's direction has run 6 weeks, the stop trails his 10 points,
+ *   read at his Rumely price (`BOILING_POINT_TRAIL_POINTS`), from the best
+ *   price (*Stock Selector* Ch. V). Reported as "boiling_point".
  *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
@@ -141,6 +142,19 @@ export function failedTopWindow(daily: Bar[], upTo: number): Bar[] {
 
 /** Gann's final stage: the 3rd section of a campaign or later. */
 export const FINAL_STAGE_SECTION = 3;
+
+/** The price of his worked boiling-point stop: Advance Rumely, 105 in May 1929, "a 10-point stop (out at 95)". */
+export const BOILING_POINT_EXAMPLE_PRICE = 105;
+/**
+ * M-T10's trail: his 10 points read at the price he worked them at, 10 /
+ * `gannPoint(105)`, about 5.9 Gann points (*Wall Street Stock Selector*
+ * Ch. V; *Truth of the Stock Tape*, W005, Advance Rumely). Corrected
+ * 2026-10-28 (alignment audit, `score-and-levels.md`): it was 10 Gann
+ * points, about 17 dollars at 105 and 25 at 200, where his rule trails a raw
+ * 10 at 100-260. His point scale already grows with price (`pointScale.ts`),
+ * so a figure he gave at 105 is read at 105.
+ */
+export const BOILING_POINT_TRAIL_POINTS = 10 / gannPoint(BOILING_POINT_EXAMPLE_PRICE);
 
 export interface GannExitPosition {
   side: "long" | "short";
@@ -547,17 +561,16 @@ export function readGannExit(
   // trailing stop (*Wall Street Stock Selector* Ch. V; the 6-7 week panic
   // that ends a bear campaign is the mirror). Once the weekly swing chart's
   // run in the trade's direction has run 6 weeks (`CLASSIC_MIN_WEEKS`, the
-  // start of his 6-7 week window), the stop trails 10 Gann
-  // points from the best price. Engineering choice, labelled: the run is the
-  // weekly chart's from its last swing extreme (`computeRunBoilingPoint`),
-  // whether or not it was fast; Gann gives no speed for "fast". His Rumely
-  // example trails a raw 10 points at about $100; it is read here as 10 Gann
-  // points (`pointScale.ts`), where A-STOP-04's final-stage trail reads his
-  // "10 at high levels" as 5. Both price-scaled, both engineering readings.
+  // start of his 6-7 week window), the stop trails his 10 points from the
+  // best price, `BOILING_POINT_TRAIL_POINTS` Gann points. Engineering choice,
+  // labelled: the run is the weekly chart's from its last swing extreme
+  // (`computeRunBoilingPoint`), whether or not it was fast; Gann gives no
+  // speed for "fast".
   if (best !== null) {
     const run = runBoilingPointFromPivots(daily, weekly.pivots);
     if (run && run.run === (long ? "up" : "down") && run.weeksSinceStart >= CLASSIC_MIN_WEEKS) {
-      adopt(long ? best - 10 * gannPoint(best) : best + 10 * gannPoint(best), "boiling_point");
+      const trail = BOILING_POINT_TRAIL_POINTS * gannPoint(best);
+      adopt(long ? best - trail : best + trail, "boiling_point");
     }
   }
 

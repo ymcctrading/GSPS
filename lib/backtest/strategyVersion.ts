@@ -877,4 +877,18 @@
 // replays now read the prior session's daily close, not the last 15-minute
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
-export const STRATEGY_VERSION = "2026-10-28-plan-at-close-on-plan-expiry";
+// (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-gann-figures-at-his-price (alignment audit, score-and-levels.md):
+// three figures Gann gave at a stated price are read at that price on his
+// point scale. The re-buy's reaction is his 12 points at about 230 (W022
+// p.198: re-bought at 218, stop 212), about 4.4 Gann points, not 12. The
+// boiling point trails his 10 points at Advance Rumely's 105 (W005, "out at
+// 95"), about 5.9 Gann points, not 10. A narrow range is at most 4 of his
+// points (4/3 of the 3-point allowance), his widest dated narrow range
+// (Master Course pp. 246-248), not 3 allowances; the range a market is
+// leaving is still read during the leg out of it (`narrowRangeBeforeLeg`),
+// so the breakaway's volume rule is still asked. Random walks (20 a price,
+// +-2% a day), armed long entries held by the breakaway before -> after:
+// $20 43.3 -> 23.3%, $150 23.4 -> 0.6%, $500 4.6 -> 0.0% (no drift).
+// Verdicts and replay trades move; Execute and the 7/4 cutoffs need a run.
+export const STRATEGY_VERSION = "2026-10-28-gann-figures-at-his-price";

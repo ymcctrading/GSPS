@@ -1248,6 +1248,27 @@ Gann never gave; built as context and the factor `dominantCycleWithTrade`
 against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
 
+**Gann's figures read at his price, 2026-10-28 (alignment audit,
+`/mnt/project-files/gann-alignment-audit/score-and-levels.md`).** Three figures
+Gann gave at a stated price had been ported as that many Gann points, which
+already grow with price (`pointScale.ts`), so each ran about two to three times
+his own. The re-buy after a stop rests his 12 points under the best price read
+at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
+about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
+at Advance Rumely's 105 ("a 10-point stop, out at 95", W005), about 5.9 Gann
+points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
+points (56-60 in 1898; 2 and 2½ on the Rails, Master Course pp. 246-248), 4/3
+of the 3-point allowance (`NARROW_RANGE_ALLOWANCES`, was 3, held for the owner
+until now and answered from Gann); the range a market is leaving stays read
+during the leg out of it (`narrowRangeBeforeLeg`), since the walk from its top
+to the crossing line is wider than narrow, so the breakaway's volume rule is
+still asked. Random walks, armed long entries held by the breakaway: $20 43% →
+23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
+a number at a price, divide it by `gannPoint` at that price; only his "3 points"
+(the scale's own anchor) and figures he states across price bands are read as
+Gann points directly. `STRATEGY_VERSION` is `2026-10-28-gann-figures-at-his-price`;
+Execute and the 7/4 cutoffs need a fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

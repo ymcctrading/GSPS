@@ -20,9 +20,9 @@
  *   which is true of about half the readings of a steadily rising random walk
  *   (46% at +0.2% a day) and of most turns; Gann's rule is for a market held
  *   in a narrow range for weeks, and this module's volume half already read
- *   it that way. The width is `NARROW_RANGE_ALLOWANCES`, an engineering
- *   figure; Gann gives none (his dated ranges, 2 points on the 1897 Rails,
- *   2½ on the 1911 Rails, 56-60 in 1898, all sit inside it).
+ *   it that way. The width is `NARROW_RANGE_ALLOWANCES`, his widest dated
+ *   narrow range (4 points, 56-60 in 1898; 2 on the 1897 Rails, 2½ on the
+ *   1911 Rails) in his 3-point allowances.
  * - The narrow range is counted back from the latest session (2026-10-21,
  *   the 2-6 week case): Gann's "2 to 6 weeks or 10 to 13 weeks in a narrow
  *   range, then crossing the tops or breaking the bottoms of the previous
@@ -108,7 +108,7 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   // any market whose trend is unconfirmed (2026-10-21): the same narrow
   // sessions `breakawayVolumeMet` reads, counted back from the latest, at
   // least Gann's two weeks of them.
-  const range = narrowRangeSessions(
+  const range = narrowRangeBeforeLeg(
     daily.filter((b) => {
       const t = Date.parse(b.t);
       return t >= cutoff && t < end;
@@ -118,9 +118,11 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
     return { rangeBound: false, rangeHigh: null, rangeLow: null, breaksAway: true };
   }
   const from = Date.parse(range[0].t);
+  // The range's own sessions: a leg out of it (`narrowRangeBeforeLeg`) is the breakaway's move.
+  const to = Date.parse(range[range.length - 1].t);
   const pivots = swingPivots(daily, trigger?.swingDays ?? 3).filter((p) => {
     const t = Date.parse(daily[p.index].t);
-    return t >= from && t < end;
+    return t >= from && t <= to && t < end;
   });
   const tops = pivots.filter((p) => p.kind === "top").map((p) => p.price);
   const bottoms = pivots.filter((p) => p.kind === "bottom").map((p) => p.price);
@@ -182,7 +184,7 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
   if (!direction) return null;
   const cutoff = Date.parse(prior[prior.length - 1].t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
   // The same narrow range `readBreakaway` read (review 20): a wide one is not one.
-  const sessions = narrowRangeSessions(prior.filter((b) => Date.parse(b.t) >= cutoff));
+  const sessions = narrowRangeBeforeLeg(prior.filter((b) => Date.parse(b.t) >= cutoff));
   if (!sessions) return null;
   const mean = sessions.reduce((s, b) => s + b.v, 0) / sessions.length;
   if (!(mean > 0)) return null;
@@ -213,12 +215,16 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
 /** Fewer completed sessions than this before the crossing are not read as a range. */
 export const MIN_RANGE_SESSIONS = 10;
 /**
- * A range wider than this many 3-point allowances at its low is not "narrow"
- * (Gann gives no width; an engineering figure, labelled; batch review A2).
- * Wider than `NARROW_SPELL_ALLOWANCES`, because a range of up to 13 weeks is
- * longer than the distribution spell.
+ * A range wider than this many 3-point allowances at its low is not "narrow".
+ * Gann states no width, but every range he dates as narrow is 2 to 4 points:
+ * 2 on the 1897 Rails, 2½ on the 1911 Rails, 56-60 in 1898 (Master Course
+ * pp. 246-248), all on prices of about $50-100, where his allowance is 3
+ * points. So the widest he calls narrow is 4 of his points, 4/3 of the
+ * allowance. Corrected 2026-10-28 (alignment audit, `score-and-levels.md`):
+ * it was 3 allowances (9 points at $42.50), wider than any range he calls
+ * narrow, so wide markets read as held in a range.
  */
-export const NARROW_RANGE_ALLOWANCES = 3;
+export const NARROW_RANGE_ALLOWANCES = 4 / 3;
 
 /** The range's span is within `NARROW_RANGE_ALLOWANCES` 3-point allowances at its low. */
 export function isNarrowRange(range: Bar[]): boolean {
@@ -254,6 +260,31 @@ export function narrowRangeSessions(sessions: Bar[]): Bar[] | null {
   return sessions.length - start >= MIN_RANGE_SESSIONS ? sessions.slice(start) : null;
 }
 
+/**
+ * The narrow range a market is in, or the one it is leaving: the run
+ * `narrowRangeSessions` reads at the end of `sessions`, or, when the latest
+ * sessions have already left it, the latest narrow run whose following
+ * sessions all closed beyond its top, or all beyond its bottom (the leg out of
+ * the range). With the width at Gann's widest narrow range (4 of his points),
+ * the walk from the range's top to its 3-point crossing line is itself wider
+ * than narrow, so without this the range would be lost the day before the
+ * crossing and the breakaway's volume rule would never be asked. Gann reads the
+ * range the market breaks out of, "the tops of the previous weeks" (Master
+ * Course pp. 246-248), not the sessions of the breakout itself.
+ */
+export function narrowRangeBeforeLeg(sessions: Bar[]): Bar[] | null {
+  for (let j = sessions.length; j >= MIN_RANGE_SESSIONS; j--) {
+    const run = narrowRangeSessions(sessions.slice(0, j));
+    if (!run) continue;
+    if (j === sessions.length) return run;
+    const high = Math.max(...run.map((b) => b.h));
+    const low = Math.min(...run.map((b) => b.l));
+    const leg = sessions.slice(j);
+    return leg.every((b) => b.c > high) || leg.every((b) => b.c < low) ? run : null;
+  }
+  return null;
+}
+
 export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish", line: number): boolean {
   const up = direction === "bullish";
   const beyond = (b: Bar) => (up ? b.c >= line : b.c <= line);
@@ -274,7 +305,7 @@ export function breakawayVolumeMet(chart: Bar[], direction: "bullish" | "bearish
   const from = Date.parse((k === -1 ? chart[end - 1] : chart[k]).t) - BREAKAWAY_RANGE_DAYS * DAY_MS;
   // Gann's rule is for narrow ranges held for weeks: a wide one has no volume
   // condition. The range is `readBreakaway`'s, counted back from the crossing.
-  const range = narrowRangeSessions(prior.filter((b) => Date.parse(b.t) >= from));
+  const range = narrowRangeBeforeLeg(prior.filter((b) => Date.parse(b.t) >= from));
   if (!range) return true;
   if (k === -1) return false;
   const mean = range.reduce((s, b) => s + b.v, 0) / range.length;
