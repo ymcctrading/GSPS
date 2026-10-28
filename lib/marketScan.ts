@@ -48,6 +48,8 @@ import { fetchMostActives } from "@/lib/data/alpaca";
 import { readTrend } from "@/lib/analysis/trend";
 import { rangeMidpoint } from "@/lib/gann/retracement";
 import { etDateKey } from "@/lib/market/session";
+import { discoverUniverse, type DiscoveryReading } from "@/lib/scanner/discovery";
+import { resolveFeedPolicy } from "@/lib/data/timeliness";
 import { atr } from "@/lib/analysis/pivots";
 import { computeFanLines } from "@/lib/gann/fans";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
@@ -721,6 +723,12 @@ export interface MarketScanOutput {
    * lib/entitlements/scheduled-scan.ts).
    */
   fullScanResults: ScanResult[];
+  /**
+   * Shadow only (`lib/scanner/discovery.ts`): stocks the session has made
+   * active, most worth examining first. Never read by the lists, a score, a
+   * plan or an order; empty when the coarse daily batch was not read.
+   */
+  shadowDiscovery: DiscoveryReading[];
 }
 
 /**
@@ -1250,6 +1258,21 @@ export async function runMarketScan(
     }
   });
   mark("coarse scoring done");
+  // Shadow discovery (`lib/scanner/discovery.ts`): which stocks the session
+  // has made active, read from the daily bars the coarse pass already holds,
+  // observed through the fetch's end (now less the feed's delay). Shadow only:
+  // nothing below reads it; it is returned and logged so its selections can
+  // be compared with the live lists before anything acts on it.
+  let shadowDiscovery: DiscoveryReading[] = [];
+  if (dailyBatch) {
+    const discoveryStarted = Date.now();
+    const delayMs = resolveFeedPolicy({ assetClass: "us_equity", isLive: true, source: "alpaca", env: process.env }).contractualDelayMs;
+    const evaluatedAt = new Date();
+    // The fetch ended at `end`; with no feed delay the session is observed through that end too.
+    const observedThrough = new Date(Math.min(end.getTime(), evaluatedAt.getTime() - delayMs));
+    shadowDiscovery = discoverUniverse(dailyBatch, { evaluatedAt, observedThrough, delayMs });
+    mark("shadow discovery", `${shadowDiscovery.length} stocks in ${Date.now() - discoveryStarted}ms`);
+  }
   const selection = new Map(
     coarse
       .filter((c) => c.reversion !== null)
@@ -1519,5 +1542,7 @@ export async function runMarketScan(
     continuationSkipped,
     equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
+    /** Shadow only: never read by the lists, a score, a plan or an order. */
+    shadowDiscovery,
   };
 }

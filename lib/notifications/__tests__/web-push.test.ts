@@ -134,3 +134,12 @@ describe("sendPushToProfile", () => {
     expect(result).toEqual({ success: false, error: "403: Unauthorized" });
   });
 });
+
+describe("priceAlertPushMessage: the feed's delay (DATA-DELAY-001)", () => {
+  it("says an equity's price is delayed, and says nothing for a real-time read", () => {
+    const base = { symbol: "TSLA", direction: "below" as const, targetPrice: 200, currentPrice: 199 };
+    expect(priceAlertPushMessage({ ...base, delayMinutes: 15 }).body).toContain("Equity prices are delayed by 15 minutes.");
+    expect(priceAlertPushMessage({ ...base, delayMinutes: 0 }).body).not.toContain("delayed");
+    expect(priceAlertPushMessage(base).body).not.toContain("delayed");
+  });
+});

@@ -24,7 +24,7 @@
  * reading, shown side by side rather than interleaved by score.
  */
 
-import { ResultsTable, RESTING_NOTE, type ScanRow } from "@/components/scan/results-table";
+import { ResultsTable, RESTING_NOTE, WATCH_NOTE, type ScanRow } from "@/components/scan/results-table";
 import { restingInputOfRow, setupTier, type SetupTier } from "@/lib/setups/resting";
 
 type Side = "buy" | "sell";
@@ -44,7 +44,7 @@ const TIERS: { tier: Exclude<SetupTier, "Reject">; title: string; note: string }
   {
     tier: "Watch",
     title: "Watch",
-    note: "Worth watching, but still short of a condition. Not a trade yet.",
+    note: WATCH_NOTE,
   },
 ];
 
@@ -106,7 +106,7 @@ export function ManualScanResults({
                   <p className="mb-1 text-xs text-muted">{note}</p>
                   <ResultsTable
                     rows={group}
-                    restingHeading={false}
+                    tierHeadings={false}
                     exactScoreDisplayEnabled={exactScoreDisplayEnabled}
                   />
                 </div>

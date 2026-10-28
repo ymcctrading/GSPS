@@ -3525,9 +3525,10 @@ held/advanced 3-4 months from it", retired "when exceeded by 3 points"; GA-9 the
 same for tops); it read the latest pivot however young. Random walks (20 a
 price, long/short): no drift $150 46.6/55.4 → 44.0/55.0%, $500 56.8/64.4 →
 52.8/58.6%; +0.05% a day $500 73.8/36.8 → 69.8/32.8%. "3-4 months" read as 3 is
-an engineering choice, labelled. `STRATEGY_VERSION` is
+an engineering choice, labelled. `STRATEGY_VERSION` was
 `2026-10-28-three-closes-angle-origin`; P6, Execute and the 7/4 cutoffs need a
-fresh run on it.
+fresh run on it. Merged onto the delayed fill timing (no new rule):
+`STRATEGY_VERSION` is `2026-10-28-angle-origin-on-delayed-fill`.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
@@ -3699,6 +3700,31 @@ These are explicit, user-directed departures from the protocol's real design, ma
 reason and with a stated revert trigger. Read this section every session. When a trigger fires,
 raise it with the user before doing anything else with the affected code — don't silently carry an
 override past the point it was supposed to end.
+
+### Equity data delay and notification freshness (2026-10-28, until real-time data is bought)
+
+Owner directives DATA-DELAY-001 and NOTIFY-FRESHNESS-001. Full record and coverage matrix:
+`docs/DATA_DELAY_AND_FRESHNESS.md`.
+
+- **Time contract.** `lib/data/timeliness.ts` holds the one definition:
+  - a bar's close (the provider stamps the open);
+  - usable = max(close + the feed's delay, receipt);
+  - a decision reads only what was usable at its evaluation clock;
+  - an order fills at the first bar opening at or after the decision.
+- **Where it is wired.**
+  - The intraday scan filters its input (`usableInput`).
+  - Placement and arming read only bars past the delay.
+  - The replays fill late and refuse a fill whose stop traded first (`STRATEGY_VERSION` was `2026-10-28-delayed-fill-timing`; merged onto the midday release as `2026-10-28-delayed-fill-on-midday-release`, no new rule).
+- **Notifications.**
+  - The bell and push read `checkAlertFreshness` at the dispatch clock: actionable, informational or suppressed.
+  - Only actionable wording may say "now" or give an arrival time.
+  - Queued setup deliveries re-read the member's monitor (`supersededHold`).
+  - A new notification path must call the same check.
+- **Revert trigger: a verified real-time feed.**
+  - It needs both `MARKET_DATA_REALTIME=true` and `MARKET_DATA_REALTIME_VERIFIED_AT`, set by an operator after checking a live trade arrives within seconds.
+  - The flag alone reads as delayed.
+  - Never set either without the owner's go-ahead.
+  - Replays keep the contract's delay whatever the environment.
 
 ### Execution timeframe — reverted to 15Min early (2026-09-09 through 2026-09-17)
 

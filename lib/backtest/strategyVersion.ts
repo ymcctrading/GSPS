@@ -956,6 +956,21 @@
 // retest volume (#516), merged together in the 2026-10-28 midday release. No
 // new rule beyond theirs. Execute and the 7/4 cutoffs need a fresh run on it.
 // (was STRATEGY_VERSION "2026-10-28-midday-release")
+// 2026-10-28-delayed-fill-timing (owner, DATA-DELAY-001): no fill before the
+// decision could be acted on. A decision read on a bar is usable at the bar's
+// close plus the feed's contractual delay (15 minutes for equities, none for
+// crypto, `lib/data/timeliness.ts`), so a closed-bar entry fills at the first
+// bar opening at or after that time (`delayedFillIndex`): two 15-minute bars
+// after the signal, not one. A stop traded before that fill refuses it
+// (`delayedRefusals`); reversals and re-buys wait the same way. A resting stop
+// order is held by the broker and fills on its own. Daily replays are
+// unchanged (close + 15 minutes is before the next open). The intraday
+// alerts replay evaluates each scan at close + delay. Verdicts don't move;
+// intraday replay trades do.
+// (was STRATEGY_VERSION "2026-10-28-delayed-fill-timing")
+// 2026-10-28-delayed-fill-on-midday-release: the delayed fill timing (#518)
+// merged onto the midday release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-delayed-fill-on-midday-release")
 // 2026-10-28-three-closes-trend: the Rule of Three check reads the trend the
 // rule leaves standing (the side of the latest run of three closes, held until
 // the opposite run; WSSS p.72, Ch. VI p.125), on the daily chart with neither
@@ -969,4 +984,7 @@
 // month 3 points through it (Master Course Ch. 4, GA-25 to GA-27, GA-9;
 // `monthlyAngleOrigin`); it read the latest pivot however young. P6 and scores
 // move.
-export const STRATEGY_VERSION = "2026-10-28-three-closes-angle-origin";
+// (was STRATEGY_VERSION "2026-10-28-three-closes-angle-origin")
+// 2026-10-28-angle-origin-on-delayed-fill: the Rule of Three trend and P6's
+// angle origin merged onto the delayed fill timing. No new rule.
+export const STRATEGY_VERSION = "2026-10-28-angle-origin-on-delayed-fill";
