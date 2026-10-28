@@ -30,7 +30,9 @@
  *   bar on it (±1 day) has the highest high (lowest low) of the five
  *   sessions around it, read only once two sessions have followed it.
  *
- * All context and measured factors only. These are periodicity claims, and
+ * Context and measured factors, except that the Square of 144 in time and the
+ * 7th/14th/21st day open windows in the time-window hold
+ * (`countWindows.ts`, since 2026-10-27). These are periodicity claims, and
  * none has cleared Dewey's checklist (C05/C06): the replay's factor table is
  * the base-rate test (M4/M6) they have to pass first.
  *

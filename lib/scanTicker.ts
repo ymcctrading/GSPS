@@ -60,6 +60,8 @@ import {
   applyMonthlyBreakHold,
   applyDataLagHold,
   applyStopBreachHold,
+  applyReadyNowHold,
+  indicationShownBy,
   applyStandAsideHold,
   computeScore,
   srMatchForSide,
@@ -527,7 +529,7 @@ export async function scanTicker(
       return windowTurnRead.turn;
     };
 
-    const decision = withDecisionState(applyStandAsideHold(applyStopBreachHold(applyDataLagHold(
+    const decision = withDecisionState(applyStandAsideHold(applyStopBreachHold(applyReadyNowHold(applyDataLagHold(
       applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
@@ -570,6 +572,19 @@ export async function scanTicker(
         // A-LEVELS-08: the first and second times through a round number hold.
         figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,
+    ),
+      // Owner, 2026-10-27: Execute only when the plan can be placed today, its
+      // entry within a day's range and its targets ahead of price. Read at the
+      // scan's price and the same day's range the lists read (`dayRange`).
+      {
+        side: scoreDirection === "bearish" ? "sell" : "buy",
+        // With nothing armed on this side, the plan hold (`tradePlanPriced`)
+        // already says so; only a crossing still to close is read here.
+        indicationShown: gannTrigger === null || gannTrigger.direction !== scoreDirection || indicationShownBy(gannTrigger),
+        price: currentPrice,
+        dayRange: recentAtr > 0 ? recentAtr : null,
+        levels,
+      },
     ), stopBreach), standAside), direction);
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer

@@ -41,6 +41,23 @@
  * (Steel's February turns went both ways), so they open for a bottom and a
  * top alike.
  *
+ * Gann's time counts that were read as context only (`countWindows.ts`: the
+ * seasonal sixteenths, the winter-quarter dates, the Ch.5 wheel, the week
+ * counts, the Square of 52, time balance, the 11¼ market days, price read as
+ * time, the square of 90, the year fractions from the low and the high, the
+ * other lessons' cycles, the Square of 144 in time and the 7th/14th/21st
+ * day) open windows here too since 2026-10-27, on the owner's 2026-10-01
+ * decision that every Gann method acts. A count from a pivot opens for a
+ * bottom and a top alike; a turn the source names is held to it. Measured
+ * before wiring (2026-10-27, 942 3-Day Chart turns on 80 random walks at
+ * $20 and $150, no monthly bars or anchors): the hold was already open on
+ * every turn (the yearly and day counts 90%, the Square of Nine's and the
+ * Hexagon's time counts 99% each), and these counts alone on 98%, so on
+ * those walks adding them moves no verdict. The hold selects nothing a
+ * random turn would not meet; held for the owner with P7's saturation
+ * (2026-10-20). The counts cost about 0.7 ms on a 400-session walk, read
+ * only when a counter-trend Execute needs a window.
+ *
  * Three-question basis:
  * 1. Gann: as cited, class A. Jensen's and the planetary readings are the
  *    owner's 2026-10-16 decisions to let them act through this mechanism.
@@ -70,6 +87,7 @@ import { readSquareOfNineTime } from "@/lib/gann/squareOfNineTime";
 import { readHexagonTime } from "@/lib/gann/hexagonTime";
 import { readMasterChartTime } from "@/lib/gann/masterChartTime";
 import { gannPointForBars } from "@/lib/gann/pointScale";
+import { countWindowsAt, fewRepetitionNote } from "@/lib/gann/countWindows";
 
 export interface WindowTurn {
   kind: "bottom" | "top";
@@ -148,7 +166,7 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => 
   // The yearly counts (A-TIME-11's 20 years among them) from the monthly
   // chart's major pivots: the daily year cannot reach them.
   for (const h of yearCycleHits(monthly ?? [], asOf)) {
-    out.push(`${h.years} year${h.years === 1 ? "" : "s"} from the ${h.pivotMonth} major ${h.kind}`);
+    out.push(`${h.years} year${h.years === 1 ? "" : "s"} from the ${h.pivotMonth} major ${h.kind}${fewRepetitionNote(h.years)}`);
   }
   // The great cycles the yearly list lacks (A-TIME-24), from the same pivots.
   for (const h of greatCycleHits(monthly ?? [], asOf)) {
@@ -180,6 +198,14 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => 
     for (const { eclipse, crossing } of eclipseBreakOn(bars, date)) {
       out.push(`${crossing.planet} crossing the ${eclipse.peak.slice(0, 10)} ${eclipse.kind} eclipse's longitude`);
     }
+  }
+  // The counts that were context only (`countWindows.ts`, recheck 2026-10-22).
+  // A count from a pivot opens for a bottom and a top alike, as above; only a
+  // turn the source itself names (the time balance's, the 7th/14th/21st day's)
+  // is held to it.
+  for (const w of countWindowsAt(bars, date, monthly, anchors)) {
+    if (w.turn && w.turn !== kind) continue;
+    out.push(w.label);
   }
   // C-ASTRO-09: a transit to the first-trade chart, chosen on the swings before the turn.
   for (const w of firstTradeWindows(bars, date, anchors?.firstTrade ?? null)) {

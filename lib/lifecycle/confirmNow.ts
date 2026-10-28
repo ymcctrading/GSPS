@@ -335,6 +335,29 @@ const AWAITING_VOLUME: ConfirmationNow = {
 };
 
 /**
+ * Whether the crossing this entry buys is held on the completed daily chart
+ * now: crossed 3 points past, not broken back, not yet bought. The definite
+ * indication is shown, so the plan arms and the order waits for the reaction
+ * (W006 Rules 3(b)-(c) pp.46-47). Fetches the year of sessions and the
+ * monthly chart the scan reads.
+ */
+export async function crossingHeldNow(input: {
+  symbol: string;
+  assetClass: AssetClass;
+  direction: "bullish" | "bearish";
+  entry: number;
+  now: Date;
+}): Promise<boolean> {
+  const year = new Date(input.now.getTime() - 365 * 24 * 3600 * 1000);
+  const provider = getMarketDataProvider();
+  const [daily, monthly] = await Promise.all([
+    provider.fetchBars(input.symbol, "1Day", year, null, input.assetClass),
+    provider.fetchBars(input.symbol, "1Month", monthlyChartFrom(year), null, input.assetClass),
+  ]);
+  return heldOnDailyChart(daily ?? [], input.now, input.direction, input.entry, monthly ?? []);
+}
+
+/**
  * Whether the completed daily bars hold a crossed level whose reaction buy is
  * this entry (to the cent, or 0.1% on a large price). The bar still forming
  * is left out, so an unfinished day can neither cross nor break the level.

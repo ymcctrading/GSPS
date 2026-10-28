@@ -2,14 +2,16 @@
  * Class A time counts, as context only (2026-10-16, the re-check of the held
  * time rules against Gann's own books). Class A means Gann's own text states
  * the rule. Each reading here is a count his books give that GSPS did not yet
- * read, or read under a class C label. None of them gates a verdict, enters a
- * scored criterion, or joins the lists the live readings use (`WHEEL_COUNTS`,
- * `DAY_COUNT_BANDS` and `MAJOR_CYCLE_YEARS` feed `timeCycles()`, which the
- * coarse cycle bonus and the time-window hold read), so adding a count here
- * cannot move a verdict. Each is recorded on every replayed trade as a
+ * read, or read under a class C label. None of them enters a scored
+ * criterion or joins the lists `timeCycles()` reads (`WHEEL_COUNTS`,
+ * `DAY_COUNT_BANDS` and `MAJOR_CYCLE_YEARS`, for the coarse cycle bonus).
+ * Since 2026-10-27 the Ch.5 wheel counts, the week counts, time balance and
+ * the other lessons' cycles also open windows in the time-window hold
+ * (`countWindows.ts`, read by `timeWindow.ts#timeWindowsAt`), where a count
+ * acts only when the market turns on it. Each is recorded on every replayed trade as a
  * context factor (`contextFactors.ts`) and shown in the explanation trace,
  * live and in the replay alike (both read it through `readDisclosedRules`).
- * Promotion past context needs a replay and an owner decision.
+ * The replay's window hold measures them.
  *
  * Sources, per reading (page as the reading notes give it):
  * - Cycles by lesson: see `timeCycles.ts`'s `CYCLE_YEARS_1955` and

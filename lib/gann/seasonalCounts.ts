@@ -39,8 +39,9 @@
  * Sun crosses the equator"), May 6 (135°), June 22, July 7, August 8,
  * September 23, November 8 and December 22. It is a second frame with its own
  * dates (January 5-6, February 5 and July 7 have no March 21 counterpart),
- * so it is kept as its own list (`WINTER_QUARTER_POINTS`) and read as context
- * through `timeCounts.ts`, never ranked into `SEASONAL_POINTS`. The lesson
+ * so it is kept as its own list (`WINTER_QUARTER_POINTS`), never ranked into
+ * `SEASONAL_POINTS`. It and the sixteenths open windows in the time-window
+ * hold (`countWindows.ts`, since 2026-10-27). The lesson
  * gives it no ranking.
  *
  * Engineering choice, labelled as such: "around" is ±`SEASONAL_TOLERANCE_DAYS`.
