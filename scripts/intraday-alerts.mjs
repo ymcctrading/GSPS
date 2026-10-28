@@ -11,6 +11,10 @@
  *   app/api/intraday-focus/route.ts builds it), on the fixed list's single
  *   stocks (`WATCHLIST`, kind equity), and on focus names not on the fixed
  *   list, over the same sessions.
+ * - `lineNotices`: every session a daily plan's crossing line was ahead,
+ *   with its "nearing" and "through the line" notices, judged over the next
+ *   sessions by the close that confirms the crossing
+ *   (lib/backtest/lineNotices.ts), against the base rate of every such session.
  *
  * Research only: nothing here feeds a verdict.
  *
@@ -67,6 +71,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     const { replay } = await server.ssrLoadModule("/lib/backtest/replay.ts");
     const { replayIntradayAlerts, asDailyPlanLevels } = await server.ssrLoadModule("/lib/backtest/replayIntradayAlerts.ts");
     const { summariseAlertTrades } = await server.ssrLoadModule("/lib/backtest/alertSummary.ts");
+    const { summariseLineNotices } = await server.ssrLoadModule("/lib/backtest/lineNotices.ts");
     const { readFocus, rankFocus, FOCUS_SIZE } = await server.ssrLoadModule("/lib/scanner/focusList.ts");
     const { WATCHLIST } = await server.ssrLoadModule("/lib/scanner/intraday.ts");
     const { LARGE_CAP_UNIVERSE } = await server.ssrLoadModule("/lib/scan/large-cap-universe.ts");
@@ -150,6 +155,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     // Pass 2: the session's alerts on five-minute bars.
     const planHeld = [];
     const alerts = [];
+    const lineSessions = [];
     const refused = { planLevelHeld: {}, listed: {} };
     const addRefused = (into, from) => {
       for (const [k, n] of Object.entries(from)) into[k] = (into[k] ?? 0) + n;
@@ -164,8 +170,9 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         pages = Math.max(1, Math.ceil(bars.length / BARS_PER_PAGE));
         const listed = new Set([...walked].filter((d) => fixed.has(symbol) || focusFor.get(d)?.has(symbol)));
         const common = { symbol, kind: "equity", bars, dailyBars: s.daily, monthlyBars: s.monthly, sharesOn: s.sharesOn, plans: s.plans };
-        const held = replayIntradayAlerts({ ...common, sessions: walked, signals: new Set(["plan_level_held"]) });
+        const held = replayIntradayAlerts({ ...common, sessions: walked, signals: new Set(["plan_level_held"]), collectLineNotices: true });
         planHeld.push(...held.trades);
+        lineSessions.push(...(held.lineSessions ?? []));
         addRefused(refused.planLevelHeld, held.refused);
         if (listed.size > 0) {
           const all = replayIntradayAlerts({ ...common, sessions: listed });
@@ -205,7 +212,27 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         focus: summariseAlertTrades(alerts.filter((t) => t.inFocus)),
         fixed: summariseAlertTrades(alerts.filter((t) => t.inFixed)),
         focusOnly: summariseAlertTrades(alerts.filter((t) => t.inFocus && !t.inFixed)),
+        lineNotices: summariseLineNotices(lineSessions),
       },
+      // Each session a line notice fired, for diagnosis.
+      lineNoticeSessions: lineSessions
+        .filter((r) => r.approach || r.crossed)
+        .map((r) => ({
+          symbol: r.symbol,
+          session: r.session,
+          direction: r.direction,
+          verdict: r.verdict,
+          line: r.line,
+          confirmingClose: r.confirmingClose,
+          approachAt: r.approach?.at ?? null,
+          crossedAt: r.crossed?.at ?? null,
+          resolution: r.outcome?.resolution ?? null,
+          complete: r.outcome?.complete ?? null,
+          confirmedAfter: r.outcome?.confirmedAfter ?? null,
+          leadMinutes: r.outcome?.leadMinutes ?? null,
+          bestPtsAfterNotice: r.outcome?.fromNotice?.bestPts ?? null,
+          worstPtsAfterNotice: r.outcome?.fromNotice?.worstPts ?? null,
+        })),
       // Each plan_level_held trade, for diagnosis: few enough to list.
       planLevelHeldTrades: planHeld.map((t) => ({
         symbol: t.symbol,
