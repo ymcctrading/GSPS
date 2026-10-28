@@ -20,6 +20,7 @@ vi.mock("@/lib/entitlements/policy", () => ({ getUserEntitlementPolicy: policyMo
 vi.mock("@/lib/entitlements/delivery", () => ({ inQuietHours: quietMock }));
 
 import { alertScore, NOTIFICATION_DEDUP_HOURS, notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
+import { alertTimeliness } from "@/lib/__tests__/fixtures/alertTimeliness";
 
 const NOW = new Date("2026-10-22T15:00:00Z");
 const FULL = { intradayScansEnabled: true, proIntradayModuleEnabled: false };
@@ -35,6 +36,7 @@ function alert(over: Partial<Alert> = {}): Alert {
     move: { current: 770.12 },
     invalidation: 744.12,
     continuationPlan: { firstTarget: 795.76, masterTarget: 822.83, paysRisk: true },
+    timeliness: alertTimeliness(NOW),
     ...over,
   } as unknown as Alert;
 }
@@ -129,7 +131,7 @@ function fakeService(opts: {
 
 const intervals = new Map<string, number>([["SPY", 15]]);
 const run = (client: SupabaseClient, alerts: Alert[], map = intervals) =>
-  notifySubscribedUsers(client, alerts, { intervalBySymbol: map, now: NOW });
+  notifySubscribedUsers(client, alerts, { intervalBySymbol: map, now: NOW, clock: () => NOW });
 
 beforeEach(() => {
   for (const m of [sendAlertEmailMock, sendPushMock, vapidMock, policyMock, quietMock]) m.mockReset();
@@ -300,8 +302,14 @@ describe("notifySubscribedUsers: dedupe and the log", () => {
     const { client } = fakeService({ users: [{ id: "u1", email: "a@x.test" }], prefs });
     // One scheduled scan every 15 minutes.
     let scan = 0;
-    const next = (alerts: Alert[]) =>
-      notifySubscribedUsers(client, alerts, { intervalBySymbol: intervals, now: new Date(NOW.getTime() + scan++ * 15 * 60_000) });
+    const next = (alerts: Alert[]) => {
+      const at = new Date(NOW.getTime() + scan++ * 15 * 60_000);
+      return notifySubscribedUsers(
+        client,
+        alerts.map((a) => ({ ...a, timeliness: alertTimeliness(at) })),
+        { intervalBySymbol: intervals, now: at, clock: () => at },
+      );
+    };
     expect(await next([alert()])).toEqual({ push: 1 });
     expect(await next([alert()])).toEqual({ push: 0 });
     // 10-27 sent 150 emails for 63 member-symbol-direction pairs, every repeat a new score.

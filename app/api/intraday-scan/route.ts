@@ -56,6 +56,7 @@ import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
+import { barCloseAt, resolveFeedPolicy, timeframeForMinutes } from "@/lib/data/timeliness";
 import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
@@ -260,7 +261,9 @@ export async function GET(req: NextRequest) {
     .filter((u) => !resolved.some((r) => r.symbol === u.symbol))
     .map((u) => u.symbol);
 
-  let output = scanIntraday(resolved, config, now);
+  // Evaluated when the decision is computed, after the bars arrived, never
+  // backdated to the request's start (DATA-DELAY-001 §4).
+  let output = scanIntraday(resolved, config, new Date());
 
   if (systemScan) await invalidateBrokenFocus(supabase as ServiceSupabase, resolved, now).catch(() => undefined);
 
@@ -945,6 +948,8 @@ interface PrefetchedBars {
   minute: Bar[];
   baseline: Bar[];
   daily: Bar[];
+  /** When the batch arrived (DATA-DELAY-001: a bar is usable no earlier than its receipt). */
+  receivedAt: string;
 }
 
 /**
@@ -977,11 +982,13 @@ async function prefetchBars(
             provider.fetchBarsBatch!(symbols, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass),
           ]);
           const key = (s: string) => (assetClass === "crypto" ? normalizeCryptoSymbol(s) : s.toUpperCase());
+          const receivedAt = new Date().toISOString();
           for (const symbol of symbols) {
             out.set(symbol, {
               minute: minute.get(key(symbol)) ?? [],
               baseline: baseline.get(key(symbol)) ?? [],
               daily: daily.get(key(symbol)) ?? [],
+              receivedAt,
             });
           }
         } catch (err) {
@@ -1041,10 +1048,18 @@ async function buildInput(
           provider.fetchBars(symbol, "1Day", daysAgo(DAILY_HISTORY_DAYS), end, assetClass, INTRADAY_DAILY_FETCH_LIMIT),
         ]);
 
+    const receivedAt = prefetched?.receivedAt ?? new Date().toISOString();
     const sessionBars = pickSessionBars(minuteBars, baselineBars, todayEt, marketClosed);
     if (sessionBars.bars.length === 0) return null;
 
     const last = sessionBars.bars[sessionBars.bars.length - 1];
+    // The feed's policy for this instrument, resolved here on the server
+    // (DATA-DELAY-001): the scan reads only what was usable when it ran.
+    const feed = resolveFeedPolicy({ assetClass, isLive: provider.isLive, source: provider.name });
+    const lastTf = timeframeForMinutes(sessionBars.intervalMinutes);
+    // The quote is the last bar's close, at the time the bar closed (its
+    // stamp is its open).
+    const lastClose = lastTf ? barCloseAt(last.t, lastTf, assetClass) : null;
     // Completed sessions only, keyed as the alert replay keys them
     // (lib/scanner/priorClose.ts): a crypto daily bar is the UTC day.
     const crypto = assetClass === "crypto";
@@ -1056,7 +1071,7 @@ async function buildInput(
       bars: sessionBars.bars,
       barIntervalMinutes: sessionBars.intervalMinutes,
       prevClose: priorDailyClose(dailyBars, sessionBars.sessionDate, crypto),
-      quote: { price: last.c, at: last.t },
+      quote: lastClose ? { price: last.c, at: lastClose.toISOString() } : null,
       // The baseline must cover exactly the window today's bars cover, not the
       // window the wall clock covers. The free IEX feed can't serve the most
       // recent ~15 minutes, so today's cumulative volume stops there while a
@@ -1085,6 +1100,9 @@ async function buildInput(
       lastAlerts,
       marketClosed,
       dailyPlan,
+      feedDelayMs: feed.contractualDelayMs,
+      feed: feed.entitlement,
+      receivedAt,
     };
   } catch {
     return null;

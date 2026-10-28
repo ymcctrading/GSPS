@@ -68,6 +68,7 @@
 
 import type { Bar } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { delayedFillIndex, replayFeedDelayMs, seriesSpacingMinutes } from "@/lib/data/timeliness";
 import { atr } from "@/lib/analysis/pivots";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { gannFirstTarget, gannOldLevels, targetPaysRisk } from "@/lib/scanner/intraday";
@@ -126,6 +127,11 @@ export interface IntradayReplayOptions {
    * target price", Q14; `lib/gann/intradayExit.ts`).
    */
   scaleOut?: boolean;
+  /**
+   * The data delay modeled (DATA-DELAY-001). Defaults to the feed's contract
+   * (`replayFeedDelayMs`); 0 reproduces runs made before 2026-10-28.
+   */
+  feedDelayMs?: number;
 }
 
 /** One armed crossing and its stop, carried across bars until it fires, breaks, is replaced or expires. */
@@ -162,6 +168,8 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
     scaleOut = true,
   } = options;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  // The run's delay model: the feed's contract, never today's environment.
+  const feedDelayMs = options.feedDelayMs ?? replayFeedDelayMs(assetClass);
   // A US equity is read on its regular-session bars only, entries and exits
   // alike, as the live alerts (`lib/scanner/intraday.ts`, regular-session
   // bars) and exit managers (`lib/gann/intradayExit.ts`) read it; Gann reads
@@ -169,6 +177,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
   // carry pre- and post-market prints. Amended 2026-10-22 (review of #439):
   // before it, the profile read every print.
   const bars = assetClass === "crypto" ? allBars : allBars.filter(isRegularSessionBar);
+  const seriesMinutes = seriesSpacingMinutes(bars);
 
   const trades: ReplayTrade[] = [];
   const armedKeys = new Set<string>();
@@ -282,8 +291,20 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
       plans.delete(planKey);
       triggered++;
 
-      // A confirmed entry is a market order after the hold, filled at this candle's open.
-      const entry = live.o;
+      // A confirmed entry is a market order after the hold, filled at the open
+      // of the first candle after the hold could be read: its close plus the
+      // feed's delay (DATA-DELAY-001, 2026-10-28; `delayedFillIndex`). Under
+      // the 15-minute equity delay on 15-minute bars that is the candle after
+      // this one. A stop that traded before then means no fill.
+      const f = delayedFillIndex(bars, i - 1, { assetClass, delayMs: feedDelayMs, intervalMinutes: seriesMinutes });
+      let stoppedFirst = f < 0;
+      for (let k = i; !stoppedFirst && k < f; k++) if (isStopBreachedByBar(plan.direction, plan.stop, bars[k])) stoppedFirst = true;
+      if (stoppedFirst) {
+        refusedFills++;
+        continue;
+      }
+      const fillBar = bars[f];
+      const entry = fillBar.o;
       const stop = plan.stop;
       const risk = Math.abs(plan.triggerPrice - stop);
       if (!(risk > 0) || (long ? entry <= stop : entry >= stop)) {
@@ -316,7 +337,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
 
       const walked = walkIntradayExit({
         bars,
-        from: i,
+        from: f,
         maxBarsHeld,
         long,
         entry,
@@ -326,10 +347,10 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
         sessionClose: sessionClose && assetClass !== "crypto",
         crypto: assetClass === "crypto",
       });
-      busyUntil = i + walked.barsHeld;
+      busyUntil = f + walked.barsHeld;
       trades.push({
         symbol,
-        openedAt: live.t,
+        openedAt: fillBar.t,
         pattern: null,
         setupKind: "continuation",
         direction: plan.direction,
@@ -339,7 +360,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
         atrMultiple: executionAtr > 0 ? risk / executionAtr : 0,
         largeCap,
         barsHeld: walked.barsHeld,
-        closedAt: bars[i + walked.barsHeld - 1].t,
+        closedAt: bars[f + walked.barsHeld - 1].t,
         outcome: isTimeoutReason(walked.reason) ? "timeout" : dir * (walked.exit - entry) - costPerShare > 0 ? "win" : "loss",
         exitReason: walked.reason,
         crossedLevel: null,

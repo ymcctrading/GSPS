@@ -26,6 +26,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { feedDelayMs } from "@/lib/data/latency";
 import { assertLiveMarketData, MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { closedSessionBars, crossingHeldNow } from "./confirmNow";
@@ -142,7 +143,11 @@ export async function armConfirmedPlansFromBars(
       // 2026-10-21 this passed neither the stop nor the entry kind, so the
       // manager armed every plan on the retest sequence that the reaction
       // rule replaced (review finding R-014).
-      const closed = closedSessionBars(bars, now, intervalMs, plan.generatedAt);
+      // Arming reads only bars past the feed's contractual delay
+      // (DATA-DELAY-001); the stop-breach and expiry checks above read every
+      // bar received, so a protective retirement is never delayed.
+      const delayMs = feedDelayMs(plan.market as AssetClass, getMarketDataProvider().isLive === true);
+      const closed = closedSessionBars(bars, now, intervalMs, plan.generatedAt, delayMs);
       const pivot = isPivotSignal(plan.signalId);
       const rule = {
         direction: plan.direction,

@@ -45,7 +45,8 @@ import type { Alert } from "@/lib/scanner/intraday";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { inQuietHours } from "@/lib/entitlements/delivery";
 import { sendPushToProfile, vapidConfig, type PushMessage } from "@/lib/notifications/web-push";
-import { alertsForTier, buildIntradayBellRow } from "@/lib/notifications/intradayBell";
+import { alertsForTier, buildIntradayBellRow, type DeliverableFreshness } from "@/lib/notifications/intradayBell";
+import { checkAlertFreshness } from "@/lib/notifications/freshness";
 import { tickerHref } from "@/lib/routes";
 import { etDateKey } from "@/lib/market/session";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
@@ -117,9 +118,9 @@ export function alertScore(alert: Alert): number {
   return Math.max(0, Math.min(9, Math.round((alert.confidence / 100) * 9)));
 }
 
-/** The push for an intraday signal, worded as the bell notice is. */
-export function intradayPushMessage(alert: Alert): PushMessage {
-  const row = buildIntradayBellRow(alert);
+/** The push for an intraday signal, worded as the bell notice is, from its freshness disposition. */
+export function intradayPushMessage(alert: Alert, freshness: DeliverableFreshness): PushMessage {
+  const row = buildIntradayBellRow(alert, freshness);
   return { title: row.title, body: row.body, url: tickerHref(alert.symbol), tag: `intraday-${alert.symbol}` };
 }
 
@@ -171,11 +172,17 @@ async function alreadySent(
 export async function notifySubscribedUsers(
   service: SupabaseClient,
   alerts: Alert[],
-  args: { intervalBySymbol: Map<string, number>; now?: Date },
+  args: {
+    intervalBySymbol: Map<string, number>;
+    /** Kept for callers; every send reads `clock` instead. */
+    now?: Date;
+    /** The dispatch clock, read at each send (default: the wall clock). */
+    clock?: () => Date;
+  },
 ): Promise<{ push: number }> {
   const sent = { push: 0 };
   if (alerts.length === 0 || vapidConfig() === null) return sent;
-  const now = args.now ?? new Date();
+  const clock = args.clock ?? (() => new Date());
 
   const { data: saved, error } = await service
     .from("notification_preferences")
@@ -202,12 +209,21 @@ export async function notifySubscribedUsers(
       }
 
       for (const alert of mine) {
-        if (await alreadySent(service, userId, "push", alert, now)) continue;
-        const result = await sendPushToProfile(service, userId, intradayPushMessage(alert));
+        // Freshness at this send, never the scan's start (NOTIFY-FRESHNESS-001).
+        // A suppressed alert is neither sent nor logged; deduplication is a
+        // separate gate and never stands in for freshness.
+        const dispatchAt = clock();
+        const freshness = checkAlertFreshness(alert, dispatchAt);
+        if (freshness.disposition === "suppress") {
+          console.info(`[intraday-notify] suppressed ${alert.symbol} ${alert.type}: ${freshness.reason} (checked ${freshness.checkedAt})`);
+          continue;
+        }
+        if (await alreadySent(service, userId, "push", alert, dispatchAt)) continue;
+        const result = await sendPushToProfile(service, userId, intradayPushMessage(alert, freshness));
         // No subscribed browser is not a send: nothing to log or retry.
         if (!result.success && result.skipped) continue;
         if (result.success) sent.push += 1;
-        const stamp = now.toISOString();
+        const stamp = clock().toISOString();
         const { error: logError } = await service.from("notification_log").insert({
           user_id: userId,
           symbol: alert.symbol,

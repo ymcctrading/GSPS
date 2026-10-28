@@ -16,7 +16,8 @@
  *
  * The free equity feed runs about 15 minutes late and the scheduled scan runs
  * every 15 minutes, so the time left is counted from now (the data's age taken
- * off), and a person's lead time is met on the last scan before it: an alert
+ * off once, from the newest bar's close; an unknown age gives no reading), and
+ * a person's lead time is met on the last scan before it: an alert
  * goes out once the time left is within the lead plus one scan
  * (`SCAN_CADENCE_MINUTES`). With a 15-minute lead that is about 30 minutes
  * ahead on the data the scan saw.
@@ -68,7 +69,11 @@ export interface ApproachReading {
   unitsPerBar: number | null;
   /** From the latest close to the entry. */
   distance: number;
-  /** Minutes to the entry at that pace, counted from now (the feed's lateness taken off), never below 0. */
+  /**
+   * Minutes to the entry at that pace, counted from now (the feed's lateness
+   * taken off), never below 0. An estimate from delayed bars: 0 does not mean
+   * price is at the entry, only that at the old pace it may have got there.
+   */
   etaMinutes: number;
   /** When, at that pace, price reaches the entry. */
   expectedAt: string;
@@ -120,7 +125,11 @@ export function readEntryApproach(args: {
 
   const etaFromData = (distance / ratePerBar) * intervalMinutes;
   if (!Number.isFinite(etaFromData)) return null;
-  const lateMinutes = Number.isFinite(dataAgeSeconds) ? Math.max(0, dataAgeSeconds) / 60 : 0;
+  // The data's age is taken off once, measured from the newest bar's close
+  // (never its open) to the scan. An unknown age is never read as zero: with
+  // no age there is no countdown to give (DATA-DELAY-001, 2026-10-28).
+  if (!Number.isFinite(dataAgeSeconds) || dataAgeSeconds < 0) return null;
+  const lateMinutes = dataAgeSeconds / 60;
   const etaMinutes = Math.max(0, etaFromData - lateMinutes);
   return {
     extreme,

@@ -43,6 +43,7 @@ import { readDistributionStanding } from "@/lib/gann/distribution";
 import { failedTestInPath, readMultipleTops } from "@/lib/gann/multipleTops";
 import type { AssetClass, Bar } from "@/lib/types";
 import { getMarketDataProvider } from "@/lib/data/provider";
+import { feedDelayMs } from "@/lib/data/latency";
 import { EXECUTION_TIMEFRAME, TF_INTERVAL_MS } from "@/lib/timeframe";
 import { computeGannEntryTrigger, gannBreakLine, tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { breakawayVolumeMet } from "@/lib/gann/breakaway";
@@ -84,8 +85,10 @@ const NOTES: Record<ConfirmationStage, string> = {
  * way the replay's confirmed rule counts bars from the session a pivot armed
  * on. Without it, the latest session's bars only.
  */
-export function closedSessionBars(bars: Bar[], now: Date, intervalMs: number, since?: string): Bar[] {
-  const closed = bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime());
+export function closedSessionBars(bars: Bar[], now: Date, intervalMs: number, since?: string, delayMs = 0): Bar[] {
+  // A bar enters a decision once it has closed and the feed's contractual
+  // delay has passed (DATA-DELAY-001, `lib/data/timeliness.ts`).
+  const closed = bars.filter((b) => Date.parse(b.t) + intervalMs + delayMs <= now.getTime());
   if (closed.length === 0) return [];
   if (since) {
     const from = Date.parse(since);
@@ -273,6 +276,9 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
   const rebuy = input.cancelBeyond != null && input.stopPrice != null && Number.isFinite(sinceMs);
   const start = new Date(rebuy ? sinceMs : Number.isFinite(sinceMs) ? Math.min(sinceMs, fourDays) : fourDays);
   const bars = await getMarketDataProvider().fetchBars(input.symbol, EXECUTION_TIMEFRAME, start, null, input.assetClass);
+  // Only bars usable at `now`: closed, and past the feed's contractual delay
+  // (DATA-DELAY-001). Zero for crypto, synthetic data and a verified real-time feed.
+  const delayMs = feedDelayMs(input.assetClass, getMarketDataProvider().isLive === true);
   // Gann's crossing can close on one day and the reaction come the next, and
   // a plan is often generated after the crossing it buys (PLAN.md item 5,
   // defect 2). So his rule reads every closed bar fetched: the last four days,
@@ -282,9 +288,21 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
   // session, or the bars since the plan.
   const window =
     input.stopPrice != null
-      ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
-      : closedSessionBars(bars, now, intervalMs, input.since);
+      ? bars.filter((b) => Date.parse(b.t) + intervalMs + delayMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
+      : closedSessionBars(bars, now, intervalMs, input.since, delayMs);
   const read = confirmationFromBars(window, input.direction, input.entryTrigger, input.stopPrice, input.entryKind, rebuy ? input.cancelBeyond : undefined);
+  // A stop is protective: a close through it ends the entry as soon as the
+  // bar is received, delay or not. So the dead checks read every closed bar
+  // (review of DATA-DELAY-001: the delayed window alone missed a close
+  // through the stop inside the last 15 minutes and placed the order).
+  const everyClosed =
+    delayMs > 0 && input.stopPrice != null
+      ? bars.filter((b) => Date.parse(b.t) + intervalMs <= now.getTime() && Date.parse(b.t) >= start.getTime())
+      : window;
+  if (everyClosed !== window && read.stage !== "dead") {
+    const latest = confirmationFromBars(everyClosed, input.direction, input.entryTrigger, input.stopPrice, input.entryKind, rebuy ? input.cancelBeyond : undefined);
+    if (latest.stage === "dead") return latest;
+  }
   if (input.stopPrice == null || rebuy || restsWithoutCrossing(input.entryKind) || read.stage === "dead") return read;
   // Crossed in the window and waiting for the reaction into the zone.
   if (read.stage === "broken") return read;
@@ -298,7 +316,7 @@ async function readEntryConfirmationCore(input: ConfirmationInput): Promise<Conf
   // through the stop in the bars above (today's included) ends it here.
   const stop = input.stopPrice;
   const up = input.direction === "bullish";
-  if (window.some((b) => (up ? b.c <= stop : b.c >= stop))) return { ready: false, stage: "dead", note: GANN_NOTES.dead };
+  if (everyClosed.some((b) => (up ? b.c <= stop : b.c >= stop))) return { ready: false, stage: "dead", note: GANN_NOTES.dead };
 
   // A reaction can run longer than the window above, so the crossing may be
   // older than every bar fetched. The completed daily chart is where the scan
