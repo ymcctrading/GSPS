@@ -50,6 +50,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isResting } from "@/lib/setups/resting";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
+import { chooseSweepBasis } from "@/lib/scan/universeSweep";
 
 /** Setups the scheduled intraday scan times at once (engineering, labelled). */
 export const SESSION_SETUPS_MAX = 24;
@@ -83,9 +84,10 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** A list row within a day's range of its entry, neither retired nor expired. */
+/** A list row with an entry within a day's range of price, neither retired nor expired. */
 function listRowLive(row: ListRow): boolean {
   if (row.detail?.retired === true || row.detail?.planExpired === true) return false;
+  if (num(row.entry) == null) return false;
   return !isResting({
     side: row.direction === "bearish" ? "sell" : "buy",
     price: num(row.detail?.currentPrice),
@@ -101,7 +103,12 @@ function listRowLive(row: ListRow): boolean {
  * reads the rows. A symbol listed twice (a Buy and a Sell row) takes its
  * better tier.
  */
-export function rankSessionSetups(listRows: readonly ListRow[], sweepRows: readonly SweepRow[], max = SESSION_SETUPS_MAX): string[] {
+export function rankSessionSetups(
+  listRows: readonly ListRow[],
+  sweepRows: readonly SweepRow[],
+  max = SESSION_SETUPS_MAX,
+  listsAreLater = true,
+): string[] {
   const best = new Map<string, { tier: number; score: number }>();
   const offer = (symbol: string, tier: number, score: number | null) => {
     const s = symbol.trim().toUpperCase();
@@ -111,11 +118,15 @@ export function rankSessionSetups(listRows: readonly ListRow[], sweepRows: reado
     if (!prior || tier < prior.tier || (tier === prior.tier && sc > prior.score)) best.set(s, { tier, score: sc });
   };
 
-  // The lists are the later read: what they say of a symbol stands over the sweep.
-  const readByLists = new Set<string>();
+  // Whichever read is later stands for a symbol both read: the lists once
+  // the session's scans have written them, the sweep between the night's
+  // sweep and the first scan of the day (`listsAreLater` false), when the
+  // newest lists are the previous session's.
+  const readByLists = new Set(listRows.map((r) => r.symbol.trim().toUpperCase()));
+  const readBySweep = new Set(sweepRows.map((r) => r.symbol.trim().toUpperCase()));
   for (const row of listRows) {
     const symbol = row.symbol.trim().toUpperCase();
-    readByLists.add(symbol);
+    if (!listsAreLater && readBySweep.has(symbol)) continue;
     const score = num(row.score);
     if (!listRowLive(row)) continue;
     if (row.output_state === "Execute") offer(symbol, 0, score);
@@ -123,7 +134,7 @@ export function rankSessionSetups(listRows: readonly ListRow[], sweepRows: reado
   }
   for (const row of sweepRows) {
     const symbol = row.symbol.trim().toUpperCase();
-    if (row.output_state !== "Execute" || readByLists.has(symbol)) continue;
+    if (row.output_state !== "Execute" || (listsAreLater && readByLists.has(symbol))) continue;
     offer(symbol, 1, num(row.score));
   }
 
@@ -142,7 +153,7 @@ export async function loadSessionSetups(supabase: SupabaseClient, now: Date, max
   const since = new Date(now.getTime() - MAX_AGE_DAYS * 86_400_000);
   const sinceDate = since.toISOString().slice(0, 10);
 
-  const lists = async (): Promise<ListRow[]> => {
+  const lists = async (): Promise<{ date: string | null; rows: ListRow[] }> => {
     const { data: latest } = await supabase
       .from("daily_scans")
       .select("scan_date")
@@ -150,33 +161,35 @@ export async function loadSessionSetups(supabase: SupabaseClient, now: Date, max
       .order("scan_date", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!latest?.scan_date) return [];
+    if (!latest?.scan_date) return { date: null, rows: [] };
     const { data, error } = await supabase
       .from("daily_scans")
       .select("symbol, direction, score, output_state, entry, take_profit_1, master_profit, detail")
       .eq("scan_date", latest.scan_date);
-    if (error || !data) return [];
-    return data as ListRow[];
+    if (error || !data) return { date: null, rows: [] };
+    return { date: String(latest.scan_date), rows: data as ListRow[] };
   };
 
-  const sweep = async (): Promise<SweepRow[]> => {
-    const { data: latest } = await supabase
-      .from("universe_sweep")
-      .select("basis_date")
-      .gte("basis_date", sinceDate)
-      .order("basis_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!latest?.basis_date) return [];
+  // The same night the market scan reads (`chooseSweepBasis`: the newest that
+  // scored at least half the universe), so both surfaces start from one sweep.
+  const sweep = async (): Promise<{ date: string | null; rows: SweepRow[] }> => {
+    const basis = await chooseSweepBasis(supabase, now);
+    if (!basis) return { date: null, rows: [] };
     const { data, error } = await supabase
       .from("universe_sweep")
       .select("symbol, score, output_state")
-      .eq("basis_date", latest.basis_date)
-      .eq("output_state", "Execute");
-    if (error || !data) return [];
-    return data as SweepRow[];
+      .eq("basis_date", basis)
+      // Every state, so a later sweep can overrule a list row it no longer
+      // reads as Execute; only its Execute rows are ranked.
+      .limit(2000);
+    if (error || !data) return { date: null, rows: [] };
+    return { date: basis, rows: data as SweepRow[] };
   };
 
-  const [listRows, sweepRows] = await Promise.all([lists().catch(() => []), sweep().catch(() => [])]);
-  return rankSessionSetups(listRows, sweepRows, max);
+  const empty = { date: null, rows: [] };
+  const [l, s] = await Promise.all([lists().catch(() => empty), sweep().catch(() => empty)]);
+  // A sweep is filed under the session it is for, so lists of that date or
+  // later were written after it.
+  const listsAreLater = l.date == null || s.date == null || l.date >= s.date;
+  return rankSessionSetups(l.rows as ListRow[], s.rows as SweepRow[], max, listsAreLater);
 }

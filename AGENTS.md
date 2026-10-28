@@ -3194,8 +3194,8 @@ the latest lists' Execute within a day's range of its entry, then the
 overnight sweep's Execute (`universe_sweep`, all ~830 names) the lists have
 not since read otherwise, then a Watch at the 7 cutoff within a day's range,
 each by score; resting, retired, expired (`detail.planExpired`) and Rejected
-rows are left out. Up to `SESSION_SETUPS_MAX` (24) on the scheduled scan, then
-watchlists and the focus list; a person's own refresh with no symbols puts
+rows are left out, and the lists overrule the sweep only once they were written after it. The sweep night is the market scan's own (`chooseSweepBasis`). Up to `SESSION_SETUPS_MAX` (24) on the scheduled scan, then
+members' watchlists (so with more than about 21 watched names, some wait for a slot: an accepted trade-off for timing the best setups first; none were watched on 2026-10-28) and the focus list; a person's own refresh with no symbols puts
 `SESSION_SETUPS_ON_DEMAND` (9) ahead of the core list. Because the 15-minute
 market scan rewrites the lists, a setup that turns ready mid-session joins and
 one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose

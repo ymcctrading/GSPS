@@ -6,7 +6,7 @@ const list = (symbol: string, output_state: string, score: number, opts: Partial
   direction: opts.direction ?? "bullish",
   score,
   output_state,
-  entry: opts.entry ?? 100,
+  entry: "entry" in opts ? (opts.entry ?? null) : 100,
   take_profit_1: 110,
   master_profit: 120,
   detail: { currentPrice: opts.price ?? 101, dayRange: opts.range ?? 3, ...(opts.detail ?? {}) },
@@ -56,5 +56,19 @@ describe("rankSessionSetups", () => {
     expect(rankSessionSetups([noRange, ...twice], [])).toEqual(["TWO", "NOR"]);
     expect(rankSessionSetups([noRange, ...twice], [], 1)).toEqual(["TWO"]);
     expect(rankSessionSetups([noRange], [], 0)).toEqual([]);
+  });
+
+  it("lets the sweep stand when it is the later read (between the night's sweep and the day's first scan)", () => {
+    const ranked = rankSessionSetups(
+      [list("XXX", "Reject", 3), list("BTC/USD", "Execute", 7)],
+      [sweep("XXX", "Execute", 9), sweep("YYY", "Watch", 5)],
+      24,
+      false,
+    );
+    expect(ranked).toEqual(["BTC/USD", "XXX"]);
+  });
+
+  it("leaves out a list row with no entry: there is no plan to time", () => {
+    expect(rankSessionSetups([list("NOE", "Watch", 8, { entry: null }), list("NOX", "Execute", 8, { entry: null })], [])).toEqual([]);
   });
 });
