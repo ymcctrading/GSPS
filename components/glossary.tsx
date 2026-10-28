@@ -48,7 +48,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Stop loss (red line)",
         plain:
-          "Your emergency exit, decided before you get in. If the trade goes the wrong way and price reaches this line, you sell (or buy back, on a short) to keep the loss small, like a smoke alarm that gets you out before the fire spreads. Every trade has one, no exceptions. It is placed with the broker as a stop order, so it works even when you aren't watching, though a price that jumps past the line, overnight or on sudden news, can fill it worse, sometimes much worse.",
+          "Your emergency exit, decided before you get in. If the trade goes the wrong way and price reaches this line, you sell (or buy back, on a short) to keep the loss small, like a smoke alarm that gets you out before the fire spreads. Every trade has one, no exceptions. In a live account it rests with your broker as a stop order, so it works even when you aren't watching; in your paper account GSPS checks it on each pass and closes the trade once price has reached it. Either way, a price that jumps past the line, overnight or on sudden news, can fill it worse, sometimes much worse.",
       },
       {
         term: "TP1 - Take Profit 1 (green line)",
@@ -58,7 +58,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "MTP - Master Take Profit (green line)",
         plain:
-          "The bigger profit goal, further out than TP1: the next key price level beyond it, where the whole move is measured to. Like TP1, nothing sells there automatically. If price pushes through the MTP and then falls back through it, GSPS's trade management reads that as the move being done and closes what's left.",
+          "The bigger profit goal, further out than TP1: the next key price level beyond it, where the whole move is measured to. Like TP1, nothing sells there automatically; the whole position stays in, with the stop moved along behind it, until the stop is hit or the trend turns.",
       },
       {
         term: "Risk-to-reward (like 2:1)",
