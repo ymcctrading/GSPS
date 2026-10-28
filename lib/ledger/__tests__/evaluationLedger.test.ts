@@ -162,13 +162,13 @@ describe("evaluation ledger reads and deferred writes", () => {
 
 describe("detection from a scanned alert", () => {
   it("reads the bar open from the structure's last close, not the alert's data time", () => {
-    // A 5-minute bar 10:00-10:05 ET (14:00-14:05Z); a quote at 14:07Z sets dataTimestamp.
+    // A 5-minute bar 10:00-10:05 ET (14:00-14:05Z); the scan's quote is that close.
     const d = detectionFromAlert({
       symbol: "aapl",
       type: "breakout",
       direction: "down",
       triggerTime: "2026-10-27T14:26:00.000Z",
-      dataTimestamp: "2026-10-27T14:07:00.000Z",
+      dataTimestamp: "2026-10-27T14:05:00.000Z",
       timeliness: { barMinutes: 5, structureAsOf: "2026-10-27T14:05:00.000Z", usableAt: "2026-10-27T14:20:00.000Z" },
     });
     expect(d).toEqual({

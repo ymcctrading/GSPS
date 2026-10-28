@@ -3471,7 +3471,7 @@ and symbol with the first time each stage was reached (pre-filter, shortlist,
 discovery, slot, deferrals, first detection with its bar, usable and
 evaluation times apart), 400 days, service role only (applied to production
 2026-10-28 on the owner's go-ahead); deferrals count once per 15-minute tick in
-the regular session; every intraday write runs after the response (`after`),
+the regular session; every ledger write runs after the response (`after`),
 so no scan waits on it; the owner's recap reads it (`lib/reports/coverage.ts`). `GSPS_EVALUATION_LEDGER=0` turns it off, and
 the queue then has no discovery tier. Hindsight data (the recap's movers and
 attribution) goes to the owner's two accounts only (`lib/auth/owner.ts`).
