@@ -37,7 +37,6 @@
  */
 
 import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
-import { availability, barCloseAt, resolveFeedPolicy } from "@/lib/data/timeliness";
 import { afterResponse, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -59,7 +58,7 @@ import { isCryptoSymbol, normalizeCryptoSymbol } from "@/lib/data/alpaca";
 import { atr } from "@/lib/analysis/pivots";
 import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
-import { barCloseAt, resolveFeedPolicy, timeframeForMinutes } from "@/lib/data/timeliness";
+import { availability, barCloseAt, resolveFeedPolicy, timeframeForMinutes } from "@/lib/data/timeliness";
 import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
@@ -917,7 +916,8 @@ async function persistSystemAlerts(
   // written after the response.
   const detections = alerts.map((alert) => {
     const minutes = intervalBySymbol.get(alert.symbol) ?? 1;
-    const tf = minutes === 5 ? "5Min" : minutes === 15 ? "15Min" : minutes === 1 ? "1Min" : null;
+    // A daily reading (0) has no intraday bar to time: no usable time recorded.
+    const tf = minutes > 0 ? timeframeForMinutes(minutes) : null;
     const asset = kindFor(alert.symbol) === "crypto" ? "crypto" : "us_equity";
     const delayMs = resolveFeedPolicy({ assetClass: asset, isLive: true, source: "alpaca" }).contractualDelayMs;
     const usable = tf && alert.dataTimestamp ? availability(barCloseAt(alert.dataTimestamp, tf, asset), delayMs) : null;
