@@ -3191,7 +3191,7 @@ Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
 symbol on a watchlist or an open WATCH/EXECUTE monitor, by tier as the panel
-shows it, once per signal inside the cooldown (`lib/notifications/intradayBell.ts`).
+shows it, once a move (`lib/notifications/intradayBell.ts`): a signal still standing is not written again the same New York day, only after the same symbol's signal turned the other way (2026-10-28; it had repeated every cooldown, 4,515 notices for 1,115 member-signal pairs on 10-26).
 Email and browser push for the same signals (`lib/notifications/intradayDelivery.ts`,
 2026-10-21, after #404) go to every member by their settings (push off until
 turned on), score floor and quiet hours, each channel deduped on its own, and
