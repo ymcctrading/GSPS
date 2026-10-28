@@ -1768,6 +1768,8 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
  * - `line_crossed`: the session has traded through the entry. It names the
  *   close that would make the crossing count (`crossingLinesFromEntry`), and
  *   whether the session's last price already stands past it.
+ * When the prior close crossed the entry but not by 3 points (`awaitsCrossing`
+ * true), the line read is that confirming close instead of the entry.
  * Both need the plan's stop untraded today and the regular session (a stock).
  * Unmeasured: nothing replays a notice.
  */
@@ -1777,9 +1779,20 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
   if (!plan) return null;
   const up = plan.direction === "up";
   const prev = input.prevClose;
-  // Only a crossing still to make: a prior close on the plan's side is a
-  // reaction to the entry, read by `entry_approach`.
-  if (prev == null || !(up ? prev < plan.entry : prev > plan.entry)) return null;
+  // Only a crossing still to make. A plan the daily scan says has made its
+  // crossing (`awaitsCrossing` false) is a reaction to the entry, read by
+  // `entry_approach`; a row that does not say (before 2026-10-22) is read from
+  // the prior close alone.
+  if (prev == null || plan.awaitsCrossing === false) return null;
+  const { confirmingClose } = crossingLinesFromEntry(plan.entry, up ? "bullish" : "bearish");
+  // The line still ahead: the entry while the prior close is short of it;
+  // once a close has crossed the entry but not by 3 points, the close that
+  // would confirm it.
+  const shortOf = (level: number) => (up ? prev < level : prev > level);
+  const line = shortOf(plan.entry) ? plan.entry : plan.awaitsCrossing === true && shortOf(confirmingClose) ? confirmingClose : null;
+  if (line == null) return null;
+  const atEntry = line === plan.entry;
+  const lineName = atEntry ? "its daily plan's line" : "the close that would confirm its daily plan's line";
   if (up ? m.low <= plan.stop : m.high >= plan.stop) return null;
   const regularOnly = input.kind !== "crypto";
   if (regularOnly && (equitySession(now) !== "regular" || etParts(now).minutes >= sessionCloseMinute(now))) {
@@ -1788,7 +1801,6 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
   }
   const bars = input.bars.filter(isUsableBar).filter((b) => !regularOnly || isRegularSession(new Date(b.t)));
   if (bars.length === 0) return null;
-  const { confirmingClose } = crossingLinesFromEntry(plan.entry, up ? "bullish" : "bearish");
   const unit = m.point > 0 ? m.point : 0;
   const delayedFeed = (input.feed ?? (input.kind === "crypto" ? "realtime" : "delayed")) !== "realtime";
   const asOfClock = etClock(m.dataTimestamp);
@@ -1811,12 +1823,12 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
   };
   const side = up ? "above" : "below";
 
-  const crossed = up ? m.high >= plan.entry : m.low <= plan.entry;
+  const crossed = up ? m.high >= line : m.low <= line;
   if (crossed) {
     const move = measureMove(m.last, plan.entry, "plan_entry");
     if (!move) return null;
     const past = up ? m.last >= confirmingClose : m.last <= confirmingClose;
-    checks.push({ name, passed: true, detail: `The session traded ${side} the plan's entry (${priceText(plan.entry)}) from a prior close of ${priceText(prev)}.` });
+    checks.push({ name, passed: true, detail: `The session traded ${side} ${priceText(line)} from a prior close of ${priceText(prev)}.` });
     factors.push({
       label: "Last price past the confirming close",
       passed: past,
@@ -1832,7 +1844,7 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
       factors,
       invalidation: plan.stop,
       plan: levels,
-      whyThisAppeared: `${input.symbol} traded ${side} its daily plan's line at ${priceText(plan.entry)} ${seen}, after closing at ${priceText(prev)} the session before. ${past ? `The last price, ${priceText(m.last)}, is already past ${priceText(confirmingClose)}, the close that would confirm it.` : `A close ${side} ${priceText(confirmingClose)} would confirm it.`} This is a heads-up, not a buy: the plan's entry is taken on a pullback once the close confirms, with its stop at ${priceText(plan.stop)}.`,
+      whyThisAppeared: `${input.symbol} traded ${side} ${lineName} at ${priceText(line)} ${seen}, after closing at ${priceText(prev)} the session before. ${past ? `${delayedFeed ? "In that data the last price" : "The last price"}, ${priceText(m.last)}, ${delayedFeed ? "was" : "is"} already past ${priceText(confirmingClose)}; a close there would confirm it.` : `A close ${side} ${priceText(confirmingClose)} would confirm it.`} This is a heads-up, not a buy: the plan's entry, ${priceText(plan.entry)}, is taken on a pullback once the close confirms, with its stop at ${priceText(plan.stop)}.`,
     });
   }
 
@@ -1843,26 +1855,26 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
     bars,
     intervalMinutes: input.barIntervalMinutes,
     direction: up ? "down" : "up",
-    entry: plan.entry,
+    entry: line,
     unit,
     pivotIndex: pivots.length > 0 ? pivots[pivots.length - 1].index : -1,
     dataAgeSeconds: input.marketClosed === true ? 0 : ageSeconds(m.dataTimestamp, now),
     now,
   });
   if (!reading) {
-    checks.push({ name, passed: false, detail: `Price is not moving toward the plan's line (${priceText(plan.entry)}) right now.` });
+    checks.push({ name, passed: false, detail: `Price is not moving toward the plan's line (${priceText(line)}) right now.` });
     return null;
   }
   const window = APPROACH_LEAD_MAX_MINUTES + SCAN_CADENCE_MINUTES;
   if (regularOnly && etParts(new Date(reading.expectedAt)).minutes >= sessionCloseMinute(now)) {
-    checks.push({ name, passed: false, detail: `At the current pace the plan's line (${priceText(plan.entry)}) would not be reached before the close.` });
+    checks.push({ name, passed: false, detail: `At the current pace the plan's line (${priceText(line)}) would not be reached before the close.` });
     return null;
   }
   if (input.marketClosed === true || reading.etaMinutes > window) {
     checks.push({
       name,
       passed: false,
-      detail: input.marketClosed === true ? "The market is closed, so there is no pace to read." : `At the current pace the plan's line (${priceText(plan.entry)}) is about ${Math.round(reading.etaMinutes)} minutes away, more than ${window}.`,
+      detail: input.marketClosed === true ? "The market is closed, so there is no pace to read." : `At the current pace the plan's line (${priceText(line)}) is about ${Math.round(reading.etaMinutes)} minutes away, more than ${window}.`,
     });
     return null;
   }
@@ -1885,8 +1897,8 @@ function detectLineCrossing(input: SymbolInput, m: SessionMetrics, checks: Audit
     factors,
     invalidation: plan.stop,
     plan: levels,
-    approach: { entry: plan.entry, distance: reading.distance, ratePerBar: reading.ratePerBar, etaMinutes: reading.etaMinutes, expectedAt: reading.expectedAt },
-    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "below" : "above"} its daily plan's line at ${priceText(plan.entry)} and has moved ${up ? "up" : "down"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "low" : "high"} of ${priceText(reading.extreme)}. The line is ${when}. Crossing it is not a buy: a close ${side} ${priceText(confirmingClose)} would confirm it, and the entry is then taken on a pullback. The pace can change.`,
+    approach: { entry: line, distance: reading.distance, ratePerBar: reading.ratePerBar, etaMinutes: reading.etaMinutes, expectedAt: reading.expectedAt },
+    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "below" : "above"} ${lineName} at ${priceText(line)} and has moved ${up ? "up" : "down"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "low" : "high"} of ${priceText(reading.extreme)}. The line is ${when}. Crossing it is not a buy: a close ${side} ${priceText(confirmingClose)} would confirm it, and the entry, ${priceText(plan.entry)}, is then taken on a pullback. The pace can change.`,
   });
 }
 

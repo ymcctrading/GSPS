@@ -177,6 +177,8 @@ export function alertFreshnessEvidence(
   const t = alert.timeliness;
   // A reversal-risk warning tells a member to stand aside: protective, so it
   // is never suppressed for want of an entry authorization.
+  // A line notice is an observation (the check treats it as it treats an
+  // entry notice today: only "protective" changes the outcome).
   const purpose: NotificationPurpose =
     alert.type === "reversal_risk"
       ? "protective"

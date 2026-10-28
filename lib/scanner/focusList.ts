@@ -191,6 +191,8 @@ export interface FocusPlanRow {
   entry: number | string | null;
   output_state: string | null;
   invalidated_at?: string | null;
+  /** The plan's crossing already closed past its entry (false): a reaction, not a line ahead. */
+  entry_awaits_crossing?: boolean | null;
 }
 
 /** A stored focus row, as `breakawayLinesFirst` reads it. */
@@ -227,11 +229,12 @@ export function breakawayLinesFirst(
   focus: readonly StoredFocusRow[],
   plans: readonly FocusPlanRow[],
 ): { symbols: string[]; lines: string[] } {
-  const planBy = new Map(plans.map((p) => [p.symbol.trim().toUpperCase(), p]));
+  const planBy = new Map(plans.map((p) => [String(p?.symbol ?? "").trim().toUpperCase(), p]));
   const lines: { symbol: string; nearness: number; sessions: number; rank: number }[] = [];
   const rest: string[] = [];
   focus.forEach((row, rank) => {
-    const symbol = row.symbol.trim().toUpperCase();
+    const symbol = String(row?.symbol ?? "").trim().toUpperCase();
+    if (!symbol) return;
     const line = breakawayLine(row, planBy.get(symbol));
     if (line) lines.push({ symbol, ...line, rank });
     else rest.push(symbol);
@@ -242,7 +245,7 @@ export function breakawayLinesFirst(
 }
 
 function breakawayLine(row: StoredFocusRow, plan: FocusPlanRow | undefined): { nearness: number; sessions: number } | null {
-  if (!plan || plan.invalidated_at) return null;
+  if (!plan || plan.invalidated_at || plan.entry_awaits_crossing === false) return null;
   if (plan.output_state !== "Execute" && plan.output_state !== "Watch") return null;
   const close = Number(row.close);
   const entry = Number(plan.entry);

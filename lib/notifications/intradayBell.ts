@@ -105,24 +105,16 @@ export function buildIntradayBellRow(alert: Alert, freshness: DeliverableFreshne
   const asOf = new Date(freshness.dataAsOf);
   if (LINE_NOTICES.has(alert.type)) {
     // A crossing still to be made: the session nearing or through the line
-    // the night's plan named. News, never a buy (`detectLineCrossing`).
-    const entry = plan.entry ?? alert.move.current;
+    // the night's plan named. News, never a buy (`detectLineCrossing`). The
+    // scan's own sentence is already worded for the feed: a delayed one says
+    // when the data is from and never that price is there now.
     const title = `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`;
-    const verb = side === "up" ? "above" : "below";
-    const eta = alert.approach ? Math.round(alert.approach.etaMinutes) : null;
-    const observed =
-      alert.type === "line_crossed"
-        ? actionable
-          ? `Price is trading ${verb} the plan's line at ${price(entry)} (price ${price(alert.move.current)}).`
-          : `${delayNote(alert) ? "Delayed observation" : "Observation"}: price traded ${verb} the plan's line at ${price(entry)} in ${candleWindow(alert, asOf)}. ${delayNote(alert)}Where price is now has not been verified.`
-        : actionable
-          ? `${eta != null && eta > 0 ? `About ${eta} minute${eta === 1 ? "" : "s"} from` : "At or near"} the plan's line at ${price(entry)} at the current pace (price ${price(alert.move.current)}).`
-          : `Based on data through ${etClock(asOf)} ET, price was moving toward the plan's line at ${price(entry)}. An estimate from ${delayNote(alert) ? "delayed " : ""}observations, not a live arrival time.${delayNote(alert) ? ` ${delayNote(alert).trim()}` : ""}`;
+    const verified = actionable ? "" : " Where price is now has not been verified.";
     return {
       symbol: alert.symbol,
       verdict: "Intraday",
       title,
-      body: `${observed}${actionable ? "" : heldNote(freshness)} Not a buy yet: ${plan.confirmation.replace(/^Not a trade yet\. /, "")}${alert.invalidation != null ? ` Plan stop ${price(alert.invalidation)}.` : ""}`,
+      body: `${alert.whyThisAppeared}${verified}${actionable ? "" : heldNote(freshness)} Not a buy yet.`,
     };
   }
   if (NOTICE_SIGNALS.has(alert.type)) {

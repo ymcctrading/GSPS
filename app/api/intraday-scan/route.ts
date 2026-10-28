@@ -598,12 +598,15 @@ async function loadFocusSymbols(supabase: ServiceSupabase, sweepBasisP?: Promise
   // meets the night's plan whose line is just ahead, lead the focus tier
   // (owner, 2026-10-28, on TXN; lib/scanner/focusList.ts#breakawayLinesFirst).
   // The sweep comes after the evening list, so it is read here, at the scan.
-  // A failed read keeps the evening's order.
+  // A failed read keeps the evening's order. When tonight's sweep fell short
+  // and an older night stands (`chooseSweepBasis`), its plans are a session
+  // older than the list's close; this orders the tier only, so it is read
+  // as it stands.
   const basis = sweepBasisP ? await sweepBasisP.catch(() => null) : null;
   if (!basis) return rows.map((r) => String(r.symbol).toUpperCase());
   const { data: plans, error: planError } = await supabase
     .from("universe_sweep")
-    .select("symbol, direction, entry, output_state, invalidated_at")
+    .select("symbol, direction, entry, output_state, invalidated_at, entry_awaits_crossing")
     .eq("basis_date", basis)
     .in("symbol", rows.map((r) => String(r.symbol)))
     .in("output_state", ["Execute", "Watch"]);

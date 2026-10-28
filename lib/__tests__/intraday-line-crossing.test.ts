@@ -18,7 +18,7 @@ const bar = (i: number, c: number, o = c): Bar => ({
   v: 200_000,
 });
 
-const plan: DailyPlanLevels = { direction: "up", entry: 301.86, stop: 289.18, tp1: 314.84, mtp: 329.5, verdict: "Watch", awaitsCrossing: false };
+const plan: DailyPlanLevels = { direction: "up", entry: 301.86, stop: 289.18, tp1: 314.84, mtp: 329.5, verdict: "Watch", awaitsCrossing: true };
 
 /** A dip to 298 then a rise of 0.05 a bar from it. */
 function rising(bars = 30, from = 299): Bar[] {
@@ -100,8 +100,26 @@ describe("scanIntraday: the plan's line ahead", () => {
     expect(closed.alerts.some((x) => x.type === "line_crossed")).toBe(false);
   });
 
+  it("stays quiet on a plan that has made its crossing, and reads the confirming close once the entry is crossed", () => {
+    const crossed = [...rising(), bar(37, 302.4, 300.5)];
+    expect(types(crossed, { ...plan, awaitsCrossing: false })).not.toContain("line_crossed");
+    // Older rows say nothing: read from the prior close alone.
+    expect(types(crossed, { ...plan, awaitsCrossing: null })).toContain("line_crossed");
+    // Closed 304 the session before (past the entry, short of the confirming
+    // close): the line is the confirming close, not the entry.
+    const { confirmingClose } = crossingLinesFromEntry(301.86, "bullish");
+    const band: Bar[] = [];
+    for (let i = 0; i <= 30; i++) band.push(bar(i, 304 + i * 0.1));
+    expect(types(band, plan, { prevClose: 304 })).not.toContain("line_crossed");
+    band.push(bar(31, confirmingClose + 0.5, 307));
+    const a = scanIntraday([input(band, plan, { prevClose: 304 })], DEFAULT_CONFIG, nowAfter(band)).alerts.find((x) => x.type === "line_crossed")!;
+    expect(a).toBeDefined();
+    expect(a.whyThisAppeared).toContain(confirmingClose.toFixed(2));
+    expect(a.whyThisAppeared).toContain("In that data the last price");
+  });
+
   it("mirrors for a sell: traded below a line under the prior close", () => {
-    const sell: DailyPlanLevels = { direction: "down", entry: 95, stop: 104, tp1: 88, mtp: 82, verdict: "Watch", awaitsCrossing: false };
+    const sell: DailyPlanLevels = { direction: "down", entry: 95, stop: 104, tp1: 88, mtp: 82, verdict: "Watch", awaitsCrossing: true };
     const bars: Bar[] = [];
     for (let i = 0; i <= 30; i++) bars.push(bar(i, 97 - i * 0.08));
     const out = scanIntraday([input(bars, sell, { symbol: "XYZ", prevClose: 97.5, dailyAtr: 3 })], DEFAULT_CONFIG, nowAfter(bars));
@@ -121,6 +139,7 @@ describe("scanIntraday: the plan's line ahead", () => {
     });
     expect(row.title).toBe("TXN buy: Through the plan's line");
     expect(row.body).toContain("Not a buy yet");
+    expect(row.body).toContain("(delayed)");
     expect(row.body).toContain("has not been verified");
     expect(row.body).not.toMatch(/\bnow\b(?! has)/i);
   });

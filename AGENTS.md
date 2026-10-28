@@ -3593,7 +3593,9 @@ of Oct 26 there were 13 and TXN was 10th, inside the focus tier's 12); (2) two
 notices on any standing plan whose prior close is short of its entry,
 `line_approach` and `line_crossed` (`detectLineCrossing`, `intraday.ts`): the
 session nearing or trading through the line, with the close that would confirm
-it (`crossingLinesFromEntry`, `pointScale.ts`). Notices, never trades: no
+it (`crossingLinesFromEntry`, `pointScale.ts`); a plan whose prior close crossed
+the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
+its line, and one that has made its crossing gets none. Notices, never trades: no
 "Trade this", not stored, not replayed, push and the bell only, worded as
 delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
 **The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
