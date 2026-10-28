@@ -157,7 +157,7 @@ describe("applyPlanExpiredHold", () => {
   });
 
   it("names no method in what the reader sees", () => {
-    expect(expiry!.note).not.toMatch(/gann|jensen|hermetic|cycle/i);
+    expect(expiry!.note).not.toMatch(/gann|jensen|cycle|over-balance/i);
   });
 });
 
