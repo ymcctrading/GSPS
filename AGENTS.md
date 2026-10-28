@@ -752,7 +752,9 @@ a tracked symbol the daily scan does not cover has no range read (the monitor
 row stores none) and stays in its list; saved setups are not bucketed by verdict
 and get the card's sentence only; the intraday alerts are not read (they are
 priced from the session in progress).
-**Ranked with Watch, 2026-10-23 (owner, on SE's sell: "it should sit with the
+**Ranked with Watch, 2026-10-23 (superseded 2026-10-28 by the Resting tier
+below: it now ranks between Execute and Watch, still behind every near
+Execute; owner, on SE's sell: "it should sit with the
 resting orders, not as the top sell setup"):** the lists' order (`compareForList`,
 through `lib/scan/listOrder.ts#listTier`) and a member's capped list
 (`visibilityRank`, in the market, scheduled and batch scans) put a resting
