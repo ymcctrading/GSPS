@@ -51,4 +51,22 @@ describe("armConfirmedPlansFromBars reads the plan's own rule", () => {
     expect(r.armed).toEqual(["p1"]);
     expect(events.map((e) => e.type)).toEqual(["record_confirmation_evidence", "arm"]);
   });
+
+  it("does not arm a plan whose TP1 price already stands past (owner, 2026-10-28)", async () => {
+    bars.splice(0, bars.length, b(0, 101.2, 100.5, 100.8), b(1, 103.6, 101, 103.2));
+    plans.splice(0, plans.length, { ...plan, coordinates: { ...plan.coordinates, takeProfit1: 103 } });
+    events.length = 0;
+    const r = await armConfirmedPlansFromBars({} as never, "u1", { now });
+    expect(r.armed).toEqual([]);
+    expect(r.targetPassed).toEqual(["p1"]);
+    expect(events).toHaveLength(0);
+  });
+
+  it("still arms a re-buy plan, whose own geometry is read after its parent's stop", async () => {
+    bars.splice(0, bars.length, b(0, 101.2, 100.5, 100.8), b(1, 103.6, 101, 103.2));
+    plans.splice(0, plans.length, { ...plan, signalId: "rebuy:p0", coordinates: { ...plan.coordinates, takeProfit1: 103 } });
+    events.length = 0;
+    const r = await armConfirmedPlansFromBars({} as never, "u1", { now });
+    expect(r.targetPassed).toEqual([]);
+  });
 });

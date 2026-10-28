@@ -163,6 +163,9 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
   const holds = decision.breakdown.filter((item) => !item.pillar && !item.checkOf && !item.passed);
   const laggedOnly = holds.length > 0 && holds.every((item) => item.key === "dataLag");
   const retired = holds.some((item) => item.key === "stopBreach");
+  // An expired plan (lib/gann/planExpiry.ts): its note names only prices the
+  // reader can see and what the stock is waiting for, so it crosses as is.
+  const expired = holds.find((item) => item.key === "planExpired");
 
   return {
     score: decision.score,
@@ -173,11 +176,13 @@ export function toPublicScoreSummary(decision: ScanDecision): PublicScoreSummary
         ? null
         : retired
           ? STOP_BREACH_STATE_NOTE
-          : laggedOnly
-            ? DATA_LAG_STATE_NOTE
-            : decision.outputState === "Reject"
-              ? CAPPED_STATE_NOTE
-              : heldNote(holds, decision.score),
+          : expired
+            ? expired.note
+            : laggedOnly
+              ? DATA_LAG_STATE_NOTE
+              : decision.outputState === "Reject"
+                ? CAPPED_STATE_NOTE
+                : heldNote(holds, decision.score),
   };
 }
 
@@ -213,6 +218,11 @@ export function redactScanResult(result: ScanResult): ScanResult {
     decision: redactDecision(result.decision),
     signals: redactScanSignals(result.signals),
     dailyBars: undefined,
+    // The plan and its note only, never the reason key or the figures behind
+    // it, whatever built the result (owner's disclosure rule, 2026-10-28).
+    planExpired: result.planExpired
+      ? { entry: result.planExpired.entry, takeProfit1: result.planExpired.takeProfit1, note: result.planExpired.note }
+      : undefined,
   };
 }
 

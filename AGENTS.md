@@ -3227,6 +3227,24 @@ price at the entry), so only the targets reading holds there; the plan-time
 reading the live scan shows is measured as the factor `readyNowAtPlan` (the
 session's last close and daily ATR, when the plan is priced). `STRATEGY_VERSION`
 is `2026-10-27-execute-ready-now`.
+**Outdated plans expire, 2026-10-28 (owner: "I need to continue to track those
+equities but I believe that the setups are expired"; plan approved "Go").** On
+the 2026-10-27 scan 23 of the 43 listed setups already stood past TP1 (WAT's buy
+at 395 with price 468). `readPlanExpiry` (`lib/gann/planExpiry.ts`) expires a
+plan when price stands at or past its TP1 (a crossed level is the next support,
+W006 pp.19-24, "old tops become bottoms"; the next scan prices the new buying
+point), or when a reaction buy after a crossing could fill only on a reaction
+over the campaign's greatest by a point (Master Course Ch. 8, PDF 249). Not for
+an old-bottom buy: the double-bottom test is Gann's buy. `applyPlanExpiredHold`
+makes it Reject, the scan returns no levels and `ScanResult.planExpired` keeps
+the plan and a plain-words note, so no list, chart, ticket, Guided Mode,
+automation or intraday timing offers it anew, and a tracked symbol's monitor
+reads "No setup now" until a new plan arms it. A `trade_plans` row awaiting
+confirmation is not armed past its TP1 (`armFromBars`, `targetPassed`); an
+already-armed plan keeps its one-session window. Stored daily rows past TP1 are
+dropped by `isInvalidated`. The replay does not enter such a plan, re-read on
+each closed intraday candle (`planExpiryAt`, `expiredPlans`, inside
+`retiredPlans`). `STRATEGY_VERSION` was `2026-10-28-plan-expiry`, merged onto the P1 long counts as `2026-10-28-plan-expiry-on-p1-long-counts`.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the

@@ -330,6 +330,8 @@ export interface BacktestReport {
    * `2026-09-30-stop-breach-retired` entered such plans.
    */
   retiredPlans: number;
+  /** Of `retiredPlans`, the plans that expired (`lib/gann/planExpiry.ts`). */
+  expiredPlans: number;
   /** Setups armed and triggered across the run, for a fill-rate sanity check. */
   armed: number;
   triggered: number;
@@ -760,6 +762,7 @@ export function buildReport(
       rebuy: summarise(derived.rebuy),
     },
     retiredPlans: run.overall.retiredPlans,
+    expiredPlans: run.overall.expiredPlans ?? 0,
     attributeWithin: attributedLabel,
     ...(attributeScoreRange ? { attributeScoreRange } : {}),
     factors: attributeFactors(target.trades),

@@ -61,6 +61,7 @@ import {
   applyDataLagHold,
   applyStopBreachHold,
   applyReadyNowHold,
+  applyPlanExpiredHold,
   indicationShownBy,
   applyStandAsideHold,
   computeScore,
@@ -69,6 +70,7 @@ import {
 import { withDecisionState } from "@/lib/scoring/decisionState";
 import { readBreakaway } from "@/lib/gann/breakaway";
 import { buildCampaignLedger, readMonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { planExpiredNotice, readPlanExpiry } from "@/lib/gann/planExpiry";
 import { readLeadership, readWeakStockFrom, selectionStrength } from "@/lib/gann/leadership";
 import { figureCrossingOf } from "@/lib/gann/evenFigures";
 import { readStopBreach } from "@/lib/gann/stopBreach";
@@ -530,7 +532,21 @@ export async function scanTicker(
       return windowTurnRead.turn;
     };
 
-    const decision = withDecisionState(applyStandAsideHold(applyStopBreachHold(applyReadyNowHold(applyDataLagHold(
+    // Owner, 2026-10-28: an outdated plan expires, the stock stays tracked
+    // (lib/gann/planExpiry.ts): price past TP1, or an entry only an
+    // over-balancing reaction could fill. Read at the scan's price on the
+    // ledger's own daily chart, as the replay reads it.
+    const planExpiry = stopBreach.breached
+      ? null
+      : readPlanExpiry({
+          side: scoreDirection === "bearish" ? "sell" : "buy",
+          price: currentPrice,
+          levels,
+          ledger: campaignLedger,
+          bars: charts.daily,
+        });
+
+    const decision = withDecisionState(applyStandAsideHold(applyPlanExpiredHold(applyStopBreachHold(applyReadyNowHold(applyDataLagHold(
       applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
@@ -586,7 +602,7 @@ export async function scanTicker(
         dayRange: recentAtr > 0 ? recentAtr : null,
         levels,
       },
-    ), stopBreach), standAside), direction);
+    ), stopBreach), planExpiry), standAside), direction);
 
     // ---- Signal and Regime Engine (lib/signals) — a separate decision layer
     // from the Gann/STRAT verdict above, never merged into it. This is a
@@ -714,7 +730,10 @@ export async function scanTicker(
       gann,
       pattern,
       armedPatterns,
-      levels,
+      // An expired plan offers no levels on any surface; `planExpired` keeps
+      // what it was for the card's note (lib/gann/planExpiry.ts).
+      levels: planExpiry ? null : levels,
+      ...(planExpiry ? { planExpired: planExpiredNotice(planExpiry) } : {}),
       levelsError,
       selectionStrength: selectionStrength(direction, leadership, weakStock, pillarFacts.universeRank),
       ...(stopBreach.breached

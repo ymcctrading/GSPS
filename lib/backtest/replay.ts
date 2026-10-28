@@ -90,6 +90,7 @@ import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
 import { failedTestInPath } from "@/lib/gann/multipleTops";
 import { breakawayVolumeMet, readBreakaway, type BreakawayReading } from "@/lib/gann/breakaway";
 import { readMonthlyBreakWarning, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { readPlanExpiry } from "@/lib/gann/planExpiry";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import {
   GANN_EXIT_RULE_NAMES,
@@ -695,9 +696,14 @@ export interface ReplayResult {
    * otherwise stays out for the rest of the session, when the next session's
    * read of the swing chart replaces it with a new plan. Counted once per plan
    * per session, whether or not it was later reinstated or its entry would have
-   * fired.
+   * fired. Includes the expired plans (`expiredPlans`).
    */
   retiredPlans: number;
+  /**
+   * Of `retiredPlans`, those withdrawn because they expired (owner,
+   * 2026-10-28; `lib/gann/planExpiry.ts`) rather than for a broken stop.
+   */
+  expiredPlans?: number;
 }
 
 /** Why a fired entry was dropped with no trade recorded (`ReplayResult.droppedPlans`). */
@@ -1055,6 +1061,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const sessionPlanReady = new Map<string, boolean>();
   const brokenPlans = new Set<string>();
   const retiredSessionPlans = new Set<string>();
+  // Plans expired when the session's scan read them (`planExpiryAt`).
+  const expiredSessionPlans = new Set<string>();
   // Macro context and the daily triggers only move once a session, so they
   // are built per date, not per bar.
   const armByDate = new Map<string, SessionArm | null>();
@@ -1249,7 +1257,33 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           brokenPlans.add(planKey);
           retiredSessionPlans.add(planKey);
         }
+        // Owner, 2026-10-28: an expired plan is no setup (lib/gann/planExpiry.ts),
+        // read as the live scan reads it, at the session's scan price on the
+        // ledger's daily chart. Not entered for the session; counted with the
+        // retired plans (a plan withdrawn before its entry).
+        if (planExpiryAt(arm.context, trigger.direction, plan, armPrice)) {
+          expiredSessionPlans.add(planKey);
+          retiredSessionPlans.add(planKey);
+        }
       }
+      // The live scan reads the expiry on every scan, so on intraday bars each
+      // closed candle of the session after the first read is read too, at its
+      // close: a plan whose TP1 price came to stand past is not entered later in
+      // the session (review of #494). On daily bars the session's one bar is
+      // the one the entry fires on, so only the first read applies.
+      if (!firstRead && !closedSession && !expiredSessionPlans.has(planKey)) {
+        const closed = history[history.length - 1];
+        const priced = sessionPlanPaths.get(planKey);
+        if (
+          closed.t.slice(0, 10) === date &&
+          priced &&
+          readPlanExpiry({ side: trigger.direction === "bearish" ? "sell" : "buy", price: closed.c, levels: priced }) !== null
+        ) {
+          expiredSessionPlans.add(planKey);
+          retiredSessionPlans.add(planKey);
+        }
+      }
+      if (expiredSessionPlans.has(planKey)) continue;
       // On daily bars the session's one closed bar is also the bar a reaction
       // entry fires on: the candle traded into the zone (an order at the
       // market, live, on a 15-minute bar) and may have reached the stop
@@ -1636,7 +1670,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     }
   }
 
-  return summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped);
+  return { ...summarise(trades, armedKeys.size, triggered, refusedFills, retiredSessionPlans.size, dropped), expiredPlans: expiredSessionPlans.size };
 }
 
 /**
@@ -1728,7 +1762,8 @@ export function combine(results: ReplayResult[]): ReplayResult {
   for (const r of results) {
     for (const k of Object.keys(dropped) as (keyof DroppedPlanReasons)[]) dropped[k] += r.droppedPlanReasons?.[k] ?? 0;
   }
-  return summarise(trades, armed, triggered, refusedFills, retiredPlans, dropped);
+  const expiredPlans = results.reduce((s, r) => s + (r.expiredPlans ?? 0), 0);
+  return { ...summarise(trades, armed, triggered, refusedFills, retiredPlans, dropped), expiredPlans };
 }
 
 /** How many reversals deep the replay follows a chain of caught trades. An engineering bound, not Gann's. */
@@ -2130,6 +2165,8 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     weights,
   });
   if (!levels || isStopBreached(chosen.trigger.direction, levels.stopLoss, armPrice)) return null;
+  // An expired plan is Reject live, so the intraday route never serves it.
+  if (planExpiryAt(arm.context, chosen.trigger.direction, levels, armPrice)) return null;
   return {
     direction: chosen.trigger.direction === "bullish" ? "up" : "down",
     verdict: decision.outputState,
@@ -2140,6 +2177,28 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     awaitsCrossing: levels.entryAwaitsCrossing === true,
     entryKind: chosen.trigger.kind,
   };
+}
+
+/**
+ * Whether the plan has expired at the session's scan price (owner, 2026-10-28;
+ * `lib/gann/planExpiry.ts`), read on the campaign ledger and daily chart the
+ * session's context holds, as `scanTicker.ts` reads it live.
+ */
+function planExpiryAt(
+  context: MacroContext,
+  direction: "bullish" | "bearish",
+  levels: Pick<TradeLevels, "entry" | "takeProfit1" | "entryKind"> | null,
+  price: number,
+): boolean {
+  return (
+    readPlanExpiry({
+      side: direction === "bearish" ? "sell" : "buy",
+      price,
+      levels,
+      ledger: context.disclosedRules.campaign ?? null,
+      bars: context.dailyChart,
+    }) !== null
+  );
 }
 
 /**
