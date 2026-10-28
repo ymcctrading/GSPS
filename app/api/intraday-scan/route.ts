@@ -471,6 +471,15 @@ export async function GET(req: NextRequest) {
  */
 const MAX_SYSTEM_UNIVERSE = 50;
 
+/**
+ * The core list the scheduled scan and a refresh with no symbols start from:
+ * equities only for the moment (owner, 2026-10-28: "For the moment, only
+ * equities should populate the list"), so the crypto pairs and members'
+ * watched crypto take no slot. A person who names a pair still gets it, and
+ * `?universe=crypto` still scans the pairs alone when called.
+ */
+const EQUITY_CORE = WATCHLIST.filter((entry) => entry.kind !== "crypto");
+
 /** The session's discoveries read for the queue at most (engineering; the tier's share is 8, the rest wait their turn). */
 const DISCOVERY_READ_MAX = 40;
 /** An evening focus list older than this (calendar days) is not read: it spans a weekend and a holiday. */
@@ -538,17 +547,18 @@ async function resolveSystemUniverse(
   ]);
   // The fixed single stocks give way only to a focus list or the session's
   // setups; discoveries alone (a missed evening) leave the core list whole.
-  const core = focus.length > 0 || setups.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
+  const core = focus.length > 0 || setups.length > 0 ? EQUITY_CORE.filter((w) => w.kind !== "equity") : EQUITY_CORE;
+  const watchedEquities = watched.filter((w) => w.kind !== "crypto");
   const plan = planQueue({
     capacity: MAX_SYSTEM_UNIVERSE,
     core: core.map((c) => c.symbol),
     plans: setups,
     discovery,
     focus,
-    watched: watched.map((w) => w.symbol),
+    watched: watchedEquities.map((w) => w.symbol),
     tick,
   });
-  const kindOf = new Map<string, AssetKind>([...core, ...watched].map((e) => [e.symbol.toUpperCase(), e.kind]));
+  const kindOf = new Map<string, AssetKind>([...core, ...watchedEquities].map((e) => [e.symbol.toUpperCase(), e.kind]));
   const out = plan.selected.map((e) => ({ symbol: e.symbol, kind: kindOf.get(e.symbol) ?? kindFor(e.symbol) }));
   console.info(
     `intraday-scan: queue ${plan.selected.length}/${plan.capacity} ${Object.entries(plan.byTier).map(([t, n]) => `${t}=${n}`).join(" ")}, deferred ${plan.deferred.length}`,
@@ -709,7 +719,7 @@ async function resolveOnDemandUniverse(
     .catch(() => [] as string[]);
   const seen = new Set<string>();
   const out: { symbol: string; kind: AssetKind }[] = [];
-  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...WATCHLIST]) {
+  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...EQUITY_CORE]) {
     if (seen.has(entry.symbol)) continue;
     seen.add(entry.symbol);
     out.push(entry);
@@ -719,7 +729,7 @@ async function resolveOnDemandUniverse(
 
 /** Symbols to scan: the caller's list, or the core watchlist. */
 function resolveUniverse(param: string | null): { symbol: string; kind: AssetKind }[] {
-  if (!param?.trim()) return WATCHLIST;
+  if (!param?.trim()) return EQUITY_CORE;
 
   const requested = param
     .split(/[,\s]+/)
@@ -734,7 +744,7 @@ function resolveUniverse(param: string | null): { symbol: string; kind: AssetKin
     seen.add(symbol);
     universe.push({ symbol, kind: kindFor(symbol) });
   }
-  return universe.length > 0 ? universe : WATCHLIST;
+  return universe.length > 0 ? universe : EQUITY_CORE;
 }
 
 /**
