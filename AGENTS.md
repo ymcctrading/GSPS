@@ -3259,6 +3259,27 @@ ready-now and resting. Intraday replays read the prior session's daily close
 for it too. `pillarParity.test.ts` holds a moving quote to the same plan and
 score. `STRATEGY_VERSION` was `2026-10-28-plan-at-session-close`, merged onto the
 plan expiry as `2026-10-28-plan-at-close-on-plan-expiry`.
+**Double bottoms weeks apart, 2026-10-28 (diagnosis of the six-year daily
+rerun's first quarter: old-bottom entries 4,856 trades at -0.076R, CI wholly
+below zero).** One translation defect, fixed: the old-level buy rested at the
+latest bottom however young it was, so it bought retests a few days after the
+low (that these carry the loss is inferred: the run's per-trade rows could not
+be read here), not Gann's double bottom, which is
+"the same level weeks, months or a year or more apart" (W006 p.20, A-ENTRY-02;
+tops alike, pp.22, 47). `computeGannOldLevelEntry` now rests the order only
+once the bottom is `DOUBLE_BOTTOM_MIN_DAYS` (14, `entryKind.ts`) calendar
+days old by the day after the last session, live and replay alike, and the
+volume rule's heavy-top retest (A-ENTRY-20, the "sign to sell" note) needs its
+two tops as far apart. Stated exception: the failed-top hold (A-LEVELS-04,
+`multipleTops.ts`) still reads tops days apart, since a top price failed at is
+resistance whatever the gap (W006 pp.19-24). An open trade bought at a younger
+bottom before this change has its entry rebuilt as of its day under the new
+rule, so its live exit may read a crossed level it never had; it ends with
+those positions. "Weeks" read as two weeks is an
+engineering choice, labelled; `timeRules.ts` reads "2-3 weeks" as from day 8,
+a different phrase. Only the latest bottom is read, as before. `STRATEGY_VERSION`
+is `2026-10-28-double-bottom-weeks`; Execute and the 7/4 cutoffs need a
+fresh run on it.
 Bell notices (owner, "Yes, build and apply it"): each new signal from the
 scheduled intraday scan writes an `in_app_notifications` row (verdict
 'Intraday', migration 0100, applied 2026-10-21) for every member with the
