@@ -6,8 +6,8 @@ import type { ScanResult } from "@/lib/types";
 import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 const ALIGNMENT_LABEL: Record<ConfluenceAlignment, string> = {
-  aligned: "Aligned",
-  conflict: "Conflict",
+  aligned: "Agrees",
+  conflict: "Disagrees",
   neutral: "Neutral",
   notImplemented: "Not available",
 };
@@ -20,17 +20,18 @@ const ALIGNMENT_BADGE_VARIANT: Record<ConfluenceAlignment, "muted" | "bull" | "b
 };
 
 /**
- * Gann Confluence Layer / Sara Confluence Layer — additive confluence reads
- * from the addendum's cross-market integration (2026-08-28).
- * Renders the three-way framework identity (Gann North Star, Sara
- * confluence/strategy module, GSPS core governance) the addendum's
- * acceptance criteria require, and nothing that would let a reader
- * reconstruct which internal threshold decided an alignment — same
- * redaction rule as `SignalRegimeCard`.
+ * The ticker page's "Context" card (owner, 2026-10-28: the confluence card
+ * becomes a short plain-English list for every tier). It reads the two
+ * confluence modules (`lib/signals/confluence/gann.ts`, the Gann levels and
+ * timing context; `sara.ts`, the bar-pattern display) and says what each
+ * reading means in ordinary trading words. Nothing here names the method's
+ * sources or constructions (AGENTS.md "Confidential sources"), nothing lets a
+ * reader reconstruct an internal threshold (same redaction rule as
+ * `SignalRegimeCard`), and a time reading shows only with its measured record
+ * (CYC-30/CYC-47, `lib/gann/timeRecords.ts`).
  *
- * Neither module ever overrides GSPS core: this card is informational only
- * and never changes `decision`, `signals.*` tradeable verdicts, or account
- * eligibility.
+ * Informational only: it never changes `decision`, a tradeable verdict or
+ * account eligibility.
  */
 export function ConfluenceCard({ result }: { result: ScanResult }) {
   const { signals } = result;
@@ -39,300 +40,208 @@ export function ConfluenceCard({ result }: { result: ScanResult }) {
   const { gannConfluence, saraConfluence } = signals;
   if (!gannConfluence && !saraConfluence) return null;
 
+  const lines = gannConfluence && gannConfluence.marketAdapterStatus !== "unsupported" ? contextLines(gannConfluence) : [];
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cross-Market Confluence</CardTitle>
+        <CardTitle>Context</CardTitle>
         <CardDescription>
-          The structural coordinate module is GSPS&apos;s North Star numerical/coordinate context;
-          the price-action confirmation module is a cross-market, multi-timeframe confirmation
-          layer. Both are confluence factors on the GSPS Core signal above — alignment can improve
-          rank, and material conflict can downgrade a setup, but neither alone produces or blocks a
-          trade.
+          What else the chart shows around this setup, in plain words. None of it changes the
+          setup, the score or the plan.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {gannConfluence && <GannRow result={gannConfluence} />}
-        {saraConfluence && <SaraRow result={saraConfluence} />}
+        {gannConfluence && (
+          <ReadRow
+            title="Price levels and timing"
+            alignment={gannConfluence.alignment}
+            note={gannConfluence.marketAdapterStatus === "unsupported" ? gannConfluence.note : null}
+          />
+        )}
+        {saraConfluence && (
+          <ReadRow
+            title="Bar pattern"
+            alignment={saraConfluence.alignment}
+            note={
+              saraConfluence.marketAdapterStatus === "unsupported"
+                ? saraConfluence.note
+                : saraConfluence.scenarioId
+                  ? `${PATTERN_GLOSSARY_TERM[saraConfluence.scenarioId]} (${saraConfluence.direction}), ${
+                      saraConfluence.timeframeContinuity === "confirmed"
+                        ? "with the higher timeframes agreeing"
+                        : "without the higher timeframes agreeing yet"
+                    }.`
+                  : "No pattern is set up on the closed bars."
+            }
+          />
+        )}
+        {lines.length > 0 && (
+          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
+            {lines.map((l) => (
+              <li key={l.text}>
+                {l.text}
+                {l.note && <span className="text-xs text-muted"> {l.note}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function GannRow({ result }: { result: NonNullable<ScanResult["signals"]>["gannConfluence"] }) {
-  if (!result) return null;
+function ReadRow({ title, alignment, note }: { title: string; alignment: ConfluenceAlignment; note: string | null }) {
   return (
     <div className="rounded-lg border border-border bg-background p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">Structural Coordinate Confluence</p>
-          <p className="text-xs text-muted">
-            Coordinate context and target refinement — not a sole signal.
-          </p>
-        </div>
-        <Badge variant={ALIGNMENT_BADGE_VARIANT[result.alignment]}>
-          {ALIGNMENT_LABEL[result.alignment]}
-        </Badge>
+        <p className="text-sm font-medium">{title}</p>
+        <Badge variant={ALIGNMENT_BADGE_VARIANT[alignment]}>{ALIGNMENT_LABEL[alignment]}</Badge>
       </div>
-      {result.marketAdapterStatus === "unsupported" ? (
-        <p className="mt-2 text-xs text-muted">{result.note}</p>
-      ) : (
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-          {result.nearestSquareOf9 && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Nearest key price level</p>
-              <p className="font-mono font-semibold">{result.nearestSquareOf9.price.toFixed(2)}</p>
-            </div>
-          )}
-          {result.nearestFanLine && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Nearest fan line</p>
-              <p className="font-mono font-semibold">{result.nearestFanLine.angle}</p>
-              {TIME_LINE_RECORDS.angleTimeProjection && result.nearestFanLine.timeProjectionDate && (
-                <p className="text-[10px] text-muted">Time target: {result.nearestFanLine.timeProjectionDate}</p>
-              )}
-            </div>
-          )}
-          {/* CYC-30/CYC-47: a time line shows its measured record, or is not shown (lib/gann/timeRecords.ts). */}
-          {TIME_LINE_RECORDS.timeCycle && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Time cycle</p>
-              <p className="font-mono font-semibold">{result.timeCycleActive ? "Active" : "None"}</p>
-              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.timeCycle.summary}</p>
-            </div>
-          )}
-          {TIME_LINE_RECORDS.macroCycle && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Macro time cycle (hypothesis)</p>
-              <p className="font-mono font-semibold">
-                {result.macroCycle.majorActive
-                  ? `${Math.max(...result.macroCycle.activeWindows.flatMap((w) => w.majorCycleYears))}-year`
-                  : result.macroCycle.active
-                    ? "Minor only"
-                    : "None"}
-              </p>
-              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.macroCycle.summary}</p>
-            </div>
-          )}
-          {TIME_LINE_RECORDS.squareOf52 && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Weekly timing window</p>
-              <p className="font-mono font-semibold">{result.squareOf52.active ? "Active" : "None"}</p>
-              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.squareOf52.summary}</p>
-            </div>
-          )}
-          {TIME_LINE_RECORDS.angleMonthCounts && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Monthly timing count</p>
-              <p className="font-mono font-semibold">{result.angleMonthCounts.active ? "Active" : "None"}</p>
-              <p className="text-[10px] text-muted">{TIME_LINE_RECORDS.angleMonthCounts.summary}</p>
-            </div>
-          )}
-          <div className="rounded-md border border-border bg-surface p-2">
-            <p className="text-muted">Spectral cycle (hypothesis)</p>
-            <p className="font-mono font-semibold">
-              {result.spectralCycle.active ? `~${result.spectralCycle.dominantPeriodBars} bars` : "None"}
-            </p>
-          </div>
-          {result.campaignLeg.legNumber != null && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Campaign leg</p>
-              <p className="font-mono font-semibold">
-                {result.campaignLeg.legNumber} ({result.campaignLeg.confidence})
-              </p>
-            </div>
-          )}
-          {result.boilingPoint.length > 0 && (
-            <div className="rounded-md border border-border bg-surface p-2">
-              <p className="text-muted">Blow-off duration</p>
-              <p className="font-mono font-semibold">
-                {result.boilingPoint[0].weeksSinceClimax}wk ({result.boilingPoint[0].phase})
-              </p>
-            </div>
-          )}
-          <DisclosedRuleTiles rules={result.disclosedRules} />
-        </div>
-      )}
+      {note && <p className="mt-1 text-xs text-muted">{note}</p>}
     </div>
   );
 }
 
+type LevelsRead = NonNullable<NonNullable<ScanResult["signals"]>["gannConfluence"]>;
+type Line = { text: string; note?: string };
+
 const COUNTER_MOVE_LABEL = {
-  normal: "normal (2-3 weeks)",
+  normal: "a normal length (2-3 weeks)",
   extended: "longer than usual",
-  secondMonth: "into a 2nd month",
-  thirdMonth: "past 2 months",
+  secondMonth: "into a second month",
+  thirdMonth: "past two months",
 } as const;
 
+const recordNote = (r: { summary: string } | null | undefined) => (r ? `(${r.summary.replace(/^Measured: /, "measured: ")})` : undefined);
+
 /**
- * Stage A context (`lib/gann/disclosedRules.ts`). Optional-chained because
- * scan results cached before these fields existed don't carry them.
+ * One plain sentence per reading. Optional-chained because scan results cached
+ * before a field existed don't carry it.
  */
-function DisclosedRuleTiles({
-  rules,
-}: {
-  rules: NonNullable<NonNullable<ScanResult["signals"]>["gannConfluence"]>["disclosedRules"] | undefined;
-}) {
-  if (!rules) return null;
-  const tiles: { label: string; value: string; note?: string }[] = [];
-  // CYC-30/CYC-47: time lines appear with their measured record, or not at all.
+function contextLines(g: LevelsRead): Line[] {
+  const lines: Line[] = [];
   const rec = TIME_LINE_RECORDS;
-  if (rules.counterMove?.inCounterMove && rules.counterMove.phase) {
-    tiles.push({
-      label: "Counter-move length",
-      value: `${rules.counterMove.days}d (${COUNTER_MOVE_LABEL[rules.counterMove.phase]})`,
-    });
+  const px = (n: number) => n.toFixed(2);
+
+  if (g.nearestSquareOf9) {
+    lines.push({ text: `The nearest key price level is ${px(g.nearestSquareOf9.price)}, acting as ${g.nearestSquareOf9.role}.` });
   }
-  // The trend-change call is the ledger's: new extremes in the reaction's third
-  // month, counted from the section's top (A-TIME-01/-02).
+  if (g.nearestFanLine) {
+    lines.push({ text: `A trend line from the last ${g.nearestFanLine.anchor.kind} sits at ${px(g.nearestFanLine.price)}.` });
+  }
+  if (rec.timeCycle) {
+    lines.push({ text: g.timeCycleActive ? "A timing window is open." : "No timing window is open.", note: recordNote(rec.timeCycle) });
+  }
+  if (rec.macroCycle && g.macroCycle.majorActive) {
+    lines.push({ text: "A long-term timing window is open.", note: recordNote(rec.macroCycle) });
+  }
+  if (rec.squareOf52 && g.squareOf52.active) lines.push({ text: "A weekly timing window is open.", note: recordNote(rec.squareOf52) });
+  if (rec.angleMonthCounts && g.angleMonthCounts.active) lines.push({ text: "A monthly timing window is open.", note: recordNote(rec.angleMonthCounts) });
+  if (g.spectralCycle.active && g.spectralCycle.dominantPeriodBars) {
+    lines.push({ text: `Recent prices show a rough rhythm of about ${g.spectralCycle.dominantPeriodBars} bars.`, note: "(unproven)" });
+  }
+  if (g.campaignLeg.legNumber != null) {
+    lines.push({ text: `This move looks like leg ${g.campaignLeg.legNumber} of the trend (${g.campaignLeg.confidence} confidence).` });
+  }
+  if (g.boilingPoint.length > 0) {
+    lines.push({ text: `It has been ${g.boilingPoint[0].weeksSinceClimax} weeks since the last blow-off move (${g.boilingPoint[0].phase}).` });
+  }
+
+  const rules = g.disclosedRules;
+  if (!rules) return lines;
+  const CONTEXT_NOTE = "Context only; it does not change the setup.";
+
+  if (rules.counterMove?.inCounterMove && rules.counterMove.phase) {
+    lines.push({ text: `The current pullback has run ${rules.counterMove.days} days, ${COUNTER_MOVE_LABEL[rules.counterMove.phase]}.` });
+  }
   if (rules.campaign?.counterMoveThirdMonth) {
-    tiles.push({ label: "Reaction from the section's top", value: "new extremes in its 3rd month: trend change" });
+    lines.push({ text: "The pullback from the last top is still making new extremes in its third month, which often means the trend has changed." });
   }
   const pct = rules.pricePercentages;
   if (pct?.nearestAbove || pct?.nearestBelow) {
-    tiles.push({
-      label: "Percent-of-price levels",
-      value: `${pct.nearestBelow ? pct.nearestBelow.price.toFixed(2) : "—"} / ${pct.nearestAbove ? pct.nearestAbove.price.toFixed(2) : "—"}`,
-    });
+    lines.push({ text: `Nearby percentage levels: ${pct.nearestBelow ? px(pct.nearestBelow.price) : "none"} below, ${pct.nearestAbove ? px(pct.nearestAbove.price) : "none"} above.` });
   }
-  const tests = [rules.levelTests.support, rules.levelTests.resistance].filter((t) => t && t.tests >= 2);
-  if (tests.length > 0) {
-    tiles.push({
-      label: "Level tests",
-      value: tests.map((t) => `${t!.level.toFixed(2)} ×${t!.tests}`).join(", "),
-    });
+  for (const t of [rules.levelTests?.support, rules.levelTests?.resistance]) {
+    if (t && t.tests >= 2) lines.push({ text: `Price has tested ${px(t.level)} ${t.tests} times.` });
   }
   if (rules.yearFraction && rec.yearFraction) {
-    tiles.push({ label: "Time from pivot", value: `${rules.yearFraction.fraction} (${rules.yearFraction.daysSincePivot}d)`, note: rec.yearFraction.summary });
-  } else if (rules.dayCountBands.length > 0 && rec.dayCountBands) {
-    const d = rules.dayCountBands[0];
-    tiles.push({ label: "Time from pivot", value: `${d.daysSincePivot}d (${d.band[0]}-${d.band[1]} band)`, note: rec.dayCountBands.summary });
+    lines.push({ text: `${rules.yearFraction.daysSincePivot} days since the last turn.`, note: recordNote(rec.yearFraction) });
+  } else if (rules.dayCountBands?.length > 0 && rec.dayCountBands) {
+    lines.push({ text: `${rules.dayCountBands[0].daysSincePivot} days since the last turn.`, note: recordNote(rec.dayCountBands) });
   }
   if (rules.barMidpoint) {
-    tiles.push({ label: "Closes above bar midpoint", value: `${rules.barMidpoint.upOfLast5} of last 5` });
+    lines.push({ text: `${rules.barMidpoint.upOfLast5} of the last 5 closes finished in the upper half of the day's range.` });
   }
   const rot = rules.ruleOfThree;
-  const rotText = [
-    rot.weekly?.bearishSignal ? "weekly 3 lower" : rot.weekly?.bullishSignal ? "weekly 3 higher" : null,
-    rot.monthly?.bearishSignal ? "monthly 3 lower" : rot.monthly?.bullishSignal ? "monthly 3 higher" : null,
-  ].filter(Boolean);
-  if (rotText.length > 0) tiles.push({ label: "Three closes (weekly/monthly)", value: rotText.join(", ") });
-  // Stage F1: extreme-price and timing rules (cached results may predate them).
+  for (const [tf, r] of [["weekly", rot?.weekly], ["monthly", rot?.monthly]] as const) {
+    if (r?.bearishSignal) lines.push({ text: `Three ${tf} closes in a row lower.` });
+    else if (r?.bullishSignal) lines.push({ text: `Three ${tf} closes in a row higher.` });
+  }
   const rs = rules.extremes?.reverseSignal;
   if (rs?.signal) {
-    tiles.push({ label: "Reversal day", value: `${rs.signal} (${rs.rule === "reverseDay" ? "reverse day" : `${rs.runDays}-day run broken`})` });
+    lines.push({
+      text: rs.rule === "reverseDay"
+        ? `A reversal day points to a ${rs.signal}.`
+        : `A ${rs.runDays}-day run was broken, pointing to a ${rs.signal}.`,
+    });
   }
   const gaps = rules.extremes?.gaps;
-  const gapText = [
-    gaps?.exhaustGap ? `exhaust gap at ${gaps.exhaustGap}` : null,
-    gaps?.gapsInNewTerritory && gaps.gapsInNewTerritory.count >= 3 ? `${gaps.gapsInNewTerritory.count} ${gaps.gapsInNewTerritory.direction} gaps` : null,
-    gaps?.filledGapReversal ? `filled gap: minor trend ${gaps.filledGapReversal}` : null,
-  ].filter(Boolean);
-  if (gapText.length > 0) tiles.push({ label: "Gaps", value: gapText.join(", ") });
-  const timing = rules.timing;
-  const timingText = [
-    timing?.alternation?.mark ? `${timing.alternation.mark}-day turn count` : null,
-    timing?.square144 && timing.square144.units.length >= 2 ? `12-unit count in ${timing.square144.units.join("+")}` : null,
-  ].filter(Boolean);
-  if (timingText.length > 0 && rec.turnTiming) tiles.push({ label: "Turn timing", value: timingText.join(", "), note: rec.turnTiming.summary });
-  if (rules.seasonal && rec.seasonalCount) tiles.push({ label: "Seasonal date", value: rules.seasonal.point.label, note: rec.seasonalCount.summary });
+  if (gaps?.exhaustGap) lines.push({ text: `A gap at the ${gaps.exhaustGap} looks like an exhaustion gap.` });
+  if (gaps?.gapsInNewTerritory && gaps.gapsInNewTerritory.count >= 3) {
+    lines.push({ text: `${gaps.gapsInNewTerritory.count} ${gaps.gapsInNewTerritory.direction} gaps into new ground.` });
+  }
+  if (gaps?.filledGapReversal) lines.push({ text: `A filled gap turned the short-term trend ${gaps.filledGapReversal}.` });
+  if (rules.timing?.alternation?.mark && rec.turnTiming) {
+    lines.push({ text: `${rules.timing.alternation.mark} days since the last turn.`, note: recordNote(rec.turnTiming) });
+  }
+  if (rules.seasonal && rec.seasonalCount) lines.push({ text: `A seasonal turning date: ${rules.seasonal.point.label}.`, note: recordNote(rec.seasonalCount) });
   if (rules.accumulation && rules.accumulation.weeks >= 2) {
-    tiles.push({ label: "Weeks in range", value: `${rules.accumulation.weeks.toFixed(1)}${rules.accumulation.breakout ? ` (broke ${rules.accumulation.breakout})` : ""}` });
+    lines.push({ text: `Price has held in a range for ${rules.accumulation.weeks.toFixed(1)} weeks${rules.accumulation.breakout ? ` and broke ${rules.accumulation.breakout}` : ""}.` });
   }
   const lead = rules.leadership;
-  if (lead && (lead.bottomedFirst || lead.bottomedLate || lead.toppedFirst)) {
-    tiles.push({ label: "Versus the market", value: lead.bottomedFirst ? "bottomed first" : lead.bottomedLate ? "bottomed late" : "topped first" });
+  if (lead?.bottomedFirst) lines.push({ text: "It bottomed before the market did." });
+  else if (lead?.bottomedLate) lines.push({ text: "It bottomed after the market did." });
+  else if (lead?.toppedFirst) lines.push({ text: "It topped before the market did." });
+  if (rules.sharesPerPoint?.topWarning) {
+    lines.push({ text: `Volume per point of move is ${rules.sharesPerPoint.ratio.toFixed(1)}× the prior leg, a warning sign near tops.` });
   }
-  if (rules.sharesPerPoint?.topWarning) tiles.push({ label: "Volume per point", value: `${rules.sharesPerPoint.ratio.toFixed(1)}× prior leg` });
   const tr = rules.timeRules;
-  if (tr?.halt) tiles.push({ label: `${tr.halt.days}-day halt`, value: `at ${tr.halt.at} ${tr.halt.extreme.toFixed(2)}` });
+  if (tr?.halt) lines.push({ text: `A ${tr.halt.days}-day pause at the ${tr.halt.at} near ${px(tr.halt.extreme)}.` });
   if (tr?.reactionWeek) {
-    tiles.push({ label: "Reaction week", value: `${tr.reactionWeek}${tr.reactionAbnormal ? " (long)" : tr.reactionInZone ? " (2–3 wk zone)" : ""}` });
+    lines.push({ text: `The pullback is in its week ${tr.reactionWeek}${tr.reactionAbnormal ? ", longer than usual" : tr.reactionInZone ? ", inside the usual 2-3 weeks" : ""}.` });
   }
   for (const m of [rules.multipleTops?.top, rules.multipleTops?.bottom]) {
-    if (m) tiles.push({ label: `${m.tests >= 3 ? "Triple" : "Double"} ${m.kind}`, value: `${m.level.toFixed(2)} ${m.state}` });
+    if (m) lines.push({ text: `A ${m.tests >= 3 ? "triple" : "double"} ${m.kind} at ${px(m.level)}, ${m.state}.` });
   }
-  if (rules.zone) {
-    tiles.push({ label: "Activity zone", value: `${rules.zone.zone > 0 ? "+" : ""}${rules.zone.zone}${rules.zone.firstSignOfEnd ? " (first sign of the end)" : ""}` });
-  }
-  if (rules.timeAngle) {
-    tiles.push({ label: "Time balance", value: rules.timeAngle.state === "balanced" ? "balanced" : `${rules.timeAngle.state} time` });
-  }
-  // A-TIME-03, C-SWING-01, C-TIME-03: context readings whose described line
-  // lives only in the explanation trace, which every response empties, so the
-  // card shows them here from the structured reading.
-  const CONTEXT_NOTE = "Context only; it does not change the setup.";
+  if (rules.zone?.firstSignOfEnd) lines.push({ text: "The move shows a first sign of ending." });
   const fr = rules.firstRally;
   if (fr?.state === "firstRally") {
-    tiles.push({
-      label: "Advance from the bear low",
-      value: `first rally only (topped ${fr.topMonth}, ${fr.volumeRatio !== null ? `${fr.volumeRatio.toFixed(1)}× volume` : "heavy volume"})`,
+    lines.push({
+      text: `The advance from the bear-market low is a first rally so far (topped ${fr.topMonth}${fr.volumeRatio !== null ? ` on ${fr.volumeRatio.toFixed(1)}× volume` : ""}).`,
       note: CONTEXT_NOTE,
     });
   } else if (fr?.state === "bullCampaign") {
-    tiles.push({ label: "Advance from the bear low", value: `bull campaign, ${fr.advanceMonths} months from ${fr.lowMonth}`, note: CONTEXT_NOTE });
+    lines.push({ text: `A bull trend has run ${fr.advanceMonths} months from the ${fr.lowMonth} low.`, note: CONTEXT_NOTE });
   }
   if (rules.campaign?.equalCorrections) {
-    tiles.push({ label: "Reactions in the uptrend", value: "last three nearly equal", note: CONTEXT_NOTE });
+    lines.push({ text: "The last three pullbacks in the uptrend were nearly equal.", note: CONTEXT_NOTE });
   }
   const crb = rules.cycleRangeBreak;
   if (crb) {
-    // The cycle date is a time line, so it is named only with its record (CYC-30).
     const onDate = crb.onCycleDate && rec.timeCycle;
-    tiles.push({
-      label: "Range break",
-      value: `${crb.rangeDays}-day range broken down on ${crb.volumeRatio.toFixed(1)}× volume${onDate ? ", on a time-cycle date" : ""}`,
-      note: `${onDate ? `Time cycle: ${rec.timeCycle!.summary}. ` : ""}Source unconfirmed. ${CONTEXT_NOTE}`,
+    lines.push({
+      text: `A ${crb.rangeDays}-day range broke down on ${crb.volumeRatio.toFixed(1)}× volume${onDate ? ", inside a timing window" : ""}.`,
+      note: `${onDate ? `${recordNote(rec.timeCycle)} ` : ""}${CONTEXT_NOTE}`,
     });
   }
-  // A-TIME-16: the dated change-date label is a forward claim, shown only with a measured record (CYC-47).
-  const nextChange = timing?.changeDates?.next;
+  // A-TIME-16 and the swing projection are dated forward claims, shown only with a measured record (CYC-47).
+  const nextChange = rules.timing?.changeDates?.next;
   if (nextChange && rec.turnTiming) {
-    tiles.push({ label: "Next change date", value: `${nextChange.date}: a ${nextChange.expect} expected`, note: rec.turnTiming.summary });
+    lines.push({ text: `A possible ${nextChange.expect} around ${nextChange.date}.`, note: recordNote(rec.turnTiming) });
   }
-  if (timing?.projection && rec.swingProjection) {
-    tiles.push({
-      label: `Next swing ${timing.projection.kind}`,
-      value: `~${timing.projection.medianDate} (±${Math.round(timing.projection.spreadDays / 2)}d)`,
-      note: rec.swingProjection.summary,
-    });
+  if (rules.timing?.projection && rec.swingProjection) {
+    lines.push({ text: `A possible swing ${rules.timing.projection.kind} around ${rules.timing.projection.medianDate}.`, note: recordNote(rec.swingProjection) });
   }
-  return (
-    <>
-      {tiles.map((t) => (
-        <div key={t.label} className="rounded-md border border-border bg-surface p-2">
-          <p className="text-muted">{t.label}</p>
-          <p className="font-mono font-semibold">{t.value}</p>
-          {t.note && <p className="text-[10px] text-muted">{t.note}</p>}
-        </div>
-      ))}
-    </>
-  );
-}
-
-function SaraRow({ result }: { result: NonNullable<ScanResult["signals"]>["saraConfluence"] }) {
-  if (!result) return null;
-  return (
-    <div className="rounded-lg border border-border bg-background p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">Price-Action Confirmation Confluence</p>
-          <p className="text-xs text-muted">Closed-bar, multi-timeframe price-action confirmation.</p>
-        </div>
-        <Badge variant={ALIGNMENT_BADGE_VARIANT[result.alignment]}>
-          {ALIGNMENT_LABEL[result.alignment]}
-        </Badge>
-      </div>
-      {result.marketAdapterStatus === "unsupported" ? (
-        <p className="mt-2 text-xs text-muted">{result.note}</p>
-      ) : result.scenarioId ? (
-        <p className="mt-2 text-xs text-muted">
-          Armed scenario: {PATTERN_GLOSSARY_TERM[result.scenarioId]} ({result.direction}) —
-          timeframe continuity {result.timeframeContinuity === "confirmed" ? "confirmed" : "not confirmed"}.
-        </p>
-      ) : (
-        <p className="mt-2 text-xs text-muted">No armed scenario on the current closed-bar series.</p>
-      )}
-    </div>
-  );
+  return lines;
 }
