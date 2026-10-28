@@ -471,7 +471,8 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
           actions={
             notice ? (
               // A notice prices the daily plan, so it opens the plan, whose
-              // order rests at the entry; never a market entry of its own.
+              // entry goes at the market once a closed bar trades into its
+              // zone (never-failing rule 9); never an entry of its own.
               <Link
                 href={tickerHref(alert.symbol)}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"
@@ -513,7 +514,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               {notice && (
                 <p className="text-xs text-muted">
                   These are the daily plan&apos;s own levels. The time left is read from the pace since the last
-                  {up ? " high" : " low"} and can change; open the plan to rest its order at the entry ahead of time.
+                  {up ? " high" : " low"} and can change. Open the plan ahead of time: once a bar closes at the entry, its entry goes at the market.
                 </p>
               )}
               {!isRisk && !notice && alert.type !== "plan_level_held" && (

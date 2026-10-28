@@ -3256,8 +3256,9 @@ per bar since the reaction's top (`lib/scanner/entryApproach.ts`; the
 Three-Dimension Chart that measured speed was never disclosed), with the feed's
 lateness taken off; and `entry_reached`, the latest bar at the entry with the
 stop held. Notices, not trades (`NOTICE_SIGNALS`, `intradayDisplay.ts`): they
-carry the daily plan's levels, offer "Open the plan" (the ticket rests the
-plan's own order at its entry) and never "Trade this", and the replay skips
+carry the daily plan's levels, offer "Open the plan" (no order rests at a
+fixed price: once a closed bar trades into the plan's zone its entry goes at
+the market, never-failing rule 9) and never "Trade this", and the replay skips
 them. A stock's notices are read in the regular session only, and an
 approach only when it would arrive before the close. Notices are live
 readings: never stored in the alert tables, never held by the cooldown, and

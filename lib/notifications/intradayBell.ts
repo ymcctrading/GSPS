@@ -71,7 +71,7 @@ export function buildIntradayBellRow(alert: Alert): IntradayBellRow {
       symbol: alert.symbol,
       verdict: "Intraday",
       title: `${alert.symbol} ${side === "up" ? "buy" : "sell"}: ${SIGNAL_LABELS[alert.type]}`,
-      body: `${when} (price ${price(alert.move.current)}). Daily plan: ${parts.join(", ")}. Open the plan to rest the order at the entry; the pace can change.`,
+      body: `${when} (price ${price(alert.move.current)}). Daily plan: ${parts.join(", ")}. Open the plan to be ready: once a bar closes at the entry, its entry goes at the market. The pace can change.`,
     };
   }
   const levels: string[] = [`Price ${price(alert.move.current)}`];

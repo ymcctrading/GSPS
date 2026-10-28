@@ -26,7 +26,8 @@
  * and the pace as a straight line from the extreme (Gann's angle is a straight
  * line; a reaction that speeds up or slows is re-read each scan).
  *
- * Mandate: 1. Gann's angles and his resting order at the level (above). 2. No
+ * Mandate: 1. Gann's angles (above); the entry itself is his, at the market once
+ * a closed bar trades into the plan's zone (never-failing rule 9), never a limit. 2. No
  * periodicity claim; Dewey's checklist does not apply. 3. Rhythm: the reading
  * is a countdown re-read every scan, not a one-shot call. Cause and Effect: the
  * reaction's pace is the cause, the time left its effect. Law of Creation:

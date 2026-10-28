@@ -59,9 +59,9 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   reversal_risk:
     "A cross of yesterday's high or low failed, or price lost the middle of the day's range. The move that was running may be ending — a reason to stand aside, not a reason to trade the other way on its own.",
   entry_approach:
-    "Price is moving back toward a standing daily plan's entry. The time left is read from how fast it has moved since its last high (low, for a sell) and counts the price feed's delay. A heads-up to open the plan and rest its order at the entry before price gets there; the pace can change.",
+    "Price is moving back toward a standing daily plan's entry. The time left is read from how fast it has moved since its last high (low, for a sell) and counts the price feed's delay. A heads-up to open the plan before price gets there: once a bar closes at the entry, the plan's entry goes at the market. The pace can change.",
   entry_reached:
-    "Price has come back to a standing daily plan's entry and the plan's stop has not traded. A resting order at the entry fills here; the plan's own stop and targets apply.",
+    "Price has come back to a standing daily plan's entry and the plan's stop has not traded. Once a bar closes there, the plan's entry goes at the market, with the plan's own stop and targets.",
 };
 
 /**

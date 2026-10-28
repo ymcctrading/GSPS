@@ -1432,10 +1432,12 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
 
 /**
  * Price nearing, or at, a standing daily plan's entry: the notice that lets a
- * person sign in, open the plan and rest the order before price gets there
- * (owner, 2026-10-28). The plan's order rests at its entry ahead of time, as
- * Gann's orders did, set from the daily charts before the session; the session
- * only says how soon it is likely to be reached (`lib/scanner/entryApproach.ts`,
+ * person sign in and open the plan before price gets there (owner,
+ * 2026-10-28). No order rests at a fixed price: "never limit your orders or
+ * fix a buying or selling price. Trade at the market" (never-failing rule 9,
+ * *Commodities* pp. 43-45, p. 19). Once a closed bar trades into the plan's
+ * buy zone, its entry goes at the market (`gannBuyZone`, `confirmEntry`); the
+ * session only says how soon that is likely (`lib/scanner/entryApproach.ts`,
  * his angle: price covered per bar since the reaction's top).
  *
  * The same plans `plan_level_held` times, on the same gates: the stop has not
@@ -1492,7 +1494,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
     },
   ];
   const levels: TradePlan = {
-    confirmation: `The plan's order rests at its entry, ${priceText(plan.entry)}. Open the plan to place it before price gets there.`,
+    confirmation: `Once a bar closes back at the plan's entry, ${priceText(plan.entry)}, the plan's entry goes at the market. Open the plan to be ready before price gets there.`,
     entry: plan.entry,
     invalidation: plan.stop,
     firstTarget: plan.tp1,
@@ -1514,7 +1516,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
       move,
       factors,
       invalidation: plan.stop,
-      plan: { ...levels, confirmation: `Price is at the plan's entry, ${priceText(plan.entry)}. A resting order there fills now.` },
+      plan: { ...levels, confirmation: `Price is at the plan's entry, ${priceText(plan.entry)}. Once a bar closes there, the plan's entry goes at the market.` },
       whyThisAppeared: `${input.symbol} has come back to its daily plan's entry at ${priceText(plan.entry)} and has not traded the stop at ${priceText(plan.stop)}.`,
     });
   }
@@ -1587,7 +1589,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
       etaMinutes: reading.etaMinutes,
       expectedAt: reading.expectedAt,
     },
-    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "above" : "below"} its daily plan's entry at ${priceText(plan.entry)} and has moved ${up ? "down" : "up"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "high" : "low"} of ${priceText(reading.extreme)}. At that pace the entry is ${when}${minutes > 0 && dataAge > 60 ? ` (the feed's ${formatAge(dataAge)} delay is already counted)` : ""}. The pace can change; this is a heads-up, not a fill. Open the plan to rest the order at the entry, with its stop at ${priceText(plan.stop)}.`,
+    whyThisAppeared: `${input.symbol} is ${priceText(reading.distance)} ${up ? "above" : "below"} its daily plan's entry at ${priceText(plan.entry)} and has moved ${up ? "down" : "up"} about ${priceText(reading.ratePerBar)} a ${input.barIntervalMinutes}-minute bar since its ${up ? "high" : "low"} of ${priceText(reading.extreme)}. At that pace the entry is ${when}${minutes > 0 && dataAge > 60 ? ` (the feed's ${formatAge(dataAge)} delay is already counted)` : ""}. The pace can change; this is a heads-up, not a fill. Open the plan to be ready: once a bar closes at the entry, its entry goes at the market, with its stop at ${priceText(plan.stop)}.`,
   });
 }
 
