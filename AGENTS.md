@@ -3447,7 +3447,7 @@ rows are left out, and the lists overrule the sweep only once they were written 
 members' watchlists (so with more than about 21 watched names, some wait for a slot: an accepted trade-off for timing the best setups first; none were watched on 2026-10-28) and the focus list; a person's own refresh with no symbols puts
 `SESSION_SETUPS_ON_DEMAND` (9) ahead of the core list. Because the 15-minute
 market scan rewrites the lists, a setup that turns ready mid-session joins and
-one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
+one that breaks leaves. Two reads, under 0.5 ms each in production. A sweep Execute the lists never publish keeps its plan on the sweep row (SUS-21, migration 0128: stop, TP1, MTP, the crossing flag, `invalidated_at`): the intraday scan times it from there (`loadDailyPlans`' `sweepBasis`, intraday scan only; the evening focus list reads none), the session trading through its stop after the row was priced, in the regular session, retires it (`invalidateBrokenSweep`; the focus list's own test now reads the same bars, `barsSincePlan`), and so does the day's market scan re-reading the stock without the plan (`retireOverruledSweepRows`); a retired row also leaves the market scan's first slots. Gann chose
 from the daily charts after the close and timed in the session (*Truth of the
 Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
 **Nearing the entry, same day (owner: alert "as price is moving towards that

@@ -23,7 +23,8 @@ import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { loadSweptCandidates } from "@/lib/scan/universeSweep";
+import { loadSweptCandidatesWithBasis } from "@/lib/scan/universeSweep";
+import { retireSweepFromScan } from "@/lib/scan/sweepRetirement";
 import { recordShadowSignals } from "@/lib/shadow/record";
 
 /**
@@ -100,9 +101,9 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   const service = createServiceClient();
   const { universe } = await getUniversePolicy(service);
   const scanDate = etDateKey(new Date());
-  const [extraSymbols, sweptSymbols] = await Promise.all([
+  const [extraSymbols, { symbols: sweptSymbols, basis: sweepBasis }] = await Promise.all([
     resolveExtraSymbols(service, scanDate),
-    loadSweptCandidates(service),
+    loadSweptCandidatesWithBasis(service),
   ]);
 
   // `runMarketScan` itself was previously uncaught here: a thrown
@@ -159,6 +160,10 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
         `[shortlisted=${output.shortlisted} scanErrors=${output.scanErrors}]`,
     );
   }
+
+  // The night's sweep rows this scan re-read and no longer bears out leave the
+  // intraday scan's setups (SUS-21, lib/scan/sweepRetirement.ts).
+  await retireSweepFromScan(service, sweepBasis, sweptSymbols, output);
 
   // Shadow discovery: logged only, so its picks can be set beside the live
   // lists. Nothing reads it to scan, score, plan or notify.

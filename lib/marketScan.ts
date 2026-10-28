@@ -724,6 +724,13 @@ export interface MarketScanOutput {
    */
   fullScanResults: ScanResult[];
   /**
+   * Every stock read of the full pass, the reversion and continuation passes
+   * each kept (`fullScanResults` keeps one per symbol), errors included, so
+   * the night's sweep rows can be checked against each read
+   * (`retireOverruledSweepRows`, SUS-21).
+   */
+  stockReads: ScanResult[];
+  /**
    * Shadow only (`lib/scanner/discovery.ts`): stocks the session has made
    * active, most worth examining first. Never read by the lists, a score, a
    * plan or an order; empty when the coarse daily batch was not read.
@@ -1542,6 +1549,7 @@ export async function runMarketScan(
     continuationSkipped,
     equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
+    stockReads: [...full, ...continuationScanResults],
     /** Shadow only: never read by the lists, a score, a plan or an order. */
     shadowDiscovery,
   };
