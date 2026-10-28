@@ -848,4 +848,11 @@
 // a day's range of price, TP1 and MTP ahead of price (`applyReadyNowHold`).
 // Live verdicts move; the replay reads it at the fill, where only the
 // targets reading can hold; how far replay buckets move is not measured.
-export const STRATEGY_VERSION = "2026-10-27-execute-ready-now";
+// 2026-10-28-gann-p1-long-counts (Flanagan's yearly cycles checked against
+// Gann's text): P1's yearly counts add Gann's 9-, 14- and 40-year cycles (the
+// January 1955 list) and read the stock's 61-year monthly record, as the
+// time-window hold does; the market's 84-, 90- and 100-year counts on the long
+// record join them (`marketCountHits`). Flanagan's 13, 120 and 150 years have
+// no page of Gann's and are not read. The dominant decade is a measured factor
+// only (`dominantCycleWithTrade`). Live verdicts and replay buckets move.
+export const STRATEGY_VERSION = "2026-10-28-gann-p1-long-counts";

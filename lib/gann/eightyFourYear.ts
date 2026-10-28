@@ -10,9 +10,9 @@
  * Built: a major monthly turn of the market 84 years back to the month (a low
  * marks a low due, a high a high), the exact-month rule the stock's yearly
  * counts use (`yearCycleHits`). The stock's own record never reaches 84 years,
- * so it is read on the market's (`marketHistory.json`). Context and a measured
- * factor (`eightyFourYearCountWithTrade`); nothing here moves a score, gate,
- * plan or order, and no date ahead is shown to a person.
+ * so it is read on the market's (`marketHistory.json`). A measured factor
+ * (`eightyFourYearCountWithTrade`) and, since 2026-10-28, one of P1's yearly
+ * counts (below); no date ahead is shown to a person.
  *
  * Engineering choices, labelled: the record is Shiller's monthly S&P composite,
  * a stand-in for the Dow Gann read; turns are `findPivots` at 3 months with
@@ -20,10 +20,22 @@
  * logarithm of the price so a swing in 1900 weighs as a swing of the same
  * proportion in 2000.
  *
+ * The long counts in P1, 2026-10-28 (Flanagan's yearly cycles checked against
+ * Gann's text): the market's turns 84, 90 and 100 years back to the month
+ * (`MARKET_COUNT_YEARS`, `marketCountHits`) are yearly counts in P1's cycle
+ * check, read here because no stock's record (about 61 years) reaches them.
+ * 84 is the 1935 lesson's (above); 90 is "the Great Cycle" of the January
+ * 1955 lesson (Ch. 14, PDF 387); 100 is Gann's in *Commodities* p. 224 ("the
+ * period from 1841 to 1850 is likely to be repeated in 1941 to 1950") and the
+ * 1940 *Face Facts* tract. Flanagan's 120 and 150 years have no page of Gann's
+ * and are not read. The single 84-year hit stays a measured factor too.
+ *
  * Three-question basis:
- * 1. Gann: Tier A for the count; the Uranus tie is Tier C context.
+ * 1. Gann: Tier A for the counts; the Uranus tie is Tier C context.
  * 2. Cycles: one repetition in the record at most for each anchor (1871 + 84
- *    = 1955), so Dewey's repetition count is not cleared; context only.
+ *    = 1955; one for 100 years, as F4 1c found), so Dewey's repetition count
+ *    is not cleared; they act on Gann's word (owner, 2026-10-01, "Every Gann
+ *    method acts") and are measured in the replay.
  * 3. Hermetic: Rhythm, the long swing returning at its period.
  */
 import history from "@/lib/gann/marketHistory.json";
@@ -32,6 +44,8 @@ import { etDateKey } from "@/lib/market/session";
 import type { Bar } from "@/lib/types";
 
 export const EIGHTY_FOUR_YEARS = 84;
+/** The long yearly counts read on the market's record for P1: 84 (1935), 90 (1955), 100 (*Commodities* p. 224). */
+export const MARKET_COUNT_YEARS: readonly number[] = [84, 90, 100];
 
 export interface MarketCountHit {
   years: number;
@@ -73,4 +87,9 @@ export function marketCountHit(asOf: Date, years: number = EIGHTY_FOUR_YEARS): M
   const target = `${y - years}-${String(m).padStart(2, "0")}`;
   const hit = marketAnchors(now).find((a) => a.month === target);
   return hit ? { years, kind: hit.kind, pivotMonth: hit.month } : null;
+}
+
+/** Every long count of `MARKET_COUNT_YEARS` landing on the New York month of `asOf`. */
+export function marketCountHits(asOf: Date): MarketCountHit[] {
+  return MARKET_COUNT_YEARS.flatMap((years) => marketCountHit(asOf, years) ?? []);
 }

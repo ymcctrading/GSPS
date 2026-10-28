@@ -7,6 +7,7 @@ export function passingPillarFacts(side: "bullish" | "bearish" = "bullish"): Pil
     marketTrend: side,
     yearCycle: { bullishHits: 0, bearishHits: 0 },
     massPressure: side,
+    marketCounts: { bullishHits: 0, bearishHits: 0 },
     weeklyLine: long ? "green" : "red",
     decadeBias: side,
     yearTrend: long ? "up" : "down",

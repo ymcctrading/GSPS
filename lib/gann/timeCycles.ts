@@ -375,6 +375,43 @@ export function yearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()
   return result;
 }
 
+/**
+ * The yearly counts P1's cycle check reads (2026-10-28): the 1935 list
+ * (`yearCycleHits`) and the 9-, 14- and 40-year cycles of the January 1955
+ * list (`P1_ADDED_CYCLE_YEARS`, through `lessonCycleHits`).
+ *
+ * Why those three: James Flanagan's reading of the Master Time Factor (a
+ * secondary source the owner sent) adds 9-, 13-, 14-, 40-, 100-, 120- and
+ * 150-year cycles to the ones GSPS reads. Checked against Gann's own text the
+ * same day: 9, 14 and 40 are in his January 1955 list (Master Course Ch. 14,
+ * PDF 387; the 14-year "always very important because it is 2 seven-year
+ * periods", the 1953 Square of 144 lesson, Ch. 13), so they are carried as
+ * Gann's. 13 years is not his: his 13 is the square of 13 in months, 169,
+ * beside the 14-year cycle, so the 13-year cycle is Flanagan's and is not
+ * built. 100 years is his (*Commodities* p. 224); 120 and 150 are not. 84, 90
+ * and 100 reach past any stock's record and are read on the market's
+ * (`eightyFourYear.ts#marketCountHits`).
+ *
+ * The rest of the 1955 and 1931 lists still act only in the time-window hold
+ * (`countWindows.ts`). Measured on 200 random walks of 61 years of months,
+ * share of readings with a count due against a long: 14.5% on the 1935 list
+ * over 13 years (before), 26.2% with these three over the 61-year record
+ * (now), 43.2% with every lesson's list over it, which would fail P1's check
+ * on most of a random walk's readings with a market reading against; held for
+ * the owner.
+ */
+export const P1_ADDED_CYCLE_YEARS: readonly number[] = [9, 14, 40];
+
+export function pillarYearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()): YearCycleConvergence {
+  const result: YearCycleConvergence = { bullishHits: 0, bearishHits: 0 };
+  const added = lessonCycleHits(monthlyBars, asOf).filter((h) => P1_ADDED_CYCLE_YEARS.includes(h.years));
+  for (const hit of [...yearCycleHits(monthlyBars, asOf), ...added]) {
+    if (hit.kind === "low") result.bullishHits += 1;
+    else result.bearishHits += 1;
+  }
+  return result;
+}
+
 export interface YearCycleHit {
   /** The cycle's length in years, from `MAJOR_CYCLE_YEARS`. */
   years: number;

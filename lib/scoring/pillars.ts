@@ -30,8 +30,10 @@
 import type { Bar } from "@/lib/types";
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
 import { readGannTrend } from "@/lib/gann/trendStrength";
-import { yearCycleConvergence } from "@/lib/gann/timeCycles";
+import { pillarYearCycleConvergence } from "@/lib/gann/timeCycles";
 import { readMassPressure } from "@/lib/gann/massPressure";
+import { marketCountHits } from "@/lib/gann/eightyFourYear";
+import { yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { patternAngleLines } from "@/lib/gann/patternAngles";
 import { swingPivots, THREE_DAY_CHART } from "@/lib/gann/swingChart";
 import { gannPointForBars } from "@/lib/gann/pointScale";
@@ -56,8 +58,18 @@ const BASELINE_VOLUME_BARS = 250;
 export interface PillarFacts {
   /** The market's trend (SPY's swing chart), cut to the stock's last session. */
   marketTrend: Side | null;
-  /** Yearly counts from major pivots landing on this month (closed months only). */
+  /**
+   * Yearly counts from the stock's major monthly pivots landing on this month
+   * (closed months only): the 1935 list and 9, 14 and 40 years
+   * (`pillarYearCycleConvergence`), on the stock's long monthly record when
+   * it is passed.
+   */
   yearCycle: { bullishHits: number; bearishHits: number } | null;
+  /**
+   * The long counts (84, 90 and 100 years) on the market's record, which no
+   * stock's reaches (`eightyFourYear.ts#marketCountHits`). For a stock only.
+   */
+  marketCounts: { bullishHits: number; bearishHits: number } | null;
   /**
    * A-OTHER-05, Gann's mass pressure: the market's cycle from the years 10, 20,
    * 30 and 60 back at this month (`massPressure.ts`). Market-wide, read from
@@ -219,6 +231,11 @@ export function readPillarFacts(input: {
   universe: { symbol: string; strength: UniverseStrength | null } | null;
   /** The old levels of the S/R list (`buildStructuralLevels(...).old`), for `heldLevels`. */
   oldLevels: StructuralLevel[];
+  /**
+   * The stock's long monthly record (`YEAR_COUNT_MONTHLY_YEARS`), for the
+   * yearly counts, as the time-window hold reads it. Falls back to `monthly`.
+   */
+  yearCountMonthly?: Bar[] | null;
   price: number;
   asOf: Date;
 }): PillarFacts {
@@ -227,6 +244,10 @@ export function readPillarFacts(input: {
   const market = (marketDaily ?? []).filter((b) => b.t <= last);
   const month = asOf.toISOString().slice(0, 7);
   const closedMonths = monthly.filter((b) => b.t.slice(0, 7) < month);
+  // The same 61 years before the month on both surfaces (the replay holds more).
+  const yearCountMonths = input.yearCountMonthly
+    ? yearCountMonthlyWindow(input.yearCountMonthly.filter((b) => b.t.slice(0, 7) < month), asOf)
+    : closedMonths;
   const unit = gannPointForBars(daily);
   const leadership = rules.leadership;
   const counterMove = rules.counterMove;
@@ -236,9 +257,15 @@ export function readPillarFacts(input: {
   const divisions = majorRangeDivisions([...monthly, ...daily], monthly);
   return {
     marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
-    yearCycle: closedMonths.length >= 12 ? yearCycleConvergence(closedMonths, asOf) : null,
+    yearCycle: yearCountMonths.length >= 12 ? pillarYearCycleConvergence(yearCountMonths, asOf) : null,
     // The stock market's curve, for a stock: crypto has no market read here (`marketDaily` null).
     massPressure: marketDaily ? (readMassPressure(asOf)?.direction ?? null) : null,
+    marketCounts: marketDaily
+      ? marketCountHits(asOf).reduce(
+          (acc, h) => (h.kind === "low" ? { ...acc, bullishHits: acc.bullishHits + 1 } : { ...acc, bearishHits: acc.bearishHits + 1 }),
+          { bullishHits: 0, bearishHits: 0 },
+        )
+      : null,
     weeklyLine: rules.weeklyOneBar?.colour ?? null,
     decadeBias: rules.decadeCycle?.currentBias ?? null,
     yearTrend: rules.yearRanges?.yearTrend ?? null,
@@ -302,10 +329,19 @@ export function readPillarFacts(input: {
  * (A-OTHER-05, Master Course Ch. 7, PDF 224-226): Gann forecast the year from
  * the market's cycle before the stock's. With no reading in reach it does not
  * count against the trade.
+ *
+ * Since 2026-10-28 (Flanagan's yearly cycles checked against Gann's text,
+ * `timeCycles.ts#pillarYearCycleConvergence`): the yearly counts add Gann's
+ * 9-, 14- and 40-year cycles and read the stock's long record, and the
+ * market's 84-, 90- and 100-year counts join them. The dominant decade
+ * (`dominantCycle.ts`) is measured, not read here: on the record it called the
+ * month worse than the average.
  */
 export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const market = f?.marketTrend === side;
-  const against = side === "bullish" ? f?.yearCycle?.bearishHits : f?.yearCycle?.bullishHits;
+  const stockAgainst = side === "bullish" ? f?.yearCycle?.bearishHits : f?.yearCycle?.bullishHits;
+  const marketAgainst = (side === "bullish" ? f?.marketCounts?.bearishHits : f?.marketCounts?.bullishHits) ?? 0;
+  const against = stockAgainst === undefined ? undefined : stockAgainst + marketAgainst;
   const pressureAgainst = f?.massPressure != null && f.massPressure !== side;
   const cycle = against === 0 && !pressureAgainst;
   const year = f != null && (f.decadeBias === side || f.yearTrend === (side === "bullish" ? "up" : "down"));

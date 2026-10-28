@@ -29,6 +29,7 @@ function facts(over: Partial<PillarFacts> = {}): PillarFacts {
     marketTrend: null,
     yearCycle: null,
     massPressure: null,
+    marketCounts: null,
     weeklyLine: null,
     decadeBias: null,
     yearTrend: null,
@@ -75,6 +76,15 @@ describe("market and cycle position", () => {
     expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: counts, massPressure: "bearish" }), "bearish").passed).toBe(true);
     // Out of the record's reach, it does not count against the trade.
     expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, massPressure: null }), "bullish").passed).toBe(true);
+  });
+
+  it("counts the market's 84-, 90- and 100-year counts against the trade (2026-10-28)", () => {
+    const counts = { bullishHits: 0, bearishHits: 0 };
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, marketCounts: { bullishHits: 0, bearishHits: 1 } }), "bullish").passed).toBe(false);
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: counts, marketCounts: { bullishHits: 1, bearishHits: 0 } }), "bullish").passed).toBe(true);
+    expect(marketCyclePillar(facts({ marketTrend: "bearish", yearCycle: counts, marketCounts: { bullishHits: 1, bearishHits: 0 } }), "bearish").passed).toBe(false);
+    // The stock's own counts unread still fail the check, whatever the market's.
+    expect(marketCyclePillar(facts({ marketTrend: "bullish", yearCycle: null, marketCounts: counts }), "bullish").passed).toBe(false);
   });
 
   it("fails with nothing read", () => {
