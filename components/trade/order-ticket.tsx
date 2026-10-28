@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlossaryTerm } from "@/components/glossary-term";
-import { checkBracket } from "@/lib/trade/bracket";
+import { bracketMinGap, checkBracket } from "@/lib/trade/bracket";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
@@ -574,9 +574,14 @@ export function OrderTicket({
   // The intraday plan's levels, checked against the market entry they go with.
   // Its MTP rides with the order while it lies beyond the first target on the
   // trade's side (the person may have flipped the side).
+  // "Beyond" by the same gap placement measures it by (`bracketMinGap`, 1% of
+  // price under $1), so a sub-dollar MTP the server would refuse is dropped.
+  const intradayMasterGap = bracketMinGap(basePrice > 0 ? basePrice : intradayLevels?.target ?? 1);
   const intradayMaster =
     intradayLevels?.master != null &&
-    (side === "buy" ? intradayLevels.master > intradayLevels.target : intradayLevels.master < intradayLevels.target)
+    (side === "buy"
+      ? intradayLevels.master >= intradayLevels.target + intradayMasterGap
+      : intradayLevels.master <= intradayLevels.target - intradayMasterGap)
       ? intradayLevels.master
       : null;
   const intradayBracketCheck =
@@ -786,6 +791,7 @@ export function OrderTicket({
               // The plan's own side and its advised entry, where the crossing is confirmed.
               setSide(signalSide);
               setEntryMode("advised");
+              setManageIntraday(false);
             }}
             title={hasProtocolSignal ? "The daily plan's entry, stop, TP1 and MTP" : "No recommended daily plan for this symbol"}
           />

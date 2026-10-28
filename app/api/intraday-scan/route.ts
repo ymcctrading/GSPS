@@ -1018,6 +1018,7 @@ async function loadRecentSystemAlerts(
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
       ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
+      ...(meta.paysRisk === false ? { paysRisk: false } : {}),
     });
   }
   return out;
