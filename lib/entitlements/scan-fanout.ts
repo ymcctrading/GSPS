@@ -32,6 +32,7 @@ import { applyEventAndPersist, createOrGetIdempotentTradePlan, listTradePlans } 
 import { advanceEntryConfirmationForSymbol } from "@/lib/lifecycle/advanceConfirmation";
 import { retirePlansForBrokenStops, type RetiredPlanSignal } from "@/lib/lifecycle/retire";
 import { isRestingScanResult } from "@/lib/setups/resting";
+import { heldPositionLevelSource } from "@/lib/trade/level-source";
 
 export type FanOutOutcome = {
   visibleCount: number;
@@ -339,7 +340,14 @@ export async function evaluateMonitorsAndNotify(
   }
 
   for (const { transitionId, symbol } of invalidatedWorthy) {
-    const payload: EntitledInvalidationPayload = { symbol, verdict: "INVALIDATED" };
+    // A member holding the symbol on their own or the intraday plan's levels
+    // is told the break doesn't move their stop (lib/trade/level-source.ts).
+    const heldOn = await heldPositionLevelSource(service, args.profileId, symbol).catch(() => null);
+    const payload: EntitledInvalidationPayload = {
+      symbol,
+      verdict: "INVALIDATED",
+      ...(heldOn === "own" || heldOn === "intraday" ? { heldOn } : {}),
+    };
     await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
       console.error(`evaluateMonitorsAndNotify: in-app invalidation notification not recorded for ${symbol} — ${String(err)}`);
     });

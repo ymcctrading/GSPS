@@ -35,6 +35,7 @@ const aaplShares: EquityLeg = {
   stopLoss: null,
   takeProfit: null,
   masterProfit: null,
+  levelSource: null,
   mode: "paper",
 };
 
@@ -562,5 +563,71 @@ describe("Status vocabulary", () => {
 
     const pending = section(/^Pending Positions/);
     expect(await within(pending).findAllByText("Sync error")).not.toHaveLength(0);
+  });
+});
+
+describe("Edit exit levels: the swing plan, the intraday plan or your own", () => {
+  const protectedShares: EquityLeg = {
+    ...aaplShares,
+    stopLoss: 195,
+    takeProfit: 225,
+    masterProfit: 240,
+    levelSource: "own",
+  };
+  const positions = [{ ...blendedPositions[0], equity: protectedShares }];
+
+  function routeExtra(fetchMock: ReturnType<typeof mockApi>["fetchMock"], routes: Record<string, { status: number; body: unknown }>) {
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      const hit = Object.keys(routes).find((k) => url.includes(k));
+      if (!hit) return original(input);
+      const { status, body } = routes[hit];
+      return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) } as Response);
+    });
+  }
+
+  it("says what the trade was placed on, on the card and in the Edit form", async () => {
+    const user = userEvent.setup();
+    mockApi({ positions });
+    render(<PortfolioPage />);
+    expect((await screen.findAllByText(/placed on your own levels/)).length).toBeGreaterThan(0);
+    await user.click((await screen.findAllByRole("button", { name: "Edit" }))[0]);
+    expect(screen.getByText("Placed on your own levels.")).toBeInTheDocument();
+  });
+
+  it("puts the swing plan's levels in the form, raising the stop only when it tightens", async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = mockApi({ positions });
+    routeExtra(fetchMock, {
+      "/api/scan?ticker=AAPL": {
+        status: 200,
+        body: { direction: "bullish", levels: { stopLoss: 205, takeProfit1: 228, masterProfit: 236 } },
+      },
+    });
+    render(<PortfolioPage />);
+    await user.click((await screen.findAllByRole("button", { name: "Edit" }))[0]);
+    await user.click(screen.getByRole("button", { name: "Use the swing plan" }));
+    expect(await screen.findByText(/The swing plan's levels are in the form/)).toBeInTheDocument();
+    const inputs = screen.getAllByRole("spinbutton") as HTMLInputElement[];
+    // In profit (214.20 over 201.40), and 205 raises the 195 stop.
+    expect(inputs.map((i) => Number(i.value))).toEqual([205, 228, 236]);
+  });
+
+  it("says so when the intraday plan stands on the other side", async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = mockApi({ positions });
+    routeExtra(fetchMock, {
+      "/api/intraday-scan?budget=1": {
+        status: 200,
+        body: { budget: null, recent: [{ symbol: "AAPL", type: "old_level_cross", direction: "down", entry: 214, stop: 216, firstTarget: 210, masterTarget: null }] },
+      },
+    });
+    render(<PortfolioPage />);
+    await user.click((await screen.findAllByRole("button", { name: "Edit" }))[0]);
+    await user.click(screen.getByRole("button", { name: "Use the intraday plan" }));
+    expect(await screen.findByText("The intraday plan is on the other side of a long.")).toBeInTheDocument();
+    const inputs = screen.getAllByRole("spinbutton") as HTMLInputElement[];
+    expect(inputs.map((i) => Number(i.value))).toEqual([195, 225, 240]);
   });
 });

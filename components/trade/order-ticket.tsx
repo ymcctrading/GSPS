@@ -692,7 +692,8 @@ export function OrderTicket({
                     }
                   : undefined,
               mode: "paper" as const,
-              executionMode: useProtocolLevels ? "protocol" : "manual",
+              // Which levels the trade runs on, kept with it (lib/trade/level-source.ts).
+              levelSource: levelChoice,
               // Managed on the session's rules (lib/trade/exit-style.ts) and
               // subject to the intraday entry gates: the intraday plan, or own
               // levels the person asked to manage that way.

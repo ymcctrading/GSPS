@@ -49,6 +49,8 @@ export function guidedOrder(input: {
     // Guided Decision Mode, never the intraday alerts panel: this is not
     // subject to the intraday-promotion gates.
     intradaySourced: false,
+    // Guided trades the swing plan, as recommended (lib/trade/level-source.ts).
+    levelSource: "swing",
     attachLevels: {
       stopLoss: levels.stopLoss,
       takeProfit: levels.takeProfit1,

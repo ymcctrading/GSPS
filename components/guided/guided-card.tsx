@@ -110,6 +110,18 @@ export function GuidedCard({
 
         {showWhy && <WhyPanel rec={rec} />}
 
+        {/* The order ticket's other choices, reached from here rather than
+            crowding the one-tap card: Guided places the swing plan. The
+            intraday plan isn't named: Novice, Guided's main reader, has no
+            intraday access, and the ticket offers it where it stands. */}
+        <p className="text-xs leading-relaxed text-muted">
+          This trades the swing plan.{" "}
+          <Link href={rec.why.tickerHref} className="font-medium text-accent hover:underline">
+            Open the full order ticket
+          </Link>{" "}
+          to set your own levels instead.
+        </p>
+
         <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
 
         <div className="flex flex-wrap gap-2">
@@ -148,6 +160,7 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
         ))}
       </ul>
       {why.score.stateNote && <p className="text-xs text-muted">{why.score.stateNote}</p>}
+      <p className="text-xs font-medium text-muted">The swing plan</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {/* Tone tracks meaning, not direction: a target is the good outcome and
             the stop the bad one on either side, even though a short's targets

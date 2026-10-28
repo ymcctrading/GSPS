@@ -5,6 +5,7 @@ import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { priceUsd } from "@/lib/strat/priceText";
 import { configuredAppUrl, tickerHref } from "@/lib/routes";
 import { emailBudgetHold } from "@/lib/notifications/email-budget";
+import { heldOffPlanNote } from "@/lib/trade/level-source";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -214,6 +215,8 @@ export async function sendAlertEmail(data: AlertEmailData) {
 export interface SetupInvalidatedEmailData {
   userEmail: string;
   symbol: string;
+  /** The member's position in the symbol runs on these levels, not the swing plan's. */
+  heldOn?: "own" | "intraday";
 }
 
 /**
@@ -246,7 +249,7 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
         <div style="background: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #7c2d12; font-size: 14px;">
             Price action broke the structure that qualified this setup — GSPS no longer considers it valid.
-            If you're in this trade, review it against your risk plan; if you were watching it, treat it as closed.
+            ${heldOffPlanNote(data.symbol, data.heldOn) ?? "If you're in this trade, review it against your risk plan; if you were watching it, treat it as closed."}
           </p>
         </div>
         <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">

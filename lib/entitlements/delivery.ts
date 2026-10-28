@@ -26,6 +26,7 @@ import { isPreviewEnvironment } from "@/lib/env/preview";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { etDateKey } from "@/lib/market/session";
+import { heldOffPlanNote } from "@/lib/trade/level-source";
 
 export type DeliveryChannel = "email" | "sms" | "push";
 
@@ -70,6 +71,12 @@ export type EntitledAlertPayload = {
 export type EntitledInvalidationPayload = {
   symbol: string;
   verdict: "INVALIDATED";
+  /**
+   * Set when the member holds the symbol on levels other than the swing plan's
+   * (`lib/trade/level-source.ts`): the setup breaking doesn't move their stop,
+   * and the notice says so.
+   */
+  heldOn?: "own" | "intraday";
 };
 
 export type NotificationPayload = EntitledAlertPayload | EntitledInvalidationPayload;
@@ -246,7 +253,7 @@ export async function dispatchNotificationDelivery(
     if (!email) return { dispatched: false, reason: "no_email" };
     result =
       payload.verdict === "INVALIDATED"
-        ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol })
+        ? await sendSetupInvalidatedEmail({ userEmail: email, symbol: payload.symbol, heldOn: payload.heldOn })
         : await sendAlertEmail({ userEmail: email, ...payload });
   }
   // A send the sandbox sender cannot deliver is `skipped`, not `failed`, and
@@ -471,7 +478,12 @@ export async function recordInAppNotification(
           symbol: payload.symbol,
           verdict: "INVALIDATED" as const,
           title: `${payload.symbol} invalidated`,
-          body: `The setup you were tracking on ${payload.symbol} no longer holds -- price broke the level it was staked on.`,
+          body: [
+            `The setup you were tracking on ${payload.symbol} no longer holds -- price broke the level it was staked on.`,
+            heldOffPlanNote(payload.symbol, payload.heldOn),
+          ]
+            .filter(Boolean)
+            .join(" "),
         }
       : {
           symbol: payload.symbol,
