@@ -4137,11 +4137,13 @@ within the last two days of the allotted month."
   tools; it is rewritten on every report and hourly). The hold lifts in a
   monthly limit's last two days (UTC), when the period resets, or for an
   urgent production fix Chuck OKs: add the `usage-override` label to its PR,
-  and for a merge insert a `usage_overrides` row (`meter`, `until`, `reason`
+  then close and reopen it (a label alone starts no run), and for a merge insert a `usage_overrides` row (`meter`, `until`, `reason`
   citing his message). Never add either without his OK in words.
 - **Reconcile** when a session measures the real figure (the GitHub billing
   page, or the run list): post the difference as one event with a `key` of
-  `reconcile-<date>`. The meter started at 1,121 minutes measured from the run
+  `reconcile-<date>`. Each job reports its step time plus 30 seconds for
+  setup and post-job steps, so the meter runs close to GitHub's billed figure;
+  a gate that can't read the meter warns and lets the job run. The meter started at 1,121 minutes measured from the run
   list at 22:20 UTC on 2026-10-28 (private since 04:47 UTC).
 
 ## Git / PR Workflow
