@@ -30,8 +30,8 @@ describe("the graduation exam on an old-bottom entry", () => {
     expect(text("decision")).toMatch(/old bottom/);
     expect(text("decision")).not.toMatch(/closes 3 points past/);
     expect(text("entry")).toMatch(/the old swing bottom itself, at 39\.70/);
-    expect(text("entry")).not.toMatch(/1 point past/);
-    expect(text("stop")).toMatch(/3 points under that bottom, at 37\.74/);
+    expect(text("entry")).not.toMatch(/just past/);
+    expect(text("stop")).toMatch(/just under that bottom, at 37\.74/);
     expect(text("stop")).not.toMatch(/crossing/);
   });
 
@@ -44,9 +44,9 @@ describe("the graduation exam on an old-bottom entry", () => {
 
 describe("the signal card's headline", () => {
   it("names the resting buy at an old bottom, and its mirror", () => {
-    expect(structuralTriggerHeadline("bullish", "oldLevel")).toMatch(/at the last confirmed swing low.*3 points under it/);
-    expect(structuralTriggerHeadline("bearish", "oldLevel")).toMatch(/at the last confirmed swing high.*3 points over it/);
-    expect(structuralTriggerHeadline("bullish")).toMatch(/^A close 3 points over/);
+    expect(structuralTriggerHeadline("bullish", "oldLevel")).toMatch(/at the last confirmed swing low.*just under it/);
+    expect(structuralTriggerHeadline("bearish", "oldLevel")).toMatch(/at the last confirmed swing high.*just over it/);
+    expect(structuralTriggerHeadline("bullish")).toMatch(/^A close clearly over/);
   });
 });
 

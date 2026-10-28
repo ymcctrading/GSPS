@@ -195,7 +195,7 @@ export function AlertEditor({
           field,
           comparator,
           threshold,
-          levelSource: source ? `${source.label}${closeBeyond ? ", close 3 points beyond" : ""}` : null,
+          levelSource: source ? `${source.label}${closeBeyond ? ", close beyond" : ""}` : null,
           note: note.trim() || null,
           expiry,
         }),
@@ -298,7 +298,7 @@ export function AlertEditor({
             {source.note && <p>{source.note}</p>}
             <label className="mt-1 flex cursor-pointer items-center gap-2">
               <input type="checkbox" checked={closeBeyond} onChange={(e) => toggleCloseBeyond(e.target.checked)} />
-              Wait for a close 3 points beyond it (the definite indication that the level is crossed)
+              Wait for a close clearly beyond it (the definite indication that the level is crossed)
             </label>
           </div>
         )}

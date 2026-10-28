@@ -97,13 +97,13 @@ export function closedSessionBars(bars: Bar[], now: Date, intervalMs: number, si
 
 /** The same stages read under Gann's reaction rule (PLAN.md item 4) and rule 9. */
 const AWAITING_REACTION_NOTE =
-  "Price closed 3 points past the old level, so the entry waits for a bar to react back into the buying zone, then goes at the market.";
+  "Price closed clearly past the old level, so the entry waits for a bar to react back into the buying zone, then goes at the market.";
 const GANN_NOTES: Record<ConfirmationStage, string> = {
-  not_touched: "Price hasn't crossed the old level by 3 points yet.",
-  touched: "Price reached 3 points past the old level but hasn't closed there yet.",
+  not_touched: "Price hasn't crossed the old level decisively yet.",
+  touched: "Price reached clearly past the old level but hasn't closed there yet.",
   broken: AWAITING_REACTION_NOTE,
   retested: AWAITING_REACTION_NOTE,
-  confirmed: "Price closed 3 points past the old level and a later bar reacted into the buying zone, so the entry goes at the market.",
+  confirmed: "Price closed clearly past the old level and a later bar reacted into the buying zone, so the entry goes at the market.",
   dead: "Price closed through the stop after the crossing, so this entry is off until a new setup forms.",
 };
 
@@ -117,13 +117,13 @@ const OLD_LEVEL_NOTES = {
 // week, so its notes name the high the stop is over, not a low (step 4b R4).
 const HOLD_NOTES = {
   waiting: "The low has held, and the entry waits for price to trade back to the last close, then goes at the market.",
-  confirmed: "The low has held and price traded at the last close, so the entry goes at the market with the stop 3 points under the low.",
+  confirmed: "The low has held and price traded at the last close, so the entry goes at the market with the stop just under the low.",
   dead: "Price closed through the stop under the low that held, so this entry is off until a new setup forms.",
 } as const;
 
 const HOLD_SHORT_NOTES = {
-  waiting: "The sell waits for price to trade back up to the last close, then goes at the market, with the stop 3 points over the high.",
-  confirmed: "Price traded at the last close, so the sell goes at the market, with the stop 3 points over the high.",
+  waiting: "The sell waits for price to trade back up to the last close, then goes at the market, with the stop just over the high.",
+  confirmed: "Price traded at the last close, so the sell goes at the market, with the stop just over the high.",
   dead: "Price closed through the stop over the high, so this entry is off until a new setup forms.",
 } as const;
 

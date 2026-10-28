@@ -41,7 +41,7 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   space_overbalance:
     "Today's move against the trend is bigger than any pullback since the trend began. That often means the trend has changed or soon will.",
   overnight_turn:
-    "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes 1 point beyond the last bottom or top.",
+    "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes just beyond the last bottom or top.",
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
   plan_level_held:

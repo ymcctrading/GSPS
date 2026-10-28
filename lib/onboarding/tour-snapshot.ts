@@ -255,7 +255,7 @@ export const SNAPSHOT_CAPS = [
   { label: "Risk per trade", value: "1% of the account", plain: "How much one trade is allowed to lose." },
   {
     label: "Capital behind each share",
-    value: "30 points a share",
+    value: "Scaled to price",
     plain: "Every share held needs capital behind it, scaled to the stock's price.",
   },
   { label: "Markets at once", value: "3", plain: "Watch a few markets closely rather than many loosely." },

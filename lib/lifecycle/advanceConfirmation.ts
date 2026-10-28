@@ -109,8 +109,8 @@ export async function advanceEntryConfirmationForSymbol(
               : plan.coordinates.entryKind === "hold"
                 ? plan.direction === "bullish"
                   ? "The low has held; the entry rests at the last close."
-                  : "The sell rests at the last close, with the stop 3 points over the high."
-                : "Price crossed the old level by 3 points; the entry waits for the reaction.",
+                  : "The sell rests at the last close, with the stop just over the high."
+                : "Price crossed the old level decisively; the entry waits for the reaction.",
         });
       }
     } catch (err) {

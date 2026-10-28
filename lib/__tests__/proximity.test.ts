@@ -140,7 +140,7 @@ describe("at a level means within Gann's 3 points of it (N#27)", () => {
     const facts = { ...passingPillarFacts(), rangeLevels: { bullish: match, bearish: null } };
     const item = computeScore(inputs({ pillarFacts: facts })).breakdown.find((b) => b.key === "gannRetracementConfluence");
     expect(item?.note).toContain(`${band.toFixed(2)}%`);
-    expect(item?.note).toContain("3-point allowance");
+    expect(item?.note).toContain("usual allowance");
   });
 
   it("puts the S/R band at the price's own 3-point allowance", () => {

@@ -32,15 +32,15 @@ describe("the graduation exam on a held bottom", () => {
     const s = scenario();
     expect(text(s, "decision")).toMatch(/low had held into its second week/);
     expect(text(s, "entry")).toMatch(/the last close, at 101\.00/);
-    expect(text(s, "entry")).not.toMatch(/1 point past|double or triple/);
-    expect(text(s, "stop")).toMatch(/3 points under the low that held, at 94\.70/);
+    expect(text(s, "entry")).not.toMatch(/just past|double or triple/);
+    expect(text(s, "stop")).toMatch(/just under the low that held, at 94\.70/);
   });
 
   it("names the rule that found it", () => {
     expect(text(scenario("days"), "decision")).toMatch(/held two days after a two-to-three-week reaction/);
     expect(text(scenario("record"), "decision")).toMatch(/record low had held for weeks/);
     expect(text(scenario("weeks", "bearish"), "decision")).toMatch(/high had held into its second week/);
-    expect(text(scenario("weeks", "bearish"), "stop")).toMatch(/3 points over the high that held/);
+    expect(text(scenario("weeks", "bearish"), "stop")).toMatch(/just over the high that held/);
   });
 
   it("says price moved away from the close when the buy was not filled", () => {
@@ -78,8 +78,8 @@ describe("the graduation exam on a held bottom", () => {
 
 describe("the signal card's headline", () => {
   it("names the buy at the close over a low that held, and its mirror", () => {
-    expect(structuralTriggerHeadline("bullish", "hold", undefined, "weeks")).toMatch(/^A buy at the last close, the low having held into its second week, with the stop 3 points under the low\./);
-    expect(structuralTriggerHeadline("bearish", "hold", undefined, "weeks")).toMatch(/^A sell at the last close, the high having held into its second week, with the stop 3 points over the high\./);
+    expect(structuralTriggerHeadline("bullish", "hold", undefined, "weeks")).toMatch(/^A buy at the last close, the low having held into its second week, with the stop just under the low\./);
+    expect(structuralTriggerHeadline("bearish", "hold", undefined, "weeks")).toMatch(/^A sell at the last close, the high having held into its second week, with the stop just over the high\./);
     expect(structuralTriggerHeadline("bullish", "hold", undefined, "days")).toMatch(/held two days after a two-to-three-week reaction/);
     expect(structuralTriggerHeadline("bullish", "hold", undefined, "record")).toMatch(/record low having held for weeks/);
   });
@@ -94,7 +94,7 @@ describe("the lessons and the Settings stop rule", () => {
     const method = lesson("academy-6/method-rules/entries-and-exits");
     expect(method).toMatch(/into its second week/);
     expect(method).toMatch(/record low/);
-    expect(method).toMatch(/up to 5/);
+    expect(method).not.toMatch(/up to 5/);
     expect(STOP_RULE_LABEL).toMatch(/the low that held/);
     expect(STOP_RULE_DETAIL).toMatch(/at the last close/);
     expect(STOP_RULE_DETAIL).not.toMatch(/never risks more than 4 points/);

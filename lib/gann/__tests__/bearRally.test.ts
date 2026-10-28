@@ -28,7 +28,7 @@ const BEAR = [...leg(140, 120, 8), ...leg(120, 128, 4), ...leg(128, 108, 8), ...
 const rally = (days: number) => daily([...BEAR, ...leg(90, 90 + days * 0.6, days)]);
 
 describe("the sell at the end of a bear-market rally's second or third week", () => {
-  it("sells at the Friday close of a two-week rally, the stop 3 points over that week's high", () => {
+  it("sells at the Friday close of a two-week rally, the stop just over that week's high", () => {
     const bars = rally(13);
     expect(new Date(bars.at(-1)!.t).getUTCDay()).toBe(5);
     const cm = readCounterMove(bars)!;
@@ -115,7 +115,7 @@ describe("what a person reads about it", () => {
   it("names the setup and the signal card's headline", () => {
     expect(gannEntrySource(t).setupLabel).toBe("bear-market rally");
     expect(structuralTriggerHeadline("bearish", "hold", undefined, "rally")).toBe(
-      "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop 3 points over that week's high.",
+      "A sell at the last close, at the end of the second or third week of a rally in a falling market, with the stop just over that week's high.",
     );
   });
 
@@ -132,7 +132,7 @@ describe("what a person reads about it", () => {
     const text = (item: string) => items.find((x) => x.item === item)!.explanation;
     expect(text("decision")).toMatch(/rally in a falling market had run into the end of its second or third week/);
     expect(text("entry")).toMatch(/the last close, at 97\.80/);
-    expect(text("stop")).toMatch(/3 points over that week's high, at 103\.10/);
+    expect(text("stop")).toMatch(/just over that week's high, at 103\.10/);
   });
 
   it("is taught in the Expert course", () => {
