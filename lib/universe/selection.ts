@@ -5,6 +5,24 @@
  * from `/api/industries` (`lib/universe/industries.ts#industryTree`).
  */
 
+import { instrumentSpec } from "@/lib/instruments/spec";
+
+/**
+ * Futures and forex have quotes but no bars on the free feed
+ * (`lib/instruments/spec.ts`, availability "quotes_only"), so nothing can scan
+ * or test them yet: the pickers leave them out and the routes refuse them.
+ */
+export function isQuotesOnly(symbol: string): boolean {
+  return instrumentSpec(symbol).availability === "quotes_only";
+}
+
+/** The refusal both routes give, naming the symbols. */
+export function quotesOnlyRefusal(symbols: string[]): string | null {
+  const bad = symbols.filter(isQuotesOnly);
+  if (bad.length === 0) return null;
+  return `${bad.join(", ")} can't be scanned or tested yet: futures and forex have live quotes but no price history on the current data feed.`;
+}
+
 /** `/api/batch-scan` scans at most this many symbols a request. */
 export const SCAN_CHUNK_SIZE = 25;
 /**

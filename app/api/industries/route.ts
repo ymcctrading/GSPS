@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { industryTree } from "@/lib/universe/industries";
 import { MAG7, SECTORS } from "@/lib/sectors";
-import type { PickerList } from "@/lib/universe/selection";
+import { isQuotesOnly, type PickerList, type PickerSector } from "@/lib/universe/selection";
 
 export const dynamic = "force-static";
 
@@ -22,5 +22,18 @@ export function GET() {
       .filter(([key]) => key !== "mag7")
       .map(([key, { label, symbols }]) => ({ key, label, symbols })),
   ];
-  return NextResponse.json({ sectors: industryTree(), lists });
+  // Futures and forex can't be scanned yet (quotes only), so they are named
+  // apart instead of offered.
+  const sectors: PickerSector[] = [];
+  const unavailable: string[] = [];
+  for (const s of industryTree()) {
+    const industries = s.industries.filter((i) => !i.symbols.every(isQuotesOnly));
+    if (industries.length > 0) sectors.push({ ...s, industries });
+    else unavailable.push(s.label);
+  }
+  return NextResponse.json({
+    sectors,
+    lists: lists.filter((l) => !l.symbols.every(isQuotesOnly)),
+    unavailable,
+  });
 }

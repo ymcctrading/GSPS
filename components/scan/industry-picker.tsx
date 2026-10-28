@@ -9,6 +9,8 @@ import type { PickerList, PickerSector } from "@/lib/universe/selection";
 export interface IndustryData {
   sectors: PickerSector[];
   lists: PickerList[];
+  /** Sectors listed but not yet scannable (futures, forex). */
+  unavailable?: string[];
 }
 
 /** Every listed symbol by sector and industry, from `/api/industries`. */
@@ -182,6 +184,12 @@ export function IndustryPicker({
           </p>
         )}
       </div>
+
+      {data.unavailable && data.unavailable.length > 0 && (
+        <p className="text-xs text-muted">
+          {data.unavailable.join(" and ")}: live quotes only for now, so they can&apos;t be scanned or tested yet.
+        </p>
+      )}
 
       {selected.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">

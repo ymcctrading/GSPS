@@ -808,6 +808,25 @@ as its design reads S6, and `selectionStrength` counts either. No new fetch;
 the group read adds a filter of the month's positions once per group and month.
 `STRATEGY_VERSION` was `2026-10-21-gann-group-strength-rank`.
 
+**Groups by industry, 2026-10-28 (owner: "align the raw SEC codes with Gann's
+groups").** The group rank above now reads the platform's industries
+(`lib/universe/industries.ts`, built for the Scanner's and Test page's industry
+picker): the SEC codes are the raw material and Gann's rule decides the group,
+one industry as the market trades it, so the codes that misfile a business
+(Alphabet as computer programming, ConocoPhillips as a refiner, Qualcomm as
+broadcasting equipment, 3M as surgical instruments) are corrected first. A
+sector's industries under 5 stocks are pooled as "<sector> (other)" when they
+reach 5 together (`buildIndustryGroupMap`), as the SIC map's major-group
+fallback did; `buildGroupMap` (raw SIC) stays for the rank's tests. 821 of 832
+stocks in 71 groups (was 762 in 58). The industry names and overrides are
+engineering choices, labelled. Owner's Law of Creation reading of the pair: SEC
+code ⊗ group label is a mixture (both say "industry"); the creating pair is
+industry ⊗ how the stock moves with its group, Gann reading a group by its
+stocks' monthly position, and a check that a stock moves with its industry is
+the planned second step, held until a replay. `STRATEGY_VERSION` is
+`2026-10-28-gann-groups-by-industry`; Execute and the 7/4 cutoffs need a fresh
+run on it.
+
 **Price and time squared against the move, 2026-10-21 (diagnosis of run 73's P7
 inversion: the check −0.188R, P7 −0.150R, negative in both halves).** One translation
 defect, fixed: the square shared the angle's anchor, the low for a long, so it passed

@@ -80,7 +80,7 @@ import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
-import { MAX_TEST_SYMBOLS } from "@/lib/universe/selection";
+import { MAX_TEST_SYMBOLS, quotesOnlyRefusal } from "@/lib/universe/selection";
 
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
@@ -111,6 +111,11 @@ export async function GET(req: NextRequest) {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   const universe = symbols.length > 0 ? symbols : DEFAULT_UNIVERSE;
+
+  const quotesOnly = quotesOnlyRefusal(universe);
+  if (quotesOnly) {
+    return NextResponse.json({ error: quotesOnly }, { status: 400 });
+  }
 
   if (universe.length > MAX_SYMBOLS) {
     return NextResponse.json(

@@ -43,3 +43,15 @@ describe("industry selection", () => {
     expect(chunk([], 25)).toEqual([]);
   });
 });
+
+describe("quotes-only markets", () => {
+  it("refuses futures and forex by name, and passes stocks and crypto", async () => {
+    const { isQuotesOnly, quotesOnlyRefusal } = await import("@/lib/universe/selection");
+    expect(isQuotesOnly("/ES")).toBe(true);
+    expect(isQuotesOnly("EURUSD")).toBe(true);
+    expect(isQuotesOnly("ES")).toBe(false);
+    expect(isQuotesOnly("BTC/USD")).toBe(false);
+    expect(quotesOnlyRefusal(["AAPL", "BTC/USD"])).toBeNull();
+    expect(quotesOnlyRefusal(["AAPL", "/ES", "EURUSD"])).toMatch(/^\/ES, EURUSD can't be scanned/);
+  });
+});

@@ -877,4 +877,12 @@
 // replays now read the prior session's daily close, not the last 15-minute
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
-export const STRATEGY_VERSION = "2026-10-28-plan-at-close-on-plan-expiry";
+// (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-gann-groups-by-industry: P3(c)'s group rank (S4) reads the
+// platform's industries (`lib/universe/industries.ts`: the SEC codes with the
+// misfiled businesses corrected, Alphabet with the social media names,
+// ConocoPhillips with the producers) instead of the raw codes, pooling a
+// sector's small industries when they reach five together
+// (`buildIndustryGroupMap`). 821 of 832 universe stocks in 71 groups (was 762
+// in 58). Live verdicts and replay trades move where a stock's group changed.
+export const STRATEGY_VERSION = "2026-10-28-gann-groups-by-industry";
