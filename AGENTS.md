@@ -62,6 +62,14 @@ application.
   never Gann or these sources themselves. This supersedes, for education
   copy, the "Gann-grounded platform" rule's reach into education below; the
   back end stays Gann one for one.
+  **Done 2026-10-28 (owner approved the outline):** Academy 2's, 4's and 6's
+  method courses now teach Dow Theory, support and resistance, the 50%
+  pullback, breakouts and pullbacks, Wyckoff ranges, trailing stops, Elliott
+  Wave, Fibonacci, market stages, calendar lore and sizing, with Mr. Bull and
+  Mrs. Bear kept and the lesson ids unchanged.
+  `lib/school/__tests__/publicMethods.test.ts` fails a lesson that writes out
+  one of the method's own rules. The graduation exam still grades GSPS's own
+  plans, explained in plain words without the rules' timing.
 - `scripts/check-banned-terms.mjs`'s `CONFIDENTIAL_TERMS` gates the copy
   surfaces in CI. Check the built bundle too (`grep -r` over `.next/static`)
   when a change touches what a client imports.
