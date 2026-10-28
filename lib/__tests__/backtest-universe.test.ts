@@ -12,6 +12,8 @@ import {
   bootstrapMeanCI,
   describeTrades,
   factorTable,
+  splitTable,
+  EXIT_REASON_OF,
   parseArgs,
   summarizeCells,
   summaryMarkdown,
@@ -290,5 +292,39 @@ describe("factor table over all scored trades", () => {
     );
     expect(md).toContain("## Factor table");
     expect(md).toContain("| prod | ruleOfThree | 2 | 2 | +2.000R |");
+  });
+});
+
+describe("exit reasons and entry kinds", () => {
+  const trades = [
+    trade({ score: 8, rMultiple: 2, barsHeld: 9, exitReason: "trend_change", entryKind: "crossing" }),
+    trade({ score: 8, rMultiple: -1, outcome: "loss", barsHeld: 2, exitReason: "initial", entryKind: "crossing" }),
+    trade({ score: 8, rMultiple: -0.5, outcome: "loss", barsHeld: 4, exitReason: "initial", entryKind: "oldLevel" }),
+    trade({ score: 4, outputState: "Watch", rMultiple: 1, barsHeld: 3, outcome: "win" }),
+    trade({ derived: "reversal", outputState: undefined, rMultiple: 5, exitReason: "initial" }),
+  ];
+
+  it("groups scored trades by how they left, largest group first, derived left out", () => {
+    type Row = { key: string; n: number; expectancyR: number; expectancyCI95: [number, number] | null; winRate: number; medianBarsHeld: number | null };
+    const t = splitTable(trades, EXIT_REASON_OF) as Record<"scored" | "Execute", Row[]>;
+    expect(t.scored.map((r) => r.key)).toEqual(["initial", "bracket_target", "trend_change"]);
+    const initial = t.scored[0];
+    expect(initial).toMatchObject({ n: 2, expectancyR: -0.75, winRate: 0, medianBarsHeld: 4 });
+    expect(initial.expectancyCI95![0]).toBeCloseTo(-0.75 - 1.96 * Math.sqrt(0.125 / 2));
+    expect(t.scored.find((r) => r.key === "trend_change")!.expectancyCI95).toBeNull();
+    expect(t.Execute.map((r) => r.key)).toEqual(["initial", "trend_change"]);
+  });
+
+  it("rides in the summary and its markdown", () => {
+    const s = summarizeCells([{ cell: { label: "prod" }, trades }]);
+    expect(s.cells[0].entries.Execute.map((r: { key: string }) => r.key)).toEqual(["crossing", "oldLevel"]);
+    const md = summaryMarkdown(
+      { universe: "u", symbolsUsed: 1, symbolsRequested: 1, ref: "r", sha: "s", timeframe: "1Day", targetR: 2, source: "x", live: true, window: {}, generatedAt: "g", skipped: [] },
+      s,
+    );
+    expect(md).toContain("## Exit reasons");
+    expect(md).toContain("| prod | Execute | initial | 2 | -0.750R |");
+    expect(md).toContain("## Entry kinds");
+    expect(md).toContain("| prod | scored | none | 1 | +1.000R |");
   });
 });

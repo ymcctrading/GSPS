@@ -313,6 +313,49 @@ export function factorTable(trades) {
   return out;
 }
 
+/**
+ * How the trades left and how they came in, over all scored trades and within
+ * Execute (2026-10-28). The six-year daily run's Execute trades won 29% of the
+ * time, lost 0.49R on average against a 1R risk and were held a median 5
+ * sessions, so most of them left on one of Gann's exit signals rather than the
+ * stop; its summary kept no split by exit or entry, so which signal ended them
+ * could not be read without the job log. Intervals are the normal
+ * approximation, as in the factor table.
+ */
+export const EXIT_REASON_OF = (t) =>
+  t.exitReason ?? (t.outcome === "win" ? "bracket_target" : t.outcome === "loss" ? "bracket_stop" : "none");
+
+export function splitTable(trades, keyOf) {
+  const out = {};
+  for (const [scope, keep] of Object.entries(FACTOR_SCOPES)) {
+    const groups = new Map();
+    for (const t of trades) {
+      if (!keep(t)) continue;
+      const key = keyOf(t) || "none";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    }
+    out[scope] = [...groups.entries()]
+      .map(([key, ts]) => {
+        const { n, m, v } = sampleStats(ts.map((t) => t.rMultiple));
+        const half = n >= 2 ? 1.96 * Math.sqrt(v / n) : null;
+        const bars = ts.map((t) => t.barsHeld).filter((b) => Number.isFinite(b)).sort((a, b) => a - b);
+        return {
+          key,
+          n,
+          expectancyR: m,
+          expectancyCI95: half === null ? null : [m - half, m + half],
+          winRate: ts.filter((t) => t.outcome === "win").length / n,
+          medianBarsHeld: bars.length ? bars[Math.floor(bars.length / 2)] : null,
+          // Sample variance, so slices of one run can be pooled.
+          variance: v,
+        };
+      })
+      .sort((a, b) => b.n - a.n || (a.key < b.key ? -1 : 1));
+  }
+  return out;
+}
+
 /** A fingerprint of a cell's trades, to catch options the ref silently ignored. */
 function tradeSignature(trades) {
   return trades.map((t) => `${t.symbol}|${t.openedAt}|${t.entry}|${t.rMultiple.toFixed(6)}`).join(";");
@@ -329,6 +372,8 @@ export function summarizeCells(cellResults) {
     scopes: Object.fromEntries(Object.entries(SCOPES).map(([k, f]) => [k, describeTrades(trades.filter(f))])),
     scoreBands: scoreBands(trades),
     factors: factorTable(trades),
+    exits: splitTable(trades, EXIT_REASON_OF),
+    entries: splitTable(trades, (t) => t.entryKind),
     ...(accounting ? { accounting } : {}),
   }));
 
@@ -563,6 +608,27 @@ export function summaryMarkdown(meta, summary) {
           `| ${c.label} | ${f.source === "context" ? "ctx " : ""}${f.key} | ${f.passN} | ${f.failN} | ${fmtR(f.diffR)} | ${fmtCI(f.diffCI95)} | ` +
             `${e?.passN ?? "—"} | ${fmtR(e?.diffR)} | ${fmtCI(e?.diffCI95)} |`,
         );
+      }
+    }
+    lines.push("");
+  }
+  for (const [field, title] of [
+    ["exits", "Exit reasons"],
+    ["entries", "Entry kinds"],
+  ]) {
+    if (!summary.cells.some((c) => c[field])) continue;
+    lines.push(`## ${title} (scored trades and within Execute)`);
+    lines.push("");
+    lines.push("| Cell | Scope | Kind | n | Expectancy | 95% CI | Win rate | Median sessions held |");
+    lines.push("|---|---|---|---:|---:|---|---:|---:|");
+    for (const c of summary.cells) {
+      for (const scope of Object.keys(FACTOR_SCOPES)) {
+        for (const r of c[field]?.[scope] ?? []) {
+          lines.push(
+            `| ${c.label} | ${scope} | ${r.key} | ${r.n} | ${fmtR(r.expectancyR)} | ${fmtCI(r.expectancyCI95)} | ` +
+              `${fmtPct(r.winRate)} | ${r.medianBarsHeld ?? "—"} |`,
+          );
+        }
       }
     }
     lines.push("");
