@@ -23,11 +23,15 @@
  * | Trend | The 3-bar swing chart's trend on the hourly roll-up of the bars: it turns only when the last completed swing top is crossed or bottom broken. The coarse chart says which way. | *Master Stock Market Course* Ch. 13 ("the hourly chart will give the first change in trend"); `lib/gann/swingChart.ts` |
  * | Entry | Cross of the last completed 3-bar swing top (bottom) of the bars, with a lost-motion allowance of one intraday point. Trades with the trend only. | A8 nine buying/selling points; `lib/gann/entryTrigger.ts` |
  * | Stop | One intraday point beyond the protective swing extreme. | *Master Course* Ch. 3 (1-point stops); NSTD stops of 1, 2, 3 points |
- * | Confirmation | The four-stage sequence, on the run's bars, as on every other path. | Owner decision 4, 2026-09-27; `lib/lifecycle/entryConfirmation.ts` |
+ * | Confirmation | The four-stage sequence, on the run's bars, as registered. Under `reactionEntry` (Part 5.4, 2026-10-28), Gann's crossing rule instead: a close 3 points past, the buy on the reaction, the stop 3 points the other side. | Owner decision 4, 2026-09-27; `lib/lifecycle/entryConfirmation.ts`; W006 pp. 20, 46-47 |
  * | First target | `gannFirstTarget`, the very function the intraday alerts use: the nearest old top or bottom (the session's extreme, the prior close) or a round number just short of one, at least one intraday ATR away, or none. 60% leaves there. | *Truth of the Stock Tape*; `lib/gann/evenFigures.ts` |
  * | Master target | None. The stop trails one point under each higher completed bottom (above each lower top). | "Never fix a target price" (owner decision X4) |
  * | Exit on trend change | The hourly swing chart turns against the position: leave at the next bar's open. | *Master Course* Ch. 13 |
  * | Broken stop | The same test as the live scan and the daily replay (`lib/gann/stopBreach.ts`): a plan whose stop a candle traded through is not entered until a closed bar closes back through the broken level by his allowance, scaled to this chart; a different stop is a new plan. | NSTD p. 20; *Master Course* rules 4-5 |
+ *
+ * The plan's 20-bar life and the 60% at the first target are the registered
+ * run's. `sessionPlans` and `scaleOut: false` read them as the live paths do
+ * (Part 5.4; audit I-21 and I-22, 2026-10-28).
  *
  * **The intraday point.** Gann's "3 points" are in the units of the chart he
  * wrote them for, and `lib/gann/pointScale.ts` already re-expresses them per
@@ -68,9 +72,10 @@
 
 import type { Bar } from "@/lib/types";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
+import { etDateKey } from "@/lib/market/session";
 import { delayedFillIndex, replayFeedDelayMs, seriesSpacingMinutes } from "@/lib/data/timeliness";
 import { atr } from "@/lib/analysis/pivots";
-import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
+import { computeGannEntryTrigger, tradedIntoBuyZone } from "@/lib/gann/entryTrigger";
 import { gannFirstTarget, gannOldLevels, targetPaysRisk } from "@/lib/scanner/intraday";
 import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
@@ -132,6 +137,23 @@ export interface IntradayReplayOptions {
    * (`replayFeedDelayMs`); 0 reproduces runs made before 2026-10-28.
    */
   feedDelayMs?: number;
+  /**
+   * Arm on Gann's crossing rule instead of the registered four-stage
+   * sequence (audit I-21, 2026-10-28): a close 3 intraday points past the old
+   * top crosses it, and the buy is on the reaction into the zone from 1 point
+   * past the level, at the market once a closed bar has traded into it (never-
+   * failing rule 9), with the stop 3 points the other side of the level. The
+   * daily replay's `entryRule: "reaction"` at this chart's scale (W006 pp. 20,
+   * 46-47; superseded the sequence on every live path 2026-10-15). Off by
+   * default, so the pre-registered run keeps its rules (Part 5.2).
+   */
+  reactionEntry?: boolean;
+  /**
+   * Carry an armed plan to the end of its session instead of
+   * `PLAN_LIFETIME_BARS`, as stored plans live since Q17 (2026-10-16;
+   * `lib/lifecycle/expiry.ts`). Audit I-22. Off by default (Part 5.2).
+   */
+  sessionPlans?: boolean;
 }
 
 /** One armed crossing and its stop, carried across bars until it fires, breaks, is replaced or expires. */
@@ -139,8 +161,15 @@ interface Plan {
   pivotKey: string;
   direction: "bullish" | "bearish";
   triggerPrice: number;
+  /** Where the plan's risk is priced from: the crossing price, or the reaction entry under `reactionEntry`. */
+  entry: number;
   stop: number;
   armedAt: number;
+  /** The New York date the plan armed in, for `sessionPlans`. */
+  session: string;
+  /** Under `reactionEntry`: whether a close has crossed the level by 3 points, and when. */
+  crossed: boolean;
+  crossedAt: string;
   /** Only closed bars at or after this stamp count toward the plan's confirmation and breach reads. */
   since: string;
   evidence: EntryConfirmationEvidence;
@@ -149,6 +178,12 @@ interface Plan {
 }
 
 const dateOf = (b: Bar) => b.t.slice(0, 10);
+/**
+ * The New York date a bar falls in, the session a plan lives to under
+ * `sessionPlans`: stored plans expire at the session's close, and crypto's at
+ * New York midnight (`lib/lifecycle/expiry.ts#sessionCloseDeadline`).
+ */
+const sessionOf = (b: Bar) => etDateKey(new Date(b.t));
 
 
 /** The scale the stop-breach allowance takes on these bars: one point against the daily 3-point allowance's third. */
@@ -166,6 +201,8 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
     reclaimPoints = RECLAIM_POINTS,
     sessionClose = false,
     scaleOut = true,
+    reactionEntry = false,
+    sessionPlans = false,
   } = options;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   // The run's delay model: the feed's contract, never today's environment.
@@ -227,10 +264,16 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
 
     // Arm the plan the swing chart prices now, with the trend only.
     if (direction && point > 0) {
-      const trigger = computeGannEntryTrigger(history, direction, SWING_BARS, bufferPct, false);
+      // Under the crossing rule the allowance is Gann's 3 points at this
+      // scale (three intraday points), and a crossed, unbroken level stays the
+      // buying point, as on the daily chart.
+      const trigger = reactionEntry
+        ? computeGannEntryTrigger(history, direction, SWING_BARS, bufferPct * 3, true)
+        : computeGannEntryTrigger(history, direction, SWING_BARS, bufferPct, false);
       if (trigger) {
+        const planStop = reactionEntry ? trigger.reactionStop : trigger.stopPrice;
         const pivotKey = `${trigger.direction}:${trigger.pivot.kind}:${history[trigger.pivot.index].t}`;
-        const planKey = `${pivotKey}|${trigger.stopPrice.toFixed(4)}`;
+        const planKey = `${pivotKey}|${planStop.toFixed(4)}`;
         if (!consumedPivots.has(pivotKey) && !plans.has(planKey)) {
           // A new stop on the same crossing is a new plan: Gann's "replaced", a new
           // trade from new structure, and the older read is dropped.
@@ -240,11 +283,15 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
             pivotKey,
             direction: trigger.direction,
             triggerPrice: trigger.triggerPrice,
-            stop: trigger.stopPrice,
+            entry: reactionEntry ? trigger.reactionEntry : trigger.triggerPrice,
+            stop: planStop,
             armedAt: i,
+            session: sessionOf(live),
+            crossed: trigger.held,
+            crossedAt: trigger.held ? (trigger.crossedAt ?? "") : "",
             since: live.t,
             evidence: freshEntryConfirmation(),
-            broken: isStopBreached(trigger.direction, trigger.stopPrice, closed.c),
+            broken: (!reactionEntry || trigger.held) && isStopBreached(trigger.direction, planStop, closed.c),
             bufferPct,
           };
           if (plan.broken) retiredPlans.add(planKey);
@@ -255,13 +302,27 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
 
     for (const [planKey, plan] of plans) {
       // A plan that has run out its life, or whose trend has turned, is gone.
-      if (i - plan.armedAt > PLAN_LIFETIME_BARS || direction !== plan.direction || consumedPivots.has(plan.pivotKey)) {
+      const expired = sessionPlans ? sessionOf(live) !== plan.session : i - plan.armedAt > PLAN_LIFETIME_BARS;
+      if (expired || direction !== plan.direction || consumedPivots.has(plan.pivotKey)) {
+        plans.delete(planKey);
+        continue;
+      }
+      const long = plan.direction === "bullish";
+      // Under the crossing rule, a close through the stop after the crossing
+      // close calls the entry off for good, as `confirmationFromBars` reads
+      // it live: the old levels are not resumed. Read before the breach test,
+      // which would otherwise mark the plan broken first and let a later
+      // reclaim revive it.
+      if (reactionEntry && plan.crossed && closed.t >= plan.since && closed.t > plan.crossedAt && (long ? closed.c <= plan.stop : closed.c >= plan.stop)) {
+        consumedPivots.add(plan.pivotKey);
         plans.delete(planKey);
         continue;
       }
       // The live scan's breach test, applied by path (see replay.ts): every
-      // closed bar after the one the plan armed on is read in turn.
-      if (closed.t >= plan.since) {
+      // closed bar after the one the plan armed on is read in turn. Under the
+      // crossing rule a plan has no stop until its level is crossed, so it is
+      // read only after.
+      if (closed.t >= plan.since && (!reactionEntry || plan.crossed)) {
         if (isStopBreachedByBar(plan.direction, plan.stop, closed)) {
           plan.broken = true;
           retiredPlans.add(planKey);
@@ -275,17 +336,36 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
         continue;
       }
 
-      // Entry confirmation, the four stages, on closed bars after the plan armed.
-      if (closed.t >= plan.since) {
-        plan.evidence = advanceEntryConfirmation(
-          plan.evidence,
-          { direction: plan.direction, entryTrigger: plan.triggerPrice, confirmationBufferPct: plan.bufferPct },
-          closed,
-        );
+      let ready: boolean;
+      if (reactionEntry) {
+        // Gann's crossing, read as the daily replay reads it: a close past the
+        // crossing line crosses the level; after that close, a close through
+        // the stop calls the entry off, and a candle traded into the zone makes
+        // it a market order.
+        ready = false;
+        if (closed.t >= plan.since) {
+          if (!plan.crossed) {
+            if (long ? closed.c >= plan.triggerPrice : closed.c <= plan.triggerPrice) {
+              plan.crossed = true;
+              plan.crossedAt = closed.t;
+            }
+          } else if (closed.t > plan.crossedAt) {
+            ready = tradedIntoBuyZone(closed, plan.direction, plan.entry);
+          }
+        }
+      } else {
+        // Entry confirmation, the four stages, on closed bars after the plan armed.
+        if (closed.t >= plan.since) {
+          plan.evidence = advanceEntryConfirmation(
+            plan.evidence,
+            { direction: plan.direction, entryTrigger: plan.triggerPrice, confirmationBufferPct: plan.bufferPct },
+            closed,
+          );
+        }
+        ready = entryReady(plan.evidence);
       }
-      if (!entryReady(plan.evidence) || i < busyUntil) continue;
+      if (!ready || i < busyUntil) continue;
 
-      const long = plan.direction === "bullish";
       const dir = long ? 1 : -1;
       consumedPivots.add(plan.pivotKey);
       plans.delete(planKey);
@@ -306,7 +386,9 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
       const fillBar = bars[f];
       const entry = fillBar.o;
       const stop = plan.stop;
-      const risk = Math.abs(plan.triggerPrice - stop);
+      // R is the plan's own risk (the crossing price, or the reaction entry's
+      // 4 points); a fill away from it moves the P&L, not the bracket.
+      const risk = Math.abs(plan.entry - stop);
       if (!(risk > 0) || (long ? entry <= stop : entry >= stop)) {
         refusedFills++;
         continue;

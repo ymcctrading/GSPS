@@ -224,6 +224,57 @@ describe("replayIntraday", () => {
     }
   });
 
+  // The registered rules stay the default: every test above runs on them,
+  // unchanged by the two options (audit I-21, I-22).
+  it("reads the two options turned off as unset", () => {
+    for (const bars of [zigzag(12, UP), zigzag(12, DOWN), upThenReversal()]) {
+      expect(run(bars, { reactionEntry: false, sessionPlans: false })).toEqual(run(bars));
+    }
+  });
+
+  it("on the crossing rule, buys the reaction with Gann's stop 3 points past the level, mirrored for a short", () => {
+    for (const [legs, long] of [[UP, true], [DOWN, false]] as const) {
+      const bars = zigzag(12, legs);
+      const registered = run(bars);
+      const reaction = run(bars, { reactionEntry: true });
+      expect(reaction.trades.length).toBeGreaterThan(0);
+      expect(reaction.triggered).toBe(reaction.trades.length + reaction.refusedFills);
+      for (const t of reaction.trades) {
+        expect(t.direction).toBe(long ? "bullish" : "bearish");
+        expect(long ? t.stop < t.entry : t.stop > t.entry).toBe(true);
+      }
+      // The reaction's stop is 3 points beyond the crossed level, nearer than
+      // the protective swing the registered breakout is stopped beyond.
+      const risk = (r: typeof reaction) => Math.abs(r.trades[0].entry - r.trades[0].stop);
+      expect(risk(reaction)).toBeLessThan(risk(registered));
+    }
+  });
+
+  it("on the crossing rule, a close through the stop after the crossing calls the entry off for good", () => {
+    const bars = zigzag(12, UP);
+    const t = run(bars, { reactionEntry: true }).trades[0];
+    const f = bars.findIndex((b) => b.t === t.openedAt);
+    // The closed bar the buy was decided on is two before the fill (the
+    // feed's 15-minute delay on 15-minute bars). Make it close through the
+    // stop, with the bars after it unchanged, so price reclaims the stop.
+    const broken = bars.map((b, k) => (k === f - 2 ? { ...b, c: t.stop * 0.999, l: Math.min(b.l, t.stop * 0.998) } : b));
+    const again = run(broken, { reactionEntry: true, dailyBars: dailyFor(bars) });
+    // Not bought on the reclaim: no trade on that plan's stop afterwards.
+    expect(again.trades.some((x) => x.stop === t.stop)).toBe(false);
+  });
+
+  it("carries a plan only to its session's end when asked, as stored plans live", () => {
+    for (const bars of [zigzag(12, UP), zigzag(12, DOWN)]) {
+      const session = run(bars, { sessionPlans: true });
+      expect(session.triggered).toBe(session.trades.length + session.refusedFills);
+      for (const t of session.trades) expect(Number.isFinite(t.rMultiple)).toBe(true);
+    }
+    // The uptrend's one plan arms late in a session and confirms in the next,
+    // so under the session's lifetime it lapses untaken.
+    expect(run(zigzag(12, UP)).trades).toHaveLength(1);
+    expect(run(zigzag(12, UP), { sessionPlans: true }).trades).toHaveLength(0);
+  });
+
   it("adds up across symbols like every other replay", () => {
     const a = run(zigzag(12, UP));
     const b = run(zigzag(12, DOWN));

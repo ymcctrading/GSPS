@@ -65,6 +65,13 @@ describe("validateCells", () => {
     expect(() => validateCells([{ label: "a", options: [] }])).toThrow(/options/);
     expect(validateCells([{ label: "base-1", options: { useProductionStop: true } }])).toHaveLength(1);
   });
+
+  it("takes the intraday profile's own options on that profile only, as the route does", () => {
+    expect(() => validateCells([{ label: "a", options: { reactionEntry: true } }])).toThrow(/intraday/);
+    expect(() => validateCells([{ label: "a", options: { profile: "swing", scaleOut: false } }])).toThrow(/intraday/);
+    const live = { profile: "intraday", reactionEntry: true, sessionPlans: true, scaleOut: false };
+    expect(validateCells([{ label: "a", options: live }])).toHaveLength(1);
+  });
 });
 
 describe("bootstrap CIs", () => {

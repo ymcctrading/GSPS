@@ -53,6 +53,10 @@
  *   ?scaleOut=0            with profile=intraday, sell nothing at the first
  *                          target: the whole position runs on the stop and the
  *                          hourly turn, the Intraday style's live rule
+ *   ?reactionEntry=1       with profile=intraday, arm on the crossing rule and
+ *                          buy the reaction, as every live path does (audit I-21)
+ *   ?sessionPlans=1        with profile=intraday, a plan lives to its session's
+ *                          end, as stored plans do (audit I-22)
  *   ?slippageSensitivity=1 also run the request at 3x cost-per-share and report
  *                          the expectancy delta — a second full fetch/replay,
  *                          off by default. See BacktestRequest.includeSlippageSensitivity
@@ -240,6 +244,11 @@ export async function GET(req: NextRequest) {
   if (scaleOut === false && profile !== "intraday") {
     return NextResponse.json({ error: "scaleOut applies to profile=intraday only" }, { status: 400 });
   }
+  const reactionEntry = searchParams.get("reactionEntry") === "1";
+  const sessionPlans = searchParams.get("sessionPlans") === "1";
+  if ((reactionEntry || sessionPlans) && profile !== "intraday") {
+    return NextResponse.json({ error: "reactionEntry and sessionPlans apply to profile=intraday only" }, { status: 400 });
+  }
 
   const planLevelsRaw = searchParams.get("planLevels");
   const usePlanLevels = planLevelsParam(planLevelsRaw);
@@ -314,6 +323,8 @@ export async function GET(req: NextRequest) {
         ...(profile ? { profile } : {}),
         ...(sessionClose ? { sessionClose } : {}),
         ...(scaleOut === false ? { scaleOut } : {}),
+        ...(reactionEntry ? { reactionEntry } : {}),
+        ...(sessionPlans ? { sessionPlans } : {}),
       });
       const bucketTrades = scoreRange
         ? byScoreRange(run.overall, scoreRange[0], scoreRange[1]).trades
@@ -359,6 +370,8 @@ export async function GET(req: NextRequest) {
       ...(profile ? { profile } : {}),
       ...(sessionClose ? { sessionClose } : {}),
       ...(scaleOut === false ? { scaleOut } : {}),
+      ...(reactionEntry ? { reactionEntry } : {}),
+      ...(sessionPlans ? { sessionPlans } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
     // The whitelisted report: plain factor names, no internal ids (lib/backtest/factorLabels.ts).

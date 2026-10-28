@@ -162,6 +162,17 @@ export interface BacktestRequest {
    */
   scaleOut?: boolean;
   /**
+   * Under the intraday profile, arm on Gann's crossing rule and buy the
+   * reaction (`IntradayReplayOptions.reactionEntry`, audit I-21). Ignored by
+   * the swing profile, whose `entryRule` already defaults to it.
+   */
+  reactionEntry?: boolean;
+  /**
+   * Under the intraday profile, carry a plan to its session's end
+   * (`IntradayReplayOptions.sessionPlans`, audit I-22). Ignored by the swing profile.
+   */
+  sessionPlans?: boolean;
+  /**
    * Also run the same request a second time at `slippageMultiplier` times the
    * cost-per-share and report the expectancy delta — the spec pack's
    * "slippage sensitivity" metric, showing how much of a bucket's edge is a
@@ -287,6 +298,10 @@ export interface BacktestReport {
   sessionClose: boolean;
   /** Echoes the request: whether the intraday profile sold 60% at the first target. */
   scaleOut: boolean;
+  /** Echoes the request: whether the intraday profile armed on the crossing rule. */
+  reactionEntry: boolean;
+  /** Echoes the request: whether the intraday profile carried plans to the session's end. */
+  sessionPlans: boolean;
   /**
    * The run split by the scan's two setup kinds. Continuations are published
    * only at Execute, so read that side together with the verdict buckets.
@@ -523,6 +538,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     profile = "swing",
     sessionClose,
     scaleOut,
+    reactionEntry,
+    sessionPlans,
     tradeStyle,
   } = request;
   // Rejected before any fetch, so a misspelt rule fails at once rather than
@@ -607,6 +624,8 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
               ...(sessionClose ? { sessionClose } : {}),
               ...(scaleOut === false ? { scaleOut } : {}),
+              ...(reactionEntry ? { reactionEntry } : {}),
+              ...(sessionPlans ? { sessionPlans } : {}),
               dailyBars: daily,
             })
           : replay(symbol, bars, { ...options, ...replaySeriesOptions(series, market, universeStrength), instrument }),
@@ -690,7 +709,7 @@ export function buildReport(
   request: BacktestRequest,
   slippageSensitivity?: SlippageSensitivity,
 ): BacktestReport {
-  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = LIVE_EXIT_RULE, disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing", sessionClose = false, scaleOut = true } = request;
+  const { attributeWithin = "Execute", attributeScoreRange, useProductionStop = false, usePlanLevels = false, entryRule = "reaction", exitRule = LIVE_EXIT_RULE, disableExits = [], reclaimPoints = RECLAIM_POINTS, profile = "swing", tradeStyle = "swing", sessionClose = false, scaleOut = true, reactionEntry = false, sessionPlans = false } = request;
 
   const split = byOutputState(run.overall);
   const derived = byDerived(run.overall);
@@ -738,6 +757,8 @@ export function buildReport(
     profile,
     sessionClose: profile === "intraday" && sessionClose,
     scaleOut: profile !== "intraday" || scaleOut,
+    reactionEntry: profile === "intraday" && reactionEntry,
+    sessionPlans: profile === "intraday" && sessionPlans,
     setupKindSplit: {
       reversion: summarise(kindSplit.reversion),
       continuation: summarise(kindSplit.continuation),

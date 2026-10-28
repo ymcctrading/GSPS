@@ -254,9 +254,9 @@ export function computeGannEntryTrigger(
   bufferPct?: number,
   /**
    * Keep a crossed, unbroken level as the buying point (the reaction buy).
-   * The intraday replay profile still measures the breakout through the
-   * latest swing, so it passes false; it has not been moved to the reaction
-   * entry (PLAN.md item 5).
+   * The intraday replay profile's registered run measures the breakout
+   * through the latest swing, so it passes false; under its `reactionEntry`
+   * option (Part 5.4, 2026-10-28) it passes true, as the daily path does.
    */
   holdCrossedLevel = true,
   /** Older levels from the monthly chart (`olderGannLevels`), crossed the same way. */

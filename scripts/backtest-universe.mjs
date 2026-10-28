@@ -125,6 +125,11 @@ export function validateCells(cells) {
     if (c.options !== undefined && (typeof c.options !== "object" || Array.isArray(c.options))) {
       throw new Error(`Cell "${c.label}": "options" must be an object`);
     }
+    // The intraday profile's own options, rejected on the swing profile as the route rejects them.
+    const intradayOnly = ["sessionClose", "scaleOut", "reactionEntry", "sessionPlans"].filter((k) => c.options?.[k] !== undefined);
+    if (intradayOnly.length > 0 && c.options?.profile !== "intraday") {
+      throw new Error(`Cell "${c.label}": ${intradayOnly.join(", ")} apply to profile "intraday" only`);
+    }
   }
   return cells;
 }
@@ -882,6 +887,13 @@ async function main() {
                 ? replayIntraday(symbol, bars, {
                     ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
                     ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),
+                    // The intraday profile's own options (Part 5.2 and 5.4 of
+                    // docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md); before
+                    // 2026-10-28 this path dropped them, so only the route ran them.
+                    ...(opts.sessionClose === true ? { sessionClose: true } : {}),
+                    ...(opts.scaleOut === false ? { scaleOut: false } : {}),
+                    ...(opts.reactionEntry === true ? { reactionEntry: true } : {}),
+                    ...(opts.sessionPlans === true ? { sessionPlans: true } : {}),
                     dailyBars: series.daily,
                   })
                 : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market, universeStrength), instrument }),
