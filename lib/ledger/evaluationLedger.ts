@@ -31,6 +31,7 @@ import type { QueuePlan } from "@/lib/scanner/queue";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
+import { etDateKey } from "@/lib/market/session";
 
 export interface LedgerRow {
   session_date: string;
@@ -92,10 +93,15 @@ export function discoveryRows(readings: readonly DiscoveryReading[], sessionDate
   }));
 }
 
-/** Queue stage: every selected name with the tier its slot came from. */
-export function queueRows(plan: QueuePlan, sessionDate: string, at: Date): LedgerRow[] {
+/**
+ * Queue stage: every selected name with the tier its slot came from. With
+ * `examined`, only the names the scan actually read (a slot whose bars could
+ * not be fetched is not a slot that examined anything).
+ */
+export function queueRows(plan: QueuePlan, sessionDate: string, at: Date, examined?: ReadonlySet<string>): LedgerRow[] {
   const iso = at.toISOString();
-  return plan.selected.map((e) => ({ session_date: sessionDate, symbol: e.symbol, first_queued_at: iso, queue_tier: e.tier === "rotating" ? `rotating:${e.sourceTier}` : e.tier }));
+  const read = examined ? plan.selected.filter((e) => examined.has(e.symbol.toUpperCase())) : plan.selected;
+  return read.map((e) => ({ session_date: sessionDate, symbol: e.symbol, first_queued_at: iso, queue_tier: e.tier === "rotating" ? `rotating:${e.sourceTier}` : e.tier }));
 }
 
 export interface DetectionInput {
@@ -107,6 +113,38 @@ export interface DetectionInput {
   evaluatedAt: string;
   barOpen: string | null;
   usableAt: string | null;
+}
+
+/** The fields of a scanned alert the detection stage reads. */
+export interface AlertForLedger {
+  symbol: string;
+  type: string;
+  direction: "up" | "down";
+  triggerTime: string;
+  dataTimestamp?: string | null;
+  timeliness?: { barMinutes: number; structureAsOf?: string | null; usableAt: string } | null;
+}
+
+/**
+ * One alert as a detection. The alert's `dataTimestamp` is the newest bar's
+ * close or a quote's time, never a bar's open, so the bar open is read from
+ * the structure's last bar close less its length, and the usable time is the
+ * alert's own timeliness reading (that close plus the feed's delay); either
+ * is left unrecorded when the alert lacks it.
+ */
+export function detectionFromAlert(alert: AlertForLedger): DetectionInput {
+  const t = alert.timeliness ?? null;
+  const close = t?.structureAsOf ? Date.parse(t.structureAsOf) : NaN;
+  const barOpen = Number.isFinite(close) && t && t.barMinutes > 0 ? new Date(close - t.barMinutes * 60_000).toISOString() : null;
+  return {
+    symbol: alert.symbol,
+    sessionDate: etDateKey(new Date(barOpen ?? alert.dataTimestamp ?? alert.triggerTime)),
+    kind: alert.type,
+    side: alert.direction === "down" ? "bearish" : "bullish",
+    evaluatedAt: alert.triggerTime,
+    barOpen,
+    usableAt: t?.usableAt ?? null,
+  };
 }
 
 /**

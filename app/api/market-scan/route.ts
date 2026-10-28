@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
-import { discoveryRows, prefilterRows, writeLedger } from "@/lib/ledger/evaluationLedger";
+import { afterResponse, discoveryRows, prefilterRows, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { visibilityRank } from "@/lib/scan/listOrder";
 import { buildScanRows, describeDbError, persistDailyScans, publishRefusal } from "@/lib/scan/publish";
 import { persistCoarseTelemetry } from "@/lib/scan/telemetry";
@@ -179,16 +179,13 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   }
 
   // The evaluation ledger: the first time each stock cleared the pre-filter,
-  // made the shortlist or was discovered this session. Best-effort.
+  // made the shortlist or was discovered this session. Best-effort, and
+  // written after the response so neither the fan-out nor a person's refresh
+  // waits on it (its time is logged there).
   {
-    const ledgerStarted = Date.now();
     const sessionDate = etDateKey(new Date());
-    await writeLedger(
-      service,
-      [...prefilterRows(output.coarseTelemetry.filter((r) => r.scan_date === sessionDate), new Date()), ...discoveryRows(output.discoveries, sessionDate)],
-      "market scan",
-    );
-    console.info(`market-scan: evaluation ledger written in ${Date.now() - ledgerStarted}ms`);
+    const rows = [...prefilterRows(output.coarseTelemetry.filter((r) => r.scan_date === sessionDate), new Date()), ...discoveryRows(output.discoveries, sessionDate)];
+    afterResponse("market scan", () => writeLedger(service, rows, "market scan"));
   }
 
   // Per-profile monitor evaluation + notification fan-out — cron path only

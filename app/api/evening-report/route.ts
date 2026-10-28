@@ -524,7 +524,7 @@ export async function GET(req: NextRequest) {
     priceData: stage(movers.length, `of ${LARGE_CAP_UNIVERSE.length} in the scan universe, prior close and session both read`),
     selected: stage(
       ledgerKept ? ledgerRows.rows.filter((r) => r.first_queued_at).length : null,
-      ledgerKept ? "stocks given an intraday slot at least once" : "no evaluation ledger kept for this session",
+      ledgerKept ? "instruments read in an intraday slot at least once (index funds and crypto included)" : "no evaluation ledger kept for this session",
     ),
     evaluated: stage(sweepRows.error ? null : sweptOk, `overnight sweep readings without an error${prefilterRows.error ? "" : `; the daytime pre-filter's last reading covered ${prefilterRows.rows.length}`}`),
     deferredCapacity: stage(

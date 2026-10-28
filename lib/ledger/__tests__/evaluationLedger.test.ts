@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   afterResponse,
+  detectionFromAlert,
   DISCOVERY_CURRENT_MS,
   readSessionDiscoveries,
   detectionRows,
@@ -156,5 +157,40 @@ describe("evaluation ledger reads and deferred writes", () => {
     expect(ran).toBe(true);
     expect(info.mock.calls.some((c) => String(c[0]).includes("[evaluation-ledger] t"))).toBe(true);
     info.mockRestore();
+  });
+});
+
+describe("detection from a scanned alert", () => {
+  it("reads the bar open from the structure's last close, not the alert's data time", () => {
+    // A 5-minute bar 10:00-10:05 ET (14:00-14:05Z); a quote at 14:07Z sets dataTimestamp.
+    const d = detectionFromAlert({
+      symbol: "aapl",
+      type: "breakout",
+      direction: "down",
+      triggerTime: "2026-10-27T14:26:00.000Z",
+      dataTimestamp: "2026-10-27T14:07:00.000Z",
+      timeliness: { barMinutes: 5, structureAsOf: "2026-10-27T14:05:00.000Z", usableAt: "2026-10-27T14:20:00.000Z" },
+    });
+    expect(d).toEqual({
+      symbol: "aapl",
+      sessionDate: "2026-10-27",
+      kind: "breakout",
+      side: "bearish",
+      evaluatedAt: "2026-10-27T14:26:00.000Z",
+      barOpen: "2026-10-27T14:00:00.000Z",
+      usableAt: "2026-10-27T14:20:00.000Z",
+    });
+  });
+
+  it("records no bar open or usable time when the alert carries no timeliness", () => {
+    const d = detectionFromAlert({ symbol: "X", type: "t", direction: "up", triggerTime: "2026-10-27T14:26:00.000Z", dataTimestamp: "2026-10-27T14:05:00.000Z" });
+    expect(d.barOpen).toBeNull();
+    expect(d.usableAt).toBeNull();
+    expect(d.side).toBe("bullish");
+  });
+
+  it("queue rows keep only the slots the scan read", () => {
+    const plan = planQueue({ core: ["SPY", "QQQ"], plans: [], discovery: [], focus: [], watched: [], tick: 0 });
+    expect(queueRows(plan, "2026-10-27", AT, new Set(["SPY"])).map((r) => r.symbol)).toEqual(["SPY"]);
   });
 });
