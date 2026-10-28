@@ -144,9 +144,15 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
   // The stop traded while the delayed reader waited: refused, as the replay
   // refuses it, never booked at a fill it could not have had.
   if (waited.some((b) => isStopBreachedByBar(direction, stopLoss, b))) return { ...PENDING, outcome: "retired" };
-  // Its fill is the next session's open, or a bar of this session not yet in.
-  if (f < 0) return { ...PENDING, filled: true };
-  const from = f;
+  // A decision past the session's last bar fills at the next session's open,
+  // the first daily bar after it (the walk's next bar, as before the delay);
+  // with that session not yet in, or a bar of this session still to come, the
+  // trade is on and its price is still to come.
+  let from = f;
+  if (from < 0) {
+    if (!sessionComplete || later.length === 0) return { ...PENDING, filled: true };
+    from = sessionBars.length;
+  }
 
   const fill = bars[from].o;
   const maxBarsHeld = Math.max(0, sessionBars.length - from) + maxHoldDays;

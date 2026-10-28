@@ -63,7 +63,7 @@ import {
   type CriterionWeights,
 } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
-import { readResting, restingNote } from "@/lib/setups/resting";
+import { readResting, restingDistanceLabel, restingNote } from "@/lib/setups/resting";
 import type { PlanExpiry } from "@/lib/gann/planExpiry";
 import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
 
@@ -1082,8 +1082,12 @@ export interface ReadyNowReading {
   levels: Pick<TradeLevels, "entry" | "takeProfit1" | "masterProfit"> | null;
 }
 
-/** The reasons a plan is not ready to place today, in plain words; empty when it is. */
-export function readyNowReasons(r: ReadyNowReading): string[] {
+/**
+ * The reasons a plan is not ready to place today, in plain words; empty when it
+ * is. `restingTier` false words a far entry without calling it a resting
+ * order: a Watch held by another rule is not one (#521, `setupTier`).
+ */
+export function readyNowReasons(r: ReadyNowReading, opts: { restingTier?: boolean } = {}): string[] {
   const reasons: string[] = [];
   if (!r.indicationShown) {
     reasons.push(
@@ -1101,7 +1105,11 @@ export function readyNowReasons(r: ReadyNowReading): string[] {
     mtp: lv.masterProfit,
   });
   if (resting) {
-    reasons.push(restingNote(resting, lv.entry));
+    reasons.push(
+      opts.restingTier === false
+        ? `Its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it is not a trade to take today.`
+        : restingNote(resting, lv.entry),
+    );
     return reasons;
   }
   const price = r.price;
@@ -1118,8 +1126,7 @@ export function readyNowReasons(r: ReadyNowReading): string[] {
 export function applyReadyNowHold(decision: ScanDecision, reading: ReadyNowReading): ScanDecision {
   if (decision.outputState === "Reject") return decision;
   if (decision.outputState === "Watch" && decision.score < EXECUTE_SCORE_THRESHOLD) return decision;
-  const reasons = readyNowReasons(reading);
-  if (reasons.length === 0) return decision;
+  // Read the distance first: the note calls it a resting order only in that tier.
   // Resting: an Execute whose only hold is the distance to its entry. The
   // indication is shown and the order would rest at its level for the
   // reaction back (W006 pp. 20, 46-47), so it is Gann's resting order, not a
@@ -1140,6 +1147,8 @@ export function applyReadyNowHold(decision: ScanDecision, reading: ReadyNowReadi
       entry: reading.levels.entry,
       dayRange: reading.dayRange,
     }) != null;
+  const reasons = readyNowReasons(reading, { restingTier: resting });
+  if (reasons.length === 0) return decision;
   return {
     ...decision,
     outputState: "Watch",

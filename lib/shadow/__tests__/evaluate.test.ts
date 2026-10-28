@@ -122,6 +122,25 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
     expect(out).toMatchObject({ outcome: "pending", filled: true, fillPrice: null });
   });
 
+  it("fills a reaction on the session's next-to-last bar at the next session's open once that session is in", () => {
+    const sessionBars = session("2026-08-25", [[101, 102, 101, 101.5], [101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3]]);
+    const next = bar("2026-08-26T05:00:00Z", 100.4, 100.6, 95, 95.5);
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: [...history("2026-08-25"), next] });
+    expect(r.fillPrice).toBe(100.4);
+    expect(r.outcome).toBe("loss");
+  });
+
+  it("refuses the fill when the stop trades in the last bar before the close while the order waits past it", () => {
+    // 2026-11-27 closes at 1:00 PM ET: the reaction at 12:30 ET is read at 1:00, after the close.
+    const sessionBars = [
+      bar("2026-11-27T17:15:00Z", 101, 101.5, 100.5, 101),
+      bar("2026-11-27T17:30:00Z", 101, 101.5, 99.8, 100.2),
+      bar("2026-11-27T17:45:00Z", 100.2, 100.3, 95.5, 96.5),
+    ];
+    const r = walkShadowTrade({ ...base, sessionBars, sessionComplete: true, dailyBars: history("2026-11-27") });
+    expect(r.outcome).toBe("retired");
+  });
+
   it("mirrors the reaction for a short", () => {
     const sessionBars = session("2026-08-25", [
       [99, 100.3, 98.8, 99.9],
