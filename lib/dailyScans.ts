@@ -30,6 +30,7 @@ interface DailyScanRow {
     scannedAt?: string | null;
     currentPrice?: number | null;
     dayRange?: number | null;
+    resting?: boolean | null;
     decisionState?: DecisionState | null;
     setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
     /** Rows written before 2026-10-21 only; see `lib/scan/publish.ts`. */
@@ -138,6 +139,9 @@ function toRow(r: DailyScanRow): ScanRow {
     // Null on a row published before the field existed: the list then keeps
     // the plan where its verdict put it (lib/setups/resting.ts).
     dayRange: r.detail?.dayRange ?? null,
+    // Absent on rows stored before 2026-10-28: the tier is then read from the
+    // score and the distance (lib/setups/resting.ts#setupTier).
+    resting: typeof r.detail?.resting === "boolean" ? r.detail.resting : null,
     decisionState: r.detail?.decisionState ?? null,
     setAsideEntry: r.detail?.setAsideEntry ?? null,
     // undefined (not yet computed at write time) collapses to null here —

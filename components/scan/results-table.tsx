@@ -44,6 +44,12 @@ export interface ScanRow {
    * known, and the row stays where its verdict put it.
    */
   dayRange?: number | null;
+  /**
+   * The scan's Resting tier flag (`ScanDecision.resting`, `setupTier`): the
+   * plan would be Execute but its order rests at its level. Null or absent on
+   * a row stored before it, when the tier is read from the score and distance.
+   */
+  resting?: boolean | null;
   /** The decision state (`lib/scoring/decisionState.ts`); the verdict badge already reads it one to one. */
   decisionState?: DecisionState | null;
   /** The buying point against the trend that also armed and was set aside (never-failing rule 5). */
@@ -67,6 +73,10 @@ export interface ScanRow {
   trends?: { timeframe: string; direction: string }[] | null;
 }
 
+/** What the Resting tier means, in the words every list shows it under. */
+export const RESTING_NOTE =
+  "Plans with every condition met whose entry is more than a day's range from price. Each waits at its level for price to come back; none is a trade to take today.";
+
 /** Symbol + Price + Entry + Exit + TP1 + MTP + Save. */
 const BASE_COLUMNS = 7;
 
@@ -84,9 +94,16 @@ export function ResultsTable({
    * viewer's tier. See `lib/scoring/tier-display.ts`.
    */
   exactScoreDisplayEnabled = false,
+  restingHeading = true,
 }: {
   rows: ScanRow[];
   emptyText?: string;
+  /**
+   * Whether the Resting rows carry their own "Resting orders" heading. Off
+   * where the caller already lists each tier under its own heading (the
+   * manual scan's results, `components/scan/manual-scan-results.tsx`).
+   */
+  restingHeading?: boolean;
   /** When provided, each row gets a manual remove control that calls this. */
   onRemove?: (symbol: string) => void;
   exactScoreDisplayEnabled?: boolean;
@@ -222,11 +239,12 @@ export function ResultsTable({
         className={cn(live.length > 0 || dead.length > 0 || crypto.length > 0 || funds.length > 0 ? "mt-4" : undefined)}
         data-testid="resting-orders"
       >
-        <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
-        <p className="mb-1 text-xs text-muted">
-          Plans the scan rates Execute whose entry is more than a day&apos;s range from price. Each waits at its
-          level for price to come back; none is a trade to take today.
-        </p>
+        {restingHeading && (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">Resting orders</p>
+            <p className="mb-1 text-xs text-muted">{RESTING_NOTE}</p>
+          </>
+        )}
         <Table>
           <THead>
             <TR>
@@ -523,7 +541,7 @@ function ResultsRow({
                 stage={stage}
                 onStageChange={setStage}
                 headline={
-                  <ScoreBadge score={r.score} state={r.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+                  <ScoreBadge score={r.score} state={model.verdict} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
                 }
                 extra={
                   invalidated ? (

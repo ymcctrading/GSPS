@@ -15,6 +15,15 @@
 export type GannEntryKind = "crossing" | "oldLevel" | "hold";
 
 /**
+ * How far apart, in calendar days, two bottoms (tops) at one level must be to
+ * make Gann's double or triple bottom (top): "the same level weeks, months or
+ * a year or more apart" (W006 p.20, A-ENTRY-02; tops pp.22, 47). "Weeks" read
+ * as two weeks, the least the plural can mean: an engineering choice, labelled.
+ * Read by the old-level entry and the volume rule's heavy-top retest alike.
+ */
+export const DOUBLE_BOTTOM_MIN_DAYS = 14;
+
+/**
  * Which of Gann's rules found a buy (sell) at the last close (`hold` only):
  * a bottom that held for weeks, for days after a bull-market reaction, or a
  * record low that held; `rally`, the sell at the end of a bear-market

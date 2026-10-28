@@ -191,6 +191,14 @@ export interface RunSummary {
   /** Trades still open when the data ended (`exitReason: "open_at_end"`), marked to market at the last close. */
   openAtEnd: number;
   /**
+   * Trades with no exit inside the replay (`outcome: "timeout"`): still open
+   * when the data ended, or held to the 10-session limit. Marked at the last
+   * close and counted neither a win nor a loss, so `winRate` (wins over every
+   * trade) reads low when many are open; wins over the decided trades is
+   * `winRate * trades / (trades - timeouts)`.
+   */
+  timeouts: number;
+  /**
    * The same scope without the `open_at_end` trades. Trades held to the
    * 10-session limit stay in, marked at that close, so this is not a
    * realised-only figure (`ClosedSummary`).
@@ -391,6 +399,7 @@ function summarise(r: ReplayResult): RunSummary {
     profitable: r.trades.length > 0 && r.expectancyR > 0,
     required: computeRequiredMetrics(r.trades),
     openAtEnd: r.trades.filter((t) => t.exitReason === "open_at_end").length,
+    timeouts: r.trades.filter((t) => t.outcome === "timeout").length,
     closed: computeClosedSummary(r.trades),
   };
 }

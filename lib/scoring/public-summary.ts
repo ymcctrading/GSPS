@@ -201,6 +201,8 @@ export function redactDecision(decision: ScanDecision): ScanDecision {
     // The state is derived from the verdict and direction and names no
     // condition, so it crosses the boundary (D-06).
     ...(decision.decisionState ? { decisionState: decision.decisionState } : {}),
+    // A tier read from the verdict and the entry's distance, naming no condition.
+    ...(decision.resting ? { resting: true } : {}),
     breakdown: [],
     summary: toPublicScoreSummary(decision),
   };

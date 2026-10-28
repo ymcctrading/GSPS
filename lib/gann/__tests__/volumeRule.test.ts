@@ -475,18 +475,20 @@ describe("completed sessions only", () => {
 
 describe("a double top whose earlier high came on heavy volume (A-ENTRY-20, W006 p.28)", () => {
   /** An advance to 100 with `topVolume` on the top's day, a reaction to 88, a second test of 100, then a decline. */
-  function doubleTop(topVolume: number, secondTop = 100): Bar[] {
+  function doubleTop(topVolume: number, secondTop = 100, declineDays = 6): Bar[] {
     const rows: Array<[number, number]> = [];
     for (let i = 0; i < 30; i++) rows.push([70 + i, 1000]);
     rows.push([100, topVolume]);
     for (let i = 1; i <= 6; i++) rows.push([100 - i * 2, 1000]); // to 88
     for (let i = 1; i <= 6; i++) rows.push([88 + ((secondTop - 88) * i) / 6, 1000]); // back to the second top
-    for (let i = 1; i <= 6; i++) rows.push([secondTop - 1 - i, 1000]);
+    for (let i = 1; i <= declineDays; i++) rows.push([secondTop - 1 - i, 1000]);
     return weekdays(rows);
   }
 
   it("is sold at the old top with the stop 3 points over it, and the volume point names it", () => {
-    const b = doubleTop(4000);
+    // Ten sessions of decline, so the second top is two weeks old by the
+    // session the sale rests for (weeks apart, W006 p.20).
+    const b = doubleTop(4000, 100, 10);
     const sell = computeGannOldLevelEntry(b, "bearish")!;
     expect(sell.level).toBeCloseTo(101, 6);
     expect(sell.reactionStop).toBeCloseTo(101 + threePoints(101), 6);

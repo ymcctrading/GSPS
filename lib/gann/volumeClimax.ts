@@ -110,6 +110,7 @@ import { relativeVolume } from "@/lib/signals/indicators";
 import type { Bar } from "@/lib/types";
 import { etDateKey } from "@/lib/market/session";
 import { beyondByThreePoints, threePoints } from "@/lib/gann/pointScale";
+import { DOUBLE_BOTTOM_MIN_DAYS } from "@/lib/gann/entryKind";
 
 /**
  * Held at the `lib/signals/regime.ts`-matched 1.5x since 2026-09-14, when a
@@ -397,8 +398,12 @@ export function computeVolumeClimax(allBars: Bar[], lookback = 20, opts: VolumeC
       // volume is a sell, the stop 3 points over the old high (the old-level
       // short). The heavy earlier top already counts in `climax` (the best of
       // the recent pivots); this names the case for the note. "Heavy" is
-      // `VOLUME_CLIMAX_THRESHOLD` (an engineering figure, labelled).
-      if (kind === "high" && reached) {
+      // `VOLUME_CLIMAX_THRESHOLD` (an engineering figure, labelled). The two
+      // tops are weeks apart, as the old-level sale reads a double top (W006
+      // p.20, `DOUBLE_BOTTOM_MIN_DAYS`): a retest days later is the same swing.
+      const weeksApart =
+        Math.round((Date.parse(bars[anchor.index].t) - Date.parse(bars[previous.index].t)) / 86_400_000) >= DOUBLE_BOTTOM_MIN_DAYS;
+      if (kind === "high" && reached && weeksApart) {
         const prevRvol = relativeVolume(bars.slice(0, previous.index + 1), lookback);
         retestOfHeavyTop = prevRvol !== null && prevRvol > VOLUME_CLIMAX_THRESHOLD;
       }
