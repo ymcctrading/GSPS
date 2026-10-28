@@ -1217,7 +1217,8 @@ low (W046 p.1) joins the S/R list (`sunTravelLevel`, via `masterLevels.ts`). M-P
 the intraday first target averages the old levels within 1%, as the daily plan
 does (`lib/gann/nearbyLevels.ts`, moved from `lib/strat/levels.ts`; round numbers
 kept apart). Engineering choices, labelled: the 10-point trail is the Stock
-Selector's figure on the Gann point (his Rumely trail is a raw 10 at $100;
+Selector's figure on the Gann point (his Rumely trail is a raw 10 at $105;
+superseded 2026-10-28, "Gann's figures read at his price" below;
 A-STOP-04 reads his "10 at high levels" as 5), the 6 weeks are read on the 7-day chart's
 run. Measured on 200 random walks: about 0.13 ms more a full exit read, 0.13 ms
 for the Sun level in an S/R build. Plans and exits move: `STRATEGY_VERSION` was
@@ -1255,7 +1256,7 @@ already grow with price (`pointScale.ts`), so each ran about two to three times
 his own. The re-buy after a stop rests his 12 points under the best price read
 at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
 about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
-at Advance Rumely's 105 ("a 10-point stop, out at 95", W005), about 5.9 Gann
+at Advance Rumely's 105 ("a 10-point stop, out at 95", *Stock Selector* Ch. V), about 5.9 Gann
 points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
 points (56-60 in 1898; 2 and 2½ on the Rails, Master Course pp. 246-248), 4/3
 of the 3-point allowance (`NARROW_RANGE_ALLOWANCES`, was 3, held for the owner

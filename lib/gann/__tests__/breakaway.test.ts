@@ -177,9 +177,12 @@ describe("readBreakaway reads a narrow range only", () => {
     const leaving = daily([...sideways(6), 103.5, 105, 106.5]);
     expect(narrowRangeBeforeLeg(leaving.slice(-70))).not.toBeNull();
     expect(narrowRangeSessions(leaving.slice(-70))).toBeNull();
-    // A leg that closed back inside is not a leg out: no range.
-    const back = daily([...sideways(6), 105, 106.5, 101]);
-    expect(narrowRangeBeforeLeg(back.slice(-70))).toBeNull();
+    // A retest that closes back inside the range still reads the range it left.
+    const retest = daily([...sideways(6), 105, 106.5, 101, 107]);
+    expect(narrowRangeBeforeLeg(retest.slice(-70))).not.toBeNull();
+    // Closing through the range's other side ends it: no range.
+    const through = daily([...sideways(6), 105, 106.5, 96]);
+    expect(narrowRangeBeforeLeg(through.slice(-70))).toBeNull();
   });
 
   it("needs two weeks of sessions before it reads a range", () => {

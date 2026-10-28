@@ -263,9 +263,12 @@ export function narrowRangeSessions(sessions: Bar[]): Bar[] | null {
 /**
  * The narrow range a market is in, or the one it is leaving: the run
  * `narrowRangeSessions` reads at the end of `sessions`, or, when the latest
- * sessions have already left it, the latest narrow run whose following
- * sessions all closed beyond its top, or all beyond its bottom (the leg out of
- * the range). With the width at Gann's widest narrow range (4 of his points),
+ * sessions have already left it, the latest narrow run the market has since
+ * closed beyond on one side and never on the other (the leg out of the range).
+ * A close back inside on the way is the retest Gann expects ("a stock nearly
+ * always gets support the first time it reacts back to old high levels",
+ * *Truth of the Stock Tape*), not the end of the range; a close through the
+ * far side is (queue review of #513: a retest had voided the volume rule). With the width at Gann's widest narrow range (4 of his points),
  * the walk from the range's top to its 3-point crossing line is itself wider
  * than narrow, so without this the range would be lost the day before the
  * crossing and the breakaway's volume rule would never be asked. Gann reads the
@@ -280,7 +283,9 @@ export function narrowRangeBeforeLeg(sessions: Bar[]): Bar[] | null {
     const high = Math.max(...run.map((b) => b.h));
     const low = Math.min(...run.map((b) => b.l));
     const leg = sessions.slice(j);
-    return leg.every((b) => b.c > high) || leg.every((b) => b.c < low) ? run : null;
+    const up = leg.some((b) => b.c > high) && leg.every((b) => b.c >= low);
+    const down = leg.some((b) => b.c < low) && leg.every((b) => b.c <= high);
+    return up || down ? run : null;
   }
   return null;
 }

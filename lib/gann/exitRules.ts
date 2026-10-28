@@ -148,7 +148,8 @@ export const BOILING_POINT_EXAMPLE_PRICE = 105;
 /**
  * M-T10's trail: his 10 points read at the price he worked them at, 10 /
  * `gannPoint(105)`, about 5.9 Gann points (*Wall Street Stock Selector*
- * Ch. V; *Truth of the Stock Tape*, W005, Advance Rumely). Corrected
+ * Ch. V, pp. 60-108, the rule and the Advance Rumely example both; W005).
+ * Corrected
  * 2026-10-28 (alignment audit, `score-and-levels.md`): it was 10 Gann
  * points, about 17 dollars at 105 and 25 at 200, where his rule trails a raw
  * 10 at 100-260. His point scale already grows with price (`pointScale.ts`),
