@@ -55,7 +55,7 @@
 import type { ScanResult } from "@/lib/types";
 import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MIN_GUIDED_QTY } from "@/lib/guided/config";
-import { readResting, restingDistanceLabel, tierOfDecision } from "@/lib/setups/resting";
+import { farEntrySentence, readResting, restingDistanceLabel, tierOfDecision } from "@/lib/setups/resting";
 
 /**
  * The resting read of a scan: its entry more than a day's range from price
@@ -150,7 +150,7 @@ export function assessEligibility(
     reasons.push(
       tierOfDecision(result.decision) === "Resting"
         ? `This is a resting order, not today's trade: its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it waits for price to come back to it.`
-        : `Its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it is not a trade to take today.`,
+        : farEntrySentence(resting),
     );
   }
 

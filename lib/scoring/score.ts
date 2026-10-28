@@ -63,7 +63,7 @@ import {
   type CriterionWeights,
 } from "@/lib/scoring/weights";
 import type { DecisionLag } from "@/lib/data/latency";
-import { readResting, restingDistanceLabel, restingNote } from "@/lib/setups/resting";
+import { farEntrySentence, readResting, restingNote } from "@/lib/setups/resting";
 import type { PlanExpiry } from "@/lib/gann/planExpiry";
 import { priorYearLevelName, regainedLevelName } from "@/lib/scoring/direction-copy";
 
@@ -1107,7 +1107,7 @@ export function readyNowReasons(r: ReadyNowReading, opts: { restingTier?: boolea
   if (resting) {
     reasons.push(
       opts.restingTier === false
-        ? `Its entry is ${restingDistanceLabel(resting)}, more than a day's range away, so it is not a trade to take today.`
+        ? farEntrySentence(resting)
         : restingNote(resting, lv.entry),
     );
     return reasons;
