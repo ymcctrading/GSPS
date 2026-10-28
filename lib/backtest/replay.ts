@@ -357,8 +357,8 @@ export interface ReplayOptions {
   /**
    * Re-buy after a stop (A-PYRAMID-07, W022 p.198; owner's pick, 2026-10-16),
    * under the Gann exit rules only. A trade that leaves on a trailing stop
-   * while the swing chart still runs its way rests a re-entry 12 points back
-   * from its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`);
+   * while the swing chart still runs its way rests a re-entry his 12-point reaction (read
+   * at his $230 example's price) back from its best price, stop half the reaction beyond (`lib/gann/rebuy.ts`);
    * any reversal opened at the stop is covered there. Default true.
    */
   rebuyAfterStop?: boolean;

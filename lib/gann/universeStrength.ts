@@ -61,6 +61,23 @@ export const STRONGEST_FRACTION = 0.25;
 /** Fewer peers than this and no rank is read. */
 export const MIN_PEERS = 100;
 
+/**
+ * One share class per company in the rank (gann-alignment-audit H9,
+ * 2026-10-28). Gann's group lists and his strongest and weakest stocks name
+ * each company once (*Truth of the Stock Tape* Ch. XVI-XIX; *Wall Street Stock
+ * Selector* Ch. VII), so a second class of the same company is not its peer:
+ * GOOG and GOOGL read as one company, at GOOGL's reading. Each further class
+ * maps to the class the universe ranks. The universe holds no other pair
+ * (checked against `LARGE_CAP_UNIVERSE`, 2026-10-28).
+ */
+export const SHARE_CLASS_OF: Readonly<Record<string, string>> = { GOOG: "GOOGL" };
+
+/** The class a symbol is ranked as: itself, or its company's ranked class. */
+export function rankedClass(symbol: string): string {
+  const sym = symbol.toUpperCase();
+  return SHARE_CLASS_OF[sym] ?? sym;
+}
+
 /** Where the last close sits in the last STRENGTH_MONTHS months' range, 0 (the low) to 1 (the high). */
 export function strengthPosition(closedMonths: Bar[]): number | null {
   if (closedMonths.length < STRENGTH_MONTHS) return null;
@@ -100,6 +117,8 @@ function nextMonth(month: string): string {
 export function buildUniverseStrength(universeMonthly: Map<string, Bar[]>): UniverseStrength {
   const out: UniverseStrength = new Map();
   for (const [symbol, raw] of universeMonthly) {
+    // A second share class is its company, already counted once.
+    if (rankedClass(symbol) !== symbol.toUpperCase()) continue;
     const bars = [...raw].sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
     for (let i = STRENGTH_MONTHS - 1; i < bars.length; i++) {
       const pos = strengthPosition(bars.slice(i - STRENGTH_MONTHS + 1, i + 1));
@@ -250,7 +269,8 @@ export function readUniverseRank(
   const entry = universe.get(month);
   if (!entry) return null;
   const sym = symbol.toUpperCase();
-  const own = entry.bySymbol.get(sym);
+  // The company's own reading, so a second share class never ranks against its twin.
+  const own = entry.bySymbol.get(rankedClass(sym));
   const position = stockMonthly ? strengthPosition(stockMonthly.filter((b) => b.t.slice(0, 7) < month)) : own ?? null;
   if (position === null || position === undefined) return null;
   const { percentile, peers } = rankAmong(entry.sorted, position, own);

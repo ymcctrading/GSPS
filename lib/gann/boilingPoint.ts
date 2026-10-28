@@ -35,7 +35,7 @@
  * until it boils ... the final fast advance lasts 6-7 weeks (sometimes 10)",
  * with a 10-point trailing stop (*Wall Street Stock Selector* Ch. V; a 6-7
  * week panic ends a bear campaign, the mirror). So once the run a trade rides
- * has run 6 weeks, its stop trails 10 Gann points from the best price
+ * has run 6 weeks, its stop trails his 10 points, read at his price, from the best price
  * (`exitRules.ts`, "boiling_point"), on the live exits and the replay alike.
  * The climax anchor stays context. The two lines above that say "never
  * independently scored or gated" describe the climax reading only.

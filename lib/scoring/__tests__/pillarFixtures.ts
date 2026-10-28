@@ -24,7 +24,7 @@ export function passingPillarFacts(side: "bullish" | "bearish" = "bullish"): Pil
     annualRangePoints: 40,
     zoneActivity: 1.2,
     angles: { holds45: { bullish: long, bearish: !long }, squeezed: false },
-    base: { long: true, breakout: long ? "up" : "down" },
+    base: { long: true, breakout: long ? "up" : "down", left: long ? "up" : "down" },
     capitalWarning: false,
     counterMove: { trend: side, inCounterMove: false, phase: null },
     reactionAbnormal: false,

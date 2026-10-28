@@ -5,12 +5,15 @@ import { gannRebuy, rebuyOffer, rebuysOn, REBUY_REACTION_POINTS } from "@/lib/ga
 // W022 p.198: stopped near the top after about 230, bought again at 218 (down
 // a little over 12) with a stop at 212.
 describe("buying again after a stop, on the reaction (A-PYRAMID-07)", () => {
-  it("rests 12 points under the best price with the stop half the reaction below", () => {
+  it("rests 12 points under the best price with the stop half the reaction below, as he did at 230", () => {
     const r = gannRebuy({ side: "long", extreme: 230, trend: "bullish" })!;
-    const p = gannPoint(230);
-    expect(r.entry).toBeCloseTo(230 - 12 * p, 9);
-    expect(r.stop).toBeCloseTo(r.entry - 6 * p, 9);
-    expect(REBUY_REACTION_POINTS).toBe(12);
+    expect(r.entry).toBeCloseTo(218, 9);
+    expect(r.stop).toBeCloseTo(212, 9);
+    expect(REBUY_REACTION_POINTS).toBeCloseTo(12 / gannPoint(230), 12);
+  });
+  it("scales the reaction with price on the point scale", () => {
+    const r = gannRebuy({ side: "long", extreme: 42.5, trend: "bullish" })!;
+    expect(r.entry).toBeCloseTo(42.5 - REBUY_REACTION_POINTS * gannPoint(42.5), 9);
   });
   it("mirrors for a short: a rally above its low, stop above", () => {
     const r = gannRebuy({ side: "short", extreme: 50, trend: "bearish" })!;
