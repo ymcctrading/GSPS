@@ -3603,7 +3603,7 @@ its line, and one that has made its crossing gets none. Notices, never trades: n
 "Trade this", not stored, not replayed, push and the bell only, worded as
 delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
 **Before the open, same day (coordinator, from the TXN thread's proposal).**
-`/api/pre-open-lines` (pg_cron 12:50 and 13:50 UTC on weekdays, migration 0132;
+`/api/pre-open-lines` (pg_cron 12:50 and 13:50 UTC on weekdays, migration 0135;
 it acts only from 8:30 to the 9:30 open, New York time, on a trading day) lists
 each equity plan whose line the prior close left within one 3-point allowance
 (`lib/notifications/preOpenLines.ts`: `planLineAhead`, the allowance

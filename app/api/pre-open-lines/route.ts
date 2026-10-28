@@ -3,7 +3,7 @@
  * plans' lines the prior close left within reach (`lib/notifications/preOpenLines.ts`).
  *
  * Run by the database's scheduler at 12:50 and 13:50 UTC on weekdays
- * (migration 0132); the route acts only inside 8:30 to 9:30 New York time on
+ * (migration 0135); the route acts only inside 8:30 to 9:30 New York time on
  * a trading day, so one of the two runs falls in the window under daylight
  * time and the other under standard time. Returns rather than drains
  * ("Cycles as architecture"): each morning reads its own prior close, and a
