@@ -72,8 +72,9 @@ describe("curriculum content", () => {
   it("locks a downstream academy until its prerequisite is fully passed", () => {
     const academy2 = getAcademy("academy-2")!;
     const academy1 = getAcademy("academy-1")!;
+    // The last required lesson: an optional one (the sell setup reading) gates nothing.
     const allButOneAcademy1LessonIds = new Set(
-      academy1.courses.flatMap((c) => c.lessons.map((l) => l.id)).slice(0, -1),
+      academy1.courses.flatMap((c) => c.lessons.filter((l) => !l.optional).map((l) => l.id)).slice(0, -1),
     );
     expect(academyUnlocked(academy2, allButOneAcademy1LessonIds)).toBe(false);
 
@@ -130,5 +131,19 @@ describe("gradeCurriculumQuiz", () => {
 
   it("fails safely on a mismatched answer count", () => {
     expect(gradeCurriculumQuiz(lesson, [])).toEqual({ passed: false, score: 0 });
+  });
+});
+
+describe("optional lessons gate nothing", () => {
+  it("the sell setup lesson counts toward no academy, promotion path or sequence", async () => {
+    const { SELL_SETUP_LESSON_ID } = await import("@/lib/education/sellSetupHelp");
+    const { getLesson, requiredLessonIds, foundationsEducationLessons } = await import("@/lib/school/curriculum");
+    const { academyComplete } = await import("@/lib/school/curriculum-service");
+    const found = getLesson(SELL_SETUP_LESSON_ID)!;
+    expect(found.lesson.optional).toBe(true);
+    expect(requiredLessonIds(found.academy)).not.toContain(SELL_SETUP_LESSON_ID);
+    expect(foundationsEducationLessons().map((l) => l.id)).not.toContain(SELL_SETUP_LESSON_ID);
+    // A learner who passed every other Academy 1 lesson still has it complete.
+    expect(academyComplete(found.academy, new Set(requiredLessonIds(found.academy)))).toBe(true);
   });
 });

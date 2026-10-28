@@ -14,6 +14,7 @@
 import { parseOccSymbol } from "./occ";
 import { computeGreeks, impliedVolatility, yearsBetween, type Greeks } from "@/lib/options/greeks";
 import type { OpenedAt } from "./opened-at";
+import type { LevelSource } from "@/lib/trade/level-source";
 
 export type AssetType = "EQUITY" | "OPTION";
 
@@ -49,6 +50,8 @@ export interface RawPosition {
   stopLoss?: number | null;
   takeProfit?: number | null;
   masterProfit?: number | null;
+  /** Which levels the trade was placed on (`lib/trade/level-source.ts`), when known. */
+  levelSource?: LevelSource | null;
   /**
    * Paper (the default, omitted by most callers) or a connected live broker
    * account. Threaded through to each leg so the UI can flag a live leg the
@@ -75,6 +78,8 @@ export interface EquityLeg {
   stopLoss: number | null;
   takeProfit: number | null;
   masterProfit: number | null;
+  /** See RawPosition.levelSource; null when not known. */
+  levelSource: LevelSource | null;
   /** See RawPosition.mode. */
   mode: "paper" | "live";
 }
@@ -175,6 +180,7 @@ export function buildBlendedPositions(
         stopLoss: p.stopLoss ?? null,
         takeProfit: p.takeProfit ?? null,
         masterProfit: p.masterProfit ?? null,
+        levelSource: p.levelSource ?? null,
         mode: p.mode ?? "paper",
       };
       continue;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { getDailyScans, type Direction } from "@/lib/dailyScans";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
@@ -53,6 +54,7 @@ export default async function DirectionListPage({
                 : ". Every row carries a complete trade plan; a short list means the rest armed no trigger.")
             : "The daily market scan has not run yet — results appear here after the first cron run."}
         </p>
+        {!isBull && <SellSetupHelp />}
       </div>
 
       <StaleScanNotice

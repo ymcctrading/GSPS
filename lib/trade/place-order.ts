@@ -59,6 +59,7 @@ import { gateResolvedAction } from "@/lib/risk/cooldown";
 import { ledgerWriter } from "@/lib/supabase/ledger";
 import { paperEquity } from "@/lib/portfolio/paper-equity";
 import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
+import { resolveLevelSource, type LevelSource } from "@/lib/trade/level-source";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -124,6 +125,14 @@ export const OrderSchema = z.object({
    * the trader's way out of that close. Ignored on any other order.
    */
   holdOvernight: z.boolean().optional(),
+  /**
+   * Which levels the person chose on the ticket: the swing plan, the intraday
+   * plan or their own (owner, 2026-10-28). Stored on the order as
+   * `level_source` (`lib/trade/level-source.ts`) so the position cards and the
+   * notices about the trade say the same thing; a choice that disagrees with
+   * how the order is managed falls back to what the order itself says.
+   */
+  levelSource: z.enum(["swing", "intraday", "own"]).optional(),
   /**
    * The `trade_plans` row this order was authorized against, when there is
    * one — set only by lib/automation/service.ts's `deriveOrderInputFromPlan`
@@ -252,6 +261,14 @@ export function riskCapRefusal(
       code: "risk_over_five_points",
     },
   };
+}
+
+/** The `level_source` an order row records (`lib/trade/level-source.ts`). */
+export function orderLevelSource(
+  input: Pick<OrderInput, "levelSource" | "intradaySourced" | "sourcePlanId" | "techniqueSource">,
+  hasLevels: boolean,
+): LevelSource | null {
+  return resolveLevelSource({ ...input, hasLevels });
 }
 
 /**
@@ -867,6 +884,7 @@ async function placeChecked(
     intraday_sourced: input.intradaySourced,
     hold_overnight: input.intradaySourced && input.holdOvernight === true,
     source_plan_id: input.sourcePlanId ?? null,
+    level_source: orderLevelSource(input, useBracket),
     limit_price: submittedLimitPrice ?? null,
     // For a market entry, the plan's price, kept to measure the fill against.
     requested_limit_price: input.limitPrice ?? null,
@@ -1531,6 +1549,7 @@ async function placeLiveOrder(
       intraday_sourced: input.intradaySourced,
       hold_overnight: input.intradaySourced && input.holdOvernight === true,
       source_plan_id: input.sourcePlanId ?? null,
+      level_source: orderLevelSource(input, useBracket),
       limit_price: submittedLimitPrice ?? null,
       stop_price: stopLoss ?? null,
       take_profit: useBracket ? input.attachLevels!.takeProfit : null,

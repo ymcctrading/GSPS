@@ -25,6 +25,7 @@ import { planQuery } from "@/lib/strategies/explain/params";
 import type { OwnTechniqueLevels, TechniqueRead } from "@/lib/strategies/compare";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
 import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 
 type EntryMode = "advised" | "now";
 type AssetType = "shares" | "options";
@@ -692,7 +693,8 @@ export function OrderTicket({
                     }
                   : undefined,
               mode: "paper" as const,
-              executionMode: useProtocolLevels ? "protocol" : "manual",
+              // Which levels the trade runs on, kept with it (lib/trade/level-source.ts).
+              levelSource: levelChoice,
               // Managed on the session's rules (lib/trade/exit-style.ts) and
               // subject to the intraday entry gates: the intraday plan, or own
               // levels the person asked to manage that way.
@@ -943,6 +945,9 @@ export function OrderTicket({
             </button>
           </div>
         )}
+
+        {/* A short sale explained for a Novice (owner, 2026-10-28). */}
+        {assetType === "shares" && side === "sell" && !shortBlocked && <SellSetupHelp />}
 
         {assetType === "shares" ? (
           <>

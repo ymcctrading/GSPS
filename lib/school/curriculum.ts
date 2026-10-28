@@ -26,6 +26,7 @@
  */
 
 import { NO_GUARANTEE_DISCLAIMER } from "@/lib/school/disclaimer";
+import { SELL_SETUP_LESSON_ID } from "@/lib/education/sellSetupHelp";
 import type { PlatformTier } from "@/lib/tiers";
 import type { QuizQuestion } from "@/lib/school/content";
 
@@ -116,6 +117,13 @@ export interface CurriculumLesson {
   application: string;
   quiz: readonly QuizQuestion[];
   bullBear?: BullBearRequirement;
+  /**
+   * Reading, not a gate: an optional lesson never counts toward an academy's
+   * completion, its prerequisites or a promotion path, and opens without the
+   * lesson before it. Added 2026-10-28 for the sell setup lesson, so adding it
+   * relocked no learner's later academies.
+   */
+  optional?: true;
   /** Metric-provenance labels this lesson surfaces to the learner, per spec section 13. */
   metricsShown?: readonly { label: string; provenance: "measured" | "learner_reported" | "planned" }[];
   reviewMeta: {
@@ -256,6 +264,63 @@ const ACADEMY_1: Academy = {
               "A guaranteed-return pitch from an unregistered advisor is:",
               ["A normal part of active trading", "A red flag for fraud", "Only a concern above $10,000", "Standard for options trading"],
               1,
+            ),
+          ],
+          reviewMeta: AUTHOR,
+        },
+        {
+          // Added 2026-10-28 (owner: a novice asked how to act on a sell
+          // setup without owning the stock). In Academy 1 so it is open to a
+          // new learner from the first day, the day the Sell list first shows.
+          id: SELL_SETUP_LESSON_ID,
+          optional: true,
+          title: "Trading a Sell Setup When You Don't Own the Stock",
+          objectives: [
+            "Explain in plain words how a short sale lets you profit from a falling price: borrow, sell now, buy back later, return.",
+            "Name the account a short sale needs and why its risk has no ceiling unless you set a stop.",
+            "List the other ways to act on a sell setup: a put option, an inverse fund, an exit on shares you own, or passing.",
+          ],
+          estimatedMinutes: 10,
+          instruction: [
+            "Start with a concert ticket. A friend lends you their ticket while tickets are selling for $100. You sell it for $100. A week later the price drops to $70, so you buy one back for $70 and give it to your friend. You started with nothing and you end with $30. That is a short sale: borrow something, sell it now, buy it back later, and give it back. You make money when the price falls.",
+            "Now suppose the price jumps to $150 instead. You still owe your friend a ticket, so you have to buy one at $150, and you lose $50. If it went to $300 you would lose $200. A price can only fall to zero, but it can rise without limit, so a short sale's loss has no ceiling. That is why a stop loss on a short is not optional: it is the price where you buy back and stop the loss from growing. Even a stop can fill worse than planned if the price jumps past it overnight, so size the trade for that too.",
+            "With stocks, your broker is the friend who lends. Shorting needs a margin account (a plain cash account or a retirement account such as an IRA can't short), and many brokers ask for at least $2,000 and an approval step first. The broker charges a borrowing fee for every day you hold the short (small for most stocks, large for hard-to-borrow ones), you pay any dividend the stock pays while you are short, and the broker can ask for the shares back or ask you to add money if the price rises a lot. You can practise a short in your GSPS paper account first, with no real money and no margin account needed.",
+            "There are other ways to act on a sell setup. You can buy a put option, which rises in value when the stock falls far enough before the option expires; the most you can lose is what you paid for it, and you lose it if the fall is too small or comes too late. If the sell setup is on the whole market, you can buy an inverse fund, a fund built to rise when the market falls; most track that over a single day, so held for weeks they can drift from it. If you already own the stock, a sell setup is your cue to take profits or tighten your stop. And you can simply pass: many beginners trade only buy setups at first, and that is a perfectly good choice.",
+            "One thing people often mix up: a covered call is a different trade. It means selling someone the right to buy shares you already own, in exchange for a small payment now. It earns income on stock you hold, and it gives up any gain above the agreed price; it is not a way to profit from a fall, and it doesn't protect you much if the price drops a lot. " +
+              NO_GUARANTEE_DISCLAIMER,
+          ],
+          application:
+            "Explain a short sale to a friend in three sentences using your own everyday example (not the concert ticket). Then name one way you could act on a sell setup without shorting at all.",
+          quiz: [
+            q(
+              "In a short sale, you make money when:",
+              ["The price rises", "The price falls", "The price stays the same", "The company pays a dividend"],
+              1,
+            ),
+            q(
+              "Why does a short sale need a stop loss?",
+              [
+                "Brokers don't allow shorts without one",
+                "A price can rise without limit, so the loss has no ceiling unless you set where to buy back",
+                "It makes the short sale free",
+                "It guarantees a profit",
+              ],
+              1,
+            ),
+            q(
+              "Which account can usually NOT be used to short a stock?",
+              ["A margin account", "A cash account or an IRA", "Any account over $2,000", "An approved margin account"],
+              1,
+            ),
+            q(
+              "A covered call is best described as:",
+              [
+                "A way to profit from a falling price",
+                "Another name for a short sale",
+                "Income from selling the right to buy shares you already own",
+                "A put option",
+              ],
+              2,
             ),
           ],
           reviewMeta: AUTHOR,
@@ -1400,6 +1465,11 @@ export function getLesson(lessonId: string): { academy: Academy; course: Curricu
   return undefined;
 }
 
+/** An academy's lessons that count toward its completion (every lesson but the optional ones). */
+export function requiredLessonIds(academy: Academy): string[] {
+  return academy.courses.flatMap((c) => c.lessons.filter((l) => !l.optional).map((l) => l.id));
+}
+
 export function allCurriculumLessons(): readonly CurriculumLesson[] {
   return ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons));
 }
@@ -1411,7 +1481,7 @@ export const FOUNDATIONS_ACADEMY_IDS = ACADEMIES.filter((a) => a.programIds.incl
 export function foundationsEducationLessons(): readonly CurriculumLesson[] {
   return ACADEMIES.filter((a) => FOUNDATIONS_ACADEMY_IDS.includes(a.id))
     .flatMap((a) => a.courses.flatMap((c) => c.lessons))
-    .filter((l) => l.id !== "academy-3/preservation/paper-validation");
+    .filter((l) => l.id !== "academy-3/preservation/paper-validation" && !l.optional);
 }
 
 /** The one lesson whose completion represents the validated paper-trading requirement. */
@@ -1420,7 +1490,7 @@ export const PAPER_VALIDATION_LESSON_ID = "academy-3/preservation/paper-validati
 /** Lessons in the Wall Street capstone course (Academy 8, non-W2) required for wall_street_school_completed_at. */
 export function wallStreetCapstoneLessons(): readonly CurriculumLesson[] {
   const course = ACADEMY_8.courses.find((c) => c.id === WALL_STREET_CAPSTONE_COURSE_ID);
-  return course?.lessons ?? [];
+  return course?.lessons.filter((l) => !l.optional) ?? [];
 }
 
 /**
@@ -1442,6 +1512,6 @@ export const ADVANCED_CURRICULUM_ACADEMY_IDS = ACADEMIES.filter((a) => a.number 
 /** Lessons across Academies 4-7 whose collective completion is required for the Pro→Expert curriculum path. */
 export function advancedCurriculumLessons(): readonly CurriculumLesson[] {
   return ACADEMIES.filter((a) => ADVANCED_CURRICULUM_ACADEMY_IDS.includes(a.id)).flatMap((a) =>
-    a.courses.flatMap((c) => c.lessons),
+    a.courses.flatMap((c) => c.lessons.filter((l) => !l.optional)),
   );
 }

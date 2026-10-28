@@ -13,6 +13,7 @@ import { formatUsd, cn } from "@/lib/utils";
 import { SCORE_PILLAR_LABELS } from "@/lib/scoring/public-summary";
 import { GUIDED_DISCLOSURE } from "@/lib/guided/config";
 import type { Recommendation } from "@/lib/guided/service";
+import { SellSetupHelp } from "@/components/education/sell-setup-help";
 
 /** Recommendation -> the shape SaveSetupButton already knows how to save
  * (it was previously only reachable from ResultsTable's rows). */
@@ -82,6 +83,8 @@ export function GuidedCard({
 
         <p className="text-sm leading-relaxed">{rec.reason}</p>
 
+        {short && <SellSetupHelp />}
+
         <div className="rounded-lg border border-border bg-background px-4 py-3">
           <p className="text-sm">
             <span className="text-muted">Recommended size:</span>{" "}
@@ -109,6 +112,18 @@ export function GuidedCard({
         </button>
 
         {showWhy && <WhyPanel rec={rec} />}
+
+        {/* The order ticket's other choices, reached from here rather than
+            crowding the one-tap card: Guided places the swing plan. The
+            intraday plan isn't named: Novice, Guided's main reader, has no
+            intraday access, and the ticket offers it where it stands. */}
+        <p className="text-xs leading-relaxed text-muted">
+          This trades the swing plan.{" "}
+          <Link href={rec.why.tickerHref} className="font-medium text-accent hover:underline">
+            Open the full order ticket
+          </Link>{" "}
+          to set your own levels instead.
+        </p>
 
         <p className="text-xs leading-relaxed text-muted">{GUIDED_DISCLOSURE}</p>
 
@@ -148,6 +163,7 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
         ))}
       </ul>
       {why.score.stateNote && <p className="text-xs text-muted">{why.score.stateNote}</p>}
+      <p className="text-xs font-medium text-muted">The swing plan</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {/* Tone tracks meaning, not direction: a target is the good outcome and
             the stop the bad one on either side, even though a short's targets

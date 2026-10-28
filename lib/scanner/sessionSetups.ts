@@ -56,6 +56,7 @@ import { chooseSweepBasis } from "@/lib/scan/universeSweep";
 import { barSession, etDateKey, etParts } from "@/lib/market/session";
 import { isEarlyClose } from "@/lib/market/calendar";
 import { readStopBreach } from "@/lib/gann/stopBreach";
+import { CONTRACTUAL_EQUITY_DELAY_MS, sessionCloseAt } from "@/lib/data/timeliness";
 
 /** 1:00 PM New York, an early close's last minute of trading, in minutes from midnight. */
 const EARLY_CLOSE_ET_MINUTES = 13 * 60;
@@ -247,17 +248,28 @@ export function barsSincePlan(input: BreachBars, sinceMs: number): { t: string; 
 /** The execution bar the lists' scan reads a breach on (`EXECUTION_TIMEFRAME`, 15 minutes). */
 const BREACH_BAR_MS = 15 * 60_000;
 
+/** Margin past the feed's contractual delay before the session's last bucket reads closed (an engineering figure: the stock feed has run about 16 minutes late). */
+const LATE_FEED_MARGIN_MS = 5 * 60_000;
+
 /**
  * The session's bars rolled into the 15-minute bars the lists' scan reads,
  * keeping only those closed (a bar still forming says nothing about its
  * close). A bucket is closed when its end is at or before `nowMs` and the
  * bars themselves reach past it: the stock feed runs about 16 minutes late, so
  * at 10:20 its latest print may be 10:04, and the wall clock alone would read
- * the 10:00 bar closed at 10:04's price. Oldest first. Pure.
+ * the 10:00 bar closed at 10:04's price. For a stock or fund (`kind` not
+ * crypto), the session's last bucket has no later print to show it closed,
+ * since `barsSincePlan` keeps the regular session only, so it is closed once
+ * the session has ended (16:00, 1 PM on an early close,
+ * `timeliness.ts#sessionCloseAt`) and the feed's contractual delay has passed,
+ * with `LATE_FEED_MARGIN_MS` for a feed that runs a minute or so past it: a
+ * stop broken at 3:50 PM is read the same evening, not the next morning.
+ * Oldest first. Pure.
  */
 export function closedBreachBars(
   bars: readonly { t: string; h: number; l: number; c: number }[],
   nowMs: number,
+  kind: BreachBars["kind"] = "crypto",
 ): { h: number; l: number; c: number }[] {
   const buckets = new Map<number, { h: number; l: number; c: number; last: number }>();
   for (const b of bars) {
@@ -283,8 +295,13 @@ export function closedBreachBars(
     const at = Date.parse(b.t);
     if (Number.isFinite(at) && at <= nowMs && at > lastPrint) lastPrint = at;
   }
+  const sessionOver = (start: number): boolean => {
+    if (kind === "crypto") return false;
+    const close = sessionCloseAt(etDateKey(new Date(start))).getTime();
+    return start + BREACH_BAR_MS >= close && nowMs >= close + CONTRACTUAL_EQUITY_DELAY_MS + LATE_FEED_MARGIN_MS;
+  };
   return [...buckets.entries()]
-    .filter(([start]) => start + BREACH_BAR_MS <= lastPrint)
+    .filter(([start]) => start + BREACH_BAR_MS <= lastPrint || sessionOver(start))
     .sort(([a], [b]) => a - b)
     .map(([, { h, l, c }]) => ({ h, l, c }));
 }
@@ -302,10 +319,11 @@ export function stopBreachStands(
   stop: number | null,
   bars: readonly { t: string; h: number; l: number; c: number }[],
   nowMs: number,
+  kind: BreachBars["kind"] = "crypto",
 ): boolean {
   const side = direction === "bullish" || direction === "up" ? "bullish" : direction === "bearish" || direction === "down" ? "bearish" : null;
   if (!side || stop == null || !(stop > 0)) return false;
-  const closed = closedBreachBars(bars, nowMs);
+  const closed = closedBreachBars(bars, nowMs, kind);
   if (closed.length === 0) return false;
   return readStopBreach({ direction: side, stopLoss: stop, price: closed[closed.length - 1].c, sessionBars: closed }).breached;
 }
@@ -325,7 +343,7 @@ export function brokenSweepSymbols(
     const input = session.get(row.symbol.trim().toUpperCase());
     if (!input) continue;
     const since = row.swept_at ? Date.parse(row.swept_at) : NaN;
-    if (stopBreachStands(row.direction, num(row.stop_loss), barsSincePlan(input, since), nowMs)) out.push(row.symbol);
+    if (stopBreachStands(row.direction, num(row.stop_loss), barsSincePlan(input, since), nowMs, input.kind)) out.push(row.symbol);
   }
   return out;
 }
