@@ -58,6 +58,7 @@ import {
   type ParamIndicator,
 } from "@/lib/chart/indicatorParams";
 import { classifySeries } from "@/lib/strat/classify";
+import { countElliott, countPoints } from "@/lib/strategies/elliottCount";
 import { isIntradayChart, markersForTimeframe } from "@/lib/chart/planForTimeframe";
 import { cn, parseJsonResponse } from "@/lib/utils";
 
@@ -144,6 +145,11 @@ const OVERLAY_META: Record<Overlay, { color: string }> = {
   // chart (AGENTS.md "Strategy Modes"). Display only, same carve-out as above.
   vwap: { color: "#ec4899" },
   donchian: { color: "#64748b" },
+  // Added 2026-10-28 with the Elliott Wave mode: the latest count that keeps
+  // Elliott's rules, drawn as a line through its labelled points. Display
+  // only, same carve-out; the count is `lib/strategies/elliottCount.ts`, the
+  // one the mode and its reading use.
+  elliott: { color: "#8b5cf6" },
 };
 /**
  * What the chart switches on when a technique is chosen to explain the plan
@@ -163,6 +169,7 @@ const EXPLAIN_CHART: Record<
   vwap: { overlays: ["vwap"], studies: [] },
   stochastic: { overlays: [], studies: ["stoch"] },
   donchian: { overlays: ["donchian"], studies: [] },
+  elliottWave: { overlays: ["elliott"], studies: [] },
 };
 
 /**
@@ -1010,6 +1017,39 @@ export function CandleChart({
       const ch = donchian(calcCandles, drawParams.donchian.period);
       addLine(ch.upper, OVERLAY_META.donchian.color, 1, true);
       addLine(ch.lower, OVERLAY_META.donchian.color, 1, true);
+    }
+    if (overlays.has("elliott")) {
+      const bars: Bar[] = calcCandles.map((c) => ({
+        t: new Date((c.time as number) * 1000).toISOString(),
+        o: c.open,
+        h: c.high,
+        l: c.low,
+        c: c.close,
+        v: c.volume ?? 0,
+      }));
+      const points = countPoints(countElliott(bars));
+      if (points.length >= 2) {
+        const s = chart.addSeries(LineSeries, {
+          color: OVERLAY_META.elliott.color,
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(points.map((p) => ({ time: calcCandles[p.index].time as Time, value: p.price })));
+        createSeriesMarkers(
+          s,
+          points.map((p) => ({
+            time: calcCandles[p.index].time as Time,
+            position: p.kind === "high" ? ("aboveBar" as const) : ("belowBar" as const),
+            color: OVERLAY_META.elliott.color,
+            shape: "circle" as const,
+            text: p.text,
+            size: 0,
+          })),
+        );
+        created.push(s);
+      }
     }
 
     return () => created.forEach((s) => chart.removeSeries(s));
