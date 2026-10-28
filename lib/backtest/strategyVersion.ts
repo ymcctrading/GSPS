@@ -987,4 +987,20 @@
 // (was STRATEGY_VERSION "2026-10-28-three-closes-angle-origin")
 // 2026-10-28-angle-origin-on-delayed-fill: the Rule of Three trend and P6's
 // angle origin merged onto the delayed fill timing. No new rule.
-export const STRATEGY_VERSION = "2026-10-28-angle-origin-on-delayed-fill";
+// (was STRATEGY_VERSION "2026-10-28-angle-origin-on-delayed-fill")
+// 2026-10-28 (intraday audit, gann-alignment-audit/intraday-alerts-replay.md):
+// the replay's reversal chain is no longer cut at 3 but runs, as NSTD Rule 6
+// (p.48) keeps with the trend, until three losses in a row pause it as
+// placement's series-of-losses rule does (Commodities p.12, NSTD Rule 1 p.46);
+// intraday alerts against the daily trend are shown for study but not entered
+// (never-failing rule 5), and their confidence is the share of checks met,
+// with no hand-set weights. Daily verdicts are unchanged; replay reversal
+// chains and intraday replay trades move.
+// (built alone as "2026-10-28-intraday-audit-fixes")
+// 2026-10-28-intraday-audit-on-delayed-fill: the intraday audit fixes (#515)
+// merged onto the delayed fill timing. No new rule beyond theirs.
+// (was STRATEGY_VERSION "2026-10-28-intraday-audit-on-delayed-fill")
+// 2026-10-28-intraday-audit-on-angle-origin: the intraday audit fixes (#515)
+// merged onto the Rule of Three trend and angle origin (#522). No new rule
+// beyond theirs.
+export const STRATEGY_VERSION = "2026-10-28-intraday-audit-on-angle-origin";

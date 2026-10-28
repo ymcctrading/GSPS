@@ -151,14 +151,20 @@ export function rankPlansByScore<T extends { instrument: string; direction: stri
     .map((x) => x.plan);
 }
 
-/** Fraction of paper equity risked per trade, by dial position. */
+/**
+ * Fraction of paper equity risked per trade, by dial position. The member's
+ * own choice, and no Gann figure: Gann gives only the ceiling, a tenth of the
+ * trading unit (never-failing rule 1, NSTD Rule 1 p.46), which every order
+ * is still held to at placement (`riskTenthRefusal`). The three positions are
+ * engineering choices (audit T-04).
+ */
 const RISK_PCT: Record<RiskProfile, number> = {
   PASSIVE: 0.005,
   MODERATE: 0.01,
   AGGRESSIVE: 0.02,
 };
 
-/** Below this, a sized position would round to zero shares on most tickers — not worth activating. */
+/** Below this, a sized position would round to zero shares on most tickers — not worth activating. An engineering figure. */
 const MIN_ALLOCATED_DOLLAR_RISK = 25;
 
 /**

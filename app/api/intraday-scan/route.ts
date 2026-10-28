@@ -36,6 +36,7 @@
  * deliberate.
  */
 
+import { isEarlyClose } from "@/lib/market/calendar";
 import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
 import { afterResponse, detectionFromAlert, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { NextRequest, NextResponse } from "next/server";
@@ -74,6 +75,7 @@ import {
   barsForSession,
   etDateKey,
   scanIntraday,
+  unreadAudit,
   volumeBaseline,
   type Alert,
   type AssetKind,
@@ -83,6 +85,7 @@ import {
   type ScannerConfig,
   type SignalType,
   type SymbolInput,
+  type UnreadCause,
   INTRADAY_DAILY_HISTORY_DAYS,
 } from "@/lib/scanner/intraday";
 import type { Bar } from "@/lib/types";
@@ -90,7 +93,10 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const maxDuration = 120;
 
-/** Sessions of history behind the relative-volume baseline. */
+/**
+ * Sessions of history behind the relative-volume baseline. An engineering
+ * figure: Gann compares volume with the market's own past but names no length.
+ */
 const BASELINE_DAYS = 12;
 /** Daily history fetched per symbol (`INTRADAY_DAILY_HISTORY_DAYS`, shared with the alert replay). */
 const DAILY_HISTORY_DAYS = INTRADAY_DAILY_HISTORY_DAYS;
@@ -239,6 +245,8 @@ export async function GET(req: NextRequest) {
   // symbols to the per-symbol reads, as before.
   const prefetched = await prefetchBars(provider, universe, now);
 
+  // Why each symbol that never reached the scan was left out, for its audit row.
+  const unreadCauses = new Map<string, UnreadCause>();
   const inputs = await mapWithConcurrency(universe, 4, async (entry) =>
     withTimeout(
       buildInput(
@@ -252,10 +260,17 @@ export async function GET(req: NextRequest) {
       ),
       15_000,
       `buildInput for ${entry.symbol}`
-    ).catch((err) => {
-      console.error(`[intraday-scan] buildInput failed for ${entry.symbol}:`, err);
-      return null;
-    }),
+    ).then(
+      (input) => {
+        if (input === null) unreadCauses.set(entry.symbol, "no_bars");
+        return input;
+      },
+      (err) => {
+        console.error(`[intraday-scan] buildInput failed for ${entry.symbol}:`, err);
+        unreadCauses.set(entry.symbol, "read_failed");
+        return null;
+      },
+    ),
   );
 
   const resolved = inputs.filter((i): i is SymbolInput => i !== null);
@@ -269,6 +284,21 @@ export async function GET(req: NextRequest) {
   // Evaluated when the decision is computed, after the bars arrived, never
   // backdated to the request's start (DATA-DELAY-001 §4).
   let output = scanIntraday(resolved, config, new Date());
+  // A symbol whose bars could not be read gets its own audit row, so the panel
+  // says why it was not scanned rather than "0 checked".
+  if (unreachable.length > 0) {
+    const marketClosed = equitySession(now) === "closed";
+    const kindOf = new Map(universe.map((u) => [u.symbol, u.kind]));
+    output = {
+      ...output,
+      audit: [
+        ...output.audit,
+        ...unreachable.map((symbol) =>
+          unreadAudit(symbol, kindOf.get(symbol) ?? "equity", unreadCauses.get(symbol) ?? "read_failed", marketClosed),
+        ),
+      ],
+    };
+  }
 
   if (systemScan) await invalidateBrokenFocus(supabase as ServiceSupabase, resolved, now).catch(() => undefined);
 
@@ -658,7 +688,6 @@ function resolveConfig(params: URLSearchParams): ScannerConfig {
 
   return {
     relativeVolumeThreshold: num("rvol", DEFAULT_CONFIG.relativeVolumeThreshold),
-    minMovePct: num("minMovePct", DEFAULT_CONFIG.minMovePct),
     maxDataAgeSeconds: num("maxDataAge", DEFAULT_CONFIG.maxDataAgeSeconds),
     cooldownMinutes: num("cooldown", DEFAULT_CONFIG.cooldownMinutes),
     minSessionVolume: num("minVolume", DEFAULT_CONFIG.minSessionVolume),
@@ -772,6 +801,7 @@ async function persistAlerts(
       dataTimestamp: alert.dataTimestamp,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      againstDailyTrend: alert.againstDailyTrend === true,
     },
   }));
 
@@ -906,6 +936,7 @@ async function persistSystemAlerts(
       barIntervalMinutes: intervalBySymbol.get(alert.symbol) ?? 1,
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
+      againstDailyTrend: alert.againstDailyTrend === true,
     },
   }));
 
@@ -987,6 +1018,7 @@ async function loadRecentSystemAlerts(
       masterTarget: num(meta.masterTarget),
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
+      ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
     });
   }
   return out;
@@ -1222,7 +1254,8 @@ function sessionLabelFor(nowEtMinute: number, now: Date): string {
   if (weekday === 0 || weekday === 6) return "Weekend — US equity markets are closed";
   if (nowEtMinute < 4 * 60) return "Overnight — US equity markets are closed";
   if (nowEtMinute < 9 * 60 + 30) return "Pre-market";
-  if (nowEtMinute < 16 * 60) return "Regular session";
+  // An NYSE early close ends the regular session at 1:00 PM (equitySession).
+  if (nowEtMinute < (isEarlyClose(etDateKey(now)) ? 13 * 60 : 16 * 60)) return "Regular session";
   if (nowEtMinute < 20 * 60) return "After hours";
   return "Closed";
 }

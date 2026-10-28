@@ -10,7 +10,6 @@ import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setu
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import {
   ASSET_KIND_LABELS,
-  MEASURED_LOSING,
   NOTICE_SIGNALS,
   MOVE_BASIS_LABELS,
   SIGNAL_DESCRIPTIONS,
@@ -18,6 +17,7 @@ import {
   formatAge,
   formatRvol,
   formatVolume,
+  tradeHold,
 } from "@/lib/scanner/intradayDisplay";
 import type { Alert, RecentSystemAlert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
 import { buildIntradayCardModel, intradayChartPlan, isReversalRisk } from "@/lib/setups/intraday";
@@ -324,6 +324,7 @@ function RecentList({ recent }: { recent: RecentSystemAlert[] }) {
       <p className="text-xs font-medium uppercase tracking-wide text-muted">Flagged today by the scheduled scans</p>
       {recent.map((r) => {
         const up = r.direction === "up";
+        const held = tradeHold(r);
         return (
           <div key={`${r.symbol}-${r.type}-${r.direction}`} className="rounded-lg border border-border p-2.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -343,6 +344,7 @@ function RecentList({ recent }: { recent: RecentSystemAlert[] }) {
                 <Field label="MTP" value={r.masterTarget != null ? formatUsd(r.masterTarget) : "—"} />
               </dl>
             )}
+            {held && <p className="mt-1 text-xs text-warn">{held}</p>}
           </div>
         );
       })}
@@ -387,8 +389,9 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   // A first target that pays no more than the risk is no trade (M-K5;
   // "profits must exceed losses", *Wall Street Stock Selector* Ch. II).
   const unpaid = alert.continuationPlan.paysRisk === false;
-  // A signal the replay measured losing is shown for study, never offered.
-  const measuredLosing = MEASURED_LOSING[alert.type];
+  // A signal held from trading (measured losing, or against the daily trend)
+  // is shown for study, never offered.
+  const held = tradeHold(alert);
   // Nearing or at a daily plan's entry: a heads-up, not a session trade.
   const notice = NOTICE_SIGNALS.has(alert.type);
   // The plan "Trade this" carries into the ticket: the alert's own stop, first
@@ -459,7 +462,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
           <Field label="MTP" value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
         </dl>
       )}
-      {measuredLosing && <p className="mt-1 text-xs text-warn">{measuredLosing}</p>}
+      {held && <p className="mt-1 text-xs text-warn">{held}</p>}
       {!isRisk && unpaid && (
         <p className="mt-1 text-xs text-muted">
           The first target pays no more than the risk, so this is no trade: profits must exceed losses.
@@ -489,7 +492,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
               >
                 Open the plan →
               </Link>
-            ) : !isRisk && !unpaid && !measuredLosing && tradePlan && (
+            ) : !isRisk && !unpaid && !held && tradePlan && (
               <Link
                 href={intradayTradeHref(alert.symbol, up ? "buy" : "sell", tradePlan)}
                 className="min-h-8 cursor-pointer text-sm font-medium text-accent hover:underline"

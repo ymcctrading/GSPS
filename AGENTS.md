@@ -3567,7 +3567,7 @@ price, long/short): no drift $150 46.6/55.4 → 44.0/55.0%, $500 56.8/64.4 →
 an engineering choice, labelled. `STRATEGY_VERSION` was
 `2026-10-28-three-closes-angle-origin`; P6, Execute and the 7/4 cutoffs need a
 fresh run on it. Merged onto the delayed fill timing (no new rule):
-`STRATEGY_VERSION` is `2026-10-28-angle-origin-on-delayed-fill`.
+`STRATEGY_VERSION` was `2026-10-28-angle-origin-on-delayed-fill`.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
@@ -3621,6 +3621,28 @@ a slot of a daily budget first (`lib/notifications/email-budget.ts`, migration
 open); over it the send is skipped and the bell keeps the notice. The bell
 points a member without push on that device to the switch. A new email sender
 calls `emailBudgetHold` with its kind.
+
+**Intraday audit fixes, 2026-10-28 (`/mnt/project-files/gann-alignment-audit/intraday-alerts-replay.md`).**
+An intraday alert against the daily swing chart's trend is shown for study and
+labelled so, never offered as a trade, written to the bell or entered by the
+intraday replay (`againstDailyTrend`, `tradeHold` in
+`lib/scanner/intradayDisplay.ts`; never-failing rule 5). The alert's confidence
+is the share of its checks met, with no hand-set weights (Gann ranks no check
+above another, "The scorecard's role"), and the unused `minMovePct` is gone.
+The replay's reversal chain ran at most 3 deep; it now runs as NSTD Rule 6
+(p.48) keeps with the trend, until three losses in a row pause it, as
+placement's `lossSeriesRefusal` does live (`LOSS_SERIES_LENGTH`). The twice-yearly
+rest reminder now comes back with a new entry placed in its window, as the
+away reminder does (`closeOutNotice`, `lib/trade/away-notice.ts`; *Truth of
+the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` is
+`2026-10-28-intraday-audit-on-angle-origin` (built alone as `2026-10-28-intraday-audit-fixes`, merged onto the Rule of Three trend and angle origin with no new rule); daily verdicts are unchanged. The same
+audit's trade, automation and lifecycle walk
+(`gann-alignment-audit/trade-automation-lifecycle.md`) moved three more:
+`equitySession` ends an NYSE early close's regular session at 1:00 PM (it read
+4:00 PM), the options ticket charges about ten days of time decay, the
+measured hold on Gann's exits, not the half day of the retired bar-pattern
+trigger (`TYPICAL_HOLDING_DAYS`), and the portfolio manager's risk dial is
+labelled the member's choice under Gann's tenth.
 
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`

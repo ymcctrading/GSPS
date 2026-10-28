@@ -11,6 +11,7 @@ import {
   scanIntraday,
   barsForSession,
   scoreConfidence,
+  unreadAudit,
   targetPaysRisk,
   sessionMetrics,
   volumeBaseline,
@@ -18,6 +19,7 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import { gannPoint, intradayPoint } from "@/lib/gann/pointScale";
+import { NOTICE_SIGNALS, tradeHold } from "@/lib/scanner/intradayDisplay";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -104,47 +106,47 @@ const AT_1133 = new Date("2026-08-07T15:33:00Z");
 
 describe("sessionMetrics", () => {
   it("reads the prior session's high and low as the day's old top and bottom", () => {
-    const m = sessionMetrics(input(), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input())!;
     expect(m.priorHigh).toBeCloseTo(501.5, 5);
     expect(m.priorLow).toBeCloseTo(499, 5);
   });
 
   it("has no old levels without daily history, rather than inventing them", () => {
-    const m = sessionMetrics(input({ priorDailyBars: undefined }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ priorDailyBars: undefined }))!;
     expect(m.priorHigh).toBeNull();
     expect(m.point).toBeGreaterThan(0);
   });
 
   it("scales Gann's allowance to the bars, the same point the intraday replay uses", () => {
-    const m = sessionMetrics(input(), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input())!;
     expect(m.point).toBeCloseTo(intradayPoint(m.lastClose, m.intradayAtr, 2.5), 10);
-    expect(sessionMetrics(input({ dailyAtr: null }), DEFAULT_CONFIG)!.point).toBe(0);
+    expect(sessionMetrics(input({ dailyAtr: null }))!.point).toBe(0);
   });
 
   it("reads the trend from Gann's 3-bar swing chart on the session's bars", () => {
-    expect(sessionMetrics(input(), DEFAULT_CONFIG)!.swingTrend).toBe("up");
+    expect(sessionMetrics(input())!.swingTrend).toBe("up");
   });
 
   it("computes VWAP from typical price, so a bar closing at its extreme doesn't dominate", () => {
     const bars = [bar(0, 100, 110, 90, 110, 1000), bar(1, 110, 110, 110, 110, 1000)];
-    const m = sessionMetrics(input({ bars, prevClose: 100 }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ bars, prevClose: 100 }))!;
     // Typical prices are (110+90+110)/3 = 103.33 and 110, equally weighted.
     expect(m.midpoint).toBeCloseTo((m.high + m.low) / 2, 6);
   });
 
   it("leaves relative volume null rather than defaulting it to 1.0", () => {
-    const m = sessionMetrics(input({ volumeBaseline: null }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ volumeBaseline: null }))!;
     expect(m.relativeVolume).toBeNull();
   });
 
   it("discards bad prints instead of letting them set the session range", () => {
     const bars = [...trendingUpBars(), bar(106, 0, 0, 0, 0, 5000)];
-    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ bars }))!;
     expect(m.low).toBeGreaterThan(400);
   });
 
   it("returns null when no usable bar arrived at all", () => {
-    expect(sessionMetrics(input({ bars: [] }), DEFAULT_CONFIG)).toBeNull();
+    expect(sessionMetrics(input({ bars: [] }))).toBeNull();
   });
 });
 
@@ -696,19 +698,22 @@ describe("scanIntraday — audit trail", () => {
 });
 
 describe("scoreConfidence", () => {
-  it("is the share of available weight that was earned", () => {
+  // Audit I-01: every check counts the same; no hand-set weights rank one above another.
+  it("is the share of checks met", () => {
     expect(
       scoreConfidence([
-        { label: "a", passed: true, weight: 30, detail: "" },
-        { label: "b", passed: false, weight: 10, detail: "" },
+        { label: "a", passed: true, detail: "" },
+        { label: "b", passed: true, detail: "" },
+        { label: "c", passed: true, detail: "" },
+        { label: "d", passed: false, detail: "" },
       ]),
     ).toBe(75);
   });
 
   it("is zero when nothing passed and 100 when everything did", () => {
     const factors = [
-      { label: "a", weight: 30, detail: "" },
-      { label: "b", weight: 70, detail: "" },
+      { label: "a", detail: "" },
+      { label: "b", detail: "" },
     ];
     expect(scoreConfidence(factors.map((f) => ({ ...f, passed: false })))).toBe(0);
     expect(scoreConfidence(factors.map((f) => ({ ...f, passed: true })))).toBe(100);
@@ -716,6 +721,33 @@ describe("scoreConfidence", () => {
 
   it("does not divide by zero on an empty factor list", () => {
     expect(scoreConfidence([])).toBe(0);
+  });
+});
+
+describe("an alert against the daily trend (audit I-02)", () => {
+  // Never-failing rule 5: the method trades with the main trend, so an alert
+  // the daily swing chart runs against is shown for study and never offered.
+  const mirror = (b: Bar): Bar => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c });
+
+  it("is flagged exactly when its daily-trend check failed, and held from trade", () => {
+    const outputs = [
+      scanIntraday([input()], DEFAULT_CONFIG, AT_1133),
+      scanIntraday([input({ priorDailyBars: campaignDaily().map(mirror) })], DEFAULT_CONFIG, AT_1133),
+    ];
+    const alerts = outputs.flatMap((o) => o.alerts);
+    expect(alerts.length).toBeGreaterThan(0);
+    let against = 0;
+    for (const a of alerts) {
+      const check = a.confidenceFactors.find((f) => f.label === "With the daily trend");
+      const exempt = a.type === "reversal_risk" || a.type === "plan_level_held" || NOTICE_SIGNALS.has(a.type);
+      const expected = !exempt && check !== undefined && !check.passed;
+      expect(a.againstDailyTrend === true).toBe(expected);
+      if (expected) {
+        against++;
+        expect(tradeHold(a)).toMatch(/Against the daily trend/);
+      }
+    }
+    expect(against).toBeGreaterThan(0);
   });
 });
 
@@ -836,7 +868,7 @@ describe("session boundaries", () => {
       etBar(9, 50, 502),
       etBar(10, 0, 503),
     ];
-    const m = sessionMetrics(input({ bars, kind: "etf" }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ bars, kind: "etf" }))!;
 
     expect(m.low).toBeCloseTo(499.9, 5);
     expect(m.high).toBeCloseTo(503.1, 5);
@@ -845,25 +877,25 @@ describe("session boundaries", () => {
 
   it("excludes pre-market volume from the session total", () => {
     const bars = [etBar(4, 0, 400, 5_000_000), etBar(9, 30, 500, 1_000_000)];
-    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ bars }))!;
     expect(m.cumulativeVolume).toBe(1_000_000);
   });
 
   it("excludes after-hours bars too", () => {
     const bars = [etBar(9, 30, 500), etBar(15, 59, 501), etBar(17, 0, 520)];
-    const m = sessionMetrics(input({ bars }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ bars }))!;
     expect(m.high).toBeLessThan(510);
   });
 
   it("treats the whole day as the session for crypto, which has no open", () => {
     const bars = [etBar(2, 0, 100), etBar(2, 30, 101), etBar(20, 0, 102)];
-    const m = sessionMetrics(input({ bars, kind: "crypto", symbol: "BTC/USD" }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ bars, kind: "crypto", symbol: "BTC/USD" }))!;
     expect(m.barCount).toBe(3);
     expect(m.low).toBeCloseTo(99.9, 5);
   });
 
   it("returns null when a symbol traded only outside the regular session", () => {
-    expect(sessionMetrics(input({ bars: [etBar(4, 0, 400)] }), DEFAULT_CONFIG)).toBeNull();
+    expect(sessionMetrics(input({ bars: [etBar(4, 0, 400)] }))).toBeNull();
   });
 });
 
@@ -986,13 +1018,13 @@ describe("Gann's hourly chart (Master Course Ch. 13)", () => {
   }
 
   it("reads the swing chart on hourly roll-ups of recent sessions", () => {
-    const m = sessionMetrics(input({ recentBars: recentFiveMinute() }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ recentBars: recentFiveMinute() }))!;
     expect(m.hourly?.trend).toBe("up");
-    expect(sessionMetrics(input({ recentBars: recentFiveMinute(-1) }), DEFAULT_CONFIG)!.hourly?.trend).toBe("down");
+    expect(sessionMetrics(input({ recentBars: recentFiveMinute(-1) }))!.hourly?.trend).toBe("down");
   });
 
   it("is absent without recent bars, and its factor is left out rather than failed", () => {
-    expect(sessionMetrics(input(), DEFAULT_CONFIG)!.hourly).toBeNull();
+    expect(sessionMetrics(input())!.hourly).toBeNull();
     const without = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.flatMap((a) => a.confidenceFactors.map((f) => f.label));
     expect(without).not.toContain("The hourly chart agrees");
   });
@@ -1007,7 +1039,7 @@ describe("Gann's hourly chart (Master Course Ch. 13)", () => {
       const price = hourPrice[Math.min(2, Math.floor((m + 30) / 60))];
       recent.push({ t: new Date(open + m * 60_000).toISOString(), o: price, h: price + 0.2, l: price - 0.2, c: price, v: 10_000 });
     }
-    const m = sessionMetrics(input({ recentBars: recent }), DEFAULT_CONFIG)!;
+    const m = sessionMetrics(input({ recentBars: recent }))!;
     const alerts = scanIntraday([input({ recentBars: recent })], DEFAULT_CONFIG, AT_1133).alerts;
     const turn = alerts.find((a) => a.type === "hourly_turn");
     expect(m.hourly?.turned).toBe(true);
@@ -1123,3 +1155,16 @@ describe("gannMasterTarget", () => {
   });
 });
 
+
+describe("a symbol the scan could not read gets an audit row saying why (AIZ, 2026-10-28)", () => {
+  it("names an empty delayed feed apart from a failed read", () => {
+    const quiet = unreadAudit("AIZ", "equity", "no_bars", false);
+    expect(quiet.outcome).toBe("insufficient_data");
+    expect(quiet.reason).toMatch(/No trades on the delayed feed yet this session/);
+    expect(quiet.checks).toEqual([]);
+    const failed = unreadAudit("AIZ", "equity", "read_failed", false);
+    expect(failed.reason).toMatch(/failed or timed out/);
+    expect(unreadAudit("AIZ", "equity", "no_bars", true).reason).toMatch(/last session/);
+    expect(unreadAudit("BTC/USD", "crypto", "no_bars", false).reason).not.toMatch(/delayed feed/);
+  });
+});
