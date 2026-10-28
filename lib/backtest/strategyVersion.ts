@@ -895,4 +895,18 @@
 // (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
 // 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
 // merged in the 2026-10-28 release. No new rule.
-export const STRATEGY_VERSION = "2026-10-28-groups-by-industry-on-double-bottom-weeks";
+// (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
+// 2026-10-28-gann-one-class-per-company (gann-alignment-audit H9): the
+// relative strength rank counts each company once, so GOOG and GOOGL are no
+// longer each other's peers in the universe or the group (Truth of the Stock
+// Tape Ch. XVI-XIX; Stock Selector Ch. VII name each company once). P3(c) can
+// move for those two; the market scan's coarse pre-filter now reads a held
+// level and the 50% of the major range (SUS-01, SUS-02), which changes which
+// stocks the daytime scan scores first, not any stock's verdict.
+// (built alone as "2026-10-28-gann-one-class-per-company")
+// 2026-10-28-one-class-on-groups-by-industry: the share-class rule above,
+// merged onto the release that groups by industry and waits two weeks for a
+// double bottom, whose rules it keeps. The coarse pre-filter's held level reads
+// the full scan's old levels (review of #511), which orders the daytime scan
+// and moves no verdict.
+export const STRATEGY_VERSION = "2026-10-28-one-class-on-groups-by-industry";

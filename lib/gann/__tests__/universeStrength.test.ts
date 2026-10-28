@@ -174,6 +174,23 @@ describe("the relative strength rank among the universe (S6)", () => {
     expect(g.get("X")).toBeUndefined();
   });
 
+  it("counts each company once: a second share class is not its twin's peer (H9)", () => {
+    const base = universe(200, n);
+    // GOOGL at the top of the universe; GOOG, its other class, a hair under it.
+    base.set("GOOGL", months(n, () => 100, (i) => (i === n - 1 ? 101.5 : 100)));
+    base.set("GOOG", months(n, () => 100, (i) => (i === n - 1 ? 101.4 : 100)));
+    const u = buildUniverseStrength(base);
+    const month = u.get("2026-03")!;
+    expect(month.bySymbol.has("GOOG")).toBe(false);
+    expect(month.bySymbol.has("GOOGL")).toBe(true);
+    const a = readUniverseRank("GOOGL", null, readAt, u)!;
+    const c = readUniverseRank("GOOG", base.get("GOOG")!, readAt, u)!;
+    // 200 peers each: the other 200 stocks, never the twin.
+    expect(a.peers).toBe(200);
+    expect(c.peers).toBe(200);
+    expect(c.percentile).toBe(a.percentile);
+  });
+
   it("reads nothing on too few peers, or with no universe", () => {
     const u = buildUniverseStrength(universe(MIN_PEERS, n));
     expect(readUniverseRank("S0", null, readAt, u)).toBeNull();
