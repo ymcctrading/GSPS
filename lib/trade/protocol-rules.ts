@@ -67,14 +67,13 @@ export const MASTER_RULE_DETAIL =
  * at an old bottom that held, the stop 3 points under it. Points are
  * price-scaled (`lib/gann/pointScale.ts`).
  */
-export const STOP_RULE_LABEL = "3 points beyond the old top or bottom the entry crossed or rests at, the low that held, or the week's high a rally is sold under, scaled to the price";
+export const STOP_RULE_LABEL = "Just beyond the old top or bottom the entry crossed or rests at, the low that held, or the week's high a rally is sold under, scaled to the price";
 
 export const STOP_RULE_DETAIL =
-  "Once price closes 3 points past an old top, the buy rests 1 point above that top and fills when price pulls back to it; the stop goes 3 points below the top. " +
-  "At a double or triple bottom the buy rests at the old bottom itself, with the stop 3 points under it. " +
-  "Once a low has held into its second week, the buy is at the last close, with the stop 3 points under the low, and only while that risks no more than 5 points. " +
-  "So a crossing risks 4 points, a double or triple bottom 3, and a buy over a low that held up to 5, the limit. Points grow with the price: 3 points is about 7% of a $40 stock, 5% at $100 and under 4% at $200. " +
-  "A short is the mirror: after a close 3 points under an old bottom, sell 1 point below it, with the stop 3 points above. On a bought put or call the premium paid is the stop: it is the most the option can lose.";
+  "Once price closes clearly past an old top, the buy rests just above that top and fills when price pulls back to it; the stop goes just below the top. " +
+  "At a double or triple bottom the buy rests at the old bottom itself, with the stop just under it. " +
+  "Once a low has held into its second week, the buy is at the last close, with the stop just under the low, and only while the risk stays within the limit. " +
+  "A short is the mirror: after a close clearly under an old bottom, sell just below it, with the stop just above. On a bought put or call the premium paid is the stop: it is the most the option can lose.";
 
 /**
  * The Execute threshold, stated in full.

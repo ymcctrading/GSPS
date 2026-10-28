@@ -170,10 +170,10 @@ export async function armConfirmedPlansFromBars(
         reason: pivot
           ? "Break/retest/confirmation-move sequence completed on closed bars since the plan was generated."
           : heldCrossing
-            ? "The crossing closed 3 points past the old level before the plan, and the daily chart still holds it; the entry waits for the reaction."
+            ? "The crossing closed clearly past the old level before the plan, and the daily chart still holds it; the entry waits for the reaction."
             : restsWithoutCrossing(plan.coordinates.entryKind)
             ? "The entry rests at its level, read on closed bars since the plan was generated."
-            : "Price closed 3 points past the old level on a closed bar; the entry waits for the reaction.",
+            : "Price closed clearly past the old level on a closed bar; the entry waits for the reaction.",
       });
       if (armed.ok) result.armed.push(plan.planId);
       else result.errors.push({ planId: plan.planId, reason: armed.error });

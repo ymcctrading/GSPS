@@ -149,7 +149,7 @@ describe("what the plan says about a sell at the close (R4)", () => {
     const r = confirmationFromBars([bar], "bearish", 95, 100, "hold");
     expect(r.stage).toBe("confirmed");
     expect(r.note).not.toMatch(/low/);
-    expect(r.note).toMatch(/3 points over the high/);
+    expect(r.note).toMatch(/just over the high/);
     const dead = confirmationFromBars([{ ...bar, c: 100.5, h: 100.8 }], "bearish", 95, 100, "hold");
     expect(dead.note).not.toMatch(/low/);
   });

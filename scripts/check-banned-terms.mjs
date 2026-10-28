@@ -134,6 +134,15 @@ const CONFIDENTIAL_ROOTS = [
   "lib/notifications",
   "lib/scanner/intradayDisplay.ts",
   "lib/trade/tradeStyle.ts",
+  "lib/trade/protocol-rules.ts",
+  "lib/trade/protocol-exit.ts",
+  "lib/scanner/intraday.ts",
+  "lib/scanner/focusList.ts",
+  "lib/setups",
+  "lib/lifecycle",
+  "lib/onboarding",
+  "lib/scoring/public-summary.ts",
+  "lib/scoring/direction-copy.ts",
 ];
 const CONFIDENTIAL_TERMS = [
   { pattern: /\bJensen\b/i, term: "Jensen" },
@@ -151,6 +160,9 @@ const CONFIDENTIAL_TERMS = [
   { pattern: /\bSeven Zones\b/i, term: "Seven Zones", instead: "activity zones" },
   { pattern: /\b(planetary|heliocentric|geocentric|astrolog\w*|ephemeris)\b/i, term: "astrology" },
   { pattern: /Law of Creation|Emerald Tablet|Three Initiates/i, term: "hermetic source" },
+  // The entry and stop arithmetic itself ("a close 3 points past the old
+  // level", "1 point above the top"): the plan's prices show, the rule doesn't.
+  { pattern: /\b\d+[ -]points? (past|beyond|over|under|above|below|ahead|back)\b/, term: "point arithmetic", instead: "clearly past / just beyond" },
 ];
 
 function walk(directory, files = []) {
@@ -214,6 +226,8 @@ const confidentialFiles = CONFIDENTIAL_ROOTS.flatMap((root) =>
   root.endsWith(".ts") ? [join(ROOT, root)] : walk(join(ROOT, root)),
 );
 for (const file of confidentialFiles) {
+  // Tests name the old wording to assert it is gone.
+  if (/__tests__|\.test\.tsx?$/.test(file)) continue;
   scan(file, CONFIDENTIAL_TERMS, { skipCommentsAndImports: true });
 }
 for (const doc of PUBLIC_DOCS) {

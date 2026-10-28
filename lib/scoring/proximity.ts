@@ -44,7 +44,7 @@ export function levelBandPct(price: number): number {
 }
 
 /** The basis a note names for `levelBandPct`. */
-export const LEVEL_BAND_BASIS = "the usual 3-point allowance at the level";
+export const LEVEL_BAND_BASIS = "the usual allowance at the level";
 
 /**
  * Daily ATR as a percentage of the reference price — a day's range in the same

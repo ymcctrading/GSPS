@@ -49,8 +49,8 @@ describe("the plan's levels", () => {
 
 describe("the signal card's headline", () => {
   it("names the previous year's level or the record, and the mirror", () => {
-    expect(structuralTriggerHeadline("bullish", "crossing", "priorYear")).toMatch(/^A close 3 points over the previous year's top/);
-    expect(structuralTriggerHeadline("bearish", "crossing", "priorYear")).toMatch(/^A close 3 points under the previous year's bottom/);
+    expect(structuralTriggerHeadline("bullish", "crossing", "priorYear")).toMatch(/^A close clearly over the previous year's top/);
+    expect(structuralTriggerHeadline("bearish", "crossing", "priorYear")).toMatch(/^A close clearly under the previous year's bottom/);
     expect(structuralTriggerHeadline("bullish", "crossing", "allTime")).toMatch(/record high from before the last 52 weeks/);
     expect(structuralTriggerHeadline("bearish", "crossing", "allTime")).toMatch(/record low from before the last 52 weeks/);
     expect(structuralTriggerHeadline("bullish")).toMatch(/prior confirmed swing high/);
@@ -67,9 +67,9 @@ describe("the graduation exam", () => {
     gradeExam("pro_to_expert", [s], [{ trend: "up", decision: "trade", entryChoiceId: "e1" }]).scenarios[0].items.find((x) => x.item === "entry")!.explanation;
 
   it("names the crossed level in the entry's explanation", () => {
-    expect(entryText(key("priorYear"))).toMatch(/1 point past the previous year's top/);
-    expect(entryText(key("allTime"))).toMatch(/1 point past the record high from before the last 52 weeks/);
-    expect(entryText(key())).toMatch(/1 point past the last swing top/);
+    expect(entryText(key("priorYear"))).toMatch(/just past the previous year's top/);
+    expect(entryText(key("allTime"))).toMatch(/just past the record high from before the last 52 weeks/);
+    expect(entryText(key())).toMatch(/just past the last swing top/);
   });
 
   it("records the source on the key it builds", () => {

@@ -1180,7 +1180,7 @@ function detectOvernightTurn(
   const cause =
     direction === "up"
       ? `Today's low held above yesterday's bottom: the daily swing turned up${anchor !== null ? ` from its last bottom at ${priceText(anchor)}` : ""}.`
-      : `Today's low broke yesterday's bottom by more than ¼ point: the daily swing turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
+      : `Today's low broke yesterday's bottom clearly: the daily swing turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
   checks.push({ name: "Daily swing at the lows", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
     { label: "The daily swing turned today", passed: true, weight: 30, detail: cause },
@@ -1197,7 +1197,7 @@ function detectOvernightTurn(
     move: dayMove,
     factors,
     invalidation: stop ?? m.midpoint,
-    whyThisAppeared: `${cause} The method trades with the line and keeps its stop 1 point beyond the last swing ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${priceText(stop)}` : ""}; when that stop is caught the line has reversed.`,
+    whyThisAppeared: `${cause} The method trades with the line and keeps its stop just beyond the last swing ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${priceText(stop)}` : ""}; when that stop is caught the line has reversed.`,
   });
 }
 
@@ -1311,7 +1311,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     checks.push({
       name,
       passed: false,
-      detail: `The daily plan's crossing is not made yet: it waits on a daily close 3 points past the level, and the reaction to ${priceText(plan.entry)} is bought after that.`,
+      detail: `The daily plan's crossing is not made yet: it waits on a daily close clearly past the level, and the reaction to ${priceText(plan.entry)} is bought after that.`,
     });
     return null;
   }

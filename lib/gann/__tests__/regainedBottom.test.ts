@@ -38,7 +38,7 @@ const REGAINED = [...DOWN, ...leg(70.5, LINE - 0.4, 14), LINE + 0.2];
 const mirror = (bars: Bar[]) => bars.map((b) => ({ ...b, o: 176 - b.o, h: 176 - b.l, l: 176 - b.h, c: 176 - b.c }));
 
 describe("a regained old bottom (A-TREND-10)", () => {
-  it("is bought on the reaction 1 point over the old bottom, stop 3 points under it", () => {
+  it("is bought on the reaction just over the old bottom, stop just under it", () => {
     const t = computeGannEntryTrigger(weekdays(REGAINED), "bullish")!;
     expect(t).toMatchObject({ kind: "crossing", held: true, regained: true });
     expect(t.level).toBeCloseTo(LOW, 8);
@@ -49,7 +49,7 @@ describe("a regained old bottom (A-TREND-10)", () => {
     expect(t.stopPrice).toBeCloseTo(LOW - pts, 6);
   });
 
-  it("is not a buy before the close 3 points over it", () => {
+  it("is not a buy before the close clearly over it", () => {
     const t = computeGannEntryTrigger(weekdays(REGAINED.slice(0, -1)), "bullish");
     expect(t?.regained).not.toBe(true);
   });
@@ -60,7 +60,7 @@ describe("a regained old bottom (A-TREND-10)", () => {
     expect(computeGannEntryTrigger(weekdays(shallow), "bullish")?.regained).not.toBe(true);
   });
 
-  it("is mirrored: an old top crossed and then lost by 3 points is a sell", () => {
+  it("is mirrored: an old top crossed and then lost decisively is a sell", () => {
     const t = computeGannEntryTrigger(mirror(weekdays(REGAINED)), "bearish")!;
     expect(t).toMatchObject({ kind: "crossing", held: true, regained: true, direction: "bearish" });
     expect(t.pivot.kind).toBe("top");
@@ -76,10 +76,10 @@ describe("a regained old bottom (A-TREND-10)", () => {
     expect(src).toMatchObject({ entryKind: "crossing", entryRegained: true, setupLabel: "regained old bottom" });
     expect(src.triggerPrice).toBeCloseTo(t.reactionEntry, 8);
     expect(structuralTriggerHeadline("bullish", "crossing", undefined, undefined, undefined, true)).toBe(
-      "A close 3 points back over the old swing low after a break under it, then a buy on the pullback toward it.",
+      "A close clearly back over the old swing low after a break under it, then a buy on the pullback toward it.",
     );
     expect(structuralTriggerHeadline("bearish", "crossing", "priorYear", undefined, 2024, true)).toBe(
-      "A close 3 points back under the 2024 top after a break over it, then a sell on the bounce toward it.",
+      "A close clearly back under the 2024 top after a break over it, then a sell on the bounce toward it.",
     );
     expect(gannEntrySource(computeGannEntryTrigger(mirror(weekdays(REGAINED)), "bearish")!).setupLabel).toBe("lost old top");
   });

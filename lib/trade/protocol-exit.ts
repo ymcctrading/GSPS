@@ -465,7 +465,7 @@ function explainGann(reason: GannStopReason | IntradayStopReason | null, stop: n
     n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
   switch (reason) {
     case "break_even":
-      return `The trade is 3 points ahead, so the stop moves to the entry (${usd(stop)}).`;
+      return `The trade is far enough ahead, so the stop moves to the entry (${usd(stop)}).`;
     case "last_reaction":
       return `The stop moves under the latest higher bottom, to ${usd(stop)}.`;
     case "prior_week":
@@ -475,11 +475,11 @@ function explainGann(reason: GannStopReason | IntradayStopReason | null, stop: n
     case "final_stage":
       return `The move is in its late stage, so the stop is kept close, at ${usd(stop)}.`;
     case "day_low":
-      return `Fast trade: the stop follows the last completed day, 3 points beyond its extreme, to ${usd(stop)}.`;
+      return `Fast trade: the stop follows the last completed day, just beyond its extreme, to ${usd(stop)}.`;
     case "reverse_signal":
-      return `A reverse signal day marked a possible turn, so the stop moves 3 points beyond that day's extreme, to ${usd(stop)}.`;
+      return `A reverse signal day marked a possible turn, so the stop moves just beyond that day's extreme, to ${usd(stop)}.`;
     case "boiling_point":
-      return `The run has lasted six weeks, when the end of the move is watched for, so the stop trails 10 points from the best price, to ${usd(stop)}.`;
+      return `The run has lasted six weeks, when the end of the move is watched for, so the stop trails a set distance behind the best price, to ${usd(stop)}.`;
     case "intraday_swing":
       return `Intraday trade: the stop follows the last completed 15-minute swing, one intraday point beyond it, to ${usd(stop)}.`;
     default:

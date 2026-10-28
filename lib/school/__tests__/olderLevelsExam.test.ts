@@ -50,8 +50,8 @@ describe("the year of the level crossed", () => {
   });
 
   it("is named in the signal card's headline, and the previous year's when the year is unknown", () => {
-    expect(structuralTriggerHeadline("bullish", "crossing", "priorYear", undefined, 2024)).toMatch(/^A close 3 points over the 2024 top/);
-    expect(structuralTriggerHeadline("bearish", "crossing", "priorYear", undefined, 2024)).toMatch(/^A close 3 points under the 2024 bottom/);
+    expect(structuralTriggerHeadline("bullish", "crossing", "priorYear", undefined, 2024)).toMatch(/^A close clearly over the 2024 top/);
+    expect(structuralTriggerHeadline("bearish", "crossing", "priorYear", undefined, 2024)).toMatch(/^A close clearly under the 2024 bottom/);
     expect(structuralTriggerHeadline("bullish", "crossing", "priorYear")).toMatch(/the previous year's top/);
   });
 });
@@ -113,20 +113,20 @@ describe("the exam's words (R7)", () => {
 
   it("says a previous year's level was already crossed, and names its year", () => {
     const s = key({ source: "priorYear", levelYear: 2024 });
-    expect(text(s, "decision")).toMatch(/already closed 3 points past the 2024 top/);
+    expect(text(s, "decision")).toMatch(/already closed clearly past the 2024 top/);
     expect(text(s, "decision")).not.toMatch(/still to cross/);
-    expect(text(s, "entry")).toMatch(/1 point past the 2024 top/);
+    expect(text(s, "entry")).toMatch(/just past the 2024 top/);
   });
 
   it("names a regained old bottom as the bottom it had broken (A-TREND-10)", () => {
     const s = key({ regained: true });
-    expect(text(s, "decision")).toMatch(/already closed 3 points past the old swing low it had broken/);
-    expect(text(s, "entry")).toMatch(/1 point past the old swing low it had broken/);
+    expect(text(s, "decision")).toMatch(/already closed clearly past the old swing low it had broken/);
+    expect(text(s, "entry")).toMatch(/just past the old swing low it had broken/);
   });
 
   it("says the last swing top was still to cross when it was", () => {
     expect(text(key({ crossed: false }), "decision")).toMatch(/the last swing top was still to cross/);
-    expect(text(key({ source: "allTime" }), "decision")).toMatch(/already closed 3 points past the record high/);
+    expect(text(key({ source: "allTime" }), "decision")).toMatch(/already closed clearly past the record high/);
   });
 });
 
@@ -147,6 +147,6 @@ describe("the lessons (R4, R7)", () => {
   });
 });
 
-it("prices a previous year's level 1 point past it, as every crossing", () => {
+it("prices a previous year's level just past it, as every crossing", () => {
   expect(T.reactionEntry).toBeCloseTo(120 + gannThreePoints(120) / 3, 8);
 });
