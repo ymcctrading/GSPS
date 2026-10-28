@@ -72,6 +72,12 @@ describe("GuidedCard", () => {
     expect(screen.getByText(/make about \$31/)).toBeInTheDocument();
   });
 
+  it("names the swing plan and links to the ticket for the intraday plan or own levels", () => {
+    render(<GuidedCard rec={rec} onConfirm={noop} onDismiss={noop} busy={false} />);
+    expect(screen.getByText(/This trades the swing plan\./)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open the full order ticket" }).getAttribute("href")).toBe(rec.why.tickerHref);
+  });
+
   it("shows the disclosure on the card itself, not behind a link", () => {
     render(<GuidedCard rec={rec} onConfirm={noop} onDismiss={noop} busy={false} />);
     expect(screen.getByText(GUIDED_DISCLOSURE)).toBeInTheDocument();

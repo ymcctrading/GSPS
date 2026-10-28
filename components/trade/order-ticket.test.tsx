@@ -533,7 +533,7 @@ describe("OrderTicket other techniques", () => {
     await user.click(screen.getByRole("button", { name: /Sell short DRAM/ }));
     const order = fetchMock.mock.calls.find(([u]) => String(u).includes("/api/orders"))!;
     const body = JSON.parse(String(order[1]!.body));
-    expect(body.executionMode).toBe("manual");
+    expect(body.levelSource).toBe("own");
     expect(body.side).toBe("sell");
     expect(body.limitPrice).toBe(49.1);
     expect(body.attachLevels).toEqual({ stopLoss: 51.2, takeProfit: 45.95 });
@@ -612,6 +612,7 @@ describe("OrderTicket level choice", () => {
     expect(body.limitPrice).toBeUndefined();
     expect(body.entryStop).toBeUndefined();
     expect(body.intradaySourced).toBe(true);
+    expect(body.levelSource).toBe("intraday");
     expect(body.attachLevels).toEqual({ stopLoss: 51, takeProfit: 47, masterProfit: 45 });
   });
 
@@ -629,6 +630,7 @@ describe("OrderTicket level choice", () => {
     await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
     const body = orderBody(fetchMock);
     expect(body.intradaySourced).toBe(false);
+    expect(body.levelSource).toBe("swing");
     expect(body.holdOvernight).toBeUndefined();
     expect(body.attachLevels.stopLoss).toBeCloseTo(44);
     expect(body.attachLevels.takeProfit).toBeCloseTo(62);
@@ -644,7 +646,7 @@ describe("OrderTicket level choice", () => {
     await user.type(screen.getByLabelText("MTP"), "60");
     await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
     const body = orderBody(fetchMock);
-    expect(body.executionMode).toBe("manual");
+    expect(body.levelSource).toBe("own");
     expect(body.intradaySourced).toBe(false);
     expect(body.attachLevels).toEqual({ stopLoss: 47, takeProfit: 56, masterProfit: 60 });
   });
@@ -685,6 +687,7 @@ describe("OrderTicket level choice", () => {
     await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
     const body = orderBody(fetchMock);
     expect(body.intradaySourced).toBe(true);
+    expect(body.levelSource).toBe("own");
     expect(body.attachLevels.masterProfit).toBeCloseTo(68);
   });
 

@@ -91,6 +91,11 @@ describe("push messages", () => {
 
   it("words an invalidation and a price alert", () => {
     expect(deliveryPushMessage({ symbol: "MSFT", verdict: "INVALIDATED" } as never).title).toBe("MSFT invalidated");
+    // A position on the member's own levels: the break doesn't move its stop.
+    expect(deliveryPushMessage({ symbol: "MSFT", verdict: "INVALIDATED", heldOn: "own" }).body).toMatch(
+      /Your MSFT position runs on your own levels, so this doesn't move its stop\.$/,
+    );
+    expect(deliveryPushMessage({ symbol: "MSFT", verdict: "INVALIDATED" }).body).not.toMatch(/Your MSFT position/);
     expect(priceAlertPushMessage({ symbol: "TSLA", direction: "below", targetPrice: 200, currentPrice: 199 }).title).toMatch(
       /^TSLA fell below \$200/,
     );

@@ -19,6 +19,9 @@ import { RiskPanel } from "@/components/portfolio/risk-panel";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { intradayChartPlan } from "@/lib/setups/intraday";
+import { LEVEL_SOURCE_PLACED_ON } from "@/lib/trade/level-source";
+import { intradayPlanForSide, planStopForEdit, swingPlanForSide, type PlanPick } from "@/lib/portfolio/plan-levels";
 
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -610,6 +613,9 @@ function EditExitLevelsModal({
   const [masterProfit, setMasterProfit] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Which plan's levels were last put into the form, and what it said.
+  const [loadingPlan, setLoadingPlan] = useState<"swing" | "intraday" | null>(null);
+  const [planNote, setPlanNote] = useState<string | null>(null);
 
   const [activeSymbol, setActiveSymbol] = useState(position?.symbol ?? null);
   if ((position?.symbol ?? null) !== activeSymbol) {
@@ -618,6 +624,7 @@ function EditExitLevelsModal({
     setTakeProfit(position?.takeProfit != null ? String(position.takeProfit) : "");
     setMasterProfit(position?.masterProfit != null ? String(position.masterProfit) : "");
     setErr(null);
+    setPlanNote(null);
   }
 
   const inProfit = position
@@ -625,6 +632,52 @@ function EditExitLevelsModal({
       ? position.currentPrice > position.entryPrice
       : position.currentPrice < position.entryPrice
     : false;
+
+  // The same choice the order ticket offers: the swing plan's levels, the
+  // intraday plan's, or the person's own (the fields themselves). The trade
+  // keeps the management it was placed under; only its levels change.
+  async function takePlan(which: "swing" | "intraday") {
+    if (!position) return;
+    setLoadingPlan(which);
+    setPlanNote(null);
+    setErr(null);
+    try {
+      const sym = encodeURIComponent(position.symbol);
+      let pick: PlanPick;
+      if (which === "swing") {
+        const res = await fetch(`/api/scan?ticker=${sym}`);
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        pick = swingPlanForSide(data, position.side);
+      } else {
+        const res = await fetch(`/api/intraday-scan?budget=1&symbols=${sym}`);
+        const data = await res.json().catch(() => null);
+        if (res.status === 403) throw new Error(data?.error ?? "Intraday plans aren't included in your plan.");
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        pick = intradayPlanForSide(intradayChartPlan(position.symbol, null, Array.isArray(data?.recent) ? data.recent : []), position.side);
+      }
+      if (!pick.ok) {
+        setPlanNote(pick.reason);
+        return;
+      }
+      const { stop, note } = planStopForEdit({
+        planStop: pick.levels.stopLoss,
+        currentStop: position.stopLoss,
+        side: position.side,
+        inProfit,
+      });
+      setStopLoss(stop != null ? String(stop) : "");
+      setTakeProfit(String(pick.levels.takeProfit));
+      setMasterProfit(pick.levels.masterProfit != null ? String(pick.levels.masterProfit) : "");
+      setPlanNote(
+        `${which === "swing" ? "The swing plan's" : "The intraday plan's"} levels are in the form. Nothing changes until you save.${note ? ` ${note}` : ""}`,
+      );
+    } catch (e) {
+      setPlanNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
 
   async function submit() {
     if (!position) return;
@@ -705,6 +758,21 @@ function EditExitLevelsModal({
     >
       {position && (
         <div className="flex flex-col gap-3 text-sm">
+          <div className="flex flex-col gap-2">
+            {position.levelSource && <p className="text-xs text-muted">{LEVEL_SOURCE_PLACED_ON[position.levelSource]}.</p>}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => takePlan("swing")} disabled={submitting || loadingPlan != null}>
+                {loadingPlan === "swing" ? "Reading…" : "Use the swing plan"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => takePlan("intraday")} disabled={submitting || loadingPlan != null}>
+                {loadingPlan === "intraday" ? "Reading…" : "Use the intraday plan"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted">
+              Or type your own levels below. The trade stays managed the way it was placed; only its levels change.
+            </p>
+            {planNote && <p className="text-xs">{planNote}</p>}
+          </div>
           <label className="flex flex-col gap-1">
             <span className="text-muted">Stop-loss</span>
             <Input

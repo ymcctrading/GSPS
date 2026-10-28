@@ -33,6 +33,8 @@ describe("guidedOrder", () => {
     const parsed = OrderSchema.parse(guidedOrder({ symbol: "AAPL", side: "buy", qty: 10, referencePrice: 41, levels }));
     expect(parsed.entryKind).toBe("oldLevel");
     expect(parsed.entryTarget).toBe(44);
+    // Guided trades the swing plan, and the order says so.
+    expect(parsed.levelSource).toBe("swing");
     // The ticket's own advised body, as the order route parses it.
     const ticket = OrderSchema.parse({ symbol: "AAPL", side: "buy", qty: 1, entryMode: "advised", limitPrice: 39.7, entryStop: 37.74, entryKind: "oldLevel" });
     expect(ticket.entryKind).toBe("oldLevel");

@@ -11,6 +11,7 @@ import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import { tickerHref } from "@/lib/routes";
 import type { BlendedPosition, EquityLeg, OptionLeg } from "@/lib/portfolio/blend";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { LEVEL_SOURCE_PLACED_ON, type LevelSource } from "@/lib/trade/level-source";
 
 /**
  * Open positions, grouped by underlying, with each asset type rendered in its
@@ -58,6 +59,8 @@ export interface Editable {
   stopLoss: number | null;
   takeProfit: number | null;
   masterProfit: number | null;
+  /** Which levels the trade was placed on, when known (`lib/trade/level-source.ts`). */
+  levelSource: LevelSource | null;
 }
 
 /**
@@ -301,6 +304,7 @@ function ProtectionCell({ leg }: { leg: EquityLeg }) {
       {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
       {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
       {leg.masterProfit != null && <>MTP {formatUsd(leg.masterProfit)}</>}
+      {leg.levelSource && <> · {LEVEL_SOURCE_PLACED_ON[leg.levelSource].toLowerCase()}</>}
     </TD>
   );
 }
@@ -316,6 +320,7 @@ function ProtectionLine({ leg }: { leg: EquityLeg }) {
       {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
       {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
       {leg.masterProfit != null && <>MTP {formatUsd(leg.masterProfit)}</>}
+      {leg.levelSource && <> · {LEVEL_SOURCE_PLACED_ON[leg.levelSource].toLowerCase()}</>}
     </p>
   );
 }
@@ -644,6 +649,7 @@ function editableEquity(leg: EquityLeg): Editable {
     stopLoss: leg.stopLoss,
     takeProfit: leg.takeProfit,
     masterProfit: leg.masterProfit,
+    levelSource: leg.levelSource,
   };
 }
 

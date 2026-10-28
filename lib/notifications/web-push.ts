@@ -35,6 +35,7 @@ import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { priceText } from "@/lib/strat/priceText";
 import type { AlertRuleText } from "@/lib/notifications/resend-handler";
 import { tickerHref } from "@/lib/routes";
+import { heldOffPlanNote } from "@/lib/trade/level-source";
 
 export interface PushMessage {
   title: string;
@@ -65,7 +66,12 @@ export function deliveryPushMessage(payload: NotificationPayload): PushMessage {
   if (payload.verdict === "INVALIDATED") {
     return {
       title: `${payload.symbol} invalidated`,
-      body: `The setup you were tracking on ${payload.symbol} no longer holds: price broke the level it was staked on.`,
+      body: [
+        `The setup you were tracking on ${payload.symbol} no longer holds: price broke the level it was staked on.`,
+        heldOffPlanNote(payload.symbol, payload.heldOn),
+      ]
+        .filter(Boolean)
+        .join(" "),
       url: tickerHref(payload.symbol),
       tag: `setup-${payload.symbol}`,
     };
