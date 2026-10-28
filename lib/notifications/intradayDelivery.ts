@@ -39,6 +39,8 @@ import { sendAlertEmail } from "@/lib/notifications/resend-handler";
 import { sendPushToProfile, vapidConfig, type PushMessage } from "@/lib/notifications/web-push";
 import { alertsForTier, buildIntradayBellRow } from "@/lib/notifications/intradayBell";
 import { tickerHref } from "@/lib/routes";
+import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
+import { approachDue, approachLeadMinutes } from "@/lib/scanner/entryApproach";
 
 /** How far back a notification_log row still counts as "already sent this". */
 export const NOTIFICATION_DEDUP_HOURS = 24;
@@ -58,6 +60,8 @@ interface SavedRow {
   push_enabled: boolean | null;
   min_score: number | null;
   quiet_hours_enabled: boolean | null;
+  /** Minutes ahead a member is told price nears a plan's entry (migration 0125); absent before it. */
+  entry_lead_minutes?: number | null;
 }
 
 /**
@@ -75,6 +79,26 @@ async function listAllUserIds(service: SupabaseClient): Promise<string[]> {
     if (data.users.length < perPage) break;
   }
   return ids;
+}
+
+/**
+ * The alerts due to a member with this lead: every signal but a heads-up that
+ * price nears an entry, which waits until the time left is within the lead
+ * plus one scan (`approachDue`).
+ */
+export function dueForLead(alerts: Alert[], leadMinutes: number): Alert[] {
+  return alerts.filter((a) => a.type !== "entry_approach" || (a.approach != null && approachDue(a.approach.etaMinutes, leadMinutes)));
+}
+
+/**
+ * The key a send is deduplicated on. A notice (nearing or at a plan's entry)
+ * is keyed on its own type, so it goes out once a day on each channel and
+ * never holds back, or is held back by, a trade signal with the same score.
+ */
+export function signalHashFor(alert: Alert): string {
+  const direction = alert.direction === "up" ? "bullish" : "bearish";
+  if (NOTICE_SIGNALS.has(alert.type)) return `${alert.symbol}-${alert.type}-${direction}`;
+  return `${alert.symbol}-${direction}-${alertScore(alert)}`;
 }
 
 /** The alert's own 0-9 confidence, a whole number. */
@@ -125,7 +149,9 @@ export async function notifySubscribedUsers(
 
   const { data: saved, error } = await service
     .from("notification_preferences")
-    .select("user_id, email_enabled, push_enabled, min_score, quiet_hours_enabled");
+    // Every column, so the read works before and after migration 0125 adds
+    // `entry_lead_minutes`.
+    .select("*");
   if (error) return sent;
   const savedByUser = new Map(((saved ?? []) as SavedRow[]).map((p) => [p.user_id, p]));
 
@@ -139,7 +165,10 @@ export async function notifySubscribedUsers(
 
       const minScore = row?.min_score ?? DEFAULT_PREFS.min_score;
       const policy = await getUserEntitlementPolicy(service, userId);
-      const mine = alertsForTier(alerts, policy, args.intervalBySymbol).filter((a) => alertScore(a) >= minScore);
+      const mine = dueForLead(
+        alertsForTier(alerts, policy, args.intervalBySymbol).filter((a) => alertScore(a) >= minScore),
+        approachLeadMinutes(row?.entry_lead_minutes),
+      );
       if (mine.length === 0) continue;
       if ((row?.quiet_hours_enabled ?? DEFAULT_PREFS.quiet_hours_enabled) && (await inQuietHours(service, userId))) {
         continue;
@@ -149,13 +178,17 @@ export async function notifySubscribedUsers(
       for (const alert of mine) {
         const direction = alert.direction === "up" ? "bullish" : "bearish";
         const score = alertScore(alert);
-        const signalHash = `${alert.symbol}-${direction}-${score}`;
+        const signalHash = signalHashFor(alert);
         for (const channel of channels) {
           if (await alreadySent(service, userId, channel, signalHash, now)) continue;
 
           let result: { success: boolean; skipped?: boolean; error?: string };
           let recipient: string | null = null;
           if (channel === "email") {
+            // A heads-up goes by push and the bell, not email: an inbox is too
+            // slow for a lead of minutes, and the alert email reads as a signal
+            // to act on now (review, 2026-10-28).
+            if (NOTICE_SIGNALS.has(alert.type)) continue;
             if (email === undefined) {
               const { data: user } = await service.auth.admin.getUserById(userId);
               email = user?.user?.email ?? null;
