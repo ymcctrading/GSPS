@@ -1,8 +1,10 @@
 name: Security
 
-# None of this existed before: no secret scanning, no dependency review, no
-# audit of known-vulnerable packages. All three are cheap and catch a
-# different class of problem than the Tests workflow does.
+# Secret scanning, dependency review and an audit of known-vulnerable
+# packages. They catch a different class of problem than the Tests workflow
+# does. One job since 2026-10-28 (owner: Actions minutes): as three jobs each
+# paid for its own runner minute, and npm audit reads the lockfile, so it
+# needs no install.
 on:
   pull_request:
   push:
@@ -14,43 +16,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  secret-scan:
+  security:
     runs-on: ubuntu-latest
-    name: Secret scan
+    name: Security checks
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v2
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  dependency-review:
-    # Only runs on PRs — it diffs the base ref against the head ref, so it
-    # has nothing to compare on a plain push.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    name: Dependency review
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/dependency-review-action@v4
+      # Only on PRs: it diffs the base ref against the head ref, so it has
+      # nothing to compare on a plain push.
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
-
-  npm-audit:
-    runs-on: ubuntu-latest
-    name: npm audit
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-
-      - run: npm ci
 
       # Informational for now. As of 2026-10-21 (review finding CI-1) the
       # in-range fixes are applied and axios is pinned to 1.20.0 through
@@ -60,5 +45,6 @@ jobs:
       # (chokidar) and eslint-config-next (micromatch), never on a request.
       # Clearing it means a major Sentry upgrade, its own reviewable change.
       # `continue-on-error` keeps it visible without blocking merges.
-      - run: npm audit --audit-level=high
+      - name: npm audit
+        run: npm audit --audit-level=high
         continue-on-error: true
