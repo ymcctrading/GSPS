@@ -944,4 +944,15 @@
 // 2026-10-28-figures-at-his-price-on-base-left: Gann's figures at his price,
 // merged onto the base-left and one-class rules in the 2026-10-28 midday
 // release. No new rule.
-export const STRATEGY_VERSION = "2026-10-28-figures-at-his-price-on-base-left";
+// (was STRATEGY_VERSION "2026-10-28-figures-at-his-price-on-base-left")
+// 2026-10-28-retest-two-thirds-volume: a double top or bottom's volume
+// confirms only when the second turn's week traded two-thirds of the first's
+// or less (RETEST_VOLUME_RATIO; W006 pp.43-44, the Master Course's "a third or
+// less" inside it; fork FV2). Any smaller week had confirmed, which noise
+// passed about half the time. P8 and plans move.
+// (was STRATEGY_VERSION "2026-10-28-retest-two-thirds-volume")
+// 2026-10-28-midday-release: the share-class rule (#511), the base-left
+// volume pillar (#512), Gann's figures at his price (#513) and the two-thirds
+// retest volume (#516), merged together in the 2026-10-28 midday release. No
+// new rule beyond theirs. Execute and the 7/4 cutoffs need a fresh run on it.
+export const STRATEGY_VERSION = "2026-10-28-midday-release";
