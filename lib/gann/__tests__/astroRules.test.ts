@@ -157,6 +157,16 @@ describe("readAstroRules: the Sun's travel and Mars's half return (A-ASTRO-03, A
     expect(listed[0].label).toBe(level.label);
   });
 
+  it("keeps the daily low's own day when the weekly low falls inside the daily record", () => {
+    const asOf = noon("2022-12-13");
+    // A daily year whose low (490) is Friday 2022-11-11, inside it.
+    const daily = [...lowThen("2022-10-03", 500, "2022-10-04", "2022-11-10", 500), ...lowThen("2022-11-11", 490, "2022-11-14", "2022-12-13", 500)];
+    // The provider's week holding that low prints a cent lower.
+    const weekly: Bar[] = [{ t: "2022-11-07T05:00:00Z", o: 495, h: 501, l: 489.99, c: 500, v: 1000 }];
+    expect(sunTravelLevel(daily, asOf, 1)!.label).toContain("2022-11-11");
+    expect(sunTravelLevel(daily, asOf, 1, weekly)!.label).toBe(sunTravelLevel(daily, asOf, 1)!.label);
+  });
+
   it("counts the Sun's travel from the weekly record's major low when it is below the daily year's", () => {
     const asOf = noon("2022-12-13");
     // A year of daily bars whose own low is 490; the weekly record reaches the

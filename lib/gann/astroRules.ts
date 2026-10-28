@@ -283,9 +283,12 @@ function sunTravelPoints(bars: Bar[], today: number, unit: number, weekly?: Bar[
   // written. The weekly record (5 years, closed weeks) reaches further back than
   // the daily year; its lowest week is dated to the week's Wednesday, the middle
   // of the week (an engineering reading, labelled: a weekly bar holds no day).
+  // Only a week that ended before the daily record: inside it the daily bars
+  // date the low to its day, and a provider's week a cent lower must not move
+  // it to a Wednesday.
   if (weekly && weekly.length > 0) {
     const w = extremes(weekly).lo;
-    if (weekly[w].l < lowPrice) {
+    if (weekly[w].l < lowPrice && Date.parse(weekly[w].t) + 7 * DAY_MS <= Date.parse(bars[0].t)) {
       lowPrice = weekly[w].l;
       const monday = new Date(weekly[w].t);
       lowT = ephemerisInstant(new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 2, 12))).getTime();
