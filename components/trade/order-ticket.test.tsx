@@ -687,4 +687,33 @@ describe("OrderTicket level choice", () => {
     expect(body.intradaySourced).toBe(true);
     expect(body.attachLevels.masterProfit).toBeCloseTo(68);
   });
+
+  it("never sends the daily plan's limit or crossing line with own levels managed as intraday", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} livePrice={50} sessionPlan={{ entry: 50, stop: 49, firstTarget: 52, masterTarget: null }} />);
+    await user.click(screen.getByRole("button", { name: "My own levels" }));
+    await user.click(screen.getByRole("button", { name: "Start from the intraday plan" }));
+    expect(screen.getByRole("button", { name: /At reference price/ })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    const body = orderBody(fetchMock);
+    expect(body.entryMode).toBe("now");
+    expect(body.limitPrice).toBeUndefined();
+    expect(body.entryStop).toBeUndefined();
+    expect(body.intradaySourced).toBe(true);
+  });
+
+  it("puts the swing plan back on its own side and advised entry", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    render(<OrderTicket result={scanWithEntry(50)} livePrice={50} sessionPlan={{ entry: 50, stop: 51, firstTarget: 47, masterTarget: null }} />);
+    await user.click(screen.getByRole("button", { name: "Intraday plan" }));
+    await user.click(screen.getByRole("button", { name: "Swing plan" }));
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    const body = orderBody(fetchMock);
+    expect(body.side).toBe("buy");
+    expect(body.entryMode).toBe("advised");
+    expect(body.entryStop).toBeCloseTo(44);
+    expect(body.intradaySourced).toBe(false);
+  });
 });

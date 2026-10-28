@@ -181,12 +181,13 @@ export function OrderTicket({
    * never receive less. An explicit choice overrides it.
    */
   const [rounding, setRounding] = useState<RoundingMode | null>(null);
-  const [levelChoice, setLevelChoice] = useState<LevelChoice>(hasProtocolSignal ? "swing" : "own");
+  const [levelChoiceState, setLevelChoice] = useState<LevelChoice>(hasProtocolSignal ? "swing" : "own");
+  // A swing choice with no recommended plan left (the plan was read again
+  // under the open ticket) falls back to the person's own levels.
+  const levelChoice: LevelChoice = levelChoiceState === "swing" && !hasProtocolSignal ? "own" : levelChoiceState;
   // Own levels managed on the session's rules (the Intraday style) rather than
   // as a swing: offered wherever an intraday plan could be chosen.
   const [manageIntraday, setManageIntraday] = useState(false);
-  // The intraday plan is traded at the market, as its alert has fired.
-  const entryMode: EntryMode = levelChoice === "intraday" ? "now" : entryModeChoice;
 
   // Options chain state.
   const [optionType, setOptionType] = useState<OptionType>(signalSide === "sell" ? "put" : "call");
@@ -412,6 +413,9 @@ export function OrderTicket({
   // levels the person asked to manage that way.
   const orderIntraday =
     levelChoice === "intraday" || (levelChoice === "own" && manageIntraday && intradayAvailable);
+  // An intraday trade goes at the market, as its alert has fired: the daily
+  // plan's limit and crossing line never ride with it.
+  const entryMode: EntryMode = orderIntraday ? "now" : entryModeChoice;
 
   // The setup's own invalidation rule, checked against the live quote rather
   // than the price it was scored at. A stop is the line the pattern's thesis
@@ -509,6 +513,7 @@ export function OrderTicket({
           basePrice,
           stopLoss: levels.stopLoss,
           takeProfit: levels.takeProfit1,
+          masterProfit: levels.masterProfit,
         })
       : { ok: true as const };
   const bracketBlocked = !bracketCheck.ok;
@@ -749,8 +754,8 @@ export function OrderTicket({
         <CardTitle>Order ticket · paper</CardTitle>
         {orderIntraday && (
           <p className="text-xs font-medium text-warn">
-            Intraday trade: subject to the intraday concurrent-position,
-            consecutive-loss, and daily-loss-lock gates.
+            Intraday trade: subject to the intraday entry gates where your plan has them
+            (open intraday positions, losses in a row, the day&apos;s loss limit).
           </p>
         )}
         <CardDescription>
@@ -778,6 +783,9 @@ export function OrderTicket({
             onClick={() => {
               setLevelChoice("swing");
               setTechniqueTrade(null);
+              // The plan's own side and its advised entry, where the crossing is confirmed.
+              setSide(signalSide);
+              setEntryMode("advised");
             }}
             title={hasProtocolSignal ? "The daily plan's entry, stop, TP1 and MTP" : "No recommended daily plan for this symbol"}
           />
@@ -831,6 +839,12 @@ export function OrderTicket({
                   <input type="checkbox" checked={!holdOvernight} onChange={(e) => setHoldOvernight(!e.target.checked)} />
                   Close what is left by the session&apos;s end (from 3:45 PM New York time)
                 </label>
+              )}
+              {levelChoice === "intraday" && (
+                <p>
+                  Check the current price before you place it: the alert may have been read a while
+                  ago, and market data can run behind.
+                </p>
               )}
               <p className="text-warn">
                 Intraday trades have no measured record yet: the method&apos;s replay at intraday scale has not shown an edge.
@@ -930,8 +944,8 @@ export function OrderTicket({
               <ModeButton
                 active={entryMode === "advised"}
                 onClick={() => setEntryMode("advised")}
-                // The intraday plan goes at the market: its alert has fired.
-                disabled={levelChoice === "intraday"}
+                // An intraday trade goes at the market: its alert has fired.
+                disabled={orderIntraday}
                 title={
                   useProtocolLevels
                     ? "At advised price"
@@ -939,7 +953,7 @@ export function OrderTicket({
                       ? `At ${techniqueEntry.label}'s entry`
                       : "At reference price"
                 }
-                subtitle={levelChoice === "intraday" ? "market only" : formatUsd(advised)}
+                subtitle={orderIntraday ? "market only" : formatUsd(advised)}
               />
               <ModeButton
                 active={entryMode === "now"}
@@ -1214,6 +1228,13 @@ export function OrderTicket({
             )}
           </>
         ) : (
+          <>
+          {orderIntraday && (
+            <p className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-xs text-warn">
+              An intraday trade is placed in shares, with its stop and first target. Switch to Shares,
+              or choose the swing plan or your own levels without intraday management, to trade options.
+            </p>
+          )}
           <OptionsPicker
             status={chainStatus}
             error={chainError}
@@ -1227,6 +1248,7 @@ export function OrderTicket({
             contractSymbol={contractSymbol}
             setContractSymbol={setContractSymbol}
           />
+          </>
         )}
 
         <div className="flex items-center gap-3">

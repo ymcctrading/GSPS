@@ -548,8 +548,8 @@ async function placeChecked(
   // `canEnterNewIntradayPosition`): concurrent-position (no count a day, Q8),
   // consecutive-loss, and daily-loss-lock. That function has existed since
   // the Novice-to-Pro tier promotion work with no caller — nothing tagged an
-  // order as intraday-sourced. `intradaySourced` (set only by the intraday
-  // alerts panel's "Trade this" action) is that missing signal.
+  // order as intraday-sourced. `intradaySourced` (the ticket's intraday plan,
+  // or own levels managed within the session) is that missing signal.
   //
   // Scoped to `STANDARD` (Pro) only, via `proIntradayModuleEnabled` — Expert/
   // Wall Street's intraday access is unrestricted by design
@@ -842,7 +842,10 @@ async function placeChecked(
     });
     if (!check.ok) {
       return { status: 422, body: {
-          error: `${check.reason} Place the order at the advised price instead, or uncheck the protocol levels and manage the stop yourself.`,
+          error:
+            check.problem === "master_wrong_side"
+              ? `${check.reason} Move the MTP beyond TP1 or leave it out. Nothing was placed.`
+              : `${check.reason} Place the order at the advised price instead, or uncheck the protocol levels and manage the stop yourself.`,
           code: "invalid_bracket",
         } };
     }
@@ -1471,7 +1474,10 @@ async function placeLiveOrder(
       return {
         status: 422,
         body: {
-          error: `${check.reason} Place the order at the advised price instead, or uncheck the protocol levels and manage the stop yourself.`,
+          error:
+            check.problem === "master_wrong_side"
+              ? `${check.reason} Move the MTP beyond TP1 or leave it out. Nothing was placed.`
+              : `${check.reason} Place the order at the advised price instead, or uncheck the protocol levels and manage the stop yourself.`,
           code: "invalid_bracket",
         },
       };
