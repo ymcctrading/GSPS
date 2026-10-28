@@ -61,6 +61,7 @@ import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { FOCUS_SIZE, FOCUS_STORED } from "@/lib/scanner/focusList";
+import { loadSessionSetups, SESSION_SETUPS_MAX, SESSION_SETUPS_ON_DEMAND } from "@/lib/scanner/sessionSetups";
 import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
@@ -203,7 +204,7 @@ export async function GET(req: NextRequest) {
   // existed.
   const universe = systemScan
     ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase)
-    : resolveUniverse(params.get("symbols"));
+    : await resolveOnDemandUniverse(params.get("symbols"), now);
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
   if (syntheticDataRefusal("run the intraday scan and send its alerts", provider)) {
@@ -429,11 +430,23 @@ async function resolveSystemUniverse(
   // single stocks give way to the names the daily charts read as primed, and
   // the index funds, crypto and members' watchlists stay on. With no list
   // (a missed evening), the core list as before.
-  const [watched, focus] = await Promise.all([loadWatchedSymbols(supabase), loadFocusSymbols(supabase)]);
-  const core = focus.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
+  //
+  // The session's setups come first after the core (owner, 2026-10-28: the
+  // 15-minute scans feed the intraday scanner): the daily setups ready to be
+  // taken today, chosen from the whole universe by the overnight sweep and
+  // the lists the 15-minute market scan keeps current
+  // (lib/scanner/sessionSetups.ts). Gann chose from the daily charts and timed
+  // the entry in the session (Master Course Ch. 13).
+  const [watched, focus, setups] = await Promise.all([
+    loadWatchedSymbols(supabase),
+    loadFocusSymbols(supabase),
+    loadSessionSetups(supabase, new Date(), SESSION_SETUPS_MAX).catch(() => [] as string[]),
+  ]);
+  const core = focus.length > 0 || setups.length > 0 ? WATCHLIST.filter((w) => w.kind !== "equity") : WATCHLIST;
   const seen = new Set(core.map((w) => w.symbol));
   const out = [...core];
-  for (const entry of [...watched, ...focus.slice(0, FOCUS_SIZE).map((symbol) => ({ symbol, kind: kindFor(symbol) }))]) {
+  const asEntry = (symbol: string) => ({ symbol, kind: kindFor(symbol) });
+  for (const entry of [...setups.map(asEntry), ...watched, ...focus.slice(0, FOCUS_SIZE).map(asEntry)]) {
     if (out.length >= MAX_SYSTEM_UNIVERSE) break;
     if (seen.has(entry.symbol)) continue;
     seen.add(entry.symbol);
@@ -523,6 +536,25 @@ async function loadWatchedSymbols(supabase: ServiceSupabase): Promise<{ symbol: 
   return [...counts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .map(([symbol, v]) => ({ symbol, kind: v.kind }));
+}
+
+/**
+ * A person's own refresh: the symbols they asked for, or, with none, the
+ * session's best setups (lib/scanner/sessionSetups.ts) ahead of the core
+ * watchlist, so the Scanner page times the same daily setups the scheduled
+ * scan does. A failed read leaves the core watchlist, as before.
+ */
+async function resolveOnDemandUniverse(param: string | null, now: Date): Promise<{ symbol: string; kind: AssetKind }[]> {
+  if (param?.trim()) return resolveUniverse(param);
+  const setups = await loadSessionSetups(createServiceClient(), now, SESSION_SETUPS_ON_DEMAND).catch(() => [] as string[]);
+  const seen = new Set<string>();
+  const out: { symbol: string; kind: AssetKind }[] = [];
+  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...WATCHLIST]) {
+    if (seen.has(entry.symbol)) continue;
+    seen.add(entry.symbol);
+    out.push(entry);
+  }
+  return out;
 }
 
 /** Symbols to scan: the caller's list, or the core watchlist. */

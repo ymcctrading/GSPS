@@ -3184,6 +3184,23 @@ top `FOCUS_SIZE` with the index funds, crypto and members' watchlists in place
 of the fixed single stocks; a name whose daily plan's stop trades through is
 invalidated and the next takes its place. Both intraday scans now read bars
 in batches (100 symbols a request), not three requests a symbol.
+**Session setups, 2026-10-28 (owner: the 15-minute scans "should really be
+feeding that data to the intraday scanner"; "takes all 800+ equities ...
+takes the highest scoring opportunities or the most executable
+opportunities, and then tracks those throughout the day").** The dashboard
+chooses (the daily plan), the intraday scanner times it. Both intraday scans
+now read `lib/scanner/sessionSetups.ts` first after the funds and crypto:
+the latest lists' Execute within a day's range of its entry, then the
+overnight sweep's Execute (`universe_sweep`, all ~830 names) the lists have
+not since read otherwise, then a Watch at the 7 cutoff within a day's range,
+each by score; resting, retired, expired (`detail.planExpired`) and Rejected
+rows are left out. Up to `SESSION_SETUPS_MAX` (24) on the scheduled scan, then
+watchlists and the focus list; a person's own refresh with no symbols puts
+`SESSION_SETUPS_ON_DEMAND` (9) ahead of the core list. Because the 15-minute
+market scan rewrites the lists, a setup that turns ready mid-session joins and
+one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
+from the daily charts after the close and timed in the session (*Truth of the
+Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
