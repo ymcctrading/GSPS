@@ -8,13 +8,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
 
 const dirs: Record<string, "bullish" | "bearish" | "sideways"> = {};
+/** Pinned daily support levels, when a test sets them. */
+let support: number[] | null = null;
 vi.mock("@/lib/analysis/trend", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/analysis/trend")>();
   return {
     ...actual,
     readTrend: (bars: Bar[], tf: string) => {
       const r = actual.readTrend(bars, tf as never);
-      return dirs[tf] ? { ...r, direction: dirs[tf] } : r;
+      const pinned = tf === "1Day" && support ? { ...r, support } : r;
+      return dirs[tf] ? { ...pinned, direction: dirs[tf] } : pinned;
     },
   };
 });
@@ -44,6 +47,7 @@ function advance(widen = false, lastVolume = 2e6): Bar[] {
 
 beforeEach(() => {
   for (const k of Object.keys(dirs)) delete dirs[k];
+  support = null;
 });
 
 describe("the coarse pass's trend", () => {
@@ -135,5 +139,96 @@ describe("the continuation pool (item 6 step 11, A-TREND-09)", () => {
   it("admits nothing without a trend", () => {
     Object.assign(dirs, { "1Week": "sideways", "1Day": "sideways" });
     expect(coarseContinuation("X", quietAdvance())).toBeNull();
+  });
+});
+
+describe("the continuation's strongest points read the major range (gann-alignment-audit SUS-02)", () => {
+  /** A long fall from 200 to 100, then a rise to `to`: the extreme range is 100-200. */
+  function fallThenRise(to: number): Bar[] {
+    const bars: Bar[] = [];
+    for (let i = 0; i < 100; i++) {
+      const c = 200 - i;
+      bars.push({ t: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 2e6 });
+    }
+    for (let i = 1; i <= 30; i++) {
+      const c = 100 + ((to - 100) * i) / 30;
+      bars.push({ t: new Date(Date.UTC(2025, 0, 100 + i)).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 2e6 });
+    }
+    return bars;
+  }
+
+  it("ranks a long holding above the half-way point of the extreme range ahead of one under it", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    // 160 is above 150 (half of 100-200) by more than a point; 130 is under it.
+    // Both are above 100, half the highest price, so only the range point differs.
+    const above = coarseContinuation("X", fallThenRise(160))!.coarseScore;
+    const under = coarseContinuation("Y", fallThenRise(130))!.coarseScore;
+    expect(above - under).toBe(1);
+  });
+
+  it("does not take the point from a minor swing's midpoint: a recent rise under the half-way point scores none", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    // The last 20 bars rise steadily, so price is above their midpoint (the old reading),
+    // but 130 sits under the half-way point of 100-200.
+    // The base 3, and half the highest price (100) held; no range point.
+    expect(coarseContinuation("X", fallThenRise(130))!.coarseScore).toBe(3 + 1);
+  });
+
+  it("reads the monthly record when it is in", () => {
+    Object.assign(dirs, { "1Week": "bullish" });
+    // The sessions alone run 100-160 (half 130, price 160 above it); a monthly high of 400
+    // makes the extreme range 100-400 (half 250) and half the highest price 200, both above 160.
+    const daily: Bar[] = Array.from({ length: 70 }, (_, i) => {
+      const c = 100 + (60 * (i + 1)) / 70;
+      return { t: new Date(Date.UTC(2025, 3, 1 + i)).toISOString(), o: c, h: c + 0.5, l: c - 0.5, c, v: 2e6 };
+    });
+    const monthly: Bar[] = [{ t: "2024-06-01T00:00:00.000Z", o: 300, h: 400, l: 300, c: 350, v: 1e8 }];
+    const without = coarseContinuation("X", daily)!.coarseScore;
+    const withMonthly = coarseContinuation("X", daily, undefined, undefined, monthly)!.coarseScore;
+    expect(without - withMonthly).toBe(2);
+  });
+});
+
+describe("the reversion's level point needs a level held (gann-alignment-audit SUS-01)", () => {
+  /**
+   * Completed sessions ending two days before today (the scan reads a held
+   * level over the last year of closed sessions): a decline that reacts to
+   * `low` and comes back to `last`.
+   */
+  function reaction(low: number, last: number, closeThrough = false): Bar[] {
+    const bars: Bar[] = [];
+    const start = Date.now() - 91 * 86_400_000;
+    const day = (n: number) => new Date(start + n * 86_400_000).toISOString();
+    for (let i = 0; i < 80; i++) {
+      const c = 160 - i * 0.5;
+      bars.push({ t: day(i), o: c, h: c + 0.5, l: c - 0.5, c, v: 1e6 });
+    }
+    const path = [118, 112, 106, low + 1, closeThrough ? low - 8 : low + 1, low + 3, last - 2, last - 1, last];
+    path.forEach((c, k) => {
+      const l = k === 3 ? low : c - 0.5;
+      bars.push({ t: day(80 + k), o: c, h: c + 0.5, l, c, v: 1e6 });
+    });
+    return bars;
+  }
+
+  // An active buying window (+1) so a reading with the level point clears the pool's floor of 3.
+  const window = { active: true, bullishActive: true, bearishActive: false } as never;
+
+  it("scores the level when the last reaction stopped at it and held", () => {
+    Object.assign(dirs, { "1Week": "bearish" });
+    support = [100];
+    const held = coarseReversion("X", reaction(100, 104), window, "bearish");
+    support = [60];
+    const none = coarseReversion("X", reaction(100, 104), window, "bearish");
+    expect(held).toMatchObject({ direction: "bullish", coarseScore: (none?.coarseScore ?? 1) + 2 });
+  });
+
+  it("does not score a level price is merely near once a close went 3 points through it", () => {
+    Object.assign(dirs, { "1Week": "bearish" });
+    support = [100];
+    const broken = coarseReversion("X", reaction(100, 104, true), window, "bearish");
+    support = [60];
+    const none = coarseReversion("X", reaction(100, 104, true), window, "bearish");
+    expect(broken?.coarseScore ?? 0).toBe(none?.coarseScore ?? 0);
   });
 });

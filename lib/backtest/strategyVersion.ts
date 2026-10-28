@@ -877,4 +877,12 @@
 // replays now read the prior session's daily close, not the last 15-minute
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
-export const STRATEGY_VERSION = "2026-10-28-plan-at-close-on-plan-expiry";
+// (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-gann-one-class-per-company (gann-alignment-audit H9): the
+// relative strength rank counts each company once, so GOOG and GOOGL are no
+// longer each other's peers in the universe or the group (Truth of the Stock
+// Tape Ch. XVI-XIX; Stock Selector Ch. VII name each company once). P3(c) can
+// move for those two; the market scan's coarse pre-filter now reads a held
+// level and the 50% of the major range (SUS-01, SUS-02), which changes which
+// stocks the daytime scan scores first, not any stock's verdict.
+export const STRATEGY_VERSION = "2026-10-28-gann-one-class-per-company";

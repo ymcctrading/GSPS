@@ -57,7 +57,9 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { gannMacroDirection, isWithGannTrend, trendsFromBars } from "@/lib/scan/entrySelection";
+import { entryChartBars, gannMacroDirection, isWithGannTrend, trendsFromBars } from "@/lib/scan/entrySelection";
+import { readHeldLevel } from "@/lib/gann/heldLevel";
+import { gannPoint } from "@/lib/gann/pointScale";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -68,7 +70,6 @@ import type { CoarseTelemetryRow } from "@/lib/scan/telemetry";
 import {
   atrPercentOfPrice,
   levelBandPct,
-  proximityBandPct,
 } from "@/lib/scoring/proximity";
 import { envCreds, getAsset } from "@/lib/brokers/alpaca";
 import { isStopBreached } from "@/lib/gann/stopBreach";
@@ -374,6 +375,8 @@ export function coarseReversion(
 }
 
 function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bearish", cycles?: TimeCycleResult): number {
+  // Completed sessions only, as the full scan reads a held level.
+  const sessions = entryChartBars(daily, etDateKey(new Date()));
   // Support and resistance still come from the daily chart's tops and bottoms.
   const trend = readTrend(daily, "1Day");
 
@@ -404,10 +407,14 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   const climax = computeVolumeClimax(daily, undefined, { asOf: new Date() }).find((r) => r.anchorKind === climaxAnchorKind);
   if (climax?.confirms) score += 2;
 
-  // Proximity to a clustered S/R level in the reversion direction
-  const srBandPct = levelBandPct(price);
-  const levels = direction === "bullish" ? trend.support : trend.resistance;
-  if (levels.some((l) => (Math.abs(price - l) / price) * 100 <= srBandPct)) score += 2;
+  // An old level the last reaction stopped at and held, read as the full
+  // scan's `historicalSR` reads it (`heldLevel.ts`; W006 p.20, Rule 3(b)
+  // p.46): Gann confirms a level by price acting there, never by nearness
+  // (gann-alignment-audit SUS-01, 2026-10-28). Until then this point passed
+  // whenever price sat inside the band of any daily level, so the pre-filter
+  // picked a different population from the one the full scan passes.
+  const levels = (direction === "bullish" ? trend.support : trend.resistance).map((l) => ({ price: l, timeframe: "1Day" as const }));
+  if (readHeldLevel(sessions, levels, price, direction)) score += 2;
 
   score += cycleBonus(direction, cycles);
   return score;
@@ -420,14 +427,6 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
  * Momentum only ranks: the pool is scanned best first and the full pass is
  * capped, so the score decides which trending names are looked at.
  */
-/**
- * Travel-from-mean threshold for the continuation ranking, in ATR multiples —
- * scaled down from the reversion gate's old 2-ATR extension tier by the same
- * ratio the old fixed percentages (3% vs. 5%) expressed. That tier was removed
- * on 2026-10-16 (item 6 step 6). A ranking point only.
- */
-export const TRAVEL_ATR_MULT = 1.2;
-export const FALLBACK_TRAVEL_PCT = 3;
 
 /** Daily bars a continuation candidate needs: the coarse trend read's own minimum. */
 export const CONTINUATION_MIN_DAILY_BARS = 60;
@@ -437,6 +436,8 @@ export function coarseContinuation(
   daily: Bar[],
   cycles?: TimeCycleResult,
   trendRead?: "bullish" | "bearish" | "sideways",
+  /** The symbol's monthly bars when their fetch has landed: the longer record the major range is read from. */
+  monthly?: Bar[],
 ): CoarseCandidate | null {
   if (daily.length < CONTINUATION_MIN_DAILY_BARS) return null;
   if (!tradeable(daily)) return null;
@@ -447,6 +448,7 @@ export function coarseContinuation(
 
   // A continuation candidate moves WITH its trend.
   const direction = trendDirection;
+  const long = direction === "bullish";
 
   // Ranking from here down: none of it admits or rejects. Every point reads
   // Gann's own tools (the 50% point, volume behind the move, the time cycles).
@@ -454,10 +456,32 @@ export function coarseContinuation(
   // ranks here (removed 2026-10-16).
   let score = 3;
 
-  // Price on the trend side of the 50% point of its last 20 bars' range
-  // (Gann's balance point): running now rather than in a reaction.
-  const mid20 = rangeMidpoint(daily.slice(-20));
-  if (mid20 !== null && (direction === "bullish" ? price > mid20 : price < mid20)) score += 1;
+  // Gann's strongest points (gann-alignment-audit SUS-02, 2026-10-28). Both
+  // read the major range, not a minor swing: "the most important point is the
+  // 50% of the extreme range" (*Commodities* p.35; Master Course Ch. 9, PDF
+  // 264, the life range first, then the highest price). Until 2026-10-28 these
+  // were the 50% points of the last 20 and 50 bars and a travel of 1.2 ATR,
+  // figures no book gives. The record is what the scan holds: the monthly bars
+  // when they have landed, with the year of sessions.
+  const record = monthly && monthly.length > 0 ? [...monthly, ...daily] : daily;
+  let high = -Infinity;
+  let low = Infinity;
+  for (const b of record) {
+    if (b.h > high) high = b.h;
+    if (b.l < low) low = b.l;
+  }
+  if (high > low && low > 0) {
+    // Holding a point or more beyond the half-way point of the extreme range
+    // is strength ("Strongest Points", *Commodities* p.36; Master Course PDF
+    // 266-267); the mirror, a point or more under it, is weakness.
+    const half = (high + low) / 2;
+    const point = gannPoint(half);
+    if (long ? price > half + point : price < half - point) score += 1;
+    // Half of the highest price is the next support once the half-way point is
+    // broken (*Commodities* p.37; "Best buying point: 50% of the highest
+    // price", Master Course PDF 11): a long above it, a short under it.
+    if (long ? price > high / 2 : price < high / 2) score += 1;
+  }
 
   // Volume increasing with the trend (Gann's volume rules, W006 Ch. VI): is
   // the move being funded, or drifting on thin tape? The 1.2 is an
@@ -465,14 +489,6 @@ export function coarseContinuation(
   const volRecent = mean(daily.slice(-10).map((b) => b.v));
   const volBaseline = mean(daily.slice(-60, -10).map((b) => b.v));
   if (volBaseline > 0 && volRecent / volBaseline >= 1.2) score += 1;
-
-  // Distance travelled from the 50% point of the last 50 bars' range in the
-  // trend direction: a trend that has actually gone somewhere.
-  const mid50 = rangeMidpoint(daily.slice(-50));
-  const travelPct = mid50 ? ((price - mid50) / mid50) * 100 * (direction === "bullish" ? 1 : -1) : 0;
-  const atrPct = atrPercentOfPrice(atr(daily.slice(-20), 14), price);
-  const travelBandPct = proximityBandPct(TRAVEL_ATR_MULT, FALLBACK_TRAVEL_PCT, atrPct);
-  if (travelPct > travelBandPct) score += 1;
 
   score += cycleBonus(direction, cycles);
 
@@ -1200,7 +1216,7 @@ export async function runMarketScan(
         weak,
         rank,
         reversion,
-        continuation: coarseContinuation(symbol, daily, cycles, trendRead),
+        continuation: coarseContinuation(symbol, daily, cycles, trendRead, monthly),
         diagnostics: coarseDiagnostics(symbol, daily, cycles, trendRead),
       };
     } catch {

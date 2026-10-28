@@ -1019,8 +1019,10 @@ even group; the median and the quarter gate are engineering choices, held for
 the owner). The best stock of a weak group is no longer a strong stock.
 Industry groups are labelled by their key and their members' commonest SEC
 description, major groups by their key alone.
-Held for the owner, open: dual share classes (GOOG and GOOGL) count as each
-other's peers, in the universe and the group. `STRATEGY_VERSION` was
+Dual share classes (GOOG and GOOGL) counted as each other's peers, in the
+universe and the group; answered from Gann 2026-10-28 (he names each company
+once, TST Ch. XVI-XIX): the rank counts one class per company
+(`SHARE_CLASS_OF`, `rankedClass`). `STRATEGY_VERSION` was
 `2026-10-21-gann-group-rank-review`; Execute and the 6/3.5 cutoffs need a fresh
 run on it. The Fast trail (review of #405, above) merged onto it:
 `STRATEGY_VERSION` was `2026-10-21-gann-fast-trail-after-fill`.
@@ -1247,6 +1249,18 @@ Gann never gave; built as context and the factor `dominantCycleWithTrade`
 (`dominantCycle.ts`), not acting: on the record it called the month right 54.3%
 against the decades' average's 57.3% (about 0.4 ms a read). `STRATEGY_VERSION` was
 `2026-10-28-gann-p1-long-counts`; Execute and the 7/4 cutoffs need a fresh run.
+**Scan pre-filter and share classes, 2026-10-28 (Gann alignment audit, scan
+share: `/mnt/project-files/gann-alignment-audit/scan-universe-selection.md`).**
+The market scan's coarse pre-filter read two things Gann does not: a reversion
+took its level point from price merely near a daily level, and a continuation
+ranked on the 50% points of the last 20 and 50 bars and a 1.2 ATR travel.
+Now the level point needs the level held (`readHeldLevel`, as `historicalSR`
+reads it since 2026-10-21; W006 p.20), and a continuation ranks on holding a
+point beyond the 50% of the extreme range and beyond half the highest price
+(*Commodities* pp.35-37; Master Course PDF 11, 264-267), on the monthly record
+when it has landed. This orders the daytime scan; no stock's verdict moves.
+The rank counts one share class per company (above). `STRATEGY_VERSION` is
+`2026-10-28-gann-one-class-per-company`.
 
 ## WD Gann precedence — standing principle
 
