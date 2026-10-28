@@ -324,15 +324,22 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // (>= 3 consecutive higher closes); a bearish call reads the uptrend rule
   // (>= 3 consecutive lower closes). Gann's count is 3 both ways (M-R3,
   // 2026-10-16; the bullish count was 2 before).
-  const fires = (r: RuleOfThreeReading | null | undefined): boolean =>
-    r != null && (direction === "bullish" ? r.bullishSignal : r.bearishSignal);
-  const ruleOfThreeDaily = fires(ruleOfThree);
-  const ruleOfThreeHigher = fires(ruleOfThreeWeekly)
+  // Read as the trend the rule leaves standing, the side of the latest run of
+  // three closes, held until the opposite run (WSSS p.72, Ch. VI p.125;
+  // 2026-10-28): before, it passed only on the day a run of three printed.
+  // The daily rule must read the trade's side and the weekly and monthly rules
+  // must not read against it, since the higher charts govern ("never buck the
+  // trend", never-failing rule 5). How the three combine is an engineering
+  // choice, labelled: as single-day events any one passed; as standing trends
+  // "any one" passes about 87% of random-walk readings.
+  const opposite = direction === "bullish" ? "bearish" : "bullish";
+  const ruleOfThreeDaily = ruleOfThree != null && ruleOfThree.trend === direction;
+  const ruleOfThreeHigher = ruleOfThreeWeekly?.trend === opposite
     ? "weekly"
-    : fires(ruleOfThreeMonthly)
+    : ruleOfThreeMonthly?.trend === opposite
       ? "monthly"
       : null;
-  const ruleOfThreeHolding = ruleOfThreeDaily || ruleOfThreeHigher !== null;
+  const ruleOfThreeHolding = ruleOfThreeDaily && ruleOfThreeHigher === null;
 
   // Null (no priced plan) fails: a setup with no stop has no room to measure,
   // and the alternative — treating "unknown" as a pass — would hand a free
@@ -611,17 +618,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       checkOf: "trendAllTimeframes",
       passed: ruleOfThreeHolding,
       note:
-        !ruleOfThreeDaily && ruleOfThreeHigher !== null
-          ? `The Rule of Three fires on the ${ruleOfThreeHigher} chart in this setup's direction.`
+        ruleOfThreeDaily && ruleOfThreeHigher !== null
+          ? `The Rule of Three reads the daily trend with this setup but the ${ruleOfThreeHigher} trend against it.`
           : ruleOfThree == null
           ? "Not enough daily history to read the Rule of Three."
           : ruleOfThreeHolding
             ? direction === "bullish"
-              ? `${ruleOfThree.consecutiveHigherCloses} consecutive higher closes — Rule of Three reversal signal for an upturn.`
-              : `${ruleOfThree.consecutiveLowerCloses} consecutive lower closes — Rule of Three reversal signal for a downturn.`
-            : direction === "bullish"
-              ? `Only ${ruleOfThree.consecutiveHigherCloses} consecutive higher close(s) — the Rule of Three needs 3 to confirm an upturn.`
-              : `Only ${ruleOfThree.consecutiveLowerCloses} consecutive lower close(s) — the Rule of Three needs 3 to confirm a downturn.`,
+              ? "The last run of three daily closes was higher, and no three lower closes have followed: the Rule of Three reads the trend up."
+              : "The last run of three daily closes was lower, and no three higher closes have followed: the Rule of Three reads the trend down."
+            : ruleOfThree.trend === null
+              ? "No run of three daily closes either way yet: the Rule of Three reads no trend."
+              : direction === "bullish"
+                ? "The last run of three daily closes was lower: the Rule of Three reads the trend down until three higher closes."
+                : "The last run of three daily closes was higher: the Rule of Three reads the trend up until three lower closes.",
     },
   ];
 

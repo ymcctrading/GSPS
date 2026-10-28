@@ -360,15 +360,17 @@ describe("computeScore entryTriggerArmed note", () => {
   });
 });
 
-// M-R3 (review 22): the scored point reads the call's own side, on the daily
-// chart or, failing that, the weekly or monthly.
+// M-R3 (review 22): the scored point reads the call's own side. Since
+// 2026-10-28 it reads the trend the rule leaves standing on the daily chart,
+// with neither the weekly nor the monthly rule reading against it.
 describe("computeScore ruleOfThree", () => {
   const trend = (direction: TrendReading["direction"]): TrendReading => ({ timeframe: "1Day", direction, support: [], resistance: [] });
-  const r3 = (bullishSignal: boolean, bearishSignal: boolean) => ({
-    consecutiveHigherCloses: bullishSignal ? 3 : 0,
-    consecutiveLowerCloses: bearishSignal ? 3 : 0,
-    bullishSignal,
-    bearishSignal,
+  const r3 = (t: "bullish" | "bearish" | null, streak = 0) => ({
+    consecutiveHigherCloses: t === "bullish" ? streak : 0,
+    consecutiveLowerCloses: t === "bearish" ? streak : 0,
+    bullishSignal: t === "bullish" && streak >= 3,
+    bearishSignal: t === "bearish" && streak >= 3,
+    trend: t,
   });
   const item = (direction: "bullish" | "bearish", extra: Partial<ScoreInputs>) =>
     computeScore({
@@ -384,20 +386,25 @@ describe("computeScore ruleOfThree", () => {
       ...extra,
     }).breakdown.find((b) => b.key === "ruleOfThree")!;
 
-  it("reads three higher closes for a long and three lower closes for a short", () => {
-    expect(item("bullish", { ruleOfThree: r3(true, false) }).passed).toBe(true);
-    expect(item("bullish", { ruleOfThree: r3(false, true) }).passed).toBe(false);
-    expect(item("bearish", { ruleOfThree: r3(false, true) }).passed).toBe(true);
-    expect(item("bearish", { ruleOfThree: r3(true, false) }).passed).toBe(false);
+  it("reads the standing trend, not only the day a run of three prints", () => {
+    expect(item("bullish", { ruleOfThree: r3("bullish", 3) }).passed).toBe(true);
+    // A one-day reaction inside the up trend: the run is over, the trend stands.
+    expect(item("bullish", { ruleOfThree: r3("bullish", 0) }).passed).toBe(true);
+    expect(item("bullish", { ruleOfThree: r3("bearish") }).passed).toBe(false);
+    expect(item("bearish", { ruleOfThree: r3("bearish") }).passed).toBe(true);
+    expect(item("bearish", { ruleOfThree: r3("bullish") }).passed).toBe(false);
+    expect(item("bullish", { ruleOfThree: r3(null) }).passed).toBe(false);
   });
 
-  it("passes on the weekly or monthly chart when the daily does not fire, and names it", () => {
-    const weekly = item("bearish", { ruleOfThree: r3(false, false), ruleOfThreeWeekly: r3(false, true) });
-    expect(weekly.passed).toBe(true);
-    expect(weekly.note).toMatch(/weekly chart/);
-    const monthly = item("bullish", { ruleOfThree: r3(false, false), ruleOfThreeWeekly: r3(false, false), ruleOfThreeMonthly: r3(true, false) });
-    expect(monthly.passed).toBe(true);
-    expect(monthly.note).toMatch(/monthly chart/);
-    expect(item("bullish", { ruleOfThree: r3(false, false), ruleOfThreeWeekly: r3(false, true) }).passed).toBe(false);
+  it("fails when the weekly or monthly rule reads against the trade, and names it", () => {
+    const weekly = item("bullish", { ruleOfThree: r3("bullish"), ruleOfThreeWeekly: r3("bearish") });
+    expect(weekly.passed).toBe(false);
+    expect(weekly.note).toMatch(/weekly trend against/);
+    const monthly = item("bearish", { ruleOfThree: r3("bearish"), ruleOfThreeWeekly: r3(null), ruleOfThreeMonthly: r3("bullish") });
+    expect(monthly.passed).toBe(false);
+    expect(monthly.note).toMatch(/monthly trend against/);
+    expect(item("bearish", { ruleOfThree: r3("bearish"), ruleOfThreeWeekly: r3("bearish"), ruleOfThreeMonthly: r3(null) }).passed).toBe(true);
+    // The higher charts alone never pass it.
+    expect(item("bullish", { ruleOfThree: r3(null), ruleOfThreeWeekly: r3("bullish") }).passed).toBe(false);
   });
 });
