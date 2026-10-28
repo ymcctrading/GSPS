@@ -85,7 +85,9 @@ import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type
 import { readCounterMove, toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { readNarrowWeekBreak } from "@/lib/gann/narrowWeek";
 import { NARROW_SPELL_ALLOWANCES } from "@/lib/gann/distribution";
-import { type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
+import { DOUBLE_BOTTOM_MIN_DAYS, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
+
+export { DOUBLE_BOTTOM_MIN_DAYS };
 
 export type TriggerDirection = "bullish" | "bearish";
 
@@ -357,18 +359,14 @@ export function computeGannEntryTrigger(
  * (`gannBuyZone`). The test comes weeks after the bottom it tests: Gann's
  * double bottom is "the same level weeks, months or a year or more apart"
  * (W006 p.20, A-ENTRY-02), so the order rests only once the bottom is
- * `DOUBLE_BOTTOM_MIN_DAYS` old by the session it rests for. A retest days
- * after a 3-Day Chart bottom is the same reaction, not a second bottom.
+ * `DOUBLE_BOTTOM_MIN_DAYS` old by the day after the last session (a weekend
+ * or holiday can put the real session later, the same on every surface). A
+ * retest days after a 3-Day Chart bottom is the same reaction, not a second
+ * bottom.
  * Engineering choices, labelled as such: the 3-point band applies on both
  * sides of the level; and "weeks" is read as two weeks, the least the plural
  * can mean. None of these moves the order or the stop.
  */
-/**
- * How old, in calendar days, the bottom (top, short) must be by the session the
- * order rests for: "weeks ... apart" (W006 p.20) read as two weeks.
- */
-export const DOUBLE_BOTTOM_MIN_DAYS = 14;
-
 export function computeGannOldLevelEntry(
   bars: Bar[],
   direction: TriggerDirection,
@@ -387,11 +385,11 @@ export function computeGannOldLevelEntry(
   for (let i = pivot.index + 1; i < bars.length; i++) {
     if (sign * ((sign === 1 ? bars[i].l : bars[i].h) - pivot.price) <= 0) return null;
   }
-  // Weeks apart (W006 p.20): the order rests for the session after the last
-  // bar, so the test it buys comes at least a day after that bar.
-  const formed = Date.parse(bars[pivot.index].t);
-  const restsFor = Date.parse(bars[bars.length - 1].t) + DAY_MS;
-  if (!(restsFor - formed >= DOUBLE_BOTTOM_MIN_DAYS * DAY_MS)) return null;
+  // Weeks apart (W006 p.20): the order rests for the day after the last bar,
+  // so the test it buys comes at least a day after that bar. Counted in
+  // calendar days, so a daylight-saving change in between (bars stamped at
+  // New York midnight) does not cost the boundary day.
+  if (!(calendarDays(bars[pivot.index].t, bars[bars.length - 1].t) + 1 >= DOUBLE_BOTTOM_MIN_DAYS)) return null;
   const points = Math.abs(buffered(pivot.price, sign, undefined) - pivot.price);
   const reactionStop = pivot.price - sign * points;
   // The bottoms that make the double or triple bottom: those within 3 points

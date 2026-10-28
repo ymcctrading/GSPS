@@ -110,6 +110,21 @@ describe("computeGannOldLevelEntry", () => {
     // One session more than FALL's rally still rests it.
     const later = [...leg(60, 40, 8), ...leg(40, 48, 10), ...leg(48, 44, 4)];
     expect(computeGannOldLevelEntry(bars(later), "bullish")?.kind).toBe("oldLevel");
+    expect(computeGannOldLevelEntry(bars(later.map((x) => 100 - x)), "bearish")?.kind).toBe("oldLevel");
+  });
+
+  it("counts calendar days across a daylight-saving change", () => {
+    // Bars at New York midnight: 05:00Z in winter, 04:00Z from 8 March 2026.
+    // FALL's bottom (5 March) is 13 days before its last bar (18 March), an
+    // hour short of 13 whole days in milliseconds.
+    const t0 = Date.parse("2026-02-26T00:00:00Z");
+    const b = bars(FALL).map((x, i) => {
+      const day = new Date(t0 + i * 86_400_000).toISOString().slice(0, 10);
+      return { ...x, t: `${day}T${day >= "2026-03-08" ? "04" : "05"}:00:00.000Z` };
+    });
+    expect(b[7].t).toBe("2026-03-05T05:00:00.000Z");
+    expect(b[b.length - 1].t).toBe("2026-03-18T04:00:00.000Z");
+    expect(computeGannOldLevelEntry(b, "bullish")?.kind).toBe("oldLevel");
   });
 
   it("returns null without a completed bottom", () => {

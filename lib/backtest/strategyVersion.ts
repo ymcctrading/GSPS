@@ -878,10 +878,10 @@
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
 // (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
-// 2026-10-28-gann-double-bottom-weeks: a double or triple bottom (top) rests
+// 2026-10-28-double-bottom-weeks: a double or triple bottom (top) rests
 // its order only once the bottom is two weeks old by the session the order
 // rests for (DOUBLE_BOTTOM_MIN_DAYS): "the same level weeks, months or a year
 // or more apart" (W006 p.20, A-ENTRY-02). The six-year daily rerun's first
 // quarter (2026-10-28) had old-bottom entries at -0.076R over 4,856 trades.
 // Plans and replay trades move.
-export const STRATEGY_VERSION = "2026-10-28-gann-double-bottom-weeks";
+export const STRATEGY_VERSION = "2026-10-28-double-bottom-weeks";
