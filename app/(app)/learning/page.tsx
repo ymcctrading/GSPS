@@ -528,11 +528,6 @@ export default function LearningPage() {
                             <span className={cn("block truncate", f.kind === "point" && "font-medium")}>
                               {f.label}
                             </span>
-                            {f.partOf && (
-                              <span className="block truncate text-xs text-muted">
-                                counts toward {f.partOf}
-                              </span>
-                            )}
                             {f.kind === "hold" && (
                               <span className="block truncate text-xs text-muted">
                                 can hold a setup back from Execute

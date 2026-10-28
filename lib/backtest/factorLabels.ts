@@ -13,7 +13,11 @@
  *
  * Checks score nothing alone (`ScoreBreakdownItem.checkOf`), so each carries
  * the label of the scored point it counts toward: comparing a check with its
- * point needs to know which point it is.
+ * point needs to know which point it is. Checks and holds are named by
+ * number only; the nine points keep the labels every surface already shows.
+ *
+ * `planLevelsParam` is the route's `planLevels` default, kept here so a
+ * test can pin it (a route file exports only its handlers).
  */
 
 import type { FactorAttribution } from "./attribution";
@@ -31,39 +35,56 @@ interface FactorName {
   partOf?: CriterionKey;
 }
 
-const CHECKS: Record<string, FactorName> = {
-  swingChartTrend: { id: "swingsAgree", label: "Daily and weekly swings agree", kind: "check", partOf: "trendAllTimeframes" },
-  ruleOfThree: { id: "threeCloses", label: "Three closes in a row with the trade", kind: "check", partOf: "trendAllTimeframes" },
-  gannAngleSlope: { id: "trendSlope", label: "Trend climbing steeply enough", kind: "check", partOf: "geometricAngles" },
-  volumeClimax: { id: "turnVolume", label: "Volume at the turn", kind: "check", partOf: "volumeAccumulation" },
-  historicalSR: { id: "oldLevelHeld", label: "Held at an old support or resistance", kind: "check", partOf: "priceLevels" },
-  gannRetracementConfluence: { id: "percentLevelHeld", label: "Held at a halfway or percentage level", kind: "check", partOf: "priceLevels" },
-  entryTriggerArmed: { id: "entrySignal", label: "Entry signal armed", kind: "check", partOf: "definiteIndication" },
-  stopBehindOldLevel: { id: "stopBehindLevel", label: "Stop sits behind an old level", kind: "check", partOf: "definiteIndication" },
-  timePriceSquare: { id: "priceTimeBalance", label: "Price and time in balance", kind: "check", partOf: "timeFactors" },
-};
+/**
+ * The checks under each scored point, in a fixed order. Shown as opaque rows
+ * ("Check 2 under Trend on every timeframe"): a description of what a check
+ * reads would describe the method (second review of #506, 2026-10-28).
+ */
+const CHECK_ORDER: Array<[string, CriterionKey]> = [
+  ["swingChartTrend", "trendAllTimeframes"],
+  ["ruleOfThree", "trendAllTimeframes"],
+  ["gannAngleSlope", "geometricAngles"],
+  ["volumeClimax", "volumeAccumulation"],
+  ["historicalSR", "priceLevels"],
+  ["gannRetracementConfluence", "priceLevels"],
+  ["entryTriggerArmed", "definiteIndication"],
+  ["stopBehindOldLevel", "definiteIndication"],
+  ["timePriceSquare", "timeFactors"],
+];
 
-const HOLDS: Record<string, FactorName> = {
-  tradePlanPriced: { id: "planPriced", label: "Trade plan priced", kind: "hold" },
-  dataLag: { id: "dataCurrent", label: "Data current enough to act on", kind: "hold" },
-  breakaway: { id: "rangeBreakout", label: "Breakout from a sideways range", kind: "hold" },
-  monthlyBreak: { id: "monthHeld", label: "Monthly structure intact", kind: "hold" },
-  distributionBreakdown: { id: "noBreakdown", label: "No breakdown after a lower top", kind: "hold" },
-  failedTop: { id: "pathClear", label: "No failed double top or bottom in the way", kind: "hold" },
-  queerActing: { id: "actsNormally", label: "Stock acting normally", kind: "hold" },
-  figureCrossing: { id: "roundNumber", label: "Round-number behaviour", kind: "hold" },
-  weakStock: { id: "strongPosition", label: "Stock in a strong position", kind: "hold" },
-  timeWindowTurn: { id: "timingWindow", label: "Turn came at a timing window", kind: "hold" },
-  standAside: { id: "trendToTrade", label: "A trend to trade with", kind: "hold" },
-  stopBreach: { id: "stopIntact", label: "Plan's stop still intact", kind: "hold" },
-  readyNow: { id: "readyNow", label: "Ready to place now, with clear targets", kind: "hold" },
-  planExpired: { id: "planLive", label: "Plan still live", kind: "hold" },
-};
+const CHECKS: Record<string, FactorName> = Object.fromEntries(
+  CHECK_ORDER.map(([key, partOf]) => {
+    const n = CHECK_ORDER.filter(([, p]) => p === partOf).findIndex(([k]) => k === key) + 1;
+    return [key, { id: `${partOf}-check-${n}`, label: `Check ${n} under ${CRITERION_LABELS[partOf]}`, kind: "check" as const, partOf }];
+  }),
+);
+
+/** The holds that can keep a setup from Execute, opaque for the same reason. */
+const HOLD_ORDER = [
+  "tradePlanPriced",
+  "dataLag",
+  "breakaway",
+  "monthlyBreak",
+  "distributionBreakdown",
+  "failedTop",
+  "queerActing",
+  "figureCrossing",
+  "weakStock",
+  "timeWindowTurn",
+  "standAside",
+  "stopBreach",
+  "readyNow",
+  "planExpired",
+];
+
+const HOLDS: Record<string, FactorName> = Object.fromEntries(
+  HOLD_ORDER.map((key, i) => [key, { id: `hold-${i + 1}`, label: `Execute condition ${i + 1}`, kind: "hold" as const }]),
+);
 
 /** The public name of a breakdown id. An id with no entry is "Other check", never the id. */
 export function factorName(key: string, index = 0): FactorName {
   if (Object.hasOwn(CRITERION_LABELS, key)) return { id: key, label: CRITERION_LABELS[key as CriterionKey], kind: "point" };
-  return CHECKS[key] ?? HOLDS[key] ?? { id: `other${index}`, label: "Other check", kind: "other" };
+  return (Object.hasOwn(CHECKS, key) ? CHECKS[key] : Object.hasOwn(HOLDS, key) ? HOLDS[key] : null) ?? { id: `other${index}`, label: "Other check", kind: "other" };
 }
 
 const KIND_ORDER: Record<FactorKind, number> = { point: 0, check: 1, hold: 2, other: 3 };
@@ -132,4 +153,9 @@ export function toPublicReport(report: BacktestReport): PublicBacktestReport {
     atrBands: report.atrBands,
     generatedAt: report.generatedAt,
   };
+}
+
+/** `?planLevels`: on unless "0" or "false", so the Test page trades production's plan. */
+export function planLevelsParam(raw: string | null): boolean {
+  return !(raw === "0" || raw === "false");
 }

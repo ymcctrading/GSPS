@@ -86,7 +86,7 @@ import {
 import { byOutputState, byScoreRange, resolveDisableExits } from "@/lib/backtest/replay";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { replayOvernightForUniverse } from "@/lib/backtest/replayOvernight";
-import { toPublicReport } from "@/lib/backtest/factorLabels";
+import { toPublicReport, planLevelsParam } from "@/lib/backtest/factorLabels";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -241,7 +241,7 @@ export async function GET(req: NextRequest) {
   }
 
   const planLevelsRaw = searchParams.get("planLevels");
-  const usePlanLevels = !(planLevelsRaw === "0" || planLevelsRaw === "false");
+  const usePlanLevels = planLevelsParam(planLevelsRaw);
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
