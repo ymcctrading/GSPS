@@ -55,7 +55,8 @@
  * and a setup that no longer ranks simply drops off on the next write.
  */
 
-import { loadSweptCandidates } from "@/lib/scan/universeSweep";
+import { loadSweptCandidatesWithBasis } from "@/lib/scan/universeSweep";
+import { retireSweepFromScan } from "@/lib/scan/sweepRetirement";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
@@ -201,11 +202,13 @@ export async function runScheduledScan(
   }
 
   let output;
+  let swept: { symbols: string[]; basis: string | null } = { symbols: [], basis: null };
   try {
     const { universe } = await getUniversePolicy(service);
     // Last night's swept setups take the full pass's first slots, as on
     // /api/market-scan (lib/scan/universeSweep.ts).
-    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, [], await loadSweptCandidates(service));
+    swept = await loadSweptCandidatesWithBasis(service);
+    output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, [], swept.symbols);
   } catch (err) {
     // Fail closed: an upstream provider failure must not grant access to a
     // stale/partial signal or silently record an empty successful run.
@@ -223,6 +226,10 @@ export async function runScheduledScan(
     logRunOutcome({ runId, source, marketDateEt, outcome: "upstream_unavailable", environment });
     return NextResponse.json({ error: "Upstream market data unavailable", reason: refusal, source, runId }, { status: 503 });
   }
+
+  // The night's sweep rows this run re-read without their plan leave the
+  // intraday scan's setups, as on /api/market-scan (SUS-21).
+  await retireSweepFromScan(service, swept.basis, swept.symbols, output, new Date(), source);
 
   const qualifying: RankedSetup<ScanResult>[] = [
     ...output.bullish.map((r) => ({ side: "buy" as const, rank: visibilityRank(r), value: r })),

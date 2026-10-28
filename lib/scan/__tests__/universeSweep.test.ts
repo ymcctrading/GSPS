@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mergeSweptIntoShortlist, nextUnswept, pickSweepBasis, sweptCandidates, type SweepRow } from "@/lib/scan/universeSweep";
+import {
+  mergeSweptIntoShortlist,
+  nextUnswept,
+  overruledSweepSymbols,
+  pickSweepBasis,
+  sweptCandidates,
+  type SweepRow,
+} from "@/lib/scan/universeSweep";
 
 const row = (symbol: string, output_state: string | null, score: number | null, direction: string | null = "bullish"): SweepRow => ({
   basis_date: "2026-10-23",
@@ -64,5 +71,25 @@ describe("pickSweepBasis", () => {
   });
   it("never reads a night older than the age limit", () => {
     expect(pickSweepBasis([{ basis_date: "2026-10-10", count: 832 }], 832, "2026-10-23")).toBeNull();
+  });
+});
+
+describe("overruledSweepSymbols", () => {
+  const read = (symbol: string, direction: string, outputState: string, planned = true, error = false) => ({ symbol, direction, outputState, planned, error });
+  it("retires a night's plan the day's scan re-read without it, never one it did not read or failed to read", () => {
+    const rows = ["KEEP", "WATCH", "REJ", "FLIP", "NOPLAN", "FAIL", "UNREAD", "TWICE"].map((symbol) => ({ symbol, direction: "bullish" }));
+    expect(
+      overruledSweepSymbols(rows, [
+        read("KEEP", "bullish", "Execute"),
+        read("WATCH", "bullish", "Watch"),
+        read("REJ", "bullish", "Reject"),
+        read("FLIP", "bearish", "Execute"),
+        read("NOPLAN", "bullish", "Execute", false),
+        read("FAIL", "bullish", "Reject", false, true),
+        // read twice: the continuation pass bears the plan out
+        read("TWICE", "bullish", "Reject"),
+        read("twice", "bullish", "Execute"),
+      ]),
+    ).toEqual(["REJ", "FLIP", "NOPLAN"]);
   });
 });

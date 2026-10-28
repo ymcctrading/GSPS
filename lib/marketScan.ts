@@ -724,6 +724,13 @@ export interface MarketScanOutput {
    */
   fullScanResults: ScanResult[];
   /**
+   * Every stock read of the full pass, the reversion and continuation passes
+   * each kept (`fullScanResults` keeps one per symbol), errors included, so
+   * the night's sweep rows can be checked against each read
+   * (`retireOverruledSweepRows`, SUS-21).
+   */
+  stockReads: ScanResult[];
+  /**
    * Discoveries (`lib/scanner/discovery.ts`): stocks the session has made
    * active, most worth examining first. The route stores them in the
    * evaluation ledger, where the intraday queue takes them as candidates to
@@ -1543,6 +1550,7 @@ export async function runMarketScan(
     continuationSkipped,
     equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
+    stockReads: [...full, ...continuationScanResults],
     discoveries,
   };
 }

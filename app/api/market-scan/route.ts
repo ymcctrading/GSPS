@@ -7,7 +7,7 @@
  * short side stays short rather than padded.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { MARKET_DATA_UNAVAILABLE, SyntheticMarketDataError } from "@/lib/data/feed-mode";
 import { FULL_UNIVERSE_TOP, runMarketScan } from "@/lib/marketScan";
 import { afterResponse, discoveryRows, prefilterRows, writeLedger } from "@/lib/ledger/evaluationLedger";
@@ -24,7 +24,8 @@ import { retiredSignalsFrom } from "@/lib/lifecycle/retire";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { resolveDiscoveryAndTrackingSymbols } from "@/lib/scan/universe-rotation";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { loadSweptCandidates } from "@/lib/scan/universeSweep";
+import { loadSweptCandidatesWithBasis } from "@/lib/scan/universeSweep";
+import { retireSweepFromScan } from "@/lib/scan/sweepRetirement";
 import { recordShadowSignals } from "@/lib/shadow/record";
 
 /**
@@ -101,9 +102,9 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   const service = createServiceClient();
   const { universe } = await getUniversePolicy(service);
   const scanDate = etDateKey(new Date());
-  const [extraSymbols, sweptSymbols] = await Promise.all([
+  const [extraSymbols, { symbols: sweptSymbols, basis: sweepBasis }] = await Promise.all([
     resolveExtraSymbols(service, scanDate),
-    loadSweptCandidates(service),
+    loadSweptCandidatesWithBasis(service),
   ]);
 
   // `runMarketScan` itself was previously uncaught here: a thrown
@@ -159,6 +160,17 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
       `market-scan: ${output.scanDate} not saved — ${persistError} ` +
         `[shortlisted=${output.shortlisted} scanErrors=${output.scanErrors}]`,
     );
+  }
+
+  // The night's sweep rows this scan re-read and no longer bears out leave the
+  // intraday scan's setups (SUS-21, lib/scan/sweepRetirement.ts), after the
+  // response, so a member's manual scan never waits on it.
+  const retireAt = new Date();
+  const retire = () => retireSweepFromScan(service, sweepBasis, sweptSymbols, output, retireAt);
+  try {
+    after(retire);
+  } catch {
+    void retire();
   }
 
   // Discovery: logged, and stored in the evaluation ledger (below) where the
