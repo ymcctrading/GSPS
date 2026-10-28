@@ -434,6 +434,9 @@ export function TickerView({ symbol }: { symbol: string }) {
               livePrice={livePrice}
               intradaySourced={intradaySourced}
               intradayPlan={intradayPlan}
+              // The panel's current intraday alert, so the ticket can trade the
+              // intraday plan without coming from its "Trade this" link.
+              sessionPlan={chartIntradayPlan ?? null}
               forceSide={forceSide}
               onExplainChange={setExplain}
             />
