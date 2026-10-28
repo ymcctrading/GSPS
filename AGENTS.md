@@ -1261,7 +1261,8 @@ low (W046 p.1) joins the S/R list (`sunTravelLevel`, via `masterLevels.ts`). M-P
 the intraday first target averages the old levels within 1%, as the daily plan
 does (`lib/gann/nearbyLevels.ts`, moved from `lib/strat/levels.ts`; round numbers
 kept apart). Engineering choices, labelled: the 10-point trail is the Stock
-Selector's figure on the Gann point (his Rumely trail is a raw 10 at $100;
+Selector's figure on the Gann point (his Rumely trail is a raw 10 at $105;
+superseded 2026-10-28, "Gann's figures read at his price" below;
 A-STOP-04 reads his "10 at high levels" as 5), the 6 weeks are read on the 7-day chart's
 run. Measured on 200 random walks: about 0.13 ms more a full exit read, 0.13 ms
 for the Sun level in an S/R build. Plans and exits move: `STRATEGY_VERSION` was
@@ -1328,6 +1329,27 @@ reads the range alone (`readAccumulationRange`), so its cost is unchanged. The v
 industry groups and double-bottom weeks as
 `2026-10-28-base-left-on-groups-by-industry`; P8, Execute and the 7/4 cutoffs
 need a fresh run on it.
+
+**Gann's figures read at his price, 2026-10-28 (alignment audit,
+`/mnt/project-files/gann-alignment-audit/score-and-levels.md`).** Three figures
+Gann gave at a stated price had been ported as that many Gann points, which
+already grow with price (`pointScale.ts`), so each ran about two to three times
+his own. The re-buy after a stop rests his 12 points under the best price read
+at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
+about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
+at Advance Rumely's 105 ("a 10-point stop, out at 95", *Stock Selector* Ch. V), about 5.9 Gann
+points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
+points (56-60 in 1898; 2 and 2½ on the Rails, Master Course pp. 246-248), 4/3
+of the 3-point allowance (`NARROW_RANGE_ALLOWANCES`, was 3, held for the owner
+until now and answered from Gann); the range a market is leaving stays read
+during the leg out of it (`narrowRangeBeforeLeg`), since the walk from its top
+to the crossing line is wider than narrow, so the breakaway's volume rule is
+still asked. Random walks, armed long entries held by the breakaway: $20 43% →
+23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
+a number at a price, divide it by `gannPoint` at that price; only his "3 points"
+(the scale's own anchor) and figures he states across price bands are read as
+Gann points directly. `STRATEGY_VERSION` is `2026-10-28-gann-figures-at-his-price`;
+Execute and the 7/4 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
