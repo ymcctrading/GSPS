@@ -34,7 +34,7 @@
 import type { Bar } from "@/lib/types";
 import { gannPoint } from "@/lib/gann/pointScale";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
-import { describeFocusReason, type FocusReason } from "@/lib/scanner/focusList";
+import type { FocusReason } from "@/lib/scanner/focusList";
 import { priceUsd } from "@/lib/strat/priceText";
 
 export type Side = "bullish" | "bearish";
@@ -252,6 +252,48 @@ export function judgeIntradaySignal(signal: IntradaySignal, bars: Bar[], cutoffM
 }
 
 // ---------------------------------------------------------------------------
+// Neutral wording. Owner, 2026-10-28: nothing user-facing names the method,
+// its sources or its tools, so the emails describe setups in plain trading
+// terms (trend, support and resistance, entry, stop, target) with their own
+// words here rather than the platform's internal labels.
+
+/** A focus reason in plain trading words. */
+export function plainFocusReason(reason: FocusReason): string {
+  switch (reason.kind) {
+    case "plan_near":
+      return `${reason.verdict} plan's entry ${priceUsd(reason.entry)} is within a day's range`;
+    case "narrow_range":
+      return `${reason.sessions} sessions in a tight range${reason.edge ? `, now at its ${reason.edge}` : ""}`;
+    case "big_day":
+      return {
+        reverse_top: "Sharp reversal down from a high",
+        reverse_bottom: "Sharp reversal up from a low",
+        seven_to_ten_top: "A run of up days turned down",
+        seven_to_ten_bottom: "A run of down days turned up",
+        wide_up: "Wide range up on heavy volume",
+        wide_down: "Wide range down on heavy volume",
+      }[reason.signal];
+    case "old_level":
+      return `Near the prior ${reason.side} at ${priceUsd(reason.level)}`;
+  }
+}
+
+/** Intraday signal kinds in plain trading words, keyed by the stored signal id. */
+export const PLAIN_SIGNAL_LABELS: Record<string, string> = {
+  old_level_cross: "Broke a prior high or low",
+  trend_continuation: "Trend continuation",
+  space_overbalance: "Pullback larger than any before it",
+  overnight_turn: "Daily swing turned",
+  hourly_turn: "Hourly swing turned",
+  plan_level_held: "Daily plan's entry held",
+  reversal_risk: "Reversal risk",
+};
+
+export function plainSignalLabel(kind: string): string {
+  return PLAIN_SIGNAL_LABELS[kind] ?? "Intraday signal";
+}
+
+// ---------------------------------------------------------------------------
 // The focus list's plain English
 
 export interface NextPlan {
@@ -371,7 +413,7 @@ export function renderFocusEmail(input: FocusEmailInput): { subject: string; htm
   text.push("", "WATCH ONLY");
   for (const f of input.focus) {
     if (f.plan?.verdict === "Execute") continue;
-    const why = f.reasons.map(describeFocusReason).join("; ");
+    const why = f.reasons.map(plainFocusReason).join("; ");
     const plan = f.plan
       ? `${f.plan.verdict} ${side(f.plan.direction).toLowerCase()} ${f.plan.score}/9: ${notExecutableReason(f.plan)}`
       : "No plan from the daily scan.";
@@ -417,9 +459,9 @@ const DAILY_LABEL: Record<DailyOutcome, string> = {
 const INTRADAY_LABEL: Record<IntradayOutcome, string> = {
   tp1_first: "TP1 before the stop",
   stop_first: "stopped out",
-  ahead_at_cutoff: "ahead at 3:45 PM",
-  behind_at_cutoff: "behind at 3:45 PM",
-  after_cutoff: "arrived after 3:45 PM, not judged",
+  ahead_at_cutoff: "ahead at the cutoff",
+  behind_at_cutoff: "behind at the cutoff",
+  after_cutoff: "arrived after the cutoff, not judged",
   no_bars: "no bars read",
 };
 
@@ -470,7 +512,7 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   const html: string[] = [WRAP_OPEN, `<h2 style="margin:0 0 4px">Daily recap for ${day}</h2>`];
   const text: string[] = [`GSPS daily recap for ${day}`, ""];
   html.push(
-    `<p style="color:#64748b;margin:0 0 16px">${input.read} of ${input.universe} scan-universe stocks read. Setups are the ones shown during the session (built from ${input.setupsFrom ? dayLabel(input.setupsFrom) : "no"} close), judged by GSPS's own entry rule on the session's 15-minute bars. A bar that touched both the stop and TP1 counts as the stop.</p>`,
+    `<p style="color:#64748b;margin:0 0 16px">${input.read} of ${input.universe} scan-universe stocks read. Setups are the plans standing at ${input.setupsFrom ? `${dayLabel(input.setupsFrom)}'s` : "the prior"} close, judged by GSPS's own entry rule on the session's 15-minute bars and filled at the next bar's open. A bar that touched both the stop and TP1 counts as the stop. Placement also waits while a breakdown stands or a failed top lies in the way, which this reading does not check, so it can fill a setup placement would still have held.</p>`,
   );
 
   const sections: [MoverMeasure, string, (m: Mover) => string][] = [
@@ -497,8 +539,8 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
     text.push("");
   }
 
-  html.push(`<h3 style="margin:20px 0 4px">Every executable setup shown (${execs.length})</h3>`);
-  text.push(`EVERY EXECUTABLE SETUP SHOWN (${execs.length}): ${tally(execs.map((j) => DAILY_LABEL[j.outcome]))}`);
+  html.push(`<h3 style="margin:20px 0 4px">Every executable setup standing (${execs.length})</h3>`);
+  text.push(`EVERY EXECUTABLE SETUP STANDING (${execs.length}): ${tally(execs.map((j) => DAILY_LABEL[j.outcome]))}`);
   html.push(`<p style="color:#64748b;margin:0 0 6px">${esc(tally(execs.map((j) => DAILY_LABEL[j.outcome])) || "None.")} Mean ${esc(meanR(execs.map((j) => j.r)))}.</p><ul style="margin:0;padding-left:18px">`);
   for (const j of execs) {
     const line = `${j.setup.symbol} ${side(j.setup.direction).toLowerCase()} ${j.setup.score}/9, entry ${priceUsd(j.setup.entry)}, stop ${priceUsd(j.setup.stop)}, TP1 ${priceUsd(j.setup.tp1)}: ${DAILY_LABEL[j.outcome]}${j.fill != null ? ` at ${priceUsd(j.fill)}` : ""}${j.r != null ? `, ${signed(j.r)}R` : ""}`;
@@ -513,7 +555,7 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
 
   html.push(`<h3 style="margin:20px 0 4px">Intraday signals, as each member received them</h3>`);
   html.push(
-    `<p style="color:#64748b;margin:0 0 6px">Each signal counted once, from the first time it reached the member, taken at the market on the next 1-minute bar and held on its own stop to TP1, the stop or the Intraday style's 3:45 PM close. The style's trailing stop is not walked here. Intraday signals have no measured record.</p>`,
+    `<p style="color:#64748b;margin:0 0 6px">Each signal counted once, from the first time it reached the member, taken at the market on the next 1-minute bar and held on its own stop to TP1, the stop or the Intraday style's cutoff (3:45 PM for stocks, the 4 PM close for crypto). The style's trailing stop is not walked here. Intraday signals have no measured record.</p>`,
   );
   text.push("INTRADAY SIGNALS, AS EACH MEMBER RECEIVED THEM");
   html.push(`<table style="border-collapse:collapse;width:100%;font-size:13px">`);
@@ -540,7 +582,7 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
       if (seen.has(k)) continue;
       seen.add(k);
       const t = new Date(j.signal.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
-      const line = `${t} ${j.signal.symbol} ${j.signal.direction === "bullish" ? "up" : "down"}, ${j.signal.label}: price ${priceUsd(j.signal.price)}, stop ${priceUsd(j.signal.stop)}, TP1 ${priceUsd(j.signal.tp1)} → ${INTRADAY_LABEL[j.outcome]}${j.r != null ? ` (${signed(j.r)}R)` : ""}`;
+      const line = `${t} ${j.signal.symbol} ${j.signal.direction === "bullish" ? "up" : "down"}, ${plainSignalLabel(j.signal.label)}: price ${priceUsd(j.signal.price)}, stop ${priceUsd(j.signal.stop)}, TP1 ${priceUsd(j.signal.tp1)} → ${INTRADAY_LABEL[j.outcome]}${j.r != null ? ` (${signed(j.r)}R)` : ""}`;
       html.push(`<li>${esc(line)}</li>`);
       text.push(`  ${line}`);
     }

@@ -8,6 +8,8 @@ import {
   moverVerdict,
   notExecutableReason,
   parseBellNotice,
+  plainFocusReason,
+  plainSignalLabel,
   renderFocusEmail,
   renderRecapEmail,
   toMover,
@@ -201,5 +203,36 @@ describe("plain English", () => {
     });
     expect(recap.text).toContain("ZZZ");
     expect(recap.text).toContain("Missed");
+  });
+
+  it("names no method, source or internal label in either email", () => {
+    const focus = renderFocusEmail({
+      forDate: "2026-10-28",
+      basisDate: "2026-10-27",
+      focus: [
+        { rank: 1, symbol: "PFE", close: 29.79, plan: null, reasons: [{ kind: "big_day", signal: "seven_to_ten_bottom" }, { kind: "old_level", side: "top", level: 30.44 }] },
+      ],
+      executable: [plan],
+      appUrl: "https://example.com",
+    });
+    // Built from pieces so the repo's copy check doesn't read the list itself as copy.
+    const banned = new RegExp(["gan" + "n", "jen" + "sen", "her" + "metic", "cycle", "square of", "overnight chart", "over-balance", "rule of three", "3-day chart", "7-10"].join("|"), "i");
+    expect(focus.text).not.toMatch(banned);
+    expect(focus.html).not.toMatch(banned);
+    expect(plainFocusReason({ kind: "big_day", signal: "seven_to_ten_top" })).toBe("A run of up days turned down");
+    expect(plainSignalLabel("space_overbalance")).not.toMatch(banned);
+    expect(plainSignalLabel("overnight_turn")).not.toMatch(banned);
+  });
+});
+
+describe("one signal on the bell and the panel", () => {
+  it("counts once when both carry the signal's id", () => {
+    const s = { member: "m1", symbol: "META", direction: "bearish" as const, label: "old_level_cross", price: 624.63, stop: 628.17, tp1: 612.31, mtp: null };
+    const out = firstDeliveries([
+      { ...s, at: "2026-10-27T14:03:26Z" },
+      { ...s, at: "2026-10-27T14:03:27Z", price: 624.6 },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].deliveries).toBe(2);
   });
 });

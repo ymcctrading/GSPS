@@ -29,6 +29,7 @@ import { barSession, etDateKey, etParts, mostRecentClose, nextClose } from "@/li
 import { isEarlyClose } from "@/lib/market/calendar";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
 import { FOCUS_SIZE, type FocusReason } from "@/lib/scanner/focusList";
+import { SIGNAL_LABELS } from "@/lib/scanner/intradayDisplay";
 import { appUrl, fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import {
@@ -70,7 +71,7 @@ type ScanRow = {
   stop_loss: number | string | null;
   take_profit_1: number | string | null;
   master_profit: number | string | null;
-  detail: { currentPrice?: number; dayRange?: number; entryAwaitsCrossing?: boolean } | null;
+  detail: { currentPrice?: number; dayRange?: number; entryAwaitsCrossing?: boolean; scannedAt?: string } | null;
 };
 
 const num = (v: unknown): number | null => {
@@ -98,6 +99,26 @@ function toNextPlan(r: ScanRow): NextPlan | null {
     dayRange: num(r.detail?.dayRange),
     entryAwaitsCrossing: r.detail?.entryAwaitsCrossing === true,
   };
+}
+
+/** The bell's label back to the signal's stored id. */
+const signalIdOfLabel = new Map(Object.entries(SIGNAL_LABELS).map(([id, label]) => [label.toLowerCase(), id]));
+
+/** Rows a read returns in one page: PostgREST stops at 1,000 without an error. */
+const PAGE = 1000;
+const MAX_PAGES = 20;
+
+async function readAll<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<{ rows: T[]; error: string | null }> {
+  const rows: T[] = [];
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const { data, error } = await page(i * PAGE, (i + 1) * PAGE - 1);
+    if (error) return { rows, error: error.message };
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE) break;
+  }
+  return { rows, error: null };
 }
 
 /** The basis session's bars: its regular session for a stock, its New York day for crypto. */
@@ -143,16 +164,27 @@ export async function GET(req: NextRequest) {
   const close = mostRecentClose(now);
   const basisDate = etDateKey(close);
   const forDate = etDateKey(nextClose(now));
+  // Only on the evening of the session itself: after a holiday the last close
+  // is an earlier session, already reported (Resend's keys last 24 hours).
+  if (etDateKey(now) !== basisDate) {
+    return NextResponse.json({ sent: false, reason: `No session closed today (${etDateKey(now)}); ${basisDate} was reported on its own evening.` }, { status: 202 });
+  }
   const service = createServiceClient();
 
-  // Tonight's plans: wait for the evening scan to store them.
+  // Tonight's plans: wait for the evening scan, the first read after the close.
   const { data: tonightRows, error: tonightError } = await service
     .from("daily_scans")
     .select("symbol, direction, output_state, score, entry, stop_loss, take_profit_1, master_profit, detail")
     .eq("scan_date", basisDate);
   if (tonightError) return NextResponse.json({ error: `Plans not read: ${tonightError.message}` }, { status: 500 });
-  if (!tonightRows || tonightRows.length === 0) {
-    return NextResponse.json({ sent: false, reason: `No plans stored for ${basisDate} yet; the evening scan hasn't finished.` }, { status: 202 });
+  // The market scan writes the session's rows all day; only a read stamped
+  // after the close has seen the closing bar.
+  const readAfterClose = (tonightRows ?? []).some((r) => {
+    const at = (r as ScanRow).detail?.scannedAt;
+    return typeof at === "string" && Date.parse(at) >= close.getTime();
+  });
+  if (!readAfterClose) {
+    return NextResponse.json({ sent: false, reason: `The plans for ${basisDate} haven't been read after the close yet.` }, { status: 202 });
   }
   const tonight = new Map<string, NextPlan>();
   for (const r of tonightRows as ScanRow[]) {
@@ -176,7 +208,9 @@ export async function GET(req: NextRequest) {
   }));
   const executable = [...tonight.values()].filter((p) => p.verdict === "Execute").sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol));
 
-  // The setups shown during the session: the latest stored before it.
+  // The setups standing at the prior close: the last stored before the session.
+  // The market scan rewrites the session's own rows through the day, so these
+  // are the plans a member woke up to, not every intraday revision.
   const { data: priorDateRow } = await service.from("daily_scans").select("scan_date").lt("scan_date", basisDate).order("scan_date", { ascending: false }).limit(1);
   const setupsFrom = (priorDateRow?.[0]?.scan_date as string | undefined) ?? null;
   const setups: DailySetup[] = [];
@@ -202,36 +236,62 @@ export async function GET(req: NextRequest) {
   const dayStart = new Date(close.getTime() - 20 * 3_600_000).toISOString();
   const dayEnd = new Date(close.getTime() + 8 * 3_600_000).toISOString();
   const raw: Omit<IntradaySignal, "deliveries">[] = [];
-  const { data: bells } = await service
-    .from("in_app_notifications")
-    .select("profile_id, symbol, title, body, created_at")
-    .eq("verdict", "Intraday")
-    .gte("created_at", dayStart)
-    .lt("created_at", dayEnd)
-    .limit(20000);
-  for (const b of bells ?? []) {
+  type BellRow = { profile_id: string | null; symbol: string; title: string | null; body: string | null; created_at: string };
+  const bells = await readAll<BellRow>((from, to) =>
+    service
+      .from("in_app_notifications")
+      .select("profile_id, symbol, title, body, created_at")
+      .eq("verdict", "Intraday")
+      .gte("created_at", dayStart)
+      .lt("created_at", dayEnd)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  if (bells.error) return NextResponse.json({ error: `Notices not read: ${bells.error}` }, { status: 500 });
+  for (const b of bells.rows) {
+    if (!b.profile_id) continue;
     if (etDateKey(new Date(b.created_at as string)) !== basisDate) continue;
     const parsed = parseBellNotice(String(b.title ?? ""), String(b.body ?? ""));
     if (!parsed) continue;
-    raw.push({ member: b.profile_id as string, symbol: b.symbol as string, at: b.created_at as string, ...parsed });
+    // Keyed by the signal's id, so one signal seen on the bell and the panel counts once.
+    const kind = signalIdOfLabel.get(parsed.label.toLowerCase()) ?? parsed.label.toLowerCase();
+    raw.push({ member: b.profile_id, symbol: b.symbol, at: b.created_at, ...parsed, label: kind });
   }
-  const { data: panel } = await service
-    .from("intraday_alerts")
-    .select("user_id, symbol, signal_id, signal_type, entry_level, stop_loss_level, take_profit_1_level, master_profit_level, created_at")
-    .gte("created_at", dayStart)
-    .lt("created_at", dayEnd)
-    .limit(20000);
-  for (const a of panel ?? []) {
+  type PanelRow = {
+    user_id: string | null;
+    symbol: string;
+    signal_id: string;
+    signal_type: string;
+    entry_level: number | string | null;
+    stop_loss_level: number | string | null;
+    take_profit_1_level: number | string | null;
+    master_profit_level: number | string | null;
+    created_at: string;
+  };
+  const panel = await readAll<PanelRow>((from, to) =>
+    service
+      .from("intraday_alerts")
+      .select("user_id, symbol, signal_id, signal_type, entry_level, stop_loss_level, take_profit_1_level, master_profit_level, created_at")
+      .gte("created_at", dayStart)
+      .lt("created_at", dayEnd)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  if (panel.error) return NextResponse.json({ error: `Panel alerts not read: ${panel.error}` }, { status: 500 });
+  for (const a of panel.rows) {
+    if (!a.user_id) continue;
     if (etDateKey(new Date(a.created_at as string)) !== basisDate) continue;
     const price = num(a.entry_level);
     const stop = num(a.stop_loss_level);
     if (price == null || stop == null) continue;
     raw.push({
-      member: a.user_id as string,
-      symbol: a.symbol as string,
+      member: a.user_id,
+      symbol: a.symbol,
       direction: sideOf(String(a.signal_type)),
-      label: String(a.signal_id).replace(/_/g, " "),
-      at: a.created_at as string,
+      label: String(a.signal_id),
+      at: a.created_at,
       price,
       stop,
       tp1: num(a.take_profit_1_level),
@@ -246,14 +306,24 @@ export async function GET(req: NextRequest) {
   const labelOf = new Map<string, string>();
   const tierOf = new Map<string, string>();
   if (memberIds.length > 0) {
-    const { data: profiles } = await service.from("profiles").select("id, tier, is_demo").in("id", memberIds);
+    const profiles = new Map<string, { tier: string | null; is_demo: boolean | null }>();
+    for (let i = 0; i < memberIds.length; i += 200) {
+      const { data } = await service.from("profiles").select("id, tier, is_demo").in("id", memberIds.slice(i, i + 200));
+      for (const p of data ?? []) profiles.set(p.id as string, { tier: p.tier as string | null, is_demo: p.is_demo as boolean | null });
+    }
+    // The recipients' own accounts, read once (one page of users).
     const owners = new Set(recipients());
+    const ownerEmailOf = new Map<string, string>();
+    const { data: users } = await service.auth.admin.listUsers({ perPage: 1000 }).catch(() => ({ data: null }));
+    for (const u of users?.users ?? []) {
+      const email = u.email?.toLowerCase();
+      if (email && owners.has(email)) ownerEmailOf.set(u.id, email);
+    }
     let n = 0;
     for (const id of memberIds.sort()) {
-      const p = (profiles ?? []).find((x) => x.id === id);
-      const { data: user } = await service.auth.admin.getUserById(id).catch(() => ({ data: null }));
-      const email = user?.user?.email?.toLowerCase() ?? "";
-      const label = owners.has(email) ? `You (${email})` : `Member ${++n}`;
+      const p = profiles.get(id);
+      const email = ownerEmailOf.get(id);
+      const label = email ? `You (${email})` : `Member ${++n}`;
       labelOf.set(id, label);
       tierOf.set(label, `${p?.tier ?? ""}${p?.is_demo ? ", demo" : ""}`);
     }
