@@ -160,6 +160,22 @@ describe("checkNotificationFreshness", () => {
   });
 });
 
+describe("checkAlertFreshness: an alert stored before structureAsOf existed", () => {
+  it("is judged as before and can still be actionable", async () => {
+    const { checkAlertFreshness } = await import("@/lib/notifications/freshness");
+    const { alertTimeliness } = await import("@/lib/__tests__/fixtures/alertTimeliness");
+    const legacy = {
+      symbol: "BTC/USD",
+      type: "old_level_cross",
+      direction: "up",
+      continuationPlan: { paysRisk: true },
+      timeliness: alertTimeliness(at("14:06"), { feed: "realtime", delayMs: 0, heldForDelay: false, actionable: true, authorizationId: "a" }),
+    } as unknown as import("@/lib/scanner/intraday").Alert;
+    expect("structureAsOf" in legacy.timeliness!).toBe(false);
+    expect(checkAlertFreshness(legacy, at("14:07")).disposition).toBe("actionable");
+  });
+});
+
 describe("checkAlertFreshness: a reversal-risk warning is protective", () => {
   it("is told on delayed data and past the scan cadence, never suppressed for want of authorization", async () => {
     const { checkAlertFreshness } = await import("@/lib/notifications/freshness");

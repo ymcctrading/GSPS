@@ -1934,7 +1934,11 @@ export function alertTimeliness(
   // not read (`newerBarUsable`), so a fresh quote never launders stale bars.
   const lastBar = input.bars[input.bars.length - 1];
   const structureAsOf = lastBar ? sessionBarClose(lastBar, input) : null;
-  const structureCurrent = structureAsOf != null && !newerBarUsable(structureAsOf, input.barIntervalMinutes, delayMs, now);
+  // Judged at the fetch (receipt) clock where recorded: bars complete when
+  // fetched are not demoted by a scan that runs a few seconds past a boundary.
+  const fetchedAt = input.receivedAt && Number.isFinite(Date.parse(input.receivedAt)) ? new Date(input.receivedAt) : now;
+  const structureCurrent =
+    structureAsOf != null && !newerBarUsable(structureAsOf, input.barIntervalMinutes, delayMs, fetchedAt < now ? fetchedAt : now);
   const actionable = marketOpen && usable && structureCurrent && !lag.holdsExecute && input.feed === "realtime";
   return {
     feed: input.feed ?? "unknown",

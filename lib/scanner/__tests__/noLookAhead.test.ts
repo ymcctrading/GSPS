@@ -139,4 +139,15 @@ describe("a fresh quote cannot launder stale bars (dependency freshness)", () =>
     expect(t.actionable).toBe(false);
     expect(t.authorizationId).toBeNull();
   });
+
+  it("is judged at the fetch clock, so a scan just past a bar boundary does not demote complete bars", async () => {
+    const { alertTimeliness } = await import("@/lib/scanner/intraday");
+    const bars = series(90, 100); // last bar closes at 11:00
+    const later = new Date(now.getTime() + 65_000); // scan runs at 11:01:05
+    const fetched = rt(bars, now);
+    const t = alertTimeliness({ ...fetched, receivedAt: new Date(now.getTime() + 5_000).toISOString() }, { dataTimestamp: now.toISOString() }, "old_level_cross", "up", later);
+    expect(t.actionable).toBe(true);
+    // Without a receipt time the scan's own clock is the reference, and the 11:01 bar existed.
+    expect(alertTimeliness(fetched, { dataTimestamp: now.toISOString() }, "old_level_cross", "up", later).actionable).toBe(false);
+  });
 });

@@ -231,7 +231,10 @@ export function staleUnderRealtime(ageMs: number | null, timeframe: Timeframe): 
  * have read. Not a chosen TTL: it is the next observation the contract says
  * exists. Unknown times read as missed. Across a session break it reads the
  * gap as missed bars, which only withholds an authorization until the
- * session's first bar is read.
+ * session's first bar is read. A provider publishes no bar for an interval
+ * with no trades, so on a thin or halted series this reads the quiet as
+ * missed evidence too: conservative by choice (the alert is told, not acted
+ * on), since a quiet tape is not proof the structure is current.
  */
 export function newerBarUsable(lastCloseAt: Date | string | null | undefined, barMinutes: number, delayMs: number, at: Date): boolean {
   const close = toMs(lastCloseAt);
