@@ -4090,6 +4090,38 @@ hold until he says the plan has been upgraded.
   minutes a month. A new check is a step in an existing job where it can be
   (each job is billed at least a minute, however short).
 
+## Usage limits: alerts and the 99% hold (2026-10-28, owner)
+
+Chuck: "track how close we are to reaching our limit(s). Update us at 25, 50,
+60, 65, 70, and in intervals of 5 until 90% of usage. Go by 2 until 96%. Then
+go by 1 until 99. But never allow us to use all 100% of our limits unless it is
+within the last two days of the allotted month."
+
+- **The meter** is `lib/ops/usageLimits.ts` (rules), `lib/ops/usageStore.ts`
+  and `/api/ops/usage` (migration 0133). Meters: GitHub Actions minutes (2,000
+  a UTC month), Vercel deployments (100 in a rolling 24 hours), email (Resend
+  free: 100 a UTC day, 3,000 a month, from `email_daily_budget`) and the
+  Supabase database (500 MB, alert only). Each threshold emails the owner once
+  a period, with times in ET.
+- **How it is fed.** Every workflow job starts with a "Usage gate" step and
+  ends with a "Usage report" step (`if: always()`) that posts its billed
+  minutes, rounded up. A push to `main` also reports one Vercel deployment.
+  **A new workflow job must carry both steps** (copy them from `test.yml`),
+  or its minutes go unmetered. A manual Vercel redeploy is not seen; post it
+  (`{"meter":"vercel_deployments","units":1,"key":"deploy-<id>"}`).
+- **The hold.** At 99% the gate fails the job, and the merge queue merges
+  nothing while `usage_readings` shows `hold = true` for `github_actions` or
+  `vercel_deployments` (`select * from usage_readings` through the Supabase
+  tools; it is rewritten on every report and hourly). The hold lifts in a
+  monthly limit's last two days (UTC), when the period resets, or for an
+  urgent production fix Chuck OKs: add the `usage-override` label to its PR,
+  and for a merge insert a `usage_overrides` row (`meter`, `until`, `reason`
+  citing his message). Never add either without his OK in words.
+- **Reconcile** when a session measures the real figure (the GitHub billing
+  page, or the run list): post the difference as one event with a `key` of
+  `reconcile-<date>`. The meter started at 1,121 minutes measured from the run
+  list at 22:20 UTC on 2026-10-28 (private since 04:47 UTC).
+
 ## Git / PR Workflow
 
 - After pushing commits that contain code changes, **always open a pull request** against `main` rather than stopping at the push. Check for a PR template first.

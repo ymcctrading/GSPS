@@ -28,6 +28,7 @@
  */
 
 import { createServiceClient } from "@/lib/supabase/server";
+import { USAGE_METERS, holdDecision, periodOf } from "@/lib/ops/usageLimits";
 
 /** What an email is about, which decides its ceiling. */
 export type EmailKind = "trade" | "ops" | "alert" | "digest";
@@ -50,6 +51,8 @@ export const BUDGET_SKIP_REASON = "Today's email budget is spent; the notice is 
  */
 export async function emailBudgetHold(kind: EmailKind): Promise<string | null> {
   try {
+    const monthly = await monthlyHold();
+    if (monthly) return monthly;
     const { data, error } = await createServiceClient().rpc("reserve_email_send", { p_limit: emailCeiling(kind) });
     if (error) {
       console.error("[email-budget] ledger unread, sending anyway:", error.message);
@@ -60,4 +63,25 @@ export async function emailBudgetHold(kind: EmailKind): Promise<string | null> {
     console.error("[email-budget] ledger unread, sending anyway:", err);
     return null;
   }
+}
+
+/**
+ * The month's 99% hold (owner, 2026-10-28: "never allow us to use all 100% of
+ * our limits unless it is within the last two days of the allotted month";
+ * `lib/ops/usageLimits.ts`). The daily ceilings above already stay under the
+ * free plan's 100 a day; this keeps the month's sends under 99% of its 3,000
+ * until its last two days. Fails open, as the daily budget does.
+ */
+async function monthlyHold(now: Date = new Date()): Promise<string | null> {
+  const meter = USAGE_METERS.email_monthly;
+  const { start, end } = periodOf(meter, now);
+  const { data, error } = await createServiceClient()
+    .from("email_daily_budget")
+    .select("sent")
+    .gte("day", start.toISOString().slice(0, 10))
+    .lt("day", end!.toISOString().slice(0, 10));
+  if (error) return null;
+  const used = (data ?? []).reduce((sum, row) => sum + Number(row.sent ?? 0), 0);
+  const decision = holdDecision(meter, used, now, null);
+  return decision.hold ? `This month's email allowance is at 99%; the notice is in the app.` : null;
 }
