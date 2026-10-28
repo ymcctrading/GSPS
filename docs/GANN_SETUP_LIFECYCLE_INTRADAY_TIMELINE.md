@@ -457,6 +457,42 @@ the method. Dewey items not cleared: nothing here claims a period, so regularity
 phase-resumption do not apply; persistence through changed conditions (`byYear`) and out-of-sample
 persistence (the replications) are the two that do, and neither is cleared until the run is made.
 
+### 5.4 The intraday profile on the live rules (registered 2026-10-28, not run)
+
+**Why.** The 2026-10-28 Gann alignment audit (`/mnt/project-files/gann-alignment-audit/`, rows I-21 and
+I-22) found three of the 5.2 profile's rules departing from what every live path now does. It arms on the
+four-stage sequence, which "come[s] from the GSPS spec pack, not from Gann" and was replaced on 2026-10-15
+by his crossing rule (W006 pp. 20, 46-47). A plan lives 20 bars, while stored plans have lived their
+session since Q17 (2026-10-16). And 60% leaves at the first target, while "never fix a target price"
+(Q14) sells nothing there. The 5.2 run is spent: it failed its test on 2026-10-21. Changing its rules is
+therefore a new registration, written here before any run on them.
+
+**The rules** are 5.2's (as amended 2026-10-22), with three changes, each a replay option that is off by
+default so the 5.2 run stays reproducible:
+
+- `reactionEntry=1`. The allowance is Gann's 3 points at this scale (three intraday points). A close past
+  the old top by them crosses it. A crossed, unbroken level stays the buying point, as on the daily chart.
+  After the crossing close, a close through the stop calls the entry off. Once a closed bar has traded
+  into the zone from 1 point past the level, the buy goes at the market and fills at the next open the
+  feed's delay allows (never-failing rule 9). The stop is 3 points the other side of the level, and R is
+  the plan's own 4 points. This is the daily replay's `entryRule: "reaction"` read at this scale.
+- `sessionPlans=1`. A plan lapses when its session ends.
+- `scaleOut=0`. Nothing is sold at the first target; the whole position runs on the stop and the hourly
+  turn. The first target must still pay the risk for a trade to be taken (M-K5).
+
+Everything else is unchanged: the trend, the intraday point, the trail, the hourly exit, the broken-stop
+test, one position per symbol, the 10-session measurement bound (its timeouts are reported apart), and no
+scorecard. No figure here was searched.
+
+**Runs, when the owner asks for them.** The same three as 5.2, each with
+`profile=intraday&reactionEntry=1&sessionPlans=1&scaleOut=0`. A cell of `scripts/backtest-universe.mjs`
+carries the same options (`{"profile":"intraday","reactionEntry":true,"sessionPlans":true,"scaleOut":false}`);
+before 2026-10-28 that script dropped the intraday options, so only the route could run them.
+
+**Reading.** As 5.2, unchanged: all four conditions on the primary run, and a loss read first as a
+translation question. It measures the arming rule the live intraday timing reads. It does not measure the
+alerts themselves, which `replayIntradayAlerts.ts` measures.
+
 ### 5.3 What was not built
 
 No product surface for the intraday profile, no change to the production method or `STRATEGY_VERSION`, and
