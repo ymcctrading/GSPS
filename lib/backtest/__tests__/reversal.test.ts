@@ -65,10 +65,6 @@ describe("the replay's reversal chain stops on a series of losses (audit, NSTD R
     });
 
   it("ends the chain on three losses in a row, the series-of-losses rule", () => {
-    // A chain longer than three needs a win to reset the count, and inside one
-    // session a reversal can only lose at its stop or run to the data's end:
-    // the trailing stops move on daily readings. A multi-session win-reset
-    // fixture is left to the next replay change that touches the chain.
     const out = walk(false);
     expect(out).toHaveLength(LOSS_SERIES_LENGTH);
     expect(out.every((t) => t.outcome === "loss")).toBe(true);
@@ -76,6 +72,26 @@ describe("the replay's reversal chain stops on a series of losses (audit, NSTD R
 
   it("counts the caught trade's own loss as the first of the series", () => {
     expect(walk(true)).toHaveLength(LOSS_SERIES_LENGTH - 1);
+  });
+
+  it("resets the count on a win, so the chain runs past three reversals", () => {
+    // The second reversal (long at about 123) runs past 1R to 160, where the
+    // runner takes 60% off, and the rest is stopped: a small win, which starts
+    // the series of losses over. Three losses after it end the chain at five,
+    // where an unreset count would have stopped it at three.
+    const s = (lvl: number, down: boolean, far: number, to: number) => {
+      const d = down ? -1 : 1;
+      return [lvl, lvl + d * 0.5, lvl, lvl + d * 0.8, lvl + d * 1.2, lvl + d * 1.6, far, to];
+    };
+    const closes = [100, ...s(100, true, 102, 122), ...s(122, false, 160, 90), ...s(90, true, 92, 140), ...s(140, false, 138, 60), ...s(60, true, 62, 170), ...s(170, false, 168, 40), ...s(40, true, 42, 200)];
+    const start = Date.UTC(2026, 2, 2, 14, 30);
+    const bars: Bar[] = closes.map((c, i) => ({ t: new Date(start + i * 60_000).toISOString(), o: c, h: c + 0.1, l: c - 0.1, c, v: 1000 }));
+    const out = walkReversals({
+      bars, dailyBars: [], caughtAt: 0, side: "long", cause: "initial", brokenLevel: 100, extreme: 104,
+      maxBarsHeld: 500, costPerShare: 0, parentLost: true, runner: true,
+    });
+    expect(out.map((t) => t.outcome)).toEqual(["loss", "win", "loss", "loss", "loss"]);
+    expect(out.length).toBeGreaterThan(LOSS_SERIES_LENGTH);
   });
 });
 

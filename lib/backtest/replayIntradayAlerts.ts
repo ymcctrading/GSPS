@@ -284,7 +284,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         (a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && !a.againstDailyTrend && (!signals || signals.has(a.type)),
       );
       if (!alert) continue;
-      const point = sessionMetrics(scanInput, DEFAULT_CONFIG)?.point ?? 0;
+      const point = sessionMetrics(scanInput)?.point ?? 0;
       const entered = enterAlert({
         alert, bars, from: k + 1, at, sessionEnd: to, point, dailyBars, monthlyBars: input.monthlyBars ?? [], sharesOn: input.sharesOn,
         maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan, planEntryKind: sessionPlan?.entryKind,

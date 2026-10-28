@@ -393,7 +393,7 @@ export function hourlyChart(
 /**
  * Fold the session's bars into the handful of numbers every signal reads.
  */
-export function sessionMetrics(input: SymbolInput, _config: ScannerConfig): SessionMetrics | null {
+export function sessionMetrics(input: SymbolInput): SessionMetrics | null {
   // Equities are measured over the regular session only. The feed returns
   // pre-market bars from 04:00 ET, and anchoring on "the first bar of the day"
   // put the session's high, low and 50% point in the pre-market, where a
@@ -752,6 +752,39 @@ export interface ScanOutput {
   heldAlerts: Alert[];
 }
 
+/** Why a symbol never reached the scan: the feed had no bars yet, or the read failed. */
+export type UnreadCause = "no_bars" | "read_failed";
+
+/**
+ * The audit row for a symbol whose bars could not be read, so the panel says
+ * why it was not scanned instead of counting nothing (AIZ, 2026-10-28: one
+ * print on the delayed feed by 14:10Z, none in the window the scan asked
+ * for, and the panel read "0 checked").
+ */
+export function unreadAudit(
+  symbol: string,
+  kind: AssetKind,
+  cause: UnreadCause,
+  marketClosed: boolean,
+): SymbolAudit {
+  const reason =
+    cause === "read_failed"
+      ? "The market data read failed or timed out, so this symbol was not scanned. The next scan tries again."
+      : kind === "crypto" || marketClosed
+        ? "No bars came back for this symbol's last session, so it was not scanned."
+        : "No trades on the delayed feed yet this session (it runs about 15 minutes behind, and a thinly traded stock can go a while without a print), so this symbol was not scanned. The next scan tries again.";
+  return {
+    symbol,
+    kind,
+    outcome: "insufficient_data",
+    reason,
+    checks: [],
+    dataTimestamp: null,
+    dataAgeSeconds: null,
+    metrics: null,
+  };
+}
+
 /** ---- The scan ---------------------------------------------------------- */
 
 export function scanIntraday(
@@ -848,7 +881,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     },
   });
 
-  const metrics = sessionMetrics(input, config);
+  const metrics = sessionMetrics(input);
   if (!metrics) {
     checks.push({ name: "Session bars", passed: false, detail: "No usable bars for today." });
     return bail("insufficient_data", "No intraday data arrived for this symbol.");
