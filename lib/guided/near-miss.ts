@@ -36,7 +36,7 @@ export interface NearMiss {
   currentPrice: number;
   score: number;
   max: number;
-  /** Execute / Watch / Reject, as the scanner published it. */
+  /** Execute / Resting / Watch / Reject, the tier the lists show it in (`setupTier`). */
   verdict: string;
   /** What stops this being offered, in a beginner's words. One line each. */
   missing: string[];
@@ -132,7 +132,8 @@ export function pickNearestMiss(scans: (ScanResult | null)[]): NearMiss | null {
     currentPrice: best.result.currentPrice,
     score: best.score,
     max: best.max,
-    verdict: best.result.decision.outputState,
+    verdict:
+      best.result.decision.outputState !== "Reject" && best.result.decision.resting ? "Resting" : best.result.decision.outputState,
     missing: missingFor(best.result, best.score),
     tickerHref: tickerHref(best.result.symbol),
   };

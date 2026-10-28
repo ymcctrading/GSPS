@@ -39,7 +39,7 @@ describe("scan plans carry the reaction pair", () => {
   it("prices every equity plan at the level plus 1 point with the stop 3 points the other side", async () => {
     let checked = 0;
     let oldLevel = 0;
-    for (const symbol of ["AAPL", "MSFT", "NVDA", "AMD", "XOM", "JPM", "KO", "TSLA"]) {
+    for (const symbol of ["AAPL", "MSFT", "NVDA", "AMD", "XOM", "JPM", "KO", "TSLA", "PG"]) {
       const r = await scanTicker(symbol);
       if (!r.levels || r.direction === "none") continue;
       const sign = r.direction === "bullish" ? 1 : -1;
@@ -59,7 +59,7 @@ describe("scan plans carry the reaction pair", () => {
       checked++;
     }
     expect(checked).toBeGreaterThan(0);
-    // Both buying points reach a plan (KO's nearer one is its old bottom).
+    // Both buying points reach a plan (PG's nearer one is its old bottom).
     expect(oldLevel).toBeGreaterThan(0);
   }, 60_000);
 });

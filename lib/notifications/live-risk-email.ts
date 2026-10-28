@@ -14,6 +14,7 @@
 
 import { Resend } from "resend";
 import { fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
+import { emailBudgetHold } from "@/lib/notifications/email-budget";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -37,6 +38,8 @@ export async function sendLiveLossThresholdEmail(data: LiveLossThresholdEmailDat
     console.warn(blocked);
     return { success: false, error: blocked, skipped: true };
   }
+  const overBudget = await emailBudgetHold("trade");
+  if (overBudget) return { success: false, error: overBudget, skipped: true };
   try {
     const subject = data.hardWarning
       ? `⚠️ Live position warning: ${data.symbol} down ${data.lossPct.toFixed(1)}%`

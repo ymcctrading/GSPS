@@ -25,6 +25,7 @@ import { deliveryPushMessage, sendPushToProfile } from "@/lib/notifications/web-
 import { isPreviewEnvironment } from "@/lib/env/preview";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
+import { etDateKey } from "@/lib/market/session";
 
 export type DeliveryChannel = "email" | "sms" | "push";
 
@@ -173,8 +174,13 @@ const DISPATCHABLE_STATUSES = ["pending", "failed"];
  * The member's own filters hold a send before it goes out, on every channel:
  * quiet hours, and the minimum score for an alert (an invalidation is always
  * sent outside quiet hours, since it tells the member a tracked setup broke).
- * A held send is `skipped` with the reason, never retried. The intraday email
- * path (`notifySubscribedUsers`) already applied both; this path now does too.
+ * A held send is `skipped` with the reason, never retried. The intraday push
+ * path (`notifySubscribedUsers`) applies both too.
+ *
+ * Email is kept for what the member must act on (owner, 2026-10-28, item 6):
+ * a broken plan is emailed only when they hold the symbol, and a symbol's
+ * Execute once a New York day; the rest go by push and the bell. Every email
+ * also takes a slot of the daily budget (`lib/notifications/email-budget.ts`).
  *
  * The channel is read again at send time (2026-10-22): a row recorded before
  * the member turned the channel off (or before opt-in, migration 0109) is
@@ -219,6 +225,12 @@ export async function dispatchNotificationDelivery(
       ? await preferenceHold(service, args.profileId, payload)
       : "The member has this channel turned off.";
   }
+  if (!held && current.channel === "email" && payload.verdict === "INVALIDATED" && !(await holdsSymbol(service, args.profileId, payload.symbol))) {
+    held = INVALIDATION_EMAIL_HOLD;
+  }
+  if (!held && current.channel === "email" && payload.verdict === "Execute" && (await executeEmailedToday(service, args.profileId, payload.symbol, args.deliveryId))) {
+    held = EXECUTE_REPEAT_HOLD;
+  }
   if (held) {
     result = { success: false, skipped: true, error: held };
   } else if (current.channel === "push") {
@@ -254,6 +266,81 @@ export async function dispatchNotificationDelivery(
     .in("status", DISPATCHABLE_STATUSES);
 
   return { dispatched: true, status };
+}
+
+/**
+ * Email is kept for what a member must act on (owner, 2026-10-28, item 6). A
+ * tracked plan breaking before it was entered changes nothing they hold, so
+ * it goes by push and the bell (written for every transition); it is emailed
+ * only when the member has an open position in the symbol.
+ */
+export const INVALIDATION_EMAIL_HOLD = "A broken plan on a symbol the member doesn't hold goes by push and the bell, not email.";
+
+/**
+ * A tracked symbol turning Execute is emailed once a New York day: a monitor
+ * that drops to Watch and comes back is the same setup, and the repeat goes
+ * by push and the bell.
+ */
+export const EXECUTE_REPEAT_HOLD = "This symbol's Execute alert was already emailed today; the repeat goes by push and the bell.";
+
+/** Whether another email delivery for this member's symbol turning Execute was sent since midnight New York time. */
+export async function executeEmailedToday(
+  service: SupabaseClient,
+  profileId: string,
+  symbol: string,
+  deliveryId: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  try {
+    const { data, error } = await service
+      .from("notification_deliveries")
+      .select("id, payload, created_at")
+      .eq("profile_id", profileId)
+      .eq("channel", "email")
+      .eq("status", "sent")
+      .neq("id", deliveryId)
+      .gte("created_at", new Date(now.getTime() - 30 * 3600_000).toISOString());
+    if (error) return false;
+    const today = etDateKey(now);
+    return ((data ?? []) as { payload: { symbol?: string; verdict?: string } | null; created_at: string }[]).some(
+      (r) => r.payload?.symbol === symbol && r.payload?.verdict === "Execute" && etDateKey(new Date(r.created_at)) === today,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the member has an open position (paper or live) in the symbol. An
+ * unreadable ledger reads as held, so the email goes out rather than being
+ * dropped on a read error.
+ */
+export async function holdsSymbol(service: SupabaseClient, profileId: string, symbol: string): Promise<boolean> {
+  try {
+    const { data, error } = await service
+      .from("positions")
+      .select("symbol")
+      .eq("user_id", profileId)
+      .eq("closed", false)
+      .limit(200);
+    if (error) return true;
+    const wanted = heldSymbolKey(symbol);
+    return ((data ?? []) as { symbol: string | null }[]).some((r) => r.symbol != null && heldSymbolKey(r.symbol) === wanted);
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * One key for a symbol however a ledger row spells it: upper case without the
+ * crypto pair's slash (a live row mirrors the broker's "BTCUSD" for the scan's
+ * "BTC/USD"), and an option's OCC code read as its underlying
+ * ("AAPL251121C00200000" holds AAPL).
+ */
+export function heldSymbolKey(symbol: string): string {
+  const s = symbol.trim().toUpperCase().replace("/", "");
+  const occ = /^([A-Z.]{1,6})\d{6}[CP]\d{8}$/.exec(s);
+  return occ ? occ[1] : s;
 }
 
 /**

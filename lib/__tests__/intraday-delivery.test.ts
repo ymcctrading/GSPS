@@ -1,7 +1,7 @@
 /**
- * Email and push for the scheduled intraday scan (`notifySubscribedUsers`),
- * over an in-memory client: who receives a signal by tier and settings, that
- * each channel dedups on its own, and that quiet hours hold both.
+ * Push for the scheduled intraday scan (`notifySubscribedUsers`), over an
+ * in-memory client: who receives a signal by tier and settings, that it is
+ * never emailed (owner, 2026-10-28), its dedupe, and that quiet hours hold it.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,6 +53,7 @@ function fakeDb(tables: Record<string, Row[]>, users: string[]) {
       select: () => chain,
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), chain),
       gte: (c: string, v: string) => (filters.push((r) => String(r[c]) >= v), chain),
+      in: (c: string, v: unknown[]) => (filters.push((r) => v.includes(r[c])), chain),
       limit: () => chain,
       then: (resolve: (v: ReturnType<typeof result>) => void) => resolve(result()),
       insert: async (row: Row) => {
@@ -115,65 +116,42 @@ const prefs = () => ({
   notification_log: [] as Row[],
 });
 
-describe("intraday email and push", () => {
-  it("reaches members by tier: Expert on both channels, Novice never, Pro only on a confirmed bar", async () => {
+describe("intraday push", () => {
+  it("reaches members by tier: Expert, Novice never, Pro only on a confirmed bar; never by email", async () => {
     const db = fakeDb(prefs(), users);
     const sent = await notifySubscribedUsers(db.client, [alert("SPY")], { intervalBySymbol: new Map([["SPY", 1]]), now });
-    expect(emails.sort()).toEqual(["expert-a@example.com", "expert-nobrowser@example.com"]);
+    expect(emails).toEqual([]);
     expect(pushes.map((p) => p.userId)).toEqual(["expert-a"]);
     expect(pushes[0].title).toContain("SPY intraday, up");
-    expect(sent).toEqual({ email: 2, push: 1 });
-    // A member with no subscribed browser leaves no push row.
-    expect(db.tables.notification_log.filter((r) => r.channel === "push")).toHaveLength(1);
+    expect(sent).toEqual({ push: 1 });
+    // A member with no subscribed browser leaves no row; no email row at all.
+    expect(db.tables.notification_log.map((r) => r.channel)).toEqual(["push"]);
 
-    emails.length = 0;
+    pushes.length = 0;
     await notifySubscribedUsers(fakeDb(prefs(), users).client, [alert("SPY")], {
       intervalBySymbol: new Map([["SPY", 15]]),
       now,
     });
-    expect(emails).toContain("pro-c@example.com");
-    expect(emails).not.toContain("novice-b@example.com");
+    expect(pushes.map((p) => p.userId).sort()).toEqual(["expert-a", "pro-c"]);
+    expect(emails).toEqual([]);
   });
 
-  it("dedups each channel on its own, and holds both in quiet hours and under the score floor", async () => {
+  it("dedups the move, and holds it in quiet hours and under the score floor", async () => {
     const db = fakeDb(prefs(), users);
     const args = { intervalBySymbol: new Map([["SPY", 1]]), now };
     await notifySubscribedUsers(db.client, [alert("SPY")], args);
-    expect(await notifySubscribedUsers(db.client, [alert("SPY")], args)).toEqual({ email: 0, push: 0 });
+    expect(await notifySubscribedUsers(db.client, [alert("SPY")], args)).toEqual({ push: 0 });
 
     quiet.add("expert-a");
-    expect(await notifySubscribedUsers(fakeDb(prefs(), ["expert-a"]).client, [alert("SPY")], args)).toEqual({
-      email: 0,
-      push: 0,
-    });
+    expect(await notifySubscribedUsers(fakeDb(prefs(), ["expert-a"]).client, [alert("SPY")], args)).toEqual({ push: 0 });
     quiet.clear();
     // Confidence 40 reads 4 of 9, under the floor of 5.
-    expect(await notifySubscribedUsers(fakeDb(prefs(), ["expert-a"]).client, [alert("SPY", 40)], args)).toEqual({
-      email: 0,
-      push: 0,
-    });
+    expect(await notifySubscribedUsers(fakeDb(prefs(), ["expert-a"]).client, [alert("SPY", 40)], args)).toEqual({ push: 0 });
   });
 
-  it("logs no email row when the sender is not deliverable, as for push", async () => {
-    tierByUser.set("expert-nosender", "expert");
-    // Email on, so the test reads the skip, not email being off.
-    const db = fakeDb(
-      {
-        notification_preferences: [
-          { user_id: "expert-nosender", email_enabled: true, push_enabled: false, min_score: 5, quiet_hours_enabled: false },
-        ],
-        notification_log: [],
-      },
-      ["expert-nosender"],
-    );
-    const sent = await notifySubscribedUsers(db.client, [alert("SPY")], { intervalBySymbol: new Map(), now });
-    expect(sent).toEqual({ email: 0, push: 0 });
-    expect(db.tables.notification_log).toHaveLength(0);
-  });
-
-  it("sends nothing to a member who never saved settings (email and push are opt-in)", async () => {
+  it("sends nothing to a member who never saved settings (push is opt-in)", async () => {
     const db = fakeDb({ notification_preferences: [], notification_log: [] }, ["expert-a"]);
     const sent = await notifySubscribedUsers(db.client, [alert("SPY")], { intervalBySymbol: new Map(), now });
-    expect(sent).toEqual({ email: 0, push: 0 });
+    expect(sent).toEqual({ push: 0 });
   });
 });

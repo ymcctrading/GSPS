@@ -310,6 +310,13 @@ export interface ScanDecision {
   /** Derived from `outputState` and the direction, never scored on its own. */
   decisionState?: DecisionState;
   /**
+   * True when the plan would be Execute but its entry rests more than a day's
+   * range from price, its indication shown: an order resting at its level
+   * (`applyReadyNowHold`; `setupTier`, `lib/setups/resting.ts`). The verdict
+   * reads Watch; the lists show it as the Resting tier.
+   */
+  resting?: boolean;
+  /**
    * Server-only. `redactDecision` empties this before a decision crosses an
    * API boundary — see lib/scoring/public-summary.ts.
    */

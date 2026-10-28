@@ -23,6 +23,7 @@ import type { ScanResult } from "@/lib/types";
 import type { CompanySnapshot } from "@/lib/data/company";
 import { isEtfSymbol } from "@/lib/sectors";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
+import { tierOfDecision } from "@/lib/setups/resting";
 
 export function CompanyPanel({
   symbol,
@@ -326,7 +327,7 @@ function blendConviction(
   return {
     label,
     blended,
-    structuralNote: `${result.decision.outputState} · ${formatScore(result.decision.score, exactScoreDisplayEnabled)}/${SCORE_MAX} ${bullish ? "bullish" : "bearish"}`,
+    structuralNote: `${tierOfDecision(result.decision)} · ${formatScore(result.decision.score, exactScoreDisplayEnabled)}/${SCORE_MAX} ${bullish ? "bullish" : "bearish"}`,
     fundamentalNote: `${snapshot.analystRating.consensus} (${snapshot.analystRating.totalAnalysts} analysts) — ${fundamentalAgrees ? "agrees" : "disagrees"}`,
     flowNote: `${snapshot.institutionalOwnership.buyPercent.toFixed(0)}% institutions buying — ${flowAgrees ? "agrees" : "disagrees"}`,
   };

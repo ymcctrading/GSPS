@@ -878,6 +878,24 @@
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
 // whose expiry it keeps.
 // (was STRATEGY_VERSION "2026-10-28-plan-at-close-on-plan-expiry")
+// 2026-10-28-double-bottom-weeks: a double or triple bottom (top) rests
+// its order only once the bottom is two weeks old by the session the order
+// rests for (DOUBLE_BOTTOM_MIN_DAYS): "the same level weeks, months or a year
+// or more apart" (W006 p.20, A-ENTRY-02). The six-year daily rerun's first
+// quarter (2026-10-28) had old-bottom entries at -0.076R over 4,856 trades.
+// Plans and replay trades move.
+// (was STRATEGY_VERSION "2026-10-28-double-bottom-weeks")
+// 2026-10-28-gann-groups-by-industry: P3(c)'s group rank (S4) reads the
+// platform's industries (`lib/universe/industries.ts`: the SEC codes with the
+// misfiled businesses corrected, Alphabet with the social media names,
+// ConocoPhillips with the producers) instead of the raw codes, pooling a
+// sector's small industries when they reach five together
+// (`buildIndustryGroupMap`). 821 of 832 universe stocks in 71 groups (was 762
+// in 58). Live verdicts and replay trades move where a stock's group changed.
+// (was STRATEGY_VERSION "2026-10-28-gann-groups-by-industry", built alone)
+// 2026-10-28-groups-by-industry-on-double-bottom-weeks: both of the above,
+// merged in the 2026-10-28 release. No new rule.
+// (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
 // 2026-10-28-gann-one-class-per-company (gann-alignment-audit H9): the
 // relative strength rank counts each company once, so GOOG and GOOGL are no
 // longer each other's peers in the universe or the group (Truth of the Stock
@@ -885,4 +903,10 @@
 // move for those two; the market scan's coarse pre-filter now reads a held
 // level and the 50% of the major range (SUS-01, SUS-02), which changes which
 // stocks the daytime scan scores first, not any stock's verdict.
-export const STRATEGY_VERSION = "2026-10-28-gann-one-class-per-company";
+// (built alone as "2026-10-28-gann-one-class-per-company")
+// 2026-10-28-one-class-on-groups-by-industry: the share-class rule above,
+// merged onto the release that groups by industry and waits two weeks for a
+// double bottom, whose rules it keeps. The coarse pre-filter's held level reads
+// the full scan's old levels (review of #511), which orders the daytime scan
+// and moves no verdict.
+export const STRATEGY_VERSION = "2026-10-28-one-class-on-groups-by-industry";

@@ -14,7 +14,17 @@
  *                          verdict bucket — mutually exclusive with `within`
  *   ?since=2026-06-15      replay only bars at or after this instant
  *   ?productionStop=1      walk the leeway/large-cap-widened stop instead of
- *                          the raw pattern one — see ReplayOptions.useProductionStop
+ *                          the raw pattern one — see ReplayOptions.useProductionStop.
+ *                          Changes nothing under the default reaction entry,
+ *                          whose stop is the plan's own
+ *   ?planLevels=0          trade a bracket built from `targetR` instead of the
+ *                          plan production attaches. Default on (2026-10-28):
+ *                          the plan's TP1 and its refusals (no plan, TP1 not
+ *                          past the entry) as production applies them, so the
+ *                          Test page measures what the app trades. See
+ *                          ReplayOptions.usePlanLevels. `targetR` is then
+ *                          unused, as it is under Gann's exits (the default),
+ *                          which fix no target
  *   ?entryRule=stop        fill on the old resting stop or the retest-and-hold
  *   ?entryRule=confirmed   sequence instead of the reaction buy every path
  *                          uses since PLAN.md item 4. See ReplayOptions.entryRule
@@ -76,20 +86,17 @@ import {
 import { byOutputState, byScoreRange, resolveDisableExits } from "@/lib/backtest/replay";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { replayOvernightForUniverse } from "@/lib/backtest/replayOvernight";
+import { toPublicReport, planLevelsParam } from "@/lib/backtest/factorLabels";
 import { isTimeframe } from "@/lib/timeframe";
 import { verifyAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { MAX_TEST_SYMBOLS, quotesOnlyRefusal } from "@/lib/universe/selection";
 
 const DEFAULT_UNIVERSE = ["SPY", "AAPL", "AMD", "TSLA", "MSFT", "NVDA"];
 
-/**
- * A run is O(bars × symbols) and holds the request open the whole time. Past
- * this many symbols the route reliably outlives the platform's function
- * timeout and the caller gets a gateway error instead of a partial answer, so
- * it is rejected up front with a message that says what to do about it.
- */
-const MAX_SYMBOLS = 12;
+/** See `lib/universe/selection.ts#MAX_TEST_SYMBOLS`; the Test page fills to it. */
+const MAX_SYMBOLS = MAX_TEST_SYMBOLS;
 
 export async function GET(req: NextRequest) {
   const userId = await verifyAuth();
@@ -115,6 +122,11 @@ export async function GET(req: NextRequest) {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   const universe = symbols.length > 0 ? symbols : DEFAULT_UNIVERSE;
+
+  const quotesOnly = quotesOnlyRefusal(universe);
+  if (quotesOnly) {
+    return NextResponse.json({ error: quotesOnly }, { status: 400 });
+  }
 
   if (universe.length > MAX_SYMBOLS) {
     return NextResponse.json(
@@ -229,6 +241,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "scaleOut applies to profile=intraday only" }, { status: 400 });
   }
 
+  const planLevelsRaw = searchParams.get("planLevels");
+  const usePlanLevels = planLevelsParam(planLevelsRaw);
   const productionStopRaw = searchParams.get("productionStop");
   const useProductionStop = productionStopRaw !== null && productionStopRaw !== "0" && productionStopRaw !== "false";
   const wantTrades = searchParams.get("trades") === "1";
@@ -289,7 +303,9 @@ export async function GET(req: NextRequest) {
         symbols: universe,
         timeframe,
         targetR,
+        usePlanLevels,
         ...(since !== null ? { since } : {}),
+        ...(useProductionStop ? { useProductionStop } : {}),
         ...(entryRule ? { entryRule } : {}),
         ...(exitRule ? { exitRule } : {}),
         ...(tradeStyle ? { tradeStyle } : {}),
@@ -334,6 +350,7 @@ export async function GET(req: NextRequest) {
       ...(scoreRange ? { attributeScoreRange: scoreRange } : {}),
       ...(since !== null ? { since } : {}),
       ...(useProductionStop ? { useProductionStop } : {}),
+      usePlanLevels,
       ...(entryRule ? { entryRule } : {}),
       ...(exitRule ? { exitRule } : {}),
       ...(tradeStyle ? { tradeStyle } : {}),
@@ -344,7 +361,8 @@ export async function GET(req: NextRequest) {
       ...(scaleOut === false ? { scaleOut } : {}),
       ...(includeSlippageSensitivity ? { includeSlippageSensitivity } : {}),
     });
-    return NextResponse.json(report);
+    // The whitelisted report: plain factor names, no internal ids (lib/backtest/factorLabels.ts).
+    return NextResponse.json(toPublicReport(report));
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
