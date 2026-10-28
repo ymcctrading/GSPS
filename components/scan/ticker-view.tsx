@@ -71,7 +71,9 @@ export function TickerView({ symbol }: { symbol: string }) {
   // the intraday panel's current alert for this symbol, offered as a trade.
   // Not the link's levels: once the alert no longer stands, its lines would
   // describe a plan the panel no longer offers.
-  const [chartIntradayPlan, setChartIntradayPlan] = useState<IntradayChartPlan | null>(null);
+  // Undefined until the panel answers, and for a plan without intraday access:
+  // the chart then keeps the daily plan on every timeframe.
+  const [chartIntradayPlan, setChartIntradayPlan] = useState<IntradayChartPlan | null | undefined>(undefined);
 
   // Suppress render until hydrated to prevent client/server mismatch flicker
   useLayoutEffect(() => {

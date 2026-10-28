@@ -97,9 +97,12 @@ export const PICKABLE_TRADE_STYLES: readonly DailyTradeStyle[] = ["swing"];
  * A trade filled in Fast before this time keeps its day trail until it closes
  * (`styleAt`), so no open trade is re-managed; a fill at or after it is Swing
  * whatever was saved. The Fast profile, its trail and the replay's
- * `tradeStyle: "fast"` stay for those trades and for measurement.
+ * `tradeStyle: "fast"` stay for those trades and for measurement. The time
+ * is set after this change deploys, never before it: a fill between the time
+ * and the deploy is trailed as Fast by the code then running, and reading it
+ * as Swing afterwards would switch it mid-trade.
  */
-export const FAST_RETIRED_AT = "2026-10-28T00:30:00Z";
+export const FAST_RETIRED_AT = "2026-10-29T00:00:00Z";
 
 export const DEFAULT_TRADE_STYLE: DailyTradeStyle = "swing";
 

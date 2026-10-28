@@ -20,7 +20,7 @@ import {
 } from "@/lib/scanner/intradayDisplay";
 import type { Alert, RecentSystemAlert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
 import { buildIntradayCardModel, intradayChartPlan, isReversalRisk } from "@/lib/setups/intraday";
-import type { IntradayChartPlan } from "@/lib/chart/planForTimeframe";
+import { panelChartPlan, type IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";
 import { intradayTradeHref, tickerHref } from "@/lib/routes";
@@ -72,7 +72,7 @@ export function IntradayAlerts({
    * Reports the plan the chart draws on intraday timeframes for the one symbol
    * shown (`intradayChartPlan`); the ticker page passes it to the chart.
    */
-  onChartPlan?: (plan: IntradayChartPlan | null) => void;
+  onChartPlan?: (plan: IntradayChartPlan | null | undefined) => void;
   /** Render nothing for a plan without intraday access (the ticker page). */
   hideWhenLocked?: boolean;
   title?: string;
@@ -157,8 +157,12 @@ export function IntradayAlerts({
 
   const chartSymbol = symbols?.length === 1 ? symbols[0] : null;
   const chartPlan = useMemo(
-    () => (chartSymbol && !locked ? intradayChartPlan(chartSymbol, output ? shown : null, recent) : null),
-    [chartSymbol, locked, output, shown, recent],
+    () =>
+      panelChartPlan(
+        { symbol: chartSymbol, known: budgetKnown, locked: locked != null, failed: error != null && !output },
+        (symbol) => intradayChartPlan(symbol, output ? shown : null, recent),
+      ),
+    [chartSymbol, budgetKnown, locked, error, output, shown, recent],
   );
   useEffect(() => {
     onChartPlan?.(chartPlan);

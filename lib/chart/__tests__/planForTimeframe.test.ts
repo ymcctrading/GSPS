@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { intradayMarkers, isIntradayChart, markersForTimeframe, type PlanMarker } from "@/lib/chart/planForTimeframe";
+import {
+  intradayMarkers,
+  isIntradayChart,
+  markersForTimeframe,
+  panelChartPlan,
+  type PlanMarker,
+} from "@/lib/chart/planForTimeframe";
 
 const daily: PlanMarker[] = [
   { price: 100, label: "Entry", kind: "entry" },
@@ -41,5 +47,27 @@ describe("intradayMarkers", () => {
     ]);
     expect(intradayMarkers(null)).toEqual([]);
     expect(intradayMarkers({ entry: NaN, stop: 0, firstTarget: -1, masterTarget: null })).toEqual([]);
+  });
+});
+
+describe("panelChartPlan", () => {
+  const plan = { entry: 101.2, stop: 100.4, firstTarget: 102.5, masterTarget: 103 };
+  const answered = { symbol: "SPY", known: true, locked: false, failed: false };
+
+  it("gives the chart the panel's alert, or null when none stands", () => {
+    expect(panelChartPlan(answered, () => plan)).toEqual(plan);
+    expect(panelChartPlan(answered, () => null)).toBeNull();
+  });
+
+  it("leaves the daily plan on every timeframe for a viewer without intraday access", () => {
+    const locked = panelChartPlan({ ...answered, locked: true }, () => plan);
+    expect(locked).toBeUndefined();
+    expect(intradayMarkers(locked)).toBeUndefined();
+  });
+
+  it("has no say before the panel answers, when its read failed, or for several symbols", () => {
+    expect(panelChartPlan({ ...answered, known: false }, () => plan)).toBeUndefined();
+    expect(panelChartPlan({ ...answered, failed: true }, () => plan)).toBeUndefined();
+    expect(panelChartPlan({ ...answered, symbol: null }, () => plan)).toBeUndefined();
   });
 });

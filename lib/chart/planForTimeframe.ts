@@ -43,8 +43,31 @@ export function isIntradayChart(timeframe: Timeframe): boolean {
 
 const usable = (n: number | null): n is number => n != null && Number.isFinite(n) && n > 0;
 
-/** The intraday plan as chart lines, each labelled Intraday. */
-export function intradayMarkers(plan: IntradayChartPlan | null): PlanMarker[] {
+/**
+ * The intraday plan the chart is given, read from the intraday panel's state.
+ * `undefined` means the panel has no say: it covers several symbols, its
+ * answer hasn't come, the plan has no intraday access (Novice, or not signed
+ * in), or its read failed. Then the chart keeps the daily plan on every
+ * timeframe, as the public chart does, since the intraday charts time the
+ * daily plan (Master Course Ch. 13). `null` means the panel answered and no
+ * alert stands for the symbol.
+ */
+export function panelChartPlan(
+  panel: { symbol: string | null; known: boolean; locked: boolean; failed: boolean },
+  read: (symbol: string) => IntradayChartPlan | null,
+): IntradayChartPlan | null | undefined {
+  if (!panel.symbol || !panel.known || panel.locked || panel.failed) return undefined;
+  return read(panel.symbol);
+}
+
+/**
+ * The intraday plan as chart lines, each labelled Intraday; `undefined` (the
+ * panel has no say) stays `undefined`, so the chart draws the daily plan.
+ */
+export function intradayMarkers(plan: IntradayChartPlan | null): PlanMarker[];
+export function intradayMarkers(plan: IntradayChartPlan | null | undefined): PlanMarker[] | undefined;
+export function intradayMarkers(plan: IntradayChartPlan | null | undefined): PlanMarker[] | undefined {
+  if (plan === undefined) return undefined;
   if (!plan) return [];
   const out: PlanMarker[] = [];
   if (usable(plan.entry)) out.push({ price: plan.entry, label: "Intraday entry", kind: "entry" });
