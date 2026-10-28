@@ -1254,8 +1254,9 @@ share: `/mnt/project-files/gann-alignment-audit/scan-universe-selection.md`).**
 The market scan's coarse pre-filter read two things Gann does not: a reversion
 took its level point from price merely near a daily level, and a continuation
 ranked on the 50% points of the last 20 and 50 bars and a 1.2 ATR travel.
-Now the level point needs the level held (`readHeldLevel`, as `historicalSR`
-reads it since 2026-10-21; W006 p.20), and a continuation ranks on holding a
+Now the level point needs one of the full scan's old levels held (`readHeldLevel`
+on `oldStructuralLevels`, as `historicalSR` reads it since 2026-10-21; W006
+p.20; the weekly chart rolled from the sessions, the coarse pass's one gap), and a continuation ranks on holding a
 point beyond the 50% of the extreme range and beyond half the highest price
 (*Commodities* pp.35-37; Master Course PDF 11, 264-267), on the monthly record
 when it has landed. This orders the daytime scan; no stock's verdict moves.

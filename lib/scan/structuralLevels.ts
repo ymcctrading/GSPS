@@ -26,21 +26,25 @@ export interface StructuralLevel {
   timeframe: Timeframe;
 }
 
-export function buildStructuralLevels(input: {
-  trends: { daily: TrendReading; weekly: TrendReading; monthly: TrendReading };
+const pivots = (t: TrendReading): StructuralLevel[] => [
+  ...t.support.map((p) => ({ price: p, timeframe: t.timeframe })),
+  ...t.resistance.map((p) => ({ price: p, timeframe: t.timeframe })),
+];
+
+/**
+ * The old levels alone (`historicalSR`'s, `heldLevel.ts`), without the
+ * lattices, for a reader that needs only these: the market scan's coarse
+ * pre-filter reads its held level against them, as the full scan does.
+ */
+export function oldStructuralLevels(input: {
+  trends: { weekly: TrendReading; monthly: TrendReading };
   charts: { daily: Bar[]; monthly: Bar[] };
   campaign: CampaignLedger | null;
   price: number;
   asOf: Date;
-  /** The stored company name, for its name chart (A-OTHER-08); absent for no stored name. */
-  companyName?: string | null;
-}): { all: StructuralLevel[]; old: StructuralLevel[] } {
-  const { trends, charts, campaign, price, asOf, companyName = null } = input;
-  const pivots = (t: TrendReading) => [
-    ...t.support.map((p) => ({ price: p, timeframe: t.timeframe })),
-    ...t.resistance.map((p) => ({ price: p, timeframe: t.timeframe })),
-  ];
-  const old: StructuralLevel[] = [
+}): StructuralLevel[] {
+  const { trends, charts, campaign, price, asOf } = input;
+  return [
     ...pivots(trends.weekly),
     ...pivots(trends.monthly),
     // Gann's major percentage-of-price levels, anchored on the monthly
@@ -51,6 +55,19 @@ export function buildStructuralLevels(input: {
     // The campaign's secondary rally top (reaction bottom), A-LEVELS-02.
     ...secondaryTurnLevels(campaign).map((p) => ({ price: p, timeframe: "1Week" as const })),
   ];
+}
+
+export function buildStructuralLevels(input: {
+  trends: { daily: TrendReading; weekly: TrendReading; monthly: TrendReading };
+  charts: { daily: Bar[]; monthly: Bar[] };
+  campaign: CampaignLedger | null;
+  price: number;
+  asOf: Date;
+  /** The stored company name, for its name chart (A-OTHER-08); absent for no stored name. */
+  companyName?: string | null;
+}): { all: StructuralLevel[]; old: StructuralLevel[] } {
+  const { trends, charts, campaign, price, asOf, companyName = null } = input;
+  const old = oldStructuralLevels({ trends, charts, campaign, price, asOf });
   const all: StructuralLevel[] = [
     ...pivots(trends.daily),
     ...old,

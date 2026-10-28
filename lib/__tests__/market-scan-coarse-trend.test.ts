@@ -8,16 +8,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bar } from "@/lib/types";
 
 const dirs: Record<string, "bullish" | "bearish" | "sideways"> = {};
-/** Pinned daily support and resistance levels, when a test sets them. */
+/** Pinned support and resistance levels on one timeframe (`pinTf`), when a test sets them. */
 let support: number[] | null = null;
 let resistance: number[] | null = null;
+let pinTf = "1Week";
 vi.mock("@/lib/analysis/trend", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/analysis/trend")>();
   return {
     ...actual,
     readTrend: (bars: Bar[], tf: string) => {
       const r = actual.readTrend(bars, tf as never);
-      const pinned = tf === "1Day" ? { ...r, ...(support ? { support } : {}), ...(resistance ? { resistance } : {}) } : r;
+      const pinned = tf === pinTf ? { ...r, ...(support ? { support } : {}), ...(resistance ? { resistance } : {}) } : r;
       return dirs[tf] ? { ...pinned, direction: dirs[tf] } : pinned;
     },
   };
@@ -50,6 +51,7 @@ beforeEach(() => {
   for (const k of Object.keys(dirs)) delete dirs[k];
   support = null;
   resistance = null;
+  pinTf = "1Week";
 });
 
 describe("the coarse pass's trend", () => {
@@ -250,6 +252,18 @@ describe("the reversion's level point needs a level held (gann-alignment-audit S
     resistance = [260];
     const none = coarseReversion("X", mirrored, short, "bullish");
     expect(held).toMatchObject({ direction: "bearish", coarseScore: (none?.coarseScore ?? 1) + 2 });
+  });
+
+  it("reads the full scan's old levels: a weekly pivot counts, a daily pivot does not", () => {
+    Object.assign(dirs, { "1Week": "bearish" });
+    support = [100];
+    const weekly = coarseReversion("X", reaction(100, 104), window, "bearish");
+    pinTf = "1Day";
+    const daily = coarseReversion("X", reaction(100, 104), window, "bearish");
+    support = [60];
+    const none = coarseReversion("X", reaction(100, 104), window, "bearish");
+    expect(weekly?.coarseScore).toBe((none?.coarseScore ?? 1) + 2);
+    expect(daily?.coarseScore ?? 0).toBe(none?.coarseScore ?? 0);
   });
 
   it("does not score a level price is merely near once a close went 3 points through it", () => {

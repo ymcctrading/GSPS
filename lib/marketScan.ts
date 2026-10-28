@@ -57,8 +57,11 @@ import {
   type TimeCycleResult,
   type YearCycleConvergence,
 } from "@/lib/gann/timeCycles";
-import { entryChartBars, gannMacroDirection, isWithGannTrend, trendsFromBars } from "@/lib/scan/entrySelection";
+import { gannMacroDirection, isWithGannTrend, trendsFromBars } from "@/lib/scan/entrySelection";
 import { readHeldLevel } from "@/lib/gann/heldLevel";
+import { oldStructuralLevels, type StructuralLevel } from "@/lib/scan/structuralLevels";
+import { toWeeklyBars } from "@/lib/gann/disclosedRules";
+import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 import { gannPoint } from "@/lib/gann/pointScale";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
@@ -355,6 +358,8 @@ export function coarseReversion(
   trendRead?: "bullish" | "bearish" | "sideways",
   /** The coarse pass's clock: completed sessions are those before its New York day. */
   asOf: Date = new Date(),
+  /** The symbol's monthly bars once the coarse monthly fetch has landed, for the old levels. */
+  monthly: Bar[] = [],
 ): CoarseCandidate | null {
   if (daily.length < 60) return null;
   if (!tradeable(daily)) return null;
@@ -366,9 +371,25 @@ export function coarseReversion(
   // the better one is kept; the full scan still picks the side it arms.
   const sides: ("bullish" | "bearish")[] =
     trendDirection === "sideways" ? ["bullish", "bearish"] : [trendDirection === "bearish" ? "bullish" : "bearish"];
+  // Completed sessions only, as the full scan reads its daily charts.
+  const today = etDateKey(asOf);
+  const sessions = daily.filter((b) => b.t.slice(0, 10) < today);
+  // The old levels the full scan's `historicalSR` reads (`oldStructuralLevels`,
+  // the same builder): the weekly and monthly pivots, the percentage levels,
+  // the campaign bottoms and the secondary turn. The weekly chart is rolled
+  // from the year of sessions (the coarse pass has no weekly fetch), and with
+  // no monthly bars yet the monthly pivots and campaign bottoms are absent:
+  // both documented gaps of this pre-filter, as in `coarseTrendDirection`.
+  const oldLevels = oldStructuralLevels({
+    trends: { weekly: readTrend(toWeeklyBars(sessions), "1Week"), monthly: readTrend(monthly, "1Month") },
+    charts: { daily: sessions, monthly },
+    campaign: buildCampaignLedger(sessions),
+    price,
+    asOf,
+  });
   let best: CoarseCandidate | null = null;
   for (const direction of sides) {
-    const score = reversionScore(daily, price, direction, cycles, asOf);
+    const score = reversionScore(sessions, price, direction, cycles, asOf, oldLevels);
     if (score >= 3 && (best === null || score > best.coarseScore)) {
       best = { symbol, direction, kind: "reversion", coarseScore: score };
     }
@@ -376,11 +397,14 @@ export function coarseReversion(
   return best;
 }
 
-function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bearish", cycles: TimeCycleResult | undefined, asOf: Date): number {
-  // Completed sessions only, as the full scan reads a held level.
-  const sessions = entryChartBars(daily, etDateKey(asOf));
-  // Support and resistance still come from the daily chart's tops and bottoms.
-  const trend = readTrend(daily, "1Day");
+function reversionScore(
+  sessions: Bar[],
+  price: number,
+  direction: "bullish" | "bearish",
+  cycles: TimeCycleResult | undefined,
+  asOf: Date,
+  oldLevels: StructuralLevel[],
+): number {
 
   let score = 0;
 
@@ -397,7 +421,7 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   // Proximity to a Gann fan line: within Gann's 3-point allowance, the band
   // the full scan's level criteria use (N#27), so a symbol that clears this
   // coarse gate is likely to clear the real one too.
-  const fans = computeFanLines(daily, price);
+  const fans = computeFanLines(sessions, price);
   if (fans.length > 0 && fans[0].distancePct <= levelBandPct(price)) score += 2;
   // Same anchor convention and rule as the full scan's volumeClimax
   // criterion (lib/scoring/score.ts): Gann's volume rule at the turn, drying
@@ -406,7 +430,7 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   // Completed sessions, as the full scan reads them. The coarse pass has no
   // monthly bars, so the smallest-month-in-years bottom (A-VOLUME-09) is read
   // only by the full scan: a documented live-only gap in this pre-filter.
-  const climax = computeVolumeClimax(daily, undefined, { asOf: new Date() }).find((r) => r.anchorKind === climaxAnchorKind);
+  const climax = computeVolumeClimax(sessions, undefined, { asOf }).find((r) => r.anchorKind === climaxAnchorKind);
   if (climax?.confirms) score += 2;
 
   // An old level the last reaction stopped at and held, read as the full
@@ -414,9 +438,9 @@ function reversionScore(daily: Bar[], price: number, direction: "bullish" | "bea
   // p.46): Gann confirms a level by price acting there, never by nearness
   // (gann-alignment-audit SUS-01, 2026-10-28). Until then this point passed
   // whenever price sat inside the band of any daily level, so the pre-filter
-  // picked a different population from the one the full scan passes.
-  const levels = (direction === "bullish" ? trend.support : trend.resistance).map((l) => ({ price: l, timeframe: "1Day" as const }));
-  if (readHeldLevel(sessions, levels, price, direction)) score += 2;
+  // picked a different population from the one the full scan passes. The
+  // levels are the full scan's old levels, not the daily pivots (review of #511).
+  if (readHeldLevel(sessions, oldLevels, price, direction)) score += 2;
 
   score += cycleBonus(direction, cycles);
   return score;
@@ -1202,7 +1226,7 @@ export async function runMarketScan(
       // One trend read per symbol, shared by both gates and the telemetry.
       const monthly = monthlyAtCoarse?.get(symbol.toUpperCase());
       const trendRead = daily.length >= 60 ? coarseTrendDirection(daily, monthly) : "sideways";
-      const reversion = coarseReversion(symbol, daily, cycles, trendRead, coarseAsOf);
+      const reversion = coarseReversion(symbol, daily, cycles, trendRead, coarseAsOf, monthly ?? []);
       // Gann's early leaders (A-SELECTION-02/-03), read only for the candidates
       // the shortlist cut ranks: a few array scans over bars already here.
       const leadership: LeadershipReading | null = reversion
