@@ -71,6 +71,11 @@ export interface ShadowDay {
 
 export interface ShadowTotals {
   calls: number;
+  /**
+   * Distinct plans among the calls: a plan still published the next session is
+   * recorded again as that session's call, so the calls count each repeat.
+   */
+  plans: number;
   decided: number;
   wins: number;
   losses: number;
@@ -153,8 +158,10 @@ export function buildShadowDays(rows: readonly ShadowRecordRow[]): ShadowDay[] {
 
 /** The record's totals over the days given. Pure. */
 export function shadowTotals(days: readonly ShadowDay[]): ShadowTotals {
-  const t: ShadowTotals = { calls: 0, decided: 0, wins: 0, losses: 0, timeouts: 0, held: 0, expired: 0, retired: 0, unread: 0, totalR: 0, averageR: null, winRate: null };
+  const t: ShadowTotals = { calls: 0, plans: 0, decided: 0, wins: 0, losses: 0, timeouts: 0, held: 0, expired: 0, retired: 0, unread: 0, totalR: 0, averageR: null, winRate: null };
+  const plans = new Set<string>();
   for (const d of days) {
+    for (const c of d.items) plans.add(`${c.symbol}|${c.side}|${c.entry}|${c.stop}|${c.version}`);
     t.calls += d.calls;
     t.wins += d.wins;
     t.losses += d.losses;
@@ -165,6 +172,7 @@ export function shadowTotals(days: readonly ShadowDay[]): ShadowTotals {
     t.unread += d.unread;
     t.totalR += d.totalR;
   }
+  t.plans = plans.size;
   t.decided = t.wins + t.losses + t.timeouts;
   if (t.decided > 0) {
     t.averageR = t.totalR / t.decided;

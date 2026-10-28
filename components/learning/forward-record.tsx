@@ -95,7 +95,7 @@ export function ForwardRecord() {
         {error && <p className="text-sm text-bear">{error}</p>}
         {t && (
           <p className="text-sm">
-            {t.calls} calls since {data.since}: {t.decided} decided ({t.wins} won, {t.losses} lost,{" "}
+            {t.calls} calls ({t.plans} distinct plans) since {data.since}: {t.decided} decided ({t.wins} won, {t.losses} lost,{" "}
             {t.timeouts} out at the time limit), {t.held} still open, {t.expired} never filled,{" "}
             {t.retired} called off by the stop, {t.unread} not read yet. Total{" "}
             <span className={tone(t.decided ? t.totalR : null)}>{t.decided ? rText(t.totalR) : "—"}</span>, average{" "}

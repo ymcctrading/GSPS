@@ -45,8 +45,19 @@ describe("forward test daily record", () => {
     expect(days[0].averageR).toBeNull();
 
     const t = shadowTotals(days);
-    expect(t).toMatchObject({ calls: 7, decided: 3, wins: 1, losses: 1, timeouts: 1, unread: 1 });
+    expect(t).toMatchObject({ calls: 7, plans: 7, decided: 3, wins: 1, losses: 1, timeouts: 1, unread: 1 });
     expect(t.winRate).toBeCloseTo(1 / 3);
+  });
+
+  it("counts a plan recorded on several sessions once among the plans", () => {
+    const t = shadowTotals(
+      buildShadowDays([
+        row({ session_date: "2026-10-26", outcome: "expired" }),
+        row({ session_date: "2026-10-27", outcome: "expired" }),
+        row({ symbol: "BBB", session_date: "2026-10-27" }),
+      ]),
+    );
+    expect(t).toMatchObject({ calls: 3, plans: 2 });
   });
 
   it("labels the rule version, never its internal name", () => {
