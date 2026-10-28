@@ -500,14 +500,16 @@ function lastPriorBar(daily: Bar[] | undefined): Bar | null {
   return null;
 }
 
-/** 09:30 and 16:00 ET, as minutes since midnight. */
+/** 09:30 and 16:00 ET (1:00 PM on an NYSE early close), as minutes since midnight. */
 const REGULAR_OPEN_MINUTE = 9 * 60 + 30;
 const REGULAR_CLOSE_MINUTE = 16 * 60;
+const EARLY_CLOSE_MINUTE = 13 * 60;
 
-/** True when a bar printed inside the US equity regular session. */
+/** True when a bar printed inside the US equity regular session, early closes included. */
 function isRegularSession(at: Date): boolean {
   const { minutes } = etParts(at);
-  return minutes >= REGULAR_OPEN_MINUTE && minutes < REGULAR_CLOSE_MINUTE;
+  const close = isEarlyClose(etDateKey(at)) ? EARLY_CLOSE_MINUTE : REGULAR_CLOSE_MINUTE;
+  return minutes >= REGULAR_OPEN_MINUTE && minutes < close;
 }
 
 /**

@@ -81,6 +81,7 @@ import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
 import { etDateKey, etParts } from "@/lib/market/session";
+import { isEarlyClose } from "@/lib/market/calendar";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { completedDailyBars, priorDailyClose } from "@/lib/scanner/priorClose";
 import {
@@ -117,6 +118,8 @@ const BASELINE_DAYS = 12;
 /** Regular session, ET minutes after midnight. */
 const OPEN_MINUTE = 9 * 60 + 30;
 const CLOSE_MINUTE = 16 * 60;
+/** 1:00 PM ET, an NYSE early close, as the live scanner reads it. */
+const EARLY_CLOSE_MINUTE = 13 * 60;
 
 /** An alert entered and walked, with what it was. */
 export interface AlertTrade extends ReplayTrade {
@@ -204,7 +207,8 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
   const feedDelayMs = input.feedDelayMs ?? replayFeedDelayMs(kind === "crypto" ? "crypto" : "us_equity");
   const bars = input.bars.filter((b) => {
     const m = minuteOf(b);
-    return m >= OPEN_MINUTE && m < CLOSE_MINUTE;
+    const close = isEarlyClose(etDateKey(new Date(b.t))) ? EARLY_CLOSE_MINUTE : CLOSE_MINUTE;
+    return m >= OPEN_MINUTE && m < close;
   });
   const trades: AlertTrade[] = [];
   const refused: Partial<Record<AlertRefusal, number>> = {};

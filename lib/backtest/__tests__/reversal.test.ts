@@ -64,7 +64,11 @@ describe("the replay's reversal chain stops on a series of losses (audit, NSTD R
       maxBarsHeld: 200, costPerShare: 0, parentLost,
     });
 
-  it("keeps reversing past the old cap of three until three losses in a row", () => {
+  it("ends the chain on three losses in a row, the series-of-losses rule", () => {
+    // A chain longer than three needs a win to reset the count, and inside one
+    // session a reversal can only lose at its stop or run to the data's end:
+    // the trailing stops move on daily readings. A multi-session win-reset
+    // fixture is left to the next replay change that touches the chain.
     const out = walk(false);
     expect(out).toHaveLength(LOSS_SERIES_LENGTH);
     expect(out.every((t) => t.outcome === "loss")).toBe(true);
