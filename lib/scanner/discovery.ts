@@ -62,7 +62,7 @@
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { BREAKAWAY_RANGE_DAYS, narrowRangeSessions } from "@/lib/gann/breakaway";
-import { gannPoint, gannThreePoints } from "@/lib/gann/pointScale";
+import { pricePoint, threePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { VOLUME_CLIMAX_THRESHOLD } from "@/lib/gann/volumeClimax";
 import { WIDE_DAY_ATRS } from "@/lib/scanner/focusList";
@@ -166,12 +166,12 @@ export function readDiscovery(input: DiscoveryInput): DiscoveryReading | null {
 
   const { top, bottom } = lastPivots(completed, priorClose);
   if (top != null) {
-    const allowance = gannThreePoints(top);
+    const allowance = threePoints(top);
     if (session.h >= top + allowance) conditions.push({ kind: "old_level_crossed", basis: "sourced", side: "top", level: top });
     else if (top - session.h <= allowance) conditions.push({ kind: "at_old_level", basis: "sourced", side: "top", level: top });
   }
   if (bottom != null) {
-    const allowance = gannThreePoints(bottom);
+    const allowance = threePoints(bottom);
     if (session.l <= bottom - allowance) conditions.push({ kind: "old_level_crossed", basis: "sourced", side: "bottom", level: bottom });
     else if (session.l - bottom <= allowance) conditions.push({ kind: "at_old_level", basis: "sourced", side: "bottom", level: bottom });
   }
@@ -187,8 +187,8 @@ export function readDiscovery(input: DiscoveryInput): DiscoveryReading | null {
     if (run) {
       const rTop = Math.max(...run.map((b) => b.h));
       const rBottom = Math.min(...run.map((b) => b.l));
-      if (session.h >= rTop + gannThreePoints(rTop)) conditions.push({ kind: "narrow_range_breakaway", basis: "sourced", side: "top", level: rTop, sessions: run.length });
-      if (session.l <= rBottom - gannThreePoints(rBottom)) conditions.push({ kind: "narrow_range_breakaway", basis: "sourced", side: "bottom", level: rBottom, sessions: run.length });
+      if (session.h >= rTop + threePoints(rTop)) conditions.push({ kind: "narrow_range_breakaway", basis: "sourced", side: "top", level: rTop, sessions: run.length });
+      if (session.l <= rBottom - threePoints(rBottom)) conditions.push({ kind: "narrow_range_breakaway", basis: "sourced", side: "bottom", level: rBottom, sessions: run.length });
     }
   }
 
@@ -205,7 +205,7 @@ export function readDiscovery(input: DiscoveryInput): DiscoveryReading | null {
   }
 
   if (conditions.length === 0) return null;
-  const point = gannPoint(priorClose);
+  const point = pricePoint(priorClose);
   const dollars = session.c - priorClose;
   return {
     examineOnly: true,

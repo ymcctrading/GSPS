@@ -12,7 +12,7 @@ import {
   EQUITY_TP2_MAX_PCT,
   EQUITY_TP2_MIN_PCT,
 } from "@/lib/strat/levels";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 describe("computeEquityTradeLevels", () => {
   // Resistance points near the same levels are averaged into one (parity P4,
@@ -28,7 +28,7 @@ describe("computeEquityTradeLevels", () => {
     // Mean 95.3, less Gann's 3 points there. Unmerged, the nearer 95.6 would
     // have anchored it.
     expect(merged.stopFromStructure).toBe(true);
-    expect(merged.stopLoss).toBeCloseTo(95.3 - gannThreePoints(95.3), 2);
+    expect(merged.stopLoss).toBeCloseTo(95.3 - threePoints(95.3), 2);
   });
 
   it("averages two resistance levels within 1% into one target (M-P4)", () => {
@@ -49,7 +49,7 @@ describe("computeEquityTradeLevels", () => {
       structuralLevels: [93, 95.6],
       evenFigures: false,
     });
-    expect(apart.stopLoss).toBeCloseTo(95.6 - gannThreePoints(95.6), 2);
+    expect(apart.stopLoss).toBeCloseTo(95.6 - threePoints(95.6), 2);
   });
 
   it("anchors the stop to the nearest support level within band, on a long", () => {
@@ -62,7 +62,7 @@ describe("computeEquityTradeLevels", () => {
     });
     expect(result.stopFromStructure).toBe(true);
     // Stop sits Gann's 3 points beyond the level, once, not on it.
-    const expectedStop = 95 - gannThreePoints(95);
+    const expectedStop = 95 - threePoints(95);
     expect(result.stopLoss).toBeCloseTo(expectedStop, 1);
     expect(result.stopLoss).toBeLessThan(95);
   });
@@ -297,8 +297,8 @@ describe("an old level 3 points behind the stop", () => {
   it("finds the level a long's stop sits 3 points under, and none 2 points under", async () => {
     const { oldLevelBehindStop } = await import("@/lib/strat/levels");
     const L = 95;
-    expect(oldLevelBehindStop("bullish", 100, L - gannThreePoints(L), [L, 130])).toBe(L);
-    expect(oldLevelBehindStop("bullish", 100, L - (2 / 3) * gannThreePoints(L), [L])).toBeNull();
+    expect(oldLevelBehindStop("bullish", 100, L - threePoints(L), [L, 130])).toBe(L);
+    expect(oldLevelBehindStop("bullish", 100, L - (2 / 3) * threePoints(L), [L])).toBeNull();
     // A level beyond the entry does not stand behind the stop.
     expect(oldLevelBehindStop("bullish", 100, 90, [101])).toBeNull();
   });
@@ -306,8 +306,8 @@ describe("an old level 3 points behind the stop", () => {
   it("mirrors for a short", async () => {
     const { oldLevelBehindStop } = await import("@/lib/strat/levels");
     const L = 105;
-    expect(oldLevelBehindStop("bearish", 100, L + gannThreePoints(L), [L])).toBe(L);
-    expect(oldLevelBehindStop("bearish", 100, L + 0.5 * gannThreePoints(L), [L])).toBeNull();
+    expect(oldLevelBehindStop("bearish", 100, L + threePoints(L), [L])).toBe(L);
+    expect(oldLevelBehindStop("bearish", 100, L + 0.5 * threePoints(L), [L])).toBeNull();
   });
 
   it("marks a structural stop and a stop fixed by the crossing rule, and not a fallback stop", () => {

@@ -30,7 +30,7 @@ import {
   selectGannEntry,
   type GannEntryTrigger,
 } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { reversionEntry } from "@/lib/scan/entrySelection";
 import { buildMacroContext, replay } from "@/lib/backtest/replay";
 import { buildReport } from "@/lib/backtest/run";
@@ -39,14 +39,14 @@ const DAY = "2026-06-15";
 function dayBar(date: string, c: number): Bar {
   return { t: `${date}T00:00:00Z`, o: c, h: c + 1, l: c - 1, c, v: 1000 };
 }
-function dailyHistory(count: number, before: string): Bar[] {
+function dailyHistory(count: number, before: string, amp = 2): Bar[] {
   const out: Bar[] = [];
   const end = new Date(`${before}T00:00:00Z`).getTime();
   for (let i = count; i >= 1; i--) {
     const d = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
     const phase = (count - i) % 8;
     const step = phase < 4 ? phase : 7 - phase;
-    out.push(dayBar(d, 96 + step * 2));
+    out.push(dayBar(d, 96 + step * amp));
   }
   return out;
 }
@@ -178,7 +178,7 @@ describe.each(FIXTURES)("$name", ({ daily, expect: direction }) => {
   )!;
   const S = T.direction === "bullish" ? 1 : -1;
   const L = T.pivot.price;
-  const P = gannThreePoints(L);
+  const P = threePoints(L);
   const opts = { targetR: 2, dailyBars: DAILY, entryRule: "reaction" as const, exitRule: "bracket" as const };
   const sess = (tail: Array<Omit<Bar, "t" | "v">>) => session(L, S, P, tail);
 
@@ -300,10 +300,12 @@ describe("buildReport", () => {
 describe("replay entryRule: reaction on a level the daily chart already crossed", () => {
   // The fixture's old bottom, broken by 3 points on the last two days before
   // the session and reacting short of the sell 1 point under it: a held level.
-  const base = dailyHistory(300, DAY).slice(0, -3);
+  // The range is kept within 4/3 of the 3-point allowance, the narrow spell a
+  // bottom's break needs before a short (A-ENTRY-15, `distributedBefore`).
+  const base = dailyHistory(300, DAY, 1.4).slice(0, -3);
   const first = computeGannEntryTrigger(base, "bearish")!;
   const L = first.level;
-  const P = gannThreePoints(L);
+  const P = threePoints(L);
   const lastT = Date.parse(base[base.length - 1].t);
   // The break out of the range comes on heavier volume, as Gann's breakaway
   // must (A-VOLUME-10).
@@ -333,7 +335,7 @@ describe("replay entryRule: reaction at an old bottom (double or triple bottom)"
   const DAILY = fallingToAgedBottom(DAY);
   const T = selectGannEntry(DAILY, "bullish")!;
   const L = T.level;
-  const P = gannThreePoints(L);
+  const P = threePoints(L);
   const above = at(L + P / 2);
   const head = Array.from({ length: 44 }, () => above);
 

@@ -17,7 +17,8 @@ import { render, screen } from "@testing-library/react";
 import { SignalCard } from "./signal-card";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { computeScore, type ScoreInputs } from "@/lib/scoring/score";
-import type { ScanResult, TrendReading } from "@/lib/types";
+import type { PublicScanResult, TrendReading } from "@/lib/types";
+import { toChartLevels } from "@/lib/scoring/public-summary";
 
 const trend = (direction: TrendReading["direction"]): TrendReading => ({
   timeframe: "1Day",
@@ -68,7 +69,7 @@ const inputs: ScoreInputs = {
 };
 
 /** A result carrying the *unredacted* decision, as the scan pipeline builds it. */
-function resultWithFullBreakdown(): ScanResult {
+function resultWithFullBreakdown(): PublicScanResult {
   const decision = computeScore(inputs);
   return {
     symbol: "AAPL",
@@ -79,7 +80,7 @@ function resultWithFullBreakdown(): ScanResult {
     setupKind: "reversion",
     momentumElevated: true,
     trends: [],
-    gann: inputs.gann,
+    chartLevels: toChartLevels(inputs.gann),
     pattern: inputs.pattern,
     armedPatterns: [inputs.pattern!],
     levels: inputs.levels,

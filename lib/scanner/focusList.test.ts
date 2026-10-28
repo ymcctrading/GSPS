@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { readFocus, rankFocus, describeFocusReason, type FocusReading } from "./focusList";
 
 const DAY = 86_400_000;
@@ -54,7 +54,7 @@ describe("readFocus", () => {
     expect(level).toBeDefined();
     if (level?.kind === "old_level") {
       expect(level.side).toBe("top");
-      expect(level.level - sessions[sessions.length - 1].c).toBeLessThanOrEqual(gannThreePoints(level.level));
+      expect(level.level - sessions[sessions.length - 1].c).toBeLessThanOrEqual(threePoints(level.level));
     }
   });
 

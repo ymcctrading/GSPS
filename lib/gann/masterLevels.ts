@@ -25,10 +25,12 @@
  * - the Sun's travel since the major low, added to the low at 1 point a
  *   degree, contributes its one level, which Gann calls a resistance angle
  *   (the 1954 coffee letter; `astroRules.ts#sunTravelLevel`, A-ASTRO-03,
- *   2026-10-22). The low is the daily bars' lowest, as `readAstroRules` reads
- *   it, so the level and the factor are one rule;
+ *   2026-10-22). The low is the major low: the daily bars' lowest, or an older,
+ *   lower week of the closed weekly record (2026-10-28), as `readAstroRules`
+ *   reads it, so the level and the factor are one rule;
  * - Jensen's square of 90 contributes its nearest point above and below price,
- *   counted up from the daily bars' low and down from their high, across
+ *   counted up from the long record's low and down from its high (the monthly
+ *   chart with the daily bars, 2026-10-28), across
  *   successive squares (`jensen.ts#jensenLevels`, 2026-10-16);
  * - Gann's full angle set, drawn from the major pivots and copied to the
  *   preceding opposite pivots, contributes its nearest line above and below
@@ -51,7 +53,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { squareBoundaryLevels } from "@/lib/gann/masterCalculator";
 import { planetaryLevels } from "@/lib/gann/planetaryAverages";
 import { activeAngleLevels, sunTravelLevel } from "@/lib/gann/astroRules";
@@ -73,9 +75,11 @@ export function gannMasterLevels(
   asOf: Date,
   /** The stored company name, for its name chart; null leaves it out. */
   companyName: string | null = null,
+  /** The closed weekly bars, for the major low the Sun's travel counts from. */
+  weekly: Bar[] | null = null,
 ): MasterLevel[] {
   if (!(price > 0) || daily.length === 0) return [];
-  const unit = gannPointForBars(daily);
+  const unit = pointForBars(daily);
   if (!(unit > 0)) return [];
   const bars = longHistory.length > 0 ? longHistory : daily;
   let low = Infinity;
@@ -90,9 +94,9 @@ export function gannMasterLevels(
   }
   for (const l of planetaryLevels(asOf, price, unit)) out.push({ ...l, source: "planetary" });
   for (const l of activeAngleLevels(asOf, price, unit)) out.push({ ...l, source: "activeAngle" });
-  const sun = sunTravelLevel(daily, asOf, unit);
+  const sun = sunTravelLevel(daily, asOf, unit, weekly);
   if (sun) out.push({ ...sun, source: "sunTravel" });
-  for (const l of jensenLevels(daily, price, unit)) out.push({ ...l, source: "jensen" });
+  for (const l of jensenLevels(daily, price, unit, bars)) out.push({ ...l, source: "jensen" });
   for (const l of patternAngleLevels(daily, price, unit)) out.push({ ...l, source: "patternAngle" });
   for (const l of squareOfNinePriceLevels(price, unit)) out.push({ price: l.price, label: l.label, source: "squareOfNine" });
   for (const l of nameNumberLevels(nameSquare(companyName), price, unit)) out.push({ ...l, source: "name" });

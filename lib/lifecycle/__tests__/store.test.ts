@@ -9,6 +9,7 @@ vi.mock("@/lib/learning/record", () => ({
 
 import {
   applyEventAndPersist,
+  createOrGetIdempotentTradePlan,
   createTradePlan,
   getTradePlan,
   listTradePlans,
@@ -193,6 +194,33 @@ describe("createTradePlan / getTradePlan", () => {
     const created = await createTradePlan(client, "user-1", newPlan());
     const fetched = await getTradePlan(client, "user-2", created.planId);
     expect(fetched).toBeNull();
+  });
+});
+
+describe("createOrGetIdempotentTradePlan", () => {
+  it("returns a plan stored under the rules version's name before migration 0128, not a second one", async () => {
+    const { client, plans } = fakeSupabase();
+    const raw = "2026-10-28-plan-at-close-on-plan-expiry";
+    // Written before the change: the name, not the label.
+    plans.push({
+      plan_id: "old-plan", user_id: "user-1", instrument: "AAPL", timeframe: "1Day",
+      strategy_version: raw, signal_fingerprint: "sig-1", state: "watchlist", version: 0,
+      created_at: "2026-10-27T13:00:00.000Z", coordinates: newPlan().coordinates,
+      risk: newPlan().risk, evidence: newPlan().evidence, entry_confirmation: freshEntryConfirmation(),
+    });
+    const out = await createOrGetIdempotentTradePlan(client, "user-1", newPlan({ strategyVersion: raw }));
+    expect(out.created).toBe(false);
+    expect(out.plan.planId).toBe("old-plan");
+    expect(plans).toHaveLength(1);
+  });
+
+  it("inserts under the label when no named twin exists", async () => {
+    const { client, plans } = fakeSupabase();
+    const out = await createOrGetIdempotentTradePlan(
+      client, "user-1", newPlan({ strategyVersion: "2026-10-28-plan-at-close-on-plan-expiry" }),
+    );
+    expect(out.created).toBe(true);
+    expect(plans[0].strategy_version).toBe("2026-10-28 · oly33");
   });
 });
 

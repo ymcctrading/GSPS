@@ -1,7 +1,7 @@
 "use client";
 
 import { Switch } from "@/components/gann/switch";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -240,7 +240,7 @@ function Segmented<T extends string>({
  * number. Stored with the trader's other rule switches (lib/gann/traderPrefs.ts).
  */
 function RoundNumberAutomationCard() {
-  const { prefs, error, save } = useGannRulePrefs();
+  const { prefs, error, save } = useTradeRulePrefs();
   return (
     <Card>
       <CardHeader>

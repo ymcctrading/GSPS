@@ -80,7 +80,7 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { beyondByThreePoints, gannThreePoints, gannThreePointsPct } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, threePoints, threePointsPct } from "@/lib/gann/pointScale";
 import { SWING_CHART_DAYS, WEEKLY_SWING_CHART, swingPivots, walkSwingChart, type SwingPivot } from "@/lib/gann/swingChart";
 import { readCounterMove, toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { readNarrowWeekBreak } from "@/lib/gann/narrowWeek";
@@ -233,7 +233,7 @@ export interface GannEntryTrigger {
 }
 
 function buffered(price: number, direction: 1 | -1, bufferPct?: number): number {
-  return price * (1 + (direction * (bufferPct ?? gannThreePointsPct(price))) / 100);
+  return price * (1 + (direction * (bufferPct ?? threePointsPct(price))) / 100);
 }
 
 /**
@@ -455,7 +455,7 @@ function calendarDays(fromIso: string, toIso: string): number {
 
 /** Within Gann's 5-point risk cap (W006 p.46, A-STOP-02), points price-scaled as at placement. */
 function withinRiskCap(entry: number, stop: number): boolean {
-  return Math.abs(entry - stop) <= (5 / 3) * gannThreePoints(entry) + 1e-9 * entry;
+  return Math.abs(entry - stop) <= (5 / 3) * threePoints(entry) + 1e-9 * entry;
 }
 
 /**
@@ -551,7 +551,7 @@ function holdEntryOn(
   // and a record high is his "usually safe buy" (p.47), not a short.
   const record = direction === "bullish" ? older.find((l) => l.kind === "bottom" && l.source === "allTime") : undefined;
   if (record) {
-    const points = gannThreePoints(record.price);
+    const points = threePoints(record.price);
     const stop = record.price - points;
     const unbroken = bars.every((b) => b.l >= stop);
     // The stay near the record: from the day after price was last more than
@@ -589,7 +589,7 @@ function holdEntryOn(
       }
       if (low < 0) continue;
       const level = extremeOf(bars[low]);
-      if (sign * (top.price - level) < gannThreePoints(level)) continue;
+      if (sign * (top.price - level) < threePoints(level)) continue;
       const stop = beyondByThreePoints(level, sign === 1 ? -1 : 1);
       if (!withinRiskCap(entry, stop)) return null;
       let holdBasis: "weeks" | "days" | null = null;
@@ -687,7 +687,7 @@ function bearRallySell(bars: Bar[], entry: number, swingDays: number): { trigger
   let top = first;
   for (let i = first; i < bars.length; i++) if (bars[i].h > bars[top].h) top = i;
   const level = bars[top].h;
-  if (level - bars[low].l < gannThreePoints(bars[low].l)) return null;
+  if (level - bars[low].l < threePoints(bars[low].l)) return null;
   const stop = beyondByThreePoints(level, 1);
   if (!withinRiskCap(entry, stop)) return null;
   return {
@@ -722,7 +722,7 @@ function narrowWeekSell(bars: Bar[], entry: number, swingDays: number): { trigge
   const done = friday ? weekly : weekly.slice(0, -1);
   const r = readNarrowWeekBreak(done);
   if (!r || r.direction !== "bearish") return null;
-  const points = gannThreePoints(r.narrowLow);
+  const points = threePoints(r.narrowLow);
   const sell = r.narrowLow - points / 3;
   const stop = r.narrowLow + points;
   if (!(entry < stop) || !withinRiskCap(sell, stop)) return null;
@@ -757,7 +757,7 @@ export const DISTRIBUTION_LOOKBACK_DAYS = 91;
  * formed a narrow range whose high stands within 3 points of
  * the highest high of those days, at or over the level that breaks. Engineering
  * choices, labelled: the spell's length, the look-back, "narrow" as the
- * distribution rule reads its spell (`NARROW_SPELL_ALLOWANCES`, 2 allowances), and "at a top" as within 3 points of the look-back's high.
+ * distribution rule reads its spell (`NARROW_SPELL_ALLOWANCES`, 4/3 of an allowance, his widest dated narrow range), and "at a top" as within 3 points of the look-back's high.
  */
 export function distributedBefore(bars: Bar[], end: number, level: number): boolean {
   if (end <= 0) return false;
@@ -771,7 +771,7 @@ export function distributedBefore(bars: Bar[], end: number, level: number): bool
     const spell = window.slice(i, i + DISTRIBUTION_SESSIONS);
     const high = Math.max(...spell.map((b) => b.h));
     const low = Math.min(...spell.map((b) => b.l));
-    if (high >= top - gannThreePoints(top) && low >= level - gannThreePoints(level) && high - low <= NARROW_SPELL_ALLOWANCES * gannThreePoints(low)) return true;
+    if (high >= top - threePoints(top) && low >= level - threePoints(level) && high - low <= NARROW_SPELL_ALLOWANCES * threePoints(low)) return true;
   }
   return false;
 }
@@ -1082,7 +1082,7 @@ export interface GannBuyZone {
 
 export function gannBuyZone(direction: TriggerDirection, entry: number, stop: number): GannBuyZone {
   const sign = direction === "bullish" ? 1 : -1;
-  return { near: entry, far: stop + (sign * gannThreePoints(stop)) / 3 };
+  return { near: entry, far: stop + (sign * threePoints(stop)) / 3 };
 }
 
 /** A long's low at or under the entry, a short's high at or over it. */

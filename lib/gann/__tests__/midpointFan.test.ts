@@ -75,11 +75,11 @@ describe("C-LEVELS-08: squaring price with time from a high", () => {
     expect(readMonthlySquareFromHigh(monthly, asOf, 9)).toBeNull();
     const { readDisclosedRules, describeDisclosedRules } = await import("@/lib/gann/disclosedRules");
     const { contextFactorsFor } = await import("@/lib/gann/contextFactors");
-    const { gannPointForBars } = await import("@/lib/gann/pointScale");
+    const { pointForBars } = await import("@/lib/gann/pointScale");
     const bars = daily(line(150, 130, 40));
     const ctx = readDisclosedRules(bars, 130, { sharesOutstanding: null, inception: null, monthly }, asOf);
     // 24 months at 1 point a month, the point scaled to the symbol's price like every other angle.
-    const at = 200 - 24 * gannPointForBars(bars);
+    const at = 200 - 24 * pointForBars(bars);
     expect(ctx.monthlySquareFromHigh?.price).toBeCloseTo(at, 9);
     expect(describeDisclosedRules(ctx).some((l) => l.includes(`down from the 2024-06 top (200.00) at 1 point a month stands at ${at.toFixed(2)}`))).toBe(true);
     expect(contextFactorsFor(ctx, "bullish", 130).overSquareFromHighAgreesWithTrade).toBe(false);

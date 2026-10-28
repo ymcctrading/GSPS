@@ -64,7 +64,7 @@ import { readHeldLevel } from "@/lib/gann/heldLevel";
 import { oldStructuralLevels, type StructuralLevel } from "@/lib/scan/structuralLevels";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import { MIN_EQUITY_PRICE_USD, meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { scanTicker } from "@/lib/scanTicker";
 import { EXECUTION_TIMEFRAME } from "@/lib/timeframe";
@@ -503,7 +503,7 @@ export function coarseContinuation(
     // is strength ("Strongest Points", *Commodities* p.36; Master Course PDF
     // 266-267); the mirror, a point or more under it, is weakness.
     const half = (high + low) / 2;
-    const point = gannPoint(half);
+    const point = pricePoint(half);
     if (long ? price > half + point : price < half - point) score += 1;
     // Half of the highest price is the next support once the half-way point is
     // broken (*Commodities* p.37; "Best buying point: 50% of the highest
@@ -723,6 +723,13 @@ export interface MarketScanOutput {
    * lib/entitlements/scheduled-scan.ts).
    */
   fullScanResults: ScanResult[];
+  /**
+   * Every stock read of the full pass, the reversion and continuation passes
+   * each kept (`fullScanResults` keeps one per symbol), errors included, so
+   * the night's sweep rows can be checked against each read
+   * (`retireOverruledSweepRows`, SUS-21).
+   */
+  stockReads: ScanResult[];
   /**
    * Discoveries (`lib/scanner/discovery.ts`): stocks the session has made
    * active, most worth examining first. The route stores them in the
@@ -1543,6 +1550,7 @@ export async function runMarketScan(
     continuationSkipped,
     equitiesRead: shortlistBars !== null,
     fullScanResults: [...fullScanResults.values()],
+    stockReads: [...full, ...continuationScanResults],
     discoveries,
   };
 }

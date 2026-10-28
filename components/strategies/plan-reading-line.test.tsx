@@ -77,7 +77,7 @@ describe("PlanReadingLine", () => {
   });
 
   it("shows nothing when the saved technique is GSPS's own plan", async () => {
-    const fetchMock = mockFetch("gann", ["rsiReversal"]);
+    const fetchMock = mockFetch("gsps", ["rsiReversal"]);
     const { container } = render(<PlanReadingLine symbol="AAPL" plan={PLAN} />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(container).toBeEmptyDOMElement();

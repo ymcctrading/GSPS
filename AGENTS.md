@@ -70,8 +70,17 @@ application.
   `lib/school/__tests__/publicMethods.test.ts` fails a lesson that writes out
   one of the method's own rules. The graduation exam still grades GSPS's own
   plans, explained in plain words without the rules' timing.
+- **Ids a browser or a member's row can read are neutral (2026-10-28, #510).**
+  Exit rules are `structure` and `structure-runner` (the old `gann` and
+  `gann-runner` are still accepted, so every "gann" exit rule in the history
+  below is `structure` now), the strategy mode is `gsps`, the settings route is
+  `/api/settings/trade-rules`, `pointScale.ts` exports `pricePoint`,
+  `threePoints` and `pointForBars`, and scan results reach the client as
+  `PublicScanResult`. Rows a member can read (`daily_scans`, `orders`,
+  `trade_plans`, `trade_logs`) store `STORED_STRATEGY_VERSION`, a dated label,
+  never the `STRATEGY_VERSION` name (`lib/backtest/publicVersion.ts`).
 - `scripts/check-banned-terms.mjs`'s `CONFIDENTIAL_TERMS` gates the copy
-  surfaces in CI. Check the built bundle too (`grep -r` over `.next/static`)
+  surfaces in CI, and `scripts/check-bundle-terms.mjs` gates the built bundle. Check the built bundle too (`grep -r` over `.next/static`)
   when a change touches what a client imports.
 
 ## Cross-platform consistency — standing principle
@@ -317,7 +326,7 @@ square ends and centres and the planetary averages' nearest points in the S/R
 list on the live scan and the replay. The rest are measured context.
 `masterTwelve.ts`'s spiral is GSPS's own, not Gann's calculator.
 `STRATEGY_VERSION` is `2026-09-30-gann-calculator-planetary`. Prices are read
-in the Gann point (`pointScale.ts#gannPoint`, exactly $1 at $42.50).
+in the Gann point (`pointScale.ts#pricePoint`, exactly $1 at $42.50).
 **Same day, from Gann's Square of Nine plate** (Vol. 3 p. 34 and the Cycles
 Research Institute workbook, source note B12, filed with the Gann sources):
 the sixteenths of the seasonal year (`seasonalCounts.ts`), the square read in
@@ -467,8 +476,8 @@ bucket, score band or factor table. **The owner's runs used `entryRule:
 "confirmed"`, which is not production's entry:** it arms on the crossing alone
 and measures R from the crossing price, 2 points past the reaction entry the plan
 and TP1 are priced from. Production's rule is `"reaction"`, the default. A
-production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann"}`
-(`LIVE_EXIT_RULE` is "gann" since Q14; `useProductionStop` does nothing under
+production-faithful cell is `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"structure"}`
+(`LIVE_EXIT_RULE` is "structure", formerly "gann", since Q14; `useProductionStop` does nothing under
 "reaction"). `STRATEGY_VERSION` was `2026-10-21-replay-accounting`; Execute and
 the 6/3.5 cutoffs need a fresh run on it.
 
@@ -1348,7 +1357,7 @@ need a fresh run on it.
 Gann gave at a stated price had been ported as that many Gann points, which
 already grow with price (`pointScale.ts`), so each ran about two to three times
 his own. The re-buy after a stop rests his 12 points under the best price read
-at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / gannPoint(230)`,
+at about 230 (*Tunnel* p.198: re-bought at 218, stop 212), `12 / pricePoint(230)`,
 about 4.4 Gann points (`rebuy.ts`). The boiling point trails his 10 points read
 at Advance Rumely's 105 ("a 10-point stop, out at 95", *Stock Selector* Ch. V), about 5.9 Gann
 points (`exitRules.ts`). A narrow range is at most his widest dated one, 4
@@ -1359,10 +1368,64 @@ during the leg out of it (`narrowRangeBeforeLeg`), since the walk from its top
 to the crossing line is wider than narrow, so the breakaway's volume rule is
 still asked. Random walks, armed long entries held by the breakaway: $20 43% →
 23%, $150 23% → 0.6%, $500 5% → 0%. Rule for porting a figure: when Gann gives
-a number at a price, divide it by `gannPoint` at that price; only his "3 points"
+a number at a price, divide it by `pricePoint` at that price; only his "3 points"
 (the scale's own anchor) and figures he states across price bands are read as
 Gann points directly. `STRATEGY_VERSION` was `2026-10-28-gann-figures-at-his-price`;
 Execute and the 7/4 cutoffs need a fresh run on it.
+
+**Levels from the major lows, 2026-10-28 (Gann alignment audit,
+`/mnt/project-files/gann-alignment-audit/`).** Jensen's square of 90 is laid at
+the long monthly record's major low and high (`jensenLevels`' `record`, the
+monthly chart with the daily bars, as the Square of 144 reads), not a year of
+daily bars: Jensen lays it "at every major low" after Gann's January 1931
+Pattern Chart. The nearest multiples of the low below and above the close join
+the S/R list (`lowMultipleLevels`; 45 Years Ch. IV p.30 ranks "100% of the low
+and its multiples" second only to 50%), which had been held on the card for a
+replay against "Every Gann method acts". They join `all` only, never the old
+levels `historicalSR` reads: from a deep major low they sit closer together
+than the 3-point band and were "held" on noise (queue review: long-side pass
+39.8% → 60.5% at $20 with a low a thirtieth of the start). The card's percentage levels
+read the same monthly anchors. The Sun's travel (`sunTravelLevel`, A-ASTRO-03)
+counts from the major low too: the 1954 coffee letter counts it from the April
+1931 low, years back, so it reads the closed weekly record (5 years, the weekly
+level chart) when its lowest week is below the daily year's low, dated to that
+week's Wednesday (engineering: a weekly bar holds no day), live and replay
+alike (`InstrumentFacts.weekly`, `buildStructuralLevels`); only a week that
+ended before the daily record counts, so a provider's week inside it never
+moves the low's day. Stated exception: the time side (Jensen's time counts and
+Mars's half return in `timeWindowsAt`) still counts from the daily year's
+extremes, since a count in days needs the low's day and a monthly bar dates
+none; held for the audit ledger. `STRATEGY_VERSION` was
+`2026-10-28-gann-levels-major-lows`.
+
+**Time and price at the turn, 2026-10-28 (alignment audit H2, the window
+saturation held since 2026-10-20).** The time-window hold read a turn as due
+when any dated window was open on it, and the windows were open on nearly every
+turn (100% of random-walk turns, 2026-10-27), so it selected nothing. Gann
+reads the two together: "when Time and Space balance, the stock makes top or
+bottom" (Master Course PDF 202), and the time counts mark a change "especially
+if the price is at 1/2 or 3/4 resistance" (Ch. 18, TP-2, PDF 440; TP-3 lists
+the price resistance levels beside the counts). So `readWindowTurn` now also
+needs the turn's extreme at the half or three quarters of a major range
+(`turnAtDivision`, `lib/gann/timeWindow.ts`: `rangeDivisions.ts`'s extreme
+range, highest price and latest campaign, read on the record before the turn,
+3/4 up from the low and down from the high, within the 3-point allowance), on
+the live scan and the replay alike (both take the default). TP-2's
+"especially" is an emphasis, not a stated requirement: making the division
+required is GSPS's reading of it, chosen because time alone selected nothing,
+and labelled as such. Random walks: the
+turn stood at one on 82% of turns at $20, 68% at $50, 54% at $150, 35% at $500.
+`STRATEGY_VERSION` was `2026-10-28-gann-time-and-price-at-turn`.
+**The distribution spell's width, same day (audit L-12).** The distribution
+spell and `distributedBefore` read "narrow" as 4/3 of the 3-point allowance
+(`NARROW_SPELL_ALLOWANCES`, `lib/gann/distribution.ts`), the widest range
+Gann dates as narrow (Master Course pp. 246-248), as the breakaway's range
+reads it since #513; it was 2 allowances. The three audit fixes merged onto the
+delayed fill timing and the midday release: `STRATEGY_VERSION` was
+`2026-10-28-gann-major-lows-time-price-spell`, merged onto the Rule of Three
+trend and P6's angle origin as `2026-10-28-major-lows-on-angle-origin` (no new
+rule), then onto the intraday audit (#515): `STRATEGY_VERSION` is
+`2026-10-28-major-lows-on-intraday-audit` (no new rule); Execute and the 7/4 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
 
@@ -3460,7 +3523,7 @@ rows are left out, and the lists overrule the sweep only once they were written 
 members' watchlists (so with more than about 21 watched names, some wait for a slot: an accepted trade-off for timing the best setups first; none were watched on 2026-10-28) and the focus list; a person's own refresh with no symbols puts
 `SESSION_SETUPS_ON_DEMAND` (9) ahead of the core list. Because the 15-minute
 market scan rewrites the lists, a setup that turns ready mid-session joins and
-one that breaks leaves. Two reads, under 0.5 ms each in production. Gann chose
+one that breaks leaves. Two reads, under 0.5 ms each in production. A sweep Execute the lists never publish keeps its plan on the sweep row (SUS-21, migration 0130: stop, TP1, MTP, the crossing flag, `invalidated_at`): the intraday scan times it from there (`loadDailyPlans`' `sweepBasis`, intraday scan only; the evening focus list reads none), the session trading through its stop after the row was priced, in the regular session, retires it (`invalidateBrokenSweep`; the focus list's own test now reads the same bars, `barsSincePlan`), and so does the day's market scan re-reading the stock without the plan (`retireOverruledSweepRows`); a retired row also leaves the market scan's first slots. The stop test is the lists' own (`readStopBreach` on closed 15-minute bars, so a poke that closes back past the reclaim line is no break), but a retired sweep row stays retired for the day: a failed break reinstates the plan only where the lists carry it. A plan past TP1 is retired only by the market scan's re-score, so not before 9:50 or when the full pass's deadline cuts it. Gann chose
 from the daily charts after the close and timed in the session (*Truth of the
 Stock Tape* Ch. XIV; Master Course Ch. 13). Verdicts unchanged.
 **Fair slots and the evaluation ledger, same day (owner: "I approve all 5", on
@@ -3634,7 +3697,7 @@ The replay's reversal chain ran at most 3 deep; it now runs as NSTD Rule 6
 placement's `lossSeriesRefusal` does live (`LOSS_SERIES_LENGTH`). The twice-yearly
 rest reminder now comes back with a new entry placed in its window, as the
 away reminder does (`closeOutNotice`, `lib/trade/away-notice.ts`; *Truth of
-the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` is
+the Stock Tape* Ch. VII pp. 22-25). `STRATEGY_VERSION` was
 `2026-10-28-intraday-audit-on-angle-origin` (built alone as `2026-10-28-intraday-audit-fixes`, merged onto the Rule of Three trend and angle origin with no new rule); daily verdicts are unchanged. The same
 audit's trade, automation and lifecycle walk
 (`gann-alignment-audit/trade-automation-lifecycle.md`) moved three more:

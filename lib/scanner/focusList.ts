@@ -45,7 +45,7 @@ import type { DailyPlanLevels } from "@/lib/scanner/intraday";
 import { atr } from "@/lib/analysis/pivots";
 import { narrowRangeSessions, BREAKAWAY_RANGE_DAYS } from "@/lib/gann/breakaway";
 import { readReverseSignal } from "@/lib/gann/extremeRules";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { VOLUME_CLIMAX_THRESHOLD } from "@/lib/gann/volumeClimax";
 import { readLiquidity } from "@/lib/scan/liquidity";
@@ -91,8 +91,8 @@ function narrowRange(sessions: Bar[], close: number): FocusReason | null {
   if (!run) return null;
   const top = Math.max(...run.map((b) => b.h));
   const bottom = Math.min(...run.map((b) => b.l));
-  const toTop = top - close <= gannThreePoints(top) ? top - close : Infinity;
-  const toBottom = close - bottom <= gannThreePoints(bottom) ? close - bottom : Infinity;
+  const toTop = top - close <= threePoints(top) ? top - close : Infinity;
+  const toBottom = close - bottom <= threePoints(bottom) ? close - bottom : Infinity;
   const edge = toTop === Infinity && toBottom === Infinity ? null : toTop <= toBottom ? "top" : "bottom";
   return { kind: "narrow_range", sessions: run.length, top, bottom, edge };
 }
@@ -119,8 +119,8 @@ function oldLevel(sessions: Bar[], close: number): FocusReason | null {
   const pivots = walkSwingChart(sessions, THREE_DAY_CHART).pivots;
   const top = [...pivots].reverse().find((p) => p.kind === "top" && p.price > close);
   const bottom = [...pivots].reverse().find((p) => p.kind === "bottom" && p.price < close);
-  const nearTop = top && top.price - close <= gannThreePoints(top.price) ? top.price - close : Infinity;
-  const nearBottom = bottom && close - bottom.price <= gannThreePoints(bottom.price) ? close - bottom.price : Infinity;
+  const nearTop = top && top.price - close <= threePoints(top.price) ? top.price - close : Infinity;
+  const nearBottom = bottom && close - bottom.price <= threePoints(bottom.price) ? close - bottom.price : Infinity;
   if (nearTop === Infinity && nearBottom === Infinity) return null;
   return nearTop <= nearBottom
     ? { kind: "old_level", level: top!.price, side: "top" }

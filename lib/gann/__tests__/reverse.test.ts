@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { gannReversal, reversesOn } from "../reverse";
-import { gannThreePoints } from "../pointScale";
+import { threePoints } from "../pointScale";
 
 describe("reverse when caught", () => {
   it("a long caught at its stop goes short at the stop, its stop 3 points over the top", () => {
     const r = gannReversal({ side: "long", brokenLevel: 72, extreme: 75 });
-    expect(r).toEqual({ side: "short", entry: 72, stop: 75 + gannThreePoints(75) });
+    expect(r).toEqual({ side: "short", entry: 72, stop: 75 + threePoints(75) });
   });
 
   it("a short caught goes long, its stop 3 points under the bottom", () => {
     const r = gannReversal({ side: "short", brokenLevel: 48, extreme: 44 });
-    expect(r).toEqual({ side: "long", entry: 48, stop: 44 - gannThreePoints(44) });
+    expect(r).toEqual({ side: "long", entry: 48, stop: 44 - threePoints(44) });
   });
 
   it("reverses on a stop and on a change of trend, not on the hold test or three adverse closes", () => {

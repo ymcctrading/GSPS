@@ -7,7 +7,7 @@
  */
 
 import { approachingFigure } from "@/lib/gann/evenFigures";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 export function RoundNumberNotice({
   price,
@@ -18,7 +18,7 @@ export function RoundNumberNotice({
   direction: "bullish" | "bearish" | null | undefined;
   className?: string;
 }) {
-  const { prefs } = useGannRulePrefs();
+  const { prefs } = useTradeRulePrefs();
   if (!prefs.roundNumberNotices || !price || !(price > 0) || !direction) return null;
   const reading = approachingFigure(price, direction);
   if (!reading) return null;

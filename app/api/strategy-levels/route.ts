@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
   }
   if (!mode || !isNonGannStrategyMode(mode)) {
     return NextResponse.json(
-      { error: `'mode' must be one of: ${Object.keys(STRATEGY_MODE_LABELS).filter((m) => m !== "gann").join(", ")}` },
+      { error: `'mode' must be one of: ${Object.keys(STRATEGY_MODE_LABELS).filter((m) => m !== "gsps").join(", ")}` },
       { status: 400 },
     );
   }

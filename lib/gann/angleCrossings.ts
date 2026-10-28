@@ -49,7 +49,7 @@
  */
 import type { Bar } from "@/lib/types";
 import { angleUnit, computeFanLines, fanAnchors, nearestFanLine } from "@/lib/gann/fans";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 
@@ -125,7 +125,7 @@ export function squareOfRangeCrossings(low: AnglePoint, high: AnglePoint, unit: 
     startIndex,
     endIndex: startIndex + side,
     crossings,
-    onAngle: (price) => lines.some((l) => Math.abs(l - price) <= gannThreePoints(price)),
+    onAngle: (price) => lines.some((l) => Math.abs(l - price) <= threePoints(price)),
   };
 }
 
@@ -151,7 +151,7 @@ export function readAngleCrossings(daily: Bar[], price: number): AngleCrossingsR
   const unit = angleUnit(daily);
   if (!(unit > 0)) return out;
   const last = daily.length - 1;
-  const near = (x: number) => Math.abs(x - price) <= gannThreePoints(price);
+  const near = (x: number) => Math.abs(x - price) <= threePoints(price);
   const at = (i: number) => Math.abs(i - last) <= AT_BARS;
 
   // C-LEVELS-04, from the extreme low and high of the bars read.
@@ -180,7 +180,7 @@ export function readAngleCrossings(daily: Bar[], price: number): AngleCrossingsR
     const kind = reading.kind;
     const sign = kind === "bottom" ? 1 : -1;
     const tests = walkSwingChart(daily, THREE_DAY_CHART)
-      .pivots.filter((p) => p.kind === kind && p.index <= reading.lastTestIndex && Math.abs(p.price - reading.level) <= gannThreePoints(reading.level))
+      .pivots.filter((p) => p.kind === kind && p.index <= reading.lastTestIndex && Math.abs(p.price - reading.level) <= threePoints(reading.level))
       .slice(-reading.tests)
       .map((p) => ({ index: p.index, price: p.price }));
     const crossings: MultipleTestCrossing[] = [];

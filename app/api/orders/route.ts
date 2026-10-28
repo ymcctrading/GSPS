@@ -140,8 +140,12 @@ export async function GET() {
       mp: numOrNull(o.master_profit),
       sl: numOrNull(o.stop_price),
     };
+    // The rules version names a rule in the method's words; it stays on the
+    // server (AGENTS.md, "Confidential sources").
+    const { strategy_version: _version, ...row } = o;
+    void _version;
     return {
-      ...o,
+      ...row,
       currentPrice,
       // Not modeled: an accurate day P/L needs the symbol's previous session
       // close, which isn't fetched here.

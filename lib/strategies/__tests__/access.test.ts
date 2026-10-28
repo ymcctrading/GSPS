@@ -3,7 +3,7 @@ import { isCustomScriptAuthoringAllowedForPolicy, isStrategyModeAllowedForPolicy
 
 describe("isStrategyModeAllowedForPolicy", () => {
   it("always allows the structural default regardless of the tier's list", () => {
-    expect(isStrategyModeAllowedForPolicy({ allowedStrategyModes: [] }, "gann")).toBe(true);
+    expect(isStrategyModeAllowedForPolicy({ allowedStrategyModes: [] }, "gsps")).toBe(true);
   });
 
   it("rejects every non-default mode for a tier with an empty list (Novice)", () => {

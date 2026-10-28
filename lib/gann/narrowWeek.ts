@@ -22,7 +22,7 @@
  * an expansion, and Polarity gives the mirror.
  */
 import type { Bar } from "@/lib/types";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 /** The narrow week is the narrowest of this many weeks ending with it. Pre-registered. */
 export const NARROW_WEEK_LOOKBACK = 4;
@@ -50,8 +50,8 @@ function breakAt(weekly: Bar[], i: number): NarrowWeekBreakReading | null {
   const week = weekly[i];
   if (!(avg > 0) || !(week.v > avg)) return null;
   const base = { narrowWeek: narrow.t, narrowHigh: narrow.h, narrowLow: narrow.l, breakClose: week.c, volumeRatio: week.v / avg };
-  if (week.c <= narrow.l - gannThreePoints(narrow.l)) return { direction: "bearish", ...base };
-  if (week.c >= narrow.h + gannThreePoints(narrow.h)) return { direction: "bullish", ...base };
+  if (week.c <= narrow.l - threePoints(narrow.l)) return { direction: "bearish", ...base };
+  if (week.c >= narrow.h + threePoints(narrow.h)) return { direction: "bullish", ...base };
   return null;
 }
 

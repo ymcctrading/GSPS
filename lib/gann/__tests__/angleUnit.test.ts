@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { PATTERN_ANGLES } from "@/lib/gann/patternAngles";
 import { ANGLES, computeFanLines } from "@/lib/gann/fans";
 import { computeAngleSlopes, nearestGannAngle } from "@/lib/gann/normalizedSlope";
@@ -9,7 +9,7 @@ import { computeMidpointFan } from "@/lib/gann/midpointFan";
 
 // Q27 (owner, "default to Gann's method"): the fans, the scored angle slope,
 // the square of price and time and the 50% fan read price in Gann points
-// (`gannPointForBars`), one point per daily bar, on Gann's full angle set, the
+// (`pointForBars`), one point per daily bar, on Gann's full angle set, the
 // unit and set the S/R angles (`patternAngles.ts`) already use.
 
 const DAY = 86_400_000;
@@ -18,7 +18,7 @@ const daily = (closes: number[]): Bar[] =>
 const line = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
 const closes = [...line(110, 100, 10), ...line(100, 140, 20), ...line(140, 110, 15)];
 const bars = daily(closes);
-const point = gannPointForBars(bars);
+const point = pointForBars(bars);
 
 describe("angles read in price-scaled points", () => {
   it("draws the fan on the full angle set", () => {

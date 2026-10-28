@@ -9,10 +9,10 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/gann/switch";
-import { useGannRulePrefs } from "@/components/gann/use-gann-rule-prefs";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 
 export function TradingRemindersSettings() {
-  const { prefs, error, save } = useGannRulePrefs();
+  const { prefs, error, save } = useTradeRulePrefs();
   return (
     <Card>
       <CardHeader>

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { BASE_LEFT_SESSIONS, readAccumulation, readBaseLeft } from "@/lib/gann/accumulation";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 const day = (i: number) => new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString();
 const bar = (i: number, c: number): Bar => ({ t: day(i), o: c, h: c + 0.5, l: c - 0.5, c, v: 1000 });
@@ -18,8 +18,8 @@ function base(tail: number[]): Bar[] {
   return bars;
 }
 
-const out = 100.5 + gannThreePoints(100.5) + 1;
-const under = 99.5 - gannThreePoints(99.5) - 1;
+const out = 100.5 + threePoints(100.5) + 1;
+const under = 99.5 - threePoints(99.5) - 1;
 
 describe("readBaseLeft", () => {
   it("reads nothing while price is still inside the base", () => {
@@ -36,14 +36,14 @@ describe("readBaseLeft", () => {
   });
 
   it("drops it once a close comes back 3 points inside the crossed top", () => {
-    expect(readBaseLeft(base([out, 100.5 - gannThreePoints(100.5) - 0.1]))).toBeNull();
+    expect(readBaseLeft(base([out, 100.5 - threePoints(100.5) - 0.1]))).toBeNull();
     // Back inside, but not by 3 points: still standing.
     expect(readBaseLeft(base([out, 100.4]))?.direction).toBe("up");
   });
 
   it("mirrors for a base broken downward", () => {
     expect(readBaseLeft(base([under, under - 1]))?.direction).toBe("down");
-    expect(readBaseLeft(base([under, 99.5 + gannThreePoints(99.5) + 0.1]))).toBeNull();
+    expect(readBaseLeft(base([under, 99.5 + threePoints(99.5) + 0.1]))).toBeNull();
   });
 
   it("forgets a break more than the search window ago", () => {

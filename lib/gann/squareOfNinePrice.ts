@@ -16,7 +16,7 @@
  * The time half of the same sentence is `squareOfNineTime.ts`; this is the
  * price half. The plate's numbering gives every line in closed form
  * (`numberOnLine`), so a cell number is read as a price in Gann points
- * (`pointScale.ts#gannPoint`, the same unit the Square of 144 and the
+ * (`pointScale.ts#pricePoint`, the same unit the Square of 144 and the
  * planetary averages use), and the nearest cross number below price joins
  * the S/R list as support and the nearest above as resistance
  * (`masterLevels.ts`, live scan and replay alike).

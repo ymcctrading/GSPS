@@ -135,21 +135,39 @@ export async function loadSweptCandidates(
   slots: number = SWEEP_SLOTS,
   now: Date = new Date(),
 ): Promise<string[]> {
+  return (await loadSweptCandidatesWithBasis(service, slots, now)).symbols;
+}
+
+/** `loadSweptCandidates`, with the night it read, so a caller resolves it once. */
+export async function loadSweptCandidatesWithBasis(
+  service: SupabaseClient,
+  slots: number = SWEEP_SLOTS,
+  now: Date = new Date(),
+): Promise<{ symbols: string[]; basis: string | null }> {
+  let basis: string | null = null;
+  const none = () => ({ symbols: [] as string[], basis });
   try {
-    const basis = await chooseSweepBasis(service, now);
-    if (!basis) return [];
+    basis = await chooseSweepBasis(service, now);
+    if (!basis) return none();
     const { data, error } = await service
       .from("universe_sweep")
       .select("basis_date, symbol, direction, score, output_state")
       .eq("basis_date", basis)
-      .in("output_state", ["Execute", "Watch"]);
-    if (error || !data) return [];
-    return sweptCandidates(
-      (data as SweepRow[]).map((r) => ({ ...r, score: r.score === null ? null : Number(r.score) })),
-      slots,
-    );
+      .in("output_state", ["Execute", "Watch"])
+      // A row the session or a later scan already retired (migration 0130)
+      // is not re-scored first: the coarse pass or the next night reads its
+      // new structure.
+      .is("invalidated_at", null);
+    if (error || !data) return none();
+    return {
+      symbols: sweptCandidates(
+        (data as SweepRow[]).map((r) => ({ ...r, score: r.score === null ? null : Number(r.score) })),
+        slots,
+      ),
+      basis,
+    };
   } catch {
-    return [];
+    return none();
   }
 }
 
@@ -196,4 +214,83 @@ export async function chooseSweepBasis(
     if (count && count >= LARGE_CAP_UNIVERSE.length * SWEEP_MIN_COVERAGE) break;
   }
   return pickSweepBasis(counts, LARGE_CAP_UNIVERSE.length, today);
+}
+
+/** A day scan's reading of a symbol, as the sweep's retirement test reads it. */
+export interface Reread {
+  symbol: string;
+  /** The scan failed for the symbol (a feed gap): it read nothing. */
+  error: boolean;
+  direction: string | null;
+  outputState: string | null;
+  /** The result carried a full trade plan (`hasTradePlan`). */
+  planned: boolean;
+}
+
+/**
+ * The night's rows a later read of the same chart no longer bears out: the
+ * day's market scan re-scored the symbol and found no Execute or Watch plan
+ * on the row's side. In Gann's method a new reading of the swing structure
+ * replaces the old plan (NSTD Rule 6; AGENTS.md, F3.7). A failed read
+ * overrules nothing. Pure.
+ */
+export function overruledSweepSymbols(
+  rows: readonly { symbol: string; direction: string | null }[],
+  rereads: readonly Reread[],
+): string[] {
+  // A symbol can be read twice (the reversion and the continuation pass):
+  // the plan stands if either read bears it out.
+  const read = new Map<string, Reread[]>();
+  for (const r of rereads) {
+    if (r.error) continue;
+    const key = r.symbol.toUpperCase();
+    read.set(key, [...(read.get(key) ?? []), r]);
+  }
+  return rows
+    .filter((row) => {
+      const reads = read.get(row.symbol.toUpperCase());
+      if (!reads) return false;
+      return !reads.some(
+        (r) => r.planned && r.direction === row.direction && (r.outputState === "Execute" || r.outputState === "Watch"),
+      );
+    })
+    .map((row) => row.symbol);
+}
+
+/**
+ * Marks the night's rows the day's market scan overruled (`overruledSweepSymbols`),
+ * so the intraday scan stops timing a plan the lists' scan no longer reads
+ * (SUS-21). The caller passes the night it read (`loadSweptCandidatesWithBasis`)
+ * and calls this only on a scan priced in the regular session: a pre- or
+ * post-market quote never retires a plan (`barsSincePlan`'s rule). One read
+ * and at most one write. Best-effort: a failure leaves the rows on, as before.
+ */
+export async function retireOverruledSweepRows(
+  service: SupabaseClient,
+  basis: string | null,
+  rereads: readonly Reread[],
+  now: Date = new Date(),
+): Promise<number> {
+  if (!basis || rereads.length === 0) return 0;
+  const { data, error } = await service
+    .from("universe_sweep")
+    .select("symbol, direction")
+    .eq("basis_date", basis)
+    .in("symbol", rereads.map((r) => r.symbol.toUpperCase()))
+    .in("output_state", ["Execute", "Watch"])
+    .is("invalidated_at", null);
+  if (error || !data) return 0;
+  const overruled = overruledSweepSymbols(data as { symbol: string; direction: string | null }[], rereads);
+  if (overruled.length === 0) return 0;
+  const { error: writeError } = await service
+    .from("universe_sweep")
+    .update({ invalidated_at: now.toISOString(), invalidated_reason: "the day's scan no longer reads the plan" })
+    .eq("basis_date", basis)
+    .in("symbol", overruled)
+    .is("invalidated_at", null);
+  if (writeError) {
+    console.error("[market-scan] sweep retirement not written:", writeError.message);
+    return 0;
+  }
+  return overruled.length;
 }

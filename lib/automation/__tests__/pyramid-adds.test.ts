@@ -41,7 +41,7 @@ vi.mock("@/lib/brokers/simulator", () => ({
 import { getOrCreateAccount } from "@/lib/brokers/simulator";
 import { lineLots, mergedLine, placeAutomatedPyramidAdds, type PyramidMarket } from "@/lib/automation/pyramid-adds";
 import { readPyramidAdd } from "@/lib/gann/pyramid";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
 type Row = Record<string, unknown>;
 
@@ -249,7 +249,7 @@ describe("automated pyramid adds", () => {
     const avg = (100 * 101.8 + 50 * sim.quote) / 150;
     expect(line.entry_price).toBeCloseTo(avg, 4);
     expect(line.applied_stop as number).toBeGreaterThanOrEqual(avg);
-    expect(sim.quote - (line.applied_stop as number)).toBeLessThanOrEqual(5 * gannPoint(sim.quote) + 0.01);
+    expect(sim.quote - (line.applied_stop as number)).toBeLessThanOrEqual(5 * pricePoint(sim.quote) + 0.01);
     expect(line.applied_stop_reason).toBe("break_even");
     expect(line.add_claimed_at).toBeNull();
     // The add's order points at the line.
@@ -435,12 +435,12 @@ describe("the merged line", () => {
 
   it("measures the 5 points from the add's own fill when the server filled past the pass's quote", () => {
     // The order's stop was measured from a quote of 119; the fill came at 121.
-    const orderStop = 119 - 5 * gannPoint(119);
+    const orderStop = 119 - 5 * pricePoint(119);
     const m = mergedLine(
       { side: "long", qty: 100, entry_price: 100, applied_stop: 97, stop_loss: 97, created_at: "2026-06-03T14:00:00Z", lots: null },
       { qty: 50, price: 121, date: "2026-06-10", stop: orderStop },
     );
-    expect(m.stop).toBeCloseTo(121 - 5 * gannPoint(121), 9);
+    expect(m.stop).toBeCloseTo(121 - 5 * pricePoint(121), 9);
     expect(m.stop).toBeGreaterThan(orderStop);
   });
 

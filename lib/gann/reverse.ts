@@ -16,7 +16,7 @@
  * The geometry is Gann's: the reversal enters at the level whose break ended
  * the trade (the stop, or the close the signal was read on) and its stop sits
  * 3 of his points beyond the old trade's extreme, the top for a long caught
- * (78 over a 75 top), price-scaled by `gannThreePoints`. No target is fixed
+ * (78 over a 75 top), price-scaled by `threePoints`. No target is fixed
  * (Q14); the reversal leaves on the same exit rules as any trade.
  *
  * Which exits reverse. A stop that was hit (any of Gann's stops) and the exits
@@ -28,7 +28,7 @@
  * price and time (`trend_change`).
  */
 
-import { gannThreePoints } from "./pointScale";
+import { threePoints } from "./pointScale";
 import type { GannExitReason, GannStopReason } from "./exitRules";
 import type { IntradayExitSignal } from "./intradayExit";
 
@@ -82,7 +82,7 @@ export function gannReversal(input: { side: "long" | "short"; brokenLevel: numbe
   const { side, brokenLevel, extreme } = input;
   if (!(brokenLevel > 0) || !(extreme > 0)) return null;
   const toShort = side === "long";
-  const stop = toShort ? extreme + gannThreePoints(extreme) : extreme - gannThreePoints(extreme);
+  const stop = toShort ? extreme + threePoints(extreme) : extreme - threePoints(extreme);
   if (toShort ? stop <= brokenLevel : stop >= brokenLevel || stop <= 0) return null;
   return { side: toShort ? "short" : "long", entry: brokenLevel, stop };
 }

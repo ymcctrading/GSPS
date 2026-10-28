@@ -39,7 +39,7 @@
  */
 
 import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
-import { gannThreePointsPct } from "@/lib/gann/pointScale";
+import { threePointsPct } from "@/lib/gann/pointScale";
 
 export type InstrumentKind = "us_equity" | "crypto" | "future" | "forex" | "option";
 
@@ -191,7 +191,7 @@ export function gannUnitPrice(spec: InstrumentSpec, price: number, symbol?: stri
 
 /** Gann's 3-point allowance for this instrument, as a share of its price (%). */
 export function instrumentAllowancePct(spec: InstrumentSpec, price: number, symbol?: string): number {
-  return gannThreePointsPct(gannUnitPrice(spec, price, symbol));
+  return threePointsPct(gannUnitPrice(spec, price, symbol));
 }
 
 /**

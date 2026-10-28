@@ -9,7 +9,7 @@ import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/con
 import { gannOptionExpiration } from "@/lib/options/gannOptionPlan";
 import { CompanyPanel } from "@/components/chart/company-panel";
 import { formatUsd, parseJsonResponse } from "@/lib/utils";
-import type { ScanResult, TradeLevels } from "@/lib/types";
+import type { PublicScanResult, TradeLevels } from "@/lib/types";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
@@ -31,7 +31,7 @@ export function MarketTabs({
   exactScoreDisplayEnabled = false,
 }: {
   symbol: string;
-  result?: ScanResult | null;
+  result?: PublicScanResult | null;
   exactScoreDisplayEnabled?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("research");
@@ -101,7 +101,7 @@ function ResearchPanel({
   exactScoreDisplayEnabled: exactScoreDisplayEnabledProp = false,
 }: {
   symbol: string;
-  result?: ScanResult | null;
+  result?: PublicScanResult | null;
   exactScoreDisplayEnabled?: boolean;
 }) {
   const [reloadKey, setReloadKey] = useState(0);
@@ -111,7 +111,7 @@ function ResearchPanel({
   // score or levels for a render. See components/scan/ticker-view.tsx.
   const [scan, setScan] = useState<{
     key: string;
-    data: ScanResult | null;
+    data: PublicScanResult | null;
     error: string | null;
     retryable: boolean;
     exactScoreDisplayEnabled: boolean;
@@ -134,7 +134,7 @@ function ResearchPanel({
     let cancelled = false;
     const key = `${symbol}:${reloadKey}`;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then((r) => parseJsonResponse<ScanResult & { exactScoreDisplayEnabled?: boolean }>(r))
+      .then((r) => parseJsonResponse<PublicScanResult & { exactScoreDisplayEnabled?: boolean }>(r))
       .then((d) => {
         if (cancelled) return;
         const exactScoreDisplayEnabled = Boolean(d.exactScoreDisplayEnabled);
@@ -227,15 +227,15 @@ function ResearchPanel({
           </Badge>
         )}
         {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
-        {TIME_LINE_RECORDS.timeCycle && fetched.gann.timeCycleActive && (
+        {TIME_LINE_RECORDS.timeCycle && fetched.chartLevels?.timingActive && (
           <Badge variant="warn">
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" />
             <span className="font-normal"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
           </Badge>
         )}
-        {TIME_LINE_RECORDS.yearCycles && (fetched.gann.yearCycleBullishHits ?? 0) + (fetched.gann.yearCycleBearishHits ?? 0) > 0 && (
+        {TIME_LINE_RECORDS.yearCycles && (fetched.chartLevels?.longTermTimingCount ?? 0) > 0 && (
           <Badge variant="warn">
-            ⟳ <GlossaryTerm term="Yearly cycles converging" label="Yearly cycles converging" className="decoration-warn/60" />
+            ⟳ <GlossaryTerm term="Long-term timing lines up" label="Long-term timing lines up" className="decoration-warn/60" />
             <span className="font-normal"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
           </Badge>
         )}
@@ -266,7 +266,7 @@ function ResearchPanel({
         </div>
       </section>
 
-      {fetched.gann.fanLines.length > 0 && (
+      {(fetched.chartLevels?.trendLines.length ?? 0) > 0 && (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             <GlossaryTerm
@@ -275,15 +275,15 @@ function ResearchPanel({
             />
           </h4>
           <div className="flex flex-wrap gap-2 text-xs">
-            {fetched.gann.fanLines.slice(0, 4).map((f, i) => (
+            {fetched.chartLevels.trendLines.slice(0, 4).map((f, i) => (
               <span key={`f${i}`} className="rounded-md bg-background px-2 py-1 text-muted">
-                <GlossaryTerm term="Support line (1x1, 1x2, 1x4...)" label={`Support ${f.angle}`} />:{" "}
+                <GlossaryTerm term="Support / resistance line" label={`${f.role === "support" ? "Support" : "Resistance"} line`} />:{" "}
                 <span className="font-mono text-foreground">{formatUsd(f.price)}</span>
               </span>
             ))}
-            {fetched.gann.squareOf9.slice(0, 4).map((s, i) => (
+            {fetched.chartLevels.keyLevels.slice(0, 4).map((s, i) => (
               <span key={`s${i}`} className="rounded-md bg-background px-2 py-1 text-muted">
-                Key Level {s.degree}°: <span className="font-mono text-foreground">{formatUsd(s.price)}</span>
+                Key level: <span className="font-mono text-foreground">{formatUsd(s.price)}</span>
               </span>
             ))}
           </div>

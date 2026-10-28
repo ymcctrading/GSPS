@@ -31,7 +31,7 @@ describe("1Day reaction replay", () => {
   const daily = walk(1, 260, 40);
   const run = () =>
     replay("TEST", daily, {
-      targetR: 2, dailyBars: daily, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60,
+      targetR: 2, dailyBars: daily, usePlanLevels: true, entryRule: "reaction", exitRule: "structure", maxBarsHeld: 10, warmupBars: 60,
     });
 
   it("fills crossings and old levels, not only held bottoms", () => {
@@ -95,7 +95,7 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
     for (const seed of [40, 54, 67]) {
       const bars = wickWalk(seed, 260, 40);
       const trades = replay("TEST", bars, {
-        targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60,
+        targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "structure", maxBarsHeld: 10, warmupBars: 60,
       }).trades.filter((t) => !t.derived && t.openedAt);
       for (const t of trades) {
         const at = bars.findIndex((b) => b.t === t.openedAt);
@@ -124,7 +124,7 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
   // of back above it, still books the trade and its loss.
   it("books the trade when the firing bar also closed through the stop", () => {
     const bars = wickWalk(40, 260, 40);
-    const opts = { targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60 } as const;
+    const opts = { targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "structure", maxBarsHeld: 10, warmupBars: 60 } as const;
     const sameDay = replay("TEST", bars, opts).trades.find((t) => !t.derived && t.barsHeld === 1 && t.closedAt === t.openedAt && t.ambiguous);
     expect(sameDay).toBeDefined();
     const at = bars.findIndex((b) => b.t === sameDay!.openedAt);
@@ -146,7 +146,7 @@ describe("1Day reaction replay, a firing bar that also reached the stop", () => 
   // a fill outside its bracket (`fill_outran_bracket`).
   it("fills at an open inside the zone, and refuses an open beyond the stop", () => {
     const bars = wickWalk(40, 260, 40);
-    const opts = { targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60 } as const;
+    const opts = { targetR: 2, dailyBars: bars, usePlanLevels: true, entryRule: "reaction", exitRule: "structure", maxBarsHeld: 10, warmupBars: 60 } as const;
     const base = replay("TEST", bars, opts);
     const sameDay = base.trades.find((t) => !t.derived && t.barsHeld === 1 && t.closedAt === t.openedAt && t.ambiguous);
     expect(sameDay).toBeDefined();
@@ -179,7 +179,7 @@ describe("readyNowAtPlan", () => {
     for (const seed of [1, 2, 3]) {
       const daily = walk(seed, 260, 40);
       const result = replay("TEST", daily, {
-        targetR: 2, dailyBars: daily, usePlanLevels: true, entryRule: "reaction", exitRule: "gann", maxBarsHeld: 10, warmupBars: 60,
+        targetR: 2, dailyBars: daily, usePlanLevels: true, entryRule: "reaction", exitRule: "structure", maxBarsHeld: 10, warmupBars: 60,
       });
       for (const t of result.trades.filter((x) => !x.derived)) {
         expect(typeof t.contextFactors?.readyNowAtPlan).toBe("boolean");

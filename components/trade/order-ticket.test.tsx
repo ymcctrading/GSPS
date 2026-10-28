@@ -12,14 +12,14 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OrderTicket } from "./order-ticket";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 
 /**
  * A scan whose advised entry is the price that produced the original broker
  * rejection: `Invalid limit_price 49.755. sub-penny increment does not fulfill
  * minimum pricing criteria.`
  */
-function scanWithEntry(entry: number, direction: "bullish" | "bearish" = "bullish"): ScanResult {
+function scanWithEntry(entry: number, direction: "bullish" | "bearish" = "bullish"): PublicScanResult {
   return {
     symbol: "DRAM",
     assetClass: "us_equity",
@@ -29,7 +29,7 @@ function scanWithEntry(entry: number, direction: "bullish" | "bearish" = "bullis
     setupKind: "reversion",
     momentumElevated: false,
     trends: [],
-    gann: { fanLines: [], squareOf9: [], timeCycleActive: false, timeCycleBullishActive: false, timeCycleBearishActive: false, timeCycleDates: [], angleSlopes: [], retracementLevels: [], digitalRootConfluences: [] },
+    chartLevels: { trendLines: [], keyLevels: [], timingActive: false, longTermTimingCount: 0 },
     pattern: {
       name: "2-2",
       direction,
@@ -262,7 +262,7 @@ describe("OrderTicket — switching to a put", () => {
     return fetchMock;
   }
 
-  function bullishScan(): ScanResult {
+  function bullishScan(): PublicScanResult {
     return { ...scanWithEntry(220, "bullish"), symbol: "GPUS" };
   }
 
@@ -490,7 +490,7 @@ describe("OrderTicket other techniques", () => {
       const json = (body: unknown) =>
         Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
       if (url.includes("/api/strategy-mode-preference")) {
-        return json({ mode: "gann", allowedModes: ["rsiReversal", "macdMomentum"] });
+        return json({ mode: "gsps", allowedModes: ["rsiReversal", "macdMomentum"] });
       }
       if (url.includes("/api/strategy-levels/compare")) return json({ techniques: [aligned, against] });
       if (url.includes("/api/strategy-plugins")) return json({ plugins: [] });
@@ -715,5 +715,15 @@ describe("OrderTicket level choice", () => {
     expect(body.entryMode).toBe("advised");
     expect(body.entryStop).toBeCloseTo(44);
     expect(body.intradaySourced).toBe(false);
+  });
+
+  it("drops a sub-dollar intraday MTP that sits inside the placement gap of TP1", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    // At $0.50 the gap is 1% of price ($0.005): an MTP $0.002 past TP1 would be refused.
+    render(<OrderTicket result={scanWithEntry(0.5)} livePrice={0.5} sessionPlan={{ entry: 0.5, stop: 0.48, firstTarget: 0.53, masterTarget: 0.532 }} />);
+    await user.click(screen.getByRole("button", { name: "Intraday plan" }));
+    await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
+    expect(orderBody(fetchMock).attachLevels).toEqual({ stopLoss: 0.48, takeProfit: 0.53 });
   });
 });

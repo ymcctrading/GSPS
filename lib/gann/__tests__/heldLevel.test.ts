@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import type { Bar } from "@/lib/types";
 import { HELD_LEVEL_SESSIONS, readHeldLevel } from "@/lib/gann/heldLevel";
-import { gannThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import { threePoints, pricePoint } from "@/lib/gann/pointScale";
 import { buildMacroContext } from "@/lib/backtest/replay";
 import { toMonthlyBars } from "@/lib/gann/disclosedRules";
 
@@ -33,8 +33,8 @@ describe("historicalSR: the reaction stopped at an old level and held (heldLevel
   });
 
   it("fails when the reaction stopped short of the level by more than 1 point, or went through by more than 3", () => {
-    const one = gannPoint(50);
-    const three = gannThreePoints(50);
+    const one = pricePoint(50);
+    const three = threePoints(50);
     const short = 50 + one + 0.2;
     const through = 50 - three - 0.2;
     expect(readHeldLevel(sessions([58, 57, 56, 55, short, 56, 57, 58, 58, 58]), level, 58.5, "bullish")).toBeNull();
@@ -135,4 +135,40 @@ describe("historicalSR's pass rate on random walks", () => {
     }
     if (process.env.SR_OUT) fs.writeFileSync(process.env.SR_OUT, report.join("\n"));
   }, 1_800_000);
+});
+
+describe("the low's multiples never join the held-level check's old levels (queue review of #509)", () => {
+  it("keeps a deep major low's multiples in the S/R list and out of `old`", async () => {
+    const { buildStructuralLevels } = await import("@/lib/scan/structuralLevels");
+    const { lowMultipleLevels } = await import("@/lib/gann/disclosedRules");
+    const day = 86_400_000;
+    const t0 = Date.parse("2020-01-01T00:00:00Z");
+    // 36 months climbing from a $2 major low, then a year of sessions near $50:
+    // the low's multiples (every $2) sit closer together than the 3-point band.
+    const monthly: Bar[] = Array.from({ length: 36 }, (_, i) => {
+      const p = 2 + i * 1.3;
+      return { t: new Date(t0 + i * 30 * day).toISOString(), o: p, h: p + 1, l: Math.max(2, p - 1), c: p, v: 1e6 };
+    });
+    const start = t0 + 36 * 30 * day;
+    const daily: Bar[] = Array.from({ length: 250 }, (_, i) => {
+      const p = 50 + 3 * Math.sin(i / 5);
+      return { t: new Date(start + i * day).toISOString(), o: p, h: p + 0.6, l: p - 0.6, c: p, v: 1e6 };
+    });
+    const trend = (timeframe: "1Day" | "1Week" | "1Month") => ({ timeframe, direction: "sideways" as const, support: [], resistance: [] });
+    const { all, old } = buildStructuralLevels({
+      trends: { daily: trend("1Day"), weekly: trend("1Week"), monthly: trend("1Month") },
+      charts: { daily, weekly: [], monthly },
+      campaign: null,
+      price: daily[daily.length - 1].c,
+      asOf: new Date(daily[daily.length - 1].t),
+    });
+    const multiples = lowMultipleLevels([...monthly, ...daily]);
+    expect(multiples.length).toBe(2);
+    const allPrices = all.map((l) => l.price);
+    const oldPrices = old.map((l) => l.price);
+    for (const m of multiples) {
+      expect(allPrices).toContain(m);
+      expect(oldPrices).not.toContain(m);
+    }
+  });
 });

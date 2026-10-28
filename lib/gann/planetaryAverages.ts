@@ -50,7 +50,7 @@
  *   111.87°) and Gann's 1948 soy bean chart (Jupiter conjunct Mars on Dec 1).
  * - Geocentric sets leave out the Sun and Moon; heliocentric sets leave out
  *   the Earth (Walker's lists).
- * - One price unit, the Gann point (`pointScale.ts#gannPointForBars`), a
+ * - One price unit, the Gann point (`pointScale.ts#pointForBars`), a
  *   point to a degree. No other scale is tried. Gann's own letters try
  *   several scales at once (1, 12, 30 and 45 points a degree), and that is
  *   the multiple-comparisons pattern the master report excludes.

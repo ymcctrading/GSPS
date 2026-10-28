@@ -11,7 +11,7 @@ import {
 } from "@/lib/backtest/replayIntradayAlerts";
 import { summariseAlertTrades } from "@/lib/backtest/alertSummary";
 import { etDateKey, etParts } from "@/lib/market/session";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import { volumeBaseline } from "@/lib/scanner/intraday";
 
@@ -316,7 +316,7 @@ describe("plan_level_held, replayed", () => {
     expect(t.signal).toBe("plan_level_held");
     expect(t.planVerdict).toBe("Execute");
     const sessionLow = Math.min(...bars.filter((b) => etDateKey(new Date(b.t)) === date && b.t < t.openedAt).map((b) => b.l));
-    expect(t.stop).toBeCloseTo(Math.max(97, sessionLow - gannThreePoints(sessionLow)), 9);
+    expect(t.stop).toBeCloseTo(Math.max(97, sessionLow - threePoints(sessionLow)), 9);
   });
 
   it("records how the daily plan was armed, and the summary splits on it", () => {

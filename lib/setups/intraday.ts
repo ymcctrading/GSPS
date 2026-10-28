@@ -82,7 +82,9 @@ export function intradayChartPlan(
     const l = intradayLevels(best);
     return { entry: l.entry, stop: l.stop, firstTarget: l.tp1, masterTarget: l.mtp };
   }
-  const r = recent.find((x) => x.symbol.toUpperCase() === sym && offered(x, x.stop, x.firstTarget));
+  // A stored alert whose first target paid no more than the risk offers no
+  // trade, as on a fresh scan.
+  const r = recent.find((x) => x.symbol.toUpperCase() === sym && x.paysRisk !== false && offered(x, x.stop, x.firstTarget));
   return r ? { entry: r.entry, stop: r.stop, firstTarget: r.firstTarget, masterTarget: r.masterTarget } : null;
 }
 

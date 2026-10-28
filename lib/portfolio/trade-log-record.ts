@@ -13,9 +13,9 @@
  * `settlePendingTradeLogs` comes back for it once the broker reports the fill.
  */
 
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -68,7 +68,7 @@ export async function recordPendingExit(
   const { data, error } = await ledgerWriter(supabase)
     .from("trade_logs")
     .insert({
-      strategy_version: STRATEGY_VERSION,
+      strategy_version: STORED_STRATEGY_VERSION,
       // Written only by the broker exit manager, so always the live account
       // (migration 0107, review finding R-002).
       mode: "live",

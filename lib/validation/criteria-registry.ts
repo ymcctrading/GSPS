@@ -1053,7 +1053,8 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     evidence: "unmeasured",
     note:
       "Q19 (owner, 2026-10-16, \"Window\"): a counter-trend Execute holds to Watch unless its swing extreme came " +
-      "on a dated window (A-TIME-15, W036 p.22; C-STOP-03; HTMPC p.56). Appended to every counter-trend Execute, " +
+      "on a dated window (A-TIME-15, W036 p.22; C-STOP-03; HTMPC p.56), and since 2026-10-28 with price at the half " +
+      "or three quarters of a major range (Master Course PDF 202, Ch. 18 TP-2). Appended to every counter-trend Execute, " +
       "passed when the turn came on a window and failed when it holds the verdict.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },

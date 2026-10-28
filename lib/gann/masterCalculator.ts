@@ -47,7 +47,7 @@
  *
  * Engineering choices, labelled as such:
  * - Prices are read in Gann points scaled to the price level
- *   (`pointScale.ts#gannPointForBars`). At his prices a point is a dollar.
+ *   (`pointScale.ts#pointForBars`). At his prices a point is a dollar.
  * - "Within two points" (his wheat 286 against 288) is the tolerance for a
  *   hit, in whatever unit is being read.
  * - Months are calendar days ÷ 30.4375, and market days are bars. Leap days
@@ -329,7 +329,7 @@ function readFromPivot(
 /**
  * The calculator read on one symbol: the price under every placement, and
  * the time from the extreme high and low of `bars`. `unit` is the Gann point
- * in dollars (`gannPointForBars`).
+ * in dollars (`pointForBars`).
  */
 export function readMasterCalculator(
   bars: { t: string; h: number; l: number }[],

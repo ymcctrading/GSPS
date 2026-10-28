@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { computeGannHoldEntry } from "@/lib/gann/entryTrigger";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 const DAY = 86_400_000;
 // Weekdays only, from Monday 2026-01-05.
@@ -30,8 +30,8 @@ describe("the narrow-week sale (A-ENTRY-19)", () => {
     const t = computeGannHoldEntry(bars, "bearish", [], undefined, false, false)!;
     expect(t).toMatchObject({ kind: "hold", holdBasis: "narrowWeek", direction: "bearish" });
     expect(t.level).toBeCloseTo(low, 8);
-    expect(t.reactionEntry).toBeCloseTo(low - gannThreePoints(low) / 3, 8);
-    expect(t.reactionStop).toBeCloseTo(low + gannThreePoints(low), 8);
+    expect(t.reactionEntry).toBeCloseTo(low - threePoints(low) / 3, 8);
+    expect(t.reactionStop).toBeCloseTo(low + threePoints(low), 8);
   });
 
   it("waits for the drop week to close, and is not a buy", () => {

@@ -64,7 +64,7 @@
  * - Trigger: Mars or Mercury within 1° of the same aspect to either planet of
  *   a pair in orb. **Engineering choice, labelled:** Jensen names the
  *   trigger but not its orb; 1° is about two days of Mars and one of Mercury.
- * - Price unit: the Gann point (`gannPointForBars`), the one scale the rest
+ * - Price unit: the Gann point (`pointForBars`), the one scale the rest
  *   of the astrology uses. Jensen's own is $1 for stocks (J-1), which is the
  *   Gann point only near $42.50; GSPS's price-scaling is the established
  *   translation of a 1930s point.
@@ -95,7 +95,7 @@ import type { Bar } from "@/lib/types";
 import { ephemerisInstant, planetLongitudes } from "@/lib/gann/planetaryAverages";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 const DAY_MS = 86_400_000;
 const MONTH_DAYS = 30.4375;
@@ -172,8 +172,16 @@ const pointLabel = (p: JensenPoint) =>
  * C-LEVELS-21, 2026-10-16; until then trine points joined it too). Only the
  * nearest pair, so the list stays sparse (engineering choice, as for the
  * active angles).
+ *
+ * The square is laid at the major low and high of `record`, the long monthly
+ * record with the daily bars, when one is given (Gann alignment audit
+ * 2026-10-28, rest-of-gann.md R38): Jensen lays it "at every major low" and
+ * inverts it "at every major high", after Gann's January 1931 Pattern Chart,
+ * and a year of daily bars' extreme is often a minor low. The unit stays the
+ * daily bars' Gann point, as every other lattice reads it.
  */
-export function jensenLevels(bars: Bar[], price: number, unit: number): { price: number; label: string }[] {
+export function jensenLevels(bars: Bar[], price: number, unit: number, record?: Bar[]): { price: number; label: string }[] {
+  if (record && record.length > 0) bars = record;
   if (bars.length === 0 || !(price > 0) || !(unit > 0)) return [];
   const { hi, lo } = extremes(bars);
   const pts = price / unit;
@@ -191,8 +199,9 @@ export function jensenLevels(bars: Bar[], price: number, unit: number): { price:
   return out;
 }
 
-/** The square-of-90 point the price is on, within Jensen's one point, nearest first. */
-export function jensenPriceHit(bars: Bar[], price: number, unit: number): (JensenPoint & { level: number }) | null {
+/** The square-of-90 point the price is on, within Jensen's one point, nearest first; laid as `jensenLevels` lays it. */
+export function jensenPriceHit(bars: Bar[], price: number, unit: number, record?: Bar[]): (JensenPoint & { level: number }) | null {
+  if (record && record.length > 0) bars = record;
   if (bars.length === 0 || !(price > 0) || !(unit > 0)) return null;
   const { hi, lo } = extremes(bars);
   const pts = price / unit;
@@ -616,7 +625,7 @@ export function jensenBottomConvergence(bars: Bar[], unit: number): JensenConver
   let best: JensenConvergence | null = null;
   for (const m of [multiple.bottom, multiple.top]) {
     if (!m) continue;
-    const band = 2 * gannThreePoints(m.level);
+    const band = 2 * threePoints(m.level);
     const tests = walkSwingChart(bars, THREE_DAY_CHART)
       .pivots.filter((p) => p.kind === m.kind && p.index <= m.lastTestIndex && Math.abs(p.price - m.level) <= band)
       .slice(-m.tests);

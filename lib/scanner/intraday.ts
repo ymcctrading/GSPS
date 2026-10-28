@@ -705,6 +705,8 @@ export interface RecentSystemAlert {
   at: string;
   /** As on `Alert`: the stored signal ran against the daily trend. */
   againstDailyTrend?: boolean;
+  /** False when the stored first target paid no more than the risk (M-K5). */
+  paysRisk?: boolean;
 }
 
 /** ---- Audit trail ------------------------------------------------------- */

@@ -33,7 +33,7 @@
  * premium paid is the whole cause of the loss, so it is the risk.
  */
 
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 /** Gann's option term: "buying PUTS and CALLS good 30 days" (Ch. 19A, PDF 447). */
 export const GANN_OPTION_DAYS = 30;
@@ -61,7 +61,7 @@ export function gannOptionExpiration(expirations: readonly string[], from: Date 
  */
 export function gannOptionStrike(underlying: number, type: "call" | "put"): number | null {
   if (!(underlying > 0)) return null;
-  const away = gannThreePoints(underlying);
+  const away = threePoints(underlying);
   return type === "call" ? underlying + away : underlying - away;
 }
 

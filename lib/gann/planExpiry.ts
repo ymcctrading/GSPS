@@ -69,7 +69,7 @@
 
 import type { Bar } from "@/lib/types";
 import type { CampaignLedger } from "@/lib/gann/campaignLedger";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 import { priceUsd } from "@/lib/strat/priceText";
 
 export type PlanExpiredReason = "target_passed" | "beyond_reaction";
@@ -158,7 +158,7 @@ export function readPlanExpiry(input: PlanExpiryInput): PlanExpiry | null {
   const extreme = campaignExtreme(ledger, bars);
   if (!finite(extreme)) return null;
   const needed = buy ? extreme - entry : entry - extreme;
-  if (!(needed >= greatest + gannPoint(extreme))) return null;
+  if (!(needed >= greatest + pricePoint(extreme))) return null;
   return {
     reason: "beyond_reaction",
     entry,

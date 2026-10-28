@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import fs from "node:fs";
 import { GANN_EXIT_RULE_NAMES, isGannExitRuleName, readGannExit, type GannExitPosition } from "../exitRules";
-import { gannPoint, gannThreePoints } from "../pointScale";
+import { pricePoint, threePoints } from "../pointScale";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
 function daily(closes: number[], start = Date.UTC(2026, 0, 1)): Bar[] {
@@ -78,7 +78,7 @@ describe("readGannExit", () => {
     const pos = position(bars, bars.length - 2, { initialStop: 123 });
     const before = readGannExit(pos, bars, 126.5);
     expect(before.stop).toBe(123);
-    const after = readGannExit(pos, bars, 125 + gannThreePoints(125) + 0.1);
+    const after = readGannExit(pos, bars, 125 + threePoints(125) + 0.1);
     expect(after.stop).toBe(125);
     expect(after.stopReason).toBe("break_even");
   });
@@ -159,7 +159,7 @@ describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
     const pos = position(bars, 5, { initialStop: bars[5].c - 20 });
     const low = Math.min(...priorWeek(bars).map((b) => b.l));
     const r = readGannExit(pos, bars, bars[bars.length - 1].h);
-    expect(r.stop).toBeCloseTo(low - gannThreePoints(low), 8);
+    expect(r.stop).toBeCloseTo(low - threePoints(low), 8);
     expect(r.stopReason).toBe("prior_week");
   });
 
@@ -168,7 +168,7 @@ describe("readGannExit: under each week's bottom (A-STOP-05)", () => {
     const pos = position(bars, 5, { side: "short", initialStop: bars[5].c + 20 });
     const high = Math.max(...priorWeek(bars).map((b) => b.h));
     const r = readGannExit(pos, bars, bars[bars.length - 1].l);
-    expect(r.stop).toBeCloseTo(high + gannPoint(high), 8);
+    expect(r.stop).toBeCloseTo(high + pricePoint(high), 8);
     expect(r.stopReason).toBe("prior_week");
   });
 
@@ -186,10 +186,10 @@ describe("break-even once 3 points ahead (M-E6, TST Ch.VIII rule 4)", () => {
     const entry = bars[11].c;
     // A wide initial stop: one risk unit (20) is far beyond 3 points.
     const pos = position(bars, 11, { initialStop: entry - 20 });
-    const ahead = entry + gannThreePoints(entry) + 0.01;
+    const ahead = entry + threePoints(entry) + 0.01;
     const r = readGannExit(pos, bars, ahead);
     expect(r.stop).toBeGreaterThanOrEqual(entry);
-    expect(readGannExit(pos, bars, entry + gannThreePoints(entry) - 0.5).stop).toBeLessThan(entry);
+    expect(readGannExit(pos, bars, entry + threePoints(entry) - 0.5).stop).toBeLessThan(entry);
   });
 });
 
@@ -212,7 +212,7 @@ describe("a change of trend from the campaign ledger after entry (item 7 review 
     const r = readGannExit(position(bars, entryIndex, { initialStop: 90 }), bars, 110);
     expect(r.exit?.reason).toBe("trend_change");
     const last = bars[bars.length - 1];
-    expect(r.reverse).toEqual({ side: "short", entry: last.c, stop: 110 + gannThreePoints(110) });
+    expect(r.reverse).toEqual({ side: "short", entry: last.c, stop: 110 + threePoints(110) });
   });
 
   it("does not exit when the reaction made its low in the second month and held", () => {
@@ -267,7 +267,7 @@ describe("readGannExit: 5 points under each day's high in the final stage (A-STO
     const e = up.length - 8;
     const r = readGannExit(position(bars, e, { initialStop: up[e] - 30 }), bars, 170.5);
     const high = bars[bars.length - 1].h;
-    expect(r.stop).toBeCloseTo(high - 5 * gannPoint(high), 8);
+    expect(r.stop).toBeCloseTo(high - 5 * pricePoint(high), 8);
     expect(r.stopReason).toBe("final_stage");
   });
 
@@ -277,7 +277,7 @@ describe("readGannExit: 5 points under each day's high in the final stage (A-STO
     const e = down.length - 8;
     const r = readGannExit(position(bars, e, { side: "short", initialStop: down[e] + 30 }), bars, 29.5);
     const low = bars[bars.length - 1].l;
-    expect(r.stop).toBeCloseTo(low + 5 * gannPoint(low), 8);
+    expect(r.stop).toBeCloseTo(low + 5 * pricePoint(low), 8);
     expect(r.stopReason).toBe("final_stage");
   });
 });

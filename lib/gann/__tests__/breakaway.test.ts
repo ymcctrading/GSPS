@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { MIN_RANGE_SESSIONS, breakawayVolumeMet, isNarrowRange, narrowRangeBeforeLeg, narrowRangeSessions, readBreakaway, readBreakawayVolume } from "../breakaway";
-import { gannThreePoints } from "../pointScale";
+import { threePoints } from "../pointScale";
 import { computeGannEntryTrigger } from "../entryTrigger";
 import { applyBreakawayHold } from "@/lib/scoring/score";
 import type { ScanDecision } from "@/lib/types";
@@ -408,7 +408,7 @@ describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () 
 
   it("lets the entry that crosses the spell's top by 3 points through, though the quarter's top is higher", () => {
     const b = bars();
-    const r = readBreakaway(b, arming(b, "bullish", TAIL_HIGH + gannThreePoints(TAIL_HIGH) + 0.01));
+    const r = readBreakaway(b, arming(b, "bullish", TAIL_HIGH + threePoints(TAIL_HIGH) + 0.01));
     expect(r.rangeBound).toBe(true);
     expect(r.breaksAway).toBe(true);
     expect(r.rangeHigh!).toBeLessThan(130);
@@ -421,12 +421,12 @@ describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () 
     expect(r.rangeLow).toBeCloseTo(TAIL_LOW, 9);
     expect(r.rangeHigh).toBeCloseTo(TAIL_HIGH, 9);
     expect(r.breaksAway).toBe(false);
-    expect(readBreakaway(b, arming(b, "bearish", TAIL_LOW - gannThreePoints(TAIL_LOW) - 0.01)).breaksAway).toBe(true);
+    expect(readBreakaway(b, arming(b, "bearish", TAIL_LOW - threePoints(TAIL_LOW) - 0.01)).breaksAway).toBe(true);
   });
 
   it("waits for the spell's breakout to come on more than the spell's average volume", () => {
     const vol = bars().map((b, i, all) => ({ ...b, v: i < all.length - narrowTail.length ? 9000 : i % 2 ? 1500 : 500 }));
-    const line = TAIL_HIGH + gannThreePoints(TAIL_HIGH);
+    const line = TAIL_HIGH + threePoints(TAIL_HIGH);
     const out = (v: number): Bar[] => [...vol, { ...vol[vol.length - 1], t: new Date(Date.parse(vol[vol.length - 1].t) + 86_400_000).toISOString(), o: line + 1, h: line + 1.5, l: line + 0.5, c: line + 1, v }];
     expect(breakawayVolumeMet(out(3000), "bullish", line)).toBe(true);
     expect(breakawayVolumeMet(out(1200), "bullish", line)).toBe(false);

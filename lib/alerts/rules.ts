@@ -26,7 +26,7 @@
  *   "Close 3 points beyond" turns a level into that alert: the field becomes the
  *   last completed session's close and the threshold the level ± 3 Gann points.
  * - The stepper moves the threshold an eighth of a Gann point at a time: Gann
- *   quoted and placed orders in eighths, scaled here by `gannPoint` as every
+ *   quoted and placed orders in eighths, scaled here by `pricePoint` as every
  *   other point in GSPS is (engineering choice, labelled).
  * Gann's time windows are not an alert source: a dated window shown to a member
  * needs its source and measured record linked first ("Forward-looking claims",
@@ -44,7 +44,7 @@
  */
 
 import { z } from "zod";
-import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, pricePoint } from "@/lib/gann/pointScale";
 import { figuresAround, shortOfFigure } from "@/lib/gann/evenFigures";
 import { priceText, priceUsd, roundPrice } from "@/lib/strat/priceText";
 
@@ -192,7 +192,7 @@ export function thresholdStep(field: AlertField, price: number): number {
   if (field === "volume") return 1000;
   // Net change steps by the stock's price, like every other price figure.
   const ref = Number.isFinite(price) && Math.abs(price) > 0 ? Math.abs(price) : 1;
-  const step = gannPoint(ref) / 8;
+  const step = pricePoint(ref) / 8;
   return Math.max(0.01, Math.round(step * 100) / 100);
 }
 

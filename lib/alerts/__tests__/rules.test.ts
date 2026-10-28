@@ -14,7 +14,7 @@ import {
   thresholdStep,
   type AlertQuote,
 } from "@/lib/alerts/rules";
-import { beyondByThreePoints, gannPoint } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, pricePoint } from "@/lib/gann/pointScale";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 const q: AlertQuote = {
@@ -76,7 +76,7 @@ describe("thresholds", () => {
   });
 
   it("steps an eighth of a price-scaled point, never under a cent", () => {
-    expect(thresholdStep("last", 42.5)).toBeCloseTo(Math.round((gannPoint(42.5) / 8) * 100) / 100, 9);
+    expect(thresholdStep("last", 42.5)).toBeCloseTo(Math.round((pricePoint(42.5) / 8) * 100) / 100, 9);
     expect(thresholdStep("last", 0.2)).toBe(0.01);
     expect(thresholdStep("pct_change", 50)).toBe(0.1);
     expect(thresholdStep("volume", 1e6)).toBe(1000);

@@ -59,9 +59,9 @@
  */
 
 import type { Bar } from "@/lib/types";
-import { gannPoint } from "@/lib/gann/pointScale";
+import { pricePoint } from "@/lib/gann/pointScale";
 
-export { gannPoint };
+export { pricePoint };
 
 export interface OvernightPivot {
   index: number;
@@ -84,7 +84,7 @@ export interface OvernightState {
  * a time without re-walking history. `point(price)` gives one point at a price;
  * the ¼-point filter is a quarter of it.
  */
-export function createOvernightChart(point: (price: number) => number = gannPoint) {
+export function createOvernightChart(point: (price: number) => number = pricePoint) {
   const s: OvernightState = { line: null, pivots: [], turns: [], extreme: null };
   let prev: Bar | null = null;
   let i = -1;
@@ -204,7 +204,7 @@ export interface OvernightSystemWalk {
  * stop, or at the open when the market gaps through it.
  */
 export function walkOvernightSystem(bars: Bar[], options: OvernightSystemOptions = {}): OvernightSystemWalk {
-  const point = options.point ?? gannPoint;
+  const point = options.point ?? pricePoint;
   const chart = createOvernightChart(point);
   const trades: OvernightTrade[] = [];
   // A holder rather than a bare `let`, so the helpers below can change it.
@@ -317,7 +317,7 @@ export interface OvernightReading {
   reversedToday: boolean;
 }
 
-export function readOvernightChart(bars: Bar[], point: (price: number) => number = gannPoint): OvernightReading | null {
+export function readOvernightChart(bars: Bar[], point: (price: number) => number = pricePoint): OvernightReading | null {
   if (bars.length < 3) return null;
   const walk = walkOvernightSystem(bars, { point });
   const s = walk.chart;

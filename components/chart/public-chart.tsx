@@ -7,7 +7,7 @@ import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
 import { formatUsd, parseJsonResponse } from "@/lib/utils";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 
 /**
@@ -20,7 +20,7 @@ export function PublicChart({ symbol }: { symbol: string }) {
   // same pattern in components/scan/ticker-view.tsx.
   const [scan, setScan] = useState<{
     symbol: string;
-    result: ScanResult | null;
+    result: PublicScanResult | null;
     error: string | null;
   }>({ symbol: "", result: null, error: null });
 
@@ -31,8 +31,8 @@ export function PublicChart({ symbol }: { symbol: string }) {
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/scan?ticker=${encodeURIComponent(symbol)}`)
-      .then((res) => parseJsonResponse<ScanResult>(res))
-      .then((data: ScanResult) => {
+      .then((res) => parseJsonResponse<PublicScanResult>(res))
+      .then((data: PublicScanResult) => {
         if (cancelled) return;
         setScan({
           symbol,
@@ -64,11 +64,11 @@ export function PublicChart({ symbol }: { symbol: string }) {
       { price: result.levels.masterProfit, label: "MTP", kind: "target" },
     );
   }
-  result?.gann.fanLines.slice(0, 2).forEach((f) =>
-    markers.push({ price: f.price, label: `Support ${f.angle}`, kind: "structural" }),
+  result?.chartLevels?.trendLines.slice(0, 2).forEach((f) =>
+    markers.push({ price: f.price, label: `${f.role === "support" ? "Support" : "Resistance"} trend line`, kind: "structural" }),
   );
-  result?.gann.squareOf9.slice(0, 2).forEach((s) =>
-    markers.push({ price: s.price, label: `Key Level ${s.degree}°`, kind: "structural" }),
+  result?.chartLevels?.keyLevels.slice(0, 2).forEach((s) =>
+    markers.push({ price: s.price, label: "Key level", kind: "structural" }),
   );
 
   return (
@@ -94,15 +94,15 @@ export function PublicChart({ symbol }: { symbol: string }) {
             <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
           )}
           {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
-          {TIME_LINE_RECORDS.timeCycle && result?.gann.timeCycleActive && (
+          {TIME_LINE_RECORDS.timeCycle && result?.chartLevels?.timingActive && (
             <span className="text-xs font-medium text-warn">
               ⏱ Cyclical turn window active
               <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
             </span>
           )}
-          {TIME_LINE_RECORDS.yearCycles && result && (result.gann.yearCycleBullishHits ?? 0) + (result.gann.yearCycleBearishHits ?? 0) > 0 && (
+          {TIME_LINE_RECORDS.yearCycles && (result?.chartLevels?.longTermTimingCount ?? 0) > 0 && (
             <span className="text-xs font-medium text-warn">
-              ⟳ Yearly cycles converging
+              ⟳ Long-term timing lines up
               <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
             </span>
           )}

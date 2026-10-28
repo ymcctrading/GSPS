@@ -65,8 +65,16 @@ import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
 import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
+import { chooseSweepBasis } from "@/lib/scan/universeSweep";
 import { FOCUS_STORED } from "@/lib/scanner/focusList";
-import { loadSessionSetups, SESSION_SETUPS_MAX, SESSION_SETUPS_ON_DEMAND } from "@/lib/scanner/sessionSetups";
+import {
+  barsSincePlan,
+  invalidateBrokenSweep,
+  stopBreachStands,
+  loadSessionSetups,
+  SESSION_SETUPS_MAX,
+  SESSION_SETUPS_ON_DEMAND,
+} from "@/lib/scanner/sessionSetups";
 import { withTimeout } from "@/lib/utils";
 import {
   DEFAULT_CONFIG,
@@ -212,8 +220,17 @@ export async function GET(req: NextRequest) {
   // scan — the equity-hours cron, and a manual `workflow_dispatch` run at
   // any hour — covers the full watchlist, same as before this parameter
   // existed.
-  const system = systemScan ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase) : null;
-  const universe = system ? system.entries : await resolveOnDemandUniverse(params.get("symbols"), now);
+  // The night's sweep, resolved once for the session's setups, the plans and
+  // the stop test (SUS-21); started here so nothing waits on it twice.
+  // A crypto-only scan reads no sweep (the sweep holds stocks only).
+  const sweepBasisP =
+    systemScan && params.get("universe") === "crypto"
+      ? Promise.resolve(null)
+      : chooseSweepBasis(createServiceClient(), now).catch(() => null);
+  const system = systemScan
+    ? await resolveSystemUniverse(params.get("universe"), supabase as ServiceSupabase, sweepBasisP)
+    : null;
+  const universe = system ? system.entries : await resolveOnDemandUniverse(params.get("symbols"), now, sweepBasisP);
   const config = resolveConfig(params);
   const provider = getMarketDataProvider();
   if (syntheticDataRefusal("run the intraday scan and send its alerts", provider)) {
@@ -233,7 +250,11 @@ export async function GET(req: NextRequest) {
   // The daily plans standing on these symbols, for "Daily plan's level held"
   // (lib/scanner/intraday.ts#detectPlanLevelHeld): the intraday chart times
   // the daily plan's own entry. One read for the universe, best-effort.
-  const dailyPlans = await loadDailyPlans(createServiceClient(), universe.map((u) => u.symbol), userId).catch((err) => {
+  // A sweep-only setup is timed from its own stored plan.
+  const sweepBasis = await sweepBasisP;
+  const dailyPlans = await loadDailyPlans(createServiceClient(), universe.map((u) => u.symbol), userId, {
+    sweepBasis,
+  }).catch((err) => {
     console.error("[intraday-scan] daily plans not read:", err);
     return new Map<string, DailyPlanLevels>();
   });
@@ -299,7 +320,15 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  if (systemScan) await invalidateBrokenFocus(supabase as ServiceSupabase, resolved, now).catch(() => undefined);
+  if (systemScan) {
+    // A broken stop retires the plan on the focus list and on the night's
+    // sweep alike (SUS-21), so the next scan times the next name.
+    const sessionBars = new Map(resolved.map((i) => [i.symbol, { kind: i.kind, bars: i.bars }]));
+    await Promise.all([
+      invalidateBrokenFocus(supabase as ServiceSupabase, resolved, now).catch(() => undefined),
+      invalidateBrokenSweep(supabase as ServiceSupabase, sweepBasis, sessionBars, now).catch(() => undefined),
+    ]);
+  }
 
   // Pro's bounded module (docs/GSPS_TIER_ENTITLEMENT_SPEC.md correction,
   // 2026-08-29): a separately defined, more conservative slice of the same
@@ -474,6 +503,7 @@ const FOCUS_MAX_AGE_DAYS = 5;
 async function resolveSystemUniverse(
   universeParam: string | null,
   supabase: ServiceSupabase,
+  sweepBasisP: Promise<string | null>,
 ): Promise<{ entries: { symbol: string; kind: AssetKind }[]; recordQueue: (examined: ReadonlySet<string>) => void }> {
   if (universeParam === "crypto") return { entries: WATCHLIST.filter((entry) => entry.kind === "crypto"), recordQueue: () => undefined };
 
@@ -503,7 +533,7 @@ async function resolveSystemUniverse(
   const [watched, focus, setups, discovery] = await Promise.all([
     loadWatchedSymbols(supabase),
     loadFocusSymbols(supabase),
-    loadSessionSetups(supabase, now, SESSION_SETUPS_MAX).catch(() => [] as string[]),
+    sweepBasisP.then((basis) => loadSessionSetups(supabase, now, SESSION_SETUPS_MAX, basis)).catch(() => [] as string[]),
     readSessionDiscoveries(supabase, sessionDate, DISCOVERY_READ_MAX),
   ]);
   // The fixed single stocks give way only to a focus list or the session's
@@ -573,12 +603,30 @@ async function loadFocusSymbols(supabase: ServiceSupabase): Promise<string[]> {
  * Best-effort; a failed write leaves the name on for another scan.
  */
 async function invalidateBrokenFocus(supabase: ServiceSupabase, inputs: SymbolInput[], now: Date): Promise<void> {
-  const broken = inputs.filter((i) => {
-    const plan = i.dailyPlan;
-    if (!plan || i.bars.length === 0) return false;
-    return plan.direction === "up"
-      ? Math.min(...i.bars.map((b) => b.l)) <= plan.stop
-      : Math.max(...i.bars.map((b) => b.h)) >= plan.stop;
+  const withPlan = inputs.filter((i) => i.dailyPlan && i.bars.length > 0);
+  if (withPlan.length === 0) return;
+  const since = etDateKey(new Date(now.getTime() - FOCUS_MAX_AGE_DAYS * 86_400_000));
+  // Only bars printed after the list was built, in the regular session for a
+  // stock or fund, can break its plan (SUS-21 review): a holiday's scan reads
+  // the session the list was built from, and a pre-market print never moves
+  // a stop (lib/scanner/sessionSetups.ts#barsSincePlan).
+  const { data: rows, error: readError } = await supabase
+    .from("intraday_focus")
+    .select("symbol, built_at")
+    .in("symbol", withPlan.map((i) => i.symbol))
+    .is("invalidated_at", null)
+    .gte("basis_date", since);
+  if (readError || !rows) return;
+  const builtAt = new Map<string, number>();
+  for (const r of rows) {
+    const at = Date.parse(String(r.built_at));
+    if (Number.isFinite(at) && at > (builtAt.get(String(r.symbol)) ?? -Infinity)) builtAt.set(String(r.symbol), at);
+  }
+  const broken = withPlan.filter((i) => {
+    const at = builtAt.get(i.symbol);
+    if (at == null) return false;
+    const plan = i.dailyPlan as DailyPlanLevels;
+    return stopBreachStands(plan.direction, plan.stop, barsSincePlan({ kind: i.kind, bars: i.bars }, at), now.getTime());
   });
   if (broken.length === 0) return;
   const { error } = await supabase
@@ -586,7 +634,7 @@ async function invalidateBrokenFocus(supabase: ServiceSupabase, inputs: SymbolIn
     .update({ invalidated_at: now.toISOString(), invalidated_reason: "daily plan's stop traded through" })
     .in("symbol", broken.map((i) => i.symbol))
     .is("invalidated_at", null)
-    .gte("basis_date", etDateKey(new Date(now.getTime() - FOCUS_MAX_AGE_DAYS * 86_400_000)));
+    .gte("basis_date", since);
   if (error) console.error("[intraday-scan] focus invalidation not written:", error.message);
 }
 
@@ -628,9 +676,15 @@ async function loadWatchedSymbols(supabase: ServiceSupabase): Promise<{ symbol: 
  * watchlist, so the Scanner page times the same daily setups the scheduled
  * scan does. A failed read leaves the core watchlist, as before.
  */
-async function resolveOnDemandUniverse(param: string | null, now: Date): Promise<{ symbol: string; kind: AssetKind }[]> {
+async function resolveOnDemandUniverse(
+  param: string | null,
+  now: Date,
+  sweepBasisP: Promise<string | null>,
+): Promise<{ symbol: string; kind: AssetKind }[]> {
   if (param?.trim()) return resolveUniverse(param);
-  const setups = await loadSessionSetups(createServiceClient(), now, SESSION_SETUPS_ON_DEMAND).catch(() => [] as string[]);
+  const setups = await sweepBasisP
+    .then((basis) => loadSessionSetups(createServiceClient(), now, SESSION_SETUPS_ON_DEMAND, basis))
+    .catch(() => [] as string[]);
   const seen = new Set<string>();
   const out: { symbol: string; kind: AssetKind }[] = [];
   for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...WATCHLIST]) {
@@ -1018,6 +1072,7 @@ async function loadRecentSystemAlerts(
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
       ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
+      ...(meta.paysRisk === false ? { paysRisk: false } : {}),
     });
   }
   return out;

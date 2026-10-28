@@ -51,7 +51,7 @@
  *    third (the held level) neither has alone; proximity was only a mixture.
  */
 import type { Bar, Timeframe } from "@/lib/types";
-import { gannPoint, gannThreePoints } from "@/lib/gann/pointScale";
+import { pricePoint, threePoints } from "@/lib/gann/pointScale";
 
 type Side = "bullish" | "bearish";
 
@@ -95,8 +95,8 @@ export function readHeldLevel(
   for (const lv of levels) {
     const L = lv.price;
     if (!(L > 0) || (long ? L > price : L <= price)) continue;
-    const one = gannPoint(L);
-    const three = gannThreePoints(L);
+    const one = pricePoint(L);
+    const three = threePoints(L);
     const at = long ? extreme >= L - three && extreme <= L + one : extreme <= L + three && extreme >= L - one;
     if (!at) continue;
     if (since.some((b) => (long ? b.c < L - three : b.c > L + three))) continue;

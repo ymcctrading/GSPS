@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
 import { describeJensenConvergence, jensenBottomConvergence, jensenPointAngle } from "@/lib/gann/jensen";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { describeDisclosedRules, readDisclosedRules } from "@/lib/gann/disclosedRules";
 import { contextFactorsFor } from "@/lib/gann/contextFactors";
@@ -21,7 +21,7 @@ const closes = [60, ...leg(60, 40, 10), ...leg(40, 48, 8), ...leg(48, 40.1, 8), 
 
 describe("lines from a double bottom converge (C-LEVELS-24)", () => {
   const bars = series(closes);
-  const unit = gannPointForBars(bars);
+  const unit = pointForBars(bars);
 
   it("starts from the two tests of the double bottom", () => {
     expect(readMultipleTops(bars).bottom?.tests).toBe(2);
@@ -75,7 +75,7 @@ describe("lines from a triple bottom converge (C-LEVELS-24)", () => {
   // line passes the crossing of the other two within one point, not exactly.
   const tri = [60, ...leg(60, 40, 10), ...leg(40, 48, 8), ...leg(48, 40, 8), ...leg(40, 44, 4), ...leg(44, 40.3, 4), ...leg(40.3, 46, 10)];
   const bars = series(tri);
-  const unit = gannPointForBars(bars);
+  const unit = pointForBars(bars);
 
   it("finds the point three lines pass, one from each test", () => {
     const r = jensenBottomConvergence(bars, unit)!;

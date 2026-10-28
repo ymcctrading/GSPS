@@ -7,7 +7,7 @@
  * entry/stop/target levels from. Absent a saved row, an unrecognized stored
  * value, or a mode this user's tier no longer allows
  * (`lib/entitlements/policy.ts#allowedStrategyModes`), the effective default
- * is "gann" — i.e. no override, the existing Gann trade plan is what's
+ * is "gsps" — i.e. no override, the existing Gann trade plan is what's
  * shown. Never read by the scan pipeline, the scorecard, or Automation —
  * this is a per-user display/order-ticket preference only.
  */
@@ -53,7 +53,7 @@ export async function GET() {
     isNonGannStrategyMode(savedMode) &&
     isStrategyModeAllowedForPolicy(policy, savedMode)
       ? savedMode
-      : "gann";
+      : "gsps";
   return NextResponse.json({ mode, allowedModes });
 }
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { mode } = parsed.data;
-  if (mode !== "gann" && !isNonGannStrategyMode(mode)) {
+  if (mode !== "gsps" && !isNonGannStrategyMode(mode)) {
     return NextResponse.json({ error: `Unknown strategy mode '${mode}'` }, { status: 400 });
   }
 

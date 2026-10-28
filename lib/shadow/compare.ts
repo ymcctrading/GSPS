@@ -43,7 +43,7 @@ export const SHADOW_TRADE_OUTCOMES = ["win", "loss", "timeout"] as const;
  * labelled with its own version and the scheduled check does not compare the
  * forward test against it (R-032, 2026-10-21). Re-base it, with this
  * version's `STRATEGY_VERSION`, from a production-faithful replay cell
- * (`{"usePlanLevels":true,"entryRule":"reaction","exitRule":"gann"}`). Hand-transcribed rather than
+ * (`{"usePlanLevels":true,"entryRule":"reaction","exitRule":"structure"}`). Hand-transcribed rather than
  * read from the file at runtime — the report is markdown for humans, not a
  * machine-readable artifact, and re-parsing it on every scheduled-scan run
  * would be fragile for no real benefit. Update this constant whenever

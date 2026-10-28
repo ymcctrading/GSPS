@@ -32,7 +32,7 @@
  * **The intraday point.** Gann's "3 points" are in the units of the chart he
  * wrote them for, and `lib/gann/pointScale.ts` already re-expresses them per
  * price level. The same move is made per chart scale here: one point is a third
- * of `gannThreePoints(price)` times the ratio of the bars' ATR to the daily ATR
+ * of `threePoints(price)` times the ratio of the bars' ATR to the daily ATR
  * (so the allowance is the same share of a typical swing at every scale), floored
  * at 0.05% of price so a quiet name does not get a zero allowance. The ratio and
  * the floor are **engineering choices, labelled as such**: Gann gives the rule,
@@ -72,7 +72,7 @@ import { delayedFillIndex, replayFeedDelayMs, seriesSpacingMinutes } from "@/lib
 import { atr } from "@/lib/analysis/pivots";
 import { computeGannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { gannFirstTarget, gannOldLevels, targetPaysRisk } from "@/lib/scanner/intraday";
-import { gannThreePoints, intradayPoint } from "@/lib/gann/pointScale";
+import { threePoints, intradayPoint } from "@/lib/gann/pointScale";
 import { RECLAIM_POINTS, isReclaimedByClose, isStopBreached, isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import { walkSwingChart } from "@/lib/gann/swingChart";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
@@ -153,7 +153,7 @@ const dateOf = (b: Bar) => b.t.slice(0, 10);
 
 /** The scale the stop-breach allowance takes on these bars: one point against the daily 3-point allowance's third. */
 function allowanceScale(price: number, point: number): number {
-  const daily = gannThreePoints(price) / 3;
+  const daily = threePoints(price) / 3;
   return daily > 0 ? point / daily : 1;
 }
 

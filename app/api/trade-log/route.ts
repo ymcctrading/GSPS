@@ -11,11 +11,11 @@
  * anymore; it stays a live-trading concern for whichever endpoint drives that.
  */
 
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 
 const TradeLogSchema = z.object({
   orderId: z.string().uuid().optional(),
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data, error } = await ledgerWriter(supabase).from("trade_logs").insert({
-      strategy_version: STRATEGY_VERSION,
+      strategy_version: STORED_STRATEGY_VERSION,
       // A trade a person records by hand belongs to no GSPS account, so the
       // paper profit peak never reads it (migration 0107, R-002).
       mode: "journal",
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      tradeLog: data,
+      tradeLog: data ? withoutVersion(data) : data,
     });
   } catch (err) {
     return NextResponse.json(
@@ -115,7 +115,7 @@ export async function GET() {
     const stillPending = (data ?? []).filter((row) => row.outcome === "pending").length;
 
     return NextResponse.json({
-      tradeLogs: data,
+      tradeLogs: (data ?? []).map(withoutVersion),
       // Paper trades resolve at fill time, so this should always read zero —
       // kept in the response shape so a client built against the old contract
       // doesn't need to change.
@@ -127,4 +127,12 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+/** The rules version names a rule in the method's words; it stays on the
+ *  server (AGENTS.md, "Confidential sources", 2026-10-28). */
+function withoutVersion<T extends Record<string, unknown>>(row: T): Omit<T, "strategy_version"> {
+  const { strategy_version: _version, ...rest } = row;
+  void _version;
+  return rest;
 }

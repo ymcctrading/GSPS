@@ -13,12 +13,11 @@
  * shape (parse, status codes); this owns what actually happens to the money.
  */
 
-import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { isRebuySignal, rebuyExtremeOf } from "@/lib/lifecycle/fromRebuy";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { readUserLossSeries } from "@/lib/risk/lossSeries";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -59,6 +58,7 @@ import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 import { ledgerWriter } from "@/lib/supabase/ledger";
 import { paperEquity } from "@/lib/portfolio/paper-equity";
+import { STORED_STRATEGY_VERSION } from "@/lib/backtest/publicVersion";
 
 type RecordedOrderType = RecordExecutionOptions["orderType"];
 
@@ -242,7 +242,7 @@ export function riskCapRefusal(
   const stop = input.attachLevels?.stopLoss;
   const entry = input.entryMode === "now" ? input.referencePrice : (input.limitPrice ?? input.referencePrice);
   if (stop == null || entry == null || !(entry > 0)) return null;
-  const cap = (5 / 3) * gannThreePoints(entry);
+  const cap = (5 / 3) * threePoints(entry);
   // A cent of slack for rounding to the tick.
   if (Math.abs(entry - stop) <= cap + 0.01) return null;
   return {
@@ -858,7 +858,7 @@ async function placeChecked(
     user_id: userId,
     mode: "paper" as const,
     // The rules this order was placed under (review finding P-02, migration 0094).
-    strategy_version: STRATEGY_VERSION,
+    strategy_version: STORED_STRATEGY_VERSION,
     symbol: input.symbol.toUpperCase(),
     asset_class: isOption ? "option" : assetClassOf(input.symbol),
     side: input.side,
@@ -1519,7 +1519,7 @@ async function placeLiveOrder(
       user_id: userId,
       connection_id: connection.connectionId,
       mode: "live",
-      strategy_version: STRATEGY_VERSION,
+      strategy_version: STORED_STRATEGY_VERSION,
       broker_order_id: String(order.id),
       symbol: input.symbol.toUpperCase(),
       asset_class: assetClassOf(input.symbol),

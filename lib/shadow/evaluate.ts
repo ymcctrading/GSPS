@@ -18,7 +18,7 @@
  *   neither by the end of its session never filled (`expired`, Q17: a plan
  *   lasts its session). The same reading the replay's `entryRule: "reaction"`
  *   makes.
- * - **Exit: Gann's, with no fixed target** (`LIVE_EXIT_RULE` "gann", Q14). The
+ * - **Exit: Gann's, with no fixed target** (`LIVE_EXIT_RULE` "structure", Q14). The
  *   trade is walked by the replay's own `walkGannExit` over the rest of the
  *   session's execution bars and then the completed daily sessions, with the
  *   crossed level read exactly as the live exit manager reads it

@@ -15,7 +15,9 @@
  */
 
 import type {
+  ChartLevels,
   LegacyScorePillar,
+  PublicScanResult,
   PublicScoreSummary,
   ScanDecision,
   ScanResult,
@@ -23,6 +25,8 @@ import type {
   ScorePillarSummary,
 } from "@/lib/types";
 import { redactScanSignals } from "@/lib/signals/publicSummary";
+import { toPublicContext } from "@/lib/signals/contextLines";
+import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
 import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionKey } from "@/lib/scoring/weights";
 
 /**
@@ -212,13 +216,27 @@ export function redactDecision(decision: ScanDecision): ScanDecision {
  * drops `dailyBars` — full OHLCV history is bulk internal data carried only
  * so `lib/learning/record.ts` can persist it without a second fetch, not a
  * public response field.
+ *
+ * The wire names no method, source or construction (AGENTS.md "Confidential
+ * sources", owner 2026-10-28): the level readings leave as `chartLevels`
+ * (prices and roles only, `toChartLevels`) and the two context modules as
+ * `signals.context`, sentences written on the server
+ * (`lib/signals/contextLines.ts`). The internal `gann` field and the modules'
+ * own readings never leave.
  */
-export function redactScanResult(result: ScanResult): ScanResult {
+export function redactScanResult(result: ScanResult): PublicScanResult {
+  const { gann, signals, ...rest } = result;
+  const redactedSignals = redactScanSignals(signals);
+  let publicSignals: PublicScanResult["signals"];
+  if (redactedSignals) {
+    const { gannConfluence, saraConfluence, ...states } = redactedSignals;
+    publicSignals = { ...states, context: toPublicContext(gannConfluence, saraConfluence) };
+  }
   return {
-    ...result,
-    gann: redactGannLevels(result.gann),
+    ...rest,
+    chartLevels: toChartLevels(gann),
     decision: redactDecision(result.decision),
-    signals: redactScanSignals(result.signals),
+    signals: publicSignals,
     dailyBars: undefined,
     // The plan and its note only, never the reason key or the figures behind
     // it, whatever built the result (owner's disclosure rule, 2026-10-28).
@@ -229,21 +247,19 @@ export function redactScanResult(result: ScanResult): ScanResult {
 }
 
 /**
- * The Gann readings no screen draws are the method's working, not its
- * output: the digital-root pairs (price and time roots), each angle's slope
- * and anchor, the retracement fractions and the projected cycle dates. They
- * stay on the server (review finding S-02, 2026-10-21). The levels a chart
- * draws (fan lines, Square of Nine prices) and the time flags it shows pass.
- * Emptied rather than deleted so the shape stays a `GannLevels`.
+ * The levels a chart draws, as prices and roles. The angle, the square's
+ * degree and the anchors stay here; the readings no screen draws (each angle's
+ * slope, the retracement fractions, the digital-root pairs, the projected
+ * dates) never leave (review finding S-02, 2026-10-21). A time flag is sent
+ * only while it has a measured record (CYC-30, `TIME_LINE_RECORDS`).
  */
-export function redactGannLevels(gann: ScanResult["gann"]): ScanResult["gann"] {
+export function toChartLevels(gann: ScanResult["gann"] | undefined): ChartLevels {
+  const line = (l: { price: number; distancePct: number; role: "support" | "resistance" }) => ({ price: l.price, distancePct: l.distancePct, role: l.role });
   return {
-    ...gann,
-    angleSlopes: [],
-    retracementLevels: [],
-    digitalRootConfluences: [],
-    timeCycleDates: [],
-    timeCycleFixedCalendarDates: gann.timeCycleFixedCalendarDates ? [] : undefined,
+    trendLines: (gann?.fanLines ?? []).map(line),
+    keyLevels: (gann?.squareOf9 ?? []).map(line),
+    timingActive: TIME_LINE_RECORDS.timeCycle != null && gann?.timeCycleActive === true,
+    longTermTimingCount: TIME_LINE_RECORDS.yearCycles != null ? (gann?.yearCycleBullishHits ?? 0) + (gann?.yearCycleBearishHits ?? 0) : 0,
   };
 }
 
@@ -254,7 +270,7 @@ export function redactGannLevels(gann: ScanResult["gann"]): ScanResult["gann"] {
  * trend reads, and nothing else. The Signal & Regime Engine's verdicts and
  * the confluence readings are for signed-in members only.
  */
-export function toAnonymousScanResult(result: ScanResult): ScanResult {
+export function toAnonymousScanResult(result: ScanResult): PublicScanResult {
   const redacted = redactScanResult(result);
   return {
     ...redacted,

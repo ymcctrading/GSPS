@@ -13,7 +13,7 @@ import type { Bar } from "@/lib/types";
 import { computeGannEntryTrigger, selectGannEntry } from "@/lib/gann/entryTrigger";
 import { gannEntrySource } from "@/lib/strat/levels";
 import { structuralTriggerHeadline } from "@/lib/scoring/direction-copy";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 
 const DAY = 86_400_000;
 const leg = (from: number, to: number, n: number) => Array.from({ length: n }, (_, i) => from + ((to - from) * (i + 1)) / n);
@@ -31,7 +31,7 @@ function weekdays(closes: number[], half = 0.3): Bar[] {
 // A bottom at 88, a rally to 96, a break to new lows (70.5) with one bounce to
 // 83, and a rally back that closes 3 points over the old bottom on its last day.
 const LOW = 88 - 0.3;
-const LINE = LOW + gannThreePoints(LOW);
+const LINE = LOW + threePoints(LOW);
 const DOWN = [...leg(100, 88, 10), ...leg(88, 96, 8), ...leg(96, 80, 10), ...leg(80, 83, 3), ...leg(83, 70.5, 10)];
 const REGAINED = [...DOWN, ...leg(70.5, LINE - 0.4, 14), LINE + 0.2];
 /** Reflected about 88, so the old top sits at 88.3 and its 3 points barely differ. */
@@ -43,7 +43,7 @@ describe("a regained old bottom (A-TREND-10)", () => {
     expect(t).toMatchObject({ kind: "crossing", held: true, regained: true });
     expect(t.level).toBeCloseTo(LOW, 8);
     expect(t.pivot.kind).toBe("bottom");
-    const pts = gannThreePoints(LOW);
+    const pts = threePoints(LOW);
     expect(t.reactionEntry).toBeCloseTo(LOW + pts / 3, 6);
     expect(t.reactionStop).toBeCloseTo(LOW - pts, 6);
     expect(t.stopPrice).toBeCloseTo(LOW - pts, 6);
@@ -65,7 +65,7 @@ describe("a regained old bottom (A-TREND-10)", () => {
     expect(t).toMatchObject({ kind: "crossing", held: true, regained: true, direction: "bearish" });
     expect(t.pivot.kind).toBe("top");
     expect(t.level).toBeCloseTo(176 - LOW, 8);
-    const pts = gannThreePoints(176 - LOW);
+    const pts = threePoints(176 - LOW);
     expect(t.reactionStop).toBeCloseTo(176 - LOW + pts, 6);
   });
 
@@ -85,7 +85,7 @@ describe("a regained old bottom (A-TREND-10)", () => {
   });
 
   it("takes a previous year's bottom regained the same way", () => {
-    const line = 75 + gannThreePoints(75);
+    const line = 75 + threePoints(75);
     const bars = weekdays([...leg(80, 78, 5), ...leg(78, 82, 5), ...leg(82, 69.5, 12), ...leg(69.5, line - 0.4, 10), line + 0.2]);
     const older = [{ price: 75, kind: "bottom" as const, source: "priorYear" as const, year: 2025, formedAt: "2025-03-01T05:00:00Z", crossFrom: "2026-01-01" }];
     const t = computeGannEntryTrigger(bars, "bullish", undefined, undefined, true, older)!;

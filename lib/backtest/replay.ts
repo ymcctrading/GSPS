@@ -256,8 +256,8 @@ export interface ReplayOptions {
    * swing (Rule 3, W006 pp.46-47), and from the fill's session the stop
    * trails 3 points under each completed day's low (over its high, short;
    * `readGannExit`'s "day_low", W006 Rule 2 p.46), as the live and paper exit
-   * managers trail it. Read by Gann's exits only (`exitRule` "gann" or
-   * "gann-runner"); the fixed bracket has no trail, so "fast" changes
+   * managers trail it. Read by Gann's exits only (`exitRule` "structure" or
+   * "structure-runner"); the fixed bracket has no trail, so "fast" changes
    * nothing there. Default "swing".
    */
   tradeStyle?: DailyTradeStyle;
@@ -311,21 +311,21 @@ export interface ReplayOptions {
   /**
    * How an open trade leaves (parity roadmap Stage C, owner decisions 2 and 6):
    *
-   * The default is production's rule, `LIVE_EXIT_RULE` ("gann" since Q14,
+   * The default is production's rule, `LIVE_EXIT_RULE` ("structure" since Q14,
    * 2026-10-16), so a run that names none measures the exit live and paper
    * positions use (recheck 2026-10-22, M-E8; it defaulted to "bracket", a
    * fixed target production no longer has).
    *
    * - `"bracket"`: the plan's fixed stop and a `targetR` target.
-   * - `"gann"`: no fixed target (Gann never fixes one). The trade leaves on
+   * - `"structure"`: no fixed target (Gann never fixes one). The trade leaves on
    *   its stop, which moves on Gann's structure, or at the next session's open
    *   after a Gann exit signal: the hold test, three adverse closes, or a
    *   change of trend. See `lib/gann/exitRules.ts`. Stops and signals update
    *   once per session from completed daily bars only.
    *
-   * - `"gann-runner"`: the rule live and paper positions used from 2026-09-28
+   * - `"structure-runner"`: the rule live and paper positions used from 2026-09-28
    *   to Q14 (2026-10-16): 60% leaves at the target,
-   *   the rest runs on Gann's stop and exit signals exactly as `"gann"` does.
+   *   the rest runs on Gann's stop and exit signals exactly as `"structure"` does.
    *   Before the target, Gann's stop covers the whole position. A bar that
    *   touches both the target and the stop counts the stop (the conservative
    *   order, as the bracket does). The replay's target is `targetR`, while live
@@ -334,7 +334,7 @@ export interface ReplayOptions {
    * All fill a stop at the stop price, or at the open of a candle that opens
    * through it (`stopFill`), so they are compared on the same convention.
    */
-  exitRule?: "bracket" | "gann" | "gann-runner";
+  exitRule?: "bracket" | "structure" | "structure-runner";
   /**
    * Measurement only: switch named Gann exit rules off inside the replay's
    * walk, to ask what the same trades would have done without them (the
@@ -342,8 +342,8 @@ export interface ReplayOptions {
    * (`prior_week`, `break_even`, ...) is never adopted; an exit signal named
    * here (`three_adverse_closes`, `trend_change`, ...) never fires; every
    * other rule reads as before. Applies to every trade the walk opens,
-   * reversals and re-buys included, under `exitRule: "gann"` or
-   * `"gann-runner"`; the bracket has no Gann rules to switch off. An unknown
+   * reversals and re-buys included, under `exitRule: "structure"` or
+   * `"structure-runner"`; the bracket has no Gann rules to switch off. An unknown
    * name throws (`resolveDisableExits`). Default empty: identical results.
    * The live exit path never reads it: no production caller passes a set to
    * `readGannExit`. Not covered: the pyramid's whole-line stop
@@ -475,7 +475,7 @@ export function resolveDisableExits(names: unknown, exitRule?: ReplayOptions["ex
     throw new Error(`Unknown exit rule${unknown.length > 1 ? "s" : ""} in disableExits: ${unknown.map((n) => JSON.stringify(n)).join(", ")} (expected ${GANN_EXIT_RULE_NAMES.join(", ")})`);
   }
   if (names.length > 0 && exitRule === "bracket") {
-    throw new Error(`disableExits switches off named exit rules and needs exitRule "gann" or "gann-runner" (got "bracket")`);
+    throw new Error(`disableExits switches off named exit rules and needs exitRule "structure" or "structure-runner" (got "bracket")`);
   }
   return new Set(names as GannExitRuleName[]);
 }
@@ -570,7 +570,7 @@ export interface ReplayTrade {
    */
   derived?: "reversal" | "rebuy";
   /**
-   * Why the trade left, under `exitRule: "gann"` or the intraday profile.
+   * Why the trade left, under `exitRule: "structure"` or the intraday profile.
    * Under the bracket only a timeout carries one (`TimeoutReason`); a stop or
    * target there leaves it undefined.
    */
@@ -886,7 +886,7 @@ export function buildMacroContext(
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
   // Read before the levels: its campaign ledger supplies the secondary turn.
-  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
+  const disclosedRules = readDisclosedRules(charts.daily, price, instrument ? { ...instrument, weekly, monthly: instrument.monthly ? monthly : instrument.monthly } : instrument, asOf);
   // Mirrors lib/scanTicker.ts: one builder (lib/scan/structuralLevels.ts).
   const structural = buildStructuralLevels({
     trends: { daily: dailyTrend, weekly: weeklyTrend, monthly: monthlyTrend },
@@ -1568,18 +1568,18 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           barsHeld: 1,
           closedAt: firingBar.t,
           outcome: "loss",
-          ...(exitRule === "gann" || exitRule === "gann-runner" ? { exitReason: "initial" as const } : {}),
+          ...(exitRule === "structure" || exitRule === "structure-runner" ? { exitReason: "initial" as const } : {}),
           crossedLevel: trigger.kind === "hold" ? null : trigger.level,
           exitPrice: stop,
           rMultiple: (dir * (stop - fill) - costPerShare) / risk,
           ambiguous: true,
         });
-        if ((exitRule === "gann" || exitRule === "gann-runner") && reverseWhenCaught) {
+        if ((exitRule === "structure" || exitRule === "structure-runner") && reverseWhenCaught) {
           const sharesOn = instrument ? (date: string) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined;
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt: i - 1, side: long ? "long" : "short",
             cause: "initial", brokenLevel: stop, extreme: fill, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled, fillAfter, parentLost: true,
+            costPerShare, runner: exitRule === "structure-runner", sharesOn, disabled, fillAfter, parentLost: true,
           })) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
@@ -1606,14 +1606,14 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // Reporting only: the old level this plan was priced from, when its kind has one.
       const planLevel = trigger.kind === "hold" ? null : trigger.level;
 
-      if ((exitRule === "gann" || exitRule === "gann-runner") && !outran) {
+      if ((exitRule === "structure" || exitRule === "structure-runner") && !outran) {
         const walked = walkGannExit({
           bars, from: f, maxBarsHeld, long, entry, stop, dailyBars: dailyBars ?? [],
           // A double or triple bottom, or a bottom that held, crosses nothing:
           // its exit is the stop 3 points under the low, as the live exit
           // reads it (`entryCrossedLevel`).
           crossedLevel: restsWithoutCrossing(trigger.kind) ? null : trigger.pivot.price,
-          scaleOut: exitRule === "gann-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
+          scaleOut: exitRule === "structure-runner" ? { price: target, fraction: RUNNER_SCALE_OUT } : undefined,
           pyramid,
           isStock: assetClass === "us_equity",
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
@@ -1653,7 +1653,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           for (const r of walkReversals({
             bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short",
             cause: walked.reason, brokenLevel: walked.finalExit, extreme: walked.best ?? entry, maxBarsHeld,
-            costPerShare, runner: exitRule === "gann-runner", sharesOn, coverAt: rebuy?.entry, disabled, style: tradeStyle, fillAfter,
+            costPerShare, runner: exitRule === "structure-runner", sharesOn, coverAt: rebuy?.entry, disabled, style: tradeStyle, fillAfter,
             parentLost: dir * (walked.exit - entry) - costPerShare <= 0,
           })) {
             // Not scored: no verdict, score or criteria is inherited (see `derived`).
@@ -1664,7 +1664,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           }
         }
         if (rebuy) {
-          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "gann-runner", sharesOn, disabled, style: tradeStyle, fillAfter });
+          const r = walkRebuy({ bars, dailyBars: dailyBars ?? [], caughtAt, plan: rebuy, maxBarsHeld, costPerShare, runner: exitRule === "structure-runner", sharesOn, disabled, style: tradeStyle, fillAfter });
           if (r) {
             trades.push({
               symbol, pattern: null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis,
@@ -1959,7 +1959,7 @@ export function walkReversals(input: {
   extreme: number;
   maxBarsHeld: number;
   costPerShare: number;
-  /** `"gann-runner"`: 60% leaves one risk out, the plan's TP1. */
+  /** `"structure-runner"`: 60% leaves one risk out, the plan's TP1. */
   runner?: boolean;
   sharesOn?: (date: string) => number | null;
   /** A re-entry rests here (`rebuyAfterStop`): the first reversal is covered when price trades to it. */
@@ -2050,11 +2050,11 @@ export function stopFill(long: boolean, stop: number, open: number): number {
   return long ? Math.min(stop, open) : Math.max(stop, open);
 }
 
-/** Share of the position that leaves at the target under `"gann-runner"` (mirrors `SCALE_OUT_PCT`). */
+/** Share of the position that leaves at the target under `"structure-runner"` (mirrors `SCALE_OUT_PCT`). */
 const RUNNER_SCALE_OUT = SCALE_OUT_PCT;
 
 /**
- * Walk one filled trade forward under Gann's exit rules (`exitRule: "gann"`).
+ * Walk one filled trade forward under Gann's exit rules (`exitRule: "structure"`).
  *
  * The stop is checked on every execution bar. At the first bar of each new
  * session, Gann's rules are read from the completed daily sessions before it:
@@ -2072,7 +2072,7 @@ export function walkGannExit(input: {
   crossedLevel: number | null;
   /** The stored share count as of a session (D2), or null. */
   sharesOn?: (date: string) => number | null;
-  /** `"gann-runner"`: this fraction leaves at `price`; the rest runs. */
+  /** `"structure-runner"`: this fraction leaves at `price`; the rest runs. */
   scaleOut?: { price: number; fraction: number };
   /** Add to the winner on Gann's pyramiding rules (`lib/gann/pyramid.ts`). */
   pyramid?: boolean;

@@ -10,7 +10,7 @@ import {
   writeCachedPlan,
 } from "@/lib/scan/planCache";
 import { etDateKey } from "@/lib/market/session";
-import type { ScanResult } from "@/lib/types";
+import type { PublicScanResult } from "@/lib/types";
 
 // 2026-10-27 is a Tuesday; EDT, so 09:30 ET is 13:30 UTC and 16:00 ET is 20:00 UTC.
 describe("planSessionKey", () => {
@@ -42,7 +42,7 @@ describe("planSessionKey", () => {
   });
 });
 
-function plan(overrides: Partial<ScanResult> = {}): ScanResult {
+function plan(overrides: Partial<PublicScanResult> = {}): PublicScanResult {
   return {
     symbol: "SPY",
     assetClass: "us_equity",
@@ -53,7 +53,7 @@ function plan(overrides: Partial<ScanResult> = {}): ScanResult {
     dayRange: 2,
     decision: { outputState: "Execute", score: 7 },
     ...overrides,
-  } as unknown as ScanResult;
+  } as unknown as PublicScanResult;
 }
 
 describe("planEvent", () => {
@@ -63,8 +63,8 @@ describe("planEvent", () => {
 
   it("asks when price trades through the stop, for any score", () => {
     expect(planEvent(plan(), 96.9)).toBe("stop");
-    expect(planEvent(plan({ decision: { outputState: "Watch", score: 4 } } as Partial<ScanResult>), 97)).toBe("stop");
-    const short = plan({ direction: "bearish", levels: { entry: 99, stopLoss: 103, takeProfit1: 94, masterProfit: 88 } } as Partial<ScanResult>);
+    expect(planEvent(plan({ decision: { outputState: "Watch", score: 4 } } as Partial<PublicScanResult>), 97)).toBe("stop");
+    const short = plan({ direction: "bearish", levels: { entry: 99, stopLoss: 103, takeProfit1: 94, masterProfit: 88 } } as Partial<PublicScanResult>);
     expect(planEvent(short, 103)).toBe("stop");
     expect(planEvent(short, 100.5)).toBeNull();
   });
@@ -85,13 +85,13 @@ describe("planEvent", () => {
     expect(planEvent(plan(), 101, { high: 102, low: 96.5 })).toBe("stop");
     expect(planEvent(plan(), 101, { high: 102, low: 98 })).toBeNull();
     expect(planEvent(plan(), 101, { high: null, low: null })).toBeNull();
-    const short = plan({ direction: "bearish", levels: { entry: 99, stopLoss: 103, takeProfit1: 94, masterProfit: 88 } } as Partial<ScanResult>);
+    const short = plan({ direction: "bearish", levels: { entry: 99, stopLoss: 103, takeProfit1: 94, masterProfit: 88 } } as Partial<PublicScanResult>);
     expect(planEvent(short, 100, { high: 103.2, low: 99 })).toBe("stop");
   });
 
   it("asks at the Execute cutoff when price passes TP1", () => {
     expect(planEvent(plan({ dayRange: 10 }), 106)).toBe("target");
-    expect(planEvent(plan({ dayRange: 10, decision: { outputState: "Watch", score: 6 } } as Partial<ScanResult>), 106)).toBeNull();
+    expect(planEvent(plan({ dayRange: 10, decision: { outputState: "Watch", score: 6 } } as Partial<PublicScanResult>), 106)).toBeNull();
   });
 
   it("asks when the entry's distance crosses a day's range", () => {
@@ -111,7 +111,7 @@ describe("planEvent", () => {
   it("ignores an unusable price or a plan with no levels", () => {
     expect(planEvent(plan(), null)).toBeNull();
     expect(planEvent(plan(), Number.NaN)).toBeNull();
-    expect(planEvent(plan({ levels: undefined } as Partial<ScanResult>), 90)).toBeNull();
+    expect(planEvent(plan({ levels: undefined } as Partial<PublicScanResult>), 90)).toBeNull();
     expect(planEvent(plan({ direction: "none" }), 90)).toBeNull();
   });
 });

@@ -36,7 +36,7 @@ import { marketCountHits } from "@/lib/gann/eightyFourYear";
 import { yearCountMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { patternAngleLines } from "@/lib/gann/patternAngles";
 import { swingPivots, THREE_DAY_CHART } from "@/lib/gann/swingChart";
-import { gannPointForBars } from "@/lib/gann/pointScale";
+import { pointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
 import { majorRangeDivisions, heldRangeDivision, type RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
@@ -235,7 +235,7 @@ export function monthlyAngleOrigin(
  * 41-85% against shorts 18-40%. The daily 45° stays the cinch buying point in
  * the S/R list (`patternAngleLevels`). Engineering choices, labelled: the 3-bar
  * chart as Gann's "3 months", its last swing as "the last bottom of the final
- * run", and `gannPointForBars` as the point. `months` are closed months; the
+ * run", and `pointForBars` as the point. `months` are closed months; the
  * month in progress is the line's current month. Since 2026-10-28 the origin is
  * the latest pivot that has held 3 months and was not broken by 3 points
  * (`monthlyAngleOrigin`).
@@ -298,7 +298,7 @@ export function readPillarFacts(input: {
   const yearCountMonths = input.yearCountMonthly
     ? yearCountMonthlyWindow(input.yearCountMonthly.filter((b) => b.t.slice(0, 7) < month), asOf)
     : closedMonths;
-  const unit = gannPointForBars(daily);
+  const unit = pointForBars(daily);
   const leadership = rules.leadership;
   const counterMove = rules.counterMove;
   const campaign = rules.campaign;

@@ -1,4 +1,4 @@
-import { gannThreePointsPct } from "@/lib/gann/pointScale";
+import { threePointsPct } from "@/lib/gann/pointScale";
 import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 /**
@@ -40,7 +40,7 @@ import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
  * below still is.
  */
 export function levelBandPct(price: number): number {
-  return gannThreePointsPct(price);
+  return threePointsPct(price);
 }
 
 /** The basis a note names for `levelBandPct`. */

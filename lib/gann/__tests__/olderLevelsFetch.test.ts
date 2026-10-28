@@ -22,7 +22,7 @@ vi.mock("@/lib/school/graduationExam", async () => {
 });
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { gannThreePoints } from "@/lib/gann/pointScale";
+import { threePoints } from "@/lib/gann/pointScale";
 import { selectGannEntry } from "@/lib/gann/entryTrigger";
 import { entryChart } from "@/lib/scan/entrySelection";
 import { readEntryConfirmationNow } from "@/lib/lifecycle/confirmNow";
@@ -82,7 +82,7 @@ describe("fetching the monthly chart", () => {
     // points, but not under the swing top the rally also crossed.
     const after = daily([102, 99, 93.5], "2026-04-13");
     fixtures.daily = [...D, ...after];
-    expect(93.5).toBeLessThan(100 - gannThreePoints(100));
+    expect(93.5).toBeLessThan(100 - threePoints(100));
     const r = await readLiveGannExit({
       symbol: "TEST", side: "long", entryPrice: T.reactionEntry, initialStop: T.reactionStop,
       openedAt: "2026-04-13T15:00:00Z", best: 102, now: new Date("2026-04-20T15:00:00Z"),
