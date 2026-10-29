@@ -52,7 +52,7 @@ Advisor findings:
 - **multiple_permissive_policies (WARN, 5, all on `scan_runs`).** These
   are left for now. Merging the policies changes who can read the table,
   which is an access decision for its own change.
-  **Closed 2026-10-28 (migration 0134):** the second policy was "scan_runs
+  **Closed 2026-10-28 (migration 0136):** the second policy was "scan_runs
   public read" (`true`), open to the anonymous key. The table's only writer,
   the mock daily-scan cron, was retired on 2026-08-05 and nothing in the app
   reads it, so the public policy is dropped and the member read stays.

@@ -453,6 +453,9 @@ describe("OrderTicket exit notice", () => {
     render(<OrderTicket result={scanWithEntry(40)} livePrice={40} />);
     expect(await screen.findByText(/Nothing sells at TP1 or the MTP \(master take profit\) automatically/)).toBeInTheDocument();
     expect(screen.queryByText(/falls back through it/)).not.toBeInTheDocument();
+    // Break-even is the live rule's, not the bracket's "gained as much as it risked".
+    expect(screen.getByText(/Once the trade is clearly ahead, the stop moves to your entry/)).toBeInTheDocument();
+    expect(screen.queryByText(/gained as much as it risked/)).not.toBeInTheDocument();
   });
 });
 

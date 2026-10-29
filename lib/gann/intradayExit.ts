@@ -32,8 +32,8 @@
  * hold an intraday trade overnight from the order ticket (`hold_overnight`).
  * The close is due from 15:45 ET, the session's last 15-minute bar, or at the
  * first pass after a close the trade was still open through. US equities only:
- * crypto has no session, so its intraday trades end on the stop, the target or
- * the hourly turn.
+ * crypto has no session, so its intraday trades end on the stop or the hourly
+ * turn (nothing sells at the target, below).
  *
  * **No fixed target (Gann, Tier A).** "Never fix a target price" (owner
  * decision X4, 2026-09-27; Q14 for the daily trades): the alert's first target
