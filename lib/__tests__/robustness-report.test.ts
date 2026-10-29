@@ -4,8 +4,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { tradesCsv } from "../../scripts/backtest-universe.mjs";
+import { summarizeCells, summaryMarkdown, tradesCsv } from "../../scripts/backtest-universe.mjs";
 import { marketFromCsv, parseArgs, splitCsvLine, tradesFromCsv } from "../../scripts/robustness-report.mjs";
+import { buildRobustness } from "@/lib/backtest/robustness";
 
 const trade = (over: Record<string, unknown>) => ({
   symbol: "AAA",
@@ -79,6 +80,14 @@ describe("marketFromCsv", () => {
     expect(() => marketFromCsv("symbol,date,o,h,l,c,v\nSPY,2024-01-02T00:00:00Z,1,1,1,1,1\n")).toThrow(/YYYY-MM-DD/);
     expect(() => marketFromCsv("symbol,date,o,h,l,c,v\nQQQ,2024-01-02,1,1,1,1,1\n")).toThrow(/no SPY/);
   });
+
+  it("refuses a blank or non-positive price and a date given twice", () => {
+    expect(() => marketFromCsv("symbol,date,o,h,l,c,v\nSPY,2024-01-02,1,1,1,,1\n")).toThrow(/c "" is not a positive price/);
+    expect(() => marketFromCsv("symbol,date,o,h,l,c,v\nSPY,2024-01-02,1,1,0,1,1\n")).toThrow(/l "0"/);
+    expect(() =>
+      marketFromCsv("symbol,date,o,h,l,c,v\nSPY,2024-01-02,1,1,1,1,1\nSPY,2024-01-02,1,1,1,1,1\n"),
+    ).toThrow(/2024-01-02 twice/);
+  });
 });
 
 describe("parsing", () => {
@@ -90,5 +99,24 @@ describe("parsing", () => {
     expect(() => parseArgs([])).toThrow(/--trades/);
     expect(() => parseArgs(["--trades", "x.csv", "--scope", "closed"])).toThrow(/scope/);
     expect(parseArgs(["--trades", "x.csv", "--cell", "prod"])).toMatchObject({ trades: "x.csv", cell: "prod", scope: "all" });
+  });
+});
+
+describe("the universe summary's robustness key", () => {
+  const cellResults = [{ cell: { label: "prod" }, trades: [trade({}), trade({ exitReason: "held_to_limit", rMultiple: 0.3 })] }];
+
+  it("is left out unless a builder is passed", () => {
+    expect(summarizeCells(cellResults).cells[0]).not.toHaveProperty("robustness");
+  });
+
+  it("carries each cell's report and prints its sections", () => {
+    const summary = summarizeCells(cellResults, { robustness: (trades: never[]) => buildRobustness(trades) });
+    const rep = summary.cells[0].robustness;
+    expect(rep.n).toBe(2);
+    expect(rep.heldToLimit).toBe(1);
+    const md = summaryMarkdown({ skipped: [], window: {} }, summary);
+    expect(md).toContain("## Robustness");
+    expect(md).toContain("#### Walk-forward");
+    expect(md).toContain("valued at that bar's close");
   });
 });

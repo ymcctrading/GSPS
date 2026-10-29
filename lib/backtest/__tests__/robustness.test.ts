@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRobustness,
+  DEFAULT_STRESS_WINDOWS,
   marketDrawdownByDate,
   marketTrendByDate,
   nyDate,
+  openSpan,
   quarterOf,
   quarterStart,
   regimeSplit,
@@ -100,6 +102,14 @@ describe("walkForward", () => {
 });
 
 describe("stressWindows", () => {
+  it("starts every default window the session after a high close", () => {
+    const starts = Object.fromEntries(DEFAULT_STRESS_WINDOWS.map((w) => [w.label, w.from]));
+    expect(starts["2020 crash"]).toBe("2020-02-20");
+    expect(starts["2025 tariff decline"]).toBe("2025-02-20");
+    expect(starts["March 2023 bank stress"]).toBe("2023-03-07");
+  });
+
+
   it("takes trades opened inside each window, by side", () => {
     const rows = stressWindows(
       [trade("2020-03-01", -1), trade("2020-03-02", 2, undefined, "bearish"), trade("2020-07-01", 5)],
@@ -191,6 +201,24 @@ describe("buildRobustness", () => {
     expect(rep.derived.n).toBe(1);
     expect(rep.walkForward.windows[0].n).toBe(1);
     expect(rep.regimes).toBeNull();
+  });
+
+  it("counts the trades ended at the session limit, which every section values at the bar's close", () => {
+    const rep = buildRobustness([trade("2024-02-01", 1, 8), { ...trade("2024-02-02", 0.4, 8), exitReason: "held_to_limit" }]);
+    expect(rep.n).toBe(2);
+    expect(rep.heldToLimit).toBe(1);
+  });
+
+  it("reads the market only over the trades' own dates", () => {
+    const market = walk(200, 1);
+    const trades = [trade(nyDate(market[150].t), 1, 8), trade(nyDate(market[160].t), 1, 8)];
+    expect(openSpan(trades)).toEqual({ from: nyDate(market[150].t), to: nyDate(market[160].t) });
+    const span = openSpan(trades)!;
+    const trimmed = marketTrendByDate(market, 520, span);
+    expect(trimmed.size).toBe(11);
+    // Each date still reads its whole lookback before it.
+    expect(trimmed.get(span.from)).toBe(marketTrendByDate(market).get(span.from));
+    expect(marketDrawdownByDate(market, 0.1, 252, span).size).toBe(11);
   });
 
   it("splits by regime when market bars are given", () => {

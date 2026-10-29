@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSnapshot, isCryptoSymbol } from "@/lib/data/alpaca";
+import { sharedSnapshot, SHARED_SNAPSHOT_MS } from "@/lib/data/sharedSnapshot";
 import { describeDataError } from "@/lib/data/http";
 import { marketSession } from "@/lib/market/session";
 import type { AlertQuote } from "@/lib/alerts/rules";
@@ -40,7 +41,11 @@ export async function GET(req: NextRequest) {
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   try {
-    const snap = await fetchSnapshot(symbol, assetClass);
+    // One vendor read per symbol per poll interval, shared by every viewer
+    // (lib/data/sharedSnapshot.ts); the CDN header shares it across instances.
+    const snap = await sharedSnapshot(symbol, assetClass, () =>
+      fetchSnapshot(symbol, assetClass),
+    );
     const session = marketSession(assetClass);
 
     // In pre-market the day's regular bar hasn't formed, so the reference close
@@ -69,7 +74,10 @@ export async function GET(req: NextRequest) {
       alertQuote: snap.alertQuote,
       at: Date.now(),
     };
-    return NextResponse.json(quote);
+    const maxAge = Math.max(1, Math.round(SHARED_SNAPSHOT_MS[assetClass] / 1000));
+    return NextResponse.json(quote, {
+      headers: { "Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}` },
+    });
   } catch (err) {
     // A throttled upstream answers 429 with Retry-After so the client poller
     // backs off instead of hammering the same limit every few seconds.

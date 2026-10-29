@@ -44,7 +44,10 @@
  *
  * Limits: the stress windows are named engineering choices, and the regime
  * reading uses the market index the caller passes (SPY in the scripts), read
- * on the closed sessions before each trade's date.
+ * on the closed sessions before each trade's date. Every section places a
+ * trade by the day it opened. A trade the replay ended at its session limit
+ * (`held_to_limit`) is valued at that bar's close, not at a realised exit, as
+ * `metrics.ts` says; `buildRobustness` counts them so the report can say so.
  */
 
 import type { Bar } from "@/lib/types";
@@ -132,9 +135,12 @@ export interface WalkForwardReport {
   /** The fixed score cutoff compared against (`EXECUTE_SCORE_THRESHOLD` by default). */
   fixedCutoff: number;
   windows: WalkForwardWindow[];
-  /** Quarters with any trades whose expectancy was above zero, of those with any trades. */
+  /**
+   * Quarters whose expectancy over all their trades (not the chosen cutoff's
+   * out-of-sample trades) was above zero, of those with any trades.
+   */
   positiveWindows: { positive: number; of: number };
-  /** The longest run of consecutive quarters at or below zero. */
+  /** The longest run of consecutive quarters whose all-trade expectancy was at or below zero. */
   longestLosingRun: number;
   /** Every out-of-sample trade the chosen cutoffs took, pooled. */
   outOfSample: WindowStat;
@@ -159,6 +165,12 @@ const isScored = (t: RobustTrade): t is RobustTrade & { score: number } =>
  * inside the quarter informs its own cutoff. A trade with no close stamp, or
  * still open when the data ended, is never in sample. Ties go to the higher
  * cutoff (fewer, stronger setups).
+ *
+ * Called directly, it reads every trade it is given: each quarter's own
+ * figures (`n`, expectancy, `positiveWindows`, `longestLosingRun`) include
+ * derived and open-at-end trades if they are passed in. Only the in-sample
+ * set and the score filters leave them out. `buildRobustness` passes the
+ * closed, non-derived trades alone.
  */
 export function walkForward(trades: RobustTrade[], opts: WalkForwardOptions = {}): WalkForwardReport {
   const minInSample = opts.minInSample ?? 30;
@@ -242,18 +254,21 @@ export interface StressWindow {
 }
 
 /**
- * Named market stress spells, peak to trough on the S&P 500 (and the rebound
- * after the 2020 crash). Engineering choices, labelled: the dates are the
- * index's own turns, and no Gann source names these windows.
+ * Named market stress spells on SPY's closes, one rule for each: from the
+ * first session after the high close to the low close, inclusive (the 2020
+ * rebound runs from the session after the crash's low close). A trade counts
+ * in a window by the day it opened, wherever it closed. Engineering choices,
+ * labelled: the spells are the index's own turns, and no Gann source names
+ * them. Checked 2026-10-29 against SPY's daily closes (SIP feed).
  */
 export const DEFAULT_STRESS_WINDOWS: readonly StressWindow[] = [
   { label: "Q4 2018 selloff", from: "2018-09-21", to: "2018-12-24" },
-  { label: "2020 crash", from: "2020-02-19", to: "2020-03-23" },
+  { label: "2020 crash", from: "2020-02-20", to: "2020-03-23" },
   { label: "2020 rebound", from: "2020-03-24", to: "2020-06-08" },
   { label: "2022 bear market", from: "2022-01-04", to: "2022-10-12" },
-  { label: "March 2023 bank stress", from: "2023-03-08", to: "2023-03-17" },
+  { label: "March 2023 bank stress", from: "2023-03-07", to: "2023-03-13" },
   { label: "August 2024 unwind", from: "2024-07-17", to: "2024-08-05" },
-  { label: "2025 tariff decline", from: "2025-02-19", to: "2025-04-08" },
+  { label: "2025 tariff decline", from: "2025-02-20", to: "2025-04-08" },
 ];
 
 export interface StressRow extends WindowStat {
@@ -286,16 +301,35 @@ export function stressWindows(trades: RobustTrade[], windows: readonly StressWin
 
 export type MarketTrend = "up" | "down" | "none";
 
+/** Inclusive New York dates (`YYYY-MM-DD`). */
+export interface DateSpan {
+  from: string;
+  to: string;
+}
+
+const inSpan = (date: string, span: DateSpan) => date >= span.from && date <= span.to;
+
+/** The New York dates the trades opened on, first to last; null with no trades. */
+export function openSpan(trades: RobustTrade[]): DateSpan | null {
+  if (trades.length === 0) return null;
+  const dates = trades.map((t) => nyDate(t.openedAt)).sort();
+  return { from: dates[0], to: dates[dates.length - 1] };
+}
+
 /**
  * The market's Gann trend on each session, read on the sessions before it
  * (closed bars only, so a trade opened that day could have known it): the
  * weekly chart's trend confirmed by stepping 3-Day Chart swings, as the scan
  * reads every trend (`readGannTrend`). Keyed by New York date. `lookback`
  * bars are read each time (two years by default, ample for both charts).
+ * `span`, inclusive New York dates, limits the sessions read to the trades'
+ * own (each still reads its full lookback before it), since a market record
+ * is often years longer than the run.
  */
-export function marketTrendByDate(bars: Bar[], lookback = 520): Map<string, MarketTrend> {
+export function marketTrendByDate(bars: Bar[], lookback = 520, span?: DateSpan): Map<string, MarketTrend> {
   const out = new Map<string, MarketTrend>();
   for (let i = 1; i < bars.length; i++) {
+    if (span && !inSpan(nyDate(bars[i].t), span)) continue;
     const read = readGannTrend(bars.slice(Math.max(0, i - lookback), i));
     out.set(nyDate(bars[i].t), read.direction === "bullish" ? "up" : read.direction === "bearish" ? "down" : "none");
   }
@@ -307,9 +341,10 @@ export function marketTrendByDate(bars: Bar[], lookback = 520): Map<string, Mark
  * before each session (read on the sessions before it). Engineering choice,
  * labelled: the common measure of a market correction, not a Gann figure.
  */
-export function marketDrawdownByDate(bars: Bar[], depth = 0.1, lookback = 252): Map<string, boolean> {
+export function marketDrawdownByDate(bars: Bar[], depth = 0.1, lookback = 252, span?: DateSpan): Map<string, boolean> {
   const out = new Map<string, boolean>();
   for (let i = 1; i < bars.length; i++) {
+    if (span && !inSpan(nyDate(bars[i].t), span)) continue;
     let high = -Infinity;
     for (let k = Math.max(0, i - lookback); k < i; k++) high = Math.max(high, bars[k].c);
     out.set(nyDate(bars[i].t), bars[i - 1].c <= high * (1 - depth));
@@ -359,6 +394,8 @@ export interface RobustnessReport {
   n: number;
   /** Trades still open when the data ended, left out of every section (their R is marked). */
   openAtEnd: number;
+  /** Of `n`, trades ended at the session limit: in every section, valued at that bar's close. */
+  heldToLimit: number;
   /** Reversals and re-entries the replay opened from other trades, apart from the sections. */
   derived: WindowStat;
   walkForward: WalkForwardReport;
@@ -374,14 +411,32 @@ export interface RobustnessReport {
  * realised), and derived trades are reported on their own, as the universe
  * summary's scopes keep them. `market` is the index's daily bars (SPY).
  */
+// The market readings by bar array and trade span: reading SPY's trend takes
+// seconds over a decade, and a universe run's cells usually share one span.
+const marketReadings = new WeakMap<Bar[], Map<string, [Map<string, MarketTrend>, Map<string, boolean>]>>();
+
+function readMarket(market: Bar[], span: DateSpan): [Map<string, MarketTrend>, Map<string, boolean>] {
+  let bySpan = marketReadings.get(market);
+  if (!bySpan) marketReadings.set(market, (bySpan = new Map()));
+  const key = `${span.from}|${span.to}|${market.length}`;
+  let read = bySpan.get(key);
+  if (!read) bySpan.set(key, (read = [marketTrendByDate(market, 520, span), marketDrawdownByDate(market, 0.1, 252, span)]));
+  return read;
+}
+
 export function buildRobustness(trades: RobustTrade[], market?: Bar[]): RobustnessReport {
   const armed = trades.filter((t) => !t.derived && !isOpenAtEnd(t));
+  const span = openSpan(armed);
   return {
     n: armed.length,
     openAtEnd: trades.filter(isOpenAtEnd).length,
+    heldToLimit: armed.filter((t) => t.exitReason === "held_to_limit").length,
     derived: describe(trades.filter((t) => t.derived && !isOpenAtEnd(t)).map((t) => t.rMultiple)),
     walkForward: walkForward(armed),
     stress: stressWindows(armed),
-    regimes: market && market.length > 1 ? regimeSplit(armed, marketTrendByDate(market), marketDrawdownByDate(market)) : null,
+    regimes:
+      market && market.length > 1 && span
+        ? regimeSplit(armed, ...readMarket(market, span))
+        : null,
   };
 }

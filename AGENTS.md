@@ -678,7 +678,7 @@ indefinitely"):** closed orders, positions and trade logs are never deleted by
 the app; they are hidden from the tabs (`lib/portfolio/prune.ts`) and leave only
 when the member's account is deleted (their foreign keys cascade from
 `auth.users`). Gann kept a record of every trade and his rules read it back
-(the series of losses, the profit peak), so nothing may prune them on a timer. **The service key (S-06, owner: "You
+(the series of losses, the profit peak), so nothing may prune them on a timer. Notices are not records: the bell (30 days), the deliveries, monitor transitions, push log and per-member intraday alerts (90 days each) are pruned daily by `gsps_ops.prune_notification_history()` (migration 0138, 08:20 UTC; figures and their readers in `lib/ops/retention.ts`, held by `retention.test.ts`). A new read of those tables further back than its window needs the window moved first. **The service key (S-06, owner: "You
 figure it out"):** the server reads `serviceRoleKey()`
 (`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
@@ -4118,15 +4118,18 @@ hold until he says the plan has been upgraded.
   only when GitHub reports a conflict, or the branch-age gate fails, never
   just to stay current. The release PR below tests every branch together
   with main anyway.
-- **Two releases a day.** Finished, reviewed, green PRs wait in the merge
-  queue (the Senior code review thread, `/mnt/project-files/merge-queue.md`).
-  Around 12:00 and 20:00 New York time it builds one release branch from
+- **Four releases a day (owner, 2026-10-28: "every 6 hrs").** Finished,
+  reviewed, green PRs wait in the merge queue (the Senior code review thread,
+  `/mnt/project-files/merge-queue.md`). Around 6:00, 12:00, 18:00 and 00:00
+  New York time, skipping a train with nothing ready, it builds one release branch from
   main, merges each waiting PR's branch into it (resolving any conflict
   between them there), opens one release PR, and merges it once it is green.
   Each included PR then shows as merged. Tests run once for the batch and
   production deploys once, which also keeps Vercel under its deploy limit.
   A production bug or a security fix may skip the wait and merge on its own;
-  say why in the PR.
+  say why in the PR. When Actions minutes run near the 99% hold, trains fold
+  into the next window with minutes to spare, and a release goes as one push
+  and one CI run.
 - **What CI skips** (`.github/workflows/test.yml`): branch pushes with no PR
   (since 2026-10-28), draft PRs, and PRs that change only Markdown other than
   README.md and FEATURES.md. Never widen a skip to `docs/**`:
