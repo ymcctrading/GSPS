@@ -112,7 +112,9 @@ export function tradesFromCsv(text, { cell = null, scope = "all" } = {}) {
 }
 
 /**
- * The SPY rows of a daily-bar CSV as bars, oldest first; refuses a date that is not `YYYY-MM-DD`.
+ * The SPY rows of a daily-bar CSV as bars, oldest first. Refuses a date that
+ * is not `YYYY-MM-DD`, a date given twice, and a price that is blank or not a
+ * positive number (a blank close would read as 0, a correction).
  *
  * @param {string} text
  * @returns {{ t: string, o: number, h: number, l: number, c: number, v: number }[]}
@@ -122,11 +124,19 @@ export function marketFromCsv(text) {
     .filter((b) => b.symbol === "SPY")
     .map((b) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date)) throw new Error(`--market date "${b.date}" is not YYYY-MM-DD`);
+      const price = (k) => {
+        const x = b[k] === "" ? NaN : Number(b[k]);
+        if (!Number.isFinite(x) || x <= 0) throw new Error(`--market ${b.date}: ${k} "${b[k]}" is not a positive price`);
+        return x;
+      };
       // 20:00 UTC is after the close in New York in summer and winter alike.
-      return { t: `${b.date}T20:00:00Z`, o: +b.o, h: +b.h, l: +b.l, c: +b.c, v: +b.v };
+      return { t: `${b.date}T20:00:00Z`, o: price("o"), h: price("h"), l: price("l"), c: price("c"), v: +b.v };
     })
     .sort((a, b) => (a.t < b.t ? -1 : 1));
   if (bars.length === 0) throw new Error("--market has no SPY rows");
+  for (let i = 1; i < bars.length; i++) {
+    if (bars[i].t === bars[i - 1].t) throw new Error(`--market has SPY on ${bars[i].t.slice(0, 10)} twice`);
+  }
   return bars;
 }
 
@@ -136,38 +146,53 @@ const fmtPct = (x) => (x === null || x === undefined ? "—" : `${(x * 100).toFi
 const row = (label, s) => `| ${label} | ${s.n} | ${fmtR(s.expectancyR)} | ${fmtCI(s.expectancyCI95)} | ${fmtPct(s.winRate)} | ${s.totalR.toFixed(1)} |`;
 const HEAD = "| | Trades | Expectancy | 95% CI | Win rate | Total R |\n|---|---|---|---|---|---|";
 
-export function reportMarkdown(args, rep) {
+/**
+ * The report's sections, under headings of `level` (`##` alone, `###` inside
+ * the universe summary). Shared with `backtest-universe.mjs`.
+ */
+export function robustnessSections(rep, level = "##") {
   const wf = rep.walkForward;
   const out = [];
+  const cell = (s) => `${fmtR(s.expectancyR)} (${s.n})`;
   out.push(
-    `# Robustness — ${args.cell ?? "the file's cell"}, scope ${args.scope}`,
+    `${rep.n} closed trades the replay armed; ${rep.openAtEnd} still open when the data ended (left out); ${rep.derived.n} reversals and re-entries apart (${fmtR(rep.derived.expectancyR)}).` +
+      (rep.heldToLimit > 0 ? ` ${rep.heldToLimit} of the ${rep.n} ended at the session limit and are valued at that bar's close, not a realised exit.` : ""),
     "",
-    `${rep.n} closed trades the replay armed; ${rep.openAtEnd} still open when the data ended (left out); ${rep.derived.n} reversals and re-entries apart (${fmtR(rep.derived.expectancyR)}).`,
+    `${level} Walk-forward (calendar quarters)`,
     "",
-    "## Walk-forward (calendar quarters)",
-    "",
-    `Positive quarters: ${wf.positiveWindows.positive} of ${wf.positiveWindows.of}; longest run at or below zero: ${wf.longestLosingRun}.`,
+    `Over all of each quarter's trades: ${wf.positiveWindows.positive} of ${wf.positiveWindows.of} quarters positive; longest run of quarters at or below zero: ${wf.longestLosingRun}.`,
     `Out of sample, the cutoff chosen on trades closed before each quarter: ${fmtR(wf.outOfSample.expectancyR)} ${fmtCI(wf.outOfSample.expectancyCI95)} over ${wf.outOfSample.n} trades; score ≥ ${wf.fixedCutoff} on the same quarters: ${fmtR(wf.fixedOnSameWindows.expectancyR)} ${fmtCI(wf.fixedOnSameWindows.expectancyCI95)} over ${wf.fixedOnSameWindows.n}.`,
     "",
     `| Quarter | Trades | Expectancy | 95% CI | Score ≥ ${wf.fixedCutoff} | Execute | Chosen cutoff | Chosen, out of sample |`,
     "|---|---|---|---|---|---|---|---|",
   );
-  const cell = (s) => `${fmtR(s.expectancyR)} (${s.n})`;
   for (const w of wf.windows) {
     out.push(
       `| ${w.window} | ${w.n} | ${fmtR(w.expectancyR)} | ${fmtCI(w.expectancyCI95)} | ${cell(w.fixedCutoff)} | ${cell(w.execute)} | ${w.chosenCutoff ?? "—"} | ${w.chosen ? cell(w.chosen) : "—"} |`,
     );
   }
-  out.push("", "## Stress windows", "", "| Window | Trades | Expectancy | 95% CI | Win rate | Total R | Longs | Shorts |", "|---|---|---|---|---|---|---|---|");
+  out.push(
+    "",
+    `${level} Stress windows`,
+    "",
+    "A trade counts in the window it opened in, wherever it closed.",
+    "",
+    "| Window | Trades | Expectancy | 95% CI | Win rate | Total R | Longs | Shorts |",
+    "|---|---|---|---|---|---|---|---|",
+  );
   for (const s of rep.stress) out.push(`${row(`${s.label} (${s.from} to ${s.to})`, s)} ${cell(s.longs)} | ${cell(s.shorts)} |`);
   if (rep.regimes) {
     const g = rep.regimes;
-    out.push("", "## Market regime (SPY, read on the sessions before each trade)", "", HEAD);
+    out.push("", `${level} Market regime (SPY, read on the sessions before each trade opened)`, "", HEAD);
     for (const [k, s] of Object.entries(g.byTrend)) out.push(row(`Market trend ${k}`, s));
     out.push(row("Trade with the market's trend", g.withMarket.with), row("Trade against it", g.withMarket.against), row("No market trend", g.withMarket.none));
     for (const [k, s] of Object.entries(g.byCorrection)) out.push(row(`Market ${k === "correction" ? "in a correction (10% under the year's high)" : k}`, s));
   }
-  return out.join("\n") + "\n";
+  return out;
+}
+
+export function reportMarkdown(args, rep) {
+  return [`# Robustness — ${args.cell ?? "the file's cell"}, scope ${args.scope}`, "", ...robustnessSections(rep)].join("\n") + "\n";
 }
 
 async function main() {
