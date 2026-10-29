@@ -58,6 +58,7 @@ import { isPivotSignal } from "@/lib/lifecycle/fromPivot";
 import { awayReminderDue, resolveGannRulePrefs, restReminderDue } from "@/lib/gann/traderPrefs";
 import { maxRiskForTrade } from "@/lib/risk/gannCapital";
 import { chooseSizeRung } from "@/lib/automation/sizeLadder";
+import { capRefusal, maxSharesForCap, readTradeDollarCap } from "@/lib/automation/tradeDollarCap";
 import { readLiveStartingCapital, readProfitCeiling } from "@/lib/risk/profitPeak";
 
 export type RiskProfile = "PASSIVE" | "MODERATE" | "AGGRESSIVE";
@@ -72,6 +73,8 @@ interface AutonomousProfileRow {
   volatility_trigger_type: TriggerType;
   volatility_trigger_value: number;
   execution_mode: "paper" | "live";
+  /** Migration 0140: the most one automated trade may cost; null = no cap (lib/automation/tradeDollarCap.ts). */
+  max_trade_dollars?: number | string | null;
 }
 
 interface CandidatePlanRow {
@@ -215,7 +218,7 @@ export async function runAutonomousPortfolioManager(
   const { data: profiles, error: profilesError } = await supabase
     .from("user_automation_profiles")
     .select(
-      "user_id, is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode",
+      "user_id, is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode, max_trade_dollars",
     )
     .eq("is_automation_enabled", true);
   if (profilesError) {
@@ -509,6 +512,24 @@ async function runForProfile(
           if (choice.rung !== "full") tradeDollarRisk = choice.qty * riskPerShare;
           rungCost = choice.qty * entry;
         }
+      }
+    }
+    // The member's per-trade dollar cap (lib/automation/tradeDollarCap.ts):
+    // only takes shares away, and placement holds the order to it again.
+    const cap = readTradeDollarCap(profile.max_trade_dollars);
+    if (cap != null) {
+      const entry = Number(plan.entry_trigger);
+      const riskPerShare = Math.abs(entry - Number(plan.invalidation));
+      const capQty = maxSharesForCap(cap, entry);
+      if (capQty < 1 || !(riskPerShare > 0)) {
+        result.plansSkipped++;
+        result.errors.push({ userId: profile.user_id, planId: plan.plan_id, reason: capRefusal(plan.instrument, cap, entry) });
+        continue;
+      }
+      const sized = Math.floor(tradeDollarRisk / riskPerShare + 1e-9);
+      if (sized > capQty) {
+        tradeDollarRisk = capQty * riskPerShare;
+        if (executionMode === "paper") rungCost = capQty * entry;
       }
     }
     if (executionMode === "live") {

@@ -20,6 +20,7 @@ import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { getTradePlan } from "@/lib/lifecycle/store";
 import type { TradePlan } from "@/lib/lifecycle/types";
 import { placeSimulatedOrder, type OrderInput } from "@/lib/trade/place-order";
+import { capRefusal, capShares, readTradeDollarCap } from "@/lib/automation/tradeDollarCap";
 
 export type ExecutionMode = "paper" | "live";
 export type AutomationMode = "system_plan" | "guided_custom";
@@ -247,7 +248,18 @@ export async function authorizeAutomatedOrder(
     return { authorized: false, reason: eligibility.blockReasons.join(" ") };
   }
 
-  const order = deriveOrderInputFromPlan(plan, profile);
+  // The member's per-trade dollar cap, read now rather than frozen at
+  // activation, so activations made before it was set are held to it too.
+  // Fails closed: an unreadable cap could hide a limit.
+  const { data: capRow, error: capErr } = await supabase
+    .from("user_automation_profiles")
+    .select("max_trade_dollars")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (capErr) return { authorized: false, reason: `Could not read the per-trade limit: ${capErr.message}` };
+  const cap = readTradeDollarCap((capRow as { max_trade_dollars?: unknown } | null)?.max_trade_dollars);
+
+  const order = deriveOrderInputFromPlan(plan, profile, cap);
   if (!order.ok) {
     await recordAutomationEvent(supabase, userId, profileId, "order_blocked", { reason: order.error });
     return { authorized: false, reason: order.error };
@@ -290,18 +302,24 @@ async function lastRejectionReason(supabase: SupabaseClient, profileId: string):
   return typeof detail?.reason === "string" ? detail.reason : null;
 }
 
-function deriveOrderInputFromPlan(
+export function deriveOrderInputFromPlan(
   plan: TradePlan,
-  profile: AutomationProfileRow,
+  profile: Pick<AutomationProfileRow, "configuration" | "execution_mode">,
+  cap: number | null = null,
 ): { ok: true; input: OrderInput } | { ok: false; error: string } {
   const riskPerShare = Math.abs(plan.coordinates.entryTrigger - plan.coordinates.invalidation);
   if (riskPerShare <= 0) return { ok: false, error: "Plan has no positive per-share risk to size against." };
 
   // Slack for floating point, so a risk sized as qty x riskPerShare
   // (the size ladder, lib/automation/sizeLadder.ts) buys qty, not qty - 1.
-  const qty = Math.floor(profile.configuration.allocatedDollarRisk / riskPerShare + 1e-9);
-  if (qty < 1) {
+  const sized = Math.floor(profile.configuration.allocatedDollarRisk / riskPerShare + 1e-9);
+  if (sized < 1) {
     return { ok: false, error: "Allocated risk is too small to size at least one share against this plan." };
+  }
+  // The per-trade dollar cap (lib/automation/tradeDollarCap.ts) only takes shares away.
+  const qty = capShares(sized, cap, plan.coordinates.entryTrigger);
+  if (qty < 1 && cap != null) {
+    return { ok: false, error: capRefusal(plan.instrument, cap, plan.coordinates.entryTrigger) };
   }
 
   return {

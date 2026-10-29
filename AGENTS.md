@@ -1238,6 +1238,14 @@ activations included) holds fewest of, the smaller first
 (`lib/automation/sizeLadder.ts`). A rung only takes shares away, so Gann's
 ceilings hold and placement checks them again. Live accounts are never
 laddered. Verdicts and the replay are unchanged, so `STRATEGY_VERSION` stays.
+**Per-trade dollar limit, 2026-10-29 (owner: "Build dollar cap", for the
+tier tests: $50, $250, $1,000 a trade).** `user_automation_profiles.max_trade_dollars`
+(migration 0140, null = none), set on the Automation page, holds every
+automated trade to the whole shares it buys at the entry with the ladder's
+95% headroom (`lib/automation/tradeDollarCap.ts`): the manager's activation,
+placement (read at order time, so older activations obey it; fails closed)
+and each pyramid add. It only takes shares away; a stock one share of which
+costs more is skipped with a plain note. Verdicts and the replay are unchanged.
 
 **Name charts and great cycles, 2026-10-22 (A-OTHER-08, A-TIME-24; owner:
 "Build these: ... name numerology [is] written out in the Master Course").**
