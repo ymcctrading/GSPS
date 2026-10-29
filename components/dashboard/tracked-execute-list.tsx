@@ -183,6 +183,23 @@ function TrackedRow({
     <div className={cn("flex flex-col gap-1.5 px-3 py-2.5", invalidated && "bg-bear-soft/40")}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <SetupNameButton symbol={row.symbol} stage={stage} controls={cardId} onToggle={toggleName} />
+        <span className="flex items-center gap-1.5 text-xs">
+          {row.executeScore != null && (
+            <>
+              <span title="Score when this setup entered Execute">
+                <ScoreBadge
+                  score={row.executeScore}
+                  state={row.executeOutputState ?? "Execute"}
+                  exactScoreDisplayEnabled={exactScoreDisplayEnabled}
+                />
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 text-muted" />
+            </>
+          )}
+          <span title="Score now">
+            <ScoreBadge score={row.score} state={model.verdict} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+          </span>
+        </span>
         {quote && <span className="font-mono text-sm tabular-nums">{formatUsd(quote.price)}</span>}
         <span className={bullish ? "text-xs text-bull" : "text-xs text-bear"}>{bullish ? "Buy" : "Sell"}</span>
         {row.patternName && <span className="text-xs text-muted">{row.patternName}</span>}
@@ -190,26 +207,8 @@ function TrackedRow({
         {restingRead && <span className="text-xs text-muted">Entry {restingDistanceLabel(restingRead)}</span>}
       </div>
 
-      <span className="flex items-center gap-1.5 text-xs">
-        {row.executeScore != null && (
-          <>
-            <span title="Score when this setup entered Execute">
-              <ScoreBadge
-                score={row.executeScore}
-                state={row.executeOutputState ?? "Execute"}
-                exactScoreDisplayEnabled={exactScoreDisplayEnabled}
-              />
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted" />
-          </>
-        )}
-        <span title="Score now">
-          <ScoreBadge score={row.score} state={model.verdict} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
-        </span>
-      </span>
-
       <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted">
-        <span>Entry {formatUsd(row.entry)}</span>
+        <span className="text-accent">Entry {formatUsd(row.entry)}</span>
         {row.stopLoss != null && <span className="text-bear">Exit {formatUsd(row.stopLoss)}</span>}
         {row.takeProfit1 != null && <span className="text-bull">TP1 {formatUsd(row.takeProfit1)}</span>}
         {row.masterProfit != null && <span className="text-bull">MTP {formatUsd(row.masterProfit)}</span>}

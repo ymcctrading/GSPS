@@ -456,6 +456,10 @@ export function CandleChart({
       borderVisible: false,
       wickUpColor: UP,
       wickDownColor: DOWN,
+      // The current price's line and axis box in the page's text colour, never
+      // the last candle's green or red: next to a stop (red) or a target
+      // (green) a coloured box reads as that level (owner, 2026-10-29).
+      priceLineColor: styles.getPropertyValue("--foreground").trim() || "#0f172a",
     });
 
     chartRef.current = chart;

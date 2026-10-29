@@ -11,15 +11,19 @@ export function ScoreBadge({
   score,
   state,
   exactScoreDisplayEnabled,
+  compact = false,
 }: {
   score: number;
   state: string;
   exactScoreDisplayEnabled: boolean;
+  /** The score alone, the tier in its colour and title: a list's score column. */
+  compact?: boolean;
 }) {
   const variant = state === "Execute" ? "bull" : state === "Watch" ? "warn" : state === "Resting" ? "default" : "muted";
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
+        title={compact ? state : undefined}
         className={cn(
           "inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
           state === "Execute" && "bg-bull text-white",
@@ -30,7 +34,7 @@ export function ScoreBadge({
       >
         {formatScore(score, exactScoreDisplayEnabled)}
       </span>
-      <Badge variant={variant}>{state}</Badge>
+      {!compact && <Badge variant={variant}>{state}</Badge>}
     </span>
   );
 }

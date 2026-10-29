@@ -170,7 +170,7 @@ function SavedRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted">
-        {row.entry != null && <span>Entry {formatUsd(row.entry)}</span>}
+        {row.entry != null && <span className="text-accent">Entry {formatUsd(row.entry)}</span>}
         {row.stop_loss != null && <span className="text-bear">Exit {formatUsd(row.stop_loss)}</span>}
         {row.take_profit1 != null && <span className="text-bull">TP1 {formatUsd(row.take_profit1)}</span>}
         {row.master_profit != null && <span className="text-bull">MTP {formatUsd(row.master_profit)}</span>}
