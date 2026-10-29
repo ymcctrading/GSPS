@@ -3736,6 +3736,33 @@ released with the section hold above as
 `2026-10-29-gann-early-sections-and-leaders` (no new rule), which the six-year
 rerun measures.
 
+**Trade with the averages, 2026-10-29 (six-year rerun's long/short diagnosis,
+`/mnt/project-files/replay-diagnosis/2026-10-29-six-year-rerun/LONGS-VS-SHORTS.md`:
+longs bought in the four selloff windows lost 1,189R, more than the whole run's
+1,165R, while shorts won in every window).** One translation defect, fixed: P1's
+market leg read SPY with `readGannTrend`, whose 3-Day stepping test (an
+engineering choice) read "no trend" on 78% of 2022's sessions and 88% of the 2025
+decline, so the market's trend never acted on a long. Gann: "determine the
+averages' trend with the 3-Day Chart and the 9-Point Swing Chart; trade stocks
+that conform" (*45 Years in Wall Street*, 1949, Rule 1, p. 6), and "don't buck
+the trend" (the never-failing rules, p. 15). Weighed against the *New Stock Trend
+Detector* (1936, Ch. IV: don't trade from the averages; late movers top after
+them): the hold never takes a side from the averages, and the 1949 book is the
+later one. Now (`lib/gann/averagesTrend.ts`): an Execute is held to Watch when
+SPY's 3-Day and weekly charts both read against it, shorts mirrored
+(`applyMarketTrendHold`); when they disagree (a reaction in the main trend, Master
+Course p. 10's buy) the stock's charts decide. P1's market leg reads the weekly
+chart, the main trend. Read once in `readPillarFacts` (`PillarFacts.averages`),
+live and replay alike; the intraday alerts read the same SPY bars
+(`getMarketDailyBars`) and show an alert both charts run against for study only
+(`againstMarketTrend`, `tradeHold`), and the alert replay enters none
+(`marketDailyBars`). Crypto reads no averages. Stated exception: the intraday
+profile replay (`replayIntraday.ts`) reads neither the daily nor the market
+trend, as before. Random walks (40 a drift, 2,000 readings), long held / short
+held: drift −0.1% a day 67/22%, 0 42/44%, +0.1% 19/69%; about 0.015 ms a read.
+`STRATEGY_VERSION` is `2026-10-29-gann-averages-trend`; Execute and the 7/4
+cutoffs need a fresh run on it.
+
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and

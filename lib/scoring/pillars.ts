@@ -29,7 +29,7 @@
 
 import type { Bar } from "@/lib/types";
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
-import { readGannTrend } from "@/lib/gann/trendStrength";
+import { readAveragesTrend, type AveragesTrend } from "@/lib/gann/averagesTrend";
 import { pillarYearCycleConvergence } from "@/lib/gann/timeCycles";
 import { readMassPressure } from "@/lib/gann/massPressure";
 import { marketCountHits } from "@/lib/gann/eightyFourYear";
@@ -57,8 +57,14 @@ const RECENT_VOLUME_BARS = 20;
 const BASELINE_VOLUME_BARS = 250;
 
 export interface PillarFacts {
-  /** The market's trend (SPY's swing chart), cut to the stock's last session. */
+  /**
+   * The market's main trend: the averages' (SPY's) weekly swing chart, cut to
+   * the stock's last session (45 Years Rule 1, `averagesTrend.ts`). Read with
+   * `readGannTrend` until 2026-10-29.
+   */
   marketTrend: Side | null;
+  /** The averages' 3-Day and weekly charts, for the market-trend hold. Null for crypto. */
+  averages?: AveragesTrend | null;
   /**
    * Yearly counts from the stock's major monthly pivots landing on this month
    * (closed months only): every lesson's list (`pillarYearCycleConvergence`),
@@ -308,8 +314,10 @@ export function readPillarFacts(input: {
   // The record both surfaces hold: the monthly level chart and the sessions,
   // as Gann's percentage-of-price levels read it (`majorPricePercentageLevels`).
   const divisions = majorRangeDivisions([...monthly, ...daily], monthly);
+  const averages = readAveragesTrend(market);
   return {
-    marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
+    marketTrend: averages?.weekly ?? null,
+    averages,
     yearCycle: yearCountMonths.length >= 12 ? pillarYearCycleConvergence(yearCountMonths, asOf) : null,
     // The stock market's curve, for a stock: crypto has no market read here (`marketDaily` null).
     massPressure: marketDaily ? (readMassPressure(asOf)?.direction ?? null) : null,
@@ -392,6 +400,12 @@ export function readPillarFacts(input: {
  * market's 84-, 90- and 100-year counts join them. The dominant decade
  * (`dominantCycle.ts`) is measured, not read here: on the record it called the
  * month worse than the average.
+ *
+ * Since 2026-10-29 the market's trend is the averages' weekly swing chart, the
+ * main trend of 45 Years Rule 1 (`averagesTrend.ts`), not `readGannTrend`,
+ * whose 3-Day stepping test read SPY as trendless through most of the 2022
+ * and 2025 declines. When both of Rule 1's charts read against the trade, the
+ * Execute is held as well (`applyMarketTrendHold`).
  */
 export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const market = f?.marketTrend === side;

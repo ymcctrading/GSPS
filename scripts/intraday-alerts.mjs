@@ -169,7 +169,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         const bars = await withTimeout(provider.fetchBars(symbol, "5Min", baselineFrom, null, "us_equity", 20000), `${symbol} 5Min`);
         pages = Math.max(1, Math.ceil(bars.length / BARS_PER_PAGE));
         const listed = new Set([...walked].filter((d) => fixed.has(symbol) || focusFor.get(d)?.has(symbol)));
-        const common = { symbol, kind: "equity", bars, dailyBars: s.daily, monthlyBars: s.monthly, sharesOn: s.sharesOn, plans: s.plans };
+        const common = { symbol, kind: "equity", bars, dailyBars: s.daily, monthlyBars: s.monthly, marketDailyBars: market?.daily, sharesOn: s.sharesOn, plans: s.plans };
         const held = replayIntradayAlerts({ ...common, sessions: walked, signals: new Set(["plan_level_held"]), collectLineNotices: true });
         planHeld.push(...held.trades);
         lineSessions.push(...(held.lineSessions ?? []));

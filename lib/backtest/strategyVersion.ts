@@ -1060,4 +1060,12 @@
 // (built alone as "2026-10-29-gann-early-sections")
 // 2026-10-29-gann-early-sections-and-leaders: the two fixes above, released
 // together so the six-year rerun measures both. No rule beyond theirs.
-export const STRATEGY_VERSION = "2026-10-29-gann-early-sections-and-leaders";
+// 2026-10-29-gann-averages-trend (six-year rerun's long/short diagnosis,
+// replay-diagnosis/2026-10-29-six-year-rerun/LONGS-VS-SHORTS.md: longs bought
+// in the four selloff windows lost more than the whole run). 45 Years Rule 1,
+// "determine the averages' trend with the 3-Day Chart and the swing chart;
+// trade stocks that conform": an Execute both of SPY's charts read against is
+// held to Watch (`applyMarketTrendHold`, `averagesTrend.ts`), shorts mirrored,
+// and P1's market leg reads the averages' weekly chart, not `readGannTrend`.
+// Live verdicts and replay buckets move.
+export const STRATEGY_VERSION = "2026-10-29-gann-averages-trend";

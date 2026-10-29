@@ -63,6 +63,7 @@ import {
   applyReadyNowHold,
   applyPlanExpiredHold,
   applyCampaignSectionHold,
+  applyMarketTrendHold,
   indicationShownBy,
   applyStandAsideHold,
   computeScore,
@@ -560,7 +561,7 @@ export async function scanTicker(
         });
 
     const decision = withDecisionState(applyStandAsideHold(applyPlanExpiredHold(applyStopBreachHold(applyReadyNowHold(applyDataLagHold(
-      applyFigureCrossingHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyFigureCrossingHold(applyMarketTrendHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -601,6 +602,8 @@ export async function scanTicker(
       ), weakStock, scoreDirection),
         // 2026-10-29: buy in the campaign's early sections, not its 3rd or later (Master Course pp. 244-245).
         campaignLedger, scoreDirection),
+        // 2026-10-29: 45 Years Rule 1, trade stocks that conform to the averages' trend.
+        pillarFacts.averages, scoreDirection),
         // A-LEVELS-08: the first and second times through a round number hold.
         figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,

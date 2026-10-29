@@ -10,6 +10,7 @@
  * stopgap.
  */
 
+import { averagesAgainst, type AveragesTrend } from "@/lib/gann/averagesTrend";
 import type { BreakawayReading } from "@/lib/gann/breakaway";
 import { CULMINATION_SECTION, type CampaignLedger, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { DistributionStanding } from "@/lib/gann/distribution";
@@ -974,6 +975,36 @@ export function applyCampaignSectionHold(
         criterion: "Early in the campaign",
         passed: false,
         note: `This trade would ride section ${ledger.tradeSection} of the move, where it often ends. Held from Execute to Watch until a new campaign begins.`,
+      },
+    ],
+  };
+}
+
+/**
+ * 45 Years Rule 1 (1949, Ch. II p. 6): determine the averages' trend with the
+ * 3-Day Chart and the swing chart and trade stocks that conform; "don't buck
+ * the trend" (the never-failing rules, p. 15). An Execute is held to Watch when
+ * the averages' (SPY's) 3-Day and weekly charts both read against it, on the
+ * live scan and the replay alike (`averagesTrend.ts`). The side still comes
+ * from the stock's own charts, never from the averages (NSTD Ch. IV). With no
+ * reading (crypto, or too little history) nothing is held.
+ */
+export function applyMarketTrendHold(
+  decision: ScanDecision,
+  averages: AveragesTrend | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (decision.outputState !== "Execute" || direction === "none" || !averagesAgainst(averages, direction)) return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "marketTrend",
+        criterion: "Market's trend with the trade",
+        passed: false,
+        note: `The market's daily and weekly swings both point ${direction === "bullish" ? "down" : "up"}, against this ${direction === "bullish" ? "buy" : "sale"}. Held from Execute to Watch until either turns.`,
       },
     ],
   };
