@@ -202,6 +202,8 @@ export interface IntradaySignal {
   mtp: number | null;
   /** How many times the same signal reached the member that day. */
   deliveries: number;
+  /** Shown on the member's panel but not offered as a trade (`tradeHold`, or a target that does not pay the risk). */
+  held?: boolean;
 }
 
 /**
@@ -233,7 +235,23 @@ export function firstDeliveries(signals: Omit<IntradaySignal, "deliveries">[]): 
   return [...byKey.values()];
 }
 
-export type IntradayOutcome = "tp1_first" | "stop_first" | "ahead_at_cutoff" | "behind_at_cutoff" | "after_cutoff" | "no_bars";
+export type IntradayOutcome =
+  | "tp1_first"
+  | "stop_first"
+  | "ahead_at_cutoff"
+  | "behind_at_cutoff"
+  | "after_cutoff"
+  | "no_bars"
+  // Not trades, so not scored (the intraday alerts replay's own refusals,
+  // `lib/backtest/replayIntradayAlerts.ts`): a warning to stand aside, a
+  // signal read before the session opened, one with no first target, and a
+  // fill that opened through the stop or past TP1.
+  | "warning_not_trade"
+  | "held_not_offered"
+  | "before_session"
+  | "no_target"
+  | "through_stop_at_fill"
+  | "past_tp1_at_fill";
 
 export interface IntradayJudgement {
   signal: IntradaySignal;
@@ -249,17 +267,36 @@ export interface IntradayJudgement {
  * close; `cutoffMs`). A bar that reaches both counts as the stop. The style's
  * trailing stop is not walked here, so this reads the signal's levels as
  * given, labelled as such in the email.
+ *
+ * Only a trade the platform would take is scored, as the intraday alerts
+ * replay scores them (`enterAlert`): a reversal-risk warning is not a trade;
+ * a signal read before the session opened was read on the prior session; a
+ * signal with no first target offers no trade; and a fill that opens through
+ * the stop or already past TP1 is no trade (the replay's `through_stop` and
+ * `past_target`). Until 2026-10-29 the recap counted the first and fourth as
+ * full losses and the fifth as a "TP1" with a negative R.
  */
+const BEFORE_SESSION_MS = 30 * 60_000;
+
 export function judgeIntradaySignal(signal: IntradaySignal, bars: Bar[], cutoffMs: number): IntradayJudgement {
   const base = { signal, fill: null, r: null };
+  if (signal.label.toLowerCase().replace(/\s+/g, "_") === "reversal_risk") return { ...base, outcome: "warning_not_trade" };
+  if (signal.held) return { ...base, outcome: "held_not_offered" };
   const at = Date.parse(signal.at);
   if (at >= cutoffMs) return { ...base, outcome: "after_cutoff" };
+  // Read more than half an hour before the session's first bar: an overnight
+  // refresh, read on the prior session, not a signal of this one. The half
+  // hour is an engineering figure (a pre-market read from 9:00 ET still
+  // fills at the open here, where the replay fills no pre-session alert).
+  if (bars.length > 0 && Date.parse(bars[0].t) - at > BEFORE_SESSION_MS) return { ...base, outcome: "before_session" };
+  if (signal.tp1 == null || !Number.isFinite(signal.tp1)) return { ...base, outcome: "no_target" };
   const window = bars.filter((b) => Date.parse(b.t) >= at && Date.parse(b.t) < cutoffMs);
   if (window.length === 0) return { ...base, outcome: "no_bars" };
   const sign = sideSign(signal.direction);
   const fill = window[0].o;
   const risk = sign * (fill - signal.stop);
-  if (!(risk > 0)) return { signal, outcome: "stop_first", fill, r: -1 };
+  if (!(risk > 0)) return { signal, outcome: "through_stop_at_fill", fill, r: null };
+  if (sign * (fill - signal.tp1) >= 0) return { signal, outcome: "past_tp1_at_fill", fill, r: null };
   for (const b of window) {
     const hitStop = sign > 0 ? b.l <= signal.stop : b.h >= signal.stop;
     const hitTp1 = signal.tp1 != null && (sign > 0 ? b.h >= signal.tp1 : b.l <= signal.tp1);
@@ -486,6 +523,12 @@ const INTRADAY_LABEL: Record<IntradayOutcome, string> = {
   behind_at_cutoff: "behind at the cutoff",
   after_cutoff: "arrived after the cutoff, not judged",
   no_bars: "no bars read",
+  warning_not_trade: "a warning to stand aside, not a trade",
+  held_not_offered: "shown on the panel but not offered as a trade",
+  before_session: "read before the session opened, not judged",
+  no_target: "no first target, so no trade offered",
+  through_stop_at_fill: "price was already through the stop at the fill, no trade",
+  past_tp1_at_fill: "price was already past TP1 at the fill, no trade",
 };
 
 /** What GSPS had said about a mover, in one line. */
@@ -507,7 +550,8 @@ export function moverVerdict(m: Mover, daily: DailyJudgement[], intraday: Intrad
       const key = `${s.signal.direction}|${s.signal.label.toLowerCase()}`;
       if (!distinct.has(key)) distinct.set(key, s);
     }
-    const withMove = [...distinct.values()].filter((s) => s.signal.direction === moveSide);
+    // Only what was scored as a trade counts toward "with the move".
+    const withMove = [...distinct.values()].filter((s) => s.signal.direction === moveSide && s.r != null);
     const hits = withMove.filter((s) => s.outcome === "tp1_first" || s.outcome === "ahead_at_cutoff").length;
     if (hits > 0) aligned = true;
     parts.push(`${distinct.size} intraday signal${distinct.size === 1 ? "" : "s"}, ${withMove.length} with the move, ${hits} of them paid`);
@@ -596,9 +640,22 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
 
   html.push(`<h3 style="margin:20px 0 4px">Intraday signals, as each member received them</h3>`);
   html.push(
-    `<p style="color:#64748b;margin:0 0 6px">Each signal counted once, from the first time it reached the member, taken at the market on the next 1-minute bar and held on its own stop to TP1, the stop or the Intraday style's cutoff (3:45 PM for stocks, the 4 PM close for crypto). The style's trailing stop is not walked here. Intraday signals have no measured record.</p>`,
+    `<p style="color:#64748b;margin:0 0 6px">Each signal counted once, from the first time it reached the member, taken at the market on the next 1-minute bar and held on its own stop to TP1, the stop or the Intraday style's cutoff (3:45 PM for stocks, the 4 PM close for crypto). The style's trailing stop is not walked here. Only what the platform offers as a trade is scored: warnings, signals with no target, and fills that open through the stop or past TP1 are listed but not scored. Members watching the same symbols received the same signals, so the rows below repeat one set. Intraday signals have no measured record.</p>`,
   );
   text.push("INTRADAY SIGNALS, AS EACH MEMBER RECEIVED THEM");
+  // One line for the session's distinct signals, each from its earliest
+  // delivery, ahead of the per-member rows that repeat them.
+  const earliest = new Map<string, IntradayJudgement>();
+  for (const j of [...input.intraday].sort((a, b) => a.signal.at.localeCompare(b.signal.at))) {
+    const k = `${j.signal.symbol}|${j.signal.direction}|${j.signal.label.toLowerCase()}`;
+    if (!earliest.has(k)) earliest.set(k, j);
+  }
+  if (earliest.size > 0) {
+    const all = [...earliest.values()];
+    const line = `Distinct signals: ${all.length} (${tally(all.map((j) => INTRADAY_LABEL[j.outcome]))}). Mean ${meanR(all.map((j) => j.r))}.`;
+    html.push(`<p style="margin:0 0 6px"><b>${esc(line)}</b></p>`);
+    text.push(line);
+  }
   html.push(`<table style="border-collapse:collapse;width:100%;font-size:13px">`);
   const byMember = new Map<string, IntradayJudgement[]>();
   for (const j of input.intraday) byMember.set(j.signal.member, [...(byMember.get(j.signal.member) ?? []), j]);

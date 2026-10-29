@@ -658,6 +658,19 @@ export interface Alert {
    */
   againstDailyTrend?: boolean;
   /**
+   * True when the alert's stop sits less than one intraday point
+   * (`SessionMetrics.point`) from the price it was flagged at. Shown for
+   * study, never offered as a trade, belled or pushed: a stop inside Gann's
+   * allowance is taken by lost motion, not by the market turning (his stops
+   * stand his allowance beyond the level, W006 pp. 20, 46-47; the Overnight
+   * Chart's 1-point stop, Master Course Ch. 3). The intraday alerts replay
+   * refuses the same trade (`risk_under_point`), so the live alert now reads
+   * as the measured one does (2026-10-29, the Oct 28 recap: 18 signals with a
+   * stop within 0.2% of price, 15 stopped out, -0.87R a signal). Never set on
+   * a reversal-risk warning or a notice.
+   */
+  riskUnderPoint?: boolean;
+  /**
    * When the data behind the alert could be read, and whether it may be acted
    * on (DATA-DELAY-001 and NOTIFY-FRESHNESS-001, 2026-10-28). Notifications
    * read it (`lib/notifications/freshness.ts`); they never decide it.
@@ -713,6 +726,8 @@ export interface RecentSystemAlert {
   at: string;
   /** As on `Alert`: the stored signal ran against the daily trend. */
   againstDailyTrend?: boolean;
+  /** As on `Alert`: the stored signal's stop sat inside one intraday point. */
+  riskUnderPoint?: boolean;
   /** False when the stored first target paid no more than the risk (M-K5). */
   paysRisk?: boolean;
 }
@@ -2110,6 +2125,13 @@ function buildAlert(args: {
     !NOTICE_SIGNALS.has(type) &&
     m.dailyTrend !== null &&
     m.dailyTrend !== direction;
+  const riskUnderPoint =
+    type !== "reversal_risk" &&
+    !NOTICE_SIGNALS.has(type) &&
+    invalidation != null &&
+    Number.isFinite(invalidation) &&
+    m.point > 0 &&
+    Math.abs(m.last - invalidation) < m.point;
 
   return {
     symbol: input.symbol,
@@ -2133,6 +2155,7 @@ function buildAlert(args: {
     ...(args.approach ? { approach: args.approach } : {}),
     ...(args.crossingLine ? { crossingLine: args.crossingLine } : {}),
     ...(againstDailyTrend ? { againstDailyTrend: true } : {}),
+    ...(riskUnderPoint ? { riskUnderPoint: true } : {}),
     timeliness: alertTimeliness(input, m, type, direction, now),
   };
 }

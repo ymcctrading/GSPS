@@ -111,14 +111,19 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
 export const AGAINST_DAILY_TREND =
   "Against the daily trend: the daily swing chart runs the other way. Shown for study only; the method trades with the main trend, so this is not offered as a trade.";
 
+/** The note on an alert whose stop sits inside one intraday point of its price (`Alert.riskUnderPoint`). */
+export const STOP_INSIDE_NOISE =
+  "Stop too close: the stop sits closer to the price than the market's ordinary back-and-forth, so it would most likely be hit on noise. Shown for study only; it is not offered as a trade.";
+
 /**
  * Why an alert is shown but not offered as a trade, or null when it is
- * tradeable on these grounds: a signal the replay measured losing, or one that
- * runs against the daily trend. The panel, the setup card, the bell and push
- * all read this one function.
+ * tradeable on these grounds: a signal the replay measured losing, one that
+ * runs against the daily trend, or one whose stop sits inside one intraday
+ * point of its price (the replay's `risk_under_point`). The panel, the setup
+ * card, the bell and push all read this one function.
  */
-export function tradeHold(alert: { type: SignalType; againstDailyTrend?: boolean | null }): string | null {
-  return MEASURED_LOSING[alert.type] ?? (alert.againstDailyTrend ? AGAINST_DAILY_TREND : null);
+export function tradeHold(alert: { type: SignalType; againstDailyTrend?: boolean | null; riskUnderPoint?: boolean | null }): string | null {
+  return MEASURED_LOSING[alert.type] ?? (alert.againstDailyTrend ? AGAINST_DAILY_TREND : alert.riskUnderPoint ? STOP_INSIDE_NOISE : null);
 }
 
 export function formatAge(seconds: number): string {

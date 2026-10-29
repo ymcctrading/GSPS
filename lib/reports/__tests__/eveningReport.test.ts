@@ -164,7 +164,7 @@ describe("intraday signals", () => {
     member: "m1",
     symbol: "NVDA",
     direction: "bearish",
-    label: "Reversal risk",
+    label: "trend_continuation",
     at: "2026-10-27T13:51:04Z",
     price: 217.61,
     stop: 217.96,
@@ -183,6 +183,25 @@ describe("intraday signals", () => {
 
   it("does not judge a signal received after the style's close", () => {
     expect(judgeIntradaySignal({ ...sig, at: "2026-10-27T19:50:00Z" }, [], cutoff).outcome).toBe("after_cutoff");
+  });
+
+  it("scores only a trade the platform would take, as the replay does", () => {
+    const bars = [bar("2026-10-27T13:52:00Z", 217.6, 217.7, 217.3, 217.4)];
+    expect(judgeIntradaySignal({ ...sig, label: "reversal_risk" }, bars, cutoff).outcome).toBe("warning_not_trade");
+    expect(judgeIntradaySignal({ ...sig, label: "Reversal risk" }, bars, cutoff).outcome).toBe("warning_not_trade");
+    expect(judgeIntradaySignal({ ...sig, tp1: null }, bars, cutoff).outcome).toBe("no_target");
+    expect(judgeIntradaySignal({ ...sig, held: true }, bars, cutoff).outcome).toBe("held_not_offered");
+    // An overnight refresh read on the prior session is not a trade at the open.
+    const open = [bar("2026-10-27T13:30:00Z", 217.6, 217.7, 217.3, 217.4)];
+    expect(judgeIntradaySignal({ ...sig, at: "2026-10-27T05:19:00Z" }, open, cutoff).outcome).toBe("before_session");
+    // Opened through the stop: no trade, not a full loss.
+    const through = judgeIntradaySignal(sig, [bar("2026-10-27T13:52:00Z", 218.1, 218.2, 217.9, 218)], cutoff);
+    expect(through.outcome).toBe("through_stop_at_fill");
+    expect(through.r).toBeNull();
+    // Opened past TP1: no trade, not a "TP1" with a negative R.
+    const past = judgeIntradaySignal(sig, [bar("2026-10-27T13:52:00Z", 216.2, 216.3, 216, 216.1)], cutoff);
+    expect(past.outcome).toBe("past_tp1_at_fill");
+    expect(past.r).toBeNull();
   });
 
   it("reads the result at the cutoff when neither level is reached", () => {

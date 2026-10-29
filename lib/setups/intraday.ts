@@ -71,7 +71,7 @@ export function intradayChartPlan(
   recent: readonly RecentSystemAlert[],
 ): IntradayChartPlan | null {
   const sym = symbol.toUpperCase();
-  const offered = (a: { type: Alert["type"]; againstDailyTrend?: boolean }, stop: number | null, tp1: number | null) =>
+  const offered = (a: { type: Alert["type"]; againstDailyTrend?: boolean; riskUnderPoint?: boolean }, stop: number | null, tp1: number | null) =>
     a.type !== "reversal_risk" && !NOTICE_SIGNALS.has(a.type) && !tradeHold(a) && stop != null && tp1 != null;
   if (alerts) {
     const best = alerts

@@ -907,6 +907,7 @@ async function persistAlerts(
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
       againstDailyTrend: alert.againstDailyTrend === true,
+      riskUnderPoint: alert.riskUnderPoint === true,
     },
   }));
 
@@ -1042,6 +1043,7 @@ async function persistSystemAlerts(
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
       againstDailyTrend: alert.againstDailyTrend === true,
+      riskUnderPoint: alert.riskUnderPoint === true,
     },
   }));
 
@@ -1124,6 +1126,7 @@ async function loadRecentSystemAlerts(
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
       ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
+      ...(meta.riskUnderPoint === true ? { riskUnderPoint: true } : {}),
       ...(meta.paysRisk === false ? { paysRisk: false } : {}),
     });
   }

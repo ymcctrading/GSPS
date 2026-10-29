@@ -3756,6 +3756,8 @@ measured hold on Gann's exits, not the half day of the retired bar-pattern
 trigger (`TYPICAL_HOLDING_DAYS`), and the portfolio manager's risk dial is
 labelled the member's choice under Gann's tenth.
 
+**Stops inside one point and the recap's scoring, 2026-10-29 (owner: the overnight recap "showed a lot of negative results"; diagnosis `/mnt/project-files/overnight-email-losses/2026-10-28-recap-diagnosis.md`).** An intraday alert whose stop sits less than one intraday point from its price (`Alert.riskUnderPoint`, `buildAlert`) is held from trade by `tradeHold`, so the panel, setup card, chart plan, bell and push never offer it, and the intraday alerts replay skips it as it skips an against-trend alert (its fill-time `risk_under_point` refusal stays): Gann's stop stands his allowance beyond the level (W006 pp. 20, 46-47). On Oct 28, 18 signals with stops within 0.2% of price lost 15 of 18. A reversal-risk warning's bell and push carry no stop or target (it is a stand-aside warning). The evening recap scores only what the platform offers as a trade: warnings, panel rows held or unpaid, reads before the session, no target, and fills through the stop or past TP1 are listed, not scored. Intraday alerts replay trades move; daily verdicts and `STRATEGY_VERSION` don't.
+
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
 (pg_cron 01:45 and 02:45 UTC Tue-Sat, migration 0123) emails the owner only
