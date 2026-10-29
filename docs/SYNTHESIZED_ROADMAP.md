@@ -4,7 +4,7 @@
 paritys, WD Gann files, observation of cycles, William Hauck book and multi
 dimensional documents/creation equation, should coagulate together and create
 a synthesized roadmap. that we shall follow moving forward").
-**Last updated:** 2026-10-28 (status re-read against production; see Part 5 and "Q2 status").
+**Last updated:** 2026-10-29 (Q2 item 7: shared quotes and the capacity read; status re-read against production 2026-10-28, see Part 5 and "Q2 status").
 **Copy for threads outside the repo:** `/mnt/project-files/roadmap/SYNTHESIZED_ROADMAP.md`.
 
 This document joins six bodies of work that until now lived apart. It decides
@@ -262,6 +262,13 @@ against Gann:
      25,000 after the member fan-out became its own queued job (2026-10-22).
      Nothing in the app reads it, and it adds about 4 MB a weekday. A
      retention rule is an ops decision for Chuck.
+   - Live quotes (2026-10-29): `/api/quote` shares one vendor snapshot per
+     symbol per poll interval (`lib/data/sharedSnapshot.ts`) and the CDN
+     caches it for that interval; before, about 17 open charts spent the
+     data plan's 200 requests a minute.
+   - Capacity at 100 members (`docs/CAPACITY_100_MEMBERS.md`): email's 100 a
+     day binds first, then the 500 MB database (the bell and monitor
+     transitions keep every row), in about four months.
 8. **Track M:** the shared time-window mechanism is built (2026-10-16), and
    the astro, Jensen, hexagon, Master Chart and the other time counts act
    through it (the last of them 2026-10-27). Open: the dated-forecast example
@@ -332,7 +339,7 @@ replays, running). The paid items stay parked (Part 6).
 | 4 | Risk dashboard | **Done** 2026-10-21 | |
 | 5 | Performance replay UI | **Done** 2026-10-22 | Forward-test faults fixed; its fill rate is with the Gann-rules thread |
 | 6 | Expanded indicator library | **Done** 2026-10-23 | |
-| 7 | Scale safely | First pass done; baselines re-read 2026-10-28 | `visible_scan_results` retention, Chuck's call |
+| 7 | Scale safely | First pass done; baselines re-read 2026-10-28; shared quotes and the 100-member capacity read 2026-10-29 | `visible_scan_results` retention, Chuck's call |
 | 8 | Track M | Time-window mechanism done; review rows open | Gann-rules thread |
 
 ## Part 6. Waiting on Chuck's budget or accounts
