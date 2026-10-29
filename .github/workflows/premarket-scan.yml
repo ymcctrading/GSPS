@@ -33,10 +33,16 @@ jobs:
           OVERRIDE: ${{ contains(github.event.pull_request.labels.*.name, 'usage-override') }}
         run: |
           echo "USAGE_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
-          [ -n "$CRON_SECRET" ] || exit 0
+          if [ -z "$CRON_SECRET" ]; then echo "::notice::Usage meter not configured (no CRON_SECRET), job not gated."; exit 0; fi
           reply=$(curl -sS -m 10 -H "Authorization: Bearer $CRON_SECRET" "$USAGE_URL?gate=github_actions" || true)
-          if [ "$(echo "$reply" | jq -r '.hold // false' 2>/dev/null)" = "true" ] && [ "$OVERRIDE" != "true" ]; then
-            echo "::error::$(echo "$reply" | jq -r '.reason')"
+          hold=$(echo "$reply" | jq -r 'if type == "object" and has("hold") then (.hold | tostring) else "" end' 2>/dev/null || true)
+          reason=$(echo "$reply" | jq -r '.reason // ""' 2>/dev/null || true)
+          if [ -z "$hold" ] || [ "${reason#Unread:}" != "$reason" ]; then
+            echo "::warning::Usage meter unreadable, job not gated."
+            exit 0
+          fi
+          if [ "$hold" = "true" ] && [ "$OVERRIDE" != "true" ]; then
+            echo "::error::$reason"
             exit 1
           fi
       - name: Call market-scan
@@ -52,7 +58,8 @@ jobs:
           fi
 
       # Reports this job's billed minutes (rounded up, at least one) to the
-      # usage meter. Runs even when the job failed or was cancelled.
+      # usage meter. Runs even when the job failed or was cancelled. The 30
+      # seconds cover job setup and the post-job steps this clock can't see.
       - name: Usage report
         if: always()
         env:
@@ -61,6 +68,6 @@ jobs:
         run: |
           [ -n "$CRON_SECRET" ] || exit 0
           start=${USAGE_JOB_START:-$(date +%s)}
-          minutes=$(( ($(date +%s) - start + 59) / 60 )); [ "$minutes" -ge 1 ] || minutes=1
+          minutes=$(( ($(date +%s) - start + 30 + 59) / 60 )); [ "$minutes" -ge 1 ] || minutes=1
           curl -sS -m 10 -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' \
             -d "{\"meter\":\"github_actions\",\"units\":$minutes,\"key\":\"job-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}\",\"detail\":{\"workflow\":\"${{ github.workflow }}\",\"event\":\"${{ github.event_name }}\"}}" "$USAGE_URL" || true

@@ -27,6 +27,7 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 import { loadSweptCandidatesWithBasis } from "@/lib/scan/universeSweep";
 import { retireSweepFromScan } from "@/lib/scan/sweepRetirement";
 import { recordShadowSignals } from "@/lib/shadow/record";
+import { reportAlpacaRateUse } from "@/lib/ops/rateUsage";
 
 /**
  * scan_executions.source for this route's own per-profile monitor fan-out.
@@ -171,6 +172,12 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
     after(retire);
   } catch {
     void retire();
+  }
+  // The busiest minute of Alpaca requests this instance saw, for the usage meter.
+  try {
+    after(() => reportAlpacaRateUse("market-scan"));
+  } catch {
+    void reportAlpacaRateUse("market-scan");
   }
 
   // Discovery: logged, and stored in the evaluation ledger (below) where the

@@ -263,6 +263,40 @@ export function endpointKey(url: string | URL): string {
   return tf ? `${path} ${tf}` : path;
 }
 
+/**
+ * The most of a provider's per-minute allowance any response has shown used
+ * since the last `takeRateUse`, read from its `X-RateLimit-Limit` and
+ * `X-RateLimit-Remaining` headers (Alpaca sends them per account, so one
+ * instance's reading is the account's). An upstream 429 counts as the whole
+ * allowance. Read by the usage meter (`lib/ops/rateUsage.ts`).
+ */
+const rateUse = new Map<string, { peak: number; limit: number | null; throttled: number }>();
+
+function noteRateUse(provider: string, res: Response): void {
+  const limitHeader = res.headers?.get?.("x-ratelimit-limit") ?? null;
+  const limit = Number(limitHeader);
+  const remaining = Number(res.headers?.get?.("x-ratelimit-remaining") ?? NaN);
+  const entry = rateUse.get(provider) ?? { peak: 0, limit: null, throttled: 0 };
+  if (res.status === 429) {
+    entry.throttled += 1;
+    if (Number.isFinite(limit) && limit > 0) entry.limit = limit;
+    entry.peak = Math.max(entry.peak, entry.limit ?? Number.POSITIVE_INFINITY);
+  } else if (limitHeader !== null && Number.isFinite(limit) && limit > 0 && Number.isFinite(remaining)) {
+    entry.limit = limit;
+    entry.peak = Math.max(entry.peak, limit - remaining);
+  } else {
+    return;
+  }
+  rateUse.set(provider, entry);
+}
+
+/** The peak per-minute use seen since the last call, then cleared; null when none was seen. */
+export function takeRateUse(provider: string): { peak: number; limit: number | null; throttled: number } | null {
+  const entry = rateUse.get(provider);
+  rateUse.delete(provider);
+  return entry ?? null;
+}
+
 /** A copy of the tokens spent so far, keyed `provider endpoint`. */
 export function tokensSpentSnapshot(): Map<string, number> {
   return new Map(tokensSpent);
@@ -353,6 +387,7 @@ export async function fetchWithRetry(
       continue;
     }
 
+    noteRateUse(opts.provider, res);
     if (res.ok) return res;
 
     lastStatus = res.status;
@@ -503,4 +538,5 @@ export function __resetMarketDataCache() {
   cache.clear();
   inFlight.clear();
   tokensSpent.clear();
+  rateUse.clear();
 }
