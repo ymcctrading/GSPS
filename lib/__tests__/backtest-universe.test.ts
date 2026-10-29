@@ -397,7 +397,9 @@ describe("rule ladder cells", () => {
     expect(() => validateCells([{ label: "t", options: { ladder: "tag" } }])).toThrow(/core/);
     expect(() => validateCells([{ label: "t", options: { profile: "core", ladder: "gate" } }])).toThrow();
     expect(() => validateCells([{ label: "t", options: { profile: "core", ladderGate: "hold:breakaway" } }])).toThrow();
-    expect(() => validateCells([{ label: "t", options: { profile: "core", ladder: "tag", ladderGate: [] } }])).toThrow(/exclusive/);
+    expect(() => validateCells([{ label: "t", options: { profile: "core", ladder: "tag", ladderGate: ["hold:breakaway"] } }])).toThrow(/exclusive/);
+    expect(() => validateCells([{ label: "g", options: { profile: "core", ladderGate: [] } }])).toThrow(/non-empty/);
+    expect(() => validateCells([{ label: "g", options: { profile: "core", ladderGate: ["ref:execute"] } }])).toThrow(/references/);
   });
 
   it("turn tagged campaigns into ladder rows and skip untagged ones", () => {

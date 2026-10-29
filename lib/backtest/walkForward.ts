@@ -259,7 +259,7 @@ export function ladderReport(result: LadderResult): string {
     `core out of sample: ${result.coreOos.n} campaigns, mean ${f(result.coreOos.meanR)}R, total ${f(result.coreOos.totalR, 1)}R`,
     ...result.steps.map(line),
     `kept: ${result.kept.join(", ") || "none"}`,
-    `core + kept out of sample: ${result.finalOos.n} campaigns, mean ${f(result.finalOos.meanR)}R, total ${f(result.finalOos.totalR, 1)}R`,
+    `core + kept, test years (selection-biased: the rungs were kept on these years; quote only the gated run): ${result.finalOos.n} campaigns, mean ${f(result.finalOos.meanR)}R, total ${f(result.finalOos.totalR, 1)}R`,
     "references (each alone on the core, never kept):",
     ...result.references.map(line),
   ].join("\n");

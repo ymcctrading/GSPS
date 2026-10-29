@@ -6,8 +6,8 @@
  * Usage:
  *   node scripts/rule-ladder.mjs <rows>
  *
- * <rows> is any of: the run's `ladder-rows.csv` (from the out/ directory or
- * the artifact), the same gzipped (`.gz`), or a saved job log holding the
+ * <rows> is any of: the run's `<cell>.ladder-rows.csv` (from the out/ directory
+ * or the artifact, written at every checkpoint too), the same gzipped (`.gz`), or a saved job log holding the
  * `=== BEGIN ladder-rows.csv.gz.base64 ===` block (the log prefix on each line
  * is stripped).
  *

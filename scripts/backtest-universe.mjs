@@ -144,8 +144,11 @@ export function validateCells(cells) {
     // The rule ladder (docs/RULE_LADDER.md): "tag" reads every rung without
     // gating and prints the ladder; `ladderGate` gates on the kept rungs.
     if (c.options?.ladder !== undefined && c.options.ladder !== "tag") throw new Error(`Cell "${c.label}": ladder must be "tag"`);
-    if (c.options?.ladderGate !== undefined && !(Array.isArray(c.options.ladderGate) && c.options.ladderGate.every((n) => typeof n === "string"))) {
-      throw new Error(`Cell "${c.label}": ladderGate must be an array of rung names`);
+    if (
+      c.options?.ladderGate !== undefined &&
+      !(Array.isArray(c.options.ladderGate) && c.options.ladderGate.length > 0 && c.options.ladderGate.every((n) => typeof n === "string" && !n.startsWith("ref:")))
+    ) {
+      throw new Error(`Cell "${c.label}": ladderGate must be a non-empty array of rung names (references are never gated on)`);
     }
     if (c.options?.ladder !== undefined && c.options?.ladderGate !== undefined) throw new Error(`Cell "${c.label}": ladder and ladderGate are exclusive`);
   }
@@ -550,11 +553,6 @@ export function tradesCsvLogBlock(csv, limitBytes = TRADE_CSV_LOG_LIMIT_BYTES) {
   return `=== BEGIN trades.csv.gz.base64 ===\n${lines.join("\n")}\n=== END trades.csv.gz.base64 ===\n`;
 }
 
-/**
- * The bare core's campaign figures for one cell (`summariseCore`), as a
- * Markdown section for the job log: the whole line beside the first lot alone,
- * so the pyramid's share shows, and the split by side and entry.
- */
 /** A tagged core cell's campaigns as ladder rows (`lib/backtest/walkForward.ts#LadderRow`). */
 export function ladderRowsFromCore(trades) {
   return trades
@@ -562,6 +560,11 @@ export function ladderRowsFromCore(trades) {
     .map((t) => ({ symbol: t.symbol, date: t.openedAt.slice(0, 10), r: t.rMultiple, refused: new Set(t.rulesRefused) }));
 }
 
+/**
+ * The bare core's campaign figures for one cell (`summariseCore`), as a
+ * Markdown section for the job log: the whole line beside the first lot alone,
+ * so the pyramid's share shows, and the split by side and entry.
+ */
 export function coreCampaignSummary(label, core) {
   const r = (x) => (Number.isFinite(x) ? (x >= 0 ? "+" : "") + x.toFixed(3) + "R" : "n/a");
   const lines = [
@@ -1046,6 +1049,11 @@ async function main() {
       // The per-trade rows, for exact splits from the job log alone. A
       // checkpoint keeps the log block on disk (the "Print results" step
       // prints it when the job stops early); the final write prints it here.
+      // The rule ladder's campaign rows, checkpoints included, so a cut-off job
+      // still leaves them for scripts/rule-ladder.mjs.
+      for (const { cell, trades } of cellResults) {
+        if (cell.options?.ladder === "tag") await writeWhole(path.resolve(root, args.out, `${cell.label}.ladder-rows.csv`), walkForward.ladderRowsCsv(ladderRowsFromCore(trades)));
+      }
       const csv = tradesCsv(cellResults);
       await writeWhole(path.resolve(root, args.out, "trades.csv"), csv);
       const block = tradesCsvLogBlock(csv);
