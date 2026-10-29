@@ -1247,7 +1247,7 @@ export async function runMarketScan(
       // Gann's early leaders (A-SELECTION-02/-03), read only for the candidates
       // the shortlist cut ranks: a few array scans over bars already here.
       const leadership: LeadershipReading | null = reversion
-        ? readLeadership(daily, marketDaily, null, { stock: monthly, market: marketMonthly })
+        ? readLeadership(daily, marketDaily, undefined, { stock: monthly, market: marketMonthly })
         : null;
       // And Gann's weak stocks (A-SELECTION-04), on the monthly bars when
       // they are in.

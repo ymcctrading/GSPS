@@ -1039,4 +1039,33 @@
 // at the major low and high, time and price at the turn, the 4/3-allowance
 // distribution spell, the low's multiples in the S/R list only) merged onto the
 // intraday audit release (#515). No new rule beyond theirs.
-export const STRATEGY_VERSION = "2026-10-28-major-lows-on-intraday-audit";
+// (was STRATEGY_VERSION "2026-10-28-major-lows-on-intraday-audit")
+// 2026-10-29-gann-p3-may-lead (six-year daily diagnosis, EDGE-DIAGNOSIS.md):
+// a long's leadership and strength rank count in P3 and in the lists' order
+// only when the stock may lead this section (`longMayLead`, G25, *Wall Street
+// Stock Selector* Ch. VII): not short of the campaign's first-year high once
+// it has run a year, that high now crossed by 3 points and held unless broken
+// back by 3. A stock's or the market's first or late top and bottom is read
+// only at a 3-Day Chart pivot, so a market that rose all year no longer makes
+// most stocks late movers. Shorts unchanged. Verdicts move; Execute and the
+// 7/4 cutoffs need a run.
+// (built alone as "2026-10-29-gann-p3-may-lead")
+// 2026-10-29-gann-early-sections (edge diagnosis of the six-year daily run,
+// replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md): a new trade
+// with the campaign's trend that would ride its 3rd or later section is held
+// from Execute to Watch (`applyCampaignSectionHold`; Master Course pp.
+// 244-245, "the third or fourth movement ... marks the culmination"). Sections
+// are the weekly chart's record turns that held two weeks (`tradeSection`,
+// `SECTION_HALT_DAYS`). Live verdicts and replay buckets move.
+// (built alone as "2026-10-29-gann-early-sections")
+// 2026-10-29-gann-early-sections-and-leaders: the two fixes above, released
+// together so the six-year rerun measures both. No rule beyond theirs.
+// 2026-10-29-gann-averages-trend (six-year rerun's long/short diagnosis,
+// replay-diagnosis/2026-10-29-six-year-rerun/LONGS-VS-SHORTS.md: longs bought
+// in the four selloff windows lost more than the whole run). 45 Years Rule 1,
+// "determine the averages' trend with the 3-Day Chart and the swing chart;
+// trade stocks that conform": an Execute both of SPY's charts read against is
+// held to Watch (`applyMarketTrendHold`, `averagesTrend.ts`), shorts mirrored,
+// and P1's market leg reads the averages' weekly chart, not `readGannTrend`.
+// Live verdicts and replay buckets move.
+export const STRATEGY_VERSION = "2026-10-29-gann-averages-trend";

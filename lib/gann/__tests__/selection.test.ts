@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bar, ScanResult } from "@/lib/types";
-import { readLeadership, selectionStrength } from "@/lib/gann/leadership";
+import { longMayLead, readLeadership, selectionStrength } from "@/lib/gann/leadership";
 import { compareForList, rankShortlist, type CoarseCandidate } from "@/lib/marketScan";
 import { visibilityRank } from "@/lib/scan/listOrder";
 
@@ -34,11 +34,65 @@ describe("early leaders in a bull market (A-SELECTION-02)", () => {
     expect(readLeadership(stock, market, null)!.crossedTopsFirst).toBe(false);
   });
 
+  it("reads no late bottom against a market that rose all year (its lowest bar is no swing bottom)", () => {
+    // The market climbs every session for 300: its window low is the window's first bar.
+    const market = bars(Array.from({ length: 300 }, (_, i) => 100 + i * 0.5));
+    // The stock dips in the middle of the year and recovers: a real 3-Day Chart bottom.
+    const stock = bars(Array.from({ length: 300 }, (_, i) => 100 + i * 0.3 - (i > 140 && i < 170 ? (15 - Math.abs(i - 155)) * 3 : 0)));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedLate).toBe(false);
+    expect(r.bottomedFirst).toBe(false);
+  });
+
+  it("reads a stock that bottomed while the market is still making new lows as first", () => {
+    // The market falls every session, its low on the last bar: it has not bottomed yet.
+    const market = bars(Array.from({ length: 300 }, (_, i) => 400 - i * 0.5));
+    // The stock fell to session 250, turned, and has risen since.
+    const stock = bars(Array.from({ length: 300 }, (_, i) => (i <= 250 ? 200 - i * 0.4 : 100 + (i - 250) * 0.6)));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedFirst).toBe(true);
+    expect(r.bottomedLate).toBe(false);
+  });
+
+  it("reads a market plunging under its last bottom as not yet bottomed", () => {
+    // The market bottoms at 200 (a 3-Day Chart bottom), rallies, then breaks under it on the last bar.
+    const market = bars(Array.from({ length: 300 }, (_, i) => (i <= 220 ? 420 - i : i < 299 ? 200 + (i - 220) * 0.3 : 150)));
+    const stock = bars(Array.from({ length: 300 }, (_, i) => (i <= 150 ? 200 - i * 0.4 : 140 + (i - 150) * 0.5)));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedFirst).toBe(true);
+  });
+
+  it("does not read a brief dip under the last bottom, rallied away from, as not yet bottomed", () => {
+    // The market bottoms at 200, rallies to 230, dips two bars to 189.5, then rallies for months.
+    const m: number[] = [];
+    for (let i = 0; i <= 120; i++) m.push(320 - i);
+    for (let i = 1; i <= 30; i++) m.push(200 + i);
+    m.push(195, 190);
+    while (m.length < 300) m.push(m[m.length - 1] + 0.8);
+    const market = bars(m);
+    const stock = bars(Array.from({ length: 300 }, (_, i) => (i <= 175 ? 200 - i * 0.3 : 147.5 + (i - 175) * 0.4)));
+    expect(readLeadership(stock, market, null)!.bottomedFirst).toBe(false);
+  });
+
+  it("does not call a stock still making new lows a late bottom", () => {
+    const market = bars(Array.from({ length: 300 }, (_, i) => (i <= 200 ? 400 - i : 200 + (i - 200) * 0.8)));
+    const stock = bars(Array.from({ length: 300 }, (_, i) => 200 - i * 0.3));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedLate).toBe(false);
+    expect(r.bottomedFirst).toBe(false);
+  });
+
   it("ranks an early leader above a stock that is not one on the buy side", () => {
     const leader = { bottomedFirst: true, bottomedLate: false, toppedFirst: false, toppedLate: false, lateBottomExpected: false, earlyBottomExpected: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
     const plain = { ...leader, bottomedFirst: false };
     expect(selectionStrength("bullish", leader, null)).toBeGreaterThan(selectionStrength("bullish", plain, null));
     expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true }, null)).toBeGreaterThan(0);
+    // G25: no step for leading or rank once the first-year high is failed.
+    const strong = { strongest: true, weakest: false };
+    expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true, firstYearHighCrossed: false }, null, strong)).toBe(0);
+    expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true, firstYearHighCrossed: true }, null, strong)).toBe(2);
+    expect(longMayLead(null)).toBe(true);
+    expect(longMayLead({ firstYearHighCrossed: null })).toBe(true);
   });
 });
 

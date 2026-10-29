@@ -162,6 +162,16 @@ describe("relative strength and leadership", () => {
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: weakGroup }), "bearish").passed).toBe(true);
   });
 
+  it("lets no long lead a later section short of the first-year high (G25)", () => {
+    const strong = { percentile: 0.9, peers: 700, strongest: true, weakest: false, group: null };
+    // Campaign past its first year, high not crossed: rank and leadership count for nothing.
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true, firstYearHighCrossed: false }, universeRank: strong }), "bullish").passed).toBe(false);
+    // A late mover that crossed previous years' tops first is still a leader (A-SELECTION-02).
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, crossedTopsFirst: true, bottomedLate: true }, universeRank: strong }), "bullish").passed).toBe(true);
+    // Shorts are unchanged by it.
+    expect(relativeStrengthPillar(facts({ leadership: { ...lead, toppedFirst: true, firstYearHighCrossed: false } }), "bearish").passed).toBe(true);
+  });
+
   it("mirrors for a short: topped first, failed the first-year high, weak", () => {
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, toppedFirst: true, firstYearHighCrossed: false } }), "bearish").passed).toBe(true);
     expect(relativeStrengthPillar(facts({ leadership: { ...lead, brokeBottomsFirst: true }, universeRank: { percentile: 0.1, peers: 700, strongest: false, weakest: true, group: null } }), "bearish").passed).toBe(true);

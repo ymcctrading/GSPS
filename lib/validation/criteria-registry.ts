@@ -1105,6 +1105,34 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "campaignSection",
+    family: "scoreHold",
+    source: "lib/gann/campaignLedger.ts",
+    label: "Early in the campaign",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "2026-10-29 (edge diagnosis of the six-year daily run): a trade with the campaign's trend that would ride " +
+      "its 3rd or later section (tradeSection, record weekly turns that held two weeks) is held from Execute to " +
+      "Watch: the third or fourth section marks the culmination (Master Course pp. 244-245; GA-20/21). Appended " +
+      "only when it holds, so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
+    id: "marketTrend",
+    family: "scoreHold",
+    source: "lib/gann/averagesTrend.ts",
+    label: "Market's trend with the trade",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "2026-10-29 (six-year rerun's long/short diagnosis): an Execute is held to Watch when the averages' (SPY's) " +
+      "3-Day and weekly charts both read against it: determine the averages' trend with the 3-Day and swing " +
+      "charts and trade stocks that conform (45 Years in Wall Street, 1949, Rule 1). Appended only when it holds, " +
+      "so it is failed by construction whenever present.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "dataLag",
     family: "scoreHold",
     source: "lib/data/latency.ts",
