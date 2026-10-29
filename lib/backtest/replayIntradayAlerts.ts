@@ -82,6 +82,7 @@
  */
 
 import { readAveragesTrend } from "@/lib/gann/averagesTrend";
+import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
@@ -192,6 +193,14 @@ export interface AlertReplayInput {
   maxBarsHeld?: number;
   /** Record the line notices and their outcomes (`lib/backtest/lineNotices.ts`). */
   collectLineNotices?: boolean;
+  /**
+   * Which trend a trade alert must go with. "main" (the default) is the live
+   * rule since 2026-10-29: `Alert.againstDailyTrend` (the weekly chart's
+   * trend) and `Alert.reactionOverbalanced`. "threeDay" is the rule before
+   * it, the 3-Day Chart on the prior daily bars alone, kept so one run
+   * measures both on the same bars. Research only.
+   */
+  trendRule?: "main" | "threeDay";
 }
 
 /** The plan as the live route hands it to the scan: Execute or Watch, its stop on the right side. */
@@ -251,6 +260,10 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     const dailyFrom = new Date(Date.parse(`${date}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
     const priorDaily = completedDailyBars(dailyBars, date, kind === "crypto", dailyFrom);
     if (priorDaily.length < 3) continue;
+    // The pre-2026-10-29 rule's trend, read as the scanner read it (`sessionMetrics`).
+    const threeDay =
+      input.trendRule === "threeDay" && priorDaily.length >= 10 ? walkSwingChart(priorDaily, THREE_DAY_CHART).trend : null;
+    const threeDayDir = threeDay === "bullish" ? "up" : threeDay === "bearish" ? "down" : null;
     // The live route's market read: 400 days of SPY's sessions, cut at the
     // stock's prior session (`withMarketTrend`).
     const marketTrend =
@@ -326,8 +339,9 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         (a) =>
           !isReversalRisk(a) &&
           !NOTICE_SIGNALS.has(a.type) &&
-          !a.againstDailyTrend &&
-          !a.reactionOverbalanced &&
+          (input.trendRule === "threeDay"
+            ? a.type === "plan_level_held" || threeDayDir === null || threeDayDir === a.direction
+            : !a.againstDailyTrend && !a.reactionOverbalanced) &&
           !a.againstMarketTrend &&
           // Held live too (2026-10-29): its stop sat inside one point of the
           // alert's price, so it was never offered; the fill-time
