@@ -444,6 +444,21 @@ describe("OrderTicket with no bar-sequence pattern", () => {
   });
 });
 
+// The live exit rule fixes no target (queue review of #541's glossary fix): the
+// ticket said a fall back through the MTP closed the rest, which only the
+// unused "bracket" rule does.
+describe("OrderTicket exit notice", () => {
+  it("says nothing sells at TP1 or the MTP, and promises no close on a fall back through it", async () => {
+    mockFetch();
+    render(<OrderTicket result={scanWithEntry(40)} livePrice={40} />);
+    expect(await screen.findByText(/Nothing sells at TP1 or the MTP \(master take profit\) automatically/)).toBeInTheDocument();
+    expect(screen.queryByText(/falls back through it/)).not.toBeInTheDocument();
+    // Break-even is the live rule's, not the bracket's "gained as much as it risked".
+    expect(screen.getByText(/Once the trade is clearly ahead, the stop moves to your entry/)).toBeInTheDocument();
+    expect(screen.queryByText(/gained as much as it risked/)).not.toBeInTheDocument();
+  });
+});
+
 // A plan the protocol rates below Execute is not a recommended trade (owner
 // report 2026-10-16: SPY's low-scoring plan read "Protocol Recommended").
 describe("the order ticket's protocol mode follows the verdict", () => {

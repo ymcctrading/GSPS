@@ -876,7 +876,7 @@ export function OrderTicket({
                 {intradayStyle.expectedHold.toLowerCase()}.
               </p>
               {isCrypto ? (
-                <p>Crypto trades around the clock, so there is no session to close at: the trade ends on its stop, its target or the hourly turn.</p>
+                <p>Crypto trades around the clock, so there is no session to close at: the trade ends on its stop or the hourly turn (nothing sells at the first target).</p>
               ) : (
                 <label className="flex min-h-9 cursor-pointer items-center gap-2">
                   <input type="checkbox" checked={!holdOvernight} onChange={(e) => setHoldOvernight(!e.target.checked)} />
@@ -1099,6 +1099,7 @@ export function OrderTicket({
                     summary={manualExitPlan.summary}
                     splittable={manualExitPlan.splittable}
                     hasMaster={intradayMaster != null}
+                    intraday
                   />
                 )}
               </div>
@@ -1221,6 +1222,7 @@ export function OrderTicket({
                     summary={manualExitPlan.summary}
                     splittable={manualExitPlan.splittable}
                     hasMaster={manualMasterEntered}
+                    intraday={orderIntraday}
                   />
                 )}
                 {!manualLevelsEntered && (
@@ -1489,11 +1491,20 @@ function ExitPlanNotice({
   summary,
   splittable,
   hasMaster,
+  intraday = false,
 }: {
   summary: string;
   splittable: boolean;
   hasMaster: boolean;
+  /** An intraday plan's trade: its trail and session close are stated in the intraday panel. */
+  intraday?: boolean;
 }) {
+  // The live exit rule fixes no target: nothing sells at TP1 or the MTP, and
+  // the whole position runs on its stop and the trend (`planProtocolExit`'s
+  // "gann" rule, `LIVE_EXIT_RULE`; `lib/gann/intradayExit.ts` for an intraday trade).
+  // Only the "bracket" rule, which no live trade runs on, closed the rest on a
+  // fall back through the MTP, so the ticket doesn't promise it.
+  const targets = hasMaster ? "TP1 or the MTP (master take profit)" : "TP1";
   return (
     <div
       className={cn(
@@ -1505,15 +1516,12 @@ function ExitPlanNotice({
       <p className="mt-1">{summary}</p>
       {splittable && (
         <p className="mt-1">
-          Once the trade has gained as much as it risked, the stop moves to your entry. After that it
-          moves up under each higher swing bottom, and under last month&apos;s low once a new month
-          starts. The position is closed if price falls back under the level it broke out of, closes
-          against the trade three days running, or the trend turns.
-          {hasMaster
-            ? " If price pushes through the MTP (master take profit) and falls back through it, the rest is closed."
-            : ""}{" "}
-          The stop moves while the app is open; the stop resting at the broker is what protects the
-          position the rest of the time.
+          {intraday
+            ? "" // the intraday panel above states the session's trail and close
+            : "Once the trade is clearly ahead, the stop moves to your entry. After that it follows each new swing in the trade's direction, and last month's extreme once a new month starts. The position is closed if price falls back through the level it broke out of, closes against the trade three days running, or the trend turns. "}
+          Nothing sells at {targets} automatically; the whole position stays in, with the stop moved
+          along behind it, until the stop is hit or the trend turns. The stop moves while the app is
+          open; the stop resting at the broker is what protects the position the rest of the time.
         </p>
       )}
     </div>
