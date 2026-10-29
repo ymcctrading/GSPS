@@ -449,6 +449,8 @@ export async function fetchSeries(
   symbol: string,
   timeframe: Timeframe,
   includeMonthly = false,
+  /** A departed ticker's last day, so its bars are the company's (point-in-time universe). */
+  asOf?: string,
 ): Promise<{ bars: Bar[]; daily: Bar[]; weekly?: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[]; monthlyYearCount?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -471,10 +473,10 @@ export async function fetchSeries(
   const weeklyFrom = new Date(Date.UTC(start.getUTCFullYear() - WEEKLY_CHART_YEARS, start.getUTCMonth(), start.getUTCDate()) - 7 * 86_400_000);
 
   const [bars, daily, monthlyYearCount, weekly] = await Promise.all([
-    provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe]),
-    provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"]),
-    includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass) : Promise.resolve(undefined),
-    includeMonthly ? provider.fetchBars(symbol, "1Week", weeklyFrom, null, assetClass, TF_MAX_BARS["1Week"]) : Promise.resolve(undefined),
+    provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe], false, asOf),
+    provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"], false, asOf),
+    includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass, undefined, false, asOf) : Promise.resolve(undefined),
+    includeMonthly ? provider.fetchBars(symbol, "1Week", weeklyFrom, null, assetClass, TF_MAX_BARS["1Week"], false, asOf) : Promise.resolve(undefined),
   ]);
   const monthly = monthlyYearCount?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
   // Long enough for the class C counts on the first session; the replay windows

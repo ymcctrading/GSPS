@@ -257,6 +257,19 @@ describe("replay", () => {
     expect(withCost).toBeCloseTo(1.98, 10);
   });
 
+  it("arms nothing on a session the stock was outside the point-in-time universe", () => {
+    const opts = { entryRule: "stop" as const, targetR: 2, dailyBars: DAILY };
+    const base = replay("TEST", session([crossing, quiet]), opts);
+    expect(base.trades.length).toBeGreaterThan(0);
+    const seen: string[] = [];
+    const inside = replay("TEST", session([crossing, quiet]), { ...opts, inUniverse: (d) => (seen.push(d), true) });
+    expect(inside.trades).toEqual(base.trades);
+    expect(seen.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))).toBe(true);
+    const outside = replay("TEST", session([crossing, quiet]), { ...opts, inUniverse: () => false });
+    expect(outside.trades).toHaveLength(0);
+    expect(outside.armed).toBe(0);
+  });
+
   it("records the stop width in ATR so it can be studied against results", () => {
     const r = replay("TEST", session([crossing, quiet]), { entryRule: "stop", targetR: 2, dailyBars: DAILY });
     expect(r.trades.length).toBeGreaterThan(0);

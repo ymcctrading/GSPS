@@ -16,7 +16,13 @@
  *     --cells '[{"label":"baseline","options":{"useProductionStop":true}},
  *               {"label":"confirmed","options":{"useProductionStop":true,"requireEntryConfirmation":true}}]'
  *
- *   --universe      large-cap | mega-12 | diversified | mega-cap | SYM1,SYM2,…
+ *   --universe      large-cap | point-in-time | mega-12 | diversified | mega-cap | SYM1,SYM2,…
+ *                   point-in-time: each year's own large caps, the departed
+ *                   included, read from `--since` (or the daily window's start)
+ *                   to today (`lib/universe/pointInTime.ts`). A stock opens
+ *                   trades only in the years it was a member, and the strength
+ *                   rank's peers are that month's members. --offset and --limit
+ *                   slice the member list, which every job builds the same way.
  *   --cells         JSON array (or a path to a .json file) of
  *                   { label, options?, within? }. `options` is passed straight
  *                   to `replay()` / the report request.
@@ -859,7 +865,42 @@ async function main() {
       );
     }
 
-    let universe = await resolveUniverse(server, args.universe);
+    const sinceMs = args.since === null ? null : Date.parse(args.since);
+    if (sinceMs !== null && Number.isNaN(sinceMs)) throw new Error(`Invalid --since ${args.since}`);
+
+    // The point-in-time universe (survivorship): each year's members, read
+    // once before the slice so every job of a split run reads the same list.
+    let pit = null;
+    if (args.universe === "point-in-time") {
+      const intraday = cells.filter((c) => c.options?.profile === "intraday").map((c) => c.label);
+      if (intraday.length > 0) {
+        throw new Error(`The point-in-time universe is read by the swing replay only (cells ${intraday.join(", ")} use the intraday profile).`);
+      }
+      const pitMod = await server.ssrLoadModule("/lib/backtest/pointInTime.ts");
+      const { LARGE_CAP_UNIVERSE } = await server.ssrLoadModule("/lib/scan/large-cap-universe.ts");
+      const { describePointInTimeUniverse, isPointInTimeMember } = await server.ssrLoadModule("/lib/universe/pointInTime.ts");
+      const refs = await server.ssrLoadModule("/lib/data/instrumentReference.ts");
+      const todayRefs = await refs.loadInstrumentReferenceHistory(LARGE_CAP_UNIVERSE);
+      // A fixed start, so every job of a split run reads the same years.
+      if (sinceMs === null) throw new Error("--universe point-in-time needs --since, so every job of a split run reads the same list.");
+      const fromDate = new Date(sinceMs).toISOString().slice(0, 10);
+      const loaded = await pitMod.loadPointInTimeUniverse({
+        from: fromDate,
+        to: new Date().toISOString().slice(0, 10),
+        todayShares: new Map([...todayRefs].map(([s, r]) => [s, r.history])),
+      });
+      pit = { ...loaded, isMember: (symbol, date) => isPointInTimeMember(loaded.universe, symbol, date) };
+      process.stderr.write(`Point-in-time universe from ${fromDate}: ${pit.symbols.length} symbols were members in at least one year.\n`);
+      for (const line of describePointInTimeUniverse(pit.universe)) process.stderr.write(`  ${line}\n`);
+      process.stderr.write(
+        `  Member list hash ${pit.hash} (every job of a split run must print the same). ` +
+          `Departed tickers with share counts: ${pit.departedWithShares}.\n`,
+      );
+      if (pit.suspectBars.length > 0) process.stderr.write(`  Departed tickers whose bars may not be their company's: ${pit.suspectBars.join(", ")}\n`);
+      if (pit.suspectSplits.length > 0) process.stderr.write(`  Today's names reading under half the floor now (a split after the last filing?): ${pit.suspectSplits.join(", ")}\n`);
+    }
+
+    let universe = pit ? pit.symbols : await resolveUniverse(server, args.universe);
     // --offset and --limit take a slice of the universe, so a run too long
     // for one job can be split across several (0-382, then 383-765).
     universe = universe.slice(args.offset, args.limit === null ? undefined : args.offset + args.limit);
@@ -869,9 +910,6 @@ async function main() {
           `this Alpaca account's rate limit — prefer <=30/min in session.\n`,
       );
     }
-
-    const sinceMs = args.since === null ? null : Date.parse(args.since);
-    if (sinceMs !== null && Number.isNaN(sinceMs)) throw new Error(`Invalid --since ${args.since}`);
 
     // Shares outstanding and inception dates (parity roadmap D2, D3), read
     // once, as `collectRun` does. Older refs have no loader; the readings are
@@ -907,7 +945,11 @@ async function main() {
     }
     // The scan universe's monthly bars once, for Gann's relative strength rank
     // (S6, P3(c)). Older refs have no loader; the rank is then unread.
-    const universeStrength = typeof run.fetchReplayUniverseStrength === "function" ? await run.fetchReplayUniverseStrength() : null;
+    const universeStrength = pit
+      ? pit.strength
+      : typeof run.fetchReplayUniverseStrength === "function"
+        ? await run.fetchReplayUniverseStrength()
+        : null;
     process.stderr.write(`Universe strength rank: ${universeStrength ? `${universeStrength.size} months` : "unread"}.\n`);
 
     // Writes every result file. Called as a checkpoint every
@@ -956,6 +998,19 @@ async function main() {
       const { sha, ref } = gitInfo();
       const meta = {
         universe: args.universe,
+        ...(pit
+          ? {
+              pointInTime: {
+                candidates: pit.universe.candidates.length,
+                hash: pit.hash,
+                departedWithShares: pit.departedWithShares,
+                suspectBars: pit.suspectBars,
+                suspectSplits: pit.suspectSplits,
+                members: Object.fromEntries(pit.universe.years.map((y) => [y, [...pit.universe.members.values()].filter((ys) => ys.has(y)).length])),
+                duplicates: Object.fromEntries(pit.universe.duplicates),
+              },
+            }
+          : {}),
         symbolsRequested: universe.length,
         symbolsUsed: used.length,
         skipped,
@@ -1006,7 +1061,7 @@ async function main() {
       const symbol = universe[i];
       const tickStart = Date.now();
       try {
-        const series = await run.fetchSeries(symbol, args.timeframe, true);
+        const series = await run.fetchSeries(symbol, args.timeframe, true, pit?.asOf.get(symbol));
         const fetched = series.bars;
         const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
         if (bars.length === 0) {
@@ -1015,7 +1070,13 @@ async function main() {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
           const ref = references.get(symbol.toUpperCase());
-          const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception, name: ref.reference.name ?? null } : undefined;
+          const departed = !ref && pit?.shares.get(symbol.toUpperCase());
+          const instrument = ref
+            ? { sharesHistory: ref.history, inception: ref.reference.inception, name: ref.reference.name ?? null }
+            : departed
+              ? { sharesHistory: departed, inception: null, name: null }
+              : undefined;
+          const membership = pit ? { inUniverse: (date) => pit.isMember(symbol, date) } : {};
           cells.forEach((cell, c) => {
             // `profile: "intraday"` is the replay-only intraday profile
             // (lib/backtest/replayIntraday.ts); every other cell is the production method.
@@ -1034,7 +1095,7 @@ async function main() {
                     ...(opts.sessionPlans === true ? { sessionPlans: true } : {}),
                     dailyBars: series.daily,
                   })
-                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market, universeStrength), instrument }),
+                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market, universeStrength), instrument, ...membership }),
             );
           });
           used.push(symbol);

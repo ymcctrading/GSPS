@@ -47,7 +47,8 @@ describe("replay series options", () => {
   it("is what the universe runner passes to every replay", () => {
     const src = readFileSync(path.resolve(__dirname, "../../../scripts/backtest-universe.mjs"), "utf8");
     expect(src).toMatch(/replay\(symbol, bars, \{.*\.\.\.run\.replaySeriesOptions\(series, market, universeStrength\)/);
-    expect(src).toMatch(/const universeStrength = typeof run\.fetchReplayUniverseStrength === "function" \? await run\.fetchReplayUniverseStrength\(\) : null;/);
+    // The point-in-time universe ranks among each month's members; any other universe reads today's list.
+    expect(src).toMatch(/const universeStrength = pit\s*\? pit\.strength\s*: typeof run\.fetchReplayUniverseStrength === "function"\s*\? await run\.fetchReplayUniverseStrength\(\)\s*: null;/);
     expect(src).toMatch(/market = await run\.fetchSeries\("SPY", args\.timeframe, true\)/);
   });
 });
