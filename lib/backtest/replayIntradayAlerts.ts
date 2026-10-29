@@ -98,6 +98,7 @@ import {
   type Alert,
   type AssetKind,
   type DailyPlanLevels,
+  type ScannerConfig,
   type SignalType,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
@@ -217,6 +218,11 @@ const sessionOf = (b: Bar) => etDateKey(new Date(b.t));
  */
 export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult {
   const { symbol, kind, dailyBars, plans, sessions, signals, costPerShare = DEFAULT_COST_PER_SHARE_USD } = input;
+  // The live scan reads no daily-scale signal; a run that names one reads it.
+  const scanConfig: ScannerConfig = {
+    ...DEFAULT_CONFIG,
+    dailyScaleSignals: signals != null && [...DAILY_SCALE_SIGNALS].some((t) => signals.has(t)),
+  };
   const maxBarsHeld = input.maxBarsHeld ?? ALERT_BARS_PER_SESSION * 10;
   const feedDelayBars = Math.max(0, input.feedDelayBars ?? ALERT_FEED_DELAY_BARS);
   // The run's delay model: the feed's contract, never today's environment.
@@ -303,7 +309,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         feedDelayMs,
         feed: kind === "crypto" ? "realtime" : "delayed",
       };
-      const { alerts } = scanIntraday([scanInput], DEFAULT_CONFIG, evaluatedAt);
+      const { alerts } = scanIntraday([scanInput], scanConfig, evaluatedAt);
       for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: evaluatedAt.toISOString() });
       if (lineRec) {
         for (const alert of alerts) {

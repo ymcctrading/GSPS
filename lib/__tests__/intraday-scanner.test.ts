@@ -793,15 +793,26 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     expect(scanIntraday([input()], loose, AT_1133).alerts.map((a) => a.type as string)).not.toContain("unusual_volume");
   });
 
+  // The live scan reads no daily-scale signal (owner, 2026-10-29: "Only
+  // intraday scans should populate the intraday card(s)"); the replay turns it
+  // on for a run that names it.
+  const WITH_DAILY = { ...DEFAULT_CONFIG, dailyScaleSignals: true };
+
+  it("leaves the daily swing turn out of the live scan entirely", () => {
+    const types = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    expect(types).not.toContain("overnight_turn");
+    expect(scanIntraday([input()], WITH_DAILY, AT_1133).alerts.map((a) => a.type)).toContain("overnight_turn");
+  });
+
   it("alerts when the Overnight Chart turns on today's session, its stop 1 point under the last bottom", () => {
     // Yesterday was the second day of a reaction (low 499); today's low holds above it: a higher bottom.
-    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert?.direction).toBe("up");
     expect(alert?.invalidation).toBeCloseTo(499 - pricePoint(499), 2);
   });
 
   it("holds the Overnight Chart's turn from trade: its daily-scale stop and targets are not a session's (META, 2026-10-29)", () => {
-    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert).toBeDefined();
     expect(tradeHold(alert!)).toBe(DAILY_SCALE_HOLD);
     // The scale hold comes before the trend notes; a session signal is not held for scale.
@@ -814,7 +825,7 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     // Yesterday already made a higher bottom, so the line was up before today.
     daily[daily.length - 2] = { ...daily[daily.length - 2], l: 498 };
     daily[daily.length - 1] = { ...daily[daily.length - 1], l: 499, h: 501.5 };
-    const types = scanIntraday([input({ priorDailyBars: daily })], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    const types = scanIntraday([input({ priorDailyBars: daily })], WITH_DAILY, AT_1133).alerts.map((a) => a.type);
     expect(types).not.toContain("overnight_turn");
   });
 });

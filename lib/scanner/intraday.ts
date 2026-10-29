@@ -143,6 +143,14 @@ export interface ScannerConfig {
   cooldownMinutes: number;
   /** Minimum cumulative share volume for the session. */
   minSessionVolume: number;
+  /**
+   * Read the daily-scale signals (`DAILY_SCALE_SIGNALS`, the daily swing
+   * turn) too. Off for the live scan (owner, 2026-10-29: "Only intraday scans
+   * should populate the intraday card(s)"), so they reach no panel, card,
+   * chart, bell, push or stored row; the intraday alerts replay turns it on
+   * only when a run names one in `signals`.
+   */
+  dailyScaleSignals?: boolean;
 }
 
 /**
@@ -1041,7 +1049,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     detectOldLevelCross(input, metrics, dayMove, config, checks, now),
     detectTrendContinuation(input, metrics, dayMove, config, checks, now),
     detectSpaceOverbalance(input, metrics, dayMove, config, checks, now),
-    detectOvernightTurn(input, metrics, dayMove, checks, now),
+    config.dailyScaleSignals ? detectOvernightTurn(input, metrics, dayMove, checks, now) : null,
     detectHourlyTurn(input, metrics, checks, now),
     detectPlanLevelHeld(input, metrics, checks, now),
     detectEntryApproach(input, metrics, checks, now),
