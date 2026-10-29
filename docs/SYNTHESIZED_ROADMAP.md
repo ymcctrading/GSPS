@@ -326,7 +326,7 @@ replays, running). The paid items stay parked (Part 6).
 
 | # | Q2 item | Status | Owner or next step |
 |---|---|---|---|
-| 1 | Prove the edge | Running | Gann-rules thread: six-year daily slices on the current version (GitHub "Universe backtest (manual)"); walk-forward, Monte Carlo, stress windows and regime splits follow |
+| 1 | Prove the edge | Running | Gann-rules thread: six-year daily slices on the current version (GitHub "Universe backtest (manual)"). Walk-forward, stress windows and regime splits are built (2026-10-28, `lib/backtest/robustness.ts`) and run locally on a finished run's `trades.csv` (`npm run backtest:robustness`); reading them on the current version's run is next. The Monte Carlo is a separate PR from another thread |
 | 2 | Markets beyond US equities | Crypto built; forex and futures parked | One plan and one instrument spec for every market (#405, #411). Forex and futures need a bars feed and a broker (Part 6) |
 | 3 | Advanced orders | **Done** 2026-10-22 | Live pyramid adds wait for the proving period |
 | 4 | Risk dashboard | **Done** 2026-10-21 | |
