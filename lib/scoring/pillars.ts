@@ -454,7 +454,7 @@ export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: 
   const long = side === "bullish";
   // G25 (2026-10-29): a long's leadership and rank count only when the stock
   // may lead this section: not short of the first-year high once the campaign
-  // has run a year, and not a late mover that has yet to cross it.
+  // has run a year.
   const may = !long || longMayLead(l);
   const led = may && l != null && (long ? l.bottomedFirst || l.crossedTopsFirst : l.toppedFirst || l.brokeBottomsFirst);
   const firstYear = l?.firstYearHighCrossed === long;
@@ -465,7 +465,7 @@ export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: 
   const passed = twoOf(led, firstYear, strength);
   return {
     passed,
-    note: `${may ? "" : l?.firstYearHighCrossed === false ? "Has not crossed the campaign's first-year high, so it cannot lead this section. " : "Bottomed after the market and has not crossed the campaign's first-year high: a late mover, not a leader. "}${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}, the group itself ${Math.round(r.group.groupPercentile * 100)} of 100 in the universe` : ""})` : ""}. Two of three are needed.`,
+    note: `${may ? "" : "Has not crossed the campaign's first-year high, so it cannot lead this section. "}${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}, the group itself ${Math.round(r.group.groupPercentile * 100)} of 100 in the universe` : ""})` : ""}. Two of three are needed.`,
   };
 }
 

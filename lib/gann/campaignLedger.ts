@@ -91,7 +91,7 @@
 
 import type { Bar } from "@/lib/types";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { pricePoint } from "@/lib/gann/pointScale";
+import { beyondByThreePoints, pricePoint } from "@/lib/gann/pointScale";
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -259,6 +259,7 @@ export interface CampaignLedger {
   timeBalanceDates: string[];
   /** The turn the open leg balances into: an up leg at a top, a down leg at a bottom. */
   timeBalanceTurn: "top" | "bottom" | null;
+  /** `crossed`: closed 3 points over it and not since 3 points under it. */
   firstYearHigh: { price: number; crossed: boolean } | null;
   /**
    * The top of the secondary rally (A-LEVELS-02, W006 p.13: after the 1929
@@ -581,8 +582,20 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   if (bull && days(bars[start], last) >= 365) {
     const cutoff = Date.parse(bars[start].t) + 365 * DAY_MS;
     let high = -Infinity;
-    for (let i = start; i < bars.length && Date.parse(bars[i].t) <= cutoff; i++) high = Math.max(high, bars[i].h);
-    firstYearHigh = { price: high, crossed: last.c > high };
+    let i = start;
+    for (; i < bars.length && Date.parse(bars[i].t) <= cutoff; i++) high = Math.max(high, bars[i].h);
+    // Crossed by the 3-point allowance and held unless broken back by 3 points
+    // under it (G25, the Jewel Tea crossing "3 points above"; W006 Rule 3(c)
+    // p.47), so an ordinary reaction after the crossing does not undo it
+    // (2026-10-29; it read the latest close alone, with no allowance).
+    const over = beyondByThreePoints(high, 1);
+    const under = beyondByThreePoints(high, -1);
+    let crossed = false;
+    for (; i < bars.length; i++) {
+      if (!crossed && bars[i].c > over) crossed = true;
+      else if (crossed && bars[i].c < under) crossed = false;
+    }
+    firstYearHigh = { price: high, crossed };
   }
 
   // The secondary rally: Gann defines it by example only, so "the first weekly

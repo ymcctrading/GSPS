@@ -1043,8 +1043,9 @@
 // a long's leadership and strength rank count in P3 and in the lists' order
 // only when the stock may lead this section (`longMayLead`, G25, *Wall Street
 // Stock Selector* Ch. VII): not short of the campaign's first-year high once
-// it has run a year, and not a late mover (bottomed after the market) that has
-// yet to cross it. The rank had favoured whatever stood at its high, early or
-// late; `lateMoverLong` passing measured -0.204R within Execute. Shorts are
-// unchanged. Verdicts move; Execute and the 7/4 cutoffs need a run.
+// it has run a year, that high now crossed by 3 points and held unless broken
+// back by 3. A stock's or the market's first or late top and bottom is read
+// only at a 3-Day Chart pivot, so a market that rose all year no longer makes
+// most stocks late movers. Shorts unchanged. Verdicts move; Execute and the
+// 7/4 cutoffs need a run.
 export const STRATEGY_VERSION = "2026-10-29-gann-p3-may-lead";

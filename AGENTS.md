@@ -3684,21 +3684,27 @@ fresh run on it. Merged onto the delayed fill timing (no new rule):
 **P3's leaders may lead, 2026-10-29 (six-year daily diagnosis,
 `/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md`:
 Execute did worse than Watch, scores 8 and 9 worst, and within Execute
-`lateMoverLong` passing measured −0.204R, about two and a half standard
-errors).** One translation defect, fixed: P3's rank by position in the year's
-range favoured whatever stood at its high, early leader or late mover alike.
-Gann buys the early leaders, and "a stock must cross the high of the first year
-of the bull campaign before it can lead a later section" (G25, *Wall Street
-Stock Selector* Ch. VII); late movers "bottom late and top late, with sharp tops
-and fast collapses". So a long's leadership and rank count, in P3 and in the
-lists' order (`selectionStrength`), only when `longMayLead`
-(`lib/gann/leadership.ts`): not short of the first-year high once the campaign
-has run a year, and not a stock that bottomed after the market until it has
-crossed that high. Shorts are unchanged (Gann sells the bear market's early
-leaders; a late top's fast collapse does not argue against a short). Random
-walks (20 pairs, 420 readings a drift): 43-44% of readings are late movers short
-of the first-year high, 0-0.2% have failed it. `STRATEGY_VERSION` was
-`2026-10-29-gann-p3-may-lead`; P3, Execute and the 7/4 cutoffs need a fresh run.
+`lateMoverLong` passing measured −0.204R, a lead at about two and a half
+standard errors).** Three fixes, each from Gann's text. (1) G25 (*Wall Street
+Stock Selector* Ch. VII): "a stock must cross the high of the first year of the
+bull campaign before it can lead a later section", so a long's leadership and
+rank count, in P3 and in the lists' order (`selectionStrength`), only when
+`longMayLead` (`lib/gann/leadership.ts`): not short of that high once the
+campaign has run a year. APPROXIMATED: the campaign is the stock's own weekly
+campaign, not the market's. (2) That high is crossed by the 3-point allowance
+and held unless broken back by 3 (`campaignLedger.ts`; Jewel Tea, W006 Rule
+3(c)); it read the latest close with no allowance. (3) First and late tops and
+bottoms (`readLeadership`) read only an extreme that is a 3-Day Chart pivot on
+the whole record: a market that rose all year has its lowest bar at the window's
+start, no bottom, and every stock read as a late mover against it. A late mover
+is not refused: Gann describes late movers without forbidding them, and
+A-SELECTION-02 counts crossing previous years' tops first as leading. The market
+scan's shortlist now reads the ledger too, as the full scan does. Random walks
+(30 pairs, 630 readings a drift; drift 0, +0.05%, +0.1% a day): late movers
+25.9/26.7/22.9% (the review measured 20/23/45% before (3)); the first-year high
+unread on 97-100% (the stock's campaign rarely runs a year), failed on 0-1.6%;
+about 0.2 ms a read. `STRATEGY_VERSION` was `2026-10-29-gann-p3-may-lead`; P3,
+Execute and the 7/4 cutoffs need a fresh run.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day

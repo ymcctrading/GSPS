@@ -33,7 +33,7 @@
 
 import type { Bar } from "@/lib/types";
 import { buildCampaignLedger, type CampaignLedger } from "@/lib/gann/campaignLedger";
-import { swingPivots, walkSwingChart, type SwingChartSpec } from "@/lib/gann/swingChart";
+import { swingPivots, walkSwingChart, THREE_DAY_CHART, type SwingChartSpec } from "@/lib/gann/swingChart";
 import { beyondByThreePoints } from "@/lib/gann/pointScale";
 
 export const LOOKBACK = 250;
@@ -66,12 +66,41 @@ export interface LeadershipReading {
   firstYearHighCrossed: boolean | null;
 }
 
-function extremeDate(bars: Bar[], kind: "low" | "high"): number {
-  let idx = 0;
-  for (let i = 1; i < bars.length; i++) {
-    if (kind === "low" ? bars[i].l < bars[idx].l : bars[i].h > bars[idx].h) idx = i;
+/** The 3-Day Chart's pivots, once per bar array (the market's is read for every stock). */
+const pivotCache = new WeakMap<Bar[], ReturnType<typeof swingPivots>>();
+function threeDayPivots(bars: Bar[]): ReturnType<typeof swingPivots> {
+  let p = pivotCache.get(bars);
+  if (!p) {
+    p = swingPivots(bars, THREE_DAY_CHART);
+    pivotCache.set(bars, p);
   }
-  return Date.parse(bars[idx].t);
+  return p;
+}
+
+/**
+ * The date of the window's lowest low (highest high), or NaN when that
+ * extreme is not a bottom (top) of the 3-Day Chart walked on the whole record
+ * (2026-10-29). A market that rose all year has its lowest bar on the window's
+ * first sessions, part of a decline still running, not a bottom; reading it
+ * as one made most stocks "late movers" in every rising year. Gann dates a
+ * bottom by the swing chart, so an extreme the chart does not turn at is not
+ * read as first or late.
+ */
+function extremeDate(all: Bar[], window: Bar[], kind: "low" | "high"): number {
+  if (window.length === 0) return NaN;
+  let idx = 0;
+  for (let i = 1; i < window.length; i++) {
+    if (kind === "low" ? window[i].l < window[idx].l : window[i].h > window[idx].h) idx = i;
+  }
+  const at = all.length - window.length + idx;
+  const want = kind === "low" ? "bottom" : "top";
+  const pivot = threeDayPivots(all).some((p) => p.kind === want && p.index === at && p.index > 0);
+  return pivot ? Date.parse(window[idx].t) : NaN;
+}
+
+/** `a - b >= lead`, false when either date is unread. */
+function ahead(a: number, b: number, lead: number): boolean {
+  return !Number.isNaN(a) && !Number.isNaN(b) && a - b >= lead;
 }
 
 /**
@@ -128,22 +157,22 @@ export function readLeadership(
     };
   }
   const end = daily[daily.length - 1].t;
-  const mktAll = market.filter((b) => b.t <= end);
+  const mktAll = market[market.length - 1].t <= end ? market : market.filter((b) => b.t <= end);
   const mkt = mktAll.slice(-LOOKBACK);
   const stk = daily.slice(-LOOKBACK);
   const lead = LEAD_DAYS * 86_400_000;
-  const sLow = extremeDate(stk, "low");
-  const mLow = extremeDate(mkt, "low");
-  const sHigh = extremeDate(stk, "high");
-  const mHigh = extremeDate(mkt, "high");
-  const toppedFirst = mHigh - sHigh >= lead;
-  const toppedLate = sHigh - mHigh >= lead;
+  const sLow = extremeDate(daily, stk, "low");
+  const mLow = extremeDate(mktAll, mkt, "low");
+  const sHigh = extremeDate(daily, stk, "high");
+  const mHigh = extremeDate(mktAll, mkt, "high");
+  const toppedFirst = ahead(mHigh, sHigh, lead);
+  const toppedLate = ahead(sHigh, mHigh, lead);
   // Engineering choice, labelled: "now declining" is the stock's own campaign
   // ledger reading bearish (its weekly chart's trend).
   const declining = ledger?.trend === "bearish";
   return {
-    bottomedFirst: mLow - sLow >= lead,
-    bottomedLate: sLow - mLow >= lead,
+    bottomedFirst: ahead(mLow, sLow, lead),
+    bottomedLate: ahead(sLow, mLow, lead),
     toppedFirst,
     toppedLate,
     lateBottomExpected: toppedLate && declining,
@@ -156,28 +185,22 @@ export function readLeadership(
 
 /**
  * Whether a long may count the stock's leadership and its strength rank
- * (G25, *Wall Street Stock Selector* Ch. VII, Tier A; 2026-10-29).
+ * (G25, *Wall Street Stock Selector* Ch. VII, Tier A; 2026-10-29): "a stock
+ * must cross the high of the first year of the bull campaign before it can
+ * lead a later section". Once the campaign has run a year
+ * (`firstYearHighCrossed` not null), a stock that has not crossed it by the
+ * 3-point allowance leads nothing, however high it stands in its year's range.
+ * APPROXIMATED: the campaign is the stock's own weekly-chart campaign
+ * (`campaignLedger.ts`), not the market's.
  *
- * - "A stock must cross the high of the first year of the bull campaign
- *   before it can lead a later section": once the campaign has run a year
- *   (`firstYearHighCrossed` not null), a stock that has not crossed it leads
- *   nothing, however high it stands in its year's range.
- * - Late movers "bottom late and top late, with sharp tops and fast
- *   collapses": a stock that bottomed after the market is not the early
- *   leader Gann buys, so its rank and its crossing of old tops count only
- *   once it has crossed the first-year high and so earned the later section.
- *
- * The six-year daily run (2026-10-28, EDGE-DIAGNOSIS.md) measured the late
- * mover passing at -0.204R within Execute, about two and a half standard
- * errors: the rank alone favoured whatever stood at its high, early or late.
- * Shorts are unchanged: Gann sells the early leaders of a bear market (the
- * stocks that topped first), and a late top's fast collapse does not argue
- * against a short.
+ * A late mover (bottomed after the market) is not refused here: Gann
+ * describes late movers ("bottom late and top late, with sharp tops and fast
+ * collapses") without forbidding them, and A-SELECTION-02 (W006 pp.27-29)
+ * counts a stock that crosses previous years' tops first as a leader whenever
+ * it bottomed. Shorts are unchanged.
  */
-export function longMayLead(l: { bottomedLate?: boolean; firstYearHighCrossed: boolean | null } | null | undefined): boolean {
-  if (l == null) return true;
-  if (l.firstYearHighCrossed === false) return false;
-  return !(l.bottomedLate && l.firstYearHighCrossed !== true);
+export function longMayLead(l: { firstYearHighCrossed: boolean | null } | null | undefined): boolean {
+  return l?.firstYearHighCrossed !== false;
 }
 
 /**
@@ -216,8 +239,8 @@ export function selectionStrength(
   const weakest = rank?.weakest || rank?.group?.weakest ? 1 : 0;
   const isWeak = weak?.weak === true ? 1 : 0;
   if (direction === "bullish") {
-    // G25: a stock that cannot lead a later section, or a late mover that has
-    // not earned it, gets no step for leading or for its rank (`longMayLead`).
+    // G25: a stock that cannot lead a later section gets no step for leading
+    // or for its rank (`longMayLead`).
     const may = longMayLead(leadership);
     return (may && (leadership?.bottomedFirst || leadership?.crossedTopsFirst) ? 1 : 0) - isWeak + (may ? strong : 0);
   }
