@@ -10,9 +10,13 @@ vi.mock("@/lib/brokers/simulator", () => ({
 }));
 // No Gann reading: the stop under test is the one already applied.
 const readLiveRebuy = vi.fn();
+const readLiveGannExit = vi.fn(async (...args: unknown[]) => (void args, null));
+// No closed bar since the fill unless a test says so: the quote alone, as before.
+const readLiveBestSinceFill = vi.fn(async (...args: unknown[]): Promise<number | null> => (void args, null));
 vi.mock("@/lib/trade/gann-exit-live", () => ({
-  readLiveGannExit: vi.fn(async () => null),
+  readLiveGannExit: (...args: unknown[]) => readLiveGannExit(...args),
   readLiveRebuy: (...args: unknown[]) => readLiveRebuy(...args),
+  readLiveBestSinceFill: (...args: unknown[]) => readLiveBestSinceFill(...args),
 }));
 vi.mock("@/lib/automation/stop-out", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/automation/stop-out")>()),
@@ -100,6 +104,34 @@ describe("manageSimulatedExits — a stop already applied", () => {
     quotePrice.mockReset();
     executeFill.mockReset();
     readLiveRebuy.mockReset().mockResolvedValue(null);
+    readLiveGannExit.mockClear();
+    readLiveBestSinceFill.mockReset().mockResolvedValue(null);
+  });
+
+  it("reads the exit rules on the best bar since the fill, not only the quote (2026-10-29)", async () => {
+    // The quote is 625, but a 15-minute bar since the fill reached 645: the
+    // replay's best price, so break-even and the trails read 645, and the
+    // row's high-water mark keeps it.
+    quotePrice.mockResolvedValue(625);
+    readLiveBestSinceFill.mockResolvedValue(645);
+    const { client, updates } = stubSupabase(amdPlan({ high_water: 630 }));
+
+    const run = await manageSimulatedExits(client, "user-1");
+
+    expect(run.closed).toBe(0);
+    expect(readLiveBestSinceFill).toHaveBeenCalledWith(expect.objectContaining({ symbol: "AMD", side: "long", openedAt: "2026-09-05T15:15:00.000Z" }));
+    expect(readLiveGannExit).toHaveBeenCalledWith(expect.objectContaining({ best: 645 }));
+    expect(updates.some((u) => u.high_water === 645)).toBe(true);
+  });
+
+  it("never lowers the high-water mark on a bar read below it", async () => {
+    quotePrice.mockResolvedValue(625);
+    readLiveBestSinceFill.mockResolvedValue(620);
+    const { client } = stubSupabase(amdPlan({ high_water: 640 }));
+
+    await manageSimulatedExits(client, "user-1");
+
+    expect(readLiveGannExit).toHaveBeenCalledWith(expect.objectContaining({ best: 640 }));
   });
 
   it("closes a long once price trades below a manual stop that hasn't moved", async () => {
@@ -292,7 +324,7 @@ describe("a line pyramided by automation (lib/automation/pyramid-adds.ts)", () =
 
   it("reads the exit rules from the first lot, as the replay does", async () => {
     quotePrice.mockResolvedValue(117);
-    const gannExit = vi.mocked((await import("@/lib/trade/gann-exit-live")).readLiveGannExit);
+    const gannExit = readLiveGannExit;
     gannExit.mockClear();
     const { client } = stubSupabase(line());
     await manageSimulatedExits(client, "user-1");

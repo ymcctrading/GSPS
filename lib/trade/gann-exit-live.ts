@@ -226,6 +226,84 @@ export async function readLiveGannExit(input: LiveGannExitInput): Promise<ExitRe
 }
 
 /**
+ * The best price a position has traded at since its fill, read from the
+ * closed 15-minute bars that opened at or after the fill (regular-session
+ * bars for a US equity, every bar for crypto). Null when no such bar has
+ * closed.
+ *
+ * Why (2026-10-29, CBOE): the exit managers fed Gann's rules a "best price"
+ * sampled from one quote each pass, every 15 minutes, while the replay walks
+ * every bar's high (`walkGannExit`'s `best`). A spike between two passes was
+ * invisible live, so break-even once 3 points ahead ("never let a profit run
+ * into a loss", *Truth of the Stock Tape* Ch. VIII rule 4; *Wall Street Stock
+ * Selector* Ch. II rule 4) and every trail measured from the best price could
+ * fire in the replay and never live. The managers now fold this into the
+ * high-water mark. Bars that opened before the fill are left out, so a high
+ * printed before the trade was bought never counts.
+ */
+export function bestSinceFill(
+  side: "long" | "short",
+  bars: Bar[],
+  openedAt: string,
+  now: Date,
+  crypto: boolean,
+): number | null {
+  const filledAt = Date.parse(openedAt);
+  if (!Number.isFinite(filledAt)) return null;
+  let best: number | null = null;
+  for (const b of regularSessionBars(bars, crypto)) {
+    const t = Date.parse(b.t);
+    if (!(t >= filledAt) || t + BAR_MS > now.getTime()) continue;
+    const x = side === "long" ? b.h : b.l;
+    if (!Number.isFinite(x)) continue;
+    best = best === null ? x : side === "long" ? Math.max(best, x) : Math.min(best, x);
+  }
+  return best;
+}
+
+/**
+ * Closed 15-minute bars since a fill, cached per symbol until the next bar
+ * closes, so one pass managing several rows of a symbol reads them once.
+ */
+const sessionBarsCache = new Map<string, { closedThrough: number; from: number; bars: Bar[] }>();
+
+export function resetBestSinceFillCache(): void {
+  sessionBarsCache.clear();
+}
+
+/**
+ * `bestSinceFill` on the provider's bars. Null on any failure: the caller
+ * keeps the quote-sampled high-water mark it already has, as before.
+ */
+export async function readLiveBestSinceFill(input: {
+  symbol: string;
+  side: "long" | "short";
+  openedAt: string;
+  now?: Date;
+}): Promise<number | null> {
+  try {
+    const now = input.now ?? new Date();
+    const filledAt = Date.parse(input.openedAt);
+    if (!Number.isFinite(filledAt) || filledAt >= now.getTime()) return null;
+    const crypto = isCryptoSymbol(input.symbol);
+    const key = input.symbol.toUpperCase();
+    const closedThrough = Math.floor(now.getTime() / BAR_MS) * BAR_MS;
+    let hit = sessionBarsCache.get(key);
+    if (!hit || hit.closedThrough !== closedThrough || hit.from > filledAt) {
+      const provider = getMarketDataProvider();
+      assertLiveMarketData(`read ${key}'s session to track its best price`, provider);
+      const bars = await provider.fetchBars(input.symbol, "15Min", new Date(filledAt), null, crypto ? "crypto" : "us_equity");
+      hit = { closedThrough, from: filledAt, bars };
+      sessionBarsCache.set(key, hit);
+    }
+    return bestSinceFill(input.side, hit.bars, input.openedAt, now, crypto);
+  } catch (err) {
+    console.error(`gann-exit-live: best since fill ${input.symbol} — ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+/**
  * Re-buy after a stop (A-PYRAMID-07, `lib/gann/rebuy.ts`), read on the
  * completed sessions when a live or paper trade leaves on a stop: the re-entry
  * the rules rest on the reaction, or null when the trend no longer runs the
