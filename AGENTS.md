@@ -2144,8 +2144,12 @@ for the project owner** — do not fix it silently, and re-verify it first:
   name failed `novice_eligible`'s market-cap check and Guided Mode could never
   show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
   the Alpaca validation pass). The $10B floor is the only cap rule.
-- Lesser items: `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
-  "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
+- Lesser items: F4.3 and F4.7 are closed (re-checked 2026-10-28). A
+  `policy_values` row may only tighten a risk limit (`RISK_POLICY_DIRECTIONS`,
+  owner Q13, 2026-10-16), and production held no `policy_values` row when read.
+  `stopRoom` was retired on 2026-10-16 (owner Q23), replaced by Gann's stop
+  3 points behind an old level (`stopBehindOldLevel`, W006 pp.20-24, 46-47),
+  which is itself a check under the nine pillars. Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
   **F4.2 closed 2026-10-22:** a promoted `learning_models` weight row is
@@ -3605,8 +3609,22 @@ session nearing or trading through the line, with the close that would confirm
 it (`crossingLinesFromEntry`, `pointScale.ts`); a plan whose prior close crossed
 the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
 its line, and one that has made its crossing gets none. Notices, never trades: no
-"Trade this", not stored, not replayed, push and the bell only, worded as
-delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
+"Trade this", not stored, push and the bell only, worded as delayed observations
+while the feed is delayed. The intraday alerts replay reads them as counts and
+excursions only (`lib/backtest/lineNotices.ts`), never as trades; no run on real
+bars yet. Verdicts unchanged.
+**Before the open, same day (coordinator, from the TXN thread's proposal).**
+`/api/pre-open-lines` (pg_cron 12:50 and 13:50 UTC on weekdays, migration 0135;
+it acts only from 8:30 to the 9:30 open, New York time, on a trading day) lists
+each equity plan whose line the prior close left within one 3-point allowance
+(`lib/notifications/preOpenLines.ts`: `planLineAhead`, the allowance
+`breakawayLinesFirst` reads, a close through the stop or a resting, expired or
+retired row left out). Push (one a member, by their push, score and quiet-hours
+settings) and the bell (watchers only), both gated as the line notices are and
+once a New York day per symbol and side; never email. Worded as of the prior
+close, never actionable (`checkNotificationFreshness`, an observation on the
+daily chart). The bell counts it as a notice (`isNoticeTitle`), so it takes none
+of Pro's daily bound. Unmeasured. Verdicts unchanged.
 **The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
 Gann).** The volume pillar's retest confirmed on any smaller week, so once
 price reached the old turn inside 3 points, noise passed it about half the time
@@ -3933,15 +3951,11 @@ now confirmed rather than merely carried forward, per the 2026-09-23 run above: 
 for the first time since the ATR-normalization fix). See `lib/gann/volumeClimax.ts` and
 `lib/gann/timePriceSquare.ts`'s own header comments.
 
-**One open item this run surfaced, not yet acted on.** `stopRoom` is currently registry-quarantined
-(`lib/validation/criteria-registry.ts`) for saturating 98–99% on the 2026-09-14 six-symbol runs —
-past `DEFAULT_SATURATION_BOUNDS`' 95% ceiling. The 2026-09-23 twelve-symbol run reads it at 430/615
-(69.9%) passing, Δ+0.213R, informative and well inside bounds — but the underlying stop-anchoring
-code (`lib/strat/levels.ts`'s `nearestStructuralStop`, `EQUITY_STOP_MIN_PCT`/`EQUITY_STOP_MAX_PCT`)
-has not changed since the quarantine, so this reads as a population-dependent result (a wider,
-more-structured universe naturally clears the band more often), not a confirmed fix. Flagged here
-rather than silently un-quarantined; a future session should treat this as an open question, not a
-resolved one.
+**Settled 2026-10-28: the `stopRoom` question.** The open item this run raised (quarantined for
+saturating 98–99% on the 2026-09-14 runs, in range on the 2026-09-23 run) is moot. `stopRoom` was
+retired on 2026-10-16 (owner Q23) and replaced by Gann's own test, the stop 3 points beyond an old
+top or bottom (`stopBehindOldLevel`, W006 pp.20-24, 46-47). That test is a check under the nine
+pillars, scoring nothing alone. Its registry entry (`criteria-registry.ts`) records it as unmeasured.
 
 **Live weights incident (2026-09-17) — merging is not shipping.** PR #235 merged the uniform
 `DEFAULT_CRITERION_WEIGHTS` decision to `main` and deployed clean, and the change was still
@@ -3978,11 +3992,13 @@ something outside the repo overrides it. Known override surfaces as of 2026-09-1
 - `learning_models` (`status = 'live'`) — overrides `DEFAULT_CRITERION_WEIGHTS` via
   `lib/scoring/active-weights.ts`. Guarded as above.
 - `lib/risk/policy.ts` — `getRiskPolicy(supabase)` / `setRiskPolicyValue()` resolve risk policy
-  from the database over `DEFAULT_RISK_POLICY_VALUES`. **Not yet audited for the same class of
-  drift.**
+  from the database over `DEFAULT_RISK_POLICY_VALUES`. A row may only tighten a limit (Q13). Production
+  held no `policy_values` row on 2026-10-28.
 - Environment variables — the confluence modules read `GSPS_DISABLE_GANN_CONFLUENCE` /
   `GSPS_DISABLE_SARA_CONFLUENCE` (`lib/signals/confluence/flags.ts`), and `MARKET_DATA_REALTIME`
-  carries a mandatory revert trigger above. **Production values not yet verified.**
+  carries a mandatory revert trigger above. Checked 2026-10-28 against the Vercel project's env list:
+  none of the three is set in any environment, so both confluence modules run and the feed reads as
+  delayed, as the code defaults intend. `learning_models` held no `live` row the same day.
 
 The list is a starting point, not an inventory. Re-derive it rather than trusting it.
 

@@ -42,6 +42,7 @@ import { etDateKey } from "@/lib/market/session";
 import { APPROACH_NOTICES, LINE_NOTICES, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { APPROACH_LEAD_DEFAULT_MINUTES, approachDue } from "@/lib/scanner/entryApproach";
 import { checkAlertFreshness, type NotificationFreshnessResult } from "@/lib/notifications/freshness";
+import { PRE_OPEN_LABEL } from "@/lib/notifications/preOpenLines";
 
 /** A notice is written once in this many hours a member, not once a cooldown. */
 const NOTICE_REPEAT_HOURS = 12;
@@ -262,9 +263,12 @@ async function loadWatchers(service: SupabaseClient, symbols: string[]): Promise
   return watchers;
 }
 
-/** True for a notice's bell title (nearing or at a plan's entry), which counts against no bound. */
+/**
+ * True for a notice's bell title (nearing or at a plan's entry or line, or a
+ * line within reach before the open), which counts against no bound.
+ */
 export function isNoticeTitle(title: string): boolean {
-  return [...NOTICE_SIGNALS].some((type) => title.endsWith(`: ${SIGNAL_LABELS[type]}`));
+  return title.endsWith(`: ${PRE_OPEN_LABEL}`) || [...NOTICE_SIGNALS].some((type) => title.endsWith(`: ${SIGNAL_LABELS[type]}`));
 }
 
 /** The rows a Pro member may still be told about today, by symbol. Notices take none of the bound. */

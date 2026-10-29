@@ -5,7 +5,7 @@
  * 5pm"). The report is pure (`lib/reports/automationReport.ts`).
  *
  * Run by the database's scheduler at 21:00 and 22:00 UTC on weekdays
- * (migration 0132), so one of the two is 5 PM New York time in either season:
+ * (migration 0135), so one of the two is 5 PM New York time in either season:
  * a run outside the 5 PM New York hour, or on a day the market is shut,
  * sends nothing (the report's idempotency key is a second guard against a
  * repeat). `?dry=1` signed in as an owner account returns the text without
