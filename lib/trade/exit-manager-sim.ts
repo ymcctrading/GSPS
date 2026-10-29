@@ -33,7 +33,7 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out";
 import type { ReversalCause } from "@/lib/gann/reverse";
-import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { readLiveBadNews, readLiveBestSinceFill, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
 import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
@@ -235,7 +235,11 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   const price = await quotePrice(plan.symbol, assetClassOf(plan.symbol));
   if (price == null) return; // no data this pass; try again next poll
 
-  const highWater = extendHighWater(plan.side, plan.high_water, price);
+  // The best price since the fill: the quote seen now and every closed
+  // 15-minute bar's extreme since the fill, as the replay reads it, so a
+  // spike between two passes still counts (readLiveBestSinceFill).
+  const sessionBest = await readLiveBestSinceFill({ symbol: plan.symbol, side: plan.side, openedAt: plan.created_at });
+  const highWater = extendHighWater(plan.side, extendHighWater(plan.side, plan.high_water, price), sessionBest);
   const generatedId = () => `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   const list = tranches(plan);

@@ -74,7 +74,7 @@ import {
   planStopAdjustment,
   type StopReason,
 } from "@/lib/trade/protocol-exit";
-import { readLiveBadNews, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
+import { readLiveBadNews, readLiveBestSinceFill, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
 import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
@@ -274,7 +274,7 @@ async function advance(
   // The broker's own average entry replaces whatever the ticket submitted:
   // break-even has to mean the price actually paid.
   const entryPrice = Number(position.avg_entry_price) || plan.entry_price;
-  const highWater = extendHighWater(plan.side, plan.high_water, Number.isFinite(price) ? price : null);
+  let highWater = extendHighWater(plan.side, plan.high_water, Number.isFinite(price) ? price : null);
 
   if (!plan.exits_attached_at) {
     // Cancelling the entry's stop and attaching against `held` while the entry
@@ -297,6 +297,10 @@ async function advance(
   // exits were attached. Gann's rules count from the day bought (*Truth of
   // the Stock Tape*), so the day trail never reads a session before the fill.
   const filledAt = plan.exits_attached_at ?? plan.created_at;
+  // The best price since the fill also reads every closed 15-minute bar's
+  // extreme since it, as the replay does, so a spike between two passes
+  // still counts toward break-even and the trails (readLiveBestSinceFill).
+  highWater = extendHighWater(plan.side, highWater, await readLiveBestSinceFill({ symbol: plan.symbol, side: plan.side, openedAt: filledAt }));
   const gann =
     LIVE_EXIT_RULE !== "bracket"
       ? await readLiveGannExit({

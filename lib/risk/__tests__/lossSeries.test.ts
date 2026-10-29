@@ -38,4 +38,27 @@ describe("readLossSeries (series-of-losses pause)", () => {
     expect(readLossSeries([loss(third), loss(third)], new Date(third)).paused).toBe(false);
     expect(readLossSeries([loss(third), win(third), loss(third), loss(third)], new Date(third)).consecutiveLosses).toBe(1);
   });
+
+  it("names the losses it counted and the day entries resume", () => {
+    // The icharles case of 2026-10-29: AMD Oct 9, IWM and MSFT Oct 28 (ET).
+    const trades: ClosedTrade[] = [
+      { outcome: "loss", exitTimestamp: "2026-10-28T19:54:04Z", symbol: "MSFT", profitLossDollars: -3.94 },
+      { outcome: "loss", exitTimestamp: "2026-10-28T14:54:05Z", symbol: "IWM", profitLossDollars: -2.84 },
+      { outcome: "loss", exitTimestamp: "2026-10-09T08:22:43Z", symbol: "AMD", profitLossDollars: -77.16 },
+      { outcome: "profit", exitTimestamp: "2026-09-28T17:33:36Z", symbol: "AMD", profitLossDollars: 392.82 },
+    ];
+    const r = readLossSeries(trades, new Date("2026-10-29T14:30:00Z"));
+    expect(r.paused).toBe(true);
+    expect(r.resumesOn).toBe("2026-10-30");
+    expect(r.losses.map((l) => l.symbol)).toEqual(["MSFT", "IWM", "AMD"]);
+    expect(r.note).toContain("MSFT Oct 28, -$3.94; IWM Oct 28, -$2.84; AMD Oct 9, -$77.16");
+    expect(r.note).toContain("resume Fri, Oct 30");
+    expect(readLossSeries(trades, new Date("2026-10-30T13:00:00Z")).paused).toBe(false);
+  });
+
+  it("resumes after a holiday that falls in the pause", () => {
+    const wed = "2026-11-25T18:00:00Z";
+    const r = readLossSeries([loss(wed), loss(wed), loss(wed)], new Date("2026-11-25T19:00:00Z"));
+    expect(r.resumesOn).toBe("2026-11-30");
+  });
 });
