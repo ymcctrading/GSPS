@@ -44,7 +44,6 @@ import { isTradingDay } from "@/lib/market/calendar";
 import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { planLineAhead, type DailyPlanLevels } from "@/lib/scanner/intraday";
-import type { DeliverableFreshness } from "@/lib/notifications/intradayBell";
 import type { FreshnessEvidence } from "@/lib/notifications/freshness";
 import type { PushMessage } from "@/lib/notifications/web-push";
 import { tickerHref } from "@/lib/routes";
@@ -190,13 +189,13 @@ export function preOpenTitle(line: Pick<PreOpenLine, "symbol" | "direction">): s
 
 /**
  * The bell's row for one line, written as of the prior close whatever the
- * disposition (none is actionable before the open). Pure.
+ * disposition (none is actionable before the open); the caller passes only a
+ * line whose freshness check let it through. Pure.
  */
-export function preOpenBellRow(line: PreOpenLine, freshness: DeliverableFreshness): PreOpenBellRow {
+export function preOpenBellRow(line: PreOpenLine): PreOpenBellRow {
   const up = line.direction === "up";
   const pct = (line.distance / line.prevClose) * 100;
   const lineText = line.atEntry ? "its daily plan's line" : "the close that would confirm its daily plan's line";
-  const held = freshness.disposition === "informational" && freshness.reason === "entry_held" ? " This plan is held, so there is no trade to take on it." : "";
   const confirm = line.atEntry
     ? ` A close ${up ? "at or above" : "at or below"} ${price(line.confirmingClose)} would confirm it, and the entry, ${price(line.entry)}, would then be taken on a pullback.`
     : ` A close there would confirm it, and the entry, ${price(line.entry)}, would then be taken on a pullback.`;
@@ -207,7 +206,7 @@ export function preOpenBellRow(line: PreOpenLine, freshness: DeliverableFreshnes
     body:
       `At the ${sessionLabel(line.prevSession)} close, ${line.symbol} stood $${price(line.distance)} (${pct.toFixed(1)}%) ` +
       `${up ? "under" : "over"} ${lineText} at ${price(line.line)}; it closed at ${price(line.prevClose)}.` +
-      `${confirm} Its price has not been checked since that close.${held} Not a buy yet.`,
+      `${confirm} Its price has not been checked since that close. Not a buy yet.`,
   };
 }
 

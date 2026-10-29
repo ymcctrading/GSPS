@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { threePoints, crossingLinesFromEntry } from "@/lib/gann/pointScale";
 import { sessionCloseAt } from "@/lib/data/timeliness";
 import { checkNotificationFreshness } from "@/lib/notifications/freshness";
-import { isNoticeTitle, type DeliverableFreshness } from "@/lib/notifications/intradayBell";
+import { isNoticeTitle } from "@/lib/notifications/intradayBell";
 import {
   inPreOpenWindow,
   preOpenBellRow,
@@ -103,8 +103,8 @@ describe("freshness and wording (NOTIFY-FRESHNESS-001)", () => {
   });
 
   it("writes the bell as of the prior close, with no now, no arrival time and no buy", () => {
-    const f = checkNotificationFreshness(evidence, new Date(evaluatedAt.getTime() + 5_000)) as DeliverableFreshness;
-    const row = preOpenBellRow(line, f);
+    expect(checkNotificationFreshness(evidence, new Date(evaluatedAt.getTime() + 5_000)).disposition).toBe("informational");
+    const row = preOpenBellRow(line);
     expect(row.title).toBe("TXN buy: Line within reach before the open");
     expect(row.body).toBe(
       "At the Oct 26 close, TXN stood $1.86 (0.6%) under its daily plan's line at 301.86; it closed at 300.00. " +

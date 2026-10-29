@@ -78,6 +78,8 @@ export async function GET(req: NextRequest) {
   }
 
   const service = createServiceClient();
+  // The scan universe's equities only: a watched name outside it has no
+  // stored plan from the lists or the sweep, so it has no line to read.
   const universe = LARGE_CAP_UNIVERSE.filter((s) => !s.includes("/"));
   const sweepBasis = await chooseSweepBasis(service, now).catch(() => null);
   const plans = new Map<string, DailyPlanLevels>();
@@ -210,7 +212,7 @@ async function writeBells(
         .filter((l) => watched.has(l.symbol))
         .flatMap((l) => {
           const f = fresh(l, new Date());
-          return f ? [preOpenBellRow(l, f)] : [];
+          return f ? [preOpenBellRow(l)] : [];
         });
       if (rows.length === 0) continue;
       const { data: recent, error } = await service

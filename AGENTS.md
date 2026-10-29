@@ -3600,8 +3600,10 @@ session nearing or trading through the line, with the close that would confirm
 it (`crossingLinesFromEntry`, `pointScale.ts`); a plan whose prior close crossed
 the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
 its line, and one that has made its crossing gets none. Notices, never trades: no
-"Trade this", not stored, not replayed, push and the bell only, worded as
-delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
+"Trade this", not stored, push and the bell only, worded as delayed observations
+while the feed is delayed. The intraday alerts replay reads them as counts and
+excursions only (`lib/backtest/lineNotices.ts`), never as trades; no run on real
+bars yet. Verdicts unchanged.
 **Before the open, same day (coordinator, from the TXN thread's proposal).**
 `/api/pre-open-lines` (pg_cron 12:50 and 13:50 UTC on weekdays, migration 0135;
 it acts only from 8:30 to the 9:30 open, New York time, on a trading day) lists
