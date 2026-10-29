@@ -678,7 +678,7 @@ indefinitely"):** closed orders, positions and trade logs are never deleted by
 the app; they are hidden from the tabs (`lib/portfolio/prune.ts`) and leave only
 when the member's account is deleted (their foreign keys cascade from
 `auth.users`). Gann kept a record of every trade and his rules read it back
-(the series of losses, the profit peak), so nothing may prune them on a timer. **The service key (S-06, owner: "You
+(the series of losses, the profit peak), so nothing may prune them on a timer. Notices are not records: the bell (30 days), the deliveries, monitor transitions, push log and per-member intraday alerts (90 days each) are pruned daily by `gsps_ops.prune_notification_history()` (migration 0138, 08:20 UTC; figures and their readers in `lib/ops/retention.ts`, held by `retention.test.ts`). A new read of those tables further back than its window needs the window moved first. **The service key (S-06, owner: "You
 figure it out"):** the server reads `serviceRoleKey()`
 (`lib/supabase/service-key.ts`): the Sensitive `SUPABASE_SECRET_KEY` first, the
 legacy `SUPABASE_SERVICE_ROLE_KEY` only as a fallback for an operator's shell.
