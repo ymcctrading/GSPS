@@ -55,15 +55,21 @@ export interface QueueShares {
   rotating: number;
 }
 
-/** The scheduled scan's capacity (engineering, labelled; the live cap is the same 50). */
-export const QUEUE_CAPACITY = 50;
+/**
+ * The scheduled scan's capacity (engineering, labelled; the live cap reads it).
+ * 50 until 2026-10-29, raised to 100 on the owner's word ("yes, raise the
+ * cap"): 50-symbol scans returned in about 5-12 s against a 60 s call, and the
+ * bars come in batches of 100 symbols, so 100 is one batch more at most.
+ */
+export const QUEUE_CAPACITY = 100;
 
 /**
  * Each tier's reserved share of `QUEUE_CAPACITY` (engineering, labelled).
- * Core is always read whole (5 today), whatever its share says; the rest sum
- * to 45, so with core at 5 the wheel always keeps its 5.
+ * Core is always read whole, whatever its share says; the rest sum to 90 (the
+ * 50-slot shares doubled with the capacity), so with core at 10 or fewer the
+ * wheel always keeps its 10.
  */
-export const DEFAULT_SHARES: QueueShares = { core: 5, plans: 14, discovery: 8, focus: 12, watched: 6, rotating: 5 };
+export const DEFAULT_SHARES: QueueShares = { core: 10, plans: 28, discovery: 16, focus: 24, watched: 12, rotating: 10 };
 
 export interface QueueCandidate {
   symbol: string;
