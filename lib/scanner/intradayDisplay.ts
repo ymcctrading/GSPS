@@ -133,9 +133,9 @@ export const DAILY_SCALE_HOLD =
 export const AGAINST_DAILY_TREND =
   "Against the daily trend: the daily swing chart runs the other way. Shown for study only; the method trades with the main trend, so this is not offered as a trade.";
 
-/** The note on an alert that runs against the market's trend (`Alert.againstMarketTrend`). */
-export const AGAINST_MARKET_TREND =
-  "Against the market's trend: the overall market's daily and weekly swings run the other way. Shown for study only; trades go with the market's trend, so this is not offered as a trade.";
+/** The note on a sale alert before the stock's main trend has turned down (`Alert.againstMainTrend`). */
+export const AGAINST_MAIN_TREND =
+  "Before the longer-term trend turns down: the stock's monthly chart has not turned down, and a sale against it goes against the main trend. Shown for study only; it is not offered as a trade.";
 
 /** The note on an alert whose stop sits inside one intraday point of its price (`Alert.riskUnderPoint`). */
 export const STOP_INSIDE_NOISE =
@@ -144,7 +144,7 @@ export const STOP_INSIDE_NOISE =
 /**
  * Why an alert is shown but not offered as a trade, or null when it is
  * tradeable on these grounds: a signal the replay measured losing, one that
- * runs against the daily trend or the market's trend, or one whose stop sits
+ * runs against the daily trend, a sale before the main trend has turned down, or one whose stop sits
  * inside one intraday point of its price (the replay's `risk_under_point`), or a
  * daily-scale signal (`DAILY_SCALE_SIGNALS`). The panel, the setup
  * card, the bell and push all read this one function.
@@ -152,7 +152,7 @@ export const STOP_INSIDE_NOISE =
 export function tradeHold(alert: {
   type: SignalType;
   againstDailyTrend?: boolean | null;
-  againstMarketTrend?: boolean | null;
+  againstMainTrend?: boolean | null;
   riskUnderPoint?: boolean | null;
 }): string | null {
   return (
@@ -160,8 +160,8 @@ export function tradeHold(alert: {
     (DAILY_SCALE_SIGNALS.has(alert.type) ? DAILY_SCALE_HOLD : null) ??
     (alert.againstDailyTrend
       ? AGAINST_DAILY_TREND
-      : alert.againstMarketTrend
-        ? AGAINST_MARKET_TREND
+      : alert.againstMainTrend
+        ? AGAINST_MAIN_TREND
         : alert.riskUnderPoint
           ? STOP_INSIDE_NOISE
           : null)

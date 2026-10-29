@@ -72,7 +72,7 @@ export function intradayChartPlan(
 ): IntradayChartPlan | null {
   const sym = symbol.toUpperCase();
   const offered = (
-    a: { type: Alert["type"]; againstDailyTrend?: boolean; againstMarketTrend?: boolean; riskUnderPoint?: boolean },
+    a: { type: Alert["type"]; againstDailyTrend?: boolean; againstMainTrend?: boolean; riskUnderPoint?: boolean },
     stop: number | null,
     tp1: number | null,
   ) =>

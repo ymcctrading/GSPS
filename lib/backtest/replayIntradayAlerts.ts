@@ -36,8 +36,8 @@
  * Nor is an alert against the daily trend (`Alert.againstDailyTrend`, audit
  * I-02, 2026-10-28): the panel shows it for study and offers no trade, "never
  * buck the trend" (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
- * 2026-10-29, is one the averages' 3-Day and weekly charts both run against
- * (`Alert.againstMarketTrend`, 45 Years Rule 1), read from `marketDailyBars`.
+ * 2026-10-29, is a sale before the stock's monthly chart has turned its main
+ * trend down (`Alert.againstMainTrend`), read from the same prior daily bars.
  *
  * **The fill.** A person sees an alert a feed delay after the bars it read
  * (the system scan reads data ending 16 minutes before it runs), so the fill
@@ -79,7 +79,6 @@
  * does.
  */
 
-import { readAveragesTrend } from "@/lib/gann/averagesTrend";
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
@@ -164,12 +163,6 @@ export interface AlertReplayInput {
   dailyBars: Bar[];
   /** Monthly bars, for the level the entry crossed (`entryCrossedLevel`). */
   monthlyBars?: Bar[];
-  /**
-   * The averages' (SPY's) daily bars, for 45 Years Rule 1: a trade alert the
-   * averages' 3-Day and weekly charts both run against is not entered, as the
-   * live panel offers no trade on it. Absent: not read (crypto, or no read).
-   */
-  marketDailyBars?: Bar[];
   /** Split-adjusted shares outstanding on a date, for the D2 exit. */
   sharesOn?: (date: string) => number | null;
   /** The daily plan each session stood on (`ReplayOptions.sessionPlans`), keyed by ET date. */
@@ -249,10 +242,6 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     const dailyFrom = new Date(Date.parse(`${date}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
     const priorDaily = completedDailyBars(dailyBars, date, kind === "crypto", dailyFrom);
     if (priorDaily.length < 3) continue;
-    // The live route's market read: 400 days of SPY's sessions, cut at the
-    // stock's prior session (`withMarketTrend`).
-    const marketTrend =
-      kind !== "crypto" && input.marketDailyBars ? readAveragesTrend(completedDailyBars(input.marketDailyBars, date, false, dailyFrom)) : null;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
     const sessionPlan = plans.get(date);
@@ -295,7 +284,6 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         dailyAtr,
         recentBars: bars.slice(Math.max(0, baselineStart), k + 1),
         priorDailyBars: priorDaily,
-        marketTrend,
         avgDailyVolume: liquidity?.avgVolume ?? null,
         dailyPlan,
         lastAlerts: fired,
@@ -325,7 +313,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
           !isReversalRisk(a) &&
           !NOTICE_SIGNALS.has(a.type) &&
           !a.againstDailyTrend &&
-          !a.againstMarketTrend &&
+          !a.againstMainTrend &&
           // Held live too (2026-10-29): its stop sat inside one point of the
           // alert's price, so it was never offered; the fill-time
           // `risk_under_point` check below still refuses the rest.
