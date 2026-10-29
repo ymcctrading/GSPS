@@ -20,8 +20,10 @@
  *   ledger (`email_daily_budget`).
  * - The Supabase database, 500 MB (free project). Not a periodic limit.
  * - Supabase connections (the database's max_connections, 60), file storage
- *   (1 GB) and monthly active users (50,000). Alert only.
- * - Alpaca's data API, 200 requests a minute (free plan), read as the day's
+ *   (1 GB) and monthly active users (50,000; a lower bound, since a user is
+ *   counted by their last sign-in only). Alert only, once a month per
+ *   threshold.
+ * - Alpaca's data API, 200 requests a minute (free plan), read as the month's
  *   busiest minute from the account-wide headers the responses carry. Alert
  *   only: the app's own limiter keeps under it, so a reading near 100% means
  *   that limiter is too loose or a second caller shares the key.
@@ -83,14 +85,17 @@ export const USAGE_METERS: Record<UsageMeterId, UsageMeter> = {
   email_daily: { id: "email_daily", label: "Emails today", unit: "emails", limit: 100, period: "day", holds: true },
   email_monthly: { id: "email_monthly", label: "Emails this month", unit: "emails", limit: 3000, period: "month", holds: true },
   supabase_db: { id: "supabase_db", label: "Supabase database size", unit: "MB", limit: 500, period: "none", holds: false },
-  // Read hourly; the day's alert names the busiest reading. 60 is the
-  // database's own max_connections on the free compute (read 2026-10-28).
-  supabase_connections: { id: "supabase_connections", label: "Supabase database connections", unit: "connections", limit: 60, period: "day", holds: false },
+  // Read hourly. 60 is the database's own max_connections on the free
+  // compute (read 2026-10-28). Keyed by the month, not the day: the pool
+  // already sits near 25%, and a daily key would mail the same thresholds
+  // every day and spend the ops email budget on routine readings.
+  supabase_connections: { id: "supabase_connections", label: "Supabase database connections", unit: "connections", limit: 60, period: "month", holds: false },
   supabase_storage: { id: "supabase_storage", label: "Supabase file storage", unit: "MB", limit: 1000, period: "none", holds: false },
   supabase_mau: { id: "supabase_mau", label: "Supabase monthly active users", unit: "users", limit: 50_000, period: "month", holds: false },
-  // The busiest minute of the day, from Alpaca's own rate-limit headers.
-  // Alert only: our token bucket (lib/data/http.ts) already queues under it.
-  alpaca_rate: { id: "alpaca_rate", label: "Alpaca data requests in a minute", unit: "requests a minute", limit: 200, period: "day", holds: false },
+  // The busiest minute of the month, from Alpaca's own rate-limit headers.
+  // Alert only: our token bucket (lib/data/http.ts) already queues under it,
+  // at about 75% of 200, so a daily key would mail 25/50/75 every day.
+  alpaca_rate: { id: "alpaca_rate", label: "Alpaca data requests in a minute", unit: "requests a minute", limit: 200, period: "month", holds: false },
 };
 
 /** The owner's thresholds, in percent. */

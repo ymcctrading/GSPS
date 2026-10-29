@@ -4,7 +4,7 @@
 --
 --   usage_events      now also takes 'alpaca_rate' rows: `units` is the
 --                     busiest minute a scan saw, from Alpaca's rate headers.
---   usage_max()       a meter's largest reading over a window (the day's
+--   usage_max()       a meter's largest reading over a window (the month's
 --                     busiest minute).
 --   usage_supabase()  connections now, file storage in bytes, and users
 --                     signed in since the start of the UTC month.
@@ -37,7 +37,9 @@ set search_path = public
 as $fn$
   select jsonb_build_object(
     'connections', (select count(*) from pg_stat_activity where datname = current_database()),
-    'storage_bytes', (select coalesce(sum((metadata->>'size')::bigint), 0) from storage.objects),
+    -- A size that is missing or not a whole number counts as 0, never an
+    -- error: one bad row must not leave all three meters unread.
+    'storage_bytes', (select coalesce(sum(case when metadata->>'size' ~ '^[0-9]{1,18}$' then (metadata->>'size')::bigint else 0 end), 0) from storage.objects),
     'mau', (select count(*) from auth.users where last_sign_in_at >= date_trunc('month', now() at time zone 'UTC') at time zone 'UTC')
   );
 $fn$;

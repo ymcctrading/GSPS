@@ -10,7 +10,7 @@
  * - Email: `email_daily_budget`, the send ledger every email reserves a slot in.
  * - The database: `usage_database_bytes()`; its connections, file storage and
  *   monthly active users: `usage_supabase()`.
- * - Alpaca's per-minute allowance: the day's largest `alpaca_rate` event
+ * - Alpaca's per-minute allowance: the month's largest `alpaca_rate` event
  *   (`usage_max()`), each the busiest minute a scan saw (`rateUsage.ts`).
  *
  * Alerts go to the owner's addresses by email (kind "ops"), one per meter per
@@ -94,11 +94,23 @@ async function maxEvent(service: Service, meter: UsageMeter, now: Date): Promise
   return Number(data ?? 0);
 }
 
-async function supabaseCounts(service: Service): Promise<{ connections: number; storageMb: number; mau: number }> {
-  const { data, error } = await service.rpc("usage_supabase");
-  if (error) throw new Error(error.message);
-  const row = (data ?? {}) as { connections?: unknown; storage_bytes?: unknown; mau?: unknown };
-  return { connections: Number(row.connections ?? 0), storageMb: Number(row.storage_bytes ?? 0) / 1_000_000, mau: Number(row.mau ?? 0) };
+type SupabaseCounts = { connections: number; storageMb: number; mau: number };
+
+// One `usage_supabase()` call serves all three meters of a check: the check
+// reads them with the same client and clock.
+const supabaseCountsRead = new WeakMap<Service, { at: number; counts: Promise<SupabaseCounts> }>();
+
+function supabaseCounts(service: Service, now: Date): Promise<SupabaseCounts> {
+  const cached = supabaseCountsRead.get(service);
+  if (cached && cached.at === now.getTime()) return cached.counts;
+  const counts = (async () => {
+    const { data, error } = await service.rpc("usage_supabase");
+    if (error) throw new Error(error.message);
+    const row = (data ?? {}) as { connections?: unknown; storage_bytes?: unknown; mau?: unknown };
+    return { connections: Number(row.connections ?? 0), storageMb: Number(row.storage_bytes ?? 0) / 1_000_000, mau: Number(row.mau ?? 0) };
+  })();
+  supabaseCountsRead.set(service, { at: now.getTime(), counts });
+  return counts;
 }
 
 async function databaseMb(service: Service): Promise<number> {
@@ -119,11 +131,11 @@ export async function readUsed(service: Service, meter: UsageMeter, now: Date): 
     case "supabase_db":
       return databaseMb(service);
     case "supabase_connections":
-      return (await supabaseCounts(service)).connections;
+      return (await supabaseCounts(service, now)).connections;
     case "supabase_storage":
-      return (await supabaseCounts(service)).storageMb;
+      return (await supabaseCounts(service, now)).storageMb;
     case "supabase_mau":
-      return (await supabaseCounts(service)).mau;
+      return (await supabaseCounts(service, now)).mau;
     case "alpaca_rate":
       return maxEvent(service, meter, now);
   }

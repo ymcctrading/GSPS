@@ -119,9 +119,15 @@ describe("alert-only limits", () => {
     }
   });
 
-  it("the busiest minute alerts once a day", () => {
-    const alpaca = USAGE_METERS.alpaca_rate;
-    expect(periodOf(alpaca, mid).key).toBe("2026-10-28");
-    expect(alertsDue(60, [], alpaca, mid)).toEqual([25, 50, 60]);
+  it("the busiest minute and the connections alert once a month, not every day", () => {
+    for (const id of ["alpaca_rate", "supabase_connections"] as const) {
+      const meter = USAGE_METERS[id];
+      expect(periodOf(meter, mid).key).toBe("2026-10");
+      expect(alertsDue(60, [], meter, mid)).toEqual([25, 50, 60]);
+      // Sent yesterday in the same month: nothing new the next day.
+      const yesterday = new Date("2026-10-27T22:00:00Z");
+      const sent = [25, 50, 60].map((threshold) => ({ threshold, sentAt: yesterday }));
+      expect(alertsDue(60, sent, meter, mid)).toEqual([]);
+    }
   });
 });

@@ -25,7 +25,7 @@ confirm you're still under its limit.
 
 ## What the usage meter reads (2026-10-28)
 
-`/api/ops/usage` (`lib/ops/usageLimits.ts`, migrations 0133 and 0134) reads
+`/api/ops/usage` (`lib/ops/usageLimits.ts`, migrations 0133 and 0137) reads
 these, alerts the owner at 25, 50, 60 … 99%, and holds the ones marked "holds"
 at 99%. Figures read at 23:15 UTC on 2026-10-28.
 
@@ -35,10 +35,10 @@ at 99%. Figures read at 23:15 UTC on 2026-10-28.
 | Vercel deployments | 100 | rolling 24 hours | each push to `main` | 35 (35%) | yes |
 | Resend emails | 100 a day, 3,000 a month | UTC day, UTC month | `email_daily_budget`; Oct 1-27 backfilled from `notification_log` and `notification_deliveries` (a floor: digests and reports before Oct 28 aren't in either) | 11 today; ≥1,602 in October (53%) | yes |
 | Supabase database size | 500 MB | none | `pg_database_size` | 139 MB (28%) | no |
-| Supabase connections | 60 (`max_connections`) | hourly reading, alert once a day | `pg_stat_activity` | 15 (25%) | no |
+| Supabase connections | 60 (`max_connections`) | hourly reading, alert once a month | `pg_stat_activity` | 15 (25%) | no |
 | Supabase file storage | 1 GB | none | `storage.objects` | 0 MB | no |
-| Supabase monthly active users | 50,000 | UTC month | `auth.users.last_sign_in_at` | 8 | no |
-| Alpaca data requests | 200 a minute | busiest minute, alert once a day | Alpaca's `X-RateLimit-*` headers, reported after each market and intraday scan | first reading after deploy | no |
+| Supabase monthly active users | 50,000 | UTC month | `auth.users.last_sign_in_at` (a lower bound) | 8 | no |
+| Alpaca data requests | 200 a minute | busiest minute, alert once a month | Alpaca's `X-RateLimit-*` headers, reported after each market and intraday scan | first reading after deploy | no |
 
 Not metered, because no API reachable here exposes them on a free plan
 (read them on the dashboards): Supabase egress (5 GB a month) and Vercel's
