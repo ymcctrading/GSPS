@@ -64,6 +64,7 @@ import { readGannRulePrefs } from "@/lib/trade/away-notice";
 import { awayReminderDue, restReminderDue } from "@/lib/gann/traderPrefs";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { capRefusal, capShares, readTradeDollarCap } from "@/lib/automation/tradeDollarCap";
 import type { Bar } from "@/lib/types";
 
 /** A claim older than this is a pass that died mid-add, and is taken over. */
@@ -165,13 +166,16 @@ export async function placeAutomatedPyramidAdds(
 
   const { data: profiles, error: profilesError } = await supabase
     .from("user_automation_profiles")
-    .select("user_id")
+    .select("user_id, max_trade_dollars")
     .eq("is_automation_enabled", true);
   if (profilesError) {
     run.errors.push(`Could not read automation profiles: ${profilesError.message}`);
     return run;
   }
-  const users = new Set(((profiles ?? []) as { user_id: string }[]).map((p) => p.user_id));
+  const profileRows = (profiles ?? []) as { user_id: string; max_trade_dollars?: unknown }[];
+  const users = new Set(profileRows.map((p) => p.user_id));
+  // The member's per-trade dollar cap holds each add too (lib/automation/tradeDollarCap.ts).
+  const caps = new Map(profileRows.map((p) => [p.user_id, readTradeDollarCap(p.max_trade_dollars)]));
   if (users.size === 0) return run;
 
   const { data: rows, error } = await supabase
@@ -242,7 +246,7 @@ export async function placeAutomatedPyramidAdds(
         away.set(line.user_id, prefs == null || awayReminderDue(prefs, now) != null || restReminderDue(prefs, now) != null);
       }
       if (away.get(line.user_id)) continue;
-      await addToLine(supabase, market, line, now, run);
+      await addToLine(supabase, market, line, now, run, caps.get(line.user_id) ?? null);
     } catch (err) {
       run.errors.push(`${line.symbol} (${line.id}): ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -256,6 +260,7 @@ async function addToLine(
   line: LineRow,
   now: Date,
   run: PyramidAddRun,
+  cap: number | null = null,
 ): Promise<void> {
   const symbol = line.symbol.toUpperCase();
   const long = line.side === "long";
@@ -282,6 +287,12 @@ async function addToLine(
   if (!add) return;
   // The add waits for the market to cross its trigger.
   if (long ? quote < add.trigger : quote > add.trigger) return;
+  // The per-trade dollar cap only takes shares away from Gann's lot.
+  const addQty = capShares(add.qty, cap, quote);
+  if (addQty < 1) {
+    run.notes.push(`${symbol}: pyramid add not placed. ${capRefusal(symbol, cap ?? 0, quote)}`);
+    return;
+  }
 
   // Claim the line before anything is placed.
   const stale = new Date(now.getTime() - CLAIM_MINUTES * 60_000).toISOString();
@@ -307,7 +318,7 @@ async function addToLine(
   // past it would sit more than 5 points over its stop and be refused.
   const lots = lineLots(line);
   const heldQty = lots.reduce((n, l) => n + l.qty, 0);
-  const avgAtQuote = (lots.reduce((n, l) => n + l.qty * l.price, 0) + add.qty * quote) / (heldQty + add.qty);
+  const avgAtQuote = (lots.reduce((n, l) => n + l.qty * l.price, 0) + addQty * quote) / (heldQty + addQty);
   const stop = wholeLineStop(line.side, avgAtQuote, quote, add.newStop);
   if (long ? stop >= quote : stop <= quote) {
     await release();
@@ -323,7 +334,7 @@ async function addToLine(
     symbol,
     assetClass: "equity",
     side: long ? "buy" : "sell",
-    qty: add.qty,
+    qty: addQty,
     entryMode: "now",
     referencePrice: quote,
     mode: "paper",
@@ -338,7 +349,7 @@ async function addToLine(
   if (placed.status !== 200 || !placed.orderId) {
     await release();
     const reason = typeof placed.body.error === "string" ? placed.body.error : `status ${placed.status}`;
-    run.notes.push(`${symbol}: pyramid add of ${add.qty} not placed. ${reason}`);
+    run.notes.push(`${symbol}: pyramid add of ${addQty} not placed. ${reason}`);
     return;
   }
   run.placed++;

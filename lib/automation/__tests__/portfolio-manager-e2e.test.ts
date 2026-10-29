@@ -600,6 +600,51 @@ describe("Automated Portfolio Manager — real end-to-end pipeline (paper)", () 
     }
   });
 
+  it("holds an automated trade to the member's per-trade dollar limit, entry and pass alike", async () => {
+    const { client, orders, automationProfiles } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+      max_trade_dollars: 250,
+    });
+    await createArmedPlan(client, "user-1");
+    vi.mocked(isTriggered).mockReturnValue(true);
+
+    const result = await runAutonomousPortfolioManager(client);
+
+    expect(result.errors).toEqual([]);
+    expect(result.plansActivated).toBe(1);
+    // $250 at the $100 entry with 5% headroom: 2 shares, risked at $3 each.
+    expect(automationProfiles[0].configuration).toMatchObject({ allocatedDollarRisk: 6 });
+    expect(orders).toHaveLength(1);
+    expect(Number(orders[0].qty)).toBe(2);
+  });
+
+  it("skips a stock one share of which costs more than the per-trade limit", async () => {
+    const { client, orders } = fakeSupabase({
+      user_id: "user-1",
+      is_automation_enabled: true,
+      risk_profile: "PASSIVE",
+      directional_bias: "BOTH",
+      volatility_trigger_type: "DOLLAR_AMOUNT",
+      volatility_trigger_value: 1,
+      execution_mode: "paper",
+      max_trade_dollars: 50,
+    });
+    await createArmedPlan(client, "user-1");
+
+    const result = await runAutonomousPortfolioManager(client);
+
+    expect(result.plansActivated).toBe(0);
+    expect(result.plansSkipped).toBe(1);
+    expect(result.errors.some((e) => /per-trade limit/.test(e.reason))).toBe(true);
+    expect(orders).toHaveLength(0);
+  });
+
   it("skips a candidate whose direction doesn't match the profile's bias, and places no order", async () => {
     const { client, orders } = fakeSupabase({
       user_id: "user-1",

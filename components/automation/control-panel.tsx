@@ -21,6 +21,8 @@ export interface AutomationProfile {
   volatility_trigger_value: number;
   execution_mode: ExecutionMode;
   pivot_on_stop_out: boolean;
+  /** Most one automated trade may cost, in dollars; null = no limit (migration 0140). */
+  max_trade_dollars: number | null;
 }
 
 const RISK: RiskProfile[] = ["PASSIVE", "MODERATE", "AGGRESSIVE"];
@@ -140,6 +142,11 @@ export function AutomationControlPanel({
         </CardContent>
       </Card>
 
+      <TradeLimitCard
+        value={profile.max_trade_dollars}
+        onSave={(max_trade_dollars) => persist({ ...profile, max_trade_dollars })}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Directional bias</CardTitle>
@@ -202,6 +209,63 @@ export function AutomationControlPanel({
         {saving ? "Saving…" : savedAt ? `Saved at ${savedAt}` : "Changes save automatically."}
       </p>
     </div>
+  );
+}
+
+/**
+ * The per-trade dollar limit (lib/automation/tradeDollarCap.ts): the most one
+ * automated trade may cost. Blank means no limit. It only ever buys fewer
+ * shares; the stop and the plan stay the same.
+ */
+function TradeLimitCard({ value, onSave }: { value: number | null; onSave: (next: number | null) => void }) {
+  const [draft, setDraft] = useState(value == null ? "" : String(value));
+  const [invalid, setInvalid] = useState(false);
+  function commit() {
+    const text = draft.trim().replace(/[$,]/g, "");
+    if (text === "") {
+      setInvalid(false);
+      if (value != null) onSave(null);
+      return;
+    }
+    const n = Number(text);
+    if (!Number.isFinite(n) || n <= 0) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    const rounded = Math.round(n * 100) / 100;
+    setDraft(String(rounded));
+    if (rounded !== value) onSave(rounded);
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Limit per trade</CardTitle>
+        <CardDescription>
+          The most one automated trade may cost. The engine buys fewer shares to stay under it, and skips a
+          stock when one share costs more. Leave blank for no limit.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <label className="flex items-center gap-2">
+          <span className="font-mono text-lg">$</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            aria-label="Limit per trade in dollars"
+            placeholder="No limit"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+            }}
+            className="w-40 rounded-md border border-border bg-background px-3 py-2 font-mono"
+          />
+        </label>
+        {invalid && <p className="text-xs text-bear">Enter a dollar amount above zero, or leave it blank.</p>}
+      </CardContent>
+    </Card>
   );
 }
 
