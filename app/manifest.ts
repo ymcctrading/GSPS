@@ -7,8 +7,9 @@ import type { MetadataRoute } from "next";
  * the Home Screen with a manifest whose display is standalone (iOS 16.4+).
  *
  * Opens on the Dashboard; a visitor with no session is sent to sign in by the
- * proxy, as from any bookmark. Colours match the light surface, as the root
- * layout's `themeColor` does, since nothing switches the dark palette on yet.
+ * proxy, as from any bookmark. Colours are the light default, as the root
+ * layout's `themeColor` is: the dark theme is a per-device choice applied once
+ * the page loads (`lib/theme.ts`), so the launch splash stays light.
  *
  * Mandate: 1. No Gann content (a delivery surface). 2. Dewey N/A. 3.
  * Correspondence: the installed app is the same site, the same plan and

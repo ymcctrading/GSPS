@@ -34,6 +34,10 @@ under "Boundaries" below.
 
 ### 1. An installable web app (the free mobile path)
 
+**Built 2026-10-29 (#562):** `app/manifest.ts` and icons, an offline page in
+`public/sw.js` (network first, nothing else cached), and an Install card beside
+the push switch in Settings. Not yet tried on a real phone.
+
 **Gann:** none; this is a delivery surface. **Hermetic:** Correspondence: the same
 plan, verdict and levels on the phone as on the desktop, with no mobile-only
 reading.
@@ -87,6 +91,11 @@ scores P3(c). Q3 shows it.
 - No method name in any label (confidential-sources rule).
 
 ### 4. Theme switch and a choice of Dashboard sections
+
+**Theme built 2026-10-29 (#562):** Light, Dark or Match device, kept per device
+(`lib/theme.ts`, an Appearance card in Settings), applied before paint. Kept on
+the device rather than in `settings.prefs`, so a phone and a desk screen can
+differ. Dashboard sections not started.
 
 **Gann:** none. **Hermetic:** Polarity: novice and expert each get a designed view,
 not a shortened list.
