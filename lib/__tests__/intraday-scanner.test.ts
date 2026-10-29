@@ -19,7 +19,7 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import { pricePoint, intradayPoint } from "@/lib/gann/pointScale";
-import { NOTICE_SIGNALS, tradeHold } from "@/lib/scanner/intradayDisplay";
+import { DAILY_SCALE_HOLD, NOTICE_SIGNALS, tradeHold } from "@/lib/scanner/intradayDisplay";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -798,6 +798,15 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert?.direction).toBe("up");
     expect(alert?.invalidation).toBeCloseTo(499 - pricePoint(499), 2);
+  });
+
+  it("holds the Overnight Chart's turn from trade: its daily-scale stop and targets are not a session's (META, 2026-10-29)", () => {
+    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    expect(alert).toBeDefined();
+    expect(tradeHold(alert!)).toBe(DAILY_SCALE_HOLD);
+    // The scale hold comes before the trend notes; a session signal is not held for scale.
+    expect(tradeHold({ type: "overnight_turn", againstDailyTrend: true })).toBe(DAILY_SCALE_HOLD);
+    expect(tradeHold({ type: "trend_continuation" })).toBeNull();
   });
 
   it("does not alert on the Overnight Chart when today makes no new bottom or top against the line", () => {

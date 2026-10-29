@@ -101,6 +101,7 @@ import {
   type SignalType,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
+import { DAILY_SCALE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { isReversalRisk } from "@/lib/setups/intraday";
 import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
@@ -329,7 +330,10 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
           // alert's price, so it was never offered; the fill-time
           // `risk_under_point` check below still refuses the rest.
           !a.riskUnderPoint &&
-          (!signals || signals.has(a.type)),
+          // A daily-scale signal is never offered as an intraday trade
+          // (`DAILY_SCALE_SIGNALS`, 2026-10-29); a run that names it in
+          // `signals` still measures it.
+          (signals ? signals.has(a.type) : !DAILY_SCALE_SIGNALS.has(a.type)),
       );
       if (!alert) continue;
       const point = sessionMetrics(scanInput)?.point ?? 0;
