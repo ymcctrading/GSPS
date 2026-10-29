@@ -87,7 +87,9 @@ function threeDayPivots(bars: Bar[]): ReturnType<typeof swingPivots> {
  * - neither, such as the lowest bar at the window's start in a market that
  *   rose all year (part of an older decline, no bottom): NaN, unread.
  * Gann dates a bottom by the swing chart, so an extreme the chart did not
- * turn at is not read as first or late.
+ * turn at is not read as first or late. A market that broke its last bottom
+ * and has rallied since without crossing the top before the break still reads
+ * "not yet": by the swing chart's trend rule it has not turned.
  */
 function extremeDate(all: Bar[], window: Bar[], kind: "low" | "high"): number {
   if (window.length === 0) return NaN;
