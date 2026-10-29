@@ -48,12 +48,25 @@ export const LOSS_SERIES_LENGTH = 3;
 export interface ClosedTrade {
   outcome: "profit" | "loss" | "pending" | null;
   exitTimestamp: string | null;
+  symbol?: string | null;
+  profitLossDollars?: number | null;
+}
+
+/** One loss of the series, newest first, so a trader can check the count. */
+export interface SeriesTrade {
+  symbol: string | null;
+  exitTimestamp: string | null;
+  profitLossDollars: number | null;
 }
 
 export interface LossSeriesReading {
   consecutiveLosses: number;
   /** ET date of the loss that completed the series, when there is one. */
   seriesCompletedOn: string | null;
+  /** The losses read, newest first (at most `LOSS_SERIES_LENGTH`). */
+  losses: SeriesTrade[];
+  /** ET date (YYYY-MM-DD) new entries may resume, while paused. */
+  resumesOn: string | null;
   paused: boolean;
   note: string | null;
 }
@@ -75,6 +88,35 @@ function tradingDaysAfter(from: string, to: string): number {
   return count;
 }
 
+/** The trading day `n` trading days after `from` (YYYY-MM-DD, ET). */
+function tradingDayAfter(from: string, n: number): string {
+  const d = new Date(`${from}T12:00:00Z`);
+  let left = n;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6 && !isMarketHoliday(d.toISOString().slice(0, 10))) left--;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function shortDate(key: string): string {
+  return new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function describeLoss(t: SeriesTrade): string {
+  const when = t.exitTimestamp ? shortDate(etDateKey(new Date(t.exitTimestamp))).replace(/^\w+, /, "") : "date unknown";
+  const pnl = t.profitLossDollars != null && Number.isFinite(t.profitLossDollars)
+    ? `, ${t.profitLossDollars < 0 ? "-" : ""}$${Math.abs(t.profitLossDollars).toFixed(2)}`
+    : "";
+  return `${t.symbol ?? "a trade"} ${when}${pnl}`;
+}
+
 /**
  * Read the series from closed trades, newest first. Pure, so it can be tested
  * without a database.
@@ -82,22 +124,31 @@ function tradingDaysAfter(from: string, to: string): number {
 export function readLossSeries(closedNewestFirst: ClosedTrade[], now: Date = new Date()): LossSeriesReading {
   let consecutiveLosses = 0;
   let seriesCompletedOn: string | null = null;
+  const losses: SeriesTrade[] = [];
   for (const t of closedNewestFirst) {
     if (t.outcome !== "loss") break;
     consecutiveLosses++;
+    if (losses.length < LOSS_SERIES_LENGTH) {
+      losses.push({ symbol: t.symbol ?? null, exitTimestamp: t.exitTimestamp, profitLossDollars: t.profitLossDollars ?? null });
+    }
     if (consecutiveLosses === 1 && t.exitTimestamp) seriesCompletedOn = etDateKey(new Date(t.exitTimestamp));
   }
   if (consecutiveLosses < LOSS_SERIES_LENGTH || !seriesCompletedOn) {
-    return { consecutiveLosses, seriesCompletedOn: null, paused: false, note: null };
+    return { consecutiveLosses, seriesCompletedOn: null, losses, resumesOn: null, paused: false, note: null };
   }
   const elapsed = tradingDaysAfter(seriesCompletedOn, etDateKey(now));
   const paused = elapsed <= 1;
+  // The pause covers the third loss's day and the next trading day, so
+  // entries resume on the second trading day after it.
+  const resumesOn = paused ? tradingDayAfter(seriesCompletedOn, 2) : null;
   return {
     consecutiveLosses,
     seriesCompletedOn,
+    losses,
+    resumesOn,
     paused,
-    note: paused
-      ? `${consecutiveLosses} losing trades in a row. New entries pause for the rest of today and the next trading day: stop, review what changed, then go on. Stops and closes are never blocked.`
+    note: paused && resumesOn
+      ? `${consecutiveLosses} losing trades in a row, the latest: ${losses.map(describeLoss).join("; ")}. New entries resume ${shortDate(resumesOn)}: stop, review what changed, then go on. Stops and closes are never blocked.`
       : null,
   };
 }
@@ -110,7 +161,7 @@ export async function readUserLossSeries(
 ): Promise<LossSeriesReading> {
   const { data, error } = await supabase
     .from("trade_logs")
-    .select("outcome, exit_timestamp")
+    .select("outcome, exit_timestamp, symbol, profit_loss_dollars")
     .eq("user_id", userId)
     // Trades GSPS placed, paper or live. A journal entry is typed by hand and
     // unchecked, and one "profit" dated now would end a series (R-002).
@@ -120,6 +171,19 @@ export async function readUserLossSeries(
     .order("exit_timestamp", { ascending: false })
     .limit(10);
   if (error) throw new Error(`loss series: ${error.message}`);
-  const rows = (data ?? []) as { outcome: ClosedTrade["outcome"]; exit_timestamp: string | null }[];
-  return readLossSeries(rows.map((r) => ({ outcome: r.outcome, exitTimestamp: r.exit_timestamp })), now);
+  const rows = (data ?? []) as {
+    outcome: ClosedTrade["outcome"];
+    exit_timestamp: string | null;
+    symbol: string | null;
+    profit_loss_dollars: number | string | null;
+  }[];
+  return readLossSeries(
+    rows.map((r) => ({
+      outcome: r.outcome,
+      exitTimestamp: r.exit_timestamp,
+      symbol: r.symbol,
+      profitLossDollars: r.profit_loss_dollars == null ? null : Number(r.profit_loss_dollars),
+    })),
+    now,
+  );
 }
