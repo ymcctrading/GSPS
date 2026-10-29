@@ -586,8 +586,11 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   let completedSections = 0;
   for (const top of weeklyTops) {
     let exceededAt = -1;
+    // Exceeded by the 3-point allowance, as every other crossing here reads
+    // it (2026-10-29 review): a poke of a tick is not a new section.
+    const line = beyondByThreePoints(top.price, bull ? 1 : -1);
     for (let i = top.index + 1; i < bars.length; i++) {
-      if (beyond(i, top.price)) {
+      if (beyond(i, line)) {
         exceededAt = i;
         break;
       }

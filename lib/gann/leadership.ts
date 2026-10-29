@@ -78,13 +78,16 @@ function threeDayPivots(bars: Bar[]): ReturnType<typeof swingPivots> {
 }
 
 /**
- * The date of the window's lowest low (highest high), or NaN when that
- * extreme is not a bottom (top) of the 3-Day Chart walked on the whole record
- * (2026-10-29). A market that rose all year has its lowest bar on the window's
- * first sessions, part of a decline still running, not a bottom; reading it
- * as one made most stocks "late movers" in every rising year. Gann dates a
- * bottom by the swing chart, so an extreme the chart does not turn at is not
- * read as first or late.
+ * The date of the window's lowest low (highest high), read against the
+ * 3-Day Chart walked on the whole record (2026-10-29):
+ * - a pivot of the chart: its date;
+ * - the running extreme, after the chart's last pivot in a leg still moving
+ *   toward it: Infinity, "not yet", so a stock that has turned is first, as
+ *   `first` reads a market that has not crossed yet;
+ * - neither, such as the lowest bar at the window's start in a market that
+ *   rose all year (part of an older decline, no bottom): NaN, unread.
+ * Gann dates a bottom by the swing chart, so an extreme the chart did not
+ * turn at is not read as first or late.
  */
 function extremeDate(all: Bar[], window: Bar[], kind: "low" | "high"): number {
   if (window.length === 0) return NaN;
@@ -94,13 +97,19 @@ function extremeDate(all: Bar[], window: Bar[], kind: "low" | "high"): number {
   }
   const at = all.length - window.length + idx;
   const want = kind === "low" ? "bottom" : "top";
-  const pivot = threeDayPivots(all).some((p) => p.kind === want && p.index === at && p.index > 0);
-  return pivot ? Date.parse(window[idx].t) : NaN;
+  const pivots = threeDayPivots(all);
+  if (pivots.some((p) => p.kind === want && p.index === at && p.index > 0)) return Date.parse(window[idx].t);
+  // Running: after the chart's last pivot, in a leg moving toward the extreme
+  // (the last pivot the opposite turn), or with no pivot yet, on the last bar.
+  const last = pivots[pivots.length - 1];
+  const running = last ? at > last.index && last.kind !== want : at === all.length - 1;
+  return running ? Infinity : NaN;
 }
 
-/** `a - b >= lead`, false when either date is unread. */
+/** `a - b >= lead`: false when either date is unread, or when both are still running. */
 function ahead(a: number, b: number, lead: number): boolean {
-  return !Number.isNaN(a) && !Number.isNaN(b) && a - b >= lead;
+  if (Number.isNaN(a) || Number.isNaN(b) || (a === Infinity && b === Infinity)) return false;
+  return a - b >= lead;
 }
 
 /**

@@ -1448,7 +1448,9 @@ young the reaction. Random walks (40 a drift, 2,080 readings): 3rd or later on
 35.8% of readings with no drift, 42.5% at +0.05% a day, 46.7% at +0.1% a day
 (the 3-Day count's `lateSection` read 46-54%); the whole ledger read stays
 about 0.05-0.07 ms. The public note says only that the move has
-run several legs. `STRATEGY_VERSION` was `2026-10-29-gann-early-sections`;
+run several legs. A record top ends a section only once exceeded by the 3-point allowance (review,
+2026-10-29), as the ledger's other crossings read it. `STRATEGY_VERSION` was
+`2026-10-29-gann-early-sections`;
 Execute and the 7/4 cutoffs need a fresh run on it.
 
 ## WD Gann precedence — standing principle
@@ -3718,14 +3720,17 @@ campaign has run a year. APPROXIMATED: the campaign is the stock's own weekly
 campaign, not the market's. (2) That high is crossed by the 3-point allowance
 and held unless broken back by 3 (`campaignLedger.ts`; Jewel Tea, W006 Rule
 3(c)); it read the latest close with no allowance. (3) First and late tops and
-bottoms (`readLeadership`) read only an extreme that is a 3-Day Chart pivot on
-the whole record: a market that rose all year has its lowest bar at the window's
+bottoms (`readLeadership`) read an extreme at a 3-Day Chart pivot on the whole
+record as dated, one still being made in the chart's open leg as "not yet" (a
+stock that turned while the market still makes new lows bottomed first), and any
+other as unread: a market that rose all year has its lowest bar at the window's
 start, no bottom, and every stock read as a late mover against it. A late mover
 is not refused: Gann describes late movers without forbidding them, and
 A-SELECTION-02 counts crossing previous years' tops first as leading. The market
 scan's shortlist now reads the ledger too, as the full scan does. Random walks
 (30 pairs, 630 readings a drift; drift 0, +0.05%, +0.1% a day): late movers
-25.9/26.7/22.9% (the review measured 20/23/45% before (3)); the first-year high
+33.8/28.7/23.5%, early 42.2/34.1/29.7% (the review measured late 20/23/45%
+before (3)); the first-year high
 unread on 97-100% (the stock's campaign rarely runs a year), failed on 0-1.6%;
 about 0.2 ms a read. `STRATEGY_VERSION` was `2026-10-29-gann-p3-may-lead`;
 released with the section hold above as

@@ -44,6 +44,16 @@ describe("early leaders in a bull market (A-SELECTION-02)", () => {
     expect(r.bottomedFirst).toBe(false);
   });
 
+  it("reads a stock that bottomed while the market is still making new lows as first", () => {
+    // The market falls every session, its low on the last bar: it has not bottomed yet.
+    const market = bars(Array.from({ length: 300 }, (_, i) => 400 - i * 0.5));
+    // The stock fell to session 250, turned, and has risen since.
+    const stock = bars(Array.from({ length: 300 }, (_, i) => (i <= 250 ? 200 - i * 0.4 : 100 + (i - 250) * 0.6)));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedFirst).toBe(true);
+    expect(r.bottomedLate).toBe(false);
+  });
+
   it("ranks an early leader above a stock that is not one on the buy side", () => {
     const leader = { bottomedFirst: true, bottomedLate: false, toppedFirst: false, toppedLate: false, lateBottomExpected: false, earlyBottomExpected: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
     const plain = { ...leader, bottomedFirst: false };

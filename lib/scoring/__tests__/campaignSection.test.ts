@@ -50,8 +50,8 @@ describe("tradeSection", () => {
   });
 
   it("does not end a section at a top exceeded again within the halt", () => {
-    // A weekly top at 55 inside the second advance, exceeded again 13 days later: no section.
-    const brief = path([...DECLINE, ...SECTION_1, [55, 12], [51, 5], [62.75, 10]]);
+    // A weekly top at 55 inside the second advance, exceeded again by 3 points within two weeks: no section.
+    const brief = path([...DECLINE, ...SECTION_1, [55, 12], [51, 3], [62.75, 8]]);
     expect(buildCampaignLedger(brief)?.tradeSection).toBe(2);
     // The same top held past two weeks ends a section.
     const held = path([...DECLINE, ...SECTION_1, [55, 12], [50, 6], [62.75, 8]]);
