@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readLossSeries, type ClosedTrade } from "@/lib/risk/lossSeries";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { readLossSeries, readUserLossSeries, type ClosedTrade } from "@/lib/risk/lossSeries";
 
 const loss = (at: string): ClosedTrade => ({ outcome: "loss", exitTimestamp: at });
 const win = (at: string): ClosedTrade => ({ outcome: "profit", exitTimestamp: at });
@@ -60,5 +61,34 @@ describe("readLossSeries (series-of-losses pause)", () => {
     const wed = "2026-11-25T18:00:00Z";
     const r = readLossSeries([loss(wed), loss(wed), loss(wed)], new Date("2026-11-25T19:00:00Z"));
     expect(r.resumesOn).toBe("2026-11-30");
+  });
+
+  it("an operator's reset starts the series afresh, without removing trades", async () => {
+    const logs = [
+      { outcome: "loss", exit_timestamp: "2026-10-28T19:54:04Z", symbol: "MSFT", profit_loss_dollars: "-3.94" },
+      { outcome: "loss", exit_timestamp: "2026-10-28T14:54:05Z", symbol: "IWM", profit_loss_dollars: "-2.84" },
+      { outcome: "loss", exit_timestamp: "2026-10-09T08:22:43Z", symbol: "AMD", profit_loss_dollars: "-77.16" },
+    ];
+    const client = (resetAt: string | null) => {
+      const from = (name: string) => {
+        let after: string | null = null;
+        const q: Record<string, unknown> = {};
+        for (const k of ["select", "eq", "in", "not", "order"]) q[k] = () => q;
+        q.gt = (_c: string, v: string) => ((after = v), q);
+        q.maybeSingle = () => Promise.resolve({ data: resetAt ? { reset_at: resetAt } : null, error: null });
+        q.limit = () =>
+          Promise.resolve({
+            data: name === "trade_logs" ? logs.filter((r) => !after || r.exit_timestamp > after) : [],
+            error: null,
+          });
+        return q;
+      };
+      return { from } as unknown as SupabaseClient;
+    };
+    const now = new Date("2026-10-29T15:10:00Z");
+    expect((await readUserLossSeries(client(null), "u1", now)).paused).toBe(true);
+    const afterReset = await readUserLossSeries(client("2026-10-29T15:05:00Z"), "u1", now);
+    expect(afterReset.paused).toBe(false);
+    expect(afterReset.consecutiveLosses).toBe(0);
   });
 });
