@@ -75,6 +75,7 @@ import {
   chooseSessionEntry,
   entryChart,
   gannEntryOf,
+  isWithGannTrend,
   preferWithTrend,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
@@ -118,7 +119,7 @@ import {
   nearestLevelMatchByRole,
   levelBandPct,
 } from "@/lib/scoring/proximity";
-import type { CriterionWeights } from "@/lib/scoring/weights";
+import { CRITERION_KEYS, type CriterionWeights } from "@/lib/scoring/weights";
 import { computeGannEntryTrigger, gannBreakLine, sameGannLevel, tradedIntoBuyZone, type GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { restsWithoutCrossing, type GannEntryKind, type GannHoldBasis } from "@/lib/gann/entryKind";
 import { advanceEntryConfirmation, entryReady, freshEntryConfirmation } from "@/lib/lifecycle/entryConfirmation";
@@ -446,6 +447,24 @@ export interface ReplayOptions {
   /** With `sessionPlans`: collect the plans only, and trade nothing. */
   plansOnly?: boolean;
 }
+
+/**
+ * The holds that move an Execute to Watch, in the order the live scan applies
+ * them (`scoreSetup`). The rule ladder (`lib/backtest/ruleLadder.ts`) reads
+ * each one on its own.
+ */
+export const REPLAY_HOLD_KEYS = [
+  "breakaway",
+  "monthlyBreak",
+  "distributionBreakdown",
+  "failedTop",
+  "timeWindow",
+  "ruleFollowing",
+  "weakStock",
+  "figureCrossing",
+  "readyNow",
+] as const;
+export type ReplayHoldKey = (typeof REPLAY_HOLD_KEYS)[number];
 
 /** One session's daily plan, as `ReplayOptions.sessionPlans` collects it. */
 export interface SessionDailyPlan {
@@ -999,6 +1018,129 @@ interface SessionArm {
   largeCap: boolean;
 }
 
+/** The series a session's reading is built from (a subset of `ReplayOptions`). */
+export type SessionSeries = Pick<
+  ReplayOptions,
+  | "dailyBars"
+  | "monthlyBars"
+  | "weeklyBars"
+  | "instrument"
+  | "marketDailyBars"
+  | "marketMonthlyBars"
+  | "longMonthlyBars"
+  | "yearCountMonthlyBars"
+  | "universeStrength"
+>;
+
+/**
+ * The macro context a session is read with, from the sessions, weeks and
+ * months closed before `date` (an ET "YYYY-MM-DD"), as the live scan reads it.
+ * Null with fewer than `MIN_DAILY_BARS_FOR_SCORE` prior sessions. Pure: the
+ * replay's own session arm and the rule ladder (`readSessionRules`) share it.
+ */
+export function sessionContextAt(
+  symbol: string,
+  date: string,
+  series: SessionSeries,
+): { context: MacroContext; priorSessions: Bar[] } | null {
+  const { dailyBars, monthlyBars, weeklyBars, instrument, marketDailyBars, marketMonthlyBars, longMonthlyBars, yearCountMonthlyBars, universeStrength } = series;
+  const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
+  if (priorSessions.length < MIN_DAILY_BARS_FOR_SCORE) return null;
+  const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
+  const facts: InstrumentFacts | null =
+    instrument || marketDailyBars || universeStrength || confirmedFirstTrade(symbol)
+      ? {
+          sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
+          inception: instrument?.inception ?? null,
+          name: instrument?.name ?? null,
+          // The stock market is read for a stock only, as the live scan
+          // fetches it (`scanTicker.ts`); crypto had read SPY here.
+          marketDaily: assetClass === "us_equity" ? (marketDailyBars ?? null) : null,
+          monthly: monthlyBars ? priorMonthly : null,
+          monthlyLong: longMonthlyBars
+            ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
+            : null,
+          monthlyYearCount: yearCountMonthlyBars
+            ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
+            : null,
+          marketMonthly: marketMonthlyBars && assetClass === "us_equity" ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
+          // The rank reads only the months closed before this session's (`readUniverseRank`).
+          universe: universeStrength && assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
+          firstTrade: confirmedFirstTrade(symbol),
+        }
+      : null;
+  // Only weeks that began before this session's week; `levelCharts` builds
+  // the week in progress from the completed sessions, so no later bar is read.
+  const thisWeek = mondayOf(date);
+  const priorWeekly = weeklyBars ? weeklyBars.filter((b) => mondayOf(b.t.slice(0, 10)) < thisWeek) : null;
+  // The plan is read around the last completed session's close, as the live
+  // scan reads it (`planPrice`). On intraday bars it had read the close of
+  // the bar before the session's first, an extended-hours print or the
+  // regular session's last 15 minutes, not the session's close.
+  const context = buildMacroContext(priorSessions, priorSessions[priorSessions.length - 1].c, new Date(`${date}T12:00:00Z`), priorMonthly, facts, priorWeekly);
+  return { context, priorSessions };
+}
+
+/** What GSPS read for one side of one session (`readSessionRules`). */
+export interface SessionRuleReading {
+  /** GSPS priced a buying point on this side this session. */
+  plan: boolean;
+  /** The score out of 9, and the verdict, when it did. */
+  score: number | null;
+  outputState: ScanDecision["outputState"] | null;
+  /** Each pillar passed (`CRITERION_KEYS`). Empty with no plan. */
+  pillars: Partial<Record<string, boolean>>;
+  /** The holds that would hold an Execute here, each read on its own. */
+  holdsFired: ReplayHoldKey[];
+}
+
+/**
+ * GSPS's own reading of one side of one session, as the live scan would have
+ * scored it from the bars closed before `date`: its buying point on that side
+ * (production's reaction rule, `gannEntryOf`), the nine pillars, the score and
+ * verdict, and each hold read on its own. For the rule ladder
+ * (`lib/backtest/ruleLadder.ts`), which tests whether requiring a reading
+ * improves a strategy that did not choose its trades by it.
+ *
+ * The setup kind is a continuation when the side is with Gann's trend
+ * (`isWithGannTrend`), else a reversion, as `chooseSessionEntry` names it.
+ * Reads no execution bars: `history` is the closed sessions, so the
+ * score's hourly trend reads them, and the execution ATR is the daily ATR.
+ */
+export function readSessionRules(
+  symbol: string,
+  date: string,
+  side: "bullish" | "bearish",
+  series: SessionSeries & Pick<ReplayOptions, "weights">,
+): SessionRuleReading {
+  const none: SessionRuleReading = { plan: false, score: null, outputState: null, pillars: {}, holdsFired: [] };
+  const session = sessionContextAt(symbol, date, series);
+  if (!session) return none;
+  const { context, priorSessions } = session;
+  const chart = entryChart(series.dailyBars, series.monthlyBars ?? [], date);
+  const trigger = gannEntryOf(chart.bars, chart.older, context.macroTrends)(side);
+  if (!trigger) return none;
+  const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
+  const { decision, holdsFired } = scoreSetup({
+    context,
+    pattern: null,
+    gannTrigger: trigger,
+    history: priorSessions,
+    executionAtr: atr(priorSessions.slice(-30), 14),
+    assetClass,
+    largeCap: isLargeCapStock(symbol, assetClass, readLiquidity(priorSessions)),
+    setupKind: isWithGannTrend(context.macroTrends, side) ? "continuation" : "reversion",
+    breakaway: readBreakaway(chart.bars, trigger),
+    monthlyWarning: readMonthlyBreakWarning(chart.bars),
+    weights: series.weights,
+    readHolds: true,
+  });
+  const pillars: Partial<Record<string, boolean>> = {};
+  for (const item of decision.breakdown) if (item.key && (CRITERION_KEYS as readonly string[]).includes(item.key)) pillars[item.key] = item.passed;
+  return { plan: true, score: decision.score, outputState: decision.outputState, pillars, holdsFired: holdsFired ?? [] };
+}
+
 export function replay(symbol: string, bars: Bar[], options: ReplayOptions): ReplayResult {
   const {
     targetR,
@@ -1007,7 +1149,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     warmupBars = 40,
     dailyBars,
     monthlyBars,
-    weeklyBars,
     weights,
     useProductionStop = false,
     usePlanLevels = false,
@@ -1021,11 +1162,6 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     pyramid = false,
     disableExits,
     instrument,
-    marketDailyBars,
-    marketMonthlyBars,
-    longMonthlyBars,
-    yearCountMonthlyBars,
-    universeStrength,
     sessionPlans,
     plansOnly = false,
   } = options;
@@ -1096,41 +1232,10 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
   const sessionArm = (date: string): SessionArm | null => {
     const cached = armByDate.get(date);
     if (cached !== undefined) return cached;
-    const priorSessions = dailyBars.filter((b) => b.t.slice(0, 10) < date);
+    const session = sessionContextAt(symbol, date, options);
     let arm: SessionArm | null = null;
-    if (priorSessions.length >= MIN_DAILY_BARS_FOR_SCORE) {
-      const priorMonthly = monthlyBars ? monthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : [];
-      const facts: InstrumentFacts | null =
-        instrument || marketDailyBars || universeStrength || confirmedFirstTrade(symbol)
-          ? {
-              sharesOutstanding: instrument ? splitAdjustedSharesAsOf(instrument.sharesHistory, date) : null,
-              inception: instrument?.inception ?? null,
-              name: instrument?.name ?? null,
-              // The stock market is read for a stock only, as the live scan
-              // fetches it (`scanTicker.ts`); crypto had read SPY here.
-              marketDaily: assetClass === "us_equity" ? (marketDailyBars ?? null) : null,
-              monthly: monthlyBars ? priorMonthly : null,
-              monthlyLong: longMonthlyBars
-                ? longMonthlyWindow(longMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
-                : null,
-              monthlyYearCount: yearCountMonthlyBars
-                ? yearCountMonthlyWindow(yearCountMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)), new Date(`${date}T12:00:00Z`))
-                : null,
-              marketMonthly: marketMonthlyBars && assetClass === "us_equity" ? marketMonthlyBars.filter((b) => b.t.slice(0, 7) < date.slice(0, 7)) : null,
-              // The rank reads only the months closed before this session's (`readUniverseRank`).
-              universe: universeStrength && assetClass === "us_equity" ? { symbol, strength: universeStrength } : null,
-              firstTrade: confirmedFirstTrade(symbol),
-            }
-          : null;
-      // Only weeks that began before this session's week; `levelCharts` builds
-      // the week in progress from the completed sessions, so no later bar is read.
-      const thisWeek = mondayOf(date);
-      const priorWeekly = weeklyBars ? weeklyBars.filter((b) => mondayOf(b.t.slice(0, 10)) < thisWeek) : null;
-      // The plan is read around the last completed session's close, as the live
-      // scan reads it (`planPrice`). On intraday bars it had read the close of
-      // the bar before the session's first, an extended-hours print or the
-      // regular session's last 15 minutes, not the session's close.
-      const context = buildMacroContext(priorSessions, priorSessions[priorSessions.length - 1].c, new Date(`${date}T12:00:00Z`), priorMonthly, facts, priorWeekly);
+    if (session) {
+      const { context, priorSessions } = session;
       const triggers: SessionTrigger[] = [];
       // The reaction rule is production's, and production prices from the
       // nearer of the crossing and the old level (PLAN.md item 5, step 2). The
@@ -2319,8 +2424,10 @@ function scoreSetup(input: {
   breakaway: BreakawayReading;
   monthlyWarning: MonthlyBreakWarning | null;
   weights?: CriterionWeights;
-}): { decision: ScanDecision; levels: TradeLevels | null } {
-  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, weights } = input;
+  /** Also read each hold on its own (`holdsFired`), for the rule ladder. */
+  readHolds?: boolean;
+}): { decision: ScanDecision; levels: TradeLevels | null; holdsFired?: ReplayHoldKey[] } {
+  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, weights, readHolds = false } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
@@ -2376,7 +2483,32 @@ function scoreSetup(input: {
       dayRange: null,
       levels,
     }), gannTrigger.direction);
-  return { decision, levels };
+  if (!readHolds) return { decision, levels };
+  // Each hold read on its own, as if the setup were an Execute: whether it
+  // would hold this setup whatever the score or the other holds read. The
+  // same holds and arguments as the chain above (`REPLAY_HOLD_KEYS`, guarded
+  // by ruleLadder.test.ts).
+  const execute: ScanDecision = { ...decision, outputState: "Execute" };
+  const holds: Record<ReplayHoldKey, (d: ScanDecision) => ScanDecision> = {
+    breakaway: (d) => applyBreakawayHold(d, breakaway),
+    monthlyBreak: (d) => applyMonthlyBreakHold(d, monthlyWarning, gannTrigger.direction),
+    distributionBreakdown: (d) => applyDistributionBreakdownHold(d, context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
+    failedTop: (d) => applyFailedTopHold(d, context.disclosedRules.multipleTops, gannTrigger.direction, levels),
+    timeWindow: (d) => applyTimeWindowHold(d, setupKind, () => context.windowTurn(gannTrigger.direction)),
+    ruleFollowing: (d) => applyRuleFollowingHold(d, context.disclosedRules.ruleFollowing),
+    weakStock: (d) => applyWeakStockHold(d, context.disclosedRules.weakStock, gannTrigger.direction),
+    figureCrossing: (d) => applyFigureCrossingHold(d, figureCrossingOf(context.dailyChart, gannTrigger)),
+    readyNow: (d) =>
+      applyReadyNowHold(d, {
+        side: gannTrigger.direction === "bearish" ? "sell" : "buy",
+        indicationShown: true,
+        price: levels?.entry ?? null,
+        dayRange: null,
+        levels,
+      }),
+  };
+  const holdsFired = REPLAY_HOLD_KEYS.filter((key) => holds[key](execute).outputState !== "Execute");
+  return { decision, levels, holdsFired };
 }
 
 /**
