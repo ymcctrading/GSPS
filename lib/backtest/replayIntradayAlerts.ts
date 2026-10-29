@@ -33,9 +33,11 @@
  * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
  * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
  * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
- * Nor is an alert against the daily trend (`Alert.againstDailyTrend`, audit
- * I-02, 2026-10-28): the panel shows it for study and offers no trade, "never
- * buck the trend" (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
+ * Nor is an alert against the main trend (`Alert.againstDailyTrend`, audit
+ * I-02, 2026-10-28; the weekly chart since 2026-10-29), or one after the main
+ * trend's reaction over-balanced (`Alert.reactionOverbalanced`): the panel
+ * shows them for study and offers no trade, "never buck the trend"
+ * (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
  * 2026-10-29, is one the averages' 3-Day and weekly charts both run against
  * (`Alert.againstMarketTrend`, 45 Years Rule 1), read from `marketDailyBars`.
  *
@@ -325,6 +327,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
           !isReversalRisk(a) &&
           !NOTICE_SIGNALS.has(a.type) &&
           !a.againstDailyTrend &&
+          !a.reactionOverbalanced &&
           !a.againstMarketTrend &&
           // Held live too (2026-10-29): its stop sat inside one point of the
           // alert's price, so it was never offered; the fill-time
