@@ -62,7 +62,7 @@ import { CONTRACTUAL_EQUITY_DELAY_MS, sessionCloseAt } from "@/lib/data/timeline
 const EARLY_CLOSE_ET_MINUTES = 13 * 60;
 
 /** Setups the scheduled intraday scan times at once (engineering, labelled). */
-export const SESSION_SETUPS_MAX = 24;
+export const SESSION_SETUPS_MAX = 48;
 /** Setups added to a person's own refresh of the scanner (engineering, labelled). */
 export const SESSION_SETUPS_ON_DEMAND = 9;
 /** Rows older than this (calendar days) are not read: they span a weekend and a holiday. */

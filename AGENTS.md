@@ -2144,8 +2144,12 @@ for the project owner** — do not fix it silently, and re-verify it first:
   name failed `novice_eligible`'s market-cap check and Guided Mode could never
   show it. The $200B-and-up names now lead the list (hand-compiled, awaiting
   the Alpaca validation pass). The $10B floor is the only cap rule.
-- Lesser items: `policy_values` overrides have no bounds (F4.3); `stopRoom`'s
-  "quarantined" status doesn't affect live scoring (F4.7). Kept rather than
+- Lesser items: F4.3 and F4.7 are closed (re-checked 2026-10-28). A
+  `policy_values` row may only tighten a risk limit (`RISK_POLICY_DIRECTIONS`,
+  owner Q13, 2026-10-16), and production held no `policy_values` row when read.
+  `stopRoom` was retired on 2026-10-16 (owner Q23), replaced by Gann's stop
+  3 points behind an old level (`stopBehindOldLevel`, W006 pp.20-24, 46-47),
+  which is itself a check under the nine pillars. Kept rather than
   deleted because they're unfinished rather than dead:
   `withinTriggerTolerance` (an unenforced spec rule) and `toSaraStrategyResult`.
   **F4.2 closed 2026-10-22:** a promoted `learning_models` weight row is
@@ -3294,7 +3298,8 @@ Standing facts for a session that touches any list of setups:
 - **The Dashboard watchlist** is the user's own 3–9 US stocks or crypto pairs,
   in the `watchlists` / `watchlist_items` tables migration 0001 created
   (`lib/dashboard/watchlist.ts`). `app/api/intraday-scan/route.ts` merges every
-  user's watchlist symbols into the system scan's universe (capped at 50 total),
+  user's watchlist symbols into the system scan's universe (capped at 100 total since
+  2026-10-29, 50 before),
   so a symbol added there can be covered by that scan.
 - **Timeline, in one line.** Entry is minutes to a few hours (four closed
   15-minute bars at least; a plan lasts its session unless its stop breaks first, Q17, 2026-10-16); the
@@ -3552,6 +3557,14 @@ so no scan waits on it; the owner's recap reads it (`lib/reports/coverage.ts`). 
 the queue then has no discovery tier. Hindsight data (the recap's movers and
 attribution) goes to the owner's two accounts only (`lib/auth/owner.ts`).
 Verdicts unchanged.
+**100 slots, equities only, 2026-10-29 (owner: "yes, raise the cap"; "SPY
+should stay. QQQ and IWM can leave"; "For the moment, only equities should
+populate the list").** `QUEUE_CAPACITY` is 100 and every share doubled (setups
+28, discoveries 16, focus 24, watched 12, wheel 10; `SESSION_SETUPS_MAX` 48),
+engineering figures; 50-symbol scans had returned in about 5-12 s. The crypto
+pairs and crypto in any tier take no slot, and SPY is the only index fund in
+the core list (QQQ and IWM stay in `WATCHLIST` for their kind). The crypto
+pg_cron jobs are paused (`cron.alter_job`, active=false). Verdicts unchanged.
 **Nearing the entry, same day (owner: alert "as price is moving towards that
 entry level" early enough to sign in and place the order, the lead "determined
 by all of the tools [Gann] used to determine how fast price is moving").** Two
@@ -3596,8 +3609,22 @@ session nearing or trading through the line, with the close that would confirm
 it (`crossingLinesFromEntry`, `pointScale.ts`); a plan whose prior close crossed
 the entry but not by 3 points (`awaitsCrossing`) reads the confirming close as
 its line, and one that has made its crossing gets none. Notices, never trades: no
-"Trade this", not stored, not replayed, push and the bell only, worded as
-delayed observations while the feed is delayed. Unmeasured. Verdicts unchanged.
+"Trade this", not stored, push and the bell only, worded as delayed observations
+while the feed is delayed. The intraday alerts replay reads them as counts and
+excursions only (`lib/backtest/lineNotices.ts`), never as trades; no run on real
+bars yet. Verdicts unchanged.
+**Before the open, same day (coordinator, from the TXN thread's proposal).**
+`/api/pre-open-lines` (pg_cron 12:50 and 13:50 UTC on weekdays, migration 0135;
+it acts only from 8:30 to the 9:30 open, New York time, on a trading day) lists
+each equity plan whose line the prior close left within one 3-point allowance
+(`lib/notifications/preOpenLines.ts`: `planLineAhead`, the allowance
+`breakawayLinesFirst` reads, a close through the stop or a resting, expired or
+retired row left out). Push (one a member, by their push, score and quiet-hours
+settings) and the bell (watchers only), both gated as the line notices are and
+once a New York day per symbol and side; never email. Worded as of the prior
+close, never actionable (`checkNotificationFreshness`, an observation on the
+daily chart). The bell counts it as a notice (`isNoticeTitle`), so it takes none
+of Pro's daily bound. Unmeasured. Verdicts unchanged.
 **The retest's volume at two-thirds, 2026-10-28 (fork FV2, answered from
 Gann).** The volume pillar's retest confirmed on any smaller week, so once
 price reached the old turn inside 3 points, noise passed it about half the time
@@ -3924,15 +3951,11 @@ now confirmed rather than merely carried forward, per the 2026-09-23 run above: 
 for the first time since the ATR-normalization fix). See `lib/gann/volumeClimax.ts` and
 `lib/gann/timePriceSquare.ts`'s own header comments.
 
-**One open item this run surfaced, not yet acted on.** `stopRoom` is currently registry-quarantined
-(`lib/validation/criteria-registry.ts`) for saturating 98–99% on the 2026-09-14 six-symbol runs —
-past `DEFAULT_SATURATION_BOUNDS`' 95% ceiling. The 2026-09-23 twelve-symbol run reads it at 430/615
-(69.9%) passing, Δ+0.213R, informative and well inside bounds — but the underlying stop-anchoring
-code (`lib/strat/levels.ts`'s `nearestStructuralStop`, `EQUITY_STOP_MIN_PCT`/`EQUITY_STOP_MAX_PCT`)
-has not changed since the quarantine, so this reads as a population-dependent result (a wider,
-more-structured universe naturally clears the band more often), not a confirmed fix. Flagged here
-rather than silently un-quarantined; a future session should treat this as an open question, not a
-resolved one.
+**Settled 2026-10-28: the `stopRoom` question.** The open item this run raised (quarantined for
+saturating 98–99% on the 2026-09-14 runs, in range on the 2026-09-23 run) is moot. `stopRoom` was
+retired on 2026-10-16 (owner Q23) and replaced by Gann's own test, the stop 3 points beyond an old
+top or bottom (`stopBehindOldLevel`, W006 pp.20-24, 46-47). That test is a check under the nine
+pillars, scoring nothing alone. Its registry entry (`criteria-registry.ts`) records it as unmeasured.
 
 **Live weights incident (2026-09-17) — merging is not shipping.** PR #235 merged the uniform
 `DEFAULT_CRITERION_WEIGHTS` decision to `main` and deployed clean, and the change was still
@@ -3969,11 +3992,13 @@ something outside the repo overrides it. Known override surfaces as of 2026-09-1
 - `learning_models` (`status = 'live'`) — overrides `DEFAULT_CRITERION_WEIGHTS` via
   `lib/scoring/active-weights.ts`. Guarded as above.
 - `lib/risk/policy.ts` — `getRiskPolicy(supabase)` / `setRiskPolicyValue()` resolve risk policy
-  from the database over `DEFAULT_RISK_POLICY_VALUES`. **Not yet audited for the same class of
-  drift.**
+  from the database over `DEFAULT_RISK_POLICY_VALUES`. A row may only tighten a limit (Q13). Production
+  held no `policy_values` row on 2026-10-28.
 - Environment variables — the confluence modules read `GSPS_DISABLE_GANN_CONFLUENCE` /
   `GSPS_DISABLE_SARA_CONFLUENCE` (`lib/signals/confluence/flags.ts`), and `MARKET_DATA_REALTIME`
-  carries a mandatory revert trigger above. **Production values not yet verified.**
+  carries a mandatory revert trigger above. Checked 2026-10-28 against the Vercel project's env list:
+  none of the three is set in any environment, so both confluence modules run and the feed reads as
+  delayed, as the code defaults intend. `learning_models` held no `live` row the same day.
 
 The list is a starting point, not an inventory. Re-derive it rather than trusting it.
 
@@ -4122,8 +4147,11 @@ within the last two days of the allotted month."
 - **The meter** is `lib/ops/usageLimits.ts` (rules), `lib/ops/usageStore.ts`
   and `/api/ops/usage` (migration 0133). Meters: GitHub Actions minutes (2,000
   a UTC month), Vercel deployments (100 in a rolling 24 hours), email (Resend
-  free: 100 a UTC day, 3,000 a month, from `email_daily_budget`) and the
-  Supabase database (500 MB, alert only). Each threshold emails the owner once
+  free: 100 a UTC day, 3,000 a month, from `email_daily_budget`), and, alert
+  only, the Supabase database (500 MB), its connections (60), file storage
+  (1 GB) and monthly active users (50,000), and Alpaca's 200 requests a
+  minute (the month's busiest minute, from its rate headers). The full table,
+  and what can't be read from here, is in `docs/THIRD_PARTY_LIMITS.md`. Each threshold emails the owner once
   a period, with times in ET.
 - **How it is fed.** Every workflow job starts with a "Usage gate" step and
   ends with a "Usage report" step (`if: always()`) that posts its billed
@@ -4137,11 +4165,13 @@ within the last two days of the allotted month."
   tools; it is rewritten on every report and hourly). The hold lifts in a
   monthly limit's last two days (UTC), when the period resets, or for an
   urgent production fix Chuck OKs: add the `usage-override` label to its PR,
-  and for a merge insert a `usage_overrides` row (`meter`, `until`, `reason`
+  then close and reopen it (a label alone starts no run), and for a merge insert a `usage_overrides` row (`meter`, `until`, `reason`
   citing his message). Never add either without his OK in words.
 - **Reconcile** when a session measures the real figure (the GitHub billing
   page, or the run list): post the difference as one event with a `key` of
-  `reconcile-<date>`. The meter started at 1,121 minutes measured from the run
+  `reconcile-<date>`. Each job reports its step time plus 30 seconds for
+  setup and post-job steps, so the meter runs close to GitHub's billed figure;
+  a gate that can't read the meter warns and lets the job run. The meter started at 1,121 minutes measured from the run
   list at 22:20 UTC on 2026-10-28 (private since 04:47 UTC).
 
 ## Git / PR Workflow

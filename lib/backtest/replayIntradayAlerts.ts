@@ -88,6 +88,7 @@ import {
   DEFAULT_CONFIG,
   INTRADAY_DAILY_HISTORY_DAYS,
   NOTICE_SIGNALS,
+  planLineAhead,
   scanIntraday,
   sessionMetrics,
   volumeBaseline,
@@ -101,6 +102,7 @@ import { isReversalRisk } from "@/lib/setups/intraday";
 import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import type { GannEntryKind } from "@/lib/gann/entryKind";
+import { scoreLineSession, type LineSessionRecord } from "./lineNotices";
 import { isTimeoutReason, walkGannExit, type ReplayTrade, type SessionDailyPlan } from "./replay";
 
 /** Five-minute bars in a regular session. */
@@ -145,6 +147,8 @@ export type AlertRefusal =
 export interface AlertReplayResult {
   trades: AlertTrade[];
   refused: Partial<Record<AlertRefusal, number>>;
+  /** Each session a plan's line was ahead, with its line notices (`collectLineNotices`). */
+  lineSessions?: LineSessionRecord[];
 }
 
 export interface AlertReplayInput {
@@ -174,6 +178,8 @@ export interface AlertReplayInput {
   feedDelayMs?: number;
   costPerShare?: number;
   maxBarsHeld?: number;
+  /** Record the line notices and their outcomes (`lib/backtest/lineNotices.ts`). */
+  collectLineNotices?: boolean;
 }
 
 /** The plan as the live route hands it to the scan: Execute or Watch, its stop on the right side. */
@@ -212,6 +218,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
   });
   const trades: AlertTrade[] = [];
   const refused: Partial<Record<AlertRefusal, number>> = {};
+  const lineSessions: { s: number; rec: LineSessionRecord }[] = [];
   let busyUntil = 0;
 
   // Index the session each bar starts and ends at.
@@ -241,6 +248,17 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     // A non-positive prior close reads as none, as on the live scan.
     const prevClose = priorDailyClose(priorDaily, date, kind === "crypto");
     const fired: { type: SignalType; direction: "up" | "down"; at: string }[] = [];
+    // The session's line, when the plan still waits on its crossing: one
+    // record whether a notice fires or not, so the notices meet a base rate.
+    const ahead = input.collectLineNotices && dailyPlan ? planLineAhead(dailyPlan, prevClose) : null;
+    const lineRec: LineSessionRecord | null =
+      ahead && dailyPlan && prevClose != null
+        ? {
+            symbol, session: date, direction: dailyPlan.direction, verdict: dailyPlan.verdict, entry: dailyPlan.entry, stop: dailyPlan.stop,
+            line: ahead.line, confirmingClose: ahead.confirmingClose, atEntry: ahead.atEntry, prevClose, approach: null, crossed: null, outcome: null,
+          }
+        : null;
+    if (lineRec) lineSessions.push({ s, rec: lineRec });
 
     // The last bar of the session cannot be entered on: its fill is the next session.
     for (let k = from; k < to - 1; k++) {
@@ -272,6 +290,13 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       };
       const { alerts } = scanIntraday([scanInput], DEFAULT_CONFIG, evaluatedAt);
       for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: evaluatedAt.toISOString() });
+      if (lineRec) {
+        for (const alert of alerts) {
+          const hit = { at: evaluatedAt.toISOString(), barIndex: k, price: alert.move.current };
+          if (alert.type === "line_approach" && !lineRec.approach) lineRec.approach = hit;
+          if (alert.type === "line_crossed" && !lineRec.crossed) lineRec.crossed = hit;
+        }
+      }
       // The first bar a person could fill on opens at or after the evaluation
       // (`delayedFillIndex`): three five-minute bars after the next under the
       // 15-minute delay. `feedDelayBars` keeps the older fixed count for a
@@ -297,7 +322,10 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       busyUntil = at + entered.barsHeld;
     }
   }
-  return { trades, refused };
+  if (!input.collectLineNotices) return { trades, refused };
+  const bounds = dates.map((date, i) => ({ date, from: starts.get(date)!, to: i + 1 < dates.length ? starts.get(dates[i + 1])! : bars.length }));
+  for (const { s, rec } of lineSessions) rec.outcome = scoreLineSession(bars, bounds, s, rec);
+  return { trades, refused, lineSessions: lineSessions.map((l) => l.rec) };
 }
 
 /** One alert's fill or refusal, exported for its tests. */

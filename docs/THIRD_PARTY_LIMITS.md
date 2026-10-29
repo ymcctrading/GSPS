@@ -23,6 +23,33 @@ confirm you're still under its limit.
 | **SnapTrade** (external brokerage linking) | Whatever tier is configured via `SNAPTRADE_CLIENT_ID`/`SNAPTRADE_CONSUMER_KEY` | Sandbox vs. production have different call/account limits | Feature-flagged off entirely without credentials (`lib/brokers/snaptrade.ts`); with credentials, limits depend on SnapTrade's plan for this app. | Check the SnapTrade partner dashboard for the current plan before assuming production-grade limits. |
 | **Finnhub** (analyst rating, ticker Company tab) | Free | 60 requests/min, no card required | Calls beyond the limit 429; `lib/data/finnhub.ts` treats any failure (missing key, 429, network error, timeout, wrong plan) as "no data" and falls back to the tab's simulated value for that request — never a broken page. | `FINNHUB_API_KEY` required; unset = fully simulated. Confirmed live 2026-08-19: `/stock/recommendation` (analyst rating) works free-tier; `/stock/price-target` 403s free-tier despite Finnhub's docs listing it as free — it needs a paid plan, so price target stays simulated on this key regardless. Short interest and institutional/13F ownership are **not** on Finnhub's free tier either and stay simulated. |
 
+## What the usage meter reads (2026-10-28)
+
+`/api/ops/usage` (`lib/ops/usageLimits.ts`, migrations 0133 and 0137) reads
+these, alerts the owner at 25, 50, 60 … 99%, and holds the ones marked "holds"
+at 99%. Figures read at 23:15 UTC on 2026-10-28.
+
+| Limit | Free figure | Period | How it is read | Now | Holds |
+|---|---|---|---|---|---|
+| GitHub Actions minutes | 2,000 | UTC month (reset date to confirm on the billing page) | each job reports its own minutes, plus 30 s for setup | ~1,150 (57.5%) | yes |
+| Vercel deployments | 100 | rolling 24 hours | each push to `main` | 35 (35%) | yes |
+| Resend emails | 100 a day, 3,000 a month | UTC day, UTC month | `email_daily_budget`; Oct 1-27 backfilled from `notification_log` and `notification_deliveries` (a floor: digests and reports before Oct 28 aren't in either) | 11 today; ≥1,602 in October (53%) | yes |
+| Supabase database size | 500 MB | none | `pg_database_size` | 139 MB (28%) | no |
+| Supabase connections | 60 (`max_connections`) | hourly reading, alert once a month | `pg_stat_activity` | 15 (25%) | no |
+| Supabase file storage | 1 GB | none | `storage.objects` | 0 MB | no |
+| Supabase monthly active users | 50,000 | UTC month | `auth.users.last_sign_in_at` (a lower bound) | 8 | no |
+| Alpaca data requests | 200 a minute | busiest minute, alert once a month | Alpaca's `X-RateLimit-*` headers, reported after each market and intraday scan | first reading after deploy | no |
+
+Not metered, because no API reachable here exposes them on a free plan
+(read them on the dashboards): Supabase egress (5 GB a month) and Vercel's
+function usage (1 million invocations, 4 hours of active CPU, 100 GB of fast
+data transfer a month; Hobby keeps an hour of logs and has no billing API).
+Twelve Data, Polygon and Oanda have keys set but no caller in the app
+(`/api/futures` and `/api/forex` are linked from nowhere), so they use nothing.
+Finnhub's 60 a minute is spent only by the Company tab, a few calls a view.
+pg_cron has no job cap (34 active jobs, about 1,300 runs a day; its run
+history counts toward the database size).
+
 ## Caching as the first line of defense
 
 `lib/data/*` providers each implement a short in-memory TTL cache
