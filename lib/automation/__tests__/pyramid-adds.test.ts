@@ -259,6 +259,23 @@ describe("automated pyramid adds", () => {
     expect(addOrder.side).toBe("buy");
   });
 
+  it("holds the add to the member's per-trade dollar limit, and skips it when one share is over", async () => {
+    const add = trigger();
+    sim.quote = Math.round((add.trigger + 0.1) * 100) / 100;
+    const capped = seed({ profile: { max_trade_dollars: 2000 } });
+    const run = await placeAutomatedPyramidAdds(capped.client, market(), NOW);
+    expect(run.errors).toEqual([]);
+    expect(run.placed).toBe(1);
+    const addOrder = capped.tables.orders.find((o) => o.id !== "order-1")!;
+    expect(addOrder.qty).toBe(Math.floor((0.95 * 2000) / sim.quote));
+
+    const tiny = seed({ profile: { max_trade_dollars: 50 } });
+    const none = await placeAutomatedPyramidAdds(tiny.client, market(), NOW);
+    expect(none.placed).toBe(0);
+    expect(none.notes.some((n) => /per-trade limit/.test(n))).toBe(true);
+    expect(tiny.tables.protocol_exits[0].add_claimed_at).toBeNull();
+  });
+
   it("waits while the market hasn't crossed the trigger", async () => {
     sim.quote = Math.round((trigger().trigger - 0.2) * 100) / 100;
     const { client, tables } = seed();

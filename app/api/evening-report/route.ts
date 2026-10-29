@@ -55,7 +55,8 @@ import {
   type MoverOutcome,
   type SystemDetection,
 } from "@/lib/reports/coverage";
-import { SIGNAL_LABELS } from "@/lib/scanner/intradayDisplay";
+import { SIGNAL_LABELS, tradeHold } from "@/lib/scanner/intradayDisplay";
+import type { SignalType } from "@/lib/scanner/intraday";
 import { appUrl, fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import {
@@ -408,11 +409,12 @@ export async function GET(req: NextRequest) {
     take_profit_1_level: number | string | null;
     master_profit_level: number | string | null;
     created_at: string;
+    metadata: Record<string, unknown> | null;
   };
   const panel = await readAll<PanelRow>((from, to) =>
     service
       .from("intraday_alerts")
-      .select("user_id, symbol, signal_id, signal_type, entry_level, stop_loss_level, take_profit_1_level, master_profit_level, created_at")
+      .select("user_id, symbol, signal_id, signal_type, entry_level, stop_loss_level, take_profit_1_level, master_profit_level, created_at, metadata")
       .gte("created_at", dayStart)
       .lt("created_at", dayEnd)
       .order("created_at", { ascending: true })
@@ -436,6 +438,15 @@ export async function GET(req: NextRequest) {
       stop,
       tp1: num(a.take_profit_1_level),
       mtp: num(a.master_profit_level),
+      // A member's own refresh stores alerts the panel showed but did not
+      // offer; the recap scores only what was offered.
+      held:
+        tradeHold({
+          type: String(a.signal_id) as SignalType,
+          againstDailyTrend: a.metadata?.againstDailyTrend === true,
+          againstMarketTrend: a.metadata?.againstMarketTrend === true,
+          riskUnderPoint: a.metadata?.riskUnderPoint === true,
+        }) !== null || a.metadata?.paysRisk === false,
     });
   }
   const signals = firstDeliveries(raw);

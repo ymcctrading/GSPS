@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { readTradeDollarCap } from "@/lib/automation/tradeDollarCap";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTier, hasFeature } from "@/lib/tiers";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
@@ -30,6 +31,7 @@ const DEFAULT_PROFILE: AutomationProfile = {
   volatility_trigger_value: 2.0,
   execution_mode: "paper",
   pivot_on_stop_out: false,
+  max_trade_dollars: null,
 };
 
 export default async function AutomationPage() {
@@ -253,7 +255,7 @@ async function AutomationHub({
     supabase
       .from("user_automation_profiles")
       .select(
-        "is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode, pivot_on_stop_out",
+        "is_automation_enabled, risk_profile, directional_bias, volatility_trigger_type, volatility_trigger_value, execution_mode, pivot_on_stop_out, max_trade_dollars",
       )
       .eq("user_id", userId)
       .maybeSingle(),
@@ -261,7 +263,8 @@ async function AutomationHub({
     loadDeployments(supabase, userId),
   ]);
 
-  const initial: AutomationProfile = { ...DEFAULT_PROFILE, ...(data ?? {}) };
+  const merged = { ...DEFAULT_PROFILE, ...(data ?? {}) };
+  const initial: AutomationProfile = { ...merged, max_trade_dollars: readTradeDollarCap(merged.max_trade_dollars) };
   const watching = await watchingSetups(supabase, userId, initial.directional_bias);
 
   return (

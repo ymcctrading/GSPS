@@ -57,6 +57,17 @@ describe("buildIntradayBellRow", () => {
   });
 });
 
+describe("buildIntradayBellRow: a reversal-risk warning", () => {
+  it("is worded as a warning to stand aside, with no stop or target", () => {
+    for (const f of [actionable, delayed]) {
+      const row = buildIntradayBellRow(alert({ type: "reversal_risk", direction: "down" }), f);
+      expect(row.title).toBe("SPY intraday, down: Reversal risk");
+      expect(row.body).toContain("A warning, not a trade");
+      expect(row.body).not.toMatch(/stop|TP1|MTP/);
+    }
+  });
+});
+
 describe("alertsForTier", () => {
   const alerts = [alert({ symbol: "SPY", type: "old_level_cross" }), alert({ symbol: "TSLA", type: "old_level_cross" })];
   const intervals = new Map([
@@ -81,6 +92,12 @@ describe("alertsForTier", () => {
       intervals,
     );
     expect(pro).toHaveLength(1);
+  });
+
+  it("sends no one a signal whose stop sits inside one intraday point", () => {
+    const held = [alert({ symbol: "SPY", type: "trend_continuation", riskUnderPoint: true }), alert({ symbol: "TSLA", type: "old_level_cross" })];
+    const out = alertsForTier(held, { intradayScansEnabled: true, proIntradayModuleEnabled: false }, intervals);
+    expect(out.map((a) => a.symbol)).toEqual(["TSLA"]);
   });
 
   it("sends no one a signal the replay measured losing (run 80, plan_level_held)", () => {

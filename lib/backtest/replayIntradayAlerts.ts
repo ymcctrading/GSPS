@@ -320,7 +320,16 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       if (at < busyUntil) continue;
       // A notice (nearing or at a daily plan's entry) prices no session trade.
       const alert = alerts.find(
-        (a) => !isReversalRisk(a) && !NOTICE_SIGNALS.has(a.type) && !a.againstDailyTrend && !a.againstMarketTrend && (!signals || signals.has(a.type)),
+        (a) =>
+          !isReversalRisk(a) &&
+          !NOTICE_SIGNALS.has(a.type) &&
+          !a.againstDailyTrend &&
+          !a.againstMarketTrend &&
+          // Held live too (2026-10-29): its stop sat inside one point of the
+          // alert's price, so it was never offered; the fill-time
+          // `risk_under_point` check below still refuses the rest.
+          !a.riskUnderPoint &&
+          (!signals || signals.has(a.type)),
       );
       if (!alert) continue;
       const point = sessionMetrics(scanInput)?.point ?? 0;

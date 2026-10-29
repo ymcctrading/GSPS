@@ -164,6 +164,19 @@ export function buildIntradayBellRow(alert: Alert, freshness: DeliverableFreshne
       body: `${observed}${heldNote(freshness)} Daily plan: ${parts.join(", ")}. Open the plan to see where price is before acting.`,
     };
   }
+  if (alert.type === "reversal_risk") {
+    // A warning to stand aside, not a trade (`SIGNAL_DESCRIPTIONS`), so it
+    // carries no stop or target: the setup card shows it without levels too,
+    // and the replay never enters one. Until 2026-10-29 the bell wrote it
+    // with a price, stop and TP1, 250 of 693 bell notices on Oct 28 read as
+    // trades that were never offered.
+    return {
+      symbol: alert.symbol,
+      verdict: "Intraday",
+      title: `${alert.symbol} intraday, ${side}: ${SIGNAL_LABELS[alert.type]}`,
+      body: `Based on data through ${etClock(asOf)} ET, at ${price(alert.move.current)}. ${delayNote(alert)}A warning, not a trade: the move that was running may be ending. A reason to stand aside, not to trade the other way on its own.${actionable ? "" : " Current status has not been verified."}`,
+    };
+  }
   const levels: string[] = [`Price ${price(alert.move.current)}`];
   if (alert.invalidation != null) levels.push(`stop ${price(alert.invalidation)}`);
   levels.push(plan.firstTarget != null ? `TP1 ${price(plan.firstTarget)}` : "no target fixed, the stop trails");

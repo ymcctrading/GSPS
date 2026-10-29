@@ -751,6 +751,42 @@ describe("an alert against the daily trend (audit I-02)", () => {
   });
 });
 
+describe("an alert whose stop sits inside one intraday point (2026-10-29)", () => {
+  // The intraday alerts replay refuses this trade (`risk_under_point`); the
+  // live alert now holds it the same way, so nothing offers or bells it.
+  it("is never flagged on a warning or a notice, and is held from trade when flagged", () => {
+    const alerts = [scanIntraday([input()], DEFAULT_CONFIG, AT_1133), scanIntraday([input({ priorDailyBars: campaignDaily() })], DEFAULT_CONFIG, AT_1133)].flatMap((o) => o.alerts);
+    expect(alerts.length).toBeGreaterThan(0);
+    for (const a of alerts) {
+      if (a.type === "reversal_risk" || NOTICE_SIGNALS.has(a.type)) expect(a.riskUnderPoint).toBeUndefined();
+      if (a.riskUnderPoint) expect(tradeHold(a)).not.toBeNull();
+    }
+  });
+
+  it("is set exactly when the stop sits under one point from the last price", () => {
+    let flagged = 0;
+    for (const dailyAtr of [0.01, 2.5, null]) {
+      const inp = input({ dailyAtr });
+      const point = sessionMetrics(inp)!.point;
+      const last = sessionMetrics(inp)!.last;
+      for (const a of scanIntraday([inp], DEFAULT_CONFIG, AT_1133).alerts) {
+        const exempt = a.type === "reversal_risk" || NOTICE_SIGNALS.has(a.type);
+        const expected = !exempt && a.invalidation != null && point > 0 && Math.abs(last - a.invalidation) < point;
+        expect(a.riskUnderPoint === true).toBe(expected);
+        if (a.riskUnderPoint) flagged++;
+      }
+      if (dailyAtr == null) expect(point).toBe(0);
+    }
+    expect(flagged).toBeGreaterThan(0);
+  });
+
+  it("holds the trade, after a measured-losing or against-trend hold", () => {
+    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true })).toMatch(/Stop too close/);
+    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: false })).toBeNull();
+    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true, againstDailyTrend: true })).toMatch(/Against the daily trend/);
+  });
+});
+
 describe("the Overnight and hourly charts replace the volume-only alert (Q29)", () => {
   it("raises no alert on volume alone, however loose the threshold", () => {
     const loose: ScannerConfig = { ...DEFAULT_CONFIG, relativeVolumeThreshold: 0.1 };

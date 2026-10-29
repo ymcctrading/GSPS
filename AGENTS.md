@@ -1238,6 +1238,14 @@ activations included) holds fewest of, the smaller first
 (`lib/automation/sizeLadder.ts`). A rung only takes shares away, so Gann's
 ceilings hold and placement checks them again. Live accounts are never
 laddered. Verdicts and the replay are unchanged, so `STRATEGY_VERSION` stays.
+**Per-trade dollar limit, 2026-10-29 (owner: "Build dollar cap", for the
+tier tests: $50, $250, $1,000 a trade).** `user_automation_profiles.max_trade_dollars`
+(migration 0140, null = none), set on the Automation page, holds every
+automated trade to the whole shares it buys at the entry with the ladder's
+95% headroom (`lib/automation/tradeDollarCap.ts`): the manager's activation,
+placement (read at order time, so older activations obey it; fails closed)
+and each pyramid add. It only takes shares away; a stock one share of which
+costs more is skipped with a plain note. Verdicts and the replay are unchanged.
 
 **Name charts and great cycles, 2026-10-22 (A-OTHER-08, A-TIME-24; owner:
 "Build these: ... name numerology [is] written out in the Master Course").**
@@ -3840,6 +3848,8 @@ audit's trade, automation and lifecycle walk
 measured hold on Gann's exits, not the half day of the retired bar-pattern
 trigger (`TYPICAL_HOLDING_DAYS`), and the portfolio manager's risk dial is
 labelled the member's choice under Gann's tenth.
+
+**Stops inside one point and the recap's scoring, 2026-10-29 (owner: the overnight recap "showed a lot of negative results"; diagnosis `/mnt/project-files/overnight-email-losses/2026-10-28-recap-diagnosis.md`).** An intraday alert whose stop sits less than one intraday point from its price (`Alert.riskUnderPoint`, `buildAlert`) is held from trade by `tradeHold`, so the panel, setup card, chart plan, bell and push never offer it, and the intraday alerts replay skips it as it skips an against-trend alert (its fill-time `risk_under_point` refusal stays): Gann's stop stands his allowance beyond the level (W006 pp. 20, 46-47). On Oct 28, 18 signals with stops within 0.2% of price lost 15 of 18. A reversal-risk warning's bell and push carry no stop or target (it is a stand-aside warning). The evening recap scores only what the platform offers as a trade: warnings, panel rows held or unpaid, reads before the session, no target, and fills through the stop or past TP1 are listed, not scored. Intraday alerts replay trades move; daily verdicts and `STRATEGY_VERSION` don't.
 
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`
