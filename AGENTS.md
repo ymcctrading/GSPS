@@ -3759,7 +3759,10 @@ live and replay alike; the intraday alerts read the same SPY bars
 (`marketDailyBars`). Crypto reads no averages. Stated exception: the intraday
 profile replay (`replayIntraday.ts`) reads neither the daily nor the market
 trend, as before. Random walks (40 a drift, 2,000 readings), long held / short
-held: drift −0.1% a day 67/22%, 0 42/44%, +0.1% 19/69%; about 0.015 ms a read.
+held: drift −0.1% a day 67/22%, 0 42/44%, +0.1% 19/69%; about 0.1 ms a read.
+The charts walk the year before the last session read (`AVERAGES_WINDOW_DAYS`,
+an engineering choice), so the live scan's 400 days and a replay's whole run read
+the same span.
 `STRATEGY_VERSION` is `2026-10-29-gann-averages-trend`; Execute and the 7/4
 cutoffs need a fresh run on it.
 

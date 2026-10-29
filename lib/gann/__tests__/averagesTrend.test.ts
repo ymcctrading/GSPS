@@ -53,6 +53,16 @@ describe("readAveragesTrend", () => {
     expect(averagesAgainst(a, "bearish")).toBe(false);
   });
 
+  it("reads the same year whatever history precedes it, so every surface agrees", () => {
+    // A long sideways prefix before the falling market: the live scan holds
+    // about 400 days of SPY, a replay its whole run.
+    const prefix = path([[400, 0], [380, 200], [420, 200], [400, 200]]).map((b) => ({
+      ...b,
+      t: new Date(Date.parse(b.t) - 1000 * 86_400_000).toISOString(),
+    }));
+    expect(readAveragesTrend([...prefix, ...FALLING])).toEqual(readAveragesTrend(FALLING));
+  });
+
   it("reads nothing on too little history, and holds nothing for it", () => {
     expect(readAveragesTrend(FALLING.slice(0, 5))).toBeNull();
     expect(averagesAgainst(null, "bullish")).toBe(false);

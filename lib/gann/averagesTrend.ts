@@ -57,10 +57,22 @@ export interface AveragesTrend {
 /** Bars the swing charts need before they read anything (the 7-day chart's first swings). */
 export const MIN_AVERAGES_BARS = 10;
 
+/**
+ * The span the charts are walked over, back from the last session read. The
+ * swing charts walk from their first bar, so every surface reads the same span:
+ * the live scan holds about 400 calendar days of SPY (`getMarketDailyBars`), a
+ * replay its whole run. A year sits inside both. Engineering choice, labelled.
+ */
+export const AVERAGES_WINDOW_DAYS = 365;
+
 /** The averages' two charts, on completed sessions the caller has already cut. */
 export function readAveragesTrend(market: Bar[]): AveragesTrend | null {
-  if (market.length < MIN_AVERAGES_BARS) return null;
-  const { threeDay, weekly } = computeSwingChart(market);
+  const last = market[market.length - 1];
+  if (!last) return null;
+  const from = Date.parse(last.t) - AVERAGES_WINDOW_DAYS * 86_400_000;
+  const span = Date.parse(market[0].t) >= from ? market : market.filter((b) => Date.parse(b.t) >= from);
+  if (span.length < MIN_AVERAGES_BARS) return null;
+  const { threeDay, weekly } = computeSwingChart(span);
   return { threeDay: threeDay ?? null, weekly: weekly ?? null };
 }
 

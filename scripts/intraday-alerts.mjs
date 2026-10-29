@@ -99,7 +99,11 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     const referenceNote = references.size === 0 ? "No instrument reference was read, so the D2 distribution-week exit (shares outstanding) was not walked." : null;
 
     // Pass 1: each symbol's daily plan per session and its evening focus reading.
-    const market = await withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY").catch(() => undefined);
+    const market = await withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY").catch((err) => {
+      // Without SPY the alerts read no market trend, which the live panel does read.
+      skipped.push({ symbol: "SPY", reason: `market bars not read: ${err instanceof Error ? err.message : String(err)}` });
+      return undefined;
+    });
     // Without the universe read P3(c) stays unread, as it does live when that read fails.
     const universeStrength = await withTimeout(run.fetchReplayUniverseStrength(), "universe strength").catch((err) => {
       skipped.push({ symbol: "(universe strength)", reason: err instanceof Error ? err.message : String(err) });
