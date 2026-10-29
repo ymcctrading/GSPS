@@ -10,7 +10,7 @@ estimate, not a measurement at 100.
 | Limit | Today | At 100 members | Verdict |
 |---|---|---|---|
 | Alpaca data, 200 requests a minute (whole platform) | `/api/quote` read the vendor on every poll: 12 a minute per open equity view, 20 per crypto view | about 17 open views spent it all before this change | **Fixed here**: one read per symbol per poll interval per instance (`lib/data/sharedSnapshot.ts`) plus a CDN header (`s-maxage` 5 s equity, 3 s crypto), so cost follows symbols watched, not viewers |
-| Resend, 100 emails a day | 11 today | the evening digest alone to 100 opted-in members is 100 | Binds. The email budget (0126) skips the overflow and the bell keeps it; nothing breaks, but members past the cap get no digest. Needs a paid plan or a weekly digest |
+| Resend, 100 emails a day | 11 today | the evening digest alone to 100 opted-in members is 100 | Degrades, never drops a notice (2026-10-29, migration 0139): the digest has its own ceiling of 60 under the alerts' 80 and own trades' 95, goes out in a day-shuffled order so the same members are not always last, and a member whose digest email did not go gets a "Summary" bell row and push. A member's own trade notices go to the bell and push as well as email (`lib/notifications/keyNotice.ts`). Past about 60 digest readers, some read it in the app instead; a paid plan or a weekly digest restores email for all |
 | Supabase database, 500 MB | 132 MB | see growth below | Binds in about 4 months without retention |
 | Supabase connections, 60 | 15 | pooled through the API; members don't hold connections | Fine |
 | Vercel deployments, 100 a day | 35 | not member-driven (two releases a day) | Fine |
@@ -33,7 +33,8 @@ together add about 2.6 MB a day, so 500 MB is reached in roughly 120 days.
    `monitor_transitions` (older than 90 days), as a pg_cron job beside
    `gsps-visible-scan-rollup`. Neither is a trade record, so the S-07
    keep-indefinitely rule (orders, positions, trade logs) does not cover them.
-   In progress on 2026-10-29 as its own change (`lib/ops/retention.ts`).
-2. Email: decide between Resend's paid tier and a smaller digest audience
-   before members pass about 80.
+   Done 2026-10-29 (#558, `lib/ops/retention.ts`, migration 0138).
+2. Email: the digest degrades to the bell and push past 60 members a day
+   (done 2026-10-29); decide on Resend's paid tier if members should keep
+   reading it by email past that.
 3. Read Vercel's function usage on the dashboard once a week while members grow.

@@ -39,7 +39,7 @@ export async function sendLiveLossThresholdEmail(data: LiveLossThresholdEmailDat
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("trade");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
   try {
     const subject = data.hardWarning
       ? `⚠️ Live position warning: ${data.symbol} down ${data.lossPct.toFixed(1)}%`

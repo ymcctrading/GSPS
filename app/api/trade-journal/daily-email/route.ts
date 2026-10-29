@@ -22,6 +22,8 @@ import { etDateKey } from "@/lib/market/session";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { emailOptedIn } from "@/lib/notifications/email-opt-in";
 import { digestSignalLines } from "@/lib/notifications/digestSignals";
+import { dayRotation } from "@/lib/notifications/email-budget";
+import { deliverKeyNotice, PORTFOLIO_PATH } from "@/lib/notifications/keyNotice";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
@@ -61,7 +63,13 @@ async function sendDailyJournals(): Promise<NextResponse> {
   const sandboxBlocked: string[] = [];
 
   let optedOut = 0;
-  for (const user of users) {
+  // Members whose digest email didn't go (over the day's budget, refused or
+  // failed): their summary goes to the bell and push instead (keyNotice.ts).
+  let toBell = 0;
+  let overBudget = 0;
+  // Shuffled by the day, so when the budget runs out part-way it is not the
+  // same members who miss the email every evening.
+  for (const user of dayRotation(users, dateLabel)) {
     // Email is opt-in (2026-10-22): only a member who turned it on in Settings.
     if (!(await emailOptedIn(supabase, user.id))) {
       optedOut++;
@@ -128,15 +136,40 @@ async function sendDailyJournals(): Promise<NextResponse> {
       signals,
     });
 
-    if (result.success) sent++;
+    if (result.success) {
+      sent++;
+      continue;
+    }
+    if ("overBudget" in result && result.overBudget) overBudget++;
     else if ("skipped" in result && result.skipped) sandboxBlocked.push(user.email);
     else failures.push(`${user.email}: ${result.error}`);
+
+    const signalCount = signals.lines.length + signals.more;
+    const parts = [
+      closedToday > 0 ? `${closedToday} trade${closedToday === 1 ? "" : "s"} closed today` : null,
+      signalCount > 0 ? `${signalCount} intraday signal${signalCount === 1 ? "" : "s"} in your bell` : null,
+    ].filter(Boolean);
+    const notice = await deliverKeyNotice(
+      user.id,
+      {
+        verdict: "Summary",
+        symbol: "",
+        title: `Your day on GSPS: ${dateLabel}`,
+        body: `${parts.join(", ")}. Your trade journal is on the Portfolio page.`,
+        url: PORTFOLIO_PATH,
+        tag: `summary-${dateLabel}`,
+      },
+      supabase,
+    );
+    if (notice.bell) toBell++;
   }
 
   return NextResponse.json({
     date: dateLabel,
     usersChecked: users.length,
     sent,
+    overBudget,
+    toBell,
     skipped,
     optedOut,
     sandboxBlocked: sandboxBlocked.length,

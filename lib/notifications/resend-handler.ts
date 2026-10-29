@@ -120,7 +120,7 @@ export async function sendAlertEmail(data: AlertEmailData) {
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("alert");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
 
   try {
     const scoreLabel = formatScore(data.score, data.exactScoreDisplayEnabled);
@@ -239,7 +239,7 @@ export async function sendSetupInvalidatedEmail(data: SetupInvalidatedEmailData)
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("alert");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
 
   try {
     const subject = `${data.symbol} setup invalidated`;
@@ -311,7 +311,7 @@ export async function sendJournalEmail(data: JournalEmailData) {
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("digest");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
 
   try {
     const html = `
@@ -414,7 +414,7 @@ export async function sendOrderInvalidatedEmail(data: OrderInvalidatedEmailData)
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("trade");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
 
   try {
     const subject = `Order canceled: ${data.symbol} invalidated before entry`;
@@ -493,7 +493,7 @@ export async function sendOperatorDriftAlertEmail(data: OperatorDriftAlertEmailD
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("ops");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
 
   try {
     const subject = "GSPS: live signal quality has drifted from backtest";
@@ -593,7 +593,7 @@ export async function sendPriceAlertEmail(data: PriceAlertEmailData) {
     return { success: false, error: blocked, skipped: true };
   }
   const overBudget = await emailBudgetHold("alert");
-  if (overBudget) return { success: false, error: overBudget, skipped: true };
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
 
   try {
     const verb = data.direction === "above" ? "rose above" : "fell below";
