@@ -23,7 +23,7 @@
  *   7. trendAllTimeframes C13: monthly, weekly and daily confirming
  *   8. relativeStrength   S4-S10: buy the strong, sell the weak
  *   9. activity           S1-S3: active stocks that follow the rules
- *  10-18. the holds, C14 first (the breakaway from a narrow range), then in
+ *  10-20. the holds, C14 first (the breakaway from a narrow range), then in
  *      the live scan's order (`REPLAY_HOLD_KEYS`).
  *
  * C9 (the greatest reaction) is read inside P9 and the rule-following hold,
@@ -90,6 +90,8 @@ const HOLD_SOURCES: Record<ReplayHoldKey, string> = {
   timeWindow: "W036 p. 22; Master Course PDF 202, 440 (a counter-trend turn needs time and price)",
   ruleFollowing: "NSTD pp. 20, 34-35 (trade stocks that follow the rules)",
   weakStock: "Truth of the Stock Tape Ch. XIX; NSTD p. 35 (weak stocks are not bought)",
+  campaignSection: "Master Course pp. 244-245 (the third or fourth section marks the culmination)",
+  marketTrend: "45 Years in Wall Street Rule 1, p. 6 (trade stocks that conform to the averages)",
   figureCrossing: "A-LEVELS-08 (the third time through a round number)",
   readyNow: "W006 Rules 3(b)-(c); M-K5 (targets ahead, profits exceed losses)",
 };

@@ -461,6 +461,8 @@ export const REPLAY_HOLD_KEYS = [
   "timeWindow",
   "ruleFollowing",
   "weakStock",
+  "campaignSection",
+  "marketTrend",
   "figureCrossing",
   "readyNow",
 ] as const;
@@ -2497,6 +2499,8 @@ function scoreSetup(input: {
     timeWindow: (d) => applyTimeWindowHold(d, setupKind, () => context.windowTurn(gannTrigger.direction)),
     ruleFollowing: (d) => applyRuleFollowingHold(d, context.disclosedRules.ruleFollowing),
     weakStock: (d) => applyWeakStockHold(d, context.disclosedRules.weakStock, gannTrigger.direction),
+    campaignSection: (d) => applyCampaignSectionHold(d, context.disclosedRules.campaign, gannTrigger.direction),
+    marketTrend: (d) => applyMarketTrendHold(d, context.pillarFacts.averages, gannTrigger.direction),
     figureCrossing: (d) => applyFigureCrossingHold(d, figureCrossingOf(context.dailyChart, gannTrigger)),
     readyNow: (d) =>
       applyReadyNowHold(d, {

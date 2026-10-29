@@ -55,13 +55,16 @@ checks, then the holds with "when not to trade" (C14) first:
 | 14 | hold:timeWindow | a counter-trend turn needs time and price together |
 | 15 | hold:ruleFollowing | trade stocks that follow the rules |
 | 16 | hold:weakStock | weak stocks are not bought |
-| 17 | hold:figureCrossing | the third time through a round number |
-| 18 | hold:readyNow | targets ahead, profits exceed losses |
+| 17 | hold:campaignSection | the third or fourth section marks the culmination |
+| 18 | hold:marketTrend | trade stocks that conform to the averages |
+| 19 | hold:figureCrossing | the third time through a round number |
+| 20 | hold:readyNow | targets ahead, profits exceed losses |
 
 Fixing the order first makes each rung one test, not the best of many tries.
-Holds added to the live scan after this was written (the campaign-section and
-market-trend holds in the merge queue) join the ladder after rung 18, in the
-order they merged, once `REPLAY_HOLD_KEYS` names them.
+A hold added to the live scan later joins the ladder after rung 20, in the
+order it merged; `ruleLadder.test.ts` fails until `REPLAY_HOLD_KEYS` names it.
+If the market-trend hold is taken out of the scan before the run, its rung
+goes with it.
 
 ## The keep test (pre-registered)
 
@@ -86,7 +89,7 @@ order they merged, once `REPLAY_HOLD_KEYS` names them.
   figures are quoted.
 
 The years, the minimum counts and the 95% level are engineering choices, not
-Gann's. With 18 rungs a rule that does nothing has about a 5% chance of
+Gann's. With 20 rungs a rule that does nothing has about a 5% chance of
 slipping through, so about one false keep is expected; the confirmation run
 and the forward test are the check on it. Nothing is tuned: no rule's
 threshold moves during the ladder. A rule that fails stays in the code and on
@@ -120,11 +123,20 @@ replay spent about 205 minutes on four slices, mostly scoring every session.
 | 5 | Spare, for one failed or cut-off run | ~45 min |
 |  | Total | ~140 min (7% of 2,000) |
 
-Order with the other rebuild threads: run step 2 after the survivorship fix
-lands, so the universe is the one each date really had; a run before it
-carries today's survivors back six years. Each step is dispatched only on the
+Order with the other rebuild threads: step 2 runs on `--universe
+point-in-time` (PR #576), after the departed companies' share counts have been
+fetched (a data PR after #576, from 1 November), so the universe is the one
+each date really had; a run before it carries today's survivors back six
+years. The core walker must honour that universe's `inUniverse(date)` too (no
+new campaign while the stock is out). Each step is dispatched only on the
 owner's ask, with its estimate stated first, and stops if the usage meter
 reaches its hold.
+
+The cells, for `backtest-universe.yml` with `timeframe` 1Day and `since`
+2020-10-30:
+
+- step 2: `[{"label":"ladder","options":{"profile":"core","ladder":"tag"}}]`
+- step 4: `[{"label":"core","options":{"profile":"core"}},{"label":"kept","options":{"profile":"core","ladderGate":[...the kept rungs]}}]`
 
 The job prints the ladder report and a compact campaign block
 (`ladder-rows.csv.gz.base64`), so the ladder can be re-read locally with

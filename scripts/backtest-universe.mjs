@@ -52,6 +52,7 @@ import { execSync } from "node:child_process";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { robustnessSections } from "./robustness-report.mjs";
+import { ladderLogBlock } from "./rule-ladder.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -136,10 +137,17 @@ export function validateCells(cells) {
     if (intradayOnly.length > 0 && c.options?.profile !== "intraday") {
       throw new Error(`Cell "${c.label}": ${intradayOnly.join(", ")} apply to profile "intraday" only`);
     }
-    const coreOnly = ["coreShorts", "coreTrail"].filter((k) => c.options?.[k] !== undefined);
+    const coreOnly = ["coreShorts", "coreTrail", "ladder", "ladderGate"].filter((k) => c.options?.[k] !== undefined);
     if (coreOnly.length > 0 && c.options?.profile !== "core") {
       throw new Error(`Cell "${c.label}": ${coreOnly.join(", ")} apply to profile "core" only`);
     }
+    // The rule ladder (docs/RULE_LADDER.md): "tag" reads every rung without
+    // gating and prints the ladder; `ladderGate` gates on the kept rungs.
+    if (c.options?.ladder !== undefined && c.options.ladder !== "tag") throw new Error(`Cell "${c.label}": ladder must be "tag"`);
+    if (c.options?.ladderGate !== undefined && !(Array.isArray(c.options.ladderGate) && c.options.ladderGate.every((n) => typeof n === "string"))) {
+      throw new Error(`Cell "${c.label}": ladderGate must be an array of rung names`);
+    }
+    if (c.options?.ladder !== undefined && c.options?.ladderGate !== undefined) throw new Error(`Cell "${c.label}": ladder and ladderGate are exclusive`);
   }
   return cells;
 }
@@ -547,6 +555,13 @@ export function tradesCsvLogBlock(csv, limitBytes = TRADE_CSV_LOG_LIMIT_BYTES) {
  * Markdown section for the job log: the whole line beside the first lot alone,
  * so the pyramid's share shows, and the split by side and entry.
  */
+/** A tagged core cell's campaigns as ladder rows (`lib/backtest/walkForward.ts#LadderRow`). */
+export function ladderRowsFromCore(trades) {
+  return trades
+    .filter((t) => Array.isArray(t.rulesRefused) && Number.isFinite(t.rMultiple))
+    .map((t) => ({ symbol: t.symbol, date: t.openedAt.slice(0, 10), r: t.rMultiple, refused: new Set(t.rulesRefused) }));
+}
+
 export function coreCampaignSummary(label, core) {
   const r = (x) => (Number.isFinite(x) ? (x >= 0 ? "+" : "") + x.toFixed(3) + "R" : "n/a");
   const lines = [
@@ -859,6 +874,11 @@ async function main() {
     const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
     // The bare core (profile "core"); absent on refs before it.
     const { replayCore } = await server.ssrLoadModule("/lib/backtest/replayCore.ts").catch(() => ({}));
+    const usesLadder = cells.some((c) => c.options?.ladder !== undefined || c.options?.ladderGate !== undefined);
+    const ladderMod = usesLadder ? await server.ssrLoadModule("/lib/backtest/ruleLadder.ts") : null;
+    const walkForward = usesLadder ? await server.ssrLoadModule("/lib/backtest/walkForward.ts") : null;
+    // Check every gated rung name before any fetch.
+    for (const c of cells) if (c.options?.ladderGate) ladderMod.ladderRules("CHECK", { dailyBars: [] }, c.options.ladderGate);
     if (cells.some((c) => c.options?.profile === "core")) {
       if (typeof replayCore !== "function") throw new Error('profile "core" is not on this ref.');
       if (args.timeframe !== "1Day") throw new Error('profile "core" walks daily bars: run it with --timeframe 1Day.');
@@ -1037,6 +1057,11 @@ async function main() {
       await rm(blockFile, { force: true });
       process.stdout.write(md);
       process.stdout.write(`\n${block}`);
+      // The rule ladder last, so a tail read of the log reaches it.
+      for (const { cell, trades } of cellResults) {
+        if (cell.options?.ladder !== "tag") continue;
+        process.stdout.write(`\nRule ladder, cell ${cell.label}:\n${ladderLogBlock(walkForward, ladderMod, ladderRowsFromCore(trades))}`);
+      }
       for (const w of summary.warnings) process.stderr.write(`WARNING: ${w}\n`);
     };
 
@@ -1067,6 +1092,16 @@ async function main() {
                     ...(opts.pyramid !== undefined ? { pyramid: opts.pyramid } : {}),
                     ...(opts.coreShorts !== undefined ? { shorts: opts.coreShorts } : {}),
                     ...(opts.coreTrail !== undefined ? { trail: opts.coreTrail } : {}),
+                    ...(opts.ladder === "tag" || opts.ladderGate
+                      ? {
+                          rules: ladderMod.ladderRules(
+                            symbol,
+                            { ...run.replaySeriesOptions(series, market, universeStrength), instrument },
+                            opts.ladderGate ?? ladderMod.LADDER_RULE_NAMES,
+                          ),
+                          ruleMode: opts.ladder === "tag" ? "tag" : "gate",
+                        }
+                      : {}),
                   })
                 : opts.profile === "intraday"
                 ? replayIntraday(symbol, bars, {

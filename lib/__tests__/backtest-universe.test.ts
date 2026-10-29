@@ -11,6 +11,7 @@ import {
   bootstrapDiffCI,
   bootstrapMeanCI,
   coreCampaignSummary,
+  ladderRowsFromCore,
   describeTrades,
   factorTable,
   splitTable,
@@ -388,3 +389,22 @@ describe("bare core cells", () => {
   });
 });
 
+
+describe("rule ladder cells", () => {
+  it("accept ladder options on the core profile only, one at a time", () => {
+    expect(() => validateCells([{ label: "t", options: { profile: "core", ladder: "tag" } }])).not.toThrow();
+    expect(() => validateCells([{ label: "g", options: { profile: "core", ladderGate: ["hold:breakaway"] } }])).not.toThrow();
+    expect(() => validateCells([{ label: "t", options: { ladder: "tag" } }])).toThrow(/core/);
+    expect(() => validateCells([{ label: "t", options: { profile: "core", ladder: "gate" } }])).toThrow();
+    expect(() => validateCells([{ label: "t", options: { profile: "core", ladderGate: "hold:breakaway" } }])).toThrow();
+    expect(() => validateCells([{ label: "t", options: { profile: "core", ladder: "tag", ladderGate: [] } }])).toThrow(/exclusive/);
+  });
+
+  it("turn tagged campaigns into ladder rows and skip untagged ones", () => {
+    const rows = ladderRowsFromCore([
+      { symbol: "AAA", openedAt: "2024-03-01T05:00:00Z", rMultiple: 1.5, rulesRefused: ["hold:breakaway"] },
+      { symbol: "BBB", openedAt: "2024-03-02T05:00:00Z", rMultiple: -1 },
+    ]);
+    expect(rows).toEqual([{ symbol: "AAA", date: "2024-03-01", r: 1.5, refused: new Set(["hold:breakaway"]) }]);
+  });
+});
