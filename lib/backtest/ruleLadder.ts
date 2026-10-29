@@ -91,7 +91,7 @@ const HOLD_SOURCES: Record<ReplayHoldKey, string> = {
   ruleFollowing: "NSTD pp. 20, 34-35 (trade stocks that follow the rules)",
   weakStock: "Truth of the Stock Tape Ch. XIX; NSTD p. 35 (weak stocks are not bought)",
   campaignSection: "Master Course pp. 244-245 (the third or fourth section marks the culmination)",
-  marketTrend: "45 Years in Wall Street Rule 1, p. 6 (trade stocks that conform to the averages)",
+  mainTrend: "W006 pp. 19-22 (sell short only after the stock's monthly main trend turns down)",
   figureCrossing: "A-LEVELS-08 (the third time through a round number)",
   readyNow: "W006 Rules 3(b)-(c); M-K5 (targets ahead, profits exceed losses)",
 };

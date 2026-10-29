@@ -56,15 +56,13 @@ checks, then the holds with "when not to trade" (C14) first:
 | 15 | hold:ruleFollowing | trade stocks that follow the rules |
 | 16 | hold:weakStock | weak stocks are not bought |
 | 17 | hold:campaignSection | the third or fourth section marks the culmination |
-| 18 | hold:marketTrend | trade stocks that conform to the averages |
+| 18 | hold:mainTrend | a short waits for the stock's monthly main trend to turn down |
 | 19 | hold:figureCrossing | the third time through a round number |
 | 20 | hold:readyNow | targets ahead, profits exceed losses |
 
 Fixing the order first makes each rung one test, not the best of many tries.
 A hold added to the live scan later joins the ladder after rung 20, in the
 order it merged; `ruleLadder.test.ts` fails until `REPLAY_HOLD_KEYS` names it.
-If the market-trend hold is taken out of the scan before the run, its rung
-goes with it.
 
 ## The keep test (pre-registered)
 
