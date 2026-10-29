@@ -3294,7 +3294,8 @@ Standing facts for a session that touches any list of setups:
 - **The Dashboard watchlist** is the user's own 3–9 US stocks or crypto pairs,
   in the `watchlists` / `watchlist_items` tables migration 0001 created
   (`lib/dashboard/watchlist.ts`). `app/api/intraday-scan/route.ts` merges every
-  user's watchlist symbols into the system scan's universe (capped at 50 total),
+  user's watchlist symbols into the system scan's universe (capped at 100 total since
+  2026-10-29, 50 before),
   so a symbol added there can be covered by that scan.
 - **Timeline, in one line.** Entry is minutes to a few hours (four closed
   15-minute bars at least; a plan lasts its session unless its stop breaks first, Q17, 2026-10-16); the
@@ -3552,6 +3553,14 @@ so no scan waits on it; the owner's recap reads it (`lib/reports/coverage.ts`). 
 the queue then has no discovery tier. Hindsight data (the recap's movers and
 attribution) goes to the owner's two accounts only (`lib/auth/owner.ts`).
 Verdicts unchanged.
+**100 slots, equities only, 2026-10-29 (owner: "yes, raise the cap"; "SPY
+should stay. QQQ and IWM can leave"; "For the moment, only equities should
+populate the list").** `QUEUE_CAPACITY` is 100 and every share doubled (setups
+28, discoveries 16, focus 24, watched 12, wheel 10; `SESSION_SETUPS_MAX` 48),
+engineering figures; 50-symbol scans had returned in about 5-12 s. The crypto
+pairs and crypto in any tier take no slot, and SPY is the only index fund in
+the core list (QQQ and IWM stay in `WATCHLIST` for their kind). The crypto
+pg_cron jobs are paused (`cron.alter_job`, active=false). Verdicts unchanged.
 **Nearing the entry, same day (owner: alert "as price is moving towards that
 entry level" early enough to sign in and place the order, the lead "determined
 by all of the tools [Gann] used to determine how fast price is moving").** Two

@@ -36,7 +36,7 @@
  * deliberate.
  */
 
-import { planQueue, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
+import { planQueue, QUEUE_CAPACITY, rotationTick, ROTATION_STEP_MINUTES } from "@/lib/scanner/queue";
 import { afterResponse, detectionFromAlert, detectionRows, queueRows, readSessionDiscoveries, writeDeferred, writeLedger } from "@/lib/ledger/evaluationLedger";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -465,20 +465,25 @@ export async function GET(req: NextRequest) {
 
 /**
  * Symbols added to this cap beyond the curated `WATCHLIST` come from users'
- * own GSPS watchlists (below). Bounded so a popular-symbol tail can't turn a
- * ~20-name scan into one large enough to blow the route's duration budget —
- * see the `maxDuration` comment at the top of this file.
+ * own GSPS watchlists (below), the setups, discoveries and focus list.
+ * Bounded so the scan stays inside the route's duration budget (see the
+ * `maxDuration` comment at the top of this file); the queue's capacity, 100
+ * since 2026-10-29 (owner: "yes, raise the cap").
  */
-const MAX_SYSTEM_UNIVERSE = 50;
+const MAX_SYSTEM_UNIVERSE = QUEUE_CAPACITY;
 
 /**
  * The core list the scheduled scan and a refresh with no symbols start from:
  * equities only for the moment (owner, 2026-10-28: "For the moment, only
  * equities should populate the list"), so the crypto pairs and members'
  * watched crypto take no slot. A person who names a pair still gets it, and
- * `?universe=crypto` still scans the pairs alone when called.
+ * `?universe=crypto` still scans the pairs alone when called. Of the index
+ * funds only SPY stays (owner, 2026-10-29: "SPY should stay. QQQ and IWM can
+ * leave"); they keep their place in `WATCHLIST` so a member who watches one
+ * still has it read as a fund.
  */
-const EQUITY_CORE = WATCHLIST.filter((entry) => entry.kind !== "crypto");
+const CORE_DROPPED = new Set(["QQQ", "IWM"]);
+const EQUITY_CORE = WATCHLIST.filter((entry) => entry.kind !== "crypto" && !CORE_DROPPED.has(entry.symbol));
 
 /** The session's discoveries read for the queue at most (engineering; the tier's share is 8, the rest wait their turn). */
 const DISCOVERY_READ_MAX = 40;
@@ -545,18 +550,21 @@ async function resolveSystemUniverse(
     sweepBasisP.then((basis) => loadSessionSetups(supabase, now, SESSION_SETUPS_MAX, basis)).catch(() => [] as string[]),
     readSessionDiscoveries(supabase, sessionDate, DISCOVERY_READ_MAX),
   ]);
-  // The fixed single stocks give way only to a focus list or the session's
-  // setups; discoveries alone (a missed evening) leave the core list whole.
-  const core = focus.length > 0 || setups.length > 0 ? EQUITY_CORE.filter((w) => w.kind !== "equity") : EQUITY_CORE;
-  const watchedEquities = watched.filter((w) => w.kind !== "crypto");
   // Equities only in every tier, not the core alone (owner, 2026-10-28).
   const equity = (symbol: string) => kindFor(symbol) !== "crypto";
+  const equitySetups = setups.filter(equity);
+  const equityFocus = focus.filter(equity);
+  // The fixed single stocks give way only to a focus list or the session's
+  // setups, counted after the filter, so crypto alone never displaces them;
+  // discoveries alone (a missed evening) leave the core list whole.
+  const core = equityFocus.length > 0 || equitySetups.length > 0 ? EQUITY_CORE.filter((w) => w.kind !== "equity") : EQUITY_CORE;
+  const watchedEquities = watched.filter((w) => w.kind !== "crypto");
   const plan = planQueue({
     capacity: MAX_SYSTEM_UNIVERSE,
     core: core.map((c) => c.symbol),
-    plans: setups.filter(equity),
+    plans: equitySetups,
     discovery: discovery.filter(equity),
-    focus: focus.filter(equity),
+    focus: equityFocus,
     watched: watchedEquities.map((w) => w.symbol),
     tick,
   });
