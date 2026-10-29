@@ -51,6 +51,7 @@ import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
+import { robustnessSections } from "./robustness-report.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -375,9 +376,11 @@ export const MONTE_CARLO_SCOPES = {
  * for any two cells whose options differ but whose trades are identical.
  * `monteCarlo` is `lib/backtest/monteCarlo.ts#monteCarloResample`, passed in
  * because this file loads lib code through vite; without it the key is left
- * out.
+ * out. `robustness` is likewise a function of a cell's trades returning
+ * `lib/backtest/robustness.ts#buildRobustness`'s report (walk-forward, stress
+ * windows, market regimes); without it that key is left out too.
  */
-export function summarizeCells(cellResults, { monteCarlo } = {}) {
+export function summarizeCells(cellResults, { monteCarlo, robustness } = {}) {
   const cells = cellResults.map(({ cell, trades, accounting }) => ({
     label: cell.label,
     options: cell.options ?? {},
@@ -393,6 +396,7 @@ export function summarizeCells(cellResults, { monteCarlo } = {}) {
           ),
         }
       : {}),
+    ...(robustness ? { robustness: robustness(trades) } : {}),
     ...(accounting ? { accounting } : {}),
   }));
 
@@ -678,6 +682,14 @@ export function summaryMarkdown(meta, summary) {
     }
     lines.push("");
   }
+  if (summary.cells.some((c) => c.robustness)) {
+    lines.push("## Robustness (walk-forward, stress windows, market regimes)");
+    lines.push("");
+    for (const c of summary.cells) {
+      if (!c.robustness) continue;
+      lines.push(`### ${c.label}`, "", ...robustnessSections(c.robustness, "####"), "");
+    }
+  }
   if (summary.cells.some((c) => c.accounting)) {
     // Every fired entry is a trade, a refused fill or a dropped plan.
     lines.push("## Fill accounting");
@@ -817,6 +829,7 @@ async function main() {
     const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
     const { monteCarloResample } = await server.ssrLoadModule("/lib/backtest/monteCarlo.ts");
+    const { buildRobustness } = await server.ssrLoadModule("/lib/backtest/robustness.ts");
     if (typeof run.buildReport !== "function") {
       throw new Error("lib/backtest/run.ts has no buildReport on this ref — merge main into it first.");
     }
@@ -961,7 +974,14 @@ async function main() {
         generatedAt: new Date().toISOString(),
         durationMinutes: (Date.now() - started) / 60_000,
       };
-      const summary = summarizeCells(cellResults, { monteCarlo: monteCarloResample });
+      // The robustness sections take seconds a cell on a long run, so a
+      // checkpoint leaves them out and the final write carries them. The
+      // regime split reads SPY's daily bars, fetched once above; without them
+      // it is left out.
+      const summary = summarizeCells(cellResults, {
+        monteCarlo: monteCarloResample,
+        ...(partial ? {} : { robustness: (trades) => buildRobustness(trades, market?.daily) }),
+      });
       await writeWhole(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
       const md = summaryMarkdown(meta, summary);
       await writeWhole(path.resolve(root, args.out, "summary.md"), md);
