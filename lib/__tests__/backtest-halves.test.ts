@@ -64,3 +64,39 @@ describe("buildReport: chronological halves", () => {
     expect(delta("late", "contextFactors")).toBeLessThan(0);
   });
 });
+
+describe("buildReport: Monte Carlo resampling", () => {
+  const trades = Array.from({ length: 30 }, (_, i) => trade(i, i % 3 === 0, true));
+  const derived = { ...trade(40, true, true), derived: "reversal" as const };
+  const all = [...trades, derived];
+  const overall: ReplayResult = {
+    trades: all,
+    armed: all.length,
+    triggered: all.length,
+    wins: 11,
+    losses: 20,
+    timeouts: 0,
+    openAtEnd: 0,
+    ambiguous: 0,
+    winRate: 11 / 31,
+    expectancyR: 0,
+    totalR: 0,
+    refusedFills: 0,
+    droppedPlans: 0,
+    droppedPlanReasons: { noLevels: 0, invalidRisk: 0, targetNotBeyondEntry: 0, roundNumberHold: 0 },
+    retiredPlans: 0,
+  };
+  const outcome = { source: "synthetic", live: false, timeframe: "15Min" as const, targetR: 2, symbols: ["TEST"], skipped: [], window: { from: null, to: null }, overall };
+
+  it("is left out unless asked for", () => {
+    expect(buildReport(outcome, { symbols: ["TEST"] }).monteCarlo).toBeUndefined();
+  });
+
+  it("resamples the scored trades and the derived ones apart", () => {
+    const mc = buildReport(outcome, { symbols: ["TEST"], includeMonteCarlo: true }).monteCarlo!;
+    expect(mc.armed?.n).toBe(30);
+    expect(mc.derived).toBeNull();
+    expect(mc.Execute).toBeNull();
+    expect(mc.armed?.observed.totalR).toBeCloseTo(10 * 2 - 20);
+  });
+});

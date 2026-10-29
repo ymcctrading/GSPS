@@ -11,6 +11,7 @@
     "check:migrations": "node scripts/check-migrations.mjs",
     "backtest": "node scripts/replay-report.mjs",
     "backtest:universe": "node scripts/backtest-universe.mjs",
+    "backtest:robustness": "node scripts/robustness-report.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

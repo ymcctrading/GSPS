@@ -361,11 +361,23 @@ function tradeSignature(trades) {
   return trades.map((t) => `${t.symbol}|${t.openedAt}|${t.entry}|${t.rMultiple.toFixed(6)}`).join(";");
 }
 
+// The Monte Carlo scopes match the report's (`BacktestReport.monteCarlo`):
+// the scored (armed) trades, each verdict bucket, and the derived trades on their own.
+export const MONTE_CARLO_SCOPES = {
+  armed: (t) => !t.derived,
+  Execute: SCOPES.Execute,
+  Watch: SCOPES.Watch,
+  derived: SCOPES.derived,
+};
+
 /**
  * Per-cell stats, pairwise differences against the first cell, and a warning
  * for any two cells whose options differ but whose trades are identical.
+ * `monteCarlo` is `lib/backtest/monteCarlo.ts#monteCarloResample`, passed in
+ * because this file loads lib code through vite; without it the key is left
+ * out.
  */
-export function summarizeCells(cellResults) {
+export function summarizeCells(cellResults, { monteCarlo } = {}) {
   const cells = cellResults.map(({ cell, trades, accounting }) => ({
     label: cell.label,
     options: cell.options ?? {},
@@ -374,6 +386,13 @@ export function summarizeCells(cellResults) {
     factors: factorTable(trades),
     exits: splitTable(trades, EXIT_REASON_OF),
     entries: splitTable(trades, (t) => t.entryKind),
+    ...(monteCarlo
+      ? {
+          monteCarlo: Object.fromEntries(
+            Object.entries(MONTE_CARLO_SCOPES).map(([k, f]) => [k, monteCarlo(trades.filter(f))]),
+          ),
+        }
+      : {}),
     ...(accounting ? { accounting } : {}),
   }));
 
@@ -633,6 +652,32 @@ export function summaryMarkdown(meta, summary) {
     }
     lines.push("");
   }
+  if (summary.cells.some((c) => c.monteCarlo)) {
+    lines.push("## Monte Carlo resampling (closed trades, blocks in open-time order)");
+    lines.push("");
+    lines.push(
+      "5th / 50th / 95th percentiles over resampled sequences of the same trades. Blocks of consecutive trades " +
+        "keep losing stretches together. Trades still open at the data's end are left out.",
+    );
+    lines.push("");
+    lines.push(
+      "| Cell | Scope | n | Block | Expectancy p5 / p50 / p95 | Share ≤ 0 | Max drawdown run / p50 / p95 | Longest losing streak run / p50 / p95 |",
+    );
+    lines.push("|---|---|---:|---:|---|---:|---|---|");
+    const fmtDD = (x) => `${x.toFixed(1)}R`;
+    for (const c of summary.cells) {
+      for (const scope of Object.keys(MONTE_CARLO_SCOPES)) {
+        const m = c.monteCarlo?.[scope];
+        if (!m) continue;
+        lines.push(
+          `| ${c.label} | ${scope} | ${m.n} | ${m.blockLength} | ${fmtR(m.expectancyR.p5)} / ${fmtR(m.expectancyR.p50)} / ${fmtR(m.expectancyR.p95)} | ` +
+            `${fmtPct(m.shareNonPositiveExpectancy)} | ${fmtDD(m.observed.maxDrawdownR)} / ${fmtDD(m.maxDrawdownR.p50)} / ${fmtDD(m.maxDrawdownR.p95)} | ` +
+            `${m.observed.longestLosingStreak} / ${m.longestLosingStreak.p50} / ${m.longestLosingStreak.p95} |`,
+        );
+      }
+    }
+    lines.push("");
+  }
   if (summary.cells.some((c) => c.accounting)) {
     // Every fired entry is a trade, a refused fill or a dropped plan.
     lines.push("## Fill accounting");
@@ -771,6 +816,7 @@ async function main() {
     const { replay, combine } = await server.ssrLoadModule("/lib/backtest/replay.ts");
     const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
+    const { monteCarloResample } = await server.ssrLoadModule("/lib/backtest/monteCarlo.ts");
     if (typeof run.buildReport !== "function") {
       throw new Error("lib/backtest/run.ts has no buildReport on this ref — merge main into it first.");
     }
@@ -877,6 +923,7 @@ async function main() {
           timeframe: args.timeframe,
           targetR: args.targetR,
           attributeWithin: cell.within ?? "Execute",
+          includeMonteCarlo: true,
           ...(cell.options ?? {}),
         });
         await writeWhole(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
@@ -914,7 +961,7 @@ async function main() {
         generatedAt: new Date().toISOString(),
         durationMinutes: (Date.now() - started) / 60_000,
       };
-      const summary = summarizeCells(cellResults);
+      const summary = summarizeCells(cellResults, { monteCarlo: monteCarloResample });
       await writeWhole(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
       const md = summaryMarkdown(meta, summary);
       await writeWhole(path.resolve(root, args.out, "summary.md"), md);

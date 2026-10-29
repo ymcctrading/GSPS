@@ -23,6 +23,7 @@ import {
   validateCells,
 } from "../../scripts/backtest-universe.mjs";
 import { gunzipSync } from "node:zlib";
+import { monteCarloResample } from "@/lib/backtest/monteCarlo";
 
 const trade = (over: Record<string, unknown>) => ({
   symbol: "AAA",
@@ -223,6 +224,42 @@ describe("closed trades (open_at_end left out, 2026-10-21)", () => {
     expect(md).toContain("Closed trades only");
     expect(md).toContain("| base | 2 | 2 | -0.250R |");
     expect(md).toContain("other − base, closed only: +0.000R");
+  });
+});
+
+describe("Monte Carlo resampling in the summary", () => {
+  const meta = {
+    universe: "mega-12", symbolsUsed: 1, symbolsRequested: 1, ref: "r", sha: "s", timeframe: "15Min",
+    targetR: 2, source: "synthetic", live: false, window: { from: null, to: null }, generatedAt: "t", skipped: [],
+  };
+  const trades = [
+    ...Array.from({ length: 12 }, (_, i) =>
+      trade({ openedAt: `2026-09-${String(i + 1).padStart(2, "0")}T14:00:00Z`, rMultiple: i % 3 === 0 ? 2 : -1, outcome: i % 3 === 0 ? "win" : "loss" }),
+    ),
+    trade({ openedAt: "2026-09-20T14:00:00Z", rMultiple: 4, outcome: "timeout", exitReason: "open_at_end" }),
+    trade({ openedAt: "2026-09-21T14:00:00Z", rMultiple: -1, outcome: "loss", derived: "reversal" }),
+    trade({ openedAt: "2026-09-22T14:00:00Z", rMultiple: 1, outcome: "win", derived: "rebuy" }),
+  ];
+
+  it("leaves the key out unless the resampler is passed", () => {
+    const s = summarizeCells([{ cell: { label: "base" }, trades }]);
+    expect(s.cells[0].monteCarlo).toBeUndefined();
+    expect(summaryMarkdown(meta, s)).not.toContain("Monte Carlo");
+  });
+
+  it("resamples each scope, derived trades apart, and prints the bands", () => {
+    const s = summarizeCells([{ cell: { label: "base" }, trades }], { monteCarlo: monteCarloResample });
+    const mc = s.cells[0].monteCarlo;
+    expect(mc.armed.n).toBe(12);
+    expect(mc.armed.excludedOpenAtEnd).toBe(1);
+    expect(mc.Execute.n).toBe(12);
+    expect(mc.Watch).toBeNull();
+    expect(mc.derived.n).toBe(2);
+    // The other tables are unchanged by the new key.
+    expect(s.cells[0].scopes.all.n).toBe(15);
+    const md = summaryMarkdown(meta, s);
+    expect(md).toContain("## Monte Carlo resampling");
+    expect(md).toMatch(/\| base \| armed \| 12 \| 2 \|/);
   });
 });
 

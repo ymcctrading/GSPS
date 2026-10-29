@@ -549,12 +549,14 @@ async function resolveSystemUniverse(
   // setups; discoveries alone (a missed evening) leave the core list whole.
   const core = focus.length > 0 || setups.length > 0 ? EQUITY_CORE.filter((w) => w.kind !== "equity") : EQUITY_CORE;
   const watchedEquities = watched.filter((w) => w.kind !== "crypto");
+  // Equities only in every tier, not the core alone (owner, 2026-10-28).
+  const equity = (symbol: string) => kindFor(symbol) !== "crypto";
   const plan = planQueue({
     capacity: MAX_SYSTEM_UNIVERSE,
     core: core.map((c) => c.symbol),
-    plans: setups,
-    discovery,
-    focus,
+    plans: setups.filter(equity),
+    discovery: discovery.filter(equity),
+    focus: focus.filter(equity),
     watched: watchedEquities.map((w) => w.symbol),
     tick,
   });
@@ -719,7 +721,8 @@ async function resolveOnDemandUniverse(
     .catch(() => [] as string[]);
   const seen = new Set<string>();
   const out: { symbol: string; kind: AssetKind }[] = [];
-  for (const entry of [...setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })), ...EQUITY_CORE]) {
+  const setupEntries = setups.map((symbol) => ({ symbol, kind: kindFor(symbol) })).filter((e) => e.kind !== "crypto");
+  for (const entry of [...setupEntries, ...EQUITY_CORE]) {
     if (seen.has(entry.symbol)) continue;
     seen.add(entry.symbol);
     out.push(entry);
