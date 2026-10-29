@@ -105,6 +105,7 @@ import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
+import { averagesAgainst, type AveragesTrend } from "@/lib/gann/averagesTrend";
 import { crossingLinesFromEntry, intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
@@ -248,6 +249,13 @@ export interface SymbolInput {
    * them those three detectors report "no data" rather than guessing.
    */
   priorDailyBars?: Bar[];
+  /**
+   * The averages' (SPY's) 3-Day and weekly charts on completed sessions before
+   * this one (`averagesTrend.ts`), for a US stock. A trade alert both charts
+   * read against is shown for study only (45 Years Rule 1). Null or absent:
+   * not read, and nothing is held for it.
+   */
+  marketTrend?: AveragesTrend | null;
   /**
    * Bars over the last several sessions (five-minute bars from the route),
    * oldest first, rolled up into Gann's hourly High and Low chart: "when
@@ -658,6 +666,14 @@ export interface Alert {
    */
   againstDailyTrend?: boolean;
   /**
+   * True when the averages' 3-Day and weekly charts both run against the
+   * alert's direction: "trade stocks that conform" to the averages' trend (45
+   * Years Rule 1, 2026-10-29). Shown for study, never offered as a trade,
+   * belled or replayed, as `againstDailyTrend`. Never set on a reversal-risk
+   * warning or a notice.
+   */
+  againstMarketTrend?: boolean;
+  /**
    * When the data behind the alert could be read, and whether it may be acted
    * on (DATA-DELAY-001 and NOTIFY-FRESHNESS-001, 2026-10-28). Notifications
    * read it (`lib/notifications/freshness.ts`); they never decide it.
@@ -713,6 +729,8 @@ export interface RecentSystemAlert {
   at: string;
   /** As on `Alert`: the stored signal ran against the daily trend. */
   againstDailyTrend?: boolean;
+  /** As on `Alert`: the stored signal ran against the market's trend. */
+  againstMarketTrend?: boolean;
   /** False when the stored first target paid no more than the risk (M-K5). */
   paysRisk?: boolean;
 }
@@ -2110,6 +2128,10 @@ function buildAlert(args: {
     !NOTICE_SIGNALS.has(type) &&
     m.dailyTrend !== null &&
     m.dailyTrend !== direction;
+  const againstMarketTrend =
+    type !== "reversal_risk" &&
+    !NOTICE_SIGNALS.has(type) &&
+    averagesAgainst(input.marketTrend, direction === "up" ? "bullish" : "bearish");
 
   return {
     symbol: input.symbol,
@@ -2133,6 +2155,7 @@ function buildAlert(args: {
     ...(args.approach ? { approach: args.approach } : {}),
     ...(args.crossingLine ? { crossingLine: args.crossingLine } : {}),
     ...(againstDailyTrend ? { againstDailyTrend: true } : {}),
+    ...(againstMarketTrend ? { againstMarketTrend: true } : {}),
     timeliness: alertTimeliness(input, m, type, direction, now),
   };
 }

@@ -1427,6 +1427,30 @@ trend and P6's angle origin as `2026-10-28-major-lows-on-angle-origin` (no new
 rule), then onto the intraday audit (#515): `STRATEGY_VERSION` is
 `2026-10-28-major-lows-on-intraday-audit` (no new rule); Execute and the 7/4 cutoffs need a fresh run on it.
 
+**Early sections only, 2026-10-29 (edge diagnosis of the six-year daily run,
+`/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md`:
+Execute lost to Watch in both halves and every year, and within Execute the
+readings of a move already gone far lost when they agreed with the trade; the
+exits were not the loss, since switching either early exit off sent its trades
+to the initial stop).** Gann: "All markets move in three to four sections. The
+third or fourth movement up or down marks the culmination" (Master Course pp.
+244-245; GA-20/21, Chrysler 1935). A new trade with the campaign's trend that
+would ride its 3rd or later section is held from Execute to Watch
+(`applyCampaignSectionHold`, `lib/scoring/score.ts`), on the live scan and the
+replay alike; a trade against the campaign is untouched. Sections are the
+weekly chart's record turns that then held `SECTION_HALT_DAYS` (14, the
+engineering reading of his "several weeks", labelled) before being exceeded
+(`CampaignLedger.tradeSection`); the exit rules' final stage and this hold read
+one figure, `CULMINATION_SECTION` (3). Stated exception, held for the Edge
+owner: the final stage still counts `sections` on the 3-Day Chart's legs, so
+the two counts differ. A top not exceeded yet has ended its section, however
+young the reaction. Random walks (40 a drift, 2,080 readings): 3rd or later on
+35.8% of readings with no drift, 42.5% at +0.05% a day, 46.7% at +0.1% a day
+(the 3-Day count's `lateSection` read 46-54%); the whole ledger read stays
+about 0.05-0.07 ms. The public note says only that the move has
+run several legs. `STRATEGY_VERSION` was `2026-10-29-gann-early-sections`;
+Execute and the 7/4 cutoffs need a fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
@@ -3680,6 +3704,67 @@ an engineering choice, labelled. `STRATEGY_VERSION` was
 `2026-10-28-three-closes-angle-origin`; P6, Execute and the 7/4 cutoffs need a
 fresh run on it. Merged onto the delayed fill timing (no new rule):
 `STRATEGY_VERSION` was `2026-10-28-angle-origin-on-delayed-fill`.
+
+**P3's leaders may lead, 2026-10-29 (six-year daily diagnosis,
+`/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md`:
+Execute did worse than Watch, scores 8 and 9 worst, and within Execute
+`lateMoverLong` passing measured −0.204R, a lead at about two and a half
+standard errors).** Three fixes, each from Gann's text. (1) G25 (*Wall Street
+Stock Selector* Ch. VII): "a stock must cross the high of the first year of the
+bull campaign before it can lead a later section", so a long's leadership and
+rank count, in P3 and in the lists' order (`selectionStrength`), only when
+`longMayLead` (`lib/gann/leadership.ts`): not short of that high once the
+campaign has run a year. APPROXIMATED: the campaign is the stock's own weekly
+campaign, not the market's. (2) That high is crossed by the 3-point allowance
+and held unless broken back by 3 (`campaignLedger.ts`; Jewel Tea, W006 Rule
+3(c)); it read the latest close with no allowance. (3) First and late tops and
+bottoms (`readLeadership`) read an extreme at a 3-Day Chart pivot on the whole
+record as dated, one made after the chart's last pivot, not yet turned on and not rallied away from, as "not yet" (a stock
+that turned while the market still makes new lows bottomed first; a stock still
+making new lows is not read as late, since it has not bottomed), and any other
+as unread: a market that rose all year has its lowest bar at the window's
+start, no bottom, and every stock read as a late mover against it. A late mover
+is not refused: Gann describes late movers without forbidding them, and
+A-SELECTION-02 counts crossing previous years' tops first as leading. The market
+scan's shortlist now reads the ledger too, as the full scan does. Random walks
+(30 pairs, 630 readings a drift; drift 0, +0.05%, +0.1% a day): late movers
+25.9/26.7/22.9%, early 42.7/34.3/29.8% (the review measured late 20/23/45%
+before (3)); the first-year high
+unread on 97-100% (the stock's campaign rarely runs a year), failed on 0-1.6%;
+about 0.2 ms a read. `STRATEGY_VERSION` was `2026-10-29-gann-p3-may-lead`;
+released with the section hold above as
+`2026-10-29-gann-early-sections-and-leaders` (no new rule), which the six-year
+rerun measures.
+
+**Trade with the averages, 2026-10-29 (six-year rerun's long/short diagnosis,
+`/mnt/project-files/replay-diagnosis/2026-10-29-six-year-rerun/LONGS-VS-SHORTS.md`:
+longs bought in the four selloff windows lost 1,189R, more than the whole run's
+1,165R, while shorts won in every window).** One translation defect, fixed: P1's
+market leg read SPY with `readGannTrend`, whose 3-Day stepping test (an
+engineering choice) read "no trend" on 78% of 2022's sessions and 88% of the 2025
+decline, so the market's trend never acted on a long. Gann: "determine the
+averages' trend with the 3-Day Chart and the 9-Point Swing Chart; trade stocks
+that conform" (*45 Years in Wall Street*, 1949, Rule 1, p. 6), and "don't buck
+the trend" (the never-failing rules, p. 15). Weighed against the *New Stock Trend
+Detector* (1936, Ch. IV: don't trade from the averages; late movers top after
+them): the hold never takes a side from the averages, and the 1949 book is the
+later one. Now (`lib/gann/averagesTrend.ts`): an Execute is held to Watch when
+SPY's 3-Day and weekly charts both read against it, shorts mirrored
+(`applyMarketTrendHold`); when they disagree (a reaction in the main trend, Master
+Course p. 10's buy) the stock's charts decide. P1's market leg reads the weekly
+chart, the main trend. Read once in `readPillarFacts` (`PillarFacts.averages`),
+live and replay alike; the intraday alerts read the same SPY bars
+(`getMarketDailyBars`) and show an alert both charts run against for study only
+(`againstMarketTrend`, `tradeHold`), and the alert replay enters none
+(`marketDailyBars`). Crypto reads no averages. Stated exception: the intraday
+profile replay (`replayIntraday.ts`) reads neither the daily nor the market
+trend, as before. Random walks (40 a drift, 2,000 readings), long held / short
+held: drift −0.1% a day 67/22%, 0 42/44%, +0.1% 19/69%; about 0.1 ms a read.
+The charts walk the year before the last session read (`AVERAGES_WINDOW_DAYS`,
+an engineering choice), so the live scan's 400 days and a replay's whole run read
+the same span.
+`STRATEGY_VERSION` is `2026-10-29-gann-averages-trend`; Execute and the 7/4
+cutoffs need a fresh run on it.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
