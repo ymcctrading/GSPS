@@ -21,7 +21,7 @@ import {
   tradeHold,
 } from "@/lib/scanner/intradayDisplay";
 import type { Alert, RecentSystemAlert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
-import { buildIntradayCardModel, intradayChartPlan, isReversalRisk } from "@/lib/setups/intraday";
+import { buildIntradayCardModel, intradayChartPlan, isReversalRisk, leadAlert } from "@/lib/setups/intraday";
 import { panelChartPlan, type IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";
@@ -287,7 +287,9 @@ function BudgetLine({ budget }: { budget: IntradayRefreshBudget }) {
  * which read as three separate opportunities rather than one setup with
  * three confirming signals.
  *
- * The highest-confidence alert becomes the card; every other signal type
+ * The lead alert (`leadAlert`: one that offers a trade first, then the
+ * highest confidence) becomes the card, the same alert the chart draws;
+ * every other signal type
  * that also fired for the same symbol this pass is kept, not discarded --
  * several signals agreeing is stronger information than one, so it's shown
  * as a compact "also: X, Y" line on the one card rather than dropped or
@@ -308,8 +310,11 @@ function consolidateBySymbol(alerts: Alert[]): { alert: Alert; otherSignals: Ale
     else bySymbol.set(alert.symbol, [alert]);
   }
   return Array.from(bySymbol.values()).map((group) => {
-    const sorted = [...group].sort((a, b) => b.confidence - a.confidence);
-    return { alert: sorted[0], otherSignals: sorted.slice(1) };
+    // The lead is the one the chart draws (`leadAlert`): a signal that offers
+    // a trade first, then confidence; the rest by confidence.
+    const lead = leadAlert(group) ?? group[0];
+    const others = group.filter((a) => a !== lead).sort((a, b) => b.confidence - a.confidence);
+    return { alert: lead, otherSignals: others };
   });
 }
 
