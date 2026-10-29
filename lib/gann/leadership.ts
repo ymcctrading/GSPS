@@ -107,7 +107,17 @@ function extremeDate(all: Bar[], window: Bar[], kind: "low" | "high"): number {
   const last = pivots[pivots.length - 1];
   const extreme = kind === "low" ? window[idx].l : window[idx].h;
   const past = last != null && (kind === "low" ? extreme < last.price : extreme > last.price);
-  const running = last ? at > last.index && (last.kind !== want || past) : at === all.length - 1;
+  // And still the live counter-move: no bar since it has gone back past the
+  // extreme of the leg before it (for a low, the highest high between the last
+  // pivot and the low), or the dip ended in a rally the chart never dated.
+  const live = (): boolean => {
+    if (!last) return true;
+    let edge = kind === "low" ? -Infinity : Infinity;
+    for (let i = last.index + 1; i <= at; i++) edge = kind === "low" ? Math.max(edge, all[i].h) : Math.min(edge, all[i].l);
+    for (let i = at + 1; i < all.length; i++) if (kind === "low" ? all[i].h > edge : all[i].l < edge) return false;
+    return true;
+  };
+  const running = last ? at > last.index && (last.kind !== want || past) && live() : at === all.length - 1;
   return running ? Infinity : NaN;
 }
 

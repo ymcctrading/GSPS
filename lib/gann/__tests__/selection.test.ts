@@ -62,6 +62,18 @@ describe("early leaders in a bull market (A-SELECTION-02)", () => {
     expect(r.bottomedFirst).toBe(true);
   });
 
+  it("does not read a brief dip under the last bottom, rallied away from, as not yet bottomed", () => {
+    // The market bottoms at 200, rallies to 230, dips two bars to 189.5, then rallies for months.
+    const m: number[] = [];
+    for (let i = 0; i <= 120; i++) m.push(320 - i);
+    for (let i = 1; i <= 30; i++) m.push(200 + i);
+    m.push(195, 190);
+    while (m.length < 300) m.push(m[m.length - 1] + 0.8);
+    const market = bars(m);
+    const stock = bars(Array.from({ length: 300 }, (_, i) => (i <= 175 ? 200 - i * 0.3 : 147.5 + (i - 175) * 0.4)));
+    expect(readLeadership(stock, market, null)!.bottomedFirst).toBe(false);
+  });
+
   it("does not call a stock still making new lows a late bottom", () => {
     const market = bars(Array.from({ length: 300 }, (_, i) => (i <= 200 ? 400 - i : 200 + (i - 200) * 0.8)));
     const stock = bars(Array.from({ length: 300 }, (_, i) => 200 - i * 0.3));

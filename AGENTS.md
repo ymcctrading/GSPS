@@ -3719,7 +3719,7 @@ campaign, not the market's. (2) That high is crossed by the 3-point allowance
 and held unless broken back by 3 (`campaignLedger.ts`; Jewel Tea, W006 Rule
 3(c)); it read the latest close with no allowance. (3) First and late tops and
 bottoms (`readLeadership`) read an extreme at a 3-Day Chart pivot on the whole
-record as dated, one made after the chart's last pivot and not yet turned on as "not yet" (a stock
+record as dated, one made after the chart's last pivot, not yet turned on and not rallied away from, as "not yet" (a stock
 that turned while the market still makes new lows bottomed first; a stock still
 making new lows is not read as late, since it has not bottomed), and any other
 as unread: a market that rose all year has its lowest bar at the window's
@@ -3728,7 +3728,7 @@ is not refused: Gann describes late movers without forbidding them, and
 A-SELECTION-02 counts crossing previous years' tops first as leading. The market
 scan's shortlist now reads the ledger too, as the full scan does. Random walks
 (30 pairs, 630 readings a drift; drift 0, +0.05%, +0.1% a day): late movers
-25.9/26.7/22.9%, early 43.0/34.6/30.2% (the review measured late 20/23/45%
+25.9/26.7/22.9%, early 42.7/34.3/29.8% (the review measured late 20/23/45%
 before (3)); the first-year high
 unread on 97-100% (the stock's campaign rarely runs a year), failed on 0-1.6%;
 about 0.2 ms a read. `STRATEGY_VERSION` was `2026-10-29-gann-p3-may-lead`;
