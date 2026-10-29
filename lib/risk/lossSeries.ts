@@ -24,6 +24,8 @@
  *   trading day of the third loss and the next day. Gann names no length.
  *   Protective orders (stops, closes, reductions) are never blocked, the same
  *   rule `lib/risk/cooldown.ts` encodes.
+ * - An operator's reset (`loss_series_resets`, migration 0141, owner's word
+ *   only) starts the series afresh from its time; no trade is removed.
  * - The count reads `trade_logs`' paper and live closes; a series is a series
  *   whichever account it happened in. Journal entries (typed by hand, never
  *   checked) are left out, since a typed win would end a series (R-002).
@@ -153,13 +155,31 @@ export function readLossSeries(closedNewestFirst: ClosedTrade[], now: Date = new
   };
 }
 
+async function readLossSeriesReset(supabase: SupabaseClient, userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("loss_series_resets")
+      .select("reset_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return null;
+    return (data as { reset_at?: string } | null)?.reset_at ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Load the user's most recent closed trades and read the series. */
 export async function readUserLossSeries(
   supabase: SupabaseClient,
   userId: string,
   now: Date = new Date(),
 ): Promise<LossSeriesReading> {
-  const { data, error } = await supabase
+  // An operator's reset (migration 0141) starts the series afresh: losses
+  // closed at or before it no longer count. Unreadable reads as no reset, so
+  // the pause errs toward holding.
+  const resetAt = await readLossSeriesReset(supabase, userId);
+  let query = supabase
     .from("trade_logs")
     .select("outcome, exit_timestamp, symbol, profit_loss_dollars")
     .eq("user_id", userId)
@@ -167,9 +187,9 @@ export async function readUserLossSeries(
     // unchecked, and one "profit" dated now would end a series (R-002).
     .in("mode", ["paper", "live"])
     .in("outcome", ["profit", "loss"])
-    .not("exit_timestamp", "is", null)
-    .order("exit_timestamp", { ascending: false })
-    .limit(10);
+    .not("exit_timestamp", "is", null);
+  if (resetAt) query = query.gt("exit_timestamp", resetAt);
+  const { data, error } = await query.order("exit_timestamp", { ascending: false }).limit(10);
   if (error) throw new Error(`loss series: ${error.message}`);
   const rows = (data ?? []) as {
     outcome: ClosedTrade["outcome"];
