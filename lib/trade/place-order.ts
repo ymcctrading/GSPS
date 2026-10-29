@@ -216,7 +216,13 @@ async function lossSeriesRefusal(
   if (!series?.paused) return null;
   return {
     status: 409,
-    body: { error: series.note, code: "loss_series_pause", consecutiveLosses: series.consecutiveLosses },
+    body: {
+      error: series.note,
+      code: "loss_series_pause",
+      consecutiveLosses: series.consecutiveLosses,
+      resumesOn: series.resumesOn,
+      losses: series.losses,
+    },
   };
 }
 
