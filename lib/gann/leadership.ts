@@ -81,8 +81,8 @@ function threeDayPivots(bars: Bar[]): ReturnType<typeof swingPivots> {
  * The date of the window's lowest low (highest high), read against the
  * 3-Day Chart walked on the whole record (2026-10-29):
  * - a pivot of the chart: its date;
- * - the running extreme, after the chart's last pivot in a leg still moving
- *   toward it: Infinity, "not yet", so a stock that has turned is first, as
+ * - the running extreme, made after the chart's last pivot and not yet
+ *   turned on: Infinity, "not yet", so a stock that has turned is first, as
  *   `first` reads a market that has not crossed yet;
  * - neither, such as the lowest bar at the window's start in a market that
  *   rose all year (part of an older decline, no bottom): NaN, unread.
@@ -99,17 +99,31 @@ function extremeDate(all: Bar[], window: Bar[], kind: "low" | "high"): number {
   const want = kind === "low" ? "bottom" : "top";
   const pivots = threeDayPivots(all);
   if (pivots.some((p) => p.kind === want && p.index === at && p.index > 0)) return Date.parse(window[idx].t);
-  // Running: after the chart's last pivot, in a leg moving toward the extreme
-  // (the last pivot the opposite turn), or with no pivot yet, on the last bar.
+  // Running: after the chart's last pivot in a leg moving toward it (the
+  // last pivot the opposite turn), or beyond a last pivot of the same kind
+  // (a new low under the last bottom the chart has not yet turned on); with
+  // no pivot yet, on the last bar. A rising market's lowest bar at the
+  // window's start is none of these.
   const last = pivots[pivots.length - 1];
-  const running = last ? at > last.index && last.kind !== want : at === all.length - 1;
+  const extreme = kind === "low" ? window[idx].l : window[idx].h;
+  const past = last != null && (kind === "low" ? extreme < last.price : extreme > last.price);
+  const running = last ? at > last.index && (last.kind !== want || past) : at === all.length - 1;
   return running ? Infinity : NaN;
 }
 
-/** `a - b >= lead`: false when either date is unread, or when both are still running. */
+/**
+ * `a - b >= lead`: false when either date is unread, or when both are still
+ * running. Only "first" reads take a running date (the other side has not
+ * turned yet); "late" reads take `late`, which needs both turns made, so a
+ * stock still making new lows is never said to have bottomed late.
+ */
 function ahead(a: number, b: number, lead: number): boolean {
   if (Number.isNaN(a) || Number.isNaN(b) || (a === Infinity && b === Infinity)) return false;
   return a - b >= lead;
+}
+
+function late(a: number, b: number, lead: number): boolean {
+  return Number.isFinite(a) && Number.isFinite(b) && a - b >= lead;
 }
 
 /**
@@ -175,13 +189,13 @@ export function readLeadership(
   const sHigh = extremeDate(daily, stk, "high");
   const mHigh = extremeDate(mktAll, mkt, "high");
   const toppedFirst = ahead(mHigh, sHigh, lead);
-  const toppedLate = ahead(sHigh, mHigh, lead);
+  const toppedLate = late(sHigh, mHigh, lead);
   // Engineering choice, labelled: "now declining" is the stock's own campaign
   // ledger reading bearish (its weekly chart's trend).
   const declining = ledger?.trend === "bearish";
   return {
     bottomedFirst: ahead(mLow, sLow, lead),
-    bottomedLate: ahead(sLow, mLow, lead),
+    bottomedLate: late(sLow, mLow, lead),
     toppedFirst,
     toppedLate,
     lateBottomExpected: toppedLate && declining,

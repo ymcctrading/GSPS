@@ -54,6 +54,22 @@ describe("early leaders in a bull market (A-SELECTION-02)", () => {
     expect(r.bottomedLate).toBe(false);
   });
 
+  it("reads a market plunging under its last bottom as not yet bottomed", () => {
+    // The market bottoms at 200 (a 3-Day Chart bottom), rallies, then breaks under it on the last bar.
+    const market = bars(Array.from({ length: 300 }, (_, i) => (i <= 220 ? 420 - i : i < 299 ? 200 + (i - 220) * 0.3 : 150)));
+    const stock = bars(Array.from({ length: 300 }, (_, i) => (i <= 150 ? 200 - i * 0.4 : 140 + (i - 150) * 0.5)));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedFirst).toBe(true);
+  });
+
+  it("does not call a stock still making new lows a late bottom", () => {
+    const market = bars(Array.from({ length: 300 }, (_, i) => (i <= 200 ? 400 - i : 200 + (i - 200) * 0.8)));
+    const stock = bars(Array.from({ length: 300 }, (_, i) => 200 - i * 0.3));
+    const r = readLeadership(stock, market, null)!;
+    expect(r.bottomedLate).toBe(false);
+    expect(r.bottomedFirst).toBe(false);
+  });
+
   it("ranks an early leader above a stock that is not one on the buy side", () => {
     const leader = { bottomedFirst: true, bottomedLate: false, toppedFirst: false, toppedLate: false, lateBottomExpected: false, earlyBottomExpected: false, crossedTopsFirst: false, brokeBottomsFirst: false, firstYearHighCrossed: null };
     const plain = { ...leader, bottomedFirst: false };
