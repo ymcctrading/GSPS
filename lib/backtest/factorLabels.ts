@@ -75,6 +75,7 @@ const HOLD_ORDER = [
   "stopBreach",
   "readyNow",
   "planExpired",
+  "campaignSection",
 ];
 
 const HOLDS: Record<string, FactorName> = Object.fromEntries(

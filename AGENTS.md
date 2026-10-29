@@ -1427,6 +1427,30 @@ trend and P6's angle origin as `2026-10-28-major-lows-on-angle-origin` (no new
 rule), then onto the intraday audit (#515): `STRATEGY_VERSION` is
 `2026-10-28-major-lows-on-intraday-audit` (no new rule); Execute and the 7/4 cutoffs need a fresh run on it.
 
+**Early sections only, 2026-10-29 (edge diagnosis of the six-year daily run,
+`/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md`:
+Execute lost to Watch in both halves and every year, and within Execute the
+readings of a move already gone far lost when they agreed with the trade; the
+exits were not the loss, since switching either early exit off sent its trades
+to the initial stop).** Gann: "All markets move in three to four sections. The
+third or fourth movement up or down marks the culmination" (Master Course pp.
+244-245; GA-20/21, Chrysler 1935). A new trade with the campaign's trend that
+would ride its 3rd or later section is held from Execute to Watch
+(`applyCampaignSectionHold`, `lib/scoring/score.ts`), on the live scan and the
+replay alike; a trade against the campaign is untouched. Sections are the
+weekly chart's record turns that then held `SECTION_HALT_DAYS` (14, the
+engineering reading of his "several weeks", labelled) before being exceeded
+(`CampaignLedger.tradeSection`); the exit rules' final stage and this hold read
+one figure, `CULMINATION_SECTION` (3). Stated exception, held for the Edge
+owner: the final stage still counts `sections` on the 3-Day Chart's legs, so
+the two counts differ. A top not exceeded yet has ended its section, however
+young the reaction. Random walks (40 a drift, 2,080 readings): 3rd or later on
+35.8% of readings with no drift, 42.5% at +0.05% a day, 46.7% at +0.1% a day
+(the 3-Day count's `lateSection` read 46-54%); the whole ledger read stays
+about 0.05-0.07 ms. The public note says only that the move has
+run several legs. `STRATEGY_VERSION` was `2026-10-29-gann-early-sections`;
+Execute and the 7/4 cutoffs need a fresh run on it.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy
@@ -3703,8 +3727,10 @@ scan's shortlist now reads the ledger too, as the full scan does. Random walks
 (30 pairs, 630 readings a drift; drift 0, +0.05%, +0.1% a day): late movers
 25.9/26.7/22.9% (the review measured 20/23/45% before (3)); the first-year high
 unread on 97-100% (the stock's campaign rarely runs a year), failed on 0-1.6%;
-about 0.2 ms a read. `STRATEGY_VERSION` was `2026-10-29-gann-p3-may-lead`; P3,
-Execute and the 7/4 cutoffs need a fresh run.
+about 0.2 ms a read. `STRATEGY_VERSION` was `2026-10-29-gann-p3-may-lead`;
+released with the section hold above as
+`2026-10-29-gann-early-sections-and-leaders` (no new rule), which the six-year
+rerun measures.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day

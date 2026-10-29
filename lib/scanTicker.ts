@@ -62,6 +62,7 @@ import {
   applyStopBreachHold,
   applyReadyNowHold,
   applyPlanExpiredHold,
+  applyCampaignSectionHold,
   indicationShownBy,
   applyStandAsideHold,
   computeScore,
@@ -559,7 +560,7 @@ export async function scanTicker(
         });
 
     const decision = withDecisionState(applyStandAsideHold(applyPlanExpiredHold(applyStopBreachHold(applyReadyNowHold(applyDataLagHold(
-      applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyFigureCrossingHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -598,6 +599,8 @@ export async function scanTicker(
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
       ), weakStock, scoreDirection),
+        // 2026-10-29: buy in the campaign's early sections, not its 3rd or later (Master Course pp. 244-245).
+        campaignLedger, scoreDirection),
         // A-LEVELS-08: the first and second times through a round number hold.
         figureCrossingOf(charts.daily, gannTrigger)),
       dataLag,

@@ -84,7 +84,7 @@ import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
-import { applyBreakawayHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, indicationShownBy, readyNowReasons, srMatchForSide } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyCampaignSectionHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, indicationShownBy, readyNowReasons, srMatchForSide } from "@/lib/scoring/score";
 import { withDecisionState } from "@/lib/scoring/decisionState";
 import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
@@ -2329,7 +2329,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = withDecisionState(applyReadyNowHold(applyFigureCrossingHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = withDecisionState(applyReadyNowHold(applyFigureCrossingHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -2359,6 +2359,8 @@ function scoreSetup(input: {
     context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),
     // A-SELECTION-04: a buy in a weak stock holds to Watch, as on the live scan.
     context.disclosedRules.weakStock, gannTrigger.direction),
+    // 2026-10-29: the campaign's 3rd or later section holds, as on the live scan.
+    context.disclosedRules.campaign, gannTrigger.direction),
     // A-LEVELS-08: the first and second times through a round number hold, as live.
     figureCrossingOf(context.dailyChart, gannTrigger)),
     // Owner, 2026-10-27: Execute only when placeable today with clear targets.

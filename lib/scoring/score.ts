@@ -11,7 +11,7 @@
  */
 
 import type { BreakawayReading } from "@/lib/gann/breakaway";
-import type { MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
+import { CULMINATION_SECTION, type CampaignLedger, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { DistributionStanding } from "@/lib/gann/distribution";
 import { failedTestInPath, type MultipleTopsReading } from "@/lib/gann/multipleTops";
 import type { StopBreachReading } from "@/lib/gann/stopBreach";
@@ -929,6 +929,51 @@ export function applyWeakStockHold(
         criterion: "Stock in a strong position",
         passed: false,
         note: `This stock is weak while the market advances: ${why}. Buy the strong and leave the weak alone, so this buy is held from Execute to Watch while the reading stands.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Buy in the early sections, not the last (2026-10-29, edge diagnosis of the
+ * six-year daily run: within Execute the readings of a move already gone far
+ * lost when they agreed with the trade, and scores 8-9 did worst). Gann:
+ * "All markets move in three to four sections. The third or fourth movement
+ * up or down marks the culmination" (Master Course pp. 244-245; GA-20/21,
+ * Chrysler 1935's four sections then distribution); a bull campaign's third
+ * section is "often the end" and the fourth "the most important to watch for
+ * the end", and minor campaigns often run out in two. So a new trade with the
+ * campaign's trend that would ride its 3rd or later section
+ * (`CampaignLedger.tradeSection`, counted on the weekly chart's record turns)
+ * is held from Execute to Watch: that is where Gann watches for the end and
+ * trails his stop (`CULMINATION_SECTION`, the exit rules' final stage), not
+ * where he opens a campaign trade. A trade against the campaign is untouched:
+ * in the last sections he watches for the turn (bear mirror: "(4) watch for
+ * bottom"). Polarity: shorts in a bear campaign read the same way.
+ *
+ * Three-question basis: 1. Gann, as cited (Tier A). 2. Cycles: a claim that a
+ * campaign's legs are few, not periodic; no Dewey item is cleared, and the
+ * replay measures it. 3. Hermetic: Rhythm (a swing that has run its sections
+ * swings back). Law of Creation: trend ⊗ its age; the trend alone is a
+ * mixture of every stage, the pair names the stage to trade.
+ */
+export function applyCampaignSectionHold(
+  decision: ScanDecision,
+  ledger: Pick<CampaignLedger, "trend" | "tradeSection"> | null | undefined,
+  direction: "bullish" | "bearish" | "none",
+): ScanDecision {
+  if (!ledger || decision.outputState !== "Execute" || ledger.trend !== direction) return decision;
+  if (ledger.tradeSection < CULMINATION_SECTION) return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "campaignSection",
+        criterion: "Early in the campaign",
+        passed: false,
+        note: `This trade would ride section ${ledger.tradeSection} of the move, where it often ends. Held from Execute to Watch until a new campaign begins.`,
       },
     ],
   };

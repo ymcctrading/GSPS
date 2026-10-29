@@ -182,6 +182,16 @@ export interface CampaignLedger {
   campaignStartDate: string;
   /** Legs in the trend's direction, counting the current one if it is running. */
   sections: number;
+  /**
+   * The section a trade with the campaign enters now: one more than the record
+   * weekly tops (bottoms in a bear campaign) the campaign has completed. Gann's
+   * sections are the major advances, each above the prior weeks' highs and
+   * ending in a reaction or halt of weeks (Master Course pp. 244-245; GA-20/21,
+   * Chrysler 1935's four), so they are counted on the weekly chart's record
+   * turns, as `sectionTopDate` reads them, not on the 3-Day Chart's legs that
+   * `sections` counts. Read by `applyCampaignSectionHold` (lib/scoring/score.ts).
+   */
+  tradeSection: number;
   /** Completed legs since the campaign began, oldest first. */
   legs: SwingLeg[];
   /** The largest completed counter-move, by size and by length (not necessarily the same leg). */
@@ -298,6 +308,23 @@ export const SECOND_MONTH_END_DAYS = 60;
 
 /** C-SWING-01: the last three corrections are nearly equal when the largest is at most this times the smallest (fixed before measuring). */
 export const EQUAL_CORRECTION_RATIO = 1.25;
+
+/**
+ * The least time, in calendar days, a record weekly top must hold before the
+ * market exceeds it for it to end a section (`tradeSection`). Gann's sections
+ * halt or react "several weeks" (GA-20/21) and a normal bull reaction runs 2
+ * to 3 weeks (Stock Selector); two weeks is the engineering reading of
+ * "several", labelled as such.
+ */
+export const SECTION_HALT_DAYS = 14;
+
+/**
+ * The section from which Gann watches for the end: "The third or fourth
+ * movement up or down marks the culmination" (Master Course pp. 244-245). The
+ * exit rules' final stage (`FINAL_STAGE_SECTION`) and the entry's section hold
+ * (`applyCampaignSectionHold`) read this one figure.
+ */
+export const CULMINATION_SECTION = 3;
 
 export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   if (bars.length < 10) return null;
@@ -549,6 +576,24 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     for (let i = from; i < bars.length; i++) if (beyond(i, bull ? bars[sectionTop].h : bars[sectionTop].l)) sectionTop = i;
     priorTop = lastTop ? lastTop.price : null;
   }
+  // Sections for the trade (`tradeSection`): a record weekly top ends a
+  // section only when the market then spent at least `SECTION_HALT_DAYS`
+  // failing to exceed it, Gann's reaction or halt "of several weeks" between
+  // sections (GA-20/21; Master Course pp. 244-245). A record top crossed again
+  // within days was a pause inside one section. A top not exceeded yet has
+  // ended its section (the weekly chart turned from it), however young the
+  // reaction: a buy in it rides the next section.
+  let completedSections = 0;
+  for (const top of weeklyTops) {
+    let exceededAt = -1;
+    for (let i = top.index + 1; i < bars.length; i++) {
+      if (beyond(i, top.price)) {
+        exceededAt = i;
+        break;
+      }
+    }
+    if (exceededAt < 0 || days(bars[top.index], bars[exceededAt]) >= SECTION_HALT_DAYS) completedSections++;
+  }
   // The reaction: everything since the section's top.
   let reactionExtreme = -1;
   for (let i = sectionTop + 1; i < bars.length; i++) {
@@ -614,6 +659,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
     trend: weekly.trend,
     campaignStartDate: bars[start].t.slice(0, 10),
     sections,
+    tradeSection: completedSections + 1,
     legs,
     greatestCounterMove,
     currentCounterMove,
