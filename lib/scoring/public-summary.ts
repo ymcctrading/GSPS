@@ -126,6 +126,8 @@ const HOLD_PHRASES: Partial<Record<string, string>> = {
   timeWindowTurn: "the turn against the trend is not due yet",
   queerActing: "the stock is not acting the way it normally does",
   weakStock: "the stock is in a weak position for a buy",
+  campaignSection: "the move has already run several legs and may be near its end",
+  marketTrend: "the overall market is trending against the trade",
   figureCrossing: "price is at a round number it has not cleared yet",
   dataLag: "the price data is a bar or more behind the market",
 };

@@ -102,7 +102,7 @@ import { readDistributionStanding } from "@/lib/gann/distribution";
 import { failedTestAgainst, readMultipleTops } from "@/lib/gann/multipleTops";
 import { pricePoint, threePoints } from "@/lib/gann/pointScale";
 import { THREE_DAY_CHART, WEEKLY_SWING_CHART, walkSwingChart } from "@/lib/gann/swingChart";
-import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
+import { buildCampaignLedger, CULMINATION_SECTION } from "@/lib/gann/campaignLedger";
 import { readCapitalStock } from "@/lib/gann/capitalStock";
 import { toWeeklyBars } from "@/lib/gann/disclosedRules";
 import { gannDayStop } from "@/lib/gann/dayStop";
@@ -140,8 +140,8 @@ export function failedTopWindow(daily: Bar[], upTo: number): Bar[] {
   return daily.slice(0, upTo).filter((b) => day(b) >= from);
 }
 
-/** Gann's final stage: the 3rd section of a campaign or later. */
-export const FINAL_STAGE_SECTION = 3;
+/** Gann's final stage: the 3rd section of a campaign or later (one figure with the entry's section hold). */
+export const FINAL_STAGE_SECTION = CULMINATION_SECTION;
 
 /** The price of his worked boiling-point stop: Advance Rumely, 105 in May 1929, "a 10-point stop (out at 95)". */
 export const BOILING_POINT_EXAMPLE_PRICE = 105;

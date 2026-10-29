@@ -213,11 +213,12 @@ describe("leadership: topping first and bottoming late", () => {
   });
 
   it("does not expect a bottom while the stock's own campaign is still up", () => {
-    // Topped after the market, but still rising into its high.
+    // Still rising into its high: it has not topped yet, so it is not read
+    // as a late top (2026-10-29).
     const stock = bars(Array.from({ length: 120 }, (_, i) => 100 + i));
     const { market } = toppedAfter();
     const r = readLeadership(stock, market)!;
-    expect(r.toppedLate).toBe(true);
+    expect(r.toppedLate).toBe(false);
     expect(r.lateBottomExpected).toBe(false);
   });
 

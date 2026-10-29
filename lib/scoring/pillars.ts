@@ -29,7 +29,7 @@
 
 import type { Bar } from "@/lib/types";
 import type { DisclosedRulesContext } from "@/lib/gann/disclosedRules";
-import { readGannTrend } from "@/lib/gann/trendStrength";
+import { readAveragesTrend, type AveragesTrend } from "@/lib/gann/averagesTrend";
 import { pillarYearCycleConvergence } from "@/lib/gann/timeCycles";
 import { readMassPressure } from "@/lib/gann/massPressure";
 import { marketCountHits } from "@/lib/gann/eightyFourYear";
@@ -39,6 +39,7 @@ import { swingPivots, THREE_DAY_CHART } from "@/lib/gann/swingChart";
 import { pointForBars } from "@/lib/gann/pointScale";
 import { QUIET } from "@/lib/gann/sevenZones";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
+import { longMayLead } from "@/lib/gann/leadership";
 import { majorRangeDivisions, heldRangeDivision, type RangeDivisionMatch } from "@/lib/gann/rangeDivisions";
 import { readHeldLevel, type HeldLevelMatch } from "@/lib/gann/heldLevel";
 import type { StructuralLevel } from "@/lib/scan/structuralLevels";
@@ -56,8 +57,14 @@ const RECENT_VOLUME_BARS = 20;
 const BASELINE_VOLUME_BARS = 250;
 
 export interface PillarFacts {
-  /** The market's trend (SPY's swing chart), cut to the stock's last session. */
+  /**
+   * The market's main trend: the averages' (SPY's) weekly swing chart, cut to
+   * the stock's last session (45 Years Rule 1, `averagesTrend.ts`). Read with
+   * `readGannTrend` until 2026-10-29.
+   */
   marketTrend: Side | null;
+  /** The averages' 3-Day and weekly charts, for the market-trend hold. Null for crypto. */
+  averages?: AveragesTrend | null;
   /**
    * Yearly counts from the stock's major monthly pivots landing on this month
    * (closed months only): every lesson's list (`pillarYearCycleConvergence`),
@@ -87,6 +94,8 @@ export interface PillarFacts {
   yearTrend: "up" | "down" | "inside" | null;
   leadership: {
     bottomedFirst: boolean;
+    /** Bottomed after the market: a late mover (G25; `longMayLead`). */
+    bottomedLate?: boolean;
     toppedFirst: boolean;
     crossedTopsFirst: boolean;
     brokeBottomsFirst: boolean;
@@ -305,8 +314,10 @@ export function readPillarFacts(input: {
   // The record both surfaces hold: the monthly level chart and the sessions,
   // as Gann's percentage-of-price levels read it (`majorPricePercentageLevels`).
   const divisions = majorRangeDivisions([...monthly, ...daily], monthly);
+  const averages = readAveragesTrend(market);
   return {
-    marketTrend: market.length >= 10 ? readGannTrend(market).direction : null,
+    marketTrend: averages?.weekly ?? null,
+    averages,
     yearCycle: yearCountMonths.length >= 12 ? pillarYearCycleConvergence(yearCountMonths, asOf) : null,
     // The stock market's curve, for a stock: crypto has no market read here (`marketDaily` null).
     massPressure: marketDaily ? (readMassPressure(asOf)?.direction ?? null) : null,
@@ -322,6 +333,7 @@ export function readPillarFacts(input: {
     leadership: leadership
       ? {
           bottomedFirst: leadership.bottomedFirst,
+          bottomedLate: leadership.bottomedLate,
           toppedFirst: leadership.toppedFirst,
           crossedTopsFirst: leadership.crossedTopsFirst,
           brokeBottomsFirst: leadership.brokeBottomsFirst,
@@ -388,6 +400,12 @@ export function readPillarFacts(input: {
  * market's 84-, 90- and 100-year counts join them. The dominant decade
  * (`dominantCycle.ts`) is measured, not read here: on the record it called the
  * month worse than the average.
+ *
+ * Since 2026-10-29 the market's trend is the averages' weekly swing chart, the
+ * main trend of 45 Years Rule 1 (`averagesTrend.ts`), not `readGannTrend`,
+ * whose 3-Day stepping test read SPY as trendless through most of the 2022
+ * and 2025 declines. When both of Rule 1's charts read against the trade, the
+ * Execute is held as well (`applyMarketTrendHold`).
  */
 export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const market = f?.marketTrend === side;
@@ -448,16 +466,20 @@ export function trendPillar(input: {
 export function relativeStrengthPillar(f: PillarFacts | null | undefined, side: Side): PillarResult {
   const l = f?.leadership;
   const long = side === "bullish";
-  const led = l != null && (long ? l.bottomedFirst || l.crossedTopsFirst : l.toppedFirst || l.brokeBottomsFirst);
+  // G25 (2026-10-29): a long's leadership and rank count only when the stock
+  // may lead this section: not short of the first-year high once the campaign
+  // has run a year.
+  const may = !long || longMayLead(l);
+  const led = may && l != null && (long ? l.bottomedFirst || l.crossedTopsFirst : l.toppedFirst || l.brokeBottomsFirst);
   const firstYear = l?.firstYearHighCrossed === long;
   const r = f?.universeRank;
   const ofUniverse = long ? r?.strongest === true : r?.weakest === true;
   const ofGroup = long ? r?.group?.strongest === true : r?.group?.weakest === true;
-  const strength = ofUniverse || ofGroup;
+  const strength = may && (ofUniverse || ofGroup);
   const passed = twoOf(led, firstYear, strength);
   return {
     passed,
-    note: `${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}, the group itself ${Math.round(r.group.groupPercentile * 100)} of 100 in the universe` : ""})` : ""}. Two of three are needed.`,
+    note: `${may ? "" : "Has not crossed the campaign's first-year high, so it cannot lead this section. "}${long ? "Bottomed or crossed old tops before the market" : "Topped or broke old bottoms before the market"}: ${yes(led)}. ${long ? "Crossed" : "Failed to cross"} the campaign's first-year high: ${yes(firstYear)}. Among the ${long ? "strongest" : "weakest"} quarter of its group or of the universe by its year of monthly highs and lows: ${yes(strength)}${r ? ` (universe rank ${Math.round(r.percentile * 100)} of 100 among ${r.peers}${r.group ? `; group rank ${Math.round(r.group.percentile * 100)} of 100 among ${r.group.peers} in ${r.group.label}, the group itself ${Math.round(r.group.groupPercentile * 100)} of 100 in the universe` : ""})` : ""}. Two of three are needed.`,
   };
 }
 

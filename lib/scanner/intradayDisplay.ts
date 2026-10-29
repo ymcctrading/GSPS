@@ -111,14 +111,18 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
 export const AGAINST_DAILY_TREND =
   "Against the daily trend: the daily swing chart runs the other way. Shown for study only; the method trades with the main trend, so this is not offered as a trade.";
 
+/** The note on an alert that runs against the market's trend (`Alert.againstMarketTrend`). */
+export const AGAINST_MARKET_TREND =
+  "Against the market's trend: the overall market's daily and weekly swings run the other way. Shown for study only; trades go with the market's trend, so this is not offered as a trade.";
+
 /**
  * Why an alert is shown but not offered as a trade, or null when it is
  * tradeable on these grounds: a signal the replay measured losing, or one that
  * runs against the daily trend. The panel, the setup card, the bell and push
  * all read this one function.
  */
-export function tradeHold(alert: { type: SignalType; againstDailyTrend?: boolean | null }): string | null {
-  return MEASURED_LOSING[alert.type] ?? (alert.againstDailyTrend ? AGAINST_DAILY_TREND : null);
+export function tradeHold(alert: { type: SignalType; againstDailyTrend?: boolean | null; againstMarketTrend?: boolean | null }): string | null {
+  return MEASURED_LOSING[alert.type] ?? (alert.againstDailyTrend ? AGAINST_DAILY_TREND : alert.againstMarketTrend ? AGAINST_MARKET_TREND : null);
 }
 
 export function formatAge(seconds: number): string {
