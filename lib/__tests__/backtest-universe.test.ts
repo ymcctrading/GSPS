@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   bootstrapDiffCI,
   bootstrapMeanCI,
+  coreCampaignSummary,
   describeTrades,
   factorTable,
   splitTable,
@@ -365,3 +366,25 @@ describe("exit reasons and entry kinds", () => {
     expect(md).toContain("| prod | scored | none | 1 | +1.000R |");
   });
 });
+
+describe("bare core cells", () => {
+  it("takes its own options only on profile core", () => {
+    expect(() => validateCells([{ label: "c", options: { profile: "core", coreShorts: false, coreTrail: "eachWeek" } }])).not.toThrow();
+    expect(() => validateCells([{ label: "s", options: { coreShorts: false } }])).toThrow(/profile "core" only/);
+  });
+
+  it("prints the whole line beside the first lot", () => {
+    const side = { campaigns: 2, lineExpectancyR: 0.5, firstLotExpectancyR: 0.25 };
+    const md = coreCampaignSummary("core", {
+      campaigns: 4, lineR: 2, firstLotR: 1, lineExpectancyR: 0.5, firstLotExpectancyR: 0.25, pyramided: 1, meanLots: 1.5,
+      closed: { campaigns: 3, lineExpectancyR: -0.1 },
+      bySide: { long: side, short: side },
+      byEntry: { crossing: { campaigns: 1, lineExpectancyR: 1 }, reaction: { campaigns: 3, lineExpectancyR: 0.1 } },
+    });
+    expect(md).toContain("## Core campaigns: core");
+    expect(md).toContain("Whole line +0.500R a campaign");
+    expect(md).toContain("first lot alone +0.250R");
+    expect(md).toContain("| Short | 2 | +0.500R | +0.250R |");
+  });
+});
+

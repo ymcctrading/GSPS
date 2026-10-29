@@ -136,6 +136,10 @@ export function validateCells(cells) {
     if (intradayOnly.length > 0 && c.options?.profile !== "intraday") {
       throw new Error(`Cell "${c.label}": ${intradayOnly.join(", ")} apply to profile "intraday" only`);
     }
+    const coreOnly = ["coreShorts", "coreTrail"].filter((k) => c.options?.[k] !== undefined);
+    if (coreOnly.length > 0 && c.options?.profile !== "core") {
+      throw new Error(`Cell "${c.label}": ${coreOnly.join(", ")} apply to profile "core" only`);
+    }
   }
   return cells;
 }
@@ -538,6 +542,32 @@ export function tradesCsvLogBlock(csv, limitBytes = TRADE_CSV_LOG_LIMIT_BYTES) {
   return `=== BEGIN trades.csv.gz.base64 ===\n${lines.join("\n")}\n=== END trades.csv.gz.base64 ===\n`;
 }
 
+/**
+ * The bare core's campaign figures for one cell (`summariseCore`), as a
+ * Markdown section for the job log: the whole line beside the first lot alone,
+ * so the pyramid's share shows, and the split by side and entry.
+ */
+export function coreCampaignSummary(label, core) {
+  const r = (x) => (Number.isFinite(x) ? (x >= 0 ? "+" : "") + x.toFixed(3) + "R" : "n/a");
+  const lines = [
+    "",
+    `## Core campaigns: ${label}`,
+    "",
+    `Campaigns ${core.campaigns} (${core.pyramided} pyramided, ${core.meanLots.toFixed(2)} lots on average). ` +
+      `Whole line ${r(core.lineExpectancyR)} a campaign (total ${core.lineR.toFixed(1)}R); first lot alone ${r(core.firstLotExpectancyR)} ` +
+      `(total ${core.firstLotR.toFixed(1)}R). Closed campaigns only: ${core.closed.campaigns} at ${r(core.closed.lineExpectancyR)}.`,
+    "",
+    "| Split | Campaigns | Whole line | First lot |",
+    "|---|---:|---:|---:|",
+    `| Long | ${core.bySide.long.campaigns} | ${r(core.bySide.long.lineExpectancyR)} | ${r(core.bySide.long.firstLotExpectancyR)} |`,
+    `| Short | ${core.bySide.short.campaigns} | ${r(core.bySide.short.lineExpectancyR)} | ${r(core.bySide.short.firstLotExpectancyR)} |`,
+    `| Crossing | ${core.byEntry.crossing.campaigns} | ${r(core.byEntry.crossing.lineExpectancyR)} | |`,
+    `| Reaction | ${core.byEntry.reaction.campaigns} | ${r(core.byEntry.reaction.lineExpectancyR)} | |`,
+    "",
+  ];
+  return lines.join("\n");
+}
+
 export function summaryMarkdown(meta, summary) {
   const lines = [];
   lines.push(`# Universe backtest — ${meta.universe} (${meta.symbolsUsed}/${meta.symbolsRequested} symbols)`);
@@ -827,6 +857,12 @@ async function main() {
     const run = await server.ssrLoadModule("/lib/backtest/run.ts");
     const { replay, combine } = await server.ssrLoadModule("/lib/backtest/replay.ts");
     const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
+    // The bare core (profile "core"); absent on refs before it.
+    const { replayCore } = await server.ssrLoadModule("/lib/backtest/replayCore.ts").catch(() => ({}));
+    if (cells.some((c) => c.options?.profile === "core")) {
+      if (typeof replayCore !== "function") throw new Error('profile "core" is not on this ref.');
+      if (args.timeframe !== "1Day") throw new Error('profile "core" walks daily bars: run it with --timeframe 1Day.');
+    }
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
     const { monteCarloResample } = await server.ssrLoadModule("/lib/backtest/monteCarlo.ts");
     const { buildRobustness } = await server.ssrLoadModule("/lib/backtest/robustness.ts");
@@ -918,6 +954,7 @@ async function main() {
       await mkdir(path.resolve(root, args.out), { recursive: true });
       const window = { from, to };
       const cellResults = [];
+      const coreSections = [];
       for (let c = 0; c < cells.length; c++) {
         const cell = cells[c];
         const overall = combine(perCell[c]);
@@ -940,6 +977,7 @@ async function main() {
           ...(cell.options ?? {}),
         });
         await writeWhole(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
+        if (report.core) coreSections.push(coreCampaignSummary(cell.label, report.core));
         await writeWhole(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
         cellResults.push({
           cell,
@@ -983,7 +1021,7 @@ async function main() {
         ...(partial ? {} : { robustness: (trades) => buildRobustness(trades, market?.daily) }),
       });
       await writeWhole(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
-      const md = summaryMarkdown(meta, summary);
+      const md = summaryMarkdown(meta, summary) + coreSections.join("");
       await writeWhole(path.resolve(root, args.out, "summary.md"), md);
       // The per-trade rows, for exact splits from the job log alone. A
       // checkpoint keeps the log block on disk (the "Print results" step
@@ -1021,7 +1059,16 @@ async function main() {
             // (lib/backtest/replayIntraday.ts); every other cell is the production method.
             const opts = cell.options ?? {};
             perCell[c].push(
-              opts.profile === "intraday"
+              opts.profile === "core"
+                ? replayCore(symbol, bars, {
+                    dailyBars: series.daily,
+                    monthlyBars: series.monthlyYearCount ?? series.monthly,
+                    ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
+                    ...(opts.pyramid !== undefined ? { pyramid: opts.pyramid } : {}),
+                    ...(opts.coreShorts !== undefined ? { shorts: opts.coreShorts } : {}),
+                    ...(opts.coreTrail !== undefined ? { trail: opts.coreTrail } : {}),
+                  })
+                : opts.profile === "intraday"
                 ? replayIntraday(symbol, bars, {
                     ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
                     ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),

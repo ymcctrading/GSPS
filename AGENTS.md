@@ -3801,6 +3801,27 @@ so a short may pass, on 78.8% at −1% a month, 54.8% with no drift and 28.6% at
 `STRATEGY_VERSION` is `2026-10-29-gann-main-trend-shorts`; Execute and the 7/4
 cutoffs need a fresh run on it.
 
+**The bare core, 2026-10-29 (owner: "let's rebuild from the core"; the six-year
+daily run of the full rule stack, `/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/`,
+showed no edge).** A separate replay strategy, `profile: "core"`
+(`lib/backtest/replayCore.ts`, daily bars only), with only Gann's core from *New
+Stock Trend Detector* (W006 pp.19-23, Rules 2-6): the main trend from the stock's
+own monthly chart (`readMonthlyMainTrend`, `lib/gann/mainTrend.ts`, the one
+reading the live short hold uses: the monthly swing chart on completed months,
+turned by crossing its last swing top or breaking the point the last run-up
+started from, with no 3-point margin since Gann's text names none for the turn), the crossing of an old
+weekly-chart top by 3 points bought on the reaction to it plus 1 point, the 2-3
+week reaction bought once it holds 2 days, shorts by the mirror rules only in a
+monthly downtrend, 3-point stops, the stop trailed under each new weekly swing
+bottom, out when the main trend turns, and pyramid adds (`PYRAMID_LOTS`,
+`wholeLineStop`). Measured per campaign: each trade's `rMultiple` is the whole
+line in the first lot's risk, `rFirstLot` beside it, and the report's `core`
+block splits them (`summariseCore`). Rules come back one at a time through
+`CoreReplayOptions.rules` ("gate" or "tag"), the "Prove each Gann rule one at a
+time" thread's ladder. The production method (`replay.ts`, the live scan) is
+unchanged, so `STRATEGY_VERSION` stays. Engineering choices are labelled in the
+module header.
+
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and
