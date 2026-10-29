@@ -155,6 +155,32 @@ export function readLeadership(
 }
 
 /**
+ * Whether a long may count the stock's leadership and its strength rank
+ * (G25, *Wall Street Stock Selector* Ch. VII, Tier A; 2026-10-29).
+ *
+ * - "A stock must cross the high of the first year of the bull campaign
+ *   before it can lead a later section": once the campaign has run a year
+ *   (`firstYearHighCrossed` not null), a stock that has not crossed it leads
+ *   nothing, however high it stands in its year's range.
+ * - Late movers "bottom late and top late, with sharp tops and fast
+ *   collapses": a stock that bottomed after the market is not the early
+ *   leader Gann buys, so its rank and its crossing of old tops count only
+ *   once it has crossed the first-year high and so earned the later section.
+ *
+ * The six-year daily run (2026-10-28, EDGE-DIAGNOSIS.md) measured the late
+ * mover passing at -0.204R within Execute, about two and a half standard
+ * errors: the rank alone favoured whatever stood at its high, early or late.
+ * Shorts are unchanged: Gann sells the early leaders of a bear market (the
+ * stocks that topped first), and a late top's fast collapse does not argue
+ * against a short.
+ */
+export function longMayLead(l: { bottomedLate?: boolean; firstYearHighCrossed: boolean | null } | null | undefined): boolean {
+  if (l == null) return true;
+  if (l.firstYearHighCrossed === false) return false;
+  return !(l.bottomedLate && l.firstYearHighCrossed !== true);
+}
+
+/**
  * How strongly Gann's selection rules favour a trade in `direction`, for
  * ordering the lists (W006 pp.24-29, 32-34). Higher ranks first.
  *
@@ -189,7 +215,12 @@ export function selectionStrength(
   const strong = rank?.strongest || rank?.group?.strongest ? 1 : 0;
   const weakest = rank?.weakest || rank?.group?.weakest ? 1 : 0;
   const isWeak = weak?.weak === true ? 1 : 0;
-  if (direction === "bullish") return (leadership?.bottomedFirst || leadership?.crossedTopsFirst ? 1 : 0) - isWeak + strong;
+  if (direction === "bullish") {
+    // G25: a stock that cannot lead a later section, or a late mover that has
+    // not earned it, gets no step for leading or for its rank (`longMayLead`).
+    const may = longMayLead(leadership);
+    return (may && (leadership?.bottomedFirst || leadership?.crossedTopsFirst) ? 1 : 0) - isWeak + (may ? strong : 0);
+  }
   if (direction === "bearish") return (leadership?.toppedFirst || leadership?.brokeBottomsFirst ? 1 : 0) + isWeak + weakest;
   return 0;
 }

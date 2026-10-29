@@ -3681,6 +3681,25 @@ an engineering choice, labelled. `STRATEGY_VERSION` was
 fresh run on it. Merged onto the delayed fill timing (no new rule):
 `STRATEGY_VERSION` was `2026-10-28-angle-origin-on-delayed-fill`.
 
+**P3's leaders may lead, 2026-10-29 (six-year daily diagnosis,
+`/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md`:
+Execute did worse than Watch, scores 8 and 9 worst, and within Execute
+`lateMoverLong` passing measured −0.204R, about two and a half standard
+errors).** One translation defect, fixed: P3's rank by position in the year's
+range favoured whatever stood at its high, early leader or late mover alike.
+Gann buys the early leaders, and "a stock must cross the high of the first year
+of the bull campaign before it can lead a later section" (G25, *Wall Street
+Stock Selector* Ch. VII); late movers "bottom late and top late, with sharp tops
+and fast collapses". So a long's leadership and rank count, in P3 and in the
+lists' order (`selectionStrength`), only when `longMayLead`
+(`lib/gann/leadership.ts`): not short of the first-year high once the campaign
+has run a year, and not a stock that bottomed after the market until it has
+crossed that high. Shorts are unchanged (Gann sells the bear market's early
+leaders; a late top's fast collapse does not argue against a short). Random
+walks (20 pairs, 420 readings a drift): 43-44% of readings are late movers short
+of the first-year high, 0-0.2% have failed it. `STRATEGY_VERSION` was
+`2026-10-29-gann-p3-may-lead`; P3, Execute and the 7/4 cutoffs need a fresh run.
+
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
 (although not mandatory)").** Swing and Fast both hold for days or weeks, and

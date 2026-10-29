@@ -39,6 +39,11 @@ describe("early leaders in a bull market (A-SELECTION-02)", () => {
     const plain = { ...leader, bottomedFirst: false };
     expect(selectionStrength("bullish", leader, null)).toBeGreaterThan(selectionStrength("bullish", plain, null));
     expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true }, null)).toBeGreaterThan(0);
+    // G25: no step for leading or rank once the first-year high is failed, or for a late mover short of it.
+    const strong = { strongest: true, weakest: false };
+    expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true, firstYearHighCrossed: false }, null, strong)).toBe(0);
+    expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true, bottomedLate: true }, null, strong)).toBe(0);
+    expect(selectionStrength("bullish", { ...plain, crossedTopsFirst: true, bottomedLate: true, firstYearHighCrossed: true }, null, strong)).toBe(2);
   });
 });
 
