@@ -107,6 +107,28 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
     "Measured losing: the replay of Aug 26 to Oct 21, 2026 lost on this signal (152 trades, −0.11R a trade, with an earlier stop). Shown for study only; it is not offered as a trade until a new run reads otherwise.",
 };
 
+/**
+ * Signals read on the daily chart, so their stop and targets are sized for a
+ * swing of days, not one session (2026-10-29, Chuck on META: entry 623.56,
+ * stop 604.21, TP1 676.63, two days' range away, offered as a trade closed at
+ * 3:45 PM). `overnight_turn` is Gann's Overnight Chart (Master Course Ch. 3):
+ * a daily swing chart traded with stops 1 point beyond the last daily bottom
+ * or top and held overnight, stop and reverse. Its stop is daily-scale (median
+ * 3.1% of price over Oct 21-29, against 0.3-0.6% for the session signals),
+ * and `gannFirstTarget`'s "pays more than the risk" (M-K5) then pushes TP1 to
+ * an old daily level (median 3.9%, the top tenth past 10.6%). Closing it at
+ * the session's end (the Intraday style) trades a swing stop with a day
+ * trade's reach, which Gann never did; as a swing it is the Overnight method,
+ * which is measured (`replayOvernight.ts`) and never placed (AGENTS.md, "Master
+ * Course methods with no plan"). So it is shown for study, never offered as an
+ * intraday trade; the swing trade on the stock comes from its daily plan.
+ */
+export const DAILY_SCALE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["overnight_turn"]);
+
+/** The note on a daily-scale signal (`DAILY_SCALE_SIGNALS`). */
+export const DAILY_SCALE_HOLD =
+  "A daily swing signal: its stop sits beyond yesterday's swing, sized for a trade held for days, and its first target is often more than a day's range away. Shown for study only; it is not offered as an intraday trade. Swing trades come from the stock's daily plan.";
+
 /** The note on an alert that runs against the daily trend (`Alert.againstDailyTrend`, audit I-02). */
 export const AGAINST_DAILY_TREND =
   "Against the daily trend: the daily swing chart runs the other way. Shown for study only; the method trades with the main trend, so this is not offered as a trade.";
@@ -123,7 +145,8 @@ export const STOP_INSIDE_NOISE =
  * Why an alert is shown but not offered as a trade, or null when it is
  * tradeable on these grounds: a signal the replay measured losing, one that
  * runs against the daily trend or the market's trend, or one whose stop sits
- * inside one intraday point of its price (the replay's `risk_under_point`). The panel, the setup
+ * inside one intraday point of its price (the replay's `risk_under_point`), or a
+ * daily-scale signal (`DAILY_SCALE_SIGNALS`). The panel, the setup
  * card, the bell and push all read this one function.
  */
 export function tradeHold(alert: {
@@ -134,6 +157,7 @@ export function tradeHold(alert: {
 }): string | null {
   return (
     MEASURED_LOSING[alert.type] ??
+    (DAILY_SCALE_SIGNALS.has(alert.type) ? DAILY_SCALE_HOLD : null) ??
     (alert.againstDailyTrend
       ? AGAINST_DAILY_TREND
       : alert.againstMarketTrend
