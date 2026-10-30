@@ -1,0 +1,1258 @@
+{
+ "run": "forecast-rebuild",
+ "generated": "2026-10-30",
+ "module": "lib/research/forecastRebuild.ts",
+ "draws": 20000,
+ "primary": [
+  {
+   "method": "wheel",
+   "anchors": "nine",
+   "calls": {
+    "hits": 23,
+    "total": 52,
+    "expected": 26.0068,
+    "p": 0.8648
+   },
+   "turns": {
+    "hits": 68,
+    "total": 122,
+    "expected": 64.9982,
+    "p": 0.2974
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.1233,
+     "calls": 1,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 3.6712,
+     "turnsExpected": 0.6164
+    },
+    {
+     "id": "1920",
+     "coverage": 0.388,
+     "calls": 3,
+     "callsTotal": 6,
+     "turns": 4,
+     "turnsTotal": 8,
+     "callsExpected": 4.2049,
+     "turnsExpected": 3.1038
+    },
+    {
+     "id": "1921",
+     "coverage": 0.3068,
+     "calls": 4,
+     "callsTotal": 8,
+     "turns": 2,
+     "turnsTotal": 4,
+     "callsExpected": 4.5315,
+     "turnsExpected": 1.2274
+    },
+    {
+     "id": "1922",
+     "coverage": 0.2274,
+     "calls": 6,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 5.4247,
+     "turnsExpected": 0.4548
+    },
+    {
+     "id": "1929",
+     "coverage": 0.5616,
+     "calls": 6,
+     "callsTotal": 9,
+     "turns": 46,
+     "turnsTotal": 82,
+     "callsExpected": 5.8795,
+     "turnsExpected": 46.0548
+    },
+    {
+     "id": "1932",
+     "coverage": 0.6448,
+     "calls": 3,
+     "callsTotal": 3,
+     "turns": 15,
+     "turnsTotal": 21,
+     "callsExpected": 2.2951,
+     "turnsExpected": 13.541
+    }
+   ]
+  },
+  {
+   "method": "dayBands",
+   "anchors": "nine",
+   "calls": {
+    "hits": 9,
+    "total": 52,
+    "expected": 11.2956,
+    "p": 0.8255
+   },
+   "turns": {
+    "hits": 25,
+    "total": 122,
+    "expected": 32.3429,
+    "p": 0.9528
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.0986,
+     "calls": 1,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 2.1726,
+     "turnsExpected": 0.4932
+    },
+    {
+     "id": "1920",
+     "coverage": 0.2568,
+     "calls": 0,
+     "callsTotal": 6,
+     "turns": 3,
+     "turnsTotal": 8,
+     "callsExpected": 2.1639,
+     "turnsExpected": 2.0546
+    },
+    {
+     "id": "1921",
+     "coverage": 0.1233,
+     "calls": 1,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 1.6603,
+     "turnsExpected": 0.4932
+    },
+    {
+     "id": "1922",
+     "coverage": 0.0712,
+     "calls": 4,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 1.5726,
+     "turnsExpected": 0.1425
+    },
+    {
+     "id": "1929",
+     "coverage": 0.2849,
+     "calls": 2,
+     "callsTotal": 9,
+     "turns": 15,
+     "turnsTotal": 82,
+     "callsExpected": 2.7945,
+     "turnsExpected": 23.3644
+    },
+    {
+     "id": "1932",
+     "coverage": 0.276,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 6,
+     "turnsTotal": 21,
+     "callsExpected": 0.9317,
+     "turnsExpected": 5.7951
+    }
+   ]
+  },
+  {
+   "method": "yearCycles",
+   "anchors": "nine",
+   "calls": {
+    "hits": 28,
+    "total": 52,
+    "expected": 26.6309,
+    "p": 0.3846
+   },
+   "turns": {
+    "hits": 64,
+    "total": 122,
+    "expected": 61.5321,
+    "p": 0.3355
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.137,
+     "calls": 4,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 3.7096,
+     "turnsExpected": 0.6849
+    },
+    {
+     "id": "1920",
+     "coverage": 0.2049,
+     "calls": 4,
+     "callsTotal": 6,
+     "turns": 2,
+     "turnsTotal": 8,
+     "callsExpected": 2.7213,
+     "turnsExpected": 1.6393
+    },
+    {
+     "id": "1921",
+     "coverage": 0.2329,
+     "calls": 4,
+     "callsTotal": 8,
+     "turns": 1,
+     "turnsTotal": 4,
+     "callsExpected": 4.6,
+     "turnsExpected": 0.9315
+    },
+    {
+     "id": "1922",
+     "coverage": 0.3096,
+     "calls": 7,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 7.3123,
+     "turnsExpected": 0.6192
+    },
+    {
+     "id": "1929",
+     "coverage": 0.4575,
+     "calls": 6,
+     "callsTotal": 9,
+     "turns": 40,
+     "turnsTotal": 82,
+     "callsExpected": 5.2877,
+     "turnsExpected": 37.5178
+    },
+    {
+     "id": "1932",
+     "coverage": 0.959,
+     "calls": 3,
+     "callsTotal": 3,
+     "turns": 20,
+     "turnsTotal": 21,
+     "callsExpected": 3,
+     "turnsExpected": 20.1393
+    }
+   ]
+  },
+  {
+   "method": "squareOf52",
+   "anchors": "nine",
+   "calls": {
+    "hits": 26,
+    "total": 52,
+    "expected": 28.806,
+    "p": 0.8519
+   },
+   "turns": {
+    "hits": 77,
+    "total": 122,
+    "expected": 72.4361,
+    "p": 0.1995
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.137,
+     "calls": 3,
+     "callsTotal": 12,
+     "turns": 0,
+     "turnsTotal": 5,
+     "callsExpected": 4.0548,
+     "turnsExpected": 0.6849
+    },
+    {
+     "id": "1920",
+     "coverage": 0.4262,
+     "calls": 4,
+     "callsTotal": 6,
+     "turns": 4,
+     "turnsTotal": 8,
+     "callsExpected": 4.4071,
+     "turnsExpected": 3.4098
+    },
+    {
+     "id": "1921",
+     "coverage": 0.3781,
+     "calls": 3,
+     "callsTotal": 8,
+     "turns": 3,
+     "turnsTotal": 4,
+     "callsExpected": 5.1945,
+     "turnsExpected": 1.5123
+    },
+    {
+     "id": "1922",
+     "coverage": 0.2658,
+     "calls": 6,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 6.2575,
+     "turnsExpected": 0.5315
+    },
+    {
+     "id": "1929",
+     "coverage": 0.6329,
+     "calls": 7,
+     "callsTotal": 9,
+     "turns": 54,
+     "turnsTotal": 82,
+     "callsExpected": 6.4822,
+     "turnsExpected": 51.8959
+    },
+    {
+     "id": "1932",
+     "coverage": 0.6858,
+     "calls": 3,
+     "callsTotal": 3,
+     "turns": 16,
+     "turnsTotal": 21,
+     "callsExpected": 2.4098,
+     "turnsExpected": 14.4016
+    }
+   ]
+  },
+  {
+   "method": "angleMonths",
+   "anchors": "nine",
+   "calls": {
+    "hits": 13,
+    "total": 52,
+    "expected": 15.8397,
+    "p": 0.8907
+   },
+   "turns": {
+    "hits": 30,
+    "total": 122,
+    "expected": 36.3458,
+    "p": 0.9516
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.0685,
+     "calls": 2,
+     "callsTotal": 12,
+     "turns": 0,
+     "turnsTotal": 5,
+     "callsExpected": 2.0466,
+     "turnsExpected": 0.3425
+    },
+    {
+     "id": "1920",
+     "coverage": 0.1366,
+     "calls": 1,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 1.9262,
+     "turnsExpected": 1.0929
+    },
+    {
+     "id": "1921",
+     "coverage": 0.0986,
+     "calls": 2,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 2.4082,
+     "turnsExpected": 0.3945
+    },
+    {
+     "id": "1922",
+     "coverage": 0.1342,
+     "calls": 3,
+     "callsTotal": 14,
+     "turns": 1,
+     "turnsTotal": 2,
+     "callsExpected": 3.5918,
+     "turnsExpected": 0.2685
+    },
+    {
+     "id": "1929",
+     "coverage": 0.263,
+     "calls": 2,
+     "callsTotal": 9,
+     "turns": 16,
+     "turnsTotal": 82,
+     "callsExpected": 3.2822,
+     "turnsExpected": 21.5671
+    },
+    {
+     "id": "1932",
+     "coverage": 0.6038,
+     "calls": 3,
+     "callsTotal": 3,
+     "turns": 12,
+     "turnsTotal": 21,
+     "callsExpected": 2.5847,
+     "turnsExpected": 12.6803
+    }
+   ]
+  },
+  {
+   "method": "seasonal",
+   "anchors": "nine",
+   "calls": {
+    "hits": 25,
+    "total": 52,
+    "expected": 27.1203,
+    "p": 0.8338
+   },
+   "turns": {
+    "hits": 28,
+    "total": 122,
+    "expected": 30.0627,
+    "p": 0.768
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.2466,
+     "calls": 6,
+     "callsTotal": 12,
+     "turns": 2,
+     "turnsTotal": 5,
+     "callsExpected": 6.8575,
+     "turnsExpected": 1.2329
+    },
+    {
+     "id": "1920",
+     "coverage": 0.2459,
+     "calls": 3,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 3.4098,
+     "turnsExpected": 1.9672
+    },
+    {
+     "id": "1921",
+     "coverage": 0.2466,
+     "calls": 7,
+     "callsTotal": 8,
+     "turns": 2,
+     "turnsTotal": 4,
+     "callsExpected": 5.1096,
+     "turnsExpected": 0.9863
+    },
+    {
+     "id": "1922",
+     "coverage": 0.2466,
+     "calls": 5,
+     "callsTotal": 14,
+     "turns": 1,
+     "turnsTotal": 2,
+     "callsExpected": 6.7671,
+     "turnsExpected": 0.4932
+    },
+    {
+     "id": "1929",
+     "coverage": 0.2466,
+     "calls": 3,
+     "callsTotal": 9,
+     "turns": 18,
+     "turnsTotal": 82,
+     "callsExpected": 3.3068,
+     "turnsExpected": 20.2192
+    },
+    {
+     "id": "1932",
+     "coverage": 0.2459,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 4,
+     "turnsTotal": 21,
+     "callsExpected": 1.6694,
+     "turnsExpected": 5.1639
+    }
+   ]
+  },
+  {
+   "method": "fixedCalendar",
+   "anchors": "nine",
+   "calls": {
+    "hits": 17,
+    "total": 52,
+    "expected": 15.0742,
+    "p": 0.3073
+   },
+   "turns": {
+    "hits": 19,
+    "total": 122,
+    "expected": 13.6952,
+    "p": 0.0592
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.1123,
+     "calls": 5,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 3.7863,
+     "turnsExpected": 0.5616
+    },
+    {
+     "id": "1920",
+     "coverage": 0.112,
+     "calls": 2,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 2.041,
+     "turnsExpected": 0.8962
+    },
+    {
+     "id": "1921",
+     "coverage": 0.1123,
+     "calls": 5,
+     "callsTotal": 8,
+     "turns": 2,
+     "turnsTotal": 4,
+     "callsExpected": 3.2329,
+     "turnsExpected": 0.4493
+    },
+    {
+     "id": "1922",
+     "coverage": 0.1123,
+     "calls": 2,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 3.4904,
+     "turnsExpected": 0.2247
+    },
+    {
+     "id": "1929",
+     "coverage": 0.1123,
+     "calls": 2,
+     "callsTotal": 9,
+     "turns": 10,
+     "turnsTotal": 82,
+     "callsExpected": 1.6411,
+     "turnsExpected": 9.211
+    },
+    {
+     "id": "1932",
+     "coverage": 0.112,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 5,
+     "turnsTotal": 21,
+     "callsExpected": 0.8825,
+     "turnsExpected": 2.3525
+    }
+   ]
+  },
+  {
+   "method": "convergence",
+   "anchors": "nine",
+   "calls": {
+    "hits": 33,
+    "total": 52,
+    "expected": 35.3618,
+    "p": 0.856
+   },
+   "turns": {
+    "hits": 87,
+    "total": 122,
+    "expected": 87.121,
+    "p": 0.562
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.1945,
+     "calls": 4,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 5.7014,
+     "turnsExpected": 0.9726
+    },
+    {
+     "id": "1920",
+     "coverage": 0.4563,
+     "calls": 5,
+     "callsTotal": 6,
+     "turns": 4,
+     "turnsTotal": 8,
+     "callsExpected": 4.9317,
+     "turnsExpected": 3.6503
+    },
+    {
+     "id": "1921",
+     "coverage": 0.4027,
+     "calls": 6,
+     "callsTotal": 8,
+     "turns": 3,
+     "turnsTotal": 4,
+     "callsExpected": 5.9753,
+     "turnsExpected": 1.611
+    },
+    {
+     "id": "1922",
+     "coverage": 0.3534,
+     "calls": 7,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 8.2137,
+     "turnsExpected": 0.7068
+    },
+    {
+     "id": "1929",
+     "coverage": 0.7315,
+     "calls": 8,
+     "callsTotal": 9,
+     "turns": 58,
+     "turnsTotal": 82,
+     "callsExpected": 7.5397,
+     "turnsExpected": 59.9836
+    },
+    {
+     "id": "1932",
+     "coverage": 0.9617,
+     "calls": 3,
+     "callsTotal": 3,
+     "turns": 21,
+     "turnsTotal": 21,
+     "callsExpected": 3,
+     "turnsExpected": 20.1967
+    }
+   ]
+  }
+ ],
+ "yearlyAnchors": [
+  {
+   "method": "wheel",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 0,
+    "total": 52,
+    "expected": 0,
+    "p": 1
+   },
+   "turns": {
+    "hits": 0,
+    "total": 122,
+    "expected": 0,
+    "p": 1
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 12,
+     "turns": 0,
+     "turnsTotal": 5,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1920",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 6,
+     "turns": 0,
+     "turnsTotal": 8,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1921",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1922",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1929",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 9,
+     "turns": 0,
+     "turnsTotal": 82,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1932",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 3,
+     "turns": 0,
+     "turnsTotal": 21,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    }
+   ]
+  },
+  {
+   "method": "dayBands",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 0,
+    "total": 52,
+    "expected": 0,
+    "p": 1
+   },
+   "turns": {
+    "hits": 0,
+    "total": 122,
+    "expected": 0,
+    "p": 1
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 12,
+     "turns": 0,
+     "turnsTotal": 5,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1920",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 6,
+     "turns": 0,
+     "turnsTotal": 8,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1921",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1922",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1929",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 9,
+     "turns": 0,
+     "turnsTotal": 82,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1932",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 3,
+     "turns": 0,
+     "turnsTotal": 21,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    }
+   ]
+  },
+  {
+   "method": "yearCycles",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 14,
+    "total": 52,
+    "expected": 11.9416,
+    "p": 0.2696
+   },
+   "turns": {
+    "hits": 17,
+    "total": 122,
+    "expected": 18.3452,
+    "p": 0.6921
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.0959,
+     "calls": 3,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 2.5534,
+     "turnsExpected": 0.4795
+    },
+    {
+     "id": "1920",
+     "coverage": 0.0929,
+     "calls": 2,
+     "callsTotal": 6,
+     "turns": 2,
+     "turnsTotal": 8,
+     "callsExpected": 1.3689,
+     "turnsExpected": 0.7432
+    },
+    {
+     "id": "1921",
+     "coverage": 0.0986,
+     "calls": 3,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 2.4822,
+     "turnsExpected": 0.3945
+    },
+    {
+     "id": "1922",
+     "coverage": 0.1014,
+     "calls": 2,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 2.4904,
+     "turnsExpected": 0.2027
+    },
+    {
+     "id": "1929",
+     "coverage": 0.1616,
+     "calls": 3,
+     "callsTotal": 9,
+     "turns": 12,
+     "turnsTotal": 82,
+     "callsExpected": 2.1178,
+     "turnsExpected": 13.2548
+    },
+    {
+     "id": "1932",
+     "coverage": 0.1557,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 2,
+     "turnsTotal": 21,
+     "callsExpected": 0.929,
+     "turnsExpected": 3.2705
+    }
+   ]
+  },
+  {
+   "method": "squareOf52",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 0,
+    "total": 52,
+    "expected": 0,
+    "p": 1
+   },
+   "turns": {
+    "hits": 0,
+    "total": 122,
+    "expected": 0,
+    "p": 1
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 12,
+     "turns": 0,
+     "turnsTotal": 5,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1920",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 6,
+     "turns": 0,
+     "turnsTotal": 8,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1921",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1922",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1929",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 9,
+     "turns": 0,
+     "turnsTotal": 82,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    },
+    {
+     "id": "1932",
+     "coverage": 0,
+     "calls": 0,
+     "callsTotal": 3,
+     "turns": 0,
+     "turnsTotal": 21,
+     "callsExpected": 0,
+     "turnsExpected": 0
+    }
+   ]
+  },
+  {
+   "method": "angleMonths",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 12,
+    "total": 52,
+    "expected": 10.2749,
+    "p": 0.3127
+   },
+   "turns": {
+    "hits": 14,
+    "total": 122,
+    "expected": 15.9892,
+    "p": 0.783
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.0548,
+     "calls": 2,
+     "callsTotal": 12,
+     "turns": 0,
+     "turnsTotal": 5,
+     "callsExpected": 1.6877,
+     "turnsExpected": 0.274
+    },
+    {
+     "id": "1920",
+     "coverage": 0.0956,
+     "calls": 1,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 1.4126,
+     "turnsExpected": 0.765
+    },
+    {
+     "id": "1921",
+     "coverage": 0.0603,
+     "calls": 2,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 1.7836,
+     "turnsExpected": 0.2411
+    },
+    {
+     "id": "1922",
+     "coverage": 0.0932,
+     "calls": 3,
+     "callsTotal": 14,
+     "turns": 1,
+     "turnsTotal": 2,
+     "callsExpected": 2.4932,
+     "turnsExpected": 0.1863
+    },
+    {
+     "id": "1929",
+     "coverage": 0.126,
+     "calls": 2,
+     "callsTotal": 9,
+     "turns": 7,
+     "turnsTotal": 82,
+     "callsExpected": 1.663,
+     "turnsExpected": 10.3342
+    },
+    {
+     "id": "1932",
+     "coverage": 0.1995,
+     "calls": 2,
+     "callsTotal": 3,
+     "turns": 5,
+     "turnsTotal": 21,
+     "callsExpected": 1.235,
+     "turnsExpected": 4.1885
+    }
+   ]
+  },
+  {
+   "method": "seasonal",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 25,
+    "total": 52,
+    "expected": 27.1203,
+    "p": 0.8338
+   },
+   "turns": {
+    "hits": 28,
+    "total": 122,
+    "expected": 30.0627,
+    "p": 0.768
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.2466,
+     "calls": 6,
+     "callsTotal": 12,
+     "turns": 2,
+     "turnsTotal": 5,
+     "callsExpected": 6.8575,
+     "turnsExpected": 1.2329
+    },
+    {
+     "id": "1920",
+     "coverage": 0.2459,
+     "calls": 3,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 3.4098,
+     "turnsExpected": 1.9672
+    },
+    {
+     "id": "1921",
+     "coverage": 0.2466,
+     "calls": 7,
+     "callsTotal": 8,
+     "turns": 2,
+     "turnsTotal": 4,
+     "callsExpected": 5.1096,
+     "turnsExpected": 0.9863
+    },
+    {
+     "id": "1922",
+     "coverage": 0.2466,
+     "calls": 5,
+     "callsTotal": 14,
+     "turns": 1,
+     "turnsTotal": 2,
+     "callsExpected": 6.7671,
+     "turnsExpected": 0.4932
+    },
+    {
+     "id": "1929",
+     "coverage": 0.2466,
+     "calls": 3,
+     "callsTotal": 9,
+     "turns": 18,
+     "turnsTotal": 82,
+     "callsExpected": 3.3068,
+     "turnsExpected": 20.2192
+    },
+    {
+     "id": "1932",
+     "coverage": 0.2459,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 4,
+     "turnsTotal": 21,
+     "callsExpected": 1.6694,
+     "turnsExpected": 5.1639
+    }
+   ]
+  },
+  {
+   "method": "fixedCalendar",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 17,
+    "total": 52,
+    "expected": 15.0742,
+    "p": 0.3073
+   },
+   "turns": {
+    "hits": 19,
+    "total": 122,
+    "expected": 13.6952,
+    "p": 0.0592
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.1123,
+     "calls": 5,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 3.7863,
+     "turnsExpected": 0.5616
+    },
+    {
+     "id": "1920",
+     "coverage": 0.112,
+     "calls": 2,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 2.041,
+     "turnsExpected": 0.8962
+    },
+    {
+     "id": "1921",
+     "coverage": 0.1123,
+     "calls": 5,
+     "callsTotal": 8,
+     "turns": 2,
+     "turnsTotal": 4,
+     "callsExpected": 3.2329,
+     "turnsExpected": 0.4493
+    },
+    {
+     "id": "1922",
+     "coverage": 0.1123,
+     "calls": 2,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 3.4904,
+     "turnsExpected": 0.2247
+    },
+    {
+     "id": "1929",
+     "coverage": 0.1123,
+     "calls": 2,
+     "callsTotal": 9,
+     "turns": 10,
+     "turnsTotal": 82,
+     "callsExpected": 1.6411,
+     "turnsExpected": 9.211
+    },
+    {
+     "id": "1932",
+     "coverage": 0.112,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 5,
+     "turnsTotal": 21,
+     "callsExpected": 0.8825,
+     "turnsExpected": 2.3525
+    }
+   ]
+  },
+  {
+   "method": "convergence",
+   "anchors": "yearly",
+   "calls": {
+    "hits": 12,
+    "total": 52,
+    "expected": 9.9507,
+    "p": 0.2544
+   },
+   "turns": {
+    "hits": 10,
+    "total": 122,
+    "expected": 13.0886,
+    "p": 0.8952
+   },
+   "years": [
+    {
+     "id": "1919",
+     "coverage": 0.0575,
+     "calls": 1,
+     "callsTotal": 12,
+     "turns": 1,
+     "turnsTotal": 5,
+     "callsExpected": 1.7205,
+     "turnsExpected": 0.2877
+    },
+    {
+     "id": "1920",
+     "coverage": 0.0546,
+     "calls": 1,
+     "callsTotal": 6,
+     "turns": 1,
+     "turnsTotal": 8,
+     "callsExpected": 0.9672,
+     "turnsExpected": 0.4372
+    },
+    {
+     "id": "1921",
+     "coverage": 0.063,
+     "calls": 4,
+     "callsTotal": 8,
+     "turns": 0,
+     "turnsTotal": 4,
+     "callsExpected": 2.4,
+     "turnsExpected": 0.2521
+    },
+    {
+     "id": "1922",
+     "coverage": 0.0685,
+     "calls": 3,
+     "callsTotal": 14,
+     "turns": 0,
+     "turnsTotal": 2,
+     "callsExpected": 2.3014,
+     "turnsExpected": 0.137
+    },
+    {
+     "id": "1929",
+     "coverage": 0.1068,
+     "calls": 2,
+     "callsTotal": 9,
+     "turns": 6,
+     "turnsTotal": 82,
+     "callsExpected": 1.5288,
+     "turnsExpected": 8.7616
+    },
+    {
+     "id": "1932",
+     "coverage": 0.153,
+     "calls": 1,
+     "callsTotal": 3,
+     "turns": 2,
+     "turnsTotal": 21,
+     "callsExpected": 1.0328,
+     "turnsExpected": 3.2131
+    }
+   ]
+  }
+ ]
+}

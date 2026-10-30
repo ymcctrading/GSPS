@@ -1376,3 +1376,9 @@ sample (to 1935, p 0.017) and 13 of 142 out of sample against 14.4 (p 0.69),
 so `TIME_LINE_RECORDS.macroCycle` stays null and the dated windows stay off
 member surfaces. Run: `docs/replay-runs/2026-10-30-forecast-track-record.json`.
 Verdicts and `STRATEGY_VERSION` are unchanged.
+Rebuild test the same day (`lib/research/forecastRebuild.ts`, run
+`docs/replay-runs/2026-10-30-forecast-rebuild.json`): at each issue date, none
+of the built time methods (wheel counts, Rule 8 bands, yearly cycles, the 52-week
+divisions, month counts, seasonal points, the permanent dates, or agreement of
+two or more) met the published calls beyond chance (best p 0.25). The edge
+in the calls is the undisclosed time factor; no current forecast is built from it.

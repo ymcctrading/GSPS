@@ -155,3 +155,40 @@ out-of-sample persistence fails; significance fails out of sample.
 - Nothing in this file may appear on a member surface. A member-facing record,
   if the owner wants one, would describe "a long-cycle calendar projection"
   and its measured result, never the source.
+
+## 6. Can the methods GSPS has built rebuild his calls? (2026-10-30)
+
+Owner: "if his forecasts are correct then they can be reproduced for now."
+`lib/research/forecastRebuild.ts`, run
+`docs/replay-runs/2026-10-30-forecast-rebuild.json`
+(`node scripts/forecast-rebuild.mjs --out <file>`). At each issue date, each
+built time method projects its days for the forecast year from the 9-point
+swings known on that date, and nothing later. The days are scored against the
+52 calls and against that year's 9-point turns. The chance baseline shifts the
+same days round the year by every offset, keeping their number and spacing.
+The rules are fixed in the module header.
+
+| Method (module) | Calls met / 52 | by chance | p | Turns met / 122 | by chance | p |
+|---|---|---|---|---|---|---|
+| Wheel day counts (`timeCycles.ts`) | 23 | 26.0 | 0.86 | 68 | 65.0 | 0.30 |
+| Day-count bands (Rule 8) | 9 | 11.3 | 0.83 | 25 | 32.3 | 0.95 |
+| Yearly cycles 1-60 | 28 | 26.6 | 0.38 | 64 | 61.5 | 0.34 |
+| 52-week divisions (`squareOf52.ts`) | 26 | 28.8 | 0.85 | 77 | 72.4 | 0.20 |
+| Month counts (`angleMonthCounts.ts`) | 13 | 15.8 | 0.89 | 30 | 36.3 | 0.95 |
+| Seasonal points (`seasonalCounts.ts`) | 25 | 27.1 | 0.83 | 28 | 30.1 | 0.77 |
+| Permanent calendar dates | 17 | 15.1 | 0.31 | 19 | 13.7 | 0.06 |
+| Two or more agreeing | 33 | 35.4 | 0.86 | 87 | 87.1 | 0.56 |
+
+The second run anchors on each finished year's top and bottom only. It gives
+the same answer: the yearly cycles meet 14 calls against 11.9 (p 0.27), the
+month counts 12 against 10.3 (p 0.31), and agreement 12 against 10.0 (p 0.25).
+The day counts, bands and 52-week divisions are shorter than a year, so from
+a finished year's extremes they never reach the forecast year.
+
+**None of the built methods lands on his dates more often than chance.** The
+permanent calendar dates come nearest on the actual turns (p 0.06), but that
+is one of 32 tests run here, and the 1929-1949 test above found nothing. So the
+methods in his books do not rebuild his forecasts. Whatever gave his
+published calls their edge on the big turns is the part he never disclosed,
+the "time factor". A current forecast cannot be reproduced from what GSPS
+holds, and none is shown.
