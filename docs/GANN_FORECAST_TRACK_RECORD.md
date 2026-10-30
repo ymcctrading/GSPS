@@ -335,3 +335,53 @@ Every planetary method tested, with its result, is now listed in
 from 2016 to 2025 (`lib/research/horaTiming.ts`), show nothing once the
 weekday is held (p 0.26 to 0.85); an apparent effect under a first null was a
 weekday pattern. Details there.
+
+## 11. The public "master time factor" calculator (2026-10-30)
+
+The owner found a web page titled "WD Gann Master Time Factor Calculator"
+(codingace.net) and asked for it to be reverse engineered and applied to
+forecasting if it works.
+
+**What it computes.** The page has no calculating script; its form posts to
+the server, which returns a six-row table. Twelve probes on 2026-10-30,
+varying every input, fit one rule exactly:
+
+- date k = base date + round(k × cycle × factor) calendar days, k = 1 to 6
+  (half days round up, weekends not skipped);
+- angle k = 90° × k, cycling 90/180/270/0, a label that feeds nothing;
+- price k = price × factor^(k/4).
+
+The market type, the Square of 9 / 144 / 360 choice, the planet choice and
+the "harmonic octave" and "auto-square" boxes change nothing. The defaults
+are 30 days and a factor of 1.618 (the golden ratio), so the default output
+is a date every 48.5 days from one pivot. None of the author's own time
+rules is in it, and his master time factor was never published, so the name
+is the page's, not his. `calculatorRows` in
+`lib/research/masterTimeCalculator.ts` reproduces the page's tables.
+
+**Scored with no hindsight.** Run `docs/replay-runs/2026-10-30-master-time-calculator.json`
+(`node scripts/master-time-calculator.mjs --out <file>`). Two settings fixed
+first, the page's defaults (30 × 1.618) and the plain 30-day count (factor 1),
+with no search over either. A pivot projects only once it is known: for the
+published calls, a 9-point swing whose next swing had printed by the issue
+date, from the next swing's date for the
+Dow turn sets, from the confirming close for SPY. ±2 days, and the null of
+section 6. Outcomes: the 52 calls, the Dow's 9-point and 3-day turns
+1913-1948 (section 7's years), and SPY's 2% and 5% close-only swings
+2017-2026 (Alpaca daily closes, `lib/research/spyDailyCloses.json`). Two
+anchor modes: every known pivot (fixed first), and the latest known pivot
+only, as a person would use the page (added after the first run showed the
+every-pivot mode marking half or more of each year on the turn sets). 20
+tests, so a result needs p below 0.0025.
+
+| Setting, anchors | Calls / 52 (chance, p) | 9-pt turns / 446 | 3-day turns / 1,370 | SPY 2% swings / 209 | SPY 5% swings / 64 |
+|---|---|---|---|---|---|
+| 30 × 1.618, every pivot | 11 (12.7, 0.78) | 343 (346.0, 0.69) | 1,341 (1,341.2, 0.57) | 167 (174.4, 0.91) | 29 (32.9, 0.86) |
+| 30 × 1, every pivot | 5 (5.5, 0.66) | 336 (339.7, 0.71) | 1,334 (1,332.4, 0.42) | 172 (177.4, 0.87) | 32 (32.2, 0.56) |
+| 30 × 1.618, latest pivot | 4 (5.2, 0.82) | 18 (20.8, 0.77) | 9 (8.9, 0.56) | 2 (7.3, 0.99) | 4 (4.4, 0.62) |
+| 30 × 1, latest pivot | 3 (3.3, 0.69) | 37 (45.9, 0.93) | 68 (76.5, 0.89) | 9 (16.0, 0.98) | 10 (8.7, 0.38) |
+
+None of the 20 beats chance, and none comes near the correction (best p
+0.38). On SPY the calculator's dates land on fewer swings than chance in
+three of four rows. It is not wired into forecasting; the module stays
+research only, and nothing here is shown to members.

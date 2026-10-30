@@ -1413,3 +1413,16 @@ new ones there. `lib/research/horaTiming.ts` (15-minute high and low times,
 `intradayTurnTimes.json`): with the weekday held, nothing (p 0.26-0.85). A
 first null that randomised the weekday's lord gave p below 0.001, a weekday
 effect it cannot separate from the planetary hour; both are in the run.
+
+
+**The public "master time factor" calculator, decoded and tested 2026-10-30
+(owner's codingace.net link).** `lib/research/masterTimeCalculator.ts`, run
+`docs/replay-runs/2026-10-30-master-time-calculator.json`, write-up
+`docs/GANN_FORECAST_TRACK_RECORD.md` §11. The page computes base date +
+round(k × cycle × factor) days for k = 1-6 (defaults 30 × 1.618), a 90°·k
+label and price × factor^(k/4); its square, planet, market and checkbox
+options change nothing. Not the author's method. 20 tests (two settings, two
+anchor modes, the 52 calls, Dow 9-point and 3-day turns 1913-1948, SPY 2% and
+5% swings 2017-2026): none beats chance (best p 0.38). Not wired into
+forecasting; research only. SPY daily closes for research live in
+`lib/research/spyDailyCloses.json` (Alpaca, 2016-01-04 to 2026-10-29).
