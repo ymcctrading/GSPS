@@ -3,8 +3,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   PROCEDURE_TESTS,
+  anniversary,
   confirmedPivots,
   heldOutRun,
+  issueAt,
   marsCrossings,
   mergeWindows,
   monthEnds,
@@ -55,6 +57,31 @@ describe("issuing", () => {
     const pivots = confirmedPivots(s);
     const e = monthEnds(s).get("2024-05")!;
     for (const rule of ["A", "A0", "B", "C"] as const) for (const p of projectionsAt(rule, s, e, pivots)) expect(p.date.startsWith("2024-06")).toBe(true);
+  });
+
+  it("29 Feb anniversaries fall on 28 Feb in a non-leap year", () => {
+    expect(anniversary("2020-02-29", 1)).toBe("2021-02-28");
+    expect(anniversary("2020-02-29", 4)).toBe("2024-02-29");
+    expect(anniversary("2019-03-01", 1)).toBe("2020-03-01");
+  });
+
+  it("drops a window that would include the issue-day session", () => {
+    // A top pivot a year before the next month's first session: its window would start on the issue session.
+    const dates: string[] = [];
+    for (let d = Date.UTC(2019, 0, 1); dates.length < 400; d += 86_400_000) {
+      const wd = new Date(d).getUTCDay();
+      if (wd !== 0 && wd !== 6) dates.push(new Date(d).toISOString().slice(0, 10));
+    }
+    const close = dates.map((_, i) => 100 + i * 0.1);
+    const s: Series = { dates, open: close, close };
+    const e = monthEnds(s).get("2020-05")!;
+    const first = e + 1;
+    const pivot = { index: 100, date: `2019-${s.dates[first].slice(5)}`, kind: "top" as const, close: close[100] };
+    expect(issueAt("A0", s, e, [pivot])).toEqual([]);
+    const later = { ...pivot, date: `2019-${s.dates[first + 3].slice(5)}` };
+    const ws = issueAt("A0", s, e, [later]);
+    expect(ws.length).toBe(1);
+    expect(ws[0].from).toBeGreaterThan(e);
   });
 
   it("the forward log is append-only and starts empty or frozen before its months", () => {

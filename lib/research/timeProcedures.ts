@@ -176,6 +176,14 @@ export interface Window {
   direction: "top" | "bottom";
 }
 
+/** The same calendar date `n` years on; 29 Feb maps to 28 Feb in a non-leap year (the rule as written). */
+export function anniversary(date: string, n: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const leap = (yr: number) => (yr % 4 === 0 && yr % 100 !== 0) || yr % 400 === 0;
+  const day = m === 2 && d === 29 && !leap(y + n) ? 28 : d;
+  return `${y + n}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 /** The first session on or after a calendar date, or -1 past the data. */
 function sessionOnOrAfter(s: Series, date: string): number {
   let lo = 0;
@@ -284,8 +292,7 @@ export function projectionsAt(rule: ProcedureRule, s: Series, e: number, pivots:
     for (const p of known) {
       if (p.date <= cutoff) continue;
       if (rule === "A" && !(p.kind === "top" ? high : low)) continue;
-      const [y, m, d] = p.date.split("-").map(Number);
-      for (const n of [1, 2]) push(iso(Math.floor(Date.UTC(y + n, m - 1, d) / DAY)), p.kind);
+      for (const n of [1, 2]) push(anniversary(p.date, n), p.kind);
     }
   } else if (rule === "B") {
     const p = known.at(-1);
@@ -306,9 +313,16 @@ export function projectionsAt(rule: ProcedureRule, s: Series, e: number, pivots:
   return out;
 }
 
+/**
+ * Only windows that open after the issue session `e`: a projection on the next
+ * month's first session would otherwise centre a window whose first session is
+ * the issue day itself, already closed when the forecast is made.
+ */
+const prospective = (e: number) => (w: Window | null): w is Window => w !== null && w.from > e;
+
 /** The windows a rule issues at the month-end session `e` for the next month, merged. */
 export function issueAt(rule: ProcedureRule, s: Series, e: number, pivots: Pivot[]): Window[] {
-  return mergeWindows(projectionsAt(rule, s, e, pivots).map((p) => windowAt(s, p.date, p.direction)).filter((w): w is Window => w !== null));
+  return mergeWindows(projectionsAt(rule, s, e, pivots).map((p) => windowAt(s, p.date, p.direction)).filter(prospective(e)));
 }
 
 /** Whether a window holds the highest (top) or lowest (bottom) close of its centred 41 sessions; null when the data can't tell yet. */
@@ -349,7 +363,7 @@ export interface TurnScore {
   p: number;
 }
 
-/** Hits against the matched-frequency null: each window moved to a random day of its month, same direction, same merging. */
+/** Hits against the matched-frequency null: each window moved to a random day of its month whose window opens after the issue session, same direction, same merging. */
 export function turnScore(rule: ProcedureRule, symbol: ProcedureSymbol, seed = 20261030, draws = NULL_DRAWS): TurnScore {
   const s = seriesFor(symbol);
   const iss = issues(rule, symbol);
@@ -357,16 +371,21 @@ export function turnScore(rule: ProcedureRule, symbol: ProcedureSymbol, seed = 2
   const hits = scored.filter(({ w }) => windowHit(s, w)).length;
   const conflicts = scored.filter(({ w, all }) => inConflict(w, all)).length;
   // The null redraws each month's windows: the same count of each direction on random days of that month.
-  const plan = iss.filter((x) => x.windows.length).map((x) => ({ month: x.month, dirs: x.windows.map((w) => w.direction) }));
+  const plan = iss
+    .filter((x) => x.windows.length)
+    .map((x) => {
+      const e = s.dates.indexOf(x.issued);
+      const all = Array.from({ length: daysInMonth(x.month) }, (_, i) => `${x.month}-${String(i + 1).padStart(2, "0")}`);
+      return { e, days: all.filter((d) => prospective(e)(windowAt(s, d, "top"))), dirs: x.windows.map((w) => w.direction) };
+    });
   const rnd = seeded(seed);
   let ge = 0;
   let sum = 0;
   for (let i = 0; i < draws; i++) {
     let h = 0;
-    for (const { month, dirs } of plan) {
-      const ws = dirs
-        .map((d) => windowAt(s, `${month}-${String(1 + Math.floor(rnd() * daysInMonth(month))).padStart(2, "0")}`, d))
-        .filter((w): w is Window => w !== null);
+    for (const { e, days, dirs } of plan) {
+      // Same count as issued: each window is drawn from the days whose window opens after the issue session.
+      const ws = days.length ? dirs.map((d) => windowAt(s, days[Math.floor(rnd() * days.length)], d)).filter(prospective(e)) : [];
       for (const w of mergeWindows(ws)) if (windowHit(s, w)) h++;
     }
     sum += h;

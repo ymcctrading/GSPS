@@ -12,38 +12,38 @@
   {
    "rule": "A",
    "symbol": "DIA",
-   "windows": 45,
+   "windows": 44,
    "conflicts": 0,
    "hits": 2,
-   "expected": 1.2943,
-   "p": 0.38173
+   "expected": 0.92235,
+   "p": 0.22689
   },
   {
    "rule": "A",
    "symbol": "SPY",
-   "windows": 55,
+   "windows": 50,
    "conflicts": 0,
    "hits": 3,
-   "expected": 2.52135,
-   "p": 0.47398
+   "expected": 2.1133,
+   "p": 0.35638
   },
   {
    "rule": "A0",
    "symbol": "DIA",
-   "windows": 219,
-   "conflicts": 20,
-   "hits": 16,
-   "expected": 9.1806,
-   "p": 0.01175
-  },
-  {
-   "rule": "A0",
-   "symbol": "SPY",
    "windows": 210,
-   "conflicts": 20,
+   "conflicts": 16,
+   "hits": 16,
+   "expected": 8.47505,
+   "p": 0.0051
+  },
+  {
+   "rule": "A0",
+   "symbol": "SPY",
+   "windows": 198,
+   "conflicts": 18,
    "hits": 10,
-   "expected": 9.7624,
-   "p": 0.52757
+   "expected": 8.78275,
+   "p": 0.37663
   },
   {
    "rule": "B",
@@ -51,8 +51,8 @@
    "windows": 5,
    "conflicts": 0,
    "hits": 1,
-   "expected": 0.16545,
-   "p": 0.16549
+   "expected": 0.1763,
+   "p": 0.17634
   },
   {
    "rule": "B",
@@ -60,8 +60,8 @@
    "windows": 5,
    "conflicts": 0,
    "hits": 1,
-   "expected": 0.2564,
-   "p": 0.24129
+   "expected": 0.2009,
+   "p": 0.19559
   },
   {
    "rule": "C",
@@ -86,20 +86,20 @@
   {
    "rule": "A",
    "symbol": "DIA",
-   "trades": 25,
-   "mean": -0.00874,
+   "trades": 24,
+   "mean": -0.0068,
    "controlTrades": 152,
    "controlMean": 0.00139,
-   "p": 0.70171
+   "p": 0.60682
   },
   {
    "rule": "A",
    "symbol": "SPY",
-   "trades": 30,
-   "mean": -0.01175,
+   "trades": 28,
+   "mean": -0.01045,
    "controlTrades": 151,
    "controlMean": 0.00253,
-   "p": 0.80821
+   "p": 0.75721
   },
   {
    "rule": "B",

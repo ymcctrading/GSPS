@@ -368,11 +368,19 @@ Run `docs/replay-runs/2026-10-30-time-procedures.json`.
 
 | Rule | DIA windows | DIA hits / expected | p | Verdict |
 |---|---|---|---|---|
-| A: pivot anniversaries, price within 2% of the 252-session extreme | 45 | 2 / 1.3 | 0.38 | refuted |
-| A0: the anniversaries alone | 219 | 16 / 9.2 | 0.012 (SPY 10 / 9.8) | refuted |
-| B: time-price balance at a frozen unit | 5 | 1 / 0.17 | 0.17 | not testable (under 10 windows) |
+| A: pivot anniversaries, price within 2% of the 252-session extreme | 44 | 2 / 0.9 | 0.23 | refuted |
+| A0: the anniversaries alone | 210 | 16 / 8.5 | 0.0051 (SPY 10 / 8.8) | refuted |
+| B: time-price balance at a frozen unit | 5 | 1 / 0.18 | 0.18 | not testable (under 10 windows) |
 | C: Mars opposite its place at the last pivot, with A's price filter | 0 | none issued | n/a | not testable |
-| D on A: confirmation entry after the windows | 25 trades | mean -0.87% a trade, control +0.14% | 0.70 | refuted |
+| D on A: confirmation entry after the windows | 24 trades | mean -0.68% a trade, control +0.14% | 0.61 | refuted |
+
+Corrected the same day after review: a projection on the next month's first
+session had centred a window whose first session was the issue day itself, and
+29 Feb anniversaries rolled to 1 Mar instead of the rule's 28 Feb. Windows now
+open after the issue session, in the forecasts and in the null (which draws
+only days whose window does, so its window count still matches). The figures
+above are the corrected run. A0 moved closest to the cut-off (0.0051 against
+0.0036) and stays refuted; the verdicts are unchanged.
 
 As written, B and C almost never fire: the latest pivot is a few weeks old, so
 B's projected day has usually passed, and Mars has not travelled the 180° C
