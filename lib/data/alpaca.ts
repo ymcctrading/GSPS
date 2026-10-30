@@ -692,18 +692,28 @@ export const alpacaProvider: MarketDataProvider = {
 
 /**
  * News items on `symbol` published from `start` (Alpaca's news API, on every
- * plan). Headlines only: no sentiment is read from them. See
- * `lib/gann/badNews.ts` for the one place they are used.
+ * plan). Headlines only: no sentiment is read from them. Read by
+ * `lib/gann/badNews.ts` and the symbol page's news (`app/api/news/route.ts`).
  */
-export async function fetchNews(symbol: string, start: Date, limit = 10): Promise<{ createdAt: string; headline: string }[]> {
+export async function fetchNews(
+  symbol: string,
+  start: Date,
+  limit = 10,
+): Promise<{ createdAt: string; headline: string; source?: string; url?: string }[]> {
   const json = await get("/v1beta1/news", {
     symbols: isCrypto(symbol) ? normalizeCryptoSymbol(symbol).replace("/", "") : symbol.toUpperCase(),
     start: start.toISOString(),
     limit: String(limit),
     sort: "desc",
   });
-  const items: { created_at?: string; headline?: string }[] = json?.news ?? [];
+  const items: { created_at?: string; headline?: string; source?: string; url?: string }[] = json?.news ?? [];
   return items
     .filter((n) => typeof n.created_at === "string" && typeof n.headline === "string")
-    .map((n) => ({ createdAt: n.created_at as string, headline: n.headline as string }));
+    .map((n) => ({
+      createdAt: n.created_at as string,
+      headline: n.headline as string,
+      ...(typeof n.source === "string" && n.source ? { source: n.source } : {}),
+      // Only a web link is passed on; anything else is dropped.
+      ...(typeof n.url === "string" && n.url.startsWith("https://") ? { url: n.url } : {}),
+    }));
 }

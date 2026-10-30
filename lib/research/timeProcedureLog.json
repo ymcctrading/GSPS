@@ -1,0 +1,1 @@
+{ "note": "Append-only. Each entry is frozen before its month opens; never edit or delete one (lib/research/timeProcedures.ts, kill criteria).", "entries": [] }

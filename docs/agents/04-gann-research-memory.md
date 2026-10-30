@@ -1360,3 +1360,83 @@ by `source` before reading a difference into it). A run needs `--since` and logs
 a member-list hash every job of a split run must share. Verdicts and
 `STRATEGY_VERSION` are unchanged.
 
+
+**The dated-forecast track record, 2026-10-30 (owner: "extract the written
+track record").** `docs/GANN_FORECAST_TRACK_RECORD.md`. Gann's own Dow swing
+tables from *45 Years* (W009 Ch. VII: 465 nine-point swings, 1,425 three-day
+turns, `lib/research/dowSwingRecord.json`) are the outcome record for his 52
+published, dated industrial calls (1919-1922 from W036, 1929 from W005, 1932
+from W001; `lib/research/publishedForecasts.ts`). Scored with a same-year
+sliding-window base rate (`lib/research/forecastTrackRecord.ts`): 12 of 52 on
+the nine-point swings against 6.0 by chance (p 0.006, the reprinted years
+only), 19 of 52 on the three-day turns against 18.0 (p 0.44); the 1929
+"permanent cycle" change dates beat chance in no span. The macro cycle behind
+the 2027-2029 window (and Aug 2106, the same arithmetic) scored 10 of 40 in
+sample (to 1935, p 0.017) and 13 of 142 out of sample against 14.4 (p 0.69),
+so `TIME_LINE_RECORDS.macroCycle` stays null and the dated windows stay off
+member surfaces. Run: `docs/replay-runs/2026-10-30-forecast-track-record.json`.
+Verdicts and `STRATEGY_VERSION` are unchanged.
+Rebuild test the same day (`lib/research/forecastRebuild.ts`, run
+`docs/replay-runs/2026-10-30-forecast-rebuild.json`): at each issue date, none
+of the built time methods (wheel counts, Rule 8 bands, yearly cycles, the 52-week
+divisions, month counts, seasonal points, the permanent dates, or agreement of
+two or more) met the published calls beyond chance (best p 0.25). The edge
+in the calls is the undisclosed time factor; no current forecast is built from it.
+
+**Planetary aspects as the time factor, tested 2026-10-30 (owner shared nine
+videos crediting the famous calls to aspects).** `lib/research/aspectTiming.ts`,
+run `docs/replay-runs/2026-10-30-aspect-timing.json`, write-up
+`docs/GANN_FORECAST_TRACK_RECORD.md` §7. Seven rules fixed from the videos'
+descriptions (the videos can't be opened from the sandbox), 21 tests. The
+published calls sit on slow-planet aspects (Jupiter to Neptune) more often than
+chance (12 of 52 against 4.8, p 0.0007, clears the correction), but no rule
+times the Dow's 9-point or 3-day turns 1913-1948, and the 12 aspect calls
+caught 2 turns against 10 of the other 40. The grand cross with a grand trine
+(the "symbol") is absent on 8 Aug 1908 and 30 Sep 1909 at an 8° orb, with or
+without the Moon and Pluto. Research only; nothing acts. `forecastRebuild.ts`
+now exports its scorer (`scoreYearDays`, `yearTargets`); its run is unchanged.
+**The public event calendar, same day (owner found a paid indicator claiming
+"Gann's Laws of Vibration and Bayer's Rules").** `lib/research/celestialEvents.ts`,
+run `docs/replay-runs/2026-10-30-celestial-events.json`, write-up §8: lunations,
+lunar apsides and declination, ingresses, stations, Mercury's speed, declination
+extremes and latitude crossings, 24 tests (45 in the batch, cut-off 0.0011).
+None beats chance on the calls or the turns. Bayer's rules are not built (no
+Bayer book in the collection). Research only; nothing acts.
+**Modern check, same day:** all 15 rules on SPY and DIA 2016-2025
+(`lib/research/modernTiming.ts`, turns in `modernTurns.json` from Alpaca, write-up
+§9): 60 tests, none clears 0.00083 (lowest: latitude crossings on DIA's 3-day
+turns, p 0.002, not on SPY). The live hold's astro inputs are unchanged.
+**Hora and Choghadiya, and `docs/PLANETARY_TIMING.md`, same day (owner: keep
+the planetary material in "its own file surrounding planetary alignment").**
+That file lists every planetary method tested with its rule and result; add
+new ones there. `lib/research/horaTiming.ts` (15-minute high and low times,
+`intradayTurnTimes.json`): with the weekday held, nothing (p 0.26-0.85). A
+first null that randomised the weekday's lord gave p below 0.001, a weekday
+effect it cannot separate from the planetary hour; both are in the run.
+
+
+**The public "master time factor" calculator, decoded and tested 2026-10-30
+(owner's codingace.net link).** `lib/research/masterTimeCalculator.ts`, run
+`docs/replay-runs/2026-10-30-master-time-calculator.json`, write-up
+`docs/GANN_FORECAST_TRACK_RECORD.md` §11. The page computes base date +
+round(k × cycle × factor) days for k = 1-6 (defaults 30 × 1.618), a 90°·k
+label and price × factor^(k/4); its square, planet, market and checkbox
+options change nothing. Not the author's method. 20 tests (two settings, two
+anchor modes, the 52 calls, Dow 9-point and 3-day turns 1913-1948, SPY 2% and
+5% swings 2017-2026): none beats chance (best p 0.38). Not wired into
+forecasting; research only. SPY daily closes for research live in
+`lib/research/spyDailyCloses.json` (Alpaca, 2016-01-04 to 2026-10-29).
+
+**Super Timing, combinations and disprovable procedures, same day.** Walker's
+*Super Timing* read in full from the Drive scan; its four timing rules
+(`lib/research/superTiming.ts`, 28 tests) beat chance nowhere. The combination
+test (`combinationTest.ts`, 17 rules, 821 sets, chosen on the Dow 1913-1930,
+scored on 1931-1948 and SPY/DIA 2016-2025) finds nothing that holds unseen.
+Owner: "Do not defend a supposed secret. Define a procedure that new evidence
+is allowed to disprove." `timeProcedures.ts` freezes the shared
+reconstruction's Rules A to D with kill criteria written before scoring: A
+and D refuted on SPY/DIA 2016-2025, B and C almost never fire as written (not
+testable). Forward projections go to `timeProcedureLog.json` each month-end
+(`scripts/time-procedures-issue.mjs`), append-only, reviewed Oct 2028. The
+rules' own Dow 1913-1948 span needs daily Dow closes the repo lacks (asked of
+the owner). Write-up `docs/GANN_FORECAST_TRACK_RECORD.md` §13. Research only.

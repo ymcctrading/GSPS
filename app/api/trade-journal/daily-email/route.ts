@@ -4,7 +4,8 @@
  * Fires 2 hours after the market close (see `vercel.json`'s cron schedule)
  * and emails every opted-in member with at least one closed trade their journal
  * spreadsheet, and (since 2026-10-28) the day's intraday signals from their
- * bell, which no longer go by email one at a time. See
+ * bell, which no longer go by email one at a time. On a Friday it also sends
+ * the weekly digest (`lib/notifications/weeklyDigestRun.ts`) to every member. See
  * `lib/journal/build-workbook.ts` for what's in it and why it reads straight from `trade_logs` rather than keeping a second copy of
  * the trade history.
  *
@@ -24,6 +25,8 @@ import { emailOptedIn } from "@/lib/notifications/email-opt-in";
 import { digestSignalLines } from "@/lib/notifications/digestSignals";
 import { dayRotation } from "@/lib/notifications/email-budget";
 import { deliverKeyNotice, PORTFOLIO_PATH } from "@/lib/notifications/keyNotice";
+import { isWeeklyDigestDay } from "@/lib/notifications/weeklyDigest";
+import { sendWeeklyDigests } from "@/lib/notifications/weeklyDigestRun";
 
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET) {
@@ -164,8 +167,13 @@ async function sendDailyJournals(): Promise<NextResponse> {
     if (notice.bell) toBell++;
   }
 
+  // Friday: the weekly digest (lib/notifications/weeklyDigest.ts), after the
+  // day's journals so they keep their place in the email budget.
+  const weekly = isWeeklyDigestDay(now) ? await sendWeeklyDigests(supabase, users, now) : null;
+
   return NextResponse.json({
     date: dateLabel,
+    weekly,
     usersChecked: users.length,
     sent,
     overBudget,

@@ -1,0 +1,199 @@
+{
+ "run": "hora-timing",
+ "generated": "2026-10-30",
+ "module": "lib/research/horaTiming.ts",
+ "tests": 6,
+ "draws": 20000,
+ "test": [
+  {
+   "symbol": "SPY",
+   "null": "sameWeekday",
+   "sessions": 2514,
+   "turns": 5028,
+   "bad": {
+    "observed": 2280,
+    "expected": 2274.0626,
+    "p": 0.8541
+   },
+   "good": {
+    "observed": 1934,
+    "expected": 1944.9934,
+    "p": 0.707
+   },
+   "hora": {
+    "rulers": [
+     "Saturn",
+     "Jupiter",
+     "Mars",
+     "Sun",
+     "Venus",
+     "Mercury",
+     "Moon"
+    ],
+    "observed": [
+     761,
+     767,
+     774,
+     608,
+     715,
+     754,
+     649
+    ],
+    "expected": [
+     772.0418,
+     765.8527,
+     778.6566,
+     585.3643,
+     698.1774,
+     793.8777,
+     634.0295
+    ],
+    "chi2": 3.8247,
+    "p": 0.5047
+   }
+  },
+  {
+   "symbol": "DIA",
+   "null": "sameWeekday",
+   "sessions": 2509,
+   "turns": 5018,
+   "bad": {
+    "observed": 2268,
+    "expected": 2278.0973,
+    "p": 0.7329
+   },
+   "good": {
+    "observed": 1967,
+    "expected": 1935.0255,
+    "p": 0.2634
+   },
+   "hora": {
+    "rulers": [
+     "Saturn",
+     "Jupiter",
+     "Mars",
+     "Sun",
+     "Venus",
+     "Mercury",
+     "Moon"
+    ],
+    "observed": [
+     741,
+     756,
+     797,
+     589,
+     737,
+     780,
+     618
+    ],
+    "expected": [
+     766.2429,
+     772.5266,
+     768.0823,
+     579.9337,
+     723.3609,
+     804.8793,
+     602.9743
+    ],
+    "chi2": 3.8162,
+    "p": 0.506
+   }
+  }
+ ],
+ "comparison": [
+  {
+   "symbol": "SPY",
+   "null": "rotateLord",
+   "sessions": 2514,
+   "turns": 5028,
+   "bad": {
+    "observed": 2280,
+    "expected": 2154.9585,
+    "p": 0.0002
+   },
+   "good": {
+    "observed": 1934,
+    "expected": 2154.9007,
+    "p": 0
+   },
+   "hora": {
+    "rulers": [
+     "Saturn",
+     "Jupiter",
+     "Mars",
+     "Sun",
+     "Venus",
+     "Mercury",
+     "Moon"
+    ],
+    "observed": [
+     761,
+     767,
+     774,
+     608,
+     715,
+     754,
+     649
+    ],
+    "expected": [
+     718.0675,
+     718.057,
+     718.4523,
+     718.2938,
+     718.7381,
+     718.242,
+     718.1495
+    ],
+    "chi2": 35.5911,
+    "p": 0
+   }
+  },
+  {
+   "symbol": "DIA",
+   "null": "rotateLord",
+   "sessions": 2509,
+   "turns": 5018,
+   "bad": {
+    "observed": 2268,
+    "expected": 2150.4076,
+    "p": 0.0006
+   },
+   "good": {
+    "observed": 1967,
+    "expected": 2150.7413,
+    "p": 0
+   },
+   "hora": {
+    "rulers": [
+     "Saturn",
+     "Jupiter",
+     "Mars",
+     "Sun",
+     "Venus",
+     "Mercury",
+     "Moon"
+    ],
+    "observed": [
+     741,
+     756,
+     797,
+     589,
+     737,
+     780,
+     618
+    ],
+    "expected": [
+     716.7558,
+     716.8715,
+     716.9775,
+     716.745,
+     716.8981,
+     717.1566,
+     716.5955
+    ],
+    "chi2": 54.2912,
+    "p": 0
+   }
+  }
+ ]
+}

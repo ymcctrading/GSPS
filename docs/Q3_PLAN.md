@@ -103,7 +103,10 @@ scores P3(c). Q3 shows it.
 **Theme built 2026-10-29 (#562):** Light, Dark or Match device, kept per device
 (`lib/theme.ts`, an Appearance card in Settings), applied before paint. Kept on
 the device rather than in `settings.prefs`, so a phone and a desk screen can
-differ. Dashboard sections not started.
+differ. **Dashboard sections built 2026-10-30:** a Settings card shows, hides and
+reorders them, saved per member in `settings.prefs.dashboard`
+(`lib/dashboard/sections.ts`); the default order is the old page, Novice summary
+first. The welcome banner, rest reminder and stale-scan notice stay fixed on top.
 
 **Gann:** none. **Hermetic:** Polarity: novice and expert each get a designed view,
 not a shortened list.
@@ -115,6 +118,14 @@ not a shortened list.
   for it. Novice keeps the Guided-first layout as its default.
 
 ### 5. A weekly digest, by the bell and push first
+
+**Built 2026-10-30:** after Friday's close, inside the evening journal's existing
+cron (no new cron or Actions minutes): `lib/notifications/weeklyDigest.ts` and
+`weeklyDigestRun.ts`. The member's own trades closed this week (count, gains,
+losses, net dollars; no rate), the setups they tracked this week and where each
+stands, and the groups' strongest and weakest, with the moves since last month
+in the month's first digest. Bell and push always; email only when the member
+turned it on and within the "digest" budget, after the day's journals.
 
 **Gann:** he reviewed his charts weekly and judged the trend by the week's close
 (the weekly chart and the green/red line, `lib/gann/weeklyOneBar.ts`). A weekly
@@ -129,6 +140,14 @@ review fits the method better than a stream of signals.
   measured record to link ("Forward-looking claims").
 
 ### 6. News on the symbol page
+
+**Built 2026-10-30:** a news card on the symbol page (`components/scan/symbol-news.tsx`,
+`/api/news`, `lib/news/symbolNews.ts`): up to 12 headlines from the last two weeks,
+each with its publisher and link, beside the close of the session it fell on and
+that session's change (after the 4 PM close it counts on the next session, as
+`badNews.ts` reads it; crypto by its UTC day). Signed-in members, every tier.
+Read once a symbol an hour per server instance, not once a day: a page a person
+opens needs the day's headlines. The macro calendar is still held for a source.
 
 **Gann:** he read the market's response to news, not the news itself: tops on
 bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how

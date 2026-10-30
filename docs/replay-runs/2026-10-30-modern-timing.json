@@ -1,0 +1,560 @@
+{
+ "run": "modern-timing",
+ "generated": "2026-10-30",
+ "module": "lib/research/modernTiming.ts",
+ "years": [
+  2016,
+  2017,
+  2018,
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "tests": 60,
+ "results": [
+  {
+   "rule": "allPairs",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 135,
+   "total": 165,
+   "expected": 132.9173,
+   "p": 0.3708
+  },
+  {
+   "rule": "allPairs",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 57,
+   "total": 67,
+   "expected": 53.9716,
+   "p": 0.2143
+  },
+  {
+   "rule": "allPairs",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 141,
+   "total": 174,
+   "expected": 139.9735,
+   "p": 0.458
+  },
+  {
+   "rule": "allPairs",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 55,
+   "total": 67,
+   "expected": 54.0986,
+   "p": 0.4634
+  },
+  {
+   "rule": "innerPairs",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 23,
+   "total": 165,
+   "expected": 22.4091,
+   "p": 0.4845
+  },
+  {
+   "rule": "innerPairs",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 12,
+   "total": 67,
+   "expected": 9.0231,
+   "p": 0.1742
+  },
+  {
+   "rule": "innerPairs",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 26,
+   "total": 174,
+   "expected": 23.3767,
+   "p": 0.2986
+  },
+  {
+   "rule": "innerPairs",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 13,
+   "total": 67,
+   "expected": 9.0361,
+   "p": 0.1075
+  },
+  {
+   "rule": "outerPairs",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 32,
+   "total": 165,
+   "expected": 31.1218,
+   "p": 0.4569
+  },
+  {
+   "rule": "outerPairs",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 18,
+   "total": 67,
+   "expected": 12.9996,
+   "p": 0.0757
+  },
+  {
+   "rule": "outerPairs",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 42,
+   "total": 174,
+   "expected": 33.3202,
+   "p": 0.0448
+  },
+  {
+   "rule": "outerPairs",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 14,
+   "total": 67,
+   "expected": 13.0424,
+   "p": 0.4283
+  },
+  {
+   "rule": "slowPairs",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 4,
+   "total": 165,
+   "expected": 5.6561,
+   "p": 0.8387
+  },
+  {
+   "rule": "slowPairs",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 3,
+   "total": 67,
+   "expected": 2.4195,
+   "p": 0.4446
+  },
+  {
+   "rule": "slowPairs",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 4,
+   "total": 174,
+   "expected": 5.7701,
+   "p": 0.8478
+  },
+  {
+   "rule": "slowPairs",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 2,
+   "total": 67,
+   "expected": 2.4003,
+   "p": 0.7134
+  },
+  {
+   "rule": "clusters",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 4,
+   "total": 165,
+   "expected": 3.7477,
+   "p": 0.5308
+  },
+  {
+   "rule": "clusters",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 3,
+   "total": 67,
+   "expected": 1.7852,
+   "p": 0.2627
+  },
+  {
+   "rule": "clusters",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 5,
+   "total": 174,
+   "expected": 4.2992,
+   "p": 0.4358
+  },
+  {
+   "rule": "clusters",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 2,
+   "total": 67,
+   "expected": 1.7469,
+   "p": 0.5355
+  },
+  {
+   "rule": "symbol",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 0,
+   "total": 165,
+   "expected": 0,
+   "p": 1
+  },
+  {
+   "rule": "symbol",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 0,
+   "total": 67,
+   "expected": 0,
+   "p": 1
+  },
+  {
+   "rule": "symbol",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 0,
+   "total": 174,
+   "expected": 0,
+   "p": 1
+  },
+  {
+   "rule": "symbol",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 0,
+   "total": 67,
+   "expected": 0,
+   "p": 1
+  },
+  {
+   "rule": "symbolWide",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 4,
+   "total": 165,
+   "expected": 3.6934,
+   "p": 0.52
+  },
+  {
+   "rule": "symbolWide",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 0,
+   "total": 67,
+   "expected": 1.4502,
+   "p": 1
+  },
+  {
+   "rule": "symbolWide",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 4,
+   "total": 174,
+   "expected": 3.4757,
+   "p": 0.4778
+  },
+  {
+   "rule": "symbolWide",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 0,
+   "total": 67,
+   "expected": 1.3543,
+   "p": 1
+  },
+  {
+   "rule": "lunations",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 35,
+   "total": 165,
+   "expected": 33.5516,
+   "p": 0.4123
+  },
+  {
+   "rule": "lunations",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 18,
+   "total": 67,
+   "expected": 13.6085,
+   "p": 0.105
+  },
+  {
+   "rule": "lunations",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 40,
+   "total": 174,
+   "expected": 35.3067,
+   "p": 0.2008
+  },
+  {
+   "rule": "lunations",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 18,
+   "total": 67,
+   "expected": 13.6156,
+   "p": 0.1231
+  },
+  {
+   "rule": "lunarApsides",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 39,
+   "total": 165,
+   "expected": 35.8971,
+   "p": 0.2902
+  },
+  {
+   "rule": "lunarApsides",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 18,
+   "total": 67,
+   "expected": 14.5419,
+   "p": 0.1783
+  },
+  {
+   "rule": "lunarApsides",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 37,
+   "total": 174,
+   "expected": 37.7786,
+   "p": 0.5947
+  },
+  {
+   "rule": "lunarApsides",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 14,
+   "total": 67,
+   "expected": 14.5462,
+   "p": 0.6088
+  },
+  {
+   "rule": "moonDeclination",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 34,
+   "total": 165,
+   "expected": 36.2613,
+   "p": 0.6999
+  },
+  {
+   "rule": "moonDeclination",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 14,
+   "total": 67,
+   "expected": 14.709,
+   "p": 0.6354
+  },
+  {
+   "rule": "moonDeclination",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 42,
+   "total": 174,
+   "expected": 38.1648,
+   "p": 0.2541
+  },
+  {
+   "rule": "moonDeclination",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 17,
+   "total": 67,
+   "expected": 14.716,
+   "p": 0.2875
+  },
+  {
+   "rule": "ingresses",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 92,
+   "total": 165,
+   "expected": 86.8754,
+   "p": 0.2184
+  },
+  {
+   "rule": "ingresses",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 33,
+   "total": 67,
+   "expected": 35.428,
+   "p": 0.7694
+  },
+  {
+   "rule": "ingresses",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 90,
+   "total": 174,
+   "expected": 91.9281,
+   "p": 0.6561
+  },
+  {
+   "rule": "ingresses",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 32,
+   "total": 67,
+   "expected": 35.5209,
+   "p": 0.8403
+  },
+  {
+   "rule": "stations",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 37,
+   "total": 165,
+   "expected": 34.581,
+   "p": 0.3434
+  },
+  {
+   "rule": "stations",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 10,
+   "total": 67,
+   "expected": 14.0109,
+   "p": 0.9278
+  },
+  {
+   "rule": "stations",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 44,
+   "total": 174,
+   "expected": 36.3966,
+   "p": 0.0793
+  },
+  {
+   "rule": "stations",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 12,
+   "total": 67,
+   "expected": 13.8675,
+   "p": 0.7758
+  },
+  {
+   "rule": "mercurySpeed",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 6,
+   "total": 165,
+   "expected": 7.2128,
+   "p": 0.757
+  },
+  {
+   "rule": "mercurySpeed",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 1,
+   "total": 67,
+   "expected": 2.9157,
+   "p": 0.9551
+  },
+  {
+   "rule": "mercurySpeed",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 9,
+   "total": 174,
+   "expected": 7.6383,
+   "p": 0.353
+  },
+  {
+   "rule": "mercurySpeed",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 0,
+   "total": 67,
+   "expected": 2.9428,
+   "p": 1
+  },
+  {
+   "rule": "declination",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 54,
+   "total": 165,
+   "expected": 46.4974,
+   "p": 0.0946
+  },
+  {
+   "rule": "declination",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 14,
+   "total": 67,
+   "expected": 18.9584,
+   "p": 0.9481
+  },
+  {
+   "rule": "declination",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 46,
+   "total": 174,
+   "expected": 49.2923,
+   "p": 0.7568
+  },
+  {
+   "rule": "declination",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 13,
+   "total": 67,
+   "expected": 18.8748,
+   "p": 0.9711
+  },
+  {
+   "rule": "latitude",
+   "symbol": "SPY",
+   "set": "three",
+   "hits": 35,
+   "total": 165,
+   "expected": 27.6857,
+   "p": 0.0609
+  },
+  {
+   "rule": "latitude",
+   "symbol": "SPY",
+   "set": "major",
+   "hits": 15,
+   "total": 67,
+   "expected": 11.3144,
+   "p": 0.1439
+  },
+  {
+   "rule": "latitude",
+   "symbol": "DIA",
+   "set": "three",
+   "hits": 43,
+   "total": 174,
+   "expected": 29.459,
+   "p": 0.002
+  },
+  {
+   "rule": "latitude",
+   "symbol": "DIA",
+   "set": "major",
+   "hits": 16,
+   "total": 67,
+   "expected": 11.2834,
+   "p": 0.086
+  }
+ ]
+}
