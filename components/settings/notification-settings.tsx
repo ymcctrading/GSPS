@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NotificationHistory } from "@/components/settings/notification-history";
 import { BrowserPushToggle } from "@/components/settings/browser-push-toggle";
+import { InstallAppCard } from "@/components/settings/install-app-card";
 import { authorizedFetch } from "@/lib/supabase/authorized-fetch";
 import { APPROACH_LEAD_CHOICES, approachLeadMinutes } from "@/lib/scanner/entryApproach";
 import { Bell } from "lucide-react";
@@ -151,6 +152,7 @@ export function NotificationSettings() {
             </span>
             <Badge variant="muted">Coming soon</Badge>
           </label>
+          <InstallAppCard />
           <BrowserPushToggle onEnabledChange={(enabled) => update("push_enabled", enabled)} />
         </div>
 

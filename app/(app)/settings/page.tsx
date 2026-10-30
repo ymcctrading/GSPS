@@ -27,6 +27,7 @@ import { RiskResetChecklist } from "@/components/settings/risk-reset-checklist";
 import { StrategyModeSettings } from "@/components/settings/strategy-mode-settings";
 import { CustomScriptsSettings } from "@/components/settings/custom-scripts-settings";
 import { TradingRemindersSettings } from "@/components/settings/trading-reminders-settings";
+import { ThemeSettings } from "@/components/settings/theme-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
 import { Link2, Landmark, Compass, BookOpen } from "lucide-react";
@@ -90,6 +91,8 @@ export default function SettingsPage() {
       </Card>
 
       <AccountSettings />
+
+      <ThemeSettings />
 
       <PromotionSettings />
 
