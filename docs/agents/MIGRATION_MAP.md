@@ -14,8 +14,10 @@ loaded into every request of every session: 305,467 bytes, about 75K tokens.
   their standing rules as a short summary in AGENTS.md, and the full text (history,
   rationale, examples) moved to the file named. The full text decides.
 
-Nothing was removed or narrowed. Two sections were added to AGENTS.md: "How this
-file works" and "Context efficiency".
+No text was removed: every moved section survives in full. The always-loaded summaries were
+checked by a cold review against the full texts for standing rules they dropped or weakened, and
+those were added back (see the PR). Two sections were added to AGENTS.md: "How this file works"
+and "Context efficiency".
 
 | # | Original heading | Original lines | Bytes | In AGENTS.md | Full text |
 |---|---|---|---|---|---|

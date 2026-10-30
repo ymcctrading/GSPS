@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -21,5 +21,13 @@ describe("AGENTS.md", () => {
     for (const ref of refs) {
       expect(() => readFileSync(path.resolve(__dirname, "../..", ref))).not.toThrow();
     }
+  });
+
+  it("names every moved section's full-text file", () => {
+    const text = readFileSync(path.resolve(__dirname, "../../AGENTS.md"), "utf8");
+    const dir = path.resolve(__dirname, "../../docs/agents");
+    const sections = readdirSync(dir).filter((f) => /^\d{2}-.+\.md$/.test(f));
+    expect(sections.length).toBeGreaterThan(0);
+    for (const f of sections) expect(text).toContain(`docs/agents/${f}`);
   });
 });

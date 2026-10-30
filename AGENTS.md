@@ -206,7 +206,9 @@ rule or factor there before changing or diagnosing it.
   every write to the ledger tables goes through `ledgerWriter`
   (`lib/supabase/ledger.ts`); closed orders, positions and trade logs are
   never deleted by the app, and notices are pruned only within the windows in
-  `lib/ops/retention.ts`; a new password form calls the breached-password
+  `lib/ops/retention.ts` (a new read further back than a window moves the
+  window first); re-run `fetch-industry-groups.yml` when
+  `LARGE_CAP_UNIVERSE` changes; a new password form calls the breached-password
   check (`lib/auth/breached-password.ts`).
 - **Measured state:** the edge is unproven across regimes (six-year runs);
   an inverted factor is presumed a translation defect first.
@@ -232,7 +234,10 @@ Full text: `docs/agents/05-gann-precedence.md`.
 - Translate the rule faithfully; don't port a raw historical number across
   asset class and era without saying so. Build a ready Gann-derived candidate
   live and document the change in place.
-- No numerology or astrology without a citable Gann source.
+- No numerology or astrology without a citable Gann source; an invented
+  price-to-degree constant is never admissible.
+- This principle doesn't override the owner's other explicit, recorded
+  overrides in this file.
 
 ## Gann-grounded platform — standing principle
 
@@ -274,7 +279,23 @@ Bollinger, RSI, MACD and the like), which **must never feed a scored
 criterion, gate, trade plan, entry, stop, target or GSPS verdict**; and
 Strategy Modes (below). Entry pricing is Gann's swing crossing
 (`lib/gann/entryTrigger.ts`), never a bar pattern; don't revert it to fix a
-thin Execute bucket.
+thin Execute bucket. Re-verify any "no consumer" claim against current `main`.
+
+Standing rules from the audit record (full text in the same file):
+
+- **Live autonomous trading is authorised by people, never by a session.**
+  `AUTONOMOUS_PROVING_PERIOD` (`lib/automation/autonomous-live-gate.ts`)
+  keeps every manager profile on paper; setting it to `false` restores the
+  live gates. The `autonomous_live_trading` sign-off is re-recorded
+  (`scripts/record-autonomous-live-signoff.mjs`) only once a real
+  compliance/legal review exists, and the `preentry_plan_retirement` sign-off
+  is a human act, not the build's.
+- **One entry rule on every path:** `lib/trade/place-order.ts` places any
+  entry carrying the protocol's levels only once it has confirmed on closed
+  bars; automation follows the same rules as everything else. A new placement
+  path goes through it.
+- **No market-cap ceiling** on the scan universe; the $10B floor is the only
+  cap rule. Check coverage in coarse telemetry, not list membership.
 
 ## Gann-derived AND measured — standing principle
 
@@ -381,7 +402,11 @@ listed first and trade its levels; any other technique offers its own entry,
 stop and TP1, **never an MTP**; GSPS guides and never forces. Tier gating is
 server-side only (`lib/entitlements/policy.ts#allowedStrategyModes`): Novice
 none, Pro four modes, Expert and Wall Street all ten (Elliott Wave since
-2026-10-28). Custom scripts: Wall Street only, private to the author, parsed
+2026-10-28). A technique's own orders still meet every risk rule (the
+5-point stop cap, Gann's capital rules, a tenth at risk, the series of
+losses). Modes compute their own copy of a shared formula
+(`lib/strategies/math.ts`), never importing the chart-display module.
+Custom scripts: Wall Street only, private to the author, parsed
 by the whitelist DSL with no `eval`. **Merging a migration is not applying
 it.**
 
@@ -463,7 +488,9 @@ list of setups, the intraday scanner, its queue, alerts or notices.
 
 - **One card everywhere:** `components/setups/setup-card.tsx` opens every
   setup by its name; a new list uses it. It shows the per-pillar rollup only;
-  **never pass a row's `breakdown` to the client**.
+  **never pass a row's `breakdown` to the client**, and `daily_scans` stores
+  only the score rollup, never the breakdown, since any role can read it
+  (R-021).
 - The master take profit is **MTP** wherever a person reads it.
 - Intraday TP1 and MTP are Gann levels or nothing; every intraday TP1 pays
   more than the risk. The intraday scanner times the daily plan; alerts held
@@ -474,7 +501,10 @@ list of setups, the intraday scanner, its queue, alerts or notices.
   `emailBudgetHold` with its kind; intraday signals and notices go by push and
   the bell only.
 - The evening report goes to the owner's addresses only; widen recipients
-  only on his word.
+  only on his word. Hindsight data (the recap's movers and attribution) goes
+  to the owner's two accounts only (`lib/auth/owner.ts`).
+- Nothing automated trades the Intraday style. Don't move the refresh budget
+  onto `reserve_usage_slot` without a migration admitting its usage key.
 
 ## Polarity audit: a genuine second pole for Novice/Pro, not a subtracted one
 
@@ -506,6 +536,8 @@ trigger fires, raise it with the user before touching the affected code.
   outside the repo: `learning_models` live rows (adopted only if uniform and
   keyed to `CRITERION_KEYS`), `policy_values` (may only tighten a limit), and
   environment variables (`GSPS_DISABLE_*_CONFLUENCE`, `MARKET_DATA_REALTIME`).
+  The list is a starting point, not an inventory. Re-derive it rather than
+  trusting it.
 
 ## Speed is a product requirement, not a platform ceiling — standing direction (2026-09-25, project owner)
 
