@@ -1,0 +1,386 @@
+{
+ "run": "video-time-rules",
+ "generated": "2026-10-30",
+ "module": "lib/research/videoTimeRules.ts",
+ "tests": 42,
+ "results": [
+  {
+   "rule": "squareRoot",
+   "outcome": "calls",
+   "coverage": 0.4543,
+   "hits": 33,
+   "total": 52,
+   "expected": 35.9465,
+   "p": 0.8736
+  },
+  {
+   "rule": "squareRoot",
+   "outcome": "dowNine",
+   "coverage": 0.5104,
+   "hits": 293,
+   "total": 446,
+   "expected": 284.2264,
+   "p": 0.1808
+  },
+  {
+   "rule": "squareRoot",
+   "outcome": "dowThree",
+   "coverage": 0.4875,
+   "hits": 698,
+   "total": 1370,
+   "expected": 688.4744,
+   "p": 0.257
+  },
+  {
+   "rule": "squareRoot",
+   "outcome": "spyThree",
+   "coverage": 0.3206,
+   "hits": 57,
+   "total": 165,
+   "expected": 50.1857,
+   "p": 0.116
+  },
+  {
+   "rule": "squareRoot",
+   "outcome": "spyMajor",
+   "coverage": 0.3206,
+   "hits": 24,
+   "total": 67,
+   "expected": 20.9798,
+   "p": 0.2482
+  },
+  {
+   "rule": "squareRoot",
+   "outcome": "diaThree",
+   "coverage": 0.3272,
+   "hits": 59,
+   "total": 174,
+   "expected": 57.3998,
+   "p": 0.4158
+  },
+  {
+   "rule": "squareRoot",
+   "outcome": "diaMajor",
+   "coverage": 0.3272,
+   "hits": 22,
+   "total": 67,
+   "expected": 21.7421,
+   "p": 0.5279
+  },
+  {
+   "rule": "count144",
+   "outcome": "calls",
+   "coverage": 0.094,
+   "hits": 6,
+   "total": 52,
+   "expected": 8.8742,
+   "p": 0.9229
+  },
+  {
+   "rule": "count144",
+   "outcome": "dowNine",
+   "coverage": 0.1236,
+   "hits": 73,
+   "total": 446,
+   "expected": 75.9898,
+   "p": 0.6765
+  },
+  {
+   "rule": "count144",
+   "outcome": "dowThree",
+   "coverage": 0.1156,
+   "hits": 178,
+   "total": 1370,
+   "expected": 165.7863,
+   "p": 0.1023
+  },
+  {
+   "rule": "count144",
+   "outcome": "spyThree",
+   "coverage": 0.0797,
+   "hits": 18,
+   "total": 165,
+   "expected": 12.6059,
+   "p": 0.0612
+  },
+  {
+   "rule": "count144",
+   "outcome": "spyMajor",
+   "coverage": 0.0797,
+   "hits": 9,
+   "total": 67,
+   "expected": 5.153,
+   "p": 0.0681
+  },
+  {
+   "rule": "count144",
+   "outcome": "diaThree",
+   "coverage": 0.0832,
+   "hits": 19,
+   "total": 174,
+   "expected": 14.6649,
+   "p": 0.1192
+  },
+  {
+   "rule": "count144",
+   "outcome": "diaMajor",
+   "coverage": 0.0832,
+   "hits": 11,
+   "total": 67,
+   "expected": 5.4677,
+   "p": 0.0161
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "calls",
+   "coverage": 0.198,
+   "hits": 15,
+   "total": 52,
+   "expected": 17.173,
+   "p": 0.8165
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "dowNine",
+   "coverage": 0.2371,
+   "hits": 131,
+   "total": 446,
+   "expected": 140.4745,
+   "p": 0.8729
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "dowThree",
+   "coverage": 0.225,
+   "hits": 311,
+   "total": 1370,
+   "expected": 320.3125,
+   "p": 0.7947
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "spyThree",
+   "coverage": 0.2037,
+   "hits": 36,
+   "total": 165,
+   "expected": 32.4509,
+   "p": 0.2547
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "spyMajor",
+   "coverage": 0.2037,
+   "hits": 16,
+   "total": 67,
+   "expected": 13.3108,
+   "p": 0.2261
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "diaThree",
+   "coverage": 0.2089,
+   "hits": 42,
+   "total": 174,
+   "expected": 37.1478,
+   "p": 0.1907
+  },
+  {
+   "rule": "fibonacciBars",
+   "outcome": "diaMajor",
+   "coverage": 0.2089,
+   "hits": 16,
+   "total": 67,
+   "expected": 14.0049,
+   "p": 0.3137
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "calls",
+   "coverage": 0.1199,
+   "hits": 6,
+   "total": 52,
+   "expected": 9.7741,
+   "p": 0.9692
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "dowNine",
+   "coverage": 0.1523,
+   "hits": 128,
+   "total": 446,
+   "expected": 118.686,
+   "p": 0.1238
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "dowThree",
+   "coverage": 0.1419,
+   "hits": 223,
+   "total": 1370,
+   "expected": 211.4387,
+   "p": 0.1328
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "spyThree",
+   "coverage": 0.0753,
+   "hits": 17,
+   "total": 165,
+   "expected": 11.7584,
+   "p": 0.0608
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "spyMajor",
+   "coverage": 0.0753,
+   "hits": 5,
+   "total": 67,
+   "expected": 4.8878,
+   "p": 0.5515
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "diaThree",
+   "coverage": 0.0767,
+   "hits": 13,
+   "total": 174,
+   "expected": 13.4708,
+   "p": 0.6052
+  },
+  {
+   "rule": "anniversary",
+   "outcome": "diaMajor",
+   "coverage": 0.0767,
+   "hits": 4,
+   "total": 67,
+   "expected": 5.1062,
+   "p": 0.7637
+  },
+  {
+   "rule": "emblem",
+   "outcome": "calls",
+   "coverage": 0.495,
+   "hits": 32,
+   "total": 52,
+   "expected": 36.6934,
+   "p": 0.9603
+  },
+  {
+   "rule": "emblem",
+   "outcome": "dowNine",
+   "coverage": 0.5133,
+   "hits": 270,
+   "total": 446,
+   "expected": 262.3346,
+   "p": 0.2282
+  },
+  {
+   "rule": "emblem",
+   "outcome": "dowThree",
+   "coverage": 0.5124,
+   "hits": 718,
+   "total": 1370,
+   "expected": 711.8398,
+   "p": 0.3527
+  },
+  {
+   "rule": "emblem",
+   "outcome": "spyThree",
+   "coverage": 0.5032,
+   "hits": 86,
+   "total": 165,
+   "expected": 80.7466,
+   "p": 0.1842
+  },
+  {
+   "rule": "emblem",
+   "outcome": "spyMajor",
+   "coverage": 0.5032,
+   "hits": 36,
+   "total": 67,
+   "expected": 32.9309,
+   "p": 0.2439
+  },
+  {
+   "rule": "emblem",
+   "outcome": "diaThree",
+   "coverage": 0.4978,
+   "hits": 94,
+   "total": 174,
+   "expected": 89.837,
+   "p": 0.2563
+  },
+  {
+   "rule": "emblem",
+   "outcome": "diaMajor",
+   "coverage": 0.4978,
+   "hits": 34,
+   "total": 67,
+   "expected": 33.5366,
+   "p": 0.5068
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "calls",
+   "coverage": 0.0046,
+   "hits": 1,
+   "total": 52,
+   "expected": 0.6542,
+   "p": 0.5366
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "dowNine",
+   "coverage": 0.0066,
+   "hits": 2,
+   "total": 446,
+   "expected": 1.6827,
+   "p": 0.5137
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "dowThree",
+   "coverage": 0.0059,
+   "hits": 8,
+   "total": 1370,
+   "expected": 7.6614,
+   "p": 0.5117
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "spyThree",
+   "coverage": 0.0014,
+   "hits": 0,
+   "total": 165,
+   "expected": 0.3288,
+   "p": 1
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "spyMajor",
+   "coverage": 0.0014,
+   "hits": 0,
+   "total": 67,
+   "expected": 0.1233,
+   "p": 1
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "diaThree",
+   "coverage": 0.0041,
+   "hits": 1,
+   "total": 174,
+   "expected": 0.6159,
+   "p": 0.4951
+  },
+  {
+   "rule": "timeExtension",
+   "outcome": "diaMajor",
+   "coverage": 0.0041,
+   "hits": 0,
+   "total": 67,
+   "expected": 0.2737,
+   "p": 1
+  }
+ ]
+}

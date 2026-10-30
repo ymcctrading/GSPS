@@ -385,3 +385,12 @@ None of the 20 beats chance, and none comes near the correction (best p
 0.38). On SPY the calculator's dates land on fewer swings than chance in
 three of four rows. It is not wired into forecasting; the module stays
 research only, and nothing here is shown to members.
+
+## 12. The time counts in the owner's eight further videos (2026-10-30)
+
+Six counts from the videos (the square root of a pivot's price as days, a
+144-day count, Fibonacci session counts, the one-year anniversary, the Gann
+emblem and time extension), tested on his calls, the Dow's turns 1913-1948 and
+SPY's and DIA's 2016-2025: none beats chance (best p 0.016, cut-off 0.0012
+for 42 tests). `lib/research/videoTimeRules.ts`; details in
+`docs/PLANETARY_TIMING.md`.
