@@ -1395,3 +1395,15 @@ caught 2 turns against 10 of the other 40. The grand cross with a grand trine
 (the "symbol") is absent on 8 Aug 1908 and 30 Sep 1909 at an 8° orb, with or
 without the Moon and Pluto. Research only; nothing acts. `forecastRebuild.ts`
 now exports its scorer (`scoreYearDays`, `yearTargets`); its run is unchanged.
+
+**The public "master time factor" calculator, decoded and tested 2026-10-30
+(owner's codingace.net link).** `lib/research/masterTimeCalculator.ts`, run
+`docs/replay-runs/2026-10-30-master-time-calculator.json`, write-up
+`docs/GANN_FORECAST_TRACK_RECORD.md` §8. The page computes base date +
+round(k × cycle × factor) days for k = 1-6 (defaults 30 × 1.618), a 90°·k
+label and price × factor^(k/4); its square, planet, market and checkbox
+options change nothing. Not the author's method. 20 tests (two settings, two
+anchor modes, the 52 calls, Dow 9-point and 3-day turns 1913-1948, SPY 2% and
+5% swings 2017-2026): none beats chance (best p 0.38). Not wired into
+forecasting; research only. SPY daily closes for research live in
+`lib/research/spyDailyCloses.json` (Alpaca, 2016-01-04 to 2026-10-29).
