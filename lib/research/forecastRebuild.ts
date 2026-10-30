@@ -143,26 +143,30 @@ export function methodDays(method: RebuildMethod, issued: string, year: number, 
   return out;
 }
 
-interface YearTargets {
+export interface YearTargets {
   year: number;
   len: number;
   /** Each published call as a day range, offsets from 1 January. */
   calls: [number, number][];
-  /** The 9-point turns in the year, offsets from 1 January. */
+  /** The turns in the year, offsets from 1 January. */
   turns: number[];
 }
 
-function targetsFor(f: PublishedForecast): YearTargets {
-  const year = Number(f.id);
+/** A year's calls (as day ranges) and turns (as days), offsets from 1 January, clipped to the year. */
+export function yearTargets(year: number, calls: { from: string; to: string }[], turns: Turn[]): YearTargets {
   const start = dayUTC(year, 0, 1);
   const len = dayUTC(year + 1, 0, 1) - start;
   const clip = (d: number) => Math.min(len - 1, Math.max(0, d - start));
   return {
     year,
     len,
-    calls: f.windows.map((w) => [clip(dayOf(w.from)), clip(dayOf(w.to))]),
-    turns: DOW_SWINGS.nine.filter((x) => x.date.startsWith(`${year}-`)).map((x) => dayOf(x.date) - start),
+    calls: calls.map((w) => [clip(dayOf(w.from)), clip(dayOf(w.to))]),
+    turns: turns.filter((x) => x.date.startsWith(`${year}-`)).map((x) => dayOf(x.date) - start),
   };
+}
+
+function targetsFor(f: PublishedForecast): YearTargets {
+  return yearTargets(Number(f.id), f.windows, DOW_SWINGS.nine);
 }
 
 /** Hits of a day set shifted round the year by `k`. */
@@ -194,28 +198,24 @@ export interface RebuildYear {
   turnsExpected: number;
 }
 
-export interface RebuildResult {
-  method: RebuildMethod;
-  anchorSet: AnchorSet;
+export interface PooledDayScore {
   years: RebuildYear[];
   calls: { hits: number; total: number; expected: number; p: number };
   turns: { hits: number; total: number; expected: number; p: number };
 }
 
-export function rebuildMethod(
-  method: RebuildMethod,
-  anchorSet: AnchorSet = "nine",
-  forecasts: PublishedForecast[] = PUBLISHED_FORECASTS,
-  seed = 20261030,
-): RebuildResult {
-  const per = forecasts.map((f) => {
-    const t = targetsFor(f);
-    const days = [...methodDays(method, f.issued, t.year, anchorSet)];
+/**
+ * Scores each year's marked days against its calls and turns, against every
+ * circular shift of the same days round the year, pooled by drawing one
+ * random shift per year (`DRAWS`, seeded). Shared by every day-set test.
+ */
+export function scoreYearDays(input: { id: string; days: number[]; targets: YearTargets }[], seed = 20261030): PooledDayScore {
+  const per = input.map(({ id, days, targets: t }) => {
     const shifts = Array.from({ length: t.len }, (_, k) => hitsAt(days, t, k));
-    return { f, t, days, observed: shifts[0], shifts };
+    return { id, t, days, observed: shifts[0], shifts };
   });
-  const years: RebuildYear[] = per.map(({ f, t, days, observed, shifts }) => ({
-    id: f.id,
+  const years: RebuildYear[] = per.map(({ id, t, days, observed, shifts }) => ({
+    id,
     coverage: days.length / t.len,
     calls: observed.calls,
     callsTotal: t.calls.length,
@@ -241,8 +241,6 @@ export function rebuildMethod(
     if (tt >= obsTurns) geTurns++;
   }
   return {
-    method,
-    anchorSet,
     years,
     calls: {
       hits: obsCalls,
@@ -257,6 +255,24 @@ export function rebuildMethod(
       p: (geTurns + 1) / (DRAWS + 1),
     },
   };
+}
+
+export interface RebuildResult extends PooledDayScore {
+  method: RebuildMethod;
+  anchorSet: AnchorSet;
+}
+
+export function rebuildMethod(
+  method: RebuildMethod,
+  anchorSet: AnchorSet = "nine",
+  forecasts: PublishedForecast[] = PUBLISHED_FORECASTS,
+  seed = 20261030,
+): RebuildResult {
+  const input = forecasts.map((f) => {
+    const t = targetsFor(f);
+    return { id: f.id, days: [...methodDays(method, f.issued, t.year, anchorSet)], targets: t };
+  });
+  return { method, anchorSet, ...scoreYearDays(input, seed) };
 }
 
 export function rebuildAll(anchorSet: AnchorSet = "nine"): RebuildResult[] {

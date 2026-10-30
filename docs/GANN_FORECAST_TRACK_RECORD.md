@@ -192,3 +192,74 @@ methods in his books do not rebuild his forecasts. Whatever gave his
 published calls their edge on the big turns is the part he never disclosed,
 the "time factor". A current forecast cannot be reproduced from what GSPS
 holds, and none is shown.
+
+## 7. Are planetary aspects the missing time factor? (2026-10-30)
+
+The owner shared nine videos that read the author's famous calls through
+planetary aspects: the 1908 "greatest discovery" (a grand square with a grand
+trine), the Sep 30, 1909 wheat call (two grand squares and a grand trine),
+the 1902 first cotton trade (Sun–Mercury conjunction trine Uranus), the 1921
+bull run (Jupiter–Saturn conjunction, Venus catching Jupiter), the Oct 1922
+top (Sun, Mercury, Venus), the 1923 cotton short (trines with midpoint
+conjunctions), the Sep 3, 1929 top, and the July and Sep–Oct 1932 turns
+(conjunctions, oppositions, trines, a Grand Cross). The videos could not be
+opened from this environment, so the rules were taken from their
+descriptions and fixed before any year was scored.
+
+`lib/research/aspectTiming.ts`, run
+`docs/replay-runs/2026-10-30-aspect-timing.json`
+(`node scripts/aspect-timing.mjs --out <file>`). Bodies: the Sun and Mercury
+to Neptune, geocentric (Pluto, found in 1930, and the Moon left out; the
+`symbolWide` rule adds both). Aspects: 0, 90, 120 and 180°, each exact day
+±2. Null: the same aspect days shifted round each year, as in section 6.
+Seven rules on three outcome sets: 21 tests, so a result needs p below
+0.0024 to count.
+
+| Rule | Days marked | Calls met / 52 | by chance | p | 9-pt turns / 446 | by chance | p | 3-day turns / 1,370 | by chance | p |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Every pair | 81% | 51 | 49.9 | 0.33 | 365 | 360.6 | 0.30 | 1,116 | 1,117.4 | 0.57 |
+| Sun, Mercury, Venus | 13% | 10 | 12.6 | 0.89 | 66 | 55.5 | 0.058 | 195 | 176.5 | 0.034 |
+| Mars to Neptune | 21% | 28 | 21.5 | 0.023 | 85 | 95.0 | 0.92 | 269 | 286.6 | 0.93 |
+| **Jupiter to Neptune** | 5% | **12** | **4.8** | **0.0007** | 22 | 25.7 | 0.82 | 70 | 71.3 | 0.61 |
+| Two outer aspects together | 2.5% | 4 | 3.3 | 0.43 | 9 | 10.7 | 0.78 | 44 | 34.5 | 0.030 |
+| Grand cross + grand trine | 0% | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 | 1 |
+| The same with Moon and Pluto | 2% | 1 | 1.9 | 0.91 | 8 | 10.2 | 0.83 | 29 | 28.7 | 0.51 |
+
+Reading it:
+
+- **The author's published dates sit on slow-planet aspects** (Jupiter,
+  Saturn, Uranus, Neptune) two and a half times as often as chance, the one
+  result that clears the correction. Examples: Saturn opposite Uranus on Jan
+  26 and Aug 14, 1919, Jupiter conjunct Neptune on Mar 8 and Apr 25, 1920,
+  Jupiter opposite Uranus on May 4, 1921, each within two days of a call. So the videos'
+  premise, that he set dates on planetary aspects, has support in his own
+  forecasts.
+- **But those aspects do not time the market.** Across 1913-1948 the same
+  slow aspects meet the Dow's important turns no more often than chance (22
+  against 25.7), and no rule does after the correction. Of the 12 calls that
+  sit on a slow aspect, 2 caught a turn (1919's Feb accumulation low and
+  1932's Sep 20 top), against 10 of his other 40. His edge on the big turns
+  came from calls that were not on these aspects.
+- **The figures the videos name are not there by the usual definitions.** At
+  an 8° orb, a grand cross and a grand trine on the same day happen on 2 days
+  in 1900-1949 among the eight bodies (94 with the Moon and Pluto), and on
+  neither 8 Aug 1908 nor 30 Sep 1909, with or without the Moon and Pluto.
+  On 8 Aug 1908 the sky holds a Sun–Mars–Jupiter conjunction in Leo and
+  Uranus opposite Neptune; on 30 Sep 1909, Mars opposite Jupiter and the Moon
+  on Saturn. The videos' figures must use other points (midpoints,
+  heliocentric places, wider orbs or a drawn chart), which this test does not
+  search for.
+- **Sep 3, 1929** has no exact aspect within two days (the nearest are Sep
+  7-8). *Tunnel Thru the Air* does not forecast the 1929 top: its story runs
+  a bull campaign into 1929 (W022 p.239) and has no 1929 crash. The Sep 3
+  date is in the author's later account of his Nov 1928 forecast (W001 p.4,
+  W005 appendix p.11), scored in section 3.
+- **The 1923 cotton short and the 1902 and 1909 trades** are single trades
+  with no daily cotton or wheat series here, so they are illustrations, not
+  tests. The 1923 account's short began Nov 30, 1923, beside Mercury square
+  Uranus (Nov 29) and Mars conjunct Saturn (Dec 1); with every pair counted,
+  81% of days sit within two days of some aspect, so a nearby aspect is
+  expected on any date.
+
+So aspects look like part of how he set his dates, but not the part that
+made the dates right. Nothing here is built or shown to members.

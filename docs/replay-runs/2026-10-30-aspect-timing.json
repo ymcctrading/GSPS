@@ -1,0 +1,586 @@
+{
+ "run": "aspect-timing",
+ "generated": "2026-10-30",
+ "module": "lib/research/aspectTiming.ts",
+ "tests": 21,
+ "rules": [
+  {
+   "rule": "allPairs",
+   "coverage": {
+    "calls": 0.8107,
+    "nine": 0.8121,
+    "three": 0.817
+   },
+   "calls": {
+    "hits": 51,
+    "total": 52,
+    "expected": 49.8802,
+    "p": 0.3329
+   },
+   "nine": {
+    "hits": 365,
+    "total": 446,
+    "expected": 360.6362,
+    "p": 0.3041
+   },
+   "three": {
+    "hits": 1116,
+    "total": 1370,
+    "expected": 1117.3967,
+    "p": 0.566
+   }
+  },
+  {
+   "rule": "innerPairs",
+   "coverage": {
+    "calls": 0.1131,
+    "nine": 0.1289,
+    "three": 0.1288
+   },
+   "calls": {
+    "hits": 10,
+    "total": 52,
+    "expected": 12.6392,
+    "p": 0.8857
+   },
+   "nine": {
+    "hits": 66,
+    "total": 446,
+    "expected": 55.4645,
+    "p": 0.0577
+   },
+   "three": {
+    "hits": 195,
+    "total": 1370,
+    "expected": 176.4518,
+    "p": 0.0342
+   }
+  },
+  {
+   "rule": "outerPairs",
+   "coverage": {
+    "calls": 0.213,
+    "nine": 0.2095,
+    "three": 0.2089
+   },
+   "calls": {
+    "hits": 28,
+    "total": 52,
+    "expected": 21.5281,
+    "p": 0.0228
+   },
+   "nine": {
+    "hits": 85,
+    "total": 446,
+    "expected": 95.0476,
+    "p": 0.9179
+   },
+   "three": {
+    "hits": 269,
+    "total": 1370,
+    "expected": 286.613,
+    "p": 0.9306
+   }
+  },
+  {
+   "rule": "slowPairs",
+   "coverage": {
+    "calls": 0.0438,
+    "nine": 0.0537,
+    "three": 0.0515
+   },
+   "calls": {
+    "hits": 12,
+    "total": 52,
+    "expected": 4.8185,
+    "p": 0.0007
+   },
+   "nine": {
+    "hits": 22,
+    "total": 446,
+    "expected": 25.6861,
+    "p": 0.8236
+   },
+   "three": {
+    "hits": 70,
+    "total": 1370,
+    "expected": 71.3404,
+    "p": 0.6055
+   }
+  },
+  {
+   "rule": "clusters",
+   "coverage": {
+    "calls": 0.0283,
+    "nine": 0.025,
+    "three": 0.0252
+   },
+   "calls": {
+    "hits": 4,
+    "total": 52,
+    "expected": 3.3103,
+    "p": 0.4332
+   },
+   "nine": {
+    "hits": 9,
+    "total": 446,
+    "expected": 10.7296,
+    "p": 0.7838
+   },
+   "three": {
+    "hits": 44,
+    "total": 1370,
+    "expected": 34.5358,
+    "p": 0.0304
+   }
+  },
+  {
+   "rule": "symbol",
+   "coverage": {
+    "calls": 0,
+    "nine": 0,
+    "three": 0
+   },
+   "calls": {
+    "hits": 0,
+    "total": 52,
+    "expected": 0,
+    "p": 1
+   },
+   "nine": {
+    "hits": 0,
+    "total": 446,
+    "expected": 0,
+    "p": 1
+   },
+   "three": {
+    "hits": 0,
+    "total": 1370,
+    "expected": 0,
+    "p": 1
+   }
+  },
+  {
+   "rule": "symbolWide",
+   "coverage": {
+    "calls": 0.0178,
+    "nine": 0.0208,
+    "three": 0.0205
+   },
+   "calls": {
+    "hits": 1,
+    "total": 52,
+    "expected": 1.9167,
+    "p": 0.91
+   },
+   "nine": {
+    "hits": 8,
+    "total": 446,
+    "expected": 10.1666,
+    "p": 0.8349
+   },
+   "three": {
+    "hits": 29,
+    "total": 1370,
+    "expected": 28.68,
+    "p": 0.5129
+   }
+  }
+ ],
+ "callMatches": {
+  "slowPairs": [
+   {
+    "forecast": "1919",
+    "call": "depressing Jan 20-25",
+    "hit": false,
+    "aspects": [
+     "1919-01-26 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "accumulation Jan 20 to Feb 14",
+    "hit": true,
+    "aspects": [
+     "1919-01-26 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "August top 12-15",
+    "hit": false,
+    "aspects": [
+     "1919-08-14 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "advance to about Sep 23",
+    "hit": false,
+    "aspects": [
+     "1919-09-24 Jupiter-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "minor top Mar 9",
+    "hit": false,
+    "aspects": [
+     "1920-03-08 Jupiter-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "spring top Apr 22-24",
+    "hit": false,
+    "aspects": [
+     "1920-04-25 Jupiter-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "June bottom 10-16",
+    "hit": false,
+    "aspects": [
+     "1920-06-08 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "spring top Apr 28 to May 3",
+    "hit": false,
+    "aspects": [
+     "1921-05-04 Jupiter-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "advance to early September",
+    "hit": false,
+    "aspects": [
+     "1921-09-10 Jupiter-Saturn 0"
+    ]
+   },
+   {
+    "forecast": "1922",
+    "call": "bottom Dec 11-15",
+    "hit": false,
+    "aspects": [
+     "1922-12-13 Jupiter-Uranus 120"
+    ]
+   },
+   {
+    "forecast": "1929",
+    "call": "high about Jan 12",
+    "hit": false,
+    "aspects": [
+     "1929-01-13 Jupiter-Neptune 120"
+    ]
+   },
+   {
+    "forecast": "1932",
+    "call": "high around Sep 20-21",
+    "hit": true,
+    "aspects": [
+     "1932-09-19 Jupiter-Neptune 0"
+    ]
+   }
+  ],
+  "outerPairs": [
+   {
+    "forecast": "1919",
+    "call": "depressing Jan 20-25",
+    "hit": false,
+    "aspects": [
+     "1919-01-23 Mars-Saturn 180",
+     "1919-01-23 Mars-Uranus 0",
+     "1919-01-26 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "accumulation Jan 20 to Feb 14",
+    "hit": true,
+    "aspects": [
+     "1919-01-23 Mars-Saturn 180",
+     "1919-01-23 Mars-Uranus 0",
+     "1919-01-26 Saturn-Uranus 180",
+     "1919-02-05 Mars-Jupiter 120"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "bull to about May 10",
+    "hit": false,
+    "aspects": [
+     "1919-05-15 Mars-Saturn 90"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "depressing Jun 22 to Jul 10",
+    "hit": false,
+    "aspects": [
+     "1919-07-11 Mars-Uranus 120"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "August top 12-15",
+    "hit": false,
+    "aspects": [
+     "1919-08-14 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "September depressing 2-8",
+    "hit": false,
+    "aspects": [
+     "1919-09-03 Mars-Jupiter 0",
+     "1919-09-09 Mars-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "advance to about Sep 23",
+    "hit": false,
+    "aspects": [
+     "1919-09-24 Jupiter-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "strong to Oct 6-7",
+    "hit": false,
+    "aspects": [
+     "1919-10-07 Mars-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1919",
+    "call": "bottom about Oct 24",
+    "hit": false,
+    "aspects": [
+     "1919-10-24 Mars-Saturn 0"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "minor top Mar 9",
+    "hit": false,
+    "aspects": [
+     "1920-03-08 Jupiter-Neptune 0",
+     "1920-03-11 Mars-Jupiter 90",
+     "1920-03-14 Mars-Neptune 90"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "spring top Apr 22-24",
+    "hit": false,
+    "aspects": [
+     "1920-04-25 Jupiter-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "June bottom 10-16",
+    "hit": false,
+    "aspects": [
+     "1920-06-08 Saturn-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "second bull from Jul 15-20",
+    "hit": false,
+    "aspects": [
+     "1920-07-22 Mars-Uranus 120"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "August top of the bull cycle",
+    "hit": false,
+    "aspects": [
+     "1920-08-04 Mars-Neptune 90"
+    ]
+   },
+   {
+    "forecast": "1920",
+    "call": "temporary bottom Dec 19",
+    "hit": true,
+    "aspects": [
+     "1920-12-15 Mars-Neptune 180"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "low Feb 5-10",
+    "hit": false,
+    "aspects": [
+     "1921-02-05 Mars-Saturn 180"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "spring top Apr 28 to May 3",
+    "hit": false,
+    "aspects": [
+     "1921-05-04 Jupiter-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "bottom in August",
+    "hit": true,
+    "aspects": [
+     "1921-08-26 Mars-Neptune 0"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "advance to early September",
+    "hit": false,
+    "aspects": [
+     "1921-09-10 Jupiter-Saturn 0"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "decline to Sep 25",
+    "hit": false,
+    "aspects": [
+     "1921-09-30 Mars-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1921",
+    "call": "advance into early October",
+    "hit": false,
+    "aspects": [
+     "1921-09-30 Mars-Uranus 180"
+    ]
+   },
+   {
+    "forecast": "1922",
+    "call": "decline to about Jan 19",
+    "hit": false,
+    "aspects": [
+     "1922-01-22 Mars-Neptune 90"
+    ]
+   },
+   {
+    "forecast": "1922",
+    "call": "summer top Aug 14-19",
+    "hit": false,
+    "aspects": [
+     "1922-08-13 Mars-Neptune 120"
+    ]
+   },
+   {
+    "forecast": "1922",
+    "call": "bottom Dec 11-15",
+    "hit": false,
+    "aspects": [
+     "1922-12-13 Jupiter-Uranus 120"
+    ]
+   },
+   {
+    "forecast": "1929",
+    "call": "high about Jan 12",
+    "hit": false,
+    "aspects": [
+     "1929-01-13 Jupiter-Neptune 120"
+    ]
+   },
+   {
+    "forecast": "1929",
+    "call": "low Mar 28-29",
+    "hit": false,
+    "aspects": [
+     "1929-03-29 Mars-Uranus 90"
+    ]
+   },
+   {
+    "forecast": "1932",
+    "call": "March 8 last top before a big decline",
+    "hit": true,
+    "aspects": [
+     "1932-03-04 Mars-Neptune 180"
+    ]
+   },
+   {
+    "forecast": "1932",
+    "call": "high around Sep 20-21",
+    "hit": true,
+    "aspects": [
+     "1932-09-18 Mars-Saturn 180",
+     "1932-09-19 Jupiter-Neptune 0"
+    ]
+   }
+  ]
+ },
+ "symbolRate": {
+  "eightBodies": {
+   "days": 18262,
+   "matching": 2,
+   "share": 0.00010951702989814916
+  },
+  "withMoonAndPluto": {
+   "days": 18262,
+   "matching": 94,
+   "share": 0.00514730040521301
+  }
+ },
+ "symbolDates": {
+  "1908-08-08": {
+   "eightBodies": {
+    "trines": [],
+    "crosses": []
+   },
+   "withMoonAndPluto": {
+    "trines": [],
+    "crosses": []
+   }
+  },
+  "1909-09-30": {
+   "eightBodies": {
+    "trines": [],
+    "crosses": []
+   },
+   "withMoonAndPluto": {
+    "trines": [],
+    "crosses": []
+   }
+  }
+ },
+ "examples": {
+  "1908-08-08": [],
+  "1909-09-30 wheat": [],
+  "1921-08-24 low": [
+   "1921-08-23 Sun-Mercury 0",
+   "1921-08-26 Mars-Neptune 0"
+  ],
+  "1922-10-14 top": [
+   "1922-10-15 Sun-Mercury 0",
+   "1922-10-16 Mercury-Mars 90"
+  ],
+  "1923-11-30 cotton top (the $973 account's short began)": [
+   "1923-11-29 Mercury-Uranus 90",
+   "1923-12-01 Mars-Saturn 0"
+  ],
+  "1929-09-03 top": [],
+  "1932-07-08 low": [
+   "1932-07-10 Jupiter-Uranus 120"
+  ],
+  "1932-09-07 top": [
+   "1932-09-07 Venus-Saturn 180",
+   "1932-09-09 Mars-Uranus 90"
+  ],
+  "1932-10-10 low": [
+   "1932-10-09 Mercury-Uranus 180"
+  ]
+ }
+}
