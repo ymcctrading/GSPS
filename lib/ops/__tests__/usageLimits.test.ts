@@ -7,8 +7,10 @@ import {
   formatEt,
   holdDecision,
   inExemptWindow,
+  meterBilled,
   periodOf,
   renderAlert,
+  visibilityFromGithub,
 } from "@/lib/ops/usageLimits";
 
 const gh = USAGE_METERS.github_actions;
@@ -129,5 +131,23 @@ describe("alert-only limits", () => {
       const sent = [25, 50, 60].map((threshold) => ({ threshold, sentAt: yesterday }));
       expect(alertsDue(60, sent, meter, mid)).toEqual([]);
     }
+  });
+});
+
+describe("repository visibility", () => {
+  it("reads GitHub's answer; a 404 is private and any other failure unknown", () => {
+    expect(visibilityFromGithub(200, { visibility: "public", private: false })).toBe("public");
+    expect(visibilityFromGithub(200, { visibility: "private", private: true })).toBe("private");
+    expect(visibilityFromGithub(200, { private: false })).toBe("public");
+    expect(visibilityFromGithub(404, null)).toBe("private");
+    expect(visibilityFromGithub(403, null)).toBe("unknown");
+    expect(visibilityFromGithub(200, null)).toBe("unknown");
+  });
+
+  it("bills Actions minutes unless the repository is public; unknown counts as billed", () => {
+    expect(meterBilled("github_actions", "public")).toBe(false);
+    expect(meterBilled("github_actions", "private")).toBe(true);
+    expect(meterBilled("github_actions", "unknown")).toBe(true);
+    expect(meterBilled("vercel_deployments", "public")).toBe(true);
   });
 });

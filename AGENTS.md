@@ -699,6 +699,13 @@ within the last two days of the allotted month."
   **A new workflow job must carry both steps** (copy them from `test.yml`),
   or its minutes go unmetered. A manual Vercel redeploy is not seen; post it
   (`{"meter":"vercel_deployments","units":1,"key":"deploy-<id>"}`).
+- **A public repository (2026-10-30, owner: public again "once we have our winning edge verified" it goes private).**
+  GitHub bills no Actions minutes on a public repository, so the Actions meter
+  reads the repository's visibility from GitHub at each reading
+  (`repositoryVisibility`, `lib/ops/usageStore.ts`): while public it alerts and
+  holds nothing and a job's report is kept with no units (`detail.unbilled`);
+  once private it meters the 2,000 minutes again, with no code change. Every
+  other meter is unchanged.
 - **The hold.** At 99% the gate fails the job, and the merge queue merges
   nothing while `usage_readings` shows `hold = true` for `github_actions` or
   `vercel_deployments` (`select * from usage_readings` through the Supabase
