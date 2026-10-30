@@ -7,6 +7,7 @@ import {
   asDailyPlanLevels,
   enterAlert,
   replayIntradayAlerts,
+  walkAlertIntradayExit,
   type AlertTrade,
 } from "@/lib/backtest/replayIntradayAlerts";
 import { summariseAlertTrades } from "@/lib/backtest/alertSummary";
@@ -216,13 +217,34 @@ describe("replayIntradayAlerts", () => {
     }
   });
 
-  it("holds one position at a time, across sessions", () => {
+  it("holds one position at a time", () => {
     for (const { result } of runs) {
       const sorted = [...result.trades].sort((a, b) => a.openedAt.localeCompare(b.openedAt));
       for (let k = 1; k < sorted.length; k++) expect(sorted[k].openedAt > sorted[k - 1].closedAt!).toBe(true);
     }
-    expect(all.some((t) => t.closedAt && etDateKey(new Date(t.closedAt)) !== t.session)).toBe(true);
   });
+
+  it("walks each fill on the Intraday style: out by 3:45 PM the same session, on its own exits", () => {
+    const intraday = new Set(["intraday_initial_stop", "intraday_trailing_stop", "intraday_trend_change", "intraday_session_close"]);
+    for (const t of all) {
+      expect(intraday.has(t.exitReason!) || t.exitReason === "open_at_end").toBe(true);
+      if (t.exitReason === "open_at_end") continue;
+      const closed = new Date(t.closedAt!);
+      expect(etDateKey(closed)).toBe(t.session);
+      // The close leaves on the first bar from 3:45 PM, or the bar after a later fill.
+      const filled = etParts(new Date(t.openedAt)).minutes;
+      expect(etParts(closed).minutes).toBeLessThanOrEqual(Math.max(15 * 60 + 45, filled + 5));
+    }
+    expect(all.some((t) => t.exitReason === "intraday_session_close")).toBe(true);
+  });
+
+  it("keeps the daily walk for comparison, which carries trades across sessions", () => {
+    const structure = runs.flatMap(({ f, plans }) =>
+      replayIntradayAlerts({ symbol: "TEST", kind: "equity", bars: f.m5, dailyBars: f.daily, plans, exitStyle: "structure" }).trades,
+    );
+    expect(structure.length).toBeGreaterThan(0);
+    expect(structure.some((t) => t.closedAt && etDateKey(new Date(t.closedAt)) !== t.session)).toBe(true);
+  }, 60_000);
 
   it("never enters a warning to stand aside", () => {
     expect(all.some((t) => t.signal === "reversal_risk")).toBe(false);
@@ -345,5 +367,35 @@ describe("volumeBaseline, regular session only", () => {
     ]);
     expect(volumeBaseline(bars, 10 * 60, "2025-12-03")).toBe(6_000);
     expect(volumeBaseline(bars, 10 * 60, "2025-12-03", 2, true)).toBe(1_000);
+  });
+});
+
+describe("walkAlertIntradayExit", () => {
+  // One quiet session of five-minute bars, 9:30 to 16:00, drifting up a cent a bar.
+  const date = "2026-10-21";
+  const session = (shape: (i: number, base: number) => Partial<Bar> = () => ({})): Bar[] =>
+    Array.from({ length: 78 }, (_, i) => {
+      const base = 100 + i * 0.01;
+      return { t: etInstant(date, 9 * 60 + 30 + i * 5), o: base, h: base + 0.02, l: base - 0.02, c: base + 0.01, v: 1000, ...shape(i, base) };
+    });
+  const daily: Bar[] = Array.from({ length: 30 }, (_, i) => ({ t: `2026-09-${String(i + 1).padStart(2, "0")}T04:00:00Z`, o: 99, h: 101, l: 97, c: 100, v: 1e6 }));
+  const walk = (bars: Bar[], at: number, stop: number) =>
+    walkAlertIntradayExit({ bars, at, long: true, stop, priorDaily: daily, crypto: false, feedDelayMs: 15 * 60_000, maxBarsHeld: 780 });
+
+  it("closes what is left at the open of the first bar from 3:45 PM", () => {
+    const bars = session();
+    const out = walk(bars, 6, 95);
+    const close = bars.findIndex((b) => etParts(new Date(b.t)).minutes === 15 * 60 + 45);
+    expect(out.reason).toBe("intraday_session_close");
+    expect(out.exit).toBe(bars[close].o);
+    expect(out.barsHeld).toBe(close - 6 + 1);
+  });
+
+  it("fills a stop the bar opens through at that open", () => {
+    const bars = session((i, base) => (i === 20 ? { o: 94, l: 93.5, h: base, c: base } : {}));
+    const out = walk(bars, 6, 95);
+    expect(out.reason).toBe("intraday_initial_stop");
+    expect(out.exit).toBe(94);
+    expect(out.barsHeld).toBe(20 - 6 + 1);
   });
 });

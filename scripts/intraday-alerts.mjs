@@ -16,6 +16,10 @@
  *   sessions by the close that confirms the crossing
  *   (lib/backtest/lineNotices.ts), against the base rate of every such session.
  *
+ * Each trade is walked on the Intraday style, as a "Trade this" fill is
+ * managed live; the `...Structure` cells walk the same alerts on the daily
+ * exits, the walk runs before 2026-10-30 used.
+ *
  * Research only: nothing here feeds a verdict.
  *
  *   node scripts/intraday-alerts.mjs --days 60 --limit 20
@@ -45,6 +49,25 @@ const FOCUS_HISTORY_DAYS = 150;
 const REQUEST_TIMEOUT_MS = 120_000;
 /** Five-minute bars a vendor page returns at most. */
 const BARS_PER_PAGE = 10_000;
+
+/** Waits before each retry of a read the vendor's rate limit refused (shared with the live scans). */
+const RATE_LIMIT_BACKOFF_MS = [30_000, 60_000, 120_000];
+
+function isRateLimited(err) {
+  return /rate-limit|429/i.test(err instanceof Error ? err.message : String(err));
+}
+
+/** Runs `read` again after a backoff while the vendor rate-limits it, so a busy minute doesn't drop a symbol. */
+async function withRateLimitRetry(read) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await read();
+    } catch (err) {
+      if (!isRateLimited(err) || attempt >= RATE_LIMIT_BACKOFF_MS.length) throw err;
+      await sleep(RATE_LIMIT_BACKOFF_MS[attempt]);
+    }
+  }
+}
 
 function withTimeout(promise, label) {
   let timer;
@@ -99,13 +122,13 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     const referenceNote = references.size === 0 ? "No instrument reference was read, so the D2 distribution-week exit (shares outstanding) was not walked." : null;
 
     // Pass 1: each symbol's daily plan per session and its evening focus reading.
-    const market = await withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY").catch((err) => {
+    const market = await withRateLimitRetry(() => withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY")).catch((err) => {
       // Without SPY the daily plans read no market trend, which the live scan does read.
       skipped.push({ symbol: "SPY", reason: `market bars not read: ${err instanceof Error ? err.message : String(err)}` });
       return undefined;
     });
     // Without the universe read P3(c) stays unread, as it does live when that read fails.
-    const universeStrength = await withTimeout(run.fetchReplayUniverseStrength(), "universe strength").catch((err) => {
+    const universeStrength = await withRateLimitRetry(() => withTimeout(run.fetchReplayUniverseStrength(), "universe strength")).catch((err) => {
       skipped.push({ symbol: "(universe strength)", reason: err instanceof Error ? err.message : String(err) });
       return null;
     });
@@ -113,7 +136,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     for (const symbol of universe) {
       const began = Date.now();
       try {
-        const series = await withTimeout(run.fetchSeries(symbol, "15Min", true), symbol);
+        const series = await withRateLimitRetry(() => withTimeout(run.fetchSeries(symbol, "15Min", true), symbol));
         const reference = references.get(symbol);
         const instrument = reference ? { sharesHistory: reference.history, inception: reference.reference.inception } : undefined;
         const plans = new Map();
@@ -159,6 +182,8 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     // Pass 2: the session's alerts on five-minute bars.
     const planHeld = [];
     const alerts = [];
+    const planHeldStructure = [];
+    const alertsStructure = [];
     const lineSessions = [];
     const refused = { planLevelHeld: {}, listed: {} };
     const addRefused = (into, from) => {
@@ -170,12 +195,14 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
       const began = Date.now();
       let pages = 1;
       try {
-        const bars = await withTimeout(provider.fetchBars(symbol, "5Min", baselineFrom, null, "us_equity", 20000), `${symbol} 5Min`);
+        const bars = await withRateLimitRetry(() => withTimeout(provider.fetchBars(symbol, "5Min", baselineFrom, null, "us_equity", 20000), `${symbol} 5Min`));
         pages = Math.max(1, Math.ceil(bars.length / BARS_PER_PAGE));
         const listed = new Set([...walked].filter((d) => fixed.has(symbol) || focusFor.get(d)?.has(symbol)));
         const common = { symbol, kind: "equity", bars, dailyBars: s.daily, monthlyBars: s.monthly, sharesOn: s.sharesOn, plans: s.plans };
         const held = replayIntradayAlerts({ ...common, sessions: walked, signals: new Set(["plan_level_held"]), collectLineNotices: true });
         planHeld.push(...held.trades);
+        // The daily walk the replay used before 2026-10-30, for comparison with earlier runs.
+        planHeldStructure.push(...replayIntradayAlerts({ ...common, sessions: walked, signals: new Set(["plan_level_held"]), exitStyle: "structure" }).trades);
         lineSessions.push(...(held.lineSessions ?? []));
         addRefused(refused.planLevelHeld, held.refused);
         if (listed.size > 0) {
@@ -183,6 +210,9 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
           addRefused(refused.listed, all.refused);
           for (const t of all.trades) {
             alerts.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
+          }
+          for (const t of replayIntradayAlerts({ ...common, sessions: listed, exitStyle: "structure" }).trades) {
+            alertsStructure.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
           }
         }
       } catch (err) {
@@ -216,6 +246,10 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         focus: summariseAlertTrades(alerts.filter((t) => t.inFocus)),
         fixed: summariseAlertTrades(alerts.filter((t) => t.inFixed)),
         focusOnly: summariseAlertTrades(alerts.filter((t) => t.inFocus && !t.inFixed)),
+        // The same alerts walked on the daily exits (the walk before 2026-10-30).
+        planLevelHeldStructure: summariseAlertTrades(planHeldStructure),
+        focusStructure: summariseAlertTrades(alertsStructure.filter((t) => t.inFocus)),
+        fixedStructure: summariseAlertTrades(alertsStructure.filter((t) => t.inFixed)),
         lineNotices: summariseLineNotices(lineSessions),
       },
       // Each session a line notice fired, for diagnosis.
@@ -253,6 +287,25 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         exitReason: t.exitReason,
         barsHeld: t.barsHeld,
       })),
+      // Each focus-list or fixed-list trade, for diagnosis (a few hundred over 60 days).
+      listedTrades: alerts
+        .filter((t) => t.inFocus || t.inFixed)
+        .map((t) => ({
+          symbol: t.symbol,
+          session: t.session,
+          signal: t.signal,
+          direction: t.direction,
+          entry: t.entry,
+          stop: t.stop,
+          target: t.target,
+          exit: t.exitPrice,
+          r: t.rMultiple,
+          bestR: t.bestR,
+          exitReason: t.exitReason,
+          barsHeld: t.barsHeld,
+          inFocus: t.inFocus,
+          inFixed: t.inFixed,
+        })),
     };
     console.log("=== BEGIN intraday-alerts.json ===");
     console.log(JSON.stringify(out, null, 2));
