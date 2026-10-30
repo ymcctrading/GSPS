@@ -130,6 +130,14 @@ review fits the method better than a stream of signals.
 
 ### 6. News on the symbol page
 
+**Built 2026-10-30:** a news card on the symbol page (`components/scan/symbol-news.tsx`,
+`/api/news`, `lib/news/symbolNews.ts`): up to 12 headlines from the last two weeks,
+each with its publisher and link, beside the close of the session it fell on and
+that session's change (after the 4 PM close it counts on the next session, as
+`badNews.ts` reads it; crypto by its UTC day). Signed-in members, every tier.
+Read once a symbol an hour per server instance, not once a day: a page a person
+opens needs the day's headlines. The macro calendar is still held for a source.
+
 **Gann:** he read the market's response to news, not the news itself: tops on
 bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
 `badNews.ts` reads it.
