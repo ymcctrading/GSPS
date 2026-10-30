@@ -13,6 +13,9 @@
  *                           then sends that meter's alerts, so a crossing is
  *                           reported within the job that made it.
  *
+ * While the repository is public, GitHub Actions minutes are free: a job's
+ * report is kept with no units, and the gate and alerts skip that meter.
+ *
  * Fails open: if the meter can't be read, nothing is held. Off every user's
  * path; the CI calls time out at 10 seconds.
  */
@@ -20,8 +23,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { USAGE_METERS, type UsageMeterId } from "@/lib/ops/usageLimits";
-import { meterStatus, recordUsage, saveReading, sendDueAlerts } from "@/lib/ops/usageStore";
+import { USAGE_METERS, meterBilled, type UsageMeterId } from "@/lib/ops/usageLimits";
+import { meterStatus, recordUsage, repositoryVisibility, saveReading, sendDueAlerts } from "@/lib/ops/usageStore";
 
 export const maxDuration = 30;
 
@@ -85,7 +88,16 @@ export async function POST(req: NextRequest) {
   const detail = body.detail && typeof body.detail === "object" ? (body.detail as Record<string, unknown>) : undefined;
 
   const service = createServiceClient();
-  const result = await recordUsage(service, { meter: meter as "github_actions" | "vercel_deployments", units, key, detail, occurredAt });
+  // A public repository's Actions minutes are free: kept as a record with no
+  // units, so they never count if the repository turns private this month.
+  const unbilled = meter === "github_actions" && !meterBilled("github_actions", await repositoryVisibility());
+  const result = await recordUsage(service, {
+    meter: meter as "github_actions" | "vercel_deployments",
+    units: unbilled ? 0 : units,
+    key,
+    detail: unbilled ? { ...detail, unbilled: true, minutes: units } : detail,
+    occurredAt,
+  });
   if (result.error) return NextResponse.json({ recorded: false, error: result.error }, { status: 500 });
   const now = new Date();
   const status = await meterStatus(service, meter as UsageMeterId, now);

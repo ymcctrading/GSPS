@@ -25,13 +25,17 @@ import { ownerReportRecipients } from "@/lib/auth/owner";
 import { emailBudgetHold } from "@/lib/notifications/email-budget";
 import { fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
 import {
+  PUBLIC_REPO_REASON,
   USAGE_METERS,
   alertsDue,
   holdDecision,
+  meterBilled,
   percentUsed,
   periodOf,
   renderAlert,
+  visibilityFromGithub,
   type HoldDecision,
+  type RepoVisibility,
   type UsageMeter,
   type UsageMeterId,
 } from "@/lib/ops/usageLimits";
@@ -48,6 +52,36 @@ export interface MeterStatus {
   hold: HoldDecision;
   /** Null when the reading could not be made. */
   error: string | null;
+  /** False while the limit doesn't apply (Actions on a public repository): no alert, no hold. */
+  billed: boolean;
+}
+
+const VISIBILITY_TTL_MS = 10 * 60_000;
+let visibilityRead: { at: number; value: Promise<RepoVisibility> } | null = null;
+
+/**
+ * The repository's visibility, read from GitHub without a token (a private
+ * repository answers 404) and kept 10 minutes, so an hourly check and a burst
+ * of CI reports make a handful of requests. Unknown on any failure.
+ */
+export function repositoryVisibility(now: Date = new Date()): Promise<RepoVisibility> {
+  if (visibilityRead && now.getTime() - visibilityRead.at < VISIBILITY_TTL_MS) return visibilityRead.value;
+  const owner = process.env.VERCEL_GIT_REPO_OWNER || "ymcctrading";
+  const slug = process.env.VERCEL_GIT_REPO_SLUG || "gsps";
+  const value = (async (): Promise<RepoVisibility> => {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${slug}`, {
+        headers: { accept: "application/vnd.github+json", "user-agent": "gsps-usage-meter" },
+        signal: AbortSignal.timeout(5_000),
+        cache: "no-store",
+      });
+      return visibilityFromGithub(res.status, res.status === 200 ? await res.json() : null);
+    } catch {
+      return "unknown";
+    }
+  })();
+  visibilityRead = { at: now.getTime(), value };
+  return value;
 }
 
 /** Records one use. Idempotent on `key`. */
@@ -158,12 +192,13 @@ export async function meterStatus(service: Service, id: UsageMeterId, now: Date)
   const meter = USAGE_METERS[id];
   try {
     const used = await readUsed(service, meter, now);
-    const hold = holdDecision(meter, used, now, await activeOverride(service, id, now));
-    return { meter: id, label: meter.label, used, limit: meter.limit, unit: meter.unit, percent: percentUsed(used, meter.limit), hold, error: null };
+    const billed = id === "github_actions" ? meterBilled(id, await repositoryVisibility(now)) : true;
+    const hold = billed ? holdDecision(meter, used, now, await activeOverride(service, id, now)) : { hold: false, reason: PUBLIC_REPO_REASON };
+    return { meter: id, label: meter.label, used, limit: meter.limit, unit: meter.unit, percent: percentUsed(used, meter.limit), hold, error: null, billed };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     // Fails open: the meter's own outage never stops CI or a deploy.
-    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: `Unread: ${message}` }, error: message };
+    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: `Unread: ${message}` }, error: message, billed: true };
   }
 }
 
@@ -184,7 +219,7 @@ export async function saveReading(service: Service, status: MeterStatus, now: Da
 
 /** Sends any threshold alerts due for this reading. Returns the thresholds sent. */
 export async function sendDueAlerts(service: Service, status: MeterStatus, now: Date): Promise<{ sent: number[]; error: string | null }> {
-  if (status.error) return { sent: [], error: null };
+  if (status.error || !status.billed) return { sent: [], error: null };
   const meter = USAGE_METERS[status.meter];
   const period = periodOf(meter, now);
   const { data: rows, error: readError } = await service

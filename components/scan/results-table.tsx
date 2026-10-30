@@ -89,7 +89,7 @@ function byScore(rows: ScanRow[]): ScanRow[] {
 }
 
 /** Symbol + Price + Entry + Exit + TP1 + MTP + Save. */
-const BASE_COLUMNS = 7;
+const BASE_COLUMNS = 8;
 
 function rowKey(r: ScanRow): string {
   return `${r.symbol}-${r.direction}`;
@@ -200,6 +200,7 @@ export function ResultsTable({
           {/* The symbol pins while the price columns scroll — otherwise a phone
               user scrolling right loses track of which row they're reading. */}
           <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+          <TH>Score</TH>
           <TH className="text-right">Price</TH>
           <TH className="text-right">Entry</TH>
           <TH className="text-right" title="Exit: the stop-loss, the price that says the setup failed">
@@ -273,6 +274,7 @@ export function ResultsTable({
           <THead>
             <TR>
               <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+              <TH>Score</TH>
               <TH className="text-right">Price</TH>
               <TH className="text-right">Entry</TH>
               <TH className="text-right">Exit (S/L)</TH>
@@ -312,6 +314,7 @@ export function ResultsTable({
           <THead>
             <TR>
               <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+              <TH>Score</TH>
               <TH className="text-right">Price</TH>
               <TH className="text-right">Entry</TH>
               <TH className="text-right">Exit (S/L)</TH>
@@ -374,6 +377,7 @@ function MarketSection({
         <THead>
           <TR>
             <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
+            <TH>Score</TH>
             <TH className="text-right">Price</TH>
             <TH className="text-right">Entry</TH>
             <TH className="text-right">Exit (S/L)</TH>
@@ -425,8 +429,8 @@ function RejectedTable({
       <THead>
         <TR>
           <TH className="sticky left-0 z-10 bg-surface">Symbol</TH>
-          <TH className="text-right">Price</TH>
           <TH>Score</TH>
+          <TH className="text-right">Price</TH>
           <TH>Setup</TH>
         </TR>
       </THead>
@@ -438,10 +442,10 @@ function RejectedTable({
                 {r.symbol}
               </Link>
             </TD>
-            <TD className="text-right font-mono">{r.currentPrice != null && r.currentPrice > 0 ? formatUsd(r.currentPrice) : "—"}</TD>
             <TD>
               <ScoreBadge score={r.score} state={r.outputState} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
             </TD>
+            <TD className="text-right font-mono">{r.currentPrice != null && r.currentPrice > 0 ? formatUsd(r.currentPrice) : "—"}</TD>
             <TD className="text-muted">
               {r.patternName ? `${r.patternName} ` : ""}
               <span className={r.direction === "bullish" ? "text-bull" : r.direction === "bearish" ? "text-bear" : ""}>
@@ -557,6 +561,9 @@ function ResultsRow({
             )}
           </div>
         </TD>
+        <TD>
+          <ScoreBadge score={r.score} state={model.verdict} exactScoreDisplayEnabled={exactScoreDisplayEnabled} compact />
+        </TD>
         <TD className="text-right font-mono">
           {quote != null
             ? formatUsd(quote.price)
@@ -564,7 +571,7 @@ function ResultsRow({
               ? formatUsd(r.currentPrice)
               : "—"}
         </TD>
-        <TD className={cn("text-right font-mono", invalidated && "line-through")}>
+        <TD className={cn("text-right font-mono text-accent", invalidated && "line-through")}>
           {r.entry != null ? formatUsd(r.entry) : "—"}
         </TD>
         <TD className={cn("text-right font-mono text-bear", invalidated && "line-through")}>
