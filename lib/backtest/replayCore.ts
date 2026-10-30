@@ -131,6 +131,14 @@ export interface CoreReplayOptions {
   shorts?: boolean;
   /** How the stop trails: the weekly chart's swing bottoms (default) or each completed week's. */
   trail?: "weeklySwing" | "eachWeek";
+  /**
+   * Whether the stock was in the universe on a date ("YYYY-MM-DD"): the
+   * backtest's point-in-time universe (`ReplayOptions.inUniverse`). Read on the
+   * completed session a new entry is decided on; outside it no campaign opens,
+   * while an open one runs to its exit and a crossing armed inside it may still
+   * fill. Omit it and every session may enter.
+   */
+  inUniverse?: (date: string) => boolean;
   rules?: CoreRule[];
   /** "gate" (default): a refusing rule blocks the campaign. "tag": every rule is only recorded. */
   ruleMode?: "gate" | "tag";
@@ -204,6 +212,7 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
     trail = "weeklySwing",
     rules = [],
     ruleMode = "gate",
+    inUniverse,
   } = options;
   const daily = dailyBars.length > 0 ? dailyBars : bars;
   const empty = (): CoreResult => ({ ...summarise([]), trades: [] });
@@ -287,6 +296,8 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
     for (const rule of rules) (rule.allows(ctx) ? passed : refused).push(rule.name);
     return { passed, refused };
   };
+  /** Whether a new entry may be decided on completed session `j`. */
+  const member = (j: number) => !inUniverse || inUniverse(etDate[j]);
   const blocks = (verdict: { refused: string[] } | null) => ruleMode === "gate" && verdict !== null && verdict.refused.length > 0;
 
   const close = (i: number, exit: number, reason: NonNullable<ReplayTrade["exitReason"]>, openAtEnd = false) => {
@@ -401,7 +412,7 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
     }
 
     // 3. A reaction (rally) bought (sold) at this open, decided on the sessions before it.
-    if (!pos && !closedThisBar) {
+    if (!pos && !closedThisBar && member(i - 1)) {
       for (const side of ["long", "short"] as const) {
         if (side === "short" && !shorts) continue;
         if (!withMain(side)) continue;
@@ -470,7 +481,7 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
         const allowance = threePoints(pivot.price);
         if (dir * (bar.c - (pivot.price + dir * allowance)) < 0) continue;
         seen.add(pivot.index);
-        if (pos) continue;
+        if (pos || !member(i)) continue;
         // The decision is for the next session, read on the trend it opens on.
         if (mainTrendFor(i + 1) !== (side === "long" ? "bullish" : "bearish")) continue;
         armed++;
