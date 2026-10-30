@@ -90,7 +90,8 @@ Reading it:
   Sep 28, Oct 9 and Dec 23 lows and the Oct 18 and Nov 8 highs; Mar 9 and
   Sep 22, 1932 tops.
 - **Selection caution.** These are the forecasts Gann chose to reprint. Years
-  he did not reprint are not in the sample, so p = 0.006 is an upper bound on
+  he did not reprint are not in the sample (and the 1932 calls come from his
+  own 1954 quotation of that forecast, which may omit misses), so p = 0.006 is an upper bound on
   the evidence, not a clean test. The 1929 calls also sit in the densest
   stretch of swings in the record; the base rate accounts for density, not for
   selection.

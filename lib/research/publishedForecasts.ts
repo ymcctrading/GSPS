@@ -11,7 +11,8 @@
  * - W005, *Wall Street Stock Selector* appendix pp.11-39 (class A): the 1929
  *   forecast, signed 23 Nov 1928 (p.11 says it was sent 3 Nov 1928).
  * - W001, *Economic Forecaster* p.4-5 (class A, the author's own booklet):
- *   the 1932 forecast, issued 21 Oct 1931, as quoted there.
+ *   the 1932 forecast, issued 21 Oct 1931, as quoted there in 1954. The
+ *   quote is the author's own selection, so it may leave out calls that missed.
  *
  * Only Dow industrial calls with a stated day or month are carried. Rail
  * calls (no rail record), world-event calls and undated phrases ("December
@@ -66,6 +67,7 @@ export const PUBLISHED_FORECASTS: PublishedForecast[] = [
       about("advance to about Sep 23", "1919-09-23", "1919-09-23", "high"),
       span("strong to Oct 6-7", "1919-10-06", "1919-10-07", "high"),
       about("bottom about Oct 24", "1919-10-24", "1919-10-24", "low"),
+      // "November decline 10-20": a decline running to the 20th, so the low is called about the 20th.
       about("November decline 10-20", "1919-11-20", "1919-11-20", "low"),
     ],
   },
