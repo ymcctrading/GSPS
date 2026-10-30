@@ -793,15 +793,26 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     expect(scanIntraday([input()], loose, AT_1133).alerts.map((a) => a.type as string)).not.toContain("unusual_volume");
   });
 
+  // The live scan reads no daily-scale signal (owner, 2026-10-29: "Only
+  // intraday scans should populate the intraday card(s)"); the replay turns it
+  // on for a run that names it.
+  const WITH_DAILY = { ...DEFAULT_CONFIG, dailyScaleSignals: true };
+
+  it("leaves the daily swing turn out of the live scan entirely", () => {
+    const types = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    expect(types).not.toContain("overnight_turn");
+    expect(scanIntraday([input()], WITH_DAILY, AT_1133).alerts.map((a) => a.type)).toContain("overnight_turn");
+  });
+
   it("alerts when the Overnight Chart turns on today's session, its stop 1 point under the last bottom", () => {
     // Yesterday was the second day of a reaction (low 499); today's low holds above it: a higher bottom.
-    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert?.direction).toBe("up");
     expect(alert?.invalidation).toBeCloseTo(499 - pricePoint(499), 2);
   });
 
   it("holds the Overnight Chart's turn from trade: its daily-scale stop and targets are not a session's (META, 2026-10-29)", () => {
-    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert).toBeDefined();
     expect(tradeHold(alert!)).toBe(DAILY_SCALE_HOLD);
     // The scale hold comes before the trend notes; a session signal is not held for scale.
@@ -814,7 +825,7 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     // Yesterday already made a higher bottom, so the line was up before today.
     daily[daily.length - 2] = { ...daily[daily.length - 2], l: 498 };
     daily[daily.length - 1] = { ...daily[daily.length - 1], l: 499, h: 501.5 };
-    const types = scanIntraday([input({ priorDailyBars: daily })], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    const types = scanIntraday([input({ priorDailyBars: daily })], WITH_DAILY, AT_1133).alerts.map((a) => a.type);
     expect(types).not.toContain("overnight_turn");
   });
 });
@@ -1211,5 +1222,51 @@ describe("a symbol the scan could not read gets an audit row saying why (AIZ, 20
     expect(failed.reason).toMatch(/failed or timed out/);
     expect(unreadAudit("AIZ", "equity", "no_bars", true).reason).toMatch(/last session/);
     expect(unreadAudit("BTC/USD", "crypto", "no_bars", false).reason).not.toMatch(/delayed feed/);
+  });
+});
+
+describe("a sale alert before the stock's main trend turns down (2026-10-29)", () => {
+  it("is flagged on every sale signal while the monthly chart has not turned down, and held from trade", () => {
+    // The session mirrored about 500: the same run, falling.
+    const down = trendingUpBars().map((b) => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c }));
+    const inputs = [input(), input({ bars: down }), input({ bars: down, priorDailyBars: campaignDaily().map((b) => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c })) })];
+    let flagged = 0;
+    for (const inp of inputs) {
+      const m = sessionMetrics(inp);
+      for (const a of scanIntraday([inp], DEFAULT_CONFIG, AT_1133).alerts) {
+        const exempt = a.type === "reversal_risk" || NOTICE_SIGNALS.has(a.type);
+        const expected = !exempt && a.direction === "down" && m?.mainTrend !== "bearish";
+        expect(a.againstMainTrend === true).toBe(expected);
+        if (expected) {
+          flagged++;
+          expect(tradeHold(a)).not.toBeNull();
+        }
+      }
+    }
+    expect(flagged).toBeGreaterThan(0);
+  });
+
+  it("lets a sale through once the prior sessions' months read the main trend down", () => {
+    // About fourteen months of sessions falling in monthly swings, ending at 500.
+    const daily: Bar[] = [];
+    const start = Date.parse("2025-06-02T05:00:00Z");
+    for (let d = 0; d < 430; d++) {
+      const c = 500 * (1 + 0.0015 * (430 - d)) * (1 + 0.03 * Math.sin(d / 9));
+      const o = d === 0 ? c : daily[daily.length - 1].c;
+      daily.push({ t: new Date(start + d * 86_400_000).toISOString(), o, h: Math.max(o, c) * 1.002, l: Math.min(o, c) * 0.998, c, v: 50_000_000 });
+    }
+    const k = 500 / daily[daily.length - 1].c;
+    const prior = daily.filter((b) => b.t < "2026-08-07").map((b) => ({ ...b, o: b.o * k, h: b.h * k, l: b.l * k, c: b.c * k }));
+    const down = trendingUpBars().map((b) => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c }));
+    const inp = input({ bars: down, priorDailyBars: prior });
+    expect(sessionMetrics(inp)?.mainTrend).toBe("bearish");
+    const sales = scanIntraday([inp], DEFAULT_CONFIG, AT_1133).alerts.filter((a) => a.direction === "down");
+    expect(sales.length).toBeGreaterThan(0);
+    for (const a of sales) expect(a.againstMainTrend).toBeUndefined();
+  });
+
+  it("reads the main trend on the prior sessions' closed months only", () => {
+    // About five months of prior sessions: too short a record to read.
+    expect(sessionMetrics(input())?.mainTrend).toBeNull();
   });
 });

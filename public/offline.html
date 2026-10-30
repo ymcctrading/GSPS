@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GSPS: offline</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+         background: #fafafa; color: #0f172a; font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+  main { max-width: 22rem; padding: 1.5rem; text-align: center; }
+  img { width: 64px; height: 64px; border-radius: 14px; }
+  h1 { font-size: 1.25rem; margin: 1rem 0 0.5rem; }
+  p { color: #475569; margin: 0 0 1.25rem; }
+  button { font: inherit; border: 0; border-radius: 0.5rem; padding: 0.6rem 1.2rem; background: #2563eb; color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/icons/icon-192.png" alt="">
+  <h1>You're offline</h1>
+  <p>GSPS needs a connection to show prices, plans and your positions. Nothing here is out of date: it shows nothing until you're back online.</p>
+  <button type="button" onclick="location.reload()">Try again</button>
+</main>
+</body>
+</html>

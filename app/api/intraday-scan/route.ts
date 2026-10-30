@@ -60,11 +60,9 @@ import { equitySession, etParts } from "@/lib/market/session";
 import { readLiquidity } from "@/lib/scan/liquidity";
 import { barCloseAt, resolveFeedPolicy, timeframeForMinutes } from "@/lib/data/timeliness";
 import { isEarlyClose } from "@/lib/market/calendar";
-import { completedDailyBars, dailyBarDate, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
-import { readAveragesTrend, type AveragesTrend } from "@/lib/gann/averagesTrend";
-import { getMarketDailyBars } from "@/lib/data/marketBenchmark";
+import { completedDailyBars, INTRADAY_DAILY_FETCH_LIMIT, priorDailyClose } from "@/lib/scanner/priorClose";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
-import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
+import { DAILY_SCALE_SIGNALS, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { chooseSweepBasis } from "@/lib/scan/universeSweep";
@@ -267,10 +265,6 @@ export async function GET(req: NextRequest) {
   // limit at about 20 symbols (2026-10-21). A batch that fails leaves those
   // symbols to the per-symbol reads, as before.
   const prefetched = await prefetchBars(provider, universe, now);
-  // The averages' daily bars for 45 Years Rule 1 (`averagesTrend.ts`): the
-  // daily scan's own SPY read (`getMarketDailyBars`, once per ET day per
-  // instance), started beside the symbols' reads so no scan waits on it alone.
-  const marketDailyP = universe.some((u) => u.kind !== "crypto") ? getMarketDailyBars(now) : Promise.resolve(null);
 
   // Why each symbol that never reached the scan was left out, for its audit row.
   const unreadCauses = new Map<string, UnreadCause>();
@@ -300,7 +294,7 @@ export async function GET(req: NextRequest) {
     ),
   );
 
-  const resolved = withMarketTrend(inputs.filter((i): i is SymbolInput => i !== null), await marketDailyP);
+  const resolved = inputs.filter((i): i is SymbolInput => i !== null);
   const unreachable = universe
     .filter((u) => !resolved.some((r) => r.symbol === u.symbol))
     .map((u) => u.symbol);
@@ -913,7 +907,7 @@ async function persistAlerts(
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
       againstDailyTrend: alert.againstDailyTrend === true,
-      againstMarketTrend: alert.againstMarketTrend === true,
+      againstMainTrend: alert.againstMainTrend === true,
       riskUnderPoint: alert.riskUnderPoint === true,
     },
   }));
@@ -1050,7 +1044,7 @@ async function persistSystemAlerts(
       masterTarget: alert.continuationPlan.masterTarget ?? null,
       paysRisk: alert.continuationPlan.paysRisk ?? null,
       againstDailyTrend: alert.againstDailyTrend === true,
-      againstMarketTrend: alert.againstMarketTrend === true,
+      againstMainTrend: alert.againstMainTrend === true,
       riskUnderPoint: alert.riskUnderPoint === true,
     },
   }));
@@ -1101,6 +1095,9 @@ async function loadRecentSystemAlerts(
   const out: RecentSystemAlert[] = [];
   for (const row of data) {
     if (etDateKey(new Date(row.poll_cycle_timestamp)) !== todayEt) continue;
+    // Only intraday signals fill the intraday cards (owner, 2026-10-29): a
+    // daily swing row stored before the live scan stopped reading it stays out.
+    if (DAILY_SCALE_SIGNALS.has(row.signal_id as SignalType)) continue;
     const meta = (row.metadata ?? {}) as Record<string, unknown>;
     if (
       proBounded &&
@@ -1134,7 +1131,7 @@ async function loadRecentSystemAlerts(
       confidence: num(meta.confidence),
       at: row.poll_cycle_timestamp,
       ...(meta.againstDailyTrend === true ? { againstDailyTrend: true } : {}),
-      ...(meta.againstMarketTrend === true ? { againstMarketTrend: true } : {}),
+      ...(meta.againstMainTrend === true ? { againstMainTrend: true } : {}),
       ...(meta.riskUnderPoint === true ? { riskUnderPoint: true } : {}),
       ...(meta.paysRisk === false ? { paysRisk: false } : {}),
     });
@@ -1357,29 +1354,6 @@ function latestSessionDate(bars: Bar[]): string | null {
     if (latest === null || date > latest) latest = date;
   }
   return latest;
-}
-
-/**
- * Each stock's input with the averages' 3-Day and weekly charts read on the
- * sessions completed before its own (the same cut as its `priorDailyBars`), as
- * the daily scan reads them in `readPillarFacts`. Crypto is left unread.
- */
-function withMarketTrend(inputs: SymbolInput[], market: Bar[] | null): SymbolInput[] {
-  if (!market || market.length === 0) return inputs;
-  const byCut = new Map<string, AveragesTrend | null>();
-  return inputs.map((input) => {
-    const prior = input.priorDailyBars;
-    if (input.kind === "crypto" || !prior || prior.length === 0) return input;
-    const cut = dailyBarDate(prior[prior.length - 1], false);
-    if (cut === null) return input;
-    if (!byCut.has(cut)) {
-      byCut.set(cut, readAveragesTrend(market.filter((b) => {
-        const d = dailyBarDate(b, false);
-        return d !== null && d <= cut;
-      })));
-    }
-    return { ...input, marketTrend: byCut.get(cut) ?? null };
-  });
 }
 
 function daysAgo(n: number): Date {

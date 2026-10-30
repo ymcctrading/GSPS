@@ -52,6 +52,7 @@ import { execSync } from "node:child_process";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { robustnessSections } from "./robustness-report.mjs";
+import { ladderLogBlock } from "./rule-ladder.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -136,6 +137,20 @@ export function validateCells(cells) {
     if (intradayOnly.length > 0 && c.options?.profile !== "intraday") {
       throw new Error(`Cell "${c.label}": ${intradayOnly.join(", ")} apply to profile "intraday" only`);
     }
+    const coreOnly = ["coreShorts", "coreTrail", "ladder", "ladderGate"].filter((k) => c.options?.[k] !== undefined);
+    if (coreOnly.length > 0 && c.options?.profile !== "core") {
+      throw new Error(`Cell "${c.label}": ${coreOnly.join(", ")} apply to profile "core" only`);
+    }
+    // The rule ladder (docs/RULE_LADDER.md): "tag" reads every rung without
+    // gating and prints the ladder; `ladderGate` gates on the kept rungs.
+    if (c.options?.ladder !== undefined && c.options.ladder !== "tag") throw new Error(`Cell "${c.label}": ladder must be "tag"`);
+    if (
+      c.options?.ladderGate !== undefined &&
+      !(Array.isArray(c.options.ladderGate) && c.options.ladderGate.length > 0 && c.options.ladderGate.every((n) => typeof n === "string" && !n.startsWith("ref:")))
+    ) {
+      throw new Error(`Cell "${c.label}": ladderGate must be a non-empty array of rung names (references are never gated on)`);
+    }
+    if (c.options?.ladder !== undefined && c.options?.ladderGate !== undefined) throw new Error(`Cell "${c.label}": ladder and ladderGate are exclusive`);
   }
   return cells;
 }
@@ -538,6 +553,39 @@ export function tradesCsvLogBlock(csv, limitBytes = TRADE_CSV_LOG_LIMIT_BYTES) {
   return `=== BEGIN trades.csv.gz.base64 ===\n${lines.join("\n")}\n=== END trades.csv.gz.base64 ===\n`;
 }
 
+/** A tagged core cell's campaigns as ladder rows (`lib/backtest/walkForward.ts#LadderRow`). */
+export function ladderRowsFromCore(trades) {
+  return trades
+    .filter((t) => Array.isArray(t.rulesRefused) && Number.isFinite(t.rMultiple))
+    .map((t) => ({ symbol: t.symbol, date: t.openedAt.slice(0, 10), r: t.rMultiple, refused: new Set(t.rulesRefused) }));
+}
+
+/**
+ * The bare core's campaign figures for one cell (`summariseCore`), as a
+ * Markdown section for the job log: the whole line beside the first lot alone,
+ * so the pyramid's share shows, and the split by side and entry.
+ */
+export function coreCampaignSummary(label, core) {
+  const r = (x) => (Number.isFinite(x) ? (x >= 0 ? "+" : "") + x.toFixed(3) + "R" : "n/a");
+  const lines = [
+    "",
+    `## Core campaigns: ${label}`,
+    "",
+    `Campaigns ${core.campaigns} (${core.pyramided} pyramided, ${core.meanLots.toFixed(2)} lots on average). ` +
+      `Whole line ${r(core.lineExpectancyR)} a campaign (total ${core.lineR.toFixed(1)}R); first lot alone ${r(core.firstLotExpectancyR)} ` +
+      `(total ${core.firstLotR.toFixed(1)}R). Closed campaigns only: ${core.closed.campaigns} at ${r(core.closed.lineExpectancyR)}.`,
+    "",
+    "| Split | Campaigns | Whole line | First lot |",
+    "|---|---:|---:|---:|",
+    `| Long | ${core.bySide.long.campaigns} | ${r(core.bySide.long.lineExpectancyR)} | ${r(core.bySide.long.firstLotExpectancyR)} |`,
+    `| Short | ${core.bySide.short.campaigns} | ${r(core.bySide.short.lineExpectancyR)} | ${r(core.bySide.short.firstLotExpectancyR)} |`,
+    `| Crossing | ${core.byEntry.crossing.campaigns} | ${r(core.byEntry.crossing.lineExpectancyR)} | |`,
+    `| Reaction | ${core.byEntry.reaction.campaigns} | ${r(core.byEntry.reaction.lineExpectancyR)} | |`,
+    "",
+  ];
+  return lines.join("\n");
+}
+
 export function summaryMarkdown(meta, summary) {
   const lines = [];
   lines.push(`# Universe backtest — ${meta.universe} (${meta.symbolsUsed}/${meta.symbolsRequested} symbols)`);
@@ -827,6 +875,17 @@ async function main() {
     const run = await server.ssrLoadModule("/lib/backtest/run.ts");
     const { replay, combine } = await server.ssrLoadModule("/lib/backtest/replay.ts");
     const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
+    // The bare core (profile "core"); absent on refs before it.
+    const { replayCore } = await server.ssrLoadModule("/lib/backtest/replayCore.ts").catch(() => ({}));
+    const usesLadder = cells.some((c) => c.options?.ladder !== undefined || c.options?.ladderGate !== undefined);
+    const ladderMod = usesLadder ? await server.ssrLoadModule("/lib/backtest/ruleLadder.ts") : null;
+    const walkForward = usesLadder ? await server.ssrLoadModule("/lib/backtest/walkForward.ts") : null;
+    // Check every gated rung name before any fetch.
+    for (const c of cells) if (c.options?.ladderGate) ladderMod.ladderRules("CHECK", { dailyBars: [] }, c.options.ladderGate);
+    if (cells.some((c) => c.options?.profile === "core")) {
+      if (typeof replayCore !== "function") throw new Error('profile "core" is not on this ref.');
+      if (args.timeframe !== "1Day") throw new Error('profile "core" walks daily bars: run it with --timeframe 1Day.');
+    }
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
     const { monteCarloResample } = await server.ssrLoadModule("/lib/backtest/monteCarlo.ts");
     const { buildRobustness } = await server.ssrLoadModule("/lib/backtest/robustness.ts");
@@ -918,6 +977,7 @@ async function main() {
       await mkdir(path.resolve(root, args.out), { recursive: true });
       const window = { from, to };
       const cellResults = [];
+      const coreSections = [];
       for (let c = 0; c < cells.length; c++) {
         const cell = cells[c];
         const overall = combine(perCell[c]);
@@ -940,6 +1000,7 @@ async function main() {
           ...(cell.options ?? {}),
         });
         await writeWhole(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
+        if (report.core) coreSections.push(coreCampaignSummary(cell.label, report.core));
         await writeWhole(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
         cellResults.push({
           cell,
@@ -983,11 +1044,16 @@ async function main() {
         ...(partial ? {} : { robustness: (trades) => buildRobustness(trades, market?.daily) }),
       });
       await writeWhole(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
-      const md = summaryMarkdown(meta, summary);
+      const md = summaryMarkdown(meta, summary) + coreSections.join("");
       await writeWhole(path.resolve(root, args.out, "summary.md"), md);
       // The per-trade rows, for exact splits from the job log alone. A
       // checkpoint keeps the log block on disk (the "Print results" step
       // prints it when the job stops early); the final write prints it here.
+      // The rule ladder's campaign rows, checkpoints included, so a cut-off job
+      // still leaves them for scripts/rule-ladder.mjs.
+      for (const { cell, trades } of cellResults) {
+        if (cell.options?.ladder === "tag") await writeWhole(path.resolve(root, args.out, `${cell.label}.ladder-rows.csv`), walkForward.ladderRowsCsv(ladderRowsFromCore(trades)));
+      }
       const csv = tradesCsv(cellResults);
       await writeWhole(path.resolve(root, args.out, "trades.csv"), csv);
       const block = tradesCsvLogBlock(csv);
@@ -999,6 +1065,11 @@ async function main() {
       await rm(blockFile, { force: true });
       process.stdout.write(md);
       process.stdout.write(`\n${block}`);
+      // The rule ladder last, so a tail read of the log reaches it.
+      for (const { cell, trades } of cellResults) {
+        if (cell.options?.ladder !== "tag") continue;
+        process.stdout.write(`\nRule ladder, cell ${cell.label}:\n${ladderLogBlock(walkForward, ladderMod, ladderRowsFromCore(trades))}`);
+      }
       for (const w of summary.warnings) process.stderr.write(`WARNING: ${w}\n`);
     };
 
@@ -1021,7 +1092,26 @@ async function main() {
             // (lib/backtest/replayIntraday.ts); every other cell is the production method.
             const opts = cell.options ?? {};
             perCell[c].push(
-              opts.profile === "intraday"
+              opts.profile === "core"
+                ? replayCore(symbol, bars, {
+                    dailyBars: series.daily,
+                    monthlyBars: series.monthlyYearCount ?? series.monthly,
+                    ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
+                    ...(opts.pyramid !== undefined ? { pyramid: opts.pyramid } : {}),
+                    ...(opts.coreShorts !== undefined ? { shorts: opts.coreShorts } : {}),
+                    ...(opts.coreTrail !== undefined ? { trail: opts.coreTrail } : {}),
+                    ...(opts.ladder === "tag" || opts.ladderGate
+                      ? {
+                          rules: ladderMod.ladderRules(
+                            symbol,
+                            { ...run.replaySeriesOptions(series, market, universeStrength), instrument },
+                            opts.ladderGate ?? ladderMod.LADDER_RULE_NAMES,
+                          ),
+                          ruleMode: opts.ladder === "tag" ? "tag" : "gate",
+                        }
+                      : {}),
+                  })
+                : opts.profile === "intraday"
                 ? replayIntraday(symbol, bars, {
                     ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
                     ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),

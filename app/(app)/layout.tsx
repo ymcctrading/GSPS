@@ -1,6 +1,7 @@
 import { AppNav } from "@/components/app/nav";
 import { TourProvider } from "@/components/onboarding/tour-provider";
 import { PracticeBanner } from "@/components/app/practice-banner";
+import { ServiceWorkerRegistrar } from "@/components/app/service-worker-registrar";
 
 /**
  * App shell. The container widens by device class — a phone gets edge-to-edge
@@ -18,6 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // the app underneath it instead of unmounting the tour mid-sentence.
     <TourProvider>
       <div className="flex min-h-screen flex-col">
+        <ServiceWorkerRegistrar />
         <PracticeBanner />
         <AppNav />
         <main className="pb-tabbar mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 pt-4 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6 2xl:max-w-7xl">

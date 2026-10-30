@@ -3771,8 +3771,56 @@ held: drift −0.1% a day 67/22%, 0 42/44%, +0.1% 19/69%; about 0.1 ms a read.
 The charts walk the year before the last session read (`AVERAGES_WINDOW_DAYS`,
 an engineering choice), so the live scan's 400 days and a replay's whole run read
 the same span.
-`STRATEGY_VERSION` is `2026-10-29-gann-averages-trend`; Execute and the 7/4
+`STRATEGY_VERSION` was `2026-10-29-gann-averages-trend`.
+**Taken out the same day, and shorts held on the main trend (owner: "Correct",
+on the rerun, `/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/FINDINGS.md`).**
+The hold above measured worse: Execute −0.081R [−0.140, −0.021] (n 1,304)
+against −0.055R before. Over all 63,678 trades, longs made +0.036R and shorts
+lost −0.079R (−2,381R), and the hold held the best longs (+0.101R with both of
+SPY's charts down) and passed the worst shorts; both charts turn only once most
+of a decline is done. So the hold is gone (live scan, replay, intraday alerts
+and their replay; the intraday scan no longer reads SPY), and P1's market leg
+still reads the averages' weekly chart. In its place, Gann's own rule for the
+short: the monthly chart decides the main trend (Master Course GA-2/3), and he
+does not sell short while it is up (Ch. 1, 1954, Vanadium: "don't short since
+main trend still up"; Sell 3 is the secondary rally after it turns). A short
+Execute is held to Watch unless the stock's own monthly swing chart, on closed
+months, reads its main trend down (`applyMainTrendHold`, `lib/gann/mainTrend.ts`:
+months counted "without breaking the previous month's low or high",
+*Commodities* pp. 102-103; the turn on breaking the point the last run-up
+began, NSTD pp. 19-20), live and replay alike through `PillarFacts.mainTrend`.
+An unread trend (under 6 closed months) holds the short. Longs are not
+mirrored: Gann buys the double bottom before the monthly chart turns (W006 Rule
+1). The intraday alerts flag a sale before the turn for study only
+(`againstMainTrend`), read from their prior daily bars, about 14 months, a
+shorter record than the daily scan's (labelled), and their replay enters none.
+The core replay profile shares the helper. Random walks (200 a drift, 2,600
+readings of 24-120 closed months, about 8% a month): the main trend reads down,
+so a short may pass, on 78.8% at −1% a month, 54.8% with no drift and 28.6% at
++1%; about 0.01 ms a read.
+`STRATEGY_VERSION` is `2026-10-29-gann-main-trend-shorts`; Execute and the 7/4
 cutoffs need a fresh run on it.
+
+**The bare core, 2026-10-29 (owner: "let's rebuild from the core"; the six-year
+daily run of the full rule stack, `/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/`,
+showed no edge).** A separate replay strategy, `profile: "core"`
+(`lib/backtest/replayCore.ts`, daily bars only), with only Gann's core from *New
+Stock Trend Detector* (W006 pp.19-23, Rules 2-6): the main trend from the stock's
+own monthly chart (`readMonthlyMainTrend`, `lib/gann/mainTrend.ts`, the one
+reading the live short hold uses: the monthly swing chart on completed months,
+turned by crossing its last swing top or breaking the point the last run-up
+started from, with no 3-point margin since Gann's text names none for the turn), the crossing of an old
+weekly-chart top by 3 points bought on the reaction to it plus 1 point, the 2-3
+week reaction bought once it holds 2 days, shorts by the mirror rules only in a
+monthly downtrend, 3-point stops, the stop trailed under each new weekly swing
+bottom, out when the main trend turns, and pyramid adds (`PYRAMID_LOTS`,
+`wholeLineStop`). Measured per campaign: each trade's `rMultiple` is the whole
+line in the first lot's risk, `rFirstLot` beside it, and the report's `core`
+block splits them (`summariseCore`). Rules come back one at a time through
+`CoreReplayOptions.rules` ("gate" or "tag"), the "Prove each Gann rule one at a
+time" thread's ladder. The production method (`replay.ts`, the live scan) is
+unchanged, so `STRATEGY_VERSION` stays. Engineering choices are labelled in the
+module header.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
@@ -3825,7 +3873,16 @@ a slot of a daily budget first (`lib/notifications/email-budget.ts`, migration
 0126: 80 for alerts and digests, 95 for own trades and ops, UTC day, fails
 open); over it the send is skipped and the bell keeps the notice. The bell
 points a member without push on that device to the switch. A new email sender
-calls `emailBudgetHold` with its kind.
+calls `emailBudgetHold` with its kind. **Capacity, 2026-10-29:** the digest has
+its own lower ceiling (60, under the alerts' 80 and own trades' 95), goes out
+in a day-shuffled order (`dayRotation`), and a member whose digest email did
+not go gets a "Summary" bell row and push instead. A member's own trade notices
+(an order cancelled for a broken plan, a live loss threshold) are written to the
+bell as "Your trade" and pushed whatever the email does
+(`lib/notifications/keyNotice.ts`, migration 0139), so no key notice depends on
+email alone. A new email-only notice must call `deliverKeyNotice` too.
+October's overage was the per-member intraday emails, since moved off email:
+10-23 and 10-26 sent 212 each before the provider refused more.
 
 **Intraday audit fixes, 2026-10-28 (`/mnt/project-files/gann-alignment-audit/intraday-alerts-replay.md`).**
 An intraday alert against the daily swing chart's trend is shown for study and
@@ -3851,7 +3908,7 @@ labelled the member's choice under Gann's tenth.
 
 **Stops inside one point and the recap's scoring, 2026-10-29 (owner: the overnight recap "showed a lot of negative results"; diagnosis `/mnt/project-files/overnight-email-losses/2026-10-28-recap-diagnosis.md`).** An intraday alert whose stop sits less than one intraday point from its price (`Alert.riskUnderPoint`, `buildAlert`) is held from trade by `tradeHold`, so the panel, setup card, chart plan, bell and push never offer it, and the intraday alerts replay skips it as it skips an against-trend alert (its fill-time `risk_under_point` refusal stays): Gann's stop stands his allowance beyond the level (W006 pp. 20, 46-47). On Oct 28, 18 signals with stops within 0.2% of price lost 15 of 18. A reversal-risk warning's bell and push carry no stop or target (it is a stand-aside warning). The evening recap scores only what the platform offers as a trade: warnings, panel rows held or unpaid, reads before the session, no target, and fills through the stop or past TP1 are listed, not scored. Intraday alerts replay trades move; daily verdicts and `STRATEGY_VERSION` don't.
 
-**Daily swing signals are not intraday trades, 2026-10-29 (owner, on META: entry 623.56, stop 604.21, TP1 676.63, "Is meta primed for that move?").** The "Daily swing turned" alert (`overnight_turn`) is Gann's Overnight Chart (Master Course Ch. 3), a daily swing chart held overnight; its stop 1 point beyond the last daily bottom is daily-scale (median 3.1% of price over Oct 21-29, the session signals 0.3-0.6%), so "pays more than the risk" (M-K5) put its TP1 at an old daily level (median 3.9%, the top tenth past 10.6%), offered as an Intraday trade closed at 3:45 PM. As a swing it is the Overnight method, measured and never placed. `DAILY_SCALE_SIGNALS` (`lib/scanner/intradayDisplay.ts`) holds it in `tradeHold`, so the panel, card, chart plan, bell, push and recap show it for study only, and the intraday alerts replay enters it only when a run names it in `signals`. The target code is unchanged. Daily verdicts and `STRATEGY_VERSION` don't move.
+**Daily swing signals are not intraday trades, 2026-10-29 (owner, on META: entry 623.56, stop 604.21, TP1 676.63, "Is meta primed for that move?").** The "Daily swing turned" alert (`overnight_turn`) is Gann's Overnight Chart (Master Course Ch. 3), a daily swing chart held overnight; its stop 1 point beyond the last daily bottom is daily-scale (median 3.1% of price over Oct 21-29, the session signals 0.3-0.6%), so "pays more than the risk" (M-K5) put its TP1 at an old daily level (median 3.9%, the top tenth past 10.6%), offered as an Intraday trade closed at 3:45 PM. As a swing it is the Overnight method, measured and never placed. `DAILY_SCALE_SIGNALS` (`lib/scanner/intradayDisplay.ts`) holds it in `tradeHold`, so the panel, card, chart plan, bell, push and recap show it for study only, and the intraday alerts replay enters it only when a run names it in `signals`. The target code is unchanged. Daily verdicts and `STRATEGY_VERSION` don't move. **Out of the live scan entirely, same day (owner: "Only intraday scans should populate the intraday card(s)"):** `ScannerConfig.dailyScaleSignals` is off for the live scan, so `scanIntraday` never reads the daily swing turn and it reaches no panel, card, chart, bell, push, stored row or recap; today's stored rows are skipped on the panel's list (`loadRecentSystemAlerts`). The intraday alerts replay turns it on only for a run that names it in `signals`. **The card leads with the chart's alert, same day (owner, on FAST: the card showed the held daily swing signal, stop 49.69, while the chart drew the session's trend continuation, stop 52.00, TP1 52.92, MTP 54.56; "I like the charts setup"):** one choice, `leadAlert` (`lib/setups/intraday.ts`): an alert that offers a trade (`alertOffersTrade`: not held, not a notice or reversal risk, a stop and a TP1 that pays the risk) leads, then confidence. The card, its "Trade this", the chart, the ticket's session plan and the position form read it, fresh or stored; when the lead offers no trade, nothing draws levels. Display only.
 
 **Evening reports, 2026-10-28 (owner: "Start sending the evening focus list as
 well as the daily recap ... for now, desire to run tests").** `/api/evening-report`

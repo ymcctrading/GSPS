@@ -11,35 +11,33 @@
  * trend" on 78% of the 2022 bear market's sessions and 88% of the 2025 decline,
  * while the two charts read down (2022: 58% each; 2025: 3-Day 74%, weekly 88%;
  * `replay-diagnosis/2026-10-29-six-year-rerun/LONGS-VS-SHORTS.md`), so Rule 1
- * never acted on a long, and longs bought in the four selloff windows lost more
- * than the whole six-year run.
+ * never acted on a long. (Longs bought in the four selloff windows lost more
+ * than the whole six-year run; over the whole run the drag was the shorts,
+ * below.)
  *
- * Two readings come from it:
- * - **The main trend** is the weekly chart's. The 3-Day Chart's turns inside it
- *   are the reactions Gann buys in a bull market and sells in a bear market
- *   ("stocks are a buy on a reaction of about 1 month in a bull market", Master
- *   Course p. 10, rule A). P1's market leg reads it.
- * - **Against the trade** when both charts read against it: Rule 1's two charts
- *   agree on the averages' trend. A long is then a stock that does not conform
- *   ("don't buck the trend", the 24 never-failing rules, p. 15), and a short in
- *   a market both charts read up likewise (Rule 1 is symmetric). When the
- *   charts disagree (a reaction in the main trend, or the averages' first turn
- *   against it) the stock's own charts decide, as before.
+ * The main trend is the weekly chart's; the 3-Day Chart's turns inside it are
+ * the reactions Gann buys in a bull market and sells in a bear market ("stocks
+ * are a buy on a reaction of about 1 month in a bull market", Master Course
+ * p. 10, rule A). P1's market leg reads it.
+ *
+ * Taken out, 2026-10-29: a hold of any Execute when both charts read against it
+ * (`averagesAgainst`, removed). The six-year rerun measured it holding the best longs
+ * (+0.101R with both charts down) and passing the worst shorts, since both
+ * charts turn only once most of a decline is done
+ * (`replay-diagnosis/2026-10-29-averages-trend-rerun/FINDINGS.md`). The short
+ * is now held on the stock's own monthly main trend (`mainTrend.ts`).
  *
  * Weighed against the *New Stock Trend Detector* (1936, Ch. IV, A05): "apply
  * the trend rules to each stock; do not trade from the averages", and late
  * movers top after the averages, so don't short a stock because the average
- * turned. The hold never takes a side from the averages: the stock's own
- * charts still choose it, and a late mover can still read its own trend. The
- * 1949 book is the later one and states Rule 1 first, so where the two differ
- * on a stock against a falling (rising) market, it decides.
+ * turned. The averages never choose a stock's side here.
  *
  * Designed through the three lenses (AGENTS.md):
  * 1. Gann: 45 Years Rule 1 (Tier A), the never-failing rules, Master Course
  *    p. 10; NSTD Ch. IV weighed.
  * 2. Cycles: no periodicity claim; it reads the charts' current state.
  * 3. Hermetic: Correspondence (the whole market and its stocks move as one,
- *    the part conforming to the whole) and Polarity (the short mirrors the long).
+ *    the part conforming to the whole).
  */
 
 import type { Bar } from "@/lib/types";
@@ -74,11 +72,4 @@ export function readAveragesTrend(market: Bar[]): AveragesTrend | null {
   if (span.length < MIN_AVERAGES_BARS) return null;
   const { threeDay, weekly } = computeSwingChart(span);
   return { threeDay: threeDay ?? null, weekly: weekly ?? null };
-}
-
-/** Both of Rule 1's charts read against the trade's side. */
-export function averagesAgainst(a: AveragesTrend | null | undefined, side: Side): boolean {
-  if (!a) return false;
-  const against: Side = side === "bullish" ? "bearish" : "bullish";
-  return a.threeDay === against && a.weekly === against;
 }

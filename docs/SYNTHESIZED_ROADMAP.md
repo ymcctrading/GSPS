@@ -260,8 +260,10 @@ against Gann:
      query is slow, and the database is 123 MB. One growth item:
      `visible_scan_results` went from about 1,500 rows a weekday to about
      25,000 after the member fan-out became its own queued job (2026-10-22).
-     Nothing in the app reads it, and it adds about 4 MB a weekday. A
-     retention rule is an ops decision for Chuck.
+     Nothing in the app reads it, and it added about 4 MB a weekday. Done
+     2026-10-28 (migration 0124): it is rolled up nightly into
+     `visible_scan_daily`, one row a member, setup and day, and the raw rows
+     go after 14 days.
    - Live quotes (2026-10-29): `/api/quote` shares one vendor snapshot per
      symbol per poll interval (`lib/data/sharedSnapshot.ts`) and the CDN
      caches it for that interval; before, about 17 open charts spent the
@@ -339,7 +341,7 @@ replays, running). The paid items stay parked (Part 6).
 | 4 | Risk dashboard | **Done** 2026-10-21 | |
 | 5 | Performance replay UI | **Done** 2026-10-22 | Forward-test faults fixed; its fill rate is with the Gann-rules thread |
 | 6 | Expanded indicator library | **Done** 2026-10-23 | |
-| 7 | Scale safely | First pass done; baselines re-read 2026-10-28; shared quotes and the 100-member capacity read 2026-10-29 | `visible_scan_results` retention, Chuck's call |
+| 7 | Scale safely | **Done** 2026-10-29: first pass, baselines re-read, `visible_scan_results` rolled up (0124), shared quotes, the 100-member capacity read, notification retention built (0138; its prune job was not yet scheduled in production at 04:30 UTC) | Email capacity (#561): past about 60 digest readers a day the rest read it in the bell; Resend's paid tier restores email (Part 6) |
 | 8 | Track M | Time-window mechanism done; review rows open | Gann-rules thread |
 
 ## Part 6. Waiting on Chuck's budget or accounts
@@ -348,6 +350,7 @@ replays, running). The paid items stay parked (Part 6).
 |---|---|---|
 | Paid real-time market data | Paid feed | Equity Execute verdicts without the 15-minute lag hold |
 | Vercel Pro (optional) | Paid upgrade | A higher daily deploy cap only; scheduling no longer needs it (pg_cron, #381) |
+| Resend paid tier (optional) | Paid upgrade | The evening digest by email for every member past about 60 a day (#561); without it the rest read it in the bell |
 | SMS provider (Twilio or similar) | Paid service | Text-message alerts |
 | Stripe prices | Chuck's account (Stripe charges per transaction, no fee to set up) | Subscriptions and pay-your-way checkout |
 | Test Supabase project for CI | Chuck's account (free tier may suffice) | End-to-end tests in CI |
