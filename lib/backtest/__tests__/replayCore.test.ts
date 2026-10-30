@@ -115,6 +115,18 @@ describe("bare core replay", () => {
     expect(tagged.trades.filter(isCoreTrade).every((t) => t.rulesRefused?.includes("never"))).toBe(true);
   }, 60_000);
 
+  it("opens no campaign while the stock is out of the universe, and lets an open one run", () => {
+    const plain = replayCore("UP", up, { dailyBars: up });
+    const cut = up[900].t.slice(0, 10);
+    const result = replayCore("UP", up, { dailyBars: up, inUniverse: (date) => date < cut });
+    expect(result.trades.length).toBeGreaterThan(0);
+    // Every campaign was decided on a member session (the session before its open, at the latest).
+    expect(result.trades.every((t) => t.openedAt.slice(0, 10) <= up[up.findIndex((b) => b.t.slice(0, 10) >= cut) + 1].t.slice(0, 10))).toBe(true);
+    // Those opened before the cut match the plain run, exits included.
+    const before = (ts: typeof plain.trades) => ts.filter((t) => t.openedAt.slice(0, 10) < cut).map((t) => [t.openedAt, t.closedAt, t.rMultiple]);
+    expect(before(result.trades)).toEqual(before(plain.trades));
+  }, 60_000);
+
   it("takes nothing without a monthly reading", () => {
     const short = walk(5, 15, 50, 0.01);
     expect(replayCore("S", short, { dailyBars: short }).trades.length).toBe(0);

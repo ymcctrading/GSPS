@@ -538,7 +538,9 @@ block splits them (`summariseCore`). Rules come back one at a time through
 `CoreReplayOptions.rules` ("gate" or "tag"), the "Prove each Gann rule one at a
 time" thread's ladder. The production method (`replay.ts`, the live scan) is
 unchanged, so `STRATEGY_VERSION` stays. Engineering choices are labelled in the
-module header.
+module header. The universe run's point-in-time universe (#576) reaches the core
+too (`CoreReplayOptions.inUniverse`, 2026-10-30): no campaign opens on a session
+the stock was outside the universe, while an open one runs to its exit.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
