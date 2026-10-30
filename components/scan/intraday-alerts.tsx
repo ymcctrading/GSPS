@@ -344,7 +344,7 @@ function RecentList({ recent }: { recent: RecentSystemAlert[] }) {
             </div>
             {r.type !== "reversal_risk" && (
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-                <Field label="Entry" value={r.entry != null ? formatUsd(r.entry) : "—"} />
+                <Field label="Entry" tone="accent" value={r.entry != null ? formatUsd(r.entry) : "—"} />
                 <Field label="Exit (S/L)" value={r.stop != null ? formatUsd(r.stop) : "—"} />
                 <Field label="TP1" value={r.firstTarget != null ? formatUsd(r.firstTarget) : "—"} />
                 <Field label="MTP" value={r.masterTarget != null ? formatUsd(r.masterTarget) : "—"} />
@@ -464,7 +464,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
       ) : (
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
           <Field label="Price" value={formatUsd(alert.move.current)} />
-          <Field label="Entry" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
+          <Field label="Entry" tone="accent" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
           <Field label="Exit (S/L)" value={levels.stop != null ? formatUsd(levels.stop) : "—"} />
           <Field label="TP1" value={levels.tp1 != null ? formatUsd(levels.tp1) : "—"} />
           <Field label="MTP" value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
@@ -689,11 +689,12 @@ function AuditTrail({ audit }: { audit: SymbolAudit[] }) {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, tone }: { label: string; value: string; tone?: "accent" }) {
   return (
     <div className="flex items-baseline justify-between gap-2 sm:flex-col sm:items-start sm:gap-0">
       <dt className="text-muted">{label}</dt>
-      <dd className="font-mono tabular-nums">{value}</dd>
+      {/* The entry in the chart's entry-line blue, so the card and chart match. */}
+      <dd className={cn("font-mono tabular-nums", tone === "accent" && "text-accent")}>{value}</dd>
     </div>
   );
 }
