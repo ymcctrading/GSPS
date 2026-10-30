@@ -1360,3 +1360,19 @@ by `source` before reading a difference into it). A run needs `--since` and logs
 a member-list hash every job of a split run must share. Verdicts and
 `STRATEGY_VERSION` are unchanged.
 
+
+**The dated-forecast track record, 2026-10-30 (owner: "extract the written
+track record").** `docs/GANN_FORECAST_TRACK_RECORD.md`. Gann's own Dow swing
+tables from *45 Years* (W009 Ch. VII: 465 nine-point swings, 1,425 three-day
+turns, `lib/research/dowSwingRecord.json`) are the outcome record for his 52
+published, dated industrial calls (1919-1922 from W036, 1929 from W005, 1932
+from W001; `lib/research/publishedForecasts.ts`). Scored with a same-year
+sliding-window base rate (`lib/research/forecastTrackRecord.ts`): 12 of 52 on
+the nine-point swings against 6.0 by chance (p 0.006, the reprinted years
+only), 19 of 52 on the three-day turns against 18.0 (p 0.44); the 1929
+"permanent cycle" change dates beat chance in no span. The macro cycle behind
+the 2027-2029 window (and Aug 2106, the same arithmetic) scored 10 of 40 in
+sample (to 1935, p 0.017) and 13 of 142 out of sample against 14.4 (p 0.69),
+so `TIME_LINE_RECORDS.macroCycle` stays null and the dated windows stay off
+member surfaces. Run: `docs/replay-runs/2026-10-30-forecast-track-record.json`.
+Verdicts and `STRATEGY_VERSION` are unchanged.
