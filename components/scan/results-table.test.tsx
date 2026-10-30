@@ -38,11 +38,13 @@ describe("ResultsTable", () => {
     flappyPrice = null;
   });
 
-  it("lists the levels in the order name, price, entry, exit, TP1, MTP", () => {
+  it("lists the levels in the order name, score, price, entry, exit, TP1, MTP", () => {
     render(<ResultsTable rows={[{ ...BASE_ROW, currentPrice: 101.5 }]} />);
 
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers.slice(0, 6)).toEqual(["Symbol", "Price", "Entry", "Exit (S/L)", "TP1", "MTP"]);
+    expect(headers.slice(0, 7)).toEqual(["Symbol", "Score", "Price", "Entry", "Exit (S/L)", "TP1", "MTP"]);
+    // The owner's 2026-10-29 ask: the entry in the chart's entry-line blue.
+    expect(screen.getByText("$100.00")).toHaveClass("text-accent");
     expect(screen.getByText("$100.00")).toBeInTheDocument();
     expect(screen.getByText("$95.00")).toBeInTheDocument();
     expect(screen.getByText("$110.00")).toBeInTheDocument();

@@ -1161,6 +1161,7 @@ async function main() {
                     ...(opts.pyramid !== undefined ? { pyramid: opts.pyramid } : {}),
                     ...(opts.coreShorts !== undefined ? { shorts: opts.coreShorts } : {}),
                     ...(opts.coreTrail !== undefined ? { trail: opts.coreTrail } : {}),
+                    ...membership,
                     ...(opts.ladder === "tag" || opts.ladderGate
                       ? {
                           rules: ladderMod.ladderRules(
