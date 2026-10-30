@@ -121,7 +121,8 @@ export interface LoadedPointInTime {
   departedWithShares: number;
   /**
    * Departed tickers whose bars stop more than 31 days before the day read as
-   * of, or start after it: `asof` may not have mapped them to their company.
+   * of, or start after it (and after the feed's first month): `asof` may not
+   * have mapped them to their company.
    */
   suspectBars: string[];
   /**
@@ -148,13 +149,19 @@ export async function loadPointInTimeUniverse(input: {
   const shares = new Map<string, SharesPoint[]>(input.todayShares);
   const departed = departedShares();
   for (const [s, h] of departed) if (!shares.has(s)) shares.set(s, h);
+  // The feed's own first month (the free feed starts in mid-2020): a ticker
+  // that left before it has no bars before it either, which says nothing about
+  // the mapping.
+  let feedStartMs = Infinity;
+  for (const c of candidates) if (c.asOf === null) feedStartMs = Math.min(feedStartMs, Date.parse(monthly.get(c.symbol)?.[0]?.t ?? "") || Infinity);
   const suspectBars = candidates
     .filter((c) => c.asOf !== null)
     .filter((c) => {
       const bars = monthly.get(c.symbol) ?? [];
       if (bars.length === 0) return false;
       const asOfMs = Date.parse(`${c.asOf}T00:00:00Z`);
-      return Date.parse(bars[0].t) > asOfMs || Date.parse(bars[bars.length - 1].t) < asOfMs - 62 * 86_400_000;
+      const startsLate = Date.parse(bars[0].t) > Math.max(asOfMs, feedStartMs);
+      return startsLate || Date.parse(bars[bars.length - 1].t) < asOfMs - 62 * 86_400_000;
     })
     .map((c) => c.symbol);
   const universe = buildPointInTimeUniverse({ candidates, years: yearsBetween(input.from, input.to), monthly, shares });
