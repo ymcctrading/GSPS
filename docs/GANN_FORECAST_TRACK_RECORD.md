@@ -335,3 +335,12 @@ Every planetary method tested, with its result, is now listed in
 from 2016 to 2025 (`lib/research/horaTiming.ts`), show nothing once the
 weekday is held (p 0.26 to 0.85); an apparent effect under a first null was a
 weekday pattern. Details there.
+
+## 11. The time counts in the owner's eight further videos (2026-10-30)
+
+Six counts from the videos (the square root of a pivot's price as days, a
+144-day count, Fibonacci session counts, the one-year anniversary, the Gann
+emblem and time extension), tested on his calls, the Dow's turns 1913-1948 and
+SPY's and DIA's 2016-2025: none beats chance (best p 0.016, cut-off 0.0012
+for 42 tests). `lib/research/videoTimeRules.ts`; details in
+`docs/PLANETARY_TIMING.md`.

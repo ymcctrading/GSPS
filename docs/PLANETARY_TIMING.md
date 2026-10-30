@@ -44,11 +44,18 @@ Outcomes used:
 | Planets crossing the ecliptic | latitude 0, ±2 days | 0.002 (DIA 3-day) | No; 0.061 on SPY, 0.073 on the Dow 9-pt | same |
 | Hora (planetary hours) | 12 parts sunrise to sunset, Chaldean order from the weekday's lord, New York | 0.50 | No | `horaTiming.ts`, `2026-10-30-hora-timing.json` |
 | Choghadiya (good and bad periods) | 8 parts, Amrit/Shubh/Labh good, Udveg/Kaal/Rog bad | 0.26 | No | same |
+| Square root of price as days (video yihAnZ0rFd4) | √ of a pivot's price, rounded, in calendar days, added again while within a year, ±1 day | 0.12 (SPY 3-day) | No | `videoTimeRules.ts`, `2026-10-30-video-time-rules.json` |
+| 144-day count (video wgV4N9rp-0A, title only) | 144 and 288 calendar days from a pivot, ±2 days | 0.016 (DIA major) | No; SPY 0.06 to 0.07, the Dow 0.10 or more | same |
+| Fibonacci session counts (video woXR0_nhu_g) | 21 to 377 sessions from a pivot, ±2 days | 0.19 (DIA 3-day) | No | same |
+| One-year anniversary (video woXR0_nhu_g) | the pivot's date a year on, ±2 days | 0.061 (SPY 3-day) | No; also in the yearly cycles, 0.38 on his calls | same |
+| Gann emblem (video pbrP1dnye7c) | 90/120/180/240/270/360° of a year from a pivot, and a year on, ±2 days | 0.18 | No; close to the wheel counts and 52-week divisions, 0.86 and 0.85 on his calls | same |
+| Time extension (video pbrP1dnye7c) | a swing's length projected from its end, ±2 days | 0.50 | No; marks under 1% of days | same |
 
 The modern rows (SPY and DIA 2016-2025) are `modernTiming.ts`,
 `2026-10-30-modern-timing.json`. Batch sizes and cut-offs: 21 aspect tests and
 24 event tests on the old record (45, cut-off 0.0011); 60 on SPY and DIA
-(0.00083); 6 for Hora and Choghadiya (0.0083).
+(0.00083); 6 for Hora and Choghadiya (0.0083); 42 for the video time counts
+(0.0012).
 
 ## What it adds up to
 
@@ -92,9 +99,47 @@ is added. No dated window is shown to members (the owner's "Keep it hidden",
 - The 1902 cotton, 1909 wheat and 1923 cotton trades: single trades with no
   price series here; illustrations only (`docs/GANN_FORECAST_TRACK_RECORD.md`
   §7).
-- Videos: nine described in the owner's messages are tested above. Eight more
-  (links only) are with the thread "Test the eight new Gann astrology videos",
-  which adds its rows here.
+- Videos: nine described in the owner's messages are tested above, and eight
+  more sent as links on 2026-10-30 (next section).
 - The Hora and Choghadiya article (myzodiaq.in) could not be opened from this
   environment; the standard Panchang rules were used, as stated in
   `horaTiming.ts`.
+
+## The eight further videos (2026-10-30)
+
+All eight are from one channel, and despite the astrology framing none uses a
+planet: each teaches a count of days from an important top or bottom. Three
+transcripts were read in full; YouTube's bot check refused the other five
+after those three, so for them only the title is known (their descriptions
+are course advertisements). Each rule was fixed from the video before any
+year was scored (`lib/research/videoTimeRules.ts` header), with pivots read
+only from before the date being projected. Run:
+`node scripts/video-time-rules.mjs --out docs/replay-runs/2026-10-30-video-time-rules.json`.
+
+| Video | Title | Rule tested |
+|---|---|---|
+| yihAnZ0rFd4 | Gann Square Outs: How to Find Time And Price Balance | square root of price as days |
+| wgV4N9rp-0A | Gann's Hidden Gem: The 144 Days Cycle | 144-day count (from the title) |
+| woXR0_nhu_g | Gann time squaring to predict DLF's rally | Fibonacci session counts; one-year anniversary |
+| pbrP1dnye7c | Gann price time squaring to predict Tata Steel's crash | Gann emblem; time extension |
+| U9plPZ1gIcs | Using Time Cycles to Identify Turning Points | not scored: the title gives no rule |
+| hk6dvVbcC-I | W.D. Gann Trend Reversal Technique | not scored: the title gives no rule |
+| ecnls5o40io | Gann Price Time Square in Bank Nifty | not scored: the title gives no rule |
+| -k3jYh6IE6Q | Gann Time Cycle for Intraday Trading | not scored: the title gives no rule |
+
+Result: none of the six rules beats chance on any of the seven outcome sets
+(his 52 calls, the Dow's 9-point and 3-day turns, SPY's and DIA's 3-day and
+major turns). The best is p 0.016 (the 144-day count on DIA's major turns)
+against a cut-off of 0.0012; the same count gives 0.06 to 0.07 on SPY and 0.10
+or more on the Dow. One of the 42 tests falls under 0.05, fewer than the two
+expected by chance. No rule lands on his calls more than chance (p 0.54 to
+0.97).
+
+Two limits on what the test can see. On the Dow of 1913-1948, the square root
+of the price is only 7 to 19 days, so its steps mark about half the year and
+can do little better than chance even if the idea were right; on SPY (about
+a third of days) it still shows nothing. The time extension, read only from
+swings confirmed before the year began, reaches into the year rarely (under
+1% of days), so it was scored on few dates. Pivots count only once confirmed
+(31 days after them), a look-ahead guard added at review; before it, three
+tests fell under 0.05 (best 0.030) and none passed the cut-off either.
