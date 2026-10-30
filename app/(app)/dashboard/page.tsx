@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ResultsTable } from "@/components/scan/results-table";
 import { SellSetupHelp } from "@/components/education/sell-setup-help";
@@ -16,7 +17,13 @@ import { getTrackedExecuteSetups, withDailyScanRange } from "@/lib/dashboard/tra
 import { getSavedSetupRows } from "@/lib/dashboard/savedSetups";
 import { getDashboardWatchlist } from "@/lib/dashboard/watchlist";
 import { DEFAULTS } from "@/lib/sectors";
-import { ArrowRight, Compass, Bookmark, Target } from "lucide-react";
+import { ArrowRight, Compass, Bookmark, Target, LayoutList } from "lucide-react";
+import {
+  DEFAULT_DASHBOARD_LAYOUT,
+  readDashboardLayout,
+  visibleDashboardSections,
+  type DashboardSectionId,
+} from "@/lib/dashboard/sections";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { formatOpenedAt } from "@/lib/portfolio/opened-at";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -54,7 +61,7 @@ export default async function DashboardPage() {
   const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = scans;
   const user = userResult.data.user;
 
-  const [tierSummary, trackedExecute, savedSetups, watchlist] = user
+  const [tierSummary, trackedExecute, savedSetups, watchlist, layout] = user
     ? await Promise.all([
         getTierSummaries(user.id, Boolean(practiceTierOfUser(user)), bullish, bearish),
         // Today's price and day's range, where the daily scan has the symbol,
@@ -62,41 +69,39 @@ export default async function DashboardPage() {
         getTrackedExecuteSetups(supabase, user.id).then((rows) => withDailyScanRange(rows, [...bullish, ...bearish])),
         getSavedSetupRows(supabase, Promise.resolve(scans)),
         getDashboardWatchlist(supabase, user.id),
+        // The member's choice of sections (lib/dashboard/sections.ts). A failed
+        // read shows the default layout rather than an empty page.
+        supabase
+          .from("settings")
+          .select("prefs")
+          .eq("user_id", user.id)
+          .maybeSingle()
+          .then(
+            ({ data, error }) =>
+              error ? DEFAULT_DASHBOARD_LAYOUT : readDashboardLayout((data as { prefs?: Record<string, unknown> } | null)?.prefs),
+            () => DEFAULT_DASHBOARD_LAYOUT,
+          ),
       ])
-    : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }];
+    : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }, DEFAULT_DASHBOARD_LAYOUT];
   const noviceSummary = tierSummary?.novice ?? null;
   const schoolNudge = tierSummary?.school ?? null;
 
-  return (
-    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold sm:text-2xl">Dashboard</h1>
-          <p className="text-sm text-muted">
-            {scanDate
-              ? `Daily market scan for ${scanDate}`
-              : "Building today's market scan…"}
-          </p>
-        </div>
-        <AutoScan scanDate={scanDate} />
-      </div>
+  // Each section the member can show, hide or move (lib/dashboard/sections.ts),
+  // keyed by id. Null where it has nothing to show this member.
+  const sections: Record<DashboardSectionId, ReactNode> = {
+    summary: noviceSummary && (
+      <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
+    ),
 
-      <WelcomeBanner />
+    school: schoolNudge && <SchoolNudge data={schoolNudge} />,
 
-      <RestReminder />
-
-      {noviceSummary && (
-        <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
-      )}
-
-      {schoolNudge && <SchoolNudge data={schoolNudge} />}
-
-      {/*
-        A quiet, permanent way back to the walkthrough. It sits on the Dashboard
-        rather than only in Settings because the moment someone needs it is the
-        moment they land on a screen of scores they cannot read, and that screen
-        is this one.
-      */}
+    /*
+      A quiet, permanent way back to the walkthrough. It sits on the Dashboard
+      rather than only in Settings because the moment someone needs it is the
+      moment they land on a screen of scores they cannot read, and that screen
+      is this one.
+    */
+    walkthrough: (
       <Link
         href="/welcome"
         className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent"
@@ -104,59 +109,52 @@ export default async function DashboardPage() {
         <Compass className="h-4 w-4 shrink-0" />
         New to this? Read the plain-English walkthrough of every part of GSPS.
       </Link>
+    ),
 
-      <StaleScanNotice
-        freshness={freshness}
-        scanDate={scanDate}
-        pricedBeforeSession={pricedBeforeSession}
-        scannedAt={scannedAt}
-      />
+    expectancy: <LiveExpectancyToggle />,
 
-      <LiveExpectancyToggle />
-
-      {trackedExecute.length > 0 && (
-        <div data-tour="dash-tracked-execute">
-          <CollapsibleSection
-            title="Your tracked Execute setups"
-            count={trackedExecute.length}
-            icon={<Target className="h-4 w-4 shrink-0" />}
-          >
-            <p className="mb-3 text-sm text-muted">
-              Symbols you scanned individually that currently read Execute — not part of the market-wide daily
-              scan below, so they wouldn&apos;t otherwise show up here. See{" "}
-              <Link href="/scanner" className="underline hover:text-accent">
-                Scan History
-              </Link>{" "}
-              for the full live status of everything you&apos;ve scanned.
-            </p>
-            <TrackedExecuteList initialRows={trackedExecute} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
-          </CollapsibleSection>
-        </div>
-      )}
-
-      {user && (
+    tracked: trackedExecute.length > 0 && (
+      <div data-tour="dash-tracked-execute">
         <CollapsibleSection
-          title="Saved setups"
-          count={savedSetups.length}
-          icon={<Bookmark className="h-4 w-4 shrink-0" />}
+          title="Your tracked Execute setups"
+          count={trackedExecute.length}
+          icon={<Target className="h-4 w-4 shrink-0" />}
         >
-          <SavedSetupsList initialRows={savedSetups} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
-          <Link
-            href="/dashboard/saved"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
-          >
-            Open the saved setups page
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <p className="mb-3 text-sm text-muted">
+            Symbols you scanned individually that currently read Execute — not part of the market-wide daily
+            scan, so they wouldn&apos;t otherwise show up here. See{" "}
+            <Link href="/scanner" className="underline hover:text-accent">
+              Scan History
+            </Link>{" "}
+            for the full live status of everything you&apos;ve scanned.
+          </p>
+          <TrackedExecuteList initialRows={trackedExecute} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
         </CollapsibleSection>
-      )}
+      </div>
+    ),
 
-      <DashboardWatchlist
-        initialSymbols={watchlist.symbols}
-        isDefault={watchlist.isDefault}
-        canEdit={Boolean(user)}
-      />
+    saved: user && (
+      <CollapsibleSection
+        title="Saved setups"
+        count={savedSetups.length}
+        icon={<Bookmark className="h-4 w-4 shrink-0" />}
+      >
+        <SavedSetupsList initialRows={savedSetups} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />
+        <Link
+          href="/dashboard/saved"
+          className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+        >
+          Open the saved setups page
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </CollapsibleSection>
+    ),
 
+    watchlist: (
+      <DashboardWatchlist initialSymbols={watchlist.symbols} isDefault={watchlist.isDefault} canEdit={Boolean(user)} />
+    ),
+
+    setups: (
       <div data-tour="dash-setups" className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <ReversionPreview
           direction="bullish"
@@ -174,29 +172,75 @@ export default async function DashboardPage() {
           novice={noviceSummary != null}
         />
       </div>
+    ),
 
-      {/*
-        The Buy/Sell setups above read from daily_scans, refreshed only by
-        the 6:00/9:15/9:45 scheduled scans and the evening post-close run --
-        up to hours stale between them. IntradayAlerts runs its own live scan
-        on mount and refreshes every few minutes, so it's what actually
-        answers "what's moved since the last full scan" -- see the freshness
-        gap this session traced through several reports of the dashboard
-        reading thinner/staler than a manual scan.
+    /*
+      The Buy/Sell setups read from daily_scans, refreshed only by the
+      6:00/9:15/9:45 scheduled scans and the evening post-close run -- up to
+      hours stale between them. IntradayAlerts runs its own live scan on mount
+      and refreshes every few minutes, so it's what actually answers "what's
+      moved since the last full scan" -- see the freshness gap this session
+      traced through several reports of the dashboard reading thinner/staler
+      than a manual scan.
 
-        Deliberately its own card, not merged into the Buy/Sell setups above:
-        its "confidence" is a different momentum model's score, not the
-        platform's own structural 0-9 scorecard those setups are ranked on.
-        Blending the two into one list would misrepresent one methodology's
-        read as the other's, the same reason the Signal & Regime Engine's
-        tier is shown alongside a setup's score and never folded into it.
-      */}
-      <IntradayAlerts />
+      Deliberately its own card, not merged into the Buy/Sell setups: its
+      "confidence" is a different momentum model's score, not the platform's
+      own structural 0-9 scorecard those setups are ranked on. Blending the two
+      into one list would misrepresent one methodology's read as the other's,
+      the same reason the Signal & Regime Engine's tier is shown alongside a
+      setup's score and never folded into it.
+    */
+    intraday: <IntradayAlerts />,
 
+    calendar: (
       <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <EarningsCalendar />
         <MarketNews />
       </div>
+    ),
+  };
+
+  return (
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold sm:text-2xl">Dashboard</h1>
+          <p className="text-sm text-muted">
+            {scanDate
+              ? `Daily market scan for ${scanDate}`
+              : "Building today's market scan…"}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {user && (
+            <Link
+              href="/settings#dashboard-sections"
+              className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent"
+            >
+              <LayoutList className="h-4 w-4" />
+              Choose sections
+            </Link>
+          )}
+          <AutoScan scanDate={scanDate} />
+        </div>
+      </div>
+
+      <WelcomeBanner />
+
+      <RestReminder />
+
+      {/* Fixed above every section: whether the scan is current. */}
+      <StaleScanNotice
+        freshness={freshness}
+        scanDate={scanDate}
+        pricedBeforeSession={pricedBeforeSession}
+        scannedAt={scannedAt}
+      />
+
+      {visibleDashboardSections(layout).map((id) => {
+        const node = sections[id];
+        return node ? <Fragment key={id}>{node}</Fragment> : null;
+      })}
     </div>
   );
 }

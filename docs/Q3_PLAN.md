@@ -103,7 +103,10 @@ scores P3(c). Q3 shows it.
 **Theme built 2026-10-29 (#562):** Light, Dark or Match device, kept per device
 (`lib/theme.ts`, an Appearance card in Settings), applied before paint. Kept on
 the device rather than in `settings.prefs`, so a phone and a desk screen can
-differ. Dashboard sections not started.
+differ. **Dashboard sections built 2026-10-30:** a Settings card shows, hides and
+reorders them, saved per member in `settings.prefs.dashboard`
+(`lib/dashboard/sections.ts`); the default order is the old page, Novice summary
+first. The welcome banner, rest reminder and stale-scan notice stay fixed on top.
 
 **Gann:** none. **Hermetic:** Polarity: novice and expert each get a designed view,
 not a shortened list.
@@ -115,6 +118,14 @@ not a shortened list.
   for it. Novice keeps the Guided-first layout as its default.
 
 ### 5. A weekly digest, by the bell and push first
+
+**Built 2026-10-30:** after Friday's close, inside the evening journal's existing
+cron (no new cron or Actions minutes): `lib/notifications/weeklyDigest.ts` and
+`weeklyDigestRun.ts`. The member's own trades closed this week (count, gains,
+losses, net dollars; no rate), the setups they tracked this week and where each
+stands, and the groups' strongest and weakest, with the moves since last month
+in the month's first digest. Bell and push always; email only when the member
+turned it on and within the "digest" budget, after the day's journals.
 
 **Gann:** he reviewed his charts weekly and judged the trend by the week's close
 (the weekly chart and the green/red line, `lib/gann/weeklyOneBar.ts`). A weekly
