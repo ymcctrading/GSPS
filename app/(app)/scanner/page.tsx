@@ -9,6 +9,7 @@ import { ManualScanResults } from "@/components/scan/manual-scan-results";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { ScanHistory } from "@/components/scan/scan-history";
 import { PastScans } from "@/components/scan/past-scans";
+import { GroupStandings } from "@/components/scan/group-standings";
 import { SavedSearches } from "@/components/scan/saved-searches";
 import { IndustryPicker, useIndustries } from "@/components/scan/industry-picker";
 import { MAX_SCAN_REQUESTS, SCAN_CHUNK_SIZE, chunk, resolveSelection } from "@/lib/universe/selection";
@@ -45,10 +46,11 @@ function toRow(r: PublicScanResult): ScanRow {
   };
 }
 
-type ScannerTab = "universe" | "intraday" | "history" | "past";
+type ScannerTab = "universe" | "groups" | "intraday" | "history" | "past";
 
 const TABS: { key: ScannerTab; label: string }[] = [
   { key: "universe", label: "Universe" },
+  { key: "groups", label: "Groups" },
   { key: "intraday", label: "Intraday" },
   { key: "history", label: "History" },
   { key: "past", label: "Past scans" },
@@ -153,7 +155,9 @@ export default function ScannerPage() {
         page with all three always rendered would mean scrolling past two
         scans' worth of controls to reach a read-only list. Past scans (Q2
         item 5) is the platform's own daily lists read back across two
-        dates, with the forward test's result for each Execute.
+        dates, with the forward test's result for each Execute. Groups (Q3
+        item 3) shows the industry groups by standing, read from the same
+        ranking the scan uses.
       */}
       <div className="flex gap-1.5 overflow-x-auto border-b border-border">
         {TABS.map(({ key, label }) => (
@@ -232,6 +236,8 @@ export default function ScannerPage() {
           )}
         </>
       )}
+
+      {tab === "groups" && <GroupStandings />}
 
       {tab === "intraday" && <IntradayAlerts />}
 
