@@ -119,6 +119,14 @@ not a shortened list.
 
 ### 5. A weekly digest, by the bell and push first
 
+**Built 2026-10-30:** after Friday's close, inside the evening journal's existing
+cron (no new cron or Actions minutes): `lib/notifications/weeklyDigest.ts` and
+`weeklyDigestRun.ts`. The member's own trades closed this week (count, gains,
+losses, net dollars; no rate), the setups they tracked this week and where each
+stands, and the groups' strongest and weakest, with the moves since last month
+in the month's first digest. Bell and push always; email only when the member
+turned it on and within the "digest" budget, after the day's journals.
+
 **Gann:** he reviewed his charts weekly and judged the trend by the week's close
 (the weekly chart and the green/red line, `lib/gann/weeklyOneBar.ts`). A weekly
 review fits the method better than a stream of signals.

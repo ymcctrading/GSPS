@@ -40,6 +40,8 @@ export interface KeyNotice {
   symbol: string;
   title: string;
   body: string;
+  /** A shorter text for the push, when the bell's is long; the push uses `body` otherwise. */
+  pushBody?: string;
   /** Where the push opens. A path on this site. */
   url: string;
   /** Replaces an earlier push with the same tag on the device. */
@@ -84,7 +86,7 @@ export async function deliverKeyNotice(
     if (await pushWanted(service, profileId, notice.verdict === "Summary")) {
       const result = await sendPushToProfile(service, profileId, {
         title: notice.title,
-        body: notice.body,
+        body: notice.pushBody ?? notice.body,
         url: notice.url,
         tag: notice.tag,
       });
