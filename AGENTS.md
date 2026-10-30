@@ -1478,7 +1478,7 @@ strength rank's peers are each month's members (`buildUniverseStrength`'s
 `fetch-point-in-time-shares.yml` into `lib/universe/pointInTimeShares.json`;
 until that file holds them, departed names fail closed and only the
 grew-into-the-list half of the bias is removed. Engineering choices, labelled:
-yearly on 1 January (a year with no close before it, as on the free feed, which starts in mid-2020, is read the month after its first bar and counts from that day), the 18 months, the S&P 500 as the candidate list (a past
+yearly on 1 January (a year with no close before it, as on the free feed, which starts in mid-2020, is read the month after its first bar and counts from that day; so is a listing or spinoff whose first bar falls inside the year), the 18 months, the S&P 500 as the candidate list (a past
 large cap never in it and small today is still missed). Stated exceptions: the
 intraday profile and `/api/backtest` (a person's named symbols, inside the
 route's 60 s) read no point-in-time universe; the live scan reads today's list,

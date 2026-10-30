@@ -216,6 +216,7 @@ function yearReading(shares: SharesPoint[] | undefined, bars: readonly Bar[], ye
   if (!first) return reading;
   const y = Number(first.t.slice(0, 4));
   const m = Number(first.t.slice(5, 7));
+  // A December first bar: the next 1 January reads it.
   if (m === 12) return reading;
   return marketCapAt(shares, bars, `${y}-${String(m + 1).padStart(2, "0")}-01`);
 }

@@ -11,7 +11,7 @@ import {
   pointInTimeCandidates,
   yearsBetween,
 } from "@/lib/universe/pointInTime";
-import { departedShares, memberListHash, monthlyReadStart } from "@/lib/backtest/pointInTime";
+import { departedShares, memberListHash, monthlyReadStart, suspectDepartedBars } from "@/lib/backtest/pointInTime";
 
 function month(ym: string, c: number, v = 1_000_000): Bar {
   return { t: `${ym}-01T05:00:00Z`, o: c, h: c, l: c, c, v };
@@ -143,6 +143,28 @@ describe("buildPointInTimeUniverse", () => {
     expect(isPointInTimeMember(late, "LATE", "2021-01-04")).toBe(true);
   });
 
+  it("reads a December first bar on the next 1 January, and a late reading's stale count as no membership", () => {
+    const u2 = buildPointInTimeUniverse({
+      candidates: [
+        { symbol: "DEC", asOf: null, source: "today" },
+        { symbol: "STALE", asOf: null, source: "today" },
+      ],
+      years: [2020, 2021],
+      monthly: new Map([
+        ["DEC", months("2020-12", [30, 31])],
+        ["STALE", months("2020-07", [30, 31, 32])],
+      ]),
+      shares: new Map([
+        ["DEC", [{ asOf: "2019-09-30", filed: "2019-11-01", shares: 1_000_000_000 }]],
+        ["STALE", [{ asOf: "2018-09-30", filed: "2018-11-01", shares: 1_000_000_000 }]],
+      ]),
+    });
+    expect(u2.readings.get("DEC")?.get(2020)?.reason).toBe("no_close");
+    expect([...(u2.members.get("DEC") ?? [])]).toEqual([2021]);
+    expect(u2.readings.get("STALE")?.get(2020)?.reason).toBe("stale_shares");
+    expect(u2.members.has("STALE")).toBe(false);
+  });
+
   it("leaves out a candidate with no share count, and says why", () => {
     expect(u.members.has("NOSHARES")).toBe(false);
     const lines = describePointInTimeUniverse(u);
@@ -169,6 +191,25 @@ describe("the backtest's loader", () => {
     expect(memberListHash(["A", "B"])).toBe(memberListHash(["A", "B"]));
     expect(memberListHash(["A", "B"])).not.toBe(memberListHash(["B", "A"]));
     expect(memberListHash(["A", "B"])).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it("flags a departed ticker's bars only when they stop early or start after the feed did", () => {
+    const candidates = [
+      { symbol: "NOW", asOf: null, source: "today" as const },
+      { symbol: "EARLY", asOf: "2020-03-01", source: "history" as const },
+      { symbol: "ENDED", asOf: "2023-06-01", source: "history" as const },
+      { symbol: "LATESTART", asOf: "2022-06-01", source: "history" as const },
+    ];
+    const monthly = new Map([
+      ["NOW", months("2020-07", [1, 2, 3])],
+      // Left before the feed's first month: bars start with the feed.
+      ["EARLY", months("2020-07", [1, 2, 3])],
+      // Bars stop a year before the day read as of.
+      ["ENDED", months("2020-07", [1, 2, 3])],
+      // Bars start after it left: another company.
+      ["LATESTART", months("2024-01", [1, 2, 3])],
+    ]);
+    expect(suspectDepartedBars(candidates, monthly)).toEqual(["ENDED", "LATESTART"]);
   });
 
   it("reads the departed tickers' stored counts", () => {

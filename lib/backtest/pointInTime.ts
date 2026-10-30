@@ -96,6 +96,31 @@ async function fetchWithRetry<T>(read: () => Promise<T>, symbol: string): Promis
   throw new Error(`Point-in-time universe: monthly bars for ${symbol} failed: ${last instanceof Error ? last.message : String(last)}`);
 }
 
+/**
+ * Departed tickers whose bars stop more than two months before the day read as
+ * of, or start after it and after the feed's own first month (the free feed
+ * starts in mid-2020, so a ticker that left before then has no earlier bars
+ * either, which says nothing about the mapping). Logging only.
+ */
+export function suspectDepartedBars(candidates: readonly Candidate[], monthly: ReadonlyMap<string, readonly Bar[]>): string[] {
+  let feedStartMs = Infinity;
+  for (const c of candidates) {
+    const first = c.asOf === null ? monthly.get(c.symbol)?.[0] : undefined;
+    if (first) feedStartMs = Math.min(feedStartMs, Date.parse(first.t));
+  }
+  if (!Number.isFinite(feedStartMs)) feedStartMs = -Infinity;
+  return candidates
+    .filter((c) => c.asOf !== null)
+    .filter((c) => {
+      const bars = monthly.get(c.symbol) ?? [];
+      if (bars.length === 0) return false;
+      const asOfMs = Date.parse(`${c.asOf}T00:00:00Z`);
+      const startsLate = Date.parse(bars[0].t) > Math.max(asOfMs, feedStartMs);
+      return startsLate || Date.parse(bars[bars.length - 1].t) < asOfMs - 62 * 86_400_000;
+    })
+    .map((c) => c.symbol);
+}
+
 /** A short fingerprint of the member list, so the jobs of a split run can be checked to have read the same one. */
 export function memberListHash(symbols: readonly string[]): string {
   let h = 2166136261;
@@ -149,21 +174,7 @@ export async function loadPointInTimeUniverse(input: {
   const shares = new Map<string, SharesPoint[]>(input.todayShares);
   const departed = departedShares();
   for (const [s, h] of departed) if (!shares.has(s)) shares.set(s, h);
-  // The feed's own first month (the free feed starts in mid-2020): a ticker
-  // that left before it has no bars before it either, which says nothing about
-  // the mapping.
-  let feedStartMs = Infinity;
-  for (const c of candidates) if (c.asOf === null) feedStartMs = Math.min(feedStartMs, Date.parse(monthly.get(c.symbol)?.[0]?.t ?? "") || Infinity);
-  const suspectBars = candidates
-    .filter((c) => c.asOf !== null)
-    .filter((c) => {
-      const bars = monthly.get(c.symbol) ?? [];
-      if (bars.length === 0) return false;
-      const asOfMs = Date.parse(`${c.asOf}T00:00:00Z`);
-      const startsLate = Date.parse(bars[0].t) > Math.max(asOfMs, feedStartMs);
-      return startsLate || Date.parse(bars[bars.length - 1].t) < asOfMs - 62 * 86_400_000;
-    })
-    .map((c) => c.symbol);
+  const suspectBars = suspectDepartedBars(candidates, monthly);
   const universe = buildPointInTimeUniverse({ candidates, years: yearsBetween(input.from, input.to), monthly, shares });
   const peers = new Map([...monthly].filter(([s]) => universe.members.has(s)));
   const strength = buildUniverseStrength(peers, (s, month) => isPointInTimeMember(universe, s, `${month}-01`));
