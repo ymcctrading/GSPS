@@ -61,6 +61,7 @@ export function intradayLevels(alert: Alert): SetupLevels {
 type OfferFields = {
   type: Alert["type"];
   againstDailyTrend?: boolean;
+  reactionOverbalanced?: boolean;
   againstMainTrend?: boolean;
   riskUnderPoint?: boolean;
 };
