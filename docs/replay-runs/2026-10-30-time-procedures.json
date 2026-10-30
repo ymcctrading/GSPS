@@ -1,0 +1,150 @@
+{
+ "run": "time-procedures",
+ "generated": "2026-10-30",
+ "module": "lib/research/timeProcedures.ts",
+ "heldOut": {
+  "firstIssue": "2016-12",
+  "lastIssue": "2025-11"
+ },
+ "tests": 14,
+ "cutoff": 0.00357,
+ "turns": [
+  {
+   "rule": "A",
+   "symbol": "DIA",
+   "windows": 45,
+   "conflicts": 0,
+   "hits": 2,
+   "expected": 1.2943,
+   "p": 0.38173
+  },
+  {
+   "rule": "A",
+   "symbol": "SPY",
+   "windows": 55,
+   "conflicts": 0,
+   "hits": 3,
+   "expected": 2.52135,
+   "p": 0.47398
+  },
+  {
+   "rule": "A0",
+   "symbol": "DIA",
+   "windows": 219,
+   "conflicts": 20,
+   "hits": 16,
+   "expected": 9.1806,
+   "p": 0.01175
+  },
+  {
+   "rule": "A0",
+   "symbol": "SPY",
+   "windows": 210,
+   "conflicts": 20,
+   "hits": 10,
+   "expected": 9.7624,
+   "p": 0.52757
+  },
+  {
+   "rule": "B",
+   "symbol": "DIA",
+   "windows": 5,
+   "conflicts": 0,
+   "hits": 1,
+   "expected": 0.16545,
+   "p": 0.16549
+  },
+  {
+   "rule": "B",
+   "symbol": "SPY",
+   "windows": 5,
+   "conflicts": 0,
+   "hits": 1,
+   "expected": 0.2564,
+   "p": 0.24129
+  },
+  {
+   "rule": "C",
+   "symbol": "DIA",
+   "windows": 0,
+   "conflicts": 0,
+   "hits": 0,
+   "expected": 0,
+   "p": 1
+  },
+  {
+   "rule": "C",
+   "symbol": "SPY",
+   "windows": 0,
+   "conflicts": 0,
+   "hits": 0,
+   "expected": 0,
+   "p": 1
+  }
+ ],
+ "overlays": [
+  {
+   "rule": "A",
+   "symbol": "DIA",
+   "trades": 25,
+   "mean": -0.00874,
+   "controlTrades": 152,
+   "controlMean": 0.00139,
+   "p": 0.70171
+  },
+  {
+   "rule": "A",
+   "symbol": "SPY",
+   "trades": 30,
+   "mean": -0.01175,
+   "controlTrades": 151,
+   "controlMean": 0.00253,
+   "p": 0.80821
+  },
+  {
+   "rule": "B",
+   "symbol": "DIA",
+   "trades": 2,
+   "mean": 0.08273,
+   "controlTrades": 152,
+   "controlMean": 0.00139,
+   "p": 0.0008
+  },
+  {
+   "rule": "B",
+   "symbol": "SPY",
+   "trades": 2,
+   "mean": -0.01325,
+   "controlTrades": 151,
+   "controlMean": 0.00253,
+   "p": 0.54212
+  },
+  {
+   "rule": "C",
+   "symbol": "DIA",
+   "trades": 0,
+   "mean": 0,
+   "controlTrades": 152,
+   "controlMean": 0.00139,
+   "p": 1
+  },
+  {
+   "rule": "C",
+   "symbol": "SPY",
+   "trades": 0,
+   "mean": 0,
+   "controlTrades": 151,
+   "controlMean": 0.00253,
+   "p": 1
+  }
+ ],
+ "verdicts": {
+  "A": "refuted",
+  "A0": "refuted",
+  "B": "not testable",
+  "C": "not testable",
+  "D on A": "refuted",
+  "D on B": "not testable",
+  "D on C": "not testable"
+ }
+}

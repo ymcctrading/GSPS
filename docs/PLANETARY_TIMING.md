@@ -44,11 +44,19 @@ Outcomes used:
 | Planets crossing the ecliptic | latitude 0, ±2 days | 0.002 (DIA 3-day) | No; 0.061 on SPY, 0.073 on the Dow 9-pt | same |
 | Hora (planetary hours) | 12 parts sunrise to sunset, Chaldean order from the weekday's lord, New York | 0.50 | No | `horaTiming.ts`, `2026-10-30-hora-timing.json` |
 | Choghadiya (good and bad periods) | 8 parts, Amrit/Shubh/Labh good, Udveg/Kaal/Rog bad | 0.26 | No | same |
+| *Super Timing* figure (Walker) | a trine, plus a third body conjunct one end, or square or opposite one end with balanced orbs; 5° orb, Sun to Pluto | 0.25 (SPY 3-day) | No; marks 50-62% of days | `superTiming.ts`, `2026-10-30-super-timing.json` |
+| *Super Timing* figure with the Moon as timer | the figure, and the Moon trine a body and square or opposite a figure body, orbs balanced within 2°; 7° Moon orb | 0.14 (DIA major) | No | same |
+| Jupiter's ingress (Walker) | from Jupiter entering a sign to leaving its first degree, ±2 days | 0.011 (SPY 3-day), 0.048 (Dow 3-day) | No | same |
+| Jupiter's return to a turn's degree (Walker's "once only cycle") | Jupiter within 0.5° of where it stood on one of the last 12 known turns, 60+ days later | 0.26 | No | same |
+| Mars opposite its place at the last pivot, near the year's high or low (Rule C, frozen with a kill criterion) | geocentric Mars at noon on the latest confirmed pivot, every exact opposition next month, month-end close within 2% of the 252-session extreme | none issued on SPY or DIA 2016-2025 | Not testable as written | `timeProcedures.ts`, `2026-10-30-time-procedures.json` |
+| **Combinations, chosen then tested** | every pair and triple of 17 rules (the aspects, the event kinds, the time of year, the Square of Nine in days, the wheel counts and the four above), and "at least k of 17"; chosen on the Dow 1913-1930, scored on the Dow 1931-1948 and SPY/DIA 2016-2025 | 0.008 (DIA 3-day) | **No** | `combinationTest.ts`, `2026-10-30-combination-test.json` |
 
 The modern rows (SPY and DIA 2016-2025) are `modernTiming.ts`,
 `2026-10-30-modern-timing.json`. Batch sizes and cut-offs: 21 aspect tests and
 24 event tests on the old record (45, cut-off 0.0011); 60 on SPY and DIA
-(0.00083); 6 for Hora and Choghadiya (0.0083).
+(0.00083); 6 for Hora and Choghadiya (0.0083); 28 for *Super Timing* (4 rules
+on the calls, the Dow's two turn sets and SPY/DIA's four, 0.0018); 18 for the
+combinations (3 picks on 6 unseen outcome sets, 0.0028).
 
 ## What it adds up to
 
@@ -65,6 +73,34 @@ The modern rows (SPY and DIA 2016-2025) are `modernTiming.ts`,
   season, so any weekday pattern in when the high and low print passes that
   null. With the weekday held (each session takes the turn times of another
   session on the same weekday), nothing remains (p 0.26 to 0.85).
+- ***Super Timing* (Myles Wilson Walker, 1999), read in full from the scan.**
+  Its formula (p.149): a trine must be present, with a conjunction at one
+  end, or linked by a square or an opposition (one planet in both), the
+  aspects "balanced" (equal orbs, "balanced by 5*"); the Moon "acts as the
+  timer"; Jupiter's ingress triggers a change of trend; and a planet's return
+  to the degree of an earlier turn on its retrograde loop marks the next
+  ("once only cycle"). Each was fixed as a rule before scoring and checked
+  against the book's own dates first (the figure is found on 4 Dec 1926 and
+  8 Sep 1927 as the book reads them; its Moon positions for 8 Sep 1927 match
+  the ephemeris a day and a half earlier, so its chart times differ). None
+  beats chance on any record. The figure marks most days of the year, so it
+  cannot pick out a turn; the book's examples are a handful of trades read
+  after the fact. Its price methods (the hexagon chart and its "1908"
+  targets) are price, not time, and are not tested here. Its "clock"
+  sequence (the next planet in line features in the next turn) it gives no
+  fixed rule for, so it is not built.
+- **Combinations (the owner, 2026-10-30: "a combination of rules that must
+  align, coupled with a time of year or square of 9").** 821 combinations;
+  219 mark enough days to score. Chosen on the Dow's 9-point turns 1913-1930:
+  7 of the 219 reach p below 0.05 there, about what chance alone gives (11),
+  and none below 0.01. The three best (stations + latitude + Square of Nine;
+  stations + latitude; declination + Square of Nine + wheel) were then scored
+  unchanged on the Dow 1931-1948 and SPY/DIA 2016-2025: none holds (best p
+  0.008 on DIA's 3-day turns, against 0.0028, and 0.73 on the Dow's 9-point
+  turns). They do not meet his calls either (3 of 52 against 5.4 expected).
+  The book's own combination (figure with the Moon) ranks 17th of 219 at its
+  best (p 0.13). So combining the rules does not reproduce his results, on
+  the data here.
 - **The paid indicators' event kinds** (New and Full Moons, ingresses,
   retrogrades, Mercury's speed, declination, latitude, apogee and perigee)
   were tested without buying them. None beats chance on any record. Bayer's

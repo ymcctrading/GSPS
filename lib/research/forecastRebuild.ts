@@ -209,7 +209,11 @@ export interface PooledDayScore {
  * circular shift of the same days round the year, pooled by drawing one
  * random shift per year (`DRAWS`, seeded). Shared by every day-set test.
  */
-export function scoreYearDays(input: { id: string; days: number[]; targets: YearTargets }[], seed = 20261030): PooledDayScore {
+export function scoreYearDays(
+  input: { id: string; days: number[]; targets: YearTargets }[],
+  seed = 20261030,
+  draws = DRAWS,
+): PooledDayScore {
   const per = input.map(({ id, days, targets: t }) => {
     const shifts = Array.from({ length: t.len }, (_, k) => hitsAt(days, t, k));
     return { id, t, days, observed: shifts[0], shifts };
@@ -229,7 +233,7 @@ export function scoreYearDays(input: { id: string; days: number[]; targets: Year
   const obsTurns = years.reduce((a, y) => a + y.turns, 0);
   let geCalls = 0;
   let geTurns = 0;
-  for (let i = 0; i < DRAWS; i++) {
+  for (let i = 0; i < draws; i++) {
     let c = 0;
     let tt = 0;
     for (const p of per) {
@@ -246,13 +250,13 @@ export function scoreYearDays(input: { id: string; days: number[]; targets: Year
       hits: obsCalls,
       total: years.reduce((a, y) => a + y.callsTotal, 0),
       expected: years.reduce((a, y) => a + y.callsExpected, 0),
-      p: (geCalls + 1) / (DRAWS + 1),
+      p: (geCalls + 1) / (draws + 1),
     },
     turns: {
       hits: obsTurns,
       total: years.reduce((a, y) => a + y.turnsTotal, 0),
       expected: years.reduce((a, y) => a + y.turnsExpected, 0),
-      p: (geTurns + 1) / (DRAWS + 1),
+      p: (geTurns + 1) / (draws + 1),
     },
   };
 }

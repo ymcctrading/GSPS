@@ -1413,3 +1413,16 @@ new ones there. `lib/research/horaTiming.ts` (15-minute high and low times,
 `intradayTurnTimes.json`): with the weekday held, nothing (p 0.26-0.85). A
 first null that randomised the weekday's lord gave p below 0.001, a weekday
 effect it cannot separate from the planetary hour; both are in the run.
+**Super Timing, combinations and disprovable procedures, same day.** Walker's
+*Super Timing* read in full from the Drive scan; its four timing rules
+(`lib/research/superTiming.ts`, 28 tests) beat chance nowhere. The combination
+test (`combinationTest.ts`, 17 rules, 821 sets, chosen on the Dow 1913-1930,
+scored on 1931-1948 and SPY/DIA 2016-2025) finds nothing that holds unseen.
+Owner: "Do not defend a supposed secret. Define a procedure that new evidence
+is allowed to disprove." `timeProcedures.ts` freezes the shared
+reconstruction's Rules A to D with kill criteria written before scoring: A
+and D refuted on SPY/DIA 2016-2025, B and C almost never fire as written (not
+testable). Forward projections go to `timeProcedureLog.json` each month-end
+(`scripts/time-procedures-issue.mjs`), append-only, reviewed Oct 2028. The
+rules' own Dow 1913-1948 span needs daily Dow closes the repo lacks (asked of
+the owner). Write-up `docs/GANN_FORECAST_TRACK_RECORD.md` §11. Research only.
