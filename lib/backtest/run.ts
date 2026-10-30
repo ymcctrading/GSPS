@@ -60,6 +60,7 @@ import { RECLAIM_POINTS } from "@/lib/gann/stopBreach";
 import { monthlyChartFrom } from "@/lib/scan/entrySelection";
 import { YEAR_COUNT_MONTHLY_YEARS, longMonthlyWindow } from "@/lib/gann/secondaryTime";
 import { replayIntraday } from "./replayIntraday";
+import { replayCore, summariseCore, type CoreSummary } from "./replayCore";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import { monteCarloResample, type MonteCarloSummary } from "./monteCarlo";
 
@@ -149,7 +150,15 @@ export interface BacktestRequest {
    * `useProductionStop`, `entryRule`, `exitRule` and `pyramid`, and its trades
    * are unscored. Nothing a person sees uses it.
    */
-  profile?: "swing" | "intraday";
+  profile?: "swing" | "intraday" | "core";
+  /**
+   * Under the core profile (`lib/backtest/replayCore.ts`, the bare Gann core
+   * measured per campaign; daily bars only), whether shorts are taken in a
+   * monthly downtrend. Default true. `pyramid` defaults to true there.
+   */
+  coreShorts?: boolean;
+  /** Under the core profile, how the stop trails (`CoreReplayOptions.trail`). */
+  coreTrail?: "weeklySwing" | "eachWeek";
   /**
    * Under the intraday profile, close what is left of each trade at the
    * session's last bar, as the Intraday style does by default
@@ -301,7 +310,9 @@ export interface BacktestReport {
   /** Echoes the request: points a close had to clear a broken stop by (3 is the live figure). */
   reclaimPoints: number;
   /** Echoes the request: which rule set walked the bars. */
-  profile: "swing" | "intraday";
+  profile: "swing" | "intraday" | "core";
+  /** Under the core profile: the campaigns' whole-line and first-lot figures (`summariseCore`). */
+  core?: CoreSummary;
   /** Echoes the request: whether the intraday profile closed trades at the session's end. */
   sessionClose: boolean;
   /** Echoes the request: whether the intraday profile sold 60% at the first target. */
@@ -557,7 +568,12 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     reactionEntry,
     sessionPlans,
     tradeStyle,
+    coreShorts,
+    coreTrail,
   } = request;
+  if (profile === "core" && timeframe !== "1Day") {
+    throw new Error("profile \"core\" walks daily bars; ask for timeframe 1Day");
+  }
   // Rejected before any fetch, so a misspelt rule fails at once rather than
   // as every symbol skipped (replay() throws the same error per symbol).
   if (resolveDisableExits(disableExits, exitRule ?? LIVE_EXIT_RULE).size > 0 && profile === "intraday") {
@@ -602,7 +618,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
   // Its monthly bars too, to date the bull market for Gann's weak stocks.
   const market = await fetchSeries("SPY", timeframe, true).catch(() => undefined);
   // The universe's monthly bars once, for Gann's relative strength rank (S6).
-  const universeStrength = profile === "intraday" ? null : await fetchReplayUniverseStrength();
+  const universeStrength = profile === "swing" ? await fetchReplayUniverseStrength() : null;
 
   for (const symbol of symbols) {
     try {
@@ -634,7 +650,16 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
         ? { sharesHistory: reference.history, inception: reference.reference.inception, name: reference.reference.name }
         : undefined;
       results.push(
-        profile === "intraday"
+        profile === "core"
+          ? replayCore(symbol, bars, {
+              dailyBars: daily,
+              monthlyBars: series.monthlyYearCount ?? series.monthly,
+              ...(costPerShare !== undefined ? { costPerShare } : {}),
+              ...(pyramid !== undefined ? { pyramid } : {}),
+              ...(coreShorts !== undefined ? { shorts: coreShorts } : {}),
+              ...(coreTrail !== undefined ? { trail: coreTrail } : {}),
+            })
+          : profile === "intraday"
           ? replayIntraday(symbol, bars, {
               ...(costPerShare !== undefined ? { costPerShare } : {}),
               ...(reclaimPoints !== undefined ? { reclaimPoints } : {}),
@@ -771,6 +796,7 @@ export function buildReport(
     disableExits: [...resolveDisableExits(disableExits)],
     reclaimPoints,
     profile,
+    ...(profile === "core" ? { core: summariseCore(run.overall.trades) } : {}),
     sessionClose: profile === "intraday" && sessionClose,
     scaleOut: profile !== "intraday" || scaleOut,
     reactionEntry: profile === "intraday" && reactionEntry,

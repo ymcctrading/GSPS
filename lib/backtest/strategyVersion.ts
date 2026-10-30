@@ -1068,4 +1068,12 @@
 // held to Watch (`applyMarketTrendHold`, `averagesTrend.ts`), shorts mirrored,
 // and P1's market leg reads the averages' weekly chart, not `readGannTrend`.
 // Live verdicts and replay buckets move.
-export const STRATEGY_VERSION = "2026-10-29-gann-averages-trend";
+// 2026-10-29-gann-main-trend-shorts (six-year rerun on the version above,
+// replay-diagnosis/2026-10-29-averages-trend-rerun: Execute -0.081R against
+// -0.055R; the market-trend hold held the best longs and passed the worst
+// shorts; owner: "Correct"). The market-trend hold is taken out, and a short
+// Execute is held to Watch unless the stock's own monthly swing chart reads its
+// main trend down (`applyMainTrendHold`, `mainTrend.ts`; Master Course GA-2/3,
+// Ch. 1's Vanadium "don't short since main trend still up"). Longs unchanged.
+// Live verdicts and replay buckets move.
+export const STRATEGY_VERSION = "2026-10-29-gann-main-trend-shorts";

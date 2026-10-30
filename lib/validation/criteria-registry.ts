@@ -562,6 +562,21 @@ const SCAN_SCORE: RegisteredCriterion[] = [
 /** Scored in the past, kept for the historical record. See `EvidenceStatus`. */
 const RETIRED: RegisteredCriterion[] = [
   {
+    id: "marketTrend",
+    family: "scoreHold",
+    source: "lib/gann/averagesTrend.ts (a hold from 2026-10-29 to its removal the same day)",
+    label: "Market's trend with the trade",
+    expectedSign: "unknown",
+    evidence: "retired",
+    note:
+      "Held an Execute to Watch when SPY's 3-Day and weekly charts both read against it (45 Years Rule 1). " +
+      "The six-year rerun on 2026-10-29-gann-averages-trend measured Execute at -0.081R [-0.140, -0.021] " +
+      "(n 1,304) against -0.055R before, and over all trades the longs it held made +0.101R (n 6,328), " +
+      "the best longs, while the shorts it held were the least bad (-0.053R): by the time both charts turn, " +
+      "most of the move is done (replay-diagnosis/2026-10-29-averages-trend-rerun). Replaced by `mainTrend`.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "stopRoom",
     family: "scanScore",
     source: "lib/scoring/score.ts (scored until 2026-10-16)",
@@ -1119,17 +1134,18 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
-    id: "marketTrend",
+    id: "mainTrend",
     family: "scoreHold",
-    source: "lib/gann/averagesTrend.ts",
-    label: "Market's trend with the trade",
+    source: "lib/gann/mainTrend.ts",
+    label: "Main trend down before a sale",
     expectedSign: "unknown",
     evidence: "unmeasured",
     note:
-      "2026-10-29 (six-year rerun's long/short diagnosis): an Execute is held to Watch when the averages' (SPY's) " +
-      "3-Day and weekly charts both read against it: determine the averages' trend with the 3-Day and swing " +
-      "charts and trade stocks that conform (45 Years in Wall Street, 1949, Rule 1). Appended only when it holds, " +
-      "so it is failed by construction whenever present.",
+      "2026-10-29 (owner, after the six-year rerun: shorts -0.079R over 30,002 trades): a short Execute is " +
+      "held to Watch unless the stock's own monthly swing chart reads its main trend down. The monthly " +
+      "chart decides the main trend (Master Course GA-2/3), and the method does not short while it is up (Master " +
+      "Course Ch. 1, 1954, Vanadium). Longs are not held. Appended only when it holds, so it is failed by " +
+      "construction whenever present.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {

@@ -10,7 +10,7 @@
  * stopgap.
  */
 
-import { averagesAgainst, type AveragesTrend } from "@/lib/gann/averagesTrend";
+import { shortAgainstMainTrend } from "@/lib/gann/mainTrend";
 import type { BreakawayReading } from "@/lib/gann/breakaway";
 import { CULMINATION_SECTION, type CampaignLedger, type MonthlyBreakWarning } from "@/lib/gann/campaignLedger";
 import type { DistributionStanding } from "@/lib/gann/distribution";
@@ -981,30 +981,31 @@ export function applyCampaignSectionHold(
 }
 
 /**
- * 45 Years Rule 1 (1949, Ch. II p. 6): determine the averages' trend with the
- * 3-Day Chart and the swing chart and trade stocks that conform; "don't buck
- * the trend" (the never-failing rules, p. 15). An Execute is held to Watch when
- * the averages' (SPY's) 3-Day and weekly charts both read against it, on the
- * live scan and the replay alike (`averagesTrend.ts`). The side still comes
- * from the stock's own charts, never from the averages (NSTD Ch. IV). With no
- * reading (crypto, or too little history) nothing is held.
+ * Gann does not sell short while the stock's main trend is up ("don't short
+ * since main trend still up", Master Course Ch. 1, 1954; "never buck the
+ * trend"), and decides the main trend on the monthly chart (GA-2/3). A short
+ * Execute is held to Watch unless the stock's own monthly swing chart reads
+ * down (`mainTrend.ts`), on the live scan and the replay alike; a long is not
+ * mirrored (see that module). Replaced, 2026-10-29, the market-trend hold read
+ * on the averages, which the six-year rerun measured holding the best longs and
+ * passing the worst shorts.
  */
-export function applyMarketTrendHold(
+export function applyMainTrendHold(
   decision: ScanDecision,
-  averages: AveragesTrend | null | undefined,
+  mainTrend: "bullish" | "bearish" | null | undefined,
   direction: "bullish" | "bearish" | "none",
 ): ScanDecision {
-  if (decision.outputState !== "Execute" || direction === "none" || !averagesAgainst(averages, direction)) return decision;
+  if (decision.outputState !== "Execute" || !shortAgainstMainTrend(mainTrend, direction)) return decision;
   return {
     ...decision,
     outputState: "Watch",
     breakdown: [
       ...decision.breakdown,
       {
-        key: "marketTrend",
-        criterion: "Market's trend with the trade",
+        key: "mainTrend",
+        criterion: "Main trend down before a sale",
         passed: false,
-        note: `The market's daily and weekly swings both point ${direction === "bullish" ? "down" : "up"}, against this ${direction === "bullish" ? "buy" : "sale"}. Held from Execute to Watch until either turns.`,
+        note: `The stock's monthly chart ${mainTrend === "bullish" ? "still reads its main trend up" : "has not turned its main trend down"}, so this sale is held from Execute to Watch until it does.`,
       },
     ],
   };

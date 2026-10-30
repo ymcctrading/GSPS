@@ -3771,8 +3771,56 @@ held: drift −0.1% a day 67/22%, 0 42/44%, +0.1% 19/69%; about 0.1 ms a read.
 The charts walk the year before the last session read (`AVERAGES_WINDOW_DAYS`,
 an engineering choice), so the live scan's 400 days and a replay's whole run read
 the same span.
-`STRATEGY_VERSION` is `2026-10-29-gann-averages-trend`; Execute and the 7/4
+`STRATEGY_VERSION` was `2026-10-29-gann-averages-trend`.
+**Taken out the same day, and shorts held on the main trend (owner: "Correct",
+on the rerun, `/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/FINDINGS.md`).**
+The hold above measured worse: Execute −0.081R [−0.140, −0.021] (n 1,304)
+against −0.055R before. Over all 63,678 trades, longs made +0.036R and shorts
+lost −0.079R (−2,381R), and the hold held the best longs (+0.101R with both of
+SPY's charts down) and passed the worst shorts; both charts turn only once most
+of a decline is done. So the hold is gone (live scan, replay, intraday alerts
+and their replay; the intraday scan no longer reads SPY), and P1's market leg
+still reads the averages' weekly chart. In its place, Gann's own rule for the
+short: the monthly chart decides the main trend (Master Course GA-2/3), and he
+does not sell short while it is up (Ch. 1, 1954, Vanadium: "don't short since
+main trend still up"; Sell 3 is the secondary rally after it turns). A short
+Execute is held to Watch unless the stock's own monthly swing chart, on closed
+months, reads its main trend down (`applyMainTrendHold`, `lib/gann/mainTrend.ts`:
+months counted "without breaking the previous month's low or high",
+*Commodities* pp. 102-103; the turn on breaking the point the last run-up
+began, NSTD pp. 19-20), live and replay alike through `PillarFacts.mainTrend`.
+An unread trend (under 6 closed months) holds the short. Longs are not
+mirrored: Gann buys the double bottom before the monthly chart turns (W006 Rule
+1). The intraday alerts flag a sale before the turn for study only
+(`againstMainTrend`), read from their prior daily bars, about 14 months, a
+shorter record than the daily scan's (labelled), and their replay enters none.
+The core replay profile shares the helper. Random walks (200 a drift, 2,600
+readings of 24-120 closed months, about 8% a month): the main trend reads down,
+so a short may pass, on 78.8% at −1% a month, 54.8% with no drift and 28.6% at
++1%; about 0.01 ms a read.
+`STRATEGY_VERSION` is `2026-10-29-gann-main-trend-shorts`; Execute and the 7/4
 cutoffs need a fresh run on it.
+
+**The bare core, 2026-10-29 (owner: "let's rebuild from the core"; the six-year
+daily run of the full rule stack, `/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/`,
+showed no edge).** A separate replay strategy, `profile: "core"`
+(`lib/backtest/replayCore.ts`, daily bars only), with only Gann's core from *New
+Stock Trend Detector* (W006 pp.19-23, Rules 2-6): the main trend from the stock's
+own monthly chart (`readMonthlyMainTrend`, `lib/gann/mainTrend.ts`, the one
+reading the live short hold uses: the monthly swing chart on completed months,
+turned by crossing its last swing top or breaking the point the last run-up
+started from, with no 3-point margin since Gann's text names none for the turn), the crossing of an old
+weekly-chart top by 3 points bought on the reaction to it plus 1 point, the 2-3
+week reaction bought once it holds 2 days, shorts by the mirror rules only in a
+monthly downtrend, 3-point stops, the stop trailed under each new weekly swing
+bottom, out when the main trend turns, and pyramid adds (`PYRAMID_LOTS`,
+`wholeLineStop`). Measured per campaign: each trade's `rMultiple` is the whole
+line in the first lot's risk, `rFirstLot` beside it, and the report's `core`
+block splits them (`summariseCore`). Rules come back one at a time through
+`CoreReplayOptions.rules` ("gate" or "tag"), the "Prove each Gann rule one at a
+time" thread's ladder. The production method (`replay.ts`, the live scan) is
+unchanged, so `STRATEGY_VERSION` stays. Engineering choices are labelled in the
+module header.
 
 **The Intraday style, 2026-10-22 (owner: "The goal is to get AND out in a
 matter of seconds, mins, or hours. And ideally closed by the end of the day
