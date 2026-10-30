@@ -74,6 +74,14 @@ record; the member should be able to read it too.
 
 ### 3. Sector and group view
 
+**Built 2026-10-30:** a Groups tab on the Scanner (`components/scan/group-standings.tsx`,
+`/api/groups`, `lib/scanner/groupView.ts`). Every figure comes from
+`readUniverseRank` itself, one call a stock (about 15 ms for 820 stocks in 71
+groups, measured on a synthetic month), from the month's stored reading the
+scan already uses. Breadth counts the stocks, and the groups' middle stocks, in
+the upper half of their twelve months' range. Positions and ranks only, no
+pass or fail. Not yet seen on production data.
+
 **Gann:** rank the groups before the stocks in them, and buy the strongest stocks
 in the strongest groups and sell the weakest in the weakest (*Truth of the Stock
 Tape* Ch. XVI-XVII; *Stock Selector* Ch. VII). The rank is built and already
