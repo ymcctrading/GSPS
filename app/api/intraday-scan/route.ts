@@ -64,7 +64,7 @@ import { completedDailyBars, dailyBarDate, INTRADAY_DAILY_FETCH_LIMIT, priorDail
 import { readAveragesTrend, type AveragesTrend } from "@/lib/gann/averagesTrend";
 import { getMarketDailyBars } from "@/lib/data/marketBenchmark";
 import { notifySubscribedUsers } from "@/lib/notifications/intradayDelivery";
-import { NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
+import { DAILY_SCALE_SIGNALS, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { recordIntradayBells } from "@/lib/notifications/intradayBell";
 import { loadDailyPlans } from "@/lib/scanner/dailyPlans";
 import { chooseSweepBasis } from "@/lib/scan/universeSweep";
@@ -1101,6 +1101,9 @@ async function loadRecentSystemAlerts(
   const out: RecentSystemAlert[] = [];
   for (const row of data) {
     if (etDateKey(new Date(row.poll_cycle_timestamp)) !== todayEt) continue;
+    // Only intraday signals fill the intraday cards (owner, 2026-10-29): a
+    // daily swing row stored before the live scan stopped reading it stays out.
+    if (DAILY_SCALE_SIGNALS.has(row.signal_id as SignalType)) continue;
     const meta = (row.metadata ?? {}) as Record<string, unknown>;
     if (
       proBounded &&
