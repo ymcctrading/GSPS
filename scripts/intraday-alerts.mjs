@@ -159,6 +159,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     // Pass 2: the session's alerts on five-minute bars.
     const planHeld = [];
     const alerts = [];
+    const alertsThreeDay = [];
     const lineSessions = [];
     const refused = { planLevelHeld: {}, listed: {} };
     const addRefused = (into, from) => {
@@ -184,6 +185,9 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
           for (const t of all.trades) {
             alerts.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
           }
+          // The pre-2026-10-29 trend rule (the 3-Day Chart alone) on the same bars.
+          const before = replayIntradayAlerts({ ...common, sessions: listed, trendRule: "threeDay" });
+          alertsThreeDay.push(...before.trades);
         }
       } catch (err) {
         skipped.push({ symbol, reason: `pass 2: ${err instanceof Error ? err.message : String(err)}` });
@@ -216,6 +220,13 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         focus: summariseAlertTrades(alerts.filter((t) => t.inFocus)),
         fixed: summariseAlertTrades(alerts.filter((t) => t.inFixed)),
         focusOnly: summariseAlertTrades(alerts.filter((t) => t.inFocus && !t.inFixed)),
+        // Trend rule, before (3-Day Chart) and after (main trend), on every listed alert.
+        listedWeeklyTrend: summariseAlertTrades(alerts),
+        listedWeeklyTrendLong: summariseAlertTrades(alerts.filter((t) => t.direction === "bullish")),
+        listedWeeklyTrendShort: summariseAlertTrades(alerts.filter((t) => t.direction === "bearish")),
+        listedThreeDay: summariseAlertTrades(alertsThreeDay),
+        listedThreeDayLong: summariseAlertTrades(alertsThreeDay.filter((t) => t.direction === "bullish")),
+        listedThreeDayShort: summariseAlertTrades(alertsThreeDay.filter((t) => t.direction === "bearish")),
         lineNotices: summariseLineNotices(lineSessions),
       },
       // Each session a line notice fired, for diagnosis.

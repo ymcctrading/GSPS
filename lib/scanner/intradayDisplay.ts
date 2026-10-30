@@ -129,9 +129,13 @@ export const DAILY_SCALE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(
 export const DAILY_SCALE_HOLD =
   "A daily swing signal: its stop sits beyond yesterday's swing, sized for a trade held for days, and its first target is often more than a day's range away. Shown for study only; it is not offered as an intraday trade. Swing trades come from the stock's daily plan.";
 
-/** The note on an alert that runs against the daily trend (`Alert.againstDailyTrend`, audit I-02). */
+/** The note on an alert that runs against the weekly trend (`Alert.againstDailyTrend`, audit I-02; the weekly chart since 2026-10-30). */
 export const AGAINST_DAILY_TREND =
-  "Against the daily trend: the daily swing chart runs the other way. Shown for study only; the method trades with the main trend, so this is not offered as a trade.";
+  "Against the weekly trend: the stock's weekly swing runs the other way, so this move is a pullback inside it. Shown for study only; trades go with the trend, so this is not offered as a trade.";
+
+/** The note on an alert after the weekly trend's pullback over-balanced (`Alert.reactionOverbalanced`). */
+export const REACTION_OVERBALANCED =
+  "Pullback too deep: this pullback has run further or lasted longer than any earlier one in the move, a sign the weekly trend may be turning. Shown for study only; it is not offered as a trade.";
 
 /** The note on a sale alert before the stock's main trend has turned down (`Alert.againstMainTrend`). */
 export const AGAINST_MAIN_TREND =
@@ -144,7 +148,7 @@ export const STOP_INSIDE_NOISE =
 /**
  * Why an alert is shown but not offered as a trade, or null when it is
  * tradeable on these grounds: a signal the replay measured losing, one that
- * runs against the daily trend, a sale before the main trend has turned down, or one whose stop sits
+ * runs against the weekly trend, comes after the weekly trend's pullback over-balanced, a sale before the main trend has turned down, or one whose stop sits
  * inside one intraday point of its price (the replay's `risk_under_point`), or a
  * daily-scale signal (`DAILY_SCALE_SIGNALS`). The panel, the setup
  * card, the bell and push all read this one function.
@@ -152,6 +156,7 @@ export const STOP_INSIDE_NOISE =
 export function tradeHold(alert: {
   type: SignalType;
   againstDailyTrend?: boolean | null;
+  reactionOverbalanced?: boolean | null;
   againstMainTrend?: boolean | null;
   riskUnderPoint?: boolean | null;
 }): string | null {
@@ -160,11 +165,13 @@ export function tradeHold(alert: {
     (DAILY_SCALE_SIGNALS.has(alert.type) ? DAILY_SCALE_HOLD : null) ??
     (alert.againstDailyTrend
       ? AGAINST_DAILY_TREND
-      : alert.againstMainTrend
-        ? AGAINST_MAIN_TREND
-        : alert.riskUnderPoint
-          ? STOP_INSIDE_NOISE
-          : null)
+      : alert.reactionOverbalanced
+        ? REACTION_OVERBALANCED
+        : alert.againstMainTrend
+          ? AGAINST_MAIN_TREND
+          : alert.riskUnderPoint
+            ? STOP_INSIDE_NOISE
+            : null)
   );
 }
 

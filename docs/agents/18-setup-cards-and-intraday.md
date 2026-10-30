@@ -644,3 +644,33 @@ each member (`lib/reports/eveningReport.ts`). Misses and losses stay in; one
 session is never presented as a record. Widen the recipients only on the owner's
 word.
 
+
+**Intraday trades go with the weekly trend, 2026-10-30 (Chuck: "in a bullish
+market price will sell off or level out before a continuation ... what does Gann
+say"; "go with option A ... only if it makes our platform better").** The
+alerts' trend check (`againstDailyTrend`) read the 3-Day Chart, so in a weekly
+uptrend a pullback offered the short into it and held the long at its end. Gann
+buys the reaction in a bull market, never shorts it ("stocks are a buy on a
+reaction of about 1 month in a bull market", Master Course p. 10, rule A; the
+reaction is the safest buying point, *Commodities* pp. 39-40 #3, Master Course
+PDF 244-245). Now the check reads the weekly trend, the 7-day chart through the
+campaign ledger the daily plan reads (`SessionMetrics.weeklyTrend`,
+`tradeTrend`), the 3-Day Chart only while the weekly has none; a long in the
+weekly trend's direction is held once the campaign's reaction over-balanced its
+greatest by a point or in time (`reactionOverbalanced`, `REACTION_OVERBALANCED`;
+Master Course Ch. 8, PDF 249-250), and the monthly short hold above still holds
+shorts. The panel, card, chart plan, bell, push, recap and the alerts replay all
+read `tradeHold`. Measured on the merged code (local run, 832 symbols, 41
+sessions 2026-09-02 to 10-29, listed alerts; `trendRule` "threeDay" replays the
+old rule on the same bars): weekly +0.113R over 238 trades against the 3-Day's
+−0.289R over 267 (closed trades −4.9R against −104.8R), better in both halves
+(−0.134/+0.359 against −0.197/−0.379), longs +0.250 against −0.168, shorts
+−0.474 against −0.716. Both intervals include zero, the median trade is −1R and
+17 trades held to the 10-session limit carry the mean, so intraday still has no
+measured edge; the change is better than the rule it replaced, not proven
+profitable. Notes: `/mnt/project-files/replay-diagnosis/2026-10-30-intraday-weekly-trend.md`.
+Cost: `sessionMetrics` now builds the campaign ledger once a symbol a scan,
+measured at 0.06-0.09 ms a symbol on 290- and 420-session random walks (the
+route reads 400 calendar days, about 276 sessions), so about 6-9 ms on a
+100-slot scheduled scan and under 5 ms on a member's refresh.
+Intraday alerts replay trades move, daily verdicts don't: `STRATEGY_VERSION` is `2026-10-30-intraday-weekly-trend`.

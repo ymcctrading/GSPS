@@ -33,9 +33,11 @@
  * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
  * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
  * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
- * Nor is an alert against the daily trend (`Alert.againstDailyTrend`, audit
- * I-02, 2026-10-28): the panel shows it for study and offers no trade, "never
- * buck the trend" (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
+ * Nor is an alert against the weekly trend (`Alert.againstDailyTrend`, audit
+ * I-02, 2026-10-28; the 3-Day Chart's until 2026-10-30), or one after the
+ * weekly trend's reaction over-balanced (`Alert.reactionOverbalanced`): the
+ * panel shows them for study and offers no trade, "never buck the trend"
+ * (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
  * 2026-10-29, is a sale before the stock's monthly chart has turned its main
  * trend down (`Alert.againstMainTrend`), read from the same prior daily bars.
  *
@@ -79,6 +81,7 @@
  * does.
  */
 
+import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
 import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
@@ -184,6 +187,14 @@ export interface AlertReplayInput {
   maxBarsHeld?: number;
   /** Record the line notices and their outcomes (`lib/backtest/lineNotices.ts`). */
   collectLineNotices?: boolean;
+  /**
+   * Which trend a trade alert must go with. "weekly" (the default) is the live
+   * rule since 2026-10-30: `Alert.againstDailyTrend` (the weekly chart's
+   * trend) and `Alert.reactionOverbalanced`. "threeDay" is the rule before
+   * it, the 3-Day Chart on the prior daily bars alone, kept so one run
+   * measures both on the same bars. Research only.
+   */
+  trendRule?: "weekly" | "threeDay";
 }
 
 /** The plan as the live route hands it to the scan: Execute or Watch, its stop on the right side. */
@@ -248,6 +259,10 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     const dailyFrom = new Date(Date.parse(`${date}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
     const priorDaily = completedDailyBars(dailyBars, date, kind === "crypto", dailyFrom);
     if (priorDaily.length < 3) continue;
+    // The pre-2026-10-30 rule's trend, read as the scanner read it (`sessionMetrics`).
+    const threeDay =
+      input.trendRule === "threeDay" && priorDaily.length >= 10 ? walkSwingChart(priorDaily, THREE_DAY_CHART).trend : null;
+    const threeDayDir = threeDay === "bullish" ? "up" : threeDay === "bearish" ? "down" : null;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
     const sessionPlan = plans.get(date);
@@ -318,7 +333,9 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         (a) =>
           !isReversalRisk(a) &&
           !NOTICE_SIGNALS.has(a.type) &&
-          !a.againstDailyTrend &&
+          (input.trendRule === "threeDay"
+            ? a.type === "plan_level_held" || threeDayDir === null || threeDayDir === a.direction
+            : !a.againstDailyTrend && !a.reactionOverbalanced) &&
           !a.againstMainTrend &&
           // Held live too (2026-10-29): its stop sat inside one point of the
           // alert's price, so it was never offered; the fill-time

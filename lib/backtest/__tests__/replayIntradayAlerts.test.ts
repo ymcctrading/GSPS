@@ -13,7 +13,10 @@ import { summariseAlertTrades } from "@/lib/backtest/alertSummary";
 import { etDateKey, etParts } from "@/lib/market/session";
 import { threePoints } from "@/lib/gann/pointScale";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
-import { volumeBaseline } from "@/lib/scanner/intraday";
+import { INTRADAY_DAILY_HISTORY_DAYS, volumeBaseline } from "@/lib/scanner/intraday";
+import { completedDailyBars } from "@/lib/scanner/priorClose";
+import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
+import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
 
 /**
  * The alert replay on seeded random walks that arm real daily plans: it walks
@@ -248,6 +251,28 @@ describe("replayIntradayAlerts", () => {
     const unpaid = runs.reduce((n, r) => n + (r.result.refused.target_unpaid ?? 0), 0);
     expect(unpaid).toBeGreaterThan(0);
   });
+
+  it("trades with the main trend, or with the 3-Day Chart under the earlier rule (2026-10-29)", () => {
+    const priorDaily = (f: ReturnType<typeof fixture>, session: string) =>
+      completedDailyBars(f.daily, session, false, new Date(Date.parse(`${session}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10));
+    let differ = 0;
+    for (const { f, plans, result } of runs) {
+      for (const t of result.trades) {
+        const prior = priorDaily(f, t.session);
+        const main = buildCampaignLedger(prior)?.trend ?? walkSwingChart(prior, THREE_DAY_CHART).trend;
+        if (main !== null && t.signal !== "plan_level_held") expect(t.direction).toBe(main);
+      }
+      const before = replayIntradayAlerts({ symbol: "TEST", kind: "equity", bars: f.m5, dailyBars: f.daily, plans, trendRule: "threeDay" });
+      for (const t of before.trades) {
+        const threeDay = walkSwingChart(priorDaily(f, t.session), THREE_DAY_CHART).trend;
+        if (threeDay !== null && t.signal !== "plan_level_held") expect(t.direction).toBe(threeDay);
+      }
+      const key = (t: AlertTrade) => `${t.openedAt}|${t.direction}`;
+      const now = new Set(result.trades.map(key));
+      differ += before.trades.filter((t) => !now.has(key(t))).length;
+    }
+    expect(differ).toBeGreaterThan(0);
+  }, 60_000);
 
   it("summarises a cell", () => {
     const s = summariseAlertTrades(all);

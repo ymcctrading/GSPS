@@ -444,6 +444,7 @@ export async function GET(req: NextRequest) {
         tradeHold({
           type: String(a.signal_id) as SignalType,
           againstDailyTrend: a.metadata?.againstDailyTrend === true,
+          reactionOverbalanced: a.metadata?.reactionOverbalanced === true,
           againstMainTrend: a.metadata?.againstMainTrend === true,
           riskUnderPoint: a.metadata?.riskUnderPoint === true,
         }) !== null || a.metadata?.paysRisk === false,

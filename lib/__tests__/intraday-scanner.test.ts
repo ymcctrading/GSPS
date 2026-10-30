@@ -14,12 +14,13 @@ import {
   unreadAudit,
   targetPaysRisk,
   sessionMetrics,
+  tradeTrend,
   volumeBaseline,
   type ScannerConfig,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import { pricePoint, intradayPoint } from "@/lib/gann/pointScale";
-import { DAILY_SCALE_HOLD, NOTICE_SIGNALS, tradeHold } from "@/lib/scanner/intradayDisplay";
+import { AGAINST_DAILY_TREND, DAILY_SCALE_HOLD, NOTICE_SIGNALS, REACTION_OVERBALANCED, tradeHold } from "@/lib/scanner/intradayDisplay";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
 /**
@@ -738,16 +739,97 @@ describe("an alert against the daily trend (audit I-02)", () => {
     expect(alerts.length).toBeGreaterThan(0);
     let against = 0;
     for (const a of alerts) {
-      const check = a.confidenceFactors.find((f) => f.label === "With the daily trend");
+      const check = a.confidenceFactors.find((f) => f.label === "With the weekly trend");
       const exempt = a.type === "reversal_risk" || a.type === "plan_level_held" || NOTICE_SIGNALS.has(a.type);
       const expected = !exempt && check !== undefined && !check.passed;
       expect(a.againstDailyTrend === true).toBe(expected);
       if (expected) {
         against++;
-        expect(tradeHold(a)).toMatch(/Against the daily trend/);
+        expect(tradeHold(a)).toMatch(/Against the weekly trend/);
       }
     }
     expect(against).toBeGreaterThan(0);
+  });
+});
+
+describe("a pullback inside the weekly trend (2026-10-30)", () => {
+  // Master Course p. 10 rule A and PDF 244-245: a reaction in a bull market is
+  // bought at its end, never sold short; the trend it runs against is the
+  // weekly chart's. Over-balanced (Master Course PDF 249-250), it is neither.
+  /**
+   * A bull campaign of 5-session advances and 4-session reactions of 0.6% a
+   * session, one deeper reaction (5 sessions of 0.8%) as its greatest, then a
+   * last reaction of `lastDays` sessions of `lastStep`.
+   */
+  function reactionDaily(lastDays: number, lastStep: number): Bar[] {
+    const raw: Bar[] = [];
+    let price = 400;
+    const start = Date.parse("2026-02-02T05:00:00Z");
+    const push = (next: number) => {
+      const o = price;
+      raw.push({ t: new Date(start + raw.length * 86_400_000).toISOString(), o, h: Math.max(o, next) * 1.002, l: Math.min(o, next) * 0.998, c: next, v: 50_000_000 });
+      price = next;
+    };
+    for (let leg = 0; leg < 16; leg++) {
+      for (let i = 0; i < 5; i++) push(price * 1.006);
+      const [n, step] = leg === 12 ? [5, 0.992] : leg < 15 ? [4, 0.994] : [lastDays, lastStep];
+      for (let i = 0; i < n; i++) push(price * step);
+    }
+    const k = 500 / raw[raw.length - 1].c;
+    return raw.map((b) => ({ ...b, o: b.o * k, h: b.h * k, l: b.l * k, c: b.c * k }));
+  }
+  /** A session drifting 0.05 a minute up (`sign` 1) or down (-1) from 500. */
+  function drift(sign: 1 | -1): Bar[] {
+    return Array.from({ length: 120 }, (_, i) => {
+      const p = 500 + sign * i * 0.05;
+      return { t: new Date(Date.parse("2026-08-07T13:30:00Z") + i * 60_000).toISOString(), o: p, h: p + 0.1, l: p - 0.1, c: p + sign * 0.05, v: 1_000_000 };
+    });
+  }
+  const trades = (sign: 1 | -1, daily: Bar[]) =>
+    scanIntraday([input({ bars: drift(sign), priorDailyBars: daily })], DEFAULT_CONFIG, AT_1133).alerts.filter(
+      (a) => a.type !== "reversal_risk" && a.type !== "plan_level_held" && !NOTICE_SIGNALS.has(a.type),
+    );
+
+  it("reads the 3-Day Chart down and the weekly chart up while the reaction runs", () => {
+    const m = sessionMetrics(input({ priorDailyBars: reactionDaily(3, 0.99) }))!;
+    expect(m.dailyTrend).toBe("down");
+    expect(m.weeklyTrend).toBe("up");
+    expect(m.weeklyOverbalanced).toBe(false);
+  });
+
+  it("offers the long at the reaction's end and holds the short into it", () => {
+    const longs = trades(1, reactionDaily(3, 0.99));
+    expect(longs.length).toBeGreaterThan(0);
+    for (const a of longs) {
+      expect(a.againstDailyTrend).toBeUndefined();
+      expect(a.reactionOverbalanced).toBeUndefined();
+      expect(a.confidenceFactors.find((f) => f.label === "With the weekly trend")?.passed).toBe(true);
+    }
+    const shorts = trades(-1, reactionDaily(3, 0.99));
+    expect(shorts.length).toBeGreaterThan(0);
+    for (const a of shorts) {
+      expect(a.againstDailyTrend).toBe(true);
+      expect(tradeHold(a)).toBe(AGAINST_DAILY_TREND);
+    }
+  });
+
+  it("holds the long once the reaction lasts longer than the campaign's greatest", () => {
+    const daily = reactionDaily(6, 0.996);
+    expect(sessionMetrics(input({ priorDailyBars: daily }))!.weeklyOverbalanced).toBe(true);
+    const longs = trades(1, daily);
+    expect(longs.length).toBeGreaterThan(0);
+    for (const a of longs) {
+      expect(a.reactionOverbalanced).toBe(true);
+      expect(tradeHold(a)).toBe(a.type === "overnight_turn" ? DAILY_SCALE_HOLD : REACTION_OVERBALANCED);
+    }
+  });
+
+  it("falls back to the 3-Day Chart while the weekly chart has no trend", () => {
+    expect(tradeTrend({ weeklyTrend: "up", dailyTrend: "down" })).toBe("up");
+    expect(tradeTrend({ weeklyTrend: null, dailyTrend: "down" })).toBe("down");
+    expect(tradeTrend({ weeklyTrend: null, dailyTrend: null })).toBeNull();
+    // The over-balance note comes before the monthly main trend's, as the weekly trend's does.
+    expect(tradeHold({ type: "trend_continuation", reactionOverbalanced: true, againstMainTrend: true })).toBe(REACTION_OVERBALANCED);
   });
 });
 
@@ -783,7 +865,7 @@ describe("an alert whose stop sits inside one intraday point (2026-10-29)", () =
   it("holds the trade, after a measured-losing or against-trend hold", () => {
     expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true })).toMatch(/Stop too close/);
     expect(tradeHold({ type: "trend_continuation", riskUnderPoint: false })).toBeNull();
-    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true, againstDailyTrend: true })).toMatch(/Against the daily trend/);
+    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true, againstDailyTrend: true })).toMatch(/Against the weekly trend/);
   });
 });
 
