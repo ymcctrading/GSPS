@@ -263,3 +263,75 @@ Reading it:
 
 So aspects look like part of how he set his dates, but not the part that
 made the dates right. Nothing here is built or shown to members.
+
+## 8. The public event calendar sold as Gann time indicators (2026-10-30)
+
+The owner found a paid charting indicator that claims "Gann's Laws of
+Vibration and Bayer's Rules" and marks New and Full Moons, the Moon's
+apogee and perigee and declination extremes, ingresses, retrogrades,
+Mercury's speed, declination extremes and latitude. Those event kinds are
+public astronomy, so each was tested on the same record with the same null
+(`lib/research/celestialEvents.ts`, run
+`docs/replay-runs/2026-10-30-celestial-events.json`). The indicator was not
+bought or read. Bayer's numbered rules are not built: no Bayer book is in the
+collection.
+
+Moon events ±1 day, the rest ±2. 24 tests here, 45 with section 7's, so a
+result needs p below 0.0011.
+
+| Event kind | Days marked | Calls met / 52 | by chance | p | 9-pt turns / 446 | by chance | p | 3-day turns / 1,370 | by chance | p |
+|---|---|---|---|---|---|---|---|---|---|---|
+| New and Full Moons | 20% | 27 | 29.7 | 0.85 | 89 | 90.5 | 0.60 | 288 | 278.5 | 0.24 |
+| Moon's perigee and apogee | 22% | 34 | 31.4 | 0.25 | 112 | 96.9 | 0.033 | 299 | 297.7 | 0.48 |
+| Moon's declination extremes | 22% | 28 | 31.4 | 0.90 | 102 | 98.0 | 0.32 | 316 | 300.9 | 0.12 |
+| Ingresses (Sun to Neptune) | 53% | 47 | 43.2 | 0.094 | 251 | 238.0 | 0.11 | 735 | 726.8 | 0.31 |
+| Stations (retrograde, direct) | 20% | 18 | 20.5 | 0.85 | 79 | 91.1 | 0.95 | 267 | 276.1 | 0.78 |
+| Mercury at its fastest | 4.5% | 6 | 6.2 | 0.63 | 25 | 21.2 | 0.22 | 67 | 63.1 | 0.30 |
+| Declination extremes (Sun to Neptune) | 28% | 27 | 26.3 | 0.47 | 124 | 123.6 | 0.50 | 376 | 379.9 | 0.63 |
+| Crossing the ecliptic (latitude 0) | 17% | 20 | 18.3 | 0.33 | 87 | 76.4 | 0.073 | 235 | 231.6 | 0.40 |
+
+None of the eight event kinds times the Dow's turns or his calls beyond
+chance; the nearest (the Moon's perigee and apogee on the 9-point turns, p
+0.033) is far from the batch's 0.0011. Across all 45 tests the one result
+that clears it is still section 7's: his published dates sit on slow-planet
+aspects (p 0.0007), without those aspects timing the turns.
+
+## 9. The same rules on today's market: SPY and DIA, 2016-2025 (2026-10-30)
+
+The owner asked whether these hold on recent markets. `lib/research/modernTiming.ts`
+runs all 15 rules of sections 7 and 8 on SPY's and DIA's turns from Alpaca
+daily bars (split-adjusted, SIP, from 2016, the feed's start;
+`lib/research/modernTurns.json`, built by `scripts/build-modern-turns.mjs`):
+the 3-Day Chart's turns (165 on SPY, 174 on DIA) and major turns, each the
+extreme of 21 sessions either side (67 each). Years 2016-2025, the whole years
+held; 2026 is a part year and left out. Run
+`docs/replay-runs/2026-10-30-modern-timing.json`. 60 tests, cut-off 0.00083.
+
+Nothing clears it. The lowest p is the planets crossing the ecliptic on DIA's
+3-day turns (43 against 29.5, p 0.002), which the same rule does not repeat on
+SPY (p 0.061) or on the Dow 1913-1948 (p 0.073 on the 9-point turns, 0.40 on the 3-day). The slow-planet aspects that
+his published dates sat on meet 2 to 4 turns a set against 2.4 to 5.8 by
+chance. New and Full Moons, ingresses and stations, the two indicators' core
+events, sit between p 0.08 and 0.93.
+
+**What GSPS uses today** (read from `lib/gann/timeWindow.ts`, 2026-10-30): the
+ephemeris is computed (astronomy-engine), not a printed table, so any year,
+2025 to 2027 included, is available. The time-window hold already reads
+Jensen's slow-planet aspects, Mars's half-return, the Sun's seasonal points
+(its 15° steps, so the Sun's ingresses), the New Moon, the lunar return, the
+natural angle and the eclipse crossings, through one rule: a window counts
+only when the market turns on it at a price division. Planets' ingresses
+other than the Sun's, retrograde and direct stations, the Full Moon, the
+Moon's perigee, apogee and declination, Mercury's speed, declination extremes
+and latitude are not used, and on this record none of them earns a place.
+No dated window is shown to members (the owner's "Keep it hidden",
+2026-10-30).
+
+## 10. Hora and Choghadiya, and the planetary file (2026-10-30)
+
+Every planetary method tested, with its result, is now listed in
+`docs/PLANETARY_TIMING.md`. The Vedic planetary hours (Hora) and day periods
+(Choghadiya), tested against when SPY and DIA print their daily high and low
+from 2016 to 2025 (`lib/research/horaTiming.ts`), show nothing once the
+weekday is held (p 0.26 to 0.85); an apparent effect under a first null was a
+weekday pattern. Details there.

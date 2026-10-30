@@ -20,7 +20,7 @@
  *   the Grand Cross's sides), trine (120°) and opposition (180°).
  * - Event: the day a pair's separation passes the exact angle, ±2 days (the
  *   rebuild test's tolerance, `SEASONAL_TOLERANCE_DAYS`).
- * - Five rules:
+ * - Seven rules:
  *   - allPairs: every pair of the eight bodies;
  *   - innerPairs: pairs among the Sun, Mercury and Venus (the fifth video,
  *     on the Oct 1922 top, credits these three);
