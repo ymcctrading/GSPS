@@ -39,7 +39,7 @@ on:
         required: true
         default: main
       universe:
-        description: large-cap | mega-12 | diversified | mega-cap | comma-separated symbols
+        description: large-cap | point-in-time | mega-12 | diversified | mega-cap | comma-separated symbols
         required: true
         default: large-cap
       cells:

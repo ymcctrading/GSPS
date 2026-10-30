@@ -114,16 +114,26 @@ function nextMonth(month: string): string {
  * Bars from the month a fetch ran in are in progress and are never the last
  * closed month of any reading, since that reading's month has not begun.
  */
-export function buildUniverseStrength(universeMonthly: Map<string, Bar[]>): UniverseStrength {
+export function buildUniverseStrength(
+  universeMonthly: ReadonlyMap<string, readonly Bar[]>,
+  /**
+   * Whether a symbol was a peer in a reading month (YYYY-MM). The backtest's
+   * point-in-time universe passes it, so a past month ranks a stock among that
+   * month's large caps, not today's (`lib/universe/pointInTime.ts`); the live
+   * scan reads today's list and passes nothing.
+   */
+  isPeer?: (symbol: string, month: string) => boolean,
+): UniverseStrength {
   const out: UniverseStrength = new Map();
   for (const [symbol, raw] of universeMonthly) {
     // A second share class is its company, already counted once.
     if (rankedClass(symbol) !== symbol.toUpperCase()) continue;
     const bars = [...raw].sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
     for (let i = STRENGTH_MONTHS - 1; i < bars.length; i++) {
+      const month = nextMonth(bars[i].t.slice(0, 7));
+      if (isPeer && !isPeer(symbol, month)) continue;
       const pos = strengthPosition(bars.slice(i - STRENGTH_MONTHS + 1, i + 1));
       if (pos === null) continue;
-      const month = nextMonth(bars[i].t.slice(0, 7));
       let entry = out.get(month);
       if (!entry) {
         entry = { sorted: [], bySymbol: new Map() };

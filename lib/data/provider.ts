@@ -40,6 +40,13 @@ export interface MarketDataProvider {
      * only; the chart route is the one caller that opts in.
      */
     includeExtendedHours?: boolean,
+    /**
+     * The date (YYYY-MM-DD) a symbol is read as of, for a ticker no longer
+     * traded under that name: the bars of the company that held it then
+     * (Alpaca's `asof`). Only the backtest's point-in-time universe passes it
+     * (`lib/universe/pointInTime.ts`); a provider without the mapping ignores it.
+     */
+    asOf?: string,
   ): Promise<Bar[]>;
 
   /**

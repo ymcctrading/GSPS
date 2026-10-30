@@ -1459,6 +1459,36 @@ about 0.05-0.07 ms. The public note says only that the move has
 run several legs. `STRATEGY_VERSION` was `2026-10-29-gann-early-sections`;
 Execute and the 7/4 cutoffs need a fresh run on it.
 
+**The backtest's point-in-time universe, 2026-10-29 (rebuild from the core;
+the averages-trend rerun's handoff: "today's large caps carried back six years
+flatter longs").** `--universe point-in-time` (`scripts/backtest-universe.mjs`,
+`lib/universe/pointInTime.ts`, `lib/backtest/pointInTime.ts`) replays each
+calendar year's own large caps: the candidates are today's list plus every
+S&P 500 ticker in the span (`lib/universe/sp500History.json`, fja05680/sp500,
+MIT, rebuilt by `scripts/fetch-sp500-history.mjs`), a departed ticker read as of
+its last day in the index (Alpaca's `asof`, so FB reads META's company and
+duplicates are dropped by identical monthly bars), and a candidate is a member
+of a year only when its own cap on 1 January (SEC shares filed before it, 18
+months at most, times the last monthly close) clears the $10B floor, no
+ceiling. An unknown cap fails closed, as `marketCapPass` does, which leaves out
+the 20-F listings by domicile, not outcome. A session outside the member years
+arms nothing (`ReplayOptions.inUniverse`); an open trade runs to its exit. The
+strength rank's peers are each month's members (`buildUniverseStrength`'s
+`isPeer`). The departed companies' share counts come from
+`fetch-point-in-time-shares.yml` into `lib/universe/pointInTimeShares.json`;
+until that file holds them, departed names fail closed and only the
+grew-into-the-list half of the bias is removed. Engineering choices, labelled:
+yearly on 1 January, the 18 months, the S&P 500 as the candidate list (a past
+large cap never in it and small today is still missed). Stated exceptions: the
+intraday profile and `/api/backtest` (a person's named symbols, inside the
+route's 60 s) read no point-in-time universe; the live scan reads today's list,
+which is today's universe; a departed ticker has no stored name, inception,
+first-trade date or industry group, so its name chart, inception and great-cycle
+windows and group rank are unread where today's names read them (compare the two
+by `source` before reading a difference into it). A run needs `--since` and logs
+a member-list hash every job of a split run must share. Verdicts and
+`STRATEGY_VERSION` are unchanged.
+
 ## WD Gann precedence — standing principle
 
 When GSPS's current implementation, a design choice, or a piece of copy

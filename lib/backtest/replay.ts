@@ -446,6 +446,16 @@ export interface ReplayOptions {
   sessionPlans?: Map<string, SessionDailyPlan | null>;
   /** With `sessionPlans`: collect the plans only, and trade nothing. */
   plansOnly?: boolean;
+  /**
+   * Whether the symbol was in the universe on a session's date (YYYY-MM-DD):
+   * the backtest's point-in-time universe (`lib/universe/pointInTime.ts`). A
+   * session outside it arms nothing, so no new trade opens in a year the stock
+   * was not among that year's large caps; a trade already open runs to its
+   * exit, as it would live. Omit it and every session arms, as before. On
+   * daily bars the date is the closed session the plan is read on, so a plan
+   * read on a member year's last session may fill on the next year's first.
+   */
+  inUniverse?: (date: string) => boolean;
 }
 
 /**
@@ -1166,6 +1176,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     instrument,
     sessionPlans,
     plansOnly = false,
+    inUniverse,
   } = options;
 
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
@@ -1325,9 +1336,11 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     // The price the session's scan read: the last close before the session.
     const armPrice = closedSession && history.length > 1 ? history[history.length - 2].c : lastClose;
 
+    const member = !inUniverse || inUniverse(date);
+    if (!member && !sessionPlans) continue;
     const arm = sessionArm(date);
     if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, armPrice, assetClass, weights) : null);
-    if (plansOnly || !arm) continue;
+    if (plansOnly || !arm || !member) continue;
 
     for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
