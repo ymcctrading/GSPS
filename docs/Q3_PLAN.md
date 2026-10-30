@@ -103,7 +103,10 @@ scores P3(c). Q3 shows it.
 **Theme built 2026-10-29 (#562):** Light, Dark or Match device, kept per device
 (`lib/theme.ts`, an Appearance card in Settings), applied before paint. Kept on
 the device rather than in `settings.prefs`, so a phone and a desk screen can
-differ. Dashboard sections not started.
+differ. **Dashboard sections built 2026-10-30:** a Settings card shows, hides and
+reorders them, saved per member in `settings.prefs.dashboard`
+(`lib/dashboard/sections.ts`); the default order is the old page, Novice summary
+first. The welcome banner, rest reminder and stale-scan notice stay fixed on top.
 
 **Gann:** none. **Hermetic:** Polarity: novice and expert each get a designed view,
 not a shortened list.
