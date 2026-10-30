@@ -185,6 +185,7 @@ function barsRequest(
   assetClass: AssetClass,
   limit: number,
   pageToken?: string,
+  asOf?: string,
 ): { path: string; params: Record<string, string> } {
   assertAlpacaSupports(assetClass);
   const crypto = assetClass === "crypto";
@@ -200,6 +201,7 @@ function barsRequest(
   if (!crypto) {
     params.adjustment = "split";
     params.feed = "iex";
+    if (asOf) params.asof = asOf;
   }
   params.limit = String(Math.min(limit, PAGE_LIMIT));
   if (pageToken) params.page_token = pageToken;
@@ -224,6 +226,7 @@ export async function fetchBars(
   // Accepted for MarketDataProvider interface compatibility; see barsRequest's
   // doc comment for why it's not turned into a query param.
   _includeExtendedHours = false,
+  asOf?: string,
 ): Promise<Bar[]> {
   const crypto = assetClass === "crypto";
   const sym = crypto ? normalizeCryptoSymbol(symbol) : symbol.toUpperCase();
@@ -234,7 +237,7 @@ export async function fetchBars(
   do {
     const remaining = limit - collected.length;
     const { path, params } = barsRequest(
-      sym, timeframe, start, end, assetClass, remaining, pageToken,
+      sym, timeframe, start, end, assetClass, remaining, pageToken, asOf,
     );
 
     const data = await get(path, params);

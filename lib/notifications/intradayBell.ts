@@ -228,7 +228,7 @@ export function isNewMove(title: string, latest: Map<string, string>): boolean {
 /**
  * Which alerts a member's tier lets through: all of them with full intraday
  * access, Pro's confirmed entries only, none without intraday. A signal held
- * from trading (`tradeHold`: measured losing, against the main trend, or after its pullback over-balanced)
+ * from trading (`tradeHold`: measured losing, against the weekly or main trend, or after its pullback over-balanced)
  * reaches no one's bell or push; it stays on the panel, labelled.
  */
 export function alertsForTier(

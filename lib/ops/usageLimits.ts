@@ -28,6 +28,14 @@
  *   only: the app's own limiter keeps under it, so a reading near 100% means
  *   that limiter is too loose or a second caller shares the key.
  *
+ * GitHub bills no Actions minutes on a public repository's standard runners
+ * (owner, 2026-10-30: the repository is public again until the edge is
+ * verified, then private). So the Actions meter follows the repository's
+ * visibility, read from GitHub at each reading: while public it alerts and
+ * holds nothing, and a job's minutes are recorded as unbilled; once private
+ * again the 2,000 minutes are metered as before. A visibility that can't be
+ * read is treated as private, so the meter never goes quiet by mistake.
+ *
  * Not readable from here, so not metered (docs/THIRD_PARTY_LIMITS.md): Supabase
  * egress (5 GB a month) and Vercel's function usage (1 million invocations,
  * 4 hours of active CPU and 100 GB of transfer a month), which neither
@@ -165,6 +173,29 @@ export function alertsDue(pct: number, sent: readonly { threshold: number; sentA
     sent.some((s) => s.threshold === t && (meter.period !== "rolling24h" || now.getTime() - s.sentAt.getTime() < DAY_MS));
   return crossed.filter((t) => !recent(t));
 }
+
+export type RepoVisibility = "public" | "private" | "unknown";
+
+/**
+ * The repository's visibility from GitHub's answer to `GET /repos/{owner}/{repo}`.
+ * A 404 to an unauthenticated read is a private repository; any other failure
+ * is unknown, which the meter treats as private.
+ */
+export function visibilityFromGithub(status: number, body: unknown): RepoVisibility {
+  if (status === 404) return "private";
+  if (status !== 200 || !body || typeof body !== "object") return "unknown";
+  const b = body as { visibility?: unknown; private?: unknown };
+  if (b.visibility === "public" || b.private === false) return "public";
+  if (b.visibility === "private" || b.visibility === "internal" || b.private === true) return "private";
+  return "unknown";
+}
+
+/** Whether a meter counts against a limit: Actions minutes only while the repository is not public. */
+export function meterBilled(meter: UsageMeterId, visibility: RepoVisibility): boolean {
+  return meter !== "github_actions" || visibility !== "public";
+}
+
+export const PUBLIC_REPO_REASON = "The repository is public: GitHub Actions minutes are free and not metered.";
 
 export interface HoldDecision {
   hold: boolean;

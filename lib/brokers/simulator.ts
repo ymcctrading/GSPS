@@ -37,6 +37,7 @@ import {
 } from "@/lib/trade/invalidate-pending";
 import { sendOrderInvalidatedEmail } from "@/lib/notifications/resend-handler";
 import { emailOptedIn } from "@/lib/notifications/email-opt-in";
+import { deliverKeyNotice, PORTFOLIO_PATH } from "@/lib/notifications/keyNotice";
 import { checkBracket } from "@/lib/trade/bracket";
 import { insertTradeLog, TRADE_LOG_ATTEMPTS } from "@/lib/portfolio/trade-log-insert";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -629,6 +630,17 @@ export async function evaluateRestingOrders(
         .maybeSingle();
       if (!claimed) continue;
       invalidated++;
+
+      // The bell and push carry it whatever the email does (keyNotice.ts,
+      // 2026-10-29): an over-budget or refused email must not be the only word.
+      await deliverKeyNotice(userId, {
+        verdict: "Your trade",
+        symbol,
+        title: `${symbol}: resting order cancelled`,
+        body: `Your resting ${side} order for ${Number(row.qty)} ${symbol} was cancelled. ${reason}`,
+        url: PORTFOLIO_PATH,
+        tag: `order-cancelled-${row.id}`,
+      });
 
       // Email is opt-in (2026-10-22): only a member who turned it on in Settings.
       if (userEmail && (await emailOptedIn(supabase, userId))) {

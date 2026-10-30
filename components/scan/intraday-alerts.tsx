@@ -21,7 +21,7 @@ import {
   tradeHold,
 } from "@/lib/scanner/intradayDisplay";
 import type { Alert, RecentSystemAlert, ScanOutput, SymbolAudit } from "@/lib/scanner/intraday";
-import { buildIntradayCardModel, intradayChartPlan, isReversalRisk } from "@/lib/setups/intraday";
+import { buildIntradayCardModel, intradayChartPlan, isReversalRisk, leadAlert } from "@/lib/setups/intraday";
 import { panelChartPlan, type IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import type { IntradayRefreshBudget } from "@/lib/entitlements/intraday-refresh";
 import { formatUsd, cn } from "@/lib/utils";
@@ -287,7 +287,9 @@ function BudgetLine({ budget }: { budget: IntradayRefreshBudget }) {
  * which read as three separate opportunities rather than one setup with
  * three confirming signals.
  *
- * The highest-confidence alert becomes the card; every other signal type
+ * The lead alert (`leadAlert`: one that offers a trade first, then the
+ * highest confidence) becomes the card, the same alert the chart draws;
+ * every other signal type
  * that also fired for the same symbol this pass is kept, not discarded --
  * several signals agreeing is stronger information than one, so it's shown
  * as a compact "also: X, Y" line on the one card rather than dropped or
@@ -308,8 +310,11 @@ function consolidateBySymbol(alerts: Alert[]): { alert: Alert; otherSignals: Ale
     else bySymbol.set(alert.symbol, [alert]);
   }
   return Array.from(bySymbol.values()).map((group) => {
-    const sorted = [...group].sort((a, b) => b.confidence - a.confidence);
-    return { alert: sorted[0], otherSignals: sorted.slice(1) };
+    // The lead is the one the chart draws (`leadAlert`): a signal that offers
+    // a trade first, then confidence; the rest by confidence.
+    const lead = leadAlert(group) ?? group[0];
+    const others = group.filter((a) => a !== lead).sort((a, b) => b.confidence - a.confidence);
+    return { alert: lead, otherSignals: others };
   });
 }
 
@@ -339,7 +344,7 @@ function RecentList({ recent }: { recent: RecentSystemAlert[] }) {
             </div>
             {r.type !== "reversal_risk" && (
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-                <Field label="Entry" value={r.entry != null ? formatUsd(r.entry) : "—"} />
+                <Field label="Entry" tone="accent" value={r.entry != null ? formatUsd(r.entry) : "—"} />
                 <Field label="Exit (S/L)" value={r.stop != null ? formatUsd(r.stop) : "—"} />
                 <Field label="TP1" value={r.firstTarget != null ? formatUsd(r.firstTarget) : "—"} />
                 <Field label="MTP" value={r.masterTarget != null ? formatUsd(r.masterTarget) : "—"} />
@@ -390,7 +395,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   // A first target that pays no more than the risk is no trade (M-K5;
   // "profits must exceed losses", *Wall Street Stock Selector* Ch. II).
   const unpaid = alert.continuationPlan.paysRisk === false;
-  // A signal held from trading (measured losing, against the main trend, or after its pullback over-balanced)
+  // A signal held from trading (measured losing, against the weekly or main trend, or after its pullback over-balanced)
   // is shown for study, never offered.
   const held = tradeHold(alert);
   // Nearing or at a daily plan's entry: a heads-up, not a session trade.
@@ -459,7 +464,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
       ) : (
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
           <Field label="Price" value={formatUsd(alert.move.current)} />
-          <Field label="Entry" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
+          <Field label="Entry" tone="accent" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
           <Field label="Exit (S/L)" value={levels.stop != null ? formatUsd(levels.stop) : "—"} />
           <Field label="TP1" value={levels.tp1 != null ? formatUsd(levels.tp1) : "—"} />
           <Field label="MTP" value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
@@ -684,11 +689,12 @@ function AuditTrail({ audit }: { audit: SymbolAudit[] }) {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, tone }: { label: string; value: string; tone?: "accent" }) {
   return (
     <div className="flex items-baseline justify-between gap-2 sm:flex-col sm:items-start sm:gap-0">
       <dt className="text-muted">{label}</dt>
-      <dd className="font-mono tabular-nums">{value}</dd>
+      {/* The entry in the chart's entry-line blue, so the card and chart match. */}
+      <dd className={cn("font-mono tabular-nums", tone === "accent" && "text-accent")}>{value}</dd>
     </div>
   );
 }

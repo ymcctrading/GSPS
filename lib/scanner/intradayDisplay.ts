@@ -129,17 +129,17 @@ export const DAILY_SCALE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(
 export const DAILY_SCALE_HOLD =
   "A daily swing signal: its stop sits beyond yesterday's swing, sized for a trade held for days, and its first target is often more than a day's range away. Shown for study only; it is not offered as an intraday trade. Swing trades come from the stock's daily plan.";
 
-/** The note on an alert that runs against the main trend (`Alert.againstDailyTrend`, audit I-02; the weekly chart since 2026-10-29). */
+/** The note on an alert that runs against the weekly trend (`Alert.againstDailyTrend`, audit I-02; the weekly chart since 2026-10-30). */
 export const AGAINST_DAILY_TREND =
-  "Against the main trend: the stock's longer swing runs the other way, so this move is a pullback inside it. Shown for study only; trades go with the main trend, so this is not offered as a trade.";
+  "Against the weekly trend: the stock's weekly swing runs the other way, so this move is a pullback inside it. Shown for study only; trades go with the trend, so this is not offered as a trade.";
 
-/** The note on an alert after the main trend's pullback over-balanced (`Alert.reactionOverbalanced`). */
+/** The note on an alert after the weekly trend's pullback over-balanced (`Alert.reactionOverbalanced`). */
 export const REACTION_OVERBALANCED =
-  "Pullback too deep: this pullback has run further or lasted longer than any earlier one in the move, a sign the main trend may be turning. Shown for study only; it is not offered as a trade.";
+  "Pullback too deep: this pullback has run further or lasted longer than any earlier one in the move, a sign the weekly trend may be turning. Shown for study only; it is not offered as a trade.";
 
-/** The note on an alert that runs against the market's trend (`Alert.againstMarketTrend`). */
-export const AGAINST_MARKET_TREND =
-  "Against the market's trend: the overall market's daily and weekly swings run the other way. Shown for study only; trades go with the market's trend, so this is not offered as a trade.";
+/** The note on a sale alert before the stock's main trend has turned down (`Alert.againstMainTrend`). */
+export const AGAINST_MAIN_TREND =
+  "Before the longer-term trend turns down: the stock's monthly chart has not turned down, and a sale against it goes against the main trend. Shown for study only; it is not offered as a trade.";
 
 /** The note on an alert whose stop sits inside one intraday point of its price (`Alert.riskUnderPoint`). */
 export const STOP_INSIDE_NOISE =
@@ -148,7 +148,7 @@ export const STOP_INSIDE_NOISE =
 /**
  * Why an alert is shown but not offered as a trade, or null when it is
  * tradeable on these grounds: a signal the replay measured losing, one that
- * runs against the main trend or the market's trend, comes after the main trend's pullback over-balanced, or one whose stop sits
+ * runs against the weekly trend, comes after the weekly trend's pullback over-balanced, a sale before the main trend has turned down, or one whose stop sits
  * inside one intraday point of its price (the replay's `risk_under_point`), or a
  * daily-scale signal (`DAILY_SCALE_SIGNALS`). The panel, the setup
  * card, the bell and push all read this one function.
@@ -157,7 +157,7 @@ export function tradeHold(alert: {
   type: SignalType;
   againstDailyTrend?: boolean | null;
   reactionOverbalanced?: boolean | null;
-  againstMarketTrend?: boolean | null;
+  againstMainTrend?: boolean | null;
   riskUnderPoint?: boolean | null;
 }): string | null {
   return (
@@ -167,11 +167,11 @@ export function tradeHold(alert: {
       ? AGAINST_DAILY_TREND
       : alert.reactionOverbalanced
         ? REACTION_OVERBALANCED
-        : alert.againstMarketTrend
-        ? AGAINST_MARKET_TREND
-        : alert.riskUnderPoint
-          ? STOP_INSIDE_NOISE
-          : null)
+        : alert.againstMainTrend
+          ? AGAINST_MAIN_TREND
+          : alert.riskUnderPoint
+            ? STOP_INSIDE_NOISE
+            : null)
   );
 }
 

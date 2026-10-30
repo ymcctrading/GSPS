@@ -105,7 +105,8 @@ import { meetsLiquidityFloor } from "@/lib/scan/liquidity";
 import { MAG7 } from "@/lib/sectors";
 import { APPROACH_WINDOW_PCT, targetCandidates } from "@/lib/gann/evenFigures";
 import { buildCampaignLedger } from "@/lib/gann/campaignLedger";
-import { averagesAgainst, type AveragesTrend } from "@/lib/gann/averagesTrend";
+import { readMonthlyMainTrend, shortAgainstMainTrend } from "@/lib/gann/mainTrend";
+import { toMonthlyBars } from "@/lib/gann/disclosedRules";
 import { crossingLinesFromEntry, intradayPoint } from "@/lib/gann/pointScale";
 import { readOvernightChart } from "@/lib/gann/overnightChart";
 import { THREE_DAY_CHART, swingPivots, walkSwingChart } from "@/lib/gann/swingChart";
@@ -143,6 +144,14 @@ export interface ScannerConfig {
   cooldownMinutes: number;
   /** Minimum cumulative share volume for the session. */
   minSessionVolume: number;
+  /**
+   * Read the daily-scale signals (`DAILY_SCALE_SIGNALS`, the daily swing
+   * turn) too. Off for the live scan (owner, 2026-10-29: "Only intraday scans
+   * should populate the intraday card(s)"), so they reach no panel, card,
+   * chart, bell, push or stored row; the intraday alerts replay turns it on
+   * only when a run names one in `signals`.
+   */
+  dailyScaleSignals?: boolean;
 }
 
 /**
@@ -250,13 +259,6 @@ export interface SymbolInput {
    */
   priorDailyBars?: Bar[];
   /**
-   * The averages' (SPY's) 3-Day and weekly charts on completed sessions before
-   * this one (`averagesTrend.ts`), for a US stock. A trade alert both charts
-   * read against is shown for study only (45 Years Rule 1). Null or absent:
-   * not read, and nothing is held for it.
-   */
-  marketTrend?: AveragesTrend | null;
-  /**
    * Bars over the last several sessions (five-minute bars from the route),
    * oldest first, rolled up into Gann's hourly High and Low chart: "when
    * markets are very active… the Hourly Chart will give the first change in
@@ -359,16 +361,16 @@ export interface SessionMetrics {
    */
   dailyTrend: Direction | null;
   /**
-   * The main trend: the 7-day weekly swing chart's, as the daily campaign
+   * The weekly trend: the 7-day weekly swing chart's, as the daily campaign
    * ledger reads it on the prior daily bars (`buildCampaignLedger`, the same
-   * reading the daily plan's sections and exits take). Inside it the 3-Day
-   * Chart's turns are reactions: "stocks are a buy on a reaction of about 1
+   * reading the daily plan's sections and exits take). The 3-Day Chart's turns
+   * inside it are reactions: "stocks are a buy on a reaction of about 1
    * month in a bull market" (Master Course p. 10, rule A; bull reactions 3-4
    * weeks, PDF 253-254), and the reaction is the safest buying point
    * (*Commodities* pp. 39-40 #3; Master Course PDF 244-245), never a short.
    * Null without enough daily history or before the weekly chart has a trend.
    */
-  mainTrend: Direction | null;
+  weeklyTrend: Direction | null;
   /**
    * A reaction of the campaign, in progress or still standing, has exceeded
    * the greatest before it "by one or more points", or lasted longer than it:
@@ -376,7 +378,14 @@ export interface SessionMetrics {
    * 249-250). The space half reads the ledger's 1-point margin
    * (`spaceOverbalancedByPoint`), as Gann states the rule.
    */
-  mainTrendOverbalanced: boolean;
+  weeklyOverbalanced: boolean;
+  /**
+   * The stock's main trend: the monthly swing chart on the closed months
+   * of the prior daily bars (`mainTrend.ts`). The intraday route holds about 14
+   * months of sessions, so this reads a shorter record than the daily scan's
+   * monthly chart; labelled. Null on too short a record.
+   */
+  mainTrend: "bullish" | "bearish" | null;
   /** The session's completed swing bottoms and tops (3-bar chart), oldest first. */
   sessionPivots: { price: number; kind: "top" | "bottom" }[];
   /** ATR of the intraday bars — the noise floor a real move has to clear. */
@@ -456,9 +465,11 @@ export function sessionMetrics(input: SymbolInput): SessionMetrics | null {
   const hourly = hourlyChart(input, bars[bars.length - 1].t, regularOnly);
   const priorDaily = (input.priorDailyBars ?? []).filter(isUsableBar);
   const dailyTrend = priorDaily.length >= 10 ? toDirection(walkSwingChart(priorDaily, THREE_DAY_CHART).trend) : null;
-  // The main trend and its over-balance, from the same campaign ledger the
+  // The weekly trend and its over-balance, from the same campaign ledger the
   // daily plan reads (`scanTicker.ts`, completed sessions only).
   const campaign = priorDaily.length >= 10 ? buildCampaignLedger(priorDaily) : null;
+  const sessionMonth = first.t.slice(0, 7);
+  const mainTrend = readMonthlyMainTrend(toMonthlyBars(priorDaily).filter((b) => b.t.slice(0, 7) < sessionMonth));
 
   return {
     sessionOpen: first.o,
@@ -477,8 +488,9 @@ export function sessionMetrics(input: SymbolInput): SessionMetrics | null {
     swingTrend: swing === "bullish" ? "up" : swing === "bearish" ? "down" : null,
     hourly,
     dailyTrend,
-    mainTrend: campaign ? toDirection(campaign.trend) : null,
-    mainTrendOverbalanced: campaign ? campaign.spaceOverbalancedByPoint || campaign.timeOverbalanced : false,
+    weeklyTrend: campaign ? toDirection(campaign.trend) : null,
+    weeklyOverbalanced: campaign ? campaign.spaceOverbalancedByPoint || campaign.timeOverbalanced : false,
+    mainTrend,
     sessionPivots: sessionWalk.pivots.map((p) => ({ price: p.price, kind: p.kind })),
     intradayAtr,
     relativeVolume:
@@ -682,7 +694,7 @@ export interface Alert {
    */
   crossingLine?: { line: number; confirmingClose: number; atEntry: boolean } | null;
   /**
-   * True when the alert's direction runs against the main trend
+   * True when the alert's direction runs against the weekly trend
    * (`tradeTrend`: the weekly swing chart's, the 3-Day Chart's only while the
    * weekly has none). Shown for study, never offered as a trade, belled or
    * replayed: "never buck the trend" (never-failing rule 5, *Commodities*
@@ -694,22 +706,22 @@ export interface Alert {
    */
   againstDailyTrend?: boolean;
   /**
-   * True when the alert goes with the main trend but the campaign's latest
+   * True when the alert goes with the weekly trend but the campaign's latest
    * reaction has over-balanced its greatest in points or time
-   * (`SessionMetrics.mainTrendOverbalanced`): the trend "has changed or will
+   * (`SessionMetrics.weeklyOverbalanced`): the trend "has changed or will
    * soon" (Master Course PDF 249-250), so the reaction is no longer one to buy.
    * Held as `againstDailyTrend` is. Never set on a warning, the plan's own
    * timing or a notice.
    */
   reactionOverbalanced?: boolean;
   /**
-   * True when the averages' 3-Day and weekly charts both run against the
-   * alert's direction: "trade stocks that conform" to the averages' trend (45
-   * Years Rule 1, 2026-10-29). Shown for study, never offered as a trade,
-   * belled or replayed, as `againstDailyTrend`. Never set on a reversal-risk
-   * warning or a notice.
+   * True on a sale alert while the stock's monthly chart has not turned its
+   * main trend down (`SessionMetrics.mainTrend`, `mainTrend.ts`): Gann does not
+   * short while the main trend is up (2026-10-29). Shown for study, never
+   * offered as a trade, belled or replayed, as `againstDailyTrend`. Never set
+   * on a reversal-risk warning or a notice.
    */
-  againstMarketTrend?: boolean;
+  againstMainTrend?: boolean;
   /**
    * True when the alert's stop sits less than one intraday point
    * (`SessionMetrics.point`) from the price it was flagged at. Shown for
@@ -777,12 +789,12 @@ export interface RecentSystemAlert {
   masterTarget: number | null;
   confidence: number | null;
   at: string;
-  /** As on `Alert`: the stored signal ran against the main trend. */
+  /** As on `Alert`: the stored signal ran against the weekly trend. */
   againstDailyTrend?: boolean;
-  /** As on `Alert`: the stored signal came after the main trend's reaction over-balanced. */
+  /** As on `Alert`: the stored signal came after the weekly trend's reaction over-balanced. */
   reactionOverbalanced?: boolean;
-  /** As on `Alert`: the stored signal ran against the market's trend. */
-  againstMarketTrend?: boolean;
+  /** As on `Alert`: the stored sale came before the main trend turned down. */
+  againstMainTrend?: boolean;
   /** As on `Alert`: the stored signal's stop sat inside one intraday point. */
   riskUnderPoint?: boolean;
   /** False when the stored first target paid no more than the risk (M-K5). */
@@ -1080,7 +1092,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
     detectOldLevelCross(input, metrics, dayMove, config, checks, now),
     detectTrendContinuation(input, metrics, dayMove, config, checks, now),
     detectSpaceOverbalance(input, metrics, dayMove, config, checks, now),
-    detectOvernightTurn(input, metrics, dayMove, checks, now),
+    config.dailyScaleSignals ? detectOvernightTurn(input, metrics, dayMove, checks, now) : null,
     detectHourlyTurn(input, metrics, checks, now),
     detectPlanLevelHeld(input, metrics, checks, now),
     detectEntryApproach(input, metrics, checks, now),
@@ -2111,30 +2123,30 @@ function hourlyFactors(m: SessionMetrics, direction: Direction): ConfidenceFacto
 }
 
 /**
- * The trend an intraday trade must go with: the main (weekly) trend, and the
+ * The trend an intraday trade must go with: the weekly trend, and the
  * 3-Day Chart's only while the weekly chart has none yet. Never-failing rule
  * 5, "never buck the trend" (*Commodities* pp. 43-45; *45 Years* p. 15): the
  * trend a reaction runs against is the main one, so a 3-Day Chart turned down
  * inside a weekly uptrend is the reaction to buy at its end, not a short
  * (2026-10-29, Chuck). Null when neither chart reads.
  */
-export function tradeTrend(m: Pick<SessionMetrics, "mainTrend" | "dailyTrend">): Direction | null {
-  return m.mainTrend ?? m.dailyTrend;
+export function tradeTrend(m: Pick<SessionMetrics, "weeklyTrend" | "dailyTrend">): Direction | null {
+  return m.weeklyTrend ?? m.dailyTrend;
 }
 
 /** The trend check every trade alert carries (`tradeTrend`), when there is enough daily history to read it. */
 function dailyTrendFactors(m: SessionMetrics, direction: Direction): ConfidenceFactor[] {
   const trend = tradeTrend(m);
   if (trend === null) return [];
-  const reaction = m.mainTrend !== null && m.dailyTrend !== null && m.dailyTrend !== m.mainTrend;
-  const source = m.mainTrend !== null ? "main (weekly) swing trend" : "daily swing trend";
+  const reaction = m.weeklyTrend !== null && m.dailyTrend !== null && m.dailyTrend !== m.weeklyTrend;
+  const source = m.weeklyTrend !== null ? "weekly swing trend" : "daily swing trend";
   return [
     {
-      label: "With the main trend",
+      label: "With the weekly trend",
       passed: trend === direction,
       detail:
         `The ${source} is ${trend}${trend === direction ? "" : ": this alert runs against it"}.` +
-        (reaction ? ` The daily swing runs ${m.dailyTrend}: a pullback inside the main trend.` : ""),
+        (reaction ? ` The daily swing runs ${m.dailyTrend}: a pullback inside the weekly trend.` : ""),
     },
   ];
 }
@@ -2186,7 +2198,7 @@ function buildAlert(args: {
   whyThisAppeared: string;
 }): Alert {
   const { now, input, metrics: m, type, direction, move, invalidation } = args;
-  // Every trade alert is read against the main trend: "never buck the trend"
+  // Every trade alert is read against the weekly trend: "never buck the trend"
   // (never-failing rule 5, *Commodities* pp. 43-45). A reversal-risk alert is a
   // warning to stand aside, not a trade, so it carries no such check.
   const factors = type === "reversal_risk" ? args.factors : [...args.factors, ...dailyTrendFactors(m, direction)];
@@ -2196,11 +2208,11 @@ function buildAlert(args: {
   const trend = tradeTrend(m);
   const tradeSignal = type !== "reversal_risk" && type !== "plan_level_held" && !NOTICE_SIGNALS.has(type);
   const againstDailyTrend = tradeSignal && trend !== null && trend !== direction;
-  const reactionOverbalanced = tradeSignal && m.mainTrend === direction && m.mainTrendOverbalanced;
-  const againstMarketTrend =
+  const reactionOverbalanced = tradeSignal && m.weeklyTrend === direction && m.weeklyOverbalanced;
+  const againstMainTrend =
     type !== "reversal_risk" &&
     !NOTICE_SIGNALS.has(type) &&
-    averagesAgainst(input.marketTrend, direction === "up" ? "bullish" : "bearish");
+    shortAgainstMainTrend(m.mainTrend, direction === "up" ? "bullish" : "bearish");
   const riskUnderPoint =
     type !== "reversal_risk" &&
     !NOTICE_SIGNALS.has(type) &&
@@ -2232,7 +2244,7 @@ function buildAlert(args: {
     ...(args.crossingLine ? { crossingLine: args.crossingLine } : {}),
     ...(againstDailyTrend ? { againstDailyTrend: true } : {}),
     ...(reactionOverbalanced ? { reactionOverbalanced: true } : {}),
-    ...(againstMarketTrend ? { againstMarketTrend: true } : {}),
+    ...(againstMainTrend ? { againstMainTrend: true } : {}),
     ...(riskUnderPoint ? { riskUnderPoint: true } : {}),
     timeliness: alertTimeliness(input, m, type, direction, now),
   };

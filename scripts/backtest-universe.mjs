@@ -16,7 +16,13 @@
  *     --cells '[{"label":"baseline","options":{"useProductionStop":true}},
  *               {"label":"confirmed","options":{"useProductionStop":true,"requireEntryConfirmation":true}}]'
  *
- *   --universe      large-cap | mega-12 | diversified | mega-cap | SYM1,SYM2,…
+ *   --universe      large-cap | point-in-time | mega-12 | diversified | mega-cap | SYM1,SYM2,…
+ *                   point-in-time: each year's own large caps, the departed
+ *                   included, read from `--since` (or the daily window's start)
+ *                   to today (`lib/universe/pointInTime.ts`). A stock opens
+ *                   trades only in the years it was a member, and the strength
+ *                   rank's peers are that month's members. --offset and --limit
+ *                   slice the member list, which every job builds the same way.
  *   --cells         JSON array (or a path to a .json file) of
  *                   { label, options?, within? }. `options` is passed straight
  *                   to `replay()` / the report request.
@@ -52,6 +58,7 @@ import { execSync } from "node:child_process";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { robustnessSections } from "./robustness-report.mjs";
+import { ladderLogBlock } from "./rule-ladder.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -136,6 +143,20 @@ export function validateCells(cells) {
     if (intradayOnly.length > 0 && c.options?.profile !== "intraday") {
       throw new Error(`Cell "${c.label}": ${intradayOnly.join(", ")} apply to profile "intraday" only`);
     }
+    const coreOnly = ["coreShorts", "coreTrail", "ladder", "ladderGate"].filter((k) => c.options?.[k] !== undefined);
+    if (coreOnly.length > 0 && c.options?.profile !== "core") {
+      throw new Error(`Cell "${c.label}": ${coreOnly.join(", ")} apply to profile "core" only`);
+    }
+    // The rule ladder (docs/RULE_LADDER.md): "tag" reads every rung without
+    // gating and prints the ladder; `ladderGate` gates on the kept rungs.
+    if (c.options?.ladder !== undefined && c.options.ladder !== "tag") throw new Error(`Cell "${c.label}": ladder must be "tag"`);
+    if (
+      c.options?.ladderGate !== undefined &&
+      !(Array.isArray(c.options.ladderGate) && c.options.ladderGate.length > 0 && c.options.ladderGate.every((n) => typeof n === "string" && !n.startsWith("ref:")))
+    ) {
+      throw new Error(`Cell "${c.label}": ladderGate must be a non-empty array of rung names (references are never gated on)`);
+    }
+    if (c.options?.ladder !== undefined && c.options?.ladderGate !== undefined) throw new Error(`Cell "${c.label}": ladder and ladderGate are exclusive`);
   }
   return cells;
 }
@@ -538,6 +559,39 @@ export function tradesCsvLogBlock(csv, limitBytes = TRADE_CSV_LOG_LIMIT_BYTES) {
   return `=== BEGIN trades.csv.gz.base64 ===\n${lines.join("\n")}\n=== END trades.csv.gz.base64 ===\n`;
 }
 
+/** A tagged core cell's campaigns as ladder rows (`lib/backtest/walkForward.ts#LadderRow`). */
+export function ladderRowsFromCore(trades) {
+  return trades
+    .filter((t) => Array.isArray(t.rulesRefused) && Number.isFinite(t.rMultiple))
+    .map((t) => ({ symbol: t.symbol, date: t.openedAt.slice(0, 10), r: t.rMultiple, refused: new Set(t.rulesRefused) }));
+}
+
+/**
+ * The bare core's campaign figures for one cell (`summariseCore`), as a
+ * Markdown section for the job log: the whole line beside the first lot alone,
+ * so the pyramid's share shows, and the split by side and entry.
+ */
+export function coreCampaignSummary(label, core) {
+  const r = (x) => (Number.isFinite(x) ? (x >= 0 ? "+" : "") + x.toFixed(3) + "R" : "n/a");
+  const lines = [
+    "",
+    `## Core campaigns: ${label}`,
+    "",
+    `Campaigns ${core.campaigns} (${core.pyramided} pyramided, ${core.meanLots.toFixed(2)} lots on average). ` +
+      `Whole line ${r(core.lineExpectancyR)} a campaign (total ${core.lineR.toFixed(1)}R); first lot alone ${r(core.firstLotExpectancyR)} ` +
+      `(total ${core.firstLotR.toFixed(1)}R). Closed campaigns only: ${core.closed.campaigns} at ${r(core.closed.lineExpectancyR)}.`,
+    "",
+    "| Split | Campaigns | Whole line | First lot |",
+    "|---|---:|---:|---:|",
+    `| Long | ${core.bySide.long.campaigns} | ${r(core.bySide.long.lineExpectancyR)} | ${r(core.bySide.long.firstLotExpectancyR)} |`,
+    `| Short | ${core.bySide.short.campaigns} | ${r(core.bySide.short.lineExpectancyR)} | ${r(core.bySide.short.firstLotExpectancyR)} |`,
+    `| Crossing | ${core.byEntry.crossing.campaigns} | ${r(core.byEntry.crossing.lineExpectancyR)} | |`,
+    `| Reaction | ${core.byEntry.reaction.campaigns} | ${r(core.byEntry.reaction.lineExpectancyR)} | |`,
+    "",
+  ];
+  return lines.join("\n");
+}
+
 export function summaryMarkdown(meta, summary) {
   const lines = [];
   lines.push(`# Universe backtest — ${meta.universe} (${meta.symbolsUsed}/${meta.symbolsRequested} symbols)`);
@@ -827,6 +881,17 @@ async function main() {
     const run = await server.ssrLoadModule("/lib/backtest/run.ts");
     const { replay, combine } = await server.ssrLoadModule("/lib/backtest/replay.ts");
     const { replayIntraday } = await server.ssrLoadModule("/lib/backtest/replayIntraday.ts");
+    // The bare core (profile "core"); absent on refs before it.
+    const { replayCore } = await server.ssrLoadModule("/lib/backtest/replayCore.ts").catch(() => ({}));
+    const usesLadder = cells.some((c) => c.options?.ladder !== undefined || c.options?.ladderGate !== undefined);
+    const ladderMod = usesLadder ? await server.ssrLoadModule("/lib/backtest/ruleLadder.ts") : null;
+    const walkForward = usesLadder ? await server.ssrLoadModule("/lib/backtest/walkForward.ts") : null;
+    // Check every gated rung name before any fetch.
+    for (const c of cells) if (c.options?.ladderGate) ladderMod.ladderRules("CHECK", { dailyBars: [] }, c.options.ladderGate);
+    if (cells.some((c) => c.options?.profile === "core")) {
+      if (typeof replayCore !== "function") throw new Error('profile "core" is not on this ref.');
+      if (args.timeframe !== "1Day") throw new Error('profile "core" walks daily bars: run it with --timeframe 1Day.');
+    }
     const { getMarketDataProvider } = await server.ssrLoadModule("/lib/data/provider.ts");
     const { monteCarloResample } = await server.ssrLoadModule("/lib/backtest/monteCarlo.ts");
     const { buildRobustness } = await server.ssrLoadModule("/lib/backtest/robustness.ts");
@@ -859,7 +924,42 @@ async function main() {
       );
     }
 
-    let universe = await resolveUniverse(server, args.universe);
+    const sinceMs = args.since === null ? null : Date.parse(args.since);
+    if (sinceMs !== null && Number.isNaN(sinceMs)) throw new Error(`Invalid --since ${args.since}`);
+
+    // The point-in-time universe (survivorship): each year's members, read
+    // once before the slice so every job of a split run reads the same list.
+    let pit = null;
+    if (args.universe === "point-in-time") {
+      const intraday = cells.filter((c) => c.options?.profile === "intraday").map((c) => c.label);
+      if (intraday.length > 0) {
+        throw new Error(`The point-in-time universe is read by the swing replay only (cells ${intraday.join(", ")} use the intraday profile).`);
+      }
+      const pitMod = await server.ssrLoadModule("/lib/backtest/pointInTime.ts");
+      const { LARGE_CAP_UNIVERSE } = await server.ssrLoadModule("/lib/scan/large-cap-universe.ts");
+      const { describePointInTimeUniverse, isPointInTimeMember } = await server.ssrLoadModule("/lib/universe/pointInTime.ts");
+      const refs = await server.ssrLoadModule("/lib/data/instrumentReference.ts");
+      const todayRefs = await refs.loadInstrumentReferenceHistory(LARGE_CAP_UNIVERSE);
+      // A fixed start, so every job of a split run reads the same years.
+      if (sinceMs === null) throw new Error("--universe point-in-time needs --since, so every job of a split run reads the same list.");
+      const fromDate = new Date(sinceMs).toISOString().slice(0, 10);
+      const loaded = await pitMod.loadPointInTimeUniverse({
+        from: fromDate,
+        to: new Date().toISOString().slice(0, 10),
+        todayShares: new Map([...todayRefs].map(([s, r]) => [s, r.history])),
+      });
+      pit = { ...loaded, isMember: (symbol, date) => isPointInTimeMember(loaded.universe, symbol, date) };
+      process.stderr.write(`Point-in-time universe from ${fromDate}: ${pit.symbols.length} symbols were members in at least one year.\n`);
+      for (const line of describePointInTimeUniverse(pit.universe)) process.stderr.write(`  ${line}\n`);
+      process.stderr.write(
+        `  Member list hash ${pit.hash} (every job of a split run must print the same). ` +
+          `Departed tickers with share counts: ${pit.departedWithShares}.\n`,
+      );
+      if (pit.suspectBars.length > 0) process.stderr.write(`  Departed tickers whose bars may not be their company's: ${pit.suspectBars.join(", ")}\n`);
+      if (pit.suspectSplits.length > 0) process.stderr.write(`  Today's names reading under half the floor now (a split after the last filing?): ${pit.suspectSplits.join(", ")}\n`);
+    }
+
+    let universe = pit ? pit.symbols : await resolveUniverse(server, args.universe);
     // --offset and --limit take a slice of the universe, so a run too long
     // for one job can be split across several (0-382, then 383-765).
     universe = universe.slice(args.offset, args.limit === null ? undefined : args.offset + args.limit);
@@ -869,9 +969,6 @@ async function main() {
           `this Alpaca account's rate limit — prefer <=30/min in session.\n`,
       );
     }
-
-    const sinceMs = args.since === null ? null : Date.parse(args.since);
-    if (sinceMs !== null && Number.isNaN(sinceMs)) throw new Error(`Invalid --since ${args.since}`);
 
     // Shares outstanding and inception dates (parity roadmap D2, D3), read
     // once, as `collectRun` does. Older refs have no loader; the readings are
@@ -907,7 +1004,11 @@ async function main() {
     }
     // The scan universe's monthly bars once, for Gann's relative strength rank
     // (S6, P3(c)). Older refs have no loader; the rank is then unread.
-    const universeStrength = typeof run.fetchReplayUniverseStrength === "function" ? await run.fetchReplayUniverseStrength() : null;
+    const universeStrength = pit
+      ? pit.strength
+      : typeof run.fetchReplayUniverseStrength === "function"
+        ? await run.fetchReplayUniverseStrength()
+        : null;
     process.stderr.write(`Universe strength rank: ${universeStrength ? `${universeStrength.size} months` : "unread"}.\n`);
 
     // Writes every result file. Called as a checkpoint every
@@ -918,6 +1019,7 @@ async function main() {
       await mkdir(path.resolve(root, args.out), { recursive: true });
       const window = { from, to };
       const cellResults = [];
+      const coreSections = [];
       for (let c = 0; c < cells.length; c++) {
         const cell = cells[c];
         const overall = combine(perCell[c]);
@@ -940,6 +1042,7 @@ async function main() {
           ...(cell.options ?? {}),
         });
         await writeWhole(path.resolve(root, args.out, `${cell.label}.report.json`), JSON.stringify({ cell, ...report }));
+        if (report.core) coreSections.push(coreCampaignSummary(cell.label, report.core));
         await writeWhole(path.resolve(root, args.out, `${cell.label}.trades.json`), JSON.stringify(overall.trades));
         cellResults.push({
           cell,
@@ -956,6 +1059,19 @@ async function main() {
       const { sha, ref } = gitInfo();
       const meta = {
         universe: args.universe,
+        ...(pit
+          ? {
+              pointInTime: {
+                candidates: pit.universe.candidates.length,
+                hash: pit.hash,
+                departedWithShares: pit.departedWithShares,
+                suspectBars: pit.suspectBars,
+                suspectSplits: pit.suspectSplits,
+                members: Object.fromEntries(pit.universe.years.map((y) => [y, [...pit.universe.members.values()].filter((ys) => ys.has(y)).length])),
+                duplicates: Object.fromEntries(pit.universe.duplicates),
+              },
+            }
+          : {}),
         symbolsRequested: universe.length,
         symbolsUsed: used.length,
         skipped,
@@ -983,11 +1099,16 @@ async function main() {
         ...(partial ? {} : { robustness: (trades) => buildRobustness(trades, market?.daily) }),
       });
       await writeWhole(path.resolve(root, args.out, "summary.json"), JSON.stringify({ meta, ...summary }, null, 2));
-      const md = summaryMarkdown(meta, summary);
+      const md = summaryMarkdown(meta, summary) + coreSections.join("");
       await writeWhole(path.resolve(root, args.out, "summary.md"), md);
       // The per-trade rows, for exact splits from the job log alone. A
       // checkpoint keeps the log block on disk (the "Print results" step
       // prints it when the job stops early); the final write prints it here.
+      // The rule ladder's campaign rows, checkpoints included, so a cut-off job
+      // still leaves them for scripts/rule-ladder.mjs.
+      for (const { cell, trades } of cellResults) {
+        if (cell.options?.ladder === "tag") await writeWhole(path.resolve(root, args.out, `${cell.label}.ladder-rows.csv`), walkForward.ladderRowsCsv(ladderRowsFromCore(trades)));
+      }
       const csv = tradesCsv(cellResults);
       await writeWhole(path.resolve(root, args.out, "trades.csv"), csv);
       const block = tradesCsvLogBlock(csv);
@@ -999,6 +1120,11 @@ async function main() {
       await rm(blockFile, { force: true });
       process.stdout.write(md);
       process.stdout.write(`\n${block}`);
+      // The rule ladder last, so a tail read of the log reaches it.
+      for (const { cell, trades } of cellResults) {
+        if (cell.options?.ladder !== "tag") continue;
+        process.stdout.write(`\nRule ladder, cell ${cell.label}:\n${ladderLogBlock(walkForward, ladderMod, ladderRowsFromCore(trades))}`);
+      }
       for (const w of summary.warnings) process.stderr.write(`WARNING: ${w}\n`);
     };
 
@@ -1006,7 +1132,7 @@ async function main() {
       const symbol = universe[i];
       const tickStart = Date.now();
       try {
-        const series = await run.fetchSeries(symbol, args.timeframe, true);
+        const series = await run.fetchSeries(symbol, args.timeframe, true, pit?.asOf.get(symbol));
         const fetched = series.bars;
         const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
         if (bars.length === 0) {
@@ -1015,13 +1141,39 @@ async function main() {
           if (from === null || bars[0].t < from) from = bars[0].t;
           if (to === null || bars[bars.length - 1].t > to) to = bars[bars.length - 1].t;
           const ref = references.get(symbol.toUpperCase());
-          const instrument = ref ? { sharesHistory: ref.history, inception: ref.reference.inception, name: ref.reference.name ?? null } : undefined;
+          const departed = !ref && pit?.shares.get(symbol.toUpperCase());
+          const instrument = ref
+            ? { sharesHistory: ref.history, inception: ref.reference.inception, name: ref.reference.name ?? null }
+            : departed
+              ? { sharesHistory: departed, inception: null, name: null }
+              : undefined;
+          const membership = pit ? { inUniverse: (date) => pit.isMember(symbol, date) } : {};
           cells.forEach((cell, c) => {
             // `profile: "intraday"` is the replay-only intraday profile
             // (lib/backtest/replayIntraday.ts); every other cell is the production method.
             const opts = cell.options ?? {};
             perCell[c].push(
-              opts.profile === "intraday"
+              opts.profile === "core"
+                ? replayCore(symbol, bars, {
+                    dailyBars: series.daily,
+                    monthlyBars: series.monthlyYearCount ?? series.monthly,
+                    ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
+                    ...(opts.pyramid !== undefined ? { pyramid: opts.pyramid } : {}),
+                    ...(opts.coreShorts !== undefined ? { shorts: opts.coreShorts } : {}),
+                    ...(opts.coreTrail !== undefined ? { trail: opts.coreTrail } : {}),
+                    ...membership,
+                    ...(opts.ladder === "tag" || opts.ladderGate
+                      ? {
+                          rules: ladderMod.ladderRules(
+                            symbol,
+                            { ...run.replaySeriesOptions(series, market, universeStrength), instrument },
+                            opts.ladderGate ?? ladderMod.LADDER_RULE_NAMES,
+                          ),
+                          ruleMode: opts.ladder === "tag" ? "tag" : "gate",
+                        }
+                      : {}),
+                  })
+                : opts.profile === "intraday"
                 ? replayIntraday(symbol, bars, {
                     ...(opts.costPerShare !== undefined ? { costPerShare: opts.costPerShare } : {}),
                     ...(opts.reclaimPoints !== undefined ? { reclaimPoints: opts.reclaimPoints } : {}),
@@ -1034,7 +1186,7 @@ async function main() {
                     ...(opts.sessionPlans === true ? { sessionPlans: true } : {}),
                     dailyBars: series.daily,
                   })
-                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market, universeStrength), instrument }),
+                : replay(symbol, bars, { targetR: args.targetR, ...opts, ...run.replaySeriesOptions(series, market, universeStrength), instrument, ...membership }),
             );
           });
           used.push(symbol);

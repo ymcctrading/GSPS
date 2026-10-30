@@ -22,9 +22,9 @@ function chainClient(result: { data: unknown; error: { message: string } | null 
 }
 
 describe("emailCeiling", () => {
-  it("gives a member's own trades and ops 15 more than alerts and digests", () => {
+  it("orders the ceilings digest < alerts < own trades and ops", () => {
     expect(emailCeiling("alert", undefined)).toBe(DEFAULT_EMAIL_DAILY_BUDGET);
-    expect(emailCeiling("digest", undefined)).toBe(80);
+    expect(emailCeiling("digest", undefined)).toBe(60);
     expect(emailCeiling("trade", undefined)).toBe(95);
     expect(emailCeiling("ops", undefined)).toBe(95);
   });
@@ -32,6 +32,8 @@ describe("emailCeiling", () => {
   it("reads EMAIL_DAILY_BUDGET and ignores a value that isn't a positive whole number", () => {
     expect(emailCeiling("alert", "40")).toBe(40);
     expect(emailCeiling("trade", "40")).toBe(55);
+    expect(emailCeiling("digest", "40")).toBe(20);
+    expect(emailCeiling("digest", "10")).toBe(1);
     expect(emailCeiling("alert", "0")).toBe(80);
     expect(emailCeiling("alert", "lots")).toBe(80);
   });

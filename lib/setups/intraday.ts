@@ -57,13 +57,80 @@ export function intradayLevels(alert: Alert): SetupLevels {
   };
 }
 
+/** The fields of an alert, fresh or stored, that decide whether it offers a trade. */
+type OfferFields = {
+  type: Alert["type"];
+  againstDailyTrend?: boolean;
+  againstMainTrend?: boolean;
+  riskUnderPoint?: boolean;
+};
+
+/**
+ * True when an alert offers a trade: "Trade this" is shown on it, the chart
+ * draws it and the ticket takes it. Not a reversal risk or a notice, not held
+ * from trading (`tradeHold`: study only), a stop and a first target priced, and
+ * the target paying more than the risk (M-K5, "profits must exceed losses",
+ * *Wall Street Stock Selector* Ch. II).
+ */
+export function offersTrade(
+  a: OfferFields,
+  stop: number | null,
+  tp1: number | null,
+  paysRisk: boolean | null | undefined,
+): boolean {
+  return (
+    a.type !== "reversal_risk" &&
+    !NOTICE_SIGNALS.has(a.type) &&
+    !tradeHold(a) &&
+    stop != null &&
+    tp1 != null &&
+    paysRisk !== false
+  );
+}
+
+export function alertOffersTrade(a: Alert): boolean {
+  return offersTrade(a, a.continuationPlan.invalidation, a.continuationPlan.firstTarget, a.continuationPlan.paysRisk);
+}
+
+/**
+ * The one alert a symbol's card leads with and its chart draws (2026-10-29,
+ * owner: "Intraday setups are misaligned on the charts page"). The card had
+ * led with the highest-confidence alert while the chart drew the
+ * highest-confidence alert that offered a trade, so FAST's card showed a
+ * study-only daily swing signal and its chart another signal's levels. Now
+ * both read this: an alert that offers a trade first, then confidence. The
+ * others stay on the card as confirming signals.
+ */
+export function leadIntradayAlert<T>(alerts: readonly T[], offers: (a: T) => boolean, confidence: (a: T) => number | null): T | null {
+  let lead: T | null = null;
+  for (const a of alerts) {
+    if (lead == null) {
+      lead = a;
+      continue;
+    }
+    const ao = offers(a);
+    const lo = offers(lead);
+    if (ao !== lo) {
+      if (ao) lead = a;
+      continue;
+    }
+    if ((confidence(a) ?? -1) > (confidence(lead) ?? -1)) lead = a;
+  }
+  return lead;
+}
+
+/** An alert list's lead for a symbol, fresh alerts. */
+export function leadAlert(alerts: readonly Alert[]): Alert | null {
+  return leadIntradayAlert(alerts, alertOffersTrade, (a) => a.confidence);
+}
+
 /**
  * The intraday plan a chart draws for `symbol` on an intraday timeframe
- * (`lib/chart/planForTimeframe.ts`): the highest-confidence alert of the
- * latest scan that offers a trade, the same alerts "Trade this" is offered on
- * (a stop and a first target that pays the risk, not a reversal risk, not a
- * signal held from trading by `tradeHold`). With no scan read yet, today's scheduled alerts
- * stand in, on the same tests their stored rows allow. Null when none does.
+ * (`lib/chart/planForTimeframe.ts`): the symbol's lead alert (`leadAlert`, the
+ * one its card shows) when it offers a trade, and nothing when it does not, so
+ * no chart, ticket or position form draws levels the card holds for study or
+ * calls no trade. With no scan read yet, today's scheduled alerts stand in,
+ * read the same way from their stored rows. Null when none does.
  */
 export function intradayChartPlan(
   symbol: string,
@@ -71,25 +138,19 @@ export function intradayChartPlan(
   recent: readonly RecentSystemAlert[],
 ): IntradayChartPlan | null {
   const sym = symbol.toUpperCase();
-  const offered = (
-    a: { type: Alert["type"]; againstDailyTrend?: boolean; reactionOverbalanced?: boolean; againstMarketTrend?: boolean; riskUnderPoint?: boolean },
-    stop: number | null,
-    tp1: number | null,
-  ) =>
-    a.type !== "reversal_risk" && !NOTICE_SIGNALS.has(a.type) && !tradeHold(a) && stop != null && tp1 != null;
   if (alerts) {
-    const best = alerts
-      .filter((a) => a.symbol.toUpperCase() === sym && a.continuationPlan.paysRisk !== false)
-      .filter((a) => offered(a, a.continuationPlan.invalidation, a.continuationPlan.firstTarget))
-      .sort((a, b) => b.confidence - a.confidence)[0];
-    if (!best) return null;
-    const l = intradayLevels(best);
+    const lead = leadAlert(alerts.filter((a) => a.symbol.toUpperCase() === sym));
+    if (!lead || !alertOffersTrade(lead)) return null;
+    const l = intradayLevels(lead);
     return { entry: l.entry, stop: l.stop, firstTarget: l.tp1, masterTarget: l.mtp };
   }
-  // A stored alert whose first target paid no more than the risk offers no
-  // trade, as on a fresh scan.
-  const r = recent.find((x) => x.symbol.toUpperCase() === sym && x.paysRisk !== false && offered(x, x.stop, x.firstTarget));
-  return r ? { entry: r.entry, stop: r.stop, firstTarget: r.firstTarget, masterTarget: r.masterTarget } : null;
+  const r = leadIntradayAlert(
+    recent.filter((x) => x.symbol.toUpperCase() === sym),
+    (x) => offersTrade(x, x.stop, x.firstTarget, x.paysRisk),
+    (x) => x.confidence,
+  );
+  if (!r || !offersTrade(r, r.stop, r.firstTarget, r.paysRisk)) return null;
+  return { entry: r.entry, stop: r.stop, firstTarget: r.firstTarget, masterTarget: r.masterTarget };
 }
 
 export function intradayChecks(alert: Alert): SetupCheck[] {

@@ -739,20 +739,20 @@ describe("an alert against the daily trend (audit I-02)", () => {
     expect(alerts.length).toBeGreaterThan(0);
     let against = 0;
     for (const a of alerts) {
-      const check = a.confidenceFactors.find((f) => f.label === "With the main trend");
+      const check = a.confidenceFactors.find((f) => f.label === "With the weekly trend");
       const exempt = a.type === "reversal_risk" || a.type === "plan_level_held" || NOTICE_SIGNALS.has(a.type);
       const expected = !exempt && check !== undefined && !check.passed;
       expect(a.againstDailyTrend === true).toBe(expected);
       if (expected) {
         against++;
-        expect(tradeHold(a)).toMatch(/Against the main trend/);
+        expect(tradeHold(a)).toMatch(/Against the weekly trend/);
       }
     }
     expect(against).toBeGreaterThan(0);
   });
 });
 
-describe("a pullback inside the main trend (2026-10-29)", () => {
+describe("a pullback inside the weekly trend (2026-10-30)", () => {
   // Master Course p. 10 rule A and PDF 244-245: a reaction in a bull market is
   // bought at its end, never sold short; the trend it runs against is the
   // weekly chart's. Over-balanced (Master Course PDF 249-250), it is neither.
@@ -793,8 +793,8 @@ describe("a pullback inside the main trend (2026-10-29)", () => {
   it("reads the 3-Day Chart down and the weekly chart up while the reaction runs", () => {
     const m = sessionMetrics(input({ priorDailyBars: reactionDaily(3, 0.99) }))!;
     expect(m.dailyTrend).toBe("down");
-    expect(m.mainTrend).toBe("up");
-    expect(m.mainTrendOverbalanced).toBe(false);
+    expect(m.weeklyTrend).toBe("up");
+    expect(m.weeklyOverbalanced).toBe(false);
   });
 
   it("offers the long at the reaction's end and holds the short into it", () => {
@@ -803,7 +803,7 @@ describe("a pullback inside the main trend (2026-10-29)", () => {
     for (const a of longs) {
       expect(a.againstDailyTrend).toBeUndefined();
       expect(a.reactionOverbalanced).toBeUndefined();
-      expect(a.confidenceFactors.find((f) => f.label === "With the main trend")?.passed).toBe(true);
+      expect(a.confidenceFactors.find((f) => f.label === "With the weekly trend")?.passed).toBe(true);
     }
     const shorts = trades(-1, reactionDaily(3, 0.99));
     expect(shorts.length).toBeGreaterThan(0);
@@ -815,7 +815,7 @@ describe("a pullback inside the main trend (2026-10-29)", () => {
 
   it("holds the long once the reaction lasts longer than the campaign's greatest", () => {
     const daily = reactionDaily(6, 0.996);
-    expect(sessionMetrics(input({ priorDailyBars: daily }))!.mainTrendOverbalanced).toBe(true);
+    expect(sessionMetrics(input({ priorDailyBars: daily }))!.weeklyOverbalanced).toBe(true);
     const longs = trades(1, daily);
     expect(longs.length).toBeGreaterThan(0);
     for (const a of longs) {
@@ -825,11 +825,11 @@ describe("a pullback inside the main trend (2026-10-29)", () => {
   });
 
   it("falls back to the 3-Day Chart while the weekly chart has no trend", () => {
-    expect(tradeTrend({ mainTrend: "up", dailyTrend: "down" })).toBe("up");
-    expect(tradeTrend({ mainTrend: null, dailyTrend: "down" })).toBe("down");
-    expect(tradeTrend({ mainTrend: null, dailyTrend: null })).toBeNull();
-    // The over-balance note comes before the market's, as the main trend's does.
-    expect(tradeHold({ type: "trend_continuation", reactionOverbalanced: true, againstMarketTrend: true })).toBe(REACTION_OVERBALANCED);
+    expect(tradeTrend({ weeklyTrend: "up", dailyTrend: "down" })).toBe("up");
+    expect(tradeTrend({ weeklyTrend: null, dailyTrend: "down" })).toBe("down");
+    expect(tradeTrend({ weeklyTrend: null, dailyTrend: null })).toBeNull();
+    // The over-balance note comes before the monthly main trend's, as the weekly trend's does.
+    expect(tradeHold({ type: "trend_continuation", reactionOverbalanced: true, againstMainTrend: true })).toBe(REACTION_OVERBALANCED);
   });
 });
 
@@ -865,7 +865,7 @@ describe("an alert whose stop sits inside one intraday point (2026-10-29)", () =
   it("holds the trade, after a measured-losing or against-trend hold", () => {
     expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true })).toMatch(/Stop too close/);
     expect(tradeHold({ type: "trend_continuation", riskUnderPoint: false })).toBeNull();
-    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true, againstDailyTrend: true })).toMatch(/Against the main trend/);
+    expect(tradeHold({ type: "trend_continuation", riskUnderPoint: true, againstDailyTrend: true })).toMatch(/Against the weekly trend/);
   });
 });
 
@@ -875,15 +875,26 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     expect(scanIntraday([input()], loose, AT_1133).alerts.map((a) => a.type as string)).not.toContain("unusual_volume");
   });
 
+  // The live scan reads no daily-scale signal (owner, 2026-10-29: "Only
+  // intraday scans should populate the intraday card(s)"); the replay turns it
+  // on for a run that names it.
+  const WITH_DAILY = { ...DEFAULT_CONFIG, dailyScaleSignals: true };
+
+  it("leaves the daily swing turn out of the live scan entirely", () => {
+    const types = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    expect(types).not.toContain("overnight_turn");
+    expect(scanIntraday([input()], WITH_DAILY, AT_1133).alerts.map((a) => a.type)).toContain("overnight_turn");
+  });
+
   it("alerts when the Overnight Chart turns on today's session, its stop 1 point under the last bottom", () => {
     // Yesterday was the second day of a reaction (low 499); today's low holds above it: a higher bottom.
-    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert?.direction).toBe("up");
     expect(alert?.invalidation).toBeCloseTo(499 - pricePoint(499), 2);
   });
 
   it("holds the Overnight Chart's turn from trade: its daily-scale stop and targets are not a session's (META, 2026-10-29)", () => {
-    const alert = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
     expect(alert).toBeDefined();
     expect(tradeHold(alert!)).toBe(DAILY_SCALE_HOLD);
     // The scale hold comes before the trend notes; a session signal is not held for scale.
@@ -896,7 +907,7 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     // Yesterday already made a higher bottom, so the line was up before today.
     daily[daily.length - 2] = { ...daily[daily.length - 2], l: 498 };
     daily[daily.length - 1] = { ...daily[daily.length - 1], l: 499, h: 501.5 };
-    const types = scanIntraday([input({ priorDailyBars: daily })], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
+    const types = scanIntraday([input({ priorDailyBars: daily })], WITH_DAILY, AT_1133).alerts.map((a) => a.type);
     expect(types).not.toContain("overnight_turn");
   });
 });
@@ -1293,5 +1304,51 @@ describe("a symbol the scan could not read gets an audit row saying why (AIZ, 20
     expect(failed.reason).toMatch(/failed or timed out/);
     expect(unreadAudit("AIZ", "equity", "no_bars", true).reason).toMatch(/last session/);
     expect(unreadAudit("BTC/USD", "crypto", "no_bars", false).reason).not.toMatch(/delayed feed/);
+  });
+});
+
+describe("a sale alert before the stock's main trend turns down (2026-10-29)", () => {
+  it("is flagged on every sale signal while the monthly chart has not turned down, and held from trade", () => {
+    // The session mirrored about 500: the same run, falling.
+    const down = trendingUpBars().map((b) => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c }));
+    const inputs = [input(), input({ bars: down }), input({ bars: down, priorDailyBars: campaignDaily().map((b) => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c })) })];
+    let flagged = 0;
+    for (const inp of inputs) {
+      const m = sessionMetrics(inp);
+      for (const a of scanIntraday([inp], DEFAULT_CONFIG, AT_1133).alerts) {
+        const exempt = a.type === "reversal_risk" || NOTICE_SIGNALS.has(a.type);
+        const expected = !exempt && a.direction === "down" && m?.mainTrend !== "bearish";
+        expect(a.againstMainTrend === true).toBe(expected);
+        if (expected) {
+          flagged++;
+          expect(tradeHold(a)).not.toBeNull();
+        }
+      }
+    }
+    expect(flagged).toBeGreaterThan(0);
+  });
+
+  it("lets a sale through once the prior sessions' months read the main trend down", () => {
+    // About fourteen months of sessions falling in monthly swings, ending at 500.
+    const daily: Bar[] = [];
+    const start = Date.parse("2025-06-02T05:00:00Z");
+    for (let d = 0; d < 430; d++) {
+      const c = 500 * (1 + 0.0015 * (430 - d)) * (1 + 0.03 * Math.sin(d / 9));
+      const o = d === 0 ? c : daily[daily.length - 1].c;
+      daily.push({ t: new Date(start + d * 86_400_000).toISOString(), o, h: Math.max(o, c) * 1.002, l: Math.min(o, c) * 0.998, c, v: 50_000_000 });
+    }
+    const k = 500 / daily[daily.length - 1].c;
+    const prior = daily.filter((b) => b.t < "2026-08-07").map((b) => ({ ...b, o: b.o * k, h: b.h * k, l: b.l * k, c: b.c * k }));
+    const down = trendingUpBars().map((b) => ({ ...b, o: 1000 - b.o, h: 1000 - b.l, l: 1000 - b.h, c: 1000 - b.c }));
+    const inp = input({ bars: down, priorDailyBars: prior });
+    expect(sessionMetrics(inp)?.mainTrend).toBe("bearish");
+    const sales = scanIntraday([inp], DEFAULT_CONFIG, AT_1133).alerts.filter((a) => a.direction === "down");
+    expect(sales.length).toBeGreaterThan(0);
+    for (const a of sales) expect(a.againstMainTrend).toBeUndefined();
+  });
+
+  it("reads the main trend on the prior sessions' closed months only", () => {
+    // About five months of prior sessions: too short a record to read.
+    expect(sessionMetrics(input())?.mainTrend).toBeNull();
   });
 });

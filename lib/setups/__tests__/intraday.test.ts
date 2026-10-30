@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIntradayCardModel, buildIntradaySynopsis, intradayChartPlan, intradayLevels, isReversalRisk } from "@/lib/setups/intraday";
+import { buildIntradayCardModel, buildIntradaySynopsis, intradayChartPlan, intradayLevels, isReversalRisk, leadAlert } from "@/lib/setups/intraday";
 import type { Alert } from "@/lib/scanner/intraday";
 
 const alert: Alert = {
@@ -118,6 +118,37 @@ describe("intradayChartPlan", () => {
       { ...alert, symbol: "QQQ" },
     ];
     for (const a of none) expect(intradayChartPlan("SPY", [a], recent)).toBeNull();
+  });
+
+  // FAST, 2026-10-29: the card led with a study-only "Daily swing turned"
+  // (stop 49.69, TP1 52.29) while the chart drew the crossing's levels.
+  const held: Alert = {
+    ...alert,
+    type: "overnight_turn",
+    confidence: 90,
+    invalidation: 495,
+    continuationPlan: { ...alert.continuationPlan, invalidation: 495, firstTarget: 505, paysRisk: false },
+  };
+
+  it("leads the card with the alert the chart draws: one that offers a trade before a held one of higher confidence", () => {
+    expect(leadAlert([held, alert])).toBe(alert);
+    expect(intradayChartPlan("SPY", [held, alert], [])).toEqual({ entry: 504.5, stop: 500, firstTarget: 513.5, masterTarget: null });
+  });
+
+  it("draws nothing when the card's lead is held for study or pays no more than the risk", () => {
+    const unpaid: Alert = { ...alert, confidence: 30, continuationPlan: { ...alert.continuationPlan, paysRisk: false } };
+    expect(leadAlert([unpaid, held])).toBe(held);
+    expect(intradayChartPlan("SPY", [unpaid, held], recent)).toBeNull();
+  });
+
+  it("reads stored alerts the same way: an offered row before a held one, by confidence among the offered", () => {
+    const stored = [
+      { ...recent[0], type: "overnight_turn" as const, confidence: 90, stop: 495, firstTarget: 505 },
+      { ...recent[0], confidence: 40, stop: 499 },
+      recent[0],
+    ];
+    expect(intradayChartPlan("SPY", null, stored)).toEqual({ entry: 503, stop: 501, firstTarget: 507, masterTarget: null });
+    expect(intradayChartPlan("SPY", null, [stored[0]])).toBeNull();
   });
 
   it("uses today's scheduled alert only before a scan has been read", () => {

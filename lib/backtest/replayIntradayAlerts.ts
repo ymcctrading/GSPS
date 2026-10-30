@@ -33,13 +33,13 @@
  * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
  * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
  * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
- * Nor is an alert against the main trend (`Alert.againstDailyTrend`, audit
- * I-02, 2026-10-28; the weekly chart since 2026-10-29), or one after the main
- * trend's reaction over-balanced (`Alert.reactionOverbalanced`): the panel
- * shows them for study and offers no trade, "never buck the trend"
+ * Nor is an alert against the weekly trend (`Alert.againstDailyTrend`, audit
+ * I-02, 2026-10-28; the 3-Day Chart's until 2026-10-30), or one after the
+ * weekly trend's reaction over-balanced (`Alert.reactionOverbalanced`): the
+ * panel shows them for study and offers no trade, "never buck the trend"
  * (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
- * 2026-10-29, is one the averages' 3-Day and weekly charts both run against
- * (`Alert.againstMarketTrend`, 45 Years Rule 1), read from `marketDailyBars`.
+ * 2026-10-29, is a sale before the stock's monthly chart has turned its main
+ * trend down (`Alert.againstMainTrend`), read from the same prior daily bars.
  *
  * **The fill.** A person sees an alert a feed delay after the bars it read
  * (the system scan reads data ending 16 minutes before it runs), so the fill
@@ -81,7 +81,6 @@
  * does.
  */
 
-import { readAveragesTrend } from "@/lib/gann/averagesTrend";
 import { THREE_DAY_CHART, walkSwingChart } from "@/lib/gann/swingChart";
 import type { Bar } from "@/lib/types";
 import { atr } from "@/lib/analysis/pivots";
@@ -101,6 +100,7 @@ import {
   type Alert,
   type AssetKind,
   type DailyPlanLevels,
+  type ScannerConfig,
   type SignalType,
   type SymbolInput,
 } from "@/lib/scanner/intraday";
@@ -167,12 +167,6 @@ export interface AlertReplayInput {
   dailyBars: Bar[];
   /** Monthly bars, for the level the entry crossed (`entryCrossedLevel`). */
   monthlyBars?: Bar[];
-  /**
-   * The averages' (SPY's) daily bars, for 45 Years Rule 1: a trade alert the
-   * averages' 3-Day and weekly charts both run against is not entered, as the
-   * live panel offers no trade on it. Absent: not read (crypto, or no read).
-   */
-  marketDailyBars?: Bar[];
   /** Split-adjusted shares outstanding on a date, for the D2 exit. */
   sharesOn?: (date: string) => number | null;
   /** The daily plan each session stood on (`ReplayOptions.sessionPlans`), keyed by ET date. */
@@ -194,13 +188,13 @@ export interface AlertReplayInput {
   /** Record the line notices and their outcomes (`lib/backtest/lineNotices.ts`). */
   collectLineNotices?: boolean;
   /**
-   * Which trend a trade alert must go with. "main" (the default) is the live
-   * rule since 2026-10-29: `Alert.againstDailyTrend` (the weekly chart's
+   * Which trend a trade alert must go with. "weekly" (the default) is the live
+   * rule since 2026-10-30: `Alert.againstDailyTrend` (the weekly chart's
    * trend) and `Alert.reactionOverbalanced`. "threeDay" is the rule before
    * it, the 3-Day Chart on the prior daily bars alone, kept so one run
    * measures both on the same bars. Research only.
    */
-  trendRule?: "main" | "threeDay";
+  trendRule?: "weekly" | "threeDay";
 }
 
 /** The plan as the live route hands it to the scan: Execute or Watch, its stop on the right side. */
@@ -228,6 +222,11 @@ const sessionOf = (b: Bar) => etDateKey(new Date(b.t));
  */
 export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult {
   const { symbol, kind, dailyBars, plans, sessions, signals, costPerShare = DEFAULT_COST_PER_SHARE_USD } = input;
+  // The live scan reads no daily-scale signal; a run that names one reads it.
+  const scanConfig: ScannerConfig = {
+    ...DEFAULT_CONFIG,
+    dailyScaleSignals: signals != null && [...DAILY_SCALE_SIGNALS].some((t) => signals.has(t)),
+  };
   const maxBarsHeld = input.maxBarsHeld ?? ALERT_BARS_PER_SESSION * 10;
   const feedDelayBars = Math.max(0, input.feedDelayBars ?? ALERT_FEED_DELAY_BARS);
   // The run's delay model: the feed's contract, never today's environment.
@@ -260,14 +259,10 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
     const dailyFrom = new Date(Date.parse(`${date}T00:00:00Z`) - INTRADAY_DAILY_HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
     const priorDaily = completedDailyBars(dailyBars, date, kind === "crypto", dailyFrom);
     if (priorDaily.length < 3) continue;
-    // The pre-2026-10-29 rule's trend, read as the scanner read it (`sessionMetrics`).
+    // The pre-2026-10-30 rule's trend, read as the scanner read it (`sessionMetrics`).
     const threeDay =
       input.trendRule === "threeDay" && priorDaily.length >= 10 ? walkSwingChart(priorDaily, THREE_DAY_CHART).trend : null;
     const threeDayDir = threeDay === "bullish" ? "up" : threeDay === "bearish" ? "down" : null;
-    // The live route's market read: 400 days of SPY's sessions, cut at the
-    // stock's prior session (`withMarketTrend`).
-    const marketTrend =
-      kind !== "crypto" && input.marketDailyBars ? readAveragesTrend(completedDailyBars(input.marketDailyBars, date, false, dailyFrom)) : null;
     const baselineFrom = Date.parse(`${date}T00:00:00Z`) - BASELINE_DAYS * 86_400_000;
     const baselineStart = bars.findIndex((b) => Date.parse(b.t) >= baselineFrom);
     const sessionPlan = plans.get(date);
@@ -310,7 +305,6 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         dailyAtr,
         recentBars: bars.slice(Math.max(0, baselineStart), k + 1),
         priorDailyBars: priorDaily,
-        marketTrend,
         avgDailyVolume: liquidity?.avgVolume ?? null,
         dailyPlan,
         lastAlerts: fired,
@@ -318,7 +312,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
         feedDelayMs,
         feed: kind === "crypto" ? "realtime" : "delayed",
       };
-      const { alerts } = scanIntraday([scanInput], DEFAULT_CONFIG, evaluatedAt);
+      const { alerts } = scanIntraday([scanInput], scanConfig, evaluatedAt);
       for (const alert of alerts) fired.push({ type: alert.type, direction: alert.direction, at: evaluatedAt.toISOString() });
       if (lineRec) {
         for (const alert of alerts) {
@@ -342,7 +336,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
           (input.trendRule === "threeDay"
             ? a.type === "plan_level_held" || threeDayDir === null || threeDayDir === a.direction
             : !a.againstDailyTrend && !a.reactionOverbalanced) &&
-          !a.againstMarketTrend &&
+          !a.againstMainTrend &&
           // Held live too (2026-10-29): its stop sat inside one point of the
           // alert's price, so it was never offered; the fill-time
           // `risk_under_point` check below still refuses the rest.

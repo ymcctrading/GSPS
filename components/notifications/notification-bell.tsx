@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 interface InboxNotification {
   id: string;
   symbol: string;
-  verdict: "Execute" | "INVALIDATED" | "Intraday" | "Price alert";
+  verdict: "Execute" | "INVALIDATED" | "Intraday" | "Price alert" | "Your trade" | "Summary";
   title: string;
   body: string;
   read_at: string | null;
@@ -18,6 +18,14 @@ interface InboxNotification {
 }
 
 const POLL_MS = 30_000;
+
+const VERDICT_TONE: Partial<Record<InboxNotification["verdict"], string>> = {
+  INVALIDATED: "text-bear",
+  Intraday: "text-accent",
+  "Price alert": "text-warn",
+  "Your trade": "text-warn",
+  Summary: "text-foreground",
+};
 
 function inboxEquals(a: InboxNotification[], b: InboxNotification[]): boolean {
   if (a === b) return true;
@@ -146,7 +154,7 @@ export function NotificationBell() {
               notifications.map((n) => (
                 <Link
                   key={n.id}
-                  href={tickerHref(n.symbol)}
+                  href={n.verdict === "Your trade" || n.verdict === "Summary" || !n.symbol ? "/portfolio" : tickerHref(n.symbol)}
                   onClick={() => setOpen(false)}
                   className={cn(
                     "block border-b border-border px-3 py-2.5 text-sm last:border-b-0 hover:bg-background",
@@ -155,16 +163,7 @@ export function NotificationBell() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={cn(
-                        "font-medium",
-                        n.verdict === "INVALIDATED"
-                          ? "text-bear"
-                          : n.verdict === "Intraday"
-                            ? "text-accent"
-                            : n.verdict === "Price alert"
-                              ? "text-warn"
-                              : "text-bull",
-                      )}
+                      className={cn("font-medium", VERDICT_TONE[n.verdict] ?? "text-bull")}
                     >
                       {n.title}
                     </span>

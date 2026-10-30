@@ -27,6 +27,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AlpacaCreds, AlpacaPosition } from "@/lib/brokers/alpaca";
 import { sendLiveLossThresholdEmail } from "@/lib/notifications/live-risk-email";
+import { deliverKeyNotice, PORTFOLIO_PATH } from "@/lib/notifications/keyNotice";
 
 const NOTIFY_THRESHOLDS = [6, 9, 15, 30] as const;
 
@@ -75,6 +76,18 @@ export async function evaluateLiveTradeLoss(
 
   const newlyCrossed = thresholdsNewlyCrossed(lossPct, alreadyNotified);
   if (newlyCrossed.length > 0) {
+    // The bell and push carry each threshold whatever the email does
+    // (keyNotice.ts, 2026-10-29): the email is budgeted and may not go.
+    for (const threshold of newlyCrossed) {
+      await deliverKeyNotice(userId, {
+        verdict: "Your trade",
+        symbol: position.symbol,
+        title: `${position.symbol}: live position down ${lossPct.toFixed(1)}%`,
+        body: `This live position has crossed a ${threshold}% loss threshold on its allocated funds.${threshold === 30 ? " At 50% GSPS pauses automation on it and attempts to close it." : ""}`,
+        url: PORTFOLIO_PATH,
+        tag: `live-loss-${position.id}-${threshold}`,
+      });
+    }
     const email = await resolveUserEmail(supabase, userId);
     if (email) {
       for (const threshold of newlyCrossed) {
