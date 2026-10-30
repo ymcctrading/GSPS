@@ -45,6 +45,13 @@ history and rationale, under `docs/agents/`, which no session loads on its own.
    exit status, and never hide a failing check behind a filter.
 7. Token ratios or estimated dollars are not savings. Measure accepted work
    and the allowance used.
+8. **Fresh threads daily (owner, 2026-10-30).** Every step re-reads a thread's
+   whole history, and on 2026-10-30 three threads that had run for days held
+   55% of the project's 10B tokens. A thread whose work runs past a day
+   writes a checkpoint to `/mnt/project-files/checkpoints/<thread>.md`
+   (objective, done, decisions with sources, open items, branch and PRs,
+   next step, what waits on the owner) and continues in a fresh thread that
+   starts from it. Re-check its facts at the source before relying on them.
 ## Product Roadmap
 
 **`docs/SYNTHESIZED_ROADMAP.md` is the governing plan from 2026-10-21**
