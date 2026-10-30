@@ -1426,3 +1426,17 @@ anchor modes, the 52 calls, Dow 9-point and 3-day turns 1913-1948, SPY 2% and
 5% swings 2017-2026): none beats chance (best p 0.38). Not wired into
 forecasting; research only. SPY daily closes for research live in
 `lib/research/spyDailyCloses.json` (Alpaca, 2016-01-04 to 2026-10-29).
+
+**Super Timing, combinations and disprovable procedures, same day.** Walker's
+*Super Timing* read in full from the Drive scan; its four timing rules
+(`lib/research/superTiming.ts`, 28 tests) beat chance nowhere. The combination
+test (`combinationTest.ts`, 17 rules, 821 sets, chosen on the Dow 1913-1930,
+scored on 1931-1948 and SPY/DIA 2016-2025) finds nothing that holds unseen.
+Owner: "Do not defend a supposed secret. Define a procedure that new evidence
+is allowed to disprove." `timeProcedures.ts` freezes the shared
+reconstruction's Rules A to D with kill criteria written before scoring: A
+and D refuted on SPY/DIA 2016-2025, B and C almost never fire as written (not
+testable). Forward projections go to `timeProcedureLog.json` each month-end
+(`scripts/time-procedures-issue.mjs`), append-only, reviewed Oct 2028. The
+rules' own Dow 1913-1948 span needs daily Dow closes the repo lacks (asked of
+the owner). Write-up `docs/GANN_FORECAST_TRACK_RECORD.md` §13. Research only.

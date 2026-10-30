@@ -394,3 +394,57 @@ emblem and time extension), tested on his calls, the Dow's turns 1913-1948 and
 SPY's and DIA's 2016-2025: none beats chance (best p 0.016, cut-off 0.0012
 for 42 tests). `lib/research/videoTimeRules.ts`; details in
 `docs/PLANETARY_TIMING.md`.
+
+## 13. *Super Timing*, combinations, and procedures new evidence may disprove (2026-10-30)
+
+**Walker's *Super Timing* (1999), read in full.** Its formula (a trine with a
+conjunction or a balanced square or opposition, the Moon as the timer,
+Jupiter's ingress, Jupiter's return to a turn's degree) was fixed as four rules
+before scoring (`lib/research/superTiming.ts`) and scored on the 52 calls, the
+Dow 1913-1948 and SPY/DIA 2016-2025: 28 tests, none clears 0.0018 (lowest:
+Jupiter's ingress on SPY's 3-day turns, p 0.011). Rows in
+`docs/PLANETARY_TIMING.md`.
+
+**Combinations (owner: "a combination of rules that must align, coupled with
+a time of year or square of 9").** `lib/research/combinationTest.ts`: 17 rules,
+821 pairs, triples and "at least k" sets, chosen on the Dow's 9-point turns
+1913-1930 and scored unchanged on the Dow 1931-1948 and SPY/DIA 2016-2025.
+In the choosing span 7 of the 219 scorable sets reach p 0.05, fewer than the
+11 chance gives. The three chosen hold nowhere unseen (best p 0.008 on DIA's
+3-day turns, against 0.0028). Combining the rules does not rebuild his
+results.
+
+**Procedures a result is allowed to disprove (owner: "Do not defend a
+supposed secret. Define a procedure that new evidence is allowed to
+disprove").** `lib/research/timeProcedures.ts` freezes Rules A to D of the
+reconstruction the owner shared (an outside model's "Gann mentoring a young
+Buffett"), exactly as written, with kill criteria in the module header
+written before the first run. The rules name daily Dow closes 1913-1948,
+which the repo does not hold (the swing tables hold turns only), so the
+held-out span here is DIA (primary) and SPY, forecasts issued at the
+month-ends of Dec 2016 to Nov 2025, 14 tests, cut-off 0.0036.
+Run `docs/replay-runs/2026-10-30-time-procedures.json`.
+
+| Rule | DIA windows | DIA hits / expected | p | Verdict |
+|---|---|---|---|---|
+| A: pivot anniversaries, price within 2% of the 252-session extreme | 44 | 2 / 0.9 | 0.23 | refuted |
+| A0: the anniversaries alone | 210 | 16 / 8.5 | 0.0051 (SPY 10 / 8.8) | refuted |
+| B: time-price balance at a frozen unit | 5 | 1 / 0.18 | 0.18 | not testable (under 10 windows) |
+| C: Mars opposite its place at the last pivot, with A's price filter | 0 | none issued | n/a | not testable |
+| D on A: confirmation entry after the windows | 24 trades | mean -0.68% a trade, control +0.14% | 0.61 | refuted |
+
+Corrected the same day after review: a projection on the next month's first
+session had centred a window whose first session was the issue day itself, and
+29 Feb anniversaries rolled to 1 Mar instead of the rule's 28 Feb. Windows now
+open after the issue session, in the forecasts and in the null (which draws
+only days whose window does, so its window count still matches). The figures
+above are the corrected run. A0 moved closest to the cut-off (0.0051 against
+0.0036) and stays refuted; the verdicts are unchanged.
+
+As written, B and C almost never fire: the latest pivot is a few weeks old, so
+B's projected day has usually passed, and Mars has not travelled the 180° C
+needs. That is the rules' own shape, not a data fault; a version that fires
+would be a new rule, frozen and tested afresh. Each month's projections are
+appended to `lib/research/timeProcedureLog.json` before the month opens
+(`scripts/time-procedures-issue.mjs`, first issue at the October 2026
+month-end) and scored at the 24-month review. Nothing is shown to members.
