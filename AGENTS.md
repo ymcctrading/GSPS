@@ -3825,7 +3825,16 @@ a slot of a daily budget first (`lib/notifications/email-budget.ts`, migration
 0126: 80 for alerts and digests, 95 for own trades and ops, UTC day, fails
 open); over it the send is skipped and the bell keeps the notice. The bell
 points a member without push on that device to the switch. A new email sender
-calls `emailBudgetHold` with its kind.
+calls `emailBudgetHold` with its kind. **Capacity, 2026-10-29:** the digest has
+its own lower ceiling (60, under the alerts' 80 and own trades' 95), goes out
+in a day-shuffled order (`dayRotation`), and a member whose digest email did
+not go gets a "Summary" bell row and push instead. A member's own trade notices
+(an order cancelled for a broken plan, a live loss threshold) are written to the
+bell as "Your trade" and pushed whatever the email does
+(`lib/notifications/keyNotice.ts`, migration 0139), so no key notice depends on
+email alone. A new email-only notice must call `deliverKeyNotice` too.
+October's overage was the per-member intraday emails, since moved off email:
+10-23 and 10-26 sent 212 each before the provider refused more.
 
 **Intraday audit fixes, 2026-10-28 (`/mnt/project-files/gann-alignment-audit/intraday-alerts-replay.md`).**
 An intraday alert against the daily swing chart's trend is shown for study and
