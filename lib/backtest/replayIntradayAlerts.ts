@@ -50,13 +50,20 @@
  * Its stop is the alert's own exit level (`invalidation`), and R is measured
  * on the distance from the fill to that stop.
  *
- * **Exits.** An alert a person trades goes through the order ticket, and every
- * protected position is managed on `LIVE_EXIT_RULE`, which is "structure" since Q14
- * (no fixed target). So each trade is walked on `walkGannExit`, the same walk
- * the swing replay's `exitRule: "structure"` uses, with the level the entry crossed
- * (`entryCrossedLevel`, as `readGannExitFromBars` reads it live) and the share
- * count (D2), held at most ten sessions. Reversals and re-buys are not walked:
- * a manual trade gets them only as offers in the exit notes.
+ * **Exits.** An alert a person trades opens the order ticket on the alert's
+ * own levels as an Intraday trade (`intradayTradeHref`,
+ * `orders.intraday_sourced`, 2026-10-22), and the paper and broker exit
+ * managers walk it on the Intraday style (`lib/gann/intradayExit.ts`): the
+ * stop one intraday point beyond each completed 15-minute swing, out when the
+ * hourly chart turns, and closed from 3:45 PM unless the trader ticks "hold
+ * overnight". So each trade is walked that way by default
+ * (`walkAlertIntradayExit`, `exitStyle: "intraday"`), on the same walker the
+ * live reading uses. Until 2026-10-30 this replay walked every alert on the
+ * daily exits (`walkGannExit`, as `exitRule: "structure"`, held up to ten
+ * sessions), which no "Trade this" fill gets: an intraday stop a tenth of a
+ * percent away was carried overnight, so gaps booked losses of five to seven R
+ * and ten-session holds wins of ten to twenty-eight. `exitStyle: "structure"`
+ * keeps that walk for comparison with the earlier runs.
  *
  * **Engineering choices, labelled.** The bars are five-minute bars (the live
  * scan reads one-minute bars; the free feed's minute history is the binding
@@ -107,7 +114,9 @@ import { entryCrossedLevel } from "@/lib/trade/gann-exit-live";
 import { DEFAULT_COST_PER_SHARE_USD } from "@/lib/trade/friction";
 import type { GannEntryKind } from "@/lib/gann/entryKind";
 import { scoreLineSession, type LineSessionRecord } from "./lineNotices";
-import { isTimeoutReason, walkGannExit, type ReplayTrade, type SessionDailyPlan } from "./replay";
+import { isTimeoutReason, rollUp, stopFill, timeoutReasonAt, walkGannExit, type IntradayExitReason, type ReplayTrade, type SessionDailyPlan, type TimeoutReason } from "./replay";
+import { INTRADAY_WINDOW_BARS, intradayWalker, sessionCloseFromMinutes } from "@/lib/gann/intradayExit";
+import { intradayPoint } from "@/lib/gann/pointScale";
 
 /** Five-minute bars in a regular session. */
 export const ALERT_BARS_PER_SESSION = 78;
@@ -182,6 +191,15 @@ export interface AlertReplayInput {
   feedDelayMs?: number;
   costPerShare?: number;
   maxBarsHeld?: number;
+  /**
+   * How a filled alert is walked. "intraday" (the default) is the Intraday
+   * style every "Trade this" fill is managed on (`orders.intraday_sourced`,
+   * `lib/gann/intradayExit.ts`): the 15-minute swing trail, the hourly turn and
+   * the close from 3:45 PM. "structure" is the daily walk (`walkGannExit`),
+   * held at most `maxBarsHeld`, which this replay used before 2026-10-30; kept
+   * for comparison with the earlier runs.
+   */
+  exitStyle?: "intraday" | "structure";
   /** Record the line notices and their outcomes (`lib/backtest/lineNotices.ts`). */
   collectLineNotices?: boolean;
 }
@@ -334,6 +352,7 @@ export function replayIntradayAlerts(input: AlertReplayInput): AlertReplayResult
       const entered = enterAlert({
         alert, bars, from: k + 1, at, sessionEnd: to, point, dailyBars, monthlyBars: input.monthlyBars ?? [], sharesOn: input.sharesOn,
         maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan, planEntryKind: sessionPlan?.entryKind,
+        exitStyle: input.exitStyle ?? "intraday", priorDaily, feedDelayMs,
       });
       if (typeof entered === "string") {
         refused[entered] = (refused[entered] ?? 0) + 1;
@@ -371,6 +390,11 @@ export function enterAlert(input: {
   dailyPlan: DailyPlanLevels | null;
   /** How the session's daily plan was armed; recorded on a `plan_level_held` trade only. */
   planEntryKind?: GannEntryKind;
+  /** "structure" (the default here, for the existing tests) or "intraday"; see `AlertReplayInput.exitStyle`. */
+  exitStyle?: "intraday" | "structure";
+  /** The completed sessions before this one, for the intraday point (the "intraday" walk). */
+  priorDaily?: Bar[];
+  feedDelayMs?: number;
 }): AlertTrade | AlertRefusal {
   const { alert, bars, from, at, sessionEnd, point, dailyBars, monthlyBars, sharesOn, maxBarsHeld, costPerShare, symbol, kind, date, dailyPlan, planEntryKind } = input;
   if (at >= sessionEnd) return "session_ended";
@@ -395,10 +419,13 @@ export function enterAlert(input: {
   if (point > 0 && risk < point) return "risk_under_point";
   const side = long ? "long" : "short";
   const crossedLevel = entryCrossedLevel(side, entry, bars[at].t, dailyBars, monthlyBars);
-  const walked = walkGannExit({
-    bars, from: at, maxBarsHeld, long, entry, stop, dailyBars, crossedLevel,
-    sharesOn, isStock: kind !== "crypto",
-  });
+  const walked =
+    input.exitStyle === "intraday"
+      ? walkAlertIntradayExit({ bars, at, long, stop, priorDaily: input.priorDaily ?? [], crypto: kind === "crypto", feedDelayMs: input.feedDelayMs ?? 0, maxBarsHeld })
+      : walkGannExit({
+          bars, from: at, maxBarsHeld, long, entry, stop, dailyBars, crossedLevel,
+          sharesOn, isStock: kind !== "crypto",
+        });
   const r = (dir * (walked.exit - entry) - costPerShare) / risk;
   const exitReason = walked.reason;
   return {
@@ -426,4 +453,91 @@ export function enterAlert(input: {
     session: date,
     bestR: walked.best == null ? null : (dir * (walked.best - entry)) / risk,
   };
+}
+
+const BAR_15_MS = 15 * 60_000;
+
+/**
+ * Walk one filled alert as the Intraday style manages it live
+ * (`lib/trade/gann-exit-live.ts#readIntradayExitFromBars`, the paper and
+ * broker exit managers), on the replay's five-minute bars:
+ *
+ * - the intraday point is fixed at the fill from the 15-minute bars closed by
+ *   then and the completed daily sessions, as live fixes it;
+ * - the stop and the hourly turn are walked on closed 15-minute bars from the
+ *   fill (`intradayWalker`, the module the live reading uses), each read once
+ *   the feed's delay has passed since that bar closed (DATA-DELAY-001), so a
+ *   tighter stop or a turn acts from the first five-minute bar after that;
+ * - a turn leaves at that bar's open; the stop, resting with the order, fills
+ *   on any five-minute bar that trades it (at the open when the bar opens
+ *   through it, `stopFill`);
+ * - what is left leaves at the open of the first bar from 3:45 PM (12:45 PM on
+ *   an early close, `sessionCloseFromMinutes`), as the exit manager closes it
+ *   at the market on its first pass then. The trader's "hold overnight" box is
+ *   left at its default, off. Crypto has no session close.
+ *
+ * Engineering choices, labelled: the 15-minute bars are rolled up from the
+ * five-minute ones on the clock's quarter hours (the session opens on one),
+ * and live passes are read as continuous (the scheduled pass runs every few
+ * minutes). `best` is the best price reached while held, for `bestR`.
+ */
+export function walkAlertIntradayExit(input: {
+  bars: Bar[];
+  at: number;
+  long: boolean;
+  stop: number;
+  priorDaily: Bar[];
+  crypto: boolean;
+  feedDelayMs: number;
+  maxBarsHeld: number;
+}): { exit: number; finalExit: number; barsHeld: number; reason: IntradayExitReason | TimeoutReason; best: number | null } {
+  const { bars, at, long } = input;
+  const filledAt = Date.parse(bars[at].t);
+  const quarters = rollUp(bars, (b) => String(Math.floor(Date.parse(b.t) / BAR_15_MS)));
+  const before = quarters.filter((q) => Date.parse(q.t) + BAR_15_MS <= filledAt);
+  const point =
+    before.length >= 15 && input.priorDaily.length >= 15
+      ? intradayPoint(before[before.length - 1].c, atr(before.slice(-30), 14), atr(input.priorDaily.slice(-30), 14))
+      : 0;
+  const walker = intradayWalker({ long, stop: input.stop, point, crypto: input.crypto });
+  // Quarters walked: those starting at or after the fill, as live skips the
+  // one the fill fell inside (`readIntradayExit`).
+  let q = quarters.findIndex((b) => Date.parse(b.t) >= filledAt);
+  if (q < 0) q = quarters.length;
+  let started = false;
+  let best: number | null = null;
+  const end = Math.min(bars.length, at + input.maxBarsHeld);
+  const day = etDateKey(new Date(filledAt));
+  for (let j = at; j < end; j++) {
+    const b = bars[j];
+    const open = Date.parse(b.t);
+    // The 15-minute bars usable by this bar's open, read in order.
+    let turned = false;
+    while (q < quarters.length && Date.parse(quarters[q].t) + BAR_15_MS + input.feedDelayMs <= open) {
+      const window = quarters.slice(Math.max(0, q - INTRADAY_WINDOW_BARS), q);
+      if (!started) {
+        walker.start(window);
+        started = true;
+      }
+      if (walker.step(quarters.slice(Math.max(0, q + 1 - INTRADAY_WINDOW_BARS), q + 1))) turned = true;
+      q++;
+    }
+    const held = j - at + 1;
+    if (j > at && turned) return { exit: b.o, finalExit: b.o, barsHeld: held, reason: "intraday_trend_change", best };
+    if (!input.crypto && j > at) {
+      const when = new Date(open);
+      if (etDateKey(when) !== day || etParts(when).minutes >= sessionCloseFromMinutes(when)) {
+        return { exit: b.o, finalExit: b.o, barsHeld: held, reason: "intraday_session_close", best };
+      }
+    }
+    const stop = walker.stop;
+    if (long ? b.l <= stop : b.h >= stop) {
+      const fill = stopFill(long, stop, b.o);
+      return { exit: fill, finalExit: fill, barsHeld: held, reason: walker.trailed ? "intraday_trailing_stop" : "intraday_initial_stop", best };
+    }
+    const extreme = long ? b.h : b.l;
+    if (best === null || (long ? extreme > best : extreme < best)) best = extreme;
+  }
+  const last = bars[end - 1];
+  return { exit: last.c, finalExit: last.c, barsHeld: end - at, reason: timeoutReasonAt(at, input.maxBarsHeld, bars.length), best };
 }
