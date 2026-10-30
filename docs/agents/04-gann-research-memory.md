@@ -1360,3 +1360,10 @@ by `source` before reading a difference into it). A run needs `--since` and logs
 a member-list hash every job of a split run must share. Verdicts and
 `STRATEGY_VERSION` are unchanged.
 
+
+**Intraday trades with the weekly trend, 2026-10-30 (#596).** The intraday
+alerts' trend check reads the weekly chart through the campaign ledger, not the
+3-Day Chart, and holds a long once the campaign's reaction over-balanced its
+greatest (full entry: `docs/agents/18-setup-cards-and-intraday.md`). Intraday
+alerts replay trades move, daily verdicts don't: `STRATEGY_VERSION` is
+`2026-10-30-intraday-weekly-trend`.
