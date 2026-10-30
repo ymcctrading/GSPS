@@ -1395,3 +1395,21 @@ caught 2 turns against 10 of the other 40. The grand cross with a grand trine
 (the "symbol") is absent on 8 Aug 1908 and 30 Sep 1909 at an 8° orb, with or
 without the Moon and Pluto. Research only; nothing acts. `forecastRebuild.ts`
 now exports its scorer (`scoreYearDays`, `yearTargets`); its run is unchanged.
+**The public event calendar, same day (owner found a paid indicator claiming
+"Gann's Laws of Vibration and Bayer's Rules").** `lib/research/celestialEvents.ts`,
+run `docs/replay-runs/2026-10-30-celestial-events.json`, write-up §8: lunations,
+lunar apsides and declination, ingresses, stations, Mercury's speed, declination
+extremes and latitude crossings, 24 tests (45 in the batch, cut-off 0.0011).
+None beats chance on the calls or the turns. Bayer's rules are not built (no
+Bayer book in the collection). Research only; nothing acts.
+**Modern check, same day:** all 15 rules on SPY and DIA 2016-2025
+(`lib/research/modernTiming.ts`, turns in `modernTurns.json` from Alpaca, write-up
+§9): 60 tests, none clears 0.00083 (lowest: latitude crossings on DIA's 3-day
+turns, p 0.002, not on SPY). The live hold's astro inputs are unchanged.
+**Hora and Choghadiya, and `docs/PLANETARY_TIMING.md`, same day (owner: keep
+the planetary material in "its own file surrounding planetary alignment").**
+That file lists every planetary method tested with its rule and result; add
+new ones there. `lib/research/horaTiming.ts` (15-minute high and low times,
+`intradayTurnTimes.json`): with the weekday held, nothing (p 0.26-0.85). A
+first null that randomised the weekday's lord gave p below 0.001, a weekday
+effect it cannot separate from the planetary hour; both are in the run.
