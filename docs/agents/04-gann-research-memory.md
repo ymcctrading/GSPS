@@ -1382,3 +1382,16 @@ of the built time methods (wheel counts, Rule 8 bands, yearly cycles, the 52-wee
 divisions, month counts, seasonal points, the permanent dates, or agreement of
 two or more) met the published calls beyond chance (best p 0.25). The edge
 in the calls is the undisclosed time factor; no current forecast is built from it.
+
+**Planetary aspects as the time factor, tested 2026-10-30 (owner shared nine
+videos crediting the famous calls to aspects).** `lib/research/aspectTiming.ts`,
+run `docs/replay-runs/2026-10-30-aspect-timing.json`, write-up
+`docs/GANN_FORECAST_TRACK_RECORD.md` §7. Seven rules fixed from the videos'
+descriptions (the videos can't be opened from the sandbox), 21 tests. The
+published calls sit on slow-planet aspects (Jupiter to Neptune) more often than
+chance (12 of 52 against 4.8, p 0.0007, clears the correction), but no rule
+times the Dow's 9-point or 3-day turns 1913-1948, and the 12 aspect calls
+caught 2 turns against 10 of the other 40. The grand cross with a grand trine
+(the "symbol") is absent on 8 Aug 1908 and 30 Sep 1909 at an 8° orb, with or
+without the Moon and Pluto. Research only; nothing acts. `forecastRebuild.ts`
+now exports its scorer (`scoreYearDays`, `yearTargets`); its run is unchanged.
