@@ -65,7 +65,7 @@ describe("marketCapAt", () => {
 
   it("multiplies the count filed before the date by the last month's close before it", () => {
     // Before the split's filing: 100M restated to 200M, times December's 60.
-    expect(marketCapAt(shares, bars, "2020-01-01")).toEqual({ capUsd: 200_000_000 * 60, reason: "ok" });
+    expect(marketCapAt(shares, bars, "2020-01-01")).toEqual({ capUsd: 200_000_000 * 60, reason: "ok", on: "2020-01-01" });
   });
 
   it("reads nothing filed or closed on or after the date", () => {
@@ -78,7 +78,7 @@ describe("marketCapAt", () => {
   it("fails closed on no count, a stale count or no close", () => {
     expect(marketCapAt(undefined, bars, "2020-01-01").reason).toBe("no_shares");
     expect(marketCapAt(shares, bars, "2022-06-01").reason).toBe("stale_shares");
-    expect(marketCapAt(shares, [], "2020-01-01")).toEqual({ capUsd: null, reason: "no_close" });
+    expect(marketCapAt(shares, [], "2020-01-01")).toEqual({ capUsd: null, reason: "no_close", on: "2020-01-01" });
   });
 });
 
@@ -127,6 +127,20 @@ describe("buildPointInTimeUniverse", () => {
     expect([...(u.members.get("FALLER") ?? [])]).toEqual([2020, 2021]);
     expect(isPointInTimeMember(u, "riser", "2022-07-15")).toBe(true);
     expect(isPointInTimeMember(u, "RISER", "2021-07-15T14:30:00Z")).toBe(false);
+  });
+
+  it("reads a year whose bars start after 1 January from the month after its first bar, counting from then", () => {
+    const late = buildPointInTimeUniverse({
+      candidates: [{ symbol: "LATE", asOf: null, source: "today" }],
+      years: [2020, 2021],
+      // The feed's first month is July 2020: no close before 1 January 2020.
+      monthly: new Map([["LATE", months("2020-07", [20, 21, 22, 23, 24, 25, 26])]]),
+      shares: new Map([["LATE", [{ asOf: "2019-09-30", filed: "2019-11-01", shares: 1_000_000_000 }]]]),
+    });
+    expect(late.readings.get("LATE")?.get(2020)).toEqual({ capUsd: 20_000_000_000, reason: "ok", on: "2020-08-01" });
+    expect(isPointInTimeMember(late, "LATE", "2020-07-20")).toBe(false);
+    expect(isPointInTimeMember(late, "LATE", "2020-08-03")).toBe(true);
+    expect(isPointInTimeMember(late, "LATE", "2021-01-04")).toBe(true);
   });
 
   it("leaves out a candidate with no share count, and says why", () => {

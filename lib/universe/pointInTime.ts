@@ -26,7 +26,9 @@
  * they did, so it costs the sample, not its honesty.
  *
  * Engineering choices, labelled: the yearly reading on the first of January
- * (a stock that crosses the floor in March waits for the next year), the 18
+ * (a stock that crosses the floor in March waits for the next year; one with no
+ * bar before then, as on the vendor's free feed, which starts in mid-2020, is
+ * read the month after its first bar and counts from that day), the 18
  * months, and the S&P 500 as the candidate list (a past large company that was
  * never in it nor is large today, such as a 2021 listing that has since fallen
  * under $10B, is still missed).
@@ -65,6 +67,8 @@ export type CapReason = "ok" | "no_shares" | "stale_shares" | "no_close";
 export interface CapReading {
   capUsd: number | null;
   reason: CapReason;
+  /** The day the cap was read; membership counts from it. */
+  on: string;
 }
 
 export interface Sp500History {
@@ -140,11 +144,11 @@ function latestFiledBefore(shares: SharesPoint[], date: string): string | null {
  * ended before the date's month began.
  */
 export function marketCapAt(shares: SharesPoint[] | undefined, monthly: readonly Bar[], date: string): CapReading {
-  if (!shares || shares.length === 0) return { capUsd: null, reason: "no_shares" };
+  if (!shares || shares.length === 0) return { capUsd: null, reason: "no_shares", on: date };
   const filed = latestFiledBefore(shares, date);
-  if (filed === null) return { capUsd: null, reason: "no_shares" };
+  if (filed === null) return { capUsd: null, reason: "no_shares", on: date };
   if (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${filed}T00:00:00Z`) > SHARES_STALE_DAYS * DAY_MS) {
-    return { capUsd: null, reason: "stale_shares" };
+    return { capUsd: null, reason: "stale_shares", on: date };
   }
   const count = splitAdjustedSharesAsOf(shares, date);
   const month = date.slice(0, 7);
@@ -157,8 +161,8 @@ export function marketCapAt(shares: SharesPoint[] | undefined, monthly: readonly
       closeMonth = m;
     }
   }
-  if (close === null || count === null || !(count > 0)) return { capUsd: null, reason: count === null ? "no_shares" : "no_close" };
-  return { capUsd: count * close, reason: "ok" };
+  if (close === null || count === null || !(count > 0)) return { capUsd: null, reason: count === null ? "no_shares" : "no_close", on: date };
+  return { capUsd: count * close, reason: "ok", on: date };
 }
 
 /** A month's fingerprint: its month, close and volume. */
@@ -198,6 +202,24 @@ export function yearsBetween(from: string, to: string): number[] {
   return out;
 }
 
+/**
+ * The year's cap reading: on 1 January, or, when no bar closed before then
+ * (the vendor's free feed starts in mid-2020, and a listing may start mid-year),
+ * on the first of the month after the year's first bar. Nothing earlier in the
+ * year is read for that symbol, and membership counts only from the day read
+ * (`CapReading.on`), so no session before it is judged on a later close.
+ */
+function yearReading(shares: SharesPoint[] | undefined, bars: readonly Bar[], year: number): CapReading {
+  const reading = marketCapAt(shares, bars, `${year}-01-01`);
+  if (reading.reason !== "no_close") return reading;
+  const first = bars.find((b) => b.t.slice(0, 4) === String(year) && Number.isFinite(b.c) && b.c > 0);
+  if (!first) return reading;
+  const y = Number(first.t.slice(0, 4));
+  const m = Number(first.t.slice(5, 7));
+  if (m === 12) return reading;
+  return marketCapAt(shares, bars, `${y}-${String(m + 1).padStart(2, "0")}-01`);
+}
+
 /** Each year's members from the candidates' monthly bars and share counts. */
 export function buildPointInTimeUniverse(input: {
   candidates: Candidate[];
@@ -219,7 +241,7 @@ export function buildPointInTimeUniverse(input: {
     const byYear = new Map<number, CapReading>();
     const years = new Set<number>();
     for (const year of input.years) {
-      const reading = marketCapAt(input.shares.get(symbol), bars, `${year}-01-01`);
+      const reading = yearReading(input.shares.get(symbol), bars, year);
       byYear.set(year, reading);
       if (reading.capUsd !== null && reading.capUsd >= floorUsd) years.add(year);
     }
@@ -231,7 +253,11 @@ export function buildPointInTimeUniverse(input: {
 
 /** Whether `symbol` was a member on `date` (YYYY-MM-DD or an ISO timestamp). */
 export function isPointInTimeMember(universe: PointInTimeUniverse, symbol: string, date: string): boolean {
-  return universe.members.get(symbol.toUpperCase())?.has(Number(date.slice(0, 4))) ?? false;
+  const key = symbol.toUpperCase();
+  const year = Number(date.slice(0, 4));
+  if (!(universe.members.get(key)?.has(year) ?? false)) return false;
+  const on = universe.readings.get(key)?.get(year)?.on;
+  return on === undefined || date.slice(0, 10) >= on;
 }
 
 /** Members per year, and why the rest were left out, for a run's log. */

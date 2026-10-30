@@ -54,7 +54,12 @@ async function fetchCandidateMonthly(candidates: Candidate[], start: Date): Prom
   const current = candidates.filter((c) => c.asOf === null).map((c) => c.symbol);
   if (provider.fetchBarsBatch) {
     const batch = provider.fetchBarsBatch.bind(provider);
-    for (const [s, bars] of await fetchWithRetry(() => batch(current, "1Month", start, null, "us_equity"), "today's list")) out.set(s.toUpperCase(), bars);
+    // In chunks, so a rate-limited page repeats one chunk's reads, not the whole list's.
+    for (let i = 0; i < current.length; i += BATCH_CHUNK) {
+      const chunk = current.slice(i, i + BATCH_CHUNK);
+      const label = `today's list (${i + 1}-${i + chunk.length})`;
+      for (const [s, bars] of await fetchWithRetry(() => batch(chunk, "1Month", start, null, "us_equity"), label)) out.set(s.toUpperCase(), bars);
+    }
   }
   for (const c of candidates) {
     if (out.has(c.symbol)) continue;
@@ -63,6 +68,15 @@ async function fetchCandidateMonthly(candidates: Candidate[], start: Date): Prom
   return out;
 }
 
+/** Symbols a batch read takes at once. */
+const BATCH_CHUNK = 100;
+/**
+ * Waits between attempts, about four minutes in all: the vendor's 200 requests
+ * a minute are shared with every other run on the key, so a rate limit can
+ * outlast a short backoff (seen 2026-10-30, a run stopped after 30 s of 429s).
+ */
+const RETRY_WAITS_MS = [5_000, 15_000, 30_000, 60_000, 60_000, 60_000];
+
 /**
  * A failed read is retried, then stops the run: read as no bars it would leave
  * the ticker out in one job of a split run and not another, shifting every
@@ -70,12 +84,13 @@ async function fetchCandidateMonthly(candidates: Candidate[], start: Date): Prom
  */
 async function fetchWithRetry<T>(read: () => Promise<T>, symbol: string): Promise<T> {
   let last: unknown;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < RETRY_WAITS_MS.length + 1; attempt++) {
     try {
       return await read();
     } catch (err) {
       last = err;
-      await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
+      if (attempt === RETRY_WAITS_MS.length) break;
+      await new Promise((r) => setTimeout(r, RETRY_WAITS_MS[attempt]));
     }
   }
   throw new Error(`Point-in-time universe: monthly bars for ${symbol} failed: ${last instanceof Error ? last.message : String(last)}`);
