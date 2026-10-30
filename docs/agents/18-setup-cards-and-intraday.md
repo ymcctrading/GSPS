@@ -669,4 +669,8 @@ old rule on the same bars): weekly +0.113R over 238 trades against the 3-Day's
 17 trades held to the 10-session limit carry the mean, so intraday still has no
 measured edge; the change is better than the rule it replaced, not proven
 profitable. Notes: `/mnt/project-files/replay-diagnosis/2026-10-30-intraday-weekly-trend.md`.
-Daily verdicts and `STRATEGY_VERSION` don't move.
+Cost: `sessionMetrics` now builds the campaign ledger once a symbol a scan,
+measured at 0.06-0.09 ms a symbol on 290- and 420-session random walks (the
+route reads 400 calendar days, about 276 sessions), so about 6-9 ms on a
+100-slot scheduled scan and under 5 ms on a member's refresh.
+Intraday alerts replay trades move, daily verdicts don't: `STRATEGY_VERSION` is `2026-10-30-intraday-weekly-trend`.
