@@ -671,8 +671,13 @@ hold until he says the plan has been upgraded.
   (since 2026-10-28), draft PRs, and PRs that change only Markdown other than
   README.md and FEATURES.md. Never widen a skip to `docs/**`:
   `criteria-gate.test.ts` reads `docs/replay-runs/*.json`.
-- **Replays and manual workflows** (`backtest-universe.yml` and the like) run
-  only on the owner's ask, and a session says the estimated minutes first.
+- **Replays and backtests run in the session's environment, not on Actions**
+  (owner, 2026-10-30: "Run all our tests here from now on"). The proxy adds
+  the Alpaca key, so set placeholders and route Node through it:
+  `NODE_USE_ENV_PROXY=1 MARKET_DATA_PROVIDER=alpaca ALPACA_API_KEY=via-proxy
+  ALPACA_API_SECRET=via-proxy node scripts/backtest-universe.mjs ...` (without
+  `NODE_USE_ENV_PROXY` Alpaca answers 401). The manual workflows
+  (`backtest-universe.yml` and the like) run only on the owner's ask.
 - **Before adding a workflow, a job or a trigger**, say what it costs in
   minutes a month. A new check is a step in an existing job where it can be
   (each job is billed at least a minute, however short).
