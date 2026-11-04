@@ -39,11 +39,30 @@ at 99%. Figures read at 23:15 UTC on 2026-10-28.
 | Supabase file storage | 1 GB | none | `storage.objects` | 0 MB | no |
 | Supabase monthly active users | 50,000 | UTC month | `auth.users.last_sign_in_at` (a lower bound) | 8 | no |
 | Alpaca data requests | 200 a minute | busiest minute, alert once a month | Alpaca's `X-RateLimit-*` headers, reported after each market and intraday scan | first reading after deploy | no |
+| Vercel function CPU (scheduled jobs) | 240 CPU minutes (4 hours active CPU) | UTC month, no last-two-days exemption | each scheduled call records its Node CPU time (`lib/ops/functionMeter.ts`, an upper bound) | first reading after deploy | yes: pg_cron stops calling |
+| Vercel function calls (scheduled jobs) | 1,000,000 | UTC month, no exemption | each scheduled call counted | first reading after deploy (about 28k a month by the schedule, 2026-11-04) | yes: pg_cron stops calling |
+
+**Vercel's function limits (added 2026-11-04).** Vercel blocked the whole
+account on Nov 3 2026 (every URL answered 402 `DEPLOYMENT_DISABLED`, "Account
+is blocked"): the Hobby plan can't bill overage, so a function limit that runs
+out stops everything. Hobby has no usage API, so the app measures its own
+scheduled calls: every call `isCronAuthorized` lets in records, after its
+response, its CPU time and wall time into one `usage_events` row per route per
+UTC day (migration 0142). Members' page views are not measured, so the reading
+is the scheduled share; when a session reads the real figures on Vercel's
+Usage page, it posts the difference as a reconciliation
+(`{"meter":"vercel_function","units":<CPU minutes>,"key":"reconcile-<date>","detail":{"invocations":<calls>}}`).
+At 99% of either meter `gsps_ops.call_endpoint` stops calling every scheduled
+route except the usage check (so the hold can lift); an owner-approved
+`usage_overrides` row lets an urgent fix through. Neither meter takes the
+last-two-days exemption, because Vercel's billing month is the account's own
+cycle, not the calendar month. Alerts carry the month-end pace.
 
 Not metered, because no API reachable here exposes them on a free plan
 (read them on the dashboards): Supabase egress (5 GB a month) and Vercel's
-function usage (1 million invocations, 4 hours of active CPU, 100 GB of fast
-data transfer a month; Hobby keeps an hour of logs and has no billing API).
+100 GB of fast data transfer a month (dominated by page views, which the app
+can't count without a write per view; Hobby keeps an hour of logs and has no
+billing API).
 Twelve Data, Polygon and Oanda have keys set but no caller in the app
 (`/api/futures` and `/api/forex` are linked from nowhere), so they use nothing.
 Finnhub's 60 a minute is spent only by the Company tab, a few calls a view.

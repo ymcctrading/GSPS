@@ -9,7 +9,9 @@
  * GET ?check=1              reads every meter and sends the owner any
  *                           threshold alerts due (the hourly pg_cron job).
  * POST                      records a use: `{ meter, units, key, detail? }`,
- *                           from a CI job's last step or a reconciliation;
+ *                           from a CI job's last step or a reconciliation
+ *                           (`vercel_function`: CPU minutes and
+ *                           detail.invocations read from Vercel's Usage page);
  *                           then sends that meter's alerts, so a crossing is
  *                           reported within the job that made it.
  *
@@ -30,7 +32,9 @@ export const maxDuration = 30;
 
 const NO_STORE = { "cache-control": "private, no-store" };
 const ALL = Object.keys(USAGE_METERS) as UsageMeterId[];
-const EVENT_METERS = new Set(["github_actions", "vercel_deployments"]);
+// vercel_function takes a reconciliation only (CPU minutes, detail.invocations),
+// read from Vercel's Usage page: the scheduled calls record themselves.
+const EVENT_METERS = new Set(["github_actions", "vercel_deployments", "vercel_function"]);
 
 function unauthorized() {
   return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
   const meter = body.meter;
   const units = Number(body.units);
   const key = typeof body.key === "string" ? body.key.trim().slice(0, 200) : "";
-  if (typeof meter !== "string" || !EVENT_METERS.has(meter)) return NextResponse.json({ error: "meter must be github_actions or vercel_deployments" }, { status: 400 });
+  if (typeof meter !== "string" || !EVENT_METERS.has(meter)) return NextResponse.json({ error: "meter must be github_actions, vercel_deployments or vercel_function" }, { status: 400 });
   if (!Number.isFinite(units) || units < 0 || units > 100_000) return NextResponse.json({ error: "units must be a number from 0" }, { status: 400 });
   if (!key) return NextResponse.json({ error: "key is required" }, { status: 400 });
   const occurredAt = typeof body.occurredAt === "string" && Number.isFinite(Date.parse(body.occurredAt)) ? new Date(body.occurredAt) : undefined;
@@ -92,7 +96,7 @@ export async function POST(req: NextRequest) {
   // units, so they never count if the repository turns private this month.
   const unbilled = meter === "github_actions" && !meterBilled("github_actions", await repositoryVisibility());
   const result = await recordUsage(service, {
-    meter: meter as "github_actions" | "vercel_deployments",
+    meter: meter as "github_actions" | "vercel_deployments" | "vercel_function",
     units: unbilled ? 0 : units,
     key,
     detail: unbilled ? { ...detail, unbilled: true, minutes: units } : detail,
@@ -100,6 +104,15 @@ export async function POST(req: NextRequest) {
   });
   if (result.error) return NextResponse.json({ recorded: false, error: result.error }, { status: 500 });
   const now = new Date();
+  if (meter === "vercel_function") {
+    const statuses = await Promise.all((["vercel_cpu", "vercel_invocations"] as const).map((id) => meterStatus(service, id, now)));
+    const alerts: Record<string, unknown> = {};
+    for (const s of statuses) {
+      await saveReading(service, s, now);
+      alerts[s.meter] = await sendDueAlerts(service, s, now);
+    }
+    return NextResponse.json({ recorded: result.recorded, meters: statuses, alerts }, { headers: NO_STORE });
+  }
   const status = await meterStatus(service, meter as UsageMeterId, now);
   await saveReading(service, status, now);
   const alerts = await sendDueAlerts(service, status, now);

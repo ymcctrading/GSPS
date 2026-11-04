@@ -698,7 +698,10 @@ within the last two days of the allotted month."
 
 - **The meter** is `lib/ops/usageLimits.ts` (rules), `lib/ops/usageStore.ts`
   and `/api/ops/usage` (migration 0133). Meters: GitHub Actions minutes (2,000
-  a UTC month), Vercel deployments (100 in a rolling 24 hours), email (Resend
+  a UTC month), Vercel deployments (100 in a rolling 24 hours), Vercel
+  function CPU (240 minutes) and calls (1 million) a month, measured on every
+  scheduled call (`lib/ops/functionMeter.ts`, migration 0142; at 99% pg_cron
+  stops calling), email (Resend
   free: 100 a UTC day, 3,000 a month, from `email_daily_budget`), and, alert
   only, the Supabase database (500 MB), its connections (60), file storage
   (1 GB) and monthly active users (50,000), and Alpaca's 200 requests a
