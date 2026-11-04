@@ -35,6 +35,12 @@ env:
   REGION: us-east1
   SERVICE: gsps
   REPOSITORY: gsps
+  # Public by design: they ship in the browser bundle (the Supabase key is the
+  # publishable key lib/supabase/client.ts falls back to). Marked so the
+  # secret scan skips them.
+  NEXT_PUBLIC_SUPABASE_URL: https://vebhpmmzxixlhujlptue.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_8nnzrTBNtRAHFBLbWL6dIQ_Hto4UspW # gitleaks:allow
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: BD9xctwOw3QARuzzW1knN4MJIjZeJA_4lxVXhvw_UBZFPrJ9OxVLLiKwn34QVbb77Ef4g6c-LxLfcL3TgWETIlc # gitleaks:allow
 
 jobs:
   deploy:
@@ -99,9 +105,9 @@ jobs:
           image="$REGION-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE:${{ github.sha }}"
           echo "IMAGE=$image" >> "$GITHUB_ENV"
           docker build -t "$image" \
-            --build-arg NEXT_PUBLIC_SUPABASE_URL=https://vebhpmmzxixlhujlptue.supabase.co \
-            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_8nnzrTBNtRAHFBLbWL6dIQ_Hto4UspW \
-            --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=BD9xctwOw3QARuzzW1knN4MJIjZeJA_4lxVXhvw_UBZFPrJ9OxVLLiKwn34QVbb77Ef4g6c-LxLfcL3TgWETIlc \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="$NEXT_PUBLIC_VAPID_PUBLIC_KEY" \
             --build-arg NEXT_PUBLIC_SENTRY_DSN="${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}" \
             .
           docker push "$image"
@@ -122,10 +128,8 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
         run: |
-          # Values a person reads in the bundle or an email header: public.
-          export NEXT_PUBLIC_SUPABASE_URL=https://vebhpmmzxixlhujlptue.supabase.co
-          export NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_8nnzrTBNtRAHFBLbWL6dIQ_Hto4UspW
-          export NEXT_PUBLIC_VAPID_PUBLIC_KEY=BD9xctwOw3QARuzzW1knN4MJIjZeJA_4lxVXhvw_UBZFPrJ9OxVLLiKwn34QVbb77Ef4g6c-LxLfcL3TgWETIlc
+          # Values a person reads in an email header: public. The NEXT_PUBLIC_*
+          # values come from the workflow's env above.
           export VAPID_SUBJECT=https://gsps.world
           export RESEND_FROM='GSPS <c.coleman@gsps.world>'
           export VERCEL_GIT_REPO_OWNER=ymcctrading
