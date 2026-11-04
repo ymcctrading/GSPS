@@ -1,0 +1,581 @@
+{
+ "version": "MTF-R0.1",
+ "ranAt": "2026-11-04",
+ "preregistration": "docs/research/mtf-r0-1/PREREGISTRATION.md (frozen at fd65c52 / fc6901a)",
+ "results": [
+  {
+   "symbol": "DIA",
+   "snapshot": "1084857cd99562c2349aafff7a7fda431ebc1782cad8e3fd94bbef3e500fa0e1",
+   "source": "Alpaca /v2/stocks/bars 1Day, adjustment=split, feed=sip",
+   "span": {
+    "firstIssue": "2016-07-01",
+    "lastIssue": "2026-11-03",
+    "issues": 541,
+    "majorAnchors": 8
+   },
+   "baseRate": {
+    "sessions": 2580,
+    "top": 0.012403100775193798,
+    "bottom": 0.015116279069767442
+   },
+   "arms": {
+    "r01": {
+     "status": {
+      "issued": 47,
+      "no_forecast": 494,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 27,
+      "noSession": 1,
+      "unresolved": 0,
+      "directionHits": 5,
+      "timingHits": 8,
+      "uniqueSessions": 129,
+      "directionRate": 0.18518518518518517
+     }
+    },
+    "swing_only": {
+     "status": {
+      "issued": 297,
+      "no_forecast": 244,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 1,
+     "tally": {
+      "windows": 144,
+      "noSession": 0,
+      "unresolved": 1,
+      "directionHits": 19,
+      "timingHits": 32,
+      "uniqueSessions": 988,
+      "directionRate": 0.13194444444444445
+     }
+    },
+    "calendar_only": {
+     "status": {
+      "issued": 0,
+      "no_forecast": 334,
+      "abstained_coverage": 207,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 0,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 0,
+      "timingHits": 0,
+      "uniqueSessions": 0,
+      "directionRate": 0
+     }
+    },
+    "r01_no_budget": {
+     "status": {
+      "issued": 47,
+      "no_forecast": 494,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 27,
+      "noSession": 1,
+      "unresolved": 0,
+      "directionHits": 5,
+      "timingHits": 8,
+      "uniqueSessions": 129,
+      "directionRate": 0.18518518518518517
+     }
+    },
+    "swing_only_no_budget": {
+     "status": {
+      "issued": 297,
+      "no_forecast": 244,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 1,
+     "tally": {
+      "windows": 144,
+      "noSession": 0,
+      "unresolved": 1,
+      "directionHits": 19,
+      "timingHits": 32,
+      "uniqueSessions": 988,
+      "directionRate": 0.13194444444444445
+     }
+    },
+    "calendar_only_no_budget": {
+     "status": {
+      "issued": 207,
+      "no_forecast": 334,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 3,
+     "tally": {
+      "windows": 59,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 22,
+      "timingHits": 33,
+      "uniqueSessions": 594,
+      "directionRate": 0.3728813559322034
+     }
+    }
+   },
+   "n2": {
+    "r01": {
+     "observed": {
+      "windows": 27,
+      "noSession": 1,
+      "unresolved": 0,
+      "directionHits": 5,
+      "timingHits": 8,
+      "uniqueSessions": 129,
+      "directionRate": 0.18518518518518517
+     },
+     "expectedHits": 2.049,
+     "p": 0.05247376311844078,
+     "draws": 2000
+    },
+    "swing_only": {
+     "observed": {
+      "windows": 144,
+      "noSession": 0,
+      "unresolved": 1,
+      "directionHits": 19,
+      "timingHits": 32,
+      "uniqueSessions": 988,
+      "directionRate": 0.13194444444444445
+     },
+     "expectedHits": 15.5835,
+     "p": 0.18840579710144928,
+     "draws": 2000
+    },
+    "calendar_only": {
+     "observed": {
+      "windows": 0,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 0,
+      "timingHits": 0,
+      "uniqueSessions": 0,
+      "directionRate": 0
+     },
+     "expectedHits": 0,
+     "p": 1,
+     "draws": 2000
+    }
+   },
+   "n1": {
+    "observed": 0.05324074074074073,
+    "shifts": 110,
+    "meanShifted": -0.05476297491323845,
+    "p": 0.04504504504504504
+   },
+   "n3": {
+    "observed": 0.18518518518518517,
+    "shifts": 20,
+    "meanShifted": 0.10468934813969533,
+    "p": 0.09523809523809523
+   },
+   "trades": {
+    "trades": 17,
+    "longs": 9,
+    "shorts": 8,
+    "mean": 0.010711068656701813,
+    "controlTrades": 172,
+    "controlMean": 0.0013985633957375448,
+    "p": 0.12009399530023498
+   }
+  },
+  {
+   "symbol": "SPY",
+   "snapshot": "57e74968f881362d602d7110d54c0b2efa9fce271f67b0b55ce5ffdf141bf664",
+   "source": "Alpaca /v2/stocks/bars 1Day, adjustment=split, feed=sip",
+   "span": {
+    "firstIssue": "2016-07-01",
+    "lastIssue": "2026-11-03",
+    "issues": 541,
+    "majorAnchors": 10
+   },
+   "baseRate": {
+    "sessions": 2580,
+    "top": 0.012403100775193798,
+    "bottom": 0.014728682170542635
+   },
+   "arms": {
+    "r01": {
+     "status": {
+      "issued": 49,
+      "no_forecast": 492,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 32,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 2,
+      "timingHits": 3,
+      "uniqueSessions": 176,
+      "directionRate": 0.0625
+     }
+    },
+    "swing_only": {
+     "status": {
+      "issued": 289,
+      "no_forecast": 252,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 2,
+     "tally": {
+      "windows": 142,
+      "noSession": 0,
+      "unresolved": 1,
+      "directionHits": 15,
+      "timingHits": 25,
+      "uniqueSessions": 989,
+      "directionRate": 0.1056338028169014
+     }
+    },
+    "calendar_only": {
+     "status": {
+      "issued": 0,
+      "no_forecast": 303,
+      "abstained_coverage": 238,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 0,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 0,
+      "timingHits": 0,
+      "uniqueSessions": 0,
+      "directionRate": 0
+     }
+    },
+    "r01_no_budget": {
+     "status": {
+      "issued": 49,
+      "no_forecast": 492,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 32,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 2,
+      "timingHits": 3,
+      "uniqueSessions": 176,
+      "directionRate": 0.0625
+     }
+    },
+    "swing_only_no_budget": {
+     "status": {
+      "issued": 289,
+      "no_forecast": 252,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 2,
+     "tally": {
+      "windows": 142,
+      "noSession": 0,
+      "unresolved": 1,
+      "directionHits": 15,
+      "timingHits": 25,
+      "uniqueSessions": 989,
+      "directionRate": 0.1056338028169014
+     }
+    },
+    "calendar_only_no_budget": {
+     "status": {
+      "issued": 238,
+      "no_forecast": 303,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 1,
+     "tally": {
+      "windows": 65,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 24,
+      "timingHits": 37,
+      "uniqueSessions": 664,
+      "directionRate": 0.36923076923076925
+     }
+    }
+   },
+   "n2": {
+    "r01": {
+     "observed": {
+      "windows": 32,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 2,
+      "timingHits": 3,
+      "uniqueSessions": 176,
+      "directionRate": 0.0625
+     },
+     "expectedHits": 2.635,
+     "p": 0.7381309345327336,
+     "draws": 2000
+    },
+    "swing_only": {
+     "observed": {
+      "windows": 142,
+      "noSession": 0,
+      "unresolved": 1,
+      "directionHits": 15,
+      "timingHits": 25,
+      "uniqueSessions": 989,
+      "directionRate": 0.1056338028169014
+     },
+     "expectedHits": 15.4495,
+     "p": 0.5882058970514743,
+     "draws": 2000
+    },
+    "calendar_only": {
+     "observed": {
+      "windows": 0,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 0,
+      "timingHits": 0,
+      "uniqueSessions": 0,
+      "directionRate": 0
+     },
+     "expectedHits": 0,
+     "p": 1,
+     "draws": 2000
+    }
+   },
+   "n1": {
+    "observed": -0.043133802816901406,
+    "shifts": 110,
+    "meanShifted": -0.03566836067211182,
+    "p": 0.5495495495495496
+   },
+   "n3": {
+    "observed": 0.0625,
+    "shifts": 20,
+    "meanShifted": 0.050630628777263174,
+    "p": 0.42857142857142855
+   },
+   "trades": {
+    "trades": 22,
+    "longs": 9,
+    "shorts": 13,
+    "mean": -0.0032765089752237716,
+    "controlTrades": 177,
+    "controlMean": 0.0010024500883591273,
+    "p": 0.5496225188740563
+   }
+  },
+  {
+   "symbol": "DJIA",
+   "snapshot": "8a74bbdef2c8c1720a3073b88cfe781c86ee392c267612c05e2f449a96a84ba8",
+   "source": "MeasuringWorth DJA daily closes (owner upload), close only",
+   "span": {
+    "firstIssue": "1897-01-02",
+    "lastIssue": "2026-10-28",
+    "issues": 6756,
+    "majorAnchors": 143
+   },
+   "baseRate": {
+    "sessions": 35044,
+    "top": 0.014381919872160712,
+    "bottom": 0.015694555416048396
+   },
+   "arms": {
+    "r01": {
+     "status": {
+      "issued": 2706,
+      "no_forecast": 4050,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 1500,
+      "noSession": 9,
+      "unresolved": 1,
+      "directionHits": 153,
+      "timingHits": 286,
+      "uniqueSessions": 8324,
+      "directionRate": 0.102
+     }
+    },
+    "swing_only": {
+     "status": {
+      "issued": 4281,
+      "no_forecast": 2475,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 1,
+     "tally": {
+      "windows": 2171,
+      "noSession": 1,
+      "unresolved": 1,
+      "directionHits": 333,
+      "timingHits": 553,
+      "uniqueSessions": 15710,
+      "directionRate": 0.15338553661906956
+     }
+    },
+    "calendar_only": {
+     "status": {
+      "issued": 0,
+      "no_forecast": 387,
+      "abstained_coverage": 6369,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 0,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 0,
+      "timingHits": 0,
+      "uniqueSessions": 0,
+      "directionRate": 0
+     }
+    },
+    "r01_no_budget": {
+     "status": {
+      "issued": 2706,
+      "no_forecast": 4050,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 0,
+     "tally": {
+      "windows": 1500,
+      "noSession": 9,
+      "unresolved": 1,
+      "directionHits": 153,
+      "timingHits": 286,
+      "uniqueSessions": 8324,
+      "directionRate": 0.102
+     }
+    },
+    "swing_only_no_budget": {
+     "status": {
+      "issued": 4281,
+      "no_forecast": 2475,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 1,
+     "tally": {
+      "windows": 2171,
+      "noSession": 1,
+      "unresolved": 1,
+      "directionHits": 333,
+      "timingHits": 553,
+      "uniqueSessions": 15710,
+      "directionRate": 0.15338553661906956
+     }
+    },
+    "calendar_only_no_budget": {
+     "status": {
+      "issued": 6369,
+      "no_forecast": 387,
+      "abstained_coverage": 0,
+      "rejected_input": 0
+     },
+     "pastData": 5,
+     "tally": {
+      "windows": 2467,
+      "noSession": 1,
+      "unresolved": 1,
+      "directionHits": 1273,
+      "timingHits": 1848,
+      "uniqueSessions": 26276,
+      "directionRate": 0.5160113498175922
+     }
+    }
+   },
+   "n2": {
+    "r01": {
+     "observed": {
+      "windows": 1500,
+      "noSession": 9,
+      "unresolved": 1,
+      "directionHits": 153,
+      "timingHits": 286,
+      "uniqueSessions": 8324,
+      "directionRate": 0.102
+     },
+     "expectedHits": 142.459,
+     "p": 0.18190904547726136,
+     "draws": 2000
+    },
+    "swing_only": {
+     "observed": {
+      "windows": 2171,
+      "noSession": 1,
+      "unresolved": 1,
+      "directionHits": 333,
+      "timingHits": 553,
+      "uniqueSessions": 15710,
+      "directionRate": 0.15338553661906956
+     },
+     "expectedHits": 279.108,
+     "p": 0.0004997501249375312,
+     "draws": 2000
+    },
+    "calendar_only": {
+     "observed": {
+      "windows": 0,
+      "noSession": 0,
+      "unresolved": 0,
+      "directionHits": 0,
+      "timingHits": 0,
+      "uniqueSessions": 0,
+      "directionRate": 0
+     },
+     "expectedHits": 0,
+     "p": 1,
+     "draws": 2000
+    }
+   },
+   "n1": {
+    "observed": -0.05138553661906957,
+    "shifts": 110,
+    "meanShifted": -0.04871167037770229,
+    "p": 0.7477477477477478
+   },
+   "n3": {
+    "observed": 0.102,
+    "shifts": 20,
+    "meanShifted": 0.09635215398865944,
+    "p": 0.09523809523809523
+   },
+   "trades": {
+    "trades": 812,
+    "longs": 387,
+    "shorts": 425,
+    "mean": 0.0016528308485296989,
+    "controlTrades": 2587,
+    "controlMean": 0.0018280202450579033,
+    "p": 0.4211289435528224
+   }
+  }
+ ],
+ "note": "Summary of the development run; per-window lists are in the owner-private project files (private-research/mtf-r0-1/dev-run-2026-11-04.json)."
+}
