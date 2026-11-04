@@ -1076,4 +1076,12 @@
 // main trend down (`applyMainTrendHold`, `mainTrend.ts`; Master Course GA-2/3,
 // Ch. 1's Vanadium "don't short since main trend still up"). Longs unchanged.
 // Live verdicts and replay buckets move.
-export const STRATEGY_VERSION = "2026-10-29-gann-main-trend-shorts";
+// 2026-10-30-intraday-weekly-trend (owner, 2026-10-29: "go with option A ...
+// only if it makes our platform better"; measured locally 2026-10-30,
+// replay-diagnosis/2026-10-30-intraday-weekly-trend.md). The intraday alerts'
+// trend check reads the weekly chart through the campaign ledger, not the 3-Day
+// Chart, so a pullback in a weekly uptrend is bought, not shorted (Master
+// Course p. 10, rule A; Commodities pp. 39-40), and a long is held once the
+// campaign's reaction over-balanced its greatest (Ch. 8, PDF 249-250).
+// Intraday alerts replay trades move; daily verdicts and the daily replay don't.
+export const STRATEGY_VERSION = "2026-10-30-intraday-weekly-trend";

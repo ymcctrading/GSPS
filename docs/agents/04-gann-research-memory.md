@@ -1440,3 +1440,10 @@ testable). Forward projections go to `timeProcedureLog.json` each month-end
 (`scripts/time-procedures-issue.mjs`), append-only, reviewed Oct 2028. The
 rules' own Dow 1913-1948 span needs daily Dow closes the repo lacks (asked of
 the owner). Write-up `docs/GANN_FORECAST_TRACK_RECORD.md` §13. Research only.
+
+**Intraday trades with the weekly trend, 2026-10-30 (#596).** The intraday
+alerts' trend check reads the weekly chart through the campaign ledger, not the
+3-Day Chart, and holds a long once the campaign's reaction over-balanced its
+greatest (full entry: `docs/agents/18-setup-cards-and-intraday.md`). Intraday
+alerts replay trades move, daily verdicts don't: `STRATEGY_VERSION` is
+`2026-10-30-intraday-weekly-trend`.

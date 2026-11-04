@@ -182,6 +182,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     // Pass 2: the session's alerts on five-minute bars.
     const planHeld = [];
     const alerts = [];
+    const alertsThreeDay = [];
     const planHeldStructure = [];
     const alertsStructure = [];
     const lineSessions = [];
@@ -211,6 +212,9 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
           for (const t of all.trades) {
             alerts.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
           }
+          // The pre-2026-10-29 trend rule (the 3-Day Chart alone) on the same bars.
+          const before = replayIntradayAlerts({ ...common, sessions: listed, trendRule: "threeDay" });
+          alertsThreeDay.push(...before.trades);
           for (const t of replayIntradayAlerts({ ...common, sessions: listed, exitStyle: "structure" }).trades) {
             alertsStructure.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
           }
@@ -246,6 +250,13 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         focus: summariseAlertTrades(alerts.filter((t) => t.inFocus)),
         fixed: summariseAlertTrades(alerts.filter((t) => t.inFixed)),
         focusOnly: summariseAlertTrades(alerts.filter((t) => t.inFocus && !t.inFixed)),
+        // Trend rule, before (3-Day Chart) and after (main trend), on every listed alert.
+        listedWeeklyTrend: summariseAlertTrades(alerts),
+        listedWeeklyTrendLong: summariseAlertTrades(alerts.filter((t) => t.direction === "bullish")),
+        listedWeeklyTrendShort: summariseAlertTrades(alerts.filter((t) => t.direction === "bearish")),
+        listedThreeDay: summariseAlertTrades(alertsThreeDay),
+        listedThreeDayLong: summariseAlertTrades(alertsThreeDay.filter((t) => t.direction === "bullish")),
+        listedThreeDayShort: summariseAlertTrades(alertsThreeDay.filter((t) => t.direction === "bearish")),
         // The same alerts walked on the daily exits (the walk before 2026-10-30).
         planLevelHeldStructure: summariseAlertTrades(planHeldStructure),
         focusStructure: summariseAlertTrades(alertsStructure.filter((t) => t.inFocus)),
