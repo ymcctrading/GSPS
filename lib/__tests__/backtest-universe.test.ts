@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import {
   barCacheKey,
+  BarCacheError,
   cachedSeries,
   loadManifest,
   manifestHash,
@@ -31,6 +32,7 @@ import {
 import { gunzipSync } from "node:zlib";
 import { mkdtemp, writeFile as writeFileFs } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { monteCarloResample } from "@/lib/backtest/monteCarlo";
 
@@ -462,12 +464,27 @@ describe("bar cache (frozen data)", () => {
     await expect(loadManifest(dir, "alpaca")).rejects.toThrow(/no manifest/);
     await writeFileFs(path.join(dir, "manifest.json"), JSON.stringify({ provider: "synthetic", files: { "A__1Day.json": "h" } }));
     await expect(loadManifest(dir, "alpaca")).rejects.toThrow(/provider "synthetic"/);
+    // Not frozen until a run finished writing it: a checkpointed cache can be resumed.
+    expect((await loadManifest(dir, "synthetic")).existed).toBe(false);
+    await writeFileFs(path.join(dir, "manifest.json"), JSON.stringify({ provider: "synthetic", complete: true, files: { "A__1Day.json": "h" } }));
     expect((await loadManifest(dir, "synthetic")).existed).toBe(true);
+  });
+
+  it("stops the run on a cache error, never skipping the symbol", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "barcache-"));
+    await writeFileFs(path.join(dir, "SPY__1Day.json"), "{}");
+    await expect(cachedSeries(dir, "SPY__1Day.json", async () => ({}), { files: {} })).rejects.toBeInstanceOf(BarCacheError);
+    const src = readFileSync(path.resolve(__dirname, "../../scripts/backtest-universe.mjs"), "utf8");
+    // Both catches around a cached fetch rethrow a cache error: the market's series and each symbol's.
+    expect(src.match(/if \(err instanceof BarCacheError\) throw err;/g)).toHaveLength(2);
+    expect(src).toMatch(/market = await getSeries\("SPY", undefined\);\s*\} catch \(err\) \{\s*if \(err instanceof BarCacheError\) throw err;/);
+    expect(src).toMatch(/catch \(err\) \{\s*if \(err instanceof BarCacheError\) throw err;\s*skipped\.push/);
   });
 
   it("takes a history window only as a pair, in order", () => {
     expect(parseArgs(["--out", "o", "--historyFrom", "2016-01-01", "--historyTo", "2020-10-31"]).historyFrom).toBe("2016-01-01");
     expect(() => parseArgs(["--out", "o", "--historyFrom", "2016-01-01"])).toThrow(/together/);
-    expect(() => parseArgs(["--out", "o", "--historyFrom", "2020-01-01", "--historyTo", "2016-01-01"])).toThrow(/before/);
+    expect(() => parseArgs(["--out", "o", "--historyFrom", "2020-01-01", "--historyTo", "2016-01-01"])).toThrow(/on or before/);
+    expect(parseArgs(["--out", "o", "--historyFrom", "2020-01-02", "--historyTo", "2020-01-02"]).historyTo).toBe("2020-01-02");
   });
 });

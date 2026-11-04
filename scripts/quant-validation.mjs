@@ -14,7 +14,10 @@
  *   --trials N           strategy configurations tried so far (docs/experiments/registry.json
  *                        plus what it can't see); required, never defaulted
  *   --barCache dir       backtest-universe.mjs's frozen bars; enables marking to market,
- *                        the random-entry control and the benchmark
+ *                        the random-entry control and the benchmark. Only a 1Day cache is
+ *                        read, and the ledgers must come from 1Day runs too (their
+ *                        `barsHeld` is then in sessions); the script can't check a
+ *                        ledger's timeframe, so the caller must
  *   --from / --to        keep only campaigns opened in this window (YYYY-MM-DD)
  *   --riskFraction, --maxOpenRiskFraction, --maxConcurrent, --maxPositionFraction  portfolio caps
  *

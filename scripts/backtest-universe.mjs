@@ -141,7 +141,7 @@ export function parseArgs(argv) {
   if (args.historyFrom !== null) {
     const from = Date.parse(args.historyFrom);
     const to = Date.parse(args.historyTo);
-    if (Number.isNaN(from) || Number.isNaN(to) || !(from < to)) throw new Error("--historyFrom must be a date before --historyTo");
+    if (Number.isNaN(from) || Number.isNaN(to) || !(from <= to)) throw new Error("--historyFrom must be a date on or before --historyTo");
   }
   return args;
 }
@@ -152,6 +152,14 @@ export function barCacheKey(symbol, timeframe, asOf, history) {
   if (asOf) parts.push(`asof-${asOf}`);
   if (history) parts.push(`${history.from.toISOString().slice(0, 10)}_${history.to.toISOString().slice(0, 10)}`);
   return `${parts.join("__")}.json`;
+}
+
+/** A frozen bar cache that can't be trusted: always stops the run, never becomes a skipped symbol. */
+export class BarCacheError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "BarCacheError";
+  }
 }
 
 export function sha256(text) {
@@ -173,12 +181,12 @@ export async function cachedSeries(dir, key, fetcher, manifest) {
   }
   if (text !== null) {
     const h = sha256(text);
-    if (!manifest.files[key]) throw new Error(`Bar cache ${key} has no manifest entry: it was not written by this cache`);
-    if (manifest.files[key] !== h) throw new Error(`Bar cache ${key} changed since it was written (manifest ${manifest.files[key].slice(0, 12)}, file ${h.slice(0, 12)})`);
+    if (!manifest.files[key]) throw new BarCacheError(`Bar cache ${key} has no manifest entry: it was not written by this cache`);
+    if (manifest.files[key] !== h) throw new BarCacheError(`Bar cache ${key} changed since it was written (manifest ${manifest.files[key].slice(0, 12)}, file ${h.slice(0, 12)})`);
     manifest.files[key] = h;
     return JSON.parse(text);
   }
-  if (manifest.existed) throw new Error(`Bar cache ${key} is not in the cache's manifest: a frozen cache gains no new series (use a new --barCache directory)`);
+  if (manifest.existed) throw new BarCacheError(`Bar cache ${key} is not in the cache's manifest: a frozen cache gains no new series (use a new --barCache directory)`);
   const series = await fetcher();
   text = JSON.stringify(series);
   await writeWhole(file, text);
@@ -208,16 +216,17 @@ export async function loadManifest(dir, provider) {
   }
   if (text === null) {
     const stray = (await readdir(dir)).filter((n) => n.endsWith(".json"));
-    if (stray.length > 0) throw new Error(`Bar cache ${dir} holds ${stray.length} series but no manifest.json; it can't be read as frozen`);
+    if (stray.length > 0) throw new BarCacheError(`Bar cache ${dir} holds ${stray.length} series but no manifest.json; it can't be read as frozen`);
     return { files: {}, provider, existed: false };
   }
   const m = JSON.parse(text);
-  if (m.provider !== provider) throw new Error(`Bar cache ${dir} was written from provider "${m.provider}", not "${provider}"`);
-  return { files: m.files ?? {}, provider, existed: Object.keys(m.files ?? {}).length > 0 };
+  if (m.provider !== provider) throw new BarCacheError(`Bar cache ${dir} was written from provider "${m.provider}", not "${provider}"`);
+  // Frozen once a run finished writing it; a checkpointed run may still add the symbols it hadn't reached.
+  return { files: m.files ?? {}, provider, existed: m.complete === true };
 }
 
-async function saveManifest(dir, manifest) {
-  await writeWhole(path.join(dir, "manifest.json"), JSON.stringify({ provider: manifest.provider, hash: manifestHash(manifest), files: manifest.files }, null, 2));
+async function saveManifest(dir, manifest, complete) {
+  await writeWhole(path.join(dir, "manifest.json"), JSON.stringify({ provider: manifest.provider, complete, hash: manifestHash(manifest), files: manifest.files }, null, 2));
 }
 
 /** Validate a parsed cells array: unique, filesystem-safe labels. */
@@ -1109,7 +1118,8 @@ async function main() {
     let market;
     try {
       market = await getSeries("SPY", undefined);
-    } catch {
+    } catch (err) {
+      if (err instanceof BarCacheError) throw err;
       market = undefined;
     }
     // The scan universe's monthly bars once, for Gann's relative strength rank
@@ -1202,7 +1212,7 @@ async function main() {
         ...(history ? { history: { from: args.historyFrom, to: args.historyTo } } : {}),
         ...(barManifest ? { barCache: { dir: args.barCache, files: Object.keys(barManifest.files).length, hash: manifestHash(barManifest) } } : {}),
       };
-      if (barManifest) await saveManifest(barCacheDir, barManifest);
+      if (barManifest) await saveManifest(barCacheDir, barManifest, !partial);
       // The robustness sections take seconds a cell on a long run, so a
       // checkpoint leaves them out and the final write carries them. The
       // regime split reads SPY's daily bars, fetched once above; without them
@@ -1305,6 +1315,7 @@ async function main() {
           used.push(symbol);
         }
       } catch (err) {
+        if (err instanceof BarCacheError) throw err;
         skipped.push({ symbol, reason: err instanceof Error ? err.message : String(err) });
       }
       if ((i + 1) % 25 === 0 || i === universe.length - 1) {
