@@ -10,7 +10,7 @@
  *
  * Now a scan stores what the fan-out needs (`enqueueFanOut`, table
  * `scan_fanout_jobs`, migration 0116) and returns. `/api/scan-fanout`, called
- * every minute from the database, works through the newest job of each source
+ * every 5 minutes from the database (every minute until migration 0143), works through the newest job of each source
  * (`runFanOutQueue`) and records each member served, so a call that runs out
  * of time leaves the rest to the next. Only the newest job is served, of
  * whatever source: an older one is superseded, since the newer scan read the

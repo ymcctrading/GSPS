@@ -4,8 +4,8 @@
  * Serves the scans' queued member fan-out (`lib/entitlements/fanout-queue.ts`):
  * visible results, monitors, alerts and the trade plans they create, for every
  * member, with this request's own budget instead of what a scan left over.
- * Called every minute from the database (pg_cron `gsps-scan-fanout`, migration
- * 0116, and `gsps-scan-fanout-evening` from 00:00 to 02:59 UTC for the
+ * Called every 5 minutes from the database (every minute until migration 0143,
+ * 2026-11-04; pg_cron `gsps-scan-fanout`, migration 0116, and `gsps-scan-fanout-evening` from 00:00 to 02:59 UTC for the
  * evening Vercel cron scan, 0117 and 0118) with the same bearer secret as
  * every scheduled route. A call with nothing pending reads one query and
  * returns.
