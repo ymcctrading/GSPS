@@ -39,8 +39,8 @@ const FAN_OUT_SOURCE = "scheduled_full_universe_scan";
 
 /**
  * How recently the autonomous full-universe scan (see
- * .github/workflows/full-market-scan.yml, every 15 minutes through the
- * session; `FULL_UNIVERSE_TOP` in lib/marketScan.ts for the current symbol
+ * pg_cron `gsps-full-market-scan`, every 30 minutes through the session
+ * since migration 0143; `FULL_UNIVERSE_TOP` in lib/marketScan.ts for the current symbol
  * count) has to have last written today's rows for a manual "Refresh scan"
  * click to reuse them instead of re-running the full scan itself.
  *
@@ -215,7 +215,7 @@ async function runAndPersist(options: { fanOutToProfiles: boolean } = { fanOutTo
   let fanOutQueued = false;
   if (options.fanOutToProfiles) {
     // The forward test records the Execute calls this run publishes. This
-    // scan is what fills the daily lists every 15 minutes, so a day the
+    // scan is what fills the daily lists every 30 minutes, so a day the
     // timed scheduled scans found nothing (2026-10-21: 11 Executes on the
     // lists, none recorded) is still measured. A plan is one row a session
     // (lib/shadow/record.ts), so the repeats cost nothing; evaluation stays
@@ -363,7 +363,7 @@ export async function GET(req: NextRequest) {
 /**
  * Manual refresh — any signed-in user can rebuild the market scan on demand.
  *
- * Reuses today's rows instead of re-scanning when the autonomous 15-minute
+ * Reuses today's rows instead of re-scanning when the autonomous 30-minute
  * scan already wrote them within `REUSE_RECENT_SCAN_MS` — see that constant's
  * comment. Otherwise runs a genuinely fresh scan, same as before.
  */

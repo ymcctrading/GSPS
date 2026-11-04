@@ -87,13 +87,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { etParts } from "@/lib/market/session";
 
 /**
- * Cron cadence the rotation is keyed to -- matches
- * `.github/workflows/full-market-scan.yml`'s every-15-minute schedule.
+ * Cron cadence the rotation is keyed to -- matches pg_cron
+ * `gsps-full-market-scan` (:00 and :30, migration 0143; every 15 minutes
+ * before 2026-11-04, cut to keep Vercel Hobby under its monthly limit).
  * Provisional like everything else numeric here: if that cadence changes,
  * this must change with it or the phase math below silently desyncs from
- * reality.
+ * reality (at 15 with a :00/:30 schedule only even chunks would ever run).
  */
-export const ROTATION_INTERVAL_MINUTES = 15;
+export const ROTATION_INTERVAL_MINUTES = 30;
 
 /**
  * Symbols scanned per discovery chunk. Not, as an earlier draft of this
