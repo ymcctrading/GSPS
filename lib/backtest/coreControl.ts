@@ -65,6 +65,8 @@ export interface CoreControlDraw {
   drawn: number;
   /** Draws dropped because every try landed on a session another campaign already held. */
   collisions: number;
+  /** Drawn campaigns whose window was narrowed at a series edge (a window of 0 draws the real session itself). */
+  narrowed: number;
   meanR: number;
   /** The same entries with the pyramid off: the core's exits alone. */
   noPyramidMeanR: number;
@@ -105,6 +107,7 @@ export function coreControlDraw(
   let npSum = 0;
   let npN = 0;
   let collisions = 0;
+  let narrowed = 0;
   // Symbols in a fixed order so a seed always draws the same sessions.
   for (const symbol of [...campaignsBySymbol.keys()].sort()) {
     const series = seriesBySymbol.get(symbol);
@@ -123,6 +126,7 @@ export function coreControlDraw(
       const w = Math.max(0, Math.min(windowSessions, at - first, daily.length - 1 - at));
       if (at < first || at >= daily.length) continue;
       drawn++;
+      if (w < windowSessions) narrowed++;
       // Redraw a session another campaign already drew (up to 10 tries), so each real campaign gets its own.
       let date = "";
       for (let tries = 0; tries < 10; tries++) {
@@ -167,6 +171,7 @@ export function coreControlDraw(
     noPyramidCampaigns: npN,
     drawn,
     collisions,
+    narrowed,
     meanR: n ? sum / n : NaN,
     noPyramidMeanR: npN ? npSum / npN : NaN,
     fixedHoldMeanR: fixedN ? fixedSum / fixedN : NaN,

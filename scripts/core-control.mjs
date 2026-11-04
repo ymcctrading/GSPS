@@ -111,8 +111,9 @@ async function main() {
       `| Share of draws where the pyramid did no better | ${(res.pyramidValue.shareAtOrBelowZero * 100).toFixed(1)}% |`,
       `| Campaigns a draw took, median: pyramid on / off / fixed holds | ${med(res.draws.map((d) => d.campaigns))} / ${med(res.draws.map((d) => d.noPyramidCampaigns))} / ${med(res.draws.map((d) => d.fixedHoldN))} of ${res.draws[0]?.drawn ?? 0} drawn |`,
       `| Draws dropped on a session collision, median | ${med(res.draws.map((d) => d.collisions))} |`,
+      `| Campaigns with a window narrowed at a series edge | ${res.draws[0]?.narrowed ?? "NOT MEASURED"} |`,
       "",
-      "A drawn session is skipped when the core is already in a campaign or the monthly trend is against it, so a draw holds fewer campaigns than the ledger. Membership is applied only through the real entries' dates. The fixed hold is one lot with no adds; the exit value compares it with the core's exits with the pyramid off, and the pyramid value is measured separately on the same entries.",
+      "A drawn session is skipped when the core is already in a campaign or the monthly trend is against it, so a draw holds fewer campaigns than the ledger. Membership is applied only through the real entries' dates. The fixed hold is one lot with no adds; the exit value compares it with the core's exits with the pyramid off, and the pyramid value is measured separately on the same drawn sessions (the entries taken can differ). A real campaign within 21 sessions of the series' start or end gets a narrower window, down to its own session; those are counted.",
       "",
     ].join("\n");
     const out = path.resolve(root, args.out);

@@ -59,6 +59,8 @@ describe("core control (random entries, the core's own exits)", () => {
     const a = coreControlDraw(series, by, { seed: 5, trail: "eachWeek" });
     expect(a).toEqual(coreControlDraw(series, by, { seed: 5, trail: "eachWeek" }));
     expect(a.drawn).toBe(real.length);
+    // The trail reaches the core: the weekly-swing default walks these entries differently.
+    expect(a).not.toEqual(coreControlDraw(series, by, { seed: 5 }));
   }, 60_000);
 
   it("reports the real mean, the control's spread and the exit value", () => {
