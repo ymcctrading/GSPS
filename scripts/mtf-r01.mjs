@@ -4,7 +4,7 @@
  *
  *   NODE_USE_ENV_PROXY=1 ALPACA_API_KEY=via-proxy ALPACA_API_SECRET=via-proxy \
  *     node scripts/mtf-r01.mjs snapshot --dir <dir>
- *   node scripts/mtf-r01.mjs evaluate --dir <dir> [--dow <DJA.csv>] --out <file>
+ *   node scripts/mtf-r01.mjs evaluate --dir <dir> [--dow <DJA.csv>] [--only DIA|SPY|DJIA] --out <file>
  *   node scripts/mtf-r01.mjs issue --dir <dir> --ledger <forward-ledger.jsonl>
  *
  * snapshot: daily SPY and DIA bars from Alpaca (split-adjusted, SIP) into
@@ -108,12 +108,14 @@ if (cmd === "snapshot") {
     const ev = await server.ssrLoadModule("/lib/research/mtfEvaluate.ts");
     const seed = 20261104;
     const results = [];
+    const only = arg("only");
     for (const s of SYMBOLS) {
+      if (only && only !== s) continue;
       const t0 = Date.now();
       results.push(ev.evaluateSeries(snap[s], { from: "2016-07-01", to: "2099-12-31", closeOnly: false, seed, n1: true, n3: true }));
       console.error(`${s} done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     }
-    if (dow) {
+    if (dow && (!only || only === "DJIA")) {
       const t0 = Date.now();
       results.push(ev.evaluateSeries(dow, { from: "1897-01-01", to: "2099-12-31", closeOnly: true, seed, n1: true, n3: true }));
       console.error(`DJIA done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -149,7 +151,9 @@ if (cmd === "snapshot") {
       const issue = dates[e];
       const now = nyNow();
       if (issue > now.date || (issue === now.date && now.minutes < 16 * 60 + 30)) throw new Error(`${issue} has not closed`);
-      if (nextSession(issue) <= now.date) throw new Error(`${s} snapshot ends ${issue}, but a later session has closed; take a fresh snapshot`);
+      const after = nextSession(issue);
+      if (after < now.date || (after === now.date && now.minutes >= 16 * 60 + 30)) throw new Error(`${s} snapshot ends ${issue}, but ${after} has closed; take a fresh snapshot`);
+      if (after === now.date) throw new Error(`${after}'s session is still open; issue after it closes`);
       if (week(nextSession(issue)) === week(issue)) throw new Error(`${issue} is not its week's last session`);
       if (lines.some((l) => l.symbol === s && l.issueSession === issue)) throw new Error(`${s} ${issue} already issued`);
       const p = ad.prepare(series);

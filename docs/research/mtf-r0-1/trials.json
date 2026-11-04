@@ -1,0 +1,281 @@
+{
+ "note": "Every MTF-R0.1 trial, counted once (docs/research/mtf-r0-1/PREREGISTRATION.md). Shape read by scripts/experiment-registry.mjs (quant-validation thread). Development evidence only; prior timing trials in this repo: at least 1,066 (docs/GANN_FORECAST_TRACK_RECORD.md).",
+ "candidate": "MTF-R0.1",
+ "frozenAt": "fd65c52",
+ "priorTimingTrials": {
+  "atLeast": 1066,
+  "source": "docs/GANN_FORECAST_TRACK_RECORD.md sections 4, 6-9, 11-13"
+ },
+ "cells": [
+  {
+   "label": "R0.1 N2 matched-window null, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "r01",
+    "test": "N2",
+    "family": "primary"
+   }
+  },
+  {
+   "label": "R0.1 confirmation trades vs untimed control, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "r01",
+    "test": "trades",
+    "family": "primary"
+   }
+  },
+  {
+   "label": "R0.1 N1 calendar-phase null, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "r01",
+    "test": "N1",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "R0.1 N3 duration-phase null, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "r01",
+    "test": "N3",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "swing_only N2, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "swing_only",
+    "test": "N2",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "calendar_only N2, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "calendar_only",
+    "test": "N2",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "r01_no_budget tally, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "r01_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "swing_only_no_budget tally, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "swing_only_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "calendar_only_no_budget tally, DIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DIA",
+    "arm": "calendar_only_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "R0.1 N2 matched-window null, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "r01",
+    "test": "N2",
+    "family": "primary"
+   }
+  },
+  {
+   "label": "R0.1 confirmation trades vs untimed control, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "r01",
+    "test": "trades",
+    "family": "primary"
+   }
+  },
+  {
+   "label": "R0.1 N1 calendar-phase null, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "r01",
+    "test": "N1",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "R0.1 N3 duration-phase null, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "r01",
+    "test": "N3",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "swing_only N2, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "swing_only",
+    "test": "N2",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "calendar_only N2, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "calendar_only",
+    "test": "N2",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "r01_no_budget tally, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "r01_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "swing_only_no_budget tally, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "swing_only_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "calendar_only_no_budget tally, SPY",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "SPY",
+    "arm": "calendar_only_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "R0.1 N2 matched-window null, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "r01",
+    "test": "N2",
+    "family": "primary"
+   }
+  },
+  {
+   "label": "R0.1 confirmation trades vs untimed control, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "r01",
+    "test": "trades",
+    "family": "primary"
+   }
+  },
+  {
+   "label": "R0.1 N1 calendar-phase null, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "r01",
+    "test": "N1",
+    "family": "required component"
+   }
+  },
+  {
+   "label": "R0.1 N3 duration-phase null, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "r01",
+    "test": "N3",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "swing_only N2, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "swing_only",
+    "test": "N2",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "calendar_only N2, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "calendar_only",
+    "test": "N2",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "r01_no_budget tally, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "r01_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "swing_only_no_budget tally, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "swing_only_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  },
+  {
+   "label": "calendar_only_no_budget tally, DJIA",
+   "options": {
+    "candidate": "MTF-R0.1",
+    "symbol": "DJIA",
+    "arm": "calendar_only_no_budget",
+    "test": "tally",
+    "family": "descriptive"
+   }
+  }
+ ]
+}

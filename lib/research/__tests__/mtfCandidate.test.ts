@@ -152,7 +152,7 @@ describe("MTF-R0.1 windows", () => {
   });
 });
 
-describe("decimal digital root (metadata only)", () => {
+describe("decimalDigitalRoot (metadata only)", () => {
   it("sums the digits with the separator removed, 0 read as 9", () => {
     expect(decimalDigitalRoot("125.40")).toBe(3);
     expect(decimalDigitalRoot("9")).toBe(9);

@@ -244,7 +244,7 @@ export function buildInput(p: Prepared, e: number, isLastSessionOfMonth: (e: num
     }
   }
   const all = assignEpisodes([...majors.map((m) => ({ ...m, role: "major" as const })), ...reactions.map((r) => ({ ...r, role: "reaction" as const }))]);
-  const strip = <T extends { role: string }>({ role: _role, ...rest }: T) => rest;
+  const strip = <T extends { role: string }>(a: T) => Object.fromEntries(Object.entries(a).filter(([k]) => k !== "role"));
   return {
     contract: R01_INPUT_CONTRACT,
     symbol: p.series.symbol,
@@ -252,8 +252,8 @@ export function buildInput(p: Prepared, e: number, isLastSessionOfMonth: (e: num
     horizonEnd: addDays(issue, HORIZON_DAYS),
     trend,
     trendSource: pivot ? `3-Day Chart line from the ${pivot.kind} of ${bars[pivot.index].t}` : "no completed 3-Day Chart swing",
-    majorAnchors: all.filter((a) => a.role === "major").map(strip) as MajorAnchor[],
-    reactionAnchors: all.filter((a) => a.role === "reaction").map(strip) as ReactionAnchor[],
+    majorAnchors: all.filter((a) => a.role === "major").map(strip) as unknown as MajorAnchor[],
+    reactionAnchors: all.filter((a) => a.role === "reaction").map(strip) as unknown as ReactionAnchor[],
     lineage: { adapter: ADAPTER_VERSION, snapshot: p.series.snapshotHash, source: p.series.source },
   };
 }

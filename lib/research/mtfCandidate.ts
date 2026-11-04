@@ -260,13 +260,18 @@ export function projectAll(input: R01Input): Projection[] {
   for (const a of input.majorAnchors) {
     const byMonth = new Map<number, string[]>();
     const base = monthIndex(a.date);
-    for (const n of YEAR_COUNTS) byMonth.set(base + 12 * n, [...(byMonth.get(base + 12 * n) ?? []), `year:${n}`]);
-    for (const m of MONTH_COUNTS) byMonth.set(base + m, [...(byMonth.get(base + m) ?? []), `month:${m}`]);
+    // Only months that overlap the horizon bear on this issue: from the issue's month to the horizon end's.
+    const lo = monthIndex(issue);
+    const hi = monthIndex(input.horizonEnd);
+    const add = (mi: number, rule: string) => {
+      if (mi >= lo && mi <= hi) byMonth.set(mi, [...(byMonth.get(mi) ?? []), rule]);
+    };
+    for (const n of YEAR_COUNTS) add(base + 12 * n, `year:${n}`);
+    for (const m of MONTH_COUNTS) add(base + m, `month:${m}`);
     for (const [mi, rules] of [...byMonth].sort((x, y) => x[0] - y[0])) {
       const start = monthStart(mi);
       const end = monthEnd(mi);
       if (end <= issue) continue; // wholly elapsed: no bearing on this issue
-      if (start > input.horizonEnd) continue; // wholly past the horizon: no bearing either
       out.push({
         id: `${a.id}@${start.slice(0, 7)}`,
         anchorId: a.id,
@@ -324,8 +329,9 @@ function flagged(s: DaySupport[], rule: R01Rule): boolean {
 }
 
 /** The whole procedure for one issue. Pure and deterministic. */
-export function runR01(input: R01Input, rule: R01Rule = R01_RULE): R01Output {
-  const hash = inputHash(input);
+export function runR01(input: R01Input, rule: R01Rule = R01_RULE, opts: { hash?: boolean } = {}): R01Output {
+  // The evaluation's null reruns skip the hash (it names an issue, it does not change one); every stored issue carries it.
+  const hash = opts.hash === false ? "" : inputHash(input);
   const reasons = validateInput(input);
   const expectedType = expectedTypeFor(input.trend);
   const okDates = isIsoDate(input.issueSession) && isIsoDate(input.horizonEnd) && input.horizonEnd > input.issueSession;
@@ -378,7 +384,7 @@ export function runR01(input: R01Input, rule: R01Rule = R01_RULE): R01Output {
 export function decimalDigitalRoot(value: string): number {
   if (typeof value !== "string" || !/^\d+(\.\d+)?$/.test(value)) throw new Error(`not a positive plain decimal string: ${String(value)}`);
   const digits = value.replace(".", "");
-  if (!/[1-9]/.test(digits)) throw new Error("zero has no digital root here");
+  if (!/[1-9]/.test(digits)) throw new Error("zero is rejected");
   let sum = 0;
   for (const ch of digits) sum += ch.charCodeAt(0) - 48;
   return sum % 9 === 0 ? 9 : sum % 9;

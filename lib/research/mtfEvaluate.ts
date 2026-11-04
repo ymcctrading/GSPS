@@ -132,7 +132,7 @@ export function runArm(p: Prepared, issues: number[], rule: R01Rule, shift: Adap
   const windows: ScoredWindow[] = [];
   let pastData = 0;
   for (const e of issues) {
-    const out = runR01(buildInput(p, e, monthEnd, shift), rule);
+    const out = runR01(buildInput(p, e, monthEnd, shift), rule, { hash: false });
     status[out.status]++;
     for (const w of out.windows) {
       const key = `${w.start}|${w.end}|${out.expectedType}`;
@@ -359,6 +359,6 @@ export function evaluateSeries(series: PinnedSeries, o: SeriesRunOptions) {
     n1,
     n3,
     trades,
-    windows: runs.r01.windows.map((w) => ({ issued: w.issued, start: w.start, end: w.end, expectedType: w.expectedType, sessions: w.sessions.length, labels: w.sessions.map((i) => labels[i] ?? "unresolved"), sources: w.sources })),
+    windows: runs.r01.windows.map((w) => ({ issued: w.issued, start: w.start, end: w.end, expectedType: w.expectedType, sessions: w.sessions.length, labels: w.sessions.map((i) => (labels[i] === undefined ? "unresolved" : (labels[i] ?? "none"))), sources: w.sources })),
   };
 }

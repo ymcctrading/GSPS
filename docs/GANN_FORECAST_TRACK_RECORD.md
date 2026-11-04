@@ -448,3 +448,25 @@ would be a new rule, frozen and tested afresh. Each month's projections are
 appended to `lib/research/timeProcedureLog.json` before the month opens
 (`scripts/time-procedures-issue.mjs`, first issue at the October 2026
 month-end) and scored at the 24-month review. Nothing is shown to members.
+
+## 14. MTF-R0.1: year and month counts meeting the campaign's duration (2026-11-04)
+
+The owner's R0.1 package: from major monthly-chart tops and bottoms, the year
+counts 1-60 and the twelve starred month counts, at whole-month precision;
+from the last 3-Day Chart swing, 14-28 days (a reaction) or 42-49 days (a
+rapid move); a date counts only when both meet from two separate turns, and
+an issue covering more than 20% of its 91 days abstains. Frozen before any
+run (`docs/research/mtf-r0-1/PREREGISTRATION.md`), engine
+`lib/research/mtfCandidate.ts`, adapter `mtfAdapter.ts`, evaluation
+`mtfEvaluate.ts`. Weekly issues, the centred 41-session closing extreme as
+the outcome, a matched-window null (labels rotated, windows fixed).
+
+**Retired on development evidence.** Dow 1897-2026: 153 hits over 1,500
+windows against 142.5 by chance (p 0.18); DIA 5 over 27 (2.05, p 0.052, under
+the 30-window floor); SPY 2 over 32 (2.63). Shifting the calendar phase did
+as well (p 0.75): the month counts subtracted from the duration bands rather
+than adding to them (Dow duration only: 333 over 2,171 against 279.1, p
+0.0005, descriptive, one of 27 trials). Confirmation trades after the
+windows did no better than the same confirmation untimed on any series.
+Details: `docs/research/mtf-r0-1/RESULTS.md`. 27 trials, after at least
+1,066 earlier ones (`trials.json`).

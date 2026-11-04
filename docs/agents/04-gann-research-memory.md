@@ -1440,3 +1440,19 @@ testable). Forward projections go to `timeProcedureLog.json` each month-end
 (`scripts/time-procedures-issue.mjs`), append-only, reviewed Oct 2028. The
 rules' own Dow 1913-1948 span needs daily Dow closes the repo lacks (asked of
 the owner). Write-up `docs/GANN_FORECAST_TRACK_RECORD.md` §13. Research only.
+
+**MTF-R0.1, 2026-11-04 (owner: "Execute" on the R0.1 package).** The package's
+Python files were never found, so `lib/research/mtfCandidate.ts` rebuilds its
+ten steps (year counts 1-60 and the twelve starred month counts from major
+monthly-chart campaign extremes at month precision, meeting a 14-28 or 42-49
+day band from the last 3-Day Chart swing, two episodes and both groups, 20%
+abstention). Adapter `mtfAdapter.ts` (causality tested against truncated
+series), evaluation `mtfEvaluate.ts`, preregistration frozen before the run
+in `docs/research/mtf-r0-1/`. **Retired on development evidence**: Dow
+1897-2026 p 0.18, DIA under the 30-window floor (p 0.052), SPY below chance,
+calendar-phase null p 0.75 (the month counts subtracted from the duration
+bands). Duration alone beat its null on the Dow (p 0.0005, descriptive, not
+on DIA): a lead for a separately frozen candidate, not a finding. Forward
+ledger (record only) in `/mnt/project-files/private-research/mtf-r0-1/`.
+Research only; `lib/__tests__/mtfIsolation.test.ts` keeps it off every live
+path. Track record §14.
