@@ -44,6 +44,23 @@ describe("core control (random entries, the core's own exits)", () => {
     expect(a.fixedHoldN).toBeGreaterThan(0);
   }, 60_000);
 
+  it("builds a fixed hold on exactly the entries the pyramid-off run took", () => {
+    const by = new Map([["UP", real]]);
+    for (const seed of [1, 2, 3, 4]) {
+      const d = coreControlDraw(series, by, { seed });
+      // Every flat-run entry has a session, a stop share and a length, and the fixture has room to hold each one.
+      expect(d.fixedHoldN).toBe(d.noPyramidCampaigns);
+      expect(d.collisions + d.campaigns).toBeLessThanOrEqual(d.drawn);
+    }
+  }, 120_000);
+
+  it("passes the trail through to the core", () => {
+    const by = new Map([["UP", real]]);
+    const a = coreControlDraw(series, by, { seed: 5, trail: "eachWeek" });
+    expect(a).toEqual(coreControlDraw(series, by, { seed: 5, trail: "eachWeek" }));
+    expect(a.drawn).toBe(real.length);
+  }, 60_000);
+
   it("reports the real mean, the control's spread and the exit value", () => {
     const res = runCoreControl(series, real, 5);
     expect(res.realN).toBe(real.length);
