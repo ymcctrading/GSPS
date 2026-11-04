@@ -8,6 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  barCacheKey,
+  cachedSeries,
+  manifestHash,
   bootstrapDiffCI,
   bootstrapMeanCI,
   coreCampaignSummary,
@@ -25,6 +28,9 @@ import {
   validateCells,
 } from "../../scripts/backtest-universe.mjs";
 import { gunzipSync } from "node:zlib";
+import { mkdtemp, writeFile as writeFileFs } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { monteCarloResample } from "@/lib/backtest/monteCarlo";
 
 const trade = (over: Record<string, unknown>) => ({
@@ -408,5 +414,42 @@ describe("rule ladder cells", () => {
       { symbol: "BBB", openedAt: "2024-03-02T05:00:00Z", rMultiple: -1 },
     ]);
     expect(rows).toEqual([{ symbol: "AAA", date: "2024-03-01", r: 1.5, refused: new Set(["hold:breakaway"]) }]);
+  });
+});
+
+describe("bar cache (frozen data)", () => {
+  it("keys a series by symbol, timeframe, as-of date and window", () => {
+    expect(barCacheKey("aapl", "1Day")).toBe("AAPL__1Day.json");
+    expect(barCacheKey("BRK/B", "1Day", "2019-05-01")).toBe("BRK_B__1Day__asof-2019-05-01.json");
+    expect(barCacheKey("SPY", "1Day", undefined, { from: new Date("2016-01-01"), to: new Date("2020-10-31") })).toBe("SPY__1Day__2016-01-01_2020-10-31.json");
+  });
+
+  it("fetches once, then reads the cached series back", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "barcache-"));
+    const manifest = { files: {} as Record<string, string> };
+    let calls = 0;
+    const fetcher = async () => {
+      calls++;
+      return { bars: [{ t: "2026-01-05T05:00:00Z", o: 1, h: 2, l: 0.5, c: 1.5, v: 10 }], daily: [] };
+    };
+    const a = await cachedSeries(dir, "X__1Day.json", fetcher, manifest);
+    const b = await cachedSeries(dir, "X__1Day.json", fetcher, manifest);
+    expect(calls).toBe(1);
+    expect(b).toEqual(a);
+    expect(manifestHash(manifest)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("stops when a cached file changed since the manifest", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "barcache-"));
+    const manifest = { files: {} as Record<string, string> };
+    await cachedSeries(dir, "Y__1Day.json", async () => ({ bars: [], daily: [] }), manifest);
+    await writeFileFs(path.join(dir, "Y__1Day.json"), JSON.stringify({ bars: [1], daily: [] }));
+    await expect(cachedSeries(dir, "Y__1Day.json", async () => ({}), manifest)).rejects.toThrow(/changed/);
+  });
+
+  it("takes a history window only as a pair, in order", () => {
+    expect(parseArgs(["--out", "o", "--historyFrom", "2016-01-01", "--historyTo", "2020-10-31"]).historyFrom).toBe("2016-01-01");
+    expect(() => parseArgs(["--out", "o", "--historyFrom", "2016-01-01"])).toThrow(/together/);
+    expect(() => parseArgs(["--out", "o", "--historyFrom", "2020-01-01", "--historyTo", "2016-01-01"])).toThrow(/before/);
   });
 });

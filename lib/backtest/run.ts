@@ -462,11 +462,25 @@ export async function fetchSeries(
   includeMonthly = false,
   /** A departed ticker's last day, so its bars are the company's (point-in-time universe). */
   asOf?: string,
+  /**
+   * A fixed history window for a research run, instead of each timeframe's
+   * lookback back from now (quant validation: a holdout such as 2016 to
+   * 2020-10 sits before the default six years). `from` replaces the
+   * execution and daily windows' start; `to` ends every request. The bar cap
+   * grows with the span so a long window is never cut short. Absent, nothing
+   * changes.
+   */
+  history?: { from: Date; to: Date },
 ): Promise<{ bars: Bar[]; daily: Bar[]; weekly?: Bar[]; monthly?: Bar[]; monthlyLong?: Bar[]; monthlyYearCount?: Bar[] }> {
   const provider = getMarketDataProvider();
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
-  const now = Date.now();
-  const window = (tf: Timeframe) => new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
+  if (history && !(history.from.getTime() < history.to.getTime())) throw new Error("fetchSeries: history.from must be before history.to");
+  const now = history ? history.to.getTime() : Date.now();
+  const end = history ? history.to : null;
+  const window = (tf: Timeframe) =>
+    history && (tf === timeframe || tf === "1Day") ? history.from : new Date(now - TF_LOOKBACK_DAYS[tf] * 86_400_000);
+  const maxBars = (tf: Timeframe) =>
+    history ? Math.max(TF_MAX_BARS[tf], Math.ceil(((now - window(tf).getTime()) / (TF_LOOKBACK_DAYS[tf] * 86_400_000)) * TF_MAX_BARS[tf]) + 50) : TF_MAX_BARS[tf];
   // The older levels on the first daily session read the span before it (step 3 review R10).
   const monthlyFrom = monthlyChartFrom(window("1Day"));
   // The time-window hold's yearly counts read `YEAR_COUNT_MONTHLY_YEARS` and
@@ -484,10 +498,10 @@ export async function fetchSeries(
   const weeklyFrom = new Date(Date.UTC(start.getUTCFullYear() - WEEKLY_CHART_YEARS, start.getUTCMonth(), start.getUTCDate()) - 7 * 86_400_000);
 
   const [bars, daily, monthlyYearCount, weekly] = await Promise.all([
-    provider.fetchBars(symbol, timeframe, window(timeframe), null, assetClass, TF_MAX_BARS[timeframe], false, asOf),
-    provider.fetchBars(symbol, "1Day", window("1Day"), null, assetClass, TF_MAX_BARS["1Day"], false, asOf),
-    includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, null, assetClass, undefined, false, asOf) : Promise.resolve(undefined),
-    includeMonthly ? provider.fetchBars(symbol, "1Week", weeklyFrom, null, assetClass, TF_MAX_BARS["1Week"], false, asOf) : Promise.resolve(undefined),
+    provider.fetchBars(symbol, timeframe, window(timeframe), end, assetClass, maxBars(timeframe), false, asOf),
+    provider.fetchBars(symbol, "1Day", window("1Day"), end, assetClass, maxBars("1Day"), false, asOf),
+    includeMonthly ? provider.fetchBars(symbol, "1Month", longFrom, end, assetClass, undefined, false, asOf) : Promise.resolve(undefined),
+    includeMonthly ? provider.fetchBars(symbol, "1Week", weeklyFrom, end, assetClass, history ? undefined : TF_MAX_BARS["1Week"], false, asOf) : Promise.resolve(undefined),
   ]);
   const monthly = monthlyYearCount?.filter((b) => Date.parse(b.t) >= monthlyFrom.getTime());
   // Long enough for the class C counts on the first session; the replay windows

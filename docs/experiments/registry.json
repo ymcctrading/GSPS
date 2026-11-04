@@ -1,0 +1,1575 @@
+{
+  "generatedAt": "2026-11-04T14:41:49.701Z",
+  "roots": [
+    "docs/replay-runs",
+    "/mnt/project-files/core-rebuild/",
+    "/mnt/project-files/rule-ladder/",
+    "/mnt/project-files/replay-diagnosis/"
+  ],
+  "trialCount": 80,
+  "studyCount": 21,
+  "note": "A lower bound: configurations tried and never written to a file are not counted.",
+  "unreadable": [],
+  "entries": [
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-08-12-15Min-2R.json",
+      "date": "2026-08-12",
+      "label": "2026-08-12-15Min-2R",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-06-15T12:00:00Z",
+        "to": "2026-08-12T17:15:00Z"
+      },
+      "n": 1033,
+      "expectancyR": -0.062427780930554747,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-08-12-15Min-3R.json",
+      "date": "2026-08-12",
+      "label": "2026-08-12-15Min-3R",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-06-15T12:00:00Z",
+        "to": "2026-08-12T17:15:00Z"
+      },
+      "n": 1033,
+      "expectancyR": -0.08373982984035677,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-08-12-1Hour-2R.json",
+      "date": "2026-08-12",
+      "label": "2026-08-12-1Hour-2R",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2024-08-13T12:00:00Z",
+        "to": "2026-08-12T20:00:00Z"
+      },
+      "n": 3631,
+      "expectancyR": 0.02557889840625081,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-08-12-1Hour-3R.json",
+      "date": "2026-08-12",
+      "label": "2026-08-12-1Hour-3R",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2024-08-13T12:00:00Z",
+        "to": "2026-08-12T20:00:00Z"
+      },
+      "n": 3631,
+      "expectancyR": 0.030183839613051405,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-08-26-15Min-2R-score5-6.json",
+      "date": "2026-08-26",
+      "label": "2026-08-26-15Min-2R-score5-6",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-06-29T12:00:00Z",
+        "to": "2026-08-26T20:45:00Z"
+      },
+      "n": 1045,
+      "expectancyR": -0.06549822145013968,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-08-27-15Min-2R-postfix.json",
+      "date": "2026-08-27",
+      "label": "2026-08-27-15Min-2R-postfix",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-06-29T12:00:00Z",
+        "to": "2026-08-26T20:45:00Z"
+      },
+      "n": 1045,
+      "expectancyR": -0.06549822145013968,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-08-15Min-since0615-all-productionStop.json",
+      "date": "2026-09-08",
+      "label": "2026-09-08-15Min-since0615-all-productionStop",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-08T20:15:00Z"
+      },
+      "n": 1005,
+      "expectancyR": -0.02458723749536243,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-08-15Min-since0615-all.json",
+      "date": "2026-09-08",
+      "label": "2026-09-08-15Min-since0615-all",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-08T20:15:00Z"
+      },
+      "n": 1005,
+      "expectancyR": -0.024584977389720035,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-08-15Min-since0615.json",
+      "date": "2026-09-08",
+      "label": "2026-09-08-15Min-since0615",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-10T15:30:00Z",
+        "to": "2026-09-08T15:15:00Z"
+      },
+      "n": 1025,
+      "expectancyR": -0.0387749279538242,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-08-1Hour-since0615.json",
+      "date": "2026-09-08",
+      "label": "2026-09-08-1Hour-since0615",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2026-06-15T12:00:00Z",
+        "to": "2026-09-08T15:00:00Z"
+      },
+      "n": 346,
+      "expectancyR": -0.018354649610722147,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-09-15Min-2R-score5-6.json",
+      "date": "2026-09-09",
+      "label": "2026-09-09-15Min-2R-score5-6",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-09T20:00:00Z"
+      },
+      "n": 1029,
+      "expectancyR": -0.02798531371500707,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-09-15Min-2R.json",
+      "date": "2026-09-09",
+      "label": "2026-09-09-15Min-2R",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-09T20:00:00Z"
+      },
+      "n": 1029,
+      "expectancyR": -0.02798531371500707,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-09-15Min-3R.json",
+      "date": "2026-09-09",
+      "label": "2026-09-09-15Min-3R",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-09T20:00:00Z"
+      },
+      "n": 1029,
+      "expectancyR": -0.019238958029875915,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-15Min-2R-score5-6.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-15Min-2R-score5-6",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-10T16:00:00Z"
+      },
+      "n": 1049,
+      "expectancyR": -0.022941649425985783,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-15Min-2R-within-all.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-15Min-2R-within-all",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-10T16:00:00Z"
+      },
+      "n": 1049,
+      "expectancyR": -0.022941649425985783,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-15Min-2R.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-15Min-2R",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-10T16:00:00Z"
+      },
+      "n": 1049,
+      "expectancyR": -0.02267790665161292,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-15Min-3R.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-15Min-3R",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T12:00:00Z",
+        "to": "2026-09-10T16:00:00Z"
+      },
+      "n": 1049,
+      "expectancyR": -0.006144651763832325,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-1Hour-2R-within-all.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-1Hour-2R-within-all",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-14T12:00:00Z",
+        "to": "2026-09-10T20:00:00Z"
+      },
+      "n": 11372,
+      "expectancyR": 0.011124683496901332,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-1Hour-2R.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-1Hour-2R",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-11T17:00:00Z",
+        "to": "2026-09-10T16:00:00Z"
+      },
+      "n": 11371,
+      "expectancyR": 0.011973765144528165,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-10-1Hour-3R.json",
+      "date": "2026-09-10",
+      "label": "2026-09-10-1Hour-3R",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-11T17:00:00Z",
+        "to": "2026-09-10T16:00:00Z"
+      },
+      "n": 11371,
+      "expectancyR": 0.04224645776870906,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-11-15Min-2R-within-all.json",
+      "date": "2026-09-11",
+      "label": "2026-09-11-15Min-2R-within-all",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-13T14:15:00Z",
+        "to": "2026-09-11T14:00:00Z"
+      },
+      "n": 1061,
+      "expectancyR": -0.025305274791610478,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-14-15Min-2R-within-all.json",
+      "date": "2026-09-14",
+      "label": "2026-09-14-15Min-2R-within-all",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-16T20:45:00Z",
+        "to": "2026-09-14T19:45:00Z"
+      },
+      "n": 985,
+      "expectancyR": -0.019664897071618427,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-14-1Hour-2R-within-all.json",
+      "date": "2026-09-14",
+      "label": "2026-09-14-1Hour-2R-within-all",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-16T12:00:00Z",
+        "to": "2026-09-14T19:00:00Z"
+      },
+      "n": 11363,
+      "expectancyR": 0.011043180610469371,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-15-15Min-within-all-productionStop-since30d.json",
+      "date": "2026-09-15",
+      "label": "2026-09-15-15Min-within-all-productionStop-since30d",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-08-17T12:00:00Z",
+        "to": "2026-09-14T19:45:00Z"
+      },
+      "n": 438,
+      "expectancyR": 0.05924578171310205,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-15-15Min-within-all-productionStop-since90d.json",
+      "date": "2026-09-15",
+      "label": "2026-09-15-15Min-within-all-productionStop-since90d",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-17T12:00:00Z",
+        "to": "2026-09-14T19:45:00Z"
+      },
+      "n": 985,
+      "expectancyR": -0.0197360483308697,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-15-15Min-within-all-productionStop.json",
+      "date": "2026-09-15",
+      "label": "2026-09-15-15Min-within-all-productionStop",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-17T12:00:00Z",
+        "to": "2026-09-14T19:45:00Z"
+      },
+      "n": 985,
+      "expectancyR": -0.0197360483308697,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-15-1Hour-within-all-productionStop-since30d.json",
+      "date": "2026-09-15",
+      "label": "2026-09-15-1Hour-within-all-productionStop-since30d",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2026-08-17T12:00:00Z",
+        "to": "2026-09-14T19:00:00Z"
+      },
+      "n": 100,
+      "expectancyR": -0.07921469758953371,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-15-1Hour-within-all-productionStop-since90d.json",
+      "date": "2026-09-15",
+      "label": "2026-09-15-1Hour-within-all-productionStop-since90d",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2026-06-17T12:00:00Z",
+        "to": "2026-09-14T19:00:00Z"
+      },
+      "n": 367,
+      "expectancyR": -0.03456255736833532,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-15-1Hour-within-all-productionStop.json",
+      "date": "2026-09-15",
+      "label": "2026-09-15-1Hour-within-all-productionStop",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-16T12:00:00Z",
+        "to": "2026-09-14T19:00:00Z"
+      },
+      "n": 11363,
+      "expectancyR": 0.011042831168504711,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-23-15Min-2R-within-all-12sym.json",
+      "date": "2026-09-23",
+      "label": "2026-09-23-15Min-2R-within-all-12sym",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-27T12:00:00Z",
+        "to": "2026-09-23T20:45:00Z"
+      },
+      "n": 615,
+      "expectancyR": -0.04006571506156961,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-23-15Min-2R-within-all.json",
+      "date": "2026-09-23",
+      "label": "2026-09-23-15Min-2R-within-all",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-27T12:00:00Z",
+        "to": "2026-09-23T20:00:00Z"
+      },
+      "n": 338,
+      "expectancyR": -0.17823062544029086,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-25-15Min-2R-766sym-summary.json",
+      "date": "2026-09-25",
+      "label": "raw",
+      "options": {},
+      "timeframe": "15Min",
+      "universe": "large-cap",
+      "window": {
+        "from": "2026-07-27T18:30:00Z",
+        "to": "2026-09-25T18:45:00Z"
+      },
+      "n": 29126,
+      "expectancyR": 0.07579892272246763,
+      "ci95": [
+        0.05974663509294243,
+        0.09145750601995466
+      ],
+      "execute": {
+        "n": 1444,
+        "expectancyR": 0.12351365133794351,
+        "ci95": [
+          0.054923888929396994,
+          0.19207300558467214
+        ]
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-25-15Min-2R-766sym-summary.json",
+      "date": "2026-09-25",
+      "label": "prodstop",
+      "options": {
+        "useProductionStop": true
+      },
+      "timeframe": "15Min",
+      "universe": "large-cap",
+      "window": {
+        "from": "2026-07-27T18:30:00Z",
+        "to": "2026-09-25T18:45:00Z"
+      },
+      "n": 29126,
+      "expectancyR": 0.11786168574394912,
+      "ci95": [
+        0.10093884067875121,
+        0.1343219770304724
+      ],
+      "execute": {
+        "n": 1444,
+        "expectancyR": 0.02037106364954947,
+        "ci95": [
+          -0.053483733120463076,
+          0.09283268920889998
+        ]
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-25-15Min-2R-within-Execute-766sym-prodstop.json",
+      "date": "2026-09-25",
+      "label": "2026-09-25-15Min-2R-within-Execute-766sym-prodstop",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-27T18:30:00Z",
+        "to": "2026-09-25T18:45:00Z"
+      },
+      "n": 29126,
+      "expectancyR": 0.11786168574394912,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-25-15Min-2R-within-Execute-766sym-raw.json",
+      "date": "2026-09-25",
+      "label": "2026-09-25-15Min-2R-within-Execute-766sym-raw",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-27T18:30:00Z",
+        "to": "2026-09-25T18:45:00Z"
+      },
+      "n": 29126,
+      "expectancyR": 0.07579892272246763,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-26-15Min-2R-766sym-summary.json",
+      "date": "2026-09-26",
+      "label": "raw",
+      "options": {
+        "entryRule": "stop"
+      },
+      "timeframe": "15Min",
+      "universe": "large-cap",
+      "window": {
+        "from": "2026-07-28T20:15:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 854,
+      "expectancyR": 0.06059845127913439,
+      "ci95": [
+        0.021166327258293597,
+        0.09956739717121622
+      ],
+      "execute": {
+        "n": 110,
+        "expectancyR": 0.01954789353495631,
+        "ci95": [
+          -0.09233603334828097,
+          0.13661393450952683
+        ]
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-26-15Min-2R-766sym-summary.json",
+      "date": "2026-09-26",
+      "label": "prodstop",
+      "options": {
+        "useProductionStop": true,
+        "entryRule": "stop"
+      },
+      "timeframe": "15Min",
+      "universe": "large-cap",
+      "window": {
+        "from": "2026-07-28T20:15:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 737,
+      "expectancyR": -0.15458888475846355,
+      "ci95": [
+        -0.2535347705107134,
+        -0.053375368574877936
+      ],
+      "execute": {
+        "n": 86,
+        "expectancyR": -0.440360334021888,
+        "ci95": [
+          -0.6990519795138073,
+          -0.16463495472159287
+        ]
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-26-15Min-2R-766sym-summary.json",
+      "date": "2026-09-26",
+      "label": "confirmed",
+      "options": {
+        "useProductionStop": true,
+        "entryRule": "confirmed"
+      },
+      "timeframe": "15Min",
+      "universe": "large-cap",
+      "window": {
+        "from": "2026-07-28T20:15:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 506,
+      "expectancyR": 0.18982162774311978,
+      "ci95": [
+        0.06815755253230495,
+        0.3109482414136962
+      ],
+      "execute": {
+        "n": 55,
+        "expectancyR": 0.2309322597989027,
+        "ci95": [
+          -0.15332329918296078,
+          0.6152670158964929
+        ]
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-26-15Min-2R-within-all-766sym-confirmed.json",
+      "date": "2026-09-26",
+      "label": "2026-09-26-15Min-2R-within-all-766sym-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-28T20:15:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 506,
+      "expectancyR": 0.18982162774311978,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-26-15Min-2R-within-all-766sym-prodstop.json",
+      "date": "2026-09-26",
+      "label": "2026-09-26-15Min-2R-within-all-766sym-prodstop",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-28T20:15:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 737,
+      "expectancyR": -0.15458888475846355,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-26-15Min-2R-within-all-766sym-raw.json",
+      "date": "2026-09-26",
+      "label": "2026-09-26-15Min-2R-within-all-766sym-raw",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-28T20:15:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 854,
+      "expectancyR": 0.06059845127913439,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-breakaway-confirmed-gannexit.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-breakaway-confirmed-gannexit",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 351,
+      "expectancyR": 0.19366631282757255,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-breakaway-confirmed.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-breakaway-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 351,
+      "expectancyR": 0.1900197276350229,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-breakaway-prodstop-gannexit.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-breakaway-prodstop-gannexit",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 557,
+      "expectancyR": 0.22703144742951953,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-breakaway-prodstop.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-breakaway-prodstop",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 557,
+      "expectancyR": -0.06965716219129511,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-swingcharts-confirmed.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-swingcharts-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 378,
+      "expectancyR": 0.18968920998361016,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-swingcharts-prodstop.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-swingcharts-prodstop",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 576,
+      "expectancyR": -0.05175851284180946,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-27-15Min-2R-within-all-766sym-swingcharts-raw.json",
+      "date": "2026-09-27",
+      "label": "2026-09-27-15Min-2R-within-all-766sym-swingcharts-raw",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 695,
+      "expectancyR": 0.016601190943173878,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-confirmed-gannexit-long.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-confirmed-gannexit-long",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 352,
+      "expectancyR": 0.259168403664722,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-confirmed-long.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-confirmed-long",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 352,
+      "expectancyR": 0.197912419953113,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-diag-legacy-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-diag-legacy-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 352,
+      "expectancyR": 0.19344338225494095,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed-gannrunner-pyramid.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed-gannrunner-pyramid",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 384,
+      "expectancyR": 0.022902646379212476,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed-gannrunner-rnhold.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed-gannrunner-rnhold",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 333,
+      "expectancyR": 0.032469930745582395,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed-gannrunner.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed-gannrunner",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 384,
+      "expectancyR": 0.022902646379212476,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-diag-plan-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 384,
+      "expectancyR": 0.10029766818008733,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-firstdays-plan-confirmed-gann.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-firstdays-plan-confirmed-gann",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.07384405132671468,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-firstdays-plan-confirmed-gannrunner.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-firstdays-plan-confirmed-gannrunner",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.07503679438440639,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-firstdays-plan-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-firstdays-plan-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.09525588814838339,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed-gann.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed-gann",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.04429934285291328,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed-gannrunner-pyramid.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed-gannrunner-pyramid",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.050989590149074115,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed-gannrunner.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed-gannrunner",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.050788200594079076,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-15Min-2R-within-all-766sym-points-plan-confirmed",
+      "options": null,
+      "timeframe": "15Min",
+      "universe": null,
+      "window": {
+        "from": "2026-07-30T12:00:00Z",
+        "to": "2026-09-25T20:45:00Z"
+      },
+      "n": 392,
+      "expectancyR": 0.09525588814838339,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-1Hour-2R-within-all-766sym-6yr-confirmed-gannexit.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-1Hour-2R-within-all-766sym-6yr-confirmed-gannexit",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-29T13:00:00Z",
+        "to": "2026-09-25T20:00:00Z"
+      },
+      "n": 8625,
+      "expectancyR": -0.07402776971439401,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-1Hour-2R-within-all-766sym-6yr-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-1Hour-2R-within-all-766sym-6yr-confirmed",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-29T13:00:00Z",
+        "to": "2026-09-25T20:00:00Z"
+      },
+      "n": 8625,
+      "expectancyR": -0.056774395157964445,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-1Hour-2R-within-all-766sym-6yr-prodstop.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-1Hour-2R-within-all-766sym-6yr-prodstop",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-29T13:00:00Z",
+        "to": "2026-09-25T20:00:00Z"
+      },
+      "n": 16985,
+      "expectancyR": -0.06855330597438623,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-1Hour-2R-within-all-766sym-firstdays-6yr-legacy-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-1Hour-2R-within-all-766sym-firstdays-6yr-legacy-confirmed",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-29T13:00:00Z",
+        "to": "2026-09-28T17:00:00Z"
+      },
+      "n": 9140,
+      "expectancyR": -0.05017022754242253,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-1Hour-2R-within-all-766sym-firstdays-6yr-plan-confirmed-gannrunner.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-1Hour-2R-within-all-766sym-firstdays-6yr-plan-confirmed-gannrunner",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-29T13:00:00Z",
+        "to": "2026-09-28T17:00:00Z"
+      },
+      "n": 9269,
+      "expectancyR": -0.05838709582127145,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-28-1Hour-2R-within-all-766sym-firstdays-6yr-plan-confirmed.json",
+      "date": "2026-09-28",
+      "label": "2026-09-28-1Hour-2R-within-all-766sym-firstdays-6yr-plan-confirmed",
+      "options": null,
+      "timeframe": "1Hour",
+      "universe": null,
+      "window": {
+        "from": "2020-09-29T13:00:00Z",
+        "to": "2026-09-28T17:00:00Z"
+      },
+      "n": 9269,
+      "expectancyR": -0.048102049917746026,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-30-1Day-2R-within-all-766sym-6yr-daily-plan-confirmed-gann.json",
+      "date": "2026-09-30",
+      "label": "2026-09-30-1Day-2R-within-all-766sym-6yr-daily-plan-confirmed-gann",
+      "options": null,
+      "timeframe": "1Day",
+      "universe": null,
+      "window": {
+        "from": "2020-10-02T04:00:00Z",
+        "to": "2026-09-29T04:00:00Z"
+      },
+      "n": 4163,
+      "expectancyR": -0.10030564241813532,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-30-1Day-2R-within-all-766sym-6yr-daily-plan-confirmed-gannrunner.json",
+      "date": "2026-09-30",
+      "label": "2026-09-30-1Day-2R-within-all-766sym-6yr-daily-plan-confirmed-gannrunner",
+      "options": null,
+      "timeframe": "1Day",
+      "universe": null,
+      "window": {
+        "from": "2020-10-02T04:00:00Z",
+        "to": "2026-09-29T04:00:00Z"
+      },
+      "n": 4163,
+      "expectancyR": -0.06604482480305351,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "docs/replay-runs/2026-09-30-1Day-2R-within-all-766sym-6yr-daily-plan-confirmed.json",
+      "date": "2026-09-30",
+      "label": "2026-09-30-1Day-2R-within-all-766sym-6yr-daily-plan-confirmed",
+      "options": null,
+      "timeframe": "1Day",
+      "universe": null,
+      "window": {
+        "from": "2020-10-02T04:00:00Z",
+        "to": "2026-09-29T04:00:00Z"
+      },
+      "n": 4163,
+      "expectancyR": -0.06063560923684977,
+      "ci95": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-16-time-window-base-rates-736sym.json",
+      "date": "2026-10-16",
+      "label": "2026-10-16-time-window-base-rates-736sym",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-17-766sym-nine-pillars.json",
+      "date": "2026-10-17",
+      "label": "2026-10-17-766sym-nine-pillars",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-20-766sym-score-bands.json",
+      "date": "2026-10-20",
+      "label": "2026-10-20-766sym-score-bands",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-21-1Day-6yr-VOID-hold-only.json",
+      "date": "2026-10-21",
+      "label": "2026-10-21-1Day-6yr-VOID-hold-only",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-21-766sym-15Min-production-cell.json",
+      "date": "2026-10-21",
+      "label": "2026-10-21-766sym-15Min-production-cell",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-21-766sym-first-target.json",
+      "date": "2026-10-21",
+      "label": "2026-10-21-766sym-first-target",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-aspect-timing.json",
+      "date": "2026-10-30",
+      "label": "aspect-timing",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-celestial-events.json",
+      "date": "2026-10-30",
+      "label": "celestial-events",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-combination-test.json",
+      "date": "2026-10-30",
+      "label": "combination-test",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-forecast-rebuild.json",
+      "date": "2026-10-30",
+      "label": "forecast-rebuild",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-forecast-track-record.json",
+      "date": "2026-10-30",
+      "label": "forecast-track-record",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-hora-timing.json",
+      "date": "2026-10-30",
+      "label": "hora-timing",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-master-time-calculator.json",
+      "date": "2026-10-30",
+      "label": "master-time-calculator",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-modern-timing.json",
+      "date": "2026-10-30",
+      "label": "modern-timing",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-super-timing.json",
+      "date": "2026-10-30",
+      "label": "super-timing",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-time-procedures.json",
+      "date": "2026-10-30",
+      "label": "time-procedures",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "docs/replay-runs/2026-10-30-video-time-rules.json",
+      "date": "2026-10-30",
+      "label": "video-time-rules",
+      "tests": null
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/core-rebuild/2026-10-30-long-only-core/summary.json",
+      "date": "2026-10-30",
+      "label": "core-long",
+      "options": {
+        "profile": "core",
+        "coreShorts": false
+      },
+      "timeframe": "1Day",
+      "universe": "point-in-time",
+      "window": {
+        "from": "2020-11-02T05:00:00Z",
+        "to": "2026-10-29T04:00:00Z"
+      },
+      "n": 6109,
+      "expectancyR": 0.13944788569802985,
+      "ci95": [
+        0.07682451492561376,
+        0.20640017910845956
+      ],
+      "execute": {
+        "n": 0,
+        "expectancyR": 0,
+        "ci95": null
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/core-rebuild/2026-10-30-six-year-core/summary.json",
+      "date": "2026-10-30",
+      "label": "core",
+      "options": {
+        "profile": "core"
+      },
+      "timeframe": "1Day",
+      "universe": "large-cap",
+      "window": {
+        "from": "2020-11-02T05:00:00Z",
+        "to": "2026-10-29T04:00:00Z"
+      },
+      "n": 15210,
+      "expectancyR": 0.013443477050030364,
+      "ci95": [
+        -0.022418763896928238,
+        0.051241365779974436
+      ],
+      "execute": {
+        "n": 0,
+        "expectancyR": 0,
+        "ci95": null
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/rule-ladder/2026-10-30-long-only-716/summary.json",
+      "date": "2026-10-30",
+      "label": "longonly",
+      "options": {
+        "profile": "core",
+        "coreShorts": false
+      },
+      "timeframe": "1Day",
+      "universe": "point-in-time",
+      "window": {
+        "from": "2020-11-02T05:00:00Z",
+        "to": "2026-10-29T04:00:00Z"
+      },
+      "n": 6660,
+      "expectancyR": 0.12452893993030711,
+      "ci95": [
+        0.06367818012319039,
+        0.18730402752020814
+      ],
+      "execute": {
+        "n": 0,
+        "expectancyR": 0,
+        "ci95": null
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/rule-ladder/2026-10-30-point-in-time/summary.json",
+      "date": "2026-10-30",
+      "label": "ladder",
+      "options": {
+        "profile": "core",
+        "ladder": "tag"
+      },
+      "timeframe": "1Day",
+      "universe": "point-in-time",
+      "window": {
+        "from": "2020-11-02T05:00:00Z",
+        "to": "2026-10-29T04:00:00Z"
+      },
+      "n": 11286,
+      "expectancyR": -0.025681604260233474,
+      "ci95": [
+        -0.06370816252525027,
+        0.01382912880183639
+      ],
+      "execute": {
+        "n": 0,
+        "expectancyR": 0,
+        "ci95": null
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/daily_cells.json",
+      "date": "2026-10-28",
+      "label": "prod",
+      "options": {
+        "usePlanLevels": true,
+        "entryRule": "reaction",
+        "exitRule": "gann"
+      },
+      "timeframe": null,
+      "universe": null,
+      "window": null,
+      "n": null,
+      "expectancyR": null,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/daily_cells.json",
+      "date": "2026-10-28",
+      "label": "prod-no-3adverse",
+      "options": {
+        "usePlanLevels": true,
+        "entryRule": "reaction",
+        "exitRule": "gann",
+        "disableExits": [
+          "three_adverse_closes"
+        ]
+      },
+      "timeframe": null,
+      "universe": null,
+      "window": null,
+      "n": null,
+      "expectancyR": null,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-28-six-year-daily/daily_cells.json",
+      "date": "2026-10-28",
+      "label": "prod-no-priorweek",
+      "options": {
+        "usePlanLevels": true,
+        "entryRule": "reaction",
+        "exitRule": "gann",
+        "disableExits": [
+          "prior_week"
+        ]
+      },
+      "timeframe": null,
+      "universe": null,
+      "window": null,
+      "n": null,
+      "expectancyR": null,
+      "ci95": null
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/COMBINED.json",
+      "date": "2026-10-29",
+      "label": "2026-10-29-gann-averages-trend",
+      "options": null,
+      "timeframe": "1Day",
+      "universe": null,
+      "window": null,
+      "n": 63678,
+      "expectancyR": -0.018,
+      "ci95": [
+        -0.018,
+        -0.018
+      ],
+      "execute": {
+        "n": 1304,
+        "expectancyR": -0.081,
+        "ci95": [
+          -0.14,
+          -0.021
+        ]
+      }
+    },
+    {
+      "kind": "trial",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-29-six-year-rerun/COMBINED.json",
+      "date": "2026-10-29",
+      "label": "2026-10-29-gann-early-sections-and-leaders",
+      "options": null,
+      "timeframe": "1Day",
+      "universe": null,
+      "window": null,
+      "n": 63654,
+      "expectancyR": -0.018,
+      "ci95": [
+        -0.018,
+        -0.018
+      ],
+      "execute": {
+        "n": 1285,
+        "expectancyR": -0.055,
+        "ci95": [
+          -0.12,
+          0.01
+        ]
+      }
+    },
+    {
+      "kind": "study",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-30-intraday-alerts/run-daily-exits.json",
+      "date": "2026-10-30",
+      "label": "run-daily-exits",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-30-intraday-alerts/run-intraday-exits.json",
+      "date": "2026-10-30",
+      "label": "run-intraday-exits",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "/mnt/project-files/replay-diagnosis/2026-10-30-intraday-weekly-trend.json",
+      "date": "2026-10-30",
+      "label": "2026-10-30-intraday-weekly-trend",
+      "tests": null
+    },
+    {
+      "kind": "study",
+      "source": "/mnt/project-files/replay-diagnosis/2026-11-03-intraday-weekly-trend-same-day-exits.json",
+      "date": "2026-11-03",
+      "label": "2026-11-03-intraday-weekly-trend-same-day-exits",
+      "tests": null
+    }
+  ]
+}

@@ -35,6 +35,15 @@
  *                   requests/min). Leave headroom during market hours.
  *   --allowSynthetic  permit the seeded-random-walk provider (tests only;
  *                   the output is marked and must never be published)
+ *   --barCache      a directory: each symbol's fetched series is written there
+ *                   once and read back on every later run, with a SHA-256
+ *                   manifest (`manifest.json`) whose hash the summary prints,
+ *                   so a rerun replays byte-identical bars (quant validation:
+ *                   frozen data). The point-in-time list and the strength rank
+ *                   are still read live; their hashes print as before.
+ *   --historyFrom / --historyTo  a fixed history window (ISO dates) instead
+ *                   of the default lookback back from today, e.g. the
+ *                   2016-01-01 to 2020-10-31 holdout. Both or neither.
  *
  * Refuses to run on synthetic data unless told to, for the same reason
  * `scripts/replay-report.mjs` does: a full table of numbers describing a
@@ -55,7 +64,8 @@ import { createServer } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { robustnessSections } from "./robustness-report.mjs";
 import { ladderLogBlock } from "./rule-ladder.mjs";
@@ -91,6 +101,9 @@ export function parseArgs(argv) {
     offset: 0,
     symbolsPerMinute: 30,
     allowSynthetic: false,
+    barCache: null,
+    historyFrom: null,
+    historyTo: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const eq = argv[i].indexOf("=");
@@ -111,6 +124,9 @@ export function parseArgs(argv) {
       case "--limit": args.limit = Number(value); break;
       case "--offset": args.offset = Number(value); break;
       case "--symbolsPerMinute": args.symbolsPerMinute = Number(value); break;
+      case "--barCache": args.barCache = value; break;
+      case "--historyFrom": args.historyFrom = value; break;
+      case "--historyTo": args.historyTo = value; break;
       default: throw new Error(`Unknown flag ${flag}`);
     }
   }
@@ -119,7 +135,73 @@ export function parseArgs(argv) {
   if (args.limit !== null && !(args.limit > 0)) throw new Error("--limit must be positive");
   if (!(Number.isInteger(args.offset) && args.offset >= 0)) throw new Error("--offset must be a whole number >= 0");
   if (!(args.symbolsPerMinute >= 0)) throw new Error("--symbolsPerMinute must be >= 0 (0 = unpaced)");
+  if ((args.historyFrom === null) !== (args.historyTo === null)) throw new Error("--historyFrom and --historyTo go together");
+  if (args.historyFrom !== null) {
+    const from = Date.parse(args.historyFrom);
+    const to = Date.parse(args.historyTo);
+    if (Number.isNaN(from) || Number.isNaN(to) || !(from < to)) throw new Error("--historyFrom must be a date before --historyTo");
+  }
   return args;
+}
+
+/** The cache file name of one fetched series: filesystem-safe, one per symbol, timeframe, as-of date and window. */
+export function barCacheKey(symbol, timeframe, asOf, history) {
+  const parts = [symbol.toUpperCase().replace(/[^A-Z0-9.-]/g, "_"), timeframe];
+  if (asOf) parts.push(`asof-${asOf}`);
+  if (history) parts.push(`${history.from.toISOString().slice(0, 10)}_${history.to.toISOString().slice(0, 10)}`);
+  return `${parts.join("__")}.json`;
+}
+
+export function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+/**
+ * Read a series from the cache, or fetch and write it. A cached file whose
+ * text no longer matches the manifest's hash stops the run: frozen data that
+ * changed is not frozen.
+ */
+export async function cachedSeries(dir, key, fetcher, manifest) {
+  const file = path.join(dir, key);
+  let text = null;
+  try {
+    text = await readFile(file, "utf8");
+  } catch {
+    text = null;
+  }
+  if (text !== null) {
+    const h = sha256(text);
+    if (manifest.files[key] && manifest.files[key] !== h) throw new Error(`Bar cache ${key} changed since it was written (manifest ${manifest.files[key].slice(0, 12)}, file ${h.slice(0, 12)})`);
+    manifest.files[key] = h;
+    return JSON.parse(text);
+  }
+  const series = await fetcher();
+  text = JSON.stringify(series);
+  await writeWhole(file, text);
+  manifest.files[key] = sha256(text);
+  return series;
+}
+
+/** One hash over every cached file's name and hash, in name order. */
+export function manifestHash(manifest) {
+  return sha256(Object.keys(manifest.files).sort().map((k) => `${k} ${manifest.files[k]}`).join("\n"));
+}
+
+async function loadManifest(dir) {
+  await mkdir(dir, { recursive: true });
+  try {
+    const m = JSON.parse(await readFile(path.join(dir, "manifest.json"), "utf8"));
+    return { files: m.files ?? {} };
+  } catch {
+    // A cache written before the manifest: hash what is there.
+    const files = {};
+    for (const name of await readdir(dir)) if (name.endsWith(".json") && name !== "manifest.json") files[name] = sha256(await readFile(path.join(dir, name), "utf8"));
+    return { files };
+  }
+}
+
+async function saveManifest(dir, manifest) {
+  await writeWhole(path.join(dir, "manifest.json"), JSON.stringify({ hash: manifestHash(manifest), files: manifest.files }, null, 2));
 }
 
 /** Validate a parsed cells array: unique, filesystem-safe labels. */
@@ -602,6 +684,10 @@ export function summaryMarkdown(meta, summary) {
       `window ${meta.window.from ?? "—"} → ${meta.window.to ?? "—"} · generated ${meta.generatedAt}`,
   );
   lines.push("");
+  if (meta.barCache) {
+    lines.push(`Frozen bars: ${meta.barCache.files} cached series, manifest hash \`${meta.barCache.hash}\`${meta.history ? ` · history ${meta.history.from} → ${meta.history.to}` : ""}.`);
+    lines.push("");
+  }
   if (meta.partial) {
     lines.push(
       `**Partial: a checkpoint after ${meta.symbolsDone} of ${meta.symbolsRequested} symbols.** ` +
@@ -996,9 +1082,16 @@ async function main() {
     // The market's bars (SPY) once: its daily for Gann's early/late leaders
     // (G25), its monthly to date the bull and bear markets (weak stocks,
     // A-TIME-06).
+    const history = args.historyFrom === null ? undefined : { from: new Date(args.historyFrom), to: new Date(args.historyTo) };
+    const barCacheDir = args.barCache === null ? null : path.resolve(root, args.barCache);
+    const barManifest = barCacheDir ? await loadManifest(barCacheDir) : null;
+    const getSeries = (symbol, asOf) =>
+      barCacheDir
+        ? cachedSeries(barCacheDir, barCacheKey(symbol, args.timeframe, asOf, history), () => run.fetchSeries(symbol, args.timeframe, true, asOf, history), barManifest)
+        : run.fetchSeries(symbol, args.timeframe, true, asOf, history);
     let market;
     try {
-      market = await run.fetchSeries("SPY", args.timeframe, true);
+      market = await getSeries("SPY", undefined);
     } catch {
       market = undefined;
     }
@@ -1089,7 +1182,10 @@ async function main() {
         symbolsDone: done,
         generatedAt: new Date().toISOString(),
         durationMinutes: (Date.now() - started) / 60_000,
+        ...(history ? { history: { from: args.historyFrom, to: args.historyTo } } : {}),
+        ...(barManifest ? { barCache: { dir: args.barCache, files: Object.keys(barManifest.files).length, hash: manifestHash(barManifest) } } : {}),
       };
+      if (barManifest) await saveManifest(barCacheDir, barManifest);
       // The robustness sections take seconds a cell on a long run, so a
       // checkpoint leaves them out and the final write carries them. The
       // regime split reads SPY's daily bars, fetched once above; without them
@@ -1132,7 +1228,7 @@ async function main() {
       const symbol = universe[i];
       const tickStart = Date.now();
       try {
-        const series = await run.fetchSeries(symbol, args.timeframe, true, pit?.asOf.get(symbol));
+        const series = await getSeries(symbol, pit?.asOf.get(symbol));
         const fetched = series.bars;
         const bars = sinceMs === null ? fetched : fetched.filter((b) => Date.parse(b.t) >= sinceMs);
         if (bars.length === 0) {
