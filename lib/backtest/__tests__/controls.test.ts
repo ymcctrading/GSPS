@@ -63,6 +63,13 @@ describe("randomEntryControl", () => {
     expect(res.trades[0].openedAt).toBe(b[70].t);
   });
 
+  it("compares the real mean over the campaigns a control can match", () => {
+    const withMissing = [...real, { ...real[0], symbol: "NONE", rMultiple: 50 }];
+    const dist = randomEntryDistribution(withMissing, new Map([["A", b]]), 5, { windowSessions: 5 });
+    expect(dist.matched).toBe(1);
+    expect(dist.realMean).toBe(1);
+  });
+
   it("reports how often chance matches the real mean", () => {
     const dist = randomEntryDistribution(real, new Map([["A", b]]), 50, { windowSessions: 5 });
     expect(dist.draws).toBe(50);

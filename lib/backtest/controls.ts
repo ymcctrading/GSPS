@@ -20,7 +20,10 @@
  * session's low/high/close), so there is no look-ahead inside a control trade.
  * Engineering choices, labelled: the ±21-session window (about a month), exit
  * at the close rather than the core's trailing structure, and that a stop and
- * a close on one bar read as the stop.
+ * a close on one bar read as the stop. Not like for like, disclosed: the real
+ * R carries pyramided adds and the trailing exit, the control is one lot held
+ * for the same number of sessions. Both read daily sessions: compare only a
+ * daily ledger (`barsHeld` in sessions) against daily bars.
  *
  * Design basis (AGENTS.md mandate). Gann: none; the control strips his timing
  * out on purpose, to see what the timing is worth. Cycles: Dewey's base rate,
@@ -172,7 +175,9 @@ export function randomEntryControl(
 export interface ControlDistribution {
   draws: number;
   means: number[];
+  /** The real campaigns' mean R over the ones a control can be drawn for (same set as every draw). */
   realMean: number;
+  matched: number;
   /** Share of control draws whose mean R is at or above the real mean (a one-sided permutation p). */
   shareAtOrAboveReal: number;
   p05: number;
@@ -187,6 +192,18 @@ export function randomEntryDistribution(
   draws: number,
   options: RandomEntryOptions = {},
 ): ControlDistribution {
+  // Only campaigns every draw can match, so the real mean and each control mean cover the same campaigns.
+  const window = options.windowSessions ?? 21;
+  const matchable = trades.filter((t) => {
+    const bars = barsBySymbol.get(t.symbol);
+    if (!bars || bars.length === 0 || !(t.entry > 0) || !(Math.abs(t.entry - t.stop) > 0)) return false;
+    const at = sessionIndex(bars, t.openedAt);
+    const lo = Math.max(0, at - window);
+    const hi = Math.min(bars.length - 1, at + window);
+    for (let k = lo; k <= hi; k++) if (!options.inUniverse || options.inUniverse(t.symbol, bars[k].t.slice(0, 10))) return true;
+    return false;
+  });
+  trades = matchable;
   const realMean = trades.length > 0 ? trades.reduce((s, t) => s + t.rMultiple, 0) / trades.length : NaN;
   const base = options.seed ?? 20261104;
   const means: number[] = [];
@@ -200,6 +217,7 @@ export function randomEntryDistribution(
     draws: means.length,
     means,
     realMean,
+    matched: trades.length,
     // Add-one so a finite number of draws never reports p = 0.
     shareAtOrAboveReal: (means.filter((m) => m >= realMean).length + 1) / (means.length + 1),
     p05: q(0.05),

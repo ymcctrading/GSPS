@@ -77,6 +77,13 @@ describe("simulatePortfolio", () => {
     expect(res.exposure).toBeCloseTo(4 / 5, 9);
   });
 
+  it("counts a campaign that opens on no session", () => {
+    // 2026-01-10 is a Saturday: the weekday grid has no such session.
+    const res = simulatePortfolio([t("A", "2026-01-05", "2026-01-09", 50, 47, 1), t("B", "2026-01-10", "2026-01-12", 50, 47, 1)]);
+    expect(res.skipped["no session"]).toBe(1);
+    expect(res.taken).toBe(1);
+  });
+
   it("books a short's R the same way", () => {
     const res = simulatePortfolio([t("AAA", "2026-01-05", "2026-01-09", 47, 50, -1, "short")]);
     expect(res.endEquity).toBeCloseTo(100_000 - 166 * 3, 6);

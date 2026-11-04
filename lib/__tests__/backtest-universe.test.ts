@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   barCacheKey,
   cachedSeries,
+  loadManifest,
   manifestHash,
   bootstrapDiffCI,
   bootstrapMeanCI,
@@ -445,6 +446,23 @@ describe("bar cache (frozen data)", () => {
     await cachedSeries(dir, "Y__1Day.json", async () => ({ bars: [], daily: [] }), manifest);
     await writeFileFs(path.join(dir, "Y__1Day.json"), JSON.stringify({ bars: [1], daily: [] }));
     await expect(cachedSeries(dir, "Y__1Day.json", async () => ({}), manifest)).rejects.toThrow(/changed/);
+  });
+
+  it("refuses a file the manifest doesn't list, and a frozen cache gains no series", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "barcache-"));
+    await writeFileFs(path.join(dir, "Z__1Day.json"), "{}");
+    await expect(cachedSeries(dir, "Z__1Day.json", async () => ({}), { files: {} })).rejects.toThrow(/no manifest entry/);
+    await expect(cachedSeries(dir, "NEW__1Day.json", async () => ({}), { files: { "Z__1Day.json": "x" }, existed: true })).rejects.toThrow(/gains no new series/);
+  });
+
+  it("refuses series with no manifest, and a manifest from another provider", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "barcache-"));
+    expect(await loadManifest(dir, "alpaca")).toEqual({ files: {}, provider: "alpaca", existed: false });
+    await writeFileFs(path.join(dir, "A__1Day.json"), "{}");
+    await expect(loadManifest(dir, "alpaca")).rejects.toThrow(/no manifest/);
+    await writeFileFs(path.join(dir, "manifest.json"), JSON.stringify({ provider: "synthetic", files: { "A__1Day.json": "h" } }));
+    await expect(loadManifest(dir, "alpaca")).rejects.toThrow(/provider "synthetic"/);
+    expect((await loadManifest(dir, "synthetic")).existed).toBe(true);
   });
 
   it("takes a history window only as a pair, in order", () => {

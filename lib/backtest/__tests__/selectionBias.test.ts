@@ -98,6 +98,10 @@ describe("blockBootstrapMeanCI", () => {
     expect(b.hi - b.lo).toBeGreaterThan(a.hi - a.lo);
   });
 
+  it("refuses a resample count below one", () => {
+    expect(() => blockBootstrapMeanCI([1, 2, 3], { resamples: 0 })).toThrow();
+  });
+
   it("handles an empty series", () => {
     expect(Number.isNaN(blockBootstrapMeanCI([]).mean)).toBe(true);
   });

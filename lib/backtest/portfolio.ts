@@ -59,7 +59,7 @@ export interface PortfolioOptions {
   closes?: ReadonlyMap<string, ReadonlyArray<{ t: string; c: number }>>;
 }
 
-export type SkipReason = "unit over budget" | "open risk cap" | "concurrency cap" | "invalid levels";
+export type SkipReason = "unit over budget" | "open risk cap" | "concurrency cap" | "invalid levels" | "no session";
 
 export interface EquityPoint {
   date: string;
@@ -124,7 +124,7 @@ export function simulatePortfolio(trades: readonly PortfolioTrade[], options: Po
   }
   if (!(Number.isInteger(o.maxConcurrent) && o.maxConcurrent >= 1)) throw new Error("simulatePortfolio: maxConcurrent must be a whole number >= 1");
 
-  const skipped: Record<SkipReason, number> = { "unit over budget": 0, "open risk cap": 0, "concurrency cap": 0, "invalid levels": 0 };
+  const skipped: Record<SkipReason, number> = { "unit over budget": 0, "open risk cap": 0, "concurrency cap": 0, "invalid levels": 0, "no session": 0 };
   const assumptions = [
     `Risk ${(o.riskFraction * 100).toFixed(2)}% of equity a campaign, open planned risk capped at ${(o.maxOpenRiskFraction * 100).toFixed(1)}%, at most ${o.maxConcurrent} open, first lot at most ${(o.maxPositionFraction * 100).toFixed(0)}% of equity.`,
     "Shares round down; a campaign whose single share exceeds the budget is skipped.",
@@ -173,6 +173,10 @@ export function simulatePortfolio(trades: readonly PortfolioTrade[], options: Po
     if (!opensBy.has(d)) opensBy.set(d, []);
     opensBy.get(d)!.push(t);
   }
+
+  // A campaign that opens on a day the grid lacks (a weekend, or a date no supplied close holds) is never taken; count it.
+  const sessionSet = new Set(sessions);
+  for (const [d, ts] of opensBy) if (!sessionSet.has(d)) skipped["no session"] += ts.length;
 
   let cash = o.startEquity; // realised equity
   const open: OpenPosition[] = [];

@@ -41,9 +41,11 @@
  *                   so a rerun replays byte-identical bars (quant validation:
  *                   frozen data). The point-in-time list and the strength rank
  *                   are still read live; their hashes print as before.
- *   --historyFrom / --historyTo  a fixed history window (ISO dates) instead
- *                   of the default lookback back from today, e.g. the
- *                   2016-01-01 to 2020-10-31 holdout. Both or neither.
+ *   --historyFrom / --historyTo  a fixed history window (ISO dates, both
+ *                   days included) instead of the default lookback back from
+ *                   today, e.g. the 2016-01-01 to 2020-10-31 holdout. Both or
+ *                   neither. A manifest also refuses a cache written from
+ *                   another provider, and a frozen cache gains no new series.
  *
  * Refuses to run on synthetic data unless told to, for the same reason
  * `scripts/replay-report.mjs` does: a full table of numbers describing a
@@ -171,15 +173,18 @@ export async function cachedSeries(dir, key, fetcher, manifest) {
   }
   if (text !== null) {
     const h = sha256(text);
-    if (manifest.files[key] && manifest.files[key] !== h) throw new Error(`Bar cache ${key} changed since it was written (manifest ${manifest.files[key].slice(0, 12)}, file ${h.slice(0, 12)})`);
+    if (!manifest.files[key]) throw new Error(`Bar cache ${key} has no manifest entry: it was not written by this cache`);
+    if (manifest.files[key] !== h) throw new Error(`Bar cache ${key} changed since it was written (manifest ${manifest.files[key].slice(0, 12)}, file ${h.slice(0, 12)})`);
     manifest.files[key] = h;
     return JSON.parse(text);
   }
+  if (manifest.existed) throw new Error(`Bar cache ${key} is not in the cache's manifest: a frozen cache gains no new series (use a new --barCache directory)`);
   const series = await fetcher();
   text = JSON.stringify(series);
   await writeWhole(file, text);
   manifest.files[key] = sha256(text);
-  return series;
+  // What a rerun reads back, so the first run and every rerun replay the same values.
+  return JSON.parse(text);
 }
 
 /** One hash over every cached file's name and hash, in name order. */
@@ -187,21 +192,32 @@ export function manifestHash(manifest) {
   return sha256(Object.keys(manifest.files).sort().map((k) => `${k} ${manifest.files[k]}`).join("\n"));
 }
 
-async function loadManifest(dir) {
+/**
+ * The cache's manifest. A directory holding series but no manifest is
+ * refused (its files can't be trusted as frozen); a manifest written under
+ * another provider (synthetic bars, say) is refused too. `existed` marks a
+ * cache that was already frozen by an earlier run, which then gains no series.
+ */
+export async function loadManifest(dir, provider) {
   await mkdir(dir, { recursive: true });
+  let text = null;
   try {
-    const m = JSON.parse(await readFile(path.join(dir, "manifest.json"), "utf8"));
-    return { files: m.files ?? {} };
+    text = await readFile(path.join(dir, "manifest.json"), "utf8");
   } catch {
-    // A cache written before the manifest: hash what is there.
-    const files = {};
-    for (const name of await readdir(dir)) if (name.endsWith(".json") && name !== "manifest.json") files[name] = sha256(await readFile(path.join(dir, name), "utf8"));
-    return { files };
+    text = null;
   }
+  if (text === null) {
+    const stray = (await readdir(dir)).filter((n) => n.endsWith(".json"));
+    if (stray.length > 0) throw new Error(`Bar cache ${dir} holds ${stray.length} series but no manifest.json; it can't be read as frozen`);
+    return { files: {}, provider, existed: false };
+  }
+  const m = JSON.parse(text);
+  if (m.provider !== provider) throw new Error(`Bar cache ${dir} was written from provider "${m.provider}", not "${provider}"`);
+  return { files: m.files ?? {}, provider, existed: Object.keys(m.files ?? {}).length > 0 };
 }
 
 async function saveManifest(dir, manifest) {
-  await writeWhole(path.join(dir, "manifest.json"), JSON.stringify({ hash: manifestHash(manifest), files: manifest.files }, null, 2));
+  await writeWhole(path.join(dir, "manifest.json"), JSON.stringify({ provider: manifest.provider, hash: manifestHash(manifest), files: manifest.files }, null, 2));
 }
 
 /** Validate a parsed cells array: unique, filesystem-safe labels. */
@@ -1082,9 +1098,10 @@ async function main() {
     // The market's bars (SPY) once: its daily for Gann's early/late leaders
     // (G25), its monthly to date the bull and bear markets (weak stocks,
     // A-TIME-06).
-    const history = args.historyFrom === null ? undefined : { from: new Date(args.historyFrom), to: new Date(args.historyTo) };
+    // --historyTo is inclusive: the request ends at the start of the next UTC day, after that session's bar (stamped 04:00/05:00 UTC).
+    const history = args.historyFrom === null ? undefined : { from: new Date(args.historyFrom), to: new Date(Date.parse(args.historyTo) + 86_400_000) };
     const barCacheDir = args.barCache === null ? null : path.resolve(root, args.barCache);
-    const barManifest = barCacheDir ? await loadManifest(barCacheDir) : null;
+    const barManifest = barCacheDir ? await loadManifest(barCacheDir, provider.name) : null;
     const getSeries = (symbol, asOf) =>
       barCacheDir
         ? cachedSeries(barCacheDir, barCacheKey(symbol, args.timeframe, asOf, history), () => run.fetchSeries(symbol, args.timeframe, true, asOf, history), barManifest)

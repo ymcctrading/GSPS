@@ -27,6 +27,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ANNUAL = 252;
@@ -71,13 +72,24 @@ async function readLedger(file) {
   return trades;
 }
 
-/** Each symbol's daily bars from a bar cache (the `daily` series of its 1Day file). */
-async function readBarCache(dir) {
+/**
+ * Each symbol's daily bars from a bar cache written by a 1Day run. Every file
+ * is checked against the cache's manifest (a changed or unlisted file stops
+ * the report), and a cache from another timeframe is refused: the control
+ * holds `barsHeld` daily sessions, so the ledger and bars must both be daily.
+ */
+export async function readBarCache(dir) {
+  const manifest = JSON.parse(await readFile(path.join(dir, "manifest.json"), "utf8"));
+  if (!manifest.files || typeof manifest.files !== "object") throw new Error(`${dir}/manifest.json has no file list`);
   const bars = new Map();
   for (const name of await readdir(dir)) {
     if (!name.endsWith(".json") || name === "manifest.json") continue;
+    if (name.split("__")[1]?.replace(/\.json$/, "") !== "1Day") throw new Error(`Bar cache file ${name} is not a 1Day series; the controls read daily sessions only`);
+    const text = await readFile(path.join(dir, name), "utf8");
+    const h = createHash("sha256").update(text).digest("hex");
+    if (manifest.files[name] !== h) throw new Error(`Bar cache file ${name} does not match its manifest entry`);
     const symbol = name.split("__")[0];
-    const series = JSON.parse(await readFile(path.join(dir, name), "utf8"));
+    const series = JSON.parse(text);
     const daily = Array.isArray(series.daily) && series.daily.length > 0 ? series.daily : series.bars;
     if (Array.isArray(daily) && (!bars.has(symbol) || daily.length > bars.get(symbol).length)) bars.set(symbol, daily);
   }
@@ -164,10 +176,11 @@ export function ledgerMarkdown(label, r) {
     const c = r.controls;
     L.push("| Measure | Value |", "|---|---:|");
     L.push(`| Random-entry control, ${c.random.draws} draws: mean R p5 / p50 / p95 | ${fmt(c.random.p05)} / ${fmt(c.random.p50)} / ${fmt(c.random.p95)} |`);
-    L.push(`| Strategy mean R (matched campaigns) | ${fmt(c.random.realMean)} |`);
+    L.push(`| Strategy mean R, the ${c.random.matched} campaigns a control can be drawn for | ${fmt(c.random.realMean)} |`);
     L.push(`| Share of draws at or above the strategy | ${pct(c.random.shareAtOrAboveReal)} |`);
     L.push(`| Campaigns with no control match | ${c.unmatched} |`);
     L.push(`| Equal-weight benchmark CAGR / Sharpe / max drawdown | ${pct(c.benchmark.cagr)} / ${fmt(c.benchmark.sharpeAnnual, 2)} / ${pct(c.benchmark.maxDrawdown)} |`, "");
+    L.push(c.note, "");
   }
   return L.join("\n");
 }
@@ -246,7 +259,7 @@ async function main() {
           random: { ...random, means: undefined },
           unmatched: one.unmatched,
           benchmark: { sessions: bench.length, cagr: yrs > 0 ? Math.pow(eq, 1 / yrs) - 1 : NaN, sharpeAnnual: bs.sharpe * Math.sqrt(ANNUAL), maxDrawdown: mdd },
-          note: "Benchmark: every stock in the bar cache, equal weight, rebalanced daily; membership is not applied (the cache holds the run's own universe).",
+          note: "Benchmark: every stock in the bar cache, equal weight, rebalanced daily; membership is not applied (the cache holds the run's own universe). Control: one lot from a random open within ±21 sessions, the same stop distance and holding sessions, exit at the stop or the last session's close; the real R also carries pyramided adds and the trailing exit, so the comparison is timing only, not like for like.",
         };
       }
       results[label] = {

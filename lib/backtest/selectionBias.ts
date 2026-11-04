@@ -174,6 +174,7 @@ export function blockBootstrapMeanCI(
   const n = values.length;
   if (n === 0) return { mean: NaN, lo: NaN, hi: NaN, shareAtOrBelowZero: NaN, block: 0, resamples: 0 };
   for (const v of values) if (!Number.isFinite(v)) throw new Error("blockBootstrapMeanCI: every value must be finite");
+  if (!(Number.isInteger(resamples) && resamples >= 1)) throw new Error("blockBootstrapMeanCI: resamples must be a whole number >= 1");
   const b = Math.max(1, Math.min(n, Math.round(block ?? Math.cbrt(n))));
   const rand = seededRandom(seed);
   const means: number[] = [];
