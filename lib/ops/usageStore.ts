@@ -12,6 +12,9 @@
  *   monthly active users: `usage_supabase()`.
  * - Alpaca's per-minute allowance: the month's largest `alpaca_rate` event
  *   (`usage_max()`), each the busiest minute a scan saw (`rateUsage.ts`).
+ * - Vercel function CPU and calls: the month's `vercel_function` rows
+ *   (`usage_function_totals()`), one per scheduled route per day, written by
+ *   `functionMeter.ts`.
  *
  * Alerts go to the owner's addresses by email (kind "ops"), one per meter per
  * reading, naming the highest threshold crossed; every crossed threshold is
@@ -32,6 +35,7 @@ import {
   meterBilled,
   percentUsed,
   periodOf,
+  projectedAtPeriodEnd,
   renderAlert,
   visibilityFromGithub,
   type HoldDecision,
@@ -54,6 +58,8 @@ export interface MeterStatus {
   error: string | null;
   /** False while the limit doesn't apply (Actions on a public repository): no alert, no hold. */
   billed: boolean;
+  /** A monthly meter's use carried at its current pace to the period's end; null otherwise. */
+  projected: number | null;
 }
 
 const VISIBILITY_TTL_MS = 10 * 60_000;
@@ -87,7 +93,7 @@ export function repositoryVisibility(now: Date = new Date()): Promise<RepoVisibi
 /** Records one use. Idempotent on `key`. */
 export async function recordUsage(
   service: Service,
-  event: { meter: "github_actions" | "vercel_deployments" | "alpaca_rate"; units: number; key: string; detail?: Record<string, unknown>; occurredAt?: Date },
+  event: { meter: "github_actions" | "vercel_deployments" | "alpaca_rate" | "vercel_function"; units: number; key: string; detail?: Record<string, unknown>; occurredAt?: Date },
 ): Promise<{ recorded: boolean; error: string | null }> {
   const { error } = await service.from("usage_events").insert({
     meter: event.meter,
@@ -147,6 +153,30 @@ function supabaseCounts(service: Service, now: Date): Promise<SupabaseCounts> {
   return counts;
 }
 
+type FunctionTotals = { cpuMinutes: number; invocations: number; wallSeconds: number };
+
+// One `usage_function_totals()` call serves both Vercel function meters of a
+// check: the check reads them with the same client and clock.
+const functionTotalsRead = new WeakMap<Service, { at: number; totals: Promise<FunctionTotals> }>();
+
+function functionTotals(service: Service, meter: UsageMeter, now: Date): Promise<FunctionTotals> {
+  const cached = functionTotalsRead.get(service);
+  if (cached && cached.at === now.getTime()) return cached.totals;
+  const { start } = periodOf(meter, now);
+  const totals = (async () => {
+    const { data, error } = await service.rpc("usage_function_totals", { p_since: start.toISOString(), p_until: now.toISOString() });
+    if (error) throw new Error(error.message);
+    const row = (Array.isArray(data) ? data[0] : data) as { cpu_minutes?: unknown; invocations?: unknown; wall_seconds?: unknown } | null;
+    return {
+      cpuMinutes: Number(row?.cpu_minutes ?? 0),
+      invocations: Number(row?.invocations ?? 0),
+      wallSeconds: Number(row?.wall_seconds ?? 0),
+    };
+  })();
+  functionTotalsRead.set(service, { at: now.getTime(), totals });
+  return totals;
+}
+
 async function databaseMb(service: Service): Promise<number> {
   const { data, error } = await service.rpc("usage_database_bytes");
   if (error) throw new Error(error.message);
@@ -172,6 +202,10 @@ export async function readUsed(service: Service, meter: UsageMeter, now: Date): 
       return (await supabaseCounts(service, now)).mau;
     case "alpaca_rate":
       return maxEvent(service, meter, now);
+    case "vercel_cpu":
+      return (await functionTotals(service, meter, now)).cpuMinutes;
+    case "vercel_invocations":
+      return (await functionTotals(service, meter, now)).invocations;
   }
 }
 
@@ -194,11 +228,11 @@ export async function meterStatus(service: Service, id: UsageMeterId, now: Date)
     const used = await readUsed(service, meter, now);
     const billed = id === "github_actions" ? meterBilled(id, await repositoryVisibility(now)) : true;
     const hold = billed ? holdDecision(meter, used, now, await activeOverride(service, id, now)) : { hold: false, reason: PUBLIC_REPO_REASON };
-    return { meter: id, label: meter.label, used, limit: meter.limit, unit: meter.unit, percent: percentUsed(used, meter.limit), hold, error: null, billed };
+    return { meter: id, label: meter.label, used, limit: meter.limit, unit: meter.unit, percent: percentUsed(used, meter.limit), hold, error: null, billed, projected: projectedAtPeriodEnd(meter, used, now) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     // Fails open: the meter's own outage never stops CI or a deploy.
-    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: `Unread: ${message}` }, error: message, billed: true };
+    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: `Unread: ${message}` }, error: message, billed: true, projected: null };
   }
 }
 

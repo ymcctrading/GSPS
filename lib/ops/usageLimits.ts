@@ -36,10 +36,21 @@
  * again the 2,000 minutes are metered as before. A visibility that can't be
  * read is treated as private, so the meter never goes quiet by mistake.
  *
+ * - Vercel's function limits (2026-11-04, after Vercel blocked the account on
+ *   Nov 3 for a Hobby limit run out): 4 hours of active CPU and 1 million
+ *   invocations a month. Hobby has no usage API, so the app measures its own
+ *   scheduled calls (`lib/ops/functionMeter.ts`): every call the scheduled
+ *   jobs' secret opens records its CPU time and wall time. That is the
+ *   scheduled share only; members' page views are not seen, so a reading is
+ *   reconciled from the Usage page when a session reads it. Both hold at 99%:
+ *   pg_cron's `gsps_ops.call_endpoint` stops calling (migration 0142), the one
+ *   way to keep the account from being blocked again. Neither has the last-two-
+ *   days exemption: Vercel's billing month is the account's own cycle, not
+ *   the calendar month, so a calendar exemption could let the limit run out.
+ *
  * Not readable from here, so not metered (docs/THIRD_PARTY_LIMITS.md): Supabase
- * egress (5 GB a month) and Vercel's function usage (1 million invocations,
- * 4 hours of active CPU and 100 GB of transfer a month), which neither
- * service exposes to a free plan's API.
+ * egress (5 GB a month) and Vercel's 100 GB of transfer a month (dominated by
+ * page views, which the app can't count without a write per view).
  *
  * The owner's month, read for each limit (his "the allotted month"):
  * - A monthly limit's month is its own billing month (UTC, as GitHub and
@@ -73,7 +84,9 @@ export type UsageMeterId =
   | "supabase_connections"
   | "supabase_storage"
   | "supabase_mau"
-  | "alpaca_rate";
+  | "alpaca_rate"
+  | "vercel_cpu"
+  | "vercel_invocations";
 
 export type PeriodKind = "month" | "day" | "rolling24h" | "none";
 
@@ -85,6 +98,8 @@ export interface UsageMeter {
   period: PeriodKind;
   /** Whether reaching 99% refuses further use. */
   holds: boolean;
+  /** True when a monthly limit's last two days do not lift the hold (its provider's month isn't the calendar month). */
+  noExemption?: boolean;
 }
 
 export const USAGE_METERS: Record<UsageMeterId, UsageMeter> = {
@@ -104,6 +119,10 @@ export const USAGE_METERS: Record<UsageMeterId, UsageMeter> = {
   // Alert only: our token bucket (lib/data/http.ts) already queues under it,
   // at about 75% of 200, so a daily key would mail 25/50/75 every day.
   alpaca_rate: { id: "alpaca_rate", label: "Alpaca data requests in a minute", unit: "requests a minute", limit: 200, period: "month", holds: false },
+  // Hobby: 4 hours of active CPU a month. Measured on scheduled calls only.
+  vercel_cpu: { id: "vercel_cpu", label: "Vercel function CPU (scheduled jobs)", unit: "CPU minutes", limit: 240, period: "month", holds: true, noExemption: true },
+  // Hobby: 1 million function invocations a month. Scheduled calls only.
+  vercel_invocations: { id: "vercel_invocations", label: "Vercel function calls (scheduled jobs)", unit: "calls", limit: 1_000_000, period: "month", holds: true, noExemption: true },
 };
 
 /** The owner's thresholds, in percent. */
@@ -148,7 +167,7 @@ export function periodOf(meter: UsageMeter, now: Date): Period {
 
 /** True inside a monthly period's last two days, when the hold lifts. */
 export function inExemptWindow(meter: UsageMeter, now: Date): boolean {
-  if (meter.period !== "month") return false;
+  if (meter.period !== "month" || meter.noExemption) return false;
   const { end } = periodOf(meter, now);
   return end !== null && end.getTime() - now.getTime() <= EXEMPT_LAST_DAYS * DAY_MS;
 }
@@ -156,6 +175,19 @@ export function inExemptWindow(meter: UsageMeter, now: Date): boolean {
 export function percentUsed(used: number, limit: number): number {
   if (!Number.isFinite(used) || !Number.isFinite(limit) || limit <= 0) return 0;
   return Math.max(0, (used / limit) * 100);
+}
+
+/**
+ * Where a monthly reading is headed: what has been used so far, carried at
+ * the same pace to the period's end. Null for any other period, and in the
+ * period's first hour, when the pace is not yet a pace.
+ */
+export function projectedAtPeriodEnd(meter: UsageMeter, used: number, now: Date): number | null {
+  if (meter.period !== "month" || !Number.isFinite(used) || used < 0) return null;
+  const { start, end } = periodOf(meter, now);
+  const elapsed = now.getTime() - start.getTime();
+  if (elapsed < 3_600_000) return null;
+  return (used * (end!.getTime() - start.getTime())) / elapsed;
 }
 
 /** The thresholds at or below the reading, lowest first. */
@@ -241,6 +273,7 @@ export function resetText(meter: UsageMeter, now: Date): string {
   const period = periodOf(meter, now);
   switch (meter.period) {
     case "month":
+      if (meter.noExemption) return `the meter's UTC month resets at ${formatEt(period.end!)} (Vercel's own cycle may differ: check its Usage page), or the owner approves an urgent fix`;
       return `the month's last ${EXEMPT_LAST_DAYS} days begin at ${formatEt(new Date(period.end!.getTime() - EXEMPT_LAST_DAYS * DAY_MS))} (the count resets ${formatEt(period.end!)})`;
     case "day":
       return `the count resets at ${formatEt(period.end!)}`;
@@ -267,7 +300,15 @@ export function renderAlert(reading: UsageReading, threshold: number, hold: Hold
     `Used: ${round(used)} of ${meter.limit} ${meter.unit} (${pct.toFixed(1)}%).`,
     `Period: ${periodText(meter, now)}.`,
   ];
+  const projected = projectedAtPeriodEnd(meter, used, now);
+  if (projected !== null) {
+    lines.push(`At this pace: about ${round(Math.round(projected))} ${meter.unit} by the period's end (${percentUsed(projected, meter.limit).toFixed(0)}%).`);
+  }
+  if (meter.id === "vercel_cpu" || meter.id === "vercel_invocations") {
+    lines.push("Counts the scheduled jobs only; members' page views add to Vercel's own figure on its Usage page.");
+  }
   if (hold.hold) lines.push("", `Held: ${hold.reason}`);
+  else if (meter.holds && threshold < HOLD_PERCENT && meter.noExemption) lines.push("", `The scheduled jobs stop at ${HOLD_PERCENT}%, except for an urgent fix you approve.`);
   else if (meter.holds && threshold < HOLD_PERCENT) lines.push("", `Further use is held at ${HOLD_PERCENT}%, except in a monthly limit's last ${EXEMPT_LAST_DAYS} days or for an urgent fix you approve.`);
   else lines.push("", hold.reason);
   return { subject: `GSPS usage: ${meter.label} at ${threshold}%`, text: lines.join("\n") };
