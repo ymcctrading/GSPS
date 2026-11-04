@@ -1,0 +1,15 @@
+{
+  "contract": "MTF-R0.1/input-1",
+  "symbol": "SYNTHETIC",
+  "issueSession": "2030-11-15",
+  "horizonEnd": "2031-01-31",
+  "trend": "up",
+  "trendSource": "invented for a unit test",
+  "majorAnchors": [
+    { "id": "M1", "date": "2025-12-10", "kind": "top", "confirmed": "2026-01-30", "episode": "E1", "source": "invented major pivot" }
+  ],
+  "reactionAnchors": [
+    { "id": "R1", "date": "2030-11-02", "kind": "bottom", "confirmed": "2030-11-07", "episode": "E2", "mode": "rapid", "modeSource": "invented", "source": "invented reaction pivot" }
+  ],
+  "lineage": { "note": "Manufactured unit-test example. Not a forecast for any security or a claim about these dates." }
+}
