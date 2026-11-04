@@ -61,6 +61,7 @@ export function intradayLevels(alert: Alert): SetupLevels {
 type OfferFields = {
   type: Alert["type"];
   againstDailyTrend?: boolean;
+  reactionOverbalanced?: boolean;
   againstMainTrend?: boolean;
   riskUnderPoint?: boolean;
 };
@@ -171,7 +172,7 @@ export function buildIntradaySynopsis(alert: Alert): string {
   const up = alert.direction === "up";
   const first = `${SIGNAL_LABELS[alert.type]}, ${up ? "up" : "down"}: ${passed} of ${total} checks line up (confidence ${alert.confidence}/100).`;
 
-  // A signal held from trading (measured losing, or against the daily trend)
+  // A signal held from trading (measured losing, against the main trend, or after its pullback over-balanced)
   // is shown for study, not as a plan.
   const held = tradeHold(alert);
   if (held) return `${first} ${held}`;

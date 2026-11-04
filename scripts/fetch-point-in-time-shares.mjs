@@ -20,7 +20,10 @@
  * whose stock-exchange statement carries the ticker, P414 with P249, and its
  * SEC CIK, P5531), keeping the company whose listing under the ticker ended
  * nearest the day it left the index. SEC's current list is the fallback, for a
- * ticker still traded under its name. Either way the counts must cover the
+ * ticker still traded under its name, and `KNOWN_CIKS` last, for a few bought
+ * out or renamed since 2019 that neither finds (checked against SEC's own
+ * entity name); the next source is tried when one's filings don't cover the
+ * ticker's time in the index. Either way the counts must cover the
  * ticker's time in the index (a filing within 18 months before it left, or
  * before today while it is still in), or the record is kept without them and
  * noted: a ticker reused by a later company files nothing for the earlier years.
@@ -63,6 +66,32 @@ const SHARE_CONCEPTS = [
   ["us-gaap", "WeightedAverageNumberOfSharesOutstandingBasic"],
 ];
 const DAY_MS = 86_400_000;
+
+/**
+ * CIKs for departed tickers that neither Wikidata's listing statements nor
+ * SEC's current list name, or name with no filings for the ticker's time in
+ * the index (bought out or renamed since 2019, so inside the replay's span).
+ * Tried after the other two. Each is kept only if SEC's own entity name for the CIK holds
+ * the fragment, so a wrong number is refused rather than read.
+ */
+const KNOWN_CIKS = {
+  ADS: ["0001101215", "alliance data|bread financial"],
+  ANTM: ["0001156039", "anthem|elevance"],
+  CDAY: ["0001725057", "ceridian|dayforce"],
+  CELG: ["0000816284", "celgene"],
+  CTL: ["0000018926", "centurylink|lumen"],
+  CXO: ["0001358071", "concho"],
+  DAY: ["0001725057", "ceridian|dayforce"],
+  GPS: ["0000039911", "gap"],
+  HFC: ["0000048039", "hollyfrontier|holly"],
+  INFO: ["0001598014", "ihs.markit"],
+  KSU: ["0000054480", "kansas city southern"],
+  QRVO: ["0001604778", "qorvo"],
+  UTX: ["0000101829", "united technologies|raytheon|rtx"],
+  VIAC: ["0000813828", "viacom|cbs|paramount"],
+  XEC: ["0001168054", "cimarex"],
+  XLNX: ["0000743988", "xilinx"],
+};
 
 function universeFromSource() {
   const text = readFileSync(path.join(root, "lib/scan/large-cap-universe.ts"), "utf8");
@@ -172,9 +201,12 @@ function coversIndexTime(series, leftOn) {
   });
 }
 
-async function fetchShares(cik10, leftOn) {
+async function fetchShares(cik10, leftOn, expectName) {
   for (const [tax, tag] of SHARE_CONCEPTS) {
     const concept = await secGet(`https://data.sec.gov/api/xbrl/companyconcept/CIK${cik10}/${tax}/${tag}.json`);
+    if (concept && expectName && !new RegExp(expectName, "i").test(concept.entityName ?? "")) {
+      return { note: `CIK ${cik10} is ${concept.entityName ?? "unnamed"}, not ${expectName}` };
+    }
     const series = shareSeries(concept).filter((s) => s.filed >= from && s.shares >= MIN_SHARES);
     if (series.length === 0) continue;
     if (/^20-F/.test(series[series.length - 1].form ?? "")) return { note: "20-F filer: ordinary shares, not the ADRs that traded here" };
@@ -203,16 +235,29 @@ async function main() {
   for (const ticker of tickers) {
     const leftOn = departed.get(ticker);
     const fromWiki = wiki.get(ticker) ? chooseCik(wiki.get(ticker), leftOn) : null;
-    const cik10 = fromWiki ?? secByTicker.get(ticker) ?? secByTicker.get(ticker.replace(/\./g, "-")) ?? null;
-    if (!cik10) {
+    const fromSec = secByTicker.get(ticker) ?? secByTicker.get(ticker.replace(/\./g, "-")) ?? null;
+    const known = KNOWN_CIKS[ticker] ?? null;
+    // Each source in turn, until one's filings cover the ticker's time in the index.
+    const tries = [];
+    for (const [cik, source, name] of [
+      [fromWiki, "wikidata", undefined],
+      [fromSec, "sec", undefined],
+      [known?.[0], "known", known?.[1]],
+    ]) {
+      if (cik && !tries.some((t) => t.cik === cik)) tries.push({ cik, source, name });
+    }
+    if (tries.length === 0) {
       symbols[ticker] = { cik: null, leftIndex: leftOn, note: "no CIK found (Wikidata or SEC)" };
       continue;
     }
-    try {
-      const shares = await fetchShares(cik10, leftOn);
-      symbols[ticker] = { cik: cik10, cikSource: fromWiki ? "wikidata" : "sec", leftIndex: leftOn, ...shares };
-    } catch (err) {
-      symbols[ticker] = { cik: cik10, leftIndex: leftOn, note: err instanceof Error ? err.message : String(err) };
+    for (const t of tries) {
+      try {
+        const shares = await fetchShares(t.cik, leftOn, t.name);
+        symbols[ticker] = { cik: t.cik, cikSource: t.source, leftIndex: leftOn, ...shares };
+      } catch (err) {
+        symbols[ticker] = { cik: t.cik, leftIndex: leftOn, note: err instanceof Error ? err.message : String(err) };
+      }
+      if (symbols[ticker].history) break;
     }
   }
 

@@ -49,6 +49,8 @@ describe("replay series options", () => {
     expect(src).toMatch(/replay\(symbol, bars, \{.*\.\.\.run\.replaySeriesOptions\(series, market, universeStrength\)/);
     // The point-in-time universe ranks among each month's members; any other universe reads today's list.
     expect(src).toMatch(/const universeStrength = pit\s*\? pit\.strength\s*: typeof run\.fetchReplayUniverseStrength === "function"\s*\? await run\.fetchReplayUniverseStrength\(\)\s*: null;/);
-    expect(src).toMatch(/market = await run\.fetchSeries\("SPY", args\.timeframe, true\)/);
+    // The market's series is fetched with its monthly bars, through the bar cache when one is set.
+    expect(src).toMatch(/market = await getSeries\("SPY", undefined\)/);
+    expect(src).toMatch(/run\.fetchSeries\(symbol, args\.timeframe, true, asOf, history\)/);
   });
 });
