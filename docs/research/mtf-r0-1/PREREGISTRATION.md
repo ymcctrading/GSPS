@@ -45,7 +45,7 @@ the forward ledger.
 |---|---|---|---|
 | DIA | Alpaca daily, split-adjusted, SIP, pinned snapshot | weekly issues 2016-07 to the last resolvable | Primary. Used by `timeProcedures.ts` 2016-2025 |
 | SPY | Same | Same | Secondary (moves with DIA; not an independent test) |
-| Dow (DJIA) | MeasuringWorth daily closes, owner upload, `/mnt/project-files/dow-daily/DJA.csv`, never copied into the repo | weekly issues 1897-01 to 2026 | Close only (high = low = close). Used by the forecast rebuild |
+| Dow (DJIA) | MeasuringWorth daily closes, owner upload, `/mnt/project-files/dow-daily/DJA.csv`, never copied into the repo | weekly issues 1897-01 to 2026 | Close only (high = low = close). Bars from 1885-02-16 (the file's spliced earlier average, adjusted to merge) feed the anchors; issues are scored from 1897-01. Used by the forecast rebuild |
 
 Individual universe stocks are not used, so the quant-validation thread's
 2016 to 2020-10 single-stock holdout stays untouched.
