@@ -226,8 +226,23 @@ describe("the nine pillars on the live scan and the replay", () => {
       const score = seen.scores.find((x) => (x.input as ScoreInputs).pillarFacts === facts.output)!;
       return { result, facts, score };
     };
-    const up = await read(close * 1.03);
-    const down = await read(close * 0.97);
+    // Two quotes either side of the close, both inside the plan: short of TP1,
+    // short of the stop and on the close's side of the entry. A quote past TP1
+    // or through the stop retires the plan by design (`lib/gann/planExpiry.ts`,
+    // `lib/gann/stopBreach.ts`, both read at the quote), so a fixed ±3% failed
+    // whenever the latest session closed within 3% of either (AAPL from
+    // 2026-11-03). The test is that a quote inside the plan moves neither.
+    const atClose = await read(close);
+    const plan = atClose.result.levels;
+    expect(plan).not.toBeNull();
+    const room = Math.min(
+      ...[plan!.takeProfit1, plan!.stopLoss, plan!.entry]
+        .map((x) => Math.abs(x - close))
+        .filter((d) => d > 0),
+      close * 0.03,
+    );
+    const up = await read(close + room * 0.4);
+    const down = await read(close - room * 0.4);
     expect(up.result.currentPrice).not.toBe(down.result.currentPrice);
     expect((up.facts.input as FactsInput).price).toBe(close);
     expect(up.facts.output).toEqual(down.facts.output);
