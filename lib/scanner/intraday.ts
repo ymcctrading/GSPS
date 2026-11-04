@@ -1279,7 +1279,7 @@ function detectTrendContinuation(
     direction,
     move,
     factors,
-    invalidation: m.midpoint,
+    invalidation: (() => { const n = (globalThis as { __TC_STOP_POINTS?: number }).__TC_STOP_POINTS ?? 0; return direction === "up" ? m.midpoint - n * m.point : m.midpoint + n * m.point; })(),
     whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}.`,
   });
 }

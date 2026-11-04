@@ -185,6 +185,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     const planHeldStructure = [];
     const alertsStructure = [];
     const lineSessions = [];
+    const stopTest = {};
     const refused = { planLevelHeld: {}, listed: {} };
     const addRefused = (into, from) => {
       for (const [k, n] of Object.entries(from)) into[k] = (into[k] ?? 0) + n;
@@ -210,6 +211,16 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
           addRefused(refused.listed, all.refused);
           for (const t of all.trades) {
             alerts.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
+          }
+          for (const n of [1, 3]) {
+            globalThis.__TC_STOP_POINTS = n;
+            try {
+              for (const t of replayIntradayAlerts({ ...common, sessions: listed }).trades) {
+                (stopTest[n] ??= []).push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
+              }
+            } finally {
+              globalThis.__TC_STOP_POINTS = 0;
+            }
           }
           for (const t of replayIntradayAlerts({ ...common, sessions: listed, exitStyle: "structure" }).trades) {
             alertsStructure.push({ ...t, inFocus: focusFor.get(t.session)?.has(symbol) ?? false, inFixed: fixed.has(symbol) });
@@ -287,6 +298,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
         exitReason: t.exitReason,
         barsHeld: t.barsHeld,
       })),
+      stopTestTrades: Object.fromEntries(Object.entries(stopTest).map(([n, ts]) => [n, ts.filter((t) => t.inFocus || t.inFixed).map((t) => ({ symbol: t.symbol, session: t.session, signal: t.signal, direction: t.direction, entry: t.entry, stop: t.stop, target: t.target, exit: t.exitPrice, r: t.rMultiple, bestR: t.bestR, exitReason: t.exitReason, barsHeld: t.barsHeld, inFocus: t.inFocus, inFixed: t.inFixed, }))])),
       // Each focus-list or fixed-list trade, for diagnosis (a few hundred over 60 days).
       listedTrades: alerts
         .filter((t) => t.inFocus || t.inFixed)
