@@ -374,6 +374,53 @@ export async function sendJournalEmail(data: JournalEmailData) {
   }
 }
 
+export interface WeeklyDigestEmailData {
+  userEmail: string;
+  title: string;
+  /** One sentence each (`lib/notifications/weeklyDigest.ts`). */
+  lines: string[];
+}
+
+/**
+ * The weekly digest (`lib/notifications/weeklyDigest.ts`), sent only to members
+ * who turned email on and only within the day's "digest" budget; the bell and
+ * push carry it either way.
+ */
+export async function sendWeeklyDigestEmail(data: WeeklyDigestEmailData) {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: "RESEND_API_KEY not configured" };
+  const blocked = sandboxBlockReason(data.userEmail);
+  if (blocked) return { success: false, error: blocked, skipped: true };
+  const overBudget = await emailBudgetHold("digest");
+  if (overBudget) return { success: false, error: overBudget, skipped: true, overBudget: true };
+
+  try {
+    const items = data.lines.map((l) => `<li style="margin: 0 0 6px;">${escapeHtml(l)}</li>`).join("");
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0f172a; margin: 0 0 20px;">${escapeHtml(data.title)}</h1>
+        <ul style="margin: 0 0 20px; padding-left: 20px; color: #475569; font-size: 14px;">${items}</ul>
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 12px; color: #64748b;">
+          <p style="margin: 0;">Sent after Friday's close, from GSPS.
+          <a href="${appUrl("/portfolio")}" style="color: #0ea5e9; text-decoration: none;">View in app</a>
+          </p>
+        </div>
+      </div>
+    `;
+    const result = await getResendClient().emails.send({
+      from: fromHeader("GSPS Weekly"),
+      to: data.userEmail,
+      subject: data.title,
+      html,
+    });
+    if (result.error) return { success: false, error: result.error.message };
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to send weekly digest email:", message);
+    return { success: false, error: message };
+  }
+}
+
 /** The digest's "today's signals" block, or nothing when there were none. */
 export function signalSection(signals: JournalEmailData["signals"]): string {
   if (!signals || signals.lines.length === 0) return "";

@@ -117,7 +117,8 @@ export interface MacroCycleResult {
   upcomingMajor: MacroCycleWindow[];
 }
 
-function windowFor(anchor: MacroCycleAnchor, year: number): MacroCycleWindow | null {
+/** One anchor's window in a year, or null when no hierarchy length lands on it. */
+export function windowFor(anchor: MacroCycleAnchor, year: number): MacroCycleWindow | null {
   const yearsElapsed = year - anchor.year;
   if (yearsElapsed <= 0) return null;
   const cycleYears = MAJOR_CYCLE_YEARS.filter((n) => yearsElapsed % n === 0);

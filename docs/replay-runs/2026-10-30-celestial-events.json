@@ -1,0 +1,193 @@
+{
+ "run": "celestial-events",
+ "generated": "2026-10-30",
+ "module": "lib/research/celestialEvents.ts",
+ "tests": 24,
+ "batchTests": 45,
+ "rules": [
+  {
+   "rule": "lunations",
+   "tolerance": 1,
+   "coverage": 0.2032,
+   "calls": {
+    "hits": 27,
+    "total": 52,
+    "expected": 29.6748,
+    "p": 0.8543
+   },
+   "nine": {
+    "hits": 89,
+    "total": 446,
+    "expected": 90.544,
+    "p": 0.6027
+   },
+   "three": {
+    "hits": 288,
+    "total": 1370,
+    "expected": 278.534,
+    "p": 0.2404
+   }
+  },
+  {
+   "rule": "lunarApsides",
+   "tolerance": 1,
+   "coverage": 0.2173,
+   "calls": {
+    "hits": 34,
+    "total": 52,
+    "expected": 31.3916,
+    "p": 0.2456
+   },
+   "nine": {
+    "hits": 112,
+    "total": 446,
+    "expected": 96.853,
+    "p": 0.0325
+   },
+   "three": {
+    "hits": 299,
+    "total": 1370,
+    "expected": 297.6864,
+    "p": 0.479
+   }
+  },
+  {
+   "rule": "moonDeclination",
+   "tolerance": 1,
+   "coverage": 0.2195,
+   "calls": {
+    "hits": 28,
+    "total": 52,
+    "expected": 31.4326,
+    "p": 0.9038
+   },
+   "nine": {
+    "hits": 102,
+    "total": 446,
+    "expected": 98.0057,
+    "p": 0.3236
+   },
+   "three": {
+    "hits": 316,
+    "total": 1370,
+    "expected": 300.8858,
+    "p": 0.1245
+   }
+  },
+  {
+   "rule": "ingresses",
+   "tolerance": 2,
+   "coverage": 0.5305,
+   "calls": {
+    "hits": 47,
+    "total": 52,
+    "expected": 43.1893,
+    "p": 0.0937
+   },
+   "nine": {
+    "hits": 251,
+    "total": 446,
+    "expected": 237.9796,
+    "p": 0.105
+   },
+   "three": {
+    "hits": 735,
+    "total": 1370,
+    "expected": 726.8043,
+    "p": 0.3094
+   }
+  },
+  {
+   "rule": "stations",
+   "tolerance": 2,
+   "coverage": 0.202,
+   "calls": {
+    "hits": 18,
+    "total": 52,
+    "expected": 20.5249,
+    "p": 0.8459
+   },
+   "nine": {
+    "hits": 79,
+    "total": 446,
+    "expected": 91.0835,
+    "p": 0.9499
+   },
+   "three": {
+    "hits": 267,
+    "total": 1370,
+    "expected": 276.0572,
+    "p": 0.7835
+   }
+  },
+  {
+   "rule": "mercurySpeed",
+   "tolerance": 2,
+   "coverage": 0.0449,
+   "calls": {
+    "hits": 6,
+    "total": 52,
+    "expected": 6.2083,
+    "p": 0.6344
+   },
+   "nine": {
+    "hits": 25,
+    "total": 446,
+    "expected": 21.1754,
+    "p": 0.2168
+   },
+   "three": {
+    "hits": 67,
+    "total": 1370,
+    "expected": 63.143,
+    "p": 0.3017
+   }
+  },
+  {
+   "rule": "declination",
+   "tolerance": 2,
+   "coverage": 0.2776,
+   "calls": {
+    "hits": 27,
+    "total": 52,
+    "expected": 26.2633,
+    "p": 0.4677
+   },
+   "nine": {
+    "hits": 124,
+    "total": 446,
+    "expected": 123.5843,
+    "p": 0.4987
+   },
+   "three": {
+    "hits": 376,
+    "total": 1370,
+    "expected": 379.8536,
+    "p": 0.6257
+   }
+  },
+  {
+   "rule": "latitude",
+   "tolerance": 2,
+   "coverage": 0.1688,
+   "calls": {
+    "hits": 20,
+    "total": 52,
+    "expected": 18.3055,
+    "p": 0.3326
+   },
+   "nine": {
+    "hits": 87,
+    "total": 446,
+    "expected": 76.3902,
+    "p": 0.0725
+   },
+   "three": {
+    "hits": 235,
+    "total": 1370,
+    "expected": 231.5752,
+    "p": 0.3975
+   }
+  }
+ ]
+}

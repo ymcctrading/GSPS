@@ -4,6 +4,7 @@ import {
   DEFAULT_STRESS_WINDOWS,
   marketDrawdownByDate,
   marketTrendByDate,
+  marketSwingTrendByDate,
   nyDate,
   openSpan,
   quarterOf,
@@ -186,6 +187,52 @@ describe("regimes", () => {
     expect(split.withMarket.none.totalR).toBe(7);
     expect(split.byTrend.unknown.n).toBe(1);
     expect(split.byCorrection.unknown.n).toBe(5);
+  });
+
+  it("splits longs and shorts by each market reading and by corrections", () => {
+    const trend = new Map<string, MarketTrend>([
+      ["2024-01-02", "up"],
+      ["2024-01-03", "down"],
+    ]);
+    const swing = new Map<string, MarketTrend>([
+      ["2024-01-02", "up"],
+      ["2024-01-03", "up"],
+    ]);
+    const correction = new Map<string, boolean>([
+      ["2024-01-02", false],
+      ["2024-01-03", true],
+    ]);
+    const split = regimeSplit(
+      [
+        trade("2024-01-02", 1),
+        trade("2024-01-03", -2),
+        trade("2024-01-03", 3, undefined, "bearish"),
+        trade("2024-01-05", 4, undefined, "bearish"),
+      ],
+      trend,
+      correction,
+      swing,
+    );
+    expect(split.bySide.long.totalR).toBe(-1);
+    expect(split.bySide.short.totalR).toBe(7);
+    expect(split.sideByTrend["long:up"].totalR).toBe(1);
+    expect(split.sideByTrend["long:down"].totalR).toBe(-2);
+    expect(split.sideByTrend["short:down"].totalR).toBe(3);
+    // A date with no reading joins "none" on its side.
+    expect(split.sideByTrend["short:none"].totalR).toBe(4);
+    expect(split.sideBySwingTrend?.["long:up"].n).toBe(2);
+    expect(split.sideBySwingTrend?.["short:up"].totalR).toBe(3);
+    expect(split.sideByCorrection["long:correction"].totalR).toBe(-2);
+    expect(split.sideByCorrection["long:normal"].totalR).toBe(1);
+    expect(split.sideByCorrection["short:unknown"].totalR).toBe(4);
+    expect(regimeSplit([trade("2024-01-02", 1)], trend).sideBySwingTrend).toBeNull();
+  });
+
+  it("reads the market's swing trend only where the 3-Day and weekly charts agree", () => {
+    const last = (m: Map<string, MarketTrend>) => [...m.values()].at(-1);
+    expect(last(marketSwingTrendByDate(walk(200, 1)))).toBe("up");
+    expect(last(marketSwingTrendByDate(walk(200, -1, 400)))).toBe("down");
+    expect(marketSwingTrendByDate(walk(200, 1)).has(nyDate(walk(1, 1)[0].t))).toBe(false);
   });
 });
 

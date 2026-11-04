@@ -187,6 +187,20 @@ export function robustnessSections(rep, level = "##") {
     for (const [k, s] of Object.entries(g.byTrend)) out.push(row(`Market trend ${k}`, s));
     out.push(row("Trade with the market's trend", g.withMarket.with), row("Trade against it", g.withMarket.against), row("No market trend", g.withMarket.none));
     for (const [k, s] of Object.entries(g.byCorrection)) out.push(row(`Market ${k === "correction" ? "in a correction (10% under the year's high)" : k}`, s));
+    if (g.bySide) {
+      const side = (k) => (k.startsWith("long") ? "Longs" : "Shorts");
+      const trendWord = { up: "market up", down: "market down", none: "no market trend" };
+      out.push("", `${level} Longs and shorts by regime`, "", HEAD);
+      out.push(row("Longs", g.bySide.long), row("Shorts", g.bySide.short));
+      for (const [k, s] of Object.entries(g.sideByTrend)) out.push(row(`${side(k)}, ${trendWord[k.split(":")[1]]} (trend reading)`, s));
+      if (g.sideBySwingTrend) {
+        for (const [k, s] of Object.entries(g.sideBySwingTrend)) out.push(row(`${side(k)}, ${trendWord[k.split(":")[1]]} (3-Day and weekly charts)`, s));
+      }
+      for (const [k, s] of Object.entries(g.sideByCorrection)) {
+        const c = k.split(":")[1];
+        if (c !== "unknown" || s.n > 0) out.push(row(`${side(k)}, ${c === "correction" ? "in a correction" : c === "normal" ? "no correction" : "no reading"}`, s));
+      }
+    }
   }
   return out;
 }

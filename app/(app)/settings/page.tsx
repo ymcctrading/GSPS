@@ -28,6 +28,7 @@ import { StrategyModeSettings } from "@/components/settings/strategy-mode-settin
 import { CustomScriptsSettings } from "@/components/settings/custom-scripts-settings";
 import { TradingRemindersSettings } from "@/components/settings/trading-reminders-settings";
 import { ThemeSettings } from "@/components/settings/theme-settings";
+import { DashboardSectionsSettings } from "@/components/settings/dashboard-sections-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
 import Link from "next/link";
 import { Link2, Landmark, Compass, BookOpen } from "lucide-react";
@@ -93,6 +94,8 @@ export default function SettingsPage() {
       <AccountSettings />
 
       <ThemeSettings />
+
+      <DashboardSectionsSettings />
 
       <PromotionSettings />
 

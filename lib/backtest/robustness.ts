@@ -52,6 +52,7 @@
 
 import type { Bar } from "@/lib/types";
 import { readGannTrend } from "@/lib/gann/trendStrength";
+import { swingChartDirection, THREE_DAY_CHART, WEEKLY_SWING_CHART } from "@/lib/gann/swingChart";
 import { bootstrapMeanCI95 } from "@/lib/backtest/metrics";
 import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 
@@ -337,6 +338,27 @@ export function marketTrendByDate(bars: Bar[], lookback = 520, span?: DateSpan):
 }
 
 /**
+ * The market's trend on the two charts *45 Years in Wall Street* (1949) Rule 1
+ * names for the averages, the 3-Day Chart and the swing chart (the 7-day
+ * weekly chart since 2026-09-27), read on the sessions before each date: up
+ * when both read up, down when both read down, none when they differ.
+ * `marketTrendByDate` reads `readGannTrend`, which also needs the 3-day swings
+ * stepping the same way and so reads "none" much more often (on SPY, 78% of
+ * the 2022 bear market). Context for the regime split only.
+ */
+export function marketSwingTrendByDate(bars: Bar[], lookback = 520, span?: DateSpan): Map<string, MarketTrend> {
+  const out = new Map<string, MarketTrend>();
+  for (let i = 1; i < bars.length; i++) {
+    if (span && !inSpan(nyDate(bars[i].t), span)) continue;
+    const prior = bars.slice(Math.max(0, i - lookback), i);
+    const three = swingChartDirection(prior, THREE_DAY_CHART);
+    const weekly = swingChartDirection(prior, WEEKLY_SWING_CHART);
+    out.set(nyDate(bars[i].t), three !== weekly ? "none" : three === "bullish" ? "up" : three === "bearish" ? "down" : "none");
+  }
+  return out;
+}
+
+/**
  * Whether the market stood 10% or more under its highest close of the year
  * before each session (read on the sessions before it). Engineering choice,
  * labelled: the common measure of a market correction, not a Gann figure.
@@ -359,12 +381,25 @@ export interface RegimeSplit {
   withMarket: Record<"with" | "against" | "none", WindowStat>;
   /** In a market correction (10% under the year's high) or not. */
   byCorrection: Record<"correction" | "normal" | "unknown", WindowStat>;
+  /** Longs and shorts apart. */
+  bySide: Record<"long" | "short", WindowStat>;
+  /** Each side by the market's trend (`marketTrendByDate`'s reading). */
+  sideByTrend: Record<SideTrend, WindowStat>;
+  /** Each side in a correction or not. */
+  sideByCorrection: Record<`${"long" | "short"}:${"correction" | "normal" | "unknown"}`, WindowStat>;
+  /** Each side by the 3-Day and weekly charts' trend (`marketSwingTrendByDate`); null when not read. */
+  sideBySwingTrend: Record<SideTrend, WindowStat> | null;
 }
+
+type SideTrend = "long:up" | "long:down" | "long:none" | "short:up" | "short:down" | "short:none";
+const SIDE_TRENDS = ["long:up", "long:down", "long:none", "short:up", "short:down", "short:none"] as const;
+const sideOf = (t: RobustTrade) => (t.direction === "bullish" ? "long" : "short");
 
 export function regimeSplit(
   trades: RobustTrade[],
   trendByDate: Map<string, MarketTrend>,
   correctionByDate?: Map<string, boolean>,
+  swingTrendByDate?: Map<string, MarketTrend>,
 ): RegimeSplit {
   const groups = <K extends string>(keyOf: (t: RobustTrade) => K, keys: readonly K[]): Record<K, WindowStat> => {
     const buckets = Object.fromEntries(keys.map((k) => [k, [] as number[]])) as Record<K, number[]>;
@@ -372,6 +407,11 @@ export function regimeSplit(
     return Object.fromEntries(keys.map((k) => [k, describe(buckets[k])])) as Record<K, WindowStat>;
   };
   const trendOf = (t: RobustTrade) => trendByDate.get(nyDate(t.openedAt)) ?? "unknown";
+  // A date with no reading joins "none" in the side splits (the date-level
+  // "unknown" stays in byTrend).
+  const sideTrend = (t: RobustTrade, m: MarketTrend | "unknown" | undefined): SideTrend =>
+    `${sideOf(t)}:${m === "up" || m === "down" ? m : "none"}`;
+  const correctionOf = (t: RobustTrade) => correctionByDate?.get(nyDate(t.openedAt));
   return {
     byTrend: groups(trendOf, ["up", "down", "none", "unknown"] as const),
     withMarket: groups((t) => {
@@ -380,9 +420,21 @@ export function regimeSplit(
       return (m === "up") === (t.direction === "bullish") ? "with" : "against";
     }, ["with", "against", "none"] as const),
     byCorrection: groups((t) => {
-      const c = correctionByDate?.get(nyDate(t.openedAt));
+      const c = correctionOf(t);
       return c === undefined ? "unknown" : c ? "correction" : "normal";
     }, ["correction", "normal", "unknown"] as const),
+    bySide: groups(sideOf, ["long", "short"] as const),
+    sideByTrend: groups((t) => sideTrend(t, trendOf(t)), SIDE_TRENDS),
+    sideByCorrection: groups(
+      (t) => {
+        const c = correctionOf(t);
+        return `${sideOf(t)}:${c === undefined ? "unknown" : c ? "correction" : "normal"}` as const;
+      },
+      ["long:correction", "long:normal", "long:unknown", "short:correction", "short:normal", "short:unknown"] as const,
+    ),
+    sideBySwingTrend: swingTrendByDate
+      ? groups((t) => sideTrend(t, swingTrendByDate.get(nyDate(t.openedAt))), SIDE_TRENDS)
+      : null,
   };
 }
 
@@ -413,14 +465,22 @@ export interface RobustnessReport {
  */
 // The market readings by bar array and trade span: reading SPY's trend takes
 // seconds over a decade, and a universe run's cells usually share one span.
-const marketReadings = new WeakMap<Bar[], Map<string, [Map<string, MarketTrend>, Map<string, boolean>]>>();
+type MarketReadings = [Map<string, MarketTrend>, Map<string, boolean>, Map<string, MarketTrend>];
+const marketReadings = new WeakMap<Bar[], Map<string, MarketReadings>>();
 
-function readMarket(market: Bar[], span: DateSpan): [Map<string, MarketTrend>, Map<string, boolean>] {
+function readMarket(market: Bar[], span: DateSpan): MarketReadings {
   let bySpan = marketReadings.get(market);
   if (!bySpan) marketReadings.set(market, (bySpan = new Map()));
   const key = `${span.from}|${span.to}|${market.length}`;
   let read = bySpan.get(key);
-  if (!read) bySpan.set(key, (read = [marketTrendByDate(market, 520, span), marketDrawdownByDate(market, 0.1, 252, span)]));
+  if (!read) {
+    read = [
+      marketTrendByDate(market, 520, span),
+      marketDrawdownByDate(market, 0.1, 252, span),
+      marketSwingTrendByDate(market, 520, span),
+    ];
+    bySpan.set(key, read);
+  }
   return read;
 }
 

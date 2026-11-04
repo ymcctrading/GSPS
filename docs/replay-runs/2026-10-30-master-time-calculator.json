@@ -1,0 +1,226 @@
+{
+  "run": "master-time-calculator",
+  "generated": "2026-10-30",
+  "module": "lib/research/masterTimeCalculator.ts",
+  "source": "https://codingace.net/general/wd_gann_master_time_factor_cal.html",
+  "tests": 20,
+  "bonferroni": 0.0025,
+  "spyBars": {
+    "from": "2016-01-04",
+    "to": "2026-10-29",
+    "count": 2722,
+    "source": "Alpaca SIP daily bars, split-adjusted (adjustment=split, no dividend adjustment); closes only, kept for lib/research/masterTimeCalculator.ts"
+  },
+  "configs": [
+    {
+      "config": "siteDefault",
+      "mode": "everyPivot",
+      "coverage": {
+        "calls": 0.192,
+        "nine": 0.5141,
+        "three": 0.9772,
+        "spy2": 0.7826,
+        "spy5": 0.4068
+      },
+      "calls": {
+        "hits": 11,
+        "total": 52,
+        "expected": 12.6906,
+        "p": 0.7754
+      },
+      "nine": {
+        "hits": 343,
+        "total": 446,
+        "expected": 346.0085,
+        "p": 0.685
+      },
+      "three": {
+        "hits": 1341,
+        "total": 1370,
+        "expected": 1341.2276,
+        "p": 0.5692
+      },
+      "spy": {
+        "2%": {
+          "hits": 167,
+          "total": 209,
+          "expected": 174.3873,
+          "p": 0.9147
+        },
+        "5%": {
+          "hits": 29,
+          "total": 64,
+          "expected": 32.8805,
+          "p": 0.8608
+        }
+      }
+    },
+    {
+      "config": "plainCycle",
+      "mode": "everyPivot",
+      "coverage": {
+        "calls": 0.0907,
+        "nine": 0.4877,
+        "three": 0.9702,
+        "spy2": 0.7864,
+        "spy5": 0.3668
+      },
+      "calls": {
+        "hits": 5,
+        "total": 52,
+        "expected": 5.517,
+        "p": 0.6605
+      },
+      "nine": {
+        "hits": 336,
+        "total": 446,
+        "expected": 339.6554,
+        "p": 0.7144
+      },
+      "three": {
+        "hits": 1334,
+        "total": 1370,
+        "expected": 1332.3694,
+        "p": 0.4243
+      },
+      "spy": {
+        "2%": {
+          "hits": 172,
+          "total": 209,
+          "expected": 177.4219,
+          "p": 0.8655
+        },
+        "5%": {
+          "hits": 32,
+          "total": 64,
+          "expected": 32.1525,
+          "p": 0.5568
+        }
+      }
+    },
+    {
+      "config": "siteDefault",
+      "mode": "lastPivot",
+      "coverage": {
+        "calls": 0.0502,
+        "nine": 0.0746,
+        "three": 0.007,
+        "spy2": 0.0424,
+        "spy5": 0.0739
+      },
+      "calls": {
+        "hits": 4,
+        "total": 52,
+        "expected": 5.201,
+        "p": 0.8246
+      },
+      "nine": {
+        "hits": 18,
+        "total": 446,
+        "expected": 20.7996,
+        "p": 0.7679
+      },
+      "three": {
+        "hits": 9,
+        "total": 1370,
+        "expected": 8.9217,
+        "p": 0.5589
+      },
+      "spy": {
+        "2%": {
+          "hits": 2,
+          "total": 209,
+          "expected": 7.3223,
+          "p": 0.9927
+        },
+        "5%": {
+          "hits": 4,
+          "total": 64,
+          "expected": 4.4069,
+          "p": 0.6245
+        }
+      }
+    },
+    {
+      "config": "plainCycle",
+      "mode": "lastPivot",
+      "coverage": {
+        "calls": 0.0356,
+        "nine": 0.1197,
+        "three": 0.0588,
+        "spy2": 0.0931,
+        "spy5": 0.1259
+      },
+      "calls": {
+        "hits": 3,
+        "total": 52,
+        "expected": 3.2754,
+        "p": 0.689
+      },
+      "nine": {
+        "hits": 37,
+        "total": 446,
+        "expected": 45.8885,
+        "p": 0.9315
+      },
+      "three": {
+        "hits": 68,
+        "total": 1370,
+        "expected": 76.5452,
+        "p": 0.8902
+      },
+      "spy": {
+        "2%": {
+          "hits": 9,
+          "total": 209,
+          "expected": 16.0139,
+          "p": 0.979
+        },
+        "5%": {
+          "hits": 10,
+          "total": 64,
+          "expected": 8.6827,
+          "p": 0.3832
+        }
+      }
+    }
+  ],
+  "example": [
+    {
+      "step": 30,
+      "date": "2026-02-19",
+      "angle": 90,
+      "price": 112.78
+    },
+    {
+      "step": 60,
+      "date": "2026-04-08",
+      "angle": 180,
+      "price": 127.2
+    },
+    {
+      "step": 90,
+      "date": "2026-05-27",
+      "angle": 270,
+      "price": 143.46
+    },
+    {
+      "step": 120,
+      "date": "2026-07-14",
+      "angle": 0,
+      "price": 161.8
+    },
+    {
+      "step": 150,
+      "date": "2026-09-01",
+      "angle": 90,
+      "price": 182.48
+    },
+    {
+      "step": 180,
+      "date": "2026-10-19",
+      "angle": 180,
+      "price": 205.81
+    }
+  ]
+}

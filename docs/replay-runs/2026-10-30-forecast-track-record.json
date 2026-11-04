@@ -1,0 +1,4045 @@
+{
+ "run": "forecast-track-record",
+ "generated": "2026-10-30",
+ "module": "lib/research/forecastTrackRecord.ts",
+ "publishedForecasts": {
+  "byYear": [
+   {
+    "id": "1919",
+    "issued": "1918-12-16",
+    "source": "W036 pp.2-3",
+    "nine": {
+     "hits": 2,
+     "calls": 12,
+     "expected": 0.83,
+     "hitRate": 0.167,
+     "baseMean": 0.069,
+     "p": 0.1977
+    },
+    "three": {
+     "hits": 7,
+     "calls": 12,
+     "expected": 4.8,
+     "hitRate": 0.583,
+     "baseMean": 0.4,
+     "p": 0.1354
+    }
+   },
+   {
+    "id": "1920",
+    "issued": "1919-12-10",
+    "source": "W036 pp.4-6",
+    "nine": {
+     "hits": 1,
+     "calls": 6,
+     "expected": 0.58,
+     "hitRate": 0.167,
+     "baseMean": 0.097,
+     "p": 0.4687
+    },
+    "three": {
+     "hits": 3,
+     "calls": 6,
+     "expected": 2.59,
+     "hitRate": 0.5,
+     "baseMean": 0.432,
+     "p": 0.5146
+    }
+   },
+   {
+    "id": "1921",
+    "issued": "1920-12-14",
+    "source": "W036 pp.7-10",
+    "nine": {
+     "hits": 1,
+     "calls": 8,
+     "expected": 0.56,
+     "hitRate": 0.125,
+     "baseMean": 0.071,
+     "p": 0.4523
+    },
+    "three": {
+     "hits": 4,
+     "calls": 8,
+     "expected": 3.51,
+     "hitRate": 0.5,
+     "baseMean": 0.438,
+     "p": 0.4911
+    }
+   },
+   {
+    "id": "1922",
+    "issued": "1921-11-30",
+    "source": "W036 pp.11-17",
+    "nine": {
+     "hits": 1,
+     "calls": 14,
+     "expected": 0.23,
+     "hitRate": 0.071,
+     "baseMean": 0.016,
+     "p": 0.2072
+    },
+    "three": {
+     "hits": 2,
+     "calls": 14,
+     "expected": 3.61,
+     "hitRate": 0.143,
+     "baseMean": 0.258,
+     "p": 0.9131
+    }
+   },
+   {
+    "id": "1929",
+    "issued": "1928-11-23",
+    "source": "W005 WSSS appendix pp.11-39",
+    "nine": {
+     "hits": 5,
+     "calls": 9,
+     "expected": 3.14,
+     "hitRate": 0.556,
+     "baseMean": 0.349,
+     "p": 0.1429
+    },
+    "three": {
+     "hits": 1,
+     "calls": 9,
+     "expected": 2.22,
+     "hitRate": 0.111,
+     "baseMean": 0.247,
+     "p": 0.9434
+    }
+   },
+   {
+    "id": "1932",
+    "issued": "1931-10-21",
+    "source": "W001 pp.4-5",
+    "nine": {
+     "hits": 2,
+     "calls": 3,
+     "expected": 0.64,
+     "hitRate": 0.667,
+     "baseMean": 0.214,
+     "p": 0.1176
+    },
+    "three": {
+     "hits": 2,
+     "calls": 3,
+     "expected": 1.31,
+     "hitRate": 0.667,
+     "baseMean": 0.437,
+     "p": 0.4061
+    }
+   }
+  ],
+  "pooled": {
+   "nine": {
+    "hits": 12,
+    "calls": 52,
+    "expected": 5.99,
+    "hitRate": 0.231,
+    "baseMean": 0.115,
+    "p": 0.0059
+   },
+   "three": {
+    "hits": 19,
+    "calls": 52,
+    "expected": 18.04,
+    "hitRate": 0.365,
+    "baseMean": 0.347,
+    "p": 0.435
+   }
+  },
+  "calls": [
+   {
+    "forecast": "1919",
+    "label": "bullish to Jan 4-10",
+    "from": "1919-01-04",
+    "to": "1919-01-10",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 78,
+     "baseRate": 0.049
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 1,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "depressing Jan 20-25",
+    "from": "1919-01-20",
+    "to": "1919-01-25",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 14,
+     "baseRate": 0.049
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-01-21",
+      "price": 79.88,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.312
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "accumulation Jan 20 to Feb 14",
+    "from": "1919-01-20",
+    "to": "1919-02-14",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1919-02-08",
+      "price": 79.15,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.214
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-01-21",
+      "price": 79.88,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.868
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "bull to about May 10",
+    "from": "1919-05-07",
+    "to": "1919-05-13",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 62,
+     "baseRate": 0.049
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 1,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "depressing Jun 22 to Jul 10",
+    "from": "1919-06-22",
+    "to": "1919-07-10",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 41,
+     "baseRate": 0.156
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-06-24",
+      "price": 104.58,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.756
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "August top 12-15",
+    "from": "1919-08-12",
+    "to": "1919-08-15",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 29,
+     "baseRate": 0.025
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-08-12",
+      "price": 105.1,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.208
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "decline to about Aug 23",
+    "from": "1919-08-20",
+    "to": "1919-08-26",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1919-08-20",
+      "price": 98.46,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.058
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-08-20",
+      "price": 98.46,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "September depressing 2-8",
+    "from": "1919-09-02",
+    "to": "1919-09-08",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 13,
+     "baseRate": 0.058
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-09-08",
+      "price": 106.51,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "advance to about Sep 23",
+    "from": "1919-09-20",
+    "to": "1919-09-26",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 38,
+     "baseRate": 0.049
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 4,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "strong to Oct 6-7",
+    "from": "1919-10-06",
+    "to": "1919-10-07",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 27,
+     "baseRate": 0.011
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.104
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "bottom about Oct 24",
+    "from": "1919-10-21",
+    "to": "1919-10-27",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 33,
+     "baseRate": 0.058
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 16,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1919",
+    "label": "November decline 10-20",
+    "from": "1919-11-17",
+    "to": "1919-11-23",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.058
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1919-11-19",
+      "price": 106.15,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.364
+    }
+   },
+   {
+    "forecast": "1920",
+    "label": "minor top Mar 9",
+    "from": "1920-03-06",
+    "to": "1920-03-12",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 27,
+     "baseRate": 0.066
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 10,
+     "baseRate": 0.372
+    }
+   },
+   {
+    "forecast": "1920",
+    "label": "spring top Apr 22-24",
+    "from": "1920-04-22",
+    "to": "1920-04-24",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 14,
+     "baseRate": 0.033
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.164
+    }
+   },
+   {
+    "forecast": "1920",
+    "label": "June bottom 10-16",
+    "from": "1920-06-10",
+    "to": "1920-06-16",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 22,
+     "baseRate": 0.077
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 14,
+     "baseRate": 0.38
+    }
+   },
+   {
+    "forecast": "1920",
+    "label": "second bull from Jul 15-20",
+    "from": "1920-07-15",
+    "to": "1920-07-20",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 21,
+     "baseRate": 0.066
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1920-07-16",
+      "price": 89.95,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.328
+    }
+   },
+   {
+    "forecast": "1920",
+    "label": "August top of the bull cycle",
+    "from": "1920-08-01",
+    "to": "1920-08-31",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 17,
+     "baseRate": 0.262
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1920-08-13",
+      "price": 85.89,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.97
+    }
+   },
+   {
+    "forecast": "1920",
+    "label": "temporary bottom Dec 19",
+    "from": "1920-12-16",
+    "to": "1920-12-22",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1920-12-21",
+      "price": 66.75,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.077
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1920-12-21",
+      "price": 66.75,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.38
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "low Feb 5-10",
+    "from": "1921-02-05",
+    "to": "1921-02-10",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 46,
+     "baseRate": 0.033
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.26
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "spring top Apr 28 to May 3",
+    "from": "1921-04-28",
+    "to": "1921-05-03",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.033
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.263
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "bottom in August",
+    "from": "1921-08-01",
+    "to": "1921-08-31",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1921-08-24",
+      "price": 63.9,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.17
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1921-08-16",
+      "price": 65.27,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.868
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "advance to early September",
+    "from": "1921-09-01",
+    "to": "1921-09-10",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 57,
+     "baseRate": 0.055
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1921-09-10",
+      "price": 71.92,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.433
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "decline to Sep 25",
+    "from": "1921-09-22",
+    "to": "1921-09-28",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 29,
+     "baseRate": 0.038
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.304
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "advance into early October",
+    "from": "1921-10-01",
+    "to": "1921-10-10",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 87,
+     "baseRate": 0.055
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1921-10-01",
+      "price": 71.68,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.433
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "low around Oct 15-16",
+    "from": "1921-10-15",
+    "to": "1921-10-16",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 52,
+     "baseRate": 0.011
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 1,
+     "baseRate": 0.088
+    }
+   },
+   {
+    "forecast": "1921",
+    "label": "December boom",
+    "from": "1921-12-01",
+    "to": "1921-12-31",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 148,
+     "baseRate": 0.17
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1921-12-15",
+      "price": 81.5,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.858
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "high Jan 2-3",
+    "from": "1922-01-02",
+    "to": "1922-01-03",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 180,
+     "baseRate": 0.005
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.082
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "decline to about Jan 19",
+    "from": "1922-01-16",
+    "to": "1922-01-22",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 145,
+     "baseRate": 0.019
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 9,
+     "baseRate": 0.301
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "rally Jan 26-28",
+    "from": "1922-01-26",
+    "to": "1922-01-28",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 204,
+     "baseRate": 0.008
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.123
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "second bottom about Feb 23",
+    "from": "1922-02-20",
+    "to": "1922-02-26",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 180,
+     "baseRate": 0.019
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 1,
+     "baseRate": 0.301
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "first top about Apr 10",
+    "from": "1922-04-07",
+    "to": "1922-04-13",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 184,
+     "baseRate": 0.019
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 9,
+     "baseRate": 0.299
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "second top Apr 18-26",
+    "from": "1922-04-18",
+    "to": "1922-04-26",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 171,
+     "baseRate": 0.025
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1922-04-22",
+      "price": 93.46,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.386
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "low May 31 to Jun 5",
+    "from": "1922-05-31",
+    "to": "1922-06-05",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 162,
+     "baseRate": 0.016
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 7,
+     "baseRate": 0.26
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "low Jun 19-23",
+    "from": "1922-06-19",
+    "to": "1922-06-23",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 144,
+     "baseRate": 0.014
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.219
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "summer top Jul 26",
+    "from": "1922-07-23",
+    "to": "1922-07-29",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 77,
+     "baseRate": 0.019
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 3,
+     "baseRate": 0.299
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "summer top Aug 14-19",
+    "from": "1922-08-14",
+    "to": "1922-08-19",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 56,
+     "baseRate": 0.016
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 3,
+     "baseRate": 0.255
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "bottom Sep 11-15",
+    "from": "1922-09-11",
+    "to": "1922-09-15",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 60,
+     "baseRate": 0.014
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.219
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "final top Oct 8-15",
+    "from": "1922-10-08",
+    "to": "1922-10-15",
+    "expect": "high",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1922-10-14",
+      "price": 103.43,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.022
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1922-10-14",
+      "price": 103.43,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.342
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "final top Oct 18-24",
+    "from": "1922-10-18",
+    "to": "1922-10-24",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 4,
+     "baseRate": 0.019
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 4,
+     "baseRate": 0.299
+    }
+   },
+   {
+    "forecast": "1922",
+    "label": "bottom Dec 11-15",
+    "from": "1922-12-11",
+    "to": "1922-12-15",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 27,
+     "baseRate": 0.014
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 14,
+     "baseRate": 0.219
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "high about Jan 12",
+    "from": "1929-01-09",
+    "to": "1929-01-15",
+    "expect": "high",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.668
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.482
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "some stocks low Mar 14-15",
+    "from": "1929-03-14",
+    "to": "1929-03-15",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 8,
+     "baseRate": 0.225
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 8,
+     "baseRate": 0.148
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "low Mar 28-29",
+    "from": "1929-03-28",
+    "to": "1929-03-29",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.225
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.148
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "first bottom Sep 27-28",
+    "from": "1929-09-27",
+    "to": "1929-09-28",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1929-09-28",
+      "price": 341.03,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.225
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 6,
+     "baseRate": 0.148
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "October lows 8-9",
+    "from": "1929-10-08",
+    "to": "1929-10-09",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1929-10-09",
+      "price": 338.86,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.225
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 4,
+     "baseRate": 0.148
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "October top 18-19",
+    "from": "1929-10-18",
+    "to": "1929-10-19",
+    "expect": "high",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1929-10-18",
+      "price": 343.12,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.225
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 4,
+     "baseRate": 0.148
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "October lows 26-28",
+    "from": "1929-10-26",
+    "to": "1929-10-28",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 1,
+     "baseRate": 0.334
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 1,
+     "baseRate": 0.222
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "rally into early November",
+    "from": "1929-11-01",
+    "to": "1929-11-10",
+    "expect": "high",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1929-11-08",
+      "price": 245.28,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.789
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1929-11-08",
+      "price": 245.28,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.633
+    }
+   },
+   {
+    "forecast": "1929",
+    "label": "low Dec 23-24",
+    "from": "1929-12-23",
+    "to": "1929-12-24",
+    "expect": "low",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1929-12-23",
+      "price": 226.39,
+      "kind": "low"
+     },
+     "daysOff": 0,
+     "baseRate": 0.225
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 3,
+     "baseRate": 0.148
+    }
+   },
+   {
+    "forecast": "1932",
+    "label": "March 8 last top before a big decline",
+    "from": "1932-03-05",
+    "to": "1932-03-11",
+    "expect": "high",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1932-03-09",
+      "price": 89.88,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.191
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1932-03-09",
+      "price": 89.87,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.402
+    }
+   },
+   {
+    "forecast": "1932",
+    "label": "high around Sep 20-21",
+    "from": "1932-09-17",
+    "to": "1932-09-24",
+    "expect": "high",
+    "nine": {
+     "hit": true,
+     "turn": {
+      "date": "1932-09-22",
+      "price": 76.01,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.219
+    },
+    "three": {
+     "hit": true,
+     "turn": {
+      "date": "1932-09-22",
+      "price": 76.01,
+      "kind": "high"
+     },
+     "daysOff": 0,
+     "baseRate": 0.456
+    }
+   },
+   {
+    "forecast": "1932",
+    "label": "decline to about Oct 4-5",
+    "from": "1932-10-01",
+    "to": "1932-10-08",
+    "expect": "low",
+    "nine": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.232
+    },
+    "three": {
+     "hit": false,
+     "turn": null,
+     "daysOff": 2,
+     "baseRate": 0.454
+    }
+   }
+  ]
+ },
+ "permanentChangeDates": {
+  "beforeIssue_1913_1928": {
+   "nine": {
+    "hits": 6,
+    "calls": 125,
+    "expected": 8.08,
+    "hitRate": 0.048,
+    "baseMean": 0.065,
+    "p": 0.833
+   },
+   "three": {
+    "hits": 53,
+    "calls": 125,
+    "expected": 50.71,
+    "hitRate": 0.424,
+    "baseMean": 0.406,
+    "p": 0.3686
+   }
+  },
+  "afterIssue_1929_1949": {
+   "nine": {
+    "hits": 35,
+    "calls": 163,
+    "expected": 31.31,
+    "hitRate": 0.215,
+    "baseMean": 0.192,
+    "p": 0.2383
+   },
+   "three": {
+    "hits": 79,
+    "calls": 164,
+    "expected": 71.73,
+    "hitRate": 0.482,
+    "baseMean": 0.437,
+    "p": 0.138
+   }
+  }
+ },
+ "selfScoredClaims": [
+  {
+   "claim": "1919: bottom Feb 10, advance began Feb 14",
+   "source": "W036 p.3",
+   "claimedDate": "1919-02-10",
+   "kind": "low",
+   "nine": {
+    "date": "1919-02-08",
+    "price": 79.15,
+    "days": -2
+   },
+   "three": {
+    "date": "1919-02-08",
+    "price": 79.15,
+    "days": -2
+   }
+  },
+  {
+   "claim": "1920: low prices made Dec 22, 1920",
+   "source": "W036 p.6",
+   "claimedDate": "1920-12-22",
+   "kind": "low",
+   "nine": {
+    "date": "1920-12-21",
+    "price": 66.75,
+    "days": -1
+   },
+   "three": {
+    "date": "1920-12-21",
+    "price": 66.75,
+    "days": -1
+   }
+  },
+  {
+   "claim": "1921: the exact high on the averages was made on May 3",
+   "source": "W036 p.10",
+   "claimedDate": "1921-05-03",
+   "kind": "high",
+   "nine": {
+    "date": "1921-05-05",
+    "price": 80.03,
+    "days": 2
+   },
+   "three": {
+    "date": "1921-05-05",
+    "price": 80.03,
+    "days": 2
+   }
+  },
+  {
+   "claim": "1922: the extreme high came Oct 14",
+   "source": "W036 pp.16-17",
+   "claimedDate": "1922-10-14",
+   "kind": "high",
+   "nine": {
+    "date": "1922-10-14",
+    "price": 103.43,
+    "days": 0
+   },
+   "three": {
+    "date": "1922-10-14",
+    "price": 103.43,
+    "days": 0
+   }
+  },
+  {
+   "claim": "1929: September 3 as the last day stocks should be top",
+   "source": "W005 WSSS appendix p.11",
+   "claimedDate": "1929-09-03",
+   "kind": "high",
+   "nine": {
+    "date": "1929-09-03",
+    "price": 386.1,
+    "days": 0
+   },
+   "three": {
+    "date": "1929-09-03",
+    "price": 386.1,
+    "days": 0
+   }
+  }
+ ],
+ "macroCycle": [
+  {
+   "label": "in sample 1897-01 to 1935-12",
+   "windows": 40,
+   "hits": 10,
+   "expected": 4.8,
+   "hitRate": 0.25,
+   "baseMean": 0.12,
+   "baseRate": {
+    "high": 0.128,
+    "low": 0.118
+   },
+   "p": 0.0174,
+   "detail": [
+    {
+     "month": "1901-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1902-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1903-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "1903-10"
+    },
+    {
+     "month": "1904-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1906-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1907-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1910-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "1910-07"
+    },
+    {
+     "month": "1911-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1911-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": true,
+     "turn": "1911-09"
+    },
+    {
+     "month": "1912-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1912-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1914-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1914-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "1914-12"
+    },
+    {
+     "month": "1916-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1916-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "1916-11"
+    },
+    {
+     "month": "1917-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1917-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1917-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": true,
+     "turn": "1917-12"
+    },
+    {
+     "month": "1918-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1919-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": true,
+     "turn": "1919-07"
+    },
+    {
+     "month": "1921-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": true,
+     "turn": "1921-08"
+    },
+    {
+     "month": "1921-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1922-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1922-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1923-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1924-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1924-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1925-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1926-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1927-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1927-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1928-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1929-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": true,
+     "turn": "1929-09"
+    },
+    {
+     "month": "1930-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1931-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1932-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      7
+     ],
+     "hit": true,
+     "turn": "1932-06"
+    },
+    {
+     "month": "1932-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1934-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1934-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1935-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    }
+   ]
+  },
+  {
+   "label": "out of sample 1936-01 to 2025-07",
+   "windows": 142,
+   "hits": 13,
+   "expected": 14.4,
+   "hitRate": 0.092,
+   "baseMean": 0.101,
+   "baseRate": {
+    "high": 0.093,
+    "low": 0.107
+   },
+   "p": 0.6913,
+   "detail": [
+    {
+     "month": "1936-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1936-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1937-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1937-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1937-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1938-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1939-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1939-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1939-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1941-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1942-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": true,
+     "turn": "1942-04"
+    },
+    {
+     "month": "1942-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1943-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1944-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1944-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1945-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1946-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1946-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1947-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1947-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1949-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1949-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1949-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1950-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1951-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1951-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1952-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1952-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1952-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1953-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1954-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1954-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1956-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1956-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1957-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1957-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1957-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      50
+     ],
+     "hit": true,
+     "turn": "1957-12"
+    },
+    {
+     "month": "1958-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1959-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1959-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      50
+     ],
+     "hit": true,
+     "turn": "1959-07"
+    },
+    {
+     "month": "1959-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": true,
+     "turn": "1959-07"
+    },
+    {
+     "month": "1960-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1961-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1962-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": true,
+     "turn": "1962-06"
+    },
+    {
+     "month": "1962-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1963-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1964-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1964-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1965-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1966-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      7,
+      10
+     ],
+     "hit": true,
+     "turn": "1966-10"
+    },
+    {
+     "month": "1967-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      7,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1967-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1969-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1969-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1970-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1971-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1971-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1972-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1972-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1972-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1973-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1974-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1974-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1974-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1976-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1977-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1977-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      7,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1978-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1979-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      7,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1979-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1980-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1981-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1981-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1982-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1982-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1984-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1984-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1984-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1985-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1986-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1986-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1987-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1987-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1987-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": true,
+     "turn": "1987-12"
+    },
+    {
+     "month": "1988-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1989-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1989-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1991-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1991-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1992-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1992-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1992-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1993-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1994-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1994-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1994-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1995-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1996-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1997-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1997-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1998-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1999-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1999-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      7,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2000-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "2000-08"
+    },
+    {
+     "month": "2001-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      7,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2002-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      7,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2002-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2004-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2004-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2005-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2006-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2006-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2007-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2007-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "2007-10"
+    },
+    {
+     "month": "2007-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2008-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2009-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "2009-03"
+    },
+    {
+     "month": "2009-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2009-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2011-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2012-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2012-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      7,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2013-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2014-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      7,
+      15
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2014-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2015-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2016-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "2016-02"
+    },
+    {
+     "month": "2016-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2017-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2017-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2019-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2019-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2019-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2020-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2021-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2021-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2022-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2022-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": true,
+     "turn": "2022-10"
+    },
+    {
+     "month": "2022-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5
+     ],
+     "hit": true,
+     "turn": "2022-10"
+    },
+    {
+     "month": "2023-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      7
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2024-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2024-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5
+     ],
+     "hit": false,
+     "turn": null
+    }
+   ]
+  },
+  {
+   "label": "in sample, four or more lengths",
+   "windows": 2,
+   "hits": 0,
+   "expected": 0.24,
+   "hitRate": 0,
+   "baseMean": 0.118,
+   "baseRate": {
+    "high": 0.128,
+    "low": 0.118
+   },
+   "p": 1,
+   "detail": [
+    {
+     "month": "1926-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1927-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    }
+   ]
+  },
+  {
+   "label": "out of sample, four or more lengths",
+   "windows": 19,
+   "hits": 1,
+   "expected": 1.93,
+   "hitRate": 0.053,
+   "baseMean": 0.102,
+   "baseRate": {
+    "high": 0.093,
+    "low": 0.107
+   },
+   "p": 0.8701,
+   "detail": [
+    {
+     "month": "1937-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1939-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1956-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1957-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1959-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": true,
+     "turn": "1959-07"
+    },
+    {
+     "month": "1967-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1969-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1986-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1987-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1989-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1996-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1997-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1997-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "1999-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2007-11",
+     "anchor": "November 1907 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2009-09",
+     "anchor": "September 1909 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      20,
+      50
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2016-08",
+     "anchor": "August 1896 bottom",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2017-04",
+     "anchor": "April 1897 low",
+     "kind": "low",
+     "lengths": [
+      5,
+      10,
+      15,
+      20,
+      30,
+      60
+     ],
+     "hit": false,
+     "turn": null
+    },
+    {
+     "month": "2019-09",
+     "anchor": "September 1929 top",
+     "kind": "high",
+     "lengths": [
+      5,
+      10,
+      15,
+      30
+     ],
+     "hit": false,
+     "turn": null
+    }
+   ]
+  }
+ ],
+ "projection": [
+  {
+   "month": "2027-11",
+   "anchor": "November 1907 low",
+   "years": 120,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2029-09",
+   "anchor": "September 1909 top",
+   "years": 120,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2029-09",
+   "anchor": "September 1929 top",
+   "years": 100,
+   "lengths": [
+    5,
+    10,
+    20,
+    50
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2036-08",
+   "anchor": "August 1896 bottom",
+   "years": 140,
+   "lengths": [
+    5,
+    7,
+    10,
+    20
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2037-04",
+   "anchor": "April 1897 low",
+   "years": 140,
+   "lengths": [
+    5,
+    7,
+    10,
+    20
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2046-08",
+   "anchor": "August 1896 bottom",
+   "years": 150,
+   "lengths": [
+    5,
+    10,
+    15,
+    30,
+    50
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2047-04",
+   "anchor": "April 1897 low",
+   "years": 150,
+   "lengths": [
+    5,
+    10,
+    15,
+    30,
+    50
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2047-11",
+   "anchor": "November 1907 low",
+   "years": 140,
+   "lengths": [
+    5,
+    7,
+    10,
+    20
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2049-09",
+   "anchor": "September 1909 top",
+   "years": 140,
+   "lengths": [
+    5,
+    7,
+    10,
+    20
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2049-09",
+   "anchor": "September 1929 top",
+   "years": 120,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2057-11",
+   "anchor": "November 1907 low",
+   "years": 150,
+   "lengths": [
+    5,
+    10,
+    15,
+    30,
+    50
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2059-09",
+   "anchor": "September 1909 top",
+   "years": 150,
+   "lengths": [
+    5,
+    10,
+    15,
+    30,
+    50
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2069-09",
+   "anchor": "September 1929 top",
+   "years": 140,
+   "lengths": [
+    5,
+    7,
+    10,
+    20
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2076-08",
+   "anchor": "August 1896 bottom",
+   "years": 180,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2077-04",
+   "anchor": "April 1897 low",
+   "years": 180,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2079-09",
+   "anchor": "September 1929 top",
+   "years": 150,
+   "lengths": [
+    5,
+    10,
+    15,
+    30,
+    50
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2087-11",
+   "anchor": "November 1907 low",
+   "years": 180,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2089-09",
+   "anchor": "September 1909 top",
+   "years": 180,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2096-08",
+   "anchor": "August 1896 bottom",
+   "years": 200,
+   "lengths": [
+    5,
+    10,
+    20,
+    50
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2097-04",
+   "anchor": "April 1897 low",
+   "years": 200,
+   "lengths": [
+    5,
+    10,
+    20,
+    50
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2106-08",
+   "anchor": "August 1896 bottom",
+   "years": 210,
+   "lengths": [
+    5,
+    7,
+    10,
+    15,
+    30
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2107-04",
+   "anchor": "April 1897 low",
+   "years": 210,
+   "lengths": [
+    5,
+    7,
+    10,
+    15,
+    30
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2107-11",
+   "anchor": "November 1907 low",
+   "years": 200,
+   "lengths": [
+    5,
+    10,
+    20,
+    50
+   ],
+   "expect": "low"
+  },
+  {
+   "month": "2109-09",
+   "anchor": "September 1909 top",
+   "years": 200,
+   "lengths": [
+    5,
+    10,
+    20,
+    50
+   ],
+   "expect": "high"
+  },
+  {
+   "month": "2109-09",
+   "anchor": "September 1929 top",
+   "years": 180,
+   "lengths": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    60
+   ],
+   "expect": "high"
+  }
+ ]
+}

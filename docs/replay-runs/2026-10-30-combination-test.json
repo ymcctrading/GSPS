@@ -1,0 +1,227 @@
+{
+ "run": "combination-test",
+ "generated": "2026-10-30",
+ "module": "lib/research/combinationTest.ts",
+ "features": [
+  "innerPairs",
+  "outerPairs",
+  "slowPairs",
+  "lunations",
+  "lunarApsides",
+  "moonDeclination",
+  "ingresses",
+  "stations",
+  "declination",
+  "latitude",
+  "timeOfYear",
+  "squareOfNine",
+  "wheel",
+  "figure",
+  "figureMoon",
+  "jupiterIngress",
+  "jupiterReturn"
+ ],
+ "chooseYears": [
+  1913,
+  1915,
+  1916,
+  1917,
+  1918,
+  1919,
+  1920,
+  1923,
+  1924,
+  1925,
+  1926,
+  1927,
+  1928,
+  1929,
+  1930
+ ],
+ "considered": 821,
+ "kept": 219,
+ "tests": 18,
+ "cutoff": 0.0028,
+ "picks": [
+  {
+   "combination": "stations + latitude + squareOfNine",
+   "choose": {
+    "hits": 16,
+    "total": 215,
+    "expected": 9.5772,
+    "p": 0.023,
+    "coverage": 0.0365
+   },
+   "tests": [
+    {
+     "record": "dowNine",
+     "hits": 8,
+     "total": 231,
+     "expected": 9.2357,
+     "p": 0.73
+    },
+    {
+     "record": "dowThree",
+     "hits": 29,
+     "total": 708,
+     "expected": 24.3616,
+     "p": 0.1568
+    },
+    {
+     "record": "spyThree",
+     "hits": 8,
+     "total": 165,
+     "expected": 6.1344,
+     "p": 0.2558
+    },
+    {
+     "record": "spyMajor",
+     "hits": 2,
+     "total": 67,
+     "expected": 2.3981,
+     "p": 0.7032
+    },
+    {
+     "record": "diaThree",
+     "hits": 11,
+     "total": 174,
+     "expected": 6.3353,
+     "p": 0.0412
+    },
+    {
+     "record": "diaMajor",
+     "hits": 3,
+     "total": 67,
+     "expected": 2.3625,
+     "p": 0.4294
+    }
+   ],
+   "calls": {
+    "hits": 3,
+    "total": 52,
+    "expected": 5.4196,
+    "p": 0.9392
+   }
+  },
+  {
+   "combination": "stations + latitude",
+   "choose": {
+    "hits": 16,
+    "total": 215,
+    "expected": 9.6456,
+    "p": 0.025,
+    "coverage": 0.038
+   },
+   "tests": [
+    {
+     "record": "dowNine",
+     "hits": 8,
+     "total": 231,
+     "expected": 9.2521,
+     "p": 0.7317
+    },
+    {
+     "record": "dowThree",
+     "hits": 29,
+     "total": 708,
+     "expected": 24.4383,
+     "p": 0.1622
+    },
+    {
+     "record": "spyThree",
+     "hits": 10,
+     "total": 165,
+     "expected": 6.364,
+     "p": 0.0921
+    },
+    {
+     "record": "spyMajor",
+     "hits": 2,
+     "total": 67,
+     "expected": 2.4856,
+     "p": 0.725
+    },
+    {
+     "record": "diaThree",
+     "hits": 13,
+     "total": 174,
+     "expected": 6.4883,
+     "p": 0.008
+    },
+    {
+     "record": "diaMajor",
+     "hits": 3,
+     "total": 67,
+     "expected": 2.439,
+     "p": 0.4512
+    }
+   ],
+   "calls": {
+    "hits": 3,
+    "total": 52,
+    "expected": 5.4196,
+    "p": 0.9392
+   }
+  },
+  {
+   "combination": "declination + squareOfNine + wheel",
+   "choose": {
+    "hits": 49,
+    "total": 215,
+    "expected": 37.5458,
+    "p": 0.0295,
+    "coverage": 0.1365
+   },
+   "tests": [
+    {
+     "record": "dowNine",
+     "hits": 40,
+     "total": 231,
+     "expected": 49.7712,
+     "p": 0.9654
+    },
+    {
+     "record": "dowThree",
+     "hits": 135,
+     "total": 708,
+     "expected": 135.7663,
+     "p": 0.5523
+    },
+    {
+     "record": "spyThree",
+     "hits": 37,
+     "total": 165,
+     "expected": 37.5817,
+     "p": 0.5893
+    },
+    {
+     "record": "spyMajor",
+     "hits": 10,
+     "total": 67,
+     "expected": 15.4169,
+     "p": 0.9722
+    },
+    {
+     "record": "diaThree",
+     "hits": 34,
+     "total": 174,
+     "expected": 40.9004,
+     "p": 0.9293
+    },
+    {
+     "record": "diaMajor",
+     "hits": 11,
+     "total": 67,
+     "expected": 15.5045,
+     "p": 0.9425
+    }
+   ],
+   "calls": {
+    "hits": 15,
+    "total": 52,
+    "expected": 15.9283,
+    "p": 0.6827
+   }
+  }
+ ]
+}

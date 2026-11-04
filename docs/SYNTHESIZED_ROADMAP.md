@@ -4,7 +4,7 @@
 paritys, WD Gann files, observation of cycles, William Hauck book and multi
 dimensional documents/creation equation, should coagulate together and create
 a synthesized roadmap. that we shall follow moving forward").
-**Last updated:** 2026-10-29 (Q2 item 7: shared quotes and the capacity read; status re-read against production 2026-10-28, see Part 5 and "Q2 status").
+**Last updated:** 2026-10-30 (Track M: the dated-forecast record built, `docs/GANN_FORECAST_TRACK_RECORD.md`). Previously 2026-10-29 (Q2 item 7: shared quotes and the capacity read; status re-read against production 2026-10-28, see Part 5 and "Q2 status").
 **Copy for threads outside the repo:** `/mnt/project-files/roadmap/SYNTHESIZED_ROADMAP.md`.
 
 This document joins six bodies of work that until now lived apart. It decides
@@ -125,8 +125,10 @@ session reading only this file still follows them.
   The shared time-window mechanism the astro and Jensen time readings act
   through was built 2026-10-16 (`lib/gann/timeWindow.ts`), and Gann's other
   time counts act through it since 2026-10-27 (53d36fba, `countWindows.ts`).
-  Open there: the dated-forecast teaching example (`macroCycle.ts` is on main;
-  a dated claim shown to a person still needs its documented record), and the
+  The dated-forecast example's documented record is built (2026-10-30,
+  `docs/GANN_FORECAST_TRACK_RECORD.md`): the macro cycle is no better than
+  chance out of sample, so its dated windows stay off member surfaces. Open
+  there: the
   Square of 67, which no source in the
   collection holds. (The Square of 52 is Master Course Ch. 14 and is built;
   Ch. 15A gives the Square of 90's days.) The 42 open feature-map rules are
@@ -273,9 +275,9 @@ against Gann:
      transitions keep every row), in about four months.
 8. **Track M:** the shared time-window mechanism is built (2026-10-16), and
    the astro, Jensen, hexagon, Master Chart and the other time counts act
-   through it (the last of them 2026-10-27). Open: the dated-forecast example
-   with its documented record, and the remaining review rows (Gann-rules
-   thread).
+   through it (the last of them 2026-10-27). The dated-forecast record is
+   built (2026-10-30, `docs/GANN_FORECAST_TRACK_RECORD.md`). Open: the
+   remaining review rows (Gann-rules thread).
 
 **The third Q2 aims at:** a measured record a trader can read before trusting
 an alert.

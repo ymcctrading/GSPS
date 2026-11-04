@@ -47,6 +47,14 @@ describe("deliverKeyNotice", () => {
     expect(pushMock).toHaveBeenCalledWith(c, "u1", { title: NOTICE.title, body: NOTICE.body, url: "/portfolio", tag: NOTICE.tag });
   });
 
+  it("pushes the shorter text when one is given, and writes the full one to the bell", async () => {
+    pushMock.mockReset().mockResolvedValue({ success: true });
+    const { c, inserts } = client({ push: true, quiet: false });
+    await deliverKeyNotice("u1", { ...NOTICE, pushBody: "Short." }, c);
+    expect(inserts[0]).toMatchObject({ body: NOTICE.body });
+    expect(pushMock).toHaveBeenCalledWith(c, "u1", { title: NOTICE.title, body: "Short.", url: "/portfolio", tag: NOTICE.tag });
+  });
+
   it("holds the summary's push in quiet hours but still writes the bell", async () => {
     pushMock.mockReset().mockResolvedValue({ success: true });
     const { c, inserts } = client({ push: true, quiet: true });

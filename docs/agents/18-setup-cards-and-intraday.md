@@ -660,15 +660,16 @@ weekly trend's direction is held once the campaign's reaction over-balanced its
 greatest by a point or in time (`reactionOverbalanced`, `REACTION_OVERBALANCED`;
 Master Course Ch. 8, PDF 249-250), and the monthly short hold above still holds
 shorts. The panel, card, chart plan, bell, push, recap and the alerts replay all
-read `tradeHold`. Measured on the merged code (local run, 832 symbols, 41
-sessions 2026-09-02 to 10-29, listed alerts; `trendRule` "threeDay" replays the
-old rule on the same bars): weekly +0.113R over 238 trades against the 3-Day's
-−0.289R over 267 (closed trades −4.9R against −104.8R), better in both halves
-(−0.134/+0.359 against −0.197/−0.379), longs +0.250 against −0.168, shorts
-−0.474 against −0.716. Both intervals include zero, the median trade is −1R and
-17 trades held to the 10-session limit carry the mean, so intraday still has no
-measured edge; the change is better than the rule it replaced, not proven
-profitable. Notes: `/mnt/project-files/replay-diagnosis/2026-10-30-intraday-weekly-trend.md`.
+read `tradeHold`. Measured on the Intraday style's same-day exits (#597; local
+run 2026-11-03, 832 symbols, 39 sessions 2026-09-10 to 11-03, listed alerts;
+`trendRule` "threeDay" replays the old rule on the same bars): weekly −0.036R
+over 353 trades against the 3-Day's −0.103R over 417 (−12.8R against −43.0R),
+better in both halves (−0.173/+0.100 against −0.198/−0.009), longs +0.012
+against −0.040, shorts −0.243 against −0.323. Both intervals include zero and
+both rules lose overall, so intraday still has no measured edge; the change is
+better than the rule it replaced, not profitable. An earlier run on the replay's
+old 10-day daily exits (2026-10-30) read +0.113 against −0.289, the same
+direction. Notes: `/mnt/project-files/replay-diagnosis/2026-10-30-intraday-weekly-trend.md`.
 Cost: `sessionMetrics` now builds the campaign ledger once a symbol a scan,
 measured at 0.06-0.09 ms a symbol on 290- and 420-session random walks (the
 route reads 400 calendar days, about 276 sessions), so about 6-9 ms on a

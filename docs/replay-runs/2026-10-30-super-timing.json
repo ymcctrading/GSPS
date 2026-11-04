@@ -1,0 +1,261 @@
+{
+ "run": "super-timing",
+ "generated": "2026-10-30",
+ "module": "lib/research/superTiming.ts",
+ "tests": 28,
+ "cutoff": 0.0018,
+ "results": [
+  {
+   "rule": "figure",
+   "set": "calls",
+   "coverage": 0.6182,
+   "hits": 40,
+   "total": 52,
+   "expected": 43.5179,
+   "p": 0.9495
+  },
+  {
+   "rule": "figure",
+   "set": "dowNine",
+   "coverage": 0.5549,
+   "hits": 232,
+   "total": 446,
+   "expected": 251.8433,
+   "p": 0.9868
+  },
+  {
+   "rule": "figure",
+   "set": "dowThree",
+   "coverage": 0.5732,
+   "hits": 761,
+   "total": 1370,
+   "expected": 786.4941,
+   "p": 0.9623
+  },
+  {
+   "rule": "figure",
+   "set": "spyThree",
+   "coverage": 0.5026,
+   "hits": 85,
+   "total": 165,
+   "expected": 80.4946,
+   "p": 0.2457
+  },
+  {
+   "rule": "figure",
+   "set": "spyMajor",
+   "coverage": 0.5026,
+   "hits": 33,
+   "total": 67,
+   "expected": 33.6582,
+   "p": 0.6234
+  },
+  {
+   "rule": "figure",
+   "set": "diaThree",
+   "coverage": 0.5026,
+   "hits": 90,
+   "total": 174,
+   "expected": 85.6239,
+   "p": 0.252
+  },
+  {
+   "rule": "figure",
+   "set": "diaMajor",
+   "coverage": 0.5026,
+   "hits": 34,
+   "total": 67,
+   "expected": 32.7554,
+   "p": 0.4195
+  },
+  {
+   "rule": "figureMoon",
+   "set": "calls",
+   "coverage": 0.0684,
+   "hits": 16,
+   "total": 52,
+   "expected": 18.2831,
+   "p": 0.8279
+  },
+  {
+   "rule": "figureMoon",
+   "set": "dowNine",
+   "coverage": 0.0573,
+   "hits": 23,
+   "total": 446,
+   "expected": 25.1572,
+   "p": 0.7143
+  },
+  {
+   "rule": "figureMoon",
+   "set": "dowThree",
+   "coverage": 0.0586,
+   "hits": 75,
+   "total": 1370,
+   "expected": 80.0484,
+   "p": 0.7369
+  },
+  {
+   "rule": "figureMoon",
+   "set": "spyThree",
+   "coverage": 0.055,
+   "hits": 9,
+   "total": 165,
+   "expected": 8.5619,
+   "p": 0.4881
+  },
+  {
+   "rule": "figureMoon",
+   "set": "spyMajor",
+   "coverage": 0.055,
+   "hits": 3,
+   "total": 67,
+   "expected": 3.6274,
+   "p": 0.7126
+  },
+  {
+   "rule": "figureMoon",
+   "set": "diaThree",
+   "coverage": 0.055,
+   "hits": 8,
+   "total": 174,
+   "expected": 9.2156,
+   "p": 0.7121
+  },
+  {
+   "rule": "figureMoon",
+   "set": "diaMajor",
+   "coverage": 0.055,
+   "hits": 6,
+   "total": 67,
+   "expected": 3.5177,
+   "p": 0.139
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "calls",
+   "coverage": 0.0265,
+   "hits": 3,
+   "total": 52,
+   "expected": 2.3385,
+   "p": 0.4267
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "dowNine",
+   "coverage": 0.0358,
+   "hits": 15,
+   "total": 446,
+   "expected": 14.9386,
+   "p": 0.5391
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "dowThree",
+   "coverage": 0.0347,
+   "hits": 57,
+   "total": 1370,
+   "expected": 47.5393,
+   "p": 0.0484
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "spyThree",
+   "coverage": 0.0383,
+   "hits": 13,
+   "total": 165,
+   "expected": 6.7933,
+   "p": 0.011
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "spyMajor",
+   "coverage": 0.0383,
+   "hits": 4,
+   "total": 67,
+   "expected": 2.6781,
+   "p": 0.2725
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "diaThree",
+   "coverage": 0.0383,
+   "hits": 8,
+   "total": 174,
+   "expected": 7.1308,
+   "p": 0.4143
+  },
+  {
+   "rule": "jupiterIngress",
+   "set": "diaMajor",
+   "coverage": 0.0383,
+   "hits": 3,
+   "total": 67,
+   "expected": 2.6725,
+   "p": 0.5141
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "calls",
+   "coverage": 0.0588,
+   "hits": 1,
+   "total": 52,
+   "expected": 2.9456,
+   "p": 0.9636
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "dowNine",
+   "coverage": 0.0962,
+   "hits": 41,
+   "total": 446,
+   "expected": 44.3397,
+   "p": 0.7408
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "dowThree",
+   "coverage": 0.0884,
+   "hits": 118,
+   "total": 1370,
+   "expected": 122.6162,
+   "p": 0.7385
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "spyThree",
+   "coverage": 0.1344,
+   "hits": 23,
+   "total": 165,
+   "expected": 21.911,
+   "p": 0.4358
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "spyMajor",
+   "coverage": 0.1344,
+   "hits": 10,
+   "total": 67,
+   "expected": 8.7278,
+   "p": 0.3653
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "diaThree",
+   "coverage": 0.1289,
+   "hits": 25,
+   "total": 174,
+   "expected": 22.79,
+   "p": 0.3261
+  },
+  {
+   "rule": "jupiterReturn",
+   "set": "diaMajor",
+   "coverage": 0.1289,
+   "hits": 7,
+   "total": 67,
+   "expected": 8.4922,
+   "p": 0.8065
+  }
+ ]
+}
