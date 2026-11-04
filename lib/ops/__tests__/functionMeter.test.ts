@@ -26,7 +26,8 @@ describe("Vercel function meters", () => {
     expect(inExemptWindow(USAGE_METERS.github_actions, lastDay)).toBe(true);
     const d = holdDecision(cpu, 238, lastDay, null);
     expect(d.hold).toBe(true);
-    expect(d.reason).toContain("billing month resets");
+    expect(d.reason).toContain("UTC month resets");
+    expect(d.reason).toContain("Usage page");
   });
 
   it("an owner override still lets an urgent fix through", () => {

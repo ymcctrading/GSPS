@@ -9,18 +9,27 @@
 --   usage_events      now also takes 'vercel_function' rows: one row per
 --                     scheduled route per UTC day, kept by usage_function_add().
 --                     `units` is the CPU minutes those calls used (the Node
---                     process's own CPU time while each ran: an upper bound,
---                     since calls sharing an instance are counted in each);
+--                     process's CPU time while they ran, shared between
+--                     overlapping calls; an upper bound, since a member's
+--                     request overlapping a scheduled call is counted in);
 --                     detail.invocations and detail.wall_seconds are the
 --                     calls and their wall-clock time. About 20 rows a day.
 --   usage_function_add()     adds one call to its route's row for the day.
+--                     A reconciliation from Vercel's Usage page may carry
+--                     negative units, to correct an overcount; only these
+--                     rows may, and the month's total is floored at 0.
 --   usage_function_totals()  a window's CPU minutes, calls and wall seconds.
+--                     A non-numeric detail value counts as 0, so one bad row
+--                     can't stop the meter.
 --   gsps_ops.call_endpoint() skips a scheduled call while either Vercel
 --                     function meter holds (usage_readings.hold, written by
 --                     the hourly check). The usage check itself always runs,
 --                     so the hold can lift. Holding at 99% is the owner's
 --                     rule (2026-10-28) and the only thing that keeps the
---                     account from being blocked again.
+--                     account from being blocked again. Not held: the two
+--                     vercel.json crons (/api/market-scan once a day and the
+--                     trade-journal email), which Vercel calls itself; they
+--                     are metered.
 --
 -- To lift the hold by hand: insert a usage_overrides row for the meter
 -- (owner's OK only), then call /api/ops/usage?check=1.
@@ -28,6 +37,9 @@
 alter table public.usage_events drop constraint if exists usage_events_meter_check;
 alter table public.usage_events add constraint usage_events_meter_check
   check (meter in ('github_actions', 'vercel_deployments', 'alpaca_rate', 'vercel_function'));
+alter table public.usage_events drop constraint if exists usage_events_units_check;
+alter table public.usage_events add constraint usage_events_units_check
+  check (units >= 0 or meter = 'vercel_function');
 
 create or replace function public.usage_function_add(p_day date, p_path text, p_cpu_minutes numeric, p_wall_seconds numeric)
 returns void
@@ -64,9 +76,9 @@ security definer
 set search_path = public
 as $fn$
   select
-    coalesce(sum(units), 0),
-    coalesce(sum(coalesce((detail->>'invocations')::numeric, 0)), 0),
-    coalesce(sum(coalesce((detail->>'wall_seconds')::numeric, 0)), 0)
+    greatest(coalesce(sum(units), 0), 0),
+    greatest(coalesce(sum(case when detail->>'invocations' ~ '^-?[0-9]+(\.[0-9]+)?$' then (detail->>'invocations')::numeric else 0 end), 0), 0),
+    greatest(coalesce(sum(case when detail->>'wall_seconds' ~ '^-?[0-9]+(\.[0-9]+)?$' then (detail->>'wall_seconds')::numeric else 0 end), 0), 0)
   from public.usage_events
   where meter = 'vercel_function' and occurred_at >= p_since and occurred_at <= p_until;
 $fn$;

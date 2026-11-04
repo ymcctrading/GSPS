@@ -86,10 +86,20 @@ export async function POST(req: NextRequest) {
   const units = Number(body.units);
   const key = typeof body.key === "string" ? body.key.trim().slice(0, 200) : "";
   if (typeof meter !== "string" || !EVENT_METERS.has(meter)) return NextResponse.json({ error: "meter must be github_actions, vercel_deployments or vercel_function" }, { status: 400 });
-  if (!Number.isFinite(units) || units < 0 || units > 100_000) return NextResponse.json({ error: "units must be a number from 0" }, { status: 400 });
+  // A vercel_function reconciliation may lower an overcount: its units may be
+  // negative (the month's total is floored at 0 in usage_function_totals).
+  const minUnits = meter === "vercel_function" ? -100_000 : 0;
+  if (!Number.isFinite(units) || units < minUnits || units > 100_000) return NextResponse.json({ error: "units must be a number from 0" }, { status: 400 });
   if (!key) return NextResponse.json({ error: "key is required" }, { status: 400 });
   const occurredAt = typeof body.occurredAt === "string" && Number.isFinite(Date.parse(body.occurredAt)) ? new Date(body.occurredAt) : undefined;
   const detail = body.detail && typeof body.detail === "object" ? (body.detail as Record<string, unknown>) : undefined;
+  if (meter === "vercel_function") {
+    const inv = detail?.invocations;
+    if (inv !== undefined && !(typeof inv === "number" && Number.isFinite(inv) && Math.abs(inv) <= 10_000_000)) {
+      return NextResponse.json({ error: "detail.invocations must be a number" }, { status: 400 });
+    }
+    if (!key.startsWith("reconcile-vercel-")) return NextResponse.json({ error: "a vercel_function key is reconcile-vercel-<date>" }, { status: 400 });
+  }
 
   const service = createServiceClient();
   // A public repository's Actions minutes are free: kept as a record with no

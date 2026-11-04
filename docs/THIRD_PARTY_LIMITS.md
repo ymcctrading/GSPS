@@ -51,7 +51,12 @@ response, its CPU time and wall time into one `usage_events` row per route per
 UTC day (migration 0142). Members' page views are not measured, so the reading
 is the scheduled share; when a session reads the real figures on Vercel's
 Usage page, it posts the difference as a reconciliation
-(`{"meter":"vercel_function","units":<CPU minutes>,"key":"reconcile-<date>","detail":{"invocations":<calls>}}`).
+(`{"meter":"vercel_function","units":<CPU minutes>,"key":"reconcile-vercel-<date>","detail":{"invocations":<calls>}}`;
+the units and calls may be negative, to lower an overcount, and the month's
+total is floored at 0). The meter's month is the UTC calendar month; Vercel's
+own cycle may start on another day (its Usage page shows it), so near a reset
+read that page before trusting the meter. The two `vercel.json` crons are
+metered but not held, since Vercel calls them itself.
 At 99% of either meter `gsps_ops.call_endpoint` stops calling every scheduled
 route except the usage check (so the hold can lift); an owner-approved
 `usage_overrides` row lets an urgent fix through. Neither meter takes the

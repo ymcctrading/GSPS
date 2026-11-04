@@ -273,7 +273,7 @@ export function resetText(meter: UsageMeter, now: Date): string {
   const period = periodOf(meter, now);
   switch (meter.period) {
     case "month":
-      if (meter.noExemption) return "the provider's billing month resets (its Usage page shows the date), or the owner approves an urgent fix";
+      if (meter.noExemption) return `the meter's UTC month resets at ${formatEt(period.end!)} (Vercel's own cycle may differ: check its Usage page), or the owner approves an urgent fix`;
       return `the month's last ${EXEMPT_LAST_DAYS} days begin at ${formatEt(new Date(period.end!.getTime() - EXEMPT_LAST_DAYS * DAY_MS))} (the count resets ${formatEt(period.end!)})`;
     case "day":
       return `the count resets at ${formatEt(period.end!)}`;
