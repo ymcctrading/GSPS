@@ -33,6 +33,9 @@ import {
   alertsDue,
   holdDecision,
   meterBilled,
+  hostPlatform,
+  meterOnHost,
+  offHostReason,
   percentUsed,
   periodOf,
   projectedAtPeriodEnd,
@@ -177,6 +180,53 @@ function functionTotals(service: Service, meter: UsageMeter, now: Date): Promise
   return totals;
 }
 
+const METADATA = "http://metadata.google.internal/computeMetadata/v1";
+
+/**
+ * The service's billable instance-seconds this period, from Cloud Monitoring
+ * (`run.googleapis.com/container/billable_instance_time`), read with the
+ * container's own service account through the metadata server. Throws when
+ * any read fails, so the meter reads "Unread" and holds nothing.
+ */
+async function cloudRunBillableSeconds(meter: UsageMeter, now: Date): Promise<number> {
+  const headers = { "Metadata-Flavor": "Google" };
+  const projectRes = await fetch(`${METADATA}/project/project-id`, { headers, signal: AbortSignal.timeout(3000) });
+  if (!projectRes.ok) throw new Error(`metadata project ${projectRes.status}`);
+  const project = (await projectRes.text()).trim();
+  const tokenRes = await fetch(`${METADATA}/instance/service-accounts/default/token`, { headers, signal: AbortSignal.timeout(3000) });
+  if (!tokenRes.ok) throw new Error(`metadata token ${tokenRes.status}`);
+  const token = ((await tokenRes.json()) as { access_token?: string }).access_token;
+  if (!token) throw new Error("metadata token empty");
+  return sumBillableSeconds(project, token, periodOf(meter, now).start, now);
+}
+
+async function sumBillableSeconds(project: string, token: string, start: Date, now: Date): Promise<number> {
+  const url = new URL(`https://monitoring.googleapis.com/v3/projects/${encodeURIComponent(project)}/timeSeries`);
+  url.searchParams.set("filter", 'metric.type="run.googleapis.com/container/billable_instance_time" AND resource.type="cloud_run_revision"');
+  url.searchParams.set("interval.startTime", start.toISOString());
+  url.searchParams.set("interval.endTime", now.toISOString());
+  // One bucket for the whole period, summed across revisions and instances.
+  url.searchParams.set("aggregation.alignmentPeriod", `${Math.max(60, Math.ceil((now.getTime() - start.getTime()) / 1000))}s`);
+  url.searchParams.set("aggregation.perSeriesAligner", "ALIGN_SUM");
+  url.searchParams.set("aggregation.crossSeriesReducer", "REDUCE_SUM");
+  let total = 0;
+  let pageToken = "";
+  do {
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`monitoring ${res.status}`);
+    const body = (await res.json()) as { timeSeries?: { points?: { value?: { doubleValue?: number; int64Value?: string } }[] }[]; nextPageToken?: string };
+    for (const series of body.timeSeries ?? []) {
+      for (const point of series.points ?? []) {
+        const v = Number(point.value?.doubleValue ?? point.value?.int64Value ?? 0);
+        if (Number.isFinite(v) && v > 0) total += v;
+      }
+    }
+    pageToken = body.nextPageToken ?? "";
+  } while (pageToken);
+  return total;
+}
+
 async function databaseMb(service: Service): Promise<number> {
   const { data, error } = await service.rpc("usage_database_bytes");
   if (error) throw new Error(error.message);
@@ -206,6 +256,8 @@ export async function readUsed(service: Service, meter: UsageMeter, now: Date): 
       return (await functionTotals(service, meter, now)).cpuMinutes;
     case "vercel_invocations":
       return (await functionTotals(service, meter, now)).invocations;
+    case "cloud_run_seconds":
+      return cloudRunBillableSeconds(meter, now);
   }
 }
 
@@ -224,6 +276,11 @@ async function activeOverride(service: Service, meter: UsageMeterId, now: Date):
 /** One meter's reading and whether it holds. A reading that fails holds nothing. */
 export async function meterStatus(service: Service, id: UsageMeterId, now: Date): Promise<MeterStatus> {
   const meter = USAGE_METERS[id];
+  // A function meter for the other host is not read at all (Cloud Run's
+  // reading needs its metadata server); it reports what the site uses now.
+  if (!meterOnHost(id, hostPlatform())) {
+    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: offHostReason(id) }, error: null, billed: false, projected: null };
+  }
   try {
     const used = await readUsed(service, meter, now);
     const billed = id === "github_actions" ? meterBilled(id, await repositoryVisibility(now)) : true;

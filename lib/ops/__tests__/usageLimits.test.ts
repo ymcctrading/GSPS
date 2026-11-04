@@ -6,6 +6,8 @@ import {
   crossedThresholds,
   formatEt,
   holdDecision,
+  hostPlatform,
+  meterOnHost,
   inExemptWindow,
   meterBilled,
   periodOf,
@@ -149,5 +151,26 @@ describe("repository visibility", () => {
     expect(meterBilled("github_actions", "private")).toBe(true);
     expect(meterBilled("github_actions", "unknown")).toBe(true);
     expect(meterBilled("vercel_deployments", "public")).toBe(true);
+  });
+});
+
+describe("hosting platform", () => {
+  it("reads Cloud Run from K_SERVICE, Vercel otherwise", () => {
+    expect(hostPlatform({ K_SERVICE: "gsps" })).toBe("cloud_run");
+    expect(hostPlatform({})).toBe("vercel");
+  });
+  it("applies each host's function limits only on that host", () => {
+    expect(meterOnHost("vercel_cpu", "vercel")).toBe(true);
+    expect(meterOnHost("vercel_cpu", "cloud_run")).toBe(false);
+    expect(meterOnHost("vercel_invocations", "cloud_run")).toBe(false);
+    expect(meterOnHost("cloud_run_seconds", "cloud_run")).toBe(true);
+    expect(meterOnHost("cloud_run_seconds", "vercel")).toBe(false);
+    expect(meterOnHost("email_daily", "cloud_run")).toBe(true);
+  });
+  it("holds Cloud Run at 99% of the free tier's 180,000 vCPU-seconds", () => {
+    const m = USAGE_METERS.cloud_run_seconds;
+    const now = new Date("2026-11-10T12:00:00Z");
+    expect(holdDecision(m, 178_200, now, null).hold).toBe(true);
+    expect(holdDecision(m, 170_000, now, null).hold).toBe(false);
   });
 });
