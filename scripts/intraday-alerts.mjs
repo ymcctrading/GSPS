@@ -32,6 +32,8 @@
 
 import { createServer } from "vite";
 import path from "node:path";
+import fs from "node:fs";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -102,6 +104,18 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     const { loadInstrumentReferenceHistory, splitAdjustedSharesAsOf } = await server.ssrLoadModule("/lib/data/instrumentReference.ts");
     const { STRATEGY_VERSION } = await server.ssrLoadModule("/lib/backtest/strategyVersion.ts");
     const provider = getMarketDataProvider();
+    // Local-only (stop test): a disk cache of each read, so a restarted run resumes.
+    const cacheDir = process.env.INTRADAY_CACHE_DIR;
+    if (cacheDir) fs.mkdirSync(cacheDir, { recursive: true });
+    let cacheHit = false;
+    const cached = async (key, read) => {
+      if (!cacheDir) return read();
+      const file = path.join(cacheDir, `${key.replace(/[^A-Za-z0-9._-]/g, "_")}.json.gz`);
+      if (fs.existsSync(file)) { cacheHit = true; return JSON.parse(zlib.gunzipSync(fs.readFileSync(file)).toString()); }
+      const value = await read();
+      fs.writeFileSync(file, zlib.gzipSync(JSON.stringify(value)));
+      return value;
+    };
     if (!provider.isLive) throw new Error(`Market data provider "${provider.name}" is not live; refusing to replay synthetic bars.`);
 
     const fixed = new Set(WATCHLIST.filter((w) => w.kind === "equity").map((w) => w.symbol));
@@ -122,13 +136,13 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     const referenceNote = references.size === 0 ? "No instrument reference was read, so the D2 distribution-week exit (shares outstanding) was not walked." : null;
 
     // Pass 1: each symbol's daily plan per session and its evening focus reading.
-    const market = await withRateLimitRetry(() => withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY")).catch((err) => {
+    const market = await cached("s15-SPY-market", () => withRateLimitRetry(() => withTimeout(run.fetchSeries("SPY", "15Min", true), "SPY"))).catch((err) => {
       // Without SPY the daily plans read no market trend, which the live scan does read.
       skipped.push({ symbol: "SPY", reason: `market bars not read: ${err instanceof Error ? err.message : String(err)}` });
       return undefined;
     });
     // Without the universe read P3(c) stays unread, as it does live when that read fails.
-    const universeStrength = await withRateLimitRetry(() => withTimeout(run.fetchReplayUniverseStrength(), "universe strength")).catch((err) => {
+    const universeStrength = await cached("universe-strength", () => withRateLimitRetry(() => withTimeout(run.fetchReplayUniverseStrength(), "universe strength"))).catch((err) => {
       skipped.push({ symbol: "(universe strength)", reason: err instanceof Error ? err.message : String(err) });
       return null;
     });
@@ -136,7 +150,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
     for (const symbol of universe) {
       const began = Date.now();
       try {
-        const series = await withRateLimitRetry(() => withTimeout(run.fetchSeries(symbol, "15Min", true), symbol));
+        const series = await cached(`s15-${symbol}`, () => withRateLimitRetry(() => withTimeout(run.fetchSeries(symbol, "15Min", true), symbol)));
         const reference = references.get(symbol);
         const instrument = reference ? { sharesHistory: reference.history, inception: reference.reference.inception } : undefined;
         const plans = new Map();
@@ -161,7 +175,8 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
       } catch (err) {
         skipped.push({ symbol, reason: `pass 1: ${err instanceof Error ? err.message : String(err)}` });
       }
-      await pause(began, 4);
+      if (!cacheHit) await pause(began, 4);
+      cacheHit = false;
       if (perSymbol.size % 50 === 0) console.log(`[pass 1] ${perSymbol.size}/${universe.length} symbols, ${skipped.length} skipped`);
     }
 
@@ -196,7 +211,7 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
       const began = Date.now();
       let pages = 1;
       try {
-        const bars = await withRateLimitRetry(() => withTimeout(provider.fetchBars(symbol, "5Min", baselineFrom, null, "us_equity", 20000), `${symbol} 5Min`));
+        const bars = await cached(`b5-${symbol}`, () => withRateLimitRetry(() => withTimeout(provider.fetchBars(symbol, "5Min", baselineFrom, null, "us_equity", 20000), `${symbol} 5Min`)));
         pages = Math.max(1, Math.ceil(bars.length / BARS_PER_PAGE));
         const listed = new Set([...walked].filter((d) => fixed.has(symbol) || focusFor.get(d)?.has(symbol)));
         const common = { symbol, kind: "equity", bars, dailyBars: s.daily, monthlyBars: s.monthly, sharesOn: s.sharesOn, plans: s.plans };
@@ -229,7 +244,8 @@ export async function runIntradayAlerts({ days = 60, limit = null, requestsPerMi
       } catch (err) {
         skipped.push({ symbol, reason: `pass 2: ${err instanceof Error ? err.message : String(err)}` });
       }
-      await pause(began, pages);
+      if (!cacheHit) await pause(began, pages);
+      cacheHit = false;
       done += 1;
       if (done % 50 === 0) console.log(`[pass 2] ${done}/${perSymbol.size} symbols, ${planHeld.length} plan_level_held trades`);
     }
