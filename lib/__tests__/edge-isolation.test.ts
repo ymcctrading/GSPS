@@ -44,6 +44,15 @@ describe("edge-isolation runner", () => {
     expect(re.curve[1].equity).toBeCloseTo(cash.curve[1].equity, 9);
   });
 
+  it("credits no dividend on the purchase session and refuses a null price", () => {
+    const doc = yahoo([["2024-01-02", 100, 100], ["2024-01-03", 100, 100]], [["2024-01-02", 2]]);
+    const r = spyBuyAndHold(doc, ["2024-01-02", "2024-01-03"], { startEquity: 10_000, costPerShare: 0 });
+    expect(r.dividends).toBe(0);
+    const bad = yahoo([["2024-01-02", 100, 100]]);
+    (bad.chart.result[0].indicators.quote[0].open as unknown as Array<number | null>)[0] = null;
+    expect(() => spyBuyAndHold(bad, ["2024-01-02"], { startEquity: 1_000 })).toThrow();
+  });
+
   it("refuses a strategy session the SPY file lacks, never filling it in", () => {
     const doc = yahoo([["2024-01-02", 100, 100]]);
     expect(() => spyBuyAndHold(doc, ["2024-01-02", "2024-01-03"], { startEquity: 1_000 })).toThrow(/extend the file/);

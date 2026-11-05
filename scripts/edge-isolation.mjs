@@ -83,8 +83,12 @@ export function spyBuyAndHold(doc, dates, { startEquity, costPerShare = 0.02, re
   r.timestamp.forEach((ts, k) => byDay.set(fmt.format(new Date(ts * 1000)), { o: q.open[k], c: q.close[k] }));
   const divs = new Map();
   for (const d of Object.values(r.events?.dividends ?? {})) divs.set(fmt.format(new Date(d.date * 1000)), (divs.get(fmt.format(new Date(d.date * 1000))) ?? 0) + d.amount);
-  const missing = dates.filter((d) => !byDay.has(d));
-  if (missing.length) throw new Error(`SPY has no bar on ${missing.length} strategy session(s), e.g. ${missing[0]}; extend the file`);
+  const missing = dates.filter((d) => !byDay.has(d) || !(byDay.get(d).o > 0) || !(byDay.get(d).c > 0));
+  if (missing.length) throw new Error(`SPY has no usable bar on ${missing.length} strategy session(s), e.g. ${missing[0]}; extend the file`);
+  const dateSet = new Set(dates);
+  // Ex-dates inside the window that are not strategy sessions would be dropped silently; refuse instead.
+  const offGrid = [...divs.keys()].filter((d) => d > dates[0] && d <= dates[dates.length - 1] && !dateSet.has(d));
+  if (offGrid.length) throw new Error(`SPY dividend ex-date ${offGrid[0]} is not a strategy session`);
   const first = byDay.get(dates[0]);
   let shares = Math.floor(startEquity / (first.o + costPerShare / 2));
   let cash = startEquity - shares * (first.o + costPerShare / 2);
@@ -92,7 +96,8 @@ export function spyBuyAndHold(doc, dates, { startEquity, costPerShare = 0.02, re
   const curve = [];
   for (const d of dates) {
     const bar = byDay.get(d);
-    const div = divs.get(d) ?? 0;
+    // Shares bought at the first session's open are not entitled to that day's dividend.
+    const div = d === dates[0] ? 0 : divs.get(d) ?? 0;
     if (div > 0) {
       cash += shares * div;
       dividends += shares * div;
@@ -150,7 +155,7 @@ async function main() {
       md.push("## E3: funded ledger at the original settings", "", "| Simulator | CAGR | Sharpe | Max drawdown | Peak→trough sessions | Longest underwater | Taken |", "|---|---:|---:|---:|---:|---:|---:|");
       md.push(row("Original `portfolio.ts` (first lots marked, adds at exit)", { ...orig, sharpe: funded.annualisedSharpe(orig.dailyReturns) }));
       md.push(row(`Funded ledger (${funded.FUNDED_PORTFOLIO_VERSION})`, e3), "");
-      md.push(`Adds filled ${e3.addsFilled}, trimmed ${e3.addsTrimmed}, skipped ${e3.addsSkipped}. Gross exposure average ${f(e3.averageGross, 2)}× equity, peak ${f(e3.maxGross, 2)}×. Skips: ${JSON.stringify(e3.skipped)}. Stale marks ${e3.staleMarks}. Reconciliation error $${f(e3.reconciliationError, 6)}.`, "");
+      md.push(`Adds filled ${e3.addsFilled}, trimmed ${e3.addsTrimmed}, skipped ${e3.addsSkipped}. Gross exposure average ${f(e3.averageGross, 2)}× equity, peak ${f(e3.maxGross, 2)}×. Skips: ${JSON.stringify(e3.skipped)}. Stale marks ${e3.staleMarks}. Sessions with negative cash ${e3.negativeCashSessions}. Reconciliation error $${f(e3.reconciliationError, 6)}.`, "");
       const seeds = Array.from({ length: 20 }, (_, k) => k + 1).map((seed) => funded.simulateFundedPortfolio(longs, { ...E3, closes, order: { seed } }));
       const cs = seeds.map((r) => r.cagr).sort((a, b) => a - b);
       const csMed = cs[Math.floor(cs.length / 2)];
@@ -167,8 +172,8 @@ async function main() {
     if (args.only.includes("e2")) {
       const r = runFixedHorizonControl(longs, daily, { draws: args.draws });
       out.results.e2 = r;
-      md.push(`## E2: fixed-horizon first-lot comparison (${r.version})`, "", "| Horizon | Used | Censored | Actual mean R | Control p5 / p50 / p95 | Draws ≥ actual | Paired diff (95% month-block CI) |", "|---:|---:|---:|---:|---|---:|---|");
-      for (const h of r.horizons) md.push(`| ${h.horizon} | ${h.used} | ${h.censored} | ${f(h.actualMeanR)} | ${f(h.controlMeanR.p05)} / ${f(h.controlMeanR.p50)} / ${f(h.controlMeanR.p95)} | ${pct(h.shareAtOrAboveActual)} | ${f(h.pairedDiff.mean)} [${f(h.pairedDiff.lo)}, ${f(h.pairedDiff.hi)}] |`);
+      md.push(`## E2: fixed-horizon first-lot comparison (${r.version})`, "", "| Horizon | Used | Censored | Narrowed | Actual mean R | Control p5 / p50 / p95 | Draws ≥ actual | Paired diff (95% month-block CI) |", "|---:|---:|---:|---:|---:|---|---:|---|");
+      for (const h of r.horizons) md.push(`| ${h.horizon} | ${h.used} | ${h.censored} | ${h.narrowed} | ${f(h.actualMeanR)} | ${f(h.controlMeanR.p05)} / ${f(h.controlMeanR.p50)} / ${f(h.controlMeanR.p95)} | ${pct(h.shareAtOrAboveActual)} | ${f(h.pairedDiff.mean)} [${f(h.pairedDiff.lo)}, ${f(h.pairedDiff.hi)}] |`);
       md.push("");
     }
     if (args.only.includes("e6")) {
@@ -189,7 +194,7 @@ async function main() {
           }
           const end = c[c.length - 1].equity;
           const yrs = (Date.parse(c[c.length - 1].date) - Date.parse(c[0].date)) / (365.25 * 86_400_000);
-          return { endEquity: end, totalReturn: end / e3.startEquity - 1, cagr: Math.pow(end / e3.startEquity, 1 / yrs) - 1, sharpe: funded.annualisedSharpe(rets), drawdown: funded.drawdownStats(c, e3.startEquity) };
+          return { endEquity: end, totalReturn: end / e3.startEquity - 1, cagr: yrs > 0 ? Math.pow(end / e3.startEquity, 1 / yrs) - 1 : NaN, sharpe: funded.annualisedSharpe(rets), drawdown: funded.drawdownStats(c, e3.startEquity) };
         };
         const bench = equalWeightBenchmark(daily).filter((d) => d.date >= dates[0] && d.date <= dates[dates.length - 1]);
         out.results.e6 = { totalReturnReinvested: { ...stats(tr.curve), dividends: tr.dividends }, cashDividends: stats(po.curve), dates: { first: dates[0], last: dates[dates.length - 1], sessions: dates.length } };

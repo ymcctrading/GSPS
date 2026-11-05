@@ -64,6 +64,13 @@ describe("fixed-horizon first-lot comparison", () => {
     expect(() => runFixedHorizonControl(cs, new Map(), { draws: 0 })).toThrow();
   });
 
+  it("counts campaigns whose window narrowed at the series' edge", () => {
+    const bars = walk(9, 300, 40, 0.001);
+    const cs = [5, 150].map((i) => ({ symbol: "X", openedAt: bars[i].t, entry: bars[i].o, stop: bars[i].o * 0.9, side: "long" as const }));
+    const r = runFixedHorizonControl(cs, new Map([["X", bars]]), { horizons: [10], draws: 5, resamples: 50 });
+    expect(r.horizons[0]).toMatchObject({ used: 2, narrowed: 1 });
+  });
+
   it("bootstraps by month blocks", () => {
     const r = monthBlockBootstrap([{ month: "2024-01", values: [1, 1] }, { month: "2024-02", values: [-1] }, { month: "2024-03", values: [2] }], { resamples: 200 });
     expect(r.mean).toBeCloseTo(0.75, 12);

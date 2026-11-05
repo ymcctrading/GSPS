@@ -130,6 +130,37 @@ describe("funded lot-level ledger", () => {
     expect(winners.size).toBeGreaterThan(1);
   });
 
+  it("measures an underwater stretch that starts at the starting equity", () => {
+    const never = drawdownStats([99, 98, 97].map((e, k) => ({ date: `d${k}`, equity: e })), 100);
+    expect(never).toMatchObject({ recovered: false, longestUnderwaterSessions: 3, peakDate: "start", peakToTroughSessions: 3 });
+    const later = drawdownStats([99, 98, 97, 96, 101].map((e, k) => ({ date: `d${k}`, equity: e })), 100);
+    expect(later).toMatchObject({ recovered: true, longestUnderwaterSessions: 5 });
+  });
+
+  it("trims an add to the cash on hand when cash, not the gross cap, binds", () => {
+    const a: FundedTrade = { symbol: "A", openedAt: day(D[0]), closedAt: null, entry: 100, stop: 99, side: "long" };
+    const b: FundedTrade = {
+      symbol: "B", openedAt: day(D[0]), closedAt: null, entry: 100, stop: 97, side: "long",
+      lotFills: [{ fraction: 1, fill: 100, at: day(D[0]) }, { fraction: 1, fill: 100, at: day(D[1]) }],
+    };
+    // A takes $7,000 (70 shares), B $2,300 (23 shares); B's add wants 23 more but the $700 left buys 7. The gross cap (3×) never binds.
+    const r = simulateFundedPortfolio([a, b], { ...base, riskFraction: 0.007, maxGrossExposure: 3, closes: closes({ A: [100, 100, 100, 100, 100, 100], B: [100, 100, 100, 100, 100, 100] }) });
+    expect(r.campaigns[0].firstShares).toBe(70);
+    expect(r.campaigns[1].firstShares).toBe(23);
+    expect(r.curve[1].longValue).toBeCloseTo((70 + 23 + 7) * 100, 9);
+    expect(r.addsTrimmed).toBe(1);
+    for (const pt of r.curve) expect(pt.cash).toBeGreaterThanOrEqual(-1e-9);
+    expect(r.negativeCashSessions).toBe(0);
+  });
+
+  it("counts a short cover that overdraws cash instead of hiding it", () => {
+    const l: FundedTrade = { symbol: "L", openedAt: day(D[0]), closedAt: null, entry: 100, stop: 99, side: "long" };
+    const s: FundedTrade = { symbol: "S", openedAt: day(D[0]), closedAt: day(D[2]), entry: 10, stop: 11, side: "short", exitPrice: 30 };
+    const r = simulateFundedPortfolio([l, s], { ...base, riskFraction: 0.009, maxGrossExposure: 2, closes: closes({ L: [100, 100, 100, 100, 100, 100], S: [10, 20, 30, 30, 30, 30] }) });
+    expect(r.negativeCashSessions).toBeGreaterThan(0);
+    expect(r.reconciliationError).toBeLessThan(1e-6);
+  });
+
   it("names the drawdown's peak-to-trough span apart from the longest underwater stretch", () => {
     const eq = [100, 120, 90, 100, 119, 121, 110].map((e, k) => ({ date: `d${k}`, equity: e }));
     const s = drawdownStats(eq, 100);

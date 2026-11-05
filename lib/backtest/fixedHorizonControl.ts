@@ -20,6 +20,8 @@
  *   engineering choices (about two weeks, a month, a quarter), labelled.
  * - **Same filters.** A campaign is used only when both arms can run the full
  *   horizon inside the data (censored campaigns are counted, not truncated).
+ *   Near a series edge the window narrows, down to the actual session; those
+ *   campaigns are counted (`narrowed`).
  *   Membership is approximated, as in slice 1: the control session lies within
  *   ±21 sessions of a date the symbol was a member; it is not checked itself.
  * - **The entry session's own bar.** For both arms the stop is checked on the
@@ -107,6 +109,8 @@ export interface HorizonResult {
   used: number;
   censored: number;
   missing: number;
+  /** Used campaigns whose window was narrowed at a series edge (a window of 0 draws the actual session itself). */
+  narrowed: number;
   actualMeanR: number;
   controlMeanR: { p05: number; p50: number; p95: number };
   /** Share of draws whose mean R is at or above the actual arm's, with the add-one rank. */
@@ -167,6 +171,7 @@ export function runFixedHorizonControl(
     let used = 0;
     let censored = 0;
     let missing = 0;
+    let narrowed = 0;
     let actualSum = 0;
     const diffsByMonth = new Map<string, number[]>();
     for (const c of campaigns) {
@@ -181,7 +186,7 @@ export function runFixedHorizonControl(
       const actual = fixedHorizonTrade(bars, i, dir, c.entry, c.stop, horizon, costPerShare);
       // A symmetric window, narrowed so every control session can also run the full horizon.
       const w = Math.min(windowSessions, i, bars.length - 1 - horizon - i);
-      if (!actual || w < 0) {
+      if (!actual || !Number.isFinite(actual.rMultiple) || w < 0) {
         censored++;
         continue;
       }
@@ -197,6 +202,7 @@ export function runFixedHorizonControl(
         continue;
       }
       used++;
+      if (w < windowSessions) narrowed++;
       actualSum += actual.rMultiple;
       rs.forEach((r, d) => (drawSums[d] += r));
       const month = dayOf(c.openedAt).slice(0, 7);
@@ -212,6 +218,7 @@ export function runFixedHorizonControl(
       used,
       censored,
       missing,
+      narrowed,
       actualMeanR: actualMean,
       controlMeanR: { p05: q(0.05), p50: q(0.5), p95: q(0.95) },
       shareAtOrAboveActual: used ? (means.filter((m) => m >= actualMean).length + 1) / (means.length + 1) : NaN,

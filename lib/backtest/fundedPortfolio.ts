@@ -147,6 +147,8 @@ export interface FundedResult {
   maxGross: number;
   averageGross: number;
   exposure: number;
+  /** Sessions that ended with cash below zero (only a short cover can cause it). */
+  negativeCashSessions: number;
   /** Largest |equity − (start + realised P&L + open lots' unrealised P&L − open lots' entry costs)| over the curve: an independent check of the cash ledger. */
   reconciliationError: number;
   assumptions: string[];
@@ -181,22 +183,23 @@ export function drawdownStats(curve: ReadonlyArray<{ date: string; equity: numbe
   let peakIdx = -1;
   let best = { maxDrawdown: 0, peakIdx: -1, troughIdx: -1 };
   let longest = 0;
-  let underwaterFrom = -1;
+  // Index of the peak an underwater stretch started from (-1 is the starting equity); null while at a peak.
+  let underwaterFrom: number | null = null;
   for (let i = 0; i < curve.length; i++) {
     const e = curve[i].equity;
     if (e >= peak) {
-      if (underwaterFrom >= 0) longest = Math.max(longest, i - underwaterFrom);
-      underwaterFrom = -1;
+      if (underwaterFrom !== null) longest = Math.max(longest, i - underwaterFrom);
+      underwaterFrom = null;
       peak = e;
       peakIdx = i;
     } else {
-      if (underwaterFrom < 0) underwaterFrom = peakIdx;
+      if (underwaterFrom === null) underwaterFrom = peakIdx;
       const dd = 1 - e / peak;
       if (dd > best.maxDrawdown) best = { maxDrawdown: dd, peakIdx, troughIdx: i };
     }
   }
-  const recovered = underwaterFrom < 0;
-  if (!recovered) longest = Math.max(longest, curve.length - 1 - underwaterFrom);
+  const recovered = underwaterFrom === null;
+  if (underwaterFrom !== null) longest = Math.max(longest, curve.length - 1 - underwaterFrom);
   return {
     maxDrawdown: best.maxDrawdown,
     peakDate: best.troughIdx < 0 ? null : best.peakIdx < 0 ? "start" : curve[best.peakIdx].date,
@@ -270,6 +273,8 @@ export function simulateFundedPortfolio(trades: readonly FundedTrade[], options:
     `Same-session entries in ${o.order === "ledger" || o.order === undefined ? "ledger order" : `a seeded shuffle (seed ${(o.order as { seed: number }).seed})`}. One campaign a symbol at a time.`,
     `Cost $${o.costPerShare.toFixed(3)} a share round trip, half on each side, on every executed share.`,
     "Open campaigns at the data's end are marked at the last close, not liquidated.",
+    "A campaign that opens on the session its symbol's previous campaign closes is skipped (entries come before exits), counted as \"already open\".",
+    "A short is covered at the replay's exit whatever the cash; a cover that overdraws cash is counted in negativeCashSessions (no borrowing is modelled).",
   ];
 
   const sessions = [...grid].filter((d) => d >= (valid.length ? valid.reduce((m, t) => (dayOf(t.openedAt) < m ? dayOf(t.openedAt) : m), "9999") : "9999")).sort();
@@ -292,6 +297,7 @@ export function simulateFundedPortfolio(trades: readonly FundedTrade[], options:
   let addsSkipped = 0;
   let reconciliationError = 0;
   let realised = 0;
+  let negativeCashSessions = 0;
   let taken = 0;
 
   const positionValue = () => {
@@ -432,6 +438,7 @@ export function simulateFundedPortfolio(trades: readonly FundedTrade[], options:
     const unrealised = open.reduce((s, p) => s + p.lots.reduce((u, l) => u + p.dir * (p.mark - l.fill) * l.shares - l.shares * half, 0), 0);
     reconciliationError = Math.max(reconciliationError, Math.abs(equity - (o.startEquity + realised + unrealised)));
     curve.push({ date: session, equity, cash, longValue: longV, shortLiability: shortL, gross: longV + shortL, openCampaigns: open.length, openRisk: open.reduce((s, p) => s + p.riskDollars, 0) });
+    if (cash < -1e-9) negativeCashSessions++;
     priorEquity = equity;
   }
 
@@ -472,6 +479,7 @@ export function simulateFundedPortfolio(trades: readonly FundedTrade[], options:
     averageGross: grossRatios.length ? grossRatios.reduce((s, x) => s + x, 0) / grossRatios.length : 0,
     exposure: curve.length ? curve.filter((pt) => pt.openCampaigns > 0).length / curve.length : 0,
     reconciliationError,
+    negativeCashSessions,
     assumptions,
   };
 }
