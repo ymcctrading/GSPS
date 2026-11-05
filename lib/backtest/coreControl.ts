@@ -73,6 +73,8 @@ export interface CoreControlDraw {
   /** A fixed hold of the real length on exactly the pyramid-off run's entries, one lot. */
   fixedHoldMeanR: number;
   fixedHoldN: number;
+  /** The pyramid-on run's trades, only with `keepTrades` (for the funded-portfolio comparison). */
+  trades?: CoreTrade[];
 }
 
 function quantile(sorted: number[], p: number): number {
@@ -96,7 +98,7 @@ function indexOn(daily: readonly Bar[], iso: string): number {
 export function coreControlDraw(
   seriesBySymbol: ReadonlyMap<string, CoreSeries>,
   campaignsBySymbol: ReadonlyMap<string, readonly RealCampaign[]>,
-  { seed, windowSessions = 21, costPerShare = 0.02, shorts = false, trail = "weeklySwing" }: { seed: number; windowSessions?: number; costPerShare?: number; shorts?: boolean; trail?: "weeklySwing" | "eachWeek" },
+  { seed, windowSessions = 21, costPerShare = 0.02, shorts = false, trail = "weeklySwing", keepTrades = false }: { seed: number; windowSessions?: number; costPerShare?: number; shorts?: boolean; trail?: "weeklySwing" | "eachWeek"; keepTrades?: boolean },
 ): CoreControlDraw {
   const rand = seededRandom(seed);
   let sum = 0;
@@ -108,6 +110,7 @@ export function coreControlDraw(
   let npN = 0;
   let collisions = 0;
   let narrowed = 0;
+  const kept: CoreTrade[] = [];
   // Symbols in a fixed order so a seed always draws the same sessions.
   for (const symbol of [...campaignsBySymbol.keys()].sort()) {
     const series = seriesBySymbol.get(symbol);
@@ -143,6 +146,7 @@ export function coreControlDraw(
     }
     if (entries.size === 0) continue;
     const res = replayCore(symbol, series.bars, { dailyBars: daily, monthlyBars: series.monthly, shorts, costPerShare, trail, entryOverride: entries });
+    if (keepTrades) kept.push(...(res.trades as CoreTrade[]));
     for (const t of res.trades as CoreTrade[]) {
       if (!Number.isFinite(t.rMultiple)) continue;
       sum += t.rMultiple;
@@ -176,6 +180,7 @@ export function coreControlDraw(
     noPyramidMeanR: npN ? npSum / npN : NaN,
     fixedHoldMeanR: fixedN ? fixedSum / fixedN : NaN,
     fixedHoldN: fixedN,
+    ...(keepTrades ? { trades: kept } : {}),
   };
 }
 
