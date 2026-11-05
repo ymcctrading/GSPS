@@ -675,3 +675,39 @@ measured at 0.06-0.09 ms a symbol on 290- and 420-session random walks (the
 route reads 400 calendar days, about 276 sessions), so about 6-9 ms on a
 100-slot scheduled scan and under 5 ms on a member's refresh.
 Intraday alerts replay trades move, daily verdicts don't: `STRATEGY_VERSION` is `2026-10-30-intraday-weekly-trend`.
+
+**The 50% point's stop rests 3 points past it, 2026-11-05.** An intraday alert
+whose stop was the day's 50% point itself (trend continuation, the hourly
+turn, the space over-balance warning, and the overnight turn when its swing
+gives no stop) now rests it Gann's 3 points past that point
+(`MIDPOINT_STOP_POINTS` = 3 intraday points, `stopPastMidpoint`,
+`lib/scanner/intraday.ts`): he sets stops 3 points beyond a level (W006
+pp.20-24, 46-47), and a level that holds still sees about 1-7/8 points of lost
+motion past it (Master Course Ch. 9, PDF p.268). Measured on the intraday
+alerts replay (local run 2026-11-05, 832 symbols, 40 sessions 2026-09-10 to
+11-04, the weekly trend rule, listed alerts, trend_continuation, N = intraday
+points past the 50% point):
+
+| List | N | trades | initial stops | mean R [95% CI] | first half | second half |
+|---|---|---|---|---|---|---|
+| Focus | 0 | 111 | 33% | −0.027 [−0.295, +0.289] | −0.121 | +0.088 |
+| Focus | 1 | 134 | 26% | −0.092 [−0.275, +0.097] | −0.114 | −0.064 |
+| Focus | 3 | 135 | 10% | −0.014 [−0.141, +0.120] | +0.059 | −0.103 |
+| Fixed | 0 | 128 | 46% | +0.005 [−0.237, +0.278] | −0.026 | +0.041 |
+| Fixed | 1 | 139 | 39% | +0.016 [−0.200, +0.233] | +0.004 | +0.031 |
+| Fixed | 3 | 135 | 22% | +0.144 [−0.043, +0.350] | +0.217 | +0.056 |
+
+3 points is better than the 50% point itself on both lists overall and cuts
+the first-stop rate by a half to two thirds; 1 point is worse on the focus
+list. Nothing is significant (every interval spans zero), the focus list's
+second half is worse at 3 points (−0.103 against +0.088), and on the trades
+both stops took (same entry) the focus list reads −0.063R [−0.453, +0.253]
+and the fixed list +0.061R [−0.142, +0.257]. All listed signals together:
+focus −0.060 to −0.024R, fixed −0.020 to +0.052R. The rule ships as Gann's
+translation that measures no worse, not as an edge: intraday still has none
+measured. Run on the earlier 3-Day trend rule the same night it read the same
+way (focus −0.167 to −0.066R, fixed +0.032 to +0.055R). The hourly turn and
+the space over-balance had 0-1 listed trades, so the measurement does not
+speak to them; they take the rule by the cross-platform principle. No data
+reads or scan time added. Intraday alerts replay trades move, daily verdicts
+don't: `STRATEGY_VERSION` is `2026-11-05-intraday-midpoint-stop-allowance`.

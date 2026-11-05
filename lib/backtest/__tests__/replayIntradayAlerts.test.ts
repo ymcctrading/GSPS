@@ -301,7 +301,14 @@ describe("replayIntradayAlerts", () => {
     expect(s.n).toBe(all.length);
     expect(s.halves.first.n + s.halves.second.n).toBe(all.length);
     expect(Object.values(s.bySignal).reduce((a, g) => a + g.n, 0)).toBe(all.length);
-    expect(Object.keys(s.bySignal).length).toBeGreaterThan(1);
+    // The synthetic fixtures may trade one signal only (since 2026-11-05 the
+    // continuation alert's stop rests 3 points past the 50% point, so it is no
+    // longer refused for a stop inside one point and takes their sessions), so
+    // the split is checked on a set with a second signal added.
+    const other: AlertTrade = { ...all[0], signal: all[0].signal === "trend_continuation" ? "old_level_cross" : "trend_continuation" };
+    const split = summariseAlertTrades([...all, other]).bySignal;
+    expect(Object.keys(split).length).toBe(Object.keys(s.bySignal).length + (s.bySignal[other.signal] ? 0 : 1));
+    expect(split[other.signal].n).toBe((s.bySignal[other.signal]?.n ?? 0) + 1);
     const rs = all.map((t) => t.rMultiple).sort((a, b) => a - b);
     const mid = rs.length / 2;
     expect(s.medianR).toBeCloseTo(rs.length % 2 ? rs[Math.floor(mid)] : (rs[mid - 1] + rs[mid]) / 2, 9);
