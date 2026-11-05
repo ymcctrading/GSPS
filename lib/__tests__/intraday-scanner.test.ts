@@ -216,6 +216,14 @@ describe("scanIntraday — the reported SPY miss", () => {
     expect(alert.whyThisAppeared).toContain(priceText(alert.invalidation!));
   });
 
+  it("names no allowance when there is no intraday point to rest the stop past", () => {
+    const output = scanIntraday([input({ dailyAtr: null })], DEFAULT_CONFIG, AT_1133);
+    const alert = output.alerts.find((a) => a.type === "trend_continuation")!;
+    expect(output.audit[0].metrics!.point).toBe(0);
+    expect(alert.invalidation).toBe(output.audit[0].metrics!.midpoint);
+    expect(alert.whyThisAppeared).not.toContain("allowance");
+  });
+
   it("puts the stop below the 50% point for a long and above it for a short, and on it with no point", () => {
     const m = { midpoint: 100, point: 0.2 };
     expect(stopPastMidpoint(m, "up")).toBeCloseTo(99.4, 10);

@@ -1365,7 +1365,7 @@ function detectTrendContinuation(
     move,
     factors,
     invalidation: stop,
-    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}. The stop rests a small allowance past it, at ${priceText(stop)}, so ordinary noise around a level that is holding does not end the trade.`,
+    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}.${stop !== m.midpoint ? ` The stop rests a small allowance past it, at ${priceText(stop)}, so ordinary noise around a level that is holding does not end the trade.` : ""}`,
   });
 }
 
@@ -1539,7 +1539,7 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
     move,
     factors,
     invalidation: stopPastMidpoint(m, direction),
-    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${priceText(m.midpoint)} undoes it; the stop rests a small allowance past that point, at ${priceText(stopPastMidpoint(m, direction))}.`,
+    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${priceText(m.midpoint)} undoes it${stopPastMidpoint(m, direction) !== m.midpoint ? `; the stop rests a small allowance past that point, at ${priceText(stopPastMidpoint(m, direction))}` : ""}.`,
   });
 }
 
