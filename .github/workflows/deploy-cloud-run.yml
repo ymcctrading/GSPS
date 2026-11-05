@@ -5,8 +5,12 @@ name: Deploy to Cloud Run
 # and the owner chose Cloud Run's free tier to keep the site up. Every push to
 # main deploys here, as a merge to main deployed on Vercel.
 #
-# Does nothing until the GCP_SA_KEY secret and the GCP_PROJECT_ID variable
-# exist, so main stays green before the Google project is set up.
+# Does nothing until the GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER and
+# GCP_SERVICE_ACCOUNT variables exist, so main stays green before the Google
+# project is set up. Keyless: the project enforces
+# iam.disableServiceAccountKeyCreation (2026-11-05), so GitHub signs in
+# through Workload Identity Federation (pool "github", provider "gsps-repo",
+# limited to this repository) instead of a stored key.
 #
 # Secrets live in GitHub (Settings > Secrets and variables > Actions) and are
 # written to the service on every deploy: `--env-vars-file` replaces the
@@ -42,6 +46,10 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_8nnzrTBNtRAHFBLbWL6dIQ_Hto4UspW # gitleaks:allow
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: BD9xctwOw3QARuzzW1knN4MJIjZeJA_4lxVXhvw_UBZFPrJ9OxVLLiKwn34QVbb77Ef4g6c-LxLfcL3TgWETIlc # gitleaks:allow
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -70,11 +78,12 @@ jobs:
       - name: Check the Google project is set up
         id: ready
         env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
         run: |
-          if [ -z "$GCP_SA_KEY" ] || [ -z "$GCP_PROJECT_ID" ]; then
-            echo "::notice::GCP_SA_KEY secret or GCP_PROJECT_ID variable not set; nothing deployed."
+          if [ -z "$GCP_PROJECT_ID" ] || [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$GCP_SERVICE_ACCOUNT" ]; then
+            echo "::notice::GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER or GCP_SERVICE_ACCOUNT variable not set; nothing deployed."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -86,7 +95,8 @@ jobs:
       - uses: google-github-actions/auth@v2
         if: steps.ready.outputs.ready == 'true'
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@v2
         if: steps.ready.outputs.ready == 'true'
