@@ -179,3 +179,44 @@ swings confirmed before the year began, reaches into the year rarely (under
 1% of days), so it was scored on few dates. Pivots count only once confirmed
 (31 days after them), a look-ahead guard added at review; before it, three
 tests fell under 0.05 (best 0.030) and none passed the cut-off either.
+
+## The two Shorts (2026-11-04)
+
+Neither Short uses a planet or a count of days: both are price rules, so they
+are scored on what follows the signal rather than on turn dates. Both
+transcripts were read in full (auto captions, fetched 2026-11-04). Each rule
+was fixed from the Short before it was scored (`lib/research/shortsPriceRules.ts`
+header). Run: `node scripts/shorts-price-rules.mjs <bars dir> /mnt/project-files/dow-daily/DJA.csv --out docs/replay-runs/2026-11-04-shorts-price-rules.json`.
+
+| Short | Title | Rule tested |
+|---|---|---|
+| stK5ZVlzaXo | Dr. David Paul Reveals Gann's Most Powerful Charting Tip | first close below the low of the highest bar (a 21-session high): the top is in; and the mirror at the lowest bar's high |
+| e4zpCMBbJ_E | Trading Strategy (Gann Fan) with 45 degree | first close above the 1x1 down from a confirmed major high: the move up starts; the next line up is the take profit |
+
+The first Short's quote is the swing chart's reference level read at a single
+bar; GSPS already reads it at the swing's scale (`entryTrigger.ts`, crossing
+old tops and bottoms). Its "squaring the charts" gives no rule and was scored
+on 2026-10-30 as the square of price in days. The fan was read two ways: at
+GSPS's own scale, one Gann point a session (`fanBreak`), and scaled to the
+swing as the Short does, with the 1x1 through the low and the signal at the
+2x1 (`fanFit`, added after `fanBreak` fired once a series and before it was
+scored).
+
+Outcome: the return over 5, 10 and 21 sessions from the signal's close, in
+the signal's direction, against the same signal dates shifted round the
+series 10,000 times. Series: SPY and DIA 2016-2025 (Alpaca daily bars) and,
+for the two fan readings, the Dow's daily closes in 1913-1948 and 1949-2025
+(MeasuringWorth; closes only, so the bar rule cannot be read there). 36 tests,
+cut-off 0.05 / 36 ≈ 0.0014.
+
+Result: no rule beats chance on any series. Four tests fall under 0.05, about
+two more than chance gives, but three of them are `fanBreak` resting on a
+single signal (at one point a session the 1x1 down falls faster than nearly
+every decline, so price is almost never under it). The fourth is the bottom
+bar's high on DIA at 21 sessions, p 0.036 on 70 signals; the same rule on SPY
+gives 0.10, and at 5 and 10 sessions both are at or below chance. The top
+bar's low calls the top no better than chance (p 0.15 to 0.72 on SPY and
+DIA). `fanFit` gives p 0.07 to 0.83 across all four series, with the 1913-1948
+Dow, his own years, the weakest. Its take-profit line was reached within 21
+sessions by 64% to 89% of signals, but that share has no null and is shown
+for description only.
