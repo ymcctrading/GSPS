@@ -142,6 +142,17 @@ export interface CoreReplayOptions {
   rules?: CoreRule[];
   /** "gate" (default): a refusing rule blocks the campaign. "tag": every rule is only recorded. */
   ruleMode?: "gate" | "tag";
+  /**
+   * Measurement only (quant validation, the like-for-like control): replace
+   * the core's two entry rules with predetermined entries. Each key is the ET
+   * date ("YYYY-MM-DD") of a session to enter at its open; the value is the
+   * initial stop's distance as a share of that open. An entry is taken only
+   * when flat, with the monthly main trend (long when bullish, short when
+   * bearish and `shorts` is on), and on a member session; everything after
+   * the fill (the trailing stop, the trend-change exit, the pyramid, costs) is
+   * the core's own. Never set by the live scan or any production path.
+   */
+  entryOverride?: ReadonlyMap<string, number>;
 }
 
 export interface CoreLot {
@@ -213,6 +224,7 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
     rules = [],
     ruleMode = "gate",
     inUniverse,
+    entryOverride,
   } = options;
   const daily = dailyBars.length > 0 ? dailyBars : bars;
   const empty = (): CoreResult => ({ ...summarise([]), trades: [] });
@@ -411,8 +423,25 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
       }
     }
 
+    // 3o. The control's predetermined entry, in place of the core's own rules.
+    if (entryOverride && !pos && !closedThisBar && member(i - 1)) {
+      const share = entryOverride.get(etDate[i]);
+      const side: CoreSide | null = share === undefined ? null : withMain("long") ? "long" : shorts && withMain("short") ? "short" : null;
+      if (side && share !== undefined && share > 0 && share < 1 && bar.o > 0) {
+        armed++;
+        triggered++;
+        const dir = sign(side);
+        const stop = bar.o * (1 - dir * share);
+        pos = {
+          side, kind: "reaction", openIndex: i, firstFill: bar.o, initialStop: stop, stop,
+          stopReason: "initial", lots: [{ fraction: 1, fill: bar.o, at: bar.t }], ambiguous: false,
+        };
+        if (dir * ((dir === 1 ? bar.l : bar.h) - stop) <= 0) close(i, stop, "initial");
+      }
+    }
+
     // 3. A reaction (rally) bought (sold) at this open, decided on the sessions before it.
-    if (!pos && !closedThisBar && member(i - 1)) {
+    if (!entryOverride && !pos && !closedThisBar && member(i - 1)) {
       for (const side of ["long", "short"] as const) {
         if (side === "short" && !shorts) continue;
         if (!withMain(side)) continue;
@@ -470,7 +499,7 @@ export function replayCore(symbol: string, bars: Bar[], options: CoreReplayOptio
     // 5. Arm a crossing on this close: the first close 3 points past the old
     // top (bottom). Each level is read once, so a crossing made while a trade
     // was open is never armed late.
-    if (i + 1 < daily.length) {
+    if (i + 1 < daily.length && !entryOverride) {
       for (const side of ["long", "short"] as const) {
         if (side === "short" && !shorts) continue;
         const pivot = side === "long" ? sw.lastTop : sw.lastBottom;
