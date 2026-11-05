@@ -1246,6 +1246,51 @@ function detectOldLevelCross(
 }
 
 /**
+ * How many intraday points (`SessionMetrics.point`) a stop rests past the
+ * day's 50% point. Gann buys on crossing an old level and sets his stop 3
+ * points beyond it (W006 pp.20-24, 46-47; `lib/gann/pointScale.ts`), and the
+ * Master Course puts the average lost motion past a level that holds at
+ * 1-7/8 points (Ch. 9, PDF p.268), so a stop exactly on the level is taken by
+ * the noise of a level that is holding. One intraday point is a third of his
+ * 3 points at this chart's scale (`intradayPoint`), so 3 is his full
+ * allowance. Before 2026-11-05 the stop sat on the 50% point itself.
+ *
+ * Measured 2026-11-05 on the intraday alerts replay (832 symbols, 40 sessions
+ * from 2026-09-10 to 2026-11-04, current trend rule), trend_continuation:
+ * focus list -0.027R to -0.014R with initial stops 33% to 10%; fixed list
+ * +0.005R to +0.144R with initial stops 46% to 22%. 1 point measured worse on
+ * the focus list. No difference is significant (every interval spans zero).
+ * Notes: replay-diagnosis/2026-11-05-midpoint-stop-allowance/NOTES.md.
+ *
+ * Three-question basis: 1. Gann, Tier A, as cited. 2. No periodicity claim;
+ * Dewey's checklist does not apply. 3. Rhythm: price swings past a level and
+ * back; the allowance lets the swing complete before the level is called
+ * broken.
+ */
+export const MIDPOINT_STOP_POINTS = 3;
+
+/**
+ * Whether a trade alert's stop sits under one intraday point from the last
+ * price (`Alert.riskUnderPoint`). Warnings and notices carry no such flag.
+ */
+export function stopInsidePoint(type: SignalType, last: number, invalidation: number | null, point: number): boolean {
+  return (
+    type !== "reversal_risk" &&
+    !NOTICE_SIGNALS.has(type) &&
+    invalidation != null &&
+    Number.isFinite(invalidation) &&
+    point > 0 &&
+    Math.abs(last - invalidation) < point
+  );
+}
+
+/** The stop for an alert read from the day's 50% point: Gann's allowance past it. */
+export function stopPastMidpoint(m: Pick<SessionMetrics, "midpoint" | "point">, direction: Direction): number {
+  const allowance = MIDPOINT_STOP_POINTS * (m.point > 0 ? m.point : 0);
+  return direction === "up" ? m.midpoint - allowance : m.midpoint + allowance;
+}
+
+/**
  * The trend is still working: Gann's 3-bar swing chart on the session's bars
  * runs this way (it turns only when the last swing extreme breaks), and price
  * holds that side of the day's 50% point. Replaces "beyond the opening range
@@ -1283,6 +1328,7 @@ function detectTrendContinuation(
 
   const move = measureMove(m.last, m.midpoint, "midpoint");
   if (!move) return null;
+  const stop = stopPastMidpoint(m, direction);
 
   const factors: ConfidenceFactor[] = [
     swingFactor(m, direction),
@@ -1318,8 +1364,8 @@ function detectTrendContinuation(
     direction,
     move,
     factors,
-    invalidation: m.midpoint,
-    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}.`,
+    invalidation: stop,
+    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}. The stop rests a small allowance past it, at ${priceText(stop)}, so ordinary noise around a level that is holding does not end the trade.`,
   });
 }
 
@@ -1396,7 +1442,7 @@ function detectSpaceOverbalance(
     direction: against,
     move: dayMove,
     factors,
-    invalidation: m.midpoint,
+    invalidation: stopPastMidpoint(m, against),
     whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). A pullback larger than any before it often means the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
@@ -1454,7 +1500,7 @@ function detectOvernightTurn(
     direction,
     move: dayMove,
     factors,
-    invalidation: stop ?? m.midpoint,
+    invalidation: stop ?? stopPastMidpoint(m, direction),
     whyThisAppeared: `${cause} The method trades with the line and keeps its stop just beyond the last swing ${direction === "up" ? "bottom" : "top"}${stop !== null ? `, ${priceText(stop)}` : ""}; when that stop is caught the line has reversed.`,
   });
 }
@@ -1492,8 +1538,8 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
     direction,
     move,
     factors,
-    invalidation: m.midpoint,
-    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${priceText(m.midpoint)} undoes it.`,
+    invalidation: stopPastMidpoint(m, direction),
+    whyThisAppeared: `${cause} In a very active market the hourly chart shows a change before the daily chart does. A close back through the day's 50% point at ${priceText(m.midpoint)} undoes it; the stop rests a small allowance past that point, at ${priceText(stopPastMidpoint(m, direction))}.`,
   });
 }
 
@@ -2213,13 +2259,7 @@ function buildAlert(args: {
     type !== "reversal_risk" &&
     !NOTICE_SIGNALS.has(type) &&
     shortAgainstMainTrend(m.mainTrend, direction === "up" ? "bullish" : "bearish");
-  const riskUnderPoint =
-    type !== "reversal_risk" &&
-    !NOTICE_SIGNALS.has(type) &&
-    invalidation != null &&
-    Number.isFinite(invalidation) &&
-    m.point > 0 &&
-    Math.abs(m.last - invalidation) < m.point;
+  const riskUnderPoint = stopInsidePoint(type, m.last, invalidation, m.point);
 
   return {
     symbol: input.symbol,

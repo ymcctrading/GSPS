@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import type { Bar } from "@/lib/types";
 import {
   isThroughInvalidation,
+  MIDPOINT_STOP_POINTS,
+  stopPastMidpoint,
+  stopInsidePoint,
   DEFAULT_CONFIG,
   cooldownUntil,
   gannFirstTarget,
@@ -20,6 +23,7 @@ import {
   type SymbolInput,
 } from "@/lib/scanner/intraday";
 import { pricePoint, intradayPoint } from "@/lib/gann/pointScale";
+import { priceText } from "@/lib/strat/priceText";
 import { AGAINST_DAILY_TREND, DAILY_SCALE_HOLD, NOTICE_SIGNALS, REACTION_OVERBALANCED, tradeHold } from "@/lib/scanner/intradayDisplay";
 import { shortOfFigure } from "@/lib/gann/evenFigures";
 
@@ -198,6 +202,26 @@ describe("scanIntraday — the reported SPY miss", () => {
     const m = output.audit[0].metrics!;
     expect(alert.direction).toBe("up");
     expect(alert.invalidation).toBeCloseTo(501.5 - m.point, 10);
+  });
+
+  // 2026-11-05: Gann's stop rests 3 points beyond the level, not on it.
+  it("rests a continuation's stop Gann's 3 intraday points past the day's 50% point", () => {
+    const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
+    const alert = output.alerts.find((a) => a.type === "trend_continuation")!;
+    const m = output.audit[0].metrics!;
+    expect(m.point).toBeGreaterThan(0);
+    expect(alert.direction).toBe("up");
+    expect(alert.invalidation).toBeCloseTo(m.midpoint - MIDPOINT_STOP_POINTS * m.point, 10);
+    expect(alert.continuationPlan.invalidation).toBe(alert.invalidation);
+    expect(alert.whyThisAppeared).toContain(priceText(alert.invalidation!));
+  });
+
+  it("puts the stop below the 50% point for a long and above it for a short, and on it with no point", () => {
+    const m = { midpoint: 100, point: 0.2 };
+    expect(stopPastMidpoint(m, "up")).toBeCloseTo(99.4, 10);
+    expect(stopPastMidpoint(m, "down")).toBeCloseTo(100.6, 10);
+    expect(stopPastMidpoint({ midpoint: 100, point: 0 }, "up")).toBe(100);
+    expect(stopPastMidpoint({ midpoint: 100, point: Number.NaN }, "down")).toBe(100);
   });
 
   it("does not call a cross until a bar has closed beyond the level by the allowance", () => {
@@ -859,7 +883,21 @@ describe("an alert whose stop sits inside one intraday point (2026-10-29)", () =
       }
       if (dailyAtr == null) expect(point).toBe(0);
     }
-    expect(flagged).toBeGreaterThan(0);
+    // Since 2026-11-05 every stop these fixtures make rests at least a point
+    // from the price (the 50% point's stop is 3 points past it), so none is
+    // flagged here; the rule itself is checked on `stopInsidePoint` below.
+    expect(flagged).toBe(0);
+  });
+
+  it("flags a trade alert's stop under one point from the price, and never a warning, a notice or an unknown point", () => {
+    expect(stopInsidePoint("trend_continuation", 100, 99.9, 0.2)).toBe(true);
+    expect(stopInsidePoint("old_level_cross", 100, 100.1, 0.2)).toBe(true);
+    expect(stopInsidePoint("trend_continuation", 100, 99.8, 0.2)).toBe(false);
+    expect(stopInsidePoint("trend_continuation", 100, 99.9, 0)).toBe(false);
+    expect(stopInsidePoint("trend_continuation", 100, null, 0.2)).toBe(false);
+    expect(stopInsidePoint("trend_continuation", 100, Number.NaN, 0.2)).toBe(false);
+    expect(stopInsidePoint("reversal_risk", 100, 99.9, 0.2)).toBe(false);
+    for (const notice of NOTICE_SIGNALS) expect(stopInsidePoint(notice, 100, 99.9, 0.2)).toBe(false);
   });
 
   it("holds the trade, after a measured-losing or against-trend hold", () => {

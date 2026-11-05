@@ -1084,4 +1084,11 @@
 // Course p. 10, rule A; Commodities pp. 39-40), and a long is held once the
 // campaign's reaction over-balanced its greatest (Ch. 8, PDF 249-250).
 // Intraday alerts replay trades move; daily verdicts and the daily replay don't.
-export const STRATEGY_VERSION = "2026-10-30-intraday-weekly-trend";
+// 2026-11-05-intraday-midpoint-stop-allowance (stop test brief, 2026-11-04; measured locally
+// 2026-11-05, replay-diagnosis/2026-11-05-midpoint-stop-allowance/NOTES.md).
+// An intraday alert whose stop was the day's 50% point (trend continuation,
+// the hourly turn, the space over-balance warning, and the overnight turn when
+// its swing gives no stop) now rests it Gann's 3 points past that point
+// (`MIDPOINT_STOP_POINTS`, `stopPastMidpoint`; W006 pp.20-24, 46-47).
+// Intraday alerts replay trades move; daily verdicts and the daily replay don't.
+export const STRATEGY_VERSION = "2026-11-05-intraday-midpoint-stop-allowance";
