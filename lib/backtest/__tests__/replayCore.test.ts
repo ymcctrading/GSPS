@@ -131,4 +131,75 @@ describe("bare core replay", () => {
     const short = walk(5, 15, 50, 0.01);
     expect(replayCore("S", short, { dailyBars: short }).trades.length).toBe(0);
   });
+
+  describe("entryOverride (the like-for-like control)", () => {
+    const etDay = (t: string) => t.slice(0, 10);
+
+    it("enters only on the given sessions, at the open, with the given stop share, and never by its own rules", () => {
+      const dates = [up[400].t, up[700].t, up[1000].t].map(etDay);
+      const res = replayCore("UP", up, { dailyBars: up, shorts: false, entryOverride: new Map(dates.map((d) => [d, 0.05])) });
+      expect(res.trades.length).toBeGreaterThan(0);
+      for (const t of res.trades) {
+        expect(dates).toContain(etDay(t.openedAt));
+        const bar = up.find((b) => b.t === t.openedAt)!;
+        expect(t.entry).toBe(bar.o);
+        expect(t.stop).toBeCloseTo(bar.o * 0.95, 9);
+      }
+    }, 60_000);
+
+    it("keeps the core's exits and pyramid after the fill", () => {
+      const dates = Array.from({ length: 20 }, (_, k) => etDay(up[300 + k * 50].t));
+      const res = replayCore("UP", up, { dailyBars: up, shorts: false, entryOverride: new Map(dates.map((d) => [d, 0.08])) });
+      const trades = res.trades.filter(isCoreTrade);
+      expect(trades.some((t) => t.lotFills.length > 1)).toBe(true);
+      expect(trades.some((t) => t.exitReason === "prior_week" || t.exitReason === "break_even" || t.exitReason === "trend_change")).toBe(true);
+    }, 60_000);
+
+    it("takes no entry against the main trend or while a campaign is open", () => {
+      const dates = Array.from({ length: 200 }, (_, k) => etDay(down[200 + k * 2].t));
+      const res = replayCore("DN", down, { dailyBars: down, shorts: false, entryOverride: new Map(dates.map((d) => [d, 0.05])) });
+      expect(res.trades.every((t) => t.direction === "bullish")).toBe(true);
+      const months = toMonthlyBars(down);
+      for (const t of res.trades) expect(readMonthlyMainTrend(months.filter((b) => b.t.slice(0, 7) < t.openedAt.slice(0, 7)))).toBe("bullish");
+      for (let k = 1; k < res.trades.length; k++) expect(res.trades[k].openedAt >= res.trades[k - 1].closedAt!).toBe(true);
+    }, 60_000);
+
+    it("refuses an entry on a session that isn't a member", () => {
+      const d = etDay(up[500].t);
+      const res = replayCore("UP", up, { dailyBars: up, shorts: false, entryOverride: new Map([[d, 0.05]]), inUniverse: () => false });
+      expect(res.trades).toHaveLength(0);
+    }, 60_000);
+
+    it("leaves the core's own path unchanged without an override (pinned to main before the option)", () => {
+      // Measured against main's replayCore at c72636c on these fixtures: identical trade ledgers.
+      const pin = (r: ReturnType<typeof replayCore>) => [r.trades.length, Number(r.trades.reduce((s, t) => s + t.rMultiple, 0).toFixed(6))];
+      expect(pin(replayCore("UP", up, { dailyBars: up, shorts: false }))).toEqual([8, 113.754426]);
+      expect(pin(replayCore("FL", flat, { dailyBars: flat, shorts: true }))).toEqual([11, 0.727712]);
+      expect(pin(replayCore("DN", down, { dailyBars: down, shorts: true }))).toEqual([2, 34.173451]);
+    }, 60_000);
+
+    it("sells short with the main trend when shorts are on, stop above the open", () => {
+      const dates = Array.from({ length: 100 }, (_, k) => etDay(down[200 + k * 4].t));
+      const res = replayCore("DN", down, { dailyBars: down, shorts: true, entryOverride: new Map(dates.map((d) => [d, 0.05])) });
+      const shorts = res.trades.filter((t) => t.direction === "bearish");
+      expect(shorts.length).toBeGreaterThan(0);
+      for (const t of shorts) {
+        const bar = down.find((b) => b.t === t.openedAt)!;
+        expect(t.entry).toBe(bar.o);
+        expect(t.stop).toBeCloseTo(bar.o * 1.05, 9);
+      }
+    }, 60_000);
+
+    it("closes at the stop on the entry session when the bar trades through it", () => {
+      // A stop a hundredth of a percent away: the session's own range reaches it.
+      const i = up.findIndex((b, k) => k > 400 && b.l < b.o * 0.9999);
+      const res = replayCore("UP", up, { dailyBars: up, shorts: false, entryOverride: new Map([[etDay(up[i].t), 0.0001]]) });
+      expect(res.trades).toHaveLength(1);
+      const t = res.trades[0];
+      expect(t.openedAt).toBe(up[i].t);
+      expect(t.exitReason).toBe("initial");
+      expect(t.closedAt).toBe(up[i].t);
+      expect(t.exitPrice).toBeCloseTo(up[i].o * 0.9999, 9);
+    }, 60_000);
+  });
 });

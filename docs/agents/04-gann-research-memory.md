@@ -1448,6 +1448,12 @@ greatest (full entry: `docs/agents/18-setup-cards-and-intraday.md`). Intraday
 alerts replay trades move, daily verdicts don't: `STRATEGY_VERSION` is
 `2026-10-30-intraday-weekly-trend`.
 
+**The 50% point's stop rests 3 points past it, 2026-11-05.** Intraday alerts
+whose stop was the day's 50% point now rest it Gann's 3 intraday points past
+it (W006 pp.20-24, 46-47); measured better on both lists overall, not
+significant (full entry: `docs/agents/18-setup-cards-and-intraday.md`).
+`STRATEGY_VERSION` is `2026-11-05-intraday-midpoint-stop-allowance`.
+
 **MTF-R0.1, 2026-11-04 (owner: "Execute" on the R0.1 package).** The package's
 Python files were never found, so `lib/research/mtfCandidate.ts` rebuilds its
 ten steps (year counts 1-60 and the twelve starred month counts from major
