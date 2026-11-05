@@ -107,6 +107,11 @@ export function spyBuyAndHold(doc, dates, { startEquity, costPerShare = 0.02, re
   return { curve, dividends, shares, cash };
 }
 
+/** Opening time, then symbol: the order quant-validation.mjs gives the original portfolio. */
+export function byOpen(trades) {
+  return [...trades].sort((a, b) => (a.openedAt < b.openedAt ? -1 : a.openedAt > b.openedAt ? 1 : a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0));
+}
+
 function quant(sorted, p) {
   return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : NaN;
 }
@@ -126,7 +131,8 @@ async function main() {
     const buf = await readFile(path.resolve(root, args.ledger));
     const ledgerSha = createHash("sha256").update(buf).digest("hex");
     const ledger = JSON.parse((args.ledger.endsWith(".gz") ? gunzipSync(buf) : buf).toString("utf8"));
-    const longs = ledger.filter((t) => (t.side ?? (t.direction === "bearish" ? "short" : "long")) === "long");
+    // The original report's order (quant-validation.mjs): finite R only, by opening time, then symbol. Same-session allocation follows it.
+    const longs = byOpen(ledger.filter((t) => (t.side ?? (t.direction === "bearish" ? "short" : "long")) === "long" && Number.isFinite(t.rMultiple)));
     const { series, hash } = await readCache(path.resolve(root, args.barCache), args.since);
     const closes = new Map([...series].map(([s, x]) => [s, x.daily.map((b) => ({ t: b.t, c: b.c }))]));
     const daily = new Map([...series].map(([s, x]) => [s, x.daily]));
@@ -147,9 +153,10 @@ async function main() {
       md.push(`Adds filled ${e3.addsFilled}, trimmed ${e3.addsTrimmed}, skipped ${e3.addsSkipped}. Gross exposure average ${f(e3.averageGross, 2)}× equity, peak ${f(e3.maxGross, 2)}×. Skips: ${JSON.stringify(e3.skipped)}. Stale marks ${e3.staleMarks}. Reconciliation error $${f(e3.reconciliationError, 6)}.`, "");
       const seeds = Array.from({ length: 20 }, (_, k) => k + 1).map((seed) => funded.simulateFundedPortfolio(longs, { ...E3, closes, order: { seed } }));
       const cs = seeds.map((r) => r.cagr).sort((a, b) => a - b);
+      const csMed = cs[Math.floor(cs.length / 2)];
       const dd = seeds.map((r) => r.drawdown.maxDrawdown).sort((a, b) => a - b);
-      out.results.e3.orderSensitivity = { cagr: { min: cs[0], max: cs[cs.length - 1] }, maxDrawdown: { min: dd[0], max: dd[dd.length - 1] } };
-      md.push(`Order sensitivity (20 seeded shuffles of same-session entries): CAGR ${pct(cs[0])} to ${pct(cs[cs.length - 1])}, max drawdown ${pct(dd[0])} to ${pct(dd[dd.length - 1])}.`, "");
+      out.results.e3.orderSensitivity = { cagr: { min: cs[0], median: csMed, max: cs[cs.length - 1] }, sharpe: seeds.map((r) => r.sharpe), cagrs: cs, maxDrawdown: { min: dd[0], max: dd[dd.length - 1] } };
+      md.push(`Order sensitivity (20 seeded shuffles of same-session entries): CAGR ${pct(cs[0])} to ${pct(cs[cs.length - 1])} (median ${pct(csMed)}), max drawdown ${pct(dd[0])} to ${pct(dd[dd.length - 1])}.`, "");
     }
     for (const [id, opts, label] of [["e4", { ...E3, maxOpenRiskFraction: 0.05, maxConcurrent: 20 }, "0.25% risk, 5% open risk, 20 open"], ["e5", { ...E3, riskFraction: 0.00125, maxOpenRiskFraction: 0.025, maxConcurrent: 20 }, "0.125% risk, 2.5% open risk, 20 open"]]) {
       if (!args.only.includes(id)) continue;
@@ -201,7 +208,7 @@ async function main() {
       const runs = [];
       for (let d = 0; d < args.coreDraws; d++) {
         const draw = coreControlDraw(series, bySym, { seed: 20261105 + d, keepTrades: true });
-        const r = funded.simulateFundedPortfolio(draw.trades, { ...E3, closes });
+        const r = funded.simulateFundedPortfolio(byOpen(draw.trades), { ...E3, closes });
         runs.push({ seed: 20261105 + d, campaigns: draw.campaigns, meanR: draw.meanR, cagr: r.cagr, sharpe: r.sharpe, maxDrawdown: r.drawdown.maxDrawdown });
       }
       const c = runs.map((x) => x.cagr).filter(Number.isFinite).sort((a, b) => a - b);
@@ -214,7 +221,7 @@ async function main() {
     if (args.only.includes("e8")) {
       const traces = new Map(e3.campaigns.map((c) => [`${c.symbol}|${c.openedAt}`, c]));
       const ranked = [...longs].filter((t) => Number.isFinite(t.rMultiple)).sort((a, b) => b.rMultiple - a.rMultiple);
-      const top = ranked.slice(0, Math.round(ranked.length * 0.01));
+      const top = ranked.slice(0, Math.ceil(ranked.length * 0.01));
       const rows = top.map((t) => {
         const bars = daily.get(t.symbol) ?? [];
         const span = bars.filter((b) => b.t.slice(0, 10) >= t.openedAt.slice(0, 10) && b.t.slice(0, 10) <= (t.closedAt ?? "9999").slice(0, 10));

@@ -49,3 +49,11 @@ describe("edge-isolation runner", () => {
     expect(() => spyBuyAndHold(doc, ["2024-01-02", "2024-01-03"], { startEquity: 1_000 })).toThrow(/extend the file/);
   });
 });
+
+describe("edge-isolation order", () => {
+  it("orders campaigns as the original report does: opening time, then symbol", async () => {
+    const { byOpen } = await import("../../scripts/edge-isolation.mjs");
+    const t = (symbol: string, openedAt: string) => ({ symbol, openedAt });
+    expect(byOpen([t("B", "2024-01-02"), t("A", "2024-01-03"), t("A", "2024-01-02")]).map((x: { symbol: string; openedAt: string }) => x.symbol + x.openedAt)).toEqual(["A2024-01-02", "B2024-01-02", "A2024-01-03"]);
+  });
+});
