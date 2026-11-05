@@ -1,0 +1,7 @@
+# Public values a browser already reads, not secrets: the Supabase publishable
+# key and the VAPID public key, as first written in the Cloud Run deploy
+# workflow (PR #606). Later commits mark them gitleaks:allow in place.
+cad40c207344aea84860adc7fa77c6cc82c7b776:.github/workflows/deploy-cloud-run.yml:generic-api-key:103
+cad40c207344aea84860adc7fa77c6cc82c7b776:.github/workflows/deploy-cloud-run.yml:generic-api-key:104
+cad40c207344aea84860adc7fa77c6cc82c7b776:.github/workflows/deploy-cloud-run.yml:generic-api-key:127
+cad40c207344aea84860adc7fa77c6cc82c7b776:.github/workflows/deploy-cloud-run.yml:generic-api-key:128

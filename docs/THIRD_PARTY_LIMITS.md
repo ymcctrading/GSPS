@@ -41,6 +41,7 @@ at 99%. Figures read at 23:15 UTC on 2026-10-28.
 | Alpaca data requests | 200 a minute | busiest minute, alert once a month | Alpaca's `X-RateLimit-*` headers, reported after each market and intraday scan | first reading after deploy | no |
 | Vercel function CPU (scheduled jobs) | 240 CPU minutes (4 hours active CPU) | UTC month, no last-two-days exemption | each scheduled call records its Node CPU time (`lib/ops/functionMeter.ts`, an upper bound) | first reading after deploy | yes: pg_cron stops calling |
 | Vercel function calls (scheduled jobs) | 1,000,000 | UTC month, no exemption | each scheduled call counted | first reading after deploy (about 28k a month by the schedule, 2026-11-04) | yes: pg_cron stops calling |
+| Cloud Run billable time | 180,000 vCPU-seconds (free tier) | UTC month | Cloud Monitoring `billable_instance_time` for the whole service, read with the container's own service account | first reading on Cloud Run | yes: pg_cron stops calling |
 
 **Vercel's function limits (added 2026-11-04).** Vercel blocked the whole
 account on Nov 3 2026 (every URL answered 402 `DEPLOYMENT_DISABLED`, "Account
@@ -62,6 +63,23 @@ route except the usage check (so the hold can lift); an owner-approved
 `usage_overrides` row lets an urgent fix through. Neither meter takes the
 last-two-days exemption, because Vercel's billing month is the account's own
 cycle, not the calendar month. Alerts carry the month-end pace.
+
+**Cloud Run (added 2026-11-04).** Vercel paused the Hobby account on 2026-10-31
+for Fluid Active CPU (3h 54m of 4h, owner's dashboard screenshot) until
+2026-11-30, and the owner chose Google Cloud Run's free tier to keep the site
+up. `.github/workflows/deploy-cloud-run.yml` builds the `Dockerfile` and
+deploys every push to `main`. Free tier per month: 180,000 vCPU-seconds,
+360,000 GiB-seconds and 2 million requests, request-based billing (CPU only
+while a request is in flight). The service runs 1 vCPU and 2 GiB (a Vercel Hobby
+function's size), so the two time limits bind together; at most 2 instances, scaled to zero when idle. Each
+meter applies only on its own host (`meterOnHost`, Cloud Run sets
+`K_SERVICE`): on Cloud Run the two Vercel function meters read "not in use",
+and on Vercel the Cloud Run meter does. Where the scheduled jobs call is one
+Vault secret, `gsps_app_base_url` (migration 0144; unset means
+`https://gsps.vercel.app`). Both former `vercel.json` crons moved to pg_cron in
+the same change. With request-based billing, work a route defers with
+`after()` (the evaluation ledger, the function meter) gets CPU only while some
+request is in flight, so it may finish late.
 
 Not metered, because no API reachable here exposes them on a free plan
 (read them on the dashboards): Supabase egress (5 GB a month) and Vercel's

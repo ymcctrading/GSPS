@@ -1,0 +1,194 @@
+name: Deploy to Cloud Run
+
+# Production on Google Cloud Run (owner, 2026-11-04). Vercel paused the Hobby
+# account on 2026-10-31 for Fluid Active CPU (3h 54m of 4h) until 2026-11-30,
+# and the owner chose Cloud Run's free tier to keep the site up. Every push to
+# main deploys here, as a merge to main deployed on Vercel.
+#
+# Does nothing until the GCP_SA_KEY secret and the GCP_PROJECT_ID variable
+# exist, so main stays green before the Google project is set up.
+#
+# Secrets live in GitHub (Settings > Secrets and variables > Actions) and are
+# written to the service on every deploy: `--env-vars-file` replaces the
+# service's whole environment, so GitHub is the one place a value is changed.
+# NEXT_PUBLIC_* values ship in the browser bundle and are public by design.
+#
+# Cost guards (engineering choices): request-based billing (CPU only while a
+# request is in flight, inside the free tier's 180,000 vCPU-seconds, 360,000
+# GiB-seconds and 2 million requests a month), 1 vCPU and 2 GiB as a Vercel
+# Hobby function had, at most 2 instances, scale to zero, and only the newest
+# two images kept (Artifact Registry's free 0.5 GB).
+#
+# Actions minutes: free while the repository is public; about 6 minutes a
+# deploy otherwise (metered by the usage steps below).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+env:
+  REGION: us-east1
+  SERVICE: gsps
+  REPOSITORY: gsps
+  # Public by design: they ship in the browser bundle (the Supabase key is the
+  # publishable key lib/supabase/client.ts falls back to). Marked so the
+  # secret scan skips them.
+  NEXT_PUBLIC_SUPABASE_URL: https://vebhpmmzxixlhujlptue.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_8nnzrTBNtRAHFBLbWL6dIQ_Hto4UspW # gitleaks:allow
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: BD9xctwOw3QARuzzW1knN4MJIjZeJA_4lxVXhvw_UBZFPrJ9OxVLLiKwn34QVbb77Ef4g6c-LxLfcL3TgWETIlc # gitleaks:allow
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      # Free-tier usage meter (AGENTS.md, "Usage limits"). Fails open.
+      - name: Usage gate
+        env:
+          USAGE_URL: ${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/ops/usage
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "USAGE_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          if [ -z "$CRON_SECRET" ]; then echo "::notice::Usage meter not configured (no CRON_SECRET), job not gated."; exit 0; fi
+          reply=$(curl -sS -m 10 -H "Authorization: Bearer $CRON_SECRET" "$USAGE_URL?gate=github_actions" || true)
+          hold=$(echo "$reply" | jq -r 'if type == "object" and has("hold") then (.hold | tostring) else "" end' 2>/dev/null || true)
+          reason=$(echo "$reply" | jq -r '.reason // ""' 2>/dev/null || true)
+          if [ -z "$hold" ] || [ "${reason#Unread:}" != "$reason" ]; then
+            echo "::warning::Usage meter unreadable, job not gated."
+            exit 0
+          fi
+          if [ "$hold" = "true" ]; then
+            echo "::error::$reason"
+            exit 1
+          fi
+
+      - name: Check the Google project is set up
+        id: ready
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          if [ -z "$GCP_SA_KEY" ] || [ -z "$GCP_PROJECT_ID" ]; then
+            echo "::notice::GCP_SA_KEY secret or GCP_PROJECT_ID variable not set; nothing deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.ready == 'true'
+
+      - uses: google-github-actions/auth@v2
+        if: steps.ready.outputs.ready == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.ready.outputs.ready == 'true'
+
+      - name: Enable the APIs and the image repository (first run only)
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          gcloud services enable run.googleapis.com artifactregistry.googleapis.com compute.googleapis.com monitoring.googleapis.com --project "${{ vars.GCP_PROJECT_ID }}"
+          gcloud artifacts repositories describe "$REPOSITORY" --location "$REGION" --project "${{ vars.GCP_PROJECT_ID }}" >/dev/null 2>&1 \
+            || gcloud artifacts repositories create "$REPOSITORY" --repository-format docker --location "$REGION" --project "${{ vars.GCP_PROJECT_ID }}"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - name: Build and push the image
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          image="$REGION-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE:${{ github.sha }}"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          docker build -t "$image" \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="$NEXT_PUBLIC_VAPID_PUBLIC_KEY" \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN="${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}" \
+            .
+          docker push "$image"
+
+      - name: Write the service's environment
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          OANDA_API_KEY: ${{ secrets.OANDA_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+        run: |
+          # Values a person reads in an email header: public. The NEXT_PUBLIC_*
+          # values come from the workflow's env above.
+          export VAPID_SUBJECT=https://gsps.world
+          export RESEND_FROM='GSPS <c.coleman@gsps.world>'
+          export VERCEL_GIT_REPO_OWNER=ymcctrading
+          export VERCEL_GIT_REPO_SLUG=gsps
+          # Only the names below, and only those with a value, so a secret not
+          # yet added leaves its feature off instead of set to "".
+          python3 - <<'PY'
+          import json, os
+          names = """NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_VAPID_PUBLIC_KEY
+          VAPID_SUBJECT RESEND_FROM VERCEL_GIT_REPO_OWNER VERCEL_GIT_REPO_SLUG CRON_SECRET SUPABASE_SECRET_KEY
+          ALPACA_API_KEY ALPACA_API_SECRET RESEND_API_KEY VAPID_PRIVATE_KEY SEC_USER_AGENT FINNHUB_API_KEY
+          TWELVE_DATA_API_KEY OANDA_API_KEY SENTRY_DSN NEXT_PUBLIC_SENTRY_DSN""".split()
+          env = {n: os.environ[n] for n in names if os.environ.get(n)}
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "env.yaml"), "w") as f:
+              for k, v in env.items():
+                  f.write(f"{k}: {json.dumps(v)}\n")
+          missing = [n for n in names if n not in env]
+          print("Set:", ", ".join(sorted(env)))
+          print("Not set:", ", ".join(missing) or "none")
+          PY
+
+      - name: Deploy
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --env-vars-file "$RUNNER_TEMP/env.yaml" \
+            --allow-unauthenticated \
+            --port 8080 \
+            --cpu 1 \
+            --memory 2Gi \
+            --concurrency 80 \
+            --min-instances 0 \
+            --max-instances 2 \
+            --timeout 300 \
+            --cpu-throttling \
+            --quiet
+          rm -f "$RUNNER_TEMP/env.yaml"
+          url=$(gcloud run services describe "$SERVICE" --project "${{ vars.GCP_PROJECT_ID }}" --region "$REGION" --format 'value(status.url)')
+          echo "::notice::Deployed to $url"
+
+      - name: Keep the newest two images
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          gcloud artifacts docker images list "$REGION-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE" \
+            --include-tags --sort-by '~CREATE_TIME' --format 'value(version)' | tail -n +3 | while read -r digest; do
+            gcloud artifacts docker images delete "$REGION-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE@$digest" --delete-tags --quiet || true
+          done
+
+      - name: Usage report
+        if: always()
+        env:
+          USAGE_URL: ${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/ops/usage
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          [ -n "$CRON_SECRET" ] || exit 0
+          start=${USAGE_JOB_START:-$(date +%s)}
+          minutes=$(( ($(date +%s) - start + 30 + 59) / 60 )); [ "$minutes" -ge 1 ] || minutes=1
+          curl -sS -m 10 -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' \
+            -d "{\"meter\":\"github_actions\",\"units\":$minutes,\"key\":\"job-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}\",\"detail\":{\"workflow\":\"${{ github.workflow }}\",\"event\":\"${{ github.event_name }}\"}}" "$USAGE_URL" || true

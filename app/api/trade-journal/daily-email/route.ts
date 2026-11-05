@@ -1,7 +1,7 @@
 /**
  * GSPS — /api/trade-journal/daily-email
  *
- * Fires 2 hours after the market close (see `vercel.json`'s cron schedule)
+ * Fires 2 hours after the market close (pg_cron `gsps-trade-journal-digest`, migration 0144; it was a vercel.json cron until 2026-11-04)
  * and emails every opted-in member with at least one closed trade their journal
  * spreadsheet, and (since 2026-10-28) the day's intraday signals from their
  * bell, which no longer go by email one at a time. On a Friday it also sends

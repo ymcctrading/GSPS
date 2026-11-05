@@ -86,7 +86,8 @@ export type UsageMeterId =
   | "supabase_mau"
   | "alpaca_rate"
   | "vercel_cpu"
-  | "vercel_invocations";
+  | "vercel_invocations"
+  | "cloud_run_seconds";
 
 export type PeriodKind = "month" | "day" | "rolling24h" | "none";
 
@@ -123,6 +124,12 @@ export const USAGE_METERS: Record<UsageMeterId, UsageMeter> = {
   vercel_cpu: { id: "vercel_cpu", label: "Vercel function CPU (scheduled jobs)", unit: "CPU minutes", limit: 240, period: "month", holds: true, noExemption: true },
   // Hobby: 1 million function invocations a month. Scheduled calls only.
   vercel_invocations: { id: "vercel_invocations", label: "Vercel function calls (scheduled jobs)", unit: "calls", limit: 1_000_000, period: "month", holds: true, noExemption: true },
+  // Cloud Run's free tier: 180,000 vCPU-seconds a month, billed while a
+  // request is in flight (request-based billing, 1 vCPU, so a billable
+  // instance-second is a vCPU-second). Read from Cloud Monitoring's
+  // billable_instance_time for the whole service, members' requests included.
+  // Only while hosted there.
+  cloud_run_seconds: { id: "cloud_run_seconds", label: "Cloud Run billable time", unit: "vCPU-seconds", limit: 180_000, period: "month", holds: true },
 };
 
 /** The owner's thresholds, in percent. */
@@ -229,6 +236,26 @@ export function meterBilled(meter: UsageMeterId, visibility: RepoVisibility): bo
 
 export const PUBLIC_REPO_REASON = "The repository is public: GitHub Actions minutes are free and not metered.";
 
+/** Where the app runs: Cloud Run sets K_SERVICE in every container it starts. */
+export type HostPlatform = "vercel" | "cloud_run";
+
+export function hostPlatform(env: Record<string, string | undefined> = process.env): HostPlatform {
+  return env.K_SERVICE ? "cloud_run" : "vercel";
+}
+
+/** Whether a function meter applies on this host: Vercel's limits on Vercel, Cloud Run's on Cloud Run. */
+export function meterOnHost(meter: UsageMeterId, host: HostPlatform): boolean {
+  if (meter === "vercel_cpu" || meter === "vercel_invocations") return host === "vercel";
+  if (meter === "cloud_run_seconds") return host === "cloud_run";
+  return true;
+}
+
+export function offHostReason(meter: UsageMeterId): string {
+  return meter === "cloud_run_seconds"
+    ? "The site is not on Cloud Run: its free tier is not in use."
+    : "The site is hosted on Cloud Run: Vercel's function limits are not in use.";
+}
+
 export interface HoldDecision {
   hold: boolean;
   reason: string;
@@ -306,6 +333,9 @@ export function renderAlert(reading: UsageReading, threshold: number, hold: Hold
   }
   if (meter.id === "vercel_cpu" || meter.id === "vercel_invocations") {
     lines.push("Counts the scheduled jobs only; members' page views add to Vercel's own figure on its Usage page.");
+  }
+  if (meter.id === "cloud_run_seconds") {
+    lines.push("Read from Google's own billable-time figure for the service, members' page views included.");
   }
   if (hold.hold) lines.push("", `Held: ${hold.reason}`);
   else if (meter.holds && threshold < HOLD_PERCENT && meter.noExemption) lines.push("", `The scheduled jobs stop at ${HOLD_PERCENT}%, except for an urgent fix you approve.`);

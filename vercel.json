@@ -8,15 +8,5 @@
       "*": false,
       "*/**": false
     }
-  },
-  "crons": [
-    {
-      "path": "/api/market-scan",
-      "schedule": "0 0 * * 2-6"
-    },
-    {
-      "path": "/api/trade-journal/daily-email",
-      "schedule": "0 22 * * 1-5"
-    }
-  ]
+  }
 }

@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-contained server for the Cloud Run container (Dockerfile). Vercel
+  // paused the Hobby account on 2026-10-31 for Fluid Active CPU until
+  // 2026-11-30, and the owner chose Google Cloud Run to keep the site up
+  // (2026-11-04). Vercel ignores this setting, so a build there is unchanged.
+  output: "standalone",
+
   // Type errors fail the build. `main` has no branch-protection rule
   // requiring CI to pass before merge, so the Vercel build is the only
   // backstop standing between a type error and production — don't disable
