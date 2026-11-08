@@ -42,13 +42,39 @@ describe("Saturn's travel in price (A-ASTRO-04)", () => {
   });
 
   it("finds turns planted on the line and no edge for turns off it", () => {
-    const on: SaturnCase = { low: 100, unit: 0.1, turns: [5, 20, 40, 77, 110].map((travel) => ({ travel, price: 100 + 30 * travel * 0.1 })) };
-    const r = testSaturnTravel([on, on]);
+    // Each planted on Saturn's real travel from its own low, so another low's travel misses them.
+    const planted = (iso: string): SaturnCase => {
+      const from = Date.parse(iso);
+      const turns = [60, 200, 380, 520, 700].map((days) => {
+        const travel = saturnTravel(from, from + days * 86_400_000);
+        return { travel, price: 100 + 30 * travel * 0.1, days };
+      });
+      return { low: 100, unit: 0.1, start: from, turns };
+    };
+    const r = testSaturnTravel([planted("2020-01-01T00:00:00Z"), planted("2010-06-01T00:00:00Z"), planted("2003-03-01T00:00:00Z")]);
     expect(r.p).toBeLessThan(0.05);
     const rand = seeded(3);
-    const off: SaturnCase = { low: 100, unit: 0.1, turns: Array.from({ length: 60 }, () => ({ travel: rand() * 30, price: 100 + rand() * 90 })) };
-    const o = testSaturnTravel([off]);
+    const off: SaturnCase = {
+      low: 100,
+      unit: 0.1,
+      start: Date.parse("2015-01-01T00:00:00Z"),
+      turns: Array.from({ length: 60 }, () => ({ travel: rand() * 30, price: 100 + rand() * 90, days: 1 + Math.floor(rand() * 729) })),
+    };
+    const o = testSaturnTravel([off, { ...off, start: Date.parse("2008-01-01T00:00:00Z") }]);
     expect(Math.abs(o.observed - o.nullMean)).toBeLessThan(0.05);
+  });
+
+  it("does not credit a line merely for starting at the low (the 2026-11-08 correction)", () => {
+    // Turns retesting the low a day or two later: Saturn has barely moved (about 1/30 degree a day, so about 1 point a day
+    // on this scale), and neither has any other start date's travel. The old shift null scored these as Saturn hits.
+    const retest = (iso: string): SaturnCase => {
+      const start = Date.parse(iso);
+      const turns = [1, 2].map((days) => ({ travel: saturnTravel(start, start + days * 86_400_000), price: 100, days }));
+      return { low: 100, unit: 1, start, turns };
+    };
+    const r = testSaturnTravel([retest("2019-05-01T00:00:00Z"), retest("2012-09-01T00:00:00Z"), retest("2005-02-01T00:00:00Z")]);
+    expect(r.observed).toBeGreaterThan(0.5);
+    expect(r.p).toBeGreaterThan(0.05);
   });
 });
 
