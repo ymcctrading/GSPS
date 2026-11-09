@@ -232,7 +232,7 @@ function ConfirmDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  // A-EXIT-05 and the twice-yearly rest (Truth of the Stock Tape Ch. VII):
+  // A-EXIT-05 and the twice-yearly rest (ref: SRC-002 Ch. VII):
   // inside either window its close-out reminder sits above the button, the
   // away reminder first, as placement's closeOutNotice reads them.
   const { awayReminder, restReminder } = useTradeRulePrefs();
