@@ -245,7 +245,7 @@ async function lossSeriesRefusal(
  * stop-entry). See `lib/lifecycle/confirmNow.ts`.
  *
  * Never-failing rule 9 (2026-10-16): "Never limit your orders or fix a buying
- * or selling price. Trade at the market" (*Commodities* rule 9, pp.43-45, and
+ * or selling price. Trade at the market" (ref: R-007 rule 9, pp.43-45, and
  * p.19; W021 PDF p.124). The confirmation is ready only once a closed bar has
  * traded into that zone, and the order then goes at the market (`atMarket`),
  * not as a limit at a fixed figure. This holds for the protocol's entry: a
@@ -347,7 +347,7 @@ export async function confirmEntry(
     }
     // The 5-point cap is Gann's limit on the entry he buys on the definite
     // indication (W006 pp.20, 46-47). His re-buy after a stop sets its stop
-    // half the reaction back, 6 points from a 12-point reaction (*Tunnel*
+    // half the reaction back, 6 points from a 12-point reaction (ref: R-006
     // p.198, the 218/212 case), and his reversal 3 points beyond the old
     // extreme (`reverse.ts`): each is the stop he states for that trade, and
     // the replay walks both. So the cap yields to that stop, and only to it: a

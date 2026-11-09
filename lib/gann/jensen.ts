@@ -1,5 +1,5 @@
 /**
- * L. J. Jensen's forecasting method (*Astro-Cycles and Speculative Markets*,
+ * L. J. Jensen's forecasting method (ref: R-020,
  * 1978; source note B16, spec `/mnt/project-files/astro-spec/astro-rules.md`
  * J-1 to J-10). Built 2026-10-16 on the owner's instruction "Determine the
  * best way to use Jensen work. If we are going to be forecasting then we

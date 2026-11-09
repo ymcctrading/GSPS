@@ -235,8 +235,8 @@ export async function readLiveGannExit(input: LiveGannExitInput): Promise<ExitRe
  * sampled from one quote each pass, every 15 minutes, while the replay walks
  * every bar's high (`walkGannExit`'s `best`). A spike between two passes was
  * invisible live, so break-even once 3 points ahead ("never let a profit run
- * into a loss", *Truth of the Stock Tape* Ch. VIII rule 4; *Wall Street Stock
- * Selector* Ch. II rule 4) and every trail measured from the best price could
+ * into a loss", ref: R-002 Ch. VIII rule 4; ref: R-003
+ * Ch. II rule 4) and every trail measured from the best price could
  * fire in the replay and never live. The managers now fold this into the
  * high-water mark. Bars that opened before the fill are left out, so a high
  * printed before the trade was bought never counts.

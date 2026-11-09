@@ -264,7 +264,7 @@ export function evaluateRangeReversion(inputs: RangeReversionInputs): SignalVerd
 
   const alignment = computeRulesAlignmentScore(breakdown);
   // Owner decision 5 (2026-09-27): always Gann's rules. Gann stays out of a
-  // sideways market until it breaks away (*Commodities* pp. 51-52), so a
+  // sideways market until it breaks away (ref: R-007 pp. 51-52), so a
   // range trade is never tradeable and no plan is priced (the regime card
   // renders any plan it is given). The breakdown still shows whether the
   // boundary setup qualified. The breakaway itself is Trend Breakout's job,

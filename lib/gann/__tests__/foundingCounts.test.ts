@@ -1,5 +1,5 @@
 /**
- * A-TIME-32 (Tunnel Thru the Air, 1927, printed pp. 371-374, PDF 376-379):
+ * A-TIME-32 (ref: R-006, 1927, printed pp. 371-374, PDF 376-379):
  * fixed counts of years and months from a founding date. Pre-registered list,
  * no search. Context only.
  */

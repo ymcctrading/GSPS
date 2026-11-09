@@ -24,8 +24,8 @@
  *
  * Three-question basis:
  * 1. Gann. He judged a method by the trades it would have made, losses
- *    included, kept over years (the trade records in *Truth of the Stock Tape*
- *    and *45 Years*), and he read every market against the main trend
+ *    included, kept over years (the trade records in ref: R-002
+ *    and ref: R-005), and he read every market against the main trend
  *    ("never buck the trend", never-failing rule 5). So the regime split reads
  *    the market's trend with his own trend reading (`readGannTrend`) and splits
  *    trades with it from those against it. The score cutoff is no Gann figure
@@ -338,7 +338,7 @@ export function marketTrendByDate(bars: Bar[], lookback = 520, span?: DateSpan):
 }
 
 /**
- * The market's trend on the two charts *45 Years in Wall Street* (1949) Rule 1
+ * The market's trend on the two charts ref: R-005 (1949) Rule 1
  * names for the averages, the 3-Day Chart and the swing chart (the 7-day
  * weekly chart since 2026-09-27), read on the sessions before each date: up
  * when both read up, down when both read down, none when they differ.

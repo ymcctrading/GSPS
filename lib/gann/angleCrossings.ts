@@ -1,10 +1,10 @@
 /**
- * Three angle readings from the Master Course, context only. Nothing here
+ * Three angle readings from the ref: R-001, context only. Nothing here
  * feeds a scored criterion, a gate, a plan, the S/R list or an order; the
  * scored `gannAngleSlope` and the price-per-period scale (C-LEVELS-02) are
  * untouched, since both need a replay first.
  *
- * - C-LEVELS-04, angles from "0" (Master Course Ch.4 PDF 132-135, Form #7):
+ * - C-LEVELS-04, angles from "0" (ref: R-001 Ch.4 PDF 132-135, Form #7):
  *   a 45° line drawn up from zero at the time of a bottom (and of a top)
  *   reaches the bottom's price after as many periods as the bottom has
  *   points ("from a 20 low, the 45° from 0 reaches 20 in 20 periods"), which
@@ -39,7 +39,7 @@
  * a line or at a crossing now.
  *
  * Three-question basis:
- * 1. Gann: the Master Course pages above, Tier A, confirmed in the reading
+ * 1. Gann: the ref: R-001 pages above, Tier A, confirmed in the reading
  *    notes (W023) on 2026-10-16.
  * 2. Cycles: the balance of price and time is a recurrence claim about one
  *    series; Dewey's checklist does not clear on it here, so it stays context

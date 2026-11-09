@@ -1,6 +1,6 @@
 /**
  * Gann's Overnight Chart and the mechanical trading method he built on it
- * (*Master Stock Market Course*, Ch. 3, "Method for Trading with the Overnight
+ * (ref: R-001, Ch. 3, "Method for Trading with the Overnight
  * Chart", pp. 68-116; Tier A). Built 2026-10-16 at the project owner's request
  * ("Build the 5 Gann plans identified to be missing").
  *

@@ -23,14 +23,14 @@
  *   `lib/gann/entryTrigger.ts`). The entry itself still needs the close 3
  *   points past and the reaction (Rule 3(b)-(c)); discovery only notices.
  * - `at_old_level` (sourced): the session is within the 3-point allowance of
- *   that old level (*Truth of the Stock Tape*: the first reaction to an old
+ *   that old level (ref: R-002: the first reaction to an old
  *   top; the focus list's `old_level` read intraday).
  * - `new_13_week_extreme` (sourced): the session is beyond the high or low of
  *   the last 13 weeks of completed sessions, the range Gann's breakaway reads
- *   (Master Course pp. 246-248, "2-6 or 10-13 weeks in a narrow range";
+ *   (ref: R-001 pp. 246-248, "2-6 or 10-13 weeks in a narrow range";
  *   `BREAKAWAY_RANGE_DAYS`).
  * - `narrow_range_breakaway` (sourced): a narrow range of at least two weeks
- *   (`narrowRangeSessions`) crossed by 3 points (*Truth of the Stock Tape*,
+ *   (`narrowRangeSessions`) crossed by 3 points (ref: R-002,
  *   "3 points beyond the old top or bottom of a sideways move").
  * - `wide_range_volume` (heuristic, engineering): the session's range so far
  *   is at least `WIDE_DAY_ATRS` average true ranges and its volume, scaled to

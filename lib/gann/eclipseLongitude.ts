@@ -8,13 +8,13 @@
  * alike. Like every astro window it counts only on a 3-Day Chart turn, never
  * alone (C-ASTRO-15).
  *
- * The rule (Mikula, *Gann's Scientific Methods Unveiled* Vol. 2, W012 PDF
+ * The rule (ref: R-023 Vol. 2, W012 PDF
  * pp. 32-35; Tier B, his decoding, not Gann's text): an eclipse during a
  * topping formation, then a planet crossing the eclipse's longitude, dates
  * the break. His two worked cases, reproduced in the test:
  * - The partial lunar eclipse of Jan 29, 1907, Sun at 8°30' Aquarius
  *   (308.5°). Venus crossed it on Mar 14, 1907, the day of the March 1907
- *   break *Truth of the Stock Tape* discusses.
+ *   break ref: R-002 discusses.
  * - The penumbral lunar eclipse of May 3, 1901, Sun at 12°36' Taurus
  *   (42.6°). Mikula has Mercury crossing it on May 9, 1901, the day of the
  *   panic. It crossed on the evening of the 9th (UTC), so the noon-UTC rule

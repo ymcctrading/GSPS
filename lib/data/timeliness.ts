@@ -37,7 +37,7 @@
  *
  * Mandate: 1. No Gann rule of its own; it guards the one Gann always kept,
  * that a decision is made on what the tape has actually shown (he judged his
- * charts after the close, *Truth of the Stock Tape* pp. 5-7). 2. No
+ * charts after the close, ref: R-002 pp. 5-7). 2. No
  * periodicity claim; Dewey N/A. 3. Cause and Effect: an observation is the
  * cause of a decision only once it could have been seen; Correspondence: the
  * live scan and the replay read the same clock. Law of Creation: the bar ⊗ the

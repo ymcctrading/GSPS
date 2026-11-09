@@ -14,7 +14,7 @@ const bar = (i: number, h: number, l: number): Bar => {
   return { t: `${d}T05:00:00.000Z`, o: l, h, l, c: h, v: 1 };
 };
 
-describe("divisions of the major ranges (Master Course Ch. 9, PDF 263-264)", () => {
+describe("divisions of the major ranges (ref: R-001 Ch. 9, PDF 263-264)", () => {
   it("divides the extreme range and the highest price by 8 and by 3, the extreme range first and 50% first", () => {
     const levels = majorRangeDivisions([bar(0, 30, 20), bar(1, 100, 60)], []);
     expect(levels).toHaveLength(18);
@@ -27,7 +27,7 @@ describe("divisions of the major ranges (Master Course Ch. 9, PDF 263-264)", () 
     );
   });
 
-  it("reads the 1946 top at 50% of the 1929-1932 range, as 45 Years in Wall Street Ch. IV does", () => {
+  it("reads the 1946 top at 50% of the 1929-1932 range, as ref: R-005 Ch. IV does", () => {
     // 386.10 (1929) to 40.56 (1932): half-way 213.33; the 1946 top was 213.36.
     const levels = majorRangeDivisions([bar(0, 386.1, 300), bar(30, 60, 40.56)], []);
     const m = rangeDivisionMatch(levels, 210, "resistance");
@@ -35,7 +35,7 @@ describe("divisions of the major ranges (Master Course Ch. 9, PDF 263-264)", () 
     expect(m!.price).toBeCloseTo(213.33, 2);
   });
 
-  it("reads the 1938 low at half the highest price, as Master Course Ch. 9 does", () => {
+  it("reads the 1938 low at half the highest price, as ref: R-001 Ch. 9 does", () => {
     // 195½ (1937): half 97¾; the March 31, 1938 low was 97½.
     const levels = majorRangeDivisions([bar(0, 195.5, 150), bar(12, 120, 41)], []);
     const m = rangeDivisionMatch(levels, 98, "support");

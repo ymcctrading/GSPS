@@ -44,7 +44,7 @@ export function withinTriggerTolerance(
  * 2026-10-16: the 3-20 bar clock is replaced on Gann's terms). A plan's
  * trigger and stop are read from completed daily sessions, so they hold for
  * the session the plan trades in; once that session's bar completes, the next
- * read of the swing chart is what replaces them (Overnight Chart rule 4, NSTD
+ * read of the swing chart is what replaces them (Overnight Chart rule 4, ref: R-004
  * Rule 6: a new trade takes new structure, never the old levels resumed). The
  * replay arms the same way, one trigger per session (`lib/backtest/replay.ts`).
  *

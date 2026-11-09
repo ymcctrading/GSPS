@@ -3,7 +3,7 @@
  * order in `circleOf360.ts` doesn't carry (gap G28, built 2026-10-16 under the
  * owner's "every Gann method acts").
  *
- * Source, Tier A: Master Course Ch. 15A, "Master Chart of 360°" (91 Wall
+ * Source, Tier A: ref: R-001 Ch. 15A, "Master Chart of 360°" (91 Wall
  * Street letterhead):
  * - **÷48.** The circle in 48 parts of 7½°, "important in measuring day,
  *   weekly and monthly time periods".

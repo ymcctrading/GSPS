@@ -21,7 +21,7 @@
  * ready once a later closed bar has reacted into the buying zone (the plan's
  * entry down to 1 point short of the stop, `gannBuyZone`). Placement then
  * sends it at the market; no limit rests at a fixed price ("Never limit your
- * orders or fix a buying or selling price. Trade at the market", Commodities
+ * orders or fix a buying or selling price. Trade at the market", ref: R-007
  * rule 9, pp.43-45, and p.19). A double or triple bottom is ready once a
  * closed bar has come back to the old level, and a bottom that held once one
  * has traded at its last close. A later close through the stop calls any of
@@ -32,8 +32,8 @@
  * Three-question basis:
  * 1. Gann: a close 3 points past an old top crosses it, and the buy is on
  *    the reaction 1 point above it with the stop 3 points below (W006 pp.20,
- *    46-47; *New Stock Trend Detector*, A5), at the market (never-failing
- *    rule 9, Commodities pp.43-45 and p.19).
+ *    46-47; ref: R-004, A5), at the market (never-failing
+ *    rule 9, ref: R-007 pp.43-45 and p.19).
  * 2. Cycles: no periodicity claim, so Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect. The order is the effect; the observed
  *    confirmation is the cause it has to wait for.

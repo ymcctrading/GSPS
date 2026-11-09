@@ -89,7 +89,7 @@ describe("readGannTrend", () => {
     expect(t.confirmed).toBe(false);
   });
 
-  // C-TREND-03 (Commodities p.312, "exceeds in price OR time"): either
+  // C-TREND-03 (ref: R-007 p.312, "exceeds in price OR time"): either
   // over-balance alone changes the trend. Each case below fires only one of
   // the two, so reading them with "and" fails here.
   function readsOverbalance(bars: Bar[]) {
@@ -144,7 +144,7 @@ describe("isGannRangeBound", () => {
   });
 });
 
-describe("readSuccessiveSwings (C-ENTRY-03, Master Course Ch.8)", () => {
+describe("readSuccessiveSwings (C-ENTRY-03, ref: R-001 Ch.8)", () => {
   /** Straight legs through the given turning closes, `n` sessions each. */
   function zig(turns: number[], n = 5): Bar[] {
     const out: Bar[] = [];
@@ -175,7 +175,7 @@ describe("readSuccessiveSwings (C-ENTRY-03, Master Course Ch.8)", () => {
     expect(contextFactorsFor(ctx, "bearish", price).secondOrThirdSwingWithTrade).toBe(false);
   });
 
-  // Review 22: W003 p.17 and the Master Course p.248 say fast moves start
+  // Review 22: W003 p.17 and the ref: R-001 p.248 say fast moves start
   // from the third or fourth higher bottom, so a fourth is counted and named.
   it("counts a fourth higher bottom as 4, names it, and flags the third or fourth", () => {
     const daily = [bar(110), ...zig([110, 100, 112, 103, 115, 106, 118, 109, 121, 112, 124])];

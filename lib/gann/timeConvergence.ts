@@ -3,7 +3,7 @@
  *
  * - **G9, 7/14-day alternation.** His annual forecasts mark turn dates about
  *   every week, with the more important ones about every 14 days (A2.2,
- *   1919-1922), and the Master Course ranks 14 days first and 21 next
+ *   1919-1922), and the ref: R-001 ranks 14 days first and 21 next
  *   (A2.1 Ch. 14). Read here as: is today 7, 14 or 21 days (±1) from the last
  *   completed 3-Day Chart pivot?
  * - **G11, Square of 144 convergence.** Time runs in twelfths of 144: a turn

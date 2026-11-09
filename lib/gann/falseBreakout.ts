@@ -4,7 +4,7 @@
  * than 3 points. Context only, measured (`contextFactors.ts`,
  * `falseBreakoutAgrees`). The rule's origin in Gann's own books is unread
  * (class UNVERIFIABLE in the feature map); Gann's 3-point allowance itself is
- * his (`pointScale.ts`), and the Master Course's "3 full points = a definite
+ * his (`pointScale.ts`), and the ref: R-001's "3 full points = a definite
  * signal" is the same test from the other side.
  *
  * The reading, on completed weeks only (the week still trading is never

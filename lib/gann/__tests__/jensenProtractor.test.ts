@@ -1,5 +1,5 @@
 /**
- * C-LEVELS-22 (class C, Jensen 1978, Plate 1, printed p. 110, PDF 61L): each
+ * C-LEVELS-22 (class C, ref: R-031 1978, Plate 1, printed p. 110, PDF 61L): each
  * scale point is 90 x up/over, and its angle is exactly atan(points / 90),
  * not the printed quarter-degree rounding. The X–G misprint is flagged, not
  * corrected.

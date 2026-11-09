@@ -14,10 +14,10 @@
  *   buy with a stop 3 points under the lowest week (2-3 days and the lowest
  *   day in active markets)" (W006 p.20; Rule 3(b), p.46).
  * - "A stock nearly always gets support the first time it reacts back to old
- *   high levels" (*Truth of the Stock Tape*, American Loco).
+ *   high levels" (ref: R-002, American Loco).
  * - After crossing an old top, "it should not react 3 points below the old
  *   high" (W006 p.20, Rule 3(c)).
- * - Master Course Ch. 9 (PDF 266-277): a level counts because price reached it
+ * - ref: R-001 Ch. 9 (PDF 266-277): a level counts because price reached it
  *   and held inside the 3 points ("held 2½ above 193"; "not 3 points above 193").
  *
  * The rule, for a long (a short is the mirror, highest high and resistance):
@@ -43,7 +43,7 @@
  * week) is not read here.
  *
  * Three-question basis:
- * 1. Gann, as cited (Tier A: W006, *Truth of the Stock Tape*, the Master Course).
+ * 1. Gann, as cited (Tier A: W006, ref: R-002, the ref: R-001).
  * 2. Cycles: no periodicity claim; Dewey's checklist does not apply.
  * 3. Hermetic: Cause and Effect. A level is not a cause by being near; the
  *    cause is the market acting at it (stopping and holding), and the effect,

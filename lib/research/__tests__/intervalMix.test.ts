@@ -3,7 +3,7 @@ import { fitIntervals, mixAverage } from "@/lib/research/intervalMix";
 
 const YEAR_MS = 365.25 * 86_400_000;
 
-describe("CYC-43: an irregular cycle as a mix of specific intervals (Tomes, W045)", () => {
+describe("CYC-43: an irregular cycle as a mix of specific intervals (ref: R-033 W045)", () => {
   it("averages Tomes' two mixes to his long-run figures", () => {
     // 3.244 and 4.542 years in the share that averages 3.446.
     const w = (4.542 - 3.446) / (4.542 - 3.244);

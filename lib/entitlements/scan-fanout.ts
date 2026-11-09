@@ -247,7 +247,7 @@ export async function evaluateMonitorsAndNotify(
   const invalidatedWorthy: { transitionId: string; symbol: string }[] = [];
 
   // Only a broken stop invalidates a tracked setup: in Gann's method a plan
-  // ends on its stop (*New Stock Trend Detector* p. 20; `lib/gann/stopBreach.ts`),
+  // ends on its stop (ref: R-004 p. 20; `lib/gann/stopBreach.ts`),
   // not on a recount of its checks. Any other Reject (the score slipping under
   // the Watch cutoff, the stand-aside hold, no direction) is a later scan not
   // re-confirming it: NO_SETUP, which sends no notice (`lib/entitlements/monitor.ts`).

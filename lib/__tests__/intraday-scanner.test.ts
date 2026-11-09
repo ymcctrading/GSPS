@@ -785,9 +785,9 @@ describe("an alert against the daily trend (audit I-02)", () => {
 });
 
 describe("a pullback inside the weekly trend (2026-10-30)", () => {
-  // Master Course p. 10 rule A and PDF 244-245: a reaction in a bull market is
+  // ref: R-001 p. 10 rule A and PDF 244-245: a reaction in a bull market is
   // bought at its end, never sold short; the trend it runs against is the
-  // weekly chart's. Over-balanced (Master Course PDF 249-250), it is neither.
+  // weekly chart's. Over-balanced (ref: R-001 PDF 249-250), it is neither.
   /**
    * A bull campaign of 5-session advances and 4-session reactions of 0.6% a
    * session, one deeper reaction (5 sessions of 0.8%) as its greatest, then a
@@ -1182,7 +1182,7 @@ describe("gannFirstTarget", () => {
   });
 });
 
-describe("Gann's hourly chart (Master Course Ch. 13)", () => {
+describe("Gann's hourly chart (ref: R-001 Ch. 13)", () => {
   // Five-minute bars over three prior sessions, rolled into hours that climb
   // three hours and give back one: rising swings, an up trend.
   function recentFiveMinute(sign = 1): Bar[] {

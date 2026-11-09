@@ -200,7 +200,7 @@ describe("never risk more than 5 points (A-STOP-02)", () => {
   it("yields to the method's own stop on a re-buy or reversal plan, and only to that stop (A-PYRAMID-07, A-EXIT-02)", async () => {
     readEntryConfirmationNow.mockReset().mockResolvedValue({ ready: true, stage: "confirmed", note: "" });
     const point = threePoints(100) / 3;
-    // The re-buy's stop is 6 points under its entry, half a 12-point reaction (Tunnel p.198).
+    // The re-buy's stop is 6 points under its entry, half a 12-point reaction (ref: R-006 p.198).
     getTradePlan.mockResolvedValue({
       direction: "bullish", signalId: "rebuy:abc", generatedAt: "2026-10-15T14:00:00Z",
       coordinates: { entryTrigger: 100, invalidation: 100 - 6 * point, entryKind: "oldLevel" },

@@ -5,22 +5,22 @@
  * invalidate and replace them with executable moves throughout the day").
  *
  * Gann chose his active stocks from the daily charts, then timed the entry on
- * the hourly and session charts (Master Course Ch. 13); he traded active
- * stocks (*Truth of the Stock Tape*). A stock is primed for one of four
+ * the hourly and session charts (ref: R-001 Ch. 13); he traded active
+ * stocks (ref: R-002). A stock is primed for one of four
  * reasons, each his:
  *
  * 1. `plan_near` — a standing Execute or Watch plan whose entry is within a
  *    day's range of the last close (`lib/setups/resting.ts`'s reading, the
  *    owner's own line between a plan to time today and a resting order).
  * 2. `narrow_range` — the market has been held narrow for two weeks or more
- *    (`narrowRangeSessions`, Master Course pp. 246-248: "2-6 or 10-13 weeks
+ *    (`narrowRangeSessions`, ref: R-001 pp. 246-248: "2-6 or 10-13 weeks
  *    in a narrow range ... the longer in range, the bigger the move";
- *    *Commodities* p. 51). Flagged at the edge when the close is within the
+ *    ref: R-007 p. 51). Flagged at the edge when the close is within the
  *    3-point allowance of the range's top or bottom, where the breakaway comes.
  * 3. `big_day` — the last session was a reverse signal day or a 7-10 Day
- *    turn (`readReverseSignal`, *Commodities* pp. 319-321), or a wide range on
+ *    turn (`readReverseSignal`, ref: R-007 pp. 319-321), or a wide range on
  *    heavy volume, which marks a culmination or a breakaway the next session
- *    confirms or reverses (*45 Years* Ch. X; *New Stock Trend Detector*
+ *    confirms or reverses (ref: R-005 Ch. X; ref: R-004
  *    pp. 39-45). "Wide" is twice the 14-session average true range and
  *    "heavy" the volume climax's 1.5× (`VOLUME_CLIMAX_THRESHOLD`): the width
  *    is an engineering figure, labelled; Gann gives none.
@@ -211,11 +211,11 @@ export interface StoredFocusRow {
  *
  * A breakaway line is where Gann's two night-before readings meet: the market
  * held narrow and closing at the range's edge, "2-6 or 10-13 weeks in a narrow
- * range ... the longer in range, the bigger the move" (Master Course pp.
- * 246-248; *Commodities* p. 51), and the night's plan whose crossing is on that
+ * range ... the longer in range, the bigger the move" (ref: R-001 pp.
+ * 246-248; ref: R-007 p. 51), and the night's plan whose crossing is on that
  * same side, still ahead of the close by no more than his 3-point allowance
  * (W006 p.20, the crossing his buy waits for). Gann chose such a stock from the
- * daily chart the night before and timed it in the session (Master Course
+ * daily chart the night before and timed it in the session (ref: R-001
  * Ch. 13), so these lead the focus tier and take its reserved slots.
  *
  * Order among them: nearer the line first, read in allowances (the session

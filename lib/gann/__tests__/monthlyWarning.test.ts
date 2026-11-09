@@ -36,8 +36,8 @@ describe("a reaction held above the previous section's top (A-TREND-06)", () => 
 
 // The same campaign with the second reaction taken to 80, under the first
 // section's top of 81. Corrected 2026-10-21: it went to 75, 35½ points against
-// the first reaction's 31½, which over-balances in Gann's points (Master
-// Course Ch. 8, PDF 249) and only read as within the greatest in percent (32%
+// the first reaction's 31½, which over-balances in Gann's points (ref: R-001
+// Ch. 8, PDF 249) and only read as within the greatest in percent (32%
 // against 39%). At 80 it is 30½ points, inside the greatest, as the test means.
 const BELOW_FIRST_TOP = daily([...leg(30, 40, 20), ...leg(40, 81, 60), ...leg(81, 49.5, 50), ...leg(49.5, 110.5, 120), ...leg(110.5, 80, 30), ...leg(80, 83.5, 4)]);
 /** The mirror: a bear campaign, each price reflected about 150. */

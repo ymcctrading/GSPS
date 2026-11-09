@@ -24,7 +24,7 @@ export const SESSION_SETTLE_MINUTES = CONTRACTUAL_EQUITY_DELAY_MS / 60_000 + 5;
 /**
  * The New York session a signal trades. Gann chose his active stocks from the
  * completed daily charts the night before and timed them in the next session
- * (Master Course Ch. 13; AGENTS.md, "This covers how the platform runs"), and
+ * (ref: R-001 Ch. 13; AGENTS.md, "This covers how the platform runs"), and
  * a plan lasts its session (Q17). So a signal recorded before the
  * close trades that day's session (a pre-market scan included), and one
  * recorded after the close, on a weekend or on a market holiday trades the

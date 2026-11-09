@@ -11,8 +11,8 @@
  * Turns are the caller's (in the runs, completed pivots of the weekly swing
  * chart, as in `timeWindowBaseRate.ts`).
  *
- * Gann: none; the event lists are not sourced to Gann (Meadors W029,
- * Bucholtz W013). Cycles: Dewey's recurrent-event statistic, a hit rate
+ * Gann: none; the event lists are not sourced to Gann (ref: R-040 W029,
+ * ref: R-036 W013). Cycles: Dewey's recurrent-event statistic, a hit rate
  * against a base rate (CYC-24). Hermetic: Rhythm, held as a hypothesis.
  */
 const DAY = 86_400_000;

@@ -1,7 +1,7 @@
 /**
  * Gann's rules for extreme prices on the daily chart (parity roadmap Stage F1,
  * gaps G20 and G21): the reverse signal day, the 7-to-10 Day Rule, and his gap
- * rules (*How to Make Profits in Commodities*, 1951, pp. 311, 317-325; Tier A).
+ * rules (ref: R-007, 1951, pp. 311, 317-325; Tier A).
  *
  * - **Reverse signal day.** At a top: a day that opens above the prior high,
  *   makes a new high and closes near its low. Mirror at a bottom.
@@ -27,8 +27,8 @@
  * trade's exit (`exitRules.ts`), live and replay alike:
  * - a reverse signal day or a 7-10 Day Rule day against the trade is "an
  *   indication for a change in trend" (p.318), so the stop goes 3 points
- *   beyond that day's extreme, his stop beyond a top or bottom (*Wall Street
- *   Stock Selector* Ch. IV, the daily time rule), and a further break is the
+ *   beyond that day's extreme, his stop beyond a top or bottom (ref: R-003
+ *   Ch. IV, the daily time rule), and a further break is the
  *   trend changing ("reverse_signal");
  * - an exhaust gap against the trade, a gap with its reverse signal day, is
  *   "the culmination of a major swing" (p.319), so the trade leaves
@@ -65,7 +65,7 @@ export const NEAR_EXTREME = 0.25;
 export const NEW_TERRITORY_BARS = 20;
 export const SEVEN_TO_TEN_MIN_DAYS = 7;
 export const SEVEN_TO_TEN_MAX_DAYS = 14;
-/** "As many as 6 to 7 GAPS before a culmination and in extreme cases as many as 10" (Commodities p.321). */
+/** "As many as 6 to 7 GAPS before a culmination and in extreme cases as many as 10" (ref: R-007 p.321). */
 export const EXTENDED_GAP_COUNT = 6;
 
 export type ExtremeSignal = "top" | "bottom";
@@ -78,11 +78,11 @@ export interface ReverseSignalReading {
 }
 
 export interface GapReading {
-  /** A one-day gap to a new extreme on one of the last two bars, with a reverse signal day on it or the bar after (Commodities p.319). */
+  /** A one-day gap to a new extreme on one of the last two bars, with a reverse signal day on it or the bar after (ref: R-007 p.319). */
   exhaustGap: ExtremeSignal | null;
   /**
    * Gaps in the current swing's direction, each at a new extreme, since the
-   * last opposite pivot. `extended`: 6 or more, past the usual 3-4 (Commodities p.321).
+   * last opposite pivot. `extended`: 6 or more, past the usual 3-4 (ref: R-007 p.321).
    */
   gapsInNewTerritory: { direction: "up" | "down"; count: number; extended: boolean } | null;
   /** A gap from the last 10 bars that has since been filled: the minor trend reverses against it. */
@@ -143,7 +143,7 @@ function reverseDayAt(bars: Bar[], i: number): ExtremeSignal | null {
 /**
  * The exhaust gap with its gap on bar `g`: a one-day gap to a new extreme of
  * `NEW_TERRITORY_BARS` bars, and a reverse signal day on `g` or the bar after
- * it when that bar is in `bars` (Commodities p.319; mirrored p.320). A "top"
+ * it when that bar is in `bars` (ref: R-007 p.319; mirrored p.320). A "top"
  * ends an advance. Shared by `readGaps` and the exit rules (`exitRules.ts`,
  * M-E12), so the card and the exit read one rule.
  */

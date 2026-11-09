@@ -1,5 +1,5 @@
 /**
- * Gann's Rule 8 of the Overnight method (*Master Stock Market Course*, Ch. 3;
+ * Gann's Rule 8 of the Overnight method (ref: R-001, Ch. 3;
  * Tier A): "when an active stock closes for 3 days, 3 weeks or 3 months around
  * the same price", and then the trend changes, "it usually goes a considerable
  * distance in the new direction." Built 2026-10-16 at the project owner's

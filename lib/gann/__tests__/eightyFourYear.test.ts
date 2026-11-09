@@ -5,7 +5,7 @@ const mid = (y: number, m: number) => new Date(Date.UTC(y, m - 1, 15, 16));
 
 describe("the 84-year count on the market's record (C-ASTRO-05)", () => {
   it("finds the market's own major turns 84 years back to the month", () => {
-    // August 1896, the low Gann names in the 1936 forecast (Master Course Ch. 7, PDF 227-228).
+    // August 1896, the low Gann names in the 1936 forecast (ref: R-001 Ch. 7, PDF 227-228).
     expect(marketCountHit(mid(1980, 8))).toEqual({ years: 84, kind: "low", pivotMonth: "1896-08" });
     // September 1929, the top.
     expect(marketCountHit(mid(2013, 9))).toEqual({ years: 84, kind: "high", pivotMonth: "1929-09" });

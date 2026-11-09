@@ -38,9 +38,9 @@
  * sweep row stored before 0130 has no stop and stays on, as before.
  *
  * Mandate: 1. Gann chose his active stocks from the daily charts after the
- * close ("the best way to read the tape is to stay away from it", *Truth of
- * the Stock Tape* Ch. XIV) and timed the entry on the hourly chart in active
- * markets (Master Course Ch. 13); his orders rested at the level set the night
+ * close ("the best way to read the tape is to stay away from it", ref: R-002
+ * Ch. XIV) and timed the entry on the hourly chart in active
+ * markets (ref: R-001 Ch. 13); his orders rested at the level set the night
  * before. 2. No periodicity claim; Dewey's checklist does not apply.
  * 3. Cause and Effect: the daily reading is the cause, the session's timing its
  * effect. Rhythm: the list is rebuilt each night and changed through the day

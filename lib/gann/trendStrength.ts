@@ -18,8 +18,8 @@
  *
  * **Updated 2026-09-27 (owner decision, conflict X3).** This used to read a
  * close-count chart it called "9-day", which has no Gann source. Gann's longer
- * chart is the 7-calendar-day swing chart (*How to Make Profits in
- * Commodities*, 1951, pp. 316-317), and both charts now follow his
+ * chart is the 7-calendar-day swing chart (ref: R-007,
+ * 1951, pp. 316-317), and both charts now follow his
  * construction (highs and lows; the trend turns on breaking the last swing
  * extreme). See `swingChart.ts`.
  *
@@ -59,8 +59,8 @@
  *
  * **Designed through the three lenses AGENTS.md requires:**
  *
- * 1. **Gann source.** *45 Years in Wall Street* (1949, Ch. VII) for the
- *    3-Day Chart and *How to Make Profits in Commodities* (1951, pp.
+ * 1. **Gann source.** ref: R-005 (1949, Ch. VII) for the
+ *    3-Day Chart and ref: R-007 (1951, pp.
  *    316-317) for the 7-day weekly chart, his own disclosed
  *    trend-determination method. Tier A. See `lib/gann/swingChart.ts` for the
  *    construction.
@@ -205,9 +205,9 @@ export interface SuccessiveSwings {
 
 /**
  * Which higher bottom (or lower top) the market stands on (C-ENTRY-03). Gann:
- * the move is "strongest after the 2nd-3rd higher bottom" (Master Course
+ * the move is "strongest after the 2nd-3rd higher bottom" (ref: R-001
  * Ch.8, PDF pp.251-252), and "watch the first, second and third lower tops"
- * (Commodities p.46); W003 p.17 restates it as the 3rd or 4th. Context only.
+ * (ref: R-007 p.46); W003 p.17 restates it as the 3rd or 4th. Context only.
  * Engineering choices, labelled: bottoms and tops are the 3-Day Chart's
  * (`STRUCTURE_SWING_CHART`), compared strictly, and the count restarts at the
  * last bottom that was not higher.

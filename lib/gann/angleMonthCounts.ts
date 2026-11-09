@@ -158,7 +158,7 @@ export function angleMonthCounts(
 
 /**
  * Gann's month steps to watch from a top or bottom, 18 to 48 months in sixes
- * (How to Make Profits in Commodities p.58, per the item 7 map; W006 p.15's
+ * (ref: R-007 p.58, per the item 7 map; W006 p.15's
  * 36, 42 and 48 are among them). Used only to mark a count, not to gate.
  */
 export const WATCHED_MONTH_COUNTS: readonly number[] = [18, 24, 30, 36, 42, 48];

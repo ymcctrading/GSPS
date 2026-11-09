@@ -24,8 +24,8 @@
  *
  * The intraday session itself is always the New York date (`etDateKey`).
  *
- * Three questions: (1) Gann reads completed closes (W006 Rule 3; *Truth of
- * the Stock Tape*'s closing prices), and the live scan and the replay must
+ * Three questions: (1) Gann reads completed closes (W006 Rule 3; ref: R-002
+ * 's closing prices), and the live scan and the replay must
  * read the same ones. (2) No periodicity claim. (3) Correspondence: one
  * reading of "the session before" on both surfaces and in both markets.
  * Law of Creation: live scan ⊗ replay, the pair whose agreement makes the

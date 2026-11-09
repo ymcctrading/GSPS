@@ -4,7 +4,7 @@
  * an entry, a stop or a target. Each reading is on the card and in the factor
  * table, so the replay can measure it before anything is promoted.
  *
- * Rules and sources (all Tier A, Master Course; long-book notes W023):
+ * Rules and sources (all Tier A, ref: R-001; long-book notes W023):
  * - **Squares of odd and even numbers** (C-NUMEROLOGY-01, Ch. 6 PDF 209-210,
  *   1935): "odd-number lows work to odd squares and even lows to even
  *   squares", and the half-way points between successive squares (6½, 12½,

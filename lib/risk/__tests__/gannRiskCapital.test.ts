@@ -1,6 +1,6 @@
 /**
  * A-RISK-04 and M-K3 (owner, 2026-10-16, Q7): the trading unit stays at the
- * starting capital until profits equal it, then doubles (Master Course,
+ * starting capital until profits equal it, then doubles (ref: R-001,
  * "when your profits equal your capital, double your unit"); it is never
  * raised during a long run of wins (rule 24). Losses shrink it: the unit is
  * never more than the equity that is left.

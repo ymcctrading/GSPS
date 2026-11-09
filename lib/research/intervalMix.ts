@@ -1,5 +1,5 @@
 /**
- * CYC-43, an irregular cycle as a mix of specific intervals (Tomes, W045 p. 2,
+ * CYC-43, an irregular cycle as a mix of specific intervals (ref: R-033 W045 p. 2,
  * pp. 12-13, 17-19, Fig. 20 and Table 3). A labelled reconstruction, research
  * only: no criterion, gate, plan, entry or order reads this (CYC-41).
  *

@@ -7,7 +7,7 @@
  * Since 2026-10-21 every market runs one model (lib/strat/levels.ts): the
  * stop from Gann's rule, TP1 the first key level that pays more than the risk,
  * the master the next level beyond it. Gann's rule is the same in every
- * market; only the unit changes (*Commodities* pp.43-45). Crypto used to price
+ * market; only the unit changes (ref: R-007 pp.43-45). Crypto used to price
  * TP1 at 1.5R and the master at 3R, an R-multiple model with no Gann source.
  *
  * A number on the Settings page that the engine does not use is not a

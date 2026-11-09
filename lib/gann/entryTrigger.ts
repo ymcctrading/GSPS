@@ -12,7 +12,7 @@
  *   - This uses the **prior completed swing's** extreme plus Gann's 3-point
  *     buffer. Both are disclosed by Gann himself.
  *
- * Sources (`docs/GANN_HISTORICAL_SOURCES.md` A8, the "45 Years in Wall Street"
+ * Sources (`docs/GANN_HISTORICAL_SOURCES.md` A8, the ref: R-005
  * material):
  *
  *   - **The level.** All nine numbered Buying Points and nine Selling Points
@@ -25,10 +25,10 @@
  *     reason for placing stops exactly 3 cents beyond a level. A bare touch of
  *     an old top is therefore not a cross; clearing it by a real margin is.
  *   - **Primary text for both** (added 2026-09-27, roadmap item A8 / C4): the
- *     Master Stock Market Course, Ch. 9, states the lost-motion allowance
+ *     ref: R-001, Ch. 9, states the lost-motion allowance
  *     (averaging about 1⅞, never a full 3) and the averaging of nearby levels
- *     into one. *Wall Street Stock Selector* (1930) and *Truth of the Stock
- *     Tape* (1923) apply "3 points beyond the old top or bottom" throughout.
+ *     into one. ref: R-003 (1930) and ref: R-002
+ *     (1923) apply "3 points beyond the old top or bottom" throughout.
  *
  * **The allowance is Gann's 3 points, price-scaled** (2026-10-15, owner:
  * "Use Gann's full 3 points now"; PLAN.md item 3). It was a fixed 0.3% until
@@ -354,7 +354,7 @@ export function computeGannEntryTrigger(
  * which Gann says a bottom still holds (A-LEVELS-06).
  *
  * The order type is Gann's own: never-failing rule 9 says trade at the
- * market and never fix a price (*Commodities* rule 9, pp.43-45, and p.19), so
+ * market and never fix a price (ref: R-007 rule 9, pp.43-45, and p.19), so
  * once a closed bar has come down to the level the buy is a market order
  * (`gannBuyZone`). The test comes weeks after the bottom it tests: Gann's
  * double bottom is "the same level weeks, months or a year or more apart"
@@ -407,7 +407,7 @@ export function computeGannOldLevelEntry(
   // Gann's buying points are the double and triple bottom, the second and
   // third test (A-ENTRY-02, -03). After three bottoms the order would buy a
   // fourth, which neither covers; his own note is that a fourth test usually
-  // goes through (45 Years p.7, held as M-P6).
+  // goes through (ref: R-005 p.7, held as M-P6).
   if (tests >= 3) return null;
   const opposite = [...pivots].reverse().find((p) => p.kind !== kind) ?? pivot;
   return {
@@ -487,7 +487,7 @@ function withinRiskCap(entry: number, stop: number): boolean {
  *   step 4b), offered when no held top is.
  *
  * The order type is Gann's own: never-failing rule 9 says trade at the
- * market and never fix a price (*Commodities* rule 9, pp.43-45, and p.19), so
+ * market and never fix a price (ref: R-007 rule 9, pp.43-45, and p.19), so
  * the buy is a market order once a closed bar has traded at or under the last
  * completed session's close, the plan's entry (`gannBuyZone`), as every other
  * buying point is bought. Engineering choices, labelled as such: the entry
@@ -743,15 +743,15 @@ function narrowWeekSell(bars: Bar[], entry: number, swingDays: number): { trigge
   };
 }
 
-/** Sessions of the distribution spell: two weeks, the Master Course's shortest range (2-6 weeks). */
+/** Sessions of the distribution spell: two weeks, the ref: R-001's shortest range (2-6 weeks). */
 export const DISTRIBUTION_SESSIONS = 10;
 /** How far back from the break the spell is looked for, and the high it must stand at: the 13-week range bound. */
 export const DISTRIBUTION_LOOKBACK_DAYS = 91;
 
 /**
  * Distribution before a break (A-ENTRY-15; W006 p.22: "sell after
- * distribution and a 3-point break of the last important bottom"; the Master
- * Course: a narrow range of 2-6 weeks at a top). Before session `end` (the
+ * distribution and a 3-point break of the last important bottom"; the ref: R-001:
+ * a narrow range of 2-6 weeks at a top). Before session `end` (the
  * break, or the end of `bars` when no break has closed yet): some
  * `DISTRIBUTION_SESSIONS` consecutive sessions within `DISTRIBUTION_LOOKBACK_DAYS`
  * formed a narrow range whose high stands within 3 points of
@@ -1051,7 +1051,7 @@ export function gannCrossedLevel(entry: number, stop: number): number {
 
 /**
  * Never-failing rule 9: "Never limit your orders or fix a buying or selling
- * price. Trade at the market" (*Commodities* rule 9 of the 28, pp.43-45, and
+ * price. Trade at the market" (ref: R-007 rule 9 of the 28, pp.43-45, and
  * "Popular Trading Prices", p.19: an order at 75 is filled at 74¾ or 74⅞, so
  * a fixed figure misses the market; WSSS Ch. II rule 9; read in W021 PDF
  * p.124 and Appendix A). Read with the reaction buy (W006 pp.20, 46-47: old

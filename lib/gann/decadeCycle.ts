@@ -11,7 +11,7 @@
  * correct, even though B9 remains an unreliable general source otherwise.
  *
  * **Class A** (raised 2026-10-16, C-TIME-24 / M-T17): the finished reading
- * of the Master Course confirms the ten characters in Gann's own November
+ * of the ref: R-001 confirms the ten characters in Gann's own November
  * 1935 lesson (Ch. 7 PDF 223-224), including "8 = bull (the 90th month)" and
  * the 9th year culminating September to November. The 90th month is read
  * from January of the '1' year as month 1 (Gann numbers the decade 1-10), so
@@ -112,7 +112,7 @@ const DECADE_CHARACTER: Record<number, DecadeCharacter> = {
 
 /**
  * The months inside a year where Gann's own character for the digit turns
- * (Master Course Ch. 7, PDF 223-224; `docs/memory-bank/sources/A2_1_master_stock_market_course.md`,
+ * (ref: R-001 Ch. 7, PDF 223-224; `docs/memory-bank/sources/A2_1_master_stock_market_course.md`,
  * "Bull and bear calendar years"). Months are 1-12, inclusive.
  *
  * - 3: "a 2nd-year rally may run to Mar/Apr, or a decline bottoms Feb/Mar",

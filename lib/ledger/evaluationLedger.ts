@@ -18,8 +18,8 @@
  * Best-effort: a failed write is logged and never fails a scan. On by default;
  * `GSPS_EVALUATION_LEDGER=0` turns every write and read off (kill switch).
  *
- * Mandate: 1. Gann kept a record of every trade and read it back (*Tunnel
- * Thru the Air* pp.198-199); this is the platform's record of what it
+ * Mandate: 1. Gann kept a record of every trade and read it back (ref: R-006
+ * pp.198-199); this is the platform's record of what it
  * examined. 2. No periodicity claim. 3. Cause and Effect: each stage the cause
  * of the next, recorded once. Law of Creation: scan ⊗ record; the record is
  * what lets a miss be explained rather than guessed.

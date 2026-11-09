@@ -4,8 +4,8 @@
  *
  * Gann names mass pressure as his fifth forecasting factor, the public's
  * over-optimism or pessimism repeating after a cycle, "a curve calculable 100
- * years ahead with minor corrections" (*Commodities* pp. 11-12, 16), and in the
- * Master Course he shows how the curve is drawn: "for the 1929 forecast, I
+ * years ahead with minor corrections" (ref: R-007 pp. 11-12, 16), and in the
+ * ref: R-001 he shows how the curve is drawn: "for the 1929 forecast, I
  * compared 1919 … 1909 … 1899 … and 1869" (Ch. 7, PDF 224-225), on his
  * Master 20-Year Forecasting Chart of the averages from 1831; for 1936 he laid
  * 1876, 1896, 1916, 1866, 1886, 1906 and 1926 together and expected "the 1896

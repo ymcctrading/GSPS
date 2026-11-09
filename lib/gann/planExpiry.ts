@@ -13,7 +13,7 @@
  *
  * 1. **The first target is passed** (`target_passed`). A level is support
  *    below price and resistance above it (W006 pp.19-24); "old tops become
- *    bottoms" (*Commodities*, W001). TP1 is the next level past the entry, so
+ *    bottoms" (ref: R-007, W001). TP1 is the next level past the entry, so
  *    once price stands beyond it, TP1 is the first level a reaction meets, and
  *    Gann's buy after a crossing is the reaction to the level just crossed
  *    (W006 pp.20, 46-47), not to one further back. The plan's entry is
@@ -25,7 +25,7 @@
  *    campaign with the plan's trend, filling a buy below price takes a
  *    reaction from the campaign's latest top down to the entry. When that
  *    reaction would exceed the campaign's greatest reaction by one point or
- *    more, Gann reads it as the main trend changed (Master Course Ch. 8, PDF
+ *    more, Gann reads it as the main trend changed (ref: R-001 Ch. 8, PDF
  *    249, "by 1+ point"; `campaignLedger.ts`, C-TREND-06). A with-trend buy
  *    that can only fill on a change of trend has lost its premise, so it is
  *    expired. Mirrored for a sell above price in a bear campaign. Read only

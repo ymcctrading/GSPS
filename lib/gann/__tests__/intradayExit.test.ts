@@ -177,7 +177,7 @@ describe("live and replay walk the same exits", () => {
   });
 });
 
-describe("the hourly chart on exchange hours (Master Course PDF 378)", () => {
+describe("the hourly chart on exchange hours (ref: R-001 PDF 378)", () => {
   const bar = (t: string): Bar => ({ t, o: 1, h: 1, l: 1, c: 1, v: 1 });
   it("counts a US equity's hours from the 9:30 open, in New York time across the clock change", () => {
     // October (EDT): 13:30 and 14:15 UTC are 9:30 and 10:15, the first hour; 14:30 is 10:30, the second.

@@ -16,33 +16,33 @@
  * Sources, per reading (page as the reading notes give it):
  * - Cycles by lesson: see `timeCycles.ts`'s `CYCLE_YEARS_1955` and
  *   `MINOR_CYCLE_YEARS_1931` (M-T3, C-TIME-20, C-TIME-26).
- * - The Ch.5 wheel counts (C-TIME-06): Master Course Ch.5 PDF 162, "monthly
+ * - The Ch.5 wheel counts (C-TIME-06): ref: R-001 Ch.5 PDF 162, "monthly
  *   changes at 30, 60, 120, 150, 210, 240, 300, 330 and 360 days or degrees".
  *   120, 240 and 360 are in `WHEEL_COUNTS` already; the other six are read
  *   here (150 left the class C finer divisions for this list).
- * - Time balance from top to top and bottom to bottom (M-T11): *How to Make
- *   Profits Trading in Commodities* p.311, "always figure the time from any
+ * - Time balance from top to top and bottom to bottom (M-T11): ref: R-007
+ *   p.311, "always figure the time from any
  *   top ... to the next top, and from any low ... to the next low. This is
  *   BALANCING OF TIME"; p.312, carry the periods forward. Moved here from
  *   the class C counts (`secondaryTime.ts`, where W032 also gives it).
- * - The Commodities day bands (M-T7): *How to Make Profits Trading in
- *   Commodities* p.57, "watch for TOP or BOTTOM around the 49th to 52nd day,
+ * - The Commodities day bands (M-T7): ref: R-007
+ *   p.57, "watch for TOP or BOTTOM around the 49th to 52nd day,
  *   although at times a change will start on the 42nd to 45th day, because a
  *   period of 45 days is ⅛ of a year", and "the end of 90-98 days and 120-135
- *   days". A second cited list beside *45 Years* Rule 8's `DAY_COUNT_BANDS`.
- * - The Rule 8 calendar dates (M-T5): *45 Years in Wall Street* (1949) Ch. II
+ *   days". A second cited list beside ref: R-005 Rule 8's `DAY_COUNT_BANDS`.
+ * - The Rule 8 calendar dates (M-T5): ref: R-005 (1949) Ch. II
  *   Rule 8 "Time Periods" (pp. 10-11) gives seasonal dates for every month,
  *   transcribed from the book into `RULE_8_MONTHLY_DATES`, with September
  *   the one he calls most important. This is a different list from the 1930 permanent
  *   cycle (`FIXED_CALENDAR_WINDOWS`), so it is kept apart.
- * - The Winter-quarter seasonal dates (C-TIME-05): Master Course Ch.5 PDF
+ * - The Winter-quarter seasonal dates (C-TIME-05): ref: R-001 Ch.5 PDF
  *   161; see `seasonalCounts.ts`'s `WINTER_QUARTER_POINTS`.
- * - Week counts (M-T11, C-TIME-08): Commodities p.311's periods from extreme
+ * - Week counts (M-T11, C-TIME-08): ref: R-007 p.311's periods from extreme
  *   highs and lows, "6½ to 7 weeks, 13 weeks, 17 weeks, 20 weeks, 26 weeks,
  *   32½ weeks, 35 weeks, 42 to 45 weeks, and 52 weeks", of which 20 and
  *   42-45 are not read elsewhere (the rest are the Square of 52's divisions,
- *   and 17 and 35 the class C week counts); 45½ weeks, ⅞ of the year (Master
- *   Course Ch.14 PDF 385); and "78th to 80th week, month or day", 78¾ being
+ *   and 17 and 35 the class C week counts); 45½ weeks, ⅞ of the year (ref: R-001
+ *   Ch.14 PDF 385); and "78th to 80th week, month or day", 78¾ being
  *   ⅞ of 90 (Ch.2 PDF 58). The compiler's "death zone" label for the 7th week
  *   is not carried: in Gann it names the Master 12's 8th and 9th sections
  *   (Ch.2 PDF 66-68), not a week count.
@@ -73,7 +73,7 @@ import type { PivotCountHit } from "@/lib/gann/secondaryTime";
 
 const DAY_MS = 86_400_000;
 
-/** C-TIME-06: the Ch.5 day counts `WHEEL_COUNTS` does not carry (Master Course Ch.5 PDF 162). */
+/** C-TIME-06: the Ch.5 day counts `WHEEL_COUNTS` does not carry (ref: R-001 Ch.5 PDF 162). */
 export const WHEEL_COUNTS_CH5: readonly number[] = [30, 60, 150, 210, 300, 330];
 
 /** The window either side of a projected count, in days (as `timeCycles()`). */
@@ -92,11 +92,11 @@ export interface TimeCountsReading {
   lessonCycles: LessonCycleHit[] | null;
   /** The Ch.5 wheel counts due within two days, from major daily pivots. */
   wheelCountsCh5: PivotCountHit[];
-  /** Top-to-top and bottom-to-bottom balances due now (Commodities p.311). */
+  /** Top-to-top and bottom-to-bottom balances due now (ref: R-007 p.311). */
   timeBalanceSpans: TimeBalanceSpan[];
-  /** Commodities p.57's day bands open on the last bar. */
+  /** ref: R-007 p.57's day bands open on the last bar. */
   commoditiesDayBands: CommoditiesDayBandHit[];
-  /** The 45 Years Rule 8 calendar window today sits in, or null. */
+  /** The ref: R-005 Rule 8 calendar window today sits in, or null. */
   rule8Date: (typeof RULE_8_MONTHLY_DATES)[number] | null;
   /** The Winter-quarter seasonal date today sits on, or null. */
   winterQuarter: WinterQuarterReading | null;
@@ -158,7 +158,7 @@ export function readWeekCounts(bars: Bar[], asOf: Date): PivotCountHit[] {
   return out;
 }
 
-/** M-T7: Commodities p.57's day bands from a top or bottom, inclusive. */
+/** M-T7: ref: R-007 p.57's day bands from a top or bottom, inclusive. */
 export const COMMODITIES_DAY_BANDS: readonly [number, number][] = [
   [42, 45],
   [49, 52],
@@ -167,8 +167,8 @@ export const COMMODITIES_DAY_BANDS: readonly [number, number][] = [
 ];
 
 /**
- * M-T5: Rule 8's seasonal dates for a change in trend (*45 Years in Wall
- * Street*, 1949, Ch. II, Rule 8 "Time Periods", pp. 10-11: January to July on
+ * M-T5: Rule 8's seasonal dates for a change in trend (ref: R-005,
+ * 1949, Ch. II, Rule 8 "Time Periods", pp. 10-11: January to July on
  * p. 10, August to December on p. 11). Month 1-12, days inclusive. Gann gives
  * two windows for every month except March, which has one (20 to 27).
  * `mostImportant` marks September only, which he calls the most important of
@@ -238,7 +238,7 @@ export const TIME_BALANCE_TOLERANCE_WEEKS = 1;
 
 /**
  * Top-to-top and bottom-to-bottom balances on the weekly swing chart (M-T11,
- * Commodities p.311): the open span since the last top (or bottom) within a
+ * ref: R-007 p.311): the open span since the last top (or bottom) within a
  * week of the last completed top-to-top (or bottom-to-bottom) span points to
  * the next top (or bottom). The matching-leg balance (high to low, low to
  * high) is the campaign ledger's `timeBalanceDates`.

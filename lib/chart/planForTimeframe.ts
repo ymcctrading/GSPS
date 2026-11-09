@@ -6,8 +6,8 @@
  *
  * One chart, and the timeframe buttons are the switch. Gann reads one method
  * on every chart: the monthly, weekly and daily charts decide the trade, and
- * the hourly and 15-minute charts time it in an active market (Master Course
- * Ch. 13; *Commodities* p. 31). So a daily, weekly or monthly chart draws the
+ * the hourly and 15-minute charts time it in an active market (ref: R-001
+ * Ch. 13; ref: R-007 p. 31). So a daily, weekly or monthly chart draws the
  * daily (Swing) plan's entry, stop, TP1 and MTP, and an intraday chart draws
  * the intraday alert's own levels for the session, labelled "Intraday", or no
  * plan lines when no alert stands. The structural levels (support and
@@ -49,7 +49,7 @@ const usable = (n: number | null): n is number => n != null && Number.isFinite(n
  * answer hasn't come, the plan has no intraday access (Novice, or not signed
  * in), or its read failed. Then the chart keeps the daily plan on every
  * timeframe, as the public chart does, since the intraday charts time the
- * daily plan (Master Course Ch. 13). `null` means the panel answered and no
+ * daily plan (ref: R-001 Ch. 13). `null` means the panel answered and no
  * alert stands for the symbol.
  */
 export function panelChartPlan(

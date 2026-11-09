@@ -294,8 +294,8 @@ async function advance(
   }
 
   // A live exit row is written when the order is placed; the fill is when its
-  // exits were attached. Gann's rules count from the day bought (*Truth of
-  // the Stock Tape*), so the day trail never reads a session before the fill.
+  // exits were attached. Gann's rules count from the day bought (ref: R-002),
+  // so the day trail never reads a session before the fill.
   const filledAt = plan.exits_attached_at ?? plan.created_at;
   // The best price since the fill also reads every closed 15-minute bar's
   // extreme since it, as the replay does, so a spike between two passes

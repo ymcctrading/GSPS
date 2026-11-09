@@ -8,20 +8,20 @@
  * chart had no source. Four of Gann's texts define the charts differently,
  * and all agree on three points:
  *
- * 1. **Highs and lows, not closes.** *45 Years in Wall Street* (1949,
+ * 1. **Highs and lows, not closes.** ref: R-005 (1949,
  *    Ch. VII, p. 62): when the market makes higher tops for 3 consecutive
  *    days the line follows it up; after 3 days of lower bottoms the line
  *    moves down to the low of the third day.
- * 2. **The line records counter-moves by their duration.** *How to Make
- *    Profits in Commodities* (1951 New Rules, p. 316): the daily chart
+ * 2. **The line records counter-moves by their duration.** ref: R-007
+ *    (1951 New Rules, p. 316): the daily chart
  *    "records all reverse moves or reactions that run 2 to 3 days". Pp.
  *    316-317: the weekly chart records "reverse moves of 7 calendar days or
  *    more", which Gann calls "one of the most valuable trend indicators".
  * 3. **The trend changes when the last swing extreme breaks**, not when a
  *    counter-move ends. The counter-move only moves the line. Crossing the
  *    last swing top means higher; breaking the last swing bottom means lower
- *    (A09 p. 62; A8 p. 316). *Wall Street Stock Selector* (1930, Ch. IV) and
- *    *Truth of the Stock Tape* (1923, p. 82) give the same time-based charts
+ *    (A09 p. 62; A8 p. 316). ref: R-003 (1930, Ch. IV) and
+ *    ref: R-002 (1923, p. 82) give the same time-based charts
  *    ("moves of from three days to one week").
  *
  * So this module keeps two things separate: the **line** (which way the
@@ -41,7 +41,7 @@
  * **Correspondence across timeframes.** The same two rules applied to coarser
  * bars reproduce Gann's other disclosed charts rather than inventing new
  * ones. On weekly bars, the 7-calendar-day rule reverses on a one-bar
- * counter-move: the Master Course's weekly 1-bar swing chart (Ch. 18). On
+ * counter-move: the ref: R-001's weekly 1-bar swing chart (Ch. 18). On
  * monthly bars it reverses on a one-month reaction, and the trend turns on
  * breaking the prior swing's monthly low: A05's monthly-low break. On weekly
  * bars the 3-bar chart is the "3-week" reaction rule (A09 Rule 4).
@@ -234,7 +234,7 @@ export function walkSwingChart(bars: Bar[], chart: SwingChartSpec | number): Swi
     // on the 7-day chart), the line turns only on a bar that breaks the
     // previous bar's low (high, in a down-swing): Gann counts monthly moves
     // as months "without breaking the previous month's low or high"
-    // (*Commodities* pp. 102-103), so an inside month or week never moves
+    // (ref: R-007 pp. 102-103), so an inside month or week never moves
     // it. Recheck 2026-10-22, A-TREND-01/02: before, the first bar that did
     // not extend the swing reversed the line, an inside bar included.
     if (

@@ -1,9 +1,9 @@
 /**
  * Never-failing rules 1 and 9 on the paper placement path.
  *
- * Rule 1 (W006 p.46; Commodities pp.29-30 and rule 1, pp.43-45): never risk
+ * Rule 1 (W006 p.46; ref: R-007 pp.29-30 and rule 1, pp.43-45): never risk
  * more than a tenth of the capital on a trade, read on the trading unit.
- * Rule 9 (Commodities rule 9, pp.43-45 and p.19; W021 PDF p.124): never limit
+ * Rule 9 (ref: R-007 rule 9, pp.43-45 and p.19; W021 PDF p.124): never limit
  * orders or fix a price; trade at the market. Once the protocol's entry has
  * confirmed (a closed bar traded into the buying zone), it is a market order.
  */

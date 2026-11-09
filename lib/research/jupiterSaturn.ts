@@ -1,6 +1,6 @@
 /**
  * The Jupiter–Saturn synodic cycle divided by 4 to 9 and projected from a
- * pivot (C-ASTRO-11; Bucholtz, W013 pp.113-117). Research and context only:
+ * pivot (C-ASTRO-11; ref: R-036 W013 pp.113-117). Research and context only:
  * no criterion, gate, plan, entry or order reads this (CYC-41).
  *
  * Gann: none; not sourced to Gann. The 238.2 months is Bucholtz's figure

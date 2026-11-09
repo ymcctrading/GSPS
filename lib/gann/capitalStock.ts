@@ -8,17 +8,17 @@
  *
  * Gann's rules (Tier A, his own books):
  * - "Two-thirds of the float changing hands in one week" at a top means
- *   distribution: Vanadium, Feb 1929 (*Wall Street Stock Selector*, 1930,
+ *   distribution: Vanadium, Feb 1929 (ref: R-003, 1930,
  *   Ch. VII).
  * - Weekly volume "almost equalling the total amount of stock outstanding"
- *   marks a plain top (Master Stock Market Course, Ch. 12, Vanadium weekly
+ *   marks a plain top (ref: R-001, Ch. 12, Vanadium weekly
  *   chart 1928-30).
  * - The entire capital stock trading inside one range after an advance means
  *   distribution and a change in trend: Chrysler, Jan-Apr 1934, after a
- *   52-point advance (Master Course Ch. 12).
+ *   52-point advance (ref: R-001 Ch. 12).
  *
- * Gann's "float" in the Stock Selector and "capital stock" / "stock
- * outstanding" in the Master Course are the same figure in his usage: the
+ * Gann's "float" in the ref: R-003 and "capital stock" / "stock
+ * outstanding" in the ref: R-001 are the same figure in his usage: the
  * shares issued. We read shares outstanding from SEC filings (migration 0083).
  * Modern float, which excludes insider and restricted holdings, is a later
  * concept and is not used.
@@ -69,11 +69,11 @@ export const RANGE_TURNOVER_DISTRIBUTION = 1;
 /** Median weekly turnover above this means the share count is wrong, not the market. */
 export const IMPLAUSIBLE_MEDIAN_WEEK_TURNOVER = 0.25;
 /**
- * A-SELECTION-07, a small number of shares (class A, *New Stock Trend
- * Detector*, 1936, Ch. V pp. 38-39; long-book notes W011, W006): stocks of
+ * A-SELECTION-07, a small number of shares (class A, ref: R-004,
+ * 1936, Ch. V pp. 38-39; long-book notes W011, W006): stocks of
  * 130,000 to 166,000 shares (Case Threshing, Auburn) and Radio (549 to 2½,
  * "the greatest decline in any stock") were sold short for the widest
- * declines. *Wall Street Stock Selector* (1930; W005 notes) had listed small
+ * declines. ref: R-003 (1930; W005 notes) had listed small
  * floats among the dangerous short sales; the 1936 book's "they can be sold
  * short too" is the later word, and the conflict is recorded, not resolved.
  *

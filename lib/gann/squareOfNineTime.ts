@@ -3,7 +3,7 @@
  * "I always defer to Gann's method").
  *
  * Sources:
- * - Tier A: Master Course Ch. 2 (1931) lists the numbers on the square's
+ * - Tier A: ref: R-001 Ch. 2 (1931) lists the numbers on the square's
  *   spokes (3, 13, 31, 57, 91, 133 … and 7, 21, 43, 73, 111, 157 …) as
  *   "great resistance points and measuring out important time factors", and
  *   ranks the cardinal cross (0, 90, 180, 270) and the fixed cross (45, 135,

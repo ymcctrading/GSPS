@@ -11,9 +11,9 @@
  *   loss order is the safest to use as it will be caught less than any other";
  *   in fast moves trail "1 to 3 points under the day's low" (5 under each
  *   day's high at high levels).
- * - *Truth of the Stock Tape*: in active markets reactions seldom last more
+ * - ref: R-002: in active markets reactions seldom last more
  *   than 2 days, "buy on the second day's reaction and stop three points".
- * - *Commodities*, Selling Point 9: sell the 2-day rallies in a fast decline
+ * - ref: R-007, Selling Point 9: sell the 2-day rallies in a fast decline
  *   with the stop above the prior day's high; "fast-declining markets will
  *   often run 10 to 30 days without crossing the high of the previous day".
  * - His 1940-41 soybean trade (Chart No. 18): in the runaway move, stops 1

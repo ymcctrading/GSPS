@@ -5,7 +5,7 @@
  * run").
  *
  * Gann chose his stocks from the daily charts the night before and timed them
- * in the session (Master Course Ch. 13; *Truth of the Stock Tape* Ch. XIV).
+ * in the session (ref: R-001 Ch. 13; ref: R-002 Ch. XIV).
  * The night's plan names the line (the old level its crossing waits on, W006
  * p.20, Rules 3(b)-(c), through `planLineAhead`), and the session's own
  * notices (`line_approach`, `line_crossed`) tell a member once price nears or

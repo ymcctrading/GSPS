@@ -8,9 +8,9 @@
  * Sources (the readings in literature-reading-output):
  * - W036, *Annual Forecasts 1919-1922* (class A): the 1919, 1920, 1921 and
  *   1922 stock forecasts, each mailed in advance with its issue date.
- * - W005, *Wall Street Stock Selector* appendix pp.11-39 (class A): the 1929
+ * - W005, ref: R-003 appendix pp.11-39 (class A): the 1929
  *   forecast, signed 23 Nov 1928 (p.11 says it was sent 3 Nov 1928).
- * - W001, *Economic Forecaster* p.4-5 (class A, the author's own booklet):
+ * - W001, ref: R-012 p.4-5 (class A, the author's own booklet):
  *   the 1932 forecast, issued 21 Oct 1931, as quoted there in 1954. The
  *   quote is the author's own selection, so it may leave out calls that missed.
  *

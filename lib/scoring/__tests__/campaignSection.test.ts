@@ -1,6 +1,6 @@
 /**
  * Buy in the campaign's early sections (2026-10-29; `applyCampaignSectionHold`,
- * `CampaignLedger.tradeSection`). Master Course pp. 244-245: "the third or
+ * `CampaignLedger.tradeSection`). ref: R-001 pp. 244-245: "the third or
  * fourth movement up or down marks the culmination".
  */
 import { describe, expect, it } from "vitest";
@@ -31,7 +31,7 @@ function path(points: [number, number][]): Bar[] {
   return out;
 }
 
-// A decline, then Chrysler 1935's shape (Master Course GA-20/21): 31 to 49¾,
+// A decline, then Chrysler 1935's shape (ref: R-001 GA-20/21): 31 to 49¾,
 // back to 41¼, to 62¾, back to 57½, to 74, back to 68, each reaction weeks long.
 const DECLINE: [number, number][] = [[60, 0], [40, 25], [46, 12], [31, 20]];
 const SECTION_1: [number, number][] = [[49.75, 25], [41.25, 15]];

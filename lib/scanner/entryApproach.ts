@@ -8,7 +8,7 @@
  * The speed is Gann's: "a movement in price during a unit of time" (the 1954
  * course catalogue), read as an angle, so many points of price for each bar of
  * time, drawn from the top the reaction fell from (the bottom a rally rose
- * from, short). His angles are the disclosed tool for that rate (Master Course
+ * from, short). His angles are the disclosed tool for that rate (ref: R-001
  * Ch. 4; the 1x1 is one point a bar); the Three-Dimension Chart that measured
  * speed in his letters was never disclosed. The reaction's own pace is the
  * line drawn from its top through the latest close; the time left is the

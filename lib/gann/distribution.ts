@@ -2,7 +2,7 @@
  * Gann's volume Rule 2: after a second, lower top, a dull, narrow sideways
  * spell that breaks out downward on increased volume signals a further
  * decline (A-VOLUME-03; W006 pp.39-40, Ch. VI "Rules for culminations by
- * volume"; Master Course Ch.12 Rule 2). Context only for now: the action the
+ * volume"; ref: R-001 Ch.12 Rule 2). Context only for now: the action the
  * rule implies (hold a long, exit a long) waits on fork FV7.
  *
  * The reading, on completed sessions only (the session still trading on the
@@ -31,7 +31,7 @@
  * pinned in the tests).
  *
  * Three-question basis:
- * 1. Gann: W006 pp.39-40 (class A), the Master Course corroborating.
+ * 1. Gann: W006 pp.39-40 (class A), the ref: R-001 corroborating.
  * 2. Cycles: no periodicity claim; Dewey does not apply.
  * 3. Hermetic: Cause and Effect (supply returning on the break is the cause,
  *    the further decline its effect) and Polarity (the bottom mirror is
@@ -54,7 +54,7 @@ export const SESSIONS_READ = 220;
 /**
  * A narrow spell spans at most this many 3-point allowances at its low. Gann
  * states no width, but every range he dates as narrow is 2 to 4 points (2 on
- * the 1897 Rails, 2½ on the 1911 Rails, 56-60 in 1898; Master Course
+ * the 1897 Rails, 2½ on the 1911 Rails, 56-60 in 1898; ref: R-001
  * pp. 246-248), on prices where his allowance is 3 points, so the widest he
  * calls narrow is 4/3 of the allowance, as `breakaway.ts`'s range reads it.
  * Corrected 2026-10-28 (alignment audit, `score-and-levels.md` L-12): it was 2

@@ -29,7 +29,7 @@ function year2026(until: string, lastClose: number): Bar[] {
   return out;
 }
 
-describe("A-TIME-20: the Jan 2-7 and Jan 15-21 ranges set the year's trend (Master Course Ch.7 PDF 221-223)", () => {
+describe("A-TIME-20: the Jan 2-7 and Jan 15-21 ranges set the year's trend (ref: R-001 Ch.7 PDF 221-223)", () => {
   it("reads the year up once price closes above the January ranges", () => {
     const r = readYearRanges(year2026("2026-03-02", 105), new Date("2026-03-02T20:00:00Z"));
     expect(r?.ranges.map((x) => x.window)).toEqual(["Jan 2-7", "Jan 15-21"]);
@@ -53,7 +53,7 @@ describe("A-TIME-20: the Jan 2-7 and Jan 15-21 ranges set the year's trend (Mast
   });
 });
 
-describe("A-TIME-14: a year runs like its decade analogues (Master Course Ch.2 PDF 51-52 Rule 9; Ch.7 PDF 224-225)", () => {
+describe("A-TIME-14: a year runs like its decade analogues (ref: R-001 Ch.2 PDF 51-52 Rule 9; Ch.7 PDF 224-225)", () => {
   function months(from: number, n: number, closeAt: (i: number) => number): Bar[] {
     return Array.from({ length: n }, (_, i) => {
       const y = from + Math.floor(i / 12);
@@ -101,7 +101,7 @@ describe("A-TIME-14: a year runs like its decade analogues (Master Course Ch.2 P
   });
 });
 
-describe("A-RISK-16: the 24 never-failing rules (Wall Street Stock Selector Ch.II pp.18-28)", () => {
+describe("A-RISK-16: the 24 never-failing rules (ref: R-003 Ch.II pp.18-28)", () => {
   it("lists all 24, numbered in order", () => {
     expect(NEVER_FAILING_RULES.map((r) => r.n)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
   });

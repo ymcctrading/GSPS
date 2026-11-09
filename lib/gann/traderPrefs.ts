@@ -6,7 +6,7 @@
  * - `roundNumberNotices`: show the "approaching a round number" notice on the
  *   setup card, chart and order ticket (`lib/gann/evenFigures.ts`). Default on.
  * - `restReminder`: Gann's rule to close out every trade twice a year and rest
- *   (*Truth of the Stock Tape*, Book I). A reminder only; nothing is ever
+ *   (ref: R-002, Book I). A reminder only; nothing is ever
  *   closed for the trader. Default on.
  * - `autoOrderRoundNumbers`: whether the autonomous portfolio manager may
  *   place an entry just short of a round number when the plan's own breakout
@@ -14,7 +14,7 @@
  *   before the figures, not into them.
  *
  * - `awayFrom`: the date the trader will be away from the market. Gann goes
- *   flat before travelling (*Tunnel Thru the Air*, W022 p.113, Tier A:
+ *   flat before travelling (ref: R-006, W022 p.113, Tier A:
  *   Robert covers his wheat and corn and goes flat before he travels;
  *   A-EXIT-05). In the days before it, a reminder to close out every trade.
  *   A reminder only; nothing is closed for the trader. Unset by default.

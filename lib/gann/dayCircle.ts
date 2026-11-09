@@ -9,9 +9,9 @@
  *   180° at 6:00 PM, 270° at midnight, 22.5° every hour and a half. That is 15°
  *   an hour. On the plate 292.5° is 1:30 AM and 315° is 3:00 AM (the workbook
  *   misprints both as PM).
- * - *Tunnel Thru the Air* (1927): one degree is four minutes of the earth's
+ * - ref: R-006 (1927): one degree is four minutes of the earth's
  *   rotation, which is the same 15° an hour.
- * - Master Course Ch. 14 (1955): the day's quarters are sunrise, noon, sunset
+ * - ref: R-001 Ch. 14 (1955): the day's quarters are sunrise, noon, sunset
  *   and midnight, with noon (90°) and midnight most important.
  *
  * Deferring to Gann's method means the clock is used exactly as drawn: 0° is

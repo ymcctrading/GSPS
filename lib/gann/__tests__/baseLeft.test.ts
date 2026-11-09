@@ -1,7 +1,7 @@
 /**
  * A long base counts for a side only once price has left it that way and
- * stands outside it (`readBaseLeft`, 2026-10-28; *Commodities* p. 62, Master
- * Course, W006 Rule 3(c) p.47).
+ * stands outside it (`readBaseLeft`, 2026-10-28; ref: R-007 p. 62, ref: R-001,
+ * W006 Rule 3(c) p.47).
  */
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";

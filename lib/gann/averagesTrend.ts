@@ -1,7 +1,7 @@
 /**
  * The averages' trend, read as Gann's 1949 Rule 1 reads it: "determine the
  * trend of the averages (or the group) with the 3-Day Chart and the 9-Point
- * Swing Chart, and trade stocks that conform" (*45 Years in Wall Street*,
+ * Swing Chart, and trade stocks that conform" (ref: R-005,
  * Ch. II p. 6, source note A09). The swing chart is the 7-day weekly chart
  * since B1 (2026-09-27, `swingChart.ts`); SPY stands in for the averages.
  *
@@ -17,7 +17,7 @@
  *
  * The main trend is the weekly chart's; the 3-Day Chart's turns inside it are
  * the reactions Gann buys in a bull market and sells in a bear market ("stocks
- * are a buy on a reaction of about 1 month in a bull market", Master Course
+ * are a buy on a reaction of about 1 month in a bull market", ref: R-001
  * p. 10, rule A). P1's market leg reads it.
  *
  * Taken out, 2026-10-29: a hold of any Execute when both charts read against it
@@ -27,14 +27,14 @@
  * (`replay-diagnosis/2026-10-29-averages-trend-rerun/FINDINGS.md`). The short
  * is now held on the stock's own monthly main trend (`mainTrend.ts`).
  *
- * Weighed against the *New Stock Trend Detector* (1936, Ch. IV, A05): "apply
+ * Weighed against the ref: R-004 (1936, Ch. IV, A05): "apply
  * the trend rules to each stock; do not trade from the averages", and late
  * movers top after the averages, so don't short a stock because the average
  * turned. The averages never choose a stock's side here.
  *
  * Designed through the three lenses (AGENTS.md):
- * 1. Gann: 45 Years Rule 1 (Tier A), the never-failing rules, Master Course
- *    p. 10; NSTD Ch. IV weighed.
+ * 1. Gann: ref: R-005 Rule 1 (Tier A), the never-failing rules, ref: R-001
+ *    p. 10; ref: R-004 Ch. IV weighed.
  * 2. Cycles: no periodicity claim; it reads the charts' current state.
  * 3. Hermetic: Correspondence (the whole market and its stocks move as one,
  *    the part conforming to the whole).

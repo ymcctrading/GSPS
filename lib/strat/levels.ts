@@ -230,7 +230,7 @@ export function computeEquityTradeLevels(params: {
 
   // Targets (parity C4, owner decision 2, 2026-09-27: "Gann's method
   // supersedes my own"). Gann never fixes a profit objective; he sells at the
-  // resistance levels his rules identify (*Truth of the Stock Tape*, Book II).
+  // resistance levels his rules identify (ref: R-002, Book II).
   // So TP1 is the nearest such level (Gann targets and clustered S/R, the
   // `extensionLevels` pool) inside the TP1 band, and the master target the
   // next one beyond it inside the cap. The ATR-scaled percentage survives only
@@ -255,9 +255,9 @@ export function computeEquityTradeLevels(params: {
   const ascending = [...combineNearbyLevels(extensionLevels), ...figureTargets].sort((a, b) => dir * (a - b));
   // TP1 is the first level that pays more than the risk (fixed 2026-10-21).
   // Gann: "don't trade for 3-5 points unless the stop can be 1-2 points";
-  // "profits must exceed losses" (*Wall Street Stock Selector* Ch. II, *45
-  // Years* pp.16-26), and a swing is held through minor resistance until a
-  // reverse swing, never scalped (*Commodities* p.316, M-E8). Until this date
+  // "profits must exceed losses" (ref: R-003 Ch. II, ref: R-005
+  // pp.16-26), and a swing is held through minor resistance until a
+  // reverse swing, never scalped (ref: R-007 p.316, M-E8). Until this date
   // TP1 was simply the nearest level past the band's fixed 3% floor. Gann's
   // reaction stop is 4 price-scaled points (about 12% of a $30 stock, 5% at
   // $200, 2% at $700; pointScale.ts), so that level sat inside the risk on
@@ -494,7 +494,7 @@ export function computeTradeLevels(
   // Every named market takes the same Gann plan (2026-10-21, trade-style
   // design): the stop from Gann's rule, TP1 the first level that pays more
   // than the risk, the master the next level beyond it. Gann's rule does not
-  // change by market, only the unit (*Commodities* pp.43-45: stops 1-3 cents
+  // change by market, only the unit (ref: R-007 pp.43-45: stops 1-3 cents
   // in grain, 1-3 points in stocks; W006 pp.20, 46), and he never fixed a
   // target as a multiple of the risk. Until this date crypto and commodities
   // priced TP1 at 1.5R and the master at 2.5-3R capped at 5R, an R-multiple
@@ -632,8 +632,8 @@ export function computeTradeLevels(
   const stopPctOfPrice = (structuralRisk / entry) * 100;
   let stopBandWarning: string | null = null;
 
-  // A bought option: the premium is the stop and the risk (Gann, Master
-  // Course Ch. 19A, PDF 444, 449-450), so no stop band is judged for it
+  // A bought option: the premium is the stop and the risk (ref: R-001
+  // Ch. 19A, PDF 444, 449-450), so no stop band is judged for it
   // (review finding R-006; the 12-18% of premium band had no source). The
   // strike ticket shows what the underlying's stop would cost, as information.
   const optionPriced = optionPremium != null && optionPremium > 0;
