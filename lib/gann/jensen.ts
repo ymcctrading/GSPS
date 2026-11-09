@@ -161,7 +161,7 @@ function jensenGrid(lowPts: number, highPts: number, pricePts: number, span: num
 }
 
 const pointLabel = (p: JensenPoint) =>
-  `Jensen's square of 90: ${p.points} points ${p.from === "low" ? "above the low" : "below the high"} (${p.square ? (p.strong ? "square point, doubly strong" : "square point") : "trine point"})`;
+  `Quarter-circle count: ${p.points} points ${p.from === "low" ? "above the low" : "below the high"} (${p.square ? (p.strong ? "square point, doubly strong" : "square point") : "trine point"})`;
 
 /**
  * Jensen's square of 90 as price levels: the nearest square point above and
@@ -483,7 +483,7 @@ export interface JensenWindow {
 export function jensenWindows(bars: Bar[], unit: number, from: Date, to: Date): JensenWindow[] {
   const out: JensenWindow[] = [];
   for (const c of jensenTimeCounts(bars, from, to)) {
-    out.push({ date: c.date, source: "count", expect: "turn", label: `Jensen's square of 90: ${c.points} ${c.unit} from the ${c.from}` });
+    out.push({ date: c.date, source: "count", expect: "turn", label: `Quarter-circle count: ${c.points} ${c.unit} from the ${c.from}` });
   }
   for (const e of jensenAspectCalendar(from, to)) {
     const what = `${e.pair[0]}–${e.pair[1]} ${e.aspect.angle}° (${e.aspect.family})`;
@@ -491,14 +491,14 @@ export function jensenWindows(bars: Bar[], unit: number, from: Date, to: Date): 
       date: e.date,
       source: "aspect",
       expect: e.expect,
-      label: e.kind === "exact" ? `Jensen: ${what} exact` : `Jensen: ${e.trigger!.fast} triggers ${what} at ${e.trigger!.to}`,
+      label: e.kind === "exact" ? `Aspect: ${what} exact` : `Aspect: ${e.trigger!.fast} triggers ${what} at ${e.trigger!.to}`,
     });
   }
   const p = jensenProjection(bars, unit);
   if (p && p.ahead) {
     const t = ephemerisInstant(new Date(p.date)).getTime();
     if (t >= ephemerisInstant(from).getTime() && t <= ephemerisInstant(to).getTime()) {
-      out.push({ date: p.date, source: "projection", expect: p.direction === "up" ? "decline" : "advance", label: `Jensen's projection: ${p.direction === "up" ? "advance" : "decline"} exhausts`, price: p.price });
+      out.push({ date: p.date, source: "projection", expect: p.direction === "up" ? "decline" : "advance", label: `Projection: ${p.direction === "up" ? "advance" : "decline"} exhausts`, price: p.price });
     }
   }
   return out.sort((x, y) => x.date.localeCompare(y.date));

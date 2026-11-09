@@ -67,7 +67,7 @@ export const PAIRS: readonly [Planet, Planet][] = [
 ];
 export const ASPECT_ANGLES = [0, 180] as const;
 export const SPANS = [
-  { label: "1897-1961 (Dewey's span)", from: 1897, to: 1961 },
+  { label: "1897-1961 (the reference span)", from: 1897, to: 1961 },
   { label: "1962-2026 (hold-out)", from: 1962, to: 2026 },
 ] as const;
 

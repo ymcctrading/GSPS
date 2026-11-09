@@ -84,4 +84,4 @@ export function inGannOptionBand(underlying: number): boolean {
 
 /** The card's one line on an option's risk, in Gann's terms. */
 export const GANN_OPTION_RISK_NOTE =
-  "The premium is the most this can lose. The method buys puts and calls as insurance, in place of a stop. The first expiry 30 or more days out is shown first; the method prefers a strike a few points out of the money, which you choose.";
+  "The premium is the most this can lose. The first expiry 30 or more days out is shown first; choose the strike yourself.";

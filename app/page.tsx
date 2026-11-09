@@ -26,7 +26,7 @@ const FEATURES = [
   },
   {
     icon: Target,
-    title: "Pinpoint levels",
+    title: "Planned levels",
     body: "Every setup ships with an entry, a structural stop and the levels ahead of it, mapped before the candle opens, never in hindsight. No profit target is fixed: the trade runs until the market's own structure turns.",
   },
   {
@@ -63,7 +63,7 @@ export default function LandingPage() {
           <p className="mx-auto mt-5 max-w-xl text-lg text-muted">
             GSPS is a guided trade-planning system that turns market movement into
             clear, risk-defined trade scenarios — objective entries, defined stops,
-            and a daily list of the market&apos;s thirty most promising setups.
+            and a daily list of thirty setups, ranked by how many conditions each one meets.
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <Link href="/signup">

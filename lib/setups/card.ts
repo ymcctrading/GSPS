@@ -160,7 +160,7 @@ export function buildSetupSynopsis(args: {
   resting?: RestingRead | null;
 }): string {
   const { side, verdict, scoreText, scoreMax, checks, levels, price, resting } = args;
-  const status = VERDICT_STATUS[verdict] ?? "not yet strong enough to act on";
+  const status = VERDICT_STATUS[verdict] ?? "not yet at the Execute level";
   const noun = side === "buy" ? "buy" : "sell";
 
   const strong = checks.filter((c) => c.state === "met").map((c) => c.label.toLowerCase());

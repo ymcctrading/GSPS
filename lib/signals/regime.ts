@@ -71,12 +71,12 @@ const MIN_REGIME_BARS = 60;
 
 /** Why the swing charts confirm no trend, in the order the read checks it. */
 function noTrendReason(t: ReturnType<typeof readGannTrend>): string {
-  if (t.weekly === null) return "No weekly swing chart direction yet: no confirmed trend.";
+  if (t.weekly === null) return "No weekly trend direction yet: no confirmed trend.";
   if (!t.structureAgrees) {
     const steps = t.weekly === "bullish" ? "higher tops and higher bottoms" : "lower tops and lower bottoms";
-    return `Weekly swing chart ${t.weekly}, but the 3-day swings are not making ${steps}: no confirmed trend.`;
+    return `Weekly trend ${t.weekly}, but the short-term swings are not making ${steps}: no confirmed trend.`;
   }
-  return `Weekly swing chart ${t.weekly}, but the move against it has run larger or longer than any before it: the trend is changing.`;
+  return `Weekly trend ${t.weekly}, but the move against it has run larger or longer than any before it: the trend is changing.`;
 }
 
 export function classifyRegime(inputs: RegimeInputs): RegimeRead {
@@ -190,7 +190,7 @@ function classifyRegimeCore(inputs: RegimeInputs): RegimeRead {
       direction: bullishTrend ? "bullish" : "bearish",
       reasons: [
         bullishTrend ? "Higher highs and higher lows." : "Lower highs and lower lows.",
-        `Weekly swing chart ${gannTrend.direction}, with 3-day swings stepping the same way — trend confirmed.`,
+        `Weekly trend ${gannTrend.direction}, with short-term swings stepping the same way — trend confirmed.`,
       ],
       disqualifiers: [],
     };

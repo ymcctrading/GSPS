@@ -553,7 +553,7 @@ export function describeSecondaryTime(r: SecondaryTimeReading): string[] {
   first(r.monthCounts, "a secondary month count");
   first(r.cycleFractions, "a fraction of a long cycle");
   if (r.seasonalFineStep) {
-    lines.push(`${r.seasonalFineStep.degrees}° of the seasonal circle from March 21 (${r.seasonalFineStep.date}): a finer seasonal step. Shown for context; it does not change the setup.`);
+    lines.push(`${r.seasonalFineStep.degrees}° of the seasonal circle (${r.seasonalFineStep.date}): a finer seasonal step. Shown for context; it does not change the setup.`);
   }
   const scm = r.shortCounterMove;
   if (scm && scm.phase !== "normal") {

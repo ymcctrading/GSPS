@@ -238,13 +238,13 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
   if (input.capitalStock !== undefined) {
     const size = capitalSize(input.capitalStock);
     if (size === null) {
-      return { add: null, reason: "The company's share count isn't known, so its capital stock can't be read for an add." };
+      return { add: null, reason: "Adding isn't available: the company's size isn't known." };
     }
     if (long && size === "large") {
-      return { add: null, reason: "Longs are added to only in stocks with a small capital stock, and this one has a large one." };
+      return { add: null, reason: "Adding to a buy isn't available in this stock." };
     }
     if (!long && size === "small") {
-      return { add: null, reason: "Shorts are added to only in stocks with a large capital stock, and this one has a small one." };
+      return { add: null, reason: "Adding to a sell isn't available in this stock." };
     }
   }
 
@@ -264,8 +264,8 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
       add: null,
       reason:
         hold?.withTrendAfter3 === false
-          ? "The trade did not show a profit at its first close and three days on, so it hasn't shown it is with the trend."
-          : "Three days haven't closed since the first lot, so the trade hasn't shown it is with the trend yet.",
+          ? "The trade hasn't shown it is working yet."
+          : "The trade hasn't been open long enough to show it is working.",
       holdWarning,
     };
   }

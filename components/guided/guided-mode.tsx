@@ -187,7 +187,7 @@ export function GuidedMode() {
         data?.nearMiss ? (
           <NearMissCard nearMiss={data.nearMiss} />
         ) : (
-          <Notice title="Nothing worth trading right now">
+          <Notice title={"No setup meets Guided's bar right now"}>
             No setup cleared today&apos;s bar. Standing aside is a position — the{" "}
             <Link href="/dashboard" className="text-accent hover:underline">
               dashboard

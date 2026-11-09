@@ -100,10 +100,10 @@ export const RING_169_TIME_COUNT = {
 // point."
 export const CROSS_CONSTRUCTION_EXAMPLE = {
   number: 66,
-  constructions: ["Master Twelve Chart", "squareOf9 construction", "Hexagon Chart"] as const,
+  constructions: ["Twelve grid", "base-9 spiral construction", "Hexagon grid"] as const,
   hexagonAngleDeg: 180,
   note:
-    "Chapter 15B: the same number (66) recurs across the Master Twelve grid, the base-9 spiral grid, " +
+    "Chapter 15B: the same number (66) recurs across the twelve grid, the base-9 spiral grid, " +
     "and this chart's 180° radial — three independent constructions confirming the same point.",
 };
 

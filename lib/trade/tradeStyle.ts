@@ -126,10 +126,10 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     style: "swing",
     label: "Swing",
     summary: "Trade the main trend's swings and hold while the trend runs your way.",
-    trendCharts: "Monthly, weekly, then the daily swing chart",
+    trendCharts: "Monthly, weekly, then the daily swings",
     entryTiming: "Closed 15-minute bars at the daily level",
     stopRule: "Just beyond the old top or bottom the entry crossed",
-    trailRule: "The exit rules on the swing chart",
+    trailRule: "The exit rules on the daily swings",
     expectedHold: "Weeks; often more than ten sessions",
     // Sources (internal only, never shipped as a string): W006 pp. 20, 46-47; Commodities p. 55
   },

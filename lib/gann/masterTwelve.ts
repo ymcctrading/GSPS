@@ -69,7 +69,7 @@ export const MASTER_NUMBERS: MasterNumber[] = [
       'The number mentioned more times in the Bible than any other; its square, 49, "a very important time period."',
   },
   { n: 9, reasoning: "9 digits added together equal 45; the base of the base-9 grid itself." },
-  { n: 12, reasoning: "Biblical/zodiacal significance, and the base of the Square of 144 itself." },
+  { n: 12, reasoning: "Twelve divisions of the circle, and the base of the 144 grid itself." },
 ];
 
 /**

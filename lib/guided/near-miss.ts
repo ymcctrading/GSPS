@@ -75,7 +75,7 @@ export function missingFor(result: ScanResult, score: number): string[] {
       missing.push(`Scores ${score} out of 9. Guided only offers setups scoring ${EXECUTE_SCORE_THRESHOLD} or better, so this one is worth watching rather than buying.`);
     } else if (!resting) {
       const note = result.decision.breakdown.length > 0 ? toPublicScoreSummary(result.decision).stateNote : null;
-      missing.push(note ?? `Scores ${score} out of 9, which is strong — but the verdict is still ${result.decision.outputState}, so something else has not lined up yet.`);
+      missing.push(note ?? `Scores ${score} out of 9, at the Execute level — but the verdict is still ${result.decision.outputState}, so something else has not lined up yet.`);
     }
   }
   if (result.direction === "none") {

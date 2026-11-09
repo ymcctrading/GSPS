@@ -30,8 +30,8 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     const ledger = buildCampaignLedger(third)!;
     expect(ledger.spaceOverbalanced || ledger.timeOverbalanced).toBe(false);
     expect(ledger.counterMoveThirdMonth).toBe(true);
-    expect(describeCampaignLedger(ledger)).toContain("Still making new lows in the counter-move's third month: the trend is changing.");
-    expect(describeDisclosedRules(readDisclosedRules(third, 106)).some((l) => l.includes("in its third month, which signals a change in trend"))).toBe(true);
+    expect(describeCampaignLedger(ledger)).toContain("Still making new lows after more than two months of counter-move: the trend is changing.");
+    expect(describeDisclosedRules(readDisclosedRules(third, 106)).some((l) => l.includes("past two months and still making new extremes, which signals a change in trend"))).toBe(true);
     const t = readGannTrend(third);
     expect(t.changing).toBe(true);
     expect(t.direction).toBeNull();
@@ -46,7 +46,7 @@ describe("a reaction into its third month (A-TIME-01)", () => {
     expect(readGannTrend(held).changing).toBe(false);
     // The card's counter-move line agrees with the trend read (item 7 review M1).
     const lines = describeDisclosedRules(readDisclosedRules(held, 106));
-    expect(lines.some((l) => l.includes("past two months, though it has made no new extreme in its third month"))).toBe(true);
+    expect(lines.some((l) => l.includes("past two months, with no new extreme since"))).toBe(true);
     expect(lines.some((l) => l.includes("signals a change in trend"))).toBe(false);
     // With no campaign read, the line makes no claim about the third month either way.
     const ctx = readDisclosedRules(held, 106);

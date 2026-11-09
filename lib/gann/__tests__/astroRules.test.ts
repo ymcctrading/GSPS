@@ -90,7 +90,7 @@ describe("activeAngleLevels (active angles act as price resistance)", () => {
     const jup = planetLongitudes(date).helio.Jupiter;
     const below = activeAngleLevels(date, 360 + jup + 0.1, 1).find((l) => l.label.endsWith("Jupiter") && l.price <= 360 + jup + 0.1)!;
     expect(below.price).toBeCloseTo(360 + jup, 0);
-    expect(below.label).toBe("Active angle: on heliocentric Jupiter");
+    expect(below.label).toBe("Active angle: on helio Jupiter");
   });
 
   it("scales by the price unit and reaches the S/R list through the master levels", () => {

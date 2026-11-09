@@ -59,7 +59,7 @@ describe("readFalseBreakout (C-STOP-01)", () => {
     const d = weeks([...RANGE, [95, 100 + P, 99], [93, 99, 96]]);
     const ctx = readDisclosedRules(d, 96, null, after(d));
     expect(ctx.falseBreakout?.direction).toBe("bearish");
-    expect(describeDisclosedRules(ctx).some((l) => l.includes("no more than 3 points over the 13-week top"))).toBe(true);
+    expect(describeDisclosedRules(ctx).some((l) => l.includes("only just over the 13-week top"))).toBe(true);
   });
 
   it("does not read the week still trading", () => {

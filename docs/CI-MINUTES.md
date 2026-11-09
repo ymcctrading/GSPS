@@ -18,7 +18,7 @@ inside that. Measured 2026-11-09 from the Actions API; the full breakdown is in 
 ## What runs now
 | Workflow | Runs on | About |
 |---|---|---|
-| Tests (`test.yml`) | pull requests that are ready for review and change more than Markdown; by hand | 6 min a run |
+| Tests (`test.yml`) | pull requests that are ready for review and change more than Markdown and non-test docs; by hand | about 3 min on a feature PR (related tests), about 5 on a release PR (full suite) |
 | Security (`security.yml`) | pull requests that are ready for review; each push to main (the secret scan of what the merge adds) | 1 min |
 | Branch hygiene (`branch-hygiene.yml`) | pull requests that are ready for review, including title and body edits (the roadmap-phase gate reads them); the 1st of each month | 1 min |
 | Deploy to Cloud Run (`deploy-cloud-run.yml`) | each push to main | 1 min unconfigured, about 6 once set up |
@@ -27,6 +27,23 @@ inside that. Measured 2026-11-09 from the Actions API; the full breakdown is in 
 There is no Tests run on a push to main. Every push to main is a release-train merge, or an urgent fix merged alone, and its
 pull request already ran the suite on the merge result. If main moved after a release PR's run, re-run the release PR before
 merging it.
+
+## The Tests job: before and after #628 (2026-11-09)
+| Step | Before (3 runs on Nov 9) | After, measured on #628 (full suite: cold cache / warm cache) |
+|---|---|---|
+| Install | 34–54 s | 57 s / skipped (node_modules restored in 5 s) |
+| Tests | 122–200 s, full suite | 198 s / 199 s, full suite. On a feature PR, the related tests are about 35 s (measured locally on #613's change set). |
+| eslint | 25–38 s | 38 s / 2 s |
+| tsc | 16–27 s | 26 s / 6 s |
+| next build | 35–56 s | 56 s / 56 s |
+| **Job** | **252–390 s, billed 5–7 min** | **391 s / 280 s** |
+
+On the same runner speed, the caches save about 110 seconds a run. The narrower test run on feature PRs should cut a run to about
+2 minutes, but that is not yet measured on GitHub. It will be confirmed on the first feature PR after #628. Runner speed varied
+about 1.5× between runs, and a private repository's runner has half the cores of a public one, so compare runs on the same day.
+
+The budget below still uses the earlier 13.6 minutes a feature PR. If the narrower run holds on GitHub, it comes to about 10,
+about 220 minutes a month less. That would widen the margin from about 130 minutes to about 350.
 
 ## The budget
 A train runs only when a PR is waiting, so a month has at most about as many trains as feature PRs (66 in October), not 120.

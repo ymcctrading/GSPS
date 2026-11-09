@@ -370,7 +370,7 @@ function cosinor(values: number[], period: number): SpectralCycleReading["cosino
 }
 
 const NOT_COMPUTED_NOTE =
-  "Hypothesis only per AGENTS.md's Dewey cycle-validation checklist: homogeneity of the series, dominance (with Schuster's and the cosinor zero-amplitude tests), repetition count, constancy of period and persistence on unseen data (a 70/30 hold-out) are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
+  "Hypothesis only per the cycle-validation checklist (AGENTS.md): homogeneity of the series, dominance (with Schuster's and the cosinor zero-amplitude tests), repetition count, constancy of period and persistence on unseen data (a 70/30 hold-out) are evaluated numerically above; regularity of timing, phase-resumption after distortion, wave-shape identity, and cross-series clustering are not computed by this module. Never independently scored or gated.";
 
 export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
   const n = dailyBars.length;

@@ -189,7 +189,7 @@ describe("IntradayAlerts", () => {
   it("consolidates multiple alerts for the same symbol into one card, highest confidence first", async () => {
     const secondSpySignal: Alert = {
       ...spyAlert,
-      type: "overnight_turn",
+      type: "daily_swing_turn",
       confidence: 40, // lower than spyAlert's 75
     };
     mockScan({ alerts: [spyAlert, secondSpySignal] });
@@ -219,7 +219,7 @@ describe("IntradayAlerts", () => {
 
     await openFullCard(user);
 
-    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("75% of checks met")).toBeInTheDocument();
     expect(screen.getByText("What lined up")).toBeInTheDocument();
     expect(screen.getByText(/Opening range broken/)).toBeInTheDocument();
     expect(screen.getByText(/^1\.8× of normal\.$/)).toBeInTheDocument();
@@ -426,11 +426,11 @@ describe("IntradayAlerts — the setup card", () => {
 
     const name = await screen.findByRole("button", { name: "SPY" });
     expect(name).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("75/100 confidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("75% of checks met")).not.toBeInTheDocument();
 
     await user.click(name);
     expect(name).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("75% of checks met")).toBeInTheDocument();
     expect(screen.getByText(/1 of 2 checks line up/)).toBeInTheDocument();
     // Halfway: the detail is still behind the expand control.
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
@@ -440,10 +440,10 @@ describe("IntradayAlerts — the setup card", () => {
 
     await user.click(screen.getByRole("button", { name: /Collapse/ }));
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
-    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("75% of checks met")).toBeInTheDocument();
 
     await user.click(name);
-    expect(screen.queryByText("75/100 confidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("75% of checks met")).not.toBeInTheDocument();
   });
 
   it("ends the card with a link to the full scan", async () => {
@@ -558,5 +558,18 @@ describe("IntradayAlerts — delayed data (DATA-DELAY-001)", () => {
     card = name.closest("div.rounded-lg") as HTMLElement;
     await user.click(name);
     expect(within(card).getByText(/Trade this/)).toBeInTheDocument();
+  });
+});
+
+describe("no confidential rule name reaches the panel (audit 2026-11-09)", () => {
+  it("renders an alert of every signal type with no source or rule name in the page", async () => {
+    const { SIGNAL_LABELS } = await import("@/lib/scanner/intradayDisplay");
+    const { confidentialNamesIn } = await import("@/lib/security/confidentialNames");
+    const types = Object.keys(SIGNAL_LABELS) as Alert["type"][];
+    const alerts = types.map((type, i) => ({ ...spyAlert, symbol: `S${i}`, type }));
+    mockScan({ alerts });
+    const { container } = render(<IntradayAlerts />);
+    await screen.findAllByRole("button", { name: "S0" });
+    expect(confidentialNamesIn(container.innerHTML)).toEqual([]);
   });
 });

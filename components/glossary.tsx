@@ -73,41 +73,41 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "What the grey dashed lines are",
         plain:
-          "They mark 'structural levels' - special prices where the market often pauses or turns around. Think of them as hidden floors and ceilings. There are two kinds:",
+          "They mark 'structural levels' - prices GSPS's analysis marks as possible floors and ceilings. There are two kinds:",
       },
       {
         term: "Support / resistance line",
         plain:
-          "A sloping line GSPS draws forward from a recent high or low, a floor or ceiling that rises or falls with time (see Support and resistance under Trading basics). Price tends to react when it reaches one.",
+          "A sloping line GSPS draws forward from a recent high or low, a floor or ceiling that rises or falls with time (see Support and resistance under Trading basics). GSPS watches how price behaves when it reaches one.",
       },
       {
         term: "Key price level",
         plain:
-          "A price GSPS's analysis flags as significant. Like the diagonal lines, it acts as hidden support and resistance.",
+          "A price GSPS's analysis flags as significant. Like the diagonal lines, GSPS treats it as possible support or resistance.",
       },
       {
         term: "Cyclical turn window",
         plain:
-          "Dates when GSPS's analysis suggests a turn is more likely. When you see 'turn window active,' today is near one of those dates.",
+          "Dates GSPS's analysis marks for a possible turn. These windows have no proven record. When you see 'turn window active,' today is near one of those dates.",
       },
       {
         term: "Long-term timing lines up",
         plain:
-          "Several of GSPS's long-term timing measures point to this month for this stock. The more that line up, the more worth watching this month is. It's timing context, not a buy or sell signal.",
+          "Several of GSPS's long-term timing measures point to this month for this stock. It's timing context, not a buy or sell signal.",
       },
     ],
   },
   {
-    heading: "The verdict (how strong is the setup?)",
+    heading: "The verdict (how many conditions are met?)",
     terms: [
       {
         term: "Score out of 9",
         plain:
-          "One point for each of nine questions the setup answers yes to: the market and cycle position, the trend on every timeframe, relative strength and leadership, activity, price levels, angles, time, volume and accumulation, and a definite entry signal with the stop placed. Each point needs several of its own conditions to agree, so a point is not easy to earn. The higher the score, the stronger the setup.",
+          "One point for each of nine questions the setup answers yes to: the market and cycle position, the trend on every timeframe, relative strength and leadership, activity, price levels, price structure, timing, volume and accumulation, and a definite entry signal with the stop placed. Each point needs several of its own conditions to agree, so a point is not easy to earn. The higher the score, the more conditions the setup meets. It is not a measure of how likely the trade is to work.",
       },
       {
         term: "Execute - Watch - Reject",
-        plain: `The bottom line, like a traffic light. Execute (${EXECUTE_SCORE_THRESHOLD} or more, green) = strong, with an entry, stop and targets ready, and price close enough to place it today. Watch (${WATCH_SCORE_THRESHOLD} up to ${EXECUTE_SCORE_THRESHOLD}, yellow) = keep an eye on it; it is still missing something, so there's nothing to act on yet. An Execute-level score that a rule is holding back also shows as Watch, unless the only thing holding it is distance (see Resting order). Reject (below ${WATCH_SCORE_THRESHOLD}, red) = skip it.`,
+        plain: `The bottom line, like a traffic light. Execute (${EXECUTE_SCORE_THRESHOLD} or more, green) = most conditions met, with an entry, stop and targets ready, and price close enough to place it today. Watch (${WATCH_SCORE_THRESHOLD} up to ${EXECUTE_SCORE_THRESHOLD}, yellow) = keep an eye on it; it is still missing something, so there's nothing to act on yet. An Execute-level score that a rule is holding back also shows as Watch, unless the only thing holding it is distance (see Resting order). Reject (below ${WATCH_SCORE_THRESHOLD}, red) = skip it.`,
       },
       {
         term: "Resting order",
@@ -122,17 +122,17 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Failed-push reversal",
         plain:
-          "A bar closes clearly up or clearly down, and the very next bar breaks back through its opposite extreme by a penny. That penny break is read as the crowd that pushed the first bar getting trapped and reversing. Moderate confidence on its own — it's the base case the other reversal shapes sharpen.",
+          "A bar closes clearly up or clearly down, and the very next bar breaks back through its opposite extreme by a penny. That penny break is read as the crowd that pushed the first bar getting trapped and reversing. It's the base case of the reversal shapes below.",
       },
       {
         term: "Compressed reversal",
         plain:
-          "A failed-push reversal that was preceded by an inside bar (a bar that closed entirely within the prior bar's range). The inside bar means the market paused and compressed before the failed push, which is read as a cleaner trap than a bare failed-push reversal — somewhat higher confidence.",
+          "A failed-push reversal that was preceded by an inside bar (a bar that closed entirely within the prior bar's range). The inside bar means the market paused and compressed before the failed push, which is read as a cleaner trap than a bare failed-push reversal.",
       },
       {
         term: "Two-sided reversal",
         plain:
-          "A failed-push reversal preceded by an outside bar (a bar whose range engulfed the one before it). The outside bar shows both sides were tested hard right before the failed push, which is the highest-confidence version of the failed-push family.",
+          "A failed-push reversal preceded by an outside bar (a bar whose range engulfed the one before it). The outside bar shows both sides were tested hard right before the failed push.",
       },
       {
         term: "Pause continuation",

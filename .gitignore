@@ -13,3 +13,4 @@ next-env.d.ts
 /blob-report
 /playwright/.cache
 scripts/.large-cap-validation-report.json
+.eslintcache

@@ -22,9 +22,19 @@ const TERMS = [
   /kybalion/i,
   /mikula/i,
   /bucholtz/i,
-  /Square[ -]of[ -](Nine|9|144|52|90)/i,
   /\b(planetary|heliocentric|geocentric|astrolog[a-z]*|ephemeris)\b/i,
-  /Rule of Three|Seven Zones|Overnight Chart|Master Course|Tunnel Thru|Stock Selector|Observation of Cycles/i,
+  /Master Course|Tunnel Thru|Stock Selector|Observation of Cycles/i,
+  // Named rules in any identifier spelling (words, camelCase, snake_case,
+  // hyphens): "squareOf52" and "overnight_turn" shipped until 2026-11-09.
+  // Kept in step with lib/security/confidentialNames.ts.
+  /square[ _-]?of[ _-]?(nine|9|144|52|90|12|20)(?![0-9])/i,
+  /rule[ _-]?of[ _-]?three/i,
+  /seven[ _-]?zones/i,
+  /overnight[ _-]?(chart|turn)/i,
+  /three[ _-]?day[ _-]?chart/i,
+  /space[ _-]?over[ _-]?balanc/i,
+  /three[ _-]?adverse[ _-]?closes/i,
+  /boiling[ _-]?point/i,
 ];
 
 function walk(dir, out = []) {

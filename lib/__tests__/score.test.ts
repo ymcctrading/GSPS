@@ -269,7 +269,7 @@ describe("computeScore stopBehindOldLevel", () => {
   it("passes when an old level stands 3 points in front of the stop, on stocks and crypto alike", () => {
     expect(item(baseInputs(true))?.passed).toBe(true);
     expect(item(baseInputs(true, "crypto"))?.passed).toBe(true);
-    expect(item(baseInputs(true))?.criterion).toBe("Stop 3 points behind an old level");
+    expect(item(baseInputs(true))?.criterion).toBe("Stop behind an old level");
   });
 
   it("fails without such a level, or without a plan", () => {
@@ -305,29 +305,29 @@ describe("computeScore entryTriggerArmed note", () => {
   const crossing = { triggerPrice: 125.5, stopPrice: 114.5, direction: "bullish" as const, kind: "crossing" as const, level: 120 };
 
   it("names the level by where it came from", () => {
-    expect(note({ ...crossing, source: "swing" })).toMatch(/crosses the last completed swing level by 3 points/);
-    expect(note({ ...crossing, source: "priorYear" })).toMatch(/crosses the previous year's top by 3 points/);
-    expect(note({ ...crossing, source: "allTime" })).toMatch(/crosses the record high before the last 52 weeks by 3 points/);
+    expect(note({ ...crossing, source: "swing" })).toMatch(/crosses the last completed swing level clearly/);
+    expect(note({ ...crossing, source: "priorYear" })).toMatch(/crosses the previous year's top clearly/);
+    expect(note({ ...crossing, source: "allTime" })).toMatch(/crosses the record high before the last 52 weeks clearly/);
   });
 
   it("names a regained old bottom, and a lost old top, as such (A-TREND-10)", () => {
     expect(note({ ...crossing, source: "swing", regained: true })).toMatch(
-      /a close at 125\.50 is 3 points back over the old swing low after a 3-point break under it, and the entry then waits/,
+      /a close at 125\.50 is clearly back over the old swing low after a clear break under it, and the entry then waits/,
     );
     expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024, regained: true })).toMatch(
-      /3 points back under the 2024 top after a 3-point break over it/,
+      /clearly back under the 2024 top after a clear break over it/,
     );
   });
 
   it("states the narrow-week sale on the plan that carries it (A-ENTRY-19)", () => {
     expect(note({ triggerPrice: 99, stopPrice: 102, direction: "bearish", kind: "hold", level: 99.5, holdBasis: "narrowWeek" })).toMatch(
-      /a sell rests 1 point under that week's low at 99\.50, for the bounce, with the stop 3 points over it/,
+      /a sell rests just under that week's low at 99\.50, for the bounce, with the stop above it/,
     );
   });
 
   it("names a previous year's level by its year", () => {
-    expect(note({ ...crossing, source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 top by 3 points/);
-    expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 bottom by 3 points/);
+    expect(note({ ...crossing, source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 top clearly/);
+    expect(note({ ...crossing, direction: "bearish", source: "priorYear", levelYear: 2024 })).toMatch(/crosses the 2024 bottom clearly/);
   });
 
   it("ranks a crossed level formed years earlier above an equally near level formed weeks earlier (A-ENTRY-09)", () => {
@@ -350,7 +350,7 @@ describe("computeScore entryTriggerArmed note", () => {
     const t = selectGannEntry(chart.bars, "bullish", chart.older)!;
     expect(t).toMatchObject({ kind: "crossing", held: true, source: "priorYear", levelYear: 2021, formedAt: "2021-04-01T05:00:00Z" });
     expect(Math.abs(t.level - 100)).toBeLessThanOrEqual(0.01);
-    expect(note({ ...t, triggerPrice: t.reactionEntry, stopPrice: t.reactionStop })).toMatch(/crosses the 2021 top by 3 points/);
+    expect(note({ ...t, triggerPrice: t.reactionEntry, stopPrice: t.reactionStop })).toMatch(/crosses the 2021 top clearly/);
   });
 
   it("says when the crossing close was a new record, and only then", () => {

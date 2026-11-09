@@ -56,7 +56,7 @@ import {
   type SystemDetection,
 } from "@/lib/reports/coverage";
 import { SIGNAL_LABELS, tradeHold } from "@/lib/scanner/intradayDisplay";
-import type { SignalType } from "@/lib/scanner/intraday";
+import { storedSignalType } from "@/lib/scanner/storedSignalIds";
 import { appUrl, fromHeader, sandboxBlockReason } from "@/lib/notifications/resend-handler";
 import type { AssetClass, Bar, Timeframe } from "@/lib/types";
 import {
@@ -364,7 +364,7 @@ export async function GET(req: NextRequest) {
     const usable = dataBarOpen && tf ? availability(barCloseAt(dataBarOpen, tf, asset), delayMs) : null;
     detectionsRaw.push({
       symbol: r.symbol.toUpperCase(),
-      kind: r.signal_id,
+      kind: storedSignalType(r.signal_id),
       side: r.signal_type === "bearish" ? "bearish" : "bullish",
       evaluatedAt,
       dataBarOpen,
@@ -432,7 +432,7 @@ export async function GET(req: NextRequest) {
       member: a.user_id,
       symbol: a.symbol,
       direction: sideOf(String(a.signal_type)),
-      label: String(a.signal_id),
+      label: storedSignalType(String(a.signal_id)),
       at: a.created_at,
       price,
       stop,
@@ -442,7 +442,7 @@ export async function GET(req: NextRequest) {
       // offer; the recap scores only what was offered.
       held:
         tradeHold({
-          type: String(a.signal_id) as SignalType,
+          type: storedSignalType(String(a.signal_id)),
           againstDailyTrend: a.metadata?.againstDailyTrend === true,
           reactionOverbalanced: a.metadata?.reactionOverbalanced === true,
           againstMainTrend: a.metadata?.againstMainTrend === true,

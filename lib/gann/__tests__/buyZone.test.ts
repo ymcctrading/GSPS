@@ -93,6 +93,6 @@ describe("the never-failing rules record", () => {
       expect(rule(n).note).not.toMatch(/Commodities rule/);
     }
     expect(rule(1).note).toMatch(/p\.46/);
-    expect(rule(8).note).toMatch(/Tunnel/);
+    expect(rule(8).note).toMatch(/TTA pp\.203-204/);
   });
 });

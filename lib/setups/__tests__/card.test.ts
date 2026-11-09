@@ -104,7 +104,7 @@ describe("buildSetupSynopsis", () => {
     ).toMatch(/^A sell setup worth watching: 4.5 of 9 checks line up\./);
     expect(
       buildSetupSynopsis({ side: "buy", verdict: "Reject", scoreText: "2", scoreMax: 9, checks: [], levels }),
-    ).toMatch(/^A buy setup not yet strong enough to act on: 2 of 9/);
+    ).toMatch(/^A buy setup not yet at the Execute level: 2 of 9/);
   });
 
   it("says there is nothing to act on rather than inventing levels when no plan has armed", () => {

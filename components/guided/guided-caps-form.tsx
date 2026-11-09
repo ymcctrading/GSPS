@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchWithTimeout } from "@/lib/utils";
 import { DEFAULT_GUIDED_CAPS, MAX_RISK_PCT, MIN_RISK_PCT, type GuidedCaps } from "@/lib/guided/config";
-import { CAPITAL_POINTS_PER_SHARE, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
+import { MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 
 type Draft = Record<keyof GuidedCaps, string>;
 
@@ -128,10 +128,9 @@ export function GuidedCapsForm() {
             <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-background px-4 py-3 text-sm">
               <span className="font-medium">Capital rules</span>
               <span className="text-xs text-muted">
-                Every share held needs capital behind it: {CAPITAL_POINTS_PER_SHARE} points a share, scaled to
-                the stock&apos;s price. At most {MAX_OPEN_STOCKS} stocks are open at once, and three losses in a
-                row pause new entries for that day and the next. These are the method&apos;s rules, the same on
-                every order, so they are not settings.
+                Every share held needs capital behind it, scaled to the stock&apos;s price. At most{" "}
+                {MAX_OPEN_STOCKS} stocks are open at once, and a losing streak pauses new entries for a short
+                time. These limits are built in and the same on every order, so they are not settings.
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-3">

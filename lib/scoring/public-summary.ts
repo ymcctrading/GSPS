@@ -26,7 +26,7 @@ import type {
 } from "@/lib/types";
 import { redactScanSignals } from "@/lib/signals/publicSummary";
 import { toPublicContext } from "@/lib/signals/contextLines";
-import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
+import { SHOWN_TIME_RECORDS } from "@/lib/timing/shownRecords";
 import { CRITERION_KEYS, EXECUTE_SCORE_THRESHOLD, type CriterionKey } from "@/lib/scoring/weights";
 
 /**
@@ -253,15 +253,15 @@ export function redactScanResult(result: ScanResult): PublicScanResult {
  * degree and the anchors stay here; the readings no screen draws (each angle's
  * slope, the retracement fractions, the digital-root pairs, the projected
  * dates) never leave (review finding S-02, 2026-10-21). A time flag is sent
- * only while it has a measured record (CYC-30, `TIME_LINE_RECORDS`).
+ * only while it has a measured record (CYC-30, `SHOWN_TIME_RECORDS`, which mirrors `TIME_LINE_RECORDS`).
  */
 export function toChartLevels(gann: ScanResult["gann"] | undefined): ChartLevels {
   const line = (l: { price: number; distancePct: number; role: "support" | "resistance" }) => ({ price: l.price, distancePct: l.distancePct, role: l.role });
   return {
     trendLines: (gann?.fanLines ?? []).map(line),
     keyLevels: (gann?.squareOf9 ?? []).map(line),
-    timingActive: TIME_LINE_RECORDS.timeCycle != null && gann?.timeCycleActive === true,
-    longTermTimingCount: TIME_LINE_RECORDS.yearCycles != null ? (gann?.yearCycleBullishHits ?? 0) + (gann?.yearCycleBearishHits ?? 0) : 0,
+    timingActive: SHOWN_TIME_RECORDS.timing != null && gann?.timeCycleActive === true,
+    longTermTimingCount: SHOWN_TIME_RECORDS.longTermTiming != null ? (gann?.yearCycleBullishHits ?? 0) + (gann?.yearCycleBearishHits ?? 0) : 0,
   };
 }
 

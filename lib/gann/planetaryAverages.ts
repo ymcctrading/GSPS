@@ -96,16 +96,16 @@ const FIVE: Planet[] = ["Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 const EIGHT: Planet[] = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 
 export const PLANETARY_AVERAGES: AverageSpec[] = [
-  { id: "six-helio", short: "Six helio", name: "Six major planets, heliocentric", frame: "helio", planets: SIX, tier: "A", inLevels: true },
-  { id: "six-geo", short: "Six geo", name: "Six major planets, geocentric", frame: "geo", planets: SIX, tier: "A", inLevels: true },
-  { id: "mof-helio", short: "MOF helio", name: "MOF (mean of five, Mars left out), heliocentric", frame: "helio", planets: FIVE, tier: "A", inLevels: true },
-  { id: "mof-geo", short: "MOF geo", name: "MOF (mean of five, Mars left out), geocentric", frame: "geo", planets: FIVE, tier: "A", inLevels: true },
-  { id: "coe-helio", short: "COE helio", name: "COE (circle of eight), heliocentric", frame: "helio", planets: EIGHT, tier: "A", inLevels: true },
-  { id: "coe-geo", short: "COE geo", name: "COE (circle of eight), geocentric", frame: "geo", planets: EIGHT, tier: "A", inLevels: true },
+  { id: "six-helio", short: "Six helio", name: "Six major planets, helio", frame: "helio", planets: SIX, tier: "A", inLevels: true },
+  { id: "six-geo", short: "Six geo", name: "Six major planets, geo", frame: "geo", planets: SIX, tier: "A", inLevels: true },
+  { id: "mof-helio", short: "MOF helio", name: "MOF (mean of five, Mars left out), helio", frame: "helio", planets: FIVE, tier: "A", inLevels: true },
+  { id: "mof-geo", short: "MOF geo", name: "MOF (mean of five, Mars left out), geo", frame: "geo", planets: FIVE, tier: "A", inLevels: true },
+  { id: "coe-helio", short: "COE helio", name: "COE (circle of eight), helio", frame: "helio", planets: EIGHT, tier: "A", inLevels: true },
+  { id: "coe-geo", short: "COE geo", name: "COE (circle of eight), geo", frame: "geo", planets: EIGHT, tier: "A", inLevels: true },
   {
     id: "four-helio",
     short: "Four helio",
-    name: "Jupiter, Saturn, Uranus and Neptune, heliocentric",
+    name: "Jupiter, Saturn, Uranus and Neptune, helio",
     frame: "helio",
     planets: ["Jupiter", "Saturn", "Uranus", "Neptune"],
     tier: "B",
@@ -248,7 +248,7 @@ export function planetaryLevels(date: Date, price: number, unit: number): { pric
 /** Plain-language lines for the explanation trace. */
 export function describePlanetaryAverages(r: PlanetaryReading): string[] {
   const lines = [
-    `Planetary averages for ${r.date} (1954 letter; 1 point = ${r.unit.toFixed(2)} = 1°): ${r.averages
+    `Sky averages for ${r.date} (1954 L; 1 point = ${r.unit.toFixed(2)} = 1°): ${r.averages
       .filter((a) => a.tier === "A")
       .map((a) => `${a.short} ${a.degree.toFixed(1)}°`)
       .join("; ")}.`,

@@ -13,7 +13,7 @@ import type { PublicScanResult, TradeLevels } from "@/lib/types";
 import { tradeSideLabel } from "@/lib/scoring/direction-copy";
 import type { OptionChain, OptionContract, Level2Book } from "@/lib/data/provider";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
-import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
+import { SHOWN_TIME_RECORDS } from "@/lib/timing/shownRecords";
 import { tierOfDecision } from "@/lib/setups/resting";
 
 type Tab = "research" | "options" | "levelii" | "company";
@@ -226,17 +226,17 @@ function ResearchPanel({
             {tradeSideLabel(fetched.direction)}
           </Badge>
         )}
-        {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
-        {TIME_LINE_RECORDS.timeCycle && fetched.chartLevels?.timingActive && (
+        {/* CYC-30: a time line is shown with its measured record, or not at all (lib/timing/shownRecords.ts). */}
+        {SHOWN_TIME_RECORDS.timing && fetched.chartLevels?.timingActive && (
           <Badge variant="warn">
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" />
-            <span className="font-normal"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
+            <span className="font-normal"> ({SHOWN_TIME_RECORDS.timing.summary})</span>
           </Badge>
         )}
-        {TIME_LINE_RECORDS.yearCycles && (fetched.chartLevels?.longTermTimingCount ?? 0) > 0 && (
+        {SHOWN_TIME_RECORDS.longTermTiming && (fetched.chartLevels?.longTermTimingCount ?? 0) > 0 && (
           <Badge variant="warn">
             ⟳ <GlossaryTerm term="Long-term timing lines up" label="Long-term timing lines up" className="decoration-warn/60" />
-            <span className="font-normal"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
+            <span className="font-normal"> ({SHOWN_TIME_RECORDS.longTermTiming.summary})</span>
           </Badge>
         )}
       </div>

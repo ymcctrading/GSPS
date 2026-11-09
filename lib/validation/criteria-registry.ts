@@ -108,7 +108,7 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
     id: "swingChartTrend",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/gann/swingChart.ts",
-    label: "3-day/weekly swing chart trend",
+    label: "Short-term and weekly trend",
     expectedSign: "positive",
     evidence: "quarantined",
     quarantineReason:
@@ -125,15 +125,15 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
       "owner decision to retire it.",
     note:
       "**Construction replaced 2026-09-27 (owner decision, conflict X3).** The charts now follow the source books: " +
-      "the 3-Day Chart (45 Years in Wall Street, 1949, Ch. VII) and the 7-day weekly swing chart " +
-      "(How to Make Profits in Commodities, 1951, pp. 316-317), built on highs and lows, with the trend " +
+      "the short-term trend chart (45Y, 1949, Ch. VII) and the 7-day weekly trend chart " +
+      "(PTC, 1951, pp. 316-317), built on highs and lows, with the trend " +
       "turning only when the last swing top or bottom breaks. The old close-count '9-day' chart had no " +
       "source. Every measurement below describes the old construction and does not transfer: treat " +
       "this criterion as unmeasured from STRATEGY_VERSION 2026-09-27-gann-swing-charts on.\n\n" +
       "Replaces `macroTrend` (retired 2026-09-10; see RETIRED) — its monthly/weekly/daily 2-of-3 " +
       "agreement measured negligible (inside the ±0.1R noise band on both adequately sampled arms) " +
       "after its counter-trend premise was already corrected once, on 2026-09-09. The 3-day and 9-day " +
-      "swing charts (lib/gann/swingChart.ts#computeSwingChart) read the same daily bars through a " +
+      "trend charts (lib/gann/swingChart.ts#computeSwingChart) read the same daily bars through a " +
       "different construction — a fixed-count reversal run instead of a moving-average/pivot read — and " +
       "require both the 3-day and 9-day swing to agree with the trade's own direction, not merely with " +
       "each other. First measured 2026-09-10: Execute itself read 0/1049 triggered trades on this " +
@@ -329,7 +329,7 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
       "within the band), which passed 98-100% of random-walk readings once the lattices joined the S/R list. It " +
       "now passes only when the last reaction stopped at an old level (weekly or monthly pivot, percentage level, " +
       "campaign bottom, secondary turn) and held: the 10-session extreme 3 points through to 1 point short of " +
-      "it, 2+ sessions old (W006 p.20, Rule 3(b)-(c); Truth of the Stock Tape; lib/gann/heldLevel.ts). Random " +
+      "it, 2+ sessions old (W006 p.20, Rule 3(b)-(c); TST; lib/gann/heldLevel.ts). Random " +
       "walks 27-50%. Unmeasured on this rule.",
   },
   {
@@ -362,13 +362,13 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
     id: "stopBehindOldLevel",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/strat/levels.ts#oldLevelBehindStop",
-    label: "Stop 3 points behind an old level",
+    label: "Stop behind an old level",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
       "Replaces `stopRoom` (retired 2026-10-16; see RETIRED), owner Q23. The method places the stop 3 points " +
       "beyond an old top or bottom (W006 pp.20-24, 46-47), so the point passes when an old level from the " +
-      "S/R list stands at least the price-scaled 3 points in front of the stop, between it and the " +
+      "S/R list stands at least threePoints() (price-scaled) in front of the stop, between it and the " +
       "entry, or the stop was fixed by the crossing or reaction rule (the crossed level less 3 points). " +
       "Same rule on every asset class. Unmeasured: no committed run reads it yet.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
@@ -473,14 +473,14 @@ const FORMER_SCAN_SCORE: RegisteredCriterion[] = [
     id: "ruleOfThree",
     family: "scanScore",
     source: "lib/scoring/score.ts, lib/gann/ruleOfThree.ts",
-    label: "Rule of Three (consecutive closes confirm the direction)",
+    label: "Three closes in a row (consecutive closes confirm the direction)",
     expectedSign: "positive",
     evidence: "unmeasured",
     note:
       "Added 2026-09-16 per docs/GANN_PLATFORM_AUDIT.md Part 4 item 1 and AGENTS.md's standing " +
       "precedence-for-the-disclosed-methodology principle — a direct request to wire the source's own " +
       "highest-conviction disclosed rule " +
-      "(`Wall Street Stock Selector`, 1930, docs/GANN_HISTORICAL_SOURCES.md A4: 'traders paid me $1,000 " +
+      "(SS, 1930, docs/GANN_HISTORICAL_SOURCES.md A4: 'traders paid me $1,000 " +
       "for this rule') into the live scorer immediately, overriding this codebase's normal unmeasured " +
       "-> attribution -> in/out-of-sample discipline (PROPOSAL_NEW_GANN_CRITERIA.md) rather than " +
       "quarantining it as a hypothesis first. No replay has ever measured it — this entry exists so " +
@@ -534,7 +534,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
       "Since 2026-10-22 the cycle check also needs the market's mass-pressure curve (A-OTHER-05, MC Ch.7 PDF 224-228: every decade 10 to " +
       "70 years back, lib/gann/massPressure.ts) not against the side, for a stock; on 1941-2026 its sign agreed with the market's month 57.0% against a 54.3% chance rate."),
   PILLAR("trendAllTimeframes", "Trend on every timeframe", "lib/gann/weeklyOneBar.ts, lib/gann/swingChart.ts, lib/gann/ruleOfThree.ts",
-    "MC Ch.7 C13; MC Ch.8 p.239; 45Y R1: the weekly green/red trend line with the side, and the 3-day swing or the Rule of Three. Absorbs swingChartTrend and ruleOfThree. " +
+    "MC Ch.7 C13; MC Ch.8 p.239; 45Y R1: the weekly green/red trend line with the side, and the short-term trend or three closes in a row. Absorbs swingChartTrend and ruleOfThree. " +
       "TRANSLATION FIX (2026-10-21): the weekly leg read the 1951 7-day chart's trend, which inverted on every nine-pillar replay; it now reads the green/red line the design named."),
   PILLAR("relativeStrength", "Relative strength and leadership", "lib/gann/leadership.ts, lib/gann/universeStrength.ts",
     "Selection rules S4-S12: two of leading the market, the campaign's first-year high, and S6, among the strongest quarter of the scan universe " +
@@ -555,7 +555,7 @@ const SCAN_SCORE: RegisteredCriterion[] = [
   PILLAR("volumeAccumulation", "Volume and accumulation", "lib/gann/volumeClimax.ts, lib/gann/accumulation.ts, lib/gann/capitalStock.ts",
     "MC Ch.7 C7, C8; S14, S21: volume at the turn or a base of weeks, with no capital-stock warning against a long."),
   PILLAR("definiteIndication", "Definite indication with the stop placed", "lib/gann/entryTrigger.ts, lib/gann/campaignLedger.ts",
-    "MC Ch.7 C9, C11, C12: the definite indication shown (since 2026-10-21 a crossing counts once made, not while waiting), the stop 3 points behind an old level, and the counter-move within the greatest reaction (exceeding it, against the trend). Merges entryTriggerArmed and stopBehindOldLevel."),
+    "MC Ch.7 C9, C11, C12: the definite indication shown (since 2026-10-21 a crossing counts once made, not while waiting), the stop behind an old level, and the counter-move within the greatest reaction (exceeding it, against the trend). Merges entryTriggerArmed and stopBehindOldLevel."),
 ];
 
 
@@ -848,7 +848,7 @@ const RETIRED: RegisteredCriterion[] = [
       "adequately sampled) read −0.090. Both inside the ±0.1 noise band: no longer the clearly inverted " +
       "counter-trend signal the old logic measured, but never established a benefit either — negligible, " +
       "not validated, even after the active-harm fix. Replaced with a different construction on the same " +
-      "daily bars (the 3-day/9-day swing charts) rather than a third attempt at tuning a " +
+      "daily bars (the short-term trend charts) rather than a third attempt at tuning a " +
       "monthly/weekly/daily agreement rule.",
   },
   {
@@ -1055,7 +1055,7 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     evidence: "unmeasured",
     note:
       "A-LEVELS-08 (2026-10-16): above 200 expect 202-203 and a break back; buy the third time through " +
-      "(Stock Selector Ch. I, V; Tunnel PDF 151, 166). Appended only when it holds an Execute whose crossing is " +
+      "(SS Ch. I, V; TTA PDF 151, 166). Appended only when it holds an Execute whose crossing is " +
       "the first or second time through a major figure, so it is failed by construction whenever present.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
@@ -1069,7 +1069,7 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     note:
       "Q19 (owner, 2026-10-16, \"Window\"): a counter-trend Execute holds to Watch unless its swing extreme came " +
       "on a dated window (A-TIME-15, W036 p.22; C-STOP-03; HTMPC p.56), and since 2026-10-28 with price at the half " +
-      "or three quarters of a major range (Master Course PDF 202, Ch. 18 TP-2). Appended to every counter-trend Execute, " +
+      "or three quarters of a major range (MC PDF 202, Ch. 18 TP-2). Appended to every counter-trend Execute, " +
       "passed when the turn came on a window and failed when it holds the verdict.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
@@ -1082,7 +1082,7 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     evidence: "unmeasured",
     note:
       "Owner decision (2026-09-30): a breached stop retires the plan until a later scan confirms it or " +
-      "replaces it (Master Course Ch. 3 Rule 4; NSTD p. 13, old bottoms become tops). Appended only when the " +
+      "replaces it (MC Ch. 3 Rule 4; NSTD p. 13, old bottoms become tops). Appended only when the " +
       "price the scan ran at is already through the plan's stop, which drops the verdict to Reject, so it is " +
       "failed by construction whenever present. The replay applies the same rule by path (a candle earlier " +
       "in the session trading through the stop retires the plan for that session) and skips the entry " +
@@ -1114,7 +1114,7 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     note:
       "Owner, 2026-10-28: an outdated plan expires and the stock stays tracked. Appended when price stands " +
       "past the plan's TP1 (a level crossed is the next support, W006 pp.19-24) or the entry can fill only on " +
-      "a reaction that over-balances the campaign's greatest by a point (Master Course Ch. 8, PDF 249). It " +
+      "a reaction that over-balances the campaign's greatest by a point (MC Ch. 8, PDF 249). It " +
       "drops the verdict to Reject, so it is failed by construction whenever present. The replay does not " +
       "enter such a plan and counts it under retiredPlans, so it never reaches the factor tables.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
@@ -1129,7 +1129,7 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     note:
       "2026-10-29 (edge diagnosis of the six-year daily run): a trade with the campaign's trend that would ride " +
       "its 3rd or later section (tradeSection, record weekly turns that held two weeks) is held from Execute to " +
-      "Watch: the third or fourth section marks the culmination (Master Course pp. 244-245; GA-20/21). Appended " +
+      "Watch: the third or fourth section marks the culmination (MC pp. 244-245; GA-20/21). Appended " +
       "only when it holds, so it is failed by construction whenever present.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
@@ -1142,9 +1142,9 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     evidence: "unmeasured",
     note:
       "2026-10-29 (owner, after the six-year rerun: shorts -0.079R over 30,002 trades): a short Execute is " +
-      "held to Watch unless the stock's own monthly swing chart reads its main trend down. The monthly " +
-      "chart decides the main trend (Master Course GA-2/3), and the method does not short while it is up (Master " +
-      "Course Ch. 1, 1954, Vanadium). Longs are not held. Appended only when it holds, so it is failed by " +
+      "held to Watch unless the stock's own monthly trend chart reads its main trend down. The monthly " +
+      "chart decides the main trend (MC GA-2/3), and the method does not short while it is up (MC " +
+      "Ch. 1, 1954, Vanadium). Longs are not held. Appended only when it holds, so it is failed by " +
       "construction whenever present.",
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },

@@ -102,11 +102,11 @@ describe("time to hold (A-TIME-12, W006 p.23)", () => {
     const base = { side: "long" as const, lots: [{ qty: 100, price: 101.8, date: "2026-06-03" }], stop: 98.3, initialStop: 98.3, daily };
     const early = readPyramidAdd({ ...base, daily: daily.slice(0, 4), price: 111 });
     expect(early.add).toBeNull();
-    expect(early.reason).toMatch(/Three days haven't closed/);
+    expect(early.reason).toMatch(/hasn't been open long enough/);
     // Filled at 102.2: the first close (102) is against it, so no add even at 111.
     const against = readPyramidAdd({ ...base, lots: [{ qty: 100, price: 102.2, date: "2026-06-03" }], stop: 98.7, initialStop: 98.7, price: 111 });
     expect(against.add).toBeNull();
-    expect(against.reason).toMatch(/did not show a profit at its first close/);
+    expect(against.reason).toMatch(/hasn't shown it is working yet/);
     expect(against.holdWarning).toMatch(/first day closed against the trade/);
   });
 });
@@ -130,24 +130,24 @@ describe("pyramid side by capital stock (never-failing rule 21)", () => {
   it("does not add to a long in a stock with a large capital stock", () => {
     const r = readPyramidAdd({ ...base, capitalStock: 5_000_000_000 });
     expect(r.add).toBeNull();
-    expect(r.reason).toMatch(/small capital stock/);
+    expect(r.reason).toMatch(/Adding to a buy isn't available/);
   });
 
   it("does not add to a short in a stock with a small capital stock", () => {
     const r = readPyramidAdd({ ...base, side: "short", stop: 105, initialStop: 105, price: 95, capitalStock: 200_000_000 });
     expect(r.add).toBeNull();
-    expect(r.reason).toMatch(/large capital stock/);
+    expect(r.reason).toMatch(/Adding to a sell isn't available/);
   });
 
   it("lets a short in a stock with a large capital stock through to the other rules", () => {
     const r = readPyramidAdd({ ...base, side: "short", stop: 105, initialStop: 105, price: 95, capitalStock: 5_000_000_000 });
-    expect(r.reason ?? "").not.toMatch(/capital stock/);
+    expect(r.reason ?? "").not.toMatch(/isn't available in this stock/);
   });
 
   it("holds the add when a stock's share count is unknown", () => {
     const r = readPyramidAdd({ ...base, capitalStock: null });
     expect(r.add).toBeNull();
-    expect(r.reason).toMatch(/share count/);
+    expect(r.reason).toMatch(/size isn't known/);
   });
 
   it("reads small and large on the labelled cutoff", () => {

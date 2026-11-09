@@ -150,8 +150,8 @@ export function readHexagonTime(bars: { t: string; h: number; l: number }[]): He
 export function describeHexagonTime(hits: HexagonTimeHit[]): string[] {
   return hits.map((h) => {
     const where = h.line
-      ? `on ${h.line.number}, the ${h.line.angle === 0 ? "0°/360°" : `${h.line.angle}°`} line of the Hexagon Chart (${h.line.kind === "completion" ? "a ring completion" : h.line.kind === "corner" ? "a corner" : "a mid-side"})`
-      : "on the Hexagon Chart's count";
+      ? `on ${h.line.number}, the ${h.line.angle === 0 ? "0°/360°" : `${h.line.angle}°`} line of the hexagon grid (${h.line.kind === "completion" ? "a ring completion" : h.line.kind === "corner" ? "a corner" : "a mid-side"})`
+      : "on the hexagon grid's count";
     const named = h.named !== null ? `; the ${h.named}th month is a named count` : "";
     return `${Math.round(h.count)} ${h.unit} from the ${h.pivot} of ${h.pivotDate}: ${where}${named}, a time point.`;
   });

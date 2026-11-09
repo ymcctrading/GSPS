@@ -247,7 +247,7 @@ export const SNAPSHOT_BACKTEST = {
   winRatePct: 58,
   avgRMultiple: 0.21,
   plain:
-    "Out of 148 past setups, 58 out of every 100 made money, and the average trade earned about a fifth of what it risked. That is what a working edge looks like — small and steady, not spectacular.",
+    "Example figures to show the layout, not a GSPS result. The Backtest page shows how many past setups made money and the average result against what each risked. A good number on past data is not a proven edge and promises nothing about the next trade.",
 } as const;
 
 /** Guided's limits, restated for the Settings step of the tour. */
@@ -259,5 +259,5 @@ export const SNAPSHOT_CAPS = [
     plain: "Every share held needs capital behind it, scaled to the stock's price.",
   },
   { label: "Markets at once", value: "3", plain: "Watch a few markets closely rather than many loosely." },
-  { label: "Losses in a row", value: "3", plain: "Three losses in a row pause new trades for that day and the next." },
+  { label: "Losing streak", value: "Pause", plain: "A losing streak pauses new trades for a short time." },
 ] as const;
