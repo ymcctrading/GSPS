@@ -8,11 +8,11 @@ Way**. See `lib/promotion/transitions.ts`, `trackRecordPolicy.ts`,
 
 **Three-question mandate, applied before this was designed:**
 
-1. **Gann sourcing**: N/A. This is a governance/access-tier ladder, not a
-   market technique — there is no Gann source to cite for it, and none of
+1. **Method sourcing**: N/A. This is a governance/access-tier ladder, not a
+   market technique — there is no method source to cite for it, and none of
    the three paths' thresholds claim to be.
-2. **Dewey/cycle theory**: the Track Record path is a rolling evaluation
-   window, which is a periodicity claim. Dewey's seven-item checklist is
+2. **Cycle theory**: the Track Record path is a rolling evaluation
+   window, which is a periodicity claim. The cycle literature's seven-item checklist is
    run explicitly in `trackRecordPolicy.ts`'s own header — two items
    clear as genuine periodicity claims (regularity of timing, phase-
    resumption after distortion), three clear by policy construction rather
@@ -20,7 +20,7 @@ Way**. See `lib/promotion/transitions.ts`, `trackRecordPolicy.ts`,
    window lengths themselves), and two don't apply to a single trader's
    evaluation (wave-shape identity, cross-series clustering). Stated
    honestly there rather than claiming a clean sweep.
-3. **Hermetic principles**: **Polarity** is the load-bearing one — three
+3. **Design principles**: **Polarity** is the load-bearing one — three
    genuinely different poles of qualification (discipline/study,
    demonstrated performance, capital), each a real path on its own, not one
    "real" path with two lesser substitutes. **Cause and Effect**: each path
