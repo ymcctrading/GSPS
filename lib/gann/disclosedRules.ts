@@ -221,6 +221,20 @@ export interface PricePercentageReading {
   nearestBelow: PricePercentageLevel | null;
 }
 
+/**
+ * The lowest low and highest high of `bars`, by a loop: spreading a long
+ * series into Math.min/Math.max overflows the call stack (2026-11-09).
+ */
+function barRange(bars: Bar[]): { low: number; high: number } {
+  let low = Infinity;
+  let high = -Infinity;
+  for (const b of bars) {
+    low = Math.min(low, b.l);
+    high = Math.max(high, b.h);
+  }
+  return { low, high };
+}
+
 export function pricePercentageLevels(low: number, high: number): PricePercentageLevel[] {
   const levels: PricePercentageLevel[] = [];
   for (let k = 1; k <= 8; k++) {
@@ -264,8 +278,7 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
  */
 export function majorPricePercentageLevels(bars: Bar[]): number[] {
   if (bars.length === 0) return [];
-  const low = Math.min(...bars.map((b) => b.l));
-  const high = Math.max(...bars.map((b) => b.h));
+  const { low, high } = barRange(bars);
   if (!(low > 0) || !(high > low)) return [];
   const levels = pricePercentageLevels(low, high);
   const major = levels.filter((l) => l.importance === 1 && l.multiple === undefined).map((l) => l.price);
@@ -290,25 +303,34 @@ export function majorPricePercentageLevels(bars: Bar[]): number[] {
  */
 export function lowMultipleLevels(bars: Bar[]): number[] {
   if (bars.length === 0) return [];
-  const low = Math.min(...bars.map((b) => b.l));
-  const high = Math.max(...bars.map((b) => b.h));
+  const { low, high } = barRange(bars);
   if (!(low > 0) || !(high > low)) return [];
   const latest = bars.reduce((a, b) => (b.t > a.t ? b : a)).c;
-  const multiples = pricePercentageLevels(low, high)
-    .filter((l) => l.multiple !== undefined)
-    .map((l) => l.price);
-  const below = multiples.filter((m) => m <= latest);
-  const above = multiples.filter((m) => m > latest);
+  if (Number.isNaN(latest)) return [];
+  // The same multiples `pricePercentageLevels` lists (m = 2 up to the first
+  // one at or past its reach), found by arithmetic rather than by listing
+  // them: a bad low print far under the range lists hundreds of thousands,
+  // and spreading that list into Math.max overflowed the call stack in the
+  // replay (2026-11-09). Each price is the same expression, low * (1 + m),
+  // so the levels returned are identical.
+  const reach = Math.max(12 * low, high);
+  const at = (m: number) => low * (1 + m);
+  let top = Math.max(2, Math.ceil(reach / low) - 1);
+  while (top > 2 && at(top - 1) >= reach) top--;
+  while (at(top) < reach) top++;
+  let below = Math.max(1, Math.min(top, Math.floor(latest / low) - 1));
+  while (below >= 2 && at(below) > latest) below--;
+  while (below + 1 <= top && at(below + 1) <= latest) below++;
+  const above = Math.max(2, below + 1);
   const out: number[] = [];
-  if (below.length > 0) out.push(Math.max(...below));
-  if (above.length > 0) out.push(Math.min(...above));
+  if (below >= 2) out.push(at(below));
+  if (above <= top && at(above) > latest) out.push(at(above));
   return [...new Set(out)].sort((a, b) => a - b);
 }
 
 export function readPricePercentages(bars: Bar[], currentPrice: number): PricePercentageReading | null {
   if (bars.length === 0 || !(currentPrice > 0)) return null;
-  const low = Math.min(...bars.map((b) => b.l));
-  const high = Math.max(...bars.map((b) => b.h));
+  const { low, high } = barRange(bars);
   if (!(low > 0) || !(high > low)) return null;
   const levels = pricePercentageLevels(low, high);
   const above = levels.filter((l) => l.price > currentPrice);
@@ -864,7 +886,7 @@ export function readDisclosedRules(
   const longMonthly = instrument?.monthlyLong ?? instrument?.monthly ?? null;
   const campaignBottoms = readCampaignBottoms(longMonthly, dailyBars, asOf);
   const marketMonthly = instrument?.marketMonthly
-    ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= dailyBars[dailyBars.length - 1].t))
+    ? monthlyWithCurrent(instrument.marketMonthly, (instrument.marketDaily ?? []).filter((b) => b.t <= (dailyBars[dailyBars.length - 1]?.t ?? "")))
     : null;
   // One Gann point for the whole read (`pointScale.ts#pointForBars`), as the S/R levels use.
   const unit = pointForBars(dailyBars);

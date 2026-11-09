@@ -81,6 +81,44 @@ describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
     expect(readPricePercentages(b, 39.5)?.nearestAbove).toMatchObject({ price: 40, label: "300% above the low" });
   });
 
+  it("matches the listed multiples exactly, and gives the pair without listing them (replay stack overflow, 2026-11-09)", () => {
+    // The list `lowMultipleLevels` used to spread into Math.max/Math.min.
+    const listed = (low: number, high: number, latest: number) => {
+      const m = pricePercentageLevels(low, high).filter((l) => l.multiple !== undefined).map((l) => l.price);
+      const out: number[] = [];
+      const below = m.filter((p) => p <= latest);
+      const above = m.filter((p) => p > latest);
+      if (below.length > 0) out.push(below.reduce((a, b) => Math.max(a, b)));
+      if (above.length > 0) out.push(above.reduce((a, b) => Math.min(a, b)));
+      return [...new Set(out)].sort((a, b) => a - b);
+    };
+    let seed = 20261109;
+    const rand = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+    for (let i = 0; i < 400; i++) {
+      const low = 0.01 + rand() * 50;
+      const high = low * (1.01 + rand() * 40);
+      const latest = i % 10 === 0 ? low * (1 + 2 + (i % 30)) : low + rand() * (high * 1.2 - low);
+      const b = [bar("2026-01-01T00:00:00Z", low, low, low), bar("2026-01-02T00:00:00Z", high, high, high), bar("2026-01-03T00:00:00Z", latest, high, low)];
+      expect(lowMultipleLevels(b)).toEqual(listed(low, high, latest));
+    }
+    // A bad print of 0.0001 under a range to 100: a million multiples, which overflowed the stack when spread.
+    const bad = [bar("2026-01-01T00:00:00Z", 50, 100, 0.0001), bar("2026-01-02T00:00:00Z", 42.5, 43, 42)];
+    const pair = lowMultipleLevels(bad);
+    expect(pair).toHaveLength(2);
+    expect(pair[0]).toBeLessThanOrEqual(42.5);
+    expect(pair[1]).toBeGreaterThan(42.5);
+    expect(pair[1] - pair[0]).toBeCloseTo(0.0001, 8);
+    // Closes off the ends of the ladder give the same answers as the list.
+    for (const c of [-5, 0, 1e9, Infinity, -Infinity]) {
+      const e = [bar("2026-01-01T00:00:00Z", 10, 10, 10), bar("2026-01-02T00:00:00Z", 45, 45, 45), bar("2026-01-03T00:00:00Z", c, 45, 10)];
+      expect(lowMultipleLevels(e)).toEqual(listed(10, 45, c));
+    }
+    // A long series reads its range by a loop, never a spread.
+    const long = Array.from({ length: 300_000 }, (_, i) => bar(new Date(Date.UTC(1900, 0, 1) + i * 86_400_000).toISOString(), 10 + (i % 7)));
+    expect(() => majorPricePercentageLevels(long)).not.toThrow();
+    expect(readPricePercentages(long, 12)?.lowAnchor).toBe(9);
+  });
+
   it("finds the nearest level on each side of price", () => {
     const b = [bar("2026-01-01T00:00:00Z", 100, 100, 100), bar("2026-01-02T00:00:00Z", 200, 200, 200)];
     const r = readPricePercentages(b, 140)!;
@@ -233,6 +271,11 @@ describe("Rule of Three on weekly and monthly bars (Stock Selector p. 72)", () =
 });
 
 describe("readDisclosedRules", () => {
+  it("reads with no daily bars in the window when the market's months are given (a name idle for a year, 2026-11-09)", () => {
+    const market = daily(Array.from({ length: 60 }, (_, i) => 400 + i));
+    expect(() => readDisclosedRules([], 0, { sharesOutstanding: null, inception: null, marketDaily: market, marketMonthly: toMonthlyBars(market) })).not.toThrow();
+  });
+
   it("returns a full context and plain-language lines", () => {
     const ctx = readDisclosedRules(daily(Array.from({ length: 60 }, (_, i) => 100 + Math.sin(i / 3) * 5 + i * 0.2)), 110);
     expect(ctx.barMidpoint).not.toBeNull();
