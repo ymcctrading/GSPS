@@ -455,7 +455,7 @@ export function trendPillar(input: {
   const passed = weeklyWith && shortTerm;
   return {
     passed,
-    note: `Weekly trend line ${side === "bullish" ? "green" : "red"}: ${yes(weeklyWith)}. 3-day swing or three closes with it: ${yes(shortTerm)}.${passed && monthly === side ? " The monthly trend agrees too: every timeframe is in line." : ""}`,
+    note: `Weekly trend line ${side === "bullish" ? "green" : "red"}: ${yes(weeklyWith)}. short-term trend or three closes with it: ${yes(shortTerm)}.${passed && monthly === side ? " The monthly trend agrees too: every timeframe is in line." : ""}`,
   };
 }
 
@@ -618,6 +618,6 @@ export function definiteIndicationPillar(f: PillarFacts | null | undefined, side
   const withTrend = c?.trend === side;
   return {
     passed,
-    note: `Definite indication shown: ${yes(armed)}. Stop 3 points behind an old level: ${yes(stopPlaced)}. ${withTrend ? "The reaction is within the campaign's greatest" : "The move against the trend has exceeded the campaign's greatest reaction"}: ${yes(reaction)}. All three are needed.`,
+    note: `Definite indication shown: ${yes(armed)}. Stop behind an old level: ${yes(stopPlaced)}. ${withTrend ? "The reaction is within the campaign's greatest" : "The move against the trend has exceeded the campaign's greatest reaction"}: ${yes(reaction)}. All three are needed.`,
   };
 }

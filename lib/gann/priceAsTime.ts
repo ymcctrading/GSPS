@@ -429,13 +429,13 @@ export function describePriceAsTime(r: PriceAsTimeReading): string[] {
     );
   }
   for (const s of r.squareOf90) {
-    lines.push(`${fmt(Math.round(s.count * 10) / 10)} ${s.unit} from the ${s.origin === "inception" ? "company's inception" : "low"} (${s.originDate}): on ${fmt(s.step)} of the square of 90${s.quarter ? ", a quarter" : ""}.`);
+    lines.push(`${fmt(Math.round(s.count * 10) / 10)} ${s.unit} from the ${s.origin === "inception" ? "company's inception" : "low"} (${s.originDate}): on ${fmt(s.step)} of the quarter-circle count${s.quarter ? ", a quarter" : ""}.`);
   }
   for (const m of r.marketDays) lines.push(`${m.marketDays} market days from the ${m.pivot} of ${m.pivotDate}: ${m.multiple} x 11 1/4.`);
   const hx = r.hexagonInception;
   if (hx) {
     lines.push(
-      `${fmt(Math.round(hx.months * 10) / 10)} months from the company's inception (${hx.inception})${hx.line ? `: on ${hx.line.number} of the Hexagon Chart (${hx.line.kind === "completion" ? "a ring completion" : hx.line.kind === "corner" ? "a corner" : "a mid-side"})` : ""}${hx.named !== null ? `; the ${hx.named}th month is a named count` : ""}.`,
+      `${fmt(Math.round(hx.months * 10) / 10)} months from the company's inception (${hx.inception})${hx.line ? `: on ${hx.line.number} of the hexagon grid (${hx.line.kind === "completion" ? "a ring completion" : hx.line.kind === "corner" ? "a corner" : "a mid-side"})` : ""}${hx.named !== null ? `; the ${hx.named}th month is a named count` : ""}.`,
     );
   }
   return lines;

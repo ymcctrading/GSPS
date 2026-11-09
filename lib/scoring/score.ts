@@ -254,10 +254,10 @@ function heldNote(t: NonNullable<ScoreInputs["gannTrigger"]>): string {
   const up = t.direction === "bullish";
   const at = (t.level ?? t.triggerPrice).toFixed(2);
   if (t.holdBasis === "narrowWeek") {
-    return `Trigger armed bearish: a narrow week was followed by a sharp drop on large volume, which turns the trend down, so a sell rests 1 point under that week's low at ${at}, for the bounce, with the stop 3 points over it.`;
+    return `Trigger armed bearish: a narrow week was followed by a sharp drop on large volume, which turns the trend down, so a sell rests just under that week's low at ${at}, for the bounce, with the stop above it.`;
   }
   if (t.holdBasis === "rally") {
-    return `Trigger armed bearish: a rally in a falling market has run to the end of its second or third week, so the entry rests at the last close with the stop 3 points over that week's high at ${at}.`;
+    return `Trigger armed bearish: a rally in a falling market has run to the end of its second or third week, so the entry rests at the last close with the stop above that week's high at ${at}.`;
   }
   const what =
     t.holdBasis === "record"
@@ -279,7 +279,7 @@ function crossedLevelName(source: "swing" | "priorYear" | "allTime" | undefined,
 function regainedNote(t: { direction: "bullish" | "bearish"; source?: "swing" | "priorYear" | "allTime"; levelYear?: number }): string {
   const up = t.direction === "bullish";
   const name = regainedLevelName(up, t.source === "swing" ? undefined : t.source, t.levelYear);
-  return `is 3 points back ${up ? "over" : "under"} ${name} after a 3-point break ${up ? "under" : "over"} it`;
+  return `is clearly back ${up ? "over" : "under"} ${name} after a clear break ${up ? "under" : "over"} it`;
 }
 
 /**
@@ -517,19 +517,19 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   const breakdown: ScoreBreakdownItem[] = [
     {
       key: "swingChartTrend",
-      criterion: "3-day/weekly swing chart trend",
+      criterion: "Short-term and weekly trend",
       checkOf: "trendAllTimeframes",
       passed: swingChartAligned,
       note:
         swingChart == null || swingChart.threeDay == null || swingChart.weekly == null
-          ? "The 3-day and weekly swing charts have not both signalled a trend yet."
+          ? "The short-term and weekly trends have not both signalled yet."
           : (swingChartAligned
               ? setupKind === "continuation"
-                ? `Both the 3-day and weekly swing charts read ${direction} — the trend this setup continues is intact.`
-                : `Both the 3-day and weekly swing charts read ${direction} — in agreement with this reversion.`
+                ? `Both the short-term and weekly trends read ${direction} — the trend this setup continues is intact.`
+                : `Both the short-term and weekly trends read ${direction} — in agreement with this reversion.`
               : swingChart.threeDay === swingChart.weekly
-                ? `Both swing charts read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
-                : `The 3-day (${swingChart.threeDay}) and weekly (${swingChart.weekly}) swing charts disagree with each other.`) +
+                ? `Both trends read ${swingChart.threeDay}, not ${direction} — they agree with each other but not with this setup.`
+                : `The short-term (${swingChart.threeDay}) and weekly (${swingChart.weekly}) trends disagree with each other.`) +
             campaignLegNote,
     },
     {
@@ -558,8 +558,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       note:
         (heldLevel
           ? direction === "bullish"
-            ? `The last pullback stopped at an old ${heldLevel.timeframe} support level at ${heldLevel.price.toFixed(2)}: its low of ${heldLevel.extreme.toFixed(2)} came ${heldLevel.sessionsAgo} sessions ago, and no close since has broken the level by 3 points. ${LEVEL_TIMEFRAME_USAGE[heldLevel.timeframe]}.`
-            : `The last rally stopped at an old ${heldLevel.timeframe} resistance level at ${heldLevel.price.toFixed(2)}: its high of ${heldLevel.extreme.toFixed(2)} came ${heldLevel.sessionsAgo} sessions ago, and no close since has gone through the level by 3 points. ${LEVEL_TIMEFRAME_USAGE[heldLevel.timeframe]}.`
+            ? `The last pullback stopped at an old ${heldLevel.timeframe} support level at ${heldLevel.price.toFixed(2)}: its low of ${heldLevel.extreme.toFixed(2)} came ${heldLevel.sessionsAgo} sessions ago, and no close since has clearly broken the level. ${LEVEL_TIMEFRAME_USAGE[heldLevel.timeframe]}.`
+            : `The last rally stopped at an old ${heldLevel.timeframe} resistance level at ${heldLevel.price.toFixed(2)}: its high of ${heldLevel.extreme.toFixed(2)} came ${heldLevel.sessionsAgo} sessions ago, and no close since has clearly gone through the level. ${LEVEL_TIMEFRAME_USAGE[heldLevel.timeframe]}.`
           : `The last ${direction === "bullish" ? "pullback has not stopped and held at an old support level" : "rally has not stopped and held at an old resistance level"}. Being near a level is not enough: price has to come to it and hold there.`) + levelTestNote,
     },
     {
@@ -575,21 +575,21 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
         ? gannTrigger!.kind === "hold"
           ? heldNote(gannTrigger!)
           : gannTrigger!.kind === "oldLevel"
-            ? `Trigger armed ${gannTrigger!.direction}: the entry rests at the old ${gannTrigger!.direction === "bullish" ? "bottom" : "top"} at ${(gannTrigger!.level ?? gannTrigger!.triggerPrice).toFixed(2)}, where a ${(gannTrigger!.tests ?? 1) >= 2 ? "third" : "second"} test makes the ${(gannTrigger!.tests ?? 1) >= 2 ? "triple" : "double"} ${gannTrigger!.direction === "bullish" ? "bottom" : "top"}, with the stop 3 points beyond it.`
-            : `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} ${gannTrigger!.regained ? regainedNote(gannTrigger!) : `crosses ${crossedLevelName(gannTrigger!.source, gannTrigger!.direction, gannTrigger!.levelYear)} by 3 points`}, and the entry then waits for the pullback toward that level.${gannTrigger!.newRecord ? ` That close was a new record ${gannTrigger!.direction === "bullish" ? "high" : "low"} on the chart.` : ""}`
-        : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swing chart has not completed a level to cross.`,
+            ? `Trigger armed ${gannTrigger!.direction}: the entry rests at the old ${gannTrigger!.direction === "bullish" ? "bottom" : "top"} at ${(gannTrigger!.level ?? gannTrigger!.triggerPrice).toFixed(2)}, where a ${(gannTrigger!.tests ?? 1) >= 2 ? "third" : "second"} test makes the ${(gannTrigger!.tests ?? 1) >= 2 ? "triple" : "double"} ${gannTrigger!.direction === "bullish" ? "bottom" : "top"}, with the stop beyond it.`
+            : `Trigger armed ${gannTrigger!.direction}: a close at ${gannTrigger!.triggerPrice.toFixed(2)} ${gannTrigger!.regained ? regainedNote(gannTrigger!) : `crosses ${crossedLevelName(gannTrigger!.source, gannTrigger!.direction, gannTrigger!.levelYear)} clearly`}, and the entry then waits for the pullback toward that level.${gannTrigger!.newRecord ? ` That close was a new record ${gannTrigger!.direction === "bullish" ? "high" : "low"} on the chart.` : ""}`
+        : `No ${setupKind === "continuation" ? "continuation" : "reversal"} trigger armed — the swings have not completed a level to cross.`,
     },
     {
       key: "stopBehindOldLevel",
-      criterion: "Stop 3 points behind an old level",
+      criterion: "Stop behind an old level",
       checkOf: "definiteIndication",
       passed: stopBehindOldLevel,
       note:
         levels == null
           ? "No trade plan priced, so the setup has no stop to check."
           : stopBehindOldLevel
-            ? `An old ${direction === "bullish" ? "bottom" : "top"} stands 3 points in front of the stop, so the market has to break it by the full allowance before the stop is hit.`
-            : `No old ${direction === "bullish" ? "bottom" : "top"} stands 3 points in front of the stop.`,
+            ? `An old ${direction === "bullish" ? "bottom" : "top"} stands in front of the stop, so the market has to break it clearly before the stop is hit.`
+            : `No old ${direction === "bullish" ? "bottom" : "top"} stands in front of the stop.`,
     },
     {
       key: "timePriceSquare",
@@ -615,23 +615,23 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
     },
     {
       key: "ruleOfThree",
-      criterion: "Rule of Three (consecutive closes confirm direction)",
+      criterion: "Three closes in a row (consecutive closes confirm direction)",
       checkOf: "trendAllTimeframes",
       passed: ruleOfThreeHolding,
       note:
         ruleOfThreeDaily && ruleOfThreeHigher !== null
-          ? `The Rule of Three reads the daily trend with this setup but the ${ruleOfThreeHigher} trend against it.`
+          ? `Three closes in a row read the daily trend with this setup but the ${ruleOfThreeHigher} trend against it.`
           : ruleOfThree == null
-          ? "Not enough daily history to read the Rule of Three."
+          ? "Not enough daily history to read three closes in a row."
           : ruleOfThreeHolding
             ? direction === "bullish"
-              ? "The last run of three daily closes was higher, and no three lower closes have followed: the Rule of Three reads the trend up."
-              : "The last run of three daily closes was lower, and no three higher closes have followed: the Rule of Three reads the trend down."
+              ? "The last run of three daily closes was higher, and no three lower closes have followed: the closes read the trend up."
+              : "The last run of three daily closes was lower, and no three higher closes have followed: the closes read the trend down."
             : ruleOfThree.trend === null
-              ? "No run of three daily closes either way yet: the Rule of Three reads no trend."
+              ? "No run of three daily closes either way yet: the closes read no trend."
               : direction === "bullish"
-                ? "The last run of three daily closes was lower: the Rule of Three reads the trend down until three higher closes."
-                : "The last run of three daily closes was higher: the Rule of Three reads the trend up until three lower closes.",
+                ? "The last run of three daily closes was lower: the closes read the trend down until three higher closes."
+                : "The last run of three daily closes was higher: the closes read the trend up until three lower closes.",
     },
   ];
 

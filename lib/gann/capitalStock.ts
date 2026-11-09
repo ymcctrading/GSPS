@@ -177,13 +177,13 @@ const pct = (x: number) => `${(x * 100).toFixed(x < 0.1 ? 2 : 1)}%`;
 
 export function describeCapitalStock(r: CapitalStockReading): string[] {
   const lines = [
-    `Capital stock: the latest week traded ${pct(r.latestWeekTurnover)} of the ${Math.round(r.sharesOutstanding).toLocaleString("en-US")} shares outstanding; the heaviest of the last ${HEAVY_WEEK_MEMORY} weeks traded ${pct(r.peakRecentWeekTurnover)}.`,
+    `Share turnover: the latest week traded ${pct(r.latestWeekTurnover)} of the ${Math.round(r.sharesOutstanding).toLocaleString("en-US")} shares outstanding; the heaviest of the last ${HEAVY_WEEK_MEMORY} weeks traded ${pct(r.peakRecentWeekTurnover)}.`,
   ];
-  if (r.plainTopWeek) lines.push("A week turned over almost the whole capital stock at a top: a plain top.");
-  else if (r.distributionWeek) lines.push("Two-thirds of the capital stock changed hands in one week at a top: a distribution week.");
+  if (r.plainTopWeek) lines.push("A week turned over almost all the shares outstanding at a top: a plain top.");
+  else if (r.distributionWeek) lines.push("Most of the shares outstanding changed hands in one week at a top: a distribution week.");
   if (r.rangeTurnover !== null) {
     lines.push(
-      `Inside the current range, ${pct(r.rangeTurnover)} of the stock has traded${r.distributionInRange ? " after an advance: the whole capital stock has changed hands, a sign of distribution" : ""}.`,
+      `Inside the current range, ${pct(r.rangeTurnover)} of the stock has traded${r.distributionInRange ? " after an advance: every share outstanding has changed hands, a sign of distribution" : ""}.`,
     );
   }
   if (r.smallFloat && r.medianWeekTurnover !== undefined) {

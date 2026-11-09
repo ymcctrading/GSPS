@@ -172,7 +172,16 @@ const CONFIDENTIAL_TERMS = [
   { pattern: /Law of Creation|Emerald Tablet|Three Initiates/i, term: "hermetic source" },
   // The entry and stop arithmetic itself ("a close 3 points past the old
   // level", "1 point above the top"): the plan's prices show, the rule doesn't.
-  { pattern: /\b\d+[ -]points? (past|beyond|over|under|above|below|ahead|back)\b/, term: "point arithmetic", instead: "clearly past / just beyond" },
+  { pattern: /\b\d+[ -]points? (past|beyond|over|under|above|below|ahead|back|behind|in front)\b|\bby \d+ points?\b/, term: "point arithmetic", instead: "clearly past / just beyond" },
+  // Added 2026-11-09 with the widening to every runtime file: the named tools
+  // and the rule details #615 took out of the UI (the verifier's groups B and C).
+  { pattern: /Hexagon Chart|Master Twelve|Master Calculator|Square of the (high|low|range)\b/i, term: "named chart or tool", instead: "a neutral level or timing label" },
+  { pattern: /\b(March 2[01]|June 2[12]|September 2[23]|December 2[12])\b/, term: "seasonal date", instead: "a seasonal date" },
+  { pattern: /capital stock/i, term: "capital stock", instead: "the company's size or share count" },
+  { pattern: /\bthird month\b/i, term: "third-month rule", instead: "a long-running pullback" },
+  { pattern: /swing charts?\b|\b3-day swings?\b|\b3-bar swing/i, term: "swing chart", instead: "the trend / swings" },
+  { pattern: /\ba tenth of\b|\b10 parts\b|points a share/i, term: "capital fraction", instead: "the per-trade risk limit" },
+  { pattern: /⅜ ?points?/, term: "fractional point", instead: "just beyond" },
 ];
 
 function walk(directory, files = []) {
@@ -201,6 +210,7 @@ const isComment = (line) => /^\s*(\/\/|\/\*|\*)/.test(line);
 const isModuleSpecifier = (line) =>
   /^\s*(import|export)\b[^;]*\bfrom\s*["']/.test(line) ||
   /^\s*import\s*\(/.test(line) ||
+  /^\s*\}\s*from\s*["']/.test(line) ||
   /\brequire\s*\(/.test(line);
 
 const violations = [];
@@ -240,6 +250,63 @@ for (const file of confidentialFiles) {
   if (/__tests__|\.test\.tsx?$/.test(file)) continue;
   scan(file, CONFIDENTIAL_TERMS, { skipCommentsAndImports: true });
 }
+/**
+ * Every string literal in every runtime file (owner via the coordinator,
+ * 2026-11-09). The repository is public, so a server-only trace line, label or
+ * note is as readable as rendered copy. This pass reads string literals only
+ * ("...", '...' and `...` on one line; comments and imports skipped), and
+ * leaves a literal that is a bare identifier ("jensen", "squareOf144"): ids
+ * are code, and the ones a browser or a member's row can read are renamed
+ * where they ship (`lib/scanner/storedSignalIds.ts`,
+ * `lib/backtest/publicExitNames.ts`) and caught in the bundle by
+ * `check-bundle-terms.mjs`.
+ */
+function stringLiterals(line) {
+  const out = [];
+  let i = 0;
+  while (i < line.length) {
+    const c = line[i];
+    if (c === "/" && line[i + 1] === "/") break;
+    if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      let text = "";
+      while (j < line.length && line[j] !== c) {
+        if (line[j] === "\\") j++;
+        text += line[j] ?? "";
+        j++;
+      }
+      out.push(text);
+      i = j + 1;
+      continue;
+    }
+    i++;
+  }
+  return out;
+}
+const RUNTIME_TERMS = [...CONFIDENTIAL_TERMS, { pattern: /\bGann\b/, term: "Gann", instead: "the method" }];
+const isBareIdentifier = (text) => /^[A-Za-z0-9_.:-]*$/.test(text);
+const runtimeFiles = ["app", "components", "lib"].flatMap((root) => walk(join(ROOT, root)));
+const alreadyScanned = new Set(confidentialFiles);
+for (const file of runtimeFiles) {
+  if (alreadyScanned.has(file) || /__tests__|\.test\.tsx?$/.test(file)) continue;
+  const rel = relative(ROOT, file);
+  let contents;
+  try {
+    contents = readFileSync(file, "utf8");
+  } catch {
+    continue;
+  }
+  contents.split("\n").forEach((line, index) => {
+    if (isComment(line) || isModuleSpecifier(line)) return;
+    for (const literal of stringLiterals(line)) {
+      if (isBareIdentifier(literal)) continue;
+      for (const { pattern, term, instead } of RUNTIME_TERMS) {
+        if (pattern.test(literal)) violations.push({ file: rel, line: index + 1, term, instead, text: line.trim() });
+      }
+    }
+  });
+}
+
 for (const doc of PUBLIC_DOCS) {
   scan(join(ROOT, doc), PRODUCT_NAMES, { skipCommentsAndImports: false });
   // The public docs are read whole, so the source names count everywhere in them.

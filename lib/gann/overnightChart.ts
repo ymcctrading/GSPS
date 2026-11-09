@@ -345,9 +345,9 @@ export function readOvernightChart(bars: Bar[], point: (price: number) => number
 
 export function describeOvernightChart(r: OvernightReading): string[] {
   const lines = [
-    `Overnight Chart ${r.turnedToday ? "turned" : "is"} ${r.line}${r.lastBottom !== null ? `; last bottom ${r.lastBottom.toFixed(2)}` : ""}${r.lastTop !== null ? `, last top ${r.lastTop.toFixed(2)}` : ""}. Stops go 1 point beyond them (${r.longStop?.toFixed(2) ?? "n/a"} for a long, ${r.shortStop?.toFixed(2) ?? "n/a"} for a short).`,
+    `Daily swing ${r.turnedToday ? "turned" : "is"} ${r.line}${r.lastBottom !== null ? `; last bottom ${r.lastBottom.toFixed(2)}` : ""}${r.lastTop !== null ? `, last top ${r.lastTop.toFixed(2)}` : ""}. Stops go just beyond them (${r.longStop?.toFixed(2) ?? "n/a"} for a long, ${r.shortStop?.toFixed(2) ?? "n/a"} for a short).`,
   ];
-  if (r.halfway) lines.push(`Half-way point of the last ${r.halfway.swing} swing: ${r.halfway.price.toFixed(2)}, the method's buying (selling) level with a 1-point stop.`);
+  if (r.halfway) lines.push(`Half-way point of the last ${r.halfway.swing} swing: ${r.halfway.price.toFixed(2)}, the method's buying (selling) level with a close stop.`);
   if (r.reversedToday) lines.push(`The mechanical method's stop was caught today: it reverses to ${r.system}.`);
   return lines;
 }
