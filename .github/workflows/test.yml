@@ -1,6 +1,6 @@
 name: Tests
 
-# Runs on pull requests and on `main`, not on every branch push (owner,
+# Runs on pull requests, not on every branch push (owner,
 # 2026-10-28: Actions minutes). A push to a branch with an open PR used to run
 # this twice, once for each event, about 60% of the test minutes in the week
 # measured. Every PR opened through the GitHub App API since has had its
@@ -13,6 +13,14 @@ name: Tests
 # the banned-terms gate reads) runs nothing, since no test reads one. Not all
 # of `docs/`: criteria-gate.test.ts reads the committed runs in
 # docs/replay-runs/*.json.
+#
+# Since 2026-11-09 (option 3 of claude-usage/actions-minutes-breakdown.md, for
+# a private repository's 2,000 free minutes a month): pull requests only, no
+# run on a push to main. Every push to main is a release-train merge (or an
+# urgent fix merged alone), and its release PR already ran this suite on the
+# merge result, so a second run on main repeated it for about 6 minutes a
+# merge. workflow_dispatch stays for a by-hand run of main. Budget and rules:
+# docs/CI-MINUTES.md.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -22,8 +30,6 @@ on:
       - '!**/*.md'
       - 'README.md'
       - 'FEATURES.md'
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -127,8 +133,3 @@ jobs:
           minutes=$(( ($(date +%s) - start + 30 + 59) / 60 )); [ "$minutes" -ge 1 ] || minutes=1
           curl -sS -m 10 -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' \
             -d "{\"meter\":\"github_actions\",\"units\":$minutes,\"key\":\"job-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}\",\"detail\":{\"workflow\":\"${{ github.workflow }}\",\"event\":\"${{ github.event_name }}\"}}" "$USAGE_URL" || true
-          # Only main builds on Vercel, so a push to main is one deployment.
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            curl -sS -m 10 -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' \
-              -d "{\"meter\":\"vercel_deployments\",\"units\":1,\"key\":\"deploy-${{ github.sha }}\"}" "$USAGE_URL" || true
-          fi

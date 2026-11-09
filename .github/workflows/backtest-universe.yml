@@ -1,5 +1,16 @@
 name: Universe backtest (manual)
 
+# COST (2026-11-09, docs/CI-MINUTES.md): about 61 Actions minutes a run (82 runs
+# took 5,028 minutes from Sep 28 to Oct 28, a third of that month). Free while
+# the repository is public; on a private repository's 2,000 minutes a month,
+# run it from a session instead, with the same inputs as flags (AGENTS.md,
+# "Replays and backtests run in the session's environment"):
+#   NODE_USE_ENV_PROXY=1 MARKET_DATA_PROVIDER=alpaca ALPACA_API_KEY=via-proxy \
+#   ALPACA_API_SECRET=via-proxy node scripts/backtest-universe.mjs \
+#     --universe large-cap --cells '[...]' --timeframe 15Min --targetR 2 \
+#     [--since ISO] [--limit N] [--offset N] --symbolsPerMinute 30 --out tmp/run
+# This workflow stays workflow_dispatch only, run on the owner's ask.
+
 # Replays the backtest harness over a whole universe — up to all ~766 symbols of
 # LARGE_CAP_UNIVERSE — which GET /api/backtest cannot do: that route caps a
 # request at 12 symbols to fit Vercel Hobby's 60s function limit. Here the
