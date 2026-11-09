@@ -8,7 +8,7 @@ import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
 import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { PublicScanResult } from "@/lib/types";
-import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
+import { SHOWN_TIME_RECORDS } from "@/lib/timing/shownRecords";
 
 /**
  * Read-only, publicly shareable chart view. No auth, no order ticket — just the
@@ -93,17 +93,17 @@ export function PublicChart({ symbol }: { symbol: string }) {
           {result && result.currentPrice > 0 && (
             <span className="font-mono text-lg text-muted">{formatUsd(result.currentPrice)}</span>
           )}
-          {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
-          {TIME_LINE_RECORDS.timeCycle && result?.chartLevels?.timingActive && (
+          {/* CYC-30: a time line is shown with its measured record, or not at all (lib/timing/shownRecords.ts). */}
+          {SHOWN_TIME_RECORDS.timing && result?.chartLevels?.timingActive && (
             <span className="text-xs font-medium text-warn">
               ⏱ Cyclical turn window active
-              <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
+              <span className="font-normal text-muted"> ({SHOWN_TIME_RECORDS.timing.summary})</span>
             </span>
           )}
-          {TIME_LINE_RECORDS.yearCycles && (result?.chartLevels?.longTermTimingCount ?? 0) > 0 && (
+          {SHOWN_TIME_RECORDS.longTermTiming && (result?.chartLevels?.longTermTimingCount ?? 0) > 0 && (
             <span className="text-xs font-medium text-warn">
               ⟳ Long-term timing lines up
-              <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
+              <span className="font-normal text-muted"> ({SHOWN_TIME_RECORDS.longTermTiming.summary})</span>
             </span>
           )}
           <div className="ml-auto">

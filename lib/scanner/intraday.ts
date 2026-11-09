@@ -41,7 +41,7 @@
  * | Was | Now | Gann source |
  * |---|---|---|
  * | Break of the first 15 minutes' range | A close beyond the prior session's top or bottom by one intraday point (`old_level_cross`) | Buy on crossing old tops, sell on breaking old bottoms (*New Stock Trend Detector* pp. 20-22); a close decides, since intraday pokes often reverse (*Master Course* rule 5) |
- * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`space_overbalance`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
+ * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`pullback_record`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
  * | Higher highs and lows over six bars | The 3-bar swing chart's trend on the session's bars | The trend turns only when the last swing extreme breaks (NSTD pp. 19-20); "the hourly chart will give the first change in trend" (*Master Course* Ch. 13) |
  * | (new, 2026-10-16) | The same chart on hourly bars over recent sessions, a factor on the crossing and continuation alerts | "Keep an hourly High and Low Chart… the Hourly Chart will give the first change in trend" (*Master Course* Ch. 13) |
  *
@@ -118,8 +118,8 @@ import { APPROACH_LEAD_MAX_MINUTES, SCAN_CADENCE_MINUTES, readEntryApproach } fr
 export type SignalType =
   | "old_level_cross"
   | "trend_continuation"
-  | "space_overbalance"
-  | "overnight_turn"
+  | "pullback_record"
+  | "daily_swing_turn"
   | "hourly_turn"
   | "plan_level_held"
   | "reversal_risk"
@@ -1438,7 +1438,7 @@ function detectSpaceOverbalance(
     now,
     input,
     metrics: m,
-    type: "space_overbalance",
+    type: "pullback_record",
     direction: against,
     move: dayMove,
     factors,
@@ -1496,7 +1496,7 @@ function detectOvernightTurn(
     now,
     input,
     metrics: m,
-    type: "overnight_turn",
+    type: "daily_swing_turn",
     direction,
     move: dayMove,
     factors,

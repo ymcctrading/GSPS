@@ -36,9 +36,10 @@
  *                          production's LIVE_EXIT_RULE) or structure-runner;
  *                          the old ids gann and gann-runner are still accepted.
  *                          See ReplayOptions.exitRule
- *   ?disableExits=three_adverse_closes,prior_week
+ *   ?disableExits=early_adverse_closes,prior_week
  *                          measurement only: switch named Gann exit rules off
- *                          inside the replay walk (needs exitRule structure or
+ *                          inside the replay walk, by their API names
+ *                          (lib/backtest/publicExitNames.ts; needs exitRule structure or
  *                          structure-runner). An unknown name is a 400. See
  *                          ReplayOptions.disableExits
  *   ?reclaimPoints=5       how many of Gann's points a close must clear a broken
@@ -90,6 +91,7 @@ import {
   type Bucket,
 } from "@/lib/backtest/run";
 import { byOutputState, byScoreRange, resolveDisableExits } from "@/lib/backtest/replay";
+import { PUBLIC_EXIT_RULE_NAMES, exitRuleFromPublicName } from "@/lib/backtest/publicExitNames";
 import { replaySignalEngineForUniverse } from "@/lib/backtest/replaySignals";
 import { replayOvernightForUniverse } from "@/lib/backtest/replayOvernight";
 import { toPublicReport, planLevelsParam } from "@/lib/backtest/factorLabels";
@@ -225,10 +227,15 @@ export async function GET(req: NextRequest) {
   let disableExits: ReturnType<typeof resolveDisableExits> | undefined;
   if (disableExitsRaw !== null) {
     try {
-      disableExits = resolveDisableExits(
-        disableExitsRaw.split(",").map((n) => n.trim()).filter((n) => n.length > 0),
-        exitRule ?? LIVE_EXIT_RULE,
-      );
+      const names = disableExitsRaw.split(",").map((n) => n.trim()).filter((n) => n.length > 0);
+      const unknown = names.filter((n) => exitRuleFromPublicName(n) === null);
+      if (unknown.length > 0) {
+        return NextResponse.json(
+          { error: `Unknown exit rule${unknown.length > 1 ? "s" : ""} in disableExits: ${unknown.join(", ")} (expected ${PUBLIC_EXIT_RULE_NAMES.join(", ")})` },
+          { status: 400 },
+        );
+      }
+      disableExits = resolveDisableExits(names.map(exitRuleFromPublicName), exitRule ?? LIVE_EXIT_RULE);
     } catch (err) {
       return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
     }

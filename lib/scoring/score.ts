@@ -811,7 +811,7 @@ export function applyDistributionBreakdownHold(
         key: "distributionBreakdown",
         criterion: "No breakdown after a lower top",
         passed: false,
-        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}), a sign of a further decline. Held from Execute to Watch while price stays under the range, for up to 20 sessions after the break.`,
+        note: `Heavy selling broke the stock down from a top on ${standing.breakDate}, a sign of distribution. Held from Execute to Watch for now.`,
       },
     ],
   };

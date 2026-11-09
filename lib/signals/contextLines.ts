@@ -62,7 +62,10 @@ function levelLines(g: GannConfluenceResult): ContextLine[] {
     lines.push({ text: `Recent prices show a rough rhythm of about ${g.spectralCycle.dominantPeriodBars} bars.`, note: "(unproven)" });
   }
   if (g.campaignLeg.legNumber != null) {
-    lines.push({ text: `This move looks like leg ${g.campaignLeg.legNumber} of the trend.` });
+    // The leg's number stays on the server: how many legs a trend runs is the method's rule (audit 2026-11-09).
+    lines.push({
+      text: g.campaignLeg.legNumber <= 1 ? "This looks like the trend's first move." : "This trend has already made more than one move.",
+    });
   }
   if (g.boilingPoint.length > 0) {
     lines.push({ text: `It has been ${g.boilingPoint[0].weeksSinceClimax} weeks since the last blow-off move (${g.boilingPoint[0].phase}).` });

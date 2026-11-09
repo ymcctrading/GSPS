@@ -39,7 +39,7 @@
  *
  * **Where it runs.** Context on the live scan and the replay
  * (`disclosedRules.ts`, measured through `contextFactors.ts`), and since
- * 2026-10-16 (Q29) the intraday alerts' `overnight_turn` signal
+ * 2026-10-16 (Q29) the intraday alerts' `daily_swing_turn` signal
  * (`lib/scanner/intraday.ts`), with its 1-point stop. Gann's stop-and-reverse
  * system is measured on its own by `lib/backtest/replayOvernight.ts`. Rule 4's
  * reversal acts on GSPS's own trades through `lib/gann/reverse.ts` (Q15), at

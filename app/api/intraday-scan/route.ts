@@ -90,7 +90,6 @@ import {
   type Direction,
   type RecentSystemAlert,
   type ScannerConfig,
-  type SignalType,
   type SymbolInput,
   type UnreadCause,
   INTRADAY_DAILY_HISTORY_DAYS,
@@ -98,6 +97,7 @@ import {
 import type { Bar } from "@/lib/types";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { reportAlpacaRateUse } from "@/lib/ops/rateUsage";
+import { storedSignalType } from "@/lib/scanner/storedSignalIds";
 
 export const maxDuration = 120;
 
@@ -116,7 +116,7 @@ const DAILY_HISTORY_DAYS = INTRADAY_DAILY_HISTORY_DAYS;
  * The mapping is stated once, here, and used by both the read and the write —
  * a round trip that disagrees with itself would silently disable the cooldown.
  *
- *   signal_id            ← the signal mode ("overnight_turn", …). Also what
+ *   signal_id            ← the signal mode ("daily_swing_turn", …). Also what
  *                          makes the table's (user, symbol, signal_id,
  *                          poll_cycle_timestamp) key mean one row per
  *                          symbol+mode per scan, which is the grain we want.
@@ -831,7 +831,7 @@ async function loadPriorAlerts(
 
   for (const row of data) {
     const prior: PriorAlert = {
-      type: row.signal_id as SignalType,
+      type: storedSignalType(row.signal_id),
       direction: row.signal_type === "bearish" ? "down" : "up",
       at: row.poll_cycle_timestamp,
     };
@@ -1006,7 +1006,7 @@ async function loadPriorSystemAlerts(
 
   for (const row of data) {
     const prior: PriorAlert = {
-      type: row.signal_id as SignalType,
+      type: storedSignalType(row.signal_id),
       direction: row.signal_type === "bearish" ? "down" : "up",
       at: row.poll_cycle_timestamp,
     };
@@ -1099,7 +1099,7 @@ async function loadRecentSystemAlerts(
     if (etDateKey(new Date(row.poll_cycle_timestamp)) !== todayEt) continue;
     // Only intraday signals fill the intraday cards (owner, 2026-10-29): a
     // daily swing row stored before the live scan stopped reading it stays out.
-    if (DAILY_SCALE_SIGNALS.has(row.signal_id as SignalType)) continue;
+    if (DAILY_SCALE_SIGNALS.has(storedSignalType(row.signal_id))) continue;
     const meta = (row.metadata ?? {}) as Record<string, unknown>;
     if (
       proBounded &&
@@ -1108,7 +1108,7 @@ async function loadRecentSystemAlerts(
       continue;
     }
     const direction: Direction = row.signal_type === "bearish" ? "down" : "up";
-    const key = `${row.symbol}|${row.signal_id}|${direction}`;
+    const key = `${row.symbol}|${storedSignalType(row.signal_id)}|${direction}`;
     if (seen.has(key)) continue;
     // Pro's module shows a bounded number of setups a day; the free list
     // honours that bound as a scan does (review, 2026-10-21).
@@ -1124,7 +1124,7 @@ async function loadRecentSystemAlerts(
     const num = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
     out.push({
       symbol: row.symbol,
-      type: row.signal_id as SignalType,
+      type: storedSignalType(row.signal_id),
       direction,
       entry: num(row.entry_level),
       stop: num(row.stop_loss_level),

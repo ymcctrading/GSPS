@@ -189,7 +189,7 @@ describe("IntradayAlerts", () => {
   it("consolidates multiple alerts for the same symbol into one card, highest confidence first", async () => {
     const secondSpySignal: Alert = {
       ...spyAlert,
-      type: "overnight_turn",
+      type: "daily_swing_turn",
       confidence: 40, // lower than spyAlert's 75
     };
     mockScan({ alerts: [spyAlert, secondSpySignal] });
@@ -558,5 +558,18 @@ describe("IntradayAlerts — delayed data (DATA-DELAY-001)", () => {
     card = name.closest("div.rounded-lg") as HTMLElement;
     await user.click(name);
     expect(within(card).getByText(/Trade this/)).toBeInTheDocument();
+  });
+});
+
+describe("no confidential rule name reaches the panel (audit 2026-11-09)", () => {
+  it("renders an alert of every signal type with no source or rule name in the page", async () => {
+    const { SIGNAL_LABELS } = await import("@/lib/scanner/intradayDisplay");
+    const { confidentialNamesIn } = await import("@/lib/security/confidentialNames");
+    const types = Object.keys(SIGNAL_LABELS) as Alert["type"][];
+    const alerts = types.map((type, i) => ({ ...spyAlert, symbol: `S${i}`, type }));
+    mockScan({ alerts });
+    const { container } = render(<IntradayAlerts />);
+    await screen.findAllByRole("button", { name: "S0" });
+    expect(confidentialNamesIn(container.innerHTML)).toEqual([]);
   });
 });

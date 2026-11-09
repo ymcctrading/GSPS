@@ -280,8 +280,8 @@ describe("plain English", () => {
     expect(focus.text).not.toMatch(banned);
     expect(focus.html).not.toMatch(banned);
     expect(plainFocusReason({ kind: "big_day", signal: "seven_to_ten_top" })).toBe("A run of up days turned down");
-    expect(plainSignalLabel("space_overbalance")).not.toMatch(banned);
-    expect(plainSignalLabel("overnight_turn")).not.toMatch(banned);
+    expect(plainSignalLabel("pullback_record")).not.toMatch(banned);
+    expect(plainSignalLabel("daily_swing_turn")).not.toMatch(banned);
   });
 });
 

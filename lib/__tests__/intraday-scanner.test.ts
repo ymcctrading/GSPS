@@ -436,7 +436,7 @@ describe("scanIntraday — over-balance of space", () => {
 
   it("does not fire on a move with the campaign's trend, however large", () => {
     const output = scanIntraday([input()], DEFAULT_CONFIG, AT_1133);
-    expect(output.alerts.map((a) => a.type)).not.toContain("space_overbalance");
+    expect(output.alerts.map((a) => a.type)).not.toContain("pullback_record");
   });
 
   it("fires when today's reaction exceeds the greatest reaction of the campaign", () => {
@@ -446,7 +446,7 @@ describe("scanIntraday — over-balance of space", () => {
       [input({ bars, quote: { price: last.c, at: last.t } })],
       DEFAULT_CONFIG,
       new Date("2026-08-07T15:05:00Z"),
-    ).alerts.find((a) => a.type === "space_overbalance");
+    ).alerts.find((a) => a.type === "pullback_record");
     expect(alert).toBeDefined();
     expect(alert!.direction).toBe("down");
     expect(alert!.whyThisAppeared).toMatch(/unusually large for this trend/);
@@ -460,7 +460,7 @@ describe("scanIntraday — over-balance of space", () => {
       DEFAULT_CONFIG,
       new Date("2026-08-07T13:50:00Z"),
     );
-    expect(output.alerts.map((a) => a.type)).not.toContain("space_overbalance");
+    expect(output.alerts.map((a) => a.type)).not.toContain("pullback_record");
   });
 
   it("reports no over-balance without daily history, rather than guessing", () => {
@@ -471,7 +471,7 @@ describe("scanIntraday — over-balance of space", () => {
       DEFAULT_CONFIG,
       new Date("2026-08-07T15:05:00Z"),
     );
-    expect(output.alerts.map((a) => a.type)).not.toContain("space_overbalance");
+    expect(output.alerts.map((a) => a.type)).not.toContain("pullback_record");
   });
 
   it("skips a symbol with too little volume to be worth calling", () => {
@@ -852,7 +852,7 @@ describe("a pullback inside the weekly trend (2026-10-30)", () => {
     expect(longs.length).toBeGreaterThan(0);
     for (const a of longs) {
       expect(a.reactionOverbalanced).toBe(true);
-      expect(tradeHold(a)).toBe(a.type === "overnight_turn" ? DAILY_SCALE_HOLD : REACTION_OVERBALANCED);
+      expect(tradeHold(a)).toBe(a.type === "daily_swing_turn" ? DAILY_SCALE_HOLD : REACTION_OVERBALANCED);
     }
   });
 
@@ -928,23 +928,23 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
 
   it("leaves the daily swing turn out of the live scan entirely", () => {
     const types = scanIntraday([input()], DEFAULT_CONFIG, AT_1133).alerts.map((a) => a.type);
-    expect(types).not.toContain("overnight_turn");
-    expect(scanIntraday([input()], WITH_DAILY, AT_1133).alerts.map((a) => a.type)).toContain("overnight_turn");
+    expect(types).not.toContain("daily_swing_turn");
+    expect(scanIntraday([input()], WITH_DAILY, AT_1133).alerts.map((a) => a.type)).toContain("daily_swing_turn");
   });
 
   it("alerts when the Overnight Chart turns on today's session, its stop 1 point under the last bottom", () => {
     // Yesterday was the second day of a reaction (low 499); today's low holds above it: a higher bottom.
-    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "daily_swing_turn");
     expect(alert?.direction).toBe("up");
     expect(alert?.invalidation).toBeCloseTo(499 - pricePoint(499), 2);
   });
 
   it("holds the Overnight Chart's turn from trade: its daily-scale stop and targets are not a session's (META, 2026-10-29)", () => {
-    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "overnight_turn");
+    const alert = scanIntraday([input()], WITH_DAILY, AT_1133).alerts.find((a) => a.type === "daily_swing_turn");
     expect(alert).toBeDefined();
     expect(tradeHold(alert!)).toBe(DAILY_SCALE_HOLD);
     // The scale hold comes before the trend notes; a session signal is not held for scale.
-    expect(tradeHold({ type: "overnight_turn", againstDailyTrend: true })).toBe(DAILY_SCALE_HOLD);
+    expect(tradeHold({ type: "daily_swing_turn", againstDailyTrend: true })).toBe(DAILY_SCALE_HOLD);
     expect(tradeHold({ type: "trend_continuation" })).toBeNull();
   });
 
@@ -954,7 +954,7 @@ describe("the Overnight and hourly charts replace the volume-only alert (Q29)", 
     daily[daily.length - 2] = { ...daily[daily.length - 2], l: 498 };
     daily[daily.length - 1] = { ...daily[daily.length - 1], l: 499, h: 501.5 };
     const types = scanIntraday([input({ priorDailyBars: daily })], WITH_DAILY, AT_1133).alerts.map((a) => a.type);
-    expect(types).not.toContain("overnight_turn");
+    expect(types).not.toContain("daily_swing_turn");
   });
 });
 

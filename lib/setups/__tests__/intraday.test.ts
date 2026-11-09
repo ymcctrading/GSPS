@@ -124,7 +124,7 @@ describe("intradayChartPlan", () => {
   // (stop 49.69, TP1 52.29) while the chart drew the crossing's levels.
   const held: Alert = {
     ...alert,
-    type: "overnight_turn",
+    type: "daily_swing_turn",
     confidence: 90,
     invalidation: 495,
     continuationPlan: { ...alert.continuationPlan, invalidation: 495, firstTarget: 505, paysRisk: false },
@@ -143,7 +143,7 @@ describe("intradayChartPlan", () => {
 
   it("reads stored alerts the same way: an offered row before a held one, by confidence among the offered", () => {
     const stored = [
-      { ...recent[0], type: "overnight_turn" as const, confidence: 90, stop: 495, firstTarget: 505 },
+      { ...recent[0], type: "daily_swing_turn" as const, confidence: 90, stop: 495, firstTarget: 505 },
       { ...recent[0], confidence: 40, stop: 499 },
       recent[0],
     ];

@@ -45,8 +45,8 @@ export const APPROACH_NOTICES: ReadonlySet<SignalType> = new Set<SignalType>(["e
 export const SIGNAL_LABELS: Record<SignalType, string> = {
   old_level_cross: "Old top or bottom crossed",
   trend_continuation: "Trend continuation",
-  space_overbalance: "Largest pullback of the trend",
-  overnight_turn: "Daily swing turned",
+  pullback_record: "Largest pullback of the trend",
+  daily_swing_turn: "Daily swing turned",
   hourly_turn: "Hourly chart turned",
   plan_level_held: "Daily plan's level held",
   reversal_risk: "Reversal risk",
@@ -61,9 +61,9 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
     "A bar closed beyond yesterday's high or low by the method's allowance. An old top that is crossed tends to become support, and an old bottom that is broken tends to become resistance.",
   trend_continuation:
     "The swing chart on today's bars is running one way, and price is on that side of the middle of the day's range.",
-  space_overbalance:
+  pullback_record:
     "Today's pullback is unusually large for this trend: a warning the trend may be weakening.",
-  overnight_turn:
+  daily_swing_turn:
     "The daily swing turned today. Its stop goes just beyond the last swing low (or high, for a sell).",
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
@@ -111,7 +111,7 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
  * Signals read on the daily chart, so their stop and targets are sized for a
  * swing of days, not one session (2026-10-29, Chuck on META: entry 623.56,
  * stop 604.21, TP1 676.63, two days' range away, offered as a trade closed at
- * 3:45 PM). `overnight_turn` is Gann's Overnight Chart (Master Course Ch. 3):
+ * 3:45 PM). `daily_swing_turn` is Gann's Overnight Chart (Master Course Ch. 3):
  * a daily swing chart traded with stops 1 point beyond the last daily bottom
  * or top and held overnight, stop and reverse. Its stop is daily-scale (median
  * 3.1% of price over Oct 21-29, against 0.3-0.6% for the session signals),
@@ -123,7 +123,7 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
  * Course methods with no plan"). So it is shown for study, never offered as an
  * intraday trade; the swing trade on the stock comes from its daily plan.
  */
-export const DAILY_SCALE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["overnight_turn"]);
+export const DAILY_SCALE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["daily_swing_turn"]);
 
 /** The note on a daily-scale signal (`DAILY_SCALE_SIGNALS`). */
 export const DAILY_SCALE_HOLD =
