@@ -18,9 +18,15 @@
  *               fails the step; a count outside half the smallest to twice the
  *               largest of the last 15 live days before the pause is listed
  *               as a warning to look at.
- *   write       the same range for real. Needs --yes. Runs the dry-run check
- *               first and stops if it fails, then writes, then reads each
- *               day's rows back from the table.
+ *               Before checking, it clears the day files an earlier run left
+ *               in --out, and after it prints every database table the scan
+ *               read and every read, write and host it was refused, to review
+ *               before writing.
+ *   write       the same range for real. Needs --yes and --reviewed DIR: the
+ *               --out directory of an earlier, separate dry run that someone
+ *               has read. Every day in the range must already have rows or a
+ *               passing dry-run file there written within 24 hours; otherwise
+ *               nothing is written. Then it writes and reads each day back.
  *   meter       has the usage meter recorded since --since (default: 2 hours
  *               ago)? Reads usage_readings.read_at and usage_events.
  *   next-scan   did the evening scan write today's rows on time? Looks at the
@@ -30,7 +36,8 @@
  *   sql         prints the checks the script cannot make itself (the
  *               schedule and the migrations live in schemas the app's API
  *               cannot read), to paste into the Supabase SQL editor.
- *   all         deploy, dry-run; with --yes also write, meter and next-scan.
+ *   all         deploy, then dry-run. It never writes: the write is always its
+ *               own command, after the dry run has been read.
  *
  * Environment: NEXT_PUBLIC_SUPABASE_URL and the service key (read through
  * serviceRoleKey()), APP_URL (default https://gsps.vercel.app), and the
@@ -44,7 +51,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir, rm, stat } from "node:fs/promises";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BACKFILL = path.join(root, "scripts", "backfill-daily-scans.mjs");
@@ -55,6 +62,7 @@ function arg(name) {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 const flag = (name) => process.argv.includes(`--${name}`);
+const DAY_FILE = /^\d{4}-\d{2}-\d{2}\.json$/;
 
 const say = (level, msg) => console.log(`  ${level.padEnd(4)}  ${msg}`);
 const ok = (msg) => say("PASS", msg);
@@ -123,16 +131,67 @@ async function stepDeploy() {
   return true;
 }
 
+/**
+ * Every `scan_date` in daily_scans between two days, paged past the API's
+ * 1,000-row default (a month of scans runs to about 1,000 rows).
+ */
+async function scanDates(db, from, to) {
+  const out = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await db
+      .from("daily_scans")
+      .select("scan_date")
+      .gte("scan_date", from)
+      .lte("scan_date", to)
+      .order("scan_date")
+      .order("direction")
+      .order("rank")
+      .range(start, start + 999);
+    if (error) throw new Error(`daily_scans read failed: ${error.message}`);
+    out.push(...(data ?? []).map((r) => r.scan_date));
+    if (!data || data.length < 1000) return out;
+  }
+}
+
 /** The last 15 live days' row counts before the pause: the reference band. */
 async function liveBand(tools) {
   if (!tools.db) return null;
-  const { data, error } = await tools.db
-    .from("daily_scans")
-    .select("scan_date")
-    .lte("scan_date", tools.rc.LAST_LIVE_DAY)
-    .gte("scan_date", "2026-10-01");
-  if (error || !data?.length) return null;
-  return tools.rc.liveBand(data.map((r) => r.scan_date));
+  try {
+    return tools.rc.liveBand(await scanDates(tools.db, "2026-10-01", tools.rc.LAST_LIVE_DAY));
+  } catch {
+    return null;
+  }
+}
+
+/** Reads every day file in a dry-run directory, with when it was written. */
+async function readDayFiles(dir) {
+  const files = new Map();
+  let names = [];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return files;
+  }
+  for (const name of names.filter((n) => DAY_FILE.test(n))) {
+    const full = path.join(dir, name);
+    let file = null;
+    try {
+      file = JSON.parse(await readFile(full, "utf8"));
+    } catch {
+      file = null;
+    }
+    files.set(name.slice(0, 10), { file, writtenAt: (await stat(full)).mtimeMs });
+  }
+  return files;
+}
+
+function printAccess(rc, files) {
+  const a = rc.summarizeAccess(files);
+  console.log("  what the scan touched (review before writing):");
+  console.log(`    database tables read: ${a.dbReads.join(", ") || "none"}`);
+  console.log(`    reads refused:        ${a.refusedReads.join(", ") || "none"}`);
+  console.log(`    writes refused:       ${a.refusedWrites.join(", ") || "none"}`);
+  console.log(`    hosts refused:        ${a.refusedHosts.join(", ") || "none"}`);
 }
 
 function runBackfill(from, to, extra) {
@@ -149,6 +208,7 @@ function runBackfill(from, to, extra) {
  */
 async function checkDryRun(rc, days, out, band) {
   let good = true;
+  const seen = [];
   for (const d of days) {
     let file = null;
     try {
@@ -156,10 +216,12 @@ async function checkDryRun(rc, days, out, band) {
     } catch {
       file = null;
     }
+    seen.push(file);
     const v = rc.judgeDryRunDay(d, file, band);
     report(v);
     if (v.level === "FAIL") good = false;
   }
+  printAccess(rc, seen);
   return good;
 }
 
@@ -169,6 +231,10 @@ async function stepDryRun(tools, out) {
   if (!DAY.test(from) || !DAY.test(to)) throw new Error(`bad range ${from}..${to}`);
   const days = tools.tt.tradingDaysBetween(from, to);
   console.log(`dry-run: ${from}..${to}, ${days.length} trading days, files in ${out}`);
+  // Day files an earlier run left here would pass for this run's: clear them.
+  for (const name of (await readdir(out).catch(() => [])).filter((n) => DAY_FILE.test(n))) {
+    await rm(path.join(out, name));
+  }
   const status = runBackfill(from, to, ["--dry-run", "--out", out]);
   const band = await liveBand(tools);
   if (!band) warn("no database credentials: row counts are not compared with the live days");
@@ -177,31 +243,35 @@ async function stepDryRun(tools, out) {
   return { good, from, to, days };
 }
 
-async function stepWrite(tools, out) {
-  if (!flag("yes")) {
-    fail("write needs --yes (it writes daily_scans in the database the credentials point at)");
+async function stepWrite(tools) {
+  const reviewed = arg("reviewed");
+  if (!flag("yes") || !reviewed) {
+    fail("write needs --reviewed <the --out directory of a dry run you have read> and --yes (it writes daily_scans in the database the credentials point at)");
     return false;
   }
   if (!tools.db) {
     fail("write needs NEXT_PUBLIC_SUPABASE_URL and the service key");
     return false;
   }
-  const dry = await stepDryRun(tools, out);
-  if (!dry.good) {
-    fail("the dry run did not pass, so nothing was written");
+  const from = arg("from") ?? tools.rc.LAST_LIVE_DAY;
+  const to = arg("to") ?? lastScanDay(tools.tt);
+  if (!DAY.test(from) || !DAY.test(to)) throw new Error(`bad range ${from}..${to}`);
+  const days = tools.tt.tradingDaysBetween(from, to);
+  console.log(`write: ${from}..${to}, ${days.length} trading days, on the dry run in ${reviewed}`);
+  const files = await readDayFiles(reviewed);
+  const before = new Set(await scanDates(tools.db, from, to));
+  const check = tools.rc.judgeReviewedDryRun(days, files, before, Date.now(), await liveBand(tools));
+  check.verdicts.forEach(report);
+  printAccess(tools.rc, days.map((d) => files.get(d)?.file ?? null));
+  if (!check.good) {
+    fail("the reviewed dry run does not cover the range, so nothing was written");
     return false;
   }
-  console.log(`write: ${dry.from}..${dry.to}`);
-  const status = runBackfill(dry.from, dry.to, []);
-  const { data, error } = await tools.db.from("daily_scans").select("scan_date").gte("scan_date", dry.from).lte("scan_date", dry.to);
-  if (error) {
-    fail(`read back failed: ${error.message}`);
-    return false;
-  }
+  const status = runBackfill(from, to, []);
   const counts = new Map();
-  for (const r of data ?? []) counts.set(r.scan_date, (counts.get(r.scan_date) ?? 0) + 1);
+  for (const d of await scanDates(tools.db, from, to)) counts.set(d, (counts.get(d) ?? 0) + 1);
   let good = status === 0;
-  for (const d of dry.days) {
+  for (const d of days) {
     const n = counts.get(d) ?? 0;
     if (n > 0) ok(`${d}: ${n} rows in daily_scans`);
     else {
@@ -273,7 +343,7 @@ async function main() {
   const step = process.argv[2];
   const steps = ["deploy", "dry-run", "write", "meter", "next-scan", "sql", "all"];
   if (!steps.includes(step)) {
-    console.log(`usage: node scripts/after-pause-recovery.mjs <${steps.join("|")}> [--from D] [--to D] [--day D] [--since ISO] [--out DIR] [--yes]`);
+    console.log(`usage: node scripts/after-pause-recovery.mjs <${steps.join("|")}> [--from D] [--to D] [--day D] [--since ISO] [--out DIR] [--reviewed DIR] [--yes]`);
     process.exit(2);
   }
   if (step === "sql") {
@@ -287,21 +357,16 @@ async function main() {
   let good;
   try {
     if (step === "dry-run") good = (await stepDryRun(tools, out)).good;
-    else if (step === "write") good = await stepWrite(tools, out);
+    else if (step === "write") good = await stepWrite(tools);
     else if (step === "meter") good = await stepMeter(tools);
     else if (step === "next-scan") good = await stepNextScan(tools);
     else {
       good = await stepDeploy();
       if (!good) {
         fail("stopping: the app is not up");
-      } else if (!flag("yes")) {
-        good = (await stepDryRun(tools, out)).good;
-        console.log("stopped after the dry run: add --yes to write, then check the meter and the next scan");
       } else {
-        good = await stepWrite(tools, out);
-        const meterOk = await stepMeter(tools);
-        const scanOk = await stepNextScan(tools);
-        if (!meterOk || !scanOk) console.log("the meter and the next scan can take hours to show; rerun those two steps later");
+        good = (await stepDryRun(tools, out)).good;
+        console.log(`stopped after the dry run. Read it, then: node scripts/after-pause-recovery.mjs write --reviewed ${out} --yes`);
       }
     }
   } finally {

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { judgeDryRunDay, judgeMeter, judgeNextScan, liveBand, type DryRunFile } from "@/lib/backfill/recovery";
+import {
+  judgeDryRunDay,
+  judgeMeter,
+  judgeNextScan,
+  judgeReviewedDryRun,
+  liveBand,
+  REVIEWED_DRY_RUN_MAX_AGE_MS,
+  summarizeAccess,
+  type DryRunFile,
+} from "@/lib/backfill/recovery";
 import { backfillClock } from "@/lib/backfill/timeTravel";
 
 const file = (day: string, n: number, extra: Partial<DryRunFile["summary"]> = {}): DryRunFile => ({
@@ -80,3 +89,53 @@ describe("the next live evening scan", () => {
     expect(judgeNextScan(day, slot, at(300), live(200)).level).toBe("WARN");
   });
 });
+
+describe("what the scan touched", () => {
+  it("joins every day's database reads and refusals, once each, sorted", () => {
+    const a = file("2026-11-02", 3, { timeTravel: { droppedBars: 1, dbReads: ["/rest/v1/universe_strength_months", "/rest/v1/closed_bars"], refusedHosts: ["GET paper-api.alpaca.markets/v2/assets/{symbol}"] } });
+    const b = file("2026-11-03", 3, { timeTravel: { droppedBars: 1, dbReads: ["/rest/v1/closed_bars"], refusedWrites: ["POST /rest/v1/monthly_bars_closed"] } });
+    expect(summarizeAccess([a, null, b])).toEqual({
+      dbReads: ["/rest/v1/closed_bars", "/rest/v1/universe_strength_months"],
+      refusedReads: [],
+      refusedWrites: ["POST /rest/v1/monthly_bars_closed"],
+      refusedHosts: ["GET paper-api.alpaca.markets/v2/assets/{symbol}"],
+    });
+  });
+});
+
+describe("a write on a reviewed dry run", () => {
+  const now = Date.parse("2026-11-30T16:00:00Z");
+  const days = ["2026-10-30", "2026-11-02", "2026-11-03"];
+  const band = { low: 9, high: 102, days: 15 };
+  const fresh = (d: string, n = 21) => ({ file: file(d, n), writtenAt: now - 3_600_000 });
+
+  it("goes ahead when every day has rows already or a fresh passing file", () => {
+    const files = new Map([["2026-11-02", fresh("2026-11-02")], ["2026-11-03", fresh("2026-11-03")]]);
+    const r = judgeReviewedDryRun(days, files, new Set(["2026-10-30"]), now, band);
+    expect(r.good).toBe(true);
+    expect(r.verdicts.map((v) => v.level)).toEqual(["PASS", "PASS", "PASS"]);
+  });
+
+  it("stops on a missing day, a stale file or an empty day", () => {
+    const missing = judgeReviewedDryRun(days, new Map([["2026-11-02", fresh("2026-11-02")]]), new Set(["2026-10-30"]), now, band);
+    expect(missing.good).toBe(false);
+    expect(missing.verdicts[2].message).toContain("no reviewed dry-run file");
+    const stale = new Map([
+      ["2026-11-02", { file: file("2026-11-02", 21), writtenAt: now - REVIEWED_DRY_RUN_MAX_AGE_MS - 60_000 }],
+      ["2026-11-03", fresh("2026-11-03")],
+    ]);
+    const s = judgeReviewedDryRun(days, stale, new Set(["2026-10-30"]), now, band);
+    expect(s.good).toBe(false);
+    expect(s.verdicts[1].message).toContain("hours old");
+    const empty = new Map([["2026-11-02", fresh("2026-11-02", 0)], ["2026-11-03", fresh("2026-11-03")]]);
+    expect(judgeReviewedDryRun(days, empty, new Set(["2026-10-30"]), now, band).good).toBe(false);
+  });
+
+  it("lets a count outside the band through as a warning, as the dry run does", () => {
+    const files = new Map([["2026-11-02", fresh("2026-11-02", 5)], ["2026-11-03", fresh("2026-11-03")]]);
+    const r = judgeReviewedDryRun(days, files, new Set(["2026-10-30"]), now, band);
+    expect(r.good).toBe(true);
+    expect(r.verdicts[1].level).toBe("WARN");
+  });
+});
+

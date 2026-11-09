@@ -33,7 +33,7 @@ export function liveBand(scanDates: string[], days = 15): { low: number; high: n
 }
 
 export interface DryRunFile {
-  summary: { bullish: number; bearish: number; universeSize: number; splitDropped?: string[]; timeTravel: { droppedBars: number } };
+  summary: { bullish: number; bearish: number; universeSize: number; splitDropped?: string[]; timeTravel: { droppedBars: number } & Partial<AccessSummary> };
   rows: { scan_date: string; symbol?: string }[];
 }
 
@@ -106,4 +106,60 @@ export function judgeNextScan(
   const lateMin = Math.round((Date.parse(stamp) - slot.getTime()) / 60_000);
   const msg = `${live.length} live rows, written ${stamp}, ${lateMin} minutes after 7 PM ET`;
   return { level: lateMin < -5 || lateMin > 90 ? "WARN" : "PASS", message: msg };
+}
+
+export interface AccessSummary {
+  dbReads: string[];
+  refusedReads: string[];
+  refusedWrites: string[];
+  refusedHosts: string[];
+}
+
+/**
+ * What the scan touched across every dry-run day: the database tables it read
+ * and the reads, writes and hosts it was refused. The person reviewing the dry
+ * run reads this before the write (review of #618: the database reads were
+ * never shown before writing).
+ */
+export function summarizeAccess(files: (DryRunFile | null)[]): AccessSummary {
+  const union = (key: keyof AccessSummary) =>
+    [...new Set(files.flatMap((f) => f?.summary.timeTravel?.[key] ?? []))].sort();
+  return { dbReads: union("dbReads"), refusedReads: union("refusedReads"), refusedWrites: union("refusedWrites"), refusedHosts: union("refusedHosts") };
+}
+
+/** A reviewed dry run must be this recent to back a write. Engineering choice: one day. */
+export const REVIEWED_DRY_RUN_MAX_AGE_MS = 24 * 3_600_000;
+
+/**
+ * Can a write go ahead on an earlier, separate dry run? Every trading day in
+ * the range needs either rows already in the table (the backfill skips it) or a
+ * dry-run file written within the last 24 hours that passes `judgeDryRunDay`.
+ */
+export function judgeReviewedDryRun(
+  days: string[],
+  files: Map<string, { file: DryRunFile | null; writtenAt: number }>,
+  daysWithRows: Set<string>,
+  now: number,
+  band: { low: number; high: number; days: number } | null,
+): { good: boolean; verdicts: Verdict[] } {
+  const verdicts: Verdict[] = [];
+  for (const d of days) {
+    if (daysWithRows.has(d)) {
+      verdicts.push({ level: "PASS", message: `${d}: already has rows; the write skips it` });
+      continue;
+    }
+    const entry = files.get(d);
+    if (!entry?.file) {
+      verdicts.push({ level: "FAIL", message: `${d}: no reviewed dry-run file; run dry-run first` });
+      continue;
+    }
+    const ageH = (now - entry.writtenAt) / 3_600_000;
+    if (now - entry.writtenAt > REVIEWED_DRY_RUN_MAX_AGE_MS) {
+      verdicts.push({ level: "FAIL", message: `${d}: the dry run is ${ageH.toFixed(1)} hours old; run dry-run again` });
+      continue;
+    }
+    const v = judgeDryRunDay(d, entry.file, band);
+    verdicts.push(v.level === "WAIT" ? { level: "FAIL", message: v.message } : v);
+  }
+  return { good: verdicts.every((v) => v.level !== "FAIL"), verdicts };
 }
