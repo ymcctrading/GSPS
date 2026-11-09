@@ -55,10 +55,10 @@ describe("time-line badges outside the card", () => {
       const src = readFileSync(page, "utf8");
       for (const m of src.matchAll(OPENER)) {
         openers++;
-        const need = m[1] === "timingActive" ? "TIME_LINE_RECORDS.timeCycle" : "TIME_LINE_RECORDS.yearCycles";
+        const need = m[1] === "timingActive" ? "SHOWN_TIME_RECORDS.timing" : "SHOWN_TIME_RECORDS.longTermTiming";
         expect(m[0], page).toContain(need);
       }
-      expect(src, page).toMatch(/TIME_LINE_RECORDS\.timeCycle\.summary/);
+      expect(src, page).toMatch(/SHOWN_TIME_RECORDS\.timing\.summary/);
     }
     expect(openers).toBe(6);
   });

@@ -48,6 +48,9 @@ const SKIPPED_DIRECTORIES = [
   // Documents the banned-term → approved-label mapping table itself, the
   // same reason this script's own "instead" field is allowed to say them.
   "lib/constants/gspsTerminology.ts",
+  // The confidential-name pattern list a test runs over API and rendered
+  // strings: it has to name the sources to find them. Imported by tests only.
+  "lib/security/confidentialNames.ts",
   "node_modules",
   ".next",
 ];

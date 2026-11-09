@@ -265,7 +265,7 @@ export async function readEntryConfirmationNow(input: ConfirmationInput): Promis
 const DISTRIBUTION_STANDS: ConfirmationNow = {
   ready: false,
   stage: "broken",
-  note: "After a lower top, the stock's narrow range broke down on volume, a sign of a further decline, so a buy waits while price stays under the range, for up to 20 sessions after the break.",
+  note: "Heavy selling recently broke the stock down from a top, a sign of distribution, so a buy waits for now.",
 };
 
 async function readEntryConfirmationCore(input: ConfirmationInput): Promise<ConfirmationNow> {

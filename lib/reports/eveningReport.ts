@@ -338,8 +338,8 @@ export function plainFocusReason(reason: FocusReason): string {
 export const PLAIN_SIGNAL_LABELS: Record<string, string> = {
   old_level_cross: "Broke a prior high or low",
   trend_continuation: "Trend continuation",
-  space_overbalance: "Pullback larger than any before it",
-  overnight_turn: "Daily swing turned",
+  pullback_record: "Pullback larger than any before it",
+  daily_swing_turn: "Daily swing turned",
   hourly_turn: "Hourly swing turned",
   plan_level_held: "Daily plan's entry held",
   reversal_risk: "Reversal risk",
