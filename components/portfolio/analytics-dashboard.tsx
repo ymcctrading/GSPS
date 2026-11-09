@@ -57,6 +57,10 @@ interface Loaded {
  * for these compact visuals plain inline SVG is simpler and keeps this
  * dashboard dependency-free.
  */
+/** What the figures below cover, shown with and without trades (the route's 730-day window; the equity curve has no date filter; no account filter). */
+const ANALYTICS_SCOPE =
+  "Win rate and P&L cover the last two years; Sharpe ratio and drawdown use every closed trade. Paper, live and journal trades are counted together.";
+
 export function AnalyticsDashboard() {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,8 +120,7 @@ export function AnalyticsDashboard() {
           <CardTitle>Performance Analytics</CardTitle>
           <CardDescription>
             Win rate, Sharpe ratio, drawdown, and P&L by month and pattern, computed from your own closed
-            trades. Win rate and P&L cover the last two years; Sharpe ratio and drawdown use every closed trade.
-            Paper, live and journal trades are counted together.
+            trades. {ANALYTICS_SCOPE}
           </CardDescription>
         </CardHeader>
         <CardContent className="py-6 text-center text-sm text-muted">
@@ -137,6 +140,7 @@ export function AnalyticsDashboard() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-xs text-muted">From your own closed trades. {ANALYTICS_SCOPE}</p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat
           label="Win rate"
