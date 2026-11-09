@@ -260,6 +260,7 @@ try {
       now: () => new Date(),
     };
     console.log("\nwrite:");
+    const plansNotEnded = [];
     for (const x of results) {
       if (x.row.lots != null) {
         console.log(`  ${x.id} ${x.symbol}: SKIPPED (has pyramid lots, which the walk does not model)`);
@@ -270,6 +271,7 @@ try {
         const plan = planSettlement(row, x.walk, end);
         const res = await applySettlement(row, plan, deps);
         console.log(`  ${x.id} ${x.symbol}: ${res.outcome.toUpperCase()} ${res.detail}`);
+        if (res.planNotEnded) plansNotEnded.push({ row: x.rowId, symbol: x.symbol, ...res.planNotEnded });
         if (res.outcome === "partial") {
           exitCode = 1;
           console.log("  stopped: a row an earlier run left part-written needs a person before anything else is written");
@@ -281,6 +283,12 @@ try {
         console.log("  stopped at the first error; the rows after it are untouched");
         break;
       }
+    }
+    // A re-run reads these rows as settled and will not retry their plans, so this list is the record.
+    if (plansNotEnded.length > 0) {
+      exitCode = 1;
+      console.log(`\nsettled, but the automated plan was NOT ended (end each by hand; a re-run will not retry): ${plansNotEnded.length}`);
+      for (const p of plansNotEnded) console.log(`  row ${p.row} ${p.symbol}: plan ${p.planId}: ${p.error}`);
     }
   }
 } catch (err) {

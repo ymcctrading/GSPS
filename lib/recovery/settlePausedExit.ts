@@ -200,6 +200,12 @@ export interface SettleResult {
   /** "partial": an earlier run claimed this row and stopped before releasing it. */
   outcome: "settled" | "updated" | "skipped" | "partial";
   detail: string;
+  /**
+   * Set when the row settled but its automated plan could not be ended. A
+   * re-run reads the row as already settled and won't retry it, so the
+   * script lists these at the end for a person.
+   */
+  planNotEnded?: { planId: string; error: string };
 }
 
 /** Apply one row's plan. Returns "skipped" when the row moved since it was read. */
@@ -264,13 +270,16 @@ export async function applySettlement(row: PausedExitRow, plan: SettlementPlan, 
       release.status = "closed";
       release.closed_at = c.at;
     }
-    const { error: releaseError } = await deps.db
+    const { data: released, error: releaseError } = await deps.db
       .from("protocol_exits")
       .update(release)
       .eq("id", row.id)
       .eq("user_id", row.user_id)
-      .eq("status", "working");
+      .eq("status", "working")
+      .select("id")
+      .maybeSingle();
     if (releaseError) throw new Error(`row not released: ${releaseError.message}`);
+    if (!released) throw new Error("row not released: the release matched no working row");
     stage += c ? "; row closed" : "; row released";
     if (!c) return { rowId: row.id, outcome: "updated", detail: `${plan.fills.length} fill(s); still open` };
 
@@ -279,14 +288,21 @@ export async function applySettlement(row: PausedExitRow, plan: SettlementPlan, 
       const { data: order } = await deps.db.from("orders").select("source_plan_id, intraday_sourced").eq("id", row.entry_order_id).maybeSingle();
       const planId = (order?.source_plan_id as string | null) ?? null;
       if (planId && order?.intraday_sourced !== true) {
-        await deps.stopOut(row.user_id, {
-          planId,
-          entryFillPrice: row.entry_price,
-          stoppedAt: c.at,
-          exitPrice: c.exitPrice,
-          extreme: (plan.patch.high_water as number | undefined) ?? row.high_water,
-        });
-        ended = "; automated plan ended, no reversal or re-buy seeded";
+        try {
+          await deps.stopOut(row.user_id, {
+            planId,
+            entryFillPrice: row.entry_price,
+            stoppedAt: c.at,
+            exitPrice: c.exitPrice,
+            extreme: (plan.patch.high_water as number | undefined) ?? row.high_water,
+          });
+          ended = "; automated plan ended, no reversal or re-buy seeded";
+        } catch (err) {
+          // The row is settled and released; only the plan's ending failed. Not an ERROR for the row.
+          const error = err instanceof Error ? err.message : String(err);
+          const detail = `closed ${c.exitCondition} at ${c.exitPrice.toFixed(2)} on ${c.at}; automated plan ${planId} NOT ended: ${error}`;
+          return { rowId: row.id, outcome: "settled", detail, planNotEnded: { planId, error } };
+        }
       }
     }
     return { rowId: row.id, outcome: "settled", detail: `closed ${c.exitCondition} at ${c.exitPrice.toFixed(2)} on ${c.at}${duplicate ? " (trade log already present)" : ""}${ended}` };
@@ -305,14 +321,15 @@ async function explainUnclaimed(row: PausedExitRow, plan: SettlementPlan, deps: 
   if (released && (plan.close == null || now.status === "closed")) {
     return { rowId: row.id, outcome: "skipped", detail: "already settled by an earlier run; nothing written" };
   }
-  let logged = false;
+  let logs = 0;
   if (plan.close) {
-    const { data: log } = await deps.db.from("trade_logs").select("id").eq("exit_plan_id", row.id).eq("user_id", row.user_id).maybeSingle();
-    logged = log != null;
+    // A list, not maybeSingle: two logs for one plan must read as written (and be named), never as none.
+    const { data: found } = await deps.db.from("trade_logs").select("id").eq("exit_plan_id", row.id).eq("user_id", row.user_id).limit(2);
+    logs = Array.isArray(found) ? found.length : 0;
   }
   return {
     rowId: row.id,
     outcome: "partial",
-    detail: `an earlier run claimed this row and stopped: status ${now.status}, ${released ? "released" : "not released (still hidden by the hold)"}${plan.close ? `, trade log ${logged ? "written" : "not written"}` : ""}. Check the paper position for the fills before finishing it by hand.`,
+    detail: `an earlier run claimed this row and stopped: status ${now.status}, ${released ? "released" : "not released (still hidden by the hold)"}${plan.close ? `, trade log ${logs === 0 ? "not written" : logs === 1 ? "written" : "written more than once"}` : ""}. Check the paper position for the fills before finishing it by hand.`,
   };
 }

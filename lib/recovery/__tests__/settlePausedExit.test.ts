@@ -98,7 +98,8 @@ describe("planSettlement", () => {
 });
 
 /** A query builder fake that records each chained call and answers from `answers`. */
-function fakeDb(answers: { claim?: unknown; order?: unknown; reread?: unknown; log?: unknown; releaseError?: string }) {
+function fakeDb(answers: { claim?: unknown; release?: unknown; order?: unknown; reread?: unknown; logs?: unknown[]; releaseError?: string }) {
+  let updates = 0;
   const calls: { table: string; op: string; args: unknown[]; filters: [string, string, unknown][] }[] = [];
   const db = {
     from(table: string) {
@@ -106,13 +107,16 @@ function fakeDb(answers: { claim?: unknown; order?: unknown; reread?: unknown; l
       calls.push(call);
       const q: Record<string, unknown> = {};
       for (const op of ["update", "select", "insert"]) q[op] = (...args: unknown[]) => ((call.op ||= op), call.op === op && (call.args = args), q);
-      for (const f of ["eq", "is"]) q[f] = (col: string, v: unknown) => (call.filters.push([f, col, v]), q);
-      q.maybeSingle = async () => ({
-        data: table === "orders" ? answers.order ?? null : table === "trade_logs" ? answers.log ?? null : call.op === "select" ? answers.reread ?? null : answers.claim ?? null,
-        error: null,
-      });
-      q.then = (res: (v: unknown) => unknown) =>
-        Promise.resolve({ data: null, error: call.op === "update" && answers.releaseError ? { message: answers.releaseError } : null }).then(res);
+      for (const f of ["eq", "is", "limit"]) q[f] = (col: string, v: unknown) => (call.filters.push([f, col, v]), q);
+      q.maybeSingle = async () => {
+        if (table === "orders") return { data: answers.order ?? null, error: null };
+        if (call.op === "select") return { data: answers.reread ?? null, error: null };
+        updates++;
+        if (updates === 1) return { data: answers.claim ?? null, error: null };
+        if (answers.releaseError) return { data: null, error: { message: answers.releaseError } };
+        return { data: answers.release === undefined ? { id: "x" } : answers.release, error: null };
+      };
+      q.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: table === "trade_logs" ? answers.logs ?? [] : null, error: null }).then(res);
       return q;
     },
   };
@@ -166,7 +170,7 @@ describe("applySettlement", () => {
 
   it("reports an earlier run's unfinished claim as partial, not as a skip", async () => {
     const r = row();
-    const { db } = fakeDb({ claim: null, reread: { status: "working", last_managed_at: r.last_managed_at, runner_order_id: walkOrderId(r.id, "runner") }, log: null });
+    const { db } = fakeDb({ claim: null, reread: { status: "working", last_managed_at: r.last_managed_at, runner_order_id: walkOrderId(r.id, "runner") }, logs: [] });
     const { d, fills } = deps(db);
     const res = await applySettlement(r, planSettlement(r, walk(), END), d);
     expect(res.outcome).toBe("partial");
@@ -182,6 +186,33 @@ describe("applySettlement", () => {
     const r = row();
     await expect(applySettlement(r, planSettlement(r, walk(), END), d)).rejects.toThrow(/stopped after: claimed; 1 of 1 fill\(s\) booked\. trade log not written: boom/);
     expect(calls.filter((c) => c.table === "protocol_exits" && c.op === "update")).toHaveLength(1);
+  });
+
+  it("names two trade logs for one row as written more than once, not as none", async () => {
+    const r = row();
+    const { db } = fakeDb({ claim: null, reread: { status: "working", last_managed_at: r.last_managed_at, runner_order_id: walkOrderId(r.id, "runner") }, logs: [{ id: "a" }, { id: "b" }] });
+    const res = await applySettlement(r, planSettlement(r, walk(), END), deps(db).d);
+    expect(res.outcome).toBe("partial");
+    expect(res.detail).toMatch(/trade log written more than once/);
+  });
+
+  it("fails the row when the release matches no working row, rather than reporting it closed", async () => {
+    const { db } = fakeDb({ claim: { id: "x" }, release: null });
+    const r = row();
+    await expect(applySettlement(r, planSettlement(r, walk(), END), deps(db).d)).rejects.toThrow(/release matched no working row/);
+  });
+
+  it("keeps a settled row settled when ending its automated plan fails, and says so", async () => {
+    const { db } = fakeDb({ claim: { id: "x" }, order: { source_plan_id: "plan-9", intraday_sourced: false } });
+    const { d } = deps(db);
+    d.stopOut = async () => {
+      throw new Error("lifecycle store down");
+    };
+    const r = row();
+    const res = await applySettlement(r, planSettlement(r, walk(), END), d);
+    expect(res.outcome).toBe("settled");
+    expect(res.planNotEnded).toEqual({ planId: "plan-9", error: "lifecycle store down" });
+    expect(res.detail).toMatch(/NOT ended/);
   });
 
   it("writes nothing more when the claim finds the row changed", async () => {
