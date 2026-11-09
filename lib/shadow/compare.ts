@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
+import { PRODUCTION_REPLAY_RUNS, type ReplayReference } from "@/lib/backtest/replayReference";
 import { sendOperatorDriftAlertEmail } from "@/lib/notifications/resend-handler";
 
 export interface ShadowSummary {
@@ -37,28 +38,33 @@ export interface BacktestBaseline {
 export const SHADOW_TRADE_OUTCOMES = ["win", "loss", "timeout"] as const;
 
 /**
- * The Execute-tier row from the latest committed `docs/REPLAY_RESULTS.md`
- * (generated 2026-08-27, `npm run backtest`). It was measured on a stop entry
- * and a fixed bracket, before the reaction entry and Gann's exits, so it is
- * labelled with its own version and the scheduled check does not compare the
- * forward test against it (R-032, 2026-10-21). Re-base it, with this
- * version's `STRATEGY_VERSION`, from a production-faithful replay cell
- * (`{"usePlanLevels":true,"entryRule":"reaction","exitRule":"structure"}`). Hand-transcribed rather than
- * read from the file at runtime — the report is markdown for humans, not a
- * machine-readable artifact, and re-parsing it on every scheduled-scan run
- * would be fragile for no real benefit. Update this constant whenever
- * `docs/REPLAY_RESULTS.md` is regenerated with a materially different
- * Execute-tier row, the same manual-bump discipline
- * `lib/backtest/strategyVersion.ts`'s `STRATEGY_VERSION` already uses for
- * the same reason (a hash would churn on unrelated changes; a human
- * decides when the numbers moved enough to matter).
+ * The baseline the forward test is set beside: the Execute row of the newest
+ * committed production-faithful replay (`PRODUCTION_REPLAY_RUNS`, read from
+ * `docs/replay-runs/`; the cell is `{"usePlanLevels":true,"entryRule":
+ * "reaction","exitRule":"structure"}`). Null when no such run is committed.
+ *
+ * Until 2026-11-09 this was a hand-typed row from `docs/REPLAY_RESULTS.md` as
+ * committed on 2026-08-27 (31 trades, 38.7%, +0.151R on six stocks, a stop
+ * entry and a 2R bracket). That file no longer holds the row, and it measured
+ * rules no account trades, so it was retired for the committed production
+ * cell (numbers audit, `/mnt/project-files/owner/app-numbers-audit.md`).
+ *
+ * The scheduled drift check still compares only when the run's version is
+ * the current `STRATEGY_VERSION` (`evaluateShadowDrift`, R-032): a replay of
+ * earlier rules is shown for reference, never used for a drift verdict.
  */
-export const EXECUTE_TIER_BACKTEST_BASELINE: BacktestBaseline = {
-  trades: 31,
-  winRate: 0.387,
-  expectancyR: 0.151,
-  strategyVersion: "2026-08-27",
-};
+export function currentReplayBaseline(): ReplayReference | null {
+  const runs = [...PRODUCTION_REPLAY_RUNS].sort((a, b) => (a.window.to < b.window.to ? 1 : a.window.to > b.window.to ? -1 : 0));
+  return runs[0] ?? null;
+}
+
+/** The Execute row of `currentReplayBaseline()`, with its version, or null. */
+export const EXECUTE_TIER_BACKTEST_BASELINE: BacktestBaseline | null = (() => {
+  const run = currentReplayBaseline();
+  return run
+    ? { trades: run.execute.trades, winRate: run.execute.winRate, expectancyR: run.execute.expectancyR, strategyVersion: run.strategyVersion }
+    : null;
+})();
 
 export interface DriftAlert {
   reason: string;

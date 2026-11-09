@@ -322,7 +322,7 @@ export async function runScheduledScan(
     const shadowStartedAt = Date.now();
     const evaluation = await evaluatePendingShadowSignals(service, now);
     const recording = await recordShadowSignals(service, qualifying.map((q) => q.value), source);
-    await evaluateShadowDrift(service, EXECUTE_TIER_BACKTEST_BASELINE, undefined, now);
+    if (EXECUTE_TIER_BACKTEST_BASELINE) await evaluateShadowDrift(service, EXECUTE_TIER_BACKTEST_BASELINE, undefined, now);
     console.log(
       `${source}: shadow ${Date.now() - shadowStartedAt}ms — evaluated ${evaluation.evaluated}, ` +
         `pending ${evaluation.stillPending}, failed ${evaluation.failed}, recorded ${recording.recorded}`,
