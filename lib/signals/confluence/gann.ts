@@ -314,7 +314,7 @@ export function evaluateGannConfluence(inputs: GannConfluenceInputs): GannConflu
     );
   }
   if (squareOf52.active) {
-    explanationTrace.push(`Active Square of 52 weekly window (nearby dates: ${squareOf52.dates.slice(0, 3).join(", ") || "n/a"}).`);
+    explanationTrace.push(`Active weekly count window (nearby dates: ${squareOf52.dates.slice(0, 3).join(", ") || "n/a"}).`);
   }
   if (angleMonthCountsResult.active) {
     explanationTrace.push(

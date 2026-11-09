@@ -44,7 +44,7 @@ import type { Bar } from "@/lib/types";
 import { linearDetrend, periodPower } from "@/lib/gann/spectralCycle";
 
 export const AWODELE_BAND_CONFLICT =
-  "The recipe tries periods up to half the record, which repeat only twice; Dewey's repetitions criterion holds that so few repetitions decide nothing, so the scan stops at 0.4 of the window and asks five repetitions before it credits a cycle.";
+  "The recipe tries periods up to half the record, which repeat only twice; the repetitions criterion (CYC checklist) holds that so few repetitions decide nothing, so the scan stops at 0.4 of the window and asks five repetitions before it credits a cycle.";
 
 export interface AwodelePeriod {
   period: number;

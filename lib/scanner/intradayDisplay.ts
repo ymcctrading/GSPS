@@ -60,13 +60,13 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   old_level_cross:
     "A bar closed beyond yesterday's high or low by the method's allowance. An old top that is crossed tends to become support, and an old bottom that is broken tends to become resistance.",
   trend_continuation:
-    "The swing chart on today's bars is running one way, and price is on that side of the middle of the day's range.",
+    "The trend on today's bars is running one way, and price is on that side of the middle of the day's range.",
   pullback_record:
     "Today's pullback is unusually large for this trend: a warning the trend may be weakening.",
   daily_swing_turn:
     "The daily swing turned today. Its stop goes just beyond the last swing low (or high, for a sell).",
   hourly_turn:
-    "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
+    "The trend on hourly bars changed on the latest hour. In a very active market this is the first sign the trend is changing.",
   plan_level_held:
     "Price reacted to the daily plan's entry and turned back the plan's way on today's chart. The daily plan entered on the intraday chart: the daily plan's own stop and targets, with the stop moved by your trade style once filled.",
   reversal_risk:

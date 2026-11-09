@@ -105,5 +105,5 @@ export function macroForecastRecord(asOf: Date): ForecastRecord {
       expect: (w.bullish ? "low" : "high") as ForecastWindow["expect"],
     };
   });
-  return issueForecast({ id: `macro-${iso(asOf.getTime())}`, issued: iso(asOf.getTime()), source: "macroCycle.ts (Master Course Ch. 7 anchors)", windows });
+  return issueForecast({ id: `macro-${iso(asOf.getTime())}`, issued: iso(asOf.getTime()), source: "macroCycle.ts (MC Ch. 7 anchors)", windows });
 }

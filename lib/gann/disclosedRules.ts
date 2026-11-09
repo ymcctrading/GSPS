@@ -1021,7 +1021,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   if (ctx.campaignBottoms?.bottoms[0]?.broken) {
     const next = ctx.campaignBottoms.nextSupport;
-    lines.push(`The last campaign bottom (${ctx.campaignBottoms.bottoms[0].price.toFixed(2)}, ${ctx.campaignBottoms.bottoms[0].month}) is broken by 3 points: ${next ? `the next older campaign bottom, ${next.price.toFixed(2)} (${next.month}), is the support to watch` : "no older campaign bottom below it is in the record"}.`);
+    lines.push(`The last campaign bottom (${ctx.campaignBottoms.bottoms[0].price.toFixed(2)}, ${ctx.campaignBottoms.bottoms[0].month}) is clearly broken: ${next ? `the next older campaign bottom, ${next.price.toFixed(2)} (${next.month}), is the support to watch` : "no older campaign bottom below it is in the record"}.`);
   }
   if (ctx.priceZone) {
     const fall = ctx.firstFall?.inFirstFall ? `, ${ctx.firstFall.pointsDown.toFixed(2)} points under the 52-week high (${ctx.firstFall.high.toFixed(2)}): the first 100 points down from a high fall fastest` : "";
@@ -1057,7 +1057,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ctx.distributionStanding) {
     lines.push(`After a lower top, the narrow range broke down on ${ctx.distributionStanding.breakoutVolumeRatio.toFixed(1)}× its average volume: a sign of a further decline. A buy is held to Watch, and an open buy is closed, while price stays under the range, for up to 20 sessions after the break.`);
   }
-  if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the year from March 21 (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
+  if (ctx.seasonal) lines.push(`Seasonal count: ${ctx.seasonal.point.label} of the seasonal year (${ctx.seasonal.offsetDays === 0 ? "today" : `${Math.abs(ctx.seasonal.offsetDays)}d ${ctx.seasonal.offsetDays > 0 ? "after" : "before"}`}).`);
   if (ctx.accumulation) {
     const a = ctx.accumulation;
     lines.push(`Range ${a.rangeLow.toFixed(2)}–${a.rangeHigh.toFixed(2)} held ${a.weeks.toFixed(1)} weeks${a.breakout ? `, broken ${a.breakout}` : a.left ? `, left ${a.left.direction === "up" ? "upward" : "downward"} ${a.left.sessionsAgo} session${a.left.sessionsAgo === 1 ? "" : "s"} ago` : ""}. The longer the time in a range, the bigger the move out of it.`);
@@ -1106,16 +1106,16 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     const n = ctx.narrowWeekBreak;
     lines.push(
       n.direction === "bearish"
-        ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. The rule reads this as a sign the trend is turning down, even while the market rises; it does not change the trend read here.`
-        : `A narrow week, then a sharp rise on heavy volume: closed ${n.breakClose.toFixed(2)}, 3 points over that week's high (${n.narrowHigh.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume.`,
+        ? `A narrow week, then a sharp drop on heavy volume: closed ${n.breakClose.toFixed(2)}, clearly under that week's low (${n.narrowLow.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume. The rule reads this as a sign the trend is turning down, even while the market rises; it does not change the trend read here.`
+        : `A narrow week, then a sharp rise on heavy volume: closed ${n.breakClose.toFixed(2)}, clearly over that week's high (${n.narrowHigh.toFixed(2)}) on ${n.volumeRatio.toFixed(1)}x the usual weekly volume.`,
     );
   }
   if (ctx.falseBreakout) {
     const b = ctx.falseBreakout;
     lines.push(
       b.direction === "bearish"
-        ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
-        : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, no more than 3 points under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
+        ? `A false breakout over the range top: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, only just over the 13-week top (${b.level.toFixed(2)}), and the next week closed back under it.`
+        : `A false breakout under the range bottom: the week of ${b.breakWeek} reached ${b.extreme.toFixed(2)}, only just under the 13-week bottom (${b.level.toFixed(2)}), and the next week closed back over it.`,
     );
   }
   const se = ctx.swingEighths;
@@ -1123,8 +1123,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     // A-OTHER-12, a labelled reconstruction (swingEighths.ts).
     lines.push(
       se.at === "bottomEighth"
-        ? `Price is in the bottom eighth of the last 3-Day Chart swing (${se.bottom.toFixed(2)} to ${se.top.toFixed(2)}), the eighth a buy is placed in by a reconstruction of the method, shown as context only.`
-        : `Price is in the top eighth of the last 3-Day Chart swing (${se.bottom.toFixed(2)} to ${se.top.toFixed(2)}), the eighth a sale is placed in by a reconstruction of the method, shown as context only.`,
+        ? `Price is in the bottom eighth of the last short-term swing (${se.bottom.toFixed(2)} to ${se.top.toFixed(2)}), the eighth a buy is placed in by a reconstruction of the method, shown as context only.`
+        : `Price is in the top eighth of the last short-term swing (${se.bottom.toFixed(2)} to ${se.top.toFixed(2)}), the eighth a sale is placed in by a reconstruction of the method, shown as context only.`,
     );
   }
   const ss = ctx.successiveSwings;
@@ -1135,12 +1135,12 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   if (ss && ss.higherBottoms >= 2 && ss.higherBottoms <= 4) {
     lines.push(
       ss.higherBottoms === 4
-        ? "Standing on the fourth higher bottom of the 3-Day Chart: the rule says fast moves start from the third or fourth."
-        : `Standing on the ${nth(ss.higherBottoms)} higher bottom of the 3-Day Chart: the rule reads the advance as strongest after the second or third${ss.higherBottoms === 3 ? ", and fast moves start from the third or fourth" : ""}.`,
+        ? "Standing on the fourth higher bottom of the short-term swings: the rule says fast moves start from the third or fourth."
+        : `Standing on the ${nth(ss.higherBottoms)} higher bottom of the short-term swings: the rule reads the advance as strongest after the second or third${ss.higherBottoms === 3 ? ", and fast moves start from the third or fourth" : ""}.`,
     );
   }
   if (ss && ss.lowerTops >= 2 && ss.lowerTops <= 4) {
-    lines.push(`Under the ${nth(ss.lowerTops)} lower top of the 3-Day Chart, a top the rule says to watch.`);
+    lines.push(`Under the ${nth(ss.lowerTops)} lower top of the short-term swings, a top the rule says to watch.`);
   }
   if (ctx.overnight) lines.push(...describeOvernightChart(ctx.overnight));
   if (ctx.astro) lines.push(...describeAstroRules(ctx.astro));
@@ -1176,9 +1176,9 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
       extended: "longer than the usual 3 weeks",
       secondMonth: "into a second month, which strong trends seldom reach",
       thirdMonth: ctx.campaign?.counterMoveThirdMonth
-        ? "in its third month, which signals a change in trend"
+        ? "past two months and still making new extremes, which signals a change in trend"
         : ctx.campaign
-          ? "past two months, though it has made no new extreme in its third month"
+          ? "past two months, with no new extreme since"
           : "past two months",
     }[ctx.counterMove.phase];
     lines.push(`Counter-move against the ${ctx.counterMove.trend} trend: ${ctx.counterMove.days} days, ${note}.`);
@@ -1191,8 +1191,8 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
     }
   }
   for (const [name, r] of [["Weekly", ctx.ruleOfThree.weekly], ["Monthly", ctx.ruleOfThree.monthly]] as const) {
-    if (r?.bearishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveLowerCloses} lower closes in a row.`);
-    else if (r?.bullishSignal) lines.push(`${name} Rule of Three: ${r.consecutiveHigherCloses} higher closes in a row.`);
+    if (r?.bearishSignal) lines.push(`${name}: ${r.consecutiveLowerCloses} lower closes in a row.`);
+    else if (r?.bullishSignal) lines.push(`${name}: ${r.consecutiveHigherCloses} higher closes in a row.`);
   }
   for (const [unitName, a] of [["day", ctx.ascension?.daily], ["week", ctx.ascension?.weekly], ["month", ctx.ascension?.monthly]] as const) {
     if (a?.fifth) lines.push(`The 5th ${a.direction === "up" ? "higher" : "lower"} close in a row on the ${unitName}: the 5th ${unitName} marks fast moves.`);

@@ -42,9 +42,9 @@ describe("the cross-construction confluence citation (66 / Master Twelve / squar
     expect(example).toBe(CROSS_CONSTRUCTION_EXAMPLE);
     expect(example.number).toBe(66);
     expect(example.hexagonAngleDeg).toBe(180);
-    expect(example.constructions).toContain("Master Twelve Chart");
-    expect(example.constructions).toContain("squareOf9 construction");
-    expect(example.constructions).toContain("Hexagon Chart");
+    expect(example.constructions).toContain("Twelve grid");
+    expect(example.constructions).toContain("base-9 spiral construction");
+    expect(example.constructions).toContain("Hexagon grid");
   });
 });
 

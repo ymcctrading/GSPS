@@ -116,10 +116,10 @@ export const WINTER_QUARTER_POINTS: readonly { label: string; month: number; sta
   { label: "45 days", month: 2, startDay: 5, endDay: 5 },
   { label: "90 days", month: 3, startDay: 21, endDay: 21 },
   { label: "135°", month: 5, startDay: 6, endDay: 6 },
-  { label: "June 22", month: 6, startDay: 22, endDay: 22 },
+  { label: "180 days", month: 6, startDay: 22, endDay: 22 },
   { label: "July 7", month: 7, startDay: 7, endDay: 7 },
   { label: "August 8", month: 8, startDay: 8, endDay: 8 },
-  { label: "September 23", month: 9, startDay: 23, endDay: 23 },
+  { label: "270 days", month: 9, startDay: 23, endDay: 23 },
   { label: "November 8", month: 11, startDay: 8, endDay: 8 },
   { label: "the full year", month: 12, startDay: 22, endDay: 22 },
 ];

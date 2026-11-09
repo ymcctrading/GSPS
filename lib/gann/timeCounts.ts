@@ -323,7 +323,7 @@ export function describeTimeCounts(r: TimeCountsReading): string[] {
     const p = wq.point;
     const date = `${MONTH_NAMES[p.month - 1]} ${p.startDay}${p.endDay !== p.startDay ? `-${p.endDay}` : ""}`;
     const what = /^[A-Z]/.test(p.label) ? "" : ` (${p.label})`;
-    lines.push(`${date}: a seasonal date counted from the winter quarter, December 22${what}. ${CONTEXT}`);
+    lines.push(`${date}: a seasonal date counted from the winter quarter${what}. ${CONTEXT}`);
   }
   return lines;
 }
