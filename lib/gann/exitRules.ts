@@ -457,7 +457,7 @@ export function readGannExit(
     if (standing) {
       exit = {
         reason: "distribution",
-        note: `After a lower top, the narrow range broke down on ${standing.breakoutVolumeRatio.toFixed(1)}× its average volume (${standing.breakDate}): a sign of a further decline.`,
+        note: `Heavy selling broke the stock down from a top on ${standing.breakDate}: a sign of distribution.`,
       };
     }
   }

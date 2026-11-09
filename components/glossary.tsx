@@ -103,7 +103,7 @@ const GROUPS: { heading: string; terms: Term[] }[] = [
       {
         term: "Score out of 9",
         plain:
-          "One point for each of nine questions the setup answers yes to: the market and cycle position, the trend on every timeframe, relative strength and leadership, activity, price levels, angles, time, volume and accumulation, and a definite entry signal with the stop placed. Each point needs several of its own conditions to agree, so a point is not easy to earn. The higher the score, the more conditions the setup meets. It is not a measure of how likely the trade is to work.",
+          "One point for each of nine questions the setup answers yes to: the market and cycle position, the trend on every timeframe, relative strength and leadership, activity, price levels, price structure, timing, volume and accumulation, and a definite entry signal with the stop placed. Each point needs several of its own conditions to agree, so a point is not easy to earn. The higher the score, the more conditions the setup meets. It is not a measure of how likely the trade is to work.",
       },
       {
         term: "Execute - Watch - Reject",
