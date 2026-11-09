@@ -277,7 +277,7 @@ async function AutomationHub({
             <CardDescription>
               {watching.length > 0
                 ? `${watching.length} setup${watching.length === 1 ? "" : "s"} the engine has flagged tradeable and is tracking through the entry checklist — nothing executes until each one clears it.`
-                : "The engine scans on a schedule and flags a setup here the moment one is strong enough to track toward entry."}
+                : "The engine scans on a schedule and flags a setup here the moment one scores high enough to track toward entry."}
             </CardDescription>
           </CardHeader>
           <CardContent>

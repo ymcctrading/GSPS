@@ -449,7 +449,7 @@ describe("scanIntraday — over-balance of space", () => {
     ).alerts.find((a) => a.type === "space_overbalance");
     expect(alert).toBeDefined();
     expect(alert!.direction).toBe("down");
-    expect(alert!.whyThisAppeared).toMatch(/larger than any reaction/);
+    expect(alert!.whyThisAppeared).toMatch(/unusually large for this trend/);
   });
 
   it("stays quiet when the reaction is no larger than the campaign has already seen", () => {

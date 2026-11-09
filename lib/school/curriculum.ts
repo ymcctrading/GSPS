@@ -753,7 +753,7 @@ const ACADEMY_4: Academy = {
           instruction: [
             "GSPS's own pattern detector implements six named bar-sequence setups, and this lesson reuses their real, already-shipped explanations rather than inventing new ones: the failed-push reversal, the compressed reversal, the two-sided reversal, the pause continuation, the undecided breakout (direction-neutral until one side fires), and the momentum-exhaustion reversal (after five or more consecutive same-direction bars).",
             "The 2-2 family (2-2, 1-2-2, 3-2-2) all bet on a reversal: the last bar's push failed and the crowd behind it is trapped, so price is expected to break back through the bar's opposite extreme. The 2-1-2 pattern is the opposite job — a continuation, not a reversal — so confusing the two families is the most common misread.",
-            "None of these patterns are a guarantee. Confidence scales with the setup bar context (compressed vs. two-sided vs. plain) and with GSPS's own score and structural-level context — never from the bar shape alone.",
+            "None of these patterns are a guarantee, and neither the setup bar context (compressed vs. two-sided vs. plain) nor GSPS's own score has been shown to raise the odds. Read the shape together with the score and the structural levels, never alone.",
           ],
           application:
             "Explain in one sentence why mixing up the 2-1-2 pattern with the 2-2 family would produce the opposite trading decision from what's intended.",

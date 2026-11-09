@@ -219,7 +219,7 @@ describe("IntradayAlerts", () => {
 
     await openFullCard(user);
 
-    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("75% of checks met")).toBeInTheDocument();
     expect(screen.getByText("What lined up")).toBeInTheDocument();
     expect(screen.getByText(/Opening range broken/)).toBeInTheDocument();
     expect(screen.getByText(/^1\.8× of normal\.$/)).toBeInTheDocument();
@@ -426,11 +426,11 @@ describe("IntradayAlerts — the setup card", () => {
 
     const name = await screen.findByRole("button", { name: "SPY" });
     expect(name).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("75/100 confidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("75% of checks met")).not.toBeInTheDocument();
 
     await user.click(name);
     expect(name).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("75% of checks met")).toBeInTheDocument();
     expect(screen.getByText(/1 of 2 checks line up/)).toBeInTheDocument();
     // Halfway: the detail is still behind the expand control.
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
@@ -440,10 +440,10 @@ describe("IntradayAlerts — the setup card", () => {
 
     await user.click(screen.getByRole("button", { name: /Collapse/ }));
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();
-    expect(screen.getByText("75/100 confidence")).toBeInTheDocument();
+    expect(screen.getByText("75% of checks met")).toBeInTheDocument();
 
     await user.click(name);
-    expect(screen.queryByText("75/100 confidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("75% of checks met")).not.toBeInTheDocument();
   });
 
   it("ends the card with a link to the full scan", async () => {

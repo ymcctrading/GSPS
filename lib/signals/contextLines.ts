@@ -62,7 +62,7 @@ function levelLines(g: GannConfluenceResult): ContextLine[] {
     lines.push({ text: `Recent prices show a rough rhythm of about ${g.spectralCycle.dominantPeriodBars} bars.`, note: "(unproven)" });
   }
   if (g.campaignLeg.legNumber != null) {
-    lines.push({ text: `This move looks like leg ${g.campaignLeg.legNumber} of the trend (${g.campaignLeg.confidence} confidence).` });
+    lines.push({ text: `This move looks like leg ${g.campaignLeg.legNumber} of the trend.` });
   }
   if (g.boilingPoint.length > 0) {
     lines.push({ text: `It has been ${g.boilingPoint[0].weeksSinceClimax} weeks since the last blow-off move (${g.boilingPoint[0].phase}).` });
@@ -76,7 +76,7 @@ function levelLines(g: GannConfluenceResult): ContextLine[] {
     lines.push({ text: `The current pullback has run ${rules.counterMove.days} days, ${COUNTER_MOVE_LABEL[rules.counterMove.phase]}.` });
   }
   if (rules.campaign?.counterMoveThirdMonth) {
-    lines.push({ text: "The pullback from the last top is still making new extremes in its third month, which often means the trend has changed." });
+    lines.push({ text: "The pullback from the last top has run unusually long, which the method reads as a possible trend change." });
   }
   const pct = rules.pricePercentages;
   if (pct?.nearestAbove || pct?.nearestBelow) {
@@ -124,7 +124,7 @@ function levelLines(g: GannConfluenceResult): ContextLine[] {
   else if (lead?.bottomedLate) lines.push({ text: "It bottomed after the market did." });
   else if (lead?.toppedFirst) lines.push({ text: "It topped before the market did." });
   if (rules.sharesPerPoint?.topWarning) {
-    lines.push({ text: `Volume per point of move is ${rules.sharesPerPoint.ratio.toFixed(1)}× the prior leg, a warning sign near tops.` });
+    lines.push({ text: "Volume is running unusually heavy for the size of the move, which the method reads as a caution near tops." });
   }
   const tr = rules.timeRules;
   if (tr?.halt) lines.push({ text: `A ${tr.halt.days}-day pause at the ${tr.halt.at} near ${px(tr.halt.extreme)}.` });

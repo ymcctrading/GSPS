@@ -215,7 +215,7 @@ export default function LearningPage() {
         <CardHeader>
           <CardTitle>Live signal quality (shadow mode)</CardTitle>
           <CardDescription>
-            Every high-confidence (&quot;Execute&quot;) signal the scheduled scan finds is logged and
+            Every &quot;Execute&quot; signal the scheduled scan finds is logged and
             later checked against what actually happened — nothing is traded on it. This shows how
             those real calls have performed, compared against the backtest baseline above.
           </CardDescription>
@@ -517,8 +517,8 @@ export default function LearningPage() {
                 {report.attributeWithin === UNCONDITIONED_ATTRIBUTION
                   ? (report.derivedSplit?.armed.trades ?? report.overall.trades)
                   : (report.buckets.find((b) => b.bucket === report.attributeWithin)?.trades ?? 0)}{" "}
-                trades in this group. &quot;Difference&quot; is the size of the edge: a bigger
-                positive number means that check is pulling its weight. This shows what travels
+                trades in this group. &quot;Difference&quot; is the gap between the two groups&apos; results: a positive
+                number means trades with that check passed did better in this sample. This shows what travels
                 together with good results, not proof that the check itself causes them. The nine
                 scored points come first; the checks under them, which earn nothing on their own,
                 say which point they count toward.

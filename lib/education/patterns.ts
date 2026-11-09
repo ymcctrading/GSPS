@@ -30,7 +30,7 @@ export const PATTERN_EDUCATION: Record<StratPattern["name"], PatternEducation> =
     whyItMatters:
       "It only exists on a break of that trigger line, so there's nothing to manage until it fires — no chasing a move that hasn't happened. The stop sits one penny beyond the same bar's other extreme, which is what keeps the risk small and mechanical.",
     confidence:
-      "Moderate on its own. It's the base case of the family — the compressed and two-sided variants are the same idea with a stronger setup bar in front of it, and score higher for it.",
+      "The base case of the family. The compressed and two-sided variants are the same idea with a different setup bar in front of it. None of the shapes has been measured as more reliable than the others.",
   },
   "1-2-2": {
     headline: "Compressed reversal",
@@ -39,16 +39,16 @@ export const PATTERN_EDUCATION: Record<StratPattern["name"], PatternEducation> =
     whyItMatters:
       "The prior compression is read as fewer participants caught offside in the wrong direction before the reversal, which tends to make the break cleaner. Entry and stop mechanics are identical to a plain failed-push reversal.",
     confidence:
-      "Somewhat higher than a bare failed-push reversal. Still wants confirmation from the structural levels and score — a clean shape on a weak setup is still a weak setup.",
+      "Same mechanics as a bare failed-push reversal, with a pause before it. Not measured as more reliable. Read it together with the structural levels and the score.",
   },
   "3-2-2": {
     headline: "Two-sided reversal",
     whatItMeans:
       "A failed-push reversal preceded by an outside bar — both sides of the market were tested hard immediately before the failed push.",
     whyItMatters:
-      "That two-sided test right before the reversal is the strongest version of this family's trapped-crowd read. Same entry/stop mechanics as a plain failed-push reversal, but the context behind it is more convincing.",
+      "That two-sided test right before the reversal is the fullest version of this family's trapped-crowd read. Same entry/stop mechanics as a plain failed-push reversal.",
     confidence:
-      "Highest confidence in the failed-push family. Still not a guarantee — pair it with the score and where it sits relative to structural levels before treating it as a strong setup on its own.",
+      "Not measured as more reliable than the other shapes, and not a guarantee. Read it together with the score and where it sits relative to structural levels.",
   },
   "2-1-2": {
     headline: "Pause continuation",
@@ -75,7 +75,7 @@ export const PATTERN_EDUCATION: Record<StratPattern["name"], PatternEducation> =
     whyItMatters:
       "The longer the streak, the more trapped positions are believed to be behind it — this is a momentum-exhaustion read, not a shape read, so the streak length itself is part of the signal.",
     confidence:
-      "Confidence scales with the streak length shown in the pattern description (\"N consecutive lower highs\"). A five-bar streak is the bare minimum for the pattern to arm at all; longer streaks are read as more convincing.",
+      "The streak length is shown in the pattern description (\"N consecutive lower highs\"). A five-bar streak is the bare minimum for the pattern to arm at all. Longer streaks have not been measured as more reliable.",
   },
 };
 
