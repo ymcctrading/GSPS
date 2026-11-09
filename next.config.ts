@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
   // (2026-11-04). Vercel ignores this setting, so a build there is unchanged.
   output: "standalone",
 
+  // Which build is serving, fixed at build time and reported by /api/health
+  // (lib/ops/buildInfo.ts) so a deploy can be checked against `main`. Vercel
+  // sets VERCEL_GIT_COMMIT_SHA during its build; the Cloud Run image passes
+  // GIT_COMMIT_SHA (Dockerfile). Only the health route reads them.
+  env: {
+    GSPS_BUILD_COMMIT:
+      process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "",
+    GSPS_BUILD_TIME: new Date().toISOString(),
+  },
+
   // Type errors fail the build. `main` has no branch-protection rule
   // requiring CI to pass before merge, so the Vercel build is the only
   // backstop standing between a type error and production — don't disable
