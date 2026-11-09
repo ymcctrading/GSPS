@@ -13,6 +13,25 @@ name: Tests
 # the banned-terms gate reads) runs nothing, since no test reads one. Not all
 # of `docs/`: criteria-gate.test.ts reads the committed runs in
 # docs/replay-runs/*.json.
+#
+# Cheaper test job (2026-11-09, Actions minutes on the free plan). Measured on
+# three runs that day, a job took 252-390 s, billed 5-7 minutes: npm ci 34-54,
+# vitest 122-200, eslint 25-38, tsc 16-27, next build 35-56. So:
+# - node_modules is cached on the lockfile's hash; npm ci runs only on a miss.
+# - eslint's cache and tsc's incremental build info are cached (restored from
+#   the newest run); both key on file content, never on timestamps. Warm,
+#   locally: eslint 35 s -> 1 s, tsc 23 s -> 4 s.
+# - On a feature PR, vitest runs only the tests related to the changed files
+#   (its import graph) plus every test that reads a file from disk, since an
+#   import graph can't see those (wiring and parity tests, the committed
+#   replay runs). The full suite runs on release-train PRs (release/*), a
+#   manual run, any PR that changes a file outside lib/, app/ and components/
+#   TypeScript and JSON, or deletes or renames one. The train runs the full
+#   suite on the merge result before anything reaches main, so a test the
+#   narrower run misses is still caught there.
+# - Non-Markdown files under docs/ are skipped too, except the three folders
+#   tests read: docs/replay-runs, docs/research and docs/agents. AGENTS.md
+#   runs the job, since agents-md-size.test.ts reads it.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -20,8 +39,13 @@ on:
     paths:
       - '**'
       - '!**/*.md'
+      - '!docs/**'
+      - 'docs/replay-runs/**'
+      - 'docs/research/**'
+      - 'docs/agents/**'
       - 'README.md'
       - 'FEATURES.md'
+      - 'AGENTS.md'
   push:
     branches: [main]
   workflow_dispatch:
@@ -60,27 +84,79 @@ jobs:
             echo "::error::$reason"
             exit 1
           fi
+      # Depth 2: on a pull request this is GitHub's merge commit and its first
+      # parent (the base), enough to list the PR's changed files.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
 
-      - run: npm ci
+      - name: Restore node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+
+      - name: Install
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Restore the lint and type-check caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .eslintcache
+            tsconfig.tsbuildinfo
+          key: checks-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            checks-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs', 'tsconfig.json') }}-
+
+      - name: Choose the tests
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          full() { echo "mode=full" >> "$GITHUB_OUTPUT"; echo "::notice::Full suite: $1"; exit 0; }
+          [ "$EVENT" = "pull_request" ] || full "not a pull request ($EVENT)"
+          case "$HEAD_REF" in release/*) full "release-train PR";; esac
+          git rev-parse -q --verify HEAD^2 >/dev/null || full "no merge commit to compare"
+          changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          [ -n "$changed" ] || full "no changed files listed"
+          git diff --name-only --no-renames --diff-filter=D HEAD^1 HEAD | grep -q . && full "a file was deleted or renamed"
+          other=$(printf '%s\n' "$changed" | grep -vE '^(lib|app|components)/.+\.(ts|tsx|json)$' || true)
+          [ -z "$other" ] || full "changes outside lib/, app/, components/ code: $(printf '%s' "$other" | head -3 | tr '\n' ' ')"
+          disk=$(grep -rlE 'readFileSync|readdirSync|readFile\(|globSync|fs\.promises|existsSync' \
+            --include='*.test.ts' --include='*.test.tsx' lib app components || true)
+          echo "::notice::Related tests for $(printf '%s\n' "$changed" | wc -l) changed files, plus $(printf '%s\n' "$disk" | wc -l) tests that read from disk"
+          { echo "mode=related"; echo "files<<FILES_EOF"; printf '%s\n' "$changed" "$disk"; echo "FILES_EOF"; } >> "$GITHUB_OUTPUT"
 
       # Covers lib/__tests__/user-copy.test.ts, which asserts that the strings
       # the scan builds at runtime — checklist criteria, pattern descriptions,
       # trade-level warnings and errors — stay in plain language. A static scan
       # cannot see those, so this job is the other half of the terminology gate.
       #
-      - run: npm test
+      - name: Tests
+        env:
+          MODE: ${{ steps.scope.outputs.mode }}
+          FILES: ${{ steps.scope.outputs.files }}
+        run: |
+          if [ "$MODE" = "related" ]; then
+            # Word splitting is intended: one path per word, none has spaces.
+            npx vitest related --run --passWithNoTests $FILES
+          else
+            npm test
+          fi
 
       # Both of these were advisory until the pre-existing failures in
       # lib/learning/* and the broker clients were fixed. They are gates now;
       # `set-state-in-effect` remains a warning (see eslint.config.mjs) so the
       # chart-effect restructuring can be done as its own reviewable change.
-      - run: npm run lint
+      - run: npx eslint --cache --cache-strategy content --cache-location .eslintcache
 
       - run: npx tsc --noEmit
 
