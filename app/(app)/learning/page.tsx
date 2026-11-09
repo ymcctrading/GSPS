@@ -17,28 +17,11 @@ import { ForwardRecord } from "@/components/learning/forward-record";
 const DEFAULT_SYMBOLS = "SPY, AAPL, AMD, TSLA, MSFT, NVDA";
 
 /**
- * The Execute-tier backtest baseline `GET /api/shadow/summary` compares live
- * shadow-mode performance against — mirrors
- * `lib/shadow/compare.ts`'s `EXECUTE_TIER_BACKTEST_BASELINE`. Duplicated as
- * plain values rather than imported: that module pulls in the Resend SDK
- * (`lib/notifications/resend-handler.ts`, for the operator alert email),
- * which has no reason to ship in a client bundle. Update both together —
- * same manual-bump discipline as `STRATEGY_VERSION`.
+ * The baseline row comes from `GET /api/shadow/summary` (`replayBaseline`):
+ * the Execute row of the newest committed production-faithful replay
+ * (`lib/shadow/compare.ts`'s `currentReplayBaseline`). It replaced a hand-typed
+ * row (31 trades, +0.151R, six stocks, earlier rules) on 2026-11-09.
  */
-const BACKTEST_BASELINE = { trades: 31, winRate: 0.387, expectancyR: 0.151 };
-/**
- * That baseline was measured on earlier rules (a stop entry and a fixed
- * target), so it is shown for reference and not sent for a drift verdict
- * (R-032, 2026-10-21). Set this true once it is re-based on the current rules.
- */
-const BASELINE_COMPARABLE = false;
-/**
- * What the baseline row measured, shown beside it so 31 trades on six stocks
- * over two months is never read as a platform-wide figure. From
- * `docs/REPLAY_RESULTS.md` as committed on 2026-08-27 (ef6208b): universe
- * SPY, AAPL, AMD, TSLA, MSFT, NVDA, window 2026-06-29 to 2026-08-26.
- */
-const BACKTEST_BASELINE_SAMPLE = "6 stocks, Jun 29 to Aug 26, 2026";
 /** Mirrors `lib/shadow/compare.ts`'s `MIN_SHADOW_SAMPLES` — below this, a comparison is withheld server-side too. */
 const MIN_SHADOW_SAMPLES_HINT = 15;
 
@@ -47,7 +30,19 @@ interface ShadowSummaryResponse {
   maxHoldDays: number;
   shadow: { trades: number; winRate: number; expectancyR: number };
   pending: number;
-  baselineSupplied: boolean;
+  /** The newest production replay's Execute row; null when none is committed. */
+  replayBaseline: {
+    trades: number;
+    winRate: number;
+    expectancyR: number;
+    ci95: [number, number];
+    symbols: number;
+    timeframe: string;
+    window: { from: string; to: string };
+    version: string;
+    /** True only when the replay ran the rules the live record is on. */
+    comparable: boolean;
+  } | null;
   drift: {
     reason: string;
     expectancyDeltaR: number;
@@ -126,16 +121,7 @@ export default function LearningPage() {
     let cancelled = false;
     (async () => {
       try {
-        const params = new URLSearchParams(
-          BASELINE_COMPARABLE
-            ? {
-                backtestTrades: String(BACKTEST_BASELINE.trades),
-                backtestWinRate: String(BACKTEST_BASELINE.winRate),
-                backtestExpectancyR: String(BACKTEST_BASELINE.expectancyR),
-              }
-            : {},
-        );
-        const res = await fetch(`/api/shadow/summary?${params}`);
+        const res = await fetch("/api/shadow/summary");
         const body = await res.json();
         if (cancelled) return;
         if (res.status === 404) {
@@ -224,7 +210,7 @@ export default function LearningPage() {
           <CardDescription>
             Every &quot;Execute&quot; signal the scheduled scan finds is logged and
             later checked against what actually happened — nothing is traded on it. This shows how
-            those real calls have performed, compared against the backtest baseline above.
+            those real calls have performed, beside a replay of the production rules over past bars.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -253,15 +239,39 @@ export default function LearningPage() {
                       {shadowSummary.shadow.trades === 0 ? "—" : r(shadowSummary.shadow.expectancyR)}
                     </TD>
                   </TR>
-                  <TR className="border-t-2 border-border">
+<TR className="border-t-2 border-border">
                     <TD className="font-medium">
-                      Backtest baseline: {BACKTEST_BASELINE_SAMPLE}
-                      {!BASELINE_COMPARABLE && " (earlier rules, not compared)"}
+                      {shadowSummary.replayBaseline ? (
+                        <>
+                          Replay of the production rules: {shadowSummary.replayBaseline.symbols} stocks,{" "}
+                          {shadowSummary.replayBaseline.window.from} to {shadowSummary.replayBaseline.window.to},{" "}
+                          {shadowSummary.replayBaseline.timeframe} bars, rules of {shadowSummary.replayBaseline.version}
+                          {!shadowSummary.replayBaseline.comparable && " (earlier rules than the live record, not compared)"}
+                        </>
+                      ) : (
+                        "No current replay baseline is committed"
+                      )}
                     </TD>
-                    <TD className="text-right tabular-nums">{BACKTEST_BASELINE.trades}</TD>
-                    <TD className="text-right tabular-nums">{pct(BACKTEST_BASELINE.winRate)}</TD>
-                    <TD className={cn("text-right tabular-nums", toneFor(BACKTEST_BASELINE.expectancyR))}>
-                      {r(BACKTEST_BASELINE.expectancyR)}
+                    <TD className="text-right tabular-nums">{shadowSummary.replayBaseline?.trades ?? "—"}</TD>
+                    <TD className="text-right tabular-nums">
+                      {shadowSummary.replayBaseline ? pct(shadowSummary.replayBaseline.winRate) : "—"}
+                    </TD>
+                    <TD
+                      className={cn(
+                        "text-right tabular-nums",
+                        shadowSummary.replayBaseline ? toneFor(shadowSummary.replayBaseline.expectancyR) : undefined,
+                      )}
+                    >
+                      {shadowSummary.replayBaseline ? (
+                        <>
+                          {r(shadowSummary.replayBaseline.expectancyR)}
+                          <span className="block text-xs text-muted">
+                            95% range {r(shadowSummary.replayBaseline.ci95[0])} to {r(shadowSummary.replayBaseline.ci95[1])}
+                          </span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </TD>
                   </TR>
                 </TBody>
@@ -271,7 +281,7 @@ export default function LearningPage() {
                 {shadowSummary.pending} signal{shadowSummary.pending === 1 ? "" : "s"} still waiting on
                 an outcome (up to {shadowSummary.maxHoldDays} trading days each) — not counted above yet. A
                 signal counts only once its entry filled on the pullback the same session.
-                {BASELINE_COMPARABLE && shadowSummary.shadow.trades < MIN_SHADOW_SAMPLES_HINT &&
+                {shadowSummary.replayBaseline?.comparable && shadowSummary.shadow.trades < MIN_SHADOW_SAMPLES_HINT &&
                   ` Fewer than ${MIN_SHADOW_SAMPLES_HINT} resolved signals so far — too early to compare against the baseline with any confidence.`}
               </p>
 
@@ -284,7 +294,7 @@ export default function LearningPage() {
                   <p className="mt-2 text-sm text-bear">{shadowSummary.drift.reason}</p>
                 </div>
               )}
-              {BASELINE_COMPARABLE && !shadowSummary.drift && shadowSummary.shadow.trades >= MIN_SHADOW_SAMPLES_HINT && (
+              {shadowSummary.replayBaseline?.comparable && !shadowSummary.drift && shadowSummary.shadow.trades >= MIN_SHADOW_SAMPLES_HINT && (
                 <p className="text-sm text-bull">
                   <Badge variant="bull">On track</Badge> Live performance is tracking the backtest
                   baseline — no drift detected.

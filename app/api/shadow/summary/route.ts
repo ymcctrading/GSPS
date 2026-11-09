@@ -5,23 +5,20 @@
  * spec pack. Owner only (`lib/auth/owner.ts`, 2026-10-28). Read-only:
  * reports how the shadow-tracked live Execute-tier signals (lib/shadow/record.ts, recorded from the trusted scheduled scan
  * only — see lib/entitlements/scheduled-scan.ts) have actually performed
- * over a trailing window, and — when a backtest baseline is supplied —
- * whether that performance has drifted from what the backtest harness
- * predicts for the same strategy version.
+ * over a trailing window, beside the baseline: the Execute row of the newest
+ * committed production-faithful replay (`currentReplayBaseline()`,
+ * `lib/shadow/compare.ts`), with its sample and window. A drift verdict is
+ * given only when that replay ran the current `STRATEGY_VERSION`; a replay of
+ * earlier rules is shown for reference and marked not comparable (R-032).
+ * `replayBaseline` is null when no production run is committed.
  *
- * There is no live, cheap source of a backtest baseline to compare against
- * automatically: running `lib/backtest/run.ts` here would mean a full
- * vendor-data backtest on every summary request, which is exactly the cost
- * `scripts/replay-report.mjs` avoids by writing a committable report
- * instead (see docs/BACKTESTING.md). So the baseline is supplied by the
- * caller — e.g. the Execute-tier row from the latest docs/REPLAY_RESULTS.md,
- * or a fresh GET /api/backtest run — as query params. Omit them and this
- * still returns the shadow summary alone, with no drift verdict.
+ * Until 2026-11-09 the page sent a hand-typed baseline as query params (31
+ * trades, +0.151R, six stocks, Aug 27 rules); that row was retired (numbers
+ * audit) and the params are no longer read.
  *
  * Usage:
  *   GET /api/shadow/summary
  *   GET /api/shadow/summary?windowDays=30
- *   GET /api/shadow/summary?backtestTrades=31&backtestWinRate=0.387&backtestExpectancyR=0.151
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -30,8 +27,10 @@ import {
   compareToBacktest,
   summarizeShadowRows,
   SHADOW_TRADE_OUTCOMES,
-  type BacktestBaseline,
+  currentReplayBaseline,
+  EXECUTE_TIER_BACKTEST_BASELINE,
 } from "@/lib/shadow/compare";
+import { publicVersionLabel } from "@/lib/backtest/publicVersion";
 import { SHADOW_MAX_HOLD_DAYS } from "@/lib/shadow/evaluate";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
 import { ownerOf } from "@/lib/auth/owner";
@@ -82,28 +81,30 @@ export async function GET(req: NextRequest) {
 
   const shadow = summarizeShadowRows((evaluated ?? []) as { outcome: "win" | "loss" | "timeout"; r_multiple: number }[]);
 
-  const backtestTrades = Number(searchParams.get("backtestTrades"));
-  const backtestWinRate = Number(searchParams.get("backtestWinRate"));
-  const backtestExpectancyR = Number(searchParams.get("backtestExpectancyR"));
-  const hasBaseline =
-    Number.isFinite(backtestTrades) && Number.isFinite(backtestWinRate) && Number.isFinite(backtestExpectancyR);
-
-  let drift = null;
-  if (hasBaseline) {
-    const baseline: BacktestBaseline = {
-      trades: backtestTrades,
-      winRate: backtestWinRate,
-      expectancyR: backtestExpectancyR,
-    };
-    drift = compareToBacktest(shadow, baseline);
-  }
+  const run = currentReplayBaseline();
+  const comparable = run !== null && run.strategyVersion === STRATEGY_VERSION;
+  const drift = comparable && EXECUTE_TIER_BACKTEST_BASELINE ? compareToBacktest(shadow, EXECUTE_TIER_BACKTEST_BASELINE) : null;
+  const replayBaseline = run
+    ? {
+        trades: run.execute.trades,
+        winRate: run.execute.winRate,
+        expectancyR: run.execute.expectancyR,
+        ci95: run.execute.ci95,
+        symbols: run.symbols,
+        timeframe: run.timeframe,
+        window: run.window,
+        // The version names stay on the server; the page reads the label only.
+        version: publicVersionLabel(run.strategyVersion),
+        comparable,
+      }
+    : null;
 
   return NextResponse.json({
     windowDays,
     maxHoldDays: SHADOW_MAX_HOLD_DAYS,
     shadow,
     pending: pendingCount ?? 0,
-    baselineSupplied: hasBaseline,
+    replayBaseline,
     drift,
   });
 }
