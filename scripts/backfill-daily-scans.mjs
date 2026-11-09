@@ -14,7 +14,8 @@
  * bars requests are cut at the clock, bars not closed by it are dropped, the
  * latest trade is the last bar closed by it, and reads of the present (the
  * most-actives screener, quotes, snapshots) are refused, so the universe is
- * the curated large-cap list the scan falls back to when the screener fails.
+ * the curated large-cap list the scan falls back to when the screener fails,
+ * led, as on the evening scan, by the discovery chunk the clock selects.
  * Prices are split-adjusted as of the run, as the scan's bars are, and a
  * stock that has split since the day is left out of that day's rows
  * (`splitSinceDay`), since its plan would be in units no member saw.
@@ -121,6 +122,7 @@ async function runDay(day, { dryRun, force, out }) {
     let output;
     let rows;
     let splitDropped = [];
+    let extraSymbols = [];
     {
       const { FULL_UNIVERSE_TOP, runMarketScan } = await server.ssrLoadModule("/lib/marketScan.ts");
       const { buildScanRows, publishRefusal } = await server.ssrLoadModule("/lib/scan/publish.ts");
@@ -132,9 +134,22 @@ async function runDay(day, { dryRun, force, out }) {
       } catch (err) {
         console.warn(`${day}: universe policy not read (${String(err)}); code defaults used`);
       }
-      // As the scheduled scans call it (lib/entitlements/scheduled-scan.ts), with
-      // no swept or extra symbols: those are read from today's tables, not the day's.
-      output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, [], []);
+      // As the evening scan calls it (app/api/market-scan/route.ts): its extra
+      // symbols are the day's tracked rows (none, for a missing day) and the
+      // discovery chunk, which is anchored to the clock (lib/scan/universe-rotation.ts),
+      // so the fake clock gives the chunk the 7 PM ET scan would have used.
+      // No swept symbols: the overnight sweep did not run during the pause.
+      const { resolveRotationChunk, resolveTrackedSymbols } = await server.ssrLoadModule("/lib/scan/universe-rotation.ts");
+      const { LARGE_CAP_UNIVERSE } = await server.ssrLoadModule("/lib/scan/large-cap-universe.ts");
+      let tracked = [];
+      try {
+        tracked = await resolveTrackedSymbols(createServiceClient(), day);
+      } catch {
+        tracked = [];
+      }
+      const chunk = resolveRotationChunk(LARGE_CAP_UNIVERSE)?.symbols ?? [];
+      extraSymbols = [...new Set([...tracked, ...chunk])];
+      output = await runMarketScan(FULL_UNIVERSE_TOP, undefined, universe, extraSymbols, []);
       if (output.scanDate !== day) throw new Error(`the scan filed itself under ${output.scanDate}, not ${day}`);
       const refusal = publishRefusal(output);
       if (refusal) throw new Error(refusal);
@@ -165,6 +180,7 @@ async function runDay(day, { dryRun, force, out }) {
       scanErrors: output.scanErrors,
       rows: rows.length,
       splitDropped,
+      extraSymbols: extraSymbols.length,
       bullish: rows.filter((r) => r.direction === "bullish").length,
       bearish: rows.filter((r) => r.direction === "bearish").length,
       timeTravel: {
