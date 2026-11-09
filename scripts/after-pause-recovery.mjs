@@ -10,10 +10,11 @@
  *   node scripts/after-pause-recovery.mjs <step> [options]
  *
  *   deploy      GET <APP_URL>/api/health. Passes on 200 with status "ok"
- *               and the build commit it reports equal to --expect-sha (default:
- *               this checkout's origin/main). A 402 means the pause is still
- *               on; no commit means the Oct 30 build still serves, since the
- *               latest code goes live only with the first push to main.
+ *               and the build commit it reports (`commit`, PR #623) equal to
+ *               --expect-sha (default: this checkout's origin/main). A 402
+ *               means the pause is still on; no `commit` key means a build
+ *               older than #623 (the Oct 30 build) still serves, so confirm
+ *               the commit in Vercel; a null commit fails.
  *   dry-run     the backfill in dry-run mode (scripts/backfill-daily-scans.mjs)
  *               for --from (default 2026-10-30) to --to (default: the last
  *               trading day whose 7 PM ET scan time has passed), then checks

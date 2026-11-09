@@ -166,9 +166,12 @@ export function judgeReviewedDryRun(
 
 /**
  * Is the site up, and is it running the expected build? `/api/health` reports
- * `commit` from the build's own environment (Vercel's VERCEL_GIT_COMMIT_SHA);
- * the Oct 30 build predates the field, so an answer without it is the old
- * build. A 402 is the hosting pause. `expectSha` may be a prefix.
+ * `commit` (PR #623): the serving build's commit id, or null when the build
+ * cannot tell. A build older than #623 (the paused Oct 30 build, and anything
+ * before the first train after the lift) has no `commit` key at all: WAIT, and
+ * confirm the production commit through the Vercel deployment instead. A null
+ * commit fails: the build should know its commit. A 402 is the hosting pause.
+ * `expectSha` may be a prefix.
  */
 export function judgeDeploy(status: number, text: string, expectSha: string | null): Verdict[] {
   if (status === 402) return [{ level: "FAIL", message: `402 ${text.split("\n")[0]}: the hosting pause is still on` }];
@@ -183,8 +186,13 @@ export function judgeDeploy(status: number, text: string, expectSha: string | nu
     { level: "PASS", message: `HTTP 200, status ok, market data ${body.feedMode} (${body.provider}), server time ${body.timestamp}` },
   ];
   const commit = typeof body.commit === "string" && body.commit ? body.commit : null;
-  if (!commit) {
-    out.push({ level: "WAIT", message: "the site reports no build commit: the Oct 30 build is still serving; the latest code goes live with the first push to main after the lift" });
+  if (!("commit" in body)) {
+    out.push({
+      level: "WAIT",
+      message: "the site reports no build commit (a build older than #623, such as the Oct 30 build): confirm the production deployment's commit in Vercel; the latest code goes live with the first push to main after the lift",
+    });
+  } else if (!commit) {
+    out.push({ level: "FAIL", message: "the site reports a null build commit: confirm the production deployment's commit in Vercel" });
   } else if (!expectSha) {
     out.push({ level: "WARN", message: `the site runs ${commit.slice(0, 7)}; no expected commit was given to compare` });
   } else if (commit.startsWith(expectSha) || expectSha.startsWith(commit)) {

@@ -154,6 +154,7 @@ describe("the deploy check", () => {
     const old = judgeDeploy(200, health({}), "d2e65d0abc");
     expect(levels(old)).toEqual(["PASS", "WAIT"]);
     expect(old[1].message).toContain("Oct 30 build");
+    expect(levels(judgeDeploy(200, health({ commit: null }), "d2e65d0abc"))).toEqual(["PASS", "FAIL"]);
     expect(levels(judgeDeploy(200, health({ commit: "1111111aaaa" }), "d2e65d0abc"))).toEqual(["PASS", "WAIT"]);
   });
 
