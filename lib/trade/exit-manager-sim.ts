@@ -561,7 +561,7 @@ async function finish(
   run.notes.push(`${plan.symbol}: exit plan finished — logged at ${exitPrice.toFixed(2)}.`);
 }
 
-function describeSimSignal(plan: SimPlanRow): string {
+export function describeSimSignal(plan: Pick<SimPlanRow, "stop_loss" | "take_profit_1" | "master_profit">): string {
   const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
   const master = plan.master_profit != null ? `, master ${usd(plan.master_profit)}` : "";
   return `Protocol levels — stop ${usd(plan.stop_loss)}, TP1 ${usd(plan.take_profit_1)}${master}`;

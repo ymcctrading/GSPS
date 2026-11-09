@@ -67,6 +67,13 @@ export interface StopOutArgs {
   brokenLevel?: number | null;
   /** The best price the trade reached (the exit manager's high water), when known. */
   extreme?: number | null;
+  /**
+   * False ends the plan without seeding its reversal or re-buy. Only the
+   * after-the-pause settlement (`lib/recovery/settlePausedExit.ts`) passes it:
+   * a stop it books weeks after the bar it happened on would seed a follow-on
+   * at a level the market has long since left. Defaults to true.
+   */
+  seedFollowOns?: boolean;
 }
 
 /**
@@ -116,6 +123,7 @@ export async function handleAutomatedStopOut(
   if (!invalidated.ok) return;
 
   if (invalidated.plan.market !== "us_equity") return;
+  if (args.seedFollowOns === false) return;
   const cause = args.cause === undefined ? "stop" : args.cause;
   if (reversesOn(cause)) await seedPivotTradePlan(supabase, userId, invalidated.plan, args);
   // Only the original trade re-buys, as the replay reads it (`rebuyPlanAt` on

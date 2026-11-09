@@ -54,6 +54,7 @@ import { readGannExitFromBars } from "@/lib/trade/gann-exit-live";
 import { regularSessionBars } from "@/lib/gann/intradayExit";
 import { etDateKey } from "@/lib/market/session";
 import { stopFill } from "@/lib/backtest/replay";
+import { snapToTick, tickSizeFor } from "@/lib/trade/tick-size";
 
 const BAR_MS = 15 * 60_000;
 
@@ -150,6 +151,7 @@ export function walkPausedExit(input: {
   let ambiguousBars = 0;
   let barsWalked = 0;
   let lastDate = etDateKey(new Date(from));
+  const tick = tickSizeFor({ assetType: "EQUITY" }, p.entryPrice > 0 ? p.entryPrice : 1).size;
 
   const closeAll = (price: number, at: string, reason: string) => {
     for (const t of open.splice(0)) fills.push({ key: t.key, qty: t.qty, price, at, reason });
@@ -172,8 +174,10 @@ export function walkPausedExit(input: {
           closeAll(bar.o, bar.t, `exit signal: ${reading.exit.reason}`);
           break;
         }
-        if (tighter(long, reading.stop, stop)) {
-          stop = reading.stop;
+        // Snapped to the tick away from the price, as `planStopAdjustment` snaps it.
+        const snapped = snapToTick(reading.stop, tick, long ? "down" : "up");
+        if (tighter(long, snapped, stop)) {
+          stop = snapped;
           stopReason = reading.stopReason;
         }
       }
@@ -245,7 +249,8 @@ export function firstPassAfterPause(input: {
     (input.monthly ?? []).filter((m) => etDateKey(new Date(m.t)) < today),
   );
   let stop = p.appliedStop ?? p.initialStop;
-  if (tighter(long, reading.stop, stop)) stop = reading.stop;
+  const snapped = snapToTick(reading.stop, tickSizeFor({ assetType: "EQUITY" }, p.entryPrice > 0 ? p.entryPrice : 1).size, long ? "down" : "up");
+  if (tighter(long, snapped, stop)) stop = snapped;
   const remaining = open.filter((t) => {
     if (t.target != null && (long ? best! >= t.target : best! <= t.target)) {
       fills.push({ key: t.key, qty: t.qty, price: t.target, reason: t.key === "scale_out" ? "TP1" : "MTP" });
