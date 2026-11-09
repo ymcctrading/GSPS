@@ -5,6 +5,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { pricedBeforeSession, scanFreshness, type ScanFreshness } from "@/lib/scan/freshness";
+import { isReconstructed } from "@/lib/scan/reconstructed";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import type { ScanRow } from "@/components/scan/results-table";
 import type { DecisionState, PublicScoreSummary, ScanDecision, ScoreBreakdownItem, SetupKind } from "@/lib/types";
@@ -177,6 +178,12 @@ export interface DailyScans {
    * "Scanned HH:MM" instead of silently reusing a cached run.
    */
   scannedAt: string | null;
+  /**
+   * True when the rows on screen were rebuilt after the fact by the backfill
+   * (`detail.backfilledAt`, `lib/scan/reconstructed.ts`), not published by the
+   * scan on its evening. The screen says so beside the date.
+   */
+  reconstructed: boolean;
   bullish: ScanRow[];
   bearish: ScanRow[];
 }
@@ -187,6 +194,7 @@ const NO_SCAN = (configured: boolean): DailyScans => ({
   freshness: scanFreshness(null, new Date()),
   pricedBeforeSession: false,
   scannedAt: null,
+  reconstructed: false,
   bullish: [],
   bearish: [],
 });
@@ -229,6 +237,7 @@ export async function getDailyScans(): Promise<DailyScans> {
     freshness: scanFreshness(scanDate, new Date()),
     pricedBeforeSession: pricedBeforeSession(scanDate, scannedAt),
     scannedAt: scannedAt ?? null,
+    reconstructed: rows.some((r) => isReconstructed(r.detail as { backfilledAt?: unknown } | null)),
     bullish: rows.filter((r) => r.direction === "bullish").map(toRow),
     bearish: rows.filter((r) => r.direction === "bearish").map(toRow),
   };

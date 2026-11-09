@@ -18,6 +18,8 @@
  * outcome fields leave the server. No quote or bar is fetched. The API cuts a
  * read at 1,000 rows without an error, so every list read pages (`readAll`);
  * the two chosen sessions are read on their own (30 rows at most each).
+ * `reconstructedDates` lists the sessions rebuilt after the fact by the
+ * backfill, which the screen marks (`lib/scan/reconstructed.ts`).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,6 +27,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 import { isComplete, isInvalidated } from "@/lib/dailyScans";
 import { etDateKey } from "@/lib/market/session";
+import { isReconstructed } from "@/lib/scan/reconstructed";
 import { PRODUCTION_REPLAY_RUNS } from "@/lib/backtest/replayReference";
 import { publicVersionLabel } from "@/lib/backtest/publicVersion";
 import {
@@ -127,13 +130,18 @@ export async function GET(req: NextRequest) {
   // Every session with a published list, newest first, inside the tier's reach.
   // Every published direction has a rank 1 (`lib/scan/publish.ts` ranks from
   // 1), so reading those rows lists the dates at two rows a session at most.
-  const { rows: dateRows, error: datesError } = await readAll<{ scan_date: string }>((from, to) => {
-    let q = supabase.from("daily_scans").select("scan_date").eq("rank", 1);
+  // `backfilledAt` marks a day rebuilt after the fact (`lib/scan/reconstructed.ts`);
+  // the backfill stamps every row of the day, so the rank-1 rows carry it too.
+  const { rows: dateRows, error: datesError } = await readAll<{ scan_date: string; backfilledAt: string | null }>((from, to) => {
+    let q = supabase.from("daily_scans").select("scan_date, backfilledAt:detail->>backfilledAt").eq("rank", 1);
     if (floor) q = q.gte("scan_date", floor);
     return q.order("scan_date", { ascending: false }).range(from, to);
   });
   if (datesError) return NextResponse.json({ error: datesError }, { status: 500 });
   const dates = [...new Set(dateRows.map((r) => r.scan_date))];
+  const reconstructedDates = [
+    ...new Set(dateRows.filter((r) => isReconstructed({ backfilledAt: r.backfilledAt })).map((r) => r.scan_date)),
+  ];
 
   const params = new URL(req.url).searchParams;
   const asked = (name: string) => {
@@ -146,6 +154,7 @@ export async function GET(req: NextRequest) {
   const empty = (note: string) =>
     NextResponse.json({
       dates,
+      reconstructedDates,
       earlier: null,
       later: null,
       rows: [],
@@ -237,6 +246,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     dates,
+    reconstructedDates,
     earlier,
     later,
     rows,

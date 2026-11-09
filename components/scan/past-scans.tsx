@@ -16,6 +16,8 @@ import { walkedOnEarlierRules } from "@/lib/scanner/pastScans";
 import type { ReplayReference } from "@/lib/backtest/replayReference";
 import { formatUsd } from "@/lib/utils";
 import { tickerHref } from "@/lib/routes";
+import { ReconstructedMarker } from "@/components/scan/reconstructed-notice";
+import { RECONSTRUCTED_NOTE } from "@/lib/scan/reconstructed";
 
 /**
  * Two sessions' published daily lists side by side, and the forward test
@@ -25,6 +27,8 @@ import { tickerHref } from "@/lib/routes";
 
 interface PastScansResponse {
   dates: string[];
+  /** Sessions rebuilt after the fact, not published on their evening (`lib/scan/reconstructed.ts`). */
+  reconstructedDates?: string[];
   earlier: string | null;
   later: string | null;
   rows: PastScanCompared[];
@@ -103,6 +107,9 @@ export function PastScans() {
   const exact = data?.exactScoreDisplayEnabled ?? false;
   const bullish = data?.rows.filter((r) => r.direction === "bullish") ?? [];
   const bearish = data?.rows.filter((r) => r.direction === "bearish") ?? [];
+  const rebuilt = new Set(data?.reconstructedDates ?? []);
+  const anyRebuilt =
+    !!data && [data.earlier, data.later, ...(data.rows.map((r) => r.executeOn))].some((d) => d !== null && rebuilt.has(d));
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -120,6 +127,7 @@ export function PastScans() {
               <DatePicker
                 label="Earlier"
                 dates={data.dates}
+                rebuilt={rebuilt}
                 value={shownEarlier}
                 onChange={(d) => {
                   setEarlier(d);
@@ -129,6 +137,7 @@ export function PastScans() {
               <DatePicker
                 label="Later"
                 dates={data.dates}
+                rebuilt={rebuilt}
                 value={shownLater}
                 onChange={(d) => {
                   setLater(d);
@@ -148,6 +157,7 @@ export function PastScans() {
                 earlier={data.earlier}
                 later={data.later}
                 exact={exact}
+                rebuilt={rebuilt}
               />
               <DirectionList
                 title="Sell list"
@@ -155,12 +165,18 @@ export function PastScans() {
                 earlier={data.earlier}
                 later={data.later}
                 exact={exact}
+                rebuilt={rebuilt}
               />
               <p className="text-xs text-muted">
                 The forward test follows only the Execute calls the scheduled scan made, entering on the reaction and
                 exiting on the plan&apos;s exit rules as a live trade would. A Watch is not a call, so it has no result; it shows
                 the day it became an Execute, if it did before the later date.
               </p>
+              {anyRebuilt && (
+                <p className="text-xs text-muted">
+                  <span className="font-medium">Reconstructed after the fact:</span> {RECONSTRUCTED_NOTE}
+                </p>
+              )}
             </>
           )}
         </CardContent>
@@ -174,11 +190,13 @@ export function PastScans() {
 function DatePicker({
   label,
   dates,
+  rebuilt,
   value,
   onChange,
 }: {
   label: string;
   dates: string[];
+  rebuilt: Set<string>;
   value: string | null;
   onChange: (date: string) => void;
 }) {
@@ -193,6 +211,7 @@ function DatePicker({
         {dates.map((d) => (
           <option key={d} value={d}>
             {formatSession(d)}
+            {rebuilt.has(d) ? " (reconstructed)" : ""}
           </option>
         ))}
       </select>
@@ -206,24 +225,35 @@ function DirectionList({
   earlier,
   later,
   exact,
+  rebuilt,
 }: {
   title: string;
   rows: PastScanCompared[];
   earlier: string;
   later: string;
   exact: boolean;
+  rebuilt: Set<string>;
 }) {
   return (
     <div className="rounded-lg border border-border">
       <div className="border-b border-border bg-background/50 px-3 py-2 text-xs font-medium text-muted">
-        {title} · {formatSession(earlier)} against {formatSession(later)}
+        {title} · {formatSession(earlier)}
+        {rebuilt.has(earlier) && <ReconstructedMarker />} against {formatSession(later)}
+        {rebuilt.has(later) && <ReconstructedMarker />}
       </div>
       {rows.length === 0 ? (
         <p className="px-3 py-4 text-sm text-muted">Nothing published on either day.</p>
       ) : (
         <div className="divide-y divide-border">
           {rows.map((r) => (
-            <ComparedRow key={`${r.symbol}-${r.direction}`} row={r} earlier={earlier} later={later} exact={exact} />
+            <ComparedRow
+              key={`${r.symbol}-${r.direction}`}
+              row={r}
+              earlier={earlier}
+              later={later}
+              exact={exact}
+              rebuilt={rebuilt}
+            />
           ))}
         </div>
       )}
@@ -236,11 +266,13 @@ function ComparedRow({
   earlier,
   later,
   exact,
+  rebuilt,
 }: {
   row: PastScanCompared;
   earlier: string;
   later: string;
   exact: boolean;
+  rebuilt: Set<string>;
 }) {
   const change = CHANGE_LABELS[row.change];
   return (
@@ -251,6 +283,7 @@ function ComparedRow({
         </Link>
         {change && <Badge variant={change.variant}>{change.label}</Badge>}
         {row.executeOn && <Badge variant="bull">Execute on {formatSession(row.executeOn)}</Badge>}
+        {row.executeOn && rebuilt.has(row.executeOn) && <ReconstructedMarker />}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <DayCell date={earlier} row={row.earlier} forward={row.earlierForward} exact={exact} />
