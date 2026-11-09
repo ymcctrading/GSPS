@@ -38,8 +38,8 @@ export function TradingRemindersSettings() {
           <div>
             <p className="text-sm font-medium">Rest twice a year</p>
             <p className="text-xs text-muted">
-              Around June 21 and December 21, a reminder to close out your trades and take a break
-              before starting fresh.
+              Twice a year, a reminder to close out your trades and take a break before starting
+              fresh.
             </p>
           </div>
           <Switch

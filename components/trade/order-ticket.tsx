@@ -1518,7 +1518,7 @@ function ExitPlanNotice({
         <p className="mt-1">
           {intraday
             ? "" // the intraday panel above states the session's trail and close
-            : "Once the trade is clearly ahead, the stop moves to your entry. After that it follows each new swing in the trade's direction, and last month's extreme once a new month starts. The position is closed if price falls back through the level it broke out of, closes against the trade three days running, or the trend turns. "}
+            : "Once the trade is clearly ahead, the stop moves to your entry. After that it follows each new swing in the trade's direction. The position is closed if price falls back through the level it broke out of, or the trend turns. "}
           Nothing sells at {targets} automatically; the whole position stays in, with the stop moved
           along behind it, until the stop is hit or the trend turns. The stop moves while the app is
           open; the stop resting at the broker is what protects the position the rest of the time.

@@ -486,7 +486,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
           className="mt-3"
           headline={
             <Badge variant={isRisk ? "warn" : up ? "bull" : "bear"} className="px-3 py-1 text-sm">
-              {alert.confidence}/100 confidence
+              {alert.confidence}% of checks met
             </Badge>
           }
           actions={

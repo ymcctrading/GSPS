@@ -398,7 +398,7 @@ function BacktestStats() {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <p className="text-xs text-muted">
-        {SNAPSHOT_BACKTEST.symbolsLabel} over {SNAPSHOT_BACKTEST.window}
+        Example only: {SNAPSHOT_BACKTEST.symbolsLabel} over {SNAPSHOT_BACKTEST.window}
       </p>
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Setups" value={String(SNAPSHOT_BACKTEST.trades)} />

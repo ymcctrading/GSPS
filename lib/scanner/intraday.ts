@@ -41,7 +41,7 @@
  * | Was | Now | Gann source |
  * |---|---|---|
  * | Break of the first 15 minutes' range | A close beyond the prior session's top or bottom by one intraday point (`old_level_cross`) | Buy on crossing old tops, sell on breaking old bottoms (*New Stock Trend Detector* pp. 20-22); a close decides, since intraday pokes often reverse (*Master Course* rule 5) |
- * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`space_overbalance`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
+ * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`pullback_record`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
  * | Higher highs and lows over six bars | The 3-bar swing chart's trend on the session's bars | The trend turns only when the last swing extreme breaks (NSTD pp. 19-20); "the hourly chart will give the first change in trend" (*Master Course* Ch. 13) |
  * | (new, 2026-10-16) | The same chart on hourly bars over recent sessions, a factor on the crossing and continuation alerts | "Keep an hourly High and Low Chart… the Hourly Chart will give the first change in trend" (*Master Course* Ch. 13) |
  *
@@ -118,8 +118,8 @@ import { APPROACH_LEAD_MAX_MINUTES, SCAN_CADENCE_MINUTES, readEntryApproach } fr
 export type SignalType =
   | "old_level_cross"
   | "trend_continuation"
-  | "space_overbalance"
-  | "overnight_turn"
+  | "pullback_record"
+  | "daily_swing_turn"
   | "hourly_turn"
   | "plan_level_held"
   | "reversal_risk"
@@ -1309,7 +1309,7 @@ function detectTrendContinuation(
     checks.push({
       name: "Trend continuation",
       passed: false,
-      detail: "The swing chart on today's bars has not completed a swing yet, so it has no trend to continue.",
+      detail: "Today's bars have not completed a swing yet, so it has no trend to continue.",
     });
     return null;
   }
@@ -1321,8 +1321,8 @@ function detectTrendContinuation(
     name: "Trend continuation",
     passed: beyondMidpoint,
     detail: beyondMidpoint
-      ? `The swing chart is ${direction === "up" ? "up" : "down"} and price is on that side of the day's 50% point.`
-      : `The swing chart is ${direction === "up" ? "up" : "down"}, but price is not ${direction === "up" ? "above" : "below"} the day's 50% point (${priceText(m.midpoint)}).`,
+      ? `The swings are ${direction === "up" ? "up" : "down"} and price is on that side of the day's 50% point.`
+      : `The swings are ${direction === "up" ? "up" : "down"}, but price is not ${direction === "up" ? "above" : "below"} the day's 50% point (${priceText(m.midpoint)}).`,
   });
   if (!beyondMidpoint) return null;
 
@@ -1365,7 +1365,7 @@ function detectTrendContinuation(
     move,
     factors,
     invalidation: stop,
-    whyThisAppeared: `${input.symbol}'s swing chart on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}.${stop !== m.midpoint ? ` The stop rests a small allowance past it, at ${priceText(stop)}, so ordinary noise around a level that is holding does not end the trade.` : ""}`,
+    whyThisAppeared: `${input.symbol}'s trend on today's bars is ${direction === "up" ? "up: it has crossed its last swing top" : "down: it has broken its last swing bottom"}, and price is ${direction === "up" ? "above" : "below"} the middle of today's range. In this method the trend stands until the last swing extreme breaks. It is not a promise that it continues — the level that would say otherwise is that halfway point, at ${priceText(m.midpoint)}.${stop !== m.midpoint ? ` The stop rests a small allowance past it, at ${priceText(stop)}, so ordinary noise around a level that is holding does not end the trade.` : ""}`,
   });
 }
 
@@ -1438,12 +1438,12 @@ function detectSpaceOverbalance(
     now,
     input,
     metrics: m,
-    type: "space_overbalance",
+    type: "pullback_record",
     direction: against,
     move: dayMove,
     factors,
     invalidation: stopPastMidpoint(m, against),
-    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). A pullback larger than any before it often means the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
+    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current pullback unusually large for this trend. That is a warning the trend may be weakening. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
 
@@ -1483,9 +1483,9 @@ function detectOvernightTurn(
   const anchor = direction === "up" ? r.lastBottom : r.lastTop;
   const cause =
     direction === "up"
-      ? `Today's low held above yesterday's bottom: the daily swing turned up${anchor !== null ? ` from its last bottom at ${priceText(anchor)}` : ""}.`
-      : `Today's low broke yesterday's bottom clearly: the daily swing turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
-  checks.push({ name: "Daily swing at the lows", passed: true, detail: cause });
+      ? `The daily swing turned up today${anchor !== null ? ` from its last low at ${priceText(anchor)}` : ""}.`
+      : `The daily swing turned down today${anchor !== null ? ` from its last high at ${priceText(anchor)}` : ""}.`;
+  checks.push({ name: "Daily swing", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
     { label: "The daily swing turned today", passed: true, detail: cause },
     midpointFactor(m, direction),
@@ -1496,7 +1496,7 @@ function detectOvernightTurn(
     now,
     input,
     metrics: m,
-    type: "overnight_turn",
+    type: "daily_swing_turn",
     direction,
     move: dayMove,
     factors,
@@ -1523,7 +1523,7 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
   const direction = m.hourly.trend;
   const move = measureMove(m.last, m.midpoint, "midpoint");
   if (!move) return null;
-  const cause = `The hourly swing chart turned ${direction} on the latest hour: the first change in trend.`;
+  const cause = `The hourly trend turned ${direction} on the latest hour: the first change in trend.`;
   checks.push({ name: "Hourly chart", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
     { label: "The hourly chart turned", passed: true, detail: cause },
@@ -1650,7 +1650,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
     checks.push({
       name,
       passed: false,
-      detail: `Price reacted to the plan's entry (${priceText(plan.entry)}), but the session's swing chart has not turned ${plan.direction} with a close back ${up ? "above" : "below"} it yet.`,
+      detail: `Price reacted to the plan's entry (${priceText(plan.entry)}), but the session's trend has not turned ${plan.direction} with a close back ${up ? "above" : "below"} it yet.`,
     });
     return null;
   }
@@ -1667,7 +1667,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   const rebuy = up ? extreme > m.low + allowance : extreme < m.high - allowance;
   const cause = rebuy
     ? `${input.symbol} reacted to its daily plan's entry at ${priceText(plan.entry)} earlier, and has now made a ${up ? "higher bottom" : "lower top"} at ${priceText(extreme)} and turned ${plan.direction} again: the next buying point while the plan stands.`
-    : `${input.symbol} reacted to its daily plan's entry at ${priceText(plan.entry)}, held, and the session's swing chart turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
+    : `${input.symbol} reacted to its daily plan's entry at ${priceText(plan.entry)}, held, and the session's trend turned ${plan.direction} with a close back ${up ? "above" : "below"} it.`;
   checks.push({ name, passed: true, detail: cause });
 
   // Measured from the closed bar, as the plan's entry and its pays-the-risk
@@ -2144,12 +2144,12 @@ function detectReversalRisk(
 
 function swingFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor {
   return {
-    label: "Today's swing chart agrees",
+    label: "Today's trend agrees",
     passed: m.swingTrend === direction,
     detail:
       m.swingTrend === null
-        ? "The 3-bar swing chart on today's bars has not turned yet."
-        : `The 3-bar swing chart on today's bars is ${m.swingTrend}.`,
+        ? "Today's swing read has not turned yet."
+        : `Today's swing read is ${m.swingTrend}.`,
   };
 }
 
@@ -2162,8 +2162,8 @@ function hourlyFactors(m: SessionMetrics, direction: Direction): ConfidenceFacto
       passed: m.hourly.trend === direction,
       detail:
         m.hourly.trend === null
-          ? "The hourly swing chart has no trend yet."
-          : `The hourly swing chart is ${m.hourly.trend}${m.hourly.turned ? ", and turned on the latest hour: the first change in trend" : ""}.`,
+          ? "The hourly bars show no trend yet."
+          : `The hourly trend is ${m.hourly.trend}${m.hourly.turned ? ", and turned on the latest hour: the first change in trend" : ""}.`,
     },
   ];
 }

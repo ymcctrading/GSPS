@@ -141,7 +141,7 @@ export function prepare(series: PinnedSeries): Prepared {
         date: bars[k].t,
         kind,
         confirmed: bars[months[b].last].t,
-        source: `monthly swing chart, ${kind === "top" ? "up" : "down"} campaign ${ym(months[a].t)} to ${ym(months[b].t)}`,
+        source: `monthly swings, ${kind === "top" ? "up" : "down"} campaign ${ym(months[a].t)} to ${ym(months[b].t)}`,
       },
       knownMonth: b,
     });
@@ -238,8 +238,8 @@ export function buildInput(p: Prepared, e: number, isLastSessionOfMonth: (e: num
         kind: pivot.kind,
         confirmed,
         mode: withTrend ? "rapid" : "ordinary",
-        modeSource: `3-Day Chart leg ${pivot.kind === "bottom" ? "up" : "down"} ${withTrend ? "with" : "against"} the ${main} monthly main trend`,
-        source: "3-Day Chart, last completed swing",
+        modeSource: `short-term leg ${pivot.kind === "bottom" ? "up" : "down"} ${withTrend ? "with" : "against"} the ${main} monthly main trend`,
+        source: "short-term swings, last completed swing",
       });
     }
   }
@@ -251,7 +251,7 @@ export function buildInput(p: Prepared, e: number, isLastSessionOfMonth: (e: num
     issueSession: issue,
     horizonEnd: addDays(issue, HORIZON_DAYS),
     trend,
-    trendSource: pivot ? `3-Day Chart line from the ${pivot.kind} of ${bars[pivot.index].t}` : "no completed 3-Day Chart swing",
+    trendSource: pivot ? `short-term line from the ${pivot.kind} of ${bars[pivot.index].t}` : "no completed short-term swing",
     majorAnchors: all.filter((a) => a.role === "major").map(strip) as unknown as MajorAnchor[],
     reactionAnchors: all.filter((a) => a.role === "reaction").map(strip) as unknown as ReactionAnchor[],
     lineage: { adapter: ADAPTER_VERSION, snapshot: p.series.snapshotHash, source: p.series.source },

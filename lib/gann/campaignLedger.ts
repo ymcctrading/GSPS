@@ -750,7 +750,7 @@ export function describeCampaignLedger(l: CampaignLedger): string[] {
       `The prior range (${p.priorRange.toFixed(2)}) ${p.kind === "resistance" ? "added to the later low" : "taken from the later high"} (${p.base.toFixed(2)}) gives ${p.price.toFixed(2)}, a ${p.kind} level to watch, not a target.`,
     );
   }
-  if (l.counterMoveThirdMonth) lines.push(`Still making new ${l.trend === "bullish" ? "lows" : "highs"} in the counter-move's third month: the trend is changing.`);
+  if (l.counterMoveThirdMonth) lines.push(`Still making new ${l.trend === "bullish" ? "lows" : "highs"} after more than two months of counter-move: the trend is changing.`);
   if (l.monthlyBreak) lines.push(`Broke the prior month's ${l.trend === "bullish" ? "low" : "high"}${l.monthlyBreakFirst ? ", the first such break of the campaign" : ""}.`);
   if (l.contracting) lines.push("Each of the last three reactions was smaller than the one before.");
   if (l.equalCorrections) lines.push("The last three reactions in this uptrend were nearly equal in size. Shown for context; it does not change the setup.");

@@ -131,10 +131,10 @@ export function RiskPanel({ refreshKey }: { refreshKey?: unknown }) {
                 value={formatUsd(data.maxRiskPerTrade)}
                 note={
                   data.maxRiskSetBy === "profits"
-                    ? "A tenth of your profits, which is less than a tenth of your trading capital"
+                    ? "Set by your recent profits, which is lower than your usual limit"
                     : data.maxRiskSetBy === "novice_open_risk"
                       ? "The room left under your 2% open-risk limit"
-                      : `A tenth of your ${formatUsd(data.unit, 0)} trading capital`
+                      : `Your per-trade limit on ${formatUsd(data.unit, 0)} trading capital`
                 }
               />
               <Figure

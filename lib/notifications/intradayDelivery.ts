@@ -51,6 +51,7 @@ import { tickerHref } from "@/lib/routes";
 import { etDateKey } from "@/lib/market/session";
 import { APPROACH_NOTICES, NOTICE_SIGNALS } from "@/lib/scanner/intradayDisplay";
 import { approachDue, approachLeadMinutes } from "@/lib/scanner/entryApproach";
+import { storedIdsFor } from "@/lib/scanner/storedSignalIds";
 
 /** How far back a notice's notification_log row still counts as "already pushed". */
 export const NOTIFICATION_DEDUP_HOURS = 24;
@@ -138,9 +139,13 @@ async function alreadySent(
   alert: Alert,
   now: Date,
 ): Promise<boolean> {
-  const hash = signalHashFor(alert);
+  // A send logged before the 2026-11-09 id rename (migration 0145) still
+  // counts as this signal's, until the migration rewrites the log.
+  const hashesFor = (direction: Alert["direction"]) =>
+    storedIdsFor(alert.type).map((id) => signalHashFor({ symbol: alert.symbol, type: id as Alert["type"], direction }));
+  const same = hashesFor(alert.direction);
   const notice = NOTICE_SIGNALS.has(alert.type);
-  const keys = notice ? [hash] : [hash, signalHashFor({ ...alert, direction: alert.direction === "up" ? "down" : "up" })];
+  const keys = notice ? same : [...same, ...hashesFor(alert.direction === "up" ? "down" : "up")];
   const hours = notice ? NOTIFICATION_DEDUP_HOURS : SIGNAL_READ_HOURS;
   const since = new Date(now.getTime() - hours * 3600_000).toISOString();
   const { data, error } = await service
@@ -162,7 +167,7 @@ async function alreadySent(
     if (etDateKey(new Date(r.triggered_at)) !== today) continue;
     if (!latest || r.triggered_at > latest.triggered_at) latest = r;
   }
-  return latest?.signal_hash === hash;
+  return latest != null && same.includes(latest.signal_hash);
 }
 
 /**

@@ -74,7 +74,7 @@ describe("countWindowsAt", () => {
       return countWindowsAt(bars, lastDate(bars)).filter((x) => x.rule === rule);
     };
     expect(at(23, "C-TIME-07")[0]).toMatchObject({ from: "low", label: "22 market days from the 2026-01-31 low, 2 × 11¼" });
-    expect(at(77, "C-TIME-14")[0]).toMatchObject({ from: "low", label: "11.25 weeks from the 2026-01-31 low on the square of 90" });
+    expect(at(77, "C-TIME-14")[0]).toMatchObject({ from: "low", label: "11.25 weeks from the 2026-01-31 low on the quarter-circle count" });
     // The range runs from the opening high down to the later low, so it is counted from the low.
     const range = at(25, "C-TIME-22").find((x) => x.label.startsWith("the range"));
     expect(range).toMatchObject({ from: "low" });
@@ -85,7 +85,7 @@ describe("countWindowsAt", () => {
       const bars = withPivotLow(n);
       return countWindowsAt(bars, lastDate(bars)).filter((x) => x.rule === rule);
     };
-    expect(at(22, "M-T16")[0]).toMatchObject({ from: "low", label: "3.25 weeks from the 2026-01-31 low on the Square of 52" });
+    expect(at(22, "M-T16")[0]).toMatchObject({ from: "low", label: "3.25 weeks from the 2026-01-31 low on the weekly count" });
     expect(at(84, "C-TIME-16")[0]).toMatchObject({ from: "low" });
   });
 

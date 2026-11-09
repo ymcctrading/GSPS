@@ -109,7 +109,7 @@ const CONTEXT = "Shown for context; it does not change the setup.";
 
 export function describeFirstRally(r: FirstRallyReading): string | null {
   if (r.state === "firstRally") {
-    return `The advance from the ${r.lowMonth} low topped in ${r.topMonth} and could not go higher in its third month, on volume ${r.volumeRatio!.toFixed(1)}× the months before: only a first rally out of a bear market. ${CONTEXT}`;
+    return `The advance from the ${r.lowMonth} low topped in ${r.topMonth} and could not go higher after it, on volume ${r.volumeRatio!.toFixed(1)}× the months before: only a first rally out of a bear market. ${CONTEXT}`;
   }
   if (r.state === "bullCampaign") {
     return `The advance from the ${r.lowMonth} low has risen ${r.advanceMonths} months, past the two months a bear market's rallies run: a bull campaign. ${CONTEXT}`;

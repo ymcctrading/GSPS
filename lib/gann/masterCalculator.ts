@@ -193,15 +193,15 @@ export function squareBoundaryLevels(
   const name = (j: number) => (j % 2 === 0 ? `end of square ${j / 2}` : `centre of square ${(j + 1) / 2}`);
   for (let j = 1; j * 72 * unit <= hi; j++) {
     const p = j * 72 * unit;
-    if (p >= lo) out.push({ price: p, label: `Square of 144 from 0: ${name(j)}` });
+    if (p >= lo) out.push({ price: p, label: `144 grid from 0: ${name(j)}` });
   }
   for (let j = 1; low + j * 72 * unit <= hi; j++) {
     const p = low + j * 72 * unit;
-    if (p >= lo) out.push({ price: p, label: `Square of 144 from the low: ${name(j)}` });
+    if (p >= lo) out.push({ price: p, label: `144 grid from the low: ${name(j)}` });
   }
   for (let j = 1; high - j * 72 * unit >= lo && high - j * 72 * unit > 0; j++) {
     const p = high - j * 72 * unit;
-    if (p <= hi) out.push({ price: p, label: `Square of 144 down from the high: ${name(j)}` });
+    if (p <= hi) out.push({ price: p, label: `144 grid down from the high: ${name(j)}` });
   }
   return out.sort((a, b) => a.price - b.price);
 }
@@ -365,11 +365,11 @@ export function describeMasterCalculator(r: MasterCalculatorReading): string[] {
   const lines: string[] = [];
   const z = r.price.zero;
   lines.push(
-    `Square of 144: price is ${z.value.toFixed(1)} points (1 point = ${r.unit.toFixed(2)}), position ${z.position.toFixed(1)} in square ${z.square}.`,
+    `144 grid: price is ${z.value.toFixed(1)} points (1 point = ${r.unit.toFixed(2)}), position ${z.position.toFixed(1)} in square ${z.square}.`,
   );
   for (const p of r.strongPlacements) {
     const s = r.price[p];
-    lines.push(`Square of 144 with ${PLACEMENT_LABEL[p]}: price on ${s.nearest.fraction} (${s.nearest.point}) of the square.`);
+    lines.push(`144 grid with ${PLACEMENT_LABEL[p]}: price on ${s.nearest.fraction} (${s.nearest.point}) of the square.`);
   }
   for (const t of [r.fromHigh, r.fromLow]) {
     if (!t) continue;

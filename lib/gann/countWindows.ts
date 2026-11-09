@@ -127,11 +127,11 @@ export function countWindowsAt(
   const seasonal = readSeasonalCount(asOf);
   if (seasonal?.point.rank === 5) push("M-T8", `the ${seasonal.point.label} point of the seasonal year`);
   const winter = readWinterQuarterCount(asOf);
-  if (winter) push("C-TIME-05", `${winter.point.label} on the winter-quarter count from December 22`);
+  if (winter) push("C-TIME-05", `${winter.point.label} on the winter-quarter count`);
 
   for (const h of readWheelCountsCh5(bars, asOf)) push("C-TIME-06", `${h.label} from the ${h.pivotDate} ${h.pivotKind}, a count of the circle`, h.pivotKind);
   for (const h of readWeekCounts(bars, asOf)) push("C-TIME-08", `${h.label} from the ${h.pivotDate} ${h.pivotKind}`, h.pivotKind);
-  for (const h of squareOf52Hits(bars, asOf)) push("M-T16", `${h.weeks} weeks from the ${h.pivotDate} ${h.pivotKind} on the Square of 52`, h.pivotKind);
+  for (const h of squareOf52Hits(bars, asOf)) push("M-T16", `${h.weeks} weeks from the ${h.pivotDate} ${h.pivotKind} on the weekly count`, h.pivotKind);
 
   for (const b of readTimeBalanceSpans(bars)) {
     push("M-T11", `${round(b.openWeeks)} weeks since the last ${b.kind}, balancing ${round(b.priorWeeks)} weeks from ${b.kind} to ${b.kind}`, null, b.kind);
@@ -164,14 +164,14 @@ export function countWindowsAt(
   }
   if (anchors?.inception) {
     for (const h of squareOf90Counts(anchors.inception, "inception", asOf)) {
-      push("C-TIME-14", `${h.step} ${h.unit} from the company's ${h.originDate} inception on the square of 90`);
+      push("C-TIME-14", `${h.step} ${h.unit} from the company's ${h.originDate} inception on the quarter-circle count`);
     }
   }
   if (lo < bars.length - 1) {
     // Read at midnight on the turn's date, as `readPriceAsTime` reads it for the card.
     const lastAt = new Date(`${date}T00:00:00Z`);
     for (const h of squareOf90Counts({ date: low.date, precision: "day" }, "low", lastAt)) {
-      push("C-TIME-14", `${h.step} ${h.unit} from the ${h.originDate} low on the square of 90`, "low");
+      push("C-TIME-14", `${h.step} ${h.unit} from the ${h.originDate} low on the quarter-circle count`, "low");
     }
   }
 
@@ -191,7 +191,7 @@ export function countWindowsAt(
   const sq = timing.square144;
   if (sq && sq.units.length >= 2) {
     const kind = hi >= lo ? "high" : "low";
-    push("C-TIME-16", `${sq.units.join(" and ")} from the year's ${sq.pivotDate} extreme on multiples of 12, the Square of 144 in time`, extremeKind(bars, sq.pivotDate) ?? kind);
+    push("C-TIME-16", `${sq.units.join(" and ")} from the year's ${sq.pivotDate} extreme on multiples of 12`, extremeKind(bars, sq.pivotDate) ?? kind);
   }
   const mark = timing.changeDates?.dates.find((c) => Math.abs(Date.parse(`${c.date}T12:00:00Z`) - asOf.getTime()) <= DAY_MS);
   if (mark) push("C-TIME-18", `day ${mark.days} from the last swing, a date for a ${mark.expect}`, null, mark.expect === "high" ? "top" : "bottom");

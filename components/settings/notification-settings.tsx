@@ -121,7 +121,7 @@ export function NotificationSettings() {
           <Bell className="h-4 w-4 text-accent" /> Notifications
         </CardTitle>
         <CardDescription>
-          Alerts for high-confidence signals, with quiet hours and a minimum score filter, sent only once you turn them on here.
+          Alerts for setups that meet your score threshold, with quiet hours and a minimum score filter, sent only once you turn them on here.
           Push comes to this device as things happen: intraday signals, setups turning Execute, broken plans and price alerts.
           Email is kept for what needs you: your own positions and orders, a tracked setup turning Execute (once a day per symbol),
           a broken plan on a symbol you hold, and an evening digest with the day&apos;s signals. SMS is on the roadmap, so its

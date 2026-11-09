@@ -29,6 +29,13 @@
  *    anything, or not shown.
  */
 import type { MacroCycleResult, MacroCycleWindow } from "@/lib/gann/macroCycle";
+import { SHOWN_TIME_RECORDS } from "@/lib/timing/shownRecords";
+
+/**
+ * Server only. A client component reads `SHOWN_TIME_RECORDS`
+ * (`lib/timing/shownRecords.ts`), which these two entries are built from:
+ * this table's keys and family names name the rules and stay off the browser.
+ */
 
 export interface MeasuredRecord {
   /** The committed run, from the repo root. */
@@ -58,11 +65,11 @@ export type TimeLine =
 const BASE_RATES_2026_10_16 = "docs/replay-runs/2026-10-16-time-window-base-rates-736sym.json";
 
 export const TIME_LINE_RECORDS: Record<TimeLine, MeasuredRecord | null> = {
-  timeCycle: {
+  timeCycle: SHOWN_TIME_RECORDS.timing && {
     run: BASE_RATES_2026_10_16,
     families: ["anniversary1", "anniversary2", "anniversary3", "wheel", "dayBands"],
     beatsRandom: false,
-    summary: "Measured: no better than chance (736 symbols, 2017-2026)",
+    summary: SHOWN_TIME_RECORDS.timing.summary,
   },
   dayCountBands: {
     run: BASE_RATES_2026_10_16,
@@ -85,6 +92,8 @@ export const TIME_LINE_RECORDS: Record<TimeLine, MeasuredRecord | null> = {
   // The yearly-cycle convergence badge (`timeCycles.ts#yearCycleConvergence`).
   // `timeWindowBaseRate.ts` now scores a `yearCycles` family, but the
   // 2026-10-16 run predates it, so the badge stays hidden until a run holds it.
+  // When a run holds it, give it a record here and the same summary in
+  // `SHOWN_TIME_RECORDS.longTermTiming` (the test holds the two equal).
   yearCycles: null,
 };
 

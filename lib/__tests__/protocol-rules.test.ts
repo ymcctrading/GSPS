@@ -95,11 +95,12 @@ describe("the advertised targets match the priced ones", () => {
     expect(EXECUTE_RULE_LABEL).toContain(`${EXECUTE_SCORE_THRESHOLD}`);
     expect(EXECUTE_RULE_LABEL).toContain(`${TOTAL_POINTS}`);
     expect(EXECUTE_RULE_DETAIL).toMatch(/trade plan/);
-    expect(EXECUTE_RULE_DETAIL).toMatch(/broken out of it/);
-    expect(EXECUTE_RULE_DETAIL).toMatch(/month/);
-    expect(EXECUTE_RULE_DETAIL).toMatch(/distribution/);
-    expect(EXECUTE_RULE_DETAIL).toMatch(/failed top/);
+    // Since 2026-11-09 the hold conditions are named in general terms, not one
+    // by one: the list spelled out the method's own rules (confidential sources).
+    expect(EXECUTE_RULE_DETAIL).toMatch(/structure or timing/);
+    expect(EXECUTE_RULE_DETAIL).toMatch(/no farther than the risk/);
     expect(EXECUTE_RULE_DETAIL).toMatch(/behind the market/);
+    expect(EXECUTE_RULE_DETAIL).not.toMatch(/month|distribution|failed top|round number/);
     // No bar-sequence pattern holds a verdict since 2026-10-16 (N#1).
     expect(EXECUTE_RULE_DETAIL).not.toMatch(/pattern|failed-push/);
   });

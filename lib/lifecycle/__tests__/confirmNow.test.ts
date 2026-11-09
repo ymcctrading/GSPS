@@ -238,7 +238,7 @@ describe("readEntryConfirmationNow: a long waits while a distribution breakdown 
   it("waits on a long that would otherwise be ready", async () => {
     const r = await read(daily(2.5e6));
     expect(r).toMatchObject({ ready: false, stage: "broken" });
-    expect(r.note).toMatch(/broke down on volume/);
+    expect(r.note).toMatch(/broke the stock down from a top/);
   });
 
   it("is ready on the same long when the break came on light volume", async () => {

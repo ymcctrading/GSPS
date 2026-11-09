@@ -25,7 +25,7 @@ import { hasFeature, type PlatformTier } from "@/lib/tiers";
 import type { PublicScanResult } from "@/lib/types";
 import type { LiveQuote } from "@/app/api/quote/route";
 import type { StrategyModeId } from "@/lib/strategies/types";
-import { TIME_LINE_RECORDS } from "@/lib/gann/timeRecords";
+import { SHOWN_TIME_RECORDS } from "@/lib/timing/shownRecords";
 import { bindCachedPlansTo, planEvent, planEventLevel, planSessionKey, readCachedPlan, writeCachedPlan } from "@/lib/scan/planCache";
 import { clearRecentCharts, rememberRecentChart } from "@/lib/charts/recent";
 import { createClient } from "@/lib/supabase/client";
@@ -346,17 +346,17 @@ export function TickerView({ symbol }: { symbol: string }) {
          * standing condition rather than a live reading, and the research tab
          * carries it on every screen size.
          */}
-        {/* CYC-30: a time line is shown with its measured record, or not at all (lib/gann/timeRecords.ts). */}
-        {TIME_LINE_RECORDS.timeCycle && result?.chartLevels?.timingActive && (
+        {/* CYC-30: a time line is shown with its measured record, or not at all (lib/timing/shownRecords.ts). */}
+        {SHOWN_TIME_RECORDS.timing && result?.chartLevels?.timingActive && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
             ⏱ <GlossaryTerm term="Cyclical turn window" label="Cyclical turn window" className="decoration-warn/60" /> active
-            <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.timeCycle.summary})</span>
+            <span className="font-normal text-muted"> ({SHOWN_TIME_RECORDS.timing.summary})</span>
           </span>
         )}
-        {TIME_LINE_RECORDS.yearCycles && (result?.chartLevels?.longTermTimingCount ?? 0) > 0 && (
+        {SHOWN_TIME_RECORDS.longTermTiming && (result?.chartLevels?.longTermTimingCount ?? 0) > 0 && (
           <span className="hidden text-xs font-medium text-warn sm:inline">
             ⟳ <GlossaryTerm term="Long-term timing lines up" label="Long-term timing lines up" className="decoration-warn/60" />
-            <span className="font-normal text-muted"> ({TIME_LINE_RECORDS.yearCycles.summary})</span>
+            <span className="font-normal text-muted"> ({SHOWN_TIME_RECORDS.longTermTiming.summary})</span>
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">

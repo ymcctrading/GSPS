@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "GSPS — Structural Reversion Scanner",
   description:
-    "Multi-timeframe market scanning with structural analysis and precision entry execution.",
+    "Multi-timeframe market scanning with structural analysis and rule-based entry plans.",
   // Opened from an iPhone's Home Screen, GSPS runs as its own app (app/manifest.ts).
   appleWebApp: { capable: true, title: "GSPS", statusBarStyle: "default" },
 };

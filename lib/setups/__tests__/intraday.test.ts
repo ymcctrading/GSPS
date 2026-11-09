@@ -46,7 +46,7 @@ describe("intradayLevels", () => {
 describe("buildIntradaySynopsis", () => {
   it("counts the confidence factors that passed and states the plan in the daily card's terms", () => {
     expect(buildIntradaySynopsis(alert)).toBe(
-      "Old top or bottom crossed, up: 1 of 2 checks line up (confidence 75/100). " +
+      "Old top or bottom crossed, up: 1 of 2 checks line up. " +
         "Wait for a bar to close above $504.50, exit at $500.00 if it fails, first target $513.50 (2.0× the risk).",
     );
   });
@@ -124,7 +124,7 @@ describe("intradayChartPlan", () => {
   // (stop 49.69, TP1 52.29) while the chart drew the crossing's levels.
   const held: Alert = {
     ...alert,
-    type: "overnight_turn",
+    type: "daily_swing_turn",
     confidence: 90,
     invalidation: 495,
     continuationPlan: { ...alert.continuationPlan, invalidation: 495, firstTarget: 505, paysRisk: false },
@@ -143,7 +143,7 @@ describe("intradayChartPlan", () => {
 
   it("reads stored alerts the same way: an offered row before a held one, by confidence among the offered", () => {
     const stored = [
-      { ...recent[0], type: "overnight_turn" as const, confidence: 90, stop: 495, firstTarget: 505 },
+      { ...recent[0], type: "daily_swing_turn" as const, confidence: 90, stop: 495, firstTarget: 505 },
       { ...recent[0], confidence: 40, stop: 499 },
       recent[0],
     ];

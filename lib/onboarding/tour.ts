@@ -167,8 +167,8 @@ export const TOUR_STEPS: TourStep[] = [
     short: true,
     body: [
       "Your home screen. Once a day GSPS reviews the market and posts the findings here, so ten seconds gives you the state of play.",
-      "Findings split two ways: symbols expected to rise, and symbols expected to fall. Each row carries a score out of 9 and a one-word verdict.",
-      "Execute means strong and ready to trade. Watch means promising but not yet. Reject means leave alone. Those three words appear throughout GSPS.",
+      "Findings split two ways: setups to buy, and setups to sell. Each row carries a score out of 9 and a one-word verdict.",
+      "Execute means most conditions are met and the plan is priced. Watch means some are still missing. Reject means too few are met. Those three words appear throughout GSPS.",
       "The Dashboard also lists familiar symbols you can open on a tap, upcoming company earnings dates, and market news.",
     ],
   },
@@ -182,7 +182,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: [
       "Guided is the simplest route through GSPS, and the right place to begin.",
       "Rather than a screen of figures, Guided presents one recommendation at a time in full sentences: the action, the reasoning behind it, the cost, and the downside.",
-      "Only the strongest candidates reach Guided \u2014 setups scoring Execute with a complete trade plan already calculated. Everything weaker is filtered out before you ever see a card.",
+      "Only setups scoring Execute with a complete trade plan already calculated reach Guided. Everything else is filtered out before you ever see a card.",
       "Guided trades practice money exclusively. Connect a real brokerage account later and Guided shuts itself off rather than risk live funds.",
     ],
   },
@@ -222,7 +222,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: [
       "The Scanner runs the same analysis Guided runs, except you choose the targets. Enter any list of symbols and GSPS reports back on each one.",
       "Useful when a particular company is already on your mind \u2014 a store you shop at, a former employer \u2014 and you want a read on that company right now.",
-      "Expect \u201Cnothing here\u201D most of the time. Strong setups are genuinely rare, and a scanner that found one every session would be worth very little.",
+      "Expect \u201Cnothing here\u201D most of the time. Setups that meet every condition are rare, so most sessions turn up none.",
     ],
   },
   {
@@ -290,8 +290,8 @@ export const TOUR_STEPS: TourStep[] = [
     body: [
       "Backtest replays GSPS's rules across past market data and reports the outcome. Consider this the honesty check.",
       "Two figures matter: how often these setups made money, and how much the average trade returned against what that trade risked.",
-      "Read both carefully. A system winning 6 trades in 10 is a good system \u2014 and still loses the other 4. Losing trades are a normal part of a working method, not a sign of a broken one.",
-      "A strong record across past data still promises nothing about next week.",
+      "Read both carefully. Even a sound process loses some trades, so a loss on its own says little. Only a long record shows whether a method works.",
+      "No result on past data promises anything about next week.",
     ],
   },
   {

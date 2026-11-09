@@ -267,7 +267,7 @@ export function levelSources(price: number, chartLevels: ChartLevel[]): LevelSou
       level: above.price,
       threshold: roundThreshold("last", shortOfFigure(above.price, "below")),
       comparator: ">=",
-      note: "Set ⅜ point under the round number: markets turn just short of them.",
+      note: "Set a little before the round number is reached.",
     });
   }
   if (below) {
@@ -277,7 +277,7 @@ export function levelSources(price: number, chartLevels: ChartLevel[]): LevelSou
       level: below.price,
       threshold: roundThreshold("last", shortOfFigure(below.price, "above")),
       comparator: "<=",
-      note: "Set ⅜ point over the round number: markets turn just short of them.",
+      note: "Set a little before the round number is reached.",
     });
   }
   return out;

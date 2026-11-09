@@ -170,7 +170,7 @@ export function buildIntradaySynopsis(alert: Alert): string {
   const total = alert.confidenceFactors.length;
   const passed = alert.confidenceFactors.filter((f) => f.passed).length;
   const up = alert.direction === "up";
-  const first = `${SIGNAL_LABELS[alert.type]}, ${up ? "up" : "down"}: ${passed} of ${total} checks line up (confidence ${alert.confidence}/100).`;
+  const first = `${SIGNAL_LABELS[alert.type]}, ${up ? "up" : "down"}: ${passed} of ${total} checks line up.`;
 
   // A signal held from trading (measured losing, against the main trend, or after its pullback over-balanced)
   // is shown for study, not as a plan.

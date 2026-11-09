@@ -253,7 +253,7 @@ export function activeAngleLevels(asOf: Date, price: number, unit: number): { pr
           // The largest point at this degree not above price, and the next one up.
           const lo = Math.floor((pts - deg) / 360) * 360 + deg;
           const hi = lo + 360;
-          const label = `Active angle: ${ASPECT_NAME[aspect]} ${frame === "helio" ? "heliocentric" : "geocentric"} ${body}`;
+          const label = `Active angle: ${ASPECT_NAME[aspect]} ${frame === "helio" ? "helio" : "geo"} ${body}`;
           if (lo > 0 && (!below || lo > below.pts)) below = { pts: lo, label };
           if (!above || hi < above.pts) above = { pts: hi, label };
         }
@@ -459,12 +459,12 @@ const ASPECT_NAME: Record<number, string> = { 0: "on", 60: "60° from", 90: "squ
 
 /** Plain-language lines for the explanation trace. Active angles act as levels; the rest is labelled context. */
 export function describeAstroRules(r: AstroReading): string[] {
-  const tag = "Planetary (context)";
+  const tag = "Sky (context)";
   const lines: string[] = [];
   const a = r.activeAngles[0];
-  if (a) lines.push(`Planetary: price is ${ASPECT_NAME[a.aspect]} ${a.frame === "helio" ? "heliocentric" : "geocentric"} ${a.body} (${a.level.toFixed(2)}), an active angle.`);
+  if (a) lines.push(`Sky: price is ${ASPECT_NAME[a.aspect]} ${a.frame === "helio" ? "helio" : "geo"} ${a.body} (${a.level.toFixed(2)}), an active angle.`);
   const c = r.closedThroughBody;
-  if (c) lines.push(`${tag}: closed ${c.direction === "up" ? "above" : "below"} the longitude of ${c.frame === "helio" ? "heliocentric" : "geocentric"} ${c.body} (${c.level.toFixed(2)}).`);
+  if (c) lines.push(`${tag}: closed ${c.direction === "up" ? "above" : "below"} the longitude of ${c.frame === "helio" ? "helio" : "geo"} ${c.body} (${c.level.toFixed(2)}).`);
   if (r.sunTravel?.on) lines.push(`${tag}: price is at the Sun's travel since the ${r.sunTravel.lowDate} low, added to the low (${r.sunTravel.level.toFixed(2)}).`);
   if (r.marsHalfReturn?.today) lines.push(`${tag}: Mars is opposite its place at the ${r.marsHalfReturn.lowDate} low${r.marsHalfReturn.pass >= 3 ? ", the third pass, which the method calls very important" : ""}: a change date.`);
   else if (r.marsHalfReturn?.next) lines.push(`${tag}: next Mars half-return from the ${r.marsHalfReturn.lowDate} low: ${r.marsHalfReturn.next}.`);
@@ -474,15 +474,15 @@ export function describeAstroRules(r: AstroReading): string[] {
   if (r.newMoon) lines.push(`${tag}: New Moon within a day.`);
   if (r.lunarReturn) lines.push(`${tag}: the Moon is back at its place at the ${r.lunarReturn.pivotDate} swing pivot.`);
   const j = r.jensen;
-  if (j.price) lines.push(`Jensen's square of 90: price is ${j.price.points} points ${j.price.from === "low" ? "above the year's low" : "below the year's high"} (${j.price.level.toFixed(2)}), a ${j.price.square ? (j.price.strong ? "doubly strong square point, resistance" : "square point, resistance") : "trine point, consolidation"}.`);
-  if (j.time) lines.push(`Jensen's square of 90: ${j.time.count} ${j.time.unit} from the year's ${j.time.from}, on the ${j.time.points} count, a window for a turn.`);
+  if (j.price) lines.push(`Quarter-circle count: price is ${j.price.points} points ${j.price.from === "low" ? "above the year's low" : "below the year's high"} (${j.price.level.toFixed(2)}), a ${j.price.square ? (j.price.strong ? "doubly strong square point, resistance" : "square point, resistance") : "trine point, consolidation"}.`);
+  if (j.time) lines.push(`Quarter-circle count: ${j.time.count} ${j.time.unit} from the year's ${j.time.from}, on the ${j.time.points} count, a window for a turn.`);
   for (const h of j.aspects.hits) {
     const read = h.aspect.family === "square" ? "bearish" : h.aspect.family === "trine" ? "bullish" : h.aspect.family === "quintile" ? "a reversal trigger" : "takes the planets' nature";
     lines.push(
-      `Jensen: ${h.pair[0]} and ${h.pair[1]} are ${h.separation.toFixed(1)}° apart, his ${h.aspect.angle}° ${h.aspect.family === "conjunction" ? "conjunction" : `${h.aspect.family}-family aspect`} (${read}), ${h.applying ? "applying" : "separating"}${h.trigger ? `; ${h.trigger} triggers it today` : ""}.`,
+      `Aspect: ${h.pair[0]} and ${h.pair[1]} are ${h.separation.toFixed(1)}° apart, his ${h.aspect.angle}° ${h.aspect.family === "conjunction" ? "conjunction" : `${h.aspect.family}-family aspect`} (${read}), ${h.applying ? "applying" : "separating"}${h.trigger ? `; ${h.trigger} triggers it today` : ""}.`,
     );
   }
   const p = j.projection;
-  if (p?.ahead) lines.push(`Jensen's projection: the ${p.direction === "up" ? "advance" : "decline"} from the ${p.fromDate} close is estimated to exhaust near ${p.price.toFixed(2)}.`);
+  if (p?.ahead) lines.push(`Projection: the ${p.direction === "up" ? "advance" : "decline"} from the ${p.fromDate} close is estimated to exhaust near ${p.price.toFixed(2)}.`);
   return lines;
 }

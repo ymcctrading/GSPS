@@ -56,7 +56,7 @@ describe("the regime's swing structure", () => {
     expect(readGannTrend(bars)).toMatchObject({ threeDay: "bullish", weekly: "bullish", structureAgrees: false });
     const r = classifyRegime({ bars });
     expect(r.regime).toBe("range");
-    expect(r.reasons[0]).toBe("Weekly swing chart bullish, but the 3-day swings are not making higher tops and higher bottoms: no confirmed trend.");
+    expect(r.reasons[0]).toBe("Weekly trend bullish, but the short-term swings are not making higher tops and higher bottoms: no confirmed trend.");
   });
 
   it("names an over-balance as a changing trend", () => {
@@ -69,6 +69,6 @@ describe("the regime's swing structure", () => {
     expect(readGannTrend(bars)).toMatchObject({ weekly: "bullish", changing: true });
     const r = classifyRegime({ bars });
     expect(r.regime).toBe("range");
-    expect(r.reasons[0]).toBe("Weekly swing chart bullish, but the move against it has run larger or longer than any before it: the trend is changing.");
+    expect(r.reasons[0]).toBe("Weekly trend bullish, but the move against it has run larger or longer than any before it: the trend is changing.");
   });
 });
