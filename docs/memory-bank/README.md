@@ -14,7 +14,7 @@ This folder is the durable research memory the project owner asked for: every Ga
 
 A PDF copy of the report sits beside it.
 
-**Then go to** `sources/` for per-source detail. Each note has:
+**Then go to** the per-source notes, which are kept outside the repository in the project's private research files. Each note has:
 - a metadata table (tier, copyright, read status)
 - a synthesis with page or chapter references
 - a GSPS cross-reference
@@ -26,4 +26,4 @@ Read these alongside `AGENTS.md` and `docs/GANN_HISTORICAL_SOURCES.md`, which re
 
 **Deferred research prompts** are saved in [`FUTURE_PROMPTS.md`](FUTURE_PROMPTS.md), each with its start condition.
 
-**Keeping it current:** when a new source is read, add a `sources/` note in the same format and update the report's Part V and Part VI.
+**Keeping it current:** when a new source is read, add a per-source note in the same format to the private research files (never to this repository) and update the report's Part V and Part VI.
