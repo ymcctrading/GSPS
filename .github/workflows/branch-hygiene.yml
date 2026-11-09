@@ -37,7 +37,9 @@ jobs:
   # The two PR gates share one job since 2026-10-28 (owner: Actions minutes):
   # as two jobs each paid for its own runner minute.
   pr-gates:
-    if: github.event_name == 'pull_request'
+    # Drafts run nothing until marked ready (docs/CI-MINUTES.md); a title or
+    # body edit on a draft is re-checked by the ready_for_review run.
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     name: Branch age and roadmap phase
     steps:

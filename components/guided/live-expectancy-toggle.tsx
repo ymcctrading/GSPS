@@ -22,7 +22,7 @@ export function LiveExpectancyToggle() {
         className="flex items-center gap-2 self-start rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent"
       >
         <Activity className="h-4 w-4 shrink-0" />
-        {open ? "Hide live expectancy" : "Show live expectancy — is Guided currently profitable?"}
+        {open ? "Hide the recent replay" : "Show the recent replay: how Guided's rules did on past bars"}
         {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
       {open && <LiveExpectancy />}

@@ -24,6 +24,11 @@ export interface StrikeSelection {
   moneyness: Moneyness;
   underlying: string;
   underlyingPrice: number;
+  /**
+   * True when the chain behind this contract is modelled, not exchange data
+   * (`OptionChain.simulated`). The ticket says so beside the IV, as the chain does.
+   */
+  simulated?: boolean;
   /** Expirations the picker may offer, bounded by the symbol's horizon. */
   expirations: string[];
   maxExpiration: string;
@@ -130,7 +135,23 @@ export function StrikeOrderModal({
     });
   }, [contract, preview, levels, action]);
 
+  /**
+   * A contract from a modelled chain is not orderable here. The simulated
+   * chain (`simulateOptionChain`, used whenever the data provider has no
+   * options feed) carries no broker contract symbol, and its bid, ask, IV and
+   * greeks are generated, so neither the contract nor the cost shown is
+   * real. Before 2026-11-09 the ticket fell back to the underlying's own
+   * symbol and sent an equity order, so "Buy 1 CALL" asked for shares of the
+   * underlying, with the modelled premium attached. Numbers audit, call 3
+   * (/mnt/project-files/owner/app-numbers-audit.md). The order ticket's
+   * Options tab lists the broker's real contracts and stays the way to
+   * order an option.
+   */
+  const contractSymbol = contract?.contractSymbol;
+  const notTradable = Boolean(active?.simulated) || !contractSymbol;
+
   const invalid =
+    notTradable ||
     !contract ||
     !Number.isInteger(quantity) ||
     quantity < 1 ||
@@ -138,7 +159,7 @@ export function StrikeOrderModal({
     !expiration;
 
   async function submit() {
-    if (!active || !contract) return;
+    if (!active || !contract || notTradable || !contractSymbol) return;
     setSubmitting(true);
     setFeedback(null);
     try {
@@ -146,8 +167,8 @@ export function StrikeOrderModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol: contract.contractSymbol ?? active.underlying,
-          assetClass: contract.contractSymbol ? "option" : "equity",
+          symbol: contractSymbol,
+          assetClass: "option",
           side: action,
           qty: quantity,
           entryMode: orderKind === "limit" ? "advised" : "now",
@@ -193,7 +214,8 @@ export function StrikeOrderModal({
       title={title}
       description={
         contract && active
-          ? `Spot ${formatUsd(active.underlyingPrice)} · IV ${(contract.iv * 100).toFixed(1)}%`
+          ? `Spot ${formatUsd(active.underlyingPrice)} · IV ${(contract.iv * 100).toFixed(1)}%` +
+            (active.simulated ? " · Simulated chain: IV, greeks and quotes are modelled, not exchange data" : "")
           : undefined
       }
       footer={
@@ -204,7 +226,9 @@ export function StrikeOrderModal({
               onClick={submit}
               disabled={invalid || submitting}
             >
-              {submitting
+              {notTradable
+                ? "Ordering off: simulated chain"
+                : submitting
                 ? "Placing…"
                 : `${action === "buy" ? "Buy" : "Sell"} ${quantity || 0} ${contract.type.toUpperCase()}${
                     quantity === 1 ? "" : "s"
@@ -213,9 +237,17 @@ export function StrikeOrderModal({
             {feedback && (
               <p className={cn("text-sm", feedback.ok ? "text-bull" : "text-bear")}>{feedback.text}</p>
             )}
-            <p className="text-xs text-muted">
-              Routes to your paper account. Connect a live brokerage in Settings to trade real funds.
-            </p>
+            {notTradable ? (
+              <p className="text-xs text-muted">
+                Ordering is off here while this chain is simulated: its quotes are modelled, not
+                exchange prices. To order an option, use the Options tab of the order ticket, which
+                lists the broker&apos;s own contracts.
+              </p>
+            ) : (
+              <p className="text-xs text-muted">
+                Routes to your paper account. Connect a live brokerage in Settings to trade real funds.
+              </p>
+            )}
           </div>
         )
       }

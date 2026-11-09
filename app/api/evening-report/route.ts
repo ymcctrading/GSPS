@@ -32,6 +32,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { isReconstructed } from "@/lib/scan/reconstructed";
 import { ownerOf } from "@/lib/auth/owner";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { getMarketDataProvider } from "@/lib/data/provider";
@@ -96,7 +97,7 @@ type ScanRow = {
   stop_loss: number | string | null;
   take_profit_1: number | string | null;
   master_profit: number | string | null;
-  detail: { currentPrice?: number; dayRange?: number; entryAwaitsCrossing?: boolean; scannedAt?: string } | null;
+  detail: { currentPrice?: number; dayRange?: number; entryAwaitsCrossing?: boolean; scannedAt?: string; backfilledAt?: string } | null;
 };
 
 const num = (v: unknown): number | null => {
@@ -252,12 +253,15 @@ export async function GET(req: NextRequest) {
   const setupsFrom = (priorDateRow?.[0]?.scan_date as string | undefined) ?? null;
   const setups: DailySetup[] = [];
   let priorFocus = new Set<string>();
+  // A session the backfill rebuilt after the fact: the recap labels its setups.
+  let setupsReconstructed = false;
   if (setupsFrom) {
     const { data } = await service
       .from("daily_scans")
       .select("symbol, direction, output_state, score, entry, stop_loss, take_profit_1, master_profit, detail")
       .eq("scan_date", setupsFrom)
       .in("output_state", ["Execute", "Watch"]);
+    setupsReconstructed = ((data ?? []) as ScanRow[]).some((r) => isReconstructed(r.detail));
     for (const r of (data ?? []) as ScanRow[]) {
       const p = toNextPlan(r);
       if (!p || p.verdict === "Reject") continue;
@@ -618,6 +622,7 @@ export async function GET(req: NextRequest) {
   const recapEmail = renderRecapEmail({
     basisDate,
     setupsFrom,
+    setupsReconstructed,
     coverage,
     attribution,
     movers,
@@ -632,6 +637,7 @@ export async function GET(req: NextRequest) {
     basisDate,
     forDate,
     setupsFrom,
+    setupsReconstructed,
     executable: executable.map((p) => p.symbol),
     focus: focus.length,
     movers: movers.length,

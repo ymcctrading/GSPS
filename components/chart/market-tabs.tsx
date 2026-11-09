@@ -453,6 +453,7 @@ function OptionsPanel({
       moneyness: classifyMoneyness(contract.type, strike, spot, step),
       underlying: chain.symbol,
       underlyingPrice: spot,
+      simulated: chain.simulated,
       expirations,
       maxExpiration,
       // Gann's term: the nearest expiration at least 30 days out (Master

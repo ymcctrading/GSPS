@@ -276,6 +276,23 @@ describe("handleAutomatedStopOut", () => {
     expect(pivot?.coordinates.entryTrigger).toBe(97);
   });
 
+  it("ends the plan but seeds no follow-on when told not to (the after-the-pause settlement)", async () => {
+    const { client, plans } = fakeSupabase(null);
+    const planId = await createArmedPlan(client, "user-1");
+
+    await handleAutomatedStopOut(client, "user-1", {
+      planId,
+      entryFillPrice: 100,
+      stoppedAt: "2026-11-05T15:30:00.000Z",
+      exitPrice: 97,
+      seedFollowOns: false,
+    });
+
+    expect(plans).toHaveLength(1);
+    const closed = await getTradePlan(client, "user-1", planId);
+    expect(closed?.state).toBe("invalidated");
+  });
+
   it("does not seed a pivot plan for a market automation doesn't support, even with the dial on", async () => {
     const { client, plans } = fakeSupabase({ pivot_on_stop_out: true });
     const planId = await createArmedPlan(client, "user-1", { market: "crypto" });

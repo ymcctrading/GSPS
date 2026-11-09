@@ -46,6 +46,8 @@ interface BacktestReportShape {
   source: string;
   window: { from: string | null; to: string | null };
   generatedAt: string;
+  /** The stocks replayed (the route's default list unless symbols are given). */
+  symbols?: string[];
   overall: { trades: number; winRate: number; expectancyR: number; profitable: boolean; timeouts?: number };
   buckets: BucketLike[];
 }
@@ -80,7 +82,7 @@ export function LiveExpectancy() {
     <Card className={report && !report.overall.profitable ? "border-warn" : undefined}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-accent" /> Live expectancy
+          <Activity className="h-4 w-4 text-accent" /> Recent replay of Guided&apos;s rules
         </CardTitle>
         <CardDescription>
           {error
@@ -91,7 +93,13 @@ export function LiveExpectancy() {
                     ? `${dateOnly(report.window.from)} → ${dateOnly(report.window.to)}`
                     : "Window unknown"}{" "}
                   ·{" "}
-                  {report.live ? `live as of ${dateOnly(report.generatedAt)}` : "simulated data"}
+                  {report.live ? `market data as of ${dateOnly(report.generatedAt)}` : "simulated data"}
+                  {" · "}
+                  A replay of past price bars
+                  {report.symbols && report.symbols.length > 0
+                    ? ` on ${report.symbols.length} stock${report.symbols.length === 1 ? "" : "s"} (${report.symbols.join(", ")})`
+                    : ""}
+                  , not trades anyone made. A short window on a few stocks can swing either way.
                 </>
               : "Loading…"}
         </CardDescription>

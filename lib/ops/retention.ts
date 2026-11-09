@@ -51,3 +51,12 @@ export const NOTIFICATION_RETENTION_DAYS = {
 } as const;
 
 export type RetainedTable = keyof typeof NOTIFICATION_RETENTION_DAYS;
+
+/**
+ * pg_cron's run history (`cron.job_run_details`), pruned weekly by
+ * `gsps_ops.prune_cron_history()` (migration 0146, not yet applied). No code
+ * reads it; the runbook's checks read the last few runs and by-hand
+ * measurements read a week, so 30 days clears both. Engineering choice.
+ */
+export const CRON_HISTORY_RETENTION_DAYS = 30;
+
