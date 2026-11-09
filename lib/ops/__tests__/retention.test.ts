@@ -51,8 +51,8 @@ describe("notification retention", () => {
   });
 });
 
-describe("cron run history retention (migration 0145)", () => {
-  const sql = readFileSync(join(root, "supabase/migrations/0145_cron_history_retention.sql"), "utf8");
+describe("cron run history retention (migration 0146)", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0146_cron_history_retention.sql"), "utf8");
   const body = sql.replace(/^--.*$/gm, "");
 
   it("deletes only cron run history, once, older than the figure retention.ts gives", () => {
