@@ -15,6 +15,9 @@
  * latest trade is the last bar closed by it, and reads of the present (the
  * most-actives screener, quotes, snapshots) are refused, so the universe is
  * the curated large-cap list the scan falls back to when the screener fails.
+ * Prices are split-adjusted as of the run, as the scan's bars are, and a
+ * stock that has split since the day is left out of that day's rows
+ * (`splitSinceDay`), since its plan would be in units no member saw.
  * The scan's own writes (stores, telemetry, ledgers) are refused too; the
  * script writes `daily_scans` only, nothing else, and sends no notification,
  * fan-out or email.
@@ -117,6 +120,7 @@ async function runDay(day, { dryRun, force, out }) {
     tt.installFakeClock(clock);
     let output;
     let rows;
+    let splitDropped = [];
     {
       const { FULL_UNIVERSE_TOP, runMarketScan } = await server.ssrLoadModule("/lib/marketScan.ts");
       const { buildScanRows, publishRefusal } = await server.ssrLoadModule("/lib/scan/publish.ts");
@@ -134,7 +138,19 @@ async function runDay(day, { dryRun, force, out }) {
       if (output.scanDate !== day) throw new Error(`the scan filed itself under ${output.scanDate}, not ${day}`);
       const refusal = publishRefusal(output);
       if (refusal) throw new Error(refusal);
-      rows = [...buildScanRows(day, "bullish", output.bullish), ...buildScanRows(day, "bearish", output.bearish)];
+      // A stock that has split since the day would carry its plan in today's
+      // units (Alpaca split-adjusts as of the request), which no member saw on
+      // the day: its rows are left out, and listed in the summary.
+      splitDropped = await tt.splitSinceDay(
+        [...output.bullish, ...output.bearish].map((r) => r.symbol),
+        clock,
+        realFetch,
+      );
+      const keep = (r) => !splitDropped.includes(r.symbol);
+      rows = [
+        ...buildScanRows(day, "bullish", output.bullish.filter(keep)),
+        ...buildScanRows(day, "bearish", output.bearish.filter(keep)),
+      ];
     }
     // When the row was really written, beside the day's own `updated_at` and
     // `scannedAt`, which read the clock, as an on-time run would have stamped them.
@@ -148,6 +164,7 @@ async function runDay(day, { dryRun, force, out }) {
       shortlisted: output.shortlisted,
       scanErrors: output.scanErrors,
       rows: rows.length,
+      splitDropped,
       bullish: rows.filter((r) => r.direction === "bullish").length,
       bearish: rows.filter((r) => r.direction === "bearish").length,
       timeTravel: {

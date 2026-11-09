@@ -186,6 +186,9 @@ export function makeTimeTravelFetch(
     barsUrl.searchParams.set("symbols", symbols.join(","));
     // Stocks: the last daily bar by the clock (the day's close, the price the
     // evening scan's latest IEX trade sits at). Crypto: the last closed minute.
+    // Split-adjusted, as the scan's own bars are (lib/data/alpaca.ts), so the
+    // price and the bars are in the same units even if the stock has split
+    // since the day; such a stock is then dropped by `splitSinceDay` below.
     barsUrl.searchParams.set("timeframe", crypto ? "1Min" : "1Day");
     barsUrl.searchParams.set("start", new Date(clock.getTime() - (crypto ? 3 : 14 * 24) * 3_600_000).toISOString());
     barsUrl.searchParams.set("end", clockIso);
@@ -193,7 +196,7 @@ export function makeTimeTravelFetch(
     barsUrl.searchParams.set("limit", "10000");
     if (!crypto) {
       barsUrl.searchParams.set("feed", url.searchParams.get("feed") ?? "iex");
-      barsUrl.searchParams.set("adjustment", "raw");
+      barsUrl.searchParams.set("adjustment", "split");
     }
     const res = await realFetch(barsUrl, { headers: init?.headers });
     if (!res.ok) return res;
@@ -264,4 +267,52 @@ export function makeTimeTravelFetch(
   };
 
   return { fetch: travel as typeof fetch, stats };
+}
+
+/**
+ * Which stocks have split since the clock. Alpaca applies a split adjustment
+ * as of the day the request is made, so a backfilled row for a stock that split
+ * afterwards would carry its plan in post-split units, which a member never saw
+ * on that day. Compares each symbol's last daily close by the clock, raw and
+ * split-adjusted: a split moves the ratio by a whole factor (2:1, 3:2, 1:10), so
+ * any difference over half a percent counts. Crypto pairs (with a "/") carry no
+ * split and are skipped. A symbol with no bar in either series is not flagged.
+ */
+export function splitSince(raw: Record<string, Bar[]>, split: Record<string, Bar[]>): string[] {
+  const last = (list: Bar[] | undefined) =>
+    (list ?? []).reduce<Bar | null>((a, x) => (!a || Date.parse(x.t) > Date.parse(a.t) ? x : a), null);
+  const out: string[] = [];
+  for (const sym of Object.keys(raw)) {
+    const r = last(raw[sym]);
+    const a = last(split[sym]);
+    if (!r || !a || !(r.c > 0) || !(a.c > 0) || r.t !== a.t) continue;
+    if (Math.abs(r.c / a.c - 1) > 0.005) out.push(sym);
+  }
+  return out.sort();
+}
+
+/** Reads the raw and split-adjusted daily closes by the clock and returns the stocks that split since. */
+export async function splitSinceDay(symbols: string[], clock: Date, realFetch: typeof fetch): Promise<string[]> {
+  const stocks = [...new Set(symbols.filter((s) => !s.includes("/")))];
+  const flagged: string[] = [];
+  for (let i = 0; i < stocks.length; i += 100) {
+    const chunk = stocks.slice(i, i + 100);
+    const read = async (adjustment: string) => {
+      const u = new URL(`https://${ALPACA_DATA_HOST}/v2/stocks/bars`);
+      u.searchParams.set("symbols", chunk.join(","));
+      u.searchParams.set("timeframe", "1Day");
+      u.searchParams.set("start", new Date(clock.getTime() - 14 * 86_400_000).toISOString());
+      u.searchParams.set("end", clock.toISOString());
+      u.searchParams.set("adjustment", adjustment);
+      u.searchParams.set("feed", "iex");
+      u.searchParams.set("limit", "10000");
+      const res = await realFetch(u);
+      if (!res.ok) throw new Error(`split check: Alpaca answered ${res.status}`);
+      const body = (await res.json()) as { bars?: Record<string, Bar[]> };
+      return body.bars ?? {};
+    };
+    const [raw, split] = await Promise.all([read("raw"), read("split")]);
+    flagged.push(...splitSince(raw, split));
+  }
+  return flagged.sort();
 }

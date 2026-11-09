@@ -6,6 +6,8 @@ import {
   intradayBarMs,
   makeTimeTravelFetch,
   nextDay,
+  splitSince,
+  splitSinceDay,
   tradingDaysBetween,
 } from "@/lib/backfill/timeTravel";
 
@@ -116,6 +118,8 @@ describe("the time-travel fetch", () => {
     expect(single.trade.p).toBe(47.89);
     expect(up.calls[0].url.pathname).toBe("/v2/stocks/bars");
     expect(up.calls[0].url.searchParams.get("end")).toBe(CLOCK.toISOString());
+    // The same adjustment as the scan's bars, so price and bars share units.
+    expect(up.calls[0].url.searchParams.get("adjustment")).toBe("split");
     expect(stats.rebuiltTrades).toBe(2);
   });
 
@@ -168,5 +172,36 @@ describe("the time-travel fetch", () => {
     expect((await fetch("https://api.resend.com/emails", { method: "POST" })).status).toBe(403);
     expect(up.calls).toHaveLength(0);
     expect(stats.refusedHosts).toEqual(["GET paper-api.alpaca.markets/v2/assets/{symbol}", "POST api.resend.com/emails"]);
+  });
+});
+
+describe("stocks that split after the day", () => {
+  const day = (c: number, t = "2026-11-02T05:00:00Z") => [{ t: "2026-10-30T04:00:00Z", c: c * 1.01 }, { t, c }];
+
+  it("flags a stock whose raw and split-adjusted closes differ, and nothing else", () => {
+    // NVDA split 4:1 after the day: raw 480, split-adjusted 120. BP did not split.
+    const raw = { NVDA: day(480), BP: day(47.89), XOM: [] };
+    const split = { NVDA: day(120), BP: day(47.89), XOM: [] };
+    expect(splitSince(raw, split)).toEqual(["NVDA"]);
+    // A dividend-sized difference is not a split; different last bars are not compared.
+    expect(splitSince({ A: day(100) }, { A: day(100.2) })).toEqual([]);
+    expect(splitSince({ A: day(100) }, { A: day(50, "2026-10-29T04:00:00Z") })).toEqual([]);
+  });
+
+  it("reads both series by the clock, skips crypto, and fails loudly on an error", async () => {
+    const calls: URL[] = [];
+    const fake = (async (input: RequestInfo | URL) => {
+      const u = new URL(String(input));
+      calls.push(u);
+      const adj = u.searchParams.get("adjustment");
+      return new Response(JSON.stringify({ bars: { NVDA: day(adj === "raw" ? 480 : 120), BP: day(47.89) } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect(await splitSinceDay(["NVDA", "BP", "BTC/USD", "BP"], CLOCK, fake)).toEqual(["NVDA"]);
+    expect(calls).toHaveLength(2);
+    expect(calls.map((u) => u.searchParams.get("adjustment")).sort()).toEqual(["raw", "split"]);
+    expect(calls[0].searchParams.get("symbols")).toBe("NVDA,BP");
+    expect(calls[0].searchParams.get("end")).toBe(CLOCK.toISOString());
+    const down = (async () => new Response("{}", { status: 500 })) as unknown as typeof fetch;
+    await expect(splitSinceDay(["BP"], CLOCK, down)).rejects.toThrow("500");
   });
 });
