@@ -135,7 +135,7 @@ export async function readPlanScores(
 /**
  * The armed plans, best first by Gann's score, so a capacity-limited run
  * (Gann's five stocks, a partial activation failure) spends its slots on the
- * strongest: Gann trades "the stocks that show the most strength" (ref: R-003
+ * strongest: Gann trades "the stocks that show the most strength" (ref: SRC-003
  * Ch. VII), and the scorecard is the count of his
  * conditions each setup meets (AGENTS.md, "The scorecard's role"). The
  * removed weighted grade (the Signal & Regime Engine's alignment tier) is no
@@ -157,7 +157,7 @@ export function rankPlansByScore<T extends { instrument: string; direction: stri
 /**
  * Fraction of paper equity risked per trade, by dial position. The member's
  * own choice, and no Gann figure: Gann gives only the ceiling, a tenth of the
- * trading unit (never-failing rule 1, ref: R-004 Rule 1 p.46), which every order
+ * trading unit (never-failing rule 1, ref: SRC-004 Rule 1 p.46), which every order
  * is still held to at placement (`riskTenthRefusal`). The three positions are
  * engineering choices (audit T-04).
  */
@@ -173,7 +173,7 @@ const MIN_ALLOCATED_DOLLAR_RISK = 25;
 /**
  * The dollars one activation may risk: the dial's percent of the trading
  * capital, raised to the minimum allocation, and never more than a tenth of
- * that capital (never-failing rule 1, W006 p.46; ref: R-007 pp.29-30,
+ * that capital (never-failing rule 1, W006 p.46; ref: SRC-007 pp.29-30,
  * `lib/risk/gannCapital.ts`). The tenth is applied last, so the minimum can't
  * lift a small account past it. Placement checks the same tenth again
  * (`lib/trade/place-order.ts`).
@@ -433,7 +433,7 @@ async function runForProfile(
     });
     return;
   }
-  // M-K4: twice a year Gann closes out every trade and rests (ref: R-002,
+  // M-K4: twice a year Gann closes out every trade and rests (ref: SRC-002,
   // Book I; the rest window, `traderPrefs.ts`), so automation opens
   // nothing new in it, as in the away window (recheck 2026-10-22; it read only
   // the away window). It follows the trader's own reminder setting: a trader

@@ -15,7 +15,7 @@ function daily(closes: number[]): Bar[] {
   }));
 }
 
-describe("C-TREND-08: the 5th unit of a run is the unit of Ascension (ref: R-001 Ch.7 PDF 223)", () => {
+describe("C-TREND-08: the 5th unit of a run is the unit of Ascension (ref: SRC-001 Ch.7 PDF 223)", () => {
   it("counts consecutive higher closes and flags the 5th", () => {
     const r = readAscensionCount(daily([10, 9, 10, 11, 12, 13, 14]))!;
     expect(r).toEqual({ direction: "up", count: 5, fifth: true });

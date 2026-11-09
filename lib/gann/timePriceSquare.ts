@@ -20,7 +20,7 @@
  * `lib/scoring/score.ts`, 2026-10-21).
  *
  * Each reading is signed the way Gann measures it: "up from lows" and "down
- * from highs" (ref: R-001 Ch. 18, PDF p.440: low 50, price 102, up 52 =
+ * from highs" (ref: SRC-001 Ch. 18, PDF p.440: low 50, price 102, up 52 =
  * 1 year, "a Time and Price Balance"; high 182, now 130, down 52 = 1 year;
  * "when Time and Space balance, the stock makes top or bottom", PDF p.202).
  * A price above the last high has not come down from it, and a price below

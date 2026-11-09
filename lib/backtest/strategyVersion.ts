@@ -274,7 +274,7 @@
 //
 // 2026-10-16-gann-failed-tops-daily-close: owner ("If Gann says it's a rule,
 // then it's a rule"). A failed top is passed only by a daily close 3 points
-// beyond it (W006 Rule 3; ref: R-001 rules 4-5, "wait for a close beyond
+// beyond it (W006 Rule 3; ref: SRC-001 rules 4-5, "wait for a close beyond
 // it"). The crossing exemption is removed: a 15-minute crossing no longer
 // lets a buy through a failed top, on the scan, the replay, confirmation or
 // placement.
@@ -390,19 +390,19 @@
 // replay's `pyramid: true` read the same rule. Verdicts do not move; pyramided
 // trades do.
 // 2026-10-16-gann-never-failing-1-9: never-failing rules 1 and 9. Rule 9
-// ("never limit your orders ... trade at the market", ref: R-007 rule 9
+// ("never limit your orders ... trade at the market", ref: SRC-007 rule 9
 // pp.43-45 and p.19): the reaction entry keeps its zone and goes at the market
 // once a closed bar trades into it, so the replay fills at the next bar's open
 // instead of a limit at the level plus 1 point, and a close through the stop
 // before then calls the entry off. Fills move; R is still read on the plan's
-// risk. Rule 1 (a tenth of the trading capital at most, ref: R-004 p.46,
-// ref: R-007 pp.29-30) refuses or shrinks orders; the replay sizes no
+// risk. Rule 1 (a tenth of the trading capital at most, ref: SRC-004 p.46,
+// ref: SRC-007 pp.29-30) refuses or shrinks orders; the replay sizes no
 // position, so it does not move the replay.
 // 2026-10-16-gann-rule-of-three-closed: the live score's daily Rule of Three
 // reads completed sessions only, as the replay already did (review 25, R3-3).
 // Live verdicts move on days the forming session would have tipped the
 // count; the replay does not move.
-// 2026-10-16-gann-stops-and-steps: W006 Rules 2, 4 and 5 and ref: R-006 p.198.
+// 2026-10-16-gann-stops-and-steps: W006 Rules 2, 4 and 5 and ref: SRC-006 p.198.
 // Shorts trail 1 point over the prior week's high (Rule 4; was 3). In the
 // final stage the stop trails 5 points under the last day's high, mirrored
 // for shorts (A-STOP-04). Pyramid adds come every 5 Gann points of profit
@@ -433,7 +433,7 @@
 // first and second times through a major round number hold to Watch
 // (A-LEVELS-08). The campaign's secondary rally top joins the S/R pool
 // (A-LEVELS-02), so stops, targets and the S/R match move. Range divisions are
-// ranked by ref: R-001 Ch. 6's tiers (M-P1). The calendar-day 1x1
+// ranked by ref: SRC-001 Ch. 6's tiers (M-P1). The calendar-day 1x1
 // (C-LEVELS-20) is context only. Verdicts, levels and list order move.
 // 2026-10-17-gann-review-b-fixes: review B of the built rules. Only Jensen's
 // square points join the S/R list; his trine points mark consolidation and
@@ -503,7 +503,7 @@
 // failed-top-in-path refusal (it reads TP1) move, live and replay alike.
 // 2026-10-21-gann-narrow-range-breakaway: the breakaway hold (owner decision 5)
 // reads a sideways market as Gann describes one, a narrow range held for weeks
-// (ref: R-007 pp. 51-52; ref: R-001 "2-6 or 10-13 weeks in a narrow
+// (ref: SRC-007 pp. 51-52; ref: SRC-001 "2-6 or 10-13 weeks in a narrow
 // range"): `readBreakaway` needs the trend unconfirmed AND the 13-week range's
 // sessions narrow (`isNarrowRange`, at least `MIN_RANGE_SESSIONS`), the same
 // narrow the breakaway's volume rule already read. Unconfirmed alone held 28%
@@ -517,21 +517,21 @@
 // (`droppedPlans`). Replay buckets and reversal trades move; live verdicts do not.
 // 2026-10-21-gann-overbalance-points-standing: the campaign ledger's
 // over-balance of space compares swings in points (price), not percent of
-// their start (ref: R-001 Ch. 8, PDF 249, "a decline in points"; ref: R-005
+// their start (ref: SRC-001 Ch. 8, PDF 249, "a decline in points"; ref: SRC-005
 // Rule 8; Ch. 11A's reviews), and an over-balance of space or time stands
 // after the reaction ends, until price goes back past the top (bottom) it fell
-// from (ref: R-001 PDF 244-245, 249: the secondary rally after it is the
+// from (ref: SRC-001 PDF 244-245, 249: the secondary rally after it is the
 // sale). P9, `readGannTrend`'s confirmation, the Gann exit's trend change and
 // the measured factors move, live and replay alike.
 // 2026-10-21-gann-weekly-line-trend: the trend pillar (P2) reads Gann's weekly
-// green/red trend line (ref: R-001 Ch. 8, p. 239; `weeklyOneBar.ts`), the
+// green/red trend line (ref: SRC-001 Ch. 8, p. 239; `weeklyOneBar.ts`), the
 // chart its design and T1 name, instead of the 1951 7-day chart's trend, which
 // inverted on every nine-pillar replay. Scores and verdicts move, live and
 // replay alike.
 // 2026-10-21-gann-universe-strength-rank: P3(c) ranks the stock among the
 // scan universe (LARGE_CAP_UNIVERSE) by where its last monthly close sits in
 // its year of monthly highs and lows, and passes in the strongest quarter for
-// a long, the weakest for a short (S6: ref: R-007 pp. 20, 47; ref: R-003
+// a long, the weakest for a short (S6: ref: SRC-007 pp. 20, 47; ref: SRC-003
 // Ch. VII; lib/gann/universeStrength.ts). Completed months only, read the same
 // on the live scan and the replay. It replaces the stand-in against SPY alone.
 // The rank also adds a step to `selectionStrength`, so list order moves. P3
@@ -545,7 +545,7 @@
 // manager has no daily count: placement and sizing, not verdicts.
 // 2026-10-21-gann-decade-in-year-turns: P1's year check (and the measured
 // `decadeYearWithTrade`) reads the decade digit's character at the session's
-// month, not the year's label. Gann names turns inside four years (ref: R-001
+// month, not the year's label. Gann names turns inside four years (ref: SRC-001
 // Ch. 7, PDF 223-224): a '6' year's bull "ends in the Fall" (September
 // to November mixed, December bearish), a '9' year culminates September to
 // November, and '3' and '10' years rally to March/April before the bear year.
@@ -553,8 +553,8 @@
 // so some scores move, live and replay alike.
 // 2026-10-21-gann-major-range-levels: P5's percentage check divides the major
 // ranges by 8 and by 3, in Gann's order (the extreme range, the highest price,
-// the latest campaign of a year or more: ref: R-001 Ch. 9, PDF 263-264;
-// ref: R-007 pp. 34-35; 50% first, ref: R-005 Ch. IV), instead of the last
+// the latest campaign of a year or more: ref: SRC-001 Ch. 9, PDF 263-264;
+// ref: SRC-007 pp. 34-35; 50% first, ref: SRC-005 Ch. IV), instead of the last
 // daily swing (`lib/gann/rangeDivisions.ts`, read in `readPillarFacts`). The
 // S/R check reads the nearest level of the wanted role (support below price
 // for a long, resistance above it for a short; `srMatchForSide`) instead of
@@ -581,7 +581,7 @@
 // run of sessions counted back from the latest, 2 to 13 weeks
 // (`narrowRangeSessions`), not the whole 13 weeks: Gann's "2-6 or 10-13 weeks
 // in a narrow range, then crossing the tops or breaking the bottoms of the
-// previous weeks" (ref: R-001 pp. 246-248; ref: R-007 p. 51). A narrow
+// previous weeks" (ref: SRC-001 pp. 246-248; ref: SRC-007 p. 51). A narrow
 // spell after a wide quarter is now a range, its own extremes the breakaway;
 // the breakaway's volume reads the same run. Verdicts move, live and replay
 // alike.
@@ -604,7 +604,7 @@
 // above merged onto main's narrow-weeks breakaway, decade month in ET and
 // closed-session daily replay; no new rule.
 // 2026-10-21-gann-group-strength-rank: the same rank is also read within the
-// stock's industry group (S4, "buy the strongest stocks in the group", ref: R-003
+// stock's industry group (S4, "buy the strongest stocks in the group", ref: SRC-003
 // Ch. VII), groups from SEC industry codes checked in
 // (lib/gann/industryGroups.json). P3(c) passes on the strongest quarter of its
 // group or of the universe (the weakest, short), as its design reads S6, and
@@ -614,11 +614,11 @@
 // check and the timePriceSquare check) reads the move against the trade, the
 // decline from the last high for a long and the rally from the last low for a
 // short, not the trade's own anchor. A balance marks a turn, measured "up from
-// lows" and "down from highs" (ref: R-001 Ch. 18, PDF p.440), so the advance from the
+// lows" and "down from highs" (ref: SRC-001 Ch. 18, PDF p.440), so the advance from the
 // low squaring out says a top is due, against a long. Verdicts move, live and
 // replay alike.
 // 2026-10-21-gann-nine-square-price: the Square of Nine's fixed numbers act
-// as price levels (C-LEVELS-15; ref: R-001 Ch. 2 PDF 68, "great resistance
+// as price levels (C-LEVELS-15; ref: SRC-001 Ch. 2 PDF 68, "great resistance
 // points", 73 as corrected in Ch. 15A). The nearest cardinal- or fixed-cross
 // number below and above price, read in Gann points, joins the S/R list
 // through gannMasterLevels (lib/gann/squareOfNinePrice.ts), live and replay
@@ -626,7 +626,7 @@
 // it, so verdicts and plans move.
 // 2026-10-21-gann-held-old-level: the historicalSR check (P5's old-level
 // half) passes when the last reaction stopped at an old level and held, not
-// when a level sits near price (W006 p.20, Rule 3(b)-(c); ref: R-002).
+// when a level sits near price (W006 p.20, Rule 3(b)-(c); ref: SRC-002).
 // For a long, the lowest low of the last 10 completed sessions printed
 // from 3 Gann points under an old support to 1 over it, at least 2 sessions
 // ago, with no close since 3 points through it; the short mirrors it. Old
@@ -649,7 +649,7 @@
 // 2026-10-21-gann-held-range-division: P5's percentage half
 // (gannRetracementConfluence) passes on a division of the major ranges that
 // the last reaction stopped at and held (heldRangeDivision, historicalSR's
-// rule), not on one inside the 3-point allowance (ref: R-001 Ch. 9, PDF
+// rule), not on one inside the 3-point allowance (ref: SRC-001 Ch. 9, PDF
 // 266-277: "held 2½ above 193"). Random walks: 56-92% before, 37-62% after.
 // Scores and verdicts move, live and replay alike.
 // 2026-10-21-gann-definite-indication: P9 counts the definite indication
@@ -661,7 +661,7 @@
 // and verdicts move, live and replay alike.
 // 2026-10-21-gann-monthly-forty-five: P6's 45° test reads the monthly 45°
 // at 1 Gann point a month from the last bottom of the 3-month swing chart (the
-// last top for a short), not the daily 45° at 1 point a day (ref: R-001
+// last top for a short), not the daily 45° at 1 point a day (ref: SRC-001
 // GA-2/3, GA-7/9, GA-21-23, printed p. 199). Random walks: 1-13% before,
 // 16-64% with no drift after, and longs ahead of shorts in an uptrend. The
 // squeeze still reads the daily angles. Scores and verdicts move, live and
@@ -669,7 +669,7 @@
 // 2026-10-21-gann-one-plan-every-market: crypto and commodity plans take
 // the same level plan as stocks (TP1 the first level paying more than the
 // risk, the master the next level beyond), not 1.5R and 2.5-3R capped at 5R,
-// which had no Gann source (ref: R-007 pp.43-45: one rule, each market's
+// which had no Gann source (ref: SRC-007 pp.43-45: one rule, each market's
 // own unit). Stock plans, scores and verdicts are unchanged; crypto targets
 // and M-K5 on crypto move, live and replay alike. Adds the fast-market plan
 // (`fastLevels`, Gann's day stop) beside the swing plan, and the replay's
@@ -694,7 +694,7 @@
 // 2026-10-21-cutoffs-seven-four-one-entry: the replay trades one buying point a
 // session, the one the live scan shows (`chooseSessionEntry`: the with-trend
 // continuation when it armed, else the reversion), and sets the other aside
-// (never-failing rule 5, ref: R-007 pp. 43-45; review of #395 finding 4).
+// (never-failing rule 5, ref: SRC-007 pp. 43-45; review of #395 finding 4).
 // It had traded both. The live scan records the set-aside point on its
 // preference path too, and its error path reads Reject/stand down. That part
 // leaves live verdicts unchanged; replay trade counts and buckets move.
@@ -705,7 +705,7 @@
 // 2026-10-21-review-sweep-square-sign-daily-firing-bar: two fixes from the
 // after-merge review of #386 and #389. The price and time square only counts a
 // move away from its pivot the way Gann measures it, up from a low or down
-// from a high (ref: R-001 Ch. 18, PDF p.440), so a long no longer takes P7's
+// from a high (ref: SRC-001 Ch. 18, PDF p.440), so a long no longer takes P7's
 // square when price has run above the last high. And on daily bars a reaction
 // entry whose firing bar traded into the zone and also reached the stop (closing
 // back or through it) is booked and stopped on that bar, not retired first,
@@ -717,13 +717,13 @@
 // "no longer research only"). A fast planet crossing, within a day, the
 // longitude of an eclipse that fell within 10 sessions of a 3-Day Chart top is
 // a dated window for a top in the shared time-window hold (`eclipseBreakOn`,
-// ref: R-035 W012 pp. 32-35, labelled reconstruction), live and replay alike. A
+// ref: SRC-035 W012 pp. 32-35, labelled reconstruction), live and replay alike. A
 // counter-trend short Execute held to Watch for want of a window can now act. Merged onto
 // 2026-10-21-review-sweep-square-sign-daily-firing-bar, whose square and
 // firing-bar fixes it keeps.
 // 2026-10-22-gann-mass-pressure: P1's cycle check also needs the market's
-// mass-pressure curve not against the trade (A-OTHER-05, ref: R-001 Ch. 7,
-// PDF 224-228; ref: R-007 pp. 11-12): the average of the month's move in
+// mass-pressure curve not against the trade (A-OTHER-05, ref: SRC-001 Ch. 7,
+// PDF 224-228; ref: SRC-007 pp. 11-12): the average of the month's move in
 // every decade back to 70 years, as the 1936 forecast laid them, on Shiller's
 // monthly S&P composite from 1871 (`lib/gann/massPressure.ts`,
 // `marketHistory.json`), read from the session's date for a stock on both
@@ -748,7 +748,7 @@
 // crypto parity fix it keeps. No new rule.
 // (was "2026-10-22-first-trade-on-mass-pressure" on its own branch)
 // 2026-10-22-gann-name-chart-great-cycles: A-OTHER-08 and A-TIME-24. The
-// company name's square (ref: R-001 Ch. 15A: letters counted, a Square of
+// company name's square (ref: SRC-001 Ch. 15A: letters counted, a Square of
 // N², its multiples and half-squares) puts its nearest key number above and
 // below price in the S/R list, in Gann points; the same numbers counted in
 // years from inception, and the end of a great cycle (20 years 1931, 60 years
@@ -773,7 +773,7 @@
 // whose rules it keeps.
 // (was STRATEGY_VERSION "2026-10-22-gann-rebuy-rule-nine")
 // 2026-10-22-gann-hourly-exchange-hours: Gann's hourly chart is read on
-// exchange hours (ref: R-001 PDF 378): a US equity's hours count from the
+// exchange hours (ref: SRC-001 PDF 378): a US equity's hours count from the
 // 9:30 ET open (9:30-10:29, ..., the last half hour from 15:30), crypto's stay
 // on the clock (`exchangeHourKey`, lib/gann/intradayExit.ts). It had bucketed
 // every bar by its UTC hour, so an equity's first hour was 9:30-9:59 alone.
@@ -787,11 +787,11 @@
 // replay alike (`readGannExit` is the one exit reader; `gannMasterLevels` the
 // one level list). M-E11: a reverse signal day or 7-10 Day Rule day against
 // the trade since the fill puts the stop 3 points beyond that day's extreme
-// ("reverse_signal"; ref: R-007 pp.318, 324). M-E12: an exhaust gap against
+// ("reverse_signal"; ref: SRC-007 pp.318, 324). M-E12: an exhaust gap against
 // the trade on a session after the fill's takes it off ("exhaust_gap", pp.319-320), without
 // reversing. M-T10: once the weekly chart's run with the trade has lasted 6
 // weeks, the stop trails 10 Gann points from the best price ("boiling_point";
-// ref: R-003 Ch. V). A-ASTRO-03: the Sun's travel added to the low joins
+// ref: SRC-003 Ch. V). A-ASTRO-03: the Sun's travel added to the low joins
 // the S/R list (`sunTravelLevel`). M-P4: the intraday first target averages
 // old levels within 1% before it is read, as the daily plan does
 // (`lib/gann/nearbyLevels.ts`). Plans, verdicts, replay trades and intraday
@@ -801,7 +801,7 @@
 // rules it keeps): the 2026-10-22 rule recheck's nine
 // defects (gann-feature-map/review/2026-10-22-recheck.md). Verdicts move from
 // (1) the 7-day chart on weekly and monthly bars turning only on a bar that
-// breaks the previous bar's low or high, never on an inside bar (ref: R-007
+// breaks the previous bar's low or high, never on an inside bar (ref: SRC-007
 // pp. 102-103; A-TREND-01/02, every trend read on those charts), and (2) the
 // time-window hold reading the yearly counts, great cycles and day counts
 // from any major top or bottom (W006 pp. 14, 44; A-TIME-04/11/24/37), and
@@ -827,7 +827,7 @@
 // last counter-move from the best price, the two-day counter and A-STOP-04's
 // 5 points under the day's high) start only once the trade has advanced 3
 // points, the point Gann first moves a stop at all (W006 p.46 Rule 2, "in fast
-// high-level advances"; ref: R-003 Ch.II rule 4). They had started at the
+// high-level advances"; ref: SRC-003 Ch.II rule 4). They had started at the
 // fill, so a trade bought in a campaign's 3rd section and not yet moved was
 // trailed above its own entry. Live and paper exits and the replays read the
 // same readGannExit; verdicts don't move, exits do.
@@ -860,7 +860,7 @@
 // a plan expires, the stock stays tracked, when price stands at or past its
 // TP1 (a crossed level is the next support, W006 pp.19-24), or when a
 // reaction buy after a crossing could fill only on a reaction over the
-// campaign's greatest by a point (ref: R-001 Ch. 8, PDF 249). Reject live,
+// campaign's greatest by a point (ref: SRC-001 Ch. 8, PDF 249). Reject live,
 // levels withheld (`applyPlanExpiredHold`, `lib/gann/planExpiry.ts`); the
 // replay does not enter such a plan and counts it under retiredPlans.
 // Live verdicts move (23 of 43 rows listed on 2026-10-27 stood past TP1);
@@ -872,7 +872,7 @@
 // the range divisions and the pillar facts at the last completed session's
 // close, as the replay's buildMacroContext reads them, not at the quote, so
 // the plan and its score hold still through the session (Gann judged his
-// charts after the close: ref: R-002 pp.5-7, 76-82). Live
+// charts after the close: ref: SRC-002 pp.5-7, 76-82). Live
 // verdicts move inside a session; daily replays are unchanged; intraday
 // replays now read the prior session's daily close, not the last 15-minute
 // close before the session. Merged onto 2026-10-28-plan-expiry-on-p1-long-counts,
@@ -898,8 +898,8 @@
 // (was STRATEGY_VERSION "2026-10-28-groups-by-industry-on-double-bottom-weeks")
 // 2026-10-28-gann-one-class-per-company (gann-alignment-audit H9): the
 // relative strength rank counts each company once, so GOOG and GOOGL are no
-// longer each other's peers in the universe or the group (ref: R-002
-// Ch. XVI-XIX; ref: R-003 Ch. VII name each company once). P3(c) can
+// longer each other's peers in the universe or the group (ref: SRC-002
+// Ch. XVI-XIX; ref: SRC-003 Ch. VII name each company once). P3(c) can
 // move for those two; the market scan's coarse pre-filter now reads a held
 // level and the 50% of the major range (SUS-01, SUS-02), which changes which
 // stocks the daytime scan scores first, not any stock's verdict.
@@ -914,7 +914,7 @@
 // once price has left it the trade's way and stands outside it (no close back
 // 3 points inside the crossed extreme), within BASE_LEFT_SESSIONS
 // (`readBaseLeft`, lib/gann/accumulation.ts). Gann's rule is the time in the
-// range then the crossing (ref: R-001; ref: R-007 p. 62; W006 Rule 3(c)
+// range then the crossing (ref: SRC-001; ref: SRC-007 p. 62; W006 Rule 3(c)
 // p.47); the old half passed for either side while price sat inside the
 // range, 82% of random-walk readings at $20 and 29% at $500 for both sides
 // alike (replay-diagnosis/2026-10-28-six-year-daily/p8-volume-diagnosis.md).
@@ -934,7 +934,7 @@
 // boiling point trails his 10 points at Advance Rumely's 105 (W005, "out at
 // 95"), about 5.9 Gann points, not 10. A narrow range is at most 4 of his
 // points (4/3 of the 3-point allowance), his widest dated narrow range
-// (ref: R-001 pp. 246-248), not 3 allowances; the range a market is
+// (ref: SRC-001 pp. 246-248), not 3 allowances; the range a market is
 // leaving is still read during the leg out of it (`narrowRangeBeforeLeg`),
 // so the breakaway's volume rule is still asked. Random walks (20 a price,
 // +-2% a day), armed long entries held by the breakaway before -> after:
@@ -947,7 +947,7 @@
 // (was STRATEGY_VERSION "2026-10-28-figures-at-his-price-on-base-left")
 // 2026-10-28-retest-two-thirds-volume: a double top or bottom's volume
 // confirms only when the second turn's week traded two-thirds of the first's
-// or less (RETEST_VOLUME_RATIO; W006 pp.43-44, the ref: R-001's "a third or
+// or less (RETEST_VOLUME_RATIO; W006 pp.43-44, the ref: SRC-001's "a third or
 // less" inside it; fork FV2). Any smaller week had confirmed, which noise
 // passed about half the time. P8 and plans move.
 // (was STRATEGY_VERSION "2026-10-28-retest-two-thirds-volume")
@@ -981,7 +981,7 @@
 // (was STRATEGY_VERSION "2026-10-28-three-closes-trend")
 // 2026-10-28-three-closes-angle-origin: P6's monthly 45° is drawn from the
 // latest monthly swing bottom (top) that has held 3 closed months with no later
-// month 3 points through it (ref: R-001 Ch. 4, GA-25 to GA-27, GA-9;
+// month 3 points through it (ref: SRC-001 Ch. 4, GA-25 to GA-27, GA-9;
 // `monthlyAngleOrigin`); it read the latest pivot however young. P6 and scores
 // move.
 // (was STRATEGY_VERSION "2026-10-28-three-closes-angle-origin")
@@ -989,9 +989,9 @@
 // angle origin merged onto the delayed fill timing. No new rule.
 // (was STRATEGY_VERSION "2026-10-28-angle-origin-on-delayed-fill")
 // 2026-10-28 (intraday audit, gann-alignment-audit/intraday-alerts-replay.md):
-// the replay's reversal chain is no longer cut at 3 but runs, as ref: R-004 Rule 6
+// the replay's reversal chain is no longer cut at 3 but runs, as ref: SRC-004 Rule 6
 // (p.48) keeps with the trend, until three losses in a row pause it as
-// placement's series-of-losses rule does (ref: R-007 p.12, ref: R-004 Rule 1 p.46);
+// placement's series-of-losses rule does (ref: SRC-007 p.12, ref: SRC-004 Rule 1 p.46);
 // intraday alerts against the daily trend are shown for study but not entered
 // (never-failing rule 5), and their confidence is the share of checks met,
 // with no hand-set weights. Daily verdicts are unchanged; replay reversal
@@ -1009,7 +1009,7 @@
 // long monthly record, not of a year of daily bars ("at every major low",
 // after Gann's January 1931 Pattern Chart), and the nearest multiples of the
 // low below and above the close join the S/R list ("100% of the low and its
-// multiples", second only to 50%, ref: R-005 Ch. IV p.30; they had been held on
+// multiples", second only to 50%, ref: SRC-005 Ch. IV p.30; they had been held on
 // the card). The card's percentage levels read the same monthly anchors.
 // The Sun's travel (R09) counts from the weekly record's major low when it is
 // below the daily year's (the coffee letter counts from the 1931 low).
@@ -1018,12 +1018,12 @@
 // 2026-10-28-gann-time-and-price-at-turn (alignment audit H2): a counter-trend
 // Execute's turn counts in the time-window hold only when a dated window was
 // open on it AND its extreme stood at the half or three quarters of a major
-// range (`turnAtDivision`, ref: R-001 PDF 202, Ch. 18 TP-2). The windows
+// range (`turnAtDivision`, ref: SRC-001 PDF 202, Ch. 18 TP-2). The windows
 // alone were open on nearly every turn. Counter-trend verdicts move.
 // (built alone as "2026-10-28-gann-time-and-price-at-turn")
 // 2026-10-28-gann-narrow-spell (alignment audit L-12): the distribution
 // spell and the distributed-before check read "narrow" as 4/3 of the 3-point
-// allowance (NARROW_SPELL_ALLOWANCES), his widest dated narrow range (ref: R-001
+// allowance (NARROW_SPELL_ALLOWANCES), his widest dated narrow range (ref: SRC-001
 // pp. 246-248), as the breakaway's range reads it since #513; it was 2
 // allowances. Distribution exits and refusals move.
 // 2026-10-28-gann-major-lows-time-price-spell: the three audit fixes above,
@@ -1042,7 +1042,7 @@
 // (was STRATEGY_VERSION "2026-10-28-major-lows-on-intraday-audit")
 // 2026-10-29-gann-p3-may-lead (six-year daily diagnosis, EDGE-DIAGNOSIS.md):
 // a long's leadership and strength rank count in P3 and in the lists' order
-// only when the stock may lead this section (`longMayLead`, G25, ref: R-003
+// only when the stock may lead this section (`longMayLead`, G25, ref: SRC-003
 // Ch. VII): not short of the campaign's first-year high once
 // it has run a year, that high now crossed by 3 points and held unless broken
 // back by 3. A stock's or the market's first or late top and bottom is read
@@ -1053,7 +1053,7 @@
 // 2026-10-29-gann-early-sections (edge diagnosis of the six-year daily run,
 // replay-diagnosis/2026-10-28-six-year-daily/EDGE-DIAGNOSIS.md): a new trade
 // with the campaign's trend that would ride its 3rd or later section is held
-// from Execute to Watch (`applyCampaignSectionHold`; ref: R-001 pp.
+// from Execute to Watch (`applyCampaignSectionHold`; ref: SRC-001 pp.
 // 244-245, "the third or fourth movement ... marks the culmination"). Sections
 // are the weekly chart's record turns that held two weeks (`tradeSection`,
 // `SECTION_HALT_DAYS`). Live verdicts and replay buckets move.
@@ -1062,7 +1062,7 @@
 // together so the six-year rerun measures both. No rule beyond theirs.
 // 2026-10-29-gann-averages-trend (six-year rerun's long/short diagnosis,
 // replay-diagnosis/2026-10-29-six-year-rerun/LONGS-VS-SHORTS.md: longs bought
-// in the four selloff windows lost more than the whole run). ref: R-005 Rule 1,
+// in the four selloff windows lost more than the whole run). ref: SRC-005 Rule 1,
 // "determine the averages' trend with the 3-Day Chart and the swing chart;
 // trade stocks that conform": an Execute both of SPY's charts read against is
 // held to Watch (`applyMarketTrendHold`, `averagesTrend.ts`), shorts mirrored,
@@ -1073,15 +1073,15 @@
 // -0.055R; the market-trend hold held the best longs and passed the worst
 // shorts; owner: "Correct"). The market-trend hold is taken out, and a short
 // Execute is held to Watch unless the stock's own monthly swing chart reads its
-// main trend down (`applyMainTrendHold`, `mainTrend.ts`; ref: R-001 GA-2/3,
+// main trend down (`applyMainTrendHold`, `mainTrend.ts`; ref: SRC-001 GA-2/3,
 // Ch. 1's Vanadium "don't short since main trend still up"). Longs unchanged.
 // Live verdicts and replay buckets move.
 // 2026-10-30-intraday-weekly-trend (owner, 2026-10-29: "go with option A ...
 // only if it makes our platform better"; measured locally 2026-10-30,
 // replay-diagnosis/2026-10-30-intraday-weekly-trend.md). The intraday alerts'
 // trend check reads the weekly chart through the campaign ledger, not the 3-Day
-// Chart, so a pullback in a weekly uptrend is bought, not shorted (ref: R-001
-// p. 10, rule A; ref: R-007 pp. 39-40), and a long is held once the
+// Chart, so a pullback in a weekly uptrend is bought, not shorted (ref: SRC-001
+// p. 10, rule A; ref: SRC-007 pp. 39-40), and a long is held once the
 // campaign's reaction over-balanced its greatest (Ch. 8, PDF 249-250).
 // Intraday alerts replay trades move; daily verdicts and the daily replay don't.
 // 2026-11-05-intraday-midpoint-stop-allowance (stop test brief, 2026-11-04; measured locally

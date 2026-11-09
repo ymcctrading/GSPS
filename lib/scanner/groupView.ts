@@ -4,8 +4,8 @@
  * and the breadth of the universe read from the same positions.
  *
  * Gann ranks the groups before the stocks in them, and buys the strongest
- * stocks of the strongest groups and sells the weakest of the weakest (ref: R-002
- * Ch. XVI-XVII, "Position of groups"; ref: R-003
+ * stocks of the strongest groups and sells the weakest of the weakest (ref: SRC-002
+ * Ch. XVI-XVII, "Position of groups"; ref: SRC-003
  * Ch. VII). That rank is already built and read by the score
  * (`lib/gann/universeStrength.ts`); this module only shows it. Every figure
  * comes from `readUniverseRank` itself, called once per stock, so the page
@@ -16,7 +16,7 @@
  *
  * Breadth is read as Gann reads a market's position, against the 50% of its
  * range, his most important point ("the most important point is the 50% of
- * the extreme range", ref: R-007 pp. 34-35; ref: R-005 Ch. IV): how many
+ * the extreme range", ref: SRC-007 pp. 34-35; ref: SRC-005 Ch. IV): how many
  * stocks close in the upper half of their twelve months' range, and how many
  * ranked groups have their median stock there (a close exactly at the half
  * counts as the upper half). Every universe stock the month read is counted,

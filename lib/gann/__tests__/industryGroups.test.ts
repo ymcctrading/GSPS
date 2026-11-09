@@ -1,6 +1,6 @@
 /**
  * The live map (the platform's industries, from the SEC codes corrected) puts
- * Gann's own groups together: the Oils, the Motors, the Banks (ref: R-002
+ * Gann's own groups together: the Oils, the Motors, the Banks (ref: SRC-002
  * Ch. XVI-XIX).
  */
 import { describe, expect, it } from "vitest";

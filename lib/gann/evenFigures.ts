@@ -4,15 +4,15 @@
  * direction.
  *
  * What Gann says (all Tier A; see `docs/memory-bank/sources/`):
- * - Even figures (100, 200, 300) attract selling orders (ref: R-003
- *   Ch. I), and "100 is always the selling point" (ref: R-001,
- *   1933). Round numbers attract public selling (ref: R-005).
+ * - Even figures (100, 200, 300) attract selling orders (ref: SRC-003
+ *   Ch. I), and "100 is always the selling point" (ref: SRC-001,
+ *   1933). Round numbers attract public selling (ref: SRC-005).
  * - The public thinks in 5s and 10s (25, 50, 75, 100, 150), so markets turn
- *   just short of round numbers (ref: R-007 p. 19),
+ *   just short of round numbers (ref: SRC-007 p. 19),
  *   and "even figures" are natural resistance points (p. 68).
- * - Buy or sell just *before* popular prices and even figures (ref: R-003
+ * - Buy or sell just *before* popular prices and even figures (ref: SRC-003
  *   Ch. V): place the order ½ to ¾ of a point off the figure.
- * - An old top of 100 crossed means a stop at 97 (ref: R-003 Ch. V):
+ * - An old top of 100 crossed means a stop at 97 (ref: SRC-003 Ch. V):
  *   the stop goes beyond the figure, not on it.
  *
  * How GSPS applies it:
@@ -34,7 +34,7 @@
  *   below the price (a $45 stock's unit is 10, a $150 stock's is 100). Major
  *   figures are multiples of the unit. Popular prices are quarters of it at
  *   $100 and above (25, 50, 75, as Gann lists) and halves below (the 5s).
- * - Orders go ¼ to ½ point inside the figure (ref: R-003
+ * - Orders go ¼ to ½ point inside the figure (ref: SRC-003
  *   Ch.V; read in the long-book notes 2026-10-16). Taken as the middle of
  *   that band, `ORDER_OFFSET_POINTS` = ⅜ of a price-scaled point
  *   (`pointScale.ts`). Until 2026-10-16 it was ½ to ¾ point, read as 0.5% of
@@ -228,9 +228,9 @@ export function roundNumberEntryBlocked(input: {
  * Which time through a major figure an entry's crossing is (A-LEVELS-08).
  *
  * What Gann says (Tier A): "good selling always appears around the even
- * figures, like 100, 200 and 300" (ref: R-003 Ch. I). Above
+ * figures, like 100, 200 and 300" (ref: SRC-003 Ch. I). Above
  * 200, expect 202 to 203 and a 7 to 10 point break back, then buy the third
- * time through, for 210 or 225 (Ch. V). ref: R-006 (PDF 151, 166)
+ * time through, for 210 or 225 (Ch. V). ref: SRC-006 (PDF 151, 166)
  * acts on it: Major Motors went above 200, was sold short near 203, and
  * "would not advance above 205½". So a crossing of an even figure the first
  * or second time is expected to fail just over it, and the third is bought.

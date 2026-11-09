@@ -39,7 +39,7 @@
  * least `DUPLICATE_MATCH_MONTHS` months) is that company again and is dropped.
  *
  * Gann chose his stocks from the ones trading at the time, by their record up
- * to then (ref: R-003 Ch. VII; ref: R-002
+ * to then (ref: SRC-003 Ch. VII; ref: SRC-002
  * Ch. XVI-XIX compare the groups as they stood in the year written), so a test
  * of his method reads each year's market as it stood.
  *

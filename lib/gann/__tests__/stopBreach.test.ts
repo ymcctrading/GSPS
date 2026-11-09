@@ -51,8 +51,8 @@ describe("isStopBreachedByBar", () => {
 
 /**
  * Gann's own test of a false break: after breaking an old bottom a stock "should
- * not rally 3 points back above it", and the close decides (ref: R-004
- * p. 20; ref: R-001, rules 4-5 and the range rules).
+ * not rally 3 points back above it", and the close decides (ref: SRC-004
+ * p. 20; ref: SRC-001, rules 4-5 and the range rules).
  */
 describe("reclaimLevel", () => {
   it("is the broken level plus his 3-point allowance for a long, minus it for a short", () => {

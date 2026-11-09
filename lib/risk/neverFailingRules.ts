@@ -1,6 +1,6 @@
 /**
- * A-RISK-16: the twenty-four never-failing rules (ref: R-003,
- * 1930, Ch. II pp. 18-28; repeated in ref: R-005
+ * A-RISK-16: the twenty-four never-failing rules (ref: SRC-003,
+ * 1930, Ch. II pp. 18-28; repeated in ref: SRC-005
  * pp. 15-16; confirmed in the W005 and W009 reading notes, 2026-10-16).
  *
  * A check reading, not an order block: each rule records where GSPS already

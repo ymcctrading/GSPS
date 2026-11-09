@@ -24,12 +24,12 @@
  * 2026-09-27: "Gann's method supersedes my own").** Three of his texts agree
  * that sales increase near tops and *decrease* near bottoms: after a long
  * decline, volume shrinks and the range narrows as liquidation runs its
- * course (ref: R-001 Ch. 12; ref: R-005 Ch. X;
- * ref: R-007 p. 63). Heavy volume at a low is the exception, the panic or
- * selling climax (ref: R-004 pp. 39-45). A retest of the low
- * on smaller volume says liquidation is over (ref: R-003
+ * course (ref: SRC-001 Ch. 12; ref: SRC-005 Ch. X;
+ * ref: SRC-007 p. 63). Heavy volume at a low is the exception, the panic or
+ * selling climax (ref: SRC-004 pp. 39-45). A retest of the low
+ * on smaller volume says liquidation is over (ref: SRC-003
  * Ch. VII), and the mirror, a secondary top on smaller volume than the final
- * advance, says the trend is turning down (ref: R-004 Rule 7).
+ * advance, says the trend is turning down (ref: SRC-004 Rule 7).
  * So each reading now carries all of them, and `confirms` is the rule for
  * its kind:
  *   - a low confirms on volume drying up (the normal bottom), a retest on
@@ -51,12 +51,12 @@
  *   low); and a panic's secondary low at or above the climax low on half the
  *   climax week's volume or less (W006 p.48, "much less").
  * - A high also confirms when the heaviest week since the last major top
- *   came in the advance into it and stood out (FV4; ref: R-001 Ch.12: the
+ *   came in the advance into it and stood out (FV4; ref: SRC-001 Ch.12: the
  *   largest volume often comes before the final top). A first version, the
  *   heaviest week since the previous local top, passed 80% of random-walk
  *   tops and was dropped.
  * - A low also confirms when the last completed month traded the least of the
- *   last five years (FV5; W006 pp.43-44 and ref: R-001 Ch.12: the smallest
+ *   last five years (FV5; W006 pp.43-44 and ref: SRC-001 Ch.12: the smallest
  *   volume in years, "a sure sign of bottom"), the low is a bottom (the lowest
  *   of the half year before it) and it was printed in that month, up to two
  *   months before it, or in the month since. Both conditions tie the quiet
@@ -91,7 +91,7 @@
  * before it. Gann gives the observation, not the window.
  *
  * **Documented asset-class exception, not an oversight (2026-09-16 audit):**
- * ref: R-007 (1941/51) discloses a fifth
+ * ref: SRC-007 (1941/51) discloses a fifth
  * culmination rule alongside the volume-of-sales ones this module already
  * approximates — rising open interest into a low reads as accumulation,
  * falling open interest into a high on rising price reads as distribution
@@ -170,7 +170,7 @@ export interface VolumeClimaxReading {
   /**
    * When the anchor reached the previous pivot of its kind: the volume of the
    * anchor's week over the previous pivot's week (A-VOLUME-13, W006 pp.43-44:
-   * a double top "on two-thirds the volume"; ref: R-001 Ch.12: a third or
+   * a double top "on two-thirds the volume"; ref: SRC-001 Ch.12: a third or
    * less). The retest confirms at two-thirds or less (`RETEST_VOLUME_RATIO`, fork FV2).
    */
   retestWeekVolumeRatio?: number | null;
@@ -199,7 +199,7 @@ export const PANIC_SECONDARY_RATIO = 0.5;
 /**
  * A retest confirms on two-thirds of the first turn's week or less (fork FV2,
  * answered from Gann 2026-10-28): W006 pp.43-44's double top "on two-thirds the
- * volume"; the ref: R-001's sell signal (Ch.12, "a third or less") lies
+ * volume"; the ref: SRC-001's sell signal (Ch.12, "a third or less") lies
  * inside it. Rules 1 and 7's "smaller volume" gives no figure, so the one Gann
  * names is read. Bottoms mirror tops (Polarity). Until then any smaller week
  * confirmed, which noise passes about half the time once the 3-point band is hit.
@@ -312,7 +312,7 @@ function isBottom(bars: Bar[], index: number, price: number): boolean {
 
 /**
  * FV4 b: the heaviest week since the last major top came in the advance into
- * the top at `index`, and stood out (A-VOLUME-07/-12; ref: R-001 Ch.12:
+ * the top at `index`, and stood out (A-VOLUME-07/-12; ref: SRC-001 Ch.12:
  * the largest volume of sales often comes before the final top). Weekly bars
  * rolled from `bars` up to the top's week, within the last `HEAVY_WEEKS_READ`
  * weeks of all the bars read, so a year of history and six read the same weeks. Engineering choices,

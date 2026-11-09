@@ -79,7 +79,7 @@ describe("the cycle lists by lesson (M-T3, C-TIME-20, C-TIME-26)", () => {
 
 const fromLow = <T extends { pivotDate: string }>(hs: T[]) => hs.filter((h) => h.pivotDate === LOW_DATE);
 
-describe("the Ch.5 wheel counts (C-TIME-06, ref: R-001 Ch.5 PDF 162)", () => {
+describe("the Ch.5 wheel counts (C-TIME-06, ref: SRC-001 Ch.5 PDF 162)", () => {
   it("carries 30, 60, 150, 210, 300 and 330 days beside the live wheel, which is unchanged", () => {
     expect([...WHEEL_COUNTS_CH5]).toEqual([30, 60, 150, 210, 300, 330]);
     expect([...WHEEL_COUNTS]).toEqual([45, 90, 120, 135, 180, 225, 240, 270, 315, 360]);
@@ -106,7 +106,7 @@ describe("the Ch.5 wheel counts (C-TIME-06, ref: R-001 Ch.5 PDF 162)", () => {
   });
 });
 
-describe("time balance from top to top and bottom to bottom is class A (M-T11, ref: R-007 p.311)", () => {
+describe("time balance from top to top and bottom to bottom is class A (M-T11, ref: SRC-007 p.311)", () => {
   // Tops at days 30 and 80 (50 days apart); the last bottom at day 100.
   const swing = (n: number) => {
     const closes: number[] = [100];
@@ -125,7 +125,7 @@ describe("time balance from top to top and bottom to bottom is class A (M-T11, r
   });
 });
 
-describe("the ref: R-007 p.57 day bands (M-T7)", () => {
+describe("the ref: SRC-007 p.57 day bands (M-T7)", () => {
   it("is its own cited list beside the Rule 8 bands, which are unchanged", () => {
     expect(COMMODITIES_DAY_BANDS.map((b) => [...b])).toEqual([[42, 45], [49, 52], [90, 98], [120, 135]]);
     expect(DAY_COUNT_BANDS.map((b) => [...b])).toEqual([
@@ -151,7 +151,7 @@ describe("the ref: R-007 p.57 day bands (M-T7)", () => {
   });
 });
 
-describe("the ref: R-005 Rule 8 calendar dates (M-T5)", () => {
+describe("the ref: SRC-005 Rule 8 calendar dates (M-T5)", () => {
   it("carries every month's dates from the book, September marked most important", () => {
     expect(RULE_8_MONTHLY_DATES.map((w) => `${w.month}/${w.startDay}-${w.endDay}${w.mostImportant ? "*" : ""}`)).toEqual([
       "1/7-10", "1/19-24", "2/3-10", "2/20-25", "3/20-27", "4/7-12", "4/20-25",
@@ -181,7 +181,7 @@ describe("the ref: R-005 Rule 8 calendar dates (M-T5)", () => {
   });
 });
 
-describe("the Winter-quarter seasonal dates (C-TIME-05, ref: R-001 Ch.5 PDF 161)", () => {
+describe("the Winter-quarter seasonal dates (C-TIME-05, ref: SRC-001 Ch.5 PDF 161)", () => {
   it("carries the Ch.5 list counted from December 22", () => {
     expect(WINTER_QUARTER_POINTS.map((p) => `${p.month}/${p.startDay}${p.endDay !== p.startDay ? `-${p.endDay}` : ""}`)).toEqual([
       "1/5-6", "2/5", "3/21", "5/6", "6/22", "7/7", "8/8", "9/23", "11/8", "12/22",
@@ -206,7 +206,7 @@ describe("the Winter-quarter seasonal dates (C-TIME-05, ref: R-001 Ch.5 PDF 161)
   });
 });
 
-describe("the seasonal ranking (M-T8, ref: R-001 Ch.18 TP-1 PDF 439)", () => {
+describe("the seasonal ranking (M-T8, ref: SRC-001 Ch.18 TP-1 PDF 439)", () => {
   it("ranks 1/2 and the end of the seasonal year first, then 1/4 and 3/4, then 1/3 and 2/3", () => {
     const rank = (label: string) => SEASONAL_POINTS.find((p) => p.label === label)?.rank;
     expect([rank("½"), rank("the full year")]).toEqual([1, 1]);
@@ -240,7 +240,7 @@ describe("the class A week counts (M-T11, C-TIME-08)", () => {
   });
 });
 
-describe("the Square of 52 over its 104-week span (C-TIME-13, ref: R-001 Ch.14 PDF 385)", () => {
+describe("the Square of 52 over its 104-week span (C-TIME-13, ref: SRC-001 Ch.14 PDF 385)", () => {
   it("projects the disclosed fractions into the second year", () => {
     expect(SQUARE_OF_52_SPAN_WEEKS).toBe(104);
     // 52 + 26 weeks from the low.

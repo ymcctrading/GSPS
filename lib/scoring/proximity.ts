@@ -32,7 +32,7 @@ import { levelRole, type LevelRole } from "@/lib/analysis/levelRole";
 
 /**
  * "At a level" is within Gann's 3-point allowance of it (N#27, 2026-10-16):
- * his double and triple bottoms are levels "within 1-3 points" (ref: R-001
+ * his double and triple bottoms are levels "within 1-3 points" (ref: SRC-001
  * Ch.8), and a level holds until it is broken by 3 points (W006
  * pp.20, 46). The allowance is price-scaled (`lib/gann/pointScale.ts`).
  * Until 2026-10-16 the S/R and retracement bands were half a day's average

@@ -133,7 +133,7 @@ describe("computeScore output state", () => {
   });
 
   it("holds at Watch when the first target is no farther than the risk (M-K5)", () => {
-    // "Don't risk 3-5 points for 3-5" (ref: R-003 Ch.II): equal risk and reward is refused.
+    // "Don't risk 3-5 points for 3-5" (ref: SRC-003 Ch.II): equal risk and reward is refused.
     const even = { ...levels, takeProfit1: 101, rewardToRiskTp1: 1 };
     const decision = computeScore(inputs({ levels: even }));
     expect(decision.outputState).toBe("Watch");

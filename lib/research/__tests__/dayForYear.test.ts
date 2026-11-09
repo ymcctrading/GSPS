@@ -1,5 +1,5 @@
 /**
- * A-TIME-31 (ref: R-006 pp. 371, 373; research-only and
+ * A-TIME-31 (ref: SRC-006 pp. 371, 373; research-only and
  * confluence-only): "a day for a year".
  */
 import { readdirSync, readFileSync } from "node:fs";

@@ -2,7 +2,7 @@
  * The nine pillars of the score (owner, 2026-10-17: "the score stays out of 9",
  * "multiple criteria can count for one of the 9"; card pick "Stop required").
  * Each pillar is one point, awarded on the combination its checks state. The
- * checks are what Gann looked for when he chose a stock and a moment (ref: R-001
+ * checks are what Gann looked for when he chose a stock and a moment (ref: SRC-001
  * Ch. 7's pre-trade list and its selection rules); the design and the
  * citations are in `gann-feature-map/review/score-pillars-research.md` §3.
  *
@@ -60,7 +60,7 @@ const BASELINE_VOLUME_BARS = 250;
 export interface PillarFacts {
   /**
    * The market's main trend: the averages' (SPY's) weekly swing chart, cut to
-   * the stock's last session (ref: R-005 Rule 1, `averagesTrend.ts`). Read with
+   * the stock's last session (ref: SRC-005 Rule 1, `averagesTrend.ts`). Read with
    * `readGannTrend` until 2026-10-29.
    */
   marketTrend: Side | null;
@@ -90,7 +90,7 @@ export interface PillarFacts {
   /** The decade digit's character at this month (`DecadeCycleReading.currentBias`), not the year's label. */
   decadeBias: "bullish" | "bearish" | "mixed" | null;
   /**
-   * Gann's weekly green/red trend line (ref: R-001 Ch. 8, p. 239,
+   * Gann's weekly green/red trend line (ref: SRC-001 Ch. 8, p. 239,
    * `weeklyOneBar.ts`): the weekly reading P2 asks for. Null before its first turn.
    */
   weeklyLine: "green" | "red" | null;
@@ -197,7 +197,7 @@ export const MONTHLY_ORIGIN_RETIRE_POINTS = 3;
  * six-year daily rerun: within Execute, trades passing P6 did 0.078R worse than
  * trades failing it). Gann starts a monthly angle from a higher bottom "only
  * once the market has held/advanced 3-4 months from it", and retires an origin
- * "when its top/bottom is exceeded by 3 points" (ref: R-001 Ch. 4, GA-25 to
+ * "when its top/bottom is exceeded by 3 points" (ref: SRC-001 Ch. 4, GA-25 to
  * GA-27; GA-9 likewise starts angles from a top after it has declined about 3
  * months). The check read the latest 3-month swing bottom however young, so a
  * bottom one or two months old put the line almost at price and the long passed
@@ -237,7 +237,7 @@ export function monthlyAngleOrigin(
  * the monthly 45° at 1 Gann point a month from the last bottom of the 3-month
  * swing chart (the last top for a short), held unless broken by 1 point. Gann's
  * trend test is the monthly and weekly angle, not the daily: the monthly chart
- * is "the most important chart of all in determining the main trend" (ref: R-001
+ * is "the most important chart of all in determining the main trend" (ref: SRC-001
  * GA-2/3), "monthly/weekly angles > daily" and "first weakness = breaking
  * the first important angle up from the last bottom of the final run"
  * (GA-21-23), angles start after 3 months (GA-7/9), and "a stock cannot
@@ -393,7 +393,7 @@ export function readPillarFacts(input: {
  * P1 (C1, C2, S22, S23): two of the market's trend, the cycle and the year's
  * character. The cycle check needs no yearly count due against the trade and,
  * since 2026-10-22, the market's mass-pressure curve not running against it
- * (A-OTHER-05, ref: R-001 Ch. 7, PDF 224-226): Gann forecast the year from
+ * (A-OTHER-05, ref: SRC-001 Ch. 7, PDF 224-226): Gann forecast the year from
  * the market's cycle before the stock's. With no reading in reach it does not
  * count against the trade.
  *
@@ -405,7 +405,7 @@ export function readPillarFacts(input: {
  * month worse than the average.
  *
  * Since 2026-10-29 the market's trend is the averages' weekly swing chart, the
- * main trend of ref: R-005 Rule 1 (`averagesTrend.ts`), not `readGannTrend`,
+ * main trend of ref: SRC-005 Rule 1 (`averagesTrend.ts`), not `readGannTrend`,
  * whose 3-Day stepping test read SPY as trendless through most of the 2022
  * and 2025 declines. (A hold on both of Rule 1's charts against the trade was
  * built the same day and taken out after the six-year rerun; see
@@ -430,7 +430,7 @@ export function marketCyclePillar(f: PillarFacts | null | undefined, side: Side)
  * P2 (C13, T1, T7): Gann's weekly trend line, and the 3-day swing or the Rule
  * of Three; the monthly makes it a cinch.
  *
- * The weekly reading is the ref: R-001's green/red trend line (Ch. 8,
+ * The weekly reading is the ref: SRC-001's green/red trend line (Ch. 8,
  * p. 239: "buy when the red trend line changes to green"; `weeklyOneBar.ts`),
  * the chart T1 cites and the design named (score-pillars-research.md §3, "the
  * weekly swing (green/red line)"). Until 2026-10-21 it read the 1951
@@ -504,7 +504,7 @@ export function activityPillar(f: PillarFacts | null | undefined): PillarResult 
  * P5 (C6, T2, T4): an old top or bottom in the right role that the last
  * reaction stopped at and held (`PillarFacts.heldLevels`), or a percentage
  * level in the right role: a division of the extreme range, the highest price
- * or the latest campaign of a year or more (ref: R-001 Ch. 9, PDF 263-264;
+ * or the latest campaign of a year or more (ref: SRC-001 Ch. 9, PDF 263-264;
  * `PillarFacts.rangeLevels`).
  */
 export function priceLevelsPillar(oldLevel: boolean, percentage: boolean): PillarResult {
@@ -586,8 +586,8 @@ export function timePillar(input: { side: Side; squared: boolean; facts: PillarF
  * trade's direction, with no capital-stock warning against the side.
  *
  * The base counts only once price has left it the trade's way and stands
- * outside (2026-10-28; ref: R-001: weeks in a narrow range "then crossing
- * the range's tops or breaking its bottoms: go with it"; ref: R-007 p. 62;
+ * outside (2026-10-28; ref: SRC-001: weeks in a narrow range "then crossing
+ * the range's tops or breaking its bottoms: go with it"; ref: SRC-007 p. 62;
  * `readBaseLeft`). It had counted a long range for both sides while price
  * was still inside it: on random walks with uninformative volume that base
  * alone passed 82% of readings at $20 and 33% at $500, for buys and sells

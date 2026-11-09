@@ -108,7 +108,7 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
   });
   it("holds a crossing entry until a daily close passes the failed top: an intraday crossing is not the pass", () => {
     // Gann: "safest at 3" (W006 Rule 3) and "wait for a close beyond it"
-    // (ref: R-001 rules 4-5). The function takes no crossing level at all.
+    // (ref: SRC-001 rules 4-5). The function takes no crossing level at all.
     expect(failedTestInPath.length).toBe(4);
     expect(failedTestInPath(tops, "bullish", L + 1, 120)).not.toBeNull();
     // The daily close past the line lifts the failure in the reading itself.
@@ -118,7 +118,7 @@ describe("failedTestInPath (review 11 H1: only a failed test before the first ta
   });
 
   it("is not lifted by a session that trades past the line and closes back under it (review 19 M1)", () => {
-    // ref: R-001 rules 4-5: an intraday poke often reverses by the close.
+    // ref: SRC-001 rules 4-5: an intraday poke often reverses by the close.
     const poke = (close: number, extreme: number, kind: "top" | "bottom"): Bar[] => {
       const b = bars(kind === "top" ? [...doubleTop, ...leg(103, 108, 3)] : [...doubleBottom, ...leg(97, 92, 3)]);
       const last = b[b.length - 1];

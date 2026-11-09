@@ -1,5 +1,5 @@
 /**
- * Gann's "Rule of Three" — `ref: R-003` (1930,
+ * Gann's "Rule of Three" — `ref: SRC-003` (1930,
  * `docs/GANN_HISTORICAL_SOURCES.md` A4). His own words frame this as his
  * highest-conviction disclosed rule ("traders paid me $1,000 for it"): a
  * stock in a confirmed uptrend will never close three consecutive days lower

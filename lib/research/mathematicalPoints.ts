@@ -4,7 +4,7 @@
  *
  * Source (class C / UNVERIFIABLE, Awodele, *Divination by Mathematics*, W007
  * p. 67, quoting the method without naming the source; its probable origin,
- * the ref: R-001, is unread): every stopping price is a
+ * the ref: SRC-001, is unread): every stopping price is a
  * mathematical point, from divisions of 360°, the square of 12, the square of
  * 20, or the square or halfway point of another number.
  *

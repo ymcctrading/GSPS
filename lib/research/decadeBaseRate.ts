@@ -8,7 +8,7 @@
  *
  * Source: Dewey, *Definitions and Concepts Used in Cycle Study* (1965, W040
  * p. 4): recurrent discrete events need a hit rate against a base rate, not
- * a wave statistic. Applied by us to the decade digit (ref: R-001 Ch. 7,
+ * a wave statistic. Applied by us to the decade digit (ref: SRC-001 Ch. 7,
  * "Bull and Bear Calendar Years", `decadeCycle.ts`).
  *
  * Fixed before any data is read:

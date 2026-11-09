@@ -7,13 +7,13 @@
  *
  * **Gann's rule is the same in every market; only the unit changes.** He
  * wrote stops "1, 2 or 3 points away" in stocks (W006 Rule 2, p.46) and "1-3
- * cents from the trading price" in grain (ref: R-007 pp.43-45, rule 2),
- * and divided capital into ten parts in both (ref: R-007 rule 1; W006).
+ * cents from the trading price" in grain (ref: SRC-007 pp.43-45, rule 2),
+ * and divided capital into ten parts in both (ref: SRC-007 rule 1; W006).
  * Jensen fixes the same scale: one price unit is $1 in a stock and 1 cent in
  * grain (W049, "Charting the Price Range Data"). So a plan is priced by one
  * rule, read in each instrument's own unit (`gannUnitPrice`).
  *
- * Options, from Gann's own course (ref: R-001 Ch. 19A, May 26, 1937; Ch.
+ * Options, from Gann's own course (ref: SRC-001 Ch. 19A, May 26, 1937; Ch.
  * 19B, Feb 1941): puts and calls are "insurance"; the premium is the most
  * that can be lost and the option takes the place of the stop; buy them
  * "several points away", good for 30 days ("you will make more money buying
@@ -48,7 +48,7 @@ export type InstrumentKind = "us_equity" | "crypto" | "future" | "forex" | "opti
  * daily chart) is.
  * - `regular_hours`: the exchange's regular session (US stocks, 9:30-16:00 ET).
  * - `calendar_day`: 24/7; the day is the calendar day. Gann counted calendar
- *   days and kept hourly charts on 24 hours as well as exchange hours (ref: R-001
+ *   days and kept hourly charts on 24 hours as well as exchange hours (ref: SRC-001
  *   PDF 378); Jensen charts every calendar day (W049).
  * - `exchange_23h`: futures, Sunday evening to Friday afternoon, with a short
  *   daily break; the day is the exchange's trading day.
@@ -88,7 +88,7 @@ export interface FuturesContract {
 
 /**
  * The futures contracts GSPS defines. Exchange specifications (CME, ICE),
- * engineering data. Grains and cotton are the markets ref: R-007
+ * engineering data. Grains and cotton are the markets ref: SRC-007
  * was written for.
  */
 export const FUTURES_CONTRACTS: readonly FuturesContract[] = [
@@ -180,7 +180,7 @@ export function instrumentSpec(symbol: string): InstrumentSpec {
  * The price in Gann's points for this instrument: the number his price-scaled
  * allowance (`pointScale.ts`) is read at. Stocks, coins and an option's
  * underlying: the price in dollars ($1 a point). A future: its quoted price,
- * as Gann read 1 cent of grain as 1 point (ref: R-007 pp.43-45). A forex
+ * as Gann read 1 cent of grain as 1 point (ref: SRC-007 pp.43-45). A forex
  * pair: the price in pips (engineering choice, labelled; Gann wrote nothing on
  * currencies).
  */
@@ -196,7 +196,7 @@ export function instrumentAllowancePct(spec: InstrumentSpec, price: number, symb
 
 /**
  * Money at risk for one contract between entry and stop, or the premium for
- * an option (ref: R-001 Ch. 19A: the option is the stop).
+ * an option (ref: SRC-001 Ch. 19A: the option is the stop).
  */
 export function riskPerContract(spec: InstrumentSpec, entry: number, stop: number, premium?: number): number {
   if (spec.risk === "premium") return (premium ?? 0) * spec.multiplier;

@@ -5,7 +5,7 @@
  * which both re-score the sweep's best first, so either reading retires them.
  *
  * Mandate: 1. A new reading of the swing structure replaces the old plan; it
- * is never resumed from older levels (ref: R-004 Rule 6; Overnight Chart rule 4).
+ * is never resumed from older levels (ref: SRC-004 Rule 6; Overnight Chart rule 4).
  * 2. No periodicity claim; Dewey's checklist does not apply. 3. Cause and
  * Effect: the later reading is the cause the night's plan ends on.
  */

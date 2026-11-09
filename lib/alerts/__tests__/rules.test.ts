@@ -101,7 +101,7 @@ describe("level sources", () => {
     expect(s.find((x) => x.label === "SL")).toMatchObject({ threshold: 96, comparator: "<=" });
   });
 
-  it("sets a round-number alert ⅜ point short of the figure (ref: R-003 Ch. V)", () => {
+  it("sets a round-number alert ⅜ point short of the figure (ref: SRC-003 Ch. V)", () => {
     const s = levelSources(97, []);
     const above = s.find((x) => x.id.startsWith("figure:above"))!;
     const below = s.find((x) => x.id.startsWith("figure:below"))!;

@@ -89,14 +89,14 @@ export function contextFactorsFor(
     // C-SWING-01 (W003 p.16, class C): nearly equal corrections, uptrend only.
     f.equalCorrectionsWithTrade = !against && c.equalCorrections;
     f.timeRatioInvertedAgainstTrade = !against && c.timeRatioInverted;
-    // C-TREND-03/-06 (ref: R-007 p.312 "price or time"; ref: R-001 Ch.8
+    // C-TREND-03/-06 (ref: SRC-007 p.312 "price or time"; ref: SRC-001 Ch.8
     // PDF 249 "by 1+ point"): over-balance with Gann's 1-point margin.
     f.overbalancedByPointAgainstCampaign = against && (c.spaceOverbalancedByPoint || c.timeOverbalanced);
-    // C-TIME-27 (ref: R-001 Ch.2 PDF 51, Ch.7 PDF 220): a campaign with
+    // C-TIME-27 (ref: SRC-001 Ch.2 PDF 51, Ch.7 PDF 220): a campaign with
     // the trade in a culmination month, or past 3 years.
     f.campaignCulminationMonthWithTrade = !against && (c.age.culmination1931 || c.age.culmination1935);
     f.campaignPastCeilingWithTrade = !against && c.age.pastThreeYears;
-    // C-PRICE-01 (ref: R-001 Ch.6 PDF 197): price within 1% of the
+    // C-PRICE-01 (ref: SRC-001 Ch.6 PDF 197): price within 1% of the
     // prior-range projection, the levelTests tolerance.
     if (c.rangeProjection) f.nearRangeProjection = (Math.abs(c.rangeProjection.price - price) / price) * 100 <= 1;
   }
@@ -106,14 +106,14 @@ export function contextFactorsFor(
   if (ctx.narrowWeekBreak) f.narrowWeekBreakAgrees = ctx.narrowWeekBreak.direction === direction;
   // C-STOP-01 (W003 p.17): a failed push out of the range, in the trade's direction.
   if (ctx.falseBreakout) f.falseBreakoutAgrees = ctx.falseBreakout.direction === direction;
-  // C-ENTRY-03 (ref: R-001 Ch.8): the 2nd or 3rd higher bottom (lower top for a short).
+  // C-ENTRY-03 (ref: SRC-001 Ch.8): the 2nd or 3rd higher bottom (lower top for a short).
   if (ctx.successiveSwings) {
     const n = bull ? ctx.successiveSwings.higherBottoms : ctx.successiveSwings.lowerTops;
     f.secondOrThirdSwingWithTrade = n === 2 || n === 3;
-    // Fast moves start from the third or fourth (W003 p.17; ref: R-001 p.248).
+    // Fast moves start from the third or fourth (W003 p.17; ref: SRC-001 p.248).
     f.thirdOrFourthSwingWithTrade = n === 3 || n === 4;
   }
-  // Price grids (priceGrids.ts; ref: R-001 Ch.6 PDF 186, 209-210; Ch.13
+  // Price grids (priceGrids.ts; ref: SRC-001 Ch.6 PDF 186, 209-210; Ch.13
   // PDF 375, 378): price within 1% of a level, the levelTests tolerance.
   if (ctx.priceGrids) {
     const g = ctx.priceGrids;
@@ -123,7 +123,7 @@ export function contextFactorsFor(
     f.nearNineTwelveLevel = near(g.nineTwelve.nineBelow, g.nineTwelve.nineAbove, g.nineTwelve.twelveBelow, g.nineTwelve.twelveAbove);
     f.rangeApproachingMultipleOf144 = g.range144.approaching;
   }
-  // C-TREND-08 (ref: R-001 Ch.7 PDF 223): the 5th unit of a run on days,
+  // C-TREND-08 (ref: SRC-001 Ch.7 PDF 223): the 5th unit of a run on days,
   // weeks or months, in the trade's direction or against it.
   if (ctx.ascension) {
     const units = [ctx.ascension.daily, ctx.ascension.weekly, ctx.ascension.monthly].filter((a) => a?.fifth);
@@ -142,7 +142,7 @@ export function contextFactorsFor(
   // move is near its culmination, a risk to this trade.
   if (gapsNew) {
     f.culminationGapsInTradeDirection = gapsNew.count >= 3 && gapsNew.direction === (bull ? "up" : "down");
-    // M-E12 (ref: R-007 p.321): 6 or more, an extended run, measured on its own.
+    // M-E12 (ref: SRC-007 p.321): 6 or more, an extended run, measured on its own.
     f.extendedGapsInTradeDirection = gapsNew.extended && gapsNew.direction === (bull ? "up" : "down");
   }
   if (ctx.timing.alternation) f.onAlternationTurnDay = ctx.timing.alternation.mark !== null;
@@ -395,7 +395,7 @@ export function contextFactorsFor(
     if (inc.precision !== "year") f.incorporationMonth = inc.anniversaryMonth;
     f.incorporationCycleYear = inc.completingCycles.length > 0;
   }
-  // ref: R-001 Ch. 3: the Overnight Chart and the mechanical method on it.
+  // ref: SRC-001 Ch. 3: the Overnight Chart and the mechanical method on it.
   const o = ctx.overnight;
   if (o) {
     const side = bull ? "up" : "down";
@@ -508,7 +508,7 @@ export function contextFactorsFor(
     const proj = astro.jensen.projection;
     if (proj) f.jensenAtProjectedExhaustion = proj.direction === "up" ? price >= proj.price - astro.unit : price <= proj.price + astro.unit;
   }
-  // Price read as time and the long counts (priceAsTime.ts; ref: R-001
+  // Price read as time and the long counts (priceAsTime.ts; ref: SRC-001
   // Ch.4 PDF 125, 144-150; Ch.6 PDF 191-197; Ch.13 PDF 375, 379; Ch.15B PDF
   // 422-423; Ch.16 PDF 428-430; Ch.18 PDF 440). No direction in the text.
   const pt = ctx.priceAsTime;

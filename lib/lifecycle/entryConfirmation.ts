@@ -47,7 +47,7 @@
  *
  * **The break stage's buffer.** Gann's 3-point rule says a break of an old
  * level must clear it by 3 points before it's trusted (W006 pp.20–24, 46–47;
- * ref: R-004 p. 20). From 2026-09-16 this stage asked for a
+ * ref: SRC-004 p. 20). From 2026-09-16 this stage asked for a
  * close 0.3% beyond the trigger, on top of a trigger that was itself 0.3%
  * beyond the level. From 2026-10-15 (owner: "Use Gann's full 3 points now";
  * PLAN.md item 3) the full, price-scaled 3 points live in the trigger price

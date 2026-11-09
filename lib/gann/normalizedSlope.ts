@@ -111,7 +111,7 @@ export function computeAngleSlopes(bars: Bar[], currentPrice: number): AngleSlop
 }
 
 /**
- * The fixed chart scale (C-LEVELS-20; ref: R-020,
+ * The fixed chart scale (C-LEVELS-20; ref: SRC-020,
  * printed pp.~124-125, Plate 2): every calendar day is shown, the
  * non-trading days left blank, and one day's width equals one price unit's
  * height ($1 a point in stocks, 1¢ in grain). On that chart a 1x1 moves one

@@ -6,7 +6,7 @@
  * `/mnt/project-files/replay-diagnosis/2026-10-29-averages-trend-rerun/`).
  * The full stack (`replay.ts`) is untouched and stays the production method.
  *
- * Every rule here is from one chapter of Gann's own book, ref: R-004
+ * Every rule here is from one chapter of Gann's own book, ref: SRC-004
  * (1936, W006), Tier A:
  *
  * 1. **The main trend is the stock's own monthly chart** (p.19): the monthly

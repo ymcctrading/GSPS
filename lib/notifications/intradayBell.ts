@@ -13,7 +13,7 @@
  * the scanner's cooldown are never in `alerts`, and a member gets one notice a
  * move: a signal is written again on the same New York day only once the same
  * symbol's same signal has turned the other way since (`isNewMove`). Gann acts
- * on the first change in trend (ref: R-001 Ch. 13), not on a standing one.
+ * on the first change in trend (ref: SRC-001 Ch. 13), not on a standing one.
  * Until 2026-10-28 it was written again whenever the scanner's 30-minute
  * cooldown had passed, so a signal standing all session reached each member
  * about every 45 minutes: 4,515 notices for 1,115 member-signal pairs on
@@ -21,7 +21,7 @@
  * `NOTICE_REPEAT_HOURS` have passed.
  *
  * The notice says what Gann's method uses an intraday signal for: timing a
- * daily plan (ref: R-001 Ch. 13), not a system of its own. The intraday
+ * daily plan (ref: SRC-001 Ch. 13), not a system of its own. The intraday
  * profile has no measured record yet (2026-10-21 replay), and the notice says
  * so rather than reading as a trade call.
  *

@@ -1,5 +1,5 @@
 /**
- * Gann's rules for buying puts and calls (ref: R-001 Ch. 19A, ref: R-010,
+ * Gann's rules for buying puts and calls (ref: SRC-001 Ch. 19A, ref: SRC-010,
  * May 26, 1937; Ch. 19B, "How to Sell
  * Puts and Calls", February 1941). Tier A, his own course.
  *

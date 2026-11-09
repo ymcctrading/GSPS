@@ -101,7 +101,7 @@ export interface ScoreInputs {
   ruleOfThree?: RuleOfThreeReading | null;
   /**
    * The same rule on weekly and monthly closes. Gann applies the Rule of
-   * Three to the weekly and monthly charts as well as the daily (ref: R-003,
+   * Three to the weekly and monthly charts as well as the daily (ref: SRC-003,
    * 1930, p. 72). Added 2026-09-27 (parity roadmap A7, owner
    * direction to implement Gann's method throughout): the criterion passes
    * when the rule fires in the trade's direction on any of the three charts.
@@ -405,7 +405,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   //
   // 2026-10-21: the square reads the move against the trade, not the move with
   // it. A balance of time and price marks a turn, measured "up from lows" and
-  // "down from highs" (ref: R-001 Ch. 18, PDF p.440: low 50,
+  // "down from highs" (ref: SRC-001 Ch. 18, PDF p.440: low 50,
   // price 102, up 52 = 1 year, "a Time and Price Balance"; high 182, now 130,
   // down 52 = 1 year). For a long, the decline from the last high squaring out
   // says a bottom is due, which is the buy; the advance from the last low
@@ -448,8 +448,8 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // Digital-root/vortex reading off the same direction-matched anchor: card
   // context only. Until 2026-10-16 it was ANDed into this point; fork FL5 a
   // removed that, since a class C reading (W011, arithmetic mod 9) may never
-  // gate, and Gann's retracement levels (50% first; ref: R-005,
-  // ref: R-007) score on their own. See
+  // gate, and Gann's retracement levels (50% first; ref: SRC-005,
+  // ref: SRC-007) score on their own. See
   // lib/gann/digitalRoot.ts's priceTimeConfluence.
   const drReading = gann.digitalRootConfluences.find((r) => r.anchorKind === angleAnchorKind) ?? null;
   const drConfluenceHolds = drReading !== null && drReading.type !== "NO_CONFLUENCE";
@@ -461,7 +461,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // wanted role sat within the 3-point allowance of price (`srMatch`), which
   // the lattices in the S/R list made true on 98-100% of random-walk
   // readings; Gann confirms a level only when price acts at it (W006 p.20,
-  // Rule 3(b)-(c); ref: R-002). Without the facts the check
+  // Rule 3(b)-(c); ref: SRC-002). Without the facts the check
   // fails, as the pillars do. `srMatch` stays for the note's context only.
   const heldLevel = pillarFacts?.heldLevels?.[direction] ?? null;
   const historicalSRPassed = heldLevel !== null;
@@ -491,7 +491,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
       : "";
 
   // Confluence/context only, same treatment as campaignLegNote above — never
-  // changes historicalSRPassed itself. Gann's own rule (ref: R-005,
+  // changes historicalSRPassed itself. Gann's own rule (ref: SRC-005,
   // 1949): a level's 4th+ test is markedly less safe than the first
   // three. See lib/analysis/levelRole.ts#levelTestConfidence.
   const levelTestNote =
@@ -675,7 +675,7 @@ export function computeScore(inputs: ScoreInputs): ScanDecision {
   // and can all pass with no armed pattern and no priced trade plan, which is
   // exactly the 7/9 that would otherwise read as Execute with no entry, stop or
   // targets. Without a plan the strongest honest reading is Watch.
-  // M-K5: "Don't risk 3-5 points for 3-5" (ref: R-003
+  // M-K5: "Don't risk 3-5 points for 3-5" (ref: SRC-003
   // Ch.II; "scalpers ... simply get scalped"). Gann sets no ratio beyond "not
   // equal", so the minimal reading is used: a first target no farther than the
   // risk is not a trade. Added 2026-10-16.
@@ -738,7 +738,7 @@ export function applyDataLagHold(decision: ScanDecision, lag: DecisionLag): Scan
 }
 
 /**
- * Gann's breakaway rule (owner decision 5; ref: R-007 pp. 51-52): in a
+ * Gann's breakaway rule (owner decision 5; ref: SRC-007 pp. 51-52): in a
  * sideways market the trader stays out until price breaks away from the
  * range. A range-bound setup whose entry does not cross the range's extreme
  * is held from Execute to Watch. See `lib/gann/breakaway.ts`.
@@ -940,7 +940,7 @@ export function applyWeakStockHold(
  * six-year daily run: within Execute the readings of a move already gone far
  * lost when they agreed with the trade, and scores 8-9 did worst). Gann:
  * "All markets move in three to four sections. The third or fourth movement
- * up or down marks the culmination" (ref: R-001 pp. 244-245; GA-20/21,
+ * up or down marks the culmination" (ref: SRC-001 pp. 244-245; GA-20/21,
  * Chrysler 1935's four sections then distribution); a bull campaign's third
  * section is "often the end" and the fourth "the most important to watch for
  * the end", and minor campaigns often run out in two. So a new trade with the
@@ -982,7 +982,7 @@ export function applyCampaignSectionHold(
 
 /**
  * Gann does not sell short while the stock's main trend is up ("don't short
- * since main trend still up", ref: R-001 Ch. 1, 1954; "never buck the
+ * since main trend still up", ref: SRC-001 Ch. 1, 1954; "never buck the
  * trend"), and decides the main trend on the monthly chart (GA-2/3). A short
  * Execute is held to Watch unless the stock's own monthly swing chart reads
  * down (`mainTrend.ts`), on the live scan and the replay alike; a long is not
@@ -1059,7 +1059,7 @@ export function applyTimeWindowHold(
  * No trend on the monthly, weekly or daily chart and no buying point armed:
  * the method stands aside (review finding D-05, 2026-10-21). "Never buck the
  * trend" and "when in doubt, get out" (never-failing rules 5 and 6,
- * ref: R-007 pp. 43-45): with no trend there is no side to buck or follow,
+ * ref: SRC-007 pp. 43-45): with no trend there is no side to buck or follow,
  * so there is no trade to watch. The scorecard is still read (on the long
  * side, a reading only) so the page can show what each check found, but the
  * verdict is Reject.

@@ -1,5 +1,5 @@
 /**
- * A-TIME-03 (ref: R-004, 1936, pp. 14, 43): the 1932 advance
+ * A-TIME-03 (ref: SRC-004, 1936, pp. 14, 43): the 1932 advance
  * out of the bear market could not go higher in its third month and the
  * volume was large, so it was only a first rally; after a bear market whose
  * rallies never lasted over two months, a real bull market has to rise three

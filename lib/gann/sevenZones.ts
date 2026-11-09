@@ -1,5 +1,5 @@
 /**
- * Gann's Seven Zones of Activity (ref: R-002, 1923, Ch. XI;
+ * Gann's Seven Zones of Activity (ref: SRC-002, 1923, Ch. XI;
  * Tier A). Built 2026-09-28 by project-owner direction ("if the Seven Zones
  * can be pinned down, then do so and implement").
  *

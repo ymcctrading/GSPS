@@ -3,12 +3,12 @@
  * (parity roadmap G22, the accumulation half).
  *
  * Sources (Tier A): "The more time consumed in accumulation, the bigger the
- * advance," and the same for distribution (ref: R-003
+ * advance," and the same for distribution (ref: SRC-003
  * Ch. VII: six years of accumulation before a 164-point rise). Two to six or
  * ten to thirteen weeks in a narrow range, then crossing the range's tops or
  * breaking its bottoms: go with it, and the longer in range, the bigger the
- * move (ref: R-001). The longer before breaking into new ground, the bigger
- * the move: "accumulated energy" (ref: R-007 p. 62).
+ * move (ref: SRC-001). The longer before breaking into new ground, the bigger
+ * the move: "accumulated energy" (ref: SRC-007 p. 62).
  *
  * The reading: how long price has spent inside the range it is leaving (or
  * sitting in), counted back from the latest session while closes stay within
@@ -44,8 +44,8 @@ export const BASE_LEFT_SESSIONS = 20;
  * rule is the time in the range *then* the crossing: "two to six or ten to
  * thirteen weeks in a narrow range, then crossing the range's tops or
  * breaking its bottoms: go with it, and the longer in range, the bigger the
- * move" (ref: R-001); "the longer before breaking into new ground, the
- * bigger the move" (ref: R-007 p. 62). So a base is accumulation for a
+ * move" (ref: SRC-001); "the longer before breaking into new ground, the
+ * bigger the move" (ref: SRC-007 p. 62). So a base is accumulation for a
  * buy only once price has crossed its top, and distribution for a sale only
  * once it has broken its bottom. Price still inside the range confirms
  * neither side. "Still outside": no close since back 3 points inside the

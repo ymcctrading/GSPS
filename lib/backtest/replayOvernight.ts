@@ -1,5 +1,5 @@
 /**
- * Measures Gann's Overnight method (ref: R-001 Ch. 3,
+ * Measures Gann's Overnight method (ref: SRC-001 Ch. 3,
  * `lib/gann/overnightChart.ts`) on daily bars: in on a crossing of the last
  * Overnight top or bottom by a point, out a point beyond the last Overnight
  * bottom or top, reversed by Rule 4 when a nearby top or bottom gives the new

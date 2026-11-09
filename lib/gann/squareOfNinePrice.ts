@@ -2,7 +2,7 @@
  * Gann's Square of Nine read in price (C-LEVELS-15, built 2026-10-21).
  *
  * Sources:
- * - Tier A: ref: R-001 Ch. 2 (1931, PDF 68) lists the numbers on the
+ * - Tier A: ref: SRC-001 Ch. 2 (1931, PDF 68) lists the numbers on the
  *   square's diagonals (3, 13, 31, 57, 91 … and 7, 21, 43, 73, 111 …, with
  *   8, 23, 46, 77 … and 4, 15, 34, 61 …) as "great resistance points and
  *   measuring out important time factors" (memory-bank read,

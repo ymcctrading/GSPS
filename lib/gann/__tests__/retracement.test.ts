@@ -34,7 +34,7 @@ describe("computeRetracementLevels", () => {
     expect(labels).toContain("15/16");
   });
 
-  // M-P1 (owner 2026-10-16: Ch. 6 tiers). ref: R-001 Ch. 6 (PDF 185): on a
+  // M-P1 (owner 2026-10-16: Ch. 6 tiers). ref: SRC-001 Ch. 6 (PDF 185): on a
   // basis of 100, first 1/4, 1/2 and 3/4; then 1/3 and 2/3; then the 1/8 and
   // 1/16 points. 50% is flagged most important.
   it("ranks the divisions in three tiers, with the half most important", () => {

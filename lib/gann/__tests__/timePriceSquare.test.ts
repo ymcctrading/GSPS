@@ -52,7 +52,7 @@ describe("computeTimePriceSquare", () => {
     expect(low?.squared).toBe(true);
   });
 
-  // Up from lows, down from highs (ref: R-001 Ch. 18, PDF p.440): the same
+  // Up from lows, down from highs (ref: SRC-001 Ch. 18, PDF p.440): the same
   // distance on the far side of the anchor is not the swing it measures.
   it("squares a high only on the way down and a low only on the way up", () => {
     const unit = angleUnit(bars());

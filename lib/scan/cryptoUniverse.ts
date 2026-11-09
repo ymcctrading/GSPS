@@ -13,12 +13,12 @@
  *
  * Every pair here is scored in full, every run, with no coarse filter: the
  * list is short enough that the whole of it fits beside the equity scan, and
- * Gann chose from every chart, not a pre-filtered few (ref: R-002
+ * Gann chose from every chart, not a pre-filtered few (ref: SRC-002
  * Ch. XVI-XVII; the overnight sweep's reasoning, `universeSweep.ts`).
  *
  * Three-question mandate (AGENTS.md):
  * 1. Gann: he traded stocks and commodities by one method, read in each
- *    market's own unit (`lib/instruments/spec.ts`; ref: R-007 pp.43-45,
+ *    market's own unit (`lib/instruments/spec.ts`; ref: SRC-007 pp.43-45,
  *    W006 p.46). Crypto postdates him, so no source names it; the score is
  *    `scanTicker`'s nine pillars, unchanged, read on the calendar day as he
  *    and Jensen read a market that never closes (spec.ts, `calendar_day`).

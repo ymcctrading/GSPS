@@ -23,7 +23,7 @@
  * `AWODELE_BAND_CONFLICT`); the scan keeps Dewey's side.
  *
  * Three-question basis:
- * 1. Source: Awodele's reconstruction of the harmonic analysis that ref: R-006
+ * 1. Source: Awodele's reconstruction of the harmonic analysis that ref: SRC-006
  *    names (Ch. VII-VIII); W007 is a later reconstruction, not
  *    the primary text.
  * 2. Cycles: the composite is scored only on data it never saw, against a

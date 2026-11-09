@@ -6,7 +6,7 @@
  * W003 p. 16, the third of its "nine mathematical proofs of resistance"):
  * time cycles act as vertical angles; go short when, after 3-4 sideways
  * days, a high-volume down day breaks the range at the expiry of a time
- * cycle. Its probable origin, the ref: R-001, is unread, and
+ * cycle. Its probable origin, the ref: SRC-001, is unread, and
  * the held-rules recheck did not find the trigger in the method's own text,
  * so this stays context: it never places, gates or sizes anything. The text
  * gives the short side only, and so does this module.

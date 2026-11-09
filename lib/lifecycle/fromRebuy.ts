@@ -1,6 +1,6 @@
 /**
  * Builds a `NewTradePlan` for Gann's re-buy after a stop (A-PYRAMID-07,
- * ref: R-006 W022 p.198; `lib/gann/rebuy.ts`) once a plan
+ * ref: SRC-006 W022 p.198; `lib/gann/rebuy.ts`) once a plan
  * automation placed has been stopped on a trailing stop while the trend still
  * runs its way. lib/automation/stop-out.ts is the only caller. Until
  * 2026-10-22 the exit managers only offered this in a note, even for
@@ -24,7 +24,7 @@
  * Live only, as for every resting entry, the portfolio manager's round-number
  * hold applies to it (lib/gann/evenFigures.ts); the replay reads none.
  *
- * Three-question basis: (1) ref: R-006 p.198, Tier A, as in `rebuy.ts`.
+ * Three-question basis: (1) ref: SRC-006 p.198, Tier A, as in `rebuy.ts`.
  * (2) No periodicity claim; Dewey's checklist does not apply. (3) Rhythm: the
  * stop ends the lot, not the campaign, and the re-entry rides the in-breath
  * after the reaction. Law of Creation: the stopped trade ⊗ the trend still

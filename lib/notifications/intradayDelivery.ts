@@ -24,7 +24,7 @@
  *   bell's does (`isNewMove`), so the same symbol and signal is sent again on
  *   the same New York day only after it turned the other way; a notice
  *   (nearing or at a plan's entry), once in 24 hours. Gann acts on the first
- *   change in trend (ref: R-001 Ch. 13). Until 2026-10-28 a signal was
+ *   change in trend (ref: SRC-001 Ch. 13). Until 2026-10-28 a signal was
  *   keyed on its symbol, direction and 0-9 score, so a score that drifted
  *   between scans sent the same standing move again: on 10-27, 150 emails for
  *   63 member-symbol-direction pairs, every repeat a new score. A failed try

@@ -41,7 +41,7 @@
  * Both are the same dates for every symbol, so each symbol's own turns are
  * scored against them with the same circular-shift base rate.
  *
- * CYC-39 (ref: R-041 W041 p. 18, feedsidewards): the same input can act
+ * CYC-39 (ref: SRC-041 W041 p. 18, feedsidewards): the same input can act
  * differently by phase, and `timeCycles` fixes a window's direction by its
  * anchor (a low argues bullish). `hitsByTurnDirection` reports each family's
  * hits split by the turn that actually came (top or bottom) and by anchor

@@ -12,12 +12,12 @@
  * **Gann's rules, at the session's scale (Tier A):**
  * - **The hourly chart decides.** "When markets are very active ... keep an
  *   hourly High and Low Chart ... the Hourly Chart will give the first change
- *   in trend" (ref: R-001 Ch. 13). The trade leaves on the next bar once
+ *   in trend" (ref: SRC-001 Ch. 13). The trade leaves on the next bar once
  *   the 3-bar swing chart on hourly bars turns against it after the fill
  *   (`hourlyTurnedAgainst`), Gann's own swing chart (`swingChart.ts`).
  * - **The stop follows each completed bottom.** Stops "1 point" beyond the
- *   last bottom, following each new one (the Overnight Chart method, ref: R-001
- *   Ch. 3, pp. 68-71; ref: R-004's 1, 2 and 3-point stops). Read here on the
+ *   last bottom, following each new one (the Overnight Chart method, ref: SRC-001
+ *   Ch. 3, pp. 68-71; ref: SRC-004's 1, 2 and 3-point stops). Read here on the
  *   15-minute bars' 3-bar swings, one intraday point beyond the last
  *   completed bottom (top, short), only ever tightened (`intradayTrail`).
  * - **The first target is an old level that pays more than the risk.** The
@@ -43,7 +43,7 @@
  * 60% at the first target; it measures this rule with `scaleOut: false`.
  *
  * **Exchange hours (Gann reads the hourly chart on the session's hours,
- * ref: R-001 PDF 378).** The IEX 15-minute bars carry pre- and post-market
+ * ref: SRC-001 PDF 378).** The IEX 15-minute bars carry pre- and post-market
  * prints. For a US equity the exits read regular-session bars only
  * (`regularSessionBars`), live and replay alike, so a thin 6 PM print never
  * lifts a stop and the session ends on its last regular bar.
@@ -100,7 +100,7 @@ const SESSION_OPEN_MINUTES = 9 * 60 + 30;
 
 /**
  * The hour a bar belongs to on Gann's hourly chart, read on exchange hours
- * (ref: R-001 PDF 378, "Hourly charts: 24 h; exchange hours"). The note says
+ * (ref: SRC-001 PDF 378, "Hourly charts: 24 h; exchange hours"). The note says
  * which hours count, not where an hour starts: counting a US equity's hours
  * from the 9:30 ET open (9:30-10:29, 10:30-11:29, ..., the last half hour from
  * 15:30, or 12:30 on an early close) is our reading of "exchange hours",

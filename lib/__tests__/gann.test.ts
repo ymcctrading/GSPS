@@ -522,7 +522,7 @@ describe("computeScore", () => {
 
     // The square reads the move against the trade: for a long, the decline
     // from the last high balancing out (a bottom due), never the advance from
-    // the last low (a top due). ref: R-001 Ch. 18 (PDF p.440), "up from lows, down
+    // the last low (a top due). ref: SRC-001 Ch. 18 (PDF p.440), "up from lows, down
     // from highs".
     const withTradeOnly = computeScore({
       ...base,
@@ -585,8 +585,8 @@ describe("turn windows one, two and three years from an important top or bottom 
 describe("C-LEVELS-14: the Square of Nine's step per 45 degrees", () => {
   // Convention recorded: GSPS adds deg/180 to the root, so 45 degrees adds 0.25
   // and a full turn adds 2. The anonymous W009 table adds 1/8 per 45 degrees
-  // (half that); the ref: R-001 wheel's own diagonals (3, 13, 31, 57, 91)
-  // step about 2 per turn, so GSPS keeps the ref: R-001 convention.
+  // (half that); the ref: SRC-001 wheel's own diagonals (3, 13, 31, 57, 91)
+  // step about 2 per turn, so GSPS keeps the ref: SRC-001 convention.
   it("puts the 45-degree level from 100 at 10.25 squared, where W009's 10.125 squared is a 22.5-degree step", () => {
     const up45 = squareOf9Levels(100, 100).find((l) => l.degree === 45 && l.rotation === 0 && l.price > 100)!;
     expect(up45.price).toBeCloseTo(10.25 ** 2, 9);

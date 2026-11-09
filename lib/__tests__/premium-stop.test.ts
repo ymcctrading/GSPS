@@ -32,7 +32,7 @@ describe("readPremiumStop", () => {
   });
 
   it("judges nothing and advises no size: the premium is the risk (R-006)", () => {
-    // ref: R-001 Ch. 19A: the option is the stop. The 12-18% band and
+    // ref: SRC-001 Ch. 19A: the option is the stop. The 12-18% band and
     // its "increase size" / "reduce size" advice had no source.
     const reading = readPremiumStop({ risk: 1, premium: 100 })! as unknown as Record<string, unknown>;
     expect(reading).not.toHaveProperty("verdict");

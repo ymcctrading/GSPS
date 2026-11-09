@@ -6,7 +6,7 @@ import { gannMasterLevels } from "../masterLevels";
 import type { Bar } from "@/lib/types";
 
 describe("the nine square read in price", () => {
-  it("puts the listed diagonals on the crosses (ref: R-001 Ch. 2, 73 as corrected in Ch. 15A)", () => {
+  it("puts the listed diagonals on the crosses (ref: SRC-001 Ch. 2, 73 as corrected in Ch. 15A)", () => {
     expect(numbersOnLine(45, 100)).toEqual([3, 13, 31, 57, 91]);
     expect(numbersOnLine(225, 120)).toEqual([7, 21, 43, 73, 111]);
     expect(numbersOnLine(270, 80)).toEqual([8, 23, 46, 77]);

@@ -19,7 +19,7 @@
  * 1. **Gann.** Nothing new is sourced here. The trigger is
  *    `lib/gann/entryTrigger.ts` (A8's Buying/Selling Points), and the
  *    direction is `weightedTrendAgreement`'s chart-timeframe power ratio
- *    (`ref: R-003`, 1930). This module only decides that both
+ *    (`ref: SRC-003`, 1930). This module only decides that both
  *    surfaces read them the same way.
  * 2. **Cycles.** No periodicity claim, so Dewey's checklist does not apply.
  * 3. **Hermetic.** Correspondence ("as above, so below"): what the replay
@@ -103,7 +103,7 @@ export function entryChart(daily: Bar[], monthly: Bar[], asOf: string): { bars: 
 
 /**
  * Gann's trend over the monthly, weekly and daily charts, each weighted by his
- * power ratio (A-TREND-01; ref: R-003, 1930: a month counts
+ * power ratio (A-TREND-01; ref: SRC-003, 1930: a month counts
  * 30 days, a week 7), or null when none of the three reads a trend. The hourly
  * never counts.
  */
@@ -181,8 +181,8 @@ export function reversionEntry(
 /**
  * The one setup a scan with no direction asked of it shows (the symbol page,
  * a batch scan, Guided Mode's recheck): the buying point with the trend when
- * it armed, else the reversion. "Never buck the trend" (ref: R-003
- * pp. 18-19, never-failing rule 5; ref: R-004): the
+ * it armed, else the reversion. "Never buck the trend" (ref: SRC-003
+ * pp. 18-19, never-failing rule 5; ref: SRC-004): the
  * with-trend point is the trade, the counter-trend point only when it is the
  * one that armed. With no
  * trend on any chart only the reversion arms, and it is the nearer of the two
@@ -216,7 +216,7 @@ export function chooseSessionEntry(
 /**
  * Of a session's armed buying points, the one shown: the with-trend
  * (continuation) point when it armed, else the first ("never buck the trend",
- * ref: R-003 pp. 18-19). Shared with the replay's rebuild of
+ * ref: SRC-003 pp. 18-19). Shared with the replay's rebuild of
  * the session's daily plan (`lib/backtest/replay.ts#sessionDailyPlan`).
  */
 export function preferWithTrend<T extends { setupKind: SetupKind }>(armed: readonly T[]): T | null {
@@ -247,7 +247,7 @@ export function armSessionEntries(
  * The direction the scan arms a reversion setup in when it has no buying
  * point to read it from: against Gann's weighted trend. With no trend on any
  * chart there is no side to take, so null: "never buck the trend" and "when
- * in doubt, get out" (the never-failing rules 5 and 6, ref: R-007 pp. 43-45).
+ * in doubt, get out" (the never-failing rules 5 and 6, ref: SRC-007 pp. 43-45).
  * Before 2026-10-21 it fell to the short side (review finding D-05). A caller
  * hunting a continuation supplies its own direction instead. Where buying
  * points exist, `reversionEntry` decides.

@@ -1,5 +1,5 @@
 /**
- * C-LEVELS-13 (ref: R-037 W007 p. 67, quoting the method without a source):
+ * C-LEVELS-13 (ref: SRC-037 W007 p. 67, quoting the method without a source):
  * every stopping price is a mathematical point, a division of 360°, the
  * square of 12, the square of 20, or the square or halfway point of another
  * number. Research: the share of swing extremes near such a point against

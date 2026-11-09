@@ -65,7 +65,7 @@ function steppingAdvance(cycles: number): number[] {
   return out;
 }
 
-describe("readBreakaway (ref: R-007 pp. 51-52)", () => {
+describe("readBreakaway (ref: SRC-007 pp. 51-52)", () => {
   it("reads a sideways market as range-bound and holds an entry inside the range", () => {
     const bars = daily(sideways(6));
     const r = readBreakaway(bars, crossingAt("bullish", 101));
@@ -75,7 +75,7 @@ describe("readBreakaway (ref: R-007 pp. 51-52)", () => {
     expect(r.breaksAway).toBe(false);
   });
 
-  it("reads a range wider than 4 of his points as not narrow (ref: R-001 pp. 246-248)", () => {
+  it("reads a range wider than 4 of his points as not narrow (ref: SRC-001 pp. 246-248)", () => {
     // 95.5 to 103.5, 8 points: wider than his widest narrow range at this price.
     const wider = daily(sideways(6).map((c) => 100 + (c - 100) * 2));
     expect(readBreakaway(wider, crossingAt("bullish", 101)).rangeBound).toBe(false);
@@ -128,8 +128,8 @@ describe("applyBreakawayHold", () => {
   });
 });
 
-// Gann's sideways market is a narrow range held for weeks (ref: R-007 pp.
-// 51-52; ref: R-001 "2-6 or 10-13 weeks in a narrow range"). A market whose
+// Gann's sideways market is a narrow range held for weeks (ref: SRC-007 pp.
+// 51-52; ref: SRC-001 "2-6 or 10-13 weeks in a narrow range"). A market whose
 // trend is merely unconfirmed, swinging widely, is not one (2026-10-21).
 describe("readBreakaway reads a narrow range only", () => {
   /** Swings between 70 and 130: no confirmed trend, but far wider than narrow. */
@@ -349,7 +349,7 @@ describe("the breakaway waits for a session that closes past the range on volume
   });
 });
 
-// ref: R-001 pp. 246-248 and ref: R-007 p. 51: "2-6 or 10-13 weeks in a
+// ref: SRC-001 pp. 246-248 and ref: SRC-007 p. 51: "2-6 or 10-13 weeks in a
 // narrow range, then crossing the tops or breaking the bottoms of the previous
 // weeks". The weeks are counted back from now, so a narrow spell after a wide
 // quarter is a range too, and its own extremes are the breakaway (2026-10-21).

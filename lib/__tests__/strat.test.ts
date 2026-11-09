@@ -267,7 +267,7 @@ describe("computeTradeLevels", () => {
     const prev = { t: "", o: 98, h: 101, l: 96, c: 99, v: 0 };
 
     it("judges no stop band on a bought option: the premium is the risk (R-006)", () => {
-      // ref: R-001 Ch. 19A: the option is the stop. The 12-18% of
+      // ref: SRC-001 Ch. 19A: the option is the stop. The 12-18% of
       // premium band, with its "increase size" and "reduce size" advice, had
       // no source and is gone.
       for (const premium of [10, 4, 6.5]) {

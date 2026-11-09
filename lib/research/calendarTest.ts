@@ -32,7 +32,7 @@ export interface DatedWindow {
   end: [number, number];
 }
 
-/** W1: the permanent cycle (ref: R-003, 1930). */
+/** W1: the permanent cycle (ref: SRC-003, 1930). */
 export const W1: readonly DatedWindow[] = [
   { label: "Feb 8-10", start: [2, 8], end: [2, 10] },
   { label: "Mar 21-23", start: [3, 21], end: [3, 23] },
@@ -45,7 +45,7 @@ export const W1: readonly DatedWindow[] = [
 ];
 export const W1_ANCHOR_YEAR = 1929;
 
-/** W3: the 1940 forecast's dated windows (ref: R-009, A07), by place in the year. */
+/** W3: the 1940 forecast's dated windows (ref: SRC-009, A07), by place in the year. */
 export const W3: readonly DatedWindow[] = [
   { label: "May 25", start: [5, 25], end: [5, 25] },
   { label: "Jul 10-Aug 10", start: [7, 10], end: [8, 10] },
@@ -214,7 +214,7 @@ export function scoreCellByPhase(
 }
 
 /**
- * CYC-40 (ref: R-041 W041 pp. 10-11, 25): don't force the nominal period; a
+ * CYC-40 (ref: SRC-041 W041 pp. 10-11, 25): don't force the nominal period; a
  * rhythm may fit better off it (28 h and 178 h beat 24 h and 168 h). Each
  * year convention is scored, Holm is applied across the three, and the best
  * fit (largest edge over its own base rate) is reported rather than assumed.

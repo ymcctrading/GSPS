@@ -1,5 +1,5 @@
 /**
- * New and Full Moon dates for the lunar test (C-ASTRO-10; ref: R-036 W013
+ * New and Full Moon dates for the lunar test (C-ASTRO-10; ref: SRC-036 W013
  * pp.29-92). Research only: no criterion, gate, plan, entry or order reads
  * this (CYC-41). The test is `eventDateTest.ts#eventTurnRate` with a ±1 day
  * window. Bucholtz's "first traded on a New Moon" subset is not built: GSPS

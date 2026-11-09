@@ -1,5 +1,5 @@
 /**
- * A-SELECTION-07 (ref: R-004, 1936, Ch. V pp. 38-39): stocks
+ * A-SELECTION-07 (ref: SRC-004, 1936, Ch. V pp. 38-39): stocks
  * with a small number of shares can be sold short for the widest declines.
  * Read as heavy weekly turnover against shares outstanding; 1930s share
  * counts are not ported. Context only, recorded on short candidates.

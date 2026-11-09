@@ -15,15 +15,15 @@
  * goes INVALIDATED and stays there.
  *
  * **Gann's own "confirmed": a failed break.** A broken level changes sides: the
- * old bottom becomes a top (ref: R-004 p. 13), so a rally back to
+ * old bottom becomes a top (ref: SRC-004 p. 13), so a rally back to
  * it is a test of resistance, not a second chance at the buy. Only a rally that
  * goes on through it by his 3-point allowance shows the break was false: after
  * breaking an old bottom by 3 points a stock "should not rally 3 points back
- * above it" (ref: R-004 p. 20), rallies to old bottoms stop within 1-2 points (average
- * 3) above, and more than 5 above means it is going higher (ref: R-001,
+ * above it" (ref: SRC-004 p. 20), rallies to old bottoms stop within 1-2 points (average
+ * 3) above, and more than 5 above means it is going higher (ref: SRC-001,
  * the range rules, pp. 246-248). And he wants the close to decide: "still
  * safer to wait for a close beyond it ... intraday pokes often reverse by the
- * close" (ref: R-001, rules 4 and 5, p. 7). So a broken plan stands again
+ * close" (ref: SRC-001, rules 4 and 5, p. 7). So a broken plan stands again
  * only when a closed bar has closed back through the broken level by the
  * allowance (`reclaimLevel`, price-scaled by `lib/gann/pointScale.ts`, the same
  * "3 points" the exit rules use). Price merely returning between the stop and
@@ -32,10 +32,10 @@
  *
  * **Gann's own "replaced": a new trade with a new stop.** He never resumes a
  * stopped trade at its old levels. The stop caught means the chart has reversed
- * (ref: R-001, Overnight Chart rule 4; ref: R-004 Rule 6: "if stopped, cover and
- * go long again", as a new trade); in ref: R-006 he is stopped out at
+ * (ref: SRC-001, Overnight Chart rule 4; ref: SRC-004 Rule 6: "if stopped, cover and
+ * go long again", as a new trade); in ref: SRC-006 he is stopped out at
  * 225 and re-buys at 218, stop 212, for a stated reason. A new long needs a new
- * bottom that holds (2-3 days in an active market, ref: R-004 p. 20) and a cross of an
+ * bottom that holds (2-3 days in an active market, ref: SRC-004 p. 20) and a cross of an
  * old top with a new stop 3 points under it; a short after a broken bottom is
  * sold on a small rally with the stop 3 points above the old bottom. All of that
  * is what `computeGannEntryTrigger` reads from the swing chart on completed
@@ -46,7 +46,7 @@
  *
  * Three-question basis (AGENTS.md):
  * 1. Gann, as cited above (Tier A, `docs/GANN_HISTORICAL_SOURCES.md`). The stop
- *    already sits beyond the swing extreme by his 3-point allowance (ref: R-007
+ *    already sits beyond the swing extreme by his 3-point allowance (ref: SRC-007
  *    p. 38), so touching it has cleared an ordinary
  *    poke. His rule 5 (a close decides) argues for holding the plan until the
  *    close, not retiring it on a touch. The owner chose the stricter reading;
@@ -97,10 +97,10 @@ export function isStopBreached(direction: PlanDirection, stop: number | null, pr
 
 /**
  * How many of Gann's points a close has to clear the broken level by. Three is
- * the figure his false-break rule names (ref: R-004 p. 20: a stock "should not rally 3
+ * the figure his false-break rule names (ref: SRC-004 p. 20: a stock "should not rally 3
  * points back above" a broken bottom), and it is what the live scan uses. He
  * also says a rally of more than five above an old bottom means it is going
- * higher (ref: R-001, pp. 246-248), so five is the stricter
+ * higher (ref: SRC-001, pp. 246-248), so five is the stricter
  * reading. Only the replay may vary it (`ReplayOptions.reclaimPoints`), to
  * measure the two against each other before the live number moves; nothing in
  * the live scan passes anything but this default.

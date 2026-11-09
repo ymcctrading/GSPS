@@ -2,10 +2,10 @@
  * Cover shorts on bad news (A-EXIT-04, built 2026-10-22; owner: "Build these").
  *
  * Source, Tier A, Gann's own text: before Christmas 1927 his trader covers
- * his shorts on bad news, "This was the time to cash in" (ref: R-006
+ * his shorts on bad news, "This was the time to cash in" (ref: SRC-006
  * p.223). What makes news bad Gann answers from the market, not the
  * headline: the market "bottoms on bearish news" because the news is already
- * discounted (ref: R-007 p.8), and "when news is the worst, it is time to
+ * discounted (ref: SRC-007 p.8), and "when news is the worst, it is time to
  * buy stocks" (W006 p.14). So the news counts as bad when price fell on it:
  * a news item on the symbol after the prior session and through the last
  * completed one, and that session closed under the prior close.

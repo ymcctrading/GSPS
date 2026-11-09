@@ -12,12 +12,12 @@
  * What Gann gives, and where it acts:
  * - Gann watched prices against levels he had worked out the night before and
  *   rested his orders there: stops "3 points under" a bottom, buying "at old
- *   tops" (ref: R-004 p. 20; W006 Rule 3, pp. 46-47). So a
+ *   tops" (ref: SRC-004 p. 20; W006 Rule 3, pp. 46-47). So a
  *   threshold can be taken from the chart's own levels: the plan's Entry, SL,
  *   TP1 and MTP and the Gann angle and Square of Nine levels the chart draws
  *   (`levelSources`, from the chart's markers, the same numbers the plan uses).
  * - Even figures: orders go ¼ to ½ point inside an even figure, because markets
- *   turn just short of them (ref: R-003 Ch. V;
+ *   turn just short of them (ref: SRC-003 Ch. V;
  *   `evenFigures.ts#shortOfFigure`, ⅜ of a Gann point). An alert set on a round
  *   number is therefore set ⅜ point short of it, or price can stop just before
  *   the figure and never trip it.

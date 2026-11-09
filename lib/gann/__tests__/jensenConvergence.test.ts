@@ -1,5 +1,5 @@
 /**
- * C-LEVELS-24 (class C, ref: R-031 1978, printed pp. 111-113): lines of 90, 45
+ * C-LEVELS-24 (class C, ref: SRC-031 1978, printed pp. 111-113): lines of 90, 45
  * and 22½ points per square drawn from the tests of a double or triple
  * bottom converge on a major point. Context only.
  */

@@ -8,14 +8,14 @@
  *
  * Rules and sources (all Tier A; see `docs/memory-bank/sources/`):
  * - **C1 hold test.** After crossing an old top, a market that is going
- *   higher should not react back 3 points under it (ref: R-004
- *   p. 20; ref: R-007 p. 53). A daily close back under the
+ *   higher should not react back 3 points under it (ref: SRC-004
+ *   p. 20; ref: SRC-007 p. 53). A daily close back under the
  *   crossed level by the allowance ends the trade.
  * - **C1 three adverse closes.** If the trade closes against you the third
- *   successive day from entry, you are wrong: get out (ref: R-004
+ *   successive day from entry, you are wrong: get out (ref: SRC-004
  *   p. 23). Read on the first three sessions after the fill only.
  * - **C2 break-even.** Move the stop to break-even after 3-4 points of profit,
- *   with a 3-point stop (ref: R-002, Book II; ref: R-003,
+ *   with a 3-point stop (ref: SRC-002, Book II; ref: SRC-003,
  *   Rule 3; Ch.II rule 4, "once 3 points ahead"). Since
  *   2026-10-16 (M-E6) the price-scaled form is his own: break-even once the
  *   best price is 3 points (`threePoints`) past the entry. It had been
@@ -24,21 +24,21 @@
  *   under each completed week's bottom once the trade is into a new week
  *   (W006 p.46: "1, 2, 3 or 5 points"; 3 is the stop he calls safest).
  * - **C3 structural trail.** Keep the stop under each higher bottom as the
- *   swings step up (the 3-Day Chart's bottoms, ref: R-005), and
+ *   swings step up (the 3-Day Chart's bottoms, ref: SRC-005), and
  *   under the prior month's low once the trade has run into a new month
- *   (ref: R-003 Ch. IV, VII). In the final stage of a campaign (its 3rd
+ *   (ref: SRC-003 Ch. IV, VII). In the final stage of a campaign (its 3rd
  *   section or later), trail by the size of the last reaction, and after a
- *   2-day counter-move, under the prior day (ref: R-003 Ch. VII;
- *   ref: R-007 BP/SP #9). Short trades are the mirror throughout.
+ *   2-day counter-move, under the prior day (ref: SRC-003 Ch. VII;
+ *   ref: SRC-007 BP/SP #9). Short trades are the mirror throughout.
  * - **C4 trend change.** The runner leaves on a change of trend, not at a
- *   fixed price (ref: R-002, "never fix a target price"): the
+ *   fixed price (ref: SRC-002, "never fix a target price"): the
  *   weekly swing chart turning against the trade after entry, or the
- *   campaign's greatest reaction over-balanced in space or time (ref: R-001
- *   Ch. 7; ref: R-007 p. 51).
+ *   campaign's greatest reaction over-balanced in space or time (ref: SRC-001
+ *   Ch. 7; ref: SRC-007 p. 51).
  * - **D2 distribution week** (added 2026-09-28). Two-thirds of the capital
- *   stock changing hands in one week at a top means distribution (ref: R-003
+ *   stock changing hands in one week at a top means distribution (ref: SRC-003
  *   Ch. VII), and a week turning over almost all of it
- *   is a plain top (ref: R-001 Ch. 12). A long leaves when such a week
+ *   is a plain top (ref: SRC-001 Ch. 12). A long leaves when such a week
  *   prints after the fill. Longs only: the text states these as top rules,
  *   and its bottom rule is volume drying up (D1), not a turnover count, so no
  *   mirror is invented for shorts. Needs the stored share count; without it
@@ -55,7 +55,7 @@
  *   own session, trails 3 points under each completed day's low (over its
  *   high, short): W006 Rule 2 p.46, "1 to 3 points under the day's low" in
  *   fast moves; the 1940-41 soybean trade's stops 1 cent under each day's low
- *   (W001 pp.134-137); ref: R-002, "buy on the second day's
+ *   (W001 pp.134-137); ref: SRC-002, "buy on the second day's
  *   reaction and stop three points", anchored on the day bought. Reported as
  *   "day_low" (`gannDayStop`). Swing trades never read it.
  * - **A-LEVELS-04 failed double or triple top** (added 2026-10-16, fork FL3
@@ -65,16 +65,16 @@
  *
  * - **M-E11 reverse signal day** (added 2026-10-22). A reverse signal day or
  *   a 7-10 Day Rule day against the trade, since the fill, puts the stop 3
- *   points beyond that day's extreme (ref: R-007 pp.318, 324; the ref: R-003
+ *   points beyond that day's extreme (ref: SRC-007 pp.318, 324; the ref: SRC-003
  *   's daily time rule). Reported as "reverse_signal".
  * - **M-E12 exhaust gap** (added 2026-10-22). A gap to a new extreme with its
  *   reverse signal day, against the trade and since the fill, is the
- *   culmination of the swing: the trade leaves ("exhaust_gap", ref: R-007
+ *   culmination of the swing: the trade leaves ("exhaust_gap", ref: SRC-007
  *   pp.319-320). It takes the trade off without reversing it.
  * - **M-T10 boiling point** (added 2026-10-22). Once the weekly chart's run in
  *   the trade's direction has run 6 weeks, the stop trails his 10 points,
  *   read at his Rumely price (`BOILING_POINT_TRAIL_POINTS`), from the best
- *   price (ref: R-003 Ch. V). Reported as "boiling_point".
+ *   price (ref: SRC-003 Ch. V). Reported as "boiling_point".
  *
  * Engineering choices, labelled as such:
  * - Gann's "3 points" is price-scaled from his own bands (`pointScale.ts`).
@@ -147,7 +147,7 @@ export const FINAL_STAGE_SECTION = CULMINATION_SECTION;
 export const BOILING_POINT_EXAMPLE_PRICE = 105;
 /**
  * M-T10's trail: his 10 points read at the price he worked them at, 10 /
- * `pricePoint(105)`, about 5.9 Gann points (ref: R-003
+ * `pricePoint(105)`, about 5.9 Gann points (ref: SRC-003
  * Ch. V, pp. 60-108, the rule and the Advance Rumely example both; W005).
  * Corrected
  * 2026-10-28 (alignment audit, `score-and-levels.md`): it was 10 Gann
@@ -420,7 +420,7 @@ export function readGannExit(
   }
 
   // M-E12: an exhaust gap against the trade since the fill, "the culmination
-  // of a major swing" (ref: R-007 p.319: after a prolonged advance a final
+  // of a major swing" (ref: SRC-007 p.319: after a prolonged advance a final
   // one-day gap and a reverse signal day; mirrored p.320). The gap must print
   // on a session after the fill's (`firstAfter` + 1): a gap on the fill day,
   // or one before it, was part of the setup. Read after the trend-change
@@ -468,7 +468,7 @@ export function readGannExit(
   }
 
   // Break-even once 3 points ahead (M-E6): "at 3-4 points' profit, move the
-  // stop to breakeven" (ref: R-002 Ch.VIII rule 4; the ref: R-003
+  // stop to breakeven" (ref: SRC-002 Ch.VIII rule 4; the ref: SRC-003
   // Ch.II rule 4, "once 3 points ahead"), price-scaled as his 3
   // points are, which covers his "4-5 in high-priced" stocks. Until
   // 2026-10-16 it waited for a profit equal to the risk taken.
@@ -510,7 +510,7 @@ export function readGannExit(
   // p.46, Rule 2: "in fast high-level advances trail 5 points under each
   // day's high"), so they start only once the trade itself has advanced 3
   // points, the point at which Gann first moves a stop at all (break-even
-  // above, ref: R-003 Ch.II rule 4). Before that the initial stop
+  // above, ref: SRC-003 Ch.II rule 4). Before that the initial stop
   // stands: a trade bought in the final stage that has not yet moved is in
   // no advance to trail. Until 2026-10-23 they started at the fill, so the
   // day's-high trail could sit above the entry on the fill's next session
@@ -540,11 +540,11 @@ export function readGannExit(
 
   // M-E11 (APPROXIMATED: the day is Gann's, the stop beyond it is his daily
   // time rule's). A reverse signal day or a 7-10 Day Rule day against the
-  // trade, since the fill, is "an indication for a change in trend" (ref: R-007 p.318,
+  // trade, since the fill, is "an indication for a change in trend" (ref: SRC-007 p.318,
   // the 7-10 Day Rule p.324), so the stop goes 3 points beyond that day's
   // extreme: under its low when the signal is a top against a long, over its
   // high when it is a bottom against a short (the daily time rule's stop "3
-  // points beyond" a top or bottom, ref: R-003 Ch. IV). The
+  // points beyond" a top or bottom, ref: SRC-003 Ch. IV). The
   // latest such day since the fill. Each day is read on the bars up to it, at
   // most the 7-10 Day Rule's longest run back, so a later day never moves it.
   {
@@ -559,7 +559,7 @@ export function readGannExit(
 
   // M-T10, the boiling point: "wait to sell your stock until it boils ... the
   // final fast advance lasts 6-7 weeks (sometimes 10)", with a 10-point
-  // trailing stop (ref: R-003 Ch. V; the 6-7 week panic
+  // trailing stop (ref: SRC-003 Ch. V; the 6-7 week panic
   // that ends a bear campaign is the mirror). Once the weekly swing chart's
   // run in the trade's direction has run 6 weeks (`CLASSIC_MIN_WEEKS`, the
   // start of his 6-7 week window), the stop trails his 10 points from the

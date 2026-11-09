@@ -26,7 +26,7 @@
  *   common by construction, not a forecast.
  *
  * Three-question basis:
- * 1. Gann: the fractions are his (ref: R-001 Ch. 5-7); the every-pivot
+ * 1. Gann: the fractions are his (ref: SRC-001 Ch. 5-7); the every-pivot
  *    projection and the clustering are Vera's and Ferrera's, Tier C.
  * 2. Cycles: a recurrence claim. It clears no Dewey item until the cluster
  *    rate on turns beats the base rate this module measures.

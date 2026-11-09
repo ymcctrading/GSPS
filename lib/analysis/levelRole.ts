@@ -42,7 +42,7 @@ export function countLevelTests(bars: Bar[], levelPrice: number, bandPct: number
 export type LevelTestConfidence = "untested" | "reliable" | "caution";
 
 /**
- * Gann's own rule (ref: R-005, 1949,
+ * Gann's own rule (ref: SRC-005, 1949,
  * `docs/GANN_HISTORICAL_SOURCES.md` A9): the fourth test of the same
  * double/triple top or bottom is markedly less safe than the first three —
  * "it nearly always goes through." `"caution"` covers the 4th test onward.

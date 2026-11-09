@@ -7,7 +7,7 @@
  *
  * Gann answers Conflict/Wait himself, so it is not a state of its own here:
  * - Both buying points armed, one with the trend and one against it: "never
- *   buck the trend" (never-failing rule 5, ref: R-007 pp. 43-45; ref: R-003
+ *   buck the trend" (never-failing rule 5, ref: SRC-007 pp. 43-45; ref: SRC-003
  *   pp. 18-19). The with-trend side is the trade
  *   (`chooseSessionEntry`), and the one set aside is recorded on the scan as
  *   `setAsideEntry`, so "both sides armed" is on the record without being a

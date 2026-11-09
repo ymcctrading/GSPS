@@ -46,7 +46,7 @@ describe("the replay's reversal when caught", () => {
   });
 });
 
-describe("the replay's reversal chain stops on a series of losses (audit, ref: R-004 Rule 6 and Rule 1)", () => {
+describe("the replay's reversal chain stops on a series of losses (audit, ref: SRC-004 Rule 6 and Rule 1)", () => {
   // One-minute candles in one session: each reversal confirms, then price runs
   // through its stop, wider each time, so every reversal in the chain loses.
   function whipsaw(): Bar[] {

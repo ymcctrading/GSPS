@@ -12,7 +12,7 @@
  * (`lib/market/otherMarkets.ts`, `lib/scan/cryptoUniverse.ts`,
  * `lib/instruments/spec.ts`), so a symbol added there joins its industry here.
  *
- * Gann's groups were industries (the Motors, Rails, Oils, Coppers: ref: R-002
+ * Gann's groups were industries (the Motors, Rails, Oils, Coppers: ref: SRC-002
  * Ch. XVI-XIX), and he chose his stocks group by group. The
  * names of the sectors and industries are GSPS's own plain-English labels, an
  * engineering choice; the score's group rank (`lib/gann/industryGroups.ts`) is

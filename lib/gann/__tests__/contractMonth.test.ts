@@ -33,7 +33,7 @@ describe("gannContractMonth (A-SELECTION-08)", () => {
     expect(front("CT", on(2027, 10, 1))).toBe("CTZ27");
   });
 
-  it("soybeans: May and July for long account only (ref: R-007 p.326)", () => {
+  it("soybeans: May and July for long account only (ref: SRC-007 p.326)", () => {
     expect(gannContractMonth("ZS", on(2027, 2, 1), "long")?.months.map((m) => m.symbol)).toEqual(["ZSK27", "ZSN27"]);
     expect(front("ZS", on(2027, 6, 1))).toBe("ZSN27");
     expect(front("ZS", on(2027, 9, 1))).toBe("ZSK28");

@@ -3,14 +3,14 @@
  * owner's "every Gann method acts").
  *
  * Sources:
- * - Tier A: ref: R-001 Ch. 15A/15B, "The Hexagon Chart" (January 1931).
+ * - Tier A: ref: SRC-001 Ch. 15A/15B, "The Hexagon Chart" (January 1931).
  *   The ring completions 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397 and
  *   the second series 2, 9, 22, 41, 66, 97, 134, 177, 226, 281, 342 are named
  *   as points of time measurement for days, weeks, months and years. Named
  *   counts: campaigns that top in the 60th month and make a second top or
  *   bottom in the 66th; 127 months (10 years 7 months, "why some campaigns
  *   run 10 years and seven months"); 169 months (14 years 1 month).
- * - Tier A: Gann's hand-drawn plate, printed p. 422 of the owner's ref: R-001
+ * - Tier A: Gann's hand-drawn plate, printed p. 422 of the owner's ref: SRC-001
  *   PDF, viewed 2026-10-01 (reading log A2.1). 1 at the centre, 2 to
  *   its right, the spiral counterclockwise, six cells more per ring. Corners
  *   at 0°/360°, 60°, 120°, 180°, 240° and 300°; mid-sides at 30°, 90° … 330°.

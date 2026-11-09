@@ -1,13 +1,13 @@
 /**
  * S6, Gann's relative strength rank: "How to Select the Commodity that will
- * Lead a Decline or an Advance" (ref: R-007 p. 20,
+ * Lead a Decline or an Advance" (ref: SRC-007 p. 20,
  * Tier A) is to compare the monthly highs and lows of every market and take
  * the strongest for a long, the weakest for a short; one that fails to cross
  * its former tops shows relative weakness (p. 47). On stocks it is "buy the
  * strongest stocks in the group and sell short the ones in the weakest
  * position", and "those selling at the highest levels are in the strongest
- * position" (ref: R-003 Ch. VII, the Sugar and Tobacco
- * reviews; ref: R-002 Ch. XVII-XIX). P3(c) of the score reads
+ * position" (ref: SRC-003 Ch. VII, the Sugar and Tobacco
+ * reviews; ref: SRC-002 Ch. XVII-XIX). P3(c) of the score reads
  * it (`lib/scoring/pillars.ts`), and the lists order by it
  * (`selectionStrength`).
  *
@@ -64,7 +64,7 @@ export const MIN_PEERS = 100;
 /**
  * One share class per company in the rank (gann-alignment-audit H9,
  * 2026-10-28). Gann's group lists and his strongest and weakest stocks name
- * each company once (ref: R-002 Ch. XVI-XIX; ref: R-003
+ * each company once (ref: SRC-002 Ch. XVI-XIX; ref: SRC-003
  * Ch. VII), so a second class of the same company is not its peer:
  * GOOG and GOOGL read as one company, at GOOGL's reading. Each further class
  * maps to the class the universe ranks. The universe holds no other pair
