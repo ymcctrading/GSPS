@@ -20,7 +20,7 @@ inside that. Measured 2026-11-09 from the Actions API; the full breakdown is in 
 |---|---|---|
 | Tests (`test.yml`) | pull requests that are ready for review and change more than Markdown; by hand | 6 min a run |
 | Security (`security.yml`) | pull requests that are ready for review; each push to main (the secret scan of what the merge adds) | 1 min |
-| Branch hygiene (`branch-hygiene.yml`) | pull requests, including title and body edits (the roadmap-phase gate reads them); the 1st of each month | 1 min |
+| Branch hygiene (`branch-hygiene.yml`) | pull requests that are ready for review, including title and body edits (the roadmap-phase gate reads them); the 1st of each month | 1 min |
 | Deploy to Cloud Run (`deploy-cloud-run.yml`) | each push to main | 1 min unconfigured, about 6 once set up |
 | Universe backtest and fetch jobs | by hand only, on the owner's ask | about 61 min a backtest |
 
@@ -29,12 +29,25 @@ pull request already ran the suite on the merge result. If main moved after a re
 merging it.
 
 ## The budget
+A train runs only when a PR is waiting, so a month has at most about as many trains as feature PRs (66 in October), not 120.
+Each train is one release PR and one push to main. The push runs Security (about 1 minute) and the Cloud Run deploy: about 1
+minute while it is unconfigured, and about 6 once it deploys for real (an estimate; no real deploy has been measured yet).
+
 | Item | Minutes a month |
 |---|---|
-| About 66 feature PRs × about 14 (1–2 test runs, plus security and hygiene) | about 900 |
-| Up to 120 release-train PRs (4 a day) × about 8 | up to about 900 |
-| Pushes to main: security, plus the deploy | about 50–250 |
-| **Total** | **about 1,700–1,900 of 2,000** |
+| About 66 feature PRs × about 13.6 (1–2 test runs, plus security and hygiene) | about 900 |
+| Up to 66 release-train PRs × about 7.7 | up to about 510 |
+| Up to 66 pushes to main × Security plus the deploy | about 130 unconfigured; about 460 once Cloud Run deploys |
+| **Total** | **about 1,540 now; about 1,870 once Cloud Run deploys, of 2,000** |
+
+**The margin is thin:** about 130 minutes once Cloud Run deploys. If trains ran four times a day all month (120 release PRs
+and 120 pushes to main), the total would be about 2,660, over the cap. So the budget fits only while releases stay well under
+four a day, which they do whenever trains carry real work.
+
+At the measured November pace (Oct 29 to Nov 8, 11 quiet days, without the backtest or Tests on main), the month comes to about
+1,690 (`actions-minutes-breakdown.md`) or 1,745 (the independent check of this PR, which counts the remaining runs slightly
+differently). Both use the same runs; the difference is rounding and which push runs were removed. Scaled by the 7 days that
+had runs instead of all 11, that pace would be about 2,740, so a busy month needs the train discipline above.
 
 ## Rules that keep it there
 1. **Push a PR once or twice.** Finish the work, run the suite, `tsc --noEmit`, eslint and the banned-terms check locally, then
