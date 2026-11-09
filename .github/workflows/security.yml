@@ -4,8 +4,14 @@ name: Security
 # different class of problem than the Tests workflow does. One job since 2026-10-28 (owner: Actions minutes): as three jobs each
 # paid for its own runner minute, and npm audit reads the lockfile, so it
 # needs no install.
+#
+# Since 2026-11-09 (docs/CI-MINUTES.md): pull requests run on the same events as
+# Tests, and a draft runs nothing until it is ready. The push to main stays: the
+# secret scan reads the commits a merge adds (about 1 minute), and this job also
+# counts the Vercel deployment each push to main makes.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
@@ -16,6 +22,7 @@ concurrency:
 
 jobs:
   security:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     name: Security checks
     steps:
