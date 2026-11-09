@@ -182,13 +182,13 @@ rule or factor there before changing or diagnosing it.
 - **Sources.** `docs/GANN_HISTORICAL_SOURCES.md` indexes every source
   reviewed; `docs/GANN_METHOD_COMPLETENESS_AUDIT.md` is the audit built from
   it. Read them before proposing, auditing or researching a Gann criterion.
-- **Every book in the collection has been read (owner, 2026-10-16).** Never
-  hold a rule as unverifiable on an unread book. The readings are in
-  `/mnt/project-files/literature-reading-output/` (read-only; the long books'
-  notes under `external/checkpoint_v7/`, where W023 is the *Master Stock
-  Market Course*, W005 *Truth of the Stock Tape* and the *Stock Selector*,
-  W001/W004 *Commodities*, W009 *45 Years*). A rule in Gann's own text is
-  his rule and is carried; one in no book stays context only.
+- **Every book in the collection has been read (owner, 2026-10-16), and
+  `docs/agents/00-where-to-look.md` says where (owner, 2026-11-07).** Read it
+  before calling any work unread or building or testing a Gann rule. The
+  per-work records are `docs/memory-bank/sources/` (A2_1 is the whole Master
+  Course) and `/mnt/project-files/literature-reading-output/` (v7 W-ids). A
+  connector read that stops early is never evidence a book is unread. A rule
+  in Gann's own text is his rule and is carried; one in no book stays context only.
 - **`docs/memory-bank/`**: start with
   `GANN_CYCLES_HERMETIC_MASTER_REPORT.md`; `GANN_PARITY_ROADMAP.md` is the
   rule-by-rule parity build plan (update its rows when a rule is built).

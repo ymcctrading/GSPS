@@ -1063,6 +1063,15 @@ Checked against Gann's text: 9, 14, 40, 84, 90 and 100 are his (1955 list,
 Flanagan's only. Full note:
 `docs/memory-bank/sources/B18_flanagan_master_time_factor_revealed.md`.
 
+### B19. Myles Wilson Walker, *Super Timing: W. D. Gann's Astrological Method* (1999)
+
+Read in full from the owner's scan (186 pp.) on 2026-10-30; catalogued 2026-11-07. Walker's
+reading of Gann's astrology: a trine "balanced" by a conjunction, square or opposition
+(p.149), the Moon as timer (p.159), Jupiter's ingress (p.81) and the "once only cycle"
+(pp.123, 127). Tier B. Its four timing rules beat chance nowhere (28 tests,
+`lib/research/superTiming.ts`, `docs/PLANETARY_TIMING.md`). Full note:
+`docs/memory-bank/sources/B19_walker_super_timing.md`.
+
 ## Part C — General cycle-theory sources (non-Gann), from "Observation of
 Cycles"
 

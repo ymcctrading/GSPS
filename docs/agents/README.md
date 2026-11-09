@@ -10,6 +10,7 @@ New dated history goes at the end of the matching file here, never in AGENTS.md.
 
 | File | Read it when |
 |---|---|
+| `00-where-to-look.md` | looking for any source, reading record, research result or data set, or before calling a work unread |
 | `04-gann-research-memory.md` | touching any Gann rule, factor, STRATEGY_VERSION, replay or diagnosis |
 | `05-gann-precedence.md` | deciding whether a question goes to the owner, or porting a Gann figure |
 | `06-gann-grounded-platform.md` | touching non-Gann techniques, indicators, entry pricing, or an audit outcome |
