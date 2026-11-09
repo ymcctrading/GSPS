@@ -24,6 +24,11 @@ export interface StrikeSelection {
   moneyness: Moneyness;
   underlying: string;
   underlyingPrice: number;
+  /**
+   * True when the chain behind this contract is modelled, not exchange data
+   * (`OptionChain.simulated`). The ticket says so beside the IV, as the chain does.
+   */
+  simulated?: boolean;
   /** Expirations the picker may offer, bounded by the symbol's horizon. */
   expirations: string[];
   maxExpiration: string;
@@ -193,7 +198,8 @@ export function StrikeOrderModal({
       title={title}
       description={
         contract && active
-          ? `Spot ${formatUsd(active.underlyingPrice)} · IV ${(contract.iv * 100).toFixed(1)}%`
+          ? `Spot ${formatUsd(active.underlyingPrice)} · IV ${(contract.iv * 100).toFixed(1)}%` +
+            (active.simulated ? " · Simulated chain: IV, greeks and quotes are modelled, not exchange data" : "")
           : undefined
       }
       footer={

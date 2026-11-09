@@ -115,8 +115,9 @@ export function AnalyticsDashboard() {
         <CardHeader>
           <CardTitle>Performance Analytics</CardTitle>
           <CardDescription>
-            Win rate, Sharpe ratio, drawdown, and P&L by month and pattern — computed from closed
-            trades.
+            Win rate, Sharpe ratio, drawdown, and P&L by month and pattern, computed from your own closed
+            trades. Win rate and P&L cover the last two years; Sharpe ratio and drawdown use every closed trade.
+            Paper, live and journal trades are counted together.
           </CardDescription>
         </CardHeader>
         <CardContent className="py-6 text-center text-sm text-muted">

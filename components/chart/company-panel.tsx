@@ -74,7 +74,7 @@ export function CompanyPanel({
     <div className="flex flex-col gap-5">
       <ProfileHeader profile={snapshot.profile} live={snapshot.sources.profile === "finnhub"} />
 
-      <ConvictionBanner conviction={conviction} />
+      <ConvictionBanner conviction={conviction} consensusLive={snapshot.sources.analystRating === "finnhub"} />
 
       <section>
         <div className="mb-2 flex items-center justify-between">
@@ -118,7 +118,7 @@ export function CompanyPanel({
       </section>
 
       <section>
-        <SectionHeader>Short interest · Margin</SectionHeader>
+        <ModelledSectionHeader>Short interest · Margin</ModelledSectionHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-border px-3 py-2">
             <div className="text-xs text-muted">Short interest (last settlement)</div>
@@ -151,7 +151,7 @@ export function CompanyPanel({
       </section>
 
       <section>
-        <SectionHeader>Institutional ownership</SectionHeader>
+        <ModelledSectionHeader>Institutional ownership</ModelledSectionHeader>
         <div className="rounded-lg border border-border px-3 py-2">
           <div className="grid grid-cols-3 gap-2 text-center">
             <Stat label="Institutions" value={snapshot.institutionalOwnership.institutions.toLocaleString()} />
@@ -166,7 +166,7 @@ export function CompanyPanel({
       </section>
 
       <section>
-        <SectionHeader>Capital flow</SectionHeader>
+        <ModelledSectionHeader>Capital flow</ModelledSectionHeader>
         <div className="rounded-lg border border-border px-3 py-2">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-bull">
@@ -197,7 +197,7 @@ export function CompanyPanel({
       </section>
 
       <section>
-        <SectionHeader>Volatility</SectionHeader>
+        <ModelledSectionHeader>Volatility</ModelledSectionHeader>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-border px-3 py-2">
             <div className="text-xs text-muted">Implied volatility</div>
@@ -333,7 +333,7 @@ function blendConviction(
   };
 }
 
-function ConvictionBanner({ conviction }: { conviction: Conviction }) {
+function ConvictionBanner({ conviction, consensusLive }: { conviction: Conviction; consensusLive: boolean }) {
   const variant =
     conviction.label === "Bullish confluence"
       ? "bull"
@@ -352,7 +352,10 @@ function ConvictionBanner({ conviction }: { conviction: Conviction }) {
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Badge variant={variant}>{conviction.label}</Badge>
         <span className="text-xs text-muted">
-          Structure × consensus × institutional flow, blended
+          Structure × consensus × institutional flow, blended.{" "}
+          {consensusLive
+            ? "The flow part is modelled, not vendor data."
+            : "The consensus and flow parts are modelled, not vendor data."}
         </span>
       </div>
       <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
@@ -380,6 +383,21 @@ function ConvictionBanner({ conviction }: { conviction: Conviction }) {
 }
 
 /* ------------------------------------------------------------------ bits */
+
+/**
+ * A section with no vendor behind it (`lib/data/company.ts`: short interest,
+ * margin, institutional ownership, capital flow and volatility are seeded,
+ * modelled figures). The badge sits on the section itself, so a number is
+ * never read as market data for want of scrolling to the footnote.
+ */
+function ModelledSectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-2 flex items-center justify-between">
+      <SectionHeader noMargin>{children}</SectionHeader>
+      <DataSourceBadge live={false} />
+    </div>
+  );
+}
 
 function SectionHeader({ children, noMargin }: { children: React.ReactNode; noMargin?: boolean }) {
   return (

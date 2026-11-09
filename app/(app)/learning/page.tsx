@@ -32,6 +32,13 @@ const BACKTEST_BASELINE = { trades: 31, winRate: 0.387, expectancyR: 0.151 };
  * (R-032, 2026-10-21). Set this true once it is re-based on the current rules.
  */
 const BASELINE_COMPARABLE = false;
+/**
+ * What the baseline row measured, shown beside it so 31 trades on six stocks
+ * over two months is never read as a platform-wide figure. From
+ * `docs/REPLAY_RESULTS.md` as committed on 2026-08-27 (ef6208b): universe
+ * SPY, AAPL, AMD, TSLA, MSFT, NVDA, window 2026-06-29 to 2026-08-26.
+ */
+const BACKTEST_BASELINE_SAMPLE = "6 stocks, Jun 29 to Aug 26, 2026";
 /** Mirrors `lib/shadow/compare.ts`'s `MIN_SHADOW_SAMPLES` — below this, a comparison is withheld server-side too. */
 const MIN_SHADOW_SAMPLES_HINT = 15;
 
@@ -248,7 +255,8 @@ export default function LearningPage() {
                   </TR>
                   <TR className="border-t-2 border-border">
                     <TD className="font-medium">
-                      Backtest baseline{!BASELINE_COMPARABLE && " (earlier rules, not compared)"}
+                      Backtest baseline: {BACKTEST_BASELINE_SAMPLE}
+                      {!BASELINE_COMPARABLE && " (earlier rules, not compared)"}
                     </TD>
                     <TD className="text-right tabular-nums">{BACKTEST_BASELINE.trades}</TD>
                     <TD className="text-right tabular-nums">{pct(BACKTEST_BASELINE.winRate)}</TD>
