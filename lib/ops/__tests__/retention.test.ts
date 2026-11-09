@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DELIVERY_MAX_AGE_MS } from "@/lib/entitlements/delivery";
 import { NOTIFICATION_DEDUP_HOURS } from "@/lib/notifications/intradayDelivery";
-import { NOTIFICATION_RETENTION_DAYS } from "@/lib/ops/retention";
+import { CRON_HISTORY_RETENTION_DAYS, NOTIFICATION_RETENTION_DAYS } from "@/lib/ops/retention";
 
 /**
  * The prune (migration 0138) keeps each table as long as lib/ops/retention.ts
@@ -50,3 +50,26 @@ describe("notification retention", () => {
     expect(NOTIFICATION_RETENTION_DAYS.monitor_transitions).toBeGreaterThanOrEqual(NOTIFICATION_RETENTION_DAYS.notification_deliveries);
   });
 });
+
+describe("cron run history retention (migration 0145)", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0145_cron_history_retention.sql"), "utf8");
+  const body = sql.replace(/^--.*$/gm, "");
+
+  it("deletes only cron run history, once, older than the figure retention.ts gives", () => {
+    const deletes = [...body.matchAll(/delete from ([\w.]+) where end_time < now\(\) - interval '(\d+) days'/g)];
+    expect(deletes.map((m) => [m[1], Number(m[2])])).toEqual([["cron.job_run_details", CRON_HISTORY_RETENTION_DAYS]]);
+    expect(body.match(/\bdelete\b/gi)).toHaveLength(1);
+    expect(body).not.toMatch(/\b(truncate|drop table|update)\b/i);
+  });
+
+  it("runs weekly, after the Sunday ledger retention, under its own name", () => {
+    expect(body).toContain("select cron.schedule('gsps-cron-history-retention', '40 9 * * 0', $$select gsps_ops.prune_cron_history()$$);");
+    expect(body.match(/cron\.schedule\(/g)).toHaveLength(1);
+  });
+
+  it("keeps more than every reader needs: the runbook's last runs and a week's measurement", () => {
+    expect(CRON_HISTORY_RETENTION_DAYS).toBeGreaterThan(7);
+    expect(sql).toContain("Merging this file\n-- is not applying it.");
+  });
+});
+
