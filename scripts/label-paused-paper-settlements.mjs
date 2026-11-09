@@ -19,8 +19,10 @@
  *        node scripts/label-paused-paper-settlements.mjs --write --ids ids.json --since <ISO> --yes
  *
  * `--since` keeps a close from before the pause from ever being relabelled.
- * Only `trade_logs.signal_called` changes, and `updated_at`. Nothing is
- * emailed. A label written after 5 PM ET does not reach that day's email,
+ * Only `trade_logs.signal_called` changes (the table has no `updated_at`).
+ * Nothing is emailed. A captured exit the manager's pass leaves open is
+ * settled on a later pass: run the dry run and the write again before 5 PM ET
+ * on each day one of them closes, until the dry run shows none open. A label written after 5 PM ET does not reach that day's email,
  * which runs at 5 PM; the runbook has it written before then.
  *
  * Usage needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY (read through
@@ -66,10 +68,12 @@ let exitCode = 0;
 try {
   const { serviceRoleKey } = await server.ssrLoadModule("/lib/supabase/service-key.ts");
   const { createClient } = await server.ssrLoadModule("@supabase/supabase-js");
-  const { rowsToLabel, withPauseLabel } = await server.ssrLoadModule("/lib/recovery/pauseSettlementLabel.ts");
+  const { rowsToLabel, labelUpdate } = await server.ssrLoadModule("/lib/recovery/pauseSettlementLabel.ts");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set");
-  const db = createClient(url, serviceRoleKey(), { auth: { persistSession: false } });
+  const { ledgerWriter } = await server.ssrLoadModule("/lib/supabase/ledger.ts");
+  // The ledger rule: every write to a ledger table goes through ledgerWriter (the service client, unchanged).
+  const db = ledgerWriter(createClient(url, serviceRoleKey(), { auth: { persistSession: false } }));
 
   if (capture) {
     const { data, error } = await db
@@ -101,7 +105,7 @@ try {
       for (const r of chosen) {
         const { data: hit, error: e } = await db
           .from("trade_logs")
-          .update({ signal_called: withPauseLabel(r.signal_called), updated_at: new Date().toISOString() })
+          .update(labelUpdate(r))
           .eq("id", r.id)
           .eq("user_id", r.user_id)
           .eq("signal_called", r.signal_called)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAUSE_SETTLEMENT_LABEL, hasPauseLabel, rowsToLabel, withPauseLabel, type LabelCandidate } from "@/lib/recovery/pauseSettlementLabel";
+import { PAUSE_SETTLEMENT_LABEL, hasPauseLabel, labelUpdate, rowsToLabel, withPauseLabel, type LabelCandidate } from "@/lib/recovery/pauseSettlementLabel";
 
 describe("withPauseLabel", () => {
   it("adds the label once after the reasoning", () => {
@@ -39,5 +39,13 @@ describe("rowsToLabel", () => {
       row({ id: "h", exit_plan_id: "exit-2", exit_timestamp: "2026-11-30T13:00:00Z" }),
     ];
     expect(rowsToLabel(rows, ids, since).map((r) => r.id)).toEqual(["a", "h"]);
+  });
+});
+
+describe("labelUpdate", () => {
+  it("writes the reasoning text and nothing else (trade_logs has no updated_at)", () => {
+    const u = labelUpdate({ signal_called: "Protocol levels" });
+    expect(Object.keys(u)).toEqual(["signal_called"]);
+    expect(u.signal_called).toBe(`Protocol levels · ${PAUSE_SETTLEMENT_LABEL}`);
   });
 });

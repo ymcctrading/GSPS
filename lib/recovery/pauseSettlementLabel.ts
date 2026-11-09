@@ -9,8 +9,10 @@
  * price), so the result is not what bar-by-bar management would have booked.
  * The trade's record then says so, in the words a member reads: the reasoning
  * text (`trade_logs.signal_called`, shown in the journal, its export and the
- * daily email) gains this label. It is neutral copy: it names what happened to
- * the record, never the rules behind it.
+ * daily email) gains this label. Performance Analytics groups P&L by that
+ * text (migration 0023), so the labelled trades form their own group there.
+ * It is neutral copy: it names what happened to the record, never the rules
+ * behind it.
  *
  * Pure; `scripts/label-paused-paper-settlements.mjs` reads and writes the rows.
  *
@@ -35,6 +37,15 @@ export function withPauseLabel(signalCalled: string | null | undefined): string 
   const base = typeof signalCalled === "string" ? signalCalled.trim() : "";
   if (hasPauseLabel(base)) return base;
   return base.length > 0 ? `${base}${SEPARATOR}${PAUSE_SETTLEMENT_LABEL}` : PAUSE_SETTLEMENT_LABEL;
+}
+
+/**
+ * The update for one trade log: the reasoning text only. `trade_logs` has no
+ * `updated_at` column (production's information_schema, read 2026-11-09
+ * 12:31 UTC), so nothing else is written.
+ */
+export function labelUpdate(row: Pick<LabelCandidate, "signal_called">): { signal_called: string } {
+  return { signal_called: withPauseLabel(row.signal_called) };
 }
 
 export interface LabelCandidate {
