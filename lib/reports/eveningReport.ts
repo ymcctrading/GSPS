@@ -32,6 +32,7 @@
  */
 
 import type { Bar } from "@/lib/types";
+import { RECONSTRUCTED_NOTE } from "@/lib/scan/reconstructed";
 import { pricePoint } from "@/lib/gann/pointScale";
 import { confirmationFromBars } from "@/lib/lifecycle/confirmNow";
 import { delayedFillIndex, replayFeedDelayMs } from "@/lib/data/timeliness";
@@ -488,6 +489,13 @@ export interface RecapEmailInput {
   basisDate: string;
   /** The session the setups were built from, "YYYY-MM-DD". */
   setupsFrom: string | null;
+  /**
+   * True when that session's rows were rebuilt after the fact by the backfill
+   * (`lib/scan/reconstructed.ts`): no member saw those plans that evening, so
+   * the recap labels its setup results as a reconstruction. Optional; absent
+   * reads as false.
+   */
+  setupsReconstructed?: boolean;
   /** Each pipeline stage's count, kept apart (`lib/reports/coverage.ts`). */
   coverage: CoverageStages;
   /** Per mover: the last stage it reached, in one line. */
@@ -584,6 +592,11 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   html.push(
     `<p style="color:#64748b;margin:0 0 16px">Owner-only report: the movers are ranked by a move that had already happened, so nothing here is shown to members or used by a scan. Setups are the plans standing at ${input.setupsFrom ? `${dayLabel(input.setupsFrom)}'s` : "the prior"} close, run through a simplified simulation: GSPS's entry rule on the session's 15-minute bars, filled at the next bar's open, then the plan's own stop and TP1 only. It is not production-faithful: it leaves out the trailing exits, costs and slippage, the placement holds (a breakdown standing, a failed top in the way) and the data delay, and a bar that touched both the stop and TP1 counts as the stop.</p>`,
   );
+  if (input.setupsReconstructed && input.setupsFrom) {
+    const note = `${dayLabel(input.setupsFrom)}'s plans were reconstructed after the fact. ${RECONSTRUCTED_NOTE} Read the setup results below as a check of the reconstruction, not of plans members held.`;
+    html.push(`<p style="color:#b45309;margin:0 0 16px"><strong>Reconstructed setups.</strong> ${esc(note)}</p>`);
+    text.push(`RECONSTRUCTED SETUPS: ${note}`, "");
+  }
   html.push(`<h3 style="margin:16px 0 4px">Coverage by stage</h3><p style="color:#64748b;margin:0 0 6px">Each stage counted on its own; "not recorded" means GSPS kept no record of it, not zero.</p><table style="border-collapse:collapse;width:100%;font-size:13px">`);
   text.push("COVERAGE BY STAGE (each counted on its own; \"not recorded\" is not zero)");
   for (const k of STAGE_KEYS) {

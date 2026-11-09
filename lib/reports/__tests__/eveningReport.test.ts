@@ -263,6 +263,26 @@ describe("plain English", () => {
     expect(recap.text).toContain("ZZZ");
     expect(recap.text).toContain("not examined");
     expect(recap.text).toContain("not recorded (test)");
+    expect(recap.text).not.toContain("RECONSTRUCTED SETUPS");
+  });
+
+  it("labels setups from a day rebuilt after the fact", () => {
+    const recap = renderRecapEmail({
+      basisDate: "2026-11-30",
+      setupsFrom: "2026-11-27",
+      setupsReconstructed: true,
+      coverage: Object.fromEntries(STAGE_KEYS.map((k) => [k, stage(null, "test")])) as CoverageStages,
+      attribution: new Map(),
+      movers: [],
+      daily: [],
+      intraday: [],
+      focus: new Set(),
+      members: new Map(),
+      appUrl: "https://example.com",
+    });
+    expect(recap.text).toContain("RECONSTRUCTED SETUPS");
+    expect(recap.text).toContain("fixed list of large companies");
+    expect(recap.html).toContain("Reconstructed setups.");
   });
 
   it("names no method, source or internal label in either email", () => {

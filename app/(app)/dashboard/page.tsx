@@ -9,6 +9,7 @@ import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
 import { DashboardWatchlist } from "@/components/dashboard/dashboard-watchlist";
 import { AutoScan } from "@/components/scan/auto-scan";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
+import { ReconstructedScanNotice } from "@/components/scan/reconstructed-notice";
 import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
 import { MarketNews } from "@/components/macro/market-news";
@@ -58,7 +59,7 @@ export default async function DashboardPage() {
     resolveExactScoreDisplayEnabled(),
     supabase.auth.getUser(),
   ]);
-  const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = scans;
+  const { scanDate, freshness, pricedBeforeSession, scannedAt, reconstructed, bullish, bearish } = scans;
   const user = userResult.data.user;
 
   const [tierSummary, trackedExecute, savedSetups, watchlist, layout] = user
@@ -236,6 +237,8 @@ export default async function DashboardPage() {
         pricedBeforeSession={pricedBeforeSession}
         scannedAt={scannedAt}
       />
+
+      <ReconstructedScanNotice reconstructed={reconstructed} scanDate={scanDate} />
 
       {visibleDashboardSections(layout).map((id) => {
         const node = sections[id];

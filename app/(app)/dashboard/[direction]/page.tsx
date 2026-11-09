@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ResultsTable } from "@/components/scan/results-table";
 import { SellSetupHelp } from "@/components/education/sell-setup-help";
 import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
+import { ReconstructedScanNotice } from "@/components/scan/reconstructed-notice";
 import { getDailyScans, type Direction } from "@/lib/dailyScans";
 import { tradeSideWord } from "@/lib/scoring/direction-copy";
 import { resolveExactScoreDisplayEnabled } from "@/lib/scoring/tier-display";
@@ -28,7 +29,7 @@ export default async function DirectionListPage({
   const isBull = dir === "bullish";
   const side = tradeSideWord(dir);
 
-  const { scanDate, freshness, pricedBeforeSession, scannedAt, bullish, bearish } = await getDailyScans();
+  const { scanDate, freshness, pricedBeforeSession, scannedAt, reconstructed, bullish, bearish } = await getDailyScans();
   const rows = isBull ? bullish : bearish;
   const continuations = rows.filter((r) => r.setupKind === "continuation").length;
   const exactScoreDisplayEnabled = await resolveExactScoreDisplayEnabled();
@@ -63,6 +64,8 @@ export default async function DirectionListPage({
         pricedBeforeSession={pricedBeforeSession}
         scannedAt={scannedAt}
       />
+
+      <ReconstructedScanNotice reconstructed={reconstructed} scanDate={scanDate} />
 
       <Card>
         <CardHeader>
