@@ -9,8 +9,14 @@
  *          "feedMode": "simulated",   // "live" | "simulated"
  *          "live": false,
  *          "provider": "synthetic",   // the resolved provider's name
- *          "timestamp": "…"
+ *          "timestamp": "…",
+ *          "commit": "…"              // the build's git commit, or null
  *        }
+ *
+ * `commit` is the deployed build's commit (Vercel's VERCEL_GIT_COMMIT_SHA),
+ * so a check can tell the latest build from an older one still serving
+ * (scripts/after-pause-recovery.mjs). The repository is public; a commit id
+ * discloses nothing the repository doesn't.
  *
  * `feedMode` comes from the same provider seam the rest of the app uses
  * (`getMarketDataProvider().isLive`), so it can't drift from the data the
@@ -33,6 +39,7 @@ export async function GET() {
       live: feedMode === "live",
       provider: provider.name,
       timestamp: new Date().toISOString(),
+      commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

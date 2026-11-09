@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  judgeDeploy,
   judgeDryRunDay,
   judgeMeter,
   judgeNextScan,
@@ -136,6 +137,30 @@ describe("a write on a reviewed dry run", () => {
     const r = judgeReviewedDryRun(days, files, new Set(["2026-10-30"]), now, band);
     expect(r.good).toBe(true);
     expect(r.verdicts[1].level).toBe("WARN");
+  });
+});
+
+describe("the deploy check", () => {
+  const health = (extra: object) => JSON.stringify({ status: "ok", feedMode: "live", provider: "alpaca", timestamp: "t", ...extra });
+  const levels = (v: { level: string }[]) => v.map((x) => x.level);
+
+  it("fails while paused or broken", () => {
+    expect(levels(judgeDeploy(402, "Payment required\n\nDEPLOYMENT_DISABLED", "abc"))).toEqual(["FAIL"]);
+    expect(levels(judgeDeploy(500, "oops", "abc"))).toEqual(["FAIL"]);
+    expect(levels(judgeDeploy(200, "not json", "abc"))).toEqual(["FAIL"]);
+  });
+
+  it("waits while the old build (no commit) serves, or another commit does", () => {
+    const old = judgeDeploy(200, health({}), "d2e65d0abc");
+    expect(levels(old)).toEqual(["PASS", "WAIT"]);
+    expect(old[1].message).toContain("Oct 30 build");
+    expect(levels(judgeDeploy(200, health({ commit: "1111111aaaa" }), "d2e65d0abc"))).toEqual(["PASS", "WAIT"]);
+  });
+
+  it("passes on the expected commit, by full id or prefix", () => {
+    expect(levels(judgeDeploy(200, health({ commit: "d2e65d0abcdef" }), "d2e65d0"))).toEqual(["PASS", "PASS"]);
+    expect(levels(judgeDeploy(200, health({ commit: "d2e65d0" }), "d2e65d0abcdef"))).toEqual(["PASS", "PASS"]);
+    expect(levels(judgeDeploy(200, health({ commit: "d2e65d0" }), null))).toEqual(["PASS", "WARN"]);
   });
 });
 

@@ -163,3 +163,34 @@ export function judgeReviewedDryRun(
   }
   return { good: verdicts.every((v) => v.level !== "FAIL"), verdicts };
 }
+
+/**
+ * Is the site up, and is it running the expected build? `/api/health` reports
+ * `commit` from the build's own environment (Vercel's VERCEL_GIT_COMMIT_SHA);
+ * the Oct 30 build predates the field, so an answer without it is the old
+ * build. A 402 is the hosting pause. `expectSha` may be a prefix.
+ */
+export function judgeDeploy(status: number, text: string, expectSha: string | null): Verdict[] {
+  if (status === 402) return [{ level: "FAIL", message: `402 ${text.split("\n")[0]}: the hosting pause is still on` }];
+  let body: { status?: string; feedMode?: string; provider?: string; timestamp?: string; commit?: string | null } | null = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = null;
+  }
+  if (status !== 200 || body?.status !== "ok") return [{ level: "FAIL", message: `HTTP ${status}: ${text.slice(0, 120)}` }];
+  const out: Verdict[] = [
+    { level: "PASS", message: `HTTP 200, status ok, market data ${body.feedMode} (${body.provider}), server time ${body.timestamp}` },
+  ];
+  const commit = typeof body.commit === "string" && body.commit ? body.commit : null;
+  if (!commit) {
+    out.push({ level: "WAIT", message: "the site reports no build commit: the Oct 30 build is still serving; the latest code goes live with the first push to main after the lift" });
+  } else if (!expectSha) {
+    out.push({ level: "WARN", message: `the site runs ${commit.slice(0, 7)}; no expected commit was given to compare` });
+  } else if (commit.startsWith(expectSha) || expectSha.startsWith(commit)) {
+    out.push({ level: "PASS", message: `the site runs ${commit.slice(0, 7)}, the expected build` });
+  } else {
+    out.push({ level: "WAIT", message: `the site runs ${commit.slice(0, 7)}, not ${expectSha.slice(0, 7)}: the expected build is not live yet` });
+  }
+  return out;
+}

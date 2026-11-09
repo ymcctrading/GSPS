@@ -9,8 +9,11 @@
  *
  *   node scripts/after-pause-recovery.mjs <step> [options]
  *
- *   deploy      GET <APP_URL>/api/health. Passes on 200 with status "ok";
- *               a 402 means the pause is still on.
+ *   deploy      GET <APP_URL>/api/health. Passes on 200 with status "ok"
+ *               and the build commit it reports equal to --expect-sha (default:
+ *               this checkout's origin/main). A 402 means the pause is still
+ *               on; no commit means the Oct 30 build still serves, since the
+ *               latest code goes live only with the first push to main.
  *   dry-run     the backfill in dry-run mode (scripts/backfill-daily-scans.mjs)
  *               for --from (default 2026-10-30) to --to (default: the last
  *               trading day whose 7 PM ET scan time has passed), then checks
@@ -102,9 +105,18 @@ function lastScanDay(tt, now = Date.now()) {
   return recent.filter((d) => tt.backfillClock(d).getTime() <= now).at(-1);
 }
 
-async function stepDeploy() {
+/** The commit the site should run: --expect-sha, else this checkout's origin/main. */
+function expectedSha() {
+  const given = arg("expect-sha");
+  if (given) return given;
+  const r = spawnSync("git", ["rev-parse", "origin/main"], { cwd: root, encoding: "utf8" });
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+
+async function stepDeploy(rc) {
   const base = (process.env.APP_URL ?? "https://gsps.vercel.app").replace(/\/$/, "");
-  console.log(`deploy: ${base}/api/health`);
+  const expect = expectedSha();
+  console.log(`deploy: ${base}/api/health, expecting ${expect ? expect.slice(0, 7) : "no particular"} build (run git fetch first)`);
   let res;
   try {
     res = await fetch(`${base}/api/health`, { headers: { "cache-control": "no-cache" } });
@@ -112,23 +124,9 @@ async function stepDeploy() {
     fail(`no answer: ${String(err)}`);
     return false;
   }
-  const text = await res.text();
-  if (res.status === 402) {
-    fail(`402 ${text.split("\n")[0]}: the hosting pause is still on`);
-    return false;
-  }
-  let body = null;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    // not JSON: reported below
-  }
-  if (res.status !== 200 || body?.status !== "ok") {
-    fail(`HTTP ${res.status}: ${text.slice(0, 120)}`);
-    return false;
-  }
-  ok(`HTTP 200, status ok, market data ${body.feedMode} (${body.provider}), server time ${body.timestamp}`);
-  return true;
+  const verdicts = rc.judgeDeploy(res.status, await res.text(), expect);
+  verdicts.forEach(report);
+  return verdicts.every((v) => v.level === "PASS");
 }
 
 /**
@@ -343,25 +341,24 @@ async function main() {
   const step = process.argv[2];
   const steps = ["deploy", "dry-run", "write", "meter", "next-scan", "sql", "all"];
   if (!steps.includes(step)) {
-    console.log(`usage: node scripts/after-pause-recovery.mjs <${steps.join("|")}> [--from D] [--to D] [--day D] [--since ISO] [--out DIR] [--reviewed DIR] [--yes]`);
+    console.log(`usage: node scripts/after-pause-recovery.mjs <${steps.join("|")}> [--from D] [--to D] [--day D] [--since ISO] [--out DIR] [--reviewed DIR] [--expect-sha SHA] [--yes]`);
     process.exit(2);
   }
   if (step === "sql") {
     console.log(SQL);
     return;
   }
-  if (step === "deploy") process.exit((await stepDeploy()) ? 0 : 1);
-
   const out = arg("out") ?? path.join(os.tmpdir(), "after-pause-dry-run");
   const tools = await loadTools();
   let good;
   try {
-    if (step === "dry-run") good = (await stepDryRun(tools, out)).good;
+    if (step === "deploy") good = await stepDeploy(tools.rc);
+    else if (step === "dry-run") good = (await stepDryRun(tools, out)).good;
     else if (step === "write") good = await stepWrite(tools);
     else if (step === "meter") good = await stepMeter(tools);
     else if (step === "next-scan") good = await stepNextScan(tools);
     else {
-      good = await stepDeploy();
+      good = await stepDeploy(tools.rc);
       if (!good) {
         fail("stopping: the app is not up");
       } else {
