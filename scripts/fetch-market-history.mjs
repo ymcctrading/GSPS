@@ -13,7 +13,7 @@
  * by the datasets project (https://github.com/datasets/s-and-p-500, licence
  * ODC-PDDL). Each month's figure is the average of that month's daily closes.
  * Gann read the Dow averages and, before them, his own railroad averages
- * back to 1856 (Master Course Ch. 7, PDF 224-225); this index is an
+ * back to 1856 (ref: SRC-001 Ch. 7, PDF 224-225); this index is an
  * engineering stand-in for those, labelled as such wherever it is read.
  * Kept: the index (`stocks`), the long-term interest rate (`rate`) and the
  * consumer price index (`cpi`), each null where the source has no figure.
