@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { NoFeedCard } from "@/components/macro/no-feed-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ImpactTier, NewsEvent } from "@/lib/macro/news";
@@ -53,6 +54,9 @@ export function MarketNews() {
       return next.size === 0 ? new Set(["high", "medium", "low"]) : next;
     });
   }
+
+  // A generated demo feed is never shown to a member (see NoFeedCard).
+  if (simulated) return <NoFeedCard title="Market news" what="economic releases" />;
 
   return (
     <Card>

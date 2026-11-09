@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { NoFeedCard } from "@/components/macro/no-feed-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,9 @@ export function EarningsCalendar() {
   const monthLabel = anchor.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
   const todayIso = new Date().toISOString().slice(0, 10);
   const selectedEvents = selected ? (byDate.get(selected) ?? []) : [];
+
+  // A generated demo feed is never shown to a member (see NoFeedCard).
+  if (simulated) return <NoFeedCard title="Earnings calendar" what="earnings dates" />;
 
   return (
     <Card>
