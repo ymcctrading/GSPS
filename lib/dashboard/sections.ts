@@ -54,7 +54,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSectionInfo[] = [
   { id: "summary", label: "Your next step", note: "Novice accounts only" },
   { id: "school", label: "School progress", note: "Novice and Pro" },
   { id: "walkthrough", label: "Link to the walkthrough" },
-  { id: "expectancy", label: "Live expectancy" },
+  { id: "expectancy", label: "Recent replay of Guided's rules" },
   { id: "tracked", label: "Your tracked Execute setups", note: "When you have any" },
   { id: "saved", label: "Saved setups" },
   { id: "watchlist", label: "Watchlist" },
