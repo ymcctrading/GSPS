@@ -17,11 +17,11 @@ Research prompts the project owner has written and deliberately deferred. Each o
 Context: GSPS is a trading platform built to faithfully copy W. D. Gann's method. A previous session read every Gann, Observation of Cycles and Hermetic source and saved synthesis notes (no book text) in docs/memory-bank/. Start by reading:
 - docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md (Parts I, II and V, especially M4–M7)
 - docs/memory-bank/GANN_PARITY_ROADMAP.md
-- docs/memory-bank/sources/C01–C07 (Tomes, Dewey, Halberg)
-- docs/memory-bank/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md
-- docs/memory-bank/sources/A07_face_facts_america_1940.md
-- docs/memory-bank/sources/A09_45_years_in_wall_street_1949.md
-- docs/memory-bank/sources/A08_how_to_make_profits_in_commodities.md
+- /mnt/project-files/private-research/sources/C01–C07 (Tomes, Dewey, Halberg)
+- /mnt/project-files/private-research/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md
+- /mnt/project-files/private-research/sources/A07_face_facts_america_1940.md
+- /mnt/project-files/private-research/sources/A09_45_years_in_wall_street_1949.md
+- /mnt/project-files/private-research/sources/A08_how_to_make_profits_in_commodities.md
 - lib/gann/timeCycles.ts (FIXED_CALENDAR_WINDOWS, MAJOR_CYCLE_YEARS)
 
 Background already established:

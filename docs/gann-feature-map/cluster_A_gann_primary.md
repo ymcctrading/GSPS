@@ -232,7 +232,7 @@ Extracted 2026-10-15 from `/mnt/project-files/literature-reading-output/works/<W
 
 There is also a printed **"average of these 6 planets" of 164.17 while only three planets are listed** on p.1. The six values on pp.1-2 average about 164, which fits the heliocentric figure. Nothing the letter prints yields the geocentric figure of 173.26.
 
-### 2.2 Repo note `docs/memory-bank/sources/A2_3_coffee_letter_1954.md` vs the scan (unresolved-items §4)
+### 2.2 Repo note `/mnt/project-files/private-research/sources/A2_3_coffee_letter_1954.md` vs the scan (unresolved-items §4)
 
 All five were confirmed by reading the repo file in /home/claude/GSPS. **Not corrected (read-only task).**
 

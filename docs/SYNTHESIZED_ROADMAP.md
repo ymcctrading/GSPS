@@ -15,9 +15,9 @@ on: they keep the detail and the history, and this file points to them.
 |---|---|---|
 | The product roadmap | Phases Q1 to Q4, the business goals, metrics and decision gates | `ROADMAP.md` (history and per-initiative detail) |
 | The parity documents | Every rule Gann disclosed, its status in GSPS and the build order | `docs/memory-bank/GANN_PARITY_ROADMAP.md`; the 342-rule map in `/mnt/project-files/gann-feature-map/` (`gann_features.json`, `review/tally.md`) |
-| W. D. Gann's books | The method itself: time, price, trend, entries, stops, exits, risk, the trader | `/mnt/project-files/literature-reading-output/collection-synthesis.md` and `works/W*`; `docs/memory-bank/sources/A*`; `docs/GANN_HISTORICAL_SOURCES.md` |
-| Observation of Cycles (Dewey, Halberg, Tomes) | How a cycle or timing claim is proven: Dewey's 18 criteria, significance tests, out-of-sample persistence | `docs/memory-bank/sources/C01`–`C07`; master report Part I |
-| Hauck, *The Emerald Tablet* | The design lens: two-way correspondence, the seven operations as a returning cycle, the union of opposites into a third | `docs/memory-bank/sources/H01_hauck_emerald_tablet.md` (read 2026-09-27; Chs. 1 and 3 are absent from the source PDF itself) |
+| W. D. Gann's books | The method itself: time, price, trend, entries, stops, exits, risk, the trader | `/mnt/project-files/literature-reading-output/collection-synthesis.md` and `works/W*`; `/mnt/project-files/private-research/sources/A*`; `docs/GANN_HISTORICAL_SOURCES.md` |
+| Observation of Cycles (Dewey, Halberg, Tomes) | How a cycle or timing claim is proven: Dewey's 18 criteria, significance tests, out-of-sample persistence | `/mnt/project-files/private-research/sources/C01`–`C07`; master report Part I |
+| Hauck, *The Emerald Tablet* | The design lens: two-way correspondence, the seven operations as a returning cycle, the union of opposites into a third | `/mnt/project-files/private-research/sources/H01_hauck_emerald_tablet.md` (read 2026-09-27; Chs. 1 and 3 are absent from the source PDF itself) |
 | The Multi-Dimensional Creation Equation | The fourth design question: is a join a creation (1 ⊗ 1 = 3) or a mixture (1 + 1 = 2)? | `docs/memory-bank/LAW_OF_CREATION.md`; project instructions; `AGENTS.md` |
 
 ## Order of authority
@@ -380,7 +380,7 @@ Agree file boundaries with the owning thread before touching its area.
   move "Last updated".
 - When a phase closes, write its outcome here and open the next phase's
   status table.
-- When a new source is read, add its note under `docs/memory-bank/sources/`
+- When a new source is read, add its note under `/mnt/project-files/private-research/sources/`
   and say here what it changes, if anything.
 
 ## Design basis

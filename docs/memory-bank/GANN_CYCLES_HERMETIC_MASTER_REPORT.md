@@ -1,6 +1,6 @@
 # Gann, Cycles & Hermetic Thought — GSPS Master Reference Report
 
-*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape*, A04 *Wall Street Stock Selector* and A07 *Face Facts America!*
+*Compiled 2026-09-27 from the page-by-page source reads in `/mnt/project-files/private-research/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape*, A04 *Wall Street Stock Selector* and A07 *Face Facts America!*
 Use this with AGENTS.md's standing principles when a question comes up about Gann's methodology, cycle validation or the Hermetic lens.*
 
 > **What this is.** It synthesises everything read in the project owner's Gann, Observation of Cycles and Hermetic folders. It is written in our own words so no book is reproduced; the public repo carries no copyrighted text.
@@ -593,7 +593,7 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 
 ---
 
-## Appendix A — Source notes index (`docs/memory-bank/sources/`)
+## Appendix A — Source notes index (`/mnt/project-files/private-research/sources/`)
 
 | File | Source | Tier |
 |---|---|---|

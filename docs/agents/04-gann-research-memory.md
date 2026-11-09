@@ -27,7 +27,7 @@ own words with no book text stored. **Start with
 `docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md`** when a question
 about Gann's methodology, cycle validation or the Hermetic lens comes up.
 Its Part V lists the open gaps, conflicts and corrections, all held for the
-project owner. Per-source notes are in `docs/memory-bank/sources/`.
+project owner. Per-source notes are in `/mnt/project-files/private-research/sources/`.
 **`docs/memory-bank/GANN_PARITY_ROADMAP.md`** is the build plan toward a
 faithful copy of Gann's disclosed method: a rule-by-rule parity matrix with
 status, owner decisions and a staged build order. Update its rows when a
@@ -190,7 +190,7 @@ scan and the replay alike. Stage A/B2 were wired in accordingly;
 **Master Calculator and planetary averages, 2026-09-30 (owner: "zero gaps";
 "Execute").** From the full Square of 144 lesson (Sept 29, 1953), the circle
 of 360°, GA-32 and the March 20, 1954 letter (source note
-`docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`):
+`/mnt/project-files/private-research/sources/A12_master_calculator_1953_and_1954_letter.md`):
 `lib/gann/masterCalculator.ts`, `circleOf360.ts`, `planetaryAverages.ts` (the
 COE and MOF, see "Astrology" below) and `masterLevels.ts`, which puts the
 square ends and centres and the planetary averages' nearest points in the S/R

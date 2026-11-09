@@ -2,7 +2,7 @@
 
 This answers the deferred prompt in `FUTURE_PROMPTS.md` ("Deferred: cycles and calendar research"). Its start condition was met on 2026-09-28: Stages A–E of the parity roadmap are built (D2/D3 landed via #300). It is **research only**. Nothing here changes production code, and the test in Part 3 is **designed, not run**; it needs the project owner's approval.
 
-Sources are the synthesis notes in `docs/memory-bank/sources/` (no book text). Page and section references are to those notes. Throughout, **"Sources say"** is what a note records; **"Inference"** is ours.
+Sources are the synthesis notes in `/mnt/project-files/private-research/sources/` (no book text). Page and section references are to those notes. Throughout, **"Sources say"** is what a note records; **"Inference"** is ours.
 
 ---
 

@@ -7,7 +7,7 @@ This is a read-only analysis of `/home/claude/gsps-item5s4`, branch `item5-step4
 - `PLAN.md` "Full parity order", item 8 ("Volume rules", moves the verdict). Old item 6 also listed A-VOLUME-12 as a context field (`PLAN.md:73`).
 - W006 (*New Stock Trend Detector*) detailed notes: `/mnt/project-files/literature-reading-output/works/W006/detailed-notes.md:108-131`.
 - The long-book checkpoint (`…/external/checkpoint_latest/unzipped/literature-reading-output/works/`): W023 Master Course Ch.12 (`W023/detailed-notes.md:549-561`), W001 HTMPC p.25 and p.63 (`W001/detailed-notes.md:32, 66`), W005 TST/WSSS, W009 *45 Years* R7.
-- `docs/memory-bank/sources/A2_1_master_stock_market_course.md:652-676`.
+- `/mnt/project-files/private-research/sources/A2_1_master_stock_market_course.md:652-676`.
 - `docs/memory-bank/GANN_PARITY_ROADMAP.md` §3.5 (l.132-139) and Stage D (l.248-250).
 - `docs/memory-bank/GANN_CYCLES_HERMETIC_MASTER_REPORT.md` §5 (l.181-192) and conflict X1 (l.412-415).
 - `docs/gann-feature-map/item1_sweep_review.md:18-19` and `item5_map.md:72-75`.

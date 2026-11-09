@@ -44,7 +44,7 @@ Status vocabulary for `passes`: `false` until a test that asserts the rule as wr
 
 ### How the repo's source codes map to this reading
 
-The repo's memory bank (`docs/memory-bank/sources/`, 2026-09-27) uses its own codes. The parity roadmap cites those codes.
+The repo's memory bank (`/mnt/project-files/private-research/sources/`, 2026-09-27) uses its own codes. The parity roadmap cites those codes.
 
 | Repo code | Work | Readable now? |
 |---|---|---|
@@ -121,7 +121,7 @@ Scored criteria (`lib/scoring/weights.ts:68`, 9 points, Execute 6 / Watch 3.5) a
 
 ## Coffee letter repo note differs from the scan (record only)
 
-`docs/memory-bank/sources/A2_3_coffee_letter_1954.md` covers W046. Against the scan it:
+`/mnt/project-files/private-research/sources/A2_3_coffee_letter_1954.md` covers W046. Against the scan it:
 1. gives "40 pts/month ⇒ 4700"; the scan reads **8700** (300 + 40 × 210);
 2. gives geocentric Saturn "⇒ 6572"; the scan reads **8572**;
 3. gives the 15 May 1940 Saturn as 181°55′; the scan reads **181°35′** (degree digit partly unclear);

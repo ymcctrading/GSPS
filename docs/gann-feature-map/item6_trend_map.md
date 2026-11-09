@@ -277,7 +277,7 @@ Surfaces: **LS** live scan (`scanTicker.ts`), **CP** coarse pre-filter (`marketS
   - `campaignLedger.ts:189-192` with `trendStrength.ts:160`: space **or** time over-balance nulls the trend;
   - `exitRules.ts:173` exits on it.
 
-  The code cites A08/A09/A2.1 via `docs/memory-bank/sources/` (2026-09-27 reads). A08 p.312 there says: "Never consider that the trend has definitely changed until the TIME PERIOD has OVERBALANCED. Both price and time overbalanced means a definite change." That is **AND**, or time first. The code uses **OR**.
+  The code cites A08/A09/A2.1 via `/mnt/project-files/private-research/sources/` (2026-09-27 reads). A08 p.312 there says: "Never consider that the trend has definitely changed until the TIME PERIOD has OVERBALANCED. Both price and time overbalanced means a definite change." That is **AND**, or time first. The code uses **OR**.
 - **Action:** **held, do nothing** per PLAN. Flag for the owner's HTMPC/45Y reading: the code already gates on this, and OR vs AND is the open question (`features_C_notes.md:19` makes the same point).
 
 ### C-TREND-04: late in a trend, reactions get smaller until a sharp reversal
