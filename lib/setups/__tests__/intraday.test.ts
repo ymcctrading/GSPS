@@ -46,7 +46,7 @@ describe("intradayLevels", () => {
 describe("buildIntradaySynopsis", () => {
   it("counts the confidence factors that passed and states the plan in the daily card's terms", () => {
     expect(buildIntradaySynopsis(alert)).toBe(
-      "Old top or bottom crossed, up: 1 of 2 checks line up (confidence 75/100). " +
+      "Old top or bottom crossed, up: 1 of 2 checks line up. " +
         "Wait for a bar to close above $504.50, exit at $500.00 if it fails, first target $513.50 (2.0× the risk).",
     );
   });

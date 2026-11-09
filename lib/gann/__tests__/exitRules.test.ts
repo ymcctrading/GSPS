@@ -204,7 +204,7 @@ describe("a change of trend from the campaign ledger after entry (item 7 review 
     const bars = daily(closes);
     const exit = readGannExit(position(bars, entryIndex, { initialStop: 90 }), bars, 110).exit;
     expect(exit?.reason).toBe("trend_change");
-    expect(exit?.note).toContain("third month");
+    expect(exit?.note).toContain("run unusually long");
   });
 
   it("a change of trend on a long also yields a short at the close, its stop 3 points over the top (A-EXIT-02)", () => {
@@ -234,7 +234,7 @@ describe("a change of trend from the campaign ledger after entry (item 7 review 
     const bars = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 95, 26)]);
     const r = readGannExit(position(bars, campaign.length + 10, { initialStop: 70 }), bars, 108);
     expect(r.exit?.reason).toBe("trend_change");
-    expect(r.exit?.note).toContain("previous section's top");
+    expect(r.exit?.note).toContain("longer-term trend turned");
     // Before the reaction went under 100, no exit.
     const before = daily([...campaign, ...leg(120, 105, 10), ...leg(105, 108, 4), ...leg(108, 101, 10)]);
     expect(readGannExit(position(before, campaign.length + 10, { initialStop: 70 }), before, 108).exit).toBeNull();

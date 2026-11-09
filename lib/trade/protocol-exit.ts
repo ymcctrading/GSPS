@@ -469,9 +469,9 @@ function explainGann(reason: GannStopReason | IntradayStopReason | null, stop: n
     case "last_reaction":
       return `The stop moves under the latest higher bottom, to ${usd(stop)}.`;
     case "prior_week":
-      return `The trade has run into a new week, so the stop moves under last week's extreme, to ${usd(stop)}.`;
+      return `The stop moves with the trade as it matures, to ${usd(stop)}.`;
     case "prior_month":
-      return `The trade has run into a new month, so the stop moves under last month's extreme, to ${usd(stop)}.`;
+      return `The stop moves with the trade as it matures, to ${usd(stop)}.`;
     case "final_stage":
       return `The move is in its late stage, so the stop is kept close, at ${usd(stop)}.`;
     case "day_low":
@@ -479,9 +479,9 @@ function explainGann(reason: GannStopReason | IntradayStopReason | null, stop: n
     case "reverse_signal":
       return `A reverse signal day marked a possible turn, so the stop moves just beyond that day's extreme, to ${usd(stop)}.`;
     case "boiling_point":
-      return `The run has lasted six weeks, when the end of the move is watched for, so the stop trails a set distance behind the best price, to ${usd(stop)}.`;
+      return `The move has run a long time, so the stop now trails closer behind the best price, at ${usd(stop)}.`;
     case "intraday_swing":
-      return `Intraday trade: the stop follows the last completed 15-minute swing, one intraday point beyond it, to ${usd(stop)}.`;
+      return `Intraday trade: the stop follows the last completed 15-minute swing, just beyond it, to ${usd(stop)}.`;
     default:
       return `The protocol stop rests at ${usd(stop)}.`;
   }

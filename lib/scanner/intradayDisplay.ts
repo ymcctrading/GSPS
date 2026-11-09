@@ -62,9 +62,9 @@ export const SIGNAL_DESCRIPTIONS: Record<SignalType, string> = {
   trend_continuation:
     "The swing chart on today's bars is running one way, and price is on that side of the middle of the day's range.",
   space_overbalance:
-    "Today's move against the trend is bigger than any pullback since the trend began. That often means the trend has changed or soon will.",
+    "Today's pullback is unusually large for this trend: a warning the trend may be weakening.",
   overnight_turn:
-    "The one-day swing chart keyed on the lows turned today: a higher bottom after a run of lower ones turns it up, a low that breaks the prior day's bottom turns it down. Its stop goes just beyond the last bottom or top.",
+    "The daily swing turned today. Its stop goes just beyond the last swing low (or high, for a sell).",
   hourly_turn:
     "The swing chart on hourly bars changed trend on the latest hour. In a very active market this is the first sign the trend is changing.",
   plan_level_held:

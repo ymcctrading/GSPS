@@ -336,7 +336,7 @@ export function readGannExit(
   // at -0.25R.
   if (!exit && on("three_adverse_closes") && since.length >= 3) {
     const adverse = since.slice(0, 3).every((b) => (long ? b.c < pos.entry : b.c > pos.entry));
-    if (adverse) exit = { reason: "three_adverse_closes", note: "Closed against the trade on each of its first three days." };
+    if (adverse) exit = { reason: "three_adverse_closes", note: "The trade moved against the entry from the start, so it was closed." };
   }
 
   // A-LEVELS-04 (fork FL3 a): "failing to pass an old top is a top". A long
@@ -376,7 +376,7 @@ export function readGannExit(
     const changedAt = weekly.trendChanges[weekly.trendChanges.length - 1];
     const against = long ? "bearish" : "bullish";
     if (weekly.trend === against && changedAt !== undefined && changedAt >= firstAfter) {
-      exit = { reason: "trend_change", note: "The weekly swing chart turned against the trade." };
+      exit = { reason: "trend_change", note: "The weekly trend turned against the trade." };
     }
   }
   const ledger = buildCampaignLedger(daily);
@@ -389,12 +389,7 @@ export function readGannExit(
   if (!exit && on("trend_change") && withCampaign && reactionStart >= firstAfter && (ledger!.spaceOverbalanced || ledger!.timeOverbalanced)) {
     exit = {
       reason: "trend_change",
-      note: `A reaction since the fill is larger than any earlier one in this campaign (${[
-        ledger!.spaceOverbalanced && "price",
-        ledger!.timeOverbalanced && "time",
-      ]
-        .filter(Boolean)
-        .join(" and ")}): the trend is changing.`,
+      note: "The pullback since entry is unusually large for this trend, so the trade was closed.",
     };
   }
 
@@ -413,8 +408,8 @@ export function readGannExit(
       exit = {
         reason: "trend_change",
         note: ledger!.counterMoveThirdMonth
-          ? "The reaction is still making new extremes in its third month: the trend is changing."
-          : "A month broke the one before it and the reaction went past the previous section's top: the trend is changing.",
+          ? "The pullback has run unusually long: the trend may have changed."
+          : "The longer-term trend turned against the trade.",
       };
     }
   }
@@ -447,7 +442,7 @@ export function readGannExit(
     if (cs && (cs.distributionWeek || cs.plainTopWeek) && cs.peakRecentWeek !== null && cs.peakRecentWeek >= entryWeek) {
       exit = {
         reason: "distribution",
-        note: `${(cs.peakRecentWeekTurnover * 100).toFixed(0)}% of the capital stock changed hands in the week of ${cs.peakRecentWeek}, at a top: distribution.`,
+        note: `Unusually heavy trading in the week of ${cs.peakRecentWeek}, at a top: a sign of distribution.`,
       };
     }
   }

@@ -1443,7 +1443,7 @@ function detectSpaceOverbalance(
     move: dayMove,
     factors,
     invalidation: stopPastMidpoint(m, against),
-    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current reaction (${priceText(current)} points) larger than any reaction since it began (${priceText(greatest)} points). A pullback larger than any before it often means the trend has changed or soon will. It is a warning about the old trend, not by itself an entry the other way.`,
+    whyThisAppeared: `${input.symbol} has been in a ${ledger.trend === "bullish" ? "rising" : "falling"} campaign, and today's move ${against === "down" ? "down" : "up"} has made the current pullback unusually large for this trend. That is a warning the trend may be weakening. It is a warning about the old trend, not by itself an entry the other way.`,
   });
 }
 
@@ -1483,9 +1483,9 @@ function detectOvernightTurn(
   const anchor = direction === "up" ? r.lastBottom : r.lastTop;
   const cause =
     direction === "up"
-      ? `Today's low held above yesterday's bottom: the daily swing turned up${anchor !== null ? ` from its last bottom at ${priceText(anchor)}` : ""}.`
-      : `Today's low broke yesterday's bottom clearly: the daily swing turned down${anchor !== null ? ` from its last top at ${priceText(anchor)}` : ""}.`;
-  checks.push({ name: "Daily swing at the lows", passed: true, detail: cause });
+      ? `The daily swing turned up today${anchor !== null ? ` from its last low at ${priceText(anchor)}` : ""}.`
+      : `The daily swing turned down today${anchor !== null ? ` from its last high at ${priceText(anchor)}` : ""}.`;
+  checks.push({ name: "Daily swing", passed: true, detail: cause });
   const factors: ConfidenceFactor[] = [
     { label: "The daily swing turned today", passed: true, detail: cause },
     midpointFactor(m, direction),
@@ -2148,8 +2148,8 @@ function swingFactor(m: SessionMetrics, direction: Direction): ConfidenceFactor 
     passed: m.swingTrend === direction,
     detail:
       m.swingTrend === null
-        ? "The 3-bar swing chart on today's bars has not turned yet."
-        : `The 3-bar swing chart on today's bars is ${m.swingTrend}.`,
+        ? "Today's swing read has not turned yet."
+        : `Today's swing read is ${m.swingTrend}.`,
   };
 }
 

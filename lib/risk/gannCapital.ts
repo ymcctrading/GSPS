@@ -189,12 +189,12 @@ export function riskTenthRefusal(input: RiskTenthInput): CapitalRuleRefusal | nu
   if (ceiling != null && allowed < maxRiskForTrade(input.capital)) {
     return {
       code: "risk_tenth_of_profits",
-      error: `That trade risks ${risk.toFixed(2)}, more than a tenth of this account's profits (${allowed.toFixed(2)}). After large profits, a trade may risk only a tenth of them, so a losing run can't take them all. At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
+      error: `That trade risks ${risk.toFixed(2)}, more than this account's per-trade limit after profits (${allowed.toFixed(2)}), which keeps a losing run from taking them all. At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
     };
   }
   return {
     code: "risk_one_tenth",
-    error: `That trade risks ${risk.toFixed(2)}, more than a tenth of this account's trading capital (${maxRiskForTrade(input.capital).toFixed(2)}). At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
+    error: `That trade risks ${risk.toFixed(2)}, more than this account's per-trade risk limit (${maxRiskForTrade(input.capital).toFixed(2)}). At this stop at most ${room} ${input.symbol.toUpperCase()} shares can be opened. Nothing was placed.`,
   };
 }
 
@@ -222,6 +222,6 @@ export function optionPremiumRefusal(input: {
   const room = perContract > 0 ? Math.floor(allowed / perContract + 1e-9) : 0;
   return {
     code: "risk_one_tenth",
-    error: `That option costs ${risk.toFixed(2)} in premium, all of it at risk, which is more than a tenth of this account's trading capital (${allowed.toFixed(2)}). At this premium at most ${room} ${input.symbol.toUpperCase()} contracts can be bought. Nothing was placed.`,
+    error: `That option costs ${risk.toFixed(2)} in premium, all of it at risk, which is more than this account's per-trade risk limit (${allowed.toFixed(2)}). At this premium at most ${room} ${input.symbol.toUpperCase()} contracts can be bought. Nothing was placed.`,
   };
 }

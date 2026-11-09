@@ -649,7 +649,7 @@ export function computeTradeLevels(
       // Gann's capital rules cap the risk at a tenth of capital
       // (lib/risk/gannCapital.ts), so the note names that rule instead of
       // advising a smaller size (that advice had no source).
-      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. The risk rule caps a trade's risk at a tenth of capital, so fewer units fit at this stop.`;
+      stopBandWarning = `Structural stop is ${atrMultiple.toFixed(1)}× the average candle on the execution timeframe — an unusually wide setup. The per-trade risk limit means fewer units fit at this stop.`;
     }
   }
 

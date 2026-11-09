@@ -14,7 +14,7 @@ const MESSAGES = [
   "Consistency beats intensity. Show up, follow the process.",
   "The market rewards patience more often than prediction.",
   "Every trade is a data point, not a verdict on you.",
-  "Cut losers fast, let winners work — the oldest edge still works.",
+  "Cut losers fast, let winners work — the oldest rule in trading.",
   "Your risk plan is the product; the trade is just an instance of it.",
   "Good process, bad outcome is still good process.",
   "Confidence comes from preparation, not from being right last time.",
